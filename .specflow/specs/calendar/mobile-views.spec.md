@@ -72,6 +72,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
      `calendar.eventCard.canceled` label as subtitle. Red means canceled and nothing else.
    - `block` (any `CalendarBlock` type): card surface with a 1.5px dashed `border`, title in
      foreground, the block type as subtitle. In the time grid a block is a `muted` surface.
+   - **(PAD-611, `calendar.view` rule 22) a student's own relation** — the same shared variant
+     model: `not-coming` (they said "Não vou"): the coach colour faded as `past`, muted text, a
+     "Não vou" chip and no ✓; `invited` (a live invitation): card surface with a 1.5px **dashed**
+     outline in the coach colour and readable ink, as an open spot, with a "Convite" chip;
+     `waiting` (on the waiting list): card surface with a 1.5px **dotted** muted outline, muted text
+     and a "Lista de espera" chip — the lowest emphasis. Tapping any of them opens the class.
+     `attended` keeps the faded `past` treatment with the ✓; `missed` the same without it.
    - `open-spot` (B-541, PAD-579; the event carries `openSpot`, `eligibility.open-spot-visibility`
      rule 11): card surface with a 1.5px **dashed** outline in the coach colour, title and time
      in the coach colour via `readableInk`, the "Open spot" chip on the card. It is resolved by
@@ -109,7 +116,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     foreground number. The dot row shows up to three 5px dots, one per event in `startTime`
     order, coloured by rule 5's surface (coach colour, `muted` for a block, `destructive`
     for a canceled class, and the **outline** colour — the coach colour — for an outlined
-    treatment, `next` or `open-spot`, whose surface is the white card); a day with more than
+    treatment, `next`, `open-spot`, `invited` or `waiting`, whose surface is the white card, and
+    faded for `not-coming`); a day with more than
     three events still shows three. Tapping a
     column selects that day. The strip never renders title chips or a `+N` indicator —
     this supersedes `calendar.view` rule 14's strip on iOS and web's 4-chip strip.
@@ -259,6 +267,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   for its title
 - **And** given three classes at 18:00, the day shows one block and a "+2" marker, and tapping
   the marker selects Wednesday with all three in the sheet
+
+#### Each relation has its own treatment on the phone (rule 5, PAD-611)
+- **Given** a student with an enrolled class, a "Não vou" class, an invited class and a waiting
+  class this week, on a client declaring `student-relations`
+- **When** the phone calendar renders their cards and grid blocks
+- **Then** the enrolled card is solid with the ✓; the "Não vou" card is faded with its chip and no
+  ✓; the invited card is dashed with "Convite"; the waiting card is dotted with "Lista de espera"
 
 #### Canceled is red and only red is canceled
 - **Given** a canceled occurrence on the selected day

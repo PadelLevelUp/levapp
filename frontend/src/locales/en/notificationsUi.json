@@ -26,6 +26,7 @@
       "openSpotReason": "Open spot. Suggested invitations",
       "openSpotGroup_one": "{{count}} spot · {{side}} priority",
       "openSpotGroup_other": "{{count}} spots · {{side}} priority",
+      "openSpotGroup_zero": "{{count}} spots · {{side}} priority",
       "sideLeft": "left",
       "sideRight": "right",
       "sideAny": "any side",

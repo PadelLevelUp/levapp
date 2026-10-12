@@ -14,7 +14,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { getMe, register, type RegisterPayload } from "@/api/auth";
+import { getMe, register, type RegisterPayload, type SocialSignInResponse } from "@/api/auth";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { socialLandingPath } from "@/auth/socialLanding";
 import { useAuth } from "@/auth/AuthContext";
 import { needsEmailVerification, postLoginPath } from "@/auth/postLoginPath";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
@@ -128,6 +130,18 @@ const SignUpPage = () => {
     if (!termsAccepted) next.terms = t("auth.signup.termsRequired");
     setErrors(next);
     return Object.keys(next).length === 0;
+  };
+
+  /** auth.social-sign-in rule 7: an existing Google account signs in; a new one completes sign-up. */
+  const handleSocialResult = async (res: SocialSignInResponse) => {
+    if ("needsProfile" in res) {
+      navigate("/signup/complete", {
+        state: { signupTicket: res.signupTicket, name: res.name, email: res.email },
+      });
+      return;
+    }
+    await login(res.accessToken);
+    navigate(socialLandingPath(await getMe()), { replace: true });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -366,6 +380,8 @@ const SignUpPage = () => {
               {submitting ? t("auth.signup.creating") : t("auth.signup.create")}
             </Button>
           </form>
+
+          <GoogleSignInButton onResult={handleSocialResult} text="signup_with" />
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {t("auth.signup.haveAccount")}{" "}

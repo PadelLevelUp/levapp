@@ -83,3 +83,34 @@ describe("desktop legend for a student (rule 13)", () => {
     expect(screen.queryByTestId("calendar-legend-open-spots")).toBeNull();
   });
 });
+
+// PAD-611 (calendar.view rule 22): the student's other relations on the desktop card and legend.
+describe("desktop card and legend — a student's relations (PAD-611)", () => {
+  it("'Não vou': its chip, no ✓; invited and waiting: their chips, no ✓", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <CalendarEventCard event={cls({ id: "n1", studentRelation: "not_coming" })} />
+        <CalendarEventCard event={cls({ id: "i1", studentRelation: "invited" })} />
+        <CalendarEventCard event={cls({ id: "w1", studentRelation: "waiting" })} />
+      </CalendarViewerProvider>
+    );
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+    const chips = screen.getAllByTestId("calendar-relation-chip");
+    expect(chips.map((c) => [c.getAttribute("data-relation"), c.textContent])).toEqual([
+      ["not-coming", "calendar.relation.notComing"],
+      ["invited", "calendar.relation.invited"],
+      ["waiting", "calendar.relation.waiting"],
+    ]);
+  });
+
+  it("the student legend explains the three", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <CalendarLegend />
+      </CalendarViewerProvider>
+    );
+    for (const id of ["calendar-legend-invited", "calendar-legend-waiting", "calendar-legend-not-coming"]) {
+      expect(screen.getByTestId(id)).toBeTruthy();
+    }
+  });
+});

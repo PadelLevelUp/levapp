@@ -139,3 +139,36 @@ describe("the phone grid on a busy hour (B-543)", () => {
     expect(onSelectDay).toHaveBeenCalledWith(day);
   });
 });
+
+// PAD-611 (calendar.mobile-views rule 5): the student's relations on the phone card and dots.
+describe("the phone card — a student's relations (PAD-611)", () => {
+  const rel = (studentRelation: CalendarEvent["studentRelation"], id: string) =>
+    openSpot({ id, openSpot: false, studentRelation });
+
+  it("invited is dashed with its chip; waiting is dotted with its chip; 'Não vou' has its chip and no ✓", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <MobileEventCard event={rel("invited", "i1")} now={NOW} />
+        <MobileEventCard event={rel("waiting", "w1")} now={NOW} />
+        <MobileEventCard event={rel("not_coming", "n1")} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    const cards = screen.getAllByTestId("calendar-event-card");
+    expect(cards.map((c) => c.getAttribute("data-event-state"))).toEqual(["invited", "waiting", "not-coming"]);
+    expect(cards[0].style.border.toLowerCase()).toBe(`1.5px dashed ${BLUE.toLowerCase()}`);
+    // jsdom drops the waiting border (its colour is a CSS variable); the surface is pinned on the
+    // shared helper in calendar-card.test.ts.
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+    // This file renders with the real pt locale: the keys resolve.
+    expect(screen.getAllByTestId("calendar-relation-chip").map((c) => c.textContent)).toEqual([
+      "Convite",
+      "Lista de espera",
+      "Não vou",
+    ]);
+  });
+
+  it("dots: invited takes the class colour, waiting is muted", () => {
+    expect(dotColor(rel("invited", "i2"), NOW)).toBe(BLUE);
+    expect(dotColor(rel("waiting", "w2"), NOW)).toBe("hsl(var(--muted-foreground))");
+  });
+});
