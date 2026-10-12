@@ -28,7 +28,6 @@ class EvaluationRecord(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Evaluation Records"
     model_name = "EvaluationRecord"
 
     id = Column(Integer, primary_key=True)
@@ -67,16 +66,6 @@ class EvaluationRecord(db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "coach_player", "label": "Coach ↔ Player"}
-        columns = [
-            {"field": "coach_player", "label": "Coach ↔ Player"},
-            {"field": "evaluated_on", "label": "Evaluated On"},
-            {"field": "lesson_instance", "label": "Class"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

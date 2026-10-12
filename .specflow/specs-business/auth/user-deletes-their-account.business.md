@@ -3,6 +3,7 @@ id: auth.user-deletes-their-account
 status: implemented
 implemented_by:
   - ../../specs/auth/account-deletion.spec.md
+  - ../../specs/auth/delete-account-page.spec.md
 ---
 
 # User deletes their account
@@ -23,9 +24,14 @@ the coaches whose records must survive a student leaving.
 
 1. From Settings → Account the person taps "Delete account"; the confirmation says exactly what is
    deleted and what is kept, and why.
+   Someone without the app opens levapp.app/delete-account, which explains both ways and what
+   deletion does, and asks by email to admin@levapp.app; the request is handled by hand (PAD-603,
+   Google Play's web-deletion requirement).
 2. On confirming, every session on every device ends and the person is signed out.
 3. The account can no longer be used: no sign-in (app or legacy web), no password, no username that
    could be claimed or re-activated.
+   Its personal details — contact fields, birth date, country and profile photo (the stored file
+   included) — are erased.
 4. Pushes stop at once — the phone and browser registrations are removed.
 5. A student is taken out of every class that has not started yet; the coach sees the free seat on
    their dashboard and decides whether to fill it. Waiting-list credits stop being spent and the

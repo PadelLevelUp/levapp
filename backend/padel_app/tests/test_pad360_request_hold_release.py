@@ -74,14 +74,21 @@ def _delete_account(app, user_id):
         delete_account_service(user_id)
 
 
-def _root(app):
-    from padel_app.models import User
+def _delete_row(app, model, row_id):
+    """Delete a row through the ORM, as a service does (PAD-550: the generic delete routes are gone)."""
+    with app.app_context():
+        db.session.get(model, row_id).delete()
+
+
+def _update_request(app, rid, **values):
+    """Change a request's columns and commit: the ORM before_update hook is what is under test."""
+    from padel_app.models import ClassRequest
 
     with app.app_context():
-        user = User(name="root", username="root", password="x", status="active", is_superadmin=True)
-        db.session.add(user)
+        row = db.session.get(ClassRequest, rid)
+        for key, value in values.items():
+            setattr(row, key, value)
         db.session.commit()
-        return {"Authorization": f"Bearer {create_access_token(identity=str(user.id))}"}
 
 
 # ── controls: the transitions that always released the hold ──────────────────
@@ -114,58 +121,49 @@ def test_control_accept_releases_the_hold(app):
     assert not _block_exists(app, hold)
 
 
-# ── the row is deleted: both generic editor routes ───────────────────────────
+# ── the row is deleted ───────────────────────────────────────────────────────
 
-def test_editor_api_delete_releases_the_hold_and_nothing_else(app, client):
+def test_deleting_the_request_releases_the_hold_and_nothing_else(app):
+    from padel_app.models import ClassRequest
+
     ids = _setup(app)
     _busy(app, ids, block_at=(time(15, 0), time(16, 0)))  # the coach's own block
     rid = _request(app, ids)
     hold = _hold_of(app, rid)
     assert _blocks_of_coach(app, ids) == 2
 
-    res = client.delete(f"/api/editor/classrequest/{rid}", headers=_root(app))
+    _delete_row(app, ClassRequest, rid)
 
-    assert res.status_code == 200, res.get_data(as_text=True)
     assert _state(app, rid) is None
     assert not _block_exists(app, hold), "hold block outlived its request"
     assert _blocks_of_coach(app, ids) == 1, "only the hold goes; the coach's own block stays"
 
 
-def test_legacy_delete_route_releases_the_hold(app, client):
-    ids = _setup(app)
-    rid = _request(app, ids)
-    hold = _hold_of(app, rid)
-
-    res = client.post(f"/api/delete/classrequest/{rid}", headers=_root(app))
-
-    assert res.status_code < 400, res.get_data(as_text=True)
-    assert _state(app, rid) is None
-    assert not _block_exists(app, hold), "hold block outlived its request"
-
-
-def test_deleting_a_closed_request_still_works(app, client):
+def test_deleting_a_closed_request_still_works(app):
     """Trigger absent: a request with no hold left deletes as before."""
+    from padel_app.models import ClassRequest
+
     ids = _setup(app)
     rid = _request(app, ids)
     _decide(app, ids, rid, "decline")
     assert _state(app, rid)["hold"] is None
 
-    res = client.delete(f"/api/editor/classrequest/{rid}", headers=_root(app))
+    _delete_row(app, ClassRequest, rid)
 
-    assert res.status_code == 200, res.get_data(as_text=True)
     assert _state(app, rid) is None
 
 
 # ── the row is cascaded away ─────────────────────────────────────────────────
 
-def test_deleting_the_player_releases_the_hold(app, client):
+def test_deleting_the_player_releases_the_hold(app):
+    from padel_app.models.players import Player
+
     ids = _setup(app)
     rid = _request(app, ids)
     hold = _hold_of(app, rid)
 
-    res = client.delete(f"/api/editor/player/{ids['player_id']}", headers=_root(app))
+    _delete_row(app, Player, ids["player_id"])
 
-    assert res.status_code == 200, res.get_data(as_text=True)
     assert _state(app, rid) is None, "FK CASCADE should have taken the request"
     assert not _block_exists(app, hold), "hold block outlived its request"
 
@@ -423,29 +421,27 @@ def test_F3_a_malformed_invitee_list_elsewhere_cannot_fail_an_account_deletion(a
     assert _state(app, hers)["invitees"] == ["abc"], "the deleted student is gone; what we cannot read is left alone"
 
 
-def test_F7_an_editor_edit_that_closes_a_request_releases_its_hold(app, client):
-    """Observed before the fix: PATCH status=declined left the hold in place."""
+def test_F7_an_edit_that_closes_a_request_releases_its_hold(app):
+    """Observed before the fix: an update to status=declined left the hold in place."""
     ids = _setup(app)
     rid = _request(app, ids)
     hold = _hold_of(app, rid)
 
-    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"status": "declined"}}, headers=_root(app))
+    _update_request(app, rid, status="declined")
 
-    assert res.status_code == 200, res.get_data(as_text=True)
     state = _state(app, rid)
     assert (state["status"], state["hold"]) == ("declined", None)
     assert not _block_exists(app, hold)
 
 
-def test_F7_an_editor_edit_that_leaves_a_request_open_keeps_its_hold(app, client):
+def test_F7_an_edit_that_leaves_a_request_open_keeps_its_hold(app):
     """Trigger absent: the hook must not fire on every update of an open request."""
     ids = _setup(app)
     rid = _request(app, ids)
     hold = _hold_of(app, rid)
 
-    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"note": "edited by an admin"}}, headers=_root(app))
+    _update_request(app, rid, note="edited by an admin")
 
-    assert res.status_code == 200, res.get_data(as_text=True)
     assert (_state(app, rid)["status"], _state(app, rid)["hold"]) == ("pending", hold)
     assert _block_exists(app, hold)
 
@@ -577,9 +573,8 @@ def test_a_later_edit_of_an_already_closed_request(app, client, repurposed, bloc
     ids = _setup(app)
     rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=repurposed)
 
-    res = client.patch(f"/api/editor/classrequest/{rid}", json={"values": {"note": "edited later"}}, headers=_root(app))
+    _update_request(app, rid, note="edited later")
 
-    assert res.status_code == 200, res.get_data(as_text=True)
     assert _block_exists(app, hold) is block_survives
     assert _state(app, rid)["hold"] is None, "either way the stale pointer goes"
 
@@ -587,20 +582,24 @@ def test_a_later_edit_of_an_already_closed_request(app, client, repurposed, bloc
 @pytest.mark.parametrize("repurposed, block_survives", [(True, True), (False, False)],
                          ids=["a-block-the-coach-made-their-own-stays", "an-untouched-hold-is-cleaned-up"])
 def test_deleting_an_already_closed_request(app, client, repurposed, block_survives):
+    from padel_app.models import ClassRequest
+
     ids = _setup(app)
     rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=repurposed)
 
-    assert client.delete(f"/api/editor/classrequest/{rid}", headers=_root(app)).status_code == 200
+    _delete_row(app, ClassRequest, rid)
 
     assert _state(app, rid) is None
     assert _block_exists(app, hold) is block_survives
 
 
 def test_deleting_the_player_of_an_already_closed_request_keeps_a_block_the_coach_made_their_own(app, client):
+    from padel_app.models.players import Player
+
     ids = _setup(app)
     rid, hold = _a_closed_request_that_still_points_at_its_block(app, client, ids, repurposed=True)
 
-    assert client.delete(f"/api/editor/player/{ids['player_id']}", headers=_root(app)).status_code == 200
+    _delete_row(app, Player, ids["player_id"])
 
     assert _state(app, rid) is None
     assert _block_exists(app, hold)

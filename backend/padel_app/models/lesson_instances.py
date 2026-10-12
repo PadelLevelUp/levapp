@@ -25,7 +25,6 @@ class LessonInstance(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Lesson Instances"
     model_name = "LessonInstance"
 
     id = Column(Integer, primary_key=True)
@@ -212,17 +211,6 @@ class LessonInstance(db.Model, model.Model):
     @property
     def name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "lesson", "label": "Lesson"}
-        columns = [
-            {"field": "lesson", "label": "Lesson"},
-            {"field": "start_datetime", "label": "Start"},
-            {"field": "end_datetime", "label": "End"},
-            {"field": "status", "label": "Status"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

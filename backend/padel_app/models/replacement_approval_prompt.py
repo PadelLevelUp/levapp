@@ -18,7 +18,6 @@ class ReplacementApprovalPrompt(db.Model, model.Model):
     __tablename__ = "replacement_approval_prompts"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Replacement Approval Prompt"
     model_name = "ReplacementApprovalPrompt"
 
     id = Column(Integer, primary_key=True)

@@ -9,7 +9,6 @@ from padel_app.tools.input_tools import Block, Field, Form
 class Conversation(db.Model, model.Model):
     __tablename__ = "conversations"
     __table_args__ = {"extend_existing": True}
-    page_title = "Conversations"
     model_name = "Conversation"
 
     id = Column(Integer, primary_key=True)

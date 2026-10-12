@@ -4,7 +4,10 @@ Deleting an account removes the person from the future and keeps the coach's
 records (decision ``2026-09-10-account-deletion-keeps-coach-records``):
 
 - the account itself: status ``disabled``, name "Deleted user", contact fields,
-  photo, abbreviation and email-verification state cleared; the username
+  abbreviation, birth date, country, block reason and the email-verification and
+  password-reset state cleared;
+- the photo: its ``images`` row deleted with the rest and, after the commit, its
+  object in the uploads bucket (PAD-605), unless something else still uses it; the username
   becomes an unguessable ``deleted-…`` (never the ``pending-`` placeholder
   prefix, so the record can never be claimed) and the password the hash of a
   secret nobody holds (never NULL, so activation cannot re-open it);
@@ -23,13 +26,17 @@ records (decision ``2026-09-10-account-deletion-keeps-coach-records``):
 The row itself is kept so message authorship and history still resolve.
 Everything happens in one transaction.
 """
+import logging
 import secrets
 
 from werkzeug.security import generate_password_hash
 
+from padel_app import model
 from padel_app.models import User
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
+
+logger = logging.getLogger(__name__)
 
 DELETED_NAME = "Deleted user"
 DELETED_USERNAME_PREFIX = "deleted-"
@@ -96,6 +103,38 @@ def _close_open_class_requests(user, now):
         close_open_requests_silently(status="declined", by="coach", coach_id=user.coach.id, now_utc=now)
 
 
+def _delete_stored_object(object_key):
+    """Rule 2a: delete the photo's object from the uploads bucket, best-effort.
+    With no bucket configured there is nothing to delete; a storage failure is
+    logged by error class — never the key, which names the person's file — and
+    never raised, so it cannot undo the committed deletion."""
+    if not model.GCS_BUCKET:
+        return
+    try:
+        model._storage_client().bucket(model.GCS_BUCKET).blob(object_key).delete()
+    except Exception as exc:  # noqa: BLE001 — NotFound included: already gone is fine
+        logger.warning("account deletion: photo object not deleted: %s", type(exc).__name__)
+
+
+def _photo_to_delete(user):
+    """Rule 2a: the user's photo, unless another user, a club logo, a message
+    attachment or a back-office app still points at the same image."""
+    from padel_app.models import Club
+    from padel_app.models.backend_apps import Backend_App
+    from padel_app.models.messages import Message
+
+    photo = user.user_image
+    if photo is None:
+        return None
+    in_use = (
+        User.query.filter(User.user_image_id == photo.id, User.id != user.id).first()
+        or Club.query.filter_by(logo_id=photo.id).first()
+        or Message.query.filter_by(attachment_id=photo.id).first()
+        or Backend_App.query.filter_by(image_id=photo.id).first()
+    )
+    return None if in_use else photo
+
+
 def delete_account_service(user_id, *, now=None):
     from padel_app.models.blocked_user import BlockedUser
     from padel_app.models.calendar_blocks import CalendarBlock
@@ -104,6 +143,8 @@ def delete_account_service(user_id, *, now=None):
 
     now = now or utcnow_naive()
     user = User.query.get_or_404(user_id)
+
+    photo = _photo_to_delete(user)
 
     # Rule 2: the account itself is gone.
     user.status = "disabled"
@@ -116,6 +157,12 @@ def delete_account_service(user_id, *, now=None):
     user.email_verification_code_hash = None
     user.email_verification_expires_at = None
     user.email_verification_sent_at = None
+    user.password_reset_code_hash = None
+    user.password_reset_expires_at = None
+    user.password_reset_sent_at = None
+    user.birth_date = None
+    user.country = None
+    user.notif_block_reason = None
     user.username = _deleted_username()
     user.password = generate_password_hash(secrets.token_urlsafe(32))
 
@@ -136,5 +183,14 @@ def delete_account_service(user_id, *, now=None):
     if user.player is not None:
         _remove_student_from_future(user.player, now)
 
+    # Rule 2a: the photo goes with the account — the row now, the stored object
+    # once the deletion is committed, so a bucket failure can never undo it.
+    photo_key = None
+    if photo is not None:
+        photo_key = photo.object_key
+        db.session.delete(photo)
+
     db.session.commit()
+    if photo_key:
+        _delete_stored_object(photo_key)
     return user

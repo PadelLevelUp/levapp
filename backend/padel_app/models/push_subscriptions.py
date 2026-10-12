@@ -16,7 +16,6 @@ from padel_app.tools.input_tools import Block, Field, Form
 class PushSubscription(db.Model, model.Model):
     __tablename__ = "push_subscriptions"
     __table_args__ = {"extend_existing": True}
-    page_title = "Push Subscriptions"
     model_name = "PushSubscription"
 
     id = Column(Integer, primary_key=True)

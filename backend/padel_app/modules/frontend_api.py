@@ -11,6 +11,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_tok
 
 from padel_app.utils.dates import club_now_naive
 from padel_app.models import *
+from padel_app.models import User
 from padel_app.realtime import STOP, stream_count, try_subscribe, unsubscribe
 from padel_app.serializers.calendar_event import serialize_calendar_event
 from padel_app.serializers.lesson import (
@@ -2724,7 +2725,8 @@ def check_field_available():
     if not value:
         return jsonify({"available": True})
 
-    ModelClass = MODELS[model_key]
+    # Both check tables above only name "user".
+    ModelClass = {"user": User}[model_key]
     column = getattr(ModelClass, field)
 
     if is_unique:

@@ -197,9 +197,9 @@ held on the coach's calendar while the request is open.
     transitions; the same is true however the request goes away — for the block in
     `hold_block_id`. A block cloned from a hold is a known gap (last bullet). Before PAD-360 only withdraw, decline and
     accept released the hold, and every path below left a ghost block on the coach's calendar.
-    - **The row is deleted.** Deleting a ClassRequest through the ORM — both generic editor
-      routes, `DELETE /api/editor/classrequest/<id>` and `POST /api/delete/classrequest/<id>` —
-      deletes its hold block in the same flush.
+    - **The row is deleted.** Deleting a ClassRequest through the ORM (any path: today the E2E-only
+      cleanup route and direct deletes; until PAD-550 also the generic editor) deletes its hold
+      block in the same flush.
     - **The row is cascaded away.** Deleting a Player or a Coach row takes their requests with
       it inside the database (`ON DELETE CASCADE`), where no hook on the request runs; the holds
       of those requests are deleted first.
@@ -209,8 +209,8 @@ held on the coach's calendar while the request is open.
       notification in either direction** (rule 6 does not apply: one side no longer exists). A
       deleting student is also taken off `invitee_player_ids` of other people's open requests,
       so an accept never enrols a deleted account.
-    - **The row is closed by an edit.** The admin editor can PATCH `status` straight to a closed
-      value; any ORM update that leaves a request closed while it still points at a hold deletes
+    - **The row is closed by an edit.** An ORM edit can set `status` straight to a closed value
+      (the deleted admin editor could); any ORM update that leaves a request closed while it still points at a hold deletes
       the hold. An edit that leaves the request open keeps it (#345 review F7).
     - **The import is reverted.** `revert_import` bulk-deletes the players it created with
       `Query.delete()`, which runs no ORM hook, and an imported student can have activated in
@@ -358,8 +358,7 @@ held on the coach's calendar while the request is open.
 
 #### Deleting a request deletes its hold (PAD-360, rule 18)
 - **Given** a pending request with its hold on the coach's calendar
-- **When** a superadmin deletes the request through `DELETE /api/editor/classrequest/<id>` (or the
-  legacy `POST /api/delete/classrequest/<id>`)
+- **When** the request row is deleted through the ORM
 - **Then** the request is gone and so is the hold block
 - **And** a calendar block of the coach's own on the same day is untouched
 
