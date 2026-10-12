@@ -33,4 +33,11 @@ describe("landing page static guards", () => {
       expect(html).not.toContain(host);
     }
   });
+
+  it.each(["index.html", "../admin/index.html"])("%s names no Google font host (PAD-635)", (file) => {
+    // The fonts are self-hosted: not even a preconnect may tell Google about a visit.
+    const html = read(file).toLowerCase();
+    expect(html).not.toContain("fonts.googleapis.com");
+    expect(html).not.toContain("fonts.gstatic.com");
+  });
 });
