@@ -122,6 +122,7 @@
     "roleLabel": "Role: {{role}}",
     "reactionLabel_one": "{{emoji}} reaction",
     "reactionLabel_other": "{{emoji}} reaction ({{count}})",
+    "reactionLabel_zero": "{{emoji}} reaction ({{count}})",
     "messageByUsername": "Message by username",
     "messageByUsernameHint": "Enter their exact username. People you aren't connected with can't be searched.",
     "usernamePlaceholder": "username",

@@ -53,6 +53,11 @@ Students/players responding to and managing their own attendance; the coach, who
 
 ## Business Rules
 
+- A student's calendar says what each class is to them (PAD-611): the classes they are going to
+  (with a ✓), the ones they said they would not go to ("Não vou", faded, no ✓), the classes they
+  have been invited to ("Convite") and the ones they are waiting for a place in ("Lista de espera")
+  — each class once. An invitation that expired, was answered or withdrawn, and a waiting place
+  they left, no longer show. Older app versions keep the calendar they had until they update.
 - Every enrolled player starts a class occurrence "planned": on the list, not yet asked.
 - "Yes" is accepted only once the player has been asked (the first reminder's moment, or a
   reminder the coach sent by hand), on web, iOS and Android alike, and the server refuses an

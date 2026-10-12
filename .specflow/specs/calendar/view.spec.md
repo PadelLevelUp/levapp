@@ -119,6 +119,23 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     07:00–22:00 by default and widens to the whole hours of any class outside that window
     (`desktopHourRange`, `@levelup/config`); a class ending at midnight ends at 24:00 (PAD-553) and
     its card is its full height, with its time.
+22. **(PAD-611; rule number unconfirmed; default accepted by the orchestrator 2026-10-11, owner veto
+    open) A student's calendar says what each class is to them.** Every event on a student's
+    calendar carries `studentRelation`, computed by the server per occurrence, one of:
+    `enrolled` (their attendance state is `planned` or `coming`), `not_coming` (they said "Não vou",
+    `attendance.confirm` rule 28), `attended` / `missed` (the coach's record, past), `invited` (a live
+    — `sent` or `queued` — invitation to an occurrence they are not in), `waiting` (an active
+    waiting-list entry for an occurrence they are not in) and `open_spot` (rule 4's offer). An
+    occurrence appears once, by that precedence: enrolled › not_coming › attended/missed › invited ›
+    waiting › open_spot. `invited` and `waiting` show whatever the coach's open-spot toggle says —
+    they are the student's own business; an expired, answered or withdrawn invitation and an
+    inactive waiting-list entry show nothing; a started or canceled occurrence is never invited or
+    waiting. **Old clients:** `invited` and `waiting` events are sent only to a client that declares
+    the `student-relations` capability (`X-LevApp-Capabilities`, PAD-352's pattern) — an App Store
+    build that predates them would draw them as bookings; an undeclared client gets exactly the
+    calendar it got before (the field on its own events is harmless and ignored). The treatment is
+    `calendar.mobile-views` rule 5; desktop cards follow it, and the student's desktop legend adds
+    `calendar.legend.invited`, `calendar.legend.waiting` and `calendar.legend.notComing`.
 
 ### Acceptance Criteria
 
@@ -220,6 +237,25 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **When** they view that week on desktop
 - **Then** the grid runs 07:00 to 24:00 and the class's card is 90 minutes tall with "22:30 – 00:00"
 - **And** a week whose classes all sit between 07:00 and 22:00 still shows 07:00–22:00
+
+#### A student's calendar names each class's relation (rule 22, PAD-611)
+- **Given** a student enrolled on Monday, who said "Não vou" for Tuesday, holds a live invitation
+  for Wednesday's class and an active waiting-list entry for Thursday's
+- **When** a client declaring `student-relations` loads that week
+- **Then** the events carry `studentRelation` `enrolled`, `not_coming`, `invited` and `waiting`
+  respectively, each occurrence once
+
+#### An undeclared client gets no invited or waiting events (rule 22, PAD-611)
+- **Given** the same student and week
+- **When** a client that does not declare `student-relations` (App Store 1.3.0) loads it
+- **Then** no event has `studentRelation` `invited` or `waiting` and the event list is the one it
+  got before PAD-611
+
+#### An expired invitation shows nothing (rule 22, PAD-611)
+- **Given** a student whose invitation for Wednesday expired, and an inactive waiting-list entry
+  for Thursday
+- **When** a declaring client loads that week
+- **Then** neither Wednesday's nor Thursday's class is on their calendar (unless an open spot)
 
 #### Calendar class card is reachable and activatable by keyboard
 - **Given** a signed-in coach on `/calendar` viewing a week that contains a class

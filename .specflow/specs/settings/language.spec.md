@@ -54,7 +54,18 @@ login (not only while the Settings screen is mounted).
    landed after it put the old value back. The picker, which follows the cache, showed the old
    language while the server and i18n held the new one.
 
+9. **(B-545, PAD-629; rule number unconfirmed) Portuguese plurals are European.** A count of zero
+   reads in the plural ("0 aulas", not "0 aula"). i18next resolves plurals with
+   `Intl.PluralRules("pt")`, which is Brazilian (0 = one), so every pt `_one`/`_other` pair carries
+   a `_zero` form with the plural text — i18next prefers `_zero` for a count of 0. A guard over the
+   locale files (`apps/web/src/test/pt-plural-zero.test.ts`) fails any new pt plural pair without one.
+
 ### Acceptance Criteria
+
+#### A count of zero reads in the plural in Portuguese (rule 9, B-545)
+- **Given** a coach whose language is `pt`, on a day with no classes
+- **When** the calendar's day header shows the class count
+- **Then** it reads "0 aulas"; with one class "1 aula"; with two "2 aulas"
 
 #### Default language is Portuguese
 - **Given** a newly created coach with no explicit language set
