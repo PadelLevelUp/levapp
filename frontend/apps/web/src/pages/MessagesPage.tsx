@@ -29,7 +29,7 @@ import {
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
-import { mergeEditedMessage } from "@levelup/api";
+import { eraseDeletedMessage, mergeEditedMessage } from "@levelup/api";
 import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
@@ -253,12 +253,16 @@ export default function MessagesPage() {
           prev && normalizeConversationId(prev.id) === normalizeConversationId(conversationId)
             ? {
                 ...prev,
+                // messaging.messages rule 3 (PAD-639): nothing the message said stays cached.
                 messages: prev.messages.map((m) =>
-                  String(m.id) === String(id) ? { ...m, isDeleted: true } : m
+                  String(m.id) === String(id) ? eraseDeletedMessage(m) : m
                 ),
               }
             : prev
         );
+        // conversations rule 12a: a deleted last message stops previewing its text.
+        void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        void refreshUnreadCount();
         return;
       }
 
@@ -463,12 +467,14 @@ export default function MessagesPage() {
         prev
           ? {
               ...prev,
+              // messaging.messages rule 3 (PAD-639): nothing the message said stays cached.
               messages: prev.messages.map((m) =>
-                String(m.id) === messageId ? { ...m, isDeleted: true } : m
+                String(m.id) === messageId ? eraseDeletedMessage(m) : m
               ),
             }
           : prev
       );
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch {
       // SSE will deliver the authoritative state
     }

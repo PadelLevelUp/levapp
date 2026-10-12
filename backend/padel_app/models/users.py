@@ -3,10 +3,9 @@ from sqlalchemy.orm import relationship
 from padel_app.sql_db import db
 from padel_app import model
 from padel_app.tools.input_tools import Block, Field, Form
-from flask_login import UserMixin
 
 
-class User(db.Model, model.Model, UserMixin):
+class User(db.Model, model.Model):
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 

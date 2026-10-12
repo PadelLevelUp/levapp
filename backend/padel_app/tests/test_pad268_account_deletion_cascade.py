@@ -192,85 +192,19 @@ def test_the_account_row_is_scrubbed_and_unusable(app, client):
             None, None, None, None, None)
 
 
-# ── rule 3: every session ends, including the legacy session login ────────────
+# ── rule 3: every session ends ───────────────────────────────────────────────
 #
-# The shared conftest app cannot exercise /auth/login: create_app(test_config)
-# skips the Config class, so there is no SECRET_KEY and no SESSION_TYPE, and
-# Flask-Session then installs a null session interface at build time (every
-# session write raises "no secret key"). These tests build an app the way
-# production configures sessions instead.
+# The legacy session login and Flask-Login are deleted (PAD-645), so a JWT is the only
+# session there is.
 
-LEGACY_LOGIN = "/auth/login"
+def test_a_deleted_students_token_and_password_stop_working(app, client):
+    ids = _world(app)
+    headers = _auth(app, ids["rita_user_id"])
+    assert client.get("/api/auth/me", headers=headers).status_code == 200
+    _delete(app, client, ids)
 
-
-@pytest.fixture
-def session_app():
-    import os
-    import tempfile
-
-    from padel_app import create_app
-    from padel_app.sql_db import init_db
-
-    fd, path = tempfile.mkstemp()
-    app = create_app({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{path}",
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-        "SECRET_KEY": "test-secret",
-        "SESSION_TYPE": "filesystem",
-        "JWT_SECRET_KEY": "test-jwt-secret",
-    })
-    with app.app_context():
-        init_db(app)
-        db.create_all()
-    yield app
-    os.close(fd)
-    os.unlink(path)
-
-
-def _logged_in(client):
-    with client.session_transaction() as session:
-        return "_user_id" in session
-
-
-def _legacy_user(app, username, status):
-    from padel_app.models import User
-
-    with app.app_context():
-        user = User(name=username, username=username, password=generate_password_hash("pw"), status=status)
-        db.session.add(user)
-        db.session.commit()
-        return user.id
-
-
-def test_legacy_session_login_still_admits_an_active_account(session_app):
-    """Guard: the refusal below is about status, not a broken login."""
-    client = session_app.test_client()
-    _legacy_user(session_app, "on_user", "active")
-    res = client.post(LEGACY_LOGIN, data={"username": "on_user", "password": "pw"})
-    assert res.status_code == 302 and _logged_in(client)
-
-
-def test_legacy_session_login_refuses_a_disabled_account(session_app):
-    client = session_app.test_client()
-    _legacy_user(session_app, "off_user", "disabled")
-    res = client.post(LEGACY_LOGIN, data={"username": "off_user", "password": "pw"})
-    assert res.status_code == 401 and not _logged_in(client)  # auth.login rule 12 (B-053)
-
-
-def test_a_deleted_student_cannot_use_the_legacy_login(session_app):
-    client = session_app.test_client()
-    ids = _world(session_app)
-    _delete(session_app, client, ids)
-    res = client.post(LEGACY_LOGIN, data={"username": "rita", "password": "pw"})
-    assert res.status_code == 200 and not _logged_in(client)  # deletion scrubs the credentials, so the ordinary wrong-credentials answer refuses it first (auth.login rule 12)
-
-
-def test_an_open_legacy_session_of_a_disabled_account_is_dropped(app):
-    """flask-login's user loader must not hand a disabled account back to a live session."""
-    user_id = _legacy_user(app, "was_on", "disabled")
-    with app.app_context():
-        assert app.login_manager._user_callback(str(user_id)) is None
+    assert client.get("/api/auth/me", headers=headers).status_code == 401
+    assert client.post("/api/auth/login", json={"username": "rita", "password": "pw"}).status_code == 401
 
 
 # ── rule 4: pushes stop ──────────────────────────────────────────────────────

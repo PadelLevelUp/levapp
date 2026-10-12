@@ -23,7 +23,8 @@ test.describe("phone navigation", () => {
     await page.getByTestId("admin-menu-button").click();
     const drawer = page.getByTestId("admin-nav-drawer");
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole("link")).toHaveCount(9);
+    // Eleven since PAD-631 added Reports and Deletions (admin.moderation rule 7).
+    await expect(drawer.getByRole("link")).toHaveCount(11);
     await expect(drawer.getByTestId("admin-session-email")).toHaveText(signedIn.email);
     await expect(drawer.getByTestId("admin-session-role")).toContainText(ui("admin.shell.role.operator"));
     await expect(drawer.getByRole("combobox")).toBeVisible();

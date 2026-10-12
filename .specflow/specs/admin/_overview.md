@@ -35,6 +35,7 @@ the product apps. A separate domain keeps that boundary visible: product specs d
 
 ## Related groups
 
+- `admin.moderation` — draft (PAD-631: message reports — list, context, dismiss / delete the message / disable the author, audited — and the read-only deletion audit; web only)
 - `auth/` — `auth.coach-approval` keeps the approval rules; only the approving screen moves here.
 - `settings/` — `settings.admin-editor` (`/editor`) is retired (owner, 2026-10-07; PAD-532 removes it with the Settings → Admin tab);
   `settings.role-scope`'s `superadmin` audience loses its Admin section.

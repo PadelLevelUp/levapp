@@ -1,5 +1,4 @@
 from .token_blocklist import TokenBlocklist
-from .backend_apps import Backend_App
 from .clubs import Club
 from .courts import Court
 from .coach_levels import CoachLevel

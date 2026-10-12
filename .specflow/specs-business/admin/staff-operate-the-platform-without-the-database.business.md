@@ -7,6 +7,7 @@ implemented_by:
   - ../../specs/admin/engine-health.spec.md
   - ../../specs/admin/commercial-groundwork.spec.md
   - ../../specs/admin/phone-console.spec.md
+  - ../../specs/admin/moderation.spec.md
   - ../../specs/admin/data-export.spec.md
 ---
 
@@ -65,6 +66,10 @@ need to look. Indirectly every coach and student, who get faster approvals and f
 9. Someone who asks for a copy of their data gets it within 30 days, after LevApp has confirmed it
    is them: staff run a read-only export of that one person's data, which never includes another
    person's messages or any password or token (PAD-640).
+- A message a student or coach reports reaches staff, who see it in context and dismiss it, delete
+  the message or disable its author; every decision is recorded (App Store Guideline 1.2; PAD-631).
+  The admin is emailed when reports arrive (one email per burst, with no message text, only a link
+  to the console).
 
 ## Success Metrics
 
