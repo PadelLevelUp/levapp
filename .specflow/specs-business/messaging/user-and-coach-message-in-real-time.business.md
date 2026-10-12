@@ -53,6 +53,10 @@ the mechanism itself is generic 1:1 (and group) messaging.
 - A conversation between the same two people is found, not recreated, every time — starting a
   "new" conversation with someone you've already messaged reuses the existing thread.
 - Only the sender of a message can edit or delete it.
+- Deleting a message erases what it said and any photo it carried; the thread keeps only a
+  "Message deleted" placeholder, the conversation list never shows the old text, and nothing
+  the person deleted stays readable on the server. A report is the exception: whoever reported
+  the message keeps a copy with the report so staff can still review it.
 - An edit or delete is a real-time event, not just a stored change — every connected client sees it
   update live.
 - A message can carry a photo attachment, or reply to a specific earlier message in the thread,

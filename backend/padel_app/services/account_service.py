@@ -33,10 +33,10 @@ import secrets
 
 from werkzeug.security import generate_password_hash
 
-from padel_app import model
 from padel_app.models import User
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
+
 
 logger = logging.getLogger(__name__)
 
@@ -106,33 +106,22 @@ def _close_open_class_requests(user, now):
 
 
 def _delete_stored_object(object_key):
-    """Rule 2a: delete the photo's object from the uploads bucket, best-effort.
-    With no bucket configured there is nothing to delete; a storage failure is
-    logged by error class — never the key, which names the person's file — and
-    never raised, so it cannot undo the committed deletion."""
-    if not model.GCS_BUCKET:
-        return
-    try:
-        model._storage_client().bucket(model.GCS_BUCKET).blob(object_key).delete()
-    except Exception as exc:  # noqa: BLE001 — NotFound included: already gone is fine
-        logger.warning("account deletion: photo object not deleted: %s", type(exc).__name__)
+    """Rule 2a: delete the photo's object from the uploads bucket, best-effort
+    (`image_cleanup.delete_stored_object`)."""
+    from padel_app.services.image_cleanup import delete_stored_object
+
+    delete_stored_object(object_key, what="account deletion: photo", log=logger)
 
 
 def _photo_to_delete(user):
     """Rule 2a: the user's photo, unless another user, a club logo or a message
     attachment still points at the same image."""
-    from padel_app.models import Club
-    from padel_app.models.messages import Message
+    from padel_app.services.image_cleanup import image_in_use
 
     photo = user.user_image
     if photo is None:
         return None
-    in_use = (
-        User.query.filter(User.user_image_id == photo.id, User.id != user.id).first()
-        or Club.query.filter_by(logo_id=photo.id).first()
-        or Message.query.filter_by(attachment_id=photo.id).first()
-    )
-    return None if in_use else photo
+    return None if image_in_use(photo.id, except_user_id=user.id) else photo
 
 
 def delete_account_service(user_id, *, now=None):

@@ -41,7 +41,7 @@ with nothing lost: the same navigation, the same badges, the same actions.
    (`admin-sidebar`) is not rendered. In its place a top bar (`admin-topbar`) shows the console
    title, the pending-approvals count when non-zero (`admin-nav-approvals-count`) and a menu button
    (`admin-menu-button`). The button opens a drawer (`admin-nav-drawer`) holding, in this order,
-   the same nine navigation items as the sidebar (same labels, icons and `to`), the session email
+   the same navigation items as the sidebar (eleven since PAD-631) (same labels, icons and `to`), the session email
    (`admin-session-email`), the role badge (and the read-only badge for `support`), the language
    picker and sign-out (`admin-sign-out`). Choosing a navigation item navigates and closes the
    drawer; a close control (`admin-menu-close`, 44 px) and tapping the backdrop close it too. At
@@ -109,8 +109,9 @@ with nothing lost: the same navigation, the same badges, the same actions.
 #### The drawer carries everything the sidebar carried (rule 2)
 - **Given** a signed-in `operator` session with 2 pending coach approvals, at 375 × 667
 - **When** `admin-menu-button` is tapped
-- **Then** `admin-nav-drawer` is visible and contains nine navigation links (Home, Approvals with
-  the count "2", Users, Settings, Roles, Audit log, Engine health, Clubs, Switches), the session
+- **Then** `admin-nav-drawer` is visible and contains eleven navigation links (Home, Approvals with
+  the count "2", Users, Settings, Roles, Audit log, Engine health, Clubs, Switches, Reports,
+  Deletions — the last two since PAD-631), the session
   email, the "Operator" role badge, the language select and `admin-sign-out`
 - **When** the "Users" link is tapped
 - **Then** the URL is `/users` and `admin-nav-drawer` is hidden

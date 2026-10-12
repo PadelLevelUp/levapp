@@ -16,3 +16,29 @@ export function mergeEditedMessage(cached: Message, edited: Message): Message {
     metadata: edited.metadata ?? cached.metadata,
   };
 }
+
+/**
+ * messaging.messages rule 3 (PAD-639, B-547): what a deleted message keeps in a client's cache —
+ * the same as the server's deleted shape: nothing it said. Text, metadata, reactions, actions,
+ * the reply link and the automatic/class flags go; id, sender, conversation, timestamp and read
+ * state stay so the placeholder sits where the message was. Both shells call it on their own
+ * delete and on a `message_deleted` event; before it each only set `isDeleted` and kept the text
+ * in memory, where the web reply quote still printed it.
+ */
+export function eraseDeletedMessage(cached: Message): Message {
+  return {
+    id: cached.id,
+    senderId: cached.senderId,
+    conversationId: cached.conversationId,
+    content: "",
+    timestamp: cached.timestamp,
+    isRead: cached.isRead,
+    status: cached.status,
+    replyTo: null,
+    edited: false,
+    isDeleted: true,
+    isAutomatic: false,
+    classDeleted: false,
+    reactions: [],
+  };
+}

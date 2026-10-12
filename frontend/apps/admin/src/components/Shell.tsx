@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Building2, ClipboardList, Home, LogOut, Settings, Shield, ToggleLeft, UserCheck, Users } from "lucide-react";
+import { Activity, Building2, ClipboardList, Flag, Home, LogOut, Settings, Shield, Trash2, ToggleLeft, UserCheck, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 
 import { adminApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +18,15 @@ export function Shell() {
   const pending = useQuery({ queryKey: APPROVALS_KEY, queryFn: adminApi.coachApprovals, enabled: !!session });
   // A nav badge never takes the console down: any answer without a list counts as none.
   const pendingCount = Array.isArray(pending.data?.items) ? pending.data.items.length : 0;
-  // The nine entries, shared by the desktop sidebar and the phone drawer.
+  // admin.moderation rule 5: the open-report count, re-read on every navigation so a new report is seen.
+  const location = useLocation();
+  const reports = useQuery({
+    queryKey: ["admin", "reports-summary", location.pathname],
+    queryFn: adminApi.reportsSummary,
+    enabled: !!session,
+  });
+  const openReports = typeof reports.data?.open === "number" ? reports.data.open : 0;
+  // The entries, shared by the desktop sidebar and the phone drawer.
   const items: NavItem[] = [
     { to: "/", icon: Home, label: t("admin.shell.nav.home"), end: true },
     { to: "/approvals", icon: UserCheck, label: t("admin.shell.nav.approvals"), count: pendingCount },
@@ -30,6 +38,9 @@ export function Shell() {
     // PAD-533
     { to: "/clubs", icon: Building2, label: t("admin.shell.nav.clubs") },
     { to: "/switches", icon: ToggleLeft, label: t("admin.shell.nav.switches") },
+    // PAD-631
+    { to: "/reports", icon: Flag, label: t("admin.shell.nav.reports"), count: openReports, countTestId: "admin-nav-reports-count" },
+    { to: "/deletion-audits", icon: Trash2, label: t("admin.shell.nav.deletionAudits") },
   ];
   // admin.phone-console rule 2: one layout is rendered, never both hidden by CSS.
   if (phone) {

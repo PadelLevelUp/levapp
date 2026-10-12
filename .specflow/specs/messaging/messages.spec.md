@@ -18,7 +18,21 @@ Send, edit, and delete messages within conversations, with support for replies a
 ### Rules
 1. `POST /api/app/message` — create message, sends push notifications to other participants
 2. `PATCH /api/app/message/{id}` — edit (sender only), sets `edited=True`
-3. `DELETE /api/app/message/{id}` — soft delete (sender only), sets `is_deleted=True`
+3. `DELETE /api/app/message/{id}` — soft delete (sender only), sets `is_deleted=True`. **Deleting
+   erases the content (PAD-639).** In the same transaction the row's `text` becomes `""`,
+   `msg_metadata` and `attachment_id` become null, `edited` is reset and its reactions are
+   removed; the attachment's image row and storage object go too unless something else still
+   points at that image (the same in-use check as `auth.account-deletion` rule 2a). The row itself
+   stays (R-016) with `sender_id`, `conversation_id`, `sent_at`, `message_type` and `reply_to_id`,
+   so the placeholder, the thread order and the reply chain survive. There is no grace period —
+   no client offers undo. One function, `soft_delete_message`, does this; every delete path (the
+   sender's, and the staff console's moderation delete, `admin.moderation` rule 4) calls it, and
+   `publish_message_deleted`, called after the commit, deletes the freed image's bucket object. A report keeps its
+   own copy of the reported text (`messaging.block-and-report` rule 4a), so erasing never
+   destroys moderation evidence. A message deleted before PAD-639 is erased by its migration
+   the same way. The clients drop the content from their caches on delete as well: on web and
+   iOS, a message the user deleted or a `message_deleted` event names keeps no text, metadata,
+   attachment or reactions in memory, and a reply quoting it shows "Message deleted"
 4. Messages can reply to another message (`reply_to_id`)
 5. Messages can have image attachments (`attachment_id`)
 5a. An attachment is **private**. It is stored in a bucket with no public ACL and
@@ -130,6 +144,26 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **When** user 1 DELETEs the message
 - **Then** `is_deleted=True` (soft delete)
 - **And** an SSE event `message_deleted` is published
+
+#### Deleting erases the content (rule 3, PAD-639)
+- **Given** message 50 from user 1 with text "call me on 912 345 678", metadata `{"x": 1}`, an
+  attachment image used by nothing else, and a 👍 reaction from user 5
+- **When** user 1 DELETEs it
+- **Then** the row still exists with `is_deleted=True`, `text` `""`, null `msg_metadata` and
+  `attachment_id`, `edited` false and no reactions
+- **And** the image row is gone and its storage object deletion was requested
+- **And** no column of the `messages` table still holds "912 345 678"
+
+#### An attachment something else uses survives the erase (rule 3)
+- **Given** message 50's attachment is also a user's profile photo
+- **When** user 1 deletes message 50
+- **Then** the message's `attachment_id` is null and the image row and object are kept
+
+#### A deleted message leaves nothing in a client's cache (rule 3)
+- **Given** a thread open on web and on iOS showing message 50 and a reply quoting it
+- **When** user 1 deletes message 50, or the other side receives `message_deleted` for it
+- **Then** the cached message has no content, metadata, attachment or reactions
+- **And** the reply's quote reads "Message deleted", not the old text
 
 #### Only sender can edit/delete
 - **Given** message id 50 sent by user 1
