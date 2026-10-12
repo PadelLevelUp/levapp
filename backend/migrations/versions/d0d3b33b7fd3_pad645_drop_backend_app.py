@@ -1,7 +1,7 @@
 """PAD-645: drop backend_app — the retired editor's app registry (PAD-550 deleted its last reader)
 
 Revision ID: d0d3b33b7fd3
-Revises: 6aef46eb1421
+Revises: 4d61e34b9a19
 Create Date: 2026-10-12 14:40:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'd0d3b33b7fd3'
-down_revision = '6aef46eb1421'
+down_revision = '4d61e34b9a19'  # PAD-639 (chain: 633 -> 631 -> 639 -> 645)
 branch_labels = None
 depends_on = None
 
