@@ -13,7 +13,7 @@ affects:
   - backend/padel_app/serializers/conversation.py
   - frontend/apps/web/src/pages/MessagesPage.tsx
   - frontend/apps/mobile/app/conversation/[id].tsx
-proposed_fix: "Deleting erases the message's text, metadata, attachment and reactions (one erase_message, the row kept per R-016); a report keeps its own copy of the text; the list serializes a deleted last message as \"\" + lastMessageDeleted and both shells show \"Message deleted\"; the clients drop the content from their caches."
+proposed_fix: "Deleting erases the message's text, metadata, attachment and reactions (one soft_delete_message, shared with the console delete, the row kept per R-016); a report keeps its own copy of the text; the list serializes a deleted last message as \"\" + lastMessageDeleted and both shells show \"Message deleted\"; the clients drop the content from their caches."
 opened: 2026-10-12T13:45:00Z
 ---
 
@@ -51,7 +51,7 @@ Incomplete rules: each reader had to remember to hide it, and the list did not.
   rule 12a (+1); the business rule in user-and-coach-message-in-real-time.
 - Tests: `backend/padel_app/tests/test_pad639_message_erase.py`; web and iOS cache and preview
   tests (see PAD-639).
-- Code: `erase_message` (shared with PAD-631's moderation delete), `image_cleanup` (the
+- Code: `soft_delete_message` (shared with PAD-631's moderation delete), `image_cleanup` (the
   in-use check shared with account deletion), the report snapshot, the list flag, migration
   `4d61e34b9a19` (backfills reports, then erases the messages deleted before PAD-639).
 - Resolved: 2026-10-12, PAD-639.

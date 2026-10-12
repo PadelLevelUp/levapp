@@ -272,6 +272,10 @@ def report_message_service(reporter_id, message_id, reason=None):
         reporter_id=reporter_id, message_id=message_id, reason=reason, message_text=message.text,
     )
     report.create()
+    # admin.moderation rule 8 (PAD-631): tell the admin, after the report is stored.
+    from padel_app.services.report_alert_service import notify_admin_of_report
+
+    notify_admin_of_report(report)
     return report
 
 
@@ -516,21 +520,33 @@ def edit_message_service(message_id, new_text, user_id):
     return message
 
 
-def erase_message(message):
-    """messaging.messages rule 3 (PAD-639): delete a message by erasing what it said.
+def delete_message_service(message_id, user_id):
+    """Delete a message (rule 3: erased, the row kept). Only the sender may delete."""
+    message = Message.query.get_or_404(message_id)
+    require_participant(message.conversation_id, user_id)
+    if message.sender_id != user_id:
+        abort(403, "Not your message")
+    soft_delete_message(message)
+    message.save()
+    publish_message_deleted(message)
 
-    The row stays (R-016) — sender, conversation, sent_at, message_type and reply_to_id keep
-    the placeholder, the thread order and the reply chain — but its text, metadata, attachment
-    and reactions go. The attachment's image row goes too unless something else still points at
-    it, and its bucket object once the caller commits. A report keeps its own copy of the text
-    (block-and-report rule 4a). Every delete path calls this — the sender's, and the staff
-    console's moderation delete (PAD-631). Does not commit; returns the object key the caller
-    deletes from the bucket after its commit, or None.
+
+def soft_delete_message(message):
+    """What a delete does to the row (messaging.messages rule 3, PAD-639): it erases what the
+    message said. The row stays (R-016) — sender, conversation, sent_at, message_type and
+    reply_to_id keep the placeholder, the thread order and the reply chain — but its text,
+    metadata, attachment and reactions go, and the attachment's image row too unless something
+    else still points at it. A report keeps its own copy of the text (block-and-report rule 4a).
+
+    Shared by the sender's delete and the console's (admin.moderation rule 4); the caller commits
+    and then calls `publish_message_deleted`, which also deletes the freed image's bucket object.
+    Returns False when it was already deleted.
     """
     from padel_app.model import Image
     from padel_app.services.image_cleanup import image_in_use
 
-    object_key = None
+    if message.is_deleted:
+        return False
     image_id = message.attachment_id
     message.is_deleted = True
     message.text = ""
@@ -542,28 +558,29 @@ def erase_message(message):
     if image_id is not None and not image_in_use(image_id, except_message_id=message.id):
         image = db.session.get(Image, image_id)
         if image is not None:
-            object_key = image.object_key
+            # Deleted from the bucket after the caller's commit (publish_message_deleted), so a
+            # failed commit can never leave a row pointing at a missing object.
+            message._freed_object_key = image.object_key
             db.session.delete(image)
-    return object_key
+    return True
 
 
-def delete_message_service(message_id, user_id):
-    """Delete a message (rule 3: erased, the row kept). Only the sender may delete."""
+def publish_message_deleted(message):
+    """The `message_deleted` live event to the message's conversation (messaging.messages rule 3).
+    Shared with the console's delete (admin.moderation rule 4), which sends it after its commit.
+    Runs after the commit, so it is also where the image `soft_delete_message` freed leaves the
+    bucket (best-effort, auth.account-deletion rule 2a's helper)."""
     from padel_app.services.image_cleanup import delete_stored_object
 
-    message = Message.query.get_or_404(message_id)
-    require_participant(message.conversation_id, user_id)
-    if message.sender_id != user_id:
-        abort(403, "Not your message")
-    object_key = erase_message(message)
-    db.session.commit()
+    object_key = getattr(message, "_freed_object_key", None)
     if object_key:
+        message._freed_object_key = None
         delete_stored_object(object_key, what="message deletion: attachment")
     publish(
         {
             "type": "message_deleted",
             "payload": {
-                "id": message_id,
+                "id": message.id,
                 "conversationId": message.conversation_id,
             },
         },

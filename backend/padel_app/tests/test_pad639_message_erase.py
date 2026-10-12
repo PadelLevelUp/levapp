@@ -129,16 +129,25 @@ def test_an_attachment_something_else_uses_survives_the_erase(app, client):
     blob.return_value.delete.assert_not_called()
 
 
-def test_erase_message_is_the_one_shared_erase(app):
-    """PAD-631's moderation delete reuses it: callable on a message by itself."""
+def test_soft_delete_message_is_the_one_shared_erase(app):
+    """admin.moderation rule 4's delete reuses it: callable on a message by itself, and the
+    bucket object goes only when the caller publishes after its commit."""
     from padel_app.models import Message
-    from padel_app.services.messaging_service import erase_message
+    from padel_app.services.messaging_service import publish_message_deleted, soft_delete_message
+    from padel_app.services import messaging_service
 
     ids = _world(app)
-    with app.app_context():
+    storage, blob = _bucket()
+    with app.app_context(), patch.object(model, "GCS_BUCKET", "uploads"), \
+         patch.object(model, "_storage_client", return_value=storage), \
+         patch.object(messaging_service, "publish", lambda *a, **k: None):
         msg = db.session.get(Message, ids["msg"])
-        erase_message(msg)
+        assert soft_delete_message(msg) is True
+        blob.return_value.delete.assert_not_called()
         db.session.commit()
+        publish_message_deleted(msg)
+        blob.return_value.delete.assert_called_once()
+        assert soft_delete_message(msg) is False
         msg = db.session.get(Message, ids["msg"])
         assert (msg.is_deleted, msg.text, msg.msg_metadata, msg.attachment_id) == (True, "", None, None)
 

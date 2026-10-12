@@ -11,7 +11,7 @@ Images the erased attachments pointed at stay in `images` (no product path has e
 message attachment; deleting bucket objects is not a migration's job).
 
 Revision ID: 4d61e34b9a19
-Revises: 6aef46eb1421
+Revises: 0a78cdd2eb33
 Create Date: 2026-10-12 14:15:00.000000
 
 """
@@ -23,7 +23,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '4d61e34b9a19'
-down_revision = '6aef46eb1421'
+down_revision = '0a78cdd2eb33'  # PAD-631 (chain: 633 -> 631 -> 639 -> 645)
 branch_labels = None
 depends_on = None
 

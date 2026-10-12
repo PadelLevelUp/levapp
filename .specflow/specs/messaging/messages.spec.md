@@ -25,8 +25,9 @@ Send, edit, and delete messages within conversations, with support for replies a
    points at that image (the same in-use check as `auth.account-deletion` rule 2a). The row itself
    stays (R-016) with `sender_id`, `conversation_id`, `sent_at`, `message_type` and `reply_to_id`,
    so the placeholder, the thread order and the reply chain survive. There is no grace period —
-   no client offers undo. One function, `erase_message`, does this; every delete path (the
-   sender's, and the staff console's moderation delete of PAD-631) calls it. A report keeps its
+   no client offers undo. One function, `soft_delete_message`, does this; every delete path (the
+   sender's, and the staff console's moderation delete, `admin.moderation` rule 4) calls it, and
+   `publish_message_deleted`, called after the commit, deletes the freed image's bucket object. A report keeps its
    own copy of the reported text (`messaging.block-and-report` rule 4a), so erasing never
    destroys moderation evidence. A message deleted before PAD-639 is erased by its migration
    the same way. The clients drop the content from their caches on delete as well: on web and
