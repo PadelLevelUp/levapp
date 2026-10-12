@@ -25,7 +25,7 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
 - **Drafts** (`content/legal/drafts/<version>/<lang>/<id>.md`, when one is staged): texts kept
   for review, never imported by the app. None is staged: v2026-10-10 (18+, Sucesso Fractal – Lda
   as controller, delete path, admin@levapp.app) is published from the owner's final .docx; Privacy
-  v2026-10-11 (PAD-603, owner-requested) adds the push-notification providers to §5 and the
+  v2026-10-13 (PAD-603, owner-requested) adds the push-notification providers to §5 and the
   deletion request by email to §10.
 
 ### Rules
