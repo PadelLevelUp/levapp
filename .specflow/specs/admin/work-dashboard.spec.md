@@ -8,8 +8,8 @@ governed_by: [R-024, R-036]
 
 # admin.work-dashboard
 
-> Linear: PAD-555 (owner request 2026-10-08). Scope proposed 2026-10-12 on defaults; the owner's
-> answers on the summary source, the roles and TestFlight may change rules 2, 6 and the Notes.
+> Linear: PAD-555 (owner request 2026-10-08). Scope proposed 2026-10-12; the owner confirmed it the
+> same day: plain-text excerpt summaries (no AI), owner and operator only, TestFlight in a v2.
 
 ### Intent
 The owner wants one page in the staff console that says what is left to do, what was done and what
@@ -102,7 +102,7 @@ through the backend; their tokens never reach the browser.
 - **Then** the merged PR is listed
 
 ### Notes
-- Deferred (proposed v2): TestFlight builds (an App Store Connect key on the server), the bug
+- Deferred to v2, PAD-646: TestFlight builds (an App Store Connect key on the server), the bug
   ledger by severity, CI lanes close to their limit, and a "needs owner" view if a Linear label is
   agreed.
 - Web only: the staff console has no iOS app (R-024 exception recorded in `admin.foundation`).
