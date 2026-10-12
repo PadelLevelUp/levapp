@@ -11,7 +11,8 @@
         "settings": "Definições",
         "clubs": "Clubes",
         "switches": "Interruptores",
-        "engineHealth": "Saúde do motor"
+        "engineHealth": "Saúde do motor",
+        "work": "Trabalho"
       },
       "signOut": "Terminar sessão",
       "role": {
@@ -324,6 +325,60 @@
       "minutes": "{{n}} min",
       "hours": "{{n}} h",
       "days": "{{n}} d"
+    },
+    "work": {
+      "title": "Trabalho",
+      "lead": "Tickets por fazer e feitos, alterações publicadas e deploys. Só leitura; dados do Linear e do GitHub.",
+      "refresh": "Atualizar",
+      "fetchedAt": "Atualizado às {{when}}",
+      "notConfigured": "Não configurado: falta {{setting}}.",
+      "unavailable": "Não foi possível obter os dados.",
+      "lastOk": "Último sucesso: {{when}}.",
+      "open": {
+        "title": "Tickets por fazer",
+        "empty": "Nenhum ticket por fazer.",
+        "noSummary": "Sem descrição.",
+        "unassigned": "Sem responsável"
+      },
+      "done": {
+        "title": "Feitos nos últimos 30 dias",
+        "empty": "Nenhum ticket feito nos últimos 30 dias."
+      },
+      "merged": {
+        "title": "Alterações publicadas (30 dias)",
+        "empty": "Nenhuma alteração publicada nos últimos 30 dias.",
+        "production": "Em produção",
+        "staging": "Em staging"
+      },
+      "openPrs": {
+        "title": "Pull requests abertos",
+        "empty": "Nenhum pull request aberto.",
+        "draft": "Rascunho",
+        "checks": {
+          "success": "Verificações OK",
+          "failure": "Verificações falharam",
+          "pending": "A verificar",
+          "unknown": "Verificações desconhecidas"
+        }
+      },
+      "deploys": {
+        "title": "Deploys",
+        "staging": "Staging",
+        "production": "Produção",
+        "empty": "Sem deploys recentes.",
+        "success": "Sucesso",
+        "failure": "Falhou",
+        "running": "A correr"
+      },
+      "priority": {
+        "0": "Sem prioridade",
+        "1": "Urgente",
+        "2": "Alta",
+        "3": "Média",
+        "4": "Baixa"
+      },
+      "linear": "Linear",
+      "github": "GitHub"
     }
   }
 }

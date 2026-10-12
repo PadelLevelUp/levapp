@@ -62,7 +62,8 @@ describe("phone navigation (admin.phone-console rule 2)", () => {
 
     fireEvent.click(screen.getByTestId("admin-menu-button"));
     const drawer = screen.getByTestId("admin-nav-drawer");
-    expect(within(drawer).getAllByRole("link")).toHaveLength(9);
+    // Ten for an operator: PAD-555 adds "Trabalho" (operator and owner only).
+    expect(within(drawer).getAllByRole("link")).toHaveLength(10);
     await waitFor(() => expect(within(drawer).getByText("2")).toBeInTheDocument());
     expect(within(drawer).getByTestId("admin-session-email")).toHaveTextContent("operator@levapp.app");
     expect(within(drawer).getByText("operator")).toBeInTheDocument();

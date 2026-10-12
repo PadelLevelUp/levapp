@@ -278,6 +278,13 @@ class Config:
     # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
     # pending-coach mail and push. Empty = the bare path (local development).
     ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
+    # admin.work-dashboard rule 5 (PAD-555): server-side only, never sent to a client or logged.
+    # Unset LINEAR_API_KEY → tickets "not configured"; unset WORK_GITHUB_REPO (the deploys set it to
+    # the repository) → GitHub "not configured", so tests and local runs never call GitHub.
+    # WORK_GITHUB_TOKEN is optional (the repository is public); Actions reserves GITHUB_* secrets.
+    LINEAR_API_KEY = (os.getenv("LINEAR_API_KEY") or "").strip()
+    WORK_GITHUB_REPO = (os.getenv("WORK_GITHUB_REPO") or "").strip()
+    WORK_GITHUB_TOKEN = (os.getenv("WORK_GITHUB_TOKEN") or "").strip()
     # admin.engine-health rule 5 (PAD-534): the other environment's admin API and the token this
     # console presents to it; and the token this environment accepts from the other one. All three
     # unset (the default) means the console shows the other environment as "not configured".

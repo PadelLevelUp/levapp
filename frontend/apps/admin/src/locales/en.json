@@ -11,7 +11,8 @@
         "settings": "Settings",
         "clubs": "Clubs",
         "switches": "Switches",
-        "engineHealth": "Engine health"
+        "engineHealth": "Engine health",
+        "work": "Work"
       },
       "signOut": "Sign out",
       "role": {
@@ -324,6 +325,60 @@
       "minutes": "{{n}} min",
       "hours": "{{n}} h",
       "days": "{{n}} d"
+    },
+    "work": {
+      "title": "Work",
+      "lead": "Tickets to do and done, shipped changes and deploys. Read-only; data from Linear and GitHub.",
+      "refresh": "Refresh",
+      "fetchedAt": "Updated at {{when}}",
+      "notConfigured": "Not configured: {{setting}} is missing.",
+      "unavailable": "Could not get the data.",
+      "lastOk": "Last success: {{when}}.",
+      "open": {
+        "title": "Tickets to do",
+        "empty": "No tickets to do.",
+        "noSummary": "No description.",
+        "unassigned": "Unassigned"
+      },
+      "done": {
+        "title": "Done in the last 30 days",
+        "empty": "No tickets done in the last 30 days."
+      },
+      "merged": {
+        "title": "Shipped changes (30 days)",
+        "empty": "No changes shipped in the last 30 days.",
+        "production": "In production",
+        "staging": "On staging"
+      },
+      "openPrs": {
+        "title": "Open pull requests",
+        "empty": "No open pull requests.",
+        "draft": "Draft",
+        "checks": {
+          "success": "Checks passed",
+          "failure": "Checks failed",
+          "pending": "Checks running",
+          "unknown": "Checks unknown"
+        }
+      },
+      "deploys": {
+        "title": "Deploys",
+        "staging": "Staging",
+        "production": "Production",
+        "empty": "No recent deploys.",
+        "success": "Success",
+        "failure": "Failed",
+        "running": "Running"
+      },
+      "priority": {
+        "0": "No priority",
+        "1": "Urgent",
+        "2": "High",
+        "3": "Medium",
+        "4": "Low"
+      },
+      "linear": "Linear",
+      "github": "GitHub"
     }
   }
 }

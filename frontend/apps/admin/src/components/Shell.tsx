@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Building2, ClipboardList, Home, LogOut, Settings, Shield, ToggleLeft, UserCheck, Users } from "lucide-react";
+import { Activity, Building2, ClipboardList, Home, ListChecks, LogOut, Settings, Shield, ToggleLeft, UserCheck, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
 
@@ -13,7 +13,7 @@ import { LanguagePicker, NavItems, SessionBlock, type NavItem } from "./ShellPar
 
 export function Shell() {
   const { t } = useTranslation();
-  const { session, signOut } = useAuth();
+  const { session, signOut, can } = useAuth();
   const phone = useIsPhone();
   const pending = useQuery({ queryKey: APPROVALS_KEY, queryFn: adminApi.coachApprovals, enabled: !!session });
   // A nav badge never takes the console down: any answer without a list counts as none.
@@ -30,6 +30,8 @@ export function Shell() {
     // PAD-533
     { to: "/clubs", icon: Building2, label: t("admin.shell.nav.clubs") },
     { to: "/switches", icon: ToggleLeft, label: t("admin.shell.nav.switches") },
+    // admin.work-dashboard rule 6 (PAD-555): operator and owner only.
+    ...(can("operator") ? [{ to: "/work", icon: ListChecks, label: t("admin.shell.nav.work") }] : []),
   ];
   // admin.phone-console rule 2: one layout is rendered, never both hidden by CSS.
   if (phone) {

@@ -7,6 +7,7 @@ implemented_by:
   - ../../specs/admin/engine-health.spec.md
   - ../../specs/admin/commercial-groundwork.spec.md
   - ../../specs/admin/phone-console.spec.md
+  - ../../specs/admin/work-dashboard.spec.md
 ---
 
 # Staff operate the platform without the database
@@ -61,6 +62,10 @@ need to look. Indirectly every coach and student, who get faster approvals and f
    decision that depends on the finance questionnaire.
 8. The console works on a phone: every screen can be used at phone width from the phone's
    browser, with the same actions as at a desk. There is no separate phone app for staff.
+9. The owner sees, on one console page, the tickets left to do (each with a short summary), the
+   tickets done and the changes shipped, and whether each change is on staging or live; nothing
+   on it can change a ticket or a pull request, and the keys to Linear and GitHub stay on the
+   server (PAD-555).
 
 ## Success Metrics
 
