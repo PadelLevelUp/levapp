@@ -354,6 +354,15 @@ def view_as_user(user_id):
 # ── engine health (PAD-534, admin.engine-health): read-only, support ─────────────────────────
 
 
+@bp.get("/work")
+@require_role("operator")
+def work_dashboard():
+    """admin.work-dashboard (PAD-555): tickets, pull requests and deploys; read-only."""
+    from padel_app.services.admin import work_service
+
+    return jsonify(work_service.work(current_app.config, refresh=request.args.get("refresh") == "1"))
+
+
 @bp.get("/engine-health")
 @require_role("support")
 def engine_health():

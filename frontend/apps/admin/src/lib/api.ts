@@ -115,6 +115,33 @@ export interface AuthConfig {
   staffDomain: string;
 }
 
+// ── admin.work-dashboard (PAD-555) ──
+export type WorkSource<T> =
+  | ({ status: "ok" } & T)
+  | { status: "not_configured"; missing: string }
+  | { status: "unavailable"; lastOkAt: string | null };
+export interface WorkTicket {
+  id: string; title: string; summary: string; state: string | null; stateType: string | null;
+  priority: number; assignee: string | null; createdAt: string | null; url: string | null;
+}
+export interface WorkDoneTicket { id: string; title: string; completedAt: string | null; url: string | null }
+export interface WorkMergedPr {
+  number: number; title: string; url: string; base: string; mergedAt: string; where: "staging" | "production"; tickets: string[];
+}
+export interface WorkOpenPr {
+  number: number; title: string; url: string; base: string; draft: boolean;
+  checks: "success" | "failure" | "pending" | null; tickets: string[];
+}
+export interface WorkDeploy { status: string | null; conclusion: string | null; sha: string; createdAt: string | null; url: string | null }
+export interface WorkAnswer {
+  fetchedAt: string;
+  linear: WorkSource<{ open: WorkTicket[]; done: WorkDoneTicket[]; truncated?: { open: boolean; done: boolean } }>;
+  github: WorkSource<{
+    merged: WorkMergedPr[]; open: WorkOpenPr[]; deploys: { staging: WorkDeploy[]; production: WorkDeploy[] };
+    truncated?: { merged: boolean; open: boolean };
+  }>;
+}
+
 export const adminApi = {
   authConfig: () => api<AuthConfig>("/auth/config", { auth: false }),
   signIn: (credential: string) =>
@@ -150,6 +177,8 @@ export const adminApi = {
   resendVerification: (userId: number) => api<unknown>(`/users/${userId}/resend-verification`, { method: "POST", body: {} }),
   // admin.approvals-and-users rule 9: a read-only product session for that user, opened in a new tab.
   viewAs: (userId: number) => api<{ url: string; expiresAt: string; name: string }>(`/users/${userId}/view-as`, { method: "POST", body: {} }),
+  // admin.work-dashboard (PAD-555): read-only; the server holds the Linear and GitHub tokens.
+  work: (refresh = false) => api<WorkAnswer>(`/work${refresh ? "?refresh=1" : ""}`),
   // admin.engine-health (PAD-534): read-only.
   engineHealth: () => api<EngineHealth>("/engine-health"),
   engineHealthCoaches: (q: string) =>

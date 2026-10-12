@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ApprovalsPage } from "@/pages/ApprovalsPage";
 import { AuditPage } from "@/pages/AuditPage";
 import { EngineHealthPage } from "@/pages/EngineHealthPage";
+import { WorkPage } from "@/pages/WorkPage";
 import { ClubPage } from "@/pages/ClubPage";
 import { ClubsPage } from "@/pages/ClubsPage";
 import { DeletionAuditsPage } from "@/pages/DeletionAuditsPage";
@@ -41,6 +42,7 @@ function Gate() {
           <Route path="roles" element={<RolesPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="engine-health" element={<EngineHealthPage />} />
+          <Route path="work" element={<WorkPage />} />
           {/* PAD-533: clubs and switches */}
           <Route path="clubs" element={<ClubsPage />} />
           <Route path="clubs/:clubId" element={<ClubPage />} />

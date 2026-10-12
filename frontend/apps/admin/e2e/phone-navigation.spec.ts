@@ -23,8 +23,9 @@ test.describe("phone navigation", () => {
     await page.getByTestId("admin-menu-button").click();
     const drawer = page.getByTestId("admin-nav-drawer");
     await expect(drawer).toBeVisible();
-    // Eleven since PAD-631 added Reports and Deletions (admin.moderation rule 7).
-    await expect(drawer.getByRole("link")).toHaveCount(11);
+    // Twelve for an operator: PAD-631 added Reports and Deletions (admin.moderation rule 7), PAD-555
+    // "Trabalho" (operator and owner only).
+    await expect(drawer.getByRole("link")).toHaveCount(12);
     await expect(drawer.getByTestId("admin-session-email")).toHaveText(signedIn.email);
     await expect(drawer.getByTestId("admin-session-role")).toContainText(ui("admin.shell.role.operator"));
     await expect(drawer.getByRole("combobox")).toBeVisible();

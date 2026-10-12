@@ -9,6 +9,7 @@ implemented_by:
   - ../../specs/admin/phone-console.spec.md
   - ../../specs/admin/moderation.spec.md
   - ../../specs/admin/data-export.spec.md
+  - ../../specs/admin/work-dashboard.spec.md
 ---
 
 # Staff operate the platform without the database
@@ -66,6 +67,10 @@ need to look. Indirectly every coach and student, who get faster approvals and f
 9. Someone who asks for a copy of their data gets it within 30 days, after LevApp has confirmed it
    is them: staff run a read-only export of that one person's data, which never includes another
    person's messages or any password or token (PAD-640).
+10. The owner sees, on one console page, the tickets left to do (each with a short summary), the
+    tickets done and the changes shipped, and whether each change is on staging or live; nothing
+    on it can change a ticket or a pull request, and the keys to Linear and GitHub stay on the
+    server (PAD-555).
 - A message a student or coach reports reaches staff, who see it in context and dismiss it, delete
   the message or disable its author; every decision is recorded (App Store Guideline 1.2; PAD-631).
   The admin is emailed when reports arrive (one email per burst, with no message text, only a link
