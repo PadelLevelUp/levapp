@@ -112,13 +112,21 @@ def test_a_stale_placeholder_is_deleted_through_the_roster_removal(app):
         active = _add_student(ids["coach_id"], "active-student", ids["level_ids"]["5"])
         db.session.get(User, db.session.get(Player, active).user_id).created_at = _days_ago(400)
         db.session.commit()
+    # Each guard on its own (review): no password but active (a social sign-in), and inactive with a
+    # password. Neither is a placeholder.
+    social, social_user = _placeholder(app, ids, "social", created_days_ago=400)
+    passworded, passworded_user = _placeholder(app, ids, "passworded", created_days_ago=400)
+    with app.app_context():
+        db.session.get(User, social_user).status = "active"
+        db.session.get(User, passworded_user).password = "hash"
+        db.session.commit()
     _enable(app, stale_placeholders=365)
 
     report = _sweep(app)
 
     assert report["stale_placeholders"]["removed"] == 1
     assert not _exists(app, Player, stale) and not _exists(app, User, stale_user)
-    for kept in (recent_class, young, shared, active):
+    for kept in (recent_class, young, shared, active, social, passworded):
         assert _exists(app, Player, kept)
     with app.app_context():
         audit = DeletionAudit.query.filter_by(entity="player", entity_id=stale).one()
@@ -307,3 +315,106 @@ def test_a_missing_or_odd_setting_is_off(app, value, days):
             db.session.commit()
         # A stored period is kept even while OFF; a missing or non-positive one falls back.
         assert retention_settings()["code_hashes"] == {"enabled": False, "days": days}
+
+
+# ── review round ──────────────────────────────────────────────────────────────
+
+def test_a_deleted_message_frees_its_image(app, monkeypatch):
+    """Review: blanking attachment_id alone left the image row and its bucket object behind."""
+    from padel_app.model import Image
+    from padel_app.models import Conversation, Message, User
+    from padel_app.services import image_cleanup
+
+    freed = []
+    monkeypatch.setattr(image_cleanup, "delete_stored_object", lambda key, **kw: freed.append(key))
+    with app.app_context():
+        a = User(name="A", username="img638a", password="x", status="active")
+        b = User(name="B", username="img638b", password="x", status="active")
+        db.session.add_all([a, b])
+        db.session.flush()
+        conv = Conversation.get_or_insert([a.id, b.id])
+        img = Image(object_key="uploads/638.jpg")
+        db.session.add(img)
+        db.session.flush()
+        m = Message(conversation_id=conv.id, sender_id=a.id, text="", is_deleted=True, attachment_id=img.id)
+        db.session.add(m)
+        db.session.flush()
+        m.updated_at = _days_ago(40)
+        db.session.commit()
+        image_id = img.id
+    _enable(app, deleted_message_text=30)
+
+    assert _sweep(app)["deleted_message_text"]["removed"] == 1
+    assert not _exists(app, Image, image_id)
+    assert freed == ["uploads/638.jpg"]
+
+
+def test_a_placeholder_sweep_that_fails_midway_reports_what_it_removed(app, monkeypatch):
+    """Review: each removal commits on its own, so a failure at row 2 must not hide row 1."""
+    from padel_app.services import player_service
+
+    ids = _seed(app)
+    for name in ("p1", "p2", "p3"):
+        _placeholder(app, ids, name, created_days_ago=400)
+    real = player_service.remove_player_service
+    calls = {"n": 0}
+
+    def flaky(data, actor_user_id=None):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("db hiccup")
+        return real(data, actor_user_id)
+
+    monkeypatch.setattr(player_service, "remove_player_service", flaky)
+    _enable(app, stale_placeholders=365, code_hashes=1)
+
+    report = _sweep(app)
+
+    assert report["stale_placeholders"]["removed"] == 1
+    assert report["stale_placeholders"]["error"] == "db hiccup"
+    assert report["code_hashes"].get("error") is None  # the session was left clean for the next item
+
+
+def test_the_dry_count_is_what_an_enabled_sweep_removes(app):
+    """Review: one due row of every kind; OFF counts them and removes nothing, ON removes exactly that."""
+    from padel_app.models import Conversation, Message, NotificationEvent, User
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.deletion_audit import DeletionAudit
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.player_invitation import PlayerInvitation
+
+    ids = _seed(app)
+    player_id, _ = _placeholder(app, ids, "dueplace", created_days_ago=400)
+    with app.app_context():
+        a = User(name="A", username="due638a", password="x", status="active",
+                 email_verification_code_hash="h", email_verification_expires_at=_days_ago(3))
+        b = User(name="B", username="due638b", password="x", status="active")
+        db.session.add_all([a, b])
+        db.session.flush()
+        conv = Conversation.get_or_insert([a.id, b.id])
+        m = Message(conversation_id=conv.id, sender_id=a.id, text="old", is_deleted=True)
+        start = _days_ago(400)
+        inst = LessonInstance(lesson_id=ids["lesson_id"], start_datetime=start,
+                              end_datetime=start + timedelta(hours=1), max_players=4, status="scheduled")
+        db.session.add_all([m, inst])
+        db.session.flush()
+        db.session.add(Association_CoachLessonInstance(coach_id=ids["coach_id"], lesson_instance_id=inst.id))
+        student = _add_student(ids["coach_id"], "due-student", ids["level_ids"]["5"])
+        db.session.add(NotificationEvent(coach_id=ids["coach_id"], lesson_instance_id=inst.id, player_id=student,
+                                         type="auto", status="expired"))
+        # Not the placeholder's: its removal (first item) would cascade the invitation away.
+        db.session.add(PlayerInvitation(player_id=student, token_hash="e" * 64,
+                                        invited_by_coach_id=ids["coach_id"], expires_at=_days_ago(40)))
+        audit = DeletionAudit(entity="player", entity_id=9, action="deleted", label="z", details={})
+        db.session.add(audit)
+        db.session.flush()
+        m.updated_at = _days_ago(40)
+        audit.created_at = _days_ago(2000)
+        db.session.commit()
+
+    off = _sweep(app)
+    assert all(off[name]["removed"] == 0 and off[name]["due"] >= 1 for name in off), off
+    _enable(app, **{name: off[name]["days"] for name in off})
+    on = _sweep(app)
+    for name in off:
+        assert on[name]["removed"] == off[name]["due"], (name, off[name], on[name])

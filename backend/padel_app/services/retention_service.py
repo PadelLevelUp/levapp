@@ -20,10 +20,22 @@ SETTING_KEY = "data_retention"
 # Each takes (now, days, apply) and answers how many rows are due; with apply=True it also removes
 # them. Counting and removing share one query, so the dry count is exactly what a removal would take.
 
+class PartialSweep(Exception):
+    """An item that removed some rows and then failed: carries how many went before the failure, so
+    the report never hides committed removals (rule 2)."""
+
+    def __init__(self, removed: int, cause: Exception):
+        super().__init__(str(cause))
+        self.removed = removed
+
+
 def _stale_placeholders(now: datetime, days: int, apply: bool) -> int:
-    """A never-activated student created more than `days` ago, with no class in the last `days`, on
-    exactly one roster — removed through the coach's own removal (players.remove rule 5), so it
-    writes the deletion_audit row and refuses anyone with an account or a second coach."""
+    """A never-activated student (no password AND inactive: players.remove rule 5) created more than
+    `days` ago, with no class in the last `days`, on exactly one roster — removed through the coach's
+    own removal, so it writes the deletion_audit row and refuses anyone with an account or a second
+    coach. A row whose `created_at` is unknown (NULL) is never due. Each removal commits on its own."""
+    from sqlalchemy import func
+
     from padel_app.models import Presence, User
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.lesson_instances import LessonInstance
@@ -36,28 +48,44 @@ def _stale_placeholders(now: datetime, days: int, apply: bool) -> int:
         .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
         .filter(LessonInstance.start_datetime >= cutoff)
     )
-    candidates = (
-        db.session.query(Player.id)
+    one_coach = (
+        db.session.query(Association_CoachPlayer.player_id.label("player_id"),
+                         func.min(Association_CoachPlayer.coach_id).label("coach_id"))
+        .group_by(Association_CoachPlayer.player_id)
+        .having(func.count(Association_CoachPlayer.id) == 1)
+        .subquery()
+    )
+    due = (
+        db.session.query(Player.id, one_coach.c.coach_id)
         .join(User, User.id == Player.user_id)
+        .join(one_coach, one_coach.c.player_id == Player.id)
         .filter(User.password.is_(None), User.status == "inactive", User.created_at < cutoff)
         .filter(~Player.id.in_(recent_players))
         .all()
     )
-    due = []
-    for (player_id,) in candidates:
-        links = Association_CoachPlayer.query.filter_by(player_id=player_id).all()
-        if len(links) == 1:
-            due.append((player_id, links[0].coach_id))
-    if apply:
-        for player_id, coach_id in due:
-            remove_player_service({"coachId": coach_id, "playerId": player_id, "action": "delete"})
-    return len(due)
+    if not apply:
+        return len(due)
+    removed = 0
+    for player_id, coach_id in due:
+        try:
+            result = remove_player_service({"coachId": coach_id, "playerId": player_id, "action": "delete"})
+        except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
+            raise PartialSweep(removed, exc) from exc
+        status = result[1] if isinstance(result, tuple) else 200
+        if status == 200:
+            removed += 1
+    return removed
 
 
 def _deleted_message_text(now: datetime, days: int, apply: bool) -> int:
     """A deleted message keeps its row (the thread's shape) but loses its text, metadata and
-    attachment link once it has been deleted for `days`."""
+    attachment once it has been deleted for `days`; a freed image goes too, row then bucket object,
+    as the message delete does (messaging_service.soft_delete_message). Today's delete already blanks
+    the text, so this finds rows deleted before that. An unknown `updated_at` (NULL) is never due."""
+    from padel_app.model import Image
     from padel_app.models import Message
+    from padel_app.services.image_cleanup import delete_stored_object, image_in_use
 
     q = Message.query.filter(
         Message.is_deleted.is_(True),
@@ -67,11 +95,21 @@ def _deleted_message_text(now: datetime, days: int, apply: bool) -> int:
     if not apply:
         return q.count()
     rows = q.all()
+    freed_keys = []
     for m in rows:
+        image_id = m.attachment_id
         m.text = ""
         m.msg_metadata = None
         m.attachment_id = None
+        db.session.flush()
+        if image_id is not None and not image_in_use(image_id, except_message_id=m.id):
+            image = db.session.get(Image, image_id)
+            if image is not None:
+                freed_keys.append(image.object_key)
+                db.session.delete(image)
     db.session.commit()
+    for key in freed_keys:  # after the commit, best-effort, as publish_message_deleted does
+        delete_stored_object(key, what="message attachment")
     return len(rows)
 
 
@@ -191,6 +229,11 @@ def run_retention(now: datetime | None = None) -> dict[str, dict]:
         try:
             entry["due"] = sweep(now, cfg["days"], False)
             entry["removed"] = sweep(now, cfg["days"], True) if cfg["enabled"] and entry["due"] else 0
+        except PartialSweep as exc:  # rule 2: what was removed before the failure stays reported
+            db.session.rollback()
+            entry["removed"] = exc.removed
+            entry["error"] = str(exc)
+            current_app.logger.error("retention %s failed after %s removals: %s", name, exc.removed, exc)
         except Exception as exc:  # noqa: BLE001 — rule 2: one item never stops the others
             db.session.rollback()
             entry["error"] = str(exc)

@@ -749,6 +749,7 @@ def init_scheduler(app, test_config=None) -> None:
 
     from apscheduler.events import EVENT_JOB_MISSED
     from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 
     test_mode = os.environ.get("TEST_MODE", "").lower() == "true"
@@ -811,7 +812,9 @@ def init_scheduler(app, test_config=None) -> None:
     # admin.data-retention (PAD-638): one daily sweep, every item OFF until the owner decides.
     sched.add_job(
         func=_run_retention_sweep,
-        trigger=IntervalTrigger(days=1),
+        # A fixed hour, not IntervalTrigger(days=1): replace_existing on every boot would push an
+        # interval's next run a day ahead each deploy, so with daily deploys it might never fire.
+        trigger=CronTrigger(hour=3, minute=17),
         id="retention_sweep",
         replace_existing=True,
         coalesce=True,

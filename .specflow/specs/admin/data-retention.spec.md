@@ -25,11 +25,13 @@ of data, so the Privacy Policy (§10) can state real periods.
 1. **Settings, OFF by default.** `app_settings` row `data_retention` holds
    `{<item>: {"enabled": bool, "days": int}}`. A missing row, a missing item or a non-positive
    `days` means OFF with the recommended default period. No env flag; changed with one UPDATE.
-2. **One daily job.** `retention_sweep` runs once a day on the scheduler leader (a fixed id; one
-   of `admin.engine-health`'s singletons). For every item it
+2. **One daily job.** `retention_sweep` runs once a day at 03:17 on the scheduler leader (a fixed
+   id, R-010; one of `admin.engine-health`'s singletons). A fixed hour, because an interval re-armed
+   on every boot would slip a day with each deploy. For every item it
    counts what is due; it deletes only for an enabled item. It logs one line per item:
    `retention <item> enabled=<bool> days=<n> due=<count> removed=<count>`. An item that raises is
-   logged and the others still run; each item commits on its own.
+   logged and the others still run; each item commits on its own, and an item that fails part-way
+   reports what it had already removed. A row whose date is unknown (NULL) is never due.
 3. **The items** (`now` is UTC; recommended period in brackets):
    - `stale_placeholders` [365 days]: a never-activated student (no password: `players.remove`
      rule 5's placeholder) created more than `days` ago, with no presence on an occurrence that
@@ -37,7 +39,8 @@ of data, so the Privacy Policy (§10) can state real periods.
      `remove_player_service(action="delete")` — so it writes the `deletion_audit` row and refuses
      anyone with an account or a second coach.
    - `deleted_message_text` [30 days]: a message with `is_deleted` whose `updated_at` is more than
-     `days` ago keeps its row but loses its text (`""`), metadata and attachment link.
+     `days` ago keeps its row but loses its text (`""`), metadata and attachment; an image no other
+     row uses is deleted, row then bucket object, as the message delete does.
    - `expired_invitations` [30 days]: coach invitations and player invitations whose `expires_at`
      is more than `days` ago, and coach join tokens expired or deactivated more than `days` ago, are
      deleted.
