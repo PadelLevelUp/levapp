@@ -19,6 +19,12 @@ const declared = (() => {
 })();
 
 describe("web shell capabilities", () => {
+  // student-relations: calendar.view rule 22 (PAD-611). This shell draws invited and waiting
+  // classes as offers, never as bookings, so the server may send them.
+  it("declares student-relations", () => {
+    expect(declared).toContain("student-relations");
+  });
+
   it("declares coach-invite-email", () => {
     expect(declared).toContain("coach-invite-email");
   });
