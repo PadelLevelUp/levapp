@@ -20,6 +20,7 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
+  reconcileSentMessage,
   hasConversation,
   mergeConversationPages,
   mergeOlderPage,
@@ -411,7 +412,8 @@ export default function MessagesPage() {
     );
 
     try {
-      // 2. API resolves — replace temp id with real id, status: 'sent'
+      // 2. API resolves — replace temp id with real id, status: 'sent', unless
+      //    the live echo already delivered it (PAD-647)
       const saved = await sendMessage({
         conversationId: selectedConversation.id,
         content,
@@ -419,14 +421,7 @@ export default function MessagesPage() {
       });
 
       setSelectedConversation((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === tempId ? { ...saved, status: "sent" as const } : m
-              ),
-            }
-          : prev
+        prev ? reconcileSentMessage(prev, tempId, saved) : prev
       );
     } catch {
       setSelectedConversation((prev) =>
