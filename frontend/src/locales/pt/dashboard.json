@@ -18,6 +18,7 @@
       "invites": "Convites",
       "eyebrow": "O TEU REGISTO",
       "ofLessons_one": "de {{count}} aula",
+      "ofLessons_zero": "de {{count}} aulas",
       "ofLessons_other": "de {{count}} aulas",
       "next30Days": "próximos 30 dias",
       "toConfirm": "por confirmar"
@@ -36,6 +37,7 @@
     "addParticipants": "Adicionar participantes",
     "messagesOverviewAria": "Resumo de mensagens",
     "conversationsToReplyCount_one": "{{count}} conversa por responder",
+    "conversationsToReplyCount_zero": "{{count}} conversas por responder",
     "conversationsToReplyCount_other": "{{count}} conversas por responder",
     "greeting": {
       "morning": "Bom dia, {{name}}",
@@ -43,6 +45,7 @@
       "evening": "Boa noite, {{name}}"
     },
     "thingsNeedYou_one": "{{count}} coisa precisa de ti",
+    "thingsNeedYou_zero": "{{count}} coisas precisam de ti",
     "thingsNeedYou_other": "{{count}} coisas precisam de ti",
     "today": "Hoje",
     "newClass": "Nova aula",
@@ -59,9 +62,11 @@
       "laterFailed": "Não foi possível adiar. Tenta de novo.",
       "emptySeats": {
         "title_one": "{{class}} tem {{count}} vaga livre",
+        "title_zero": "{{class}} tem {{count}} vagas livres",
         "title_other": "{{class}} tem {{count}} vagas livres",
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
         "invite_one": "Convidar {{count}} jogador",
+        "invite_zero": "Convidar {{count}} jogadores",
         "invite_other": "Convidar {{count}} jogadores"
       },
       "reply": {
@@ -70,10 +75,12 @@
       },
       "validation": {
         "title_one": "Tens {{count}} aula por validar",
+        "title_zero": "Tens {{count}} aulas por validar",
         "title_other": "Tens {{count}} aulas por validar",
         "thisWeek": "Esta semana",
         "lastWeek": "Semana passada",
         "weeksAgo_one": "Há {{count}} semana",
+        "weeksAgo_zero": "Há {{count}} semanas",
         "weeksAgo_other": "Há {{count}} semanas",
         "review": "Rever"
       },
@@ -95,15 +102,18 @@
     },
     "schedule": {
       "eyebrow_one": "PRÓXIMOS 7 DIAS · {{count}} AULA",
+      "eyebrow_zero": "PRÓXIMOS 7 DIAS · {{count}} AULAS",
       "eyebrow_other": "PRÓXIMOS 7 DIAS · {{count}} AULAS",
       "calendar": "Calendário",
       "none": "Sem aulas nos próximos 7 dias.",
       "full": "Cheia",
       "empty": "Vazia",
       "seats_one": "{{count}} vaga",
+      "seats_zero": "{{count}} vagas",
       "seats_other": "{{count}} vagas",
       "invite": "Convidar",
       "eyebrowUpcoming_one": "PRÓXIMAS AULAS · {{count}}",
+      "eyebrowUpcoming_zero": "PRÓXIMAS AULAS · {{count}}",
       "eyebrowUpcoming_other": "PRÓXIMAS AULAS · {{count}}",
       "noneUpcoming": "Sem aulas nos próximos 30 dias.",
       "toConfirm": "Confirmas?"

@@ -92,6 +92,7 @@
       "empty": "There are no classes of this coach you can join in the next 14 days.",
       "spotsLeft_one": "{{count}} spot left",
       "spotsLeft_other": "{{count}} spots left",
+      "spotsLeft_zero": "{{count}} spots left",
       "full": "Full",
       "request": "Ask to join",
       "noteLabel": "Note to the coach (optional)",
