@@ -5,8 +5,9 @@ import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
 
 // Web platform adapter: tokens live in localStorage. A "view as" token (PAD-532, rule 9) lives in
 // this tab's sessionStorage and wins while present; the normal session is then never touched.
-/** The API's base; the one place it is written (PAD-617 reads it for the public demo endpoint). */
-export const API_BASE_URL = "/api";
+/** The API's base, resolved once in `@/api/base` (PAD-614, delivery.api-host rule 4); re-exported for the
+ * public demo endpoint (PAD-617), which imports it from here. */
+export { API_BASE_URL };
 
 export const webTokenStorage: TokenStorage = {
   async getToken() {
