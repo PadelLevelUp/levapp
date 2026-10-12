@@ -52,6 +52,9 @@ data at once.
   completely undone later, cleanly, without touching anything created outside of it.
 - The spreadsheet content the AI reads goes only to a model provider that neither trains on it nor
   keeps it; if none is available the analysis fails rather than use one that does (PAD-636).
+- A player imported without an email has no email in LevApp. LevApp never invents a contact
+  address for someone, and an imported player chooses their own username when they activate,
+  as with any player a coach adds by hand (PAD-633).
 - A reverted import is marked as reverted, not deleted from history — the coach can still see that
   it happened.
 

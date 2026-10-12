@@ -14,6 +14,8 @@ export interface SeededSession {
   roleId: number;
   pendingCoachIds: number[];
   userIds: number[];
+  /** admin.moderation: open reports on two coach messages, oldest first. */
+  reportIds: number[];
 }
 
 export function readSeededSession(): SeededSession {
