@@ -49,9 +49,11 @@ test("US-58: coach can type and send a message", async ({ page }) => {
     msgInput.press("Enter"),
   ]);
 
-  // The text appears in both the conversation list sidebar (preview) and the
-  // message bubble. Match the bubble (last in DOM) to avoid strict-mode collisions.
-  await expect(page.getByText(newMessage).last()).toBeVisible({ timeout: 5000 });
+  // The text also appears in the conversation list preview, so match inside the
+  // thread only — and exactly once: a second bubble is PAD-647's duplicate.
+  const bubble = page.getByTestId("message-scroller").getByText(newMessage, { exact: true });
+  await expect(bubble).toBeVisible({ timeout: 5000 });
+  await expect(bubble).toHaveCount(1);
 });
 
 // US-59: Sent messages appear immediately (without page reload)
