@@ -4,7 +4,7 @@
  * session), and no HubSpot host: the server relays the request.
  */
 
-import { API_BASE_URL } from "@/api/client";
+import { API_BASE_URL } from "@/api/base";
 
 export type DemoPedido = "demonstracao" | "mes_gratis";
 
