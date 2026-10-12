@@ -27,6 +27,11 @@ case " $* " in
     # PAD-200 live path: pg_dump | pg_restore inside one sh -c
     echo "live-copy" > "$STUB_HOME/restored.dump" ;;
   *" pg_restore "*) cat > "$STUB_HOME/restored.dump" ;;
+  *" psql "*" ON_ERROR_STOP=1 "*)
+    # PAD-606: the scrub file arrives on stdin
+    cat > "$STUB_HOME/scrub.sql"
+    [ -n "${STUB_SCRUB_FAILS:-}" ] && { echo "ERROR: scrub failed" >&2; exit 3; }
+    : ;;
   *" psql "*)
     sql="${@: -1}"
     case "$sql" in
@@ -126,7 +131,8 @@ def test_a_new_nightly_dump_is_restored_from_gcs_not_from_prod(sandbox):
     assert f"gsutil cp gs://unit-test-bucket/padel_app/{NEW} -" in calls
     assert "pg_dump" not in calls, "routine syncs never read the live database"
     assert "docker stop padelapp_staging" in calls and "docker start padelapp_staging" in calls
-    assert re.search(r"update users set email", calls, re.I), "the scrub still runs"
+    assert "psql -U padel_app_user -d padel_app_staging -q -1 -v ON_ERROR_STOP=1" in calls, "the scrub runs (PAD-606)"
+    assert "UPDATE users" in (sandbox["home"] / "scrub.sql").read_text(), "it is fed staging-scrub.sql"
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{NEW}"
 
 
@@ -203,3 +209,15 @@ def test_the_workflow_passes_the_mode_and_offers_three():
     assert re.search(r"options:\s*\[\s*auto,\s*reload,\s*live\s*\]", block.group(1))
     job = text.split("\n  sync-db:\n", 1)[1].split("\n  frontend:\n", 1)[0]
     assert "${{ inputs.sync_db || 'auto' }}" in job
+
+
+def test_a_failed_scrub_wipes_staging_and_records_nothing(sandbox):
+    """PAD-606 rule 9: fail closed. Staging comes up empty rather than with unscrubbed data, and the
+    dump is not recorded, so the next push restores and scrubs again."""
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    result, calls = run(sandbox, STUB_SCRUB_FAILS="1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "the scrub failed; wiping padel_app_staging" in result.stdout
+    assert calls.rfind("drop schema if exists public cascade") > calls.find("ON_ERROR_STOP=1")
+    assert "docker start padelapp_staging" in calls, "the app still comes back (empty)"
+    assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
