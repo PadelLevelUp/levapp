@@ -117,3 +117,18 @@ describe("the iOS grid on a busy hour (B-543)", () => {
     expect(onSelectDay).toHaveBeenCalledWith(day);
   });
 });
+
+// PAD-611 (calendar.mobile-views rule 5): the student's relations on the iOS card.
+describe("the iOS card — a student's relations (PAD-611)", () => {
+  it("invited, waiting and 'Não vou' carry their chips and no ✓", async () => {
+    for (const [studentRelation, key] of [
+      ["invited", "calendar.relation.invited"],
+      ["waiting", "calendar.relation.waiting"],
+      ["not_coming", "calendar.relation.notComing"],
+    ] as const) {
+      const n = await renderNative(student(<EventCard event={cls({ studentRelation })} />));
+      expect(n.queryByTestId("calendar-enrolled-mark")).toBeNull();
+      expect(n.byTestId("calendar-relation-chip").props.children).toBe(key);
+    }
+  });
+});

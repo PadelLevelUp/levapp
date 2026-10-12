@@ -74,6 +74,18 @@ describe("dayDotColors", () => {
     expect(colors).not.toContain(SURFACES.card);
   });
 
+  it("PAD-611: an invitation's dot is the class colour, a waiting place's is muted", () => {
+    const colors = dayDotColors(
+      [
+        event({ id: "i", color: "#1355DC", studentRelation: "invited" }),
+        event({ id: "w", color: "#1355DC", studentRelation: "waiting", startTime: "16:00", endTime: "17:00" }),
+      ],
+      SURFACES,
+      NOW
+    );
+    expect(colors).toEqual(["#1355DC", SURFACES.mutedForeground]);
+  });
+
   it("a class without a colour falls back to primary", () => {
     expect(dayDotColors([event({ color: undefined })], SURFACES, NOW)).toEqual([
       lightTheme.primary,
