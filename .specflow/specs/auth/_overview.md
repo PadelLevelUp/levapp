@@ -16,6 +16,7 @@ The auth domain.
 - `auth.password-recovery` — draft (email-based password and username recovery: one mail with the username and a single-use 6-digit code; replaces the dead legacy `/auth/forgot_password`; PAD-139)
 - `auth.parental-consent` — **retired (PAD-457)**: the guardian-consent flow for minors, removed from the code when LevApp became adults-only (`auth.register` rule 18, `auth.activate` rule 13). Kept as the record; its tables stay until a checked migration.
 - `auth.token-refresh` — implemented
+- `auth.social-sign-in` — draft (PAD-618: sign up and sign in with Google on web and iOS, and with Apple on iOS; one verified-token endpoint, linking by verified email, sign-up's own checks for new accounts; ships dark until the client ids exist)
 - `auth.push-subscription` — implemented
 - `auth.landing-page` — implemented (web-only public page at `/`, audience tabs)
 - `auth.mobile-universal-links` — implemented
@@ -27,3 +28,4 @@ The auth domain.
 
 One domain of the LevelUp product, migrated 2026-09-03 from the legacy `specs/auth/spec.md` (one file per domain) into one leaf per behaviour. Leaves sit directly under the domain — no capability folders yet.
 - `legal-pages` — the public Terms of Service and Privacy Policy at /terms and /privacy, rendered from markdown with a version header and an EN | PT switch (PAD-601).
+- `delete-account-page` — the public /delete-account page Google Play requires: how to delete in the app or by email without it, and what deletion removes and keeps (PAD-603, web only by design).

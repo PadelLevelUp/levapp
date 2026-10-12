@@ -10,7 +10,6 @@ class Lesson(db.Model, model.Model):
     __tablename__ = "lessons"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Lessons"
     model_name = "Lesson"
 
     id = Column(Integer, primary_key=True)
@@ -166,17 +165,6 @@ class Lesson(db.Model, model.Model):
 
     def __str__(self):
         return self.title
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "title", "label": "Title"}
-        columns = [
-            {"field": "title", "label": "Title"},
-            {"field": "start_datetime", "label": "Start"},
-            {"field": "end_datetime", "label": "End"},
-            {"field": "is_recurring", "label": "Recurring"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

@@ -1,7 +1,9 @@
 """auth.coach-crm-sync — a self-registered coach becomes a HubSpot contact (PAD-471).
 
 Four triggers call in after their commit: sign-up (`sync_coach_signup`) and the
-admin's approve / reject plus the coach's re-apply (`sync_coach_status`). Each
+admin's approve / reject plus the coach's re-apply (`sync_coach_status`). A fifth,
+the coach's own account deletion (`archive_deleted_coach`, rule 9, PAD-607),
+archives the contact instead. Each
 builds a plain dict from the coach's own row (`coach_payload`, the RGPD
 allow-list), reads the config, and hands both to `run_sync` on a background
 thread. `run_sync` touches no database and needs no app context, so it can move
@@ -96,6 +98,24 @@ def _trigger(user, coach, *, move_deals):
         logger.warning("hubspot sync not started: %s", type(exc).__name__)
 
 
+def archive_deleted_coach(email):
+    """Rule 9 (PAD-607): a coach deleted their account — archive the contact with
+    exactly this email. The caller captures the email before anonymising the row
+    and calls after the deletion's commit. Never raises; no token, no traffic."""
+    from padel_app.utils.view_as import suppressed
+
+    if suppressed("crm"):
+        return
+    try:
+        config = _config()
+        email = (email or "").strip().lower()
+        if not config["token"] or not email:
+            return
+        _dispatch(run_archive, email, config)
+    except Exception as exc:  # noqa: BLE001 — never fail the caller
+        logger.warning("hubspot archive not started: %s", type(exc).__name__)
+
+
 def _inline():
     """`HUBSPOT_SYNC_INLINE` (app config; default: the TESTING flag), the same
     switch push_sender has, so tests see the effect when the request returns."""
@@ -112,16 +132,14 @@ def _submit(payload, config, move_deals):
     thread, not push_sender's queue, is the coordinator's call for this volume
     (a few coach sign-ups a week): a sync lost to a restart is healed by the
     next decision's upsert (rule 6)."""
+    _dispatch(run_sync, payload, config, move_deals=move_deals)
+
+
+def _dispatch(target, *args, **kwargs):
     if _inline():
-        run_sync(payload, config, move_deals=move_deals)
+        target(*args, **kwargs)
         return
-    threading.Thread(
-        target=run_sync,
-        args=(payload, config),
-        kwargs={"move_deals": move_deals},
-        name="hubspot-sync",
-        daemon=True,
-    ).start()
+    threading.Thread(target=target, args=args, kwargs=kwargs, name="hubspot-sync", daemon=True).start()
 
 
 # ── the HTTP work: a plain dict and the config, nothing else ─────────────────
@@ -136,6 +154,26 @@ def run_sync(payload, config, *, move_deals):
         logger.warning("hubspot sync failed at %s: HTTP %s", exc.step, exc.status)
     except Exception as exc:  # noqa: BLE001 — network errors included; never raise
         logger.warning("hubspot sync failed: %s", type(exc).__name__)
+
+
+def run_archive(email, config):
+    """Rule 9: archive (`DELETE`; HubSpot's recycle bin keeps it 90 days) every
+    contact whose email is exactly this one. Never the phone lookup of rule 4 —
+    a phone-only lead belongs to sales. Never raises."""
+    try:
+        body = {
+            "filterGroups": [{"filters": [{"propertyName": "email", "operator": "EQ", "value": email}]}],
+            "properties": ["email"],
+            "limit": 10,
+        }
+        results = _call("POST", "/crm/v3/objects/contacts/search", config, "archive-search", body).get("results") or []
+        for result in results:
+            if ((result.get("properties") or {}).get("email") or "").strip().lower() == email:
+                _call("DELETE", f"/crm/v3/objects/contacts/{result['id']}", config, "archive")
+    except HubSpotError as exc:
+        logger.warning("hubspot archive failed at %s: HTTP %s", exc.step, exc.status)
+    except Exception as exc:  # noqa: BLE001 — network errors included; never raise
+        logger.warning("hubspot archive failed: %s", type(exc).__name__)
 
 
 RETRY_PAUSE_S = 1

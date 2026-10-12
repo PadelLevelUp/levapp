@@ -51,8 +51,11 @@ removed from web and iOS in the same ticket.
    approval status and clubs (for a coach), the coaches a player is linked to (for a player),
    account profiles (`auth.account-profiles`), whether a push device is registered, the product
    `is_superadmin` flag, and the user's last 20 audit rows. It never answers a password hash, a
-   code, a token, a device token or a push key (the redaction list of `settings.admin-editor`
-   rule 3 applies).
+   code, a token, a device token or a push key: never `users.password`, `users.generated_code`,
+   `users.email_verification_code_hash`, `users.password_reset_code_hash`, `device_tokens.token`,
+   `push_subscriptions.subscription_json` or any invitation / join token (the list
+   `settings.admin-editor` rule 3 kept until PAD-550 deleted that editor; the user view builds its
+   own field list and never reads those columns).
 6. **Disable and enable.** `POST /admin/api/users/<user_id>/disable` `{reason}` and `.../enable`
    (`operator`) set `users.status` to `disabled` / `active`. Disabling uses the same state as
    account deletion and rejection, so the JWT blocklist loader refuses every product token of
@@ -117,7 +120,9 @@ removed from web and iOS in the same ticket.
 10c. **The generic editor (`/editor`) is retired here (owner, 2026-10-07).** Everything reachable
     goes: the web route and page, the editor resource client in `packages/api`, and
     `EDITOR_ENABLED` from the staging template, so the editor blueprints answer 404 in every
-    deployed environment. The dead backend code is deleted by PAD-550.
+    deployed environment. PAD-550 then deleted the backend code (the three editor blueprints, the
+    `EDITOR_ENABLED` switch, the `MODELS` registry, the editor templates and helpers); the E2E and
+    Maestro suites clean up through the E2E-only `/api/app/notify/debug/rows` routes instead.
 11. **Old clients.** An App Store build that still shows Settings → Admin gets 404 from the removed
     routes; the section shows its load-error state and nothing else breaks. No compatibility route
     is kept.
@@ -197,10 +202,11 @@ removed from web and iOS in the same ticket.
 - **When** support GETs `/admin/api/settings/coach-approval`, support PUTs it, and the operator PUTs `{coachApprovalRequired: false}`
 - **Then** the GET answers `{coachApprovalRequired: true, source: "environment"}`; support's PUT is 403; after the operator's PUT a self-registering coach is created `approved`, and one audit row `settings.coach_approval` holds `before.coachApprovalRequired = true`, `after.coachApprovalRequired = false`; `GET /api/app/admin/settings` is 404
 
-#### The editor is unreachable (rule 10c)
-- **Given** the staging env template and the web app's routes
-- **When** they are read
-- **Then** the template does not set `EDITOR_ENABLED`, and no web route renders `/editor`
+#### The editor is gone (rule 10c, PAD-550)
+- **Given** the backend app and the web app's routes
+- **When** `/editor/`, `/api/editor/models` and `/api/query/user` are requested and the routes are read
+- **Then** each answers 404 in every environment (no `EDITOR_ENABLED` switch exists), and no web route
+  renders `/editor`
 
 ### Not this spec
 - How approval itself works (statuses, emails, the gate, re-application) — `auth.coach-approval`,

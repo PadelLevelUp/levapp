@@ -18,6 +18,7 @@ LevApp.
 - `auth.minor-signs-up-with-a-guardians-consent` — **retired (PAD-457)**: LevApp accepts adults only; kept as the record of the journey that existed.
 - `auth.visitor-picks-an-audience-and-finds-the-way-in` — the public landing page: a visitor with
   no account picks coach / player / other and is pointed at a demo, the login, support or an email.
+- `auth.user-signs-in-with-google-or-apple` — draft: a coach or student signs up and signs in with Google (web, iPhone) or Apple (iPhone), with the same checks as a password sign-up (PAD-618).
 
 ## Why it's grouped this way
 

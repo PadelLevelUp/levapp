@@ -14,7 +14,6 @@ class Court(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Courts"
     model_name = "Court"
 
     id = Column(Integer, primary_key=True)
@@ -32,16 +31,6 @@ class Court(db.Model, model.Model):
 
     def __str__(self):
         return self.name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Court"}
-        columns = [
-            {"field": "club", "label": "Club"},
-            {"field": "name", "label": "Court"},
-            {"field": "position", "label": "Position"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

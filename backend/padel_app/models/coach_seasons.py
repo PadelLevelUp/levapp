@@ -31,7 +31,6 @@ class CoachSeason(db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Seasons"
     model_name = "CoachSeason"
 
     id = Column(Integer, primary_key=True)
@@ -57,20 +56,6 @@ class CoachSeason(db.Model, model.Model):
 
     def __str__(self):
         return self.display_name
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "label", "label": "Season"}
-        columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "label", "label": "Label"},
-            {"field": "start_day", "label": "Start day"},
-            {"field": "start_month", "label": "Start month"},
-            {"field": "end_day", "label": "End day"},
-            {"field": "end_month", "label": "End month"},
-            {"field": "needs_review", "label": "Needs review"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

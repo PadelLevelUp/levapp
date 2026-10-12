@@ -29,7 +29,7 @@ Only matching rows are written, so a second run is a no-op. Downgrade does nothi
 values were never worth restoring.
 
 Revision ID: 0069acbc403a
-Revises: 661763c8e361
+Revises: 6aef46eb1421
 """
 import secrets
 
@@ -38,7 +38,7 @@ from alembic import op
 from werkzeug.security import check_password_hash
 
 revision = "0069acbc403a"
-down_revision = "661763c8e361"  # PAD-591
+down_revision = "6aef46eb1421"  # PAD-618
 branch_labels = None
 depends_on = None
 

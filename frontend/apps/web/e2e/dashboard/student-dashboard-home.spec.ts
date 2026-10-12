@@ -175,7 +175,7 @@ test.describe("PAD-202: student dashboard home", () => {
  * the unread badge are all driven by a genuine reminder message.
  */
 import { API_ROOT } from "../helpers/api";
-import { deleteNewEditorRows, editorIds, removeClassesOnDay } from "../helpers/cleanup";
+import { deleteNewCleanupRows, cleanupRowIds, removeClassesOnDay } from "../helpers/cleanup";
 import {
   COACH_PASSWORD,
   COACH_USERNAME,
@@ -354,7 +354,7 @@ test.describe("PAD-236: chat-born asks reach the student's queue", () => {
 
     // PAD-341: the offer's Yes leaves a waiting-list entry on the seeded academy
     // class, which every later spec reading that class inherits.
-    const entriesBefore = await editorIds(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry");
+    const entriesBefore = await cleanupRowIds(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry");
     try {
       const offered = await request.post(`${API_ROOT}/app/notify/debug/offer_waiting_list`, {
         headers: { Authorization: `Bearer ${coachJwt}` },
@@ -390,7 +390,7 @@ test.describe("PAD-236: chat-born asks reach the student's queue", () => {
       const kinds = (blocks.find((b) => b.type === "needs_you")?.data.items ?? []).map((i) => i.kind);
       expect(kinds).not.toContain("waiting_list_offer");
     } finally {
-      await deleteNewEditorRows(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry", entriesBefore);
+      await deleteNewCleanupRows(request, { Authorization: `Bearer ${coachJwt}` }, "waitinglistentry", entriesBefore);
     }
   });
 });

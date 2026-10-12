@@ -41,7 +41,6 @@ def create_item():
 | JSON API for the app | `/api/app/...` or `/api/<resource>` |
 | Auth endpoints | `/api/auth` |
 | Push / real-time | `/api/notifications` |
-| Admin / editor | `/editor` |
 | Session-based (non-API) | `/auth`, `/` |
 
 Use `/api/app/<resource>` when the route belongs to the main frontend application, matching the pattern in `frontend_api.py`.
@@ -129,7 +128,7 @@ def require_auth():
     pass
 ```
 
-Or use a custom decorator (see `auth_tools.admin_required` in `editor.py`).
+Or use a custom decorator.
 
 ---
 
