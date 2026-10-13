@@ -39,6 +39,8 @@ appId: com.padellevelup.app
 # ── auth.register rule 10 (PAD-225): a rejected field is named under the input ──
 - tapOn:
     id: "signup-username"
+# PAD-651: the username is pre-filled from the name; clear it before typing.
+- eraseText
 - inputText: "a"
 # The PAD-198 fields put the submit button below the keyboard; a tap there
 # lands on a key. Dismiss the keyboard and bring the button into view first.
@@ -124,6 +126,8 @@ appId: com.padellevelup.app
 - inputText: "Maestro Coach"
 - tapOn:
     id: "signup-username"
+# PAD-651: the username is pre-filled from the name; clear it before typing.
+- eraseText
 - inputText: "maestro-c-${output.stamp}"
 # PAD-198: Next moves focus down the form and scrolls the field into view. A field
 # under the keyboard still counts as visible, so tapping it would hit the keyboard.
