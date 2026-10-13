@@ -27,7 +27,7 @@ and up to an hour, and the deploy workflows run the same service container.
    keeps the last good image, so CI is unaffected by an outage at either source.
 4. Every workflow's postgres service container pulls the package, never a public registry, with
    `credentials` from the run's `GITHUB_TOKEN`. A workflow with a `permissions:` block grants
-   `packages: read`. (PAD-653 part 2.)
+   `packages: read`. Guarded by `test_pad653_ci_images_mirror.py`.
 
 ### Acceptance Criteria
 
