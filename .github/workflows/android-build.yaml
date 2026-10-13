@@ -188,10 +188,13 @@ jobs:
     timeout-minutes: 100  # the full ~36-flow suite is ~60 min of emulator time (PAD-298)
     services:
       postgres:
-        # PAD-598: the official image from AWS's public mirror, not Docker Hub, whose anonymous
-        # per-IP quota and auth endpoint failed GitHub's shared runners (`toomanyrequests`,
-        # then token-endpoint timeouts). Same bytes as postgres:15.
-        image: public.ecr.aws/docker/library/postgres:15
+        # PAD-653 (delivery.ci-images rule 4): our own GHCR copy of postgres:15, refreshed weekly by
+        # mirror-ci-images.yaml. Anonymous ECR Public (PAD-598) hit its per-IP data limit on the
+        # shared runners ("toomanyrequests: Data limit exceeded" at Initialize containers).
+        image: ghcr.io/padellevelup/ci-postgres:15
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         env:
           POSTGRES_USER: padel_app_user
           POSTGRES_PASSWORD: padel_app_test
