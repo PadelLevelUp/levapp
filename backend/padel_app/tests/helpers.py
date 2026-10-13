@@ -3,6 +3,8 @@ Shared test helper utilities.
 """
 import sys
 
+import pytest
+
 from padel_app.sql_db import db
 from padel_app.utils import dates as _dates
 
@@ -90,3 +92,10 @@ def insert_user_on_an_old_schema(username, name=None):
         {"n": name or username, "u": username, "e": f"{username}@t.test"},
     ).scalar_one()
     return SimpleNamespace(id=user_id)
+
+
+#: PAD-654: the items deselected in this session (`-k`, `-m`, or pytest-split's other shard), recorded
+#: by conftest's `pytest_deselected`, so a guard that needs the whole collection still sees it from
+#: inside one shard. Here, not in conftest: importing conftest by package name loads a second copy
+#: with a second key.
+DESELECTED = pytest.StashKey[list]()
