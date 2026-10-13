@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { describeApiError } from "@/lib/apiError";
-import { COUNTRIES, countryName } from "@levelup/config";
+import { COUNTRIES, countryName, suggestUsername } from "@levelup/config";
 import { CODE_KEYS, formatBirthInput, signUpSchema, toIso } from "@/features/auth/signup-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
@@ -63,6 +63,12 @@ export default function SignUpScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // auth.register rule 21c (PAD-651): one sign-up per account. The ref is set synchronously, so a
+  // double tap cannot start two requests; `created` keeps the form shut once the account exists.
+  const inFlight = React.useRef(false);
+  const [created, setCreated] = React.useState(false);
+  // auth.register rule 21a: the username follows the suggestion until the user types in it.
+  const [usernameTyped, setUsernameTyped] = React.useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
   // y offset of each field inside the scroll view, so the first invalid one
   // can be brought into view (auth.register rule 10: every rejection names
@@ -95,7 +101,14 @@ export default function SignUpScreen() {
   };
 
   const setField = (field: Field, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if (!usernameTyped && (field === "name" || field === "email")) {
+        next.username = suggestUsername(next.name, next.email);
+      }
+      return next;
+    });
+    if (field === "username") setUsernameTyped(true);
     setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
@@ -120,9 +133,12 @@ export default function SignUpScreen() {
   };
 
   const handleSubmit = async () => {
+    if (inFlight.current || created) return;
     setFormError(null);
     if (!validate()) return;
+    inFlight.current = true;
     setLoading(true);
+    let accountCreated = false;
     try {
       const result = await register({
         role,
@@ -134,6 +150,8 @@ export default function SignUpScreen() {
         country,
         termsAccepted,
       });
+      accountCreated = true;
+      setCreated(true);
       const me = result.user;
       let destination: string;
       if (role === "student") {
@@ -200,7 +218,11 @@ export default function SignUpScreen() {
         setFormError(info.message ?? t("auth.signup.failedDescription"));
       }
     } finally {
-      setLoading(false);
+      // rule 21c: once the account exists the form stays shut.
+      if (!accountCreated) {
+        inFlight.current = false;
+        setLoading(false);
+      }
     }
   };
 
@@ -402,7 +424,7 @@ export default function SignUpScreen() {
               testID="signup-submit"
               accessibilityLabel={t("auth.signup.create")}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || created}
             >
               {loading ? <ActivityIndicator color="#ffffff" /> : <Text>{t("auth.signup.create")}</Text>}
             </Button>
