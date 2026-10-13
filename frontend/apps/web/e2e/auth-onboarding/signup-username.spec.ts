@@ -55,8 +55,15 @@ test("PAD-651: a double click on Create account sends one sign-up", async ({ pag
     await route.fulfill({ response });
   });
 
-  await page.getByTestId("signup-submit").dblclick();
-  await page.getByTestId("signup-submit").click({ force: true });
+  // Two clicks in the same task, as a quick double tap lands: React has not re-rendered (and
+  // disabled the button) in between, so only the handler's own guard can stop the second one.
+  // Playwright's dblclick waits for the button between clicks and passes on the old page.
+  await page.getByTestId("signup-submit").evaluate((b: HTMLButtonElement) => {
+    b.click();
+    b.click();
+  });
+  await expect.poll(() => posts).toBe(1);
+  await page.waitForTimeout(300);
   release();
 
   await expect(page).not.toHaveURL(/\/signup$/, { timeout: 15_000 });
