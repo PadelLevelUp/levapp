@@ -35,6 +35,8 @@ appId: com.padellevelup.app
 - inputText: "Maestro Minor"
 - tapOn:
     id: "signup-username"
+# PAD-651: the username is pre-filled from the name; clear it before typing.
+- eraseText
 - inputText: ${output.username}
 # Next moves focus down the form and scrolls the field into view (PAD-198).
 - pressKey: Enter

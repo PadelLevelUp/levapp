@@ -124,6 +124,27 @@ create one, or ask to join an existing one — happens right after approval (`cl
     form working without a draft. iOS: the native form stays mounted while the documents open in
     the in-app browser, so nothing is lost there and no draft is kept.
 
+21. **The username field explains itself, and a sign-up is sent once (PAD-651, B-528).** On both
+    sign-up forms (web `/signup`, iOS `signup.tsx`):
+    a. **Pre-filled, editable.** Until the user edits the username field, it follows a suggestion
+       built by `suggestUsername(name, email)` (`@levelup/config`): the name, or the email's local
+       part when the name gives fewer than 3 usable characters (the part before `@`, cut at the first
+       `+`). Accents are dropped, spaces become `.`, anything outside `[A-Za-z0-9._-]` is removed, runs
+       of `.`/`_`/`-` collapse to one, leading and trailing ones are trimmed, the result is lower-case
+       and at most 30 characters; under 3 characters there is no suggestion. Once the user types in
+       the field, it is theirs and is never overwritten. A restored web draft (rule 20) whose username
+       differs from the suggestion counts as typed.
+    b. **An email in the username names the mistake.** A username containing `@` is refused with
+       `usernameIsEmail` ("O nome de utilizador não é o teu email — escolhe um nome curto, ex.:
+       jorge.torres" / "Your username is not your email — pick a short name, e.g. jorge.torres")
+       instead of the generic `usernameChars`. Both schemas choose the message through
+       `usernameCharsIssue(username)` (`@levelup/config`). Capitals stay allowed.
+    c. **One submit per account.** A submit that starts while one is in flight does nothing (guarded
+       synchronously, so a double tap cannot send two requests). Once `POST /api/auth/register` has
+       answered 201, the form never sends again: the submit button stays disabled, and if a later
+       step (sign-in, `/auth/me`) fails, the web form sends the user to the login page with their new
+       account instead of unlocking the form, which would only earn a 409.
+
 19b. **The Terms, on every form that completes an account (PAD-637, PAD-602 D4).** The coach-invite
     accept (`clubs.coach-invitation` rule 8b), the player-invite accept (`players.invite-completion` rule
     10b) and activation (`auth.activate` rule 13b) carry the same required checkbox and links as rule 19,
@@ -259,6 +280,21 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Then** the user has `terms_accepted_at` (the request's UTC instant), `terms_version` = `TERMS_VERSION` and `privacy_version` = `PRIVACY_VERSION`
 - **And** without `termsAccepted: true` the answer is 400 `TERMS_REQUIRED` and nothing is written
 - **And** a client that does not declare the token completes as before, with the three columns NULL
+
+#### The username is pre-filled from the name (rule 21a, PAD-651)
+- **Given** an empty sign-up form on web or iOS
+- **When** the user types the name "Jorge Torres"
+- **Then** the username field shows "jorge.torres", and editing it to "JPT" keeps "JPT" when the name changes again
+
+#### An email typed as the username gets the specific message (rule 21b, PAD-651)
+- **Given** a sign-up form with a valid name, email and passwords
+- **When** the user enters "jorge.torres@gmail.com" as the username and submits
+- **Then** no request is sent and the username field shows "O nome de utilizador não é o teu email — escolhe um nome curto, ex.: jorge.torres" (pt), not the generic characters message
+
+#### A second submit after a successful sign-up is impossible (rule 21c, PAD-651)
+- **Given** a valid web sign-up form whose `POST /api/auth/register` answers 201
+- **When** the user presses Create account twice in a row
+- **Then** exactly one `POST /api/auth/register` is sent and the button stays disabled
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2

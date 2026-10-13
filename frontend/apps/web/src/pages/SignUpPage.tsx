@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -22,7 +22,7 @@ import { needsEmailVerification, postLoginPath } from "@/auth/postLoginPath";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
-import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
+import { COUNTRIES, countryName, isUnderSignupAge, suggestUsername, usernameCharsIssue } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { browserSignupDraft } from "@/lib/signupDraft";
 
@@ -45,7 +45,11 @@ const signUpSchema = z
       .trim()
       .min(3, "usernameMin")
       .max(80, "usernameMax")
-      .regex(/^[A-Za-z0-9._-]+$/, "usernameChars")
+      // auth.register rule 21b (PAD-651): an "@" names the mistake (an email in the wrong field).
+      .superRefine((u, ctx) => {
+        const issue = usernameCharsIssue(u);
+        if (issue) ctx.addIssue({ code: "custom", message: issue });
+      })
       .refine((u) => !u.toLowerCase().startsWith("pending-"), "usernameReserved"),
     email: z.string().trim().email("emailInvalid"),
     password: z.string().min(8, "passwordMin"),
@@ -112,9 +116,25 @@ const SignUpPage = () => {
   }, [draftStore, role, form, termsAccepted]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  // auth.register rule 21c (PAD-651): one sign-up per account. The ref is set synchronously, so a
+  // double click cannot start two requests; `created` keeps the form shut once the 201 has come.
+  const inFlight = useRef(false);
+  const [created, setCreated] = useState(false);
+  // auth.register rule 21a: the username follows the suggestion until the user types in it. A
+  // restored draft whose username differs from its suggestion was typed.
+  const [usernameTyped, setUsernameTyped] = useState(
+    () => !!form.username && form.username !== suggestUsername(form.name, form.email)
+  );
 
   const setField = (field: keyof typeof form, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if (!usernameTyped && (field === "name" || field === "email")) {
+        next.username = suggestUsername(next.name, next.email);
+      }
+      return next;
+    });
+    if (field === "username") setUsernameTyped(true);
     setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
@@ -144,11 +164,44 @@ const SignUpPage = () => {
     navigate(socialLandingPath(await getMe()), { replace: true });
   };
 
+  /** After the 201: sign in, re-read the user and route on them (rules 11, 14). */
+  const finishSignUp = async (accessToken: string) => {
+    // Same persistence as AuthPage: `login(token)` writes localStorage and
+    // hydrates the session from /auth/me before we route on it.
+    await login(accessToken);
+    // `login()` already loaded the user; re-read it through the same
+    // helper the guards use so the two can never disagree.
+    const me = await getMe();
+    const pendingCode = needsEmailVerification(me);
+    toast({
+      title: t("auth.signup.welcomeTitle"),
+      description: pendingCode
+        ? t("auth.verifyEmail.toastDescription")
+        : role === "coach"
+          ? t("auth.signup.welcomeCoachDescription")
+          : t("auth.signup.welcomeStudentDescription"),
+    });
+    // auth.register rule 11. A brand-new student goes to "Connect with a
+    // coach" regardless of what postLoginPath knows about them; a coach is
+    // routed by approval state (pending, on a fresh signup).
+    // players.join-token rule 9: a student who arrived from a join link
+    // goes straight back to it instead of the generic "Connect" screen.
+    const destination =
+      role === "student" ? (consumePostAuthRedirect() ?? "/connect") : postLoginPath({ ...me, emailVerification: "verified" });
+    // auth.register rule 14: the code screen comes first, then `destination`.
+    navigate(pendingCode ? `/verify-email?next=${encodeURIComponent(destination)}` : destination, {
+      replace: true,
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlight.current || created) return;
     if (!validate()) return;
 
+    inFlight.current = true;
     setSubmitting(true);
+    let accountCreated = false;
     try {
       const res = await register({
         role,
@@ -160,33 +213,17 @@ const SignUpPage = () => {
         country: form.country,
         termsAccepted,
       });
-      // Same persistence as AuthPage: `login(token)` writes localStorage and
-      // hydrates the session from /auth/me before we route on it.
-      await login(res.accessToken);
-      // `login()` already loaded the user; re-read it through the same
-      // helper the guards use so the two can never disagree.
-      const me = await getMe();
-      const pendingCode = needsEmailVerification(me);
-      toast({
-        title: t("auth.signup.welcomeTitle"),
-        description: pendingCode
-          ? t("auth.verifyEmail.toastDescription")
-          : role === "coach"
-            ? t("auth.signup.welcomeCoachDescription")
-            : t("auth.signup.welcomeStudentDescription"),
-      });
-      // auth.register rule 11. A brand-new student goes to "Connect with a
-      // coach" regardless of what postLoginPath knows about them; a coach is
-      // routed by approval state (pending, on a fresh signup).
-      // players.join-token rule 9: a student who arrived from a join link
-      // goes straight back to it instead of the generic "Connect" screen.
-      const destination =
-        role === "student" ? (consumePostAuthRedirect() ?? "/connect") : postLoginPath({ ...me, emailVerification: "verified" });
+      accountCreated = true;
+      setCreated(true);
       draftStore.clear(); // PAD-575: the account exists; nothing to restore any more.
-      // auth.register rule 14: the code screen comes first, then `destination`.
-      navigate(pendingCode ? `/verify-email?next=${encodeURIComponent(destination)}` : destination, {
-        replace: true,
-      });
+      try {
+        await finishSignUp(res.accessToken);
+      } catch {
+        // rule 21c: the account exists, so the form must not be sent again (it would only earn a
+        // 409). Sign in from the login page instead.
+        toast({ title: t("auth.signup.welcomeTitle"), description: t("auth.signup.createdSignIn") });
+        navigate("/auth", { replace: true });
+      }
     } catch (err: unknown) {
       const data = (err as { response?: { status?: number; data?: { error?: string; field?: string; code?: string } } })
         .response;
@@ -221,7 +258,11 @@ const SignUpPage = () => {
         });
       }
     } finally {
-      setSubmitting(false);
+      // rule 21c: once the account exists the form stays shut.
+      if (!accountCreated) {
+        inFlight.current = false;
+        setSubmitting(false);
+      }
     }
   };
 
@@ -356,7 +397,7 @@ const SignUpPage = () => {
               error={errors.terms}
             />
 
-            <Button type="submit" className="w-full" disabled={submitting} data-testid="signup-submit">
+            <Button type="submit" className="w-full" disabled={submitting || created} data-testid="signup-submit">
               {submitting ? t("auth.signup.creating") : t("auth.signup.create")}
             </Button>
           </form>

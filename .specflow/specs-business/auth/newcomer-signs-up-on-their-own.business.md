@@ -37,6 +37,9 @@ without their knowledge (that case is picked up in
 2. They enter their name, a username, an email address and a password. The username is theirs
    to choose and must be free; the email is required (it is how they will recover the account
    later) and must not already belong to someone else.
+   The form suggests a username from their name, which they can change; if they type their email
+   into the username, the form tells them the username is not their email, rather than a generic
+   "invalid characters". Pressing "Create account" twice never creates a second attempt.
 3. **Everyone** first proves the email is theirs: a 6-digit code arrives in their inbox and they
    type it into the app (the phone offers to fill it in from the mail). A wrong address can be
    corrected on the spot, and a new code requested after a minute. Nothing else in the app opens
