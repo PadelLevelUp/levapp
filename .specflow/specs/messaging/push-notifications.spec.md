@@ -122,6 +122,13 @@ Send browser push notifications when a new message arrives and the recipient isn
    holds another user's push ID can redirect that user's notifications to themselves by
    registering it. That is accepted over leaked previews; a push ID is not exposed in the app or
    API.
+9a. **Two registrations at once both succeed and keep one row (PAD-652, B-581).** When two
+   `POST /api/notifications/device` calls for the same (caller, token) both find no row, both
+   insert, and the second insert collides with `uq_device_tokens_user_token`. The insert runs in
+   a savepoint, after the delete of other users' rows, which the rollback keeps. On that
+   collision only the savepoint rolls back, and the registration updates the row the other
+   request wrote: the platform is last-write-wins and both answer 200. This is the same shape
+   as `auth.push-subscription` rule 7.
 
 10. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
    PAD-276 decision 1).** Every push channel (web push, Expo) does its database work on the
@@ -298,6 +305,13 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Then** `bruno` has the only row for that token, and `ana`'s row is gone, so her pushes no longer reach that phone
 - **And** `bruno` posting it again still leaves exactly one row, his
 - **And** `ana`'s rows for OTHER tokens (her other devices) are untouched
+
+#### Two registrations of one token at once keep one row (PAD-652)
+- **Given** user `ana` with no row for `ExponentPushToken[abc]`
+- **When** two POSTs of that token to `/api/notifications/device` reach their insert at the same moment
+- **Then** both answer 200
+- **And** `ana` has exactly one row for that token
+- **And** when an insert collides with a row written after its lookup, the response is still 200 and that row takes this request's platform
 
 #### A push opened on the wrong account says so (D137)
 - **Given** a phone signed in as `bruno` that still receives a push for conversation 176, where `bruno` is not a participant
