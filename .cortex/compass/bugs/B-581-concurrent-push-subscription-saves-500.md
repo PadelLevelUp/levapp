@@ -1,6 +1,6 @@
 ---
 id: B-581
-title: "Two push-subscription saves at once for one user gave a 500 (UniqueViolation on ix_push_subscriptions_user_id); sign-in sent both"
+title: "Two push-subscription saves (web) or device registrations (iOS/Android) at once for one user gave a 500 on the unique index; web sign-in sent both"
 type: incomplete-rule
 severity: medium
 status: resolved
@@ -9,6 +9,7 @@ affects:
   - .specflow/specs/auth/push-subscription.spec.md
   - backend/padel_app/modules/notifications_api.py
   - frontend/apps/web/src/utils/pushNotifications.ts
+  - .specflow/specs/messaging/push-notifications.spec.md
 proposed_fix: "Rule 7: the insert runs in a savepoint and a collision updates the winner's row (both 201, one row). Rule 8: the web client joins a save already in flight for the same token."
 opened: 2026-10-13T15:00:00Z
 ---
@@ -24,6 +25,11 @@ unique index `ix_push_subscriptions_user_id` (notifications_api.py, at the commi
 from the web app itself: `login()` calls `requestAndSubscribe`, and `setToken` re-runs the token
 effect in `AuthContext`, which calls it again. So every web sign-in sent two saves at once.
 
+**The native twin:** `POST /api/notifications/device` had the same read-then-insert shape on
+`uq_device_tokens_user_token`. No prod report of it failing exists, but the Postgres race cell
+reproduces it (red 3/3 on the old code). It gets the same fix (messaging.push-notifications rule
+9a).
+
 **What should happen:** both saves succeed and the user keeps one row (rule 7), and a sign-in
 sends one save (rule 8).
 
@@ -33,10 +39,13 @@ incomplete rule.
   INSERT by a Barrier): red 3/3 on the old code with the prod error, green 3/3 on the fix.
 - The forced-miss cell runs on any database: red on the old code (UNIQUE constraint failed),
   green on the fix.
+- `/device` cells in the same file: Postgres race red 3/3 on the old code
+  (`uq_device_tokens_user_token`), green 3/3 on the fix; the forced-miss cell red to green.
 - `pushNotifications.test.ts` "sends one save when sign-in asks twice at once": red on the old
   client (2 saves sent where 1 was expected), green on the fix.
 
 ### Change Plan
 - Rules 7 and 8 and three criteria (done).
-- Savepoint insert with a fall-back update in `save_subscription` (done).
+- Savepoint insert with a fall-back update in `save_subscription` and `register_device_token` (done).
+- messaging.push-notifications rule 9a and a criterion (done).
 - In-flight dedupe in `subscribeToPush` (done).

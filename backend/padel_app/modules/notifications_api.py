@@ -52,9 +52,19 @@ def register_device_token():
     )
     record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
     if record is None:
-        record = DeviceToken(user_id=user_id, token=token, platform=platform)
-        db.session.add(record)
-    else:
+        # messaging.push-notifications rule 9a (PAD-652, B-581): two registrations at once both
+        # found no row and the loser's insert failed on uq_device_tokens_user_token with a 500.
+        # Same shape as `save_subscription`: the insert runs in a SAVEPOINT (after the delete
+        # above, which the rollback keeps), and a collision updates the winner's row.
+        savepoint = db.session.begin_nested()
+        try:
+            db.session.add(DeviceToken(user_id=user_id, token=token, platform=platform))
+            db.session.flush()
+            savepoint.commit()
+        except IntegrityError:
+            savepoint.rollback()
+            record = DeviceToken.query.filter_by(token=token, user_id=user_id).one()
+    if record is not None:
         record.platform = platform
 
     db.session.commit()

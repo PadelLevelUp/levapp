@@ -11,7 +11,11 @@ Two cells:
   locked" instead): both requests are held at their `INSERT INTO push_subscriptions` until the
   other has reached its own, so both have already looked and found nothing.
 
-Covers auth.push-subscription rule 7 and "Two saves at once keep one subscription".
+The same two cells cover the native twin, POST /api/notifications/device, which had the same shape
+on uq_device_tokens_user_token.
+
+Covers auth.push-subscription rule 7 and "Two saves at once keep one subscription", and
+messaging.push-notifications rule 9a and "Two registrations of one token at once keep one row".
 """
 import contextlib
 import json
@@ -135,3 +139,95 @@ def test_two_saves_at_once_both_succeed_and_keep_one_row(app):
     rows = _rows(app, user_id)
     assert len(rows) == 1
     assert rows[0] in (_subscription(1), _subscription(2))
+
+
+# ---------------------------------------------------------------------------
+# The native twin: POST /api/notifications/device (iOS / Android), same read-then-insert shape
+# on uq_device_tokens_user_token. messaging.push-notifications rule 9a.
+# ---------------------------------------------------------------------------
+
+TOKEN = "ExponentPushToken[pad652]"
+
+
+def _device_rows(app, user_id):
+    from padel_app.models import DeviceToken
+
+    with app.app_context():
+        return [(r.token, r.platform) for r in DeviceToken.query.filter_by(user_id=user_id).all()]
+
+
+def test_a_device_registration_whose_insert_collides_updates_the_winners_row(app, client, monkeypatch):
+    from padel_app.models import DeviceToken
+
+    user_id = _user(app)
+    headers = _headers(app, user_id)
+    first = client.post("/api/notifications/device", json={"token": TOKEN, "platform": "ios"}, headers=headers)
+    assert first.status_code == 200
+
+    real_filter_by = DeviceToken.query_class.filter_by
+    misses = {"left": 1}
+
+    def _first_lookup_misses(self, **kwargs):
+        query = real_filter_by(self, **kwargs)
+        if kwargs == {"token": TOKEN, "user_id": user_id} and misses["left"]:
+            misses["left"] -= 1
+            return query.filter(db.false())
+        return query
+
+    monkeypatch.setattr(DeviceToken.query_class, "filter_by", _first_lookup_misses)
+    resp = client.post("/api/notifications/device", json={"token": TOKEN, "platform": "android"}, headers=headers)
+
+    assert misses["left"] == 0, "the forced miss was never used"
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    assert _device_rows(app, user_id) == [(TOKEN, "android")]
+
+
+@contextlib.contextmanager
+def _both_registrations_reach_the_insert(app):
+    gate = threading.Barrier(2)
+
+    def _hold(conn, cursor, statement, *_a, **_k):
+        if statement.lstrip().upper().startswith("INSERT INTO DEVICE_TOKENS"):
+            try:
+                gate.wait(timeout=GATE_SECONDS)
+            except threading.BrokenBarrierError:
+                pass
+
+    with app.app_context():
+        engine = db.engine
+    event.listen(engine, "before_cursor_execute", _hold)
+    try:
+        yield gate
+    finally:
+        event.remove(engine, "before_cursor_execute", _hold)
+
+
+@pytest.mark.skipif(
+    os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="needs two real connections",
+)
+def test_two_device_registrations_at_once_both_succeed_and_keep_one_row(app):
+    user_id = _user(app)
+    headers = _headers(app, user_id)
+    statuses, errors = [], []
+
+    def register():
+        try:
+            with app.test_client() as c:
+                resp = c.post("/api/notifications/device", json={"token": TOKEN, "platform": "ios"}, headers=headers)
+                statuses.append((resp.status_code, resp.get_data(as_text=True)[:200]))
+        except BaseException as exc:  # noqa: BLE001 — surfaced below
+            errors.append(exc)
+
+    with _both_registrations_reach_the_insert(app) as gate:
+        threads = [threading.Thread(target=register) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+        assert not any(t.is_alive() for t in threads)
+        assert not gate.broken, "the two registrations never met at the insert, so this was not a race"
+
+    assert not errors, errors
+    assert [s for s, _ in statuses] == [200, 200], statuses
+    assert _device_rows(app, user_id) == [(TOKEN, "ios")]
