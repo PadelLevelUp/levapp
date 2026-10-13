@@ -238,8 +238,8 @@ jobs:
           POSTGRES_DB: ${{ env.E2E_DB_NAME }}
           # The E2E backend contract the flows rely on (see .maestro/README.md and the
           # web Playwright config): the debug code/link endpoints behind
-          # E2E_DEBUG_ENDPOINTS are what 22-signup, 28-password-recovery,
-          # 29-coach-rejection and 33-parental-consent read; without them the
+          # E2E_DEBUG_ENDPOINTS are what 22-signup, 28-password-recovery and
+          # 29-coach-rejection read; without them the
           # signup flow strands the app on the verify-email screen and every
           # later flow times out at login (full run 34642499349, PAD-298).
           E2E_DEBUG_ENDPOINTS: "true"

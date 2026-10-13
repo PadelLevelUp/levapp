@@ -1,0 +1,81 @@
+# PAD-637 — auth.legal-catch-up on iOS. An account from before the Terms were recorded and before the
+# birth-date rule (the seed's e2e-legacy-student: active, no Terms record, no birth date) signs in:
+#   - the catch-up screen opens with the Terms box and the birth-date field (rules 1, 2);
+#   - "Not now" goes on to the usual landing and the screen does not reopen in that session (rule 4);
+#   - signing out and in again is a new session, so the screen is back (rule 4);
+#   - a date that makes them under 18 is refused under the field and nothing is saved (rule 5);
+#   - an adult date plus the Terms saves; /api/auth/me then has legalPending all false and the date
+#     stored (rule 3), and a relaunch shows no catch-up.
+# The account cannot be put back through the API (no route clears a Terms record or a birth date), so
+# the seed reset is the teardown: the flow passes once per seed, like the 03/05 and 04/14 pairs.
+# No Playwright mirror yet; the seeded account is there for one. Asserted by id (PAD-320).
+# Flow number 259 is from 0910-SessionA's reserved block (259–268).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.login = function () { return json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-legacy-student', password: 'E2eLegacy123!' }) }).body).accessToken; }}"
+- evalScript: "${output.me = function () { return json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.login() } }).body); }}"
+# Precondition: the account is still pending both parts (a second run without a reseed stops here).
+- evalScript: "${output.before = output.me().legalPending}"
+- assertTrue: "${output.before.terms === true && output.before.birthDate === true}"
+
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/login-legacy-student.yaml
+- assertVisible:
+    id: "legal-catch-up-terms"
+- assertVisible:
+    id: "legal-catch-up-birthDate"
+
+# Not now: on to the usual landing; the screen does not reopen in this session.
+- tapOn:
+    id: "legal-catch-up-not-now"
+- runFlow: ../subflows/past-connect-prompt.yaml
+- tapOn:
+    id: "tab-messages"
+- waitForAnimationToEnd
+- tapOn:
+    id: "tab-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 15000
+- assertNotVisible:
+    id: "legal-catch-up"
+
+# Sign out and in: a new session, so the screen is back.
+- runFlow: ../subflows/logout.yaml
+- runFlow: ../subflows/login-legacy-student.yaml
+
+# Under 18 is refused under the field and nothing is written.
+- tapOn:
+    id: "legal-catch-up-birthDate"
+- evalScript: "${output.minor = '0101' + String(new Date().getFullYear() - 10)}"
+- inputText: ${output.minor}
+- tapOn:
+    id: "legal-catch-up-terms"
+- tapOn:
+    id: "legal-catch-up-save"
+- extendedWaitUntil:
+    visible:
+      id: "legal-catch-up-birthDate-error"
+    timeout: 15000
+- evalScript: "${output.refused = output.me().legalPending}"
+- assertTrue: "${output.refused.terms === true && output.refused.birthDate === true}"
+
+# An adult date with the Terms ticked saves and goes on to the landing.
+- tapOn:
+    id: "legal-catch-up-birthDate"
+- eraseText: 12
+- inputText: "15061990"
+- tapOn:
+    id: "legal-catch-up-save"
+- runFlow: ../subflows/past-connect-prompt.yaml
+- evalScript: "${output.after = output.me()}"
+- assertTrue: "${output.after.legalPending.terms === false && output.after.legalPending.birthDate === false && output.after.birthDate === '1990-06-15'}"
+
+# A relaunch with the stored session shows no catch-up.
+- launchApp
+- runFlow: ../subflows/past-connect-prompt.yaml
+- assertNotVisible:
+    id: "legal-catch-up"

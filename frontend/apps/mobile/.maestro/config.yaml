@@ -77,7 +77,7 @@ executionOrder:
     # 33 fills the sign-up form as a minor and is refused (PAD-445); it creates nothing, so
     # its position is not load bearing.
     # (29 is PAD-233's; 31-32 belong to the calendar work — numbers kept by the coordinator.)
-    - 33-parental-consent
+    - 33-underage-signup-refused
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
@@ -339,6 +339,10 @@ executionOrder:
     # 269 (PAD-577, notifications.invitations rule 15a): an invitation that lost the spot offers the
     # waiting list; joining reads "Estás na lista de espera".
     - 269-invite-lost-spot-waiting-list
+    # 259 (PAD-637, auth.legal-catch-up): the seeded e2e-legacy-student skips the catch-up, meets it
+    # again after signing out and in, and saves it. It accepts the Terms on that account, so it passes
+    # once per seed (e2e.sh reseeds); its position is not load bearing.
+    - 259-legal-catch-up
     # 230 (PAD-567, attendance.validation rule 26; number self-assigned, unconfirmed): books,
     # marks, clears and removes its own class through the API, so its position is not load
     # bearing.
