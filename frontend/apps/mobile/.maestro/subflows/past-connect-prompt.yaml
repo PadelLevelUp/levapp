@@ -1,0 +1,20 @@
+# Flow 259 (PAD-637): e2e-legacy-student has no coach, so its usual landing is "Connect with a coach"
+# (players.join-token rule 8); take its "Go to dashboard" when it shows, then wait for the dashboard.
+appId: com.padellevelup.app
+---
+- extendedWaitUntil:
+    visible:
+      id: "connect-go-dashboard"
+    timeout: 8000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "connect-go-dashboard"
+    commands:
+      - tapOn:
+          id: "connect-go-dashboard"
+- extendedWaitUntil:
+    visible:
+      id: "screen-dashboard"
+    timeout: 25000

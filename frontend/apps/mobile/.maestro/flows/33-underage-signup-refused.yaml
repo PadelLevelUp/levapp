@@ -7,6 +7,7 @@
 # can no longer start (the guardian flow is kept for accounts created before; owner decision
 # pending) and is covered for those accounts by the backend's test_parental_consent.py.
 #
+# Renamed from 33-parental-consent (PAD-637 follow-up): the file now says what the flow checks.
 # Mirrors: apps/web/e2e/auth-onboarding/parental-consent.spec.ts
 appId: com.padellevelup.app
 ---

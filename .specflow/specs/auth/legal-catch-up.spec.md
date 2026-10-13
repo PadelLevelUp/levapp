@@ -11,6 +11,7 @@ governed_by: []
 > Linear: PAD-637 (PAD-602 privacy review, D4). Owner decision 2026-10-12: existing users with no
 > Terms record or no date of birth get ONE screen at their next login asking for what is missing,
 > with the 18+ check; the screen is skippable.
+> iOS end to end: Maestro flow `259-legal-catch-up` (rules 2–5), on the seed's `e2e-legacy-student`.
 
 ### Intent
 Accounts completed before the Terms were recorded on every path (24 of 25 active users on

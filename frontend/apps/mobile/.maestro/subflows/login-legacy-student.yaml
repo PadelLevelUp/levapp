@@ -1,0 +1,28 @@
+# Flow 259 (PAD-637): type e2e-legacy-student's credentials on the login screen and submit. Unlike
+# login.yaml it does not wait for the dashboard: this account lands on the legal catch-up screen
+# first (auth.legal-catch-up rule 2). Typing is retry-verified with a bounded eraseText, as login.yaml.
+appId: com.padellevelup.app
+---
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: e2e-legacy-student
+      - assertVisible: e2e-legacy-student
+      - tapOn:
+          id: "login-password"
+      - eraseText: 40
+      - inputText: E2eLegacy123!
+      - tapOn:
+          id: "login-submit"
+      - extendedWaitUntil:
+          visible:
+            id: "legal-catch-up"
+          timeout: 25000
