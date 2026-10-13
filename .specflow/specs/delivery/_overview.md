@@ -24,6 +24,8 @@ they have behaviour worth specifying.
 - `delivery.repair-diagnostics` — implementing (PAD-641: the manual repair workflow keeps the app
   log tail on the VM and prints counts, exception class names and `query_id`, never log lines or
   query text)
+- `delivery.ci-images` — implementing (PAD-653: CI's postgres service containers pull our own GHCR
+  copy, refreshed weekly from ECR Public or Docker Hub, never a public registry's anonymous quota)
 
 ## Why it's grouped this way
 
