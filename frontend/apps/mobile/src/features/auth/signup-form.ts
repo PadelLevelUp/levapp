@@ -4,7 +4,7 @@
  * codes in the form's words.
  */
 import { z } from "zod";
-import { isUnderSignupAge } from "@levelup/config";
+import { isUnderSignupAge, usernameCharsIssue } from "@levelup/config";
 
 /**
  * auth.parental-consent rule 10 (PAD-198): the birth date is typed as
@@ -53,7 +53,11 @@ export const signUpSchema = z
       .trim()
       .min(3, "usernameMin")
       .max(80, "usernameMax")
-      .regex(/^[A-Za-z0-9._-]+$/, "usernameChars")
+      // auth.register rule 21b (PAD-651): an "@" names the mistake (an email in the wrong field).
+      .superRefine((u, ctx) => {
+        const issue = usernameCharsIssue(u);
+        if (issue) ctx.addIssue({ code: "custom", message: issue });
+      })
       .refine((u) => !u.toLowerCase().startsWith("pending-"), "usernameReserved"),
     email: z.string().trim().email("emailInvalid"),
     password: z.string().min(8, "passwordMin"),

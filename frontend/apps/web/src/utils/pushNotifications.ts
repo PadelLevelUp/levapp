@@ -34,7 +34,23 @@ async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration> 
   return navigator.serviceWorker.register(SW_PATH);
 }
 
-export async function subscribeToPush(token: string): Promise<boolean> {
+// auth.push-subscription rule 8 (PAD-652, B-581): sign-in saves the subscription twice at
+// once (`login()` and the token effect both call `requestAndSubscribe`). A second call for the
+// same token joins the save already in flight instead of sending its own.
+let inFlight: { token: string; save: Promise<boolean> } | null = null;
+
+export function subscribeToPush(token: string): Promise<boolean> {
+  if (inFlight?.token === token) {
+    return inFlight.save;
+  }
+  const save = saveSubscription(token).finally(() => {
+    if (inFlight?.save === save) inFlight = null;
+  });
+  inFlight = { token, save };
+  return save;
+}
+
+async function saveSubscription(token: string): Promise<boolean> {
   if (Notification.permission !== "granted") {
     return false;
   }

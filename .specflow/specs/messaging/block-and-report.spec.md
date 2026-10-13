@@ -43,7 +43,9 @@ reporting it is one tap away.
    message (`messaging.messages` rule 3) but never the report's copy, and an edit after the report
    does not change it, so a moderator reviews what the reporter saw. Reports filed before PAD-639
    were backfilled from the message row by its migration, before that migration erased the
-   already-deleted messages.
+   already-deleted messages. The staff console (`admin.moderation`) shows this copy as the
+   reported message's text, in the list and in the detail's context, falling back to the
+   message's own text only for a report that has no copy; the surrounding messages show their own.
 5. Thread UI on web and iOS offers **Block** / **Unblock** (conversation header menu) and
    **Report** (per-message action) with confirmation and a toast.
 6. A blocked conversation stays in the list; its composer is replaced by "You blocked {name}"
@@ -123,3 +125,9 @@ reporting it is one tap away.
   `padel_app/modules/frontend_api.py` (`/users/<id>/block`, `/blocked-users`,
   `/messages/<id>/report`), tests `padel_app/tests/test_messaging_report_block_scope.py`.
 - OPEN: operator workflow beyond the editor (email on report, report counts). v1: none.
+
+#### The console shows what was reported after the message is deleted (rule 4a, PAD-639)
+- **Given** a student reported message "msg 3" through the app, and the author then deleted it
+- **When** staff open the report list and the report detail in the console
+- **Then** the reported message reads "msg 3" with `deleted: true`, and the messages around it read their own text
+- **And** a report with no copy (filed before the backfill) shows the message's own text
