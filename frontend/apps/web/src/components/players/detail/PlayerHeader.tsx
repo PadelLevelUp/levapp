@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { nicknameShown } from "@levelup/config";
+import { NICKNAME_MAX, nicknameShown } from "@levelup/config";
 import { BellOff, Check, Copy, Loader2, Pencil, UserX, X } from "lucide-react";
 import {
   Select,
@@ -117,7 +117,7 @@ export function PlayerHeader({
               id="player-nickname"
               data-testid="player-nickname"
               value={draftNickname}
-              maxLength={60}
+              maxLength={NICKNAME_MAX}
               onChange={(e) => onDraftNicknameChange(e.target.value)}
               placeholder={t("players.nickname.placeholder")}
             />

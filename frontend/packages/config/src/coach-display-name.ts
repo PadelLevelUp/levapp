@@ -8,6 +8,9 @@
  * reading `player.user.name`. A student's own views never call this.
  */
 
+/** The longest nickname the server accepts (players.nickname rule 6; NICKNAME_MAX server-side). */
+export const NICKNAME_MAX = 60;
+
 type RosterRowLike = {
   playerId?: string | number | null;
   name?: string | null;

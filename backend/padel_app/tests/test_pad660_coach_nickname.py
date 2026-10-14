@@ -126,7 +126,11 @@ def test_the_conversation_list_shows_the_coach_their_display_name_and_the_studen
     assert NICK not in student_list.get_data(as_text=True)
 
 
-def test_the_students_export_leaves_the_nickname_out_and_the_coachs_keeps_it(app, client, world):
+def test_both_exports_carry_the_nickname_it_is_personal_data_about_the_student(app, client, world):
+    """Rule 7 as decided (owner's approval comment, 2026-10-14: "entra no export de dados (PAD-640)"):
+    the PAD-640 script answers a subject-access request, and the nickname is personal data about the
+    student — so the student's export includes it, which is why the field warns that the student can
+    request their data. "The student never sees it" covers the app's own surfaces, not this script."""
     from scripts.export_user_data import export
 
     _set_nickname(app, client, world, nickname=NICK, nicknameAsName=True)
@@ -134,11 +138,8 @@ def test_the_students_export_leaves_the_nickname_out_and_the_coachs_keeps_it(app
         with db.engine.connect() as conn:
             student_doc = export(conn, world["student_user_id"])
             coach_doc = export(conn, world["coach_user_id"])
-    student_rows = student_doc["tables"]["coach_in_player"]
-    assert student_rows and all("nickname" not in r and "nickname_as_name" not in r for r in student_rows)
-    assert NICK not in json.dumps(student_doc, default=str)
+    assert [r["nickname"] for r in student_doc["tables"]["coach_in_player"]] == [NICK]
     assert [r["nickname"] for r in coach_doc["tables"]["coach_in_player"]] == [NICK]
-
 
 def test_deleting_the_students_account_erases_the_nickname(app, client, world):
     from padel_app.services.account_service import delete_account_service
@@ -199,3 +200,12 @@ def test_templates_and_the_shared_conversation_use_the_real_name(app, monkeypatc
     assert texts, "the reminder and the cancellation notice were written"
     assert all(NICK not in t for t in texts), texts
     assert any("wizard" in t for t in texts), texts
+
+
+@pytest.mark.parametrize("sent,stored", [(True, True), (False, False), ("false", False), ("true", True), (0, False), (None, False)])
+def test_the_switch_reads_a_boolean_not_a_truthy_string(app, client, world, sent, stored):
+    """Review finding: `bool("false")` is True — a client sending the string would turn it on."""
+    _set_nickname(app, client, world, nickname=NICK, nicknameAsName=not stored)
+    assert _set_nickname(app, client, world, nicknameAsName=sent).status_code == 200
+    with app.app_context():
+        assert _rel(world).nickname_as_name is stored

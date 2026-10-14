@@ -34,9 +34,10 @@ Coaches with large rosters, especially with two students who share a name.
   profile, a message, a notification, a template, an export of their data or a shared screen — and
   another coach of the same student never sees it.
 - Message templates and everything sent to the student always use the real name.
-- The nickname is personal data about the student held by the coach: it belongs to the coach's
-  data export, is erased when the student's account is deleted, and goes when the coach–student
-  link ends.
+- The nickname is personal data about the student held by the coach: a request for their data
+  (the student's or the coach's) includes it — hence the warning on the field — it is erased when
+  the student's account is deleted, and it goes when the coach–student link ends. Inside the app
+  the student never sees it.
 
 ## Success Metrics
 

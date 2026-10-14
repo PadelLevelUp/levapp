@@ -22,7 +22,7 @@ import { PageActions } from "@/components/layout/PageActions";
 import type { PageAction } from "@/components/layout/PageActions";
 import { AddToClassesDialog } from "@/components/players/detail/AddToClassesDialog";
 import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
-import { standingEndLabel } from "@levelup/config";
+import { NICKNAME_MAX, standingEndLabel } from "@levelup/config";
 import { getStandingWaitingList, removeFromStandingWaitingList } from "@/api/notificationEngine";
 import type { StandingWaitingListEntry } from "@/types";
 import { toast } from "sonner";
@@ -195,7 +195,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
 
     // PAD-660 (players.nickname rule 6): only what changed is sent; a blank box clears it.
     const nickname = draftNickname.trim();
-    if (nickname.length > 60) {
+    if (nickname.length > NICKNAME_MAX) {
       setNicknameError(true);
       return;
     }

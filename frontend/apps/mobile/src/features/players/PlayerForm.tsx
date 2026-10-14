@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import { lightTheme } from "@levelup/config";
+import { NICKNAME_MAX, lightTheme } from "@levelup/config";
 import { useFieldAvailability } from "@levelup/hooks";
 import { fieldConflictText } from "@levelup/api/src/resources/fields";
 import type { CoachLevel, PlayerSide } from "@levelup/types";
@@ -68,7 +68,6 @@ interface PlayerFormProps {
   showNickname?: boolean;
 }
 
-const NICKNAME_MAX = 60;
 
 const SIDE_OPTIONS: { value: PlayerSide; labelKey: string }[] = [
   { value: "left", labelKey: "players.sideLeft" },

@@ -50,8 +50,12 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    alcunhas ofensivas: o jogador pode pedir acesso aos seus dados." / "Only you can see this.
    Avoid offensive nicknames: the student can request a copy of their data." and the switch
    "Usar alcunha como nome principal" / "Use the nickname as the main name".
-7. **Privacy.** The data export (`backend/scripts/export_user_data.py`) includes the nickname in
-   the COACH's export and leaves `nickname` and `nickname_as_name` out of the student's. Deleting
+7. **Privacy.** The subject-access export (`backend/scripts/export_user_data.py`, PAD-640) includes
+   the nickname in BOTH people's exports: it is personal data about the student (owner, 2026-10-14:
+   "entra no export de dados (PAD-640)"; `admin.data-export` rule 4a) — which is why the field
+   warns that the student can request their data. "The student never sees it" governs the app's
+   own surfaces: payloads, messages, templates, notifications, app exports (Excel/CSV) and shared
+   screens. Deleting
    the student's account clears the nickname on every relation row of theirs; ending the link
    (`remove_player`, disconnect or delete) removes it with the row.
 8. **Not yet covered (part 2; both parts are promoted together, and PAD-660 closes after part 2).** Class requests, waiting lists, the semi-automatic approval card,
@@ -84,5 +88,5 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
 #### Export and deletion (rule 7)
 - **Given** that nickname
 - **When** Jorge's data is exported, then A's, then Jorge's account is deleted
-- **Then** Jorge's export has no `nickname` column, A's has "Jorge chato", and after the deletion
+- **Then** both exports carry "Jorge chato" on the relation row, and after the deletion
   the relation's nickname is null

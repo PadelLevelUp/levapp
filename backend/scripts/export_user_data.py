@@ -38,13 +38,6 @@ _NOT_THEIRS = {
     ("coaches", "approved_by_user_id"),
     ("player_merges", "confirmed_by_user_id"),
 }
-#: PAD-660 (players.nickname rule 7): columns that belong to ONE side of a shared row. A coach's
-#: private nickname for a student sits on the coach–student relation, which is exported to both;
-#: it is the coach's data, so it rides the coach's export and is left out of the student's.
-_OWNER_ONLY = {
-    ("coach_in_player", "nickname"): "coaches",
-    ("coach_in_player", "nickname_as_name"): "coaches",
-}
 WITHHELD = "[withheld]"
 
 
@@ -101,11 +94,7 @@ def export(conn, user_id):
             bucket = tables.setdefault(table.name, {})
             for r in conn.execute(select(table).where(col.in_(ids))).all():
                 key = tuple(r._mapping.get(c.name) for c in table.primary_key) or tuple(r)
-                row = _row(r)
-                for (owned_table, column), owner in _OWNER_ONLY.items():
-                    if owned_table == table.name and owner != target:
-                        row.pop(column, None)
-                bucket[key] = row
+                bucket[key] = _row(r)
     return {
         "exportedAt": datetime.now(timezone.utc).isoformat(),
         "userId": user_id,

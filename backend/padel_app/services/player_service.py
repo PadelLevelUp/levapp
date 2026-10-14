@@ -590,7 +590,8 @@ def edit_player_service(data):
         else:
             nickname_set["nickname"] = value or None
     if "nicknameAsName" in updates:
-        nickname_set["nickname_as_name"] = bool(updates["nicknameAsName"])
+        # A boolean, never a truthy string: "false" is not on (review finding).
+        nickname_set["nickname_as_name"] = updates["nicknameAsName"] in (True, 1, "true", "1")
     if refused:
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     payload = {
@@ -608,10 +609,9 @@ def edit_player_service(data):
         player_id=player_info["playerId"],
     ).first_or_404()
 
+    # Saved with the rest of the relation by edit_player_helper's one rel.save().
     for field, value in nickname_set.items():
         setattr(rel, field, value)
-    if nickname_set:
-        rel.save()
     return edit_player_helper(player, rel, payload)
 
 
