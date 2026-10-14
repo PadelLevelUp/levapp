@@ -575,6 +575,42 @@
       "invited": "Convite",
       "waiting": "Lista de espera",
       "notComing": "Não vou"
+    },
+    "participants": {
+      "group": {
+        "going": "Vão · {{count}}",
+        "pending": "Por responder · {{count}}",
+        "not_going": "Não vão · {{count}}"
+      },
+      "state": {
+        "going": "Vai",
+        "pending": "Por responder",
+        "not_going": "Não vai"
+      },
+      "sideShort": {
+        "both": "Amb",
+        "right": "Dir",
+        "left": "Esq"
+      },
+      "sideLong": {
+        "both": "Ambos os lados",
+        "right": "Lado direito",
+        "left": "Lado esquerdo"
+      },
+      "title": "Participantes",
+      "enrolled": "{{current}}/{{max}} inscritos",
+      "inThisClass": "Nesta aula",
+      "attendance": "Assiduidade",
+      "attendanceValue": "{{attended}} presenças · {{missed}} faltas",
+      "lastEvaluation": "Última avaliação",
+      "noEvaluations": "Sem avaliações",
+      "contact": "Contacto",
+      "level": "Nível {{level}}",
+      "sendMessage": "Enviar mensagem",
+      "fullProfile": "Ver perfil completo",
+      "close": "Fechar",
+      "openProfile": "Ver perfil de {{name}}",
+      "popupLabel": "Perfil do jogador"
     }
   }
 }

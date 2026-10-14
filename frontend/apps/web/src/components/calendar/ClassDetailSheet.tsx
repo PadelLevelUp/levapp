@@ -49,7 +49,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -71,6 +71,8 @@ import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, out
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
+import { ParticipantGroups, type ParticipantRow } from "./ParticipantGroups";
+import { ParticipantPopup } from "./ParticipantPopup";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
@@ -225,6 +227,9 @@ export function ClassDetailSheet({
   } | null>(null);
 
   const [isValidating, setIsValidating] = useState(false);
+  // PAD-659 (rule 23): the player pop-up, and the name that opened it (focus goes back there).
+  const [popupRow, setPopupRow] = useState<ParticipantRow | null>(null);
+  const [popupOpener, setPopupOpener] = useState<HTMLElement | null>(null);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
@@ -489,6 +494,13 @@ export function ClassDetailSheet({
         }
         if (!canManage) return;
 
+        // PAD-659 (`calendar.event-detail` rule 24): a presence in this class moved — a
+        // student's answer or cancellation, or a mark from another tab — so the groups regroup.
+        if (presenceChangedFor(data, openId)) {
+          if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
+          return;
+        }
+
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {
           const { notificationEventId, response, lessonInstanceId } = data.payload;
@@ -658,6 +670,9 @@ export function ClassDetailSheet({
   // Club digits on both sides (attendance.confirm rule 9, PAD-295).
   const classStartMs = wallClockMs(active.date, active.startTime);
   const classStarted = !Number.isNaN(classStartMs) && classStartMs <= lisbonNowMs();
+  // PAD-663 (rule 25): until the class ends, a coach's validated mark is worded as intent.
+  const classEndMs = wallClockMs(active.date, active.endTime);
+  const classEnded = !Number.isNaN(classEndMs) && classEndMs <= lisbonNowMs();
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&
@@ -1513,6 +1528,19 @@ export function ClassDetailSheet({
 
           <div>
             <div className="flex items-center justify-between mb-2">
+              {canManage && !isEditing && !isValidating ? (
+                // PAD-659 (rule 5's named exception): the coach's list header names its own
+                // quantity — the enrolled rows below over the capacity.
+                <div className="flex flex-col gap-0.5">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    {t("calendar.participants.title")}
+                  </h4>
+                  <p data-testid="participants-enrolled" className="text-[13px] text-muted-foreground tabular-nums">
+                    {t("calendar.participants.enrolled", { current: active.participants.length, max: active.maxPlayers })}
+                  </p>
+                </div>
+              ) : (
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 {t("calendar.detail.participantsCount", {
@@ -1527,6 +1555,7 @@ export function ClassDetailSheet({
                   max: active.maxPlayers,
                 })}
               </h4>
+              )}
 
               {canManage &&
                 !isEditing &&
@@ -1553,6 +1582,17 @@ export function ClassDetailSheet({
                 classLevelId={active.levelId}
                 onToggle={togglePlayer}
               />
+            ) : canManage && !isValidating && active.participants.length > 0 ? (
+              // PAD-659 (`calendar.event-detail` rule 22): the coach's read view.
+              <ParticipantGroups
+                participants={active.participants}
+                presences={classInstance?.presences}
+                roster={players}
+                onOpen={(row, opener) => {
+                  setPopupOpener(opener);
+                  setPopupRow(row);
+                }}
+              />
             ) : (
               <div className="space-y-2">
                 {active.participants.map((p) => {
@@ -1571,6 +1611,7 @@ export function ClassDetailSheet({
                       // presence, so `!canManage` identifies their own row.
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
+                      classEnded={classEnded}
                     />
                   );
                 })}
@@ -2344,6 +2385,10 @@ export function ClassDetailSheet({
           onClose={() => setEditScopeDialogOpen(false)}
           onConfirm={commitEdit}
         />
+      )}
+
+      {canManage && (
+        <ParticipantPopup row={popupRow} onClose={() => setPopupRow(null)} returnFocusTo={popupOpener} />
       )}
 
       {canManage && onEdit && (
