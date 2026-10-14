@@ -1,7 +1,7 @@
 ---
 id: B-548
 title: "The web class detail never matched a live event to the open class: it compared the calendar-event id with the event's instance number, so B-542's reminder refresh and PAD-659's regroup never fired"
-type: implementation-drift
+type: test-defect
 severity: medium
 status: resolved
 resolved: 2026-10-14T19:30:00Z
