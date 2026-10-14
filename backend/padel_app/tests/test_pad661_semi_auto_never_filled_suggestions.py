@@ -403,3 +403,41 @@ def test_the_coach_walk_arms_one_catch_up_per_open_occurrence(app, live_schedule
         armed = sorted(j.id for j in live_scheduler._scheduler.get_jobs() if j.id.startswith("invite_start_lesson_"))
         assert armed == sorted([f"invite_start_lesson_{ids['lesson']}_{ids['date']}",
                                 f"invite_start_lesson_{second.id}_{(CLASS_WALL + D).date().isoformat()}"])
+
+
+# --- acceptance 3: when every suggestion is blocked, the coach sees why ---------------------------
+
+def test_an_empty_suggestion_queue_says_why(app, live_scheduler, monkeypatch):
+    """Semi-automatic coach, never-filled place inside the window, and the only free student is on
+    the coach's excluded list (restrictions.excludedPlayers). The prompt is created (restrictions
+    never block a prompt) with an EMPTY queue; the ticket's acceptance 3 wants the coach to see why.
+    Expected: the vacancy payload carries the per-stage counts of the students the engine dropped."""
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.messages import Message
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.notification_service import process_invitation_batches
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="why")
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).one()
+        cfg.restrictions = {**cfg.get_restrictions(),
+                            "excludedPlayers": {"enabled": True, "playerIds": [str(ids["free"])]}}
+        db.session.commit()
+
+        twelve_h = CLASS_UTC - 12 * H
+        pin_clock(monkeypatch, twelve_h)
+        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        db.session.commit()
+        process_invitation_batches(now=twelve_h + timedelta(minutes=2))
+
+        state = _state(instance.id)
+        assert state["prompts"] == 1 and state["approval_messages"] == 1 and state["invitations"] == 0
+        msg = Message.query.filter_by(message_type="replacement_approval").one()
+        (entry,) = msg.msg_metadata["vacancies"]
+        assert entry["openSpot"] is True
+        assert entry["queue"] == []
+        assert entry.get("emptyQueueReasons") == [{"stage": "excluded_by_coach", "count": 1}], (
+            "an empty queue must say why: the one free student is excluded by the coach"
+        )
