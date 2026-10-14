@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gcloud compute ssh levelup-instance --zone europe-west1-b --command \"sudo docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' postgres psql:*)",
+      "Bash(gcloud compute ssh levelup-instance --zone europe-west1-b --command \"sudo docker exec postgres pg_dump -U padel_app_user -Fc padel_app_staging\":*)"
     ],
     "deny": [
       "Bash(rm -rf /)",
