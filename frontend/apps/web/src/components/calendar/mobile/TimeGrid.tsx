@@ -126,8 +126,9 @@ export function TimeGrid({
                 {laid.map(({ event, top, height, column, columns }) => {
                   const { variant } = resolveCardVariant(event, {
                     isNext: event.id === nextEventId,
+                    viewer,
                   });
-                  const surface = cardSurfaceWeb(event.color, variant);
+                  const surface = cardSurfaceWeb(event.color, variant, viewer);
                   const width = 100 / columns;
                   return (
                     <button

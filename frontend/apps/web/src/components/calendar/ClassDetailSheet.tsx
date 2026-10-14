@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createConversation } from "@/api/messages";
+import { joinClassWaitingList } from "@/api/academyClasses";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
@@ -170,6 +172,7 @@ export function ClassDetailSheet({
 }: ClassDetailSheetProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
 
@@ -215,6 +218,8 @@ export function ClassDetailSheet({
   const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
   // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
   const [joinBusy, setJoinBusy] = useState(false);
+  // PAD-664: the class (by event id) whose waiting list the student just joined.
+  const [joinedWaitingFor, setJoinedWaitingFor] = useState<string | null>(null);
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -571,6 +576,21 @@ export function ClassDetailSheet({
       });
     } finally {
       await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  // PAD-664 (calendar.view rule 23): a full class offers its waiting list.
+  const handleJoinWaitingList = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await joinClassWaitingList(event);
+      setJoinedWaitingFor(String(event.id));
+      toast({ title: t("calendar.waitingList.joined") });
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    } catch {
+      toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
+    } finally {
       setJoinBusy(false);
     }
   };
@@ -1598,6 +1618,8 @@ export function ClassDetailSheet({
             !isCanceled &&
             !classStarted &&
             !isStudentParticipant &&
+            event.studentRelation !== "full" &&
+            event.studentRelation !== "waiting" &&
             (event.openSpot || active.myJoinRequest) && (
               <div
                 className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
@@ -1646,6 +1668,41 @@ export function ClassDetailSheet({
                 )}
               </div>
             )}
+
+          {/* PAD-664: a full class the student is not in — join its waiting list; one they
+              already wait for says so instead of offering the button. */}
+          {!canManage &&
+            !isEditing &&
+            !isCanceled &&
+            !classStarted &&
+            !isStudentParticipant &&
+            (event.studentRelation === "waiting" || joinedWaitingFor === String(event.id) ? (
+              <div
+                className="space-y-1 rounded-md border border-border bg-muted/30 px-3 py-2"
+                data-testid="class-waiting-list-student"
+              >
+                <p className="text-sm font-medium" data-testid="class-waiting-list-on">
+                  {t("calendar.waitingList.on")}
+                </p>
+                <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
+              </div>
+            ) : event.studentRelation === "full" ? (
+              <div
+                className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                data-testid="class-waiting-list-student"
+              >
+                <p className="text-xs text-muted-foreground">{t("calendar.waitingList.fullHint")}</p>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={joinBusy}
+                  onClick={handleJoinWaitingList}
+                  data-testid="class-waiting-list-join"
+                >
+                  {t("calendar.waitingList.join")}
+                </Button>
+              </div>
+            ) : null)}
 
           {/* PAD-131 (rules 5, 7, 9): the coach decides each pending request. */}
           {canManage && !isEditing && (active.joinRequests?.length ?? 0) > 0 && (

@@ -63,41 +63,64 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 8. The header always shows "Entrar"; the demo button and section links collapse into a menu button
    below the `md` breakpoint. The footer links to `/support`, `/privacy`, `/terms`.
 9. The page must never render the app shell (no sidebar, no app navigation).
-10. **Demo dialog (PAD-469; PAD-617).** HubSpot hosts fall into two sets, listed once in code
-    (`frontend/apps/web/src/lib/hubspotConfig.ts`, which the tests import): the *tracking* hosts
-    (the tracking script and everything it loads) and the *forms* hosts. Every "Pedir
-    demonstração" opens a dialog with LevApp's own form, with one line above it saying the request
-    is stored in HubSpot and a link to the Privacy Policy. Fields (coaches): name and surname,
-    email, phone, club or academy, city, number of students (approx.), hours of classes per week
-    (all required), an optional message, and a required consent checkbox. The browser posts it to
-    `POST /api/public/demo-request` and **never reaches a HubSpot host** from the dialog, so it
-    neither waits for the cookie choice nor loads the tracking script; the visitor's `hubspotutk`
-    cookie goes along only when the browser already has one (rule 12).
+10. **Contact dialog (PAD-469; PAD-617; PAD-650).** HubSpot hosts fall into two sets, listed once in
+    code (`frontend/apps/web/src/lib/hubspotConfig.ts`, which the tests import): the *tracking* hosts
+    (the tracking script and everything it loads) and the *forms* hosts. One form serves every
+    commercial contact button — every "Pedir demonstração" and "Falar connosco"; "Enviar ideia" (the
+    "others" audience) stays an email and the footer "Contacto" stays `/support`. It opens a dialog
+    headed "Vamos falar!" with LevApp's own form (the design system's inputs, checkboxes and radio
+    groups; one primary button "Enviar pedido"), in this order: Nome, Apelido, Telemóvel, Email, "Em
+    que clube dás aulas?" (all text, required); "Como geres hoje as presenças, faltas e novos
+    convites?" (multiple choice, at least one); "Já envias lembretes para confirmar a presença dos
+    teus alunos?" and "Quanto tempo gastas por semana a confirmar presenças, validar e enviar novos
+    convites?" (single choice, required); the consent intro and the required box "Aceito que a
+    LevApp guarde e trate os meus dados pessoais para responder a este pedido."; the optional
+    marketing box "Opcional: quero receber em primeira mão promoções e novas funcionalidades da
+    LevApp. Podes cancelar a qualquer momento." (shown only when the build carries a marketing
+    subscription id); and "Sabe como tratamos os teus dados na nossa Política de Privacidade."
+    linking `/privacy`. Options are shown by label and sent by internal value, exactly the CRM's:
+    `levapp_gestao_atual` ∈ {`ferramentas_classicas`, `clube_outro_treinador`, `ninguem_trata`,
+    `outro`} joined with `;`; `levapp_lembretes_presenca` ∈ {`diariamente`, `semanalmente`,
+    `nao_envia`}; `levapp_tempo_gestao` ∈ {`menos_1h`, `1_3h`, `mais_3h`}. A Portuguese mobile
+    number (9 digits starting with 9, with or without +351/00351, spaces allowed) is normalised to
+    `+351 9XX XXX XXX`; another country's number (a leading `+` other than `+351`, 8–15 digits) is
+    sent as typed; anything else, a Portuguese landline included, is refused.
+    The browser posts it to `POST /api/public/demo-request` and **never reaches a HubSpot host**
+    from the dialog, so it neither waits for the cookie choice nor loads the tracking script; the
+    visitor's `hubspotutk` cookie goes along only when the stored cookie choice is `accepted`
+    (rule 12), never on the cookie's presence alone.
     The server validates the fields the same way (400 `{field, code}` otherwise), then forwards
-    them to HubSpot's public Forms API v3 (`api.hsforms.com/.../submit/149443437/<form GUID>`, no
-    token), splitting the name into `firstname`/`lastname`, with the hidden fields
-    `levapp_funcao` = treinador, `levapp_pedido_site` (`demonstracao`, or `mes_gratis` for the
-    free-month button when the site has one), `levapp_canal_origem` = site,
-    `levapp_tipo_origem` = inbound, the visitor's IP, page (an http(s) URL; title ≤ 100 chars) and
-    `hutk` (only a 32-hex value), and the RGPD consent (`legalConsentOptions`). Limits: text fields
-    ≤ 200 chars, phone 9–40, counts 1–100 000, message ≤ 2000, body ≤ 16 KB (else 413); the web form
-    holds the same limits, announces its errors (`role="alert"`) and moves focus to the first one.
+    them to HubSpot's public Forms API v3 (`api-eu1.hsforms.com/submissions/v3/integration/submit/
+    149443437/<form GUID>`, the EU portal's host, no token) as `firstname`, `lastname`, `phone`,
+    `email`, `clube_atual` (the field the live form requires — not `company`, PAD-650 probe
+    2026-10-14), the three qualification fields, and the hidden `levapp_tipo_origem` = inbound,
+    `levapp_canal_origem` = site and `levapp_pedido_site` = `demonstracao` (sent only from a demo
+    button; "Falar connosco" sends none), plus the visitor's IP, page (an http(s) URL; title ≤ 100
+    chars) and `hutk` (only a 32-hex value). Consent goes as `legalConsentOptions.consent` with
+    `consentToProcess: true` and the box's text verbatim; when `HUBSPOT_MARKETING_SUBSCRIPTION_ID`
+    is set, `communications` carries one entry with that id, the marketing box's text verbatim and
+    `value` true or false as ticked; unset, no `communications` entry is sent. Limits: text fields
+    ≤ 200 chars, body ≤ 16 KB (else 413); the web form holds the same limits, announces its errors
+    in Portuguese (`role="alert"`) and moves focus to the first one.
     **Spam:** a hidden, inert honeypot field and a minimum of 3 s to fill are answered as success and
     dropped *before* any validation, so a bot learns nothing about the form (they deter naive bots
     only; the fill time is the client's word); the route is limited per IP
-    (`AUTH_RATE_LIMIT_DEMO`, 5 per hour); HubSpot filters the rest. The form GUID is deployment config (GitHub repo variables
-    `HUBSPOT_DEMO_FORM_ID` / `_STAGING`, passed to the web build and to the API container). Without
-    it the buttons stay a `mailto:`; with it, a 503, a 502 (HubSpot refused or unreachable, logged
-    with the status only, never the visitor's data) or a network failure shows the `mailto:` in
-    the dialog. On success the dialog thanks the visitor by first name.
+    (`AUTH_RATE_LIMIT_DEMO`, 5 per hour); HubSpot filters the rest. The form GUID and the marketing
+    subscription id are deployment config (GitHub repo variables `HUBSPOT_DEMO_FORM_ID` / `_STAGING`
+    and `HUBSPOT_MARKETING_SUBSCRIPTION_ID` / `_STAGING`, passed to the web build and to the API
+    container; the subscription id is one variable read by both, so the box and the
+    `communications` entry come and go together). Without the GUID the buttons stay a `mailto:`; with it, a 503, a 502 (HubSpot
+    refused or unreachable, logged with the status only, never the visitor's data) or a network
+    failure shows a retry and the `mailto:` in the dialog. On success the dialog says "Obrigado!
+    Vamos falar contigo em breve." (no promised delay).
 11. **Cookie banner.** With no valid stored choice, the landing page shows a banner with
     "Aceitar" and "Recusar" — the same button style, size and weight, one click each. A choice
     older than 12 months counts as no choice, so the banner asks again (coordinator decision,
     2026-10-01: a conservative validity period, not a legal finding); the expired record is
     dropped and the HubSpot cookies it allowed are expired, as in rule 13 (a), so a lapsed
     visitor carries no `hubspotutk` into the demo form. Before "Aceitar", and at any
-    time while the choice is `declined`, the page makes no request to any HubSpot host — except
-    the forms hosts when the visitor opens the demo dialog (rule 10). Only the landing page shows
+    time while the choice is `declined`, the page makes no request to any HubSpot host — the
+    contact dialog included (rule 10). Only the landing page shows
     the banner; the signed-in app never does (rule 1).
 12. **Tracking.** With the choice `accepted`, the landing page injects the HubSpot tracking script
     (`js-eu1.hs-scripts.com/149443437.js`) once per document. HubSpot's own cookie banner stays
@@ -205,11 +228,6 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **When** they open `/`, `/calendar`, `/settings`
 - **Then** no cookie banner renders and nothing reaches HubSpot
 
-#### The dialog falls back to email when the embed cannot load
-- **Given** the HubSpot hosts unreachable
-- **When** the visitor opens the demo dialog
-- **Then** it offers the `mailto:` link
-
 #### Leaving the page drops the tracker
 - **Given** a visitor who accepted and has the tracking script running
 - **When** they press "Entrar"
@@ -224,25 +242,54 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Given** a stored `accepted` choice dated 2025-10-15 instead
 - **Then** no banner shows and the tracking script loads
 
-#### The demo dialog sends LevApp's own form, and the browser never reaches HubSpot (PAD-617)
+#### The contact dialog sends LevApp's own form, and the browser never reaches HubSpot (PAD-617, PAD-650)
 - **Given** a build with a demo form ID and no stored cookie choice
 - **When** the visitor presses "Pedir demonstração", fills the form and sends it
-- **Then** the dialog shows the HubSpot notice linking `/privacy`, the request goes to
+- **Then** the dialog is headed "Vamos falar!", links `/privacy`, the request goes to
   `POST /api/public/demo-request` with the fields, `pedido: "demonstracao"` and an empty honeypot,
   no request reaches any HubSpot host, the tracking script was not requested, and the dialog
-  thanks them by first name
+  says "Obrigado! Vamos falar contigo em breve."
+- **When** the visitor opens it from "Falar connosco" instead
+- **Then** the request carries no `pedido`
 - **When** the API answers 503 or 502
-- **Then** the dialog offers the `mailto:` to the support address
+- **Then** the dialog offers a retry and the `mailto:` to the support address
 
-#### The server relays a valid request and refuses the rest (PAD-617)
-- **Given** a configured form GUID
-- **When** "Rita Pereira Lopes", rita@academia.pt, +351 912 345 678, Academia Norte, Porto, 30
-  students, 20 hours, consent, filled in 12 s, is posted from 203.0.113.9
-- **Then** HubSpot's form receives firstname Rita, lastname Pereira Lopes, the other fields, the
-  four hidden fields, the IP and the consent, and the visitor gets 200
-- **And** a missing field or no consent is 400 on that field and nothing is sent; a filled honeypot
-  or a 1 s fill is 200 and nothing is sent; the sixth post from one IP within the hour is 429;
-  with no form GUID it is 503; a HubSpot error is 502 and the log names only the status
+#### The visitor's HubSpot cookie goes along only with consent (PAD-650)
+- **Given** a `hubspotutk` cookie in the browser
+- **When** the stored choice is `declined` (or there is none) and the visitor sends the form
+- **Then** the request carries no `hutk`
+- **When** the stored choice is `accepted`
+- **Then** the request carries that `hutk`
+
+#### The form refuses an incomplete request before sending (PAD-650)
+- **Given** the dialog open
+- **When** the visitor sends it with a required field empty, no qualification option chosen, an
+  invalid email or phone, or the consent box unticked
+- **Then** nothing is posted, the error is announced in Portuguese and focus moves to the first
+  invalid field
+
+#### The marketing box follows the subscription config (PAD-650)
+- **Given** a build without a marketing subscription id
+- **Then** the dialog shows no marketing box
+- **Given** a build with one
+- **Then** the box shows, unticked, and its state is posted as `marketing`
+
+#### The server relays a valid request and refuses the rest (PAD-617, PAD-650)
+- **Given** a configured form GUID and marketing subscription id 12345
+- **When** Rita / Pereira Lopes, 912345678, rita@academia.pt, club "Academia Norte", gestão
+  `ferramentas_classicas` and `ninguem_trata`, lembretes `diariamente`, tempo `mais_3h`, consent,
+  marketing ticked, pedido `demonstracao`, filled in 12 s, is posted from 203.0.113.9
+- **Then** `api-eu1.hsforms.com`'s submit receives firstname Rita, lastname Pereira Lopes, phone
+  `+351 912 345 678`, `clube_atual` Academia Norte (and no `company`), `levapp_gestao_atual`
+  `ferramentas_classicas;ninguem_trata`, the other two values, the three hidden fields, the IP,
+  `consentToProcess` with the consent text, and one communication (id 12345, value true, the
+  marketing text); the visitor gets 200
+- **And** with marketing unticked the communication's value is false; with no subscription id
+  there is no `communications`; with no `pedido` there is no `levapp_pedido_site`
+- **And** a missing field, an unknown option value or no consent is 400 on that field and nothing
+  is sent; a filled honeypot or a 1 s fill is 200 and nothing is sent; the sixth post from one IP
+  within the hour is 429; with no form GUID it is 503; a HubSpot error is 502 and the log names
+  only the status
 
 #### Without a form ID the demo stays an email
 - **Given** a build with no demo form ID
@@ -278,8 +325,13 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
   the same day (`frontend/apps/web/e2e/scripts/measure-hubspot-embed.ts`): the real forms embed
   (v2, eu1), before any submit, contacts only `js-eu1.hsforms.net` and `forms-eu1.hsforms.com`,
   sets no first-party cookie, and the CDN sets Cloudflare's `__cf_bm` on `.hsforms.net` (bot
-  management, ~30 min). The measurement used a placeholder form ID; it must be re-run against the
-  real ID before prod promotion.
+  management, ~30 min). The measurement used a placeholder form ID. Since PAD-617 the site loads no
+  embed, so the measurement no longer gates a promotion (PAD-650); the script stays as a record.
+- PAD-650 (2026-10-14): the ticket mapped the club question to `company`; the live form's required
+  list (an empty-body submit to both `api.hsforms.com` and `api-eu1.hsforms.com` answered 400
+  REQUIRED_FIELD) names `clube_atual`, so that is what is sent (coordinator decision, ticket
+  comment). The marketing subscription id is not readable without HubSpot settings access; until
+  the owner sets `HUBSPOT_MARKETING_SUBSCRIPTION_ID` the optional box is hidden.
 - Known blind spot, guarded separately: resource hints (`preconnect`, `dns-prefetch`) to a HubSpot
   host never show up as requests, so the E2E zero-request guard cannot see them; the static
   `index.html` check in `landing-guards.test.ts` covers them.

@@ -258,6 +258,9 @@ class Config:
     # PAD-617: the HubSpot form the demo request is forwarded to (the GitHub repo variable
     # HUBSPOT_DEMO_FORM_ID / _STAGING). Unset → the endpoint answers 503 and the site offers email.
     HUBSPOT_DEMO_FORM_ID = os.getenv("HUBSPOT_DEMO_FORM_ID", "")
+    # PAD-650: HubSpot's "Marketing Information" subscription type id (repo variable
+    # HUBSPOT_MARKETING_SUBSCRIPTION_ID / _STAGING). Unset → no marketing consent box or entry.
+    HUBSPOT_MARKETING_SUBSCRIPTION_ID = os.getenv("HUBSPOT_MARKETING_SUBSCRIPTION_ID", "")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
