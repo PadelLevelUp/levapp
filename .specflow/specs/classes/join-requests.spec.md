@@ -109,8 +109,10 @@ by a student's request — and whichever lands first wins.
     its eligibility bar. **(PAD-664)** For a client that declares `full-classes` the "not full"
     condition is dropped, so a student can open a full class they found on their calendar and join
     its waiting list (`calendar.view` rule 23); every other condition stands. Everyone else still gets 403, and what they read is the student view
-    (`classes.detail-visibility` rule 3). A never-materialized occurrence is not covered: the read
-    stays a series read until a request materializes it (rule 2). Reconciled in the 2026-09-10
+    (`classes.detail-visibility` rule 3). **(B-529, PAD-664)** A never-materialized occurrence is read
+    as its series plus a date; the same exception is asked of that one occurrence — the series
+    produces the date, it has not started, the lesson is active, visible, has room (or the client
+    declares `full-classes`) and the student is eligible — and the read materializes nothing. Reconciled in the 2026-09-10
     batch, where PAD-257 and PAD-131 met.
 17. **Both request lists show academy join requests (PAD-460, part 1 of PAD-427; the student's list also shows their waiting lists since PAD-504, `classes.academy-class-booking` rule 11).** A join request
     used to be visible only on its class. Now:
@@ -220,6 +222,13 @@ by a student's request — and whichever lands first wins.
 - **Then** the eligible one gets the student view with `myJoinRequest: null`
 - **And** the other gets 403, as does the eligible one while the class is not advertised
 - **And** a student who has requested the class reads it with their request in `myJoinRequest`
+
+#### A never-materialized open spot opens too, and the read creates nothing (rule 16, B-529)
+- **Given** a one-off class with no LessonInstance row, advertised to an eligible student as an open spot
+- **When** they read it as `POST /class_instance?model=Lesson&id=<lesson>&date=<day>` from a client declaring `open-spots`
+- **Then** the read answers 200 and no LessonInstance row exists afterwards
+- **And** the same read from an undeclared client, or by a student below its bar, answers 403
+- **And** when the class is full it answers 200 only for a client that also declares `full-classes`
 
 #### The coach sees an academy request in "Pedidos de Aula" (PAD-460)
 - **Given** Carla asked to join Ana's academy class "Terça 18h" on 2026-10-06 18:00–19:00, and Bruno sent Ana a private class request afterwards

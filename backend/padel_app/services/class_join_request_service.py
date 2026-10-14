@@ -649,3 +649,50 @@ def student_may_view_open_spot(player, instance, *, now=None, allow_full=False) 
     if not effective_open_spots_visible(instance, coach_id, config):
         return False
     return bool(passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)))
+
+
+def student_may_view_open_occurrence(player, lesson, occ_date, *, now=None, allow_full=False) -> bool:
+    """B-529 (rule 16): the same question for an occurrence that was never materialised.
+
+    The calendar advertises such occurrences (``eligibility.open-spot-visibility`` rule 4) as a
+    Lesson plus a date, so the class read arrives as a series read. It is answered on that one
+    occurrence, with the calendar's own measures (``load_open_spot_events_for_player``): the series
+    produces the date, the occurrence has not started, the class is active, visible, has room (or
+    ``allow_full``) and the student is eligible. Pure: nothing is materialised (rule 5).
+    """
+    from datetime import datetime as _dt
+
+    from padel_app.models import Association_CoachLesson
+    from padel_app.services.notification_service import (
+        effective_eligibility,
+        effective_open_spots_visible,
+        passes_eligibility,
+    )
+
+    if player is None or lesson is None or occ_date is None or lesson.start_datetime is None:
+        return False
+    if getattr(lesson, "status", None) != "active" or not lesson.produces(occ_date):
+        return False
+    # The series' own coach rows, first assigned first (`coaches_for`'s order). Not
+    # `primary_coach(lesson)`: it reads an id as an instance id, and a lesson id is not one.
+    first = (
+        Association_CoachLesson.query.filter_by(lesson_id=lesson.id).order_by(Association_CoachLesson.id.asc()).first()
+    )
+    coach = first.coach if first is not None else None
+    if coach is None:
+        return False
+    cp = Association_CoachPlayer.query.filter_by(coach_id=coach.id, player_id=player.id).first()
+    if cp is None:
+        return False
+    # PAD-256 (R-023): the occurrence is on the club's clock, `now` is a UTC instant.
+    occ_start = _dt.combine(occ_date, lesson.start_datetime.time())
+    if occ_start <= utc_to_wall_naive(now or utcnow_naive()):
+        return False
+    config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    if not effective_open_spots_visible(lesson, coach.id, config):
+        return False
+    if lesson.effective_max_players is None:
+        return False
+    if len(lesson.players_relations) >= lesson.effective_max_players and not allow_full:
+        return False
+    return bool(passes_eligibility(cp, lesson, coach.id, effective_eligibility(lesson, coach.id, config)))

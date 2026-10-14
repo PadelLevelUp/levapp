@@ -428,7 +428,7 @@ def _student_enrolled(player, lesson_id, instance_id=None):
     return False
 
 
-def require_readable_class(model_name, obj):
+def require_readable_class(model_name, obj, occurrence_date=None):
     """PAD-257 / audit H1 — classes.detail-visibility rule 5.
 
     The id-keyed class reads used to stop at a role check, so a coach of ANY
@@ -471,6 +471,15 @@ def require_readable_class(model_name, obj):
         from padel_app.services.class_join_request_service import student_may_view_open_spot
 
         if student_may_view_open_spot(player, obj, allow_full=client_declares(FULL_CLASSES)):
+            return obj
+    # B-529: an occurrence never materialised is read as its series plus a date — the calendar
+    # advertises those too, so the same exception is asked of that one occurrence.
+    if player is not None and is_lesson and occurrence_date is not None and client_declares(OPEN_SPOTS):
+        from padel_app.services.class_join_request_service import student_may_view_open_occurrence
+
+        if student_may_view_open_occurrence(
+            player, obj, occurrence_date, allow_full=client_declares(FULL_CLASSES)
+        ):
             return obj
     abort(403, "Not authorized to view this class")
 
@@ -1226,6 +1235,7 @@ def class_instance():
     require_readable_class(
         "lessoninstance" if isinstance(current_class, LessonInstance) else "lesson",
         current_class,
+        occurrence_date=occurrence_date,  # B-529: a virtual occurrence's own date
     )
 
     # Role-based visibility (PAD-36): coaches get the full payload; students

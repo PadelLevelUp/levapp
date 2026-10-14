@@ -121,3 +121,83 @@ def test_opening_a_full_class_lets_the_student_join_its_waiting_list(app, client
             lesson_instance_id=ids["full"], player_id=ids["player_id"], is_active=True
         ).count() == 1
     assert _by_id(_calendar(client, ids, ALL))[ids["full"]]["studentRelation"] == "waiting"
+
+
+# ── B-529: an occurrence that was never materialised opens like a materialised one ───────────────
+
+
+def _virtual_lesson(app, ids, *, days, title, fill):
+    """A one-off class with NO LessonInstance row (what the calendar reads as a Lesson), with
+    `fill` series players enrolled on the lesson itself."""
+    from padel_app.models import Association_CoachLesson, Association_PlayerLesson
+    from padel_app.models.lessons import Lesson
+
+    with app.app_context():
+        base = db.session.get(Lesson, ids["lesson_id"])
+        start = utcnow_naive().replace(minute=0, second=0, microsecond=0) + timedelta(days=days)
+        lesson = Lesson(
+            title=title, start_datetime=start, end_datetime=start + timedelta(hours=1),
+            is_recurring=False, type="academy", max_players=2, color="#1355DC",
+            status="active", club_id=base.club_id, default_level_id=ids["level_ids"]["5"],
+        )
+        db.session.add(lesson)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=ids["coach_id"], lesson_id=lesson.id))
+        for i in range(fill):
+            pid = _add_student(ids["coach_id"], f"{title[:3]}{i}", level_id=ids["level_ids"]["5"])
+            db.session.add(Association_PlayerLesson(player_id=pid, lesson_id=lesson.id))
+        db.session.commit()
+        return lesson.id, start.date().isoformat()
+
+
+def _read(client, ids, lesson_id, date, headers):
+    return client.post(
+        f"/api/app/class_instance?model=Lesson&id={lesson_id}&date={date}",
+        headers={**ids["auth"], **headers},
+    )
+
+
+def test_a_never_materialised_open_spot_opens_for_a_declaring_student(app, client):
+    from padel_app.models.lesson_instances import LessonInstance
+
+    ids = _world(app)
+    lesson_id, date = _virtual_lesson(app, ids, days=8, title="Virtual open", fill=1)
+    # The calendar advertises it (control: it is an offer this student may open).
+    assert any(
+        e.get("originalId") == lesson_id and e.get("studentRelation") == "open_spot"
+        for e in client.get("/api/app/calendar", query_string={
+            "from": (utcnow_naive() - timedelta(days=1)).isoformat(),
+            "to": (utcnow_naive() + timedelta(days=30)).isoformat(),
+        }, headers={**ids["auth"], **ALL}).get_json()
+    )
+    ok = _read(client, ids, lesson_id, date, ALL)
+    assert ok.status_code == 200, ok.get_data(as_text=True)[:200]
+    # Rule 5: the read materialises nothing.
+    with app.app_context():
+        assert LessonInstance.query.filter_by(lesson_id=lesson_id).count() == 0
+    # PAD-352: an undeclared client is still refused.
+    assert _read(client, ids, lesson_id, date, {}).status_code == 403
+
+
+def test_a_never_materialised_full_class_opens_only_with_full_classes(app, client):
+    ids = _world(app)
+    lesson_id, date = _virtual_lesson(app, ids, days=9, title="Virtual full", fill=2)
+    assert _read(client, ids, lesson_id, date, ALL).status_code == 200
+    assert _read(client, ids, lesson_id, date, WITHOUT_FULL).status_code == 403
+
+
+def test_a_never_materialised_class_stays_closed_to_an_ineligible_student(app, client):
+    from padel_app.models.players import Player
+
+    ids = _world(app)
+    lesson_id, date = _virtual_lesson(app, ids, days=10, title="Virtual far", fill=0)
+    with app.app_context():
+        pid = _add_student(ids["coach_id"], "weak", level_id=ids["level_ids"]["5-"])
+        db.session.commit()
+        token = create_access_token(identity=str(db.session.get(Player, pid).user_id))
+    _config(app, ids, eligibility_rules=[{"attribute": "level", "operation": "same_as_class"}])
+    weak = {"Authorization": f"Bearer {token}", **ALL}
+    # Control: the eligible student opens it.
+    assert _read(client, ids, lesson_id, date, ALL).status_code == 200
+    resp = client.post(f"/api/app/class_instance?model=Lesson&id={lesson_id}&date={date}", headers=weak)
+    assert resp.status_code == 403
