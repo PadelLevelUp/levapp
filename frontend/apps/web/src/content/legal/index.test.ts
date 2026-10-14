@@ -20,6 +20,29 @@ describe("legal documents", () => {
     expect(LEGAL_DOCUMENTS.privacy.bodies.en).toContain(`Effective date: ${LEGAL_DOCUMENTS.privacy.effectiveDate}`);
   });
 
+  // PAD-649: the website contact form (auth.landing-page rule 10) is covered before it goes live.
+  it("covers the website contact form: data, purpose, basis, HubSpot, 24 months, rights", () => {
+    const body = LEGAL_DOCUMENTS.privacy.bodies.en ?? "";
+    const section = body.split("\n## 8. Contact requests through our website\n")[1]?.split("\n## ")[0];
+    expect(section, "no section 8 on the website contact form").toBeTruthy();
+    for (const fact of [
+      "first name, surname, mobile phone number, email address, the club where you coach",
+      "your consent and the steps taken at your request before entering into a contract",
+      "stored in HubSpot",
+      "acts as our processor",
+      "24 months after our last contact with you",
+      "unless you have meanwhile become a LevApp user",
+      "withdraw your consent",
+      "[admin@levapp.app](mailto:admin@levapp.app)",
+      "Comissão Nacional de Proteção de Dados (CNPD)",
+    ]) {
+      expect(section).toContain(fact);
+    }
+    // The cookie section says what the website sets and how to change the choice (PAD-469).
+    expect(body).toContain('"Cookie preferences"');
+    expect(body).toContain("`hubspotutk`");
+  });
+
   it("picks the language from ?lang first, then the UI language, then English", () => {
     expect(legalLanguageFrom("?lang=pt", "en")).toBe("pt");
     expect(legalLanguageFrom("?lang=en", "pt-PT")).toBe("en");
