@@ -1679,9 +1679,11 @@ export function ClassDetailSheet({
             (event.studentRelation === "waiting" || joinedWaitingFor === String(event.id) ? (
               <div
                 className="space-y-1 rounded-md border border-border bg-muted/30 px-3 py-2"
-                data-testid="class-waiting-list-on"
+                data-testid="class-waiting-list-student"
               >
-                <p className="text-sm font-medium">{t("calendar.waitingList.on")}</p>
+                <p className="text-sm font-medium" data-testid="class-waiting-list-on">
+                  {t("calendar.waitingList.on")}
+                </p>
                 <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
               </div>
             ) : event.studentRelation === "full" ? (

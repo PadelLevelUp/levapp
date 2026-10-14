@@ -168,6 +168,16 @@ describe("the phone card — a student's relations (PAD-611)", () => {
     ]);
   });
 
+  it("control: the same invited card read by the coach keeps the class colour (R-032)", () => {
+    render(
+      <CalendarViewerProvider viewer="coach">
+        <MobileEventCard event={rel("invited", "i3")} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    expect(screen.getByTestId("calendar-event-card").style.border.toLowerCase()).toBe(
+      `1.5px dashed ${BLUE.toLowerCase()}`
+    );
+  });
   it("dots (coach viewer, unchanged): invited takes the class colour, waiting is muted", () => {
     expect(dotColor(rel("invited", "i2"), NOW)).toBe(BLUE);
     expect(dotColor(rel("waiting", "w2"), NOW)).toBe("hsl(var(--muted-foreground))");

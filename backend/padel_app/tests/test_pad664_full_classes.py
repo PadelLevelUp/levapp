@@ -201,3 +201,25 @@ def test_a_never_materialised_class_stays_closed_to_an_ineligible_student(app, c
     assert _read(client, ids, lesson_id, date, ALL).status_code == 200
     resp = client.post(f"/api/app/class_instance?model=Lesson&id={lesson_id}&date={date}", headers=weak)
     assert resp.status_code == 403
+
+
+def test_a_never_materialised_occurrence_is_refused_once_started_or_on_a_day_it_does_not_run(app, client):
+    """B-529's occurrence gate keeps rule 16's other conditions: a date the series does not
+    produce, and an occurrence already started (club clock, R-023), stay 403."""
+    from datetime import date
+
+    from padel_app.models.lessons import Lesson
+
+    ids = _world(app)
+    lesson_id, day = _virtual_lesson(app, ids, days=11, title="Virtual gate", fill=0)
+    # Control: on its own day it opens.
+    assert _read(client, ids, lesson_id, day, ALL).status_code == 200
+    wrong_day = (date.fromisoformat(day) + timedelta(days=1)).isoformat()
+    assert _read(client, ids, lesson_id, wrong_day, ALL).status_code == 403
+    with app.app_context():
+        lesson = db.session.get(Lesson, lesson_id)
+        start = utcnow_naive().replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
+        lesson.start_datetime, lesson.end_datetime = start, start + timedelta(hours=3)
+        db.session.commit()
+        started_day = start.date().isoformat()
+    assert _read(client, ids, lesson_id, started_day, ALL).status_code == 403

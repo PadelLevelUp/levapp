@@ -66,9 +66,13 @@ onFlowComplete:
       text: "E2E 664 Enrolled iOS"
     timeout: 15000
 
-# ── default "all I'm eligible for": every state, each with its second signal and the legend ──
+# ── "all I'm eligible for": every state, each with its second signal and the legend ──
+# The choice is remembered per student in SecureStore, which `clearState` keeps on iOS, so the flow
+# sets its own starting point instead of trusting the default.
 - assertVisible:
     id: "calendar-student-filter"
+- tapOn:
+    id: "calendar-student-filter-eligible"
 - assertVisible:
     id: "calendar-legend-item-full"
 - assertVisible:

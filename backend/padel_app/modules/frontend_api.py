@@ -467,19 +467,22 @@ def require_readable_class(model_name, obj, occurrence_date=None):
     # PAD-664: a client that declares `full-classes` may also open a full one (rule 16).
     from padel_app.utils.client_capabilities import FULL_CLASSES, OPEN_SPOTS, client_declares
 
-    if player is not None and not is_lesson and client_declares(OPEN_SPOTS):
-        from padel_app.services.class_join_request_service import student_may_view_open_spot
+    if player is not None and client_declares(OPEN_SPOTS):
+        from padel_app.services.class_join_request_service import (
+            student_may_view_open_occurrence,
+            student_may_view_open_spot,
+        )
 
-        if student_may_view_open_spot(player, obj, allow_full=client_declares(FULL_CLASSES)):
-            return obj
-    # B-529: an occurrence never materialised is read as its series plus a date — the calendar
-    # advertises those too, so the same exception is asked of that one occurrence.
-    if player is not None and is_lesson and occurrence_date is not None and client_declares(OPEN_SPOTS):
-        from padel_app.services.class_join_request_service import student_may_view_open_occurrence
-
-        if student_may_view_open_occurrence(
-            player, obj, occurrence_date, allow_full=client_declares(FULL_CLASSES)
-        ):
+        allow_full = client_declares(FULL_CLASSES)
+        if not is_lesson:
+            readable = student_may_view_open_spot(player, obj, allow_full=allow_full)
+        else:
+            # B-529: an occurrence never materialised is read as its series plus a date — the
+            # calendar advertises those too, so the exception is asked of that one occurrence.
+            readable = occurrence_date is not None and student_may_view_open_occurrence(
+                player, obj, occurrence_date, allow_full=allow_full
+            )
+        if readable:
             return obj
     abort(403, "Not authorized to view this class")
 

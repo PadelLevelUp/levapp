@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   parseStudentFilter,
@@ -13,17 +13,23 @@ import { cn } from "@/lib/utils";
  * device. Storage can be missing or throw (private window, blocked site data) — the filter then
  * simply works for the session.
  */
+function readFilter(userId: string | number | null | undefined): Filter {
+  if (userId == null) return STUDENT_FILTER_DEFAULT;
+  try {
+    return parseStudentFilter(window.localStorage.getItem(studentFilterStorageKey(userId)));
+  } catch {
+    return STUDENT_FILTER_DEFAULT;
+  }
+}
+
 export function useStudentCalendarFilter(
   userId: string | number | null | undefined
 ): [Filter, (next: Filter) => void] {
-  const [filter, setFilter] = useState<Filter>(() => {
-    if (userId == null) return STUDENT_FILTER_DEFAULT;
-    try {
-      return parseStudentFilter(window.localStorage.getItem(studentFilterStorageKey(userId)));
-    } catch {
-      return STUDENT_FILTER_DEFAULT;
-    }
-  });
+  const [filter, setFilter] = useState<Filter>(() => readFilter(userId));
+  // Another account on the same page (sign-out, sign-in) reads its own choice, as iOS does.
+  useEffect(() => {
+    setFilter(readFilter(userId));
+  }, [userId]);
   const update = useCallback(
     (next: Filter) => {
       setFilter(next);

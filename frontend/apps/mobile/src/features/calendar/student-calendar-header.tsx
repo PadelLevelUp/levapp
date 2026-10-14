@@ -9,7 +9,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
 import { readStudentFilter, writeStudentFilter } from "./student-filter-store";
 
 const SURFACES = nativeCalendarSurfaces("light");
@@ -69,12 +68,22 @@ export function StudentCalendarHeader({
               accessibilityRole="button"
               accessibilityState={{ selected }}
               onPress={() => onChange(option)}
-              className={cn(
-                "flex-1 items-center rounded-md py-1.5 active:opacity-90",
-                selected && "bg-card"
-              )}
+              // The selection lives in `style`, never in a className swap: on iOS a class swap
+              // with an `active:` variant crashed css-interop ("Couldn't find a navigation
+              // context", memory native-modal-sheet-traps-ios); static classes are safe.
+              className="flex-1 items-center rounded-md py-1.5"
+              style={({ pressed }) => ({
+                backgroundColor: selected ? SURFACES.card : "transparent",
+                opacity: pressed ? 0.9 : 1,
+              })}
             >
-              <Text className={cn("text-[13px]", selected ? "font-sans-bold" : "text-muted-foreground")}>
+              <Text
+                className="text-[13px]"
+                style={{
+                  color: selected ? SURFACES.foreground : SURFACES.mutedForeground,
+                  fontFamily: selected ? "PlusJakartaSans_700Bold" : "PlusJakartaSans_400Regular",
+                }}
+              >
                 {t(`calendar.studentFilter.${option}`)}
               </Text>
             </Pressable>

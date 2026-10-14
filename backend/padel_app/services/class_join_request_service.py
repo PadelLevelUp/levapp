@@ -625,12 +625,6 @@ def student_may_view_open_spot(player, instance, *, now=None, allow_full=False) 
     "not full" condition, so a student can open a full class from their
     calendar and join its waiting list; every other condition stands.
     """
-    from padel_app.services.notification_service import (
-        effective_eligibility,
-        effective_open_spots_visible,
-        passes_eligibility,
-    )
-
     if player is None or instance is None:
         return False
     coach_id = _coach_id_for(instance)
@@ -643,12 +637,26 @@ def student_may_view_open_spot(player, instance, *, now=None, allow_full=False) 
         lesson_instance_id=instance.id, player_id=player.id
     ).first() is not None:
         return True
-    if _is_closed(instance, now or utcnow_naive()) or (_is_full(instance) and not allow_full):
+    if _is_closed(instance, now or utcnow_naive()):
+        return False
+    return _advertised_to(cp, instance, coach_id, full=_is_full(instance), allow_full=allow_full)
+
+
+def _advertised_to(cp, subject, coach_id, *, full, allow_full) -> bool:
+    """Rule 16's shared tail, for an instance or a never-materialised occurrence (B-529): room
+    (unless ``allow_full``), the coach's open-spot switch, and the student's eligibility."""
+    from padel_app.services.notification_service import (
+        effective_eligibility,
+        effective_open_spots_visible,
+        passes_eligibility,
+    )
+
+    if full and not allow_full:
         return False
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
-    if not effective_open_spots_visible(instance, coach_id, config):
+    if not effective_open_spots_visible(subject, coach_id, config):
         return False
-    return bool(passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)))
+    return bool(passes_eligibility(cp, subject, coach_id, effective_eligibility(subject, coach_id, config)))
 
 
 def student_may_view_open_occurrence(player, lesson, occ_date, *, now=None, allow_full=False) -> bool:
@@ -660,14 +668,7 @@ def student_may_view_open_occurrence(player, lesson, occ_date, *, now=None, allo
     produces the date, the occurrence has not started, the class is active, visible, has room (or
     ``allow_full``) and the student is eligible. Pure: nothing is materialised (rule 5).
     """
-    from datetime import datetime as _dt
-
     from padel_app.models import Association_CoachLesson
-    from padel_app.services.notification_service import (
-        effective_eligibility,
-        effective_open_spots_visible,
-        passes_eligibility,
-    )
 
     if player is None or lesson is None or occ_date is None or lesson.start_datetime is None:
         return False
@@ -685,14 +686,11 @@ def student_may_view_open_occurrence(player, lesson, occ_date, *, now=None, allo
     if cp is None:
         return False
     # PAD-256 (R-023): the occurrence is on the club's clock, `now` is a UTC instant.
-    occ_start = _dt.combine(occ_date, lesson.start_datetime.time())
+    occ_start = datetime.combine(occ_date, lesson.start_datetime.time())
     if occ_start <= utc_to_wall_naive(now or utcnow_naive()):
-        return False
-    config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
-    if not effective_open_spots_visible(lesson, coach.id, config):
         return False
     if lesson.effective_max_players is None:
         return False
-    if len(lesson.players_relations) >= lesson.effective_max_players and not allow_full:
-        return False
-    return bool(passes_eligibility(cp, lesson, coach.id, effective_eligibility(lesson, coach.id, config)))
+    # The calendar's own measure for an occurrence with no row (open-spot-visibility rule 4).
+    full = len(lesson.players_relations) >= lesson.effective_max_players
+    return _advertised_to(cp, lesson, coach.id, full=full, allow_full=allow_full)

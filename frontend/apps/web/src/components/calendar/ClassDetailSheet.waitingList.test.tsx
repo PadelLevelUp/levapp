@@ -116,6 +116,8 @@ describe("a class the student waits for (PAD-664)", () => {
   it("says so and offers no button", async () => {
     renderSheet(event({ studentRelation: "waiting" }));
     expect(await screen.findByTestId("class-waiting-list-on")).toBeTruthy();
+    // One scheme on both shells: the block is `class-waiting-list-student` in either state.
+    expect(screen.getByTestId("class-waiting-list-student")).toBeTruthy();
     expect(screen.queryByTestId("class-waiting-list-join")).toBeNull();
     expect(screen.queryByTestId("class-join-request-button")).toBeNull();
   });
