@@ -31,10 +31,12 @@ export async function goToNextWeek(page: Page): Promise<void> {
  */
 export async function goToPreviousWeek(page: Page): Promise<void> {
   const prevBtn = page.getByRole("button", { name: /previous week|semana anterior/i }).first();
+  // Desktop toolbar only (the phone WeekNav carries no label id); every caller runs at desktop width.
   const label = page.getByTestId("calendar-week-label");
-  const before = await label.textContent();
+  await expect(label).toHaveText(/\S/); // a real label, so the change below is a real wait
+  const before = (await label.textContent()) ?? "";
   await prevBtn.click();
-  await expect(label).not.toHaveText(before ?? "", { timeout: 10_000 });
+  await expect(label).not.toHaveText(before, { timeout: 10_000 });
 }
 
 async function titleVisible(
