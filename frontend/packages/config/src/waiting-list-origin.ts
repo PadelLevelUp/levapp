@@ -3,6 +3,7 @@
  * a class's waiting-list row, read by both shells.
  */
 import type { ClassWaitingListScopeRequest, CoachClassWaitingListRow } from "@levelup/types";
+import { rosterNameMatchesQuery } from "./coach-display-name";
 import { nameMatchesQuery } from "./name-search";
 import { DEFAULT_STANDING_PRESET, isStandingEndAllowed, standingEndFor } from "./standing-end";
 
@@ -76,12 +77,15 @@ export function waitingListCandidates<P extends { playerId: number | string }>(
  * rule (`nameMatchesQuery`, PAD-516). It only narrows what is offered: the chosen student stays
  * listed, so the choice the confirm button acts on is always on screen.
  */
-export function waitingListPickerOptions<P extends { playerId: number | string; name?: string | null }>(
+export function waitingListPickerOptions<
+  P extends { playerId: number | string; name?: string | null; displayName?: string | null },
+>(
   candidates: P[],
   query: string,
   chosenId: string | null,
 ): P[] {
-  return candidates.filter((p) => String(p.playerId) === chosenId || nameMatchesQuery(p.name, query));
+  // PAD-660: the coach's nickname for a student finds them too.
+  return candidates.filter((p) => String(p.playerId) === chosenId || rosterNameMatchesQuery(p, query));
 }
 
 // ── PAD-560 (calendar.event-detail rule 20): the add/edit dialog's scope logic, one copy for both

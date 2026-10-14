@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coachDisplayName, nicknameShown } from "./coach-display-name";
+import { coachDisplayName, nicknameShown, rosterNameMatchesQuery } from "./coach-display-name";
 
 /**
  * PAD-660 (`players.nickname` rule 3): every coach view resolves a student's name from the
@@ -35,5 +35,29 @@ describe("nicknameShown", () => {
     expect(nicknameShown(roster[1])).toBe(false);
     expect(nicknameShown({ nickname: "  ", nicknameAsName: true })).toBe(false);
     expect(nicknameShown(null)).toBe(false);
+  });
+});
+
+describe("rosterNameMatchesQuery (PAD-660: pickers find a student by either name)", () => {
+  const row = { playerId: "7", name: "Jorge Silva", displayName: "Jorge chato" };
+  it("matches the real name and the coach's display name", () => {
+    expect(rosterNameMatchesQuery(row, "silva")).toBe(true);
+    expect(rosterNameMatchesQuery(row, "chato")).toBe(true);
+    expect(rosterNameMatchesQuery(row, "pinto")).toBe(false);
+  });
+  it("a row without a display name matches on the real name only", () => {
+    expect(rosterNameMatchesQuery({ playerId: 1, name: "Ana" }, "ana")).toBe(true);
+    expect(rosterNameMatchesQuery({ playerId: 1, name: "Ana" }, "chato")).toBe(false);
+  });
+});
+
+describe("waitingListPickerOptions finds a candidate by the coach's nickname too", () => {
+  it("offers the nicknamed student for a search on the nickname", async () => {
+    const { waitingListPickerOptions } = await import("./waiting-list-origin");
+    const candidates = [
+      { playerId: 7, name: "Jorge Silva", displayName: "Jorge chato" },
+      { playerId: 8, name: "Ana Pinto" },
+    ];
+    expect(waitingListPickerOptions(candidates, "chato", null).map((c) => c.playerId)).toEqual([7]);
   });
 });

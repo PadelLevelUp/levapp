@@ -302,7 +302,7 @@ function ScopeDialog({
                       onPress={() => setPlayerId(String(c.playerId))}
                       className={`rounded-md border px-3 py-2 ${chosen ? "border-primary bg-primary/10" : "border-border"}`}
                     >
-                      <Text className="text-sm">{c.name}</Text>
+                      <Text className="text-sm">{c.displayName || c.name}</Text>
                       {reasons ? (
                         <View testID={`class-waiting-list-ineligible-${c.playerId}`}>
                           <Text className="text-[11px] text-warning">{t("calendar.detail.waitingListIneligibleHint")}</Text>

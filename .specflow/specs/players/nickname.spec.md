@@ -43,7 +43,8 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    reads the relation's nickname.
 5. **Search finds both.** `coach_players_paginated` and `notify/player_search` match the typed
    words against the real name or the requesting coach's nickname (the shared name-matching rule,
-   PAD-665, takes both fields).
+   PAD-665, takes both fields); the apps' local pickers do the same over the roster's
+   `displayName` (`rosterNameMatchesQuery`, `@levelup/config`).
 6. **Setting it.** `POST /app/edit_player` accepts `nickname` (trimmed; blank clears it; over 60
    characters is refused with 400) and `nicknameAsName` for the coach's own relation. The profile
    edit form on web and on iOS/Android shows the field with the warning "Visível só para ti. Evita
@@ -58,9 +59,14 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    screens. Deleting
    the student's account clears the nickname on every relation row of theirs; ending the link
    (`remove_player`, disconnect or delete) removes it with the row.
-8. **Not yet covered (part 2; both parts are promoted together, and PAD-660 closes after part 2).** Class requests, waiting lists, the semi-automatic approval card,
-   evaluations, the attendance and presences lists, and the class detail's "Editar presenças" marking
-   rows keep the real name until they adopt rule 3.
+8. **Every other coach view (part 2).** Class requests, the class and standing waiting lists, the
+   restriction chips, the semi-automatic approval card, the coach's evaluations views, the
+   validation and presence views, the attendance and absence pages for a student, the class
+   detail's marking rows (coach only) and, on iOS/Android, the class screen's join requests and
+   invitees print the name through `useCoachDisplayName` (`@levelup/hooks`): one roster query,
+   asked by the row's player id; a student's view never asks. Pickers list the display name, and
+   their search matches either name (`rosterNameMatchesQuery`, rule 5). Both parts are promoted
+   together; PAD-660 closes after part 2.
 
 ### Acceptance Criteria
 

@@ -82,3 +82,14 @@ describe("filterPlayers matches every word in any order (PAD-516)", () => {
     expect(filterPlayers([pedro, alves], { search: "sousa pedro", levelId: null })).toEqual([pedro]);
   });
 });
+
+describe("PAD-660: the class editor's picker finds a student by the coach's nickname", () => {
+  it("matches the display name as well as the real name", () => {
+    const rows = [
+      { playerId: "7", name: "Jorge Silva", displayName: "Jorge chato" },
+      { playerId: "8", name: "Ana Pinto", displayName: "Ana Pinto" },
+    ] as never;
+    expect(filterPlayers(rows, { search: "chato", levelId: null }).map((p: { playerId: string }) => p.playerId)).toEqual(["7"]);
+    expect(filterPlayers(rows, { search: "silva", levelId: null }).map((p: { playerId: string }) => p.playerId)).toEqual(["7"]);
+  });
+});

@@ -1,4 +1,4 @@
-import { classLevelMatch, nameMatchesQuery } from "@levelup/config";
+import { classLevelMatch, nameMatchesQuery, rosterNameMatchesQuery } from "@levelup/config";
 import type { CoachPlayer } from "@levelup/types";
 
 /**
@@ -16,7 +16,7 @@ export function filterPlayers(
 ): CoachPlayer[] {
   if (search.trim().length > 0) {
     // PAD-516: every typed word, in any order.
-    return players.filter((p) => nameMatchesQuery(p.name, search));
+    return players.filter((p) => rosterNameMatchesQuery(p, search));
   }
   if (levelId) {
     return players.filter((p) => String(p.levelId) === String(levelId));

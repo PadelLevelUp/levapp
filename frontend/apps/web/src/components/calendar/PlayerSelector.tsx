@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { classLevelMatch, nameMatchesQuery } from "@levelup/config";
+import { classLevelMatch, nameMatchesQuery, rosterNameMatchesQuery } from "@levelup/config";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -60,7 +60,7 @@ export function PlayerSelector({
 
     if (isSearching) {
       // PAD-516: every typed word, in any order (shared with iOS).
-      result = result.filter((p) => nameMatchesQuery(p.name, search));
+      result = result.filter((p) => rosterNameMatchesQuery(p, search));
     } else if (filterLevelId) {
       result = result.filter((p) => String(p.levelId) === String(filterLevelId));
     }
@@ -105,7 +105,7 @@ export function PlayerSelector({
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
                       {getInitials(player.name)}
                     </div>
-                    <span className="text-sm truncate flex-1">{player.name}</span>
+                    <span className="text-sm truncate flex-1">{player.displayName || player.name}</span>
                   </div>
                 );
               })}
@@ -194,7 +194,7 @@ export function PlayerSelector({
                     {getInitials(player.name)}
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-sm truncate">{player.name}</span>
+                    <span className="text-sm truncate">{player.displayName || player.name}</span>
                     {/* PAD-527: the level is always shown — primary when it is the class's
                         level, amber when it is another (or none), neutral without a class level. */}
                     {(isOutOfLevel || playerLevel?.code) && (
