@@ -131,6 +131,7 @@ import {
 } from "@/features/calendar/params";
 import { ParticipantGroups, type ParticipantGroupRow } from "@/features/calendar/ParticipantGroups";
 import { ParticipantSheet } from "@/features/calendar/ParticipantSheet";
+import type { SideInOccurrence } from "@/features/calendar/SideInOccurrenceControl";
 import {
   ParticipantRow,
   playerName,
@@ -671,6 +672,19 @@ export default function ClassDetailScreen() {
     } finally {
       setSideBusy(null);
     }
+  };
+  // The one shape the attendance rows and the participant sheet read. A virtual occurrence has no
+  // presence rows yet: the player starts on "Habitual".
+  const sideFor = (playerId: string): SideInOccurrence | undefined => {
+    if (!isCoach || instance?.sideEditable === undefined) return undefined;
+    const presence = instance.presences?.find((x) => String(x.playerId) === playerId);
+    return {
+      current: presence?.side ?? null,
+      override: !!presence?.sideOverride,
+      editable: !!instance.sideEditable && !isCanceled && !isEditing,
+      busy: sideBusy === playerId,
+      onChange: (next) => void changeSide(playerId, next),
+    };
   };
 
   const respondForInvitee = async (inv: ClassInvitation, action: "yes" | "no") => {
@@ -1585,7 +1599,11 @@ export default function ClassDetailScreen() {
                   roster={coachPlayers}
                   onOpen={setPopupRow}
                 />
-                <ParticipantSheet row={popupRow} onClose={() => setPopupRow(null)} />
+                <ParticipantSheet
+                  row={popupRow}
+                  onClose={() => setPopupRow(null)}
+                  side={popupRow ? sideFor(popupRow.playerId) : undefined}
+                />
               </>
             ) : (
               participants.map((participant) => (
@@ -1596,22 +1614,7 @@ export default function ClassDetailScreen() {
                     (presence) =>
                       String(presence.playerId) === String(participant.id)
                   )}
-                  side={(() => {
-                    // A virtual occurrence has no presence rows yet: the row starts on "Habitual".
-                    const presence = instance?.presences?.find(
-                      (x) => String(x.playerId) === String(participant.id)
-                    );
-                    return isCoach && instance?.sideEditable !== undefined
-                      ? {
-                          current: presence?.side ?? null,
-                          override: !!presence?.sideOverride,
-                          editable: !!instance.sideEditable && !isCanceled && !isEditing,
-                          busy: sideBusy === String(participant.id),
-                          onChange: (next: "left" | "right" | null) =>
-                            void changeSide(String(participant.id), next),
-                        }
-                      : undefined;
-                  })()}
+                  side={sideFor(String(participant.id))}
                   attendance={
                     attendance[String(participant.id)] ?? { status: null }
                   }

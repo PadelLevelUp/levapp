@@ -17,6 +17,7 @@ import { getPlayerProfile } from "@/api/players";
 import { createConversation } from "@/api/messages";
 import { formatEvaluationDate } from "@/components/evaluations/formatEvaluationDate";
 import type { ParticipantRow } from "./ParticipantGroups";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 
 /**
  * PAD-659 (`calendar.event-detail` rule 23): a player's profile over the class. A Radix dialog
@@ -28,9 +29,11 @@ interface ParticipantPopupProps {
   row: ParticipantRow | null;
   onClose: () => void;
   returnFocusTo?: HTMLElement | null;
+  /** PAD-551: this player's side in this occurrence, for the coach (the sheet's live state). */
+  side?: SideInOccurrence;
 }
 
-export function ParticipantPopup({ row, onClose, returnFocusTo }: ParticipantPopupProps) {
+export function ParticipantPopup({ row, onClose, returnFocusTo, side }: ParticipantPopupProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const playerId = row?.playerId ?? null;
@@ -108,9 +111,10 @@ export function ParticipantPopup({ row, onClose, returnFocusTo }: ParticipantPop
                     </p>
                   ) : null}
                   <div className="flex gap-1.5">
-                    {row.side ? (
+                    {/* PAD-551: the side the sheet reads now (a change re-reads the class), else the row's. */}
+                    {(side?.current ?? row.side) ? (
                       <span className="flex h-[22px] items-center rounded-md bg-white/15 px-2 text-[11px] font-semibold text-[#9CC6FF]">
-                        {t(SIDE_LONG_KEYS[row.side])}
+                        {t(SIDE_LONG_KEYS[(side?.current ?? row.side)!])}
                       </span>
                     ) : null}
                     {row.level?.label ? (
@@ -133,6 +137,11 @@ export function ParticipantPopup({ row, onClose, returnFocusTo }: ParticipantPop
                   "data-testid": "participant-popup-state",
                   "data-group": group,
                 })}
+                {side ? (
+                  <div className="space-y-1 py-2" data-testid="participant-popup-side">
+                    <SideInOccurrenceControl playerId={row.playerId} side={side} />
+                  </div>
+                ) : null}
                 {hint ? <p className="py-1 text-xs text-muted-foreground" data-testid="attendance-reminder-hint">{t(hint)}</p> : null}
                 {cancelled ? (
                   <p className="py-1 text-xs text-muted-foreground" data-testid="attendance-cancelled-by-student">

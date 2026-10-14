@@ -117,6 +117,7 @@ import {
 } from "@/components/ui/select";
 
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
+import type { SideInOccurrence } from "./SideInOccurrenceControl";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
@@ -584,6 +585,19 @@ export function ClassDetailSheet({
     } finally {
       setSideBusy(null);
     }
+  };
+  // The one shape both the attendance rows and the participant popup read. A virtual occurrence has
+  // no presence rows yet: the player starts on "Habitual".
+  const sideFor = (playerId: string): SideInOccurrence | undefined => {
+    if (!canManage || classInstance?.sideEditable === undefined) return undefined;
+    const presence = classInstance.presences?.find((x) => String(x.playerId) === playerId);
+    return {
+      current: presence?.side ?? null,
+      override: !!presence?.sideOverride,
+      editable: !!classInstance.sideEditable && !isCanceled,
+      busy: sideBusy === playerId,
+      onChange: (next) => void changeSide(playerId, next),
+    };
   };
 
   // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9): the student asks or
@@ -1654,18 +1668,7 @@ export function ClassDetailSheet({
                       // presence, so `!canManage` identifies their own row.
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
-                      side={
-                        // A virtual occurrence has no presence rows yet: the row starts on "Habitual".
-                        canManage && classInstance?.sideEditable !== undefined
-                          ? {
-                              current: presence?.side ?? null,
-                              override: !!presence?.sideOverride,
-                              editable: !!classInstance.sideEditable && !isCanceled,
-                              busy: sideBusy === String(p.id),
-                              onChange: (next) => void changeSide(String(p.id), next),
-                            }
-                          : undefined
-                      }
+                      side={sideFor(String(p.id))}
                       classEnded={classEnded}
                     />
                   );
@@ -2480,7 +2483,12 @@ export function ClassDetailSheet({
       )}
 
       {canManage && (
-        <ParticipantPopup row={popupRow} onClose={() => setPopupRow(null)} returnFocusTo={popupOpener} />
+        <ParticipantPopup
+          row={popupRow}
+          onClose={() => setPopupRow(null)}
+          returnFocusTo={popupOpener}
+          side={popupRow ? sideFor(popupRow.playerId) : undefined}
+        />
       )}
 
       {canManage && onEdit && (

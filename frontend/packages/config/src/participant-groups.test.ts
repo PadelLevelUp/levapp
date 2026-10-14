@@ -252,3 +252,30 @@ describe("the coach's nickname in the grouped list (PAD-660, players.nickname ru
     ]);
   });
 });
+
+describe("groupParticipants — the side in this occurrence (PAD-551)", () => {
+  it("chips and orders a player by the coach's override for this class, not the roster side", () => {
+    const groups = groupParticipants({
+      participants: [player(1, "Ana"), player(2, "Bia")],
+      presences: [
+        { ...presence(1, "coming"), side: "right", sideOverride: true },
+        { ...presence(2, "coming"), side: "left", sideOverride: false },
+      ],
+      roster: [rosterEntry(1, "Ana", "left"), rosterEntry(2, "Bia", "left")],
+    });
+    const rows = groups[0].rows;
+    expect(rows.map((r) => [r.name, r.side])).toEqual([
+      ["Ana", "right"],
+      ["Bia", "left"],
+    ]);
+  });
+
+  it("keeps the roster side when the presence has no override", () => {
+    const groups = groupParticipants({
+      participants: [player(1, "Ana")],
+      presences: [{ ...presence(1, "coming"), side: "right", sideOverride: false }],
+      roster: [rosterEntry(1, "Ana", "left")],
+    });
+    expect(groups[0].rows[0].side).toBe("left");
+  });
+});

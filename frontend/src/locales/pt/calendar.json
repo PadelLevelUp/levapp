@@ -598,6 +598,18 @@
       "failed": "Não foi possível entrar na lista de espera",
       "fullHint": "Esta aula está cheia. Podes entrar na lista de espera."
     },
+    "side": {
+      "label": "Lado nesta aula",
+      "usual": "Habitual",
+      "left": "Esquerdo",
+      "right": "Direito",
+      "tag": {
+        "left": "Esquerdo nesta aula",
+        "right": "Direito nesta aula"
+      },
+      "saveFailed": "Não foi possível mudar o lado. Tenta outra vez.",
+      "ended": "Esta aula já terminou; o lado já não se pode mudar."
+    },
     "participants": {
       "group": {
         "going": "Vão · {{count}}",
@@ -633,18 +645,6 @@
       "close": "Fechar",
       "openProfile": "Ver perfil de {{name}}",
       "popupLabel": "Perfil do jogador"
-    },
-    "side": {
-      "tag": {
-        "left": "Esquerdo nesta aula",
-        "right": "Direito nesta aula"
-      },
-      "saveFailed": "Não foi possível mudar o lado. Tenta outra vez.",
-      "label": "Lado nesta aula",
-      "usual": "Habitual",
-      "left": "Esquerdo",
-      "ended": "Esta aula já terminou; o lado já não se pode mudar.",
-      "right": "Direito"
     }
   }
 }

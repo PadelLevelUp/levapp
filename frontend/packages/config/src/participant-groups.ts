@@ -59,7 +59,12 @@ export const PARTICIPANT_GROUP_WORD_KEYS: Record<ParticipantGroupKey, string> = 
 };
 
 type ParticipantLike = { id: string | number; user?: { name?: string | null } | null };
-type PresenceLike = NonNullable<Parameters<typeof attendanceStateOf>[0]> & { playerId?: string | number | null };
+type PresenceLike = NonNullable<Parameters<typeof attendanceStateOf>[0]> & {
+  playerId?: string | number | null;
+  /** PAD-551: the player's side in this occurrence, and whether the coach set it here. */
+  side?: Side | null;
+  sideOverride?: boolean;
+};
 type RosterLike = {
   playerId?: string | number | null;
   name?: string | null;
@@ -111,7 +116,8 @@ const collator = new Intl.Collator("pt", { sensitivity: "base" });
  * Group and order a class's participants for the coach (rule 22).
  *
  * Side and level are not on a class participant; they come from the coach's
- * roster, joined on the player id. A participant missing from the roster (an
+ * roster, joined on the player id — except a side the coach set for this occurrence
+ * (PAD-551, `classes.instance-enrollment` rule 13), which wins over the roster's. A participant missing from the roster (an
  * academy booking from someone the coach never added) sorts as "no side" and has
  * no level. Empty groups are left out.
  */
@@ -145,7 +151,7 @@ export function groupParticipants<P extends ParticipantLike, Pr extends Presence
       // PAD-660 (players.nickname rule 3): this coach's roster is the only source of a nickname.
       name: roster?.displayName || realName,
       realName,
-      side: roster?.side ?? null,
+      side: (presence?.sideOverride && presence.side ? presence.side : roster?.side) ?? null,
       level: roster?.level ?? null,
       state,
       player,

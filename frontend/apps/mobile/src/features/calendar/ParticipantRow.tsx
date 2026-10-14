@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import {
   attendanceStateLabelKey,
   attendanceStateOf,
@@ -68,13 +69,7 @@ type ParticipantRowProps = {
    * coach — the same shape as web's AttendanceRow `side`. `onChange(null)` goes back to the usual
    * side; `editable` is the server's answer (not ended, not canceled).
    */
-  side?: {
-    current: "left" | "right" | "both" | null;
-    override: boolean;
-    editable: boolean;
-    busy?: boolean;
-    onChange: (side: "left" | "right" | null) => void;
-  };
+  side?: SideInOccurrence;
   /**
    * PAD-663 (`calendar.event-detail` rule 25): before the class ends a coach's validated mark
    * is worded as the intent it records ("Vai"), so the badge word and tone follow
@@ -151,37 +146,8 @@ export function ParticipantRow({
         ) : null}
       </View>
 
-      {/* PAD-551: the side this player plays in this occurrence, when set here. */}
-      {side?.override && (side.current === "left" || side.current === "right") ? (
-        <Text testID={`participant-side-${playerId}`} className="text-xs font-medium">
-          {t(`calendar.side.tag.${side.current}`)}
-        </Text>
-      ) : null}
-      {side?.editable ? (
-        <View className="flex-row items-center gap-2">
-          <Text className="text-xs text-muted-foreground">{t("calendar.side.label")}</Text>
-          {(["usual", "left", "right"] as const).map((v) => {
-            const selected = side.override ? side.current === v : v === "usual";
-            return (
-              <Button
-                key={v}
-                testID={`participant-side-${v}-${playerId}`}
-                accessibilityState={{ selected, disabled: !!side.busy }}
-                accessibilityLabel={`${t("calendar.side.label")}: ${t(`calendar.side.${v}`)}`}
-                variant={selected ? "default" : "outline"}
-                size="sm"
-                disabled={side.busy}
-                onPress={() => {
-                  if (selected) return;
-                  side.onChange(v === "usual" ? null : v);
-                }}
-              >
-                <Text className="text-xs">{t(`calendar.side.${v}`)}</Text>
-              </Button>
-            );
-          })}
-        </View>
-      ) : null}
+      {/* PAD-551: the side this player plays in this occurrence. */}
+      {side ? <SideInOccurrenceControl playerId={playerId} side={side} /> : null}
 
       {/* Secondary facts, each on its own line and never a second state word:
           who cancelled and when (rule 23's provenance, coach's row only while
