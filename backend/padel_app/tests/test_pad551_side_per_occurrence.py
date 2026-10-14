@@ -264,3 +264,46 @@ def test_a_student_never_gets_side_editable(app, client, recurring_lesson):
     ).get_json()
     assert payload.get("sideEditable") is False
 
+
+
+def test_setting_the_same_side_again_changes_nothing(app, monkeypatch):
+    """A no-op set: the second identical call re-counts nothing and writes nothing."""
+    from padel_app.services import notification_service as ns
+    from padel_app.services.presence_side_service import set_presence_side
+
+    _patch_io(monkeypatch)
+    calls = []
+    real = ns.rebalance_after_side_change
+    monkeypatch.setattr(ns, "rebalance_after_side_change", lambda *a, **k: calls.append(1) or real(*a, **k))
+    with app.app_context():
+        coach, instance, (ana,) = _class("noop", ["left"])
+        set_presence_side(coach, instance, ana.player_id, "right")
+        set_presence_side(coach, instance, ana.player_id, "right")
+        assert len(calls) == 1
+
+
+def test_a_failure_mid_recount_rolls_back_and_releases_the_class(app, monkeypatch):
+    """The side is not kept when the re-count fails, and the next change goes through."""
+    from padel_app.models.presences import Presence
+    from padel_app.services import notification_service as ns
+    from padel_app.services.presence_side_service import set_presence_side
+
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, instance, (ana,) = _class("boom", ["left"])
+        real = ns.rebalance_after_side_change
+
+        def boom(*a, **k):
+            raise RuntimeError("recount failed")
+
+        monkeypatch.setattr(ns, "rebalance_after_side_change", boom)
+        with pytest.raises(RuntimeError):
+            set_presence_side(coach, instance, ana.player_id, "right")
+        db.session.expire_all()
+        row = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=ana.player_id).one()
+        assert row.side is None, "the failed change is not kept"
+
+        monkeypatch.setattr(ns, "rebalance_after_side_change", real)
+        set_presence_side(coach, instance, ana.player_id, "right")
+        db.session.expire_all()
+        assert Presence.query.filter_by(lesson_instance_id=instance.id, player_id=ana.player_id).one().side == "right"

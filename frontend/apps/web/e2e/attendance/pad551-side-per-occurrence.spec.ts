@@ -112,7 +112,7 @@ test("US-PAD-551: the coach sets a player's side for this class and clears it", 
 
     // Right for this class.
     const [set] = await Promise.all([
-      page.waitForResponse((r) => /\/presences\/\d+\/side$/.test(r.url()) && r.request().method() === "PUT", { timeout: 10_000 }),
+      page.waitForResponse((r) => /\/class_instance\/presences\/side$/.test(r.url()) && r.request().method() === "PUT", { timeout: 10_000 }),
       row.getByTestId(`participant-side-right-${playerId}`).click(),
     ]);
     expect(set.status(), await set.text()).toBe(200);
@@ -130,7 +130,7 @@ test("US-PAD-551: the coach sets a player's side for this class and clears it", 
 
     // "Habitual" clears it.
     const [cleared] = await Promise.all([
-      page.waitForResponse((r) => /\/presences\/\d+\/side$/.test(r.url()) && r.request().method() === "PUT", { timeout: 10_000 }),
+      page.waitForResponse((r) => /\/class_instance\/presences\/side$/.test(r.url()) && r.request().method() === "PUT", { timeout: 10_000 }),
       again.getByTestId(`participant-side-usual-${playerId}`).click(),
     ]);
     expect(cleared.status()).toBe(200);
