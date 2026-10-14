@@ -1,3 +1,4 @@
+import { useCoachDisplayName } from "@levelup/hooks";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -55,6 +56,8 @@ export default function AttendanceScreen() {
   // calendar.seasons rule 14: a coach reading a player's history gets a
   // "Season" preset fed by their own definition's current occurrence.
   const coachView = Boolean(playerId);
+  // PAD-660: a coach reads the student under the nickname they gave them.
+  const displayName = useCoachDisplayName({ enabled: coachView });
   const { data: seasonDefinition } = useQuery({
     queryKey: ["season"],
     queryFn: seasonsApi.getSeason,
@@ -114,7 +117,7 @@ export default function AttendanceScreen() {
         >
           {isCoachView
             ? t("attendance.subtitleOther", {
-                name: history?.playerName ?? "",
+                name: displayName(history?.playerId ?? playerId, history?.playerName ?? ""),
               })
             : t("attendance.subtitleOwn")}
         </Text>

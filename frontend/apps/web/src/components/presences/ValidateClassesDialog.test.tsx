@@ -12,6 +12,11 @@ import { ValidateClassesDialog } from "./ValidateClassesDialog";
 // (e.g. `pendingCount`), and this test is about the busy-set guard only.
 const Dialog = ValidateClassesDialog as unknown as ComponentType<Record<string, unknown>>;
 
+// PAD-660: these tests are about something else; the coach's resolver answers the real name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) =>

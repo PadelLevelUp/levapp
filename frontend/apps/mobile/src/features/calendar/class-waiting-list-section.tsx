@@ -32,6 +32,7 @@ import {
   type WaitingListPeriodMode,
 } from "@levelup/config";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import { useCoachDisplayName } from "@levelup/hooks";
 import type { CoachClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -60,6 +61,8 @@ interface Props {
 
 export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, rows, enrolledIds, onChanged }: Props) {
   const { t, i18n } = useTranslation();
+  // PAD-660: the coach reads the nickname they gave the student (coach-only section).
+  const displayName = useCoachDisplayName();
   const [open, setOpen] = React.useState(rows.length > 0);
   const [dialog, setDialog] = React.useState<null | { editing: CoachClassWaitingListRow | null }>(null);
 
@@ -98,7 +101,7 @@ export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, row
                 className="flex-row items-center justify-between py-1"
               >
                 <View className="flex-1">
-                  <Text className="text-sm" numberOfLines={1}>{row.playerName}</Text>
+                  <Text className="text-sm" numberOfLines={1}>{displayName(row.playerId, row.playerName)}</Text>
                   <Text
                     testID={`class-waiting-list-row-scope-${row.playerId}-${row.scope}`}
                     className="text-[11px] text-muted-foreground"
@@ -185,6 +188,7 @@ function ScopeDialog({
   onSaved: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const displayName = useCoachDisplayName({ enabled: open });
   const { data: roster } = useCoachPlayers({ enabled: open && !editing });
   const candidates = React.useMemo(
     () => waitingListCandidates(roster ?? [], enrolledIds, rows),
@@ -274,7 +278,7 @@ function ScopeDialog({
           <DialogTitle>{t(editing ? "calendar.detail.waitingListEdit" : "calendar.detail.waitingListAdd")}</DialogTitle>
         </DialogHeader>
         {editing ? (
-          <Text testID="class-waiting-list-editing-name" className="text-sm font-medium">{editing.playerName}</Text>
+          <Text testID="class-waiting-list-editing-name" className="text-sm font-medium">{displayName(editing.playerId, editing.playerName)}</Text>
         ) : (
           <>
             <Input

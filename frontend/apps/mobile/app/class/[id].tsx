@@ -37,6 +37,7 @@ import {
   useCalendarEvents,
   useClassEvaluations,
   useClassInstance,
+  useCoachDisplayName,
   useCoachLevels,
   useLessonInstanceById,
 } from "@levelup/hooks";
@@ -338,6 +339,8 @@ export default function ClassDetailScreen() {
   const [draft, setDraft] = React.useState<ClassInstance | null>(null);
   // classes.edit rule 9 (PAD-474): the picker's students, fetched only while a coach edits.
   const { data: coachPlayers, isLoading: coachPlayersLoading } = useCoachPlayers({ enabled: isCoach });
+  // PAD-660: the coach reads join requests and invitees under the nickname they gave the student.
+  const displayName = useCoachDisplayName({ enabled: isCoach });
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
   // classes.edit rule 10: leaving with an unsaved draft — different from the loaded class by
@@ -1037,7 +1040,7 @@ export default function ClassDetailScreen() {
       else await classJoinRequestsApi.rejectClassJoinRequest(id);
       toast.success(
         t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
-          name: req?.playerName ?? "",
+          name: req ? displayName(req.playerId, req.playerName) : "",
         })
       );
     } catch (err) {
@@ -1732,7 +1735,7 @@ export default function ClassDetailScreen() {
                   >
                     <View className="min-w-0 flex-1">
                       <Text className="text-sm" numberOfLines={1}>
-                        {req.playerName}
+                        {displayName(req.playerId, req.playerName)}
                       </Text>
                       {/* PAD-358 (classes.academy-class-booking rule 5): the student's note. */}
                       {req.note ? (
@@ -1800,7 +1803,7 @@ export default function ClassDetailScreen() {
                         className="flex-row items-center justify-between py-1"
                       >
                         <Text className="flex-1 text-sm" numberOfLines={1}>
-                          {inv.playerName}
+                          {displayName(inv.playerId, inv.playerName)}
                         </Text>
                         {/* PAD-548 (calendar.event-detail rules 16–17): one outcome word, decided
                             by the server; actions only on a pending or declined row. */}

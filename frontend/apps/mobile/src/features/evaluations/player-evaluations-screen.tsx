@@ -4,6 +4,7 @@ import {
   useDeleteEvaluationRecord,
   useEvaluationCompetencies,
   usePlayerEvaluations,
+  useCoachDisplayName,
   usePutEvaluationRecord,
 } from "@levelup/hooks";
 import type { EvaluationRecord } from "@levelup/types";
@@ -54,6 +55,8 @@ interface PlayerEvaluationsScreenProps {
 export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluationsScreenProps) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+  // PAD-660: the title names the student as the coach does; the share flow below keeps the real name (it is sent).
+  const displayName = useCoachDisplayName();
   const history = usePlayerEvaluations(playerId);
   const competencySet = useEvaluationCompetencies();
   const put = usePutEvaluationRecord(playerId);
@@ -93,7 +96,7 @@ export function PlayerEvaluationsScreen({ playerId, playerName }: PlayerEvaluati
           <Ionicons name="chevron-back" size={24} color={lightTheme.foreground} />
         </Button>
         <Text role="heading" aria-level={1} className="flex-1 text-xl font-bold" numberOfLines={1}>
-          {t("players.evaluationHistory.title", { name: playerName })}
+          {t("players.evaluationHistory.title", { name: displayName(playerId, playerName) })}
         </Text>
       </View>
 

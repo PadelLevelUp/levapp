@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Clock, X } from "lucide-react";
 import { toast } from "sonner";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
@@ -48,6 +49,8 @@ export function ReplacementApprovalCard({
   allowDismiss = false,
 }: ReplacementApprovalCardProps) {
   const { t } = useTranslation();
+  // PAD-660 rule 8: the approval card is the coach's — queue names and the freed spot use the nickname.
+  const displayName = useCoachDisplayName();
   const [responding, setResponding] = useState(false);
   const [localResponse, setLocalResponse] = useState<ApprovalAction | null>(
     bundle.responded ? bundle.response ?? null : null
@@ -153,7 +156,12 @@ export function ReplacementApprovalCard({
             {/* PAD-574 (rule 4): a freed spot names the student; a never-filled spot is an open spot. */}
             {group.kind === "declined" ? (
               <p className="text-sm leading-relaxed" data-testid="approval-reason-declined">
-                {t("notificationsUi.replacementApproval.declinedReason", { name: group.declinedPlayerName ?? "" })}
+                {t("notificationsUi.replacementApproval.declinedReason", {
+                  name: displayName(
+                    bundle.vacancies.find((v) => v.vacancyId === group.vacancyIds[0])?.declinedPlayerId,
+                    group.declinedPlayerName ?? "",
+                  ),
+                })}
               </p>
             ) : (
               <div className="space-y-0.5">
@@ -180,7 +188,7 @@ export function ReplacementApprovalCard({
                       <span className="text-xs text-muted-foreground text-right">
                         {index + 1}.
                       </span>
-                      <span className="text-center">{player.name}</span>
+                      <span className="text-center">{displayName(player.id, player.name)}</span>
                       <span className="justify-self-start">
                         {renderQueueBadge(player)}
                       </span>
