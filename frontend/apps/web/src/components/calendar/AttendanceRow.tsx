@@ -11,6 +11,7 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   cancellationDetail,
+  displayStateOf,
   reminderHint,
   type AttendancePresenceLike,
   type StateAudience,
@@ -50,6 +51,12 @@ interface AttendanceRowProps {
     busy?: boolean;
     onChange: (side: "left" | "right" | null) => void;
   };
+  /**
+   * PAD-663 (`calendar.event-detail` rule 25): has the class ended? Until it has, a coach's
+   * validated mark is worded as the intent ("Vai", not "Presente"). Defaults to true, the
+   * record's own word, for a caller that does not know.
+   */
+  classEnded?: boolean;
 }
 
 export function AttendanceRow({
@@ -60,6 +67,7 @@ export function AttendanceRow({
   presence,
   audience = "coach",
   side,
+  classEnded = true,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
   const name = player.user?.name ?? t("calendar.attendance.playerFallback");
@@ -75,6 +83,8 @@ export function AttendanceRow({
 
   // PAD-313 (`attendance.confirm` rule 25): ONE state word, from one source.
   const state = attendanceStateOf(presence);
+  // PAD-663: the word and tone follow the display state; `data-state` keeps the stored one.
+  const shown = displayStateOf(state, classEnded);
   const cancellation = cancellationDetail(presence, audience);
   const reminder = reminderHint(presence);
   const TONE: Record<StateTone, string> = {
@@ -130,9 +140,9 @@ export function AttendanceRow({
           variant="outline"
           data-testid="attendance-state"
           data-state={state}
-          className={TONE[attendanceStateTone(state)]}
+          className={TONE[attendanceStateTone(shown)]}
         >
-          {t(attendanceStateLabelKey(state, audience))}
+          {t(attendanceStateLabelKey(shown, audience))}
         </Badge>
       </div>
 

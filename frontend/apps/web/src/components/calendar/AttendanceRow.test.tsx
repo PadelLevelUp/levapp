@@ -150,3 +150,42 @@ describe("PAD-567: pressing the selected status clears the row", () => {
     expect(onChange).toHaveBeenLastCalledWith({ status: null, justification: undefined });
   });
 });
+
+/**
+ * PAD-663 (`calendar.event-detail` rule 25): a coach's mark is stored validated, so before the
+ * class ends it is worded as the intent — "Vai" / "Não vai" (the student: "Vais" / "Não vais") —
+ * whoever marked. After the end the record keeps "Presente" / "Faltou". `data-state` always
+ * carries the stored value.
+ */
+describe("PAD-663: intent words until the class ends", () => {
+  function rowAt(state: string, classEnded: boolean, audience: "student" | "coach" = "coach") {
+    render(
+      <AttendanceRow
+        player={player}
+        attendance={{ status: null }}
+        onChange={() => {}}
+        disabled
+        presence={{ attendanceState: state, validated: true }}
+        audience={audience}
+        classEnded={classEnded}
+      />
+    );
+    return screen.getAllByTestId("attendance-state").at(-1)!;
+  }
+
+  it("before the end, a validated present reads Vai and keeps data-state attended", () => {
+    const badge = rowAt("attended", false);
+    expect(badge.textContent).toBe("calendar.attendanceState.coming.coach");
+    expect(badge.getAttribute("data-state")).toBe("attended");
+  });
+
+  it("before the end, a validated absence reads Não vai, for the student too", () => {
+    expect(rowAt("missed", false).textContent).toBe("calendar.attendanceState.not_coming.coach");
+    expect(rowAt("missed", false, "student").textContent).toBe("calendar.attendanceState.not_coming.student");
+  });
+
+  it("after the end, the record keeps its own word", () => {
+    expect(rowAt("attended", true).textContent).toBe("calendar.attendanceState.attended.coach");
+    expect(rowAt("missed", true).textContent).toBe("calendar.attendanceState.missed.coach");
+  });
+});

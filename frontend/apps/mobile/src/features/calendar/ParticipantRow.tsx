@@ -17,6 +17,7 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   cancellationDetail,
+  displayStateOf,
   reminderHint,
   type StateAudience,
   type StateTone,
@@ -74,6 +75,12 @@ type ParticipantRowProps = {
     busy?: boolean;
     onChange: (side: "left" | "right" | null) => void;
   };
+  /**
+   * PAD-663 (`calendar.event-detail` rule 25): before the class ends a coach's validated mark
+   * is worded as the intent it records ("Vai"), so the badge word and tone follow
+   * `displayStateOf`. The test id below keeps the STORED state.
+   */
+  classEnded?: boolean;
 };
 
 /** Mobile analogue of the web AttendanceRow: name + presence badges, with
@@ -86,6 +93,7 @@ export function ParticipantRow({
   canMark,
   audience = "coach",
   side,
+  classEnded = true,
 }: ParticipantRowProps) {
   const name = playerName(player);
   const playerId = String(player.id);
@@ -111,6 +119,7 @@ export function ParticipantRow({
 
   // PAD-313: one state, one source, same helper as web.
   const state = attendanceStateOf(presence);
+  const shown = displayStateOf(state, classEnded);
   const cancellation = cancellationDetail(presence, audience);
   const reminder = reminderHint(presence);
 
@@ -134,10 +143,10 @@ export function ParticipantRow({
             showed "presença confirmada" beside "falta justificada" — the
             founder's report. The coach's toggle below still writes the mark. */}
         {presence ? (
-          <Badge variant={BADGE_VARIANT[attendanceStateTone(state)]} testID="attendance-state">
+          <Badge variant={BADGE_VARIANT[attendanceStateTone(shown)]} testID="attendance-state">
             {/* The state in the id (web: data-state on attendance-state), so a
                 flow asserts the state, not its rendered word (PAD-320). */}
-            <Text testID={`attendance-state-${state}`}>{t(attendanceStateLabelKey(state, audience))}</Text>
+            <Text testID={`attendance-state-${state}`}>{t(attendanceStateLabelKey(shown, audience))}</Text>
           </Badge>
         ) : null}
       </View>

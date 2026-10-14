@@ -598,17 +598,53 @@
       "failed": "Couldn't join the waiting list",
       "fullHint": "This class is full. You can join its waiting list."
     },
+    "participants": {
+      "group": {
+        "going": "Going · {{count}}",
+        "pending": "No answer · {{count}}",
+        "not_going": "Not going · {{count}}"
+      },
+      "state": {
+        "going": "Going",
+        "pending": "No answer",
+        "not_going": "Not going"
+      },
+      "sideShort": {
+        "both": "Both",
+        "right": "Right",
+        "left": "Left"
+      },
+      "sideLong": {
+        "both": "Both sides",
+        "right": "Right side",
+        "left": "Left side"
+      },
+      "title": "Participants",
+      "enrolled": "{{current}}/{{max}} enrolled",
+      "inThisClass": "In this class",
+      "attendance": "Attendance",
+      "attendanceValue": "{{attended}} attended · {{missed}} missed",
+      "lastEvaluation": "Last evaluation",
+      "noEvaluations": "No evaluations",
+      "contact": "Contact",
+      "level": "Level {{level}}",
+      "sendMessage": "Send message",
+      "fullProfile": "View full profile",
+      "close": "Close",
+      "openProfile": "View {{name}}'s profile",
+      "popupLabel": "Player profile"
+    },
     "side": {
-      "label": "Side in this class",
-      "usual": "Usual",
-      "left": "Left",
-      "right": "Right",
       "tag": {
         "left": "Left in this class",
         "right": "Right in this class"
       },
       "saveFailed": "Couldn't change the side. Try again.",
-      "ended": "This class has ended; its side can no longer change."
+      "label": "Side in this class",
+      "usual": "Usual",
+      "left": "Left",
+      "ended": "This class has ended; its side can no longer change.",
+      "right": "Right"
     }
   }
 }
