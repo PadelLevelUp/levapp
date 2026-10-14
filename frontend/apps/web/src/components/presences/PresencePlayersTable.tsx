@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { searchPresencePlayers } from "./presenceSearch";
 import type { PresencePlayerStats } from "@/types";
 
@@ -327,7 +328,11 @@ export function PresencePlayersTable({
                     colSpan={shown.length}
                     className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
-                    {t("presences.table.empty")}
+                    {query.trim() ? (
+                      <PlayerSearchFeedback query={query} count={0} className="text-sm text-muted-foreground" />
+                    ) : (
+                      t("presences.table.empty")
+                    )}
                   </td>
                 </tr>
               )}

@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { searchPeopleByName } from '@levelup/config';
+import { PlayerSearchFeedback } from '@/components/players/PlayerSearchFeedback';
 import { getMessageableUsers } from '@/api/users';
 
 interface User {
@@ -241,6 +242,13 @@ export function NewConversationDialog({
                     {t('players.connect.dashboardLink')}
                   </Button>
                 </div>
+              ) : emptyKind === 'no-match' && isCoach ? (
+                /* players.search rule 10: a coach's search that finds nobody says so, with the query. */
+                <PlayerSearchFeedback
+                  query={searchQuery}
+                  count={0}
+                  className="text-center py-8 text-muted-foreground text-sm"
+                />
               ) : emptyKind ? (
                 <div
                   className="text-center py-8 text-muted-foreground text-sm"

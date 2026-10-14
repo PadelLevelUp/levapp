@@ -3,8 +3,8 @@
  * the SAME `PlayersPage` component (the MessagesPage pattern) so the roster's
  * search/sort/page/filter state survives a selection change.
  */
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, within, waitFor, act } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -275,5 +275,49 @@ describe("PlayersPage master-detail (PAD-410)", () => {
     await waitFor(() =>
       expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ title: "players.listLoadFailed" })));
     expect(screen.getByTestId("player-card-2")).toBeInTheDocument();
+  });
+});
+
+describe("PlayersPage search feedback (players.search rule 10, PAD-665)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("typing fast makes one request, 200 ms after the last letter, and says it is searching meanwhile", async () => {
+    renderAt("/players");
+    await screen.findByTestId("player-card-1");
+    const calls = () => vi.mocked(getCoachPlayersPaginated).mock.calls;
+    const before = calls().length;
+
+    type Page = ReturnType<typeof pageOf>;
+    let resolveRui!: (v: Page) => void;
+    vi.mocked(getCoachPlayersPaginated).mockImplementationOnce(() => new Promise((resolve) => { resolveRui = resolve; }));
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const input = screen.getByTestId("players-search-input");
+    for (const value of ["r", "ru", "rui"]) {
+      fireEvent.change(input, { target: { value } });
+      await act(async () => { vi.advanceTimersByTime(100); });
+    }
+    // Faster than 200 ms apart: nothing asked yet, and the coach is told so.
+    expect(calls().length).toBe(before);
+    expect(screen.getByTestId("player-search-searching")).toBeInTheDocument();
+
+    await act(async () => { vi.advanceTimersByTime(99); });
+    expect(calls().length).toBe(before);
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(calls().length).toBe(before + 1);
+    expect(calls().at(-1)?.[2]).toBe("rui");
+
+    // In flight: still searching, and the previous rows stay on screen.
+    expect(screen.getByTestId("player-search-searching")).toBeInTheDocument();
+    expect(screen.getByTestId("player-card-1")).toBeInTheDocument();
+
+    vi.useRealTimers(); // waitFor below polls with real timers
+    await act(async () => { resolveRui(pageOf([])); });
+    await waitFor(() => expect(screen.queryByTestId("player-search-searching")).not.toBeInTheDocument());
+    // Settled with nobody: the empty line names the query as typed.
+    expect(screen.getByTestId("player-search-empty")).toHaveTextContent("rui");
+
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.queryByTestId("player-search-empty")).not.toBeInTheDocument();
   });
 });

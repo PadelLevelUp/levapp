@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import type { CoachPlayer, CoachLevel } from "@/types";
 
 interface PlayerSelectorProps {
@@ -157,11 +158,14 @@ export function PlayerSelector({
             as "only four players for this level". Same family as B-202 (PAD-439). */}
         <div className="max-h-52 overflow-y-auto overscroll-contain" data-testid="player-selector-list">
           <div className="space-y-1">
-            {allPlayers.length === 0 && (
-              <p className="text-sm text-muted-foreground py-3 text-center">
-                {t("calendar.playerSelector.noPlayersFound")}
-              </p>
-            )}
+            {allPlayers.length === 0 &&
+              (isSearching ? (
+                <PlayerSearchFeedback query={search} count={0} className="text-sm text-muted-foreground py-3 text-center" />
+              ) : (
+                <p className="text-sm text-muted-foreground py-3 text-center">
+                  {t("calendar.playerSelector.noPlayersFound")}
+                </p>
+              ))}
 
             {allPlayers.map((player) => {
               const playerId = String(player.playerId);

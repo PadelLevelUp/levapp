@@ -10,6 +10,7 @@ import { searchPeopleByName, unreadBadgeLabel } from '@levelup/config';
 import type { Conversation } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
+import { PlayerSearchFeedback } from '@/components/players/PlayerSearchFeedback';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -120,13 +121,18 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
       <ScrollArea className="flex-1 min-h-0">
         <div className="divide-y divide-border">
           {filteredConversations.length === 0 ? (
-            <div
-              data-testid="conversations-empty"
-              data-filter={filter}
-              className="text-center py-8 text-muted-foreground text-sm"
-            >
-              {filter === 'unread' ? t("messages.noUnreadConversations") : t("messages.noConversationsFound")}
-            </div>
+            // players.search rule 10: a coach's search that finds nobody says so, with the query.
+            isCoach && searchQuery.trim() ? (
+              <PlayerSearchFeedback query={searchQuery} count={0} className="text-center py-8 text-muted-foreground text-sm" />
+            ) : (
+              <div
+                data-testid="conversations-empty"
+                data-filter={filter}
+                className="text-center py-8 text-muted-foreground text-sm"
+              >
+                {filter === 'unread' ? t("messages.noUnreadConversations") : t("messages.noConversationsFound")}
+              </div>
+            )
           ) : (
             filteredConversations.map((conversation) => (
               <button

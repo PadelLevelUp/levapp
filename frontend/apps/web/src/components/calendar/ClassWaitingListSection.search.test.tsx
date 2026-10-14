@@ -71,6 +71,28 @@ describe("PAD-558 the waiting-list picker searches by name (rule 20)", () => {
   });
 });
 
+describe("players.search rule 10 (PAD-665): a search that finds nobody says so", () => {
+  it("shows the shared empty line for a non-blank query that matches nobody, and removes it once cleared", () => {
+    openPicker();
+    expect(screen.queryByTestId("player-search-empty")).toBeNull();
+    fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "  xavier " } });
+    expect(offered).toThrow(); // no rows
+    expect(screen.getByTestId("player-search-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("player-search-searching")).toBeNull();
+    fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "" } });
+    expect(screen.queryByTestId("player-search-empty")).toBeNull();
+    expect(offered()).toEqual(["1", "2", "3"]);
+  });
+
+  it("still says so when the picker keeps a chosen student listed", () => {
+    openPicker();
+    fireEvent.click(screen.getByTestId("class-waiting-list-candidate-3"));
+    fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "xavier" } });
+    expect(screen.getByTestId("class-waiting-list-candidate-3")).toBeInTheDocument();
+    expect(screen.getByTestId("player-search-empty")).toBeInTheDocument();
+  });
+});
+
 describe("PAD-560 each row says how long the student is on the list (rule 19)", () => {
   const row = (over: Partial<CoachClassWaitingListRow>): CoachClassWaitingListRow => ({
     id: 1, playerId: 1, playerName: "x", joinedAt: null, origin: "coach", standingEntryId: null, seriesScoped: false,
