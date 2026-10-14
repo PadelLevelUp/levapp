@@ -4,6 +4,7 @@ import {
   groupOfState,
   groupParticipants,
   presenceChangedFor,
+  classHasEnded,
 } from "./participant-groups";
 
 /**
@@ -167,5 +168,33 @@ describe("presenceChangedFor (rule 24)", () => {
     expect(presenceChangedFor(evt(42), null)).toBe(false);
     expect(presenceChangedFor(null, 42)).toBe(false);
     expect(presenceChangedFor({ type: "presence_changed" }, 42)).toBe(false);
+  });
+});
+
+describe("classHasEnded + displayStateOf on each side of the end (rule 25, pinned clock)", () => {
+  // A class on 2026-10-20 ending 21:30 club time. Lisbon is UTC+1 (WEST) on that date, so the
+  // end is 20:30Z. Both the fixture and "now" are pinned (memory: pinned-now tests must pin
+  // their fixtures).
+  const date = "2026-10-20";
+  const endTime = "21:30";
+
+  it("one minute before the end, a coach's present mark reads as Vai", () => {
+    const now = new Date("2026-10-20T20:29:00Z");
+    expect(classHasEnded(date, endTime, now)).toBe(false);
+    expect(displayStateOf("attended", classHasEnded(date, endTime, now))).toBe("coming");
+    expect(displayStateOf("missed", classHasEnded(date, endTime, now))).toBe("not_coming");
+  });
+
+  it("one minute after the end, the record keeps Presente / Faltou", () => {
+    const now = new Date("2026-10-20T20:31:00Z");
+    expect(classHasEnded(date, endTime, now)).toBe(true);
+    expect(displayStateOf("attended", classHasEnded(date, endTime, now))).toBe("attended");
+    expect(displayStateOf("missed", classHasEnded(date, endTime, now))).toBe("missed");
+  });
+
+  it("a midnight end (24:00) is the end of that day, and an unreadable time is not ended", () => {
+    expect(classHasEnded(date, "24:00", new Date("2026-10-20T22:59:00Z"))).toBe(false);
+    expect(classHasEnded(date, "24:00", new Date("2026-10-20T23:01:00Z"))).toBe(true);
+    expect(classHasEnded(date, "", new Date("2030-01-01T00:00:00Z"))).toBe(false);
   });
 });

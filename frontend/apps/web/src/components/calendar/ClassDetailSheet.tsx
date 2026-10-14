@@ -49,7 +49,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -671,8 +671,7 @@ export function ClassDetailSheet({
   const classStartMs = wallClockMs(active.date, active.startTime);
   const classStarted = !Number.isNaN(classStartMs) && classStartMs <= lisbonNowMs();
   // PAD-663 (rule 25): until the class ends, a coach's validated mark is worded as intent.
-  const classEndMs = wallClockMs(active.date, active.endTime);
-  const classEnded = !Number.isNaN(classEndMs) && classEndMs <= lisbonNowMs();
+  const classEnded = classHasEnded(active.date, active.endTime);
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&

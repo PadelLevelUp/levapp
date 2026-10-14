@@ -21,6 +21,7 @@
 
 import type { AttendanceState } from "./attendance-state";
 import { attendanceStateOf } from "./attendance-state";
+import { lisbonNowMs, wallClockMs } from "./club-date";
 
 export type ParticipantGroupKey = "going" | "pending" | "not_going";
 
@@ -178,4 +179,15 @@ export function presenceChangedFor(
   const raw = (evt.payload as { lessonInstanceId?: unknown } | null | undefined)?.lessonInstanceId;
   if (raw == null) return false;
   return String(raw) === String(instanceId);
+}
+
+/**
+ * Rule 25: has the class ended, on the club's clock? The one input `displayStateOf` needs, so
+ * no shell compares times of its own. `endTime` "24:00" is midnight at the end of `date`.
+ * A class whose date or time cannot be read counts as not ended: the intent words are the safe
+ * reading for a class nobody can place in time.
+ */
+export function classHasEnded(date: string, endTime: string, now: Date = new Date()): boolean {
+  const end = wallClockMs(date, endTime);
+  return !Number.isNaN(end) && end <= lisbonNowMs(now);
 }

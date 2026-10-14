@@ -252,8 +252,8 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     "Não vai" (en "Going" / "Not going"); the student about themselves: "Vais" / "Não vais" —
     whether the student answered or the coach marked. A coach's mark is stored validated
     (`attended` / `missed`), so the word and its tone are chosen by ONE helper in
-    `@levelup/config` (`displayStateOf(state, classEnded)`) from the state and whether the class
-    has ended: before the end `attended` reads as `coming` and `missed` as `not_coming`; after the
+    `@levelup/config` (`displayStateOf(state, classHasEnded(date, endTime))`) from the state and
+    whether the class has ended on the club's clock (an unreadable time counts as not ended): before the end `attended` reads as `coming` and `missed` as `not_coming`; after the
     end they keep "Presente" / "Faltou". `data-state` and the `attendance-state-<state>` test ids
     keep rule 9's stored value — only the word and tone follow the display state. `planned` keeps
     its word ("Inscrito") on rows; the class-detail groups and pop-up say "Por responder". The
@@ -306,6 +306,11 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Then** without a reload Ana's row moves to "NÃO VÃO" and the group counts change
 - **And** the backend published `presence_changed` with that class's id and Ana's player id to the
   coach and to no student
+
+#### The word changes at the class's end time (rule 25, pinned clock)
+- **Given** a class on 2026-10-20 ending 21:30 club time, and a student the coach marked present
+- **When** a display reads that student at 21:29 club time, and again at 21:31
+- **Then** at 21:29 it reads "Vai" (the student: "Vais"), and at 21:31 it reads "Presente"
 
 #### Mobile shows the same list behind an edit toggle (rules 22–23)
 - **Given** the same class on iOS
