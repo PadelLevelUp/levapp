@@ -4,6 +4,7 @@ import { isInMonth, lisbonNow, MONTH_WEEKDAY_HEADER_HEIGHT } from "@levelup/conf
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
+import { useCalendarViewer } from "../viewer-context";
 import { MAX_DAY_DOTS, dateCircleClass, dotColor } from "./DayStrip";
 
 /**
@@ -30,6 +31,7 @@ export function MonthGrid({
   const { t, i18n } = useTranslation();
   const locale = dateFnsLocale(i18n.language);
   const now = lisbonNow();
+  const viewer = useCalendarViewer();
 
   return (
     <div data-testid="calendar-month-grid" className="shrink-0 bg-background px-2.5 pb-3">
@@ -83,7 +85,7 @@ export function MonthGrid({
                     data-testid="day-fill-dot"
                     data-event-title={event.title}
                     className="h-[5px] w-[5px] rounded-full"
-                    style={{ backgroundColor: dotColor(event, now) }}
+                    style={{ backgroundColor: dotColor(event, now, viewer) }}
                   />
                 ))}
               </span>

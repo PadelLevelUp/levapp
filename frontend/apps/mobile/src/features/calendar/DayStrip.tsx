@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 import { dayDotColors } from "./day-dots";
+import { useCalendarViewer } from "./viewer-context";
 
 const SURFACES = nativeCalendarSurfaces("light");
 
@@ -38,6 +39,7 @@ export function DayStrip({
   /** Events keyed by `yyyy-MM-dd`, already sorted by start time. */
   eventsByDay: Record<string, CalendarEvent[]>;
 }) {
+  const viewer = useCalendarViewer();
   const { t } = useTranslation();
   const locale = useDateLocale();
 
@@ -61,7 +63,7 @@ export function DayStrip({
           const selected = isSameDay(day, selectedDay);
           const today = isClubToday(day);
           const abbr = format(day, "EEE", { locale }).replace(/\.$/, "").toUpperCase();
-          const dots = dayDotColors(events, SURFACES);
+          const dots = dayDotColors(events, SURFACES, new Date(), viewer);
 
           return (
             <Pressable

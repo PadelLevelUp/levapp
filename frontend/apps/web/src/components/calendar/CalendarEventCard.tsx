@@ -104,7 +104,7 @@ export function CalendarEventCard({
   const isOpenSpot = !!event.openSpot;
   // PAD-578 (rule 6): a student's own class is ticked — never by colour alone.
   const viewer = useCalendarViewer();
-  const cardVariant = resolveCardVariant(event, { isNext }).variant;
+  const cardVariant = resolveCardVariant(event, { isNext, viewer }).variant;
   const enrolledMark = showsEnrolledMark(event, cardVariant, viewer);
   // PAD-611 (calendar.view rule 22): the student's relation chip, from the shared helper.
   const chip = relationChip(cardVariant);
@@ -115,12 +115,20 @@ export function CalendarEventCard({
     onColor = false;
   }
   // PAD-611: invited / waiting / "Não vou" take the shared treatment (mobile-views rule 5).
-  if (cardVariant === 'invited' || cardVariant === 'waiting' || cardVariant === 'not-coming') {
-    const surface = cardSurfaceWeb(hex, cardVariant);
+  // PAD-664 (calendar.view rule 23): a student's card is painted by the relation, whatever the
+  // coach colour — every upcoming variant takes the shared student surface.
+  if (
+    viewer === 'student' ||
+    cardVariant === 'invited' ||
+    cardVariant === 'waiting' ||
+    cardVariant === 'not-coming'
+  ) {
+    const surface = cardSurfaceWeb(hex, cardVariant, viewer);
     stateStyle.backgroundColor = surface.backgroundColor;
     stateStyle.border = surface.border;
     stateStyle.color = surface.color;
-    onColor = false;
+    // The solid primary fill of a student's own class is the one saturated surface.
+    onColor = viewer === 'student' && cardVariant === 'scheduled';
   }
 
   const capacity = event.maxPlayers ?? 0;

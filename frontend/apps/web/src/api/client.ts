@@ -43,6 +43,7 @@ export const WEB_CAPABILITIES = [
   "terms-on-completion",
   "adult-roster-confirmation",
   "student-relations",
+  "full-classes",
 ] as const;
 
 initApi({
@@ -56,6 +57,8 @@ initApi({
   // removes the feature, nothing crashes.
   // PAD-429 (eligibility.open-spot-visibility rule 12): `class-type-defaults` lets the server
   // send the `type` open-spots source label instead of falling it back to `coach`.
+  // PAD-664 (calendar.view rule 23): `full-classes` asks the server for a full eligible class
+  // (`studentRelation: "full"`) so the student can join its waiting list; without it none is sent.
   capabilities: WEB_CAPABILITIES,
 });
 

@@ -8,6 +8,7 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
 import { dayDotColors } from "./day-dots";
+import { useCalendarViewer } from "./viewer-context";
 
 const SURFACES = nativeCalendarSurfaces("light");
 
@@ -44,6 +45,7 @@ export function MonthGrid({
 }) {
   const { t } = useTranslation();
   const locale = useDateLocale();
+  const viewer = useCalendarViewer();
 
   return (
     <View testID="calendar-month-grid" className="bg-background px-2.5 pb-3">
@@ -72,7 +74,7 @@ export function MonthGrid({
           const selected = inMonth && isSameDay(day, selectedDay);
           const today = inMonth && isClubToday(day);
           const events = inMonth ? eventsByDay[key] ?? [] : [];
-          const dots = dayDotColors(events, SURFACES);
+          const dots = dayDotColors(events, SURFACES, new Date(), viewer);
           return (
             <View key={key} className="flex-1" style={{ padding: 1 }}>
               <Pressable

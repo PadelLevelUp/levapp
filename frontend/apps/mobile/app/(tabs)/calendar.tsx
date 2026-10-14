@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { keepPreviousData } from "@tanstack/react-query";
-import { findNextEventId, isClubToday, lightTheme } from "@levelup/config";
+import { filterStudentEvents, findNextEventId, isClubToday, lightTheme } from "@levelup/config";
 import {
   useCalendar,
   useCalendarEvents,
@@ -23,6 +23,10 @@ import { DayHeader } from "@/features/calendar/DayHeader";
 import { DayStrip } from "@/features/calendar/DayStrip";
 import { EventCard } from "@/features/calendar/EventCard";
 import { eventToParams } from "@/features/calendar/params";
+import {
+  StudentCalendarHeader,
+  useStudentCalendarFilter,
+} from "@/features/calendar/student-calendar-header";
 import { ViewModeControl } from "@/features/calendar/ViewModeControl";
 import { WeekView } from "@/features/calendar/WeekView";
 import { MonthView } from "@/features/calendar/MonthView";
@@ -73,6 +77,8 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
   const isCoach = user?.roles?.includes("coach") ?? false;
+  // PAD-664 (calendar.view rule 23): a student chooses every eligible class or only their own.
+  const [studentFilter, setStudentFilter] = useStudentCalendarFilter(user?.id);
   // PAD-248 rule 18: in Mês the add buttons step aside while the day sheet is pulled up.
   const [addButtonsHidden, setAddButtonsHidden] = React.useState(false);
 
@@ -92,7 +98,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
   const from = format(rangeStart, "yyyy-MM-dd'T'00:00:00");
   const to = format(rangeEnd, "yyyy-MM-dd'T'23:59:59");
   const {
-    data: events,
+    data: fetchedEvents,
     isPending,
     isError,
     refetch,
@@ -101,6 +107,10 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
     // answers, instead of a skeleton on every navigation.
     placeholderData: keepPreviousData,
   });
+  const events = React.useMemo(
+    () => (fetchedEvents && !isCoach ? filterStudentEvents(fetchedEvents, studentFilter) : fetchedEvents),
+    [fetchedEvents, isCoach, studentFilter]
+  );
   const { data: levels } = useCoachLevels();
 
   // One pass over the week: the strip needs every day's events in start-time
@@ -165,6 +175,7 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
         onChange={calendar.setViewMode}
         enabled={ENABLED_VIEW_MODES}
       />
+      {!isCoach ? <StudentCalendarHeader filter={studentFilter} onChange={setStudentFilter} /> : null}
 
       {isError ? (
         <View className="flex-1">
