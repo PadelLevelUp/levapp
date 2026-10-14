@@ -1,0 +1,140 @@
+# PAD-664 — calendar.view rule 23 on iOS: the student's Dia view shows their enrolled class (✓),
+# an eligible class with a spot (grey, "Vaga livre"), an eligible FULL class (amber, "Cheia") and a
+# class they are invited to; "Só as minhas aulas" hides the two offers but keeps the invitation
+# (orchestrator check, 2026-10-14); the full class opens with "Juntar-me à lista de espera".
+# Seeded through the API (R-040), the PAD-358 / flow-269 way: open spots made visible, four classes
+# two days out, a manual invitation; everything restored on completion. Asserted by id (PAD-320):
+# the relation sits in the chip wrapper's id (`calendar-relation-<variant>`) because Maestro cannot
+# read attributes. Flow number 270 is from la-1410-SessionB's wave-15 block.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.cleanup && output.cleanup()}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.auth = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }}"
+- evalScript: "${output.players = (function (r) { return r.items ? r.items : r; })(json(http.get(output.api + '/api/app/coach_players', { headers: output.auth }).body))}"
+- evalScript: "${output.find = function (n) { return output.players.filter(function (p) { return p.name === n; })[0]; }}"
+- evalScript: "${output.student = output.find('E2E Student')}"
+- evalScript: "${output.filler = output.find('Filler Player 01')}"
+- assertTrue: "${output.student != null && output.filler != null}"
+- evalScript: "${output.day = (function (d) { var m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (x < 10 ? '0' + x : '' + x); })(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.add = function (name, start, end, max, ids) { return json(http.post(output.api + '/api/app/add_class', { headers: output.auth, body: JSON.stringify({ name: name, classType: 'academy', maxPlayers: max, levelId: output.student.levelId, date: output.day, startTime: start, endTime: end, playerIds: ids, isRecurring: false, notificationsEnabled: false }) }).body); }}"
+- evalScript: "${output.wasVisible = !!json(http.get(output.api + '/api/app/notify/config', { headers: output.auth }).body).openSpotsVisible}"
+- evalScript: "${output.made = []}"
+- evalScript: "${output.cleanup = function () { http.post(output.api + '/api/app/notify/config', { headers: output.auth, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }); output.made.forEach(function (m) { http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: m.model || 'Lesson', originalId: m.originalId, date: output.day }, scope: 'single' }) }); }); }}"
+- evalScript: "${output.visible = json(http.post(output.api + '/api/app/notify/config', { headers: output.auth, body: JSON.stringify({ openSpotsVisible: true }) }).body).openSpotsVisible}"
+- assertTrue: "${output.visible === true}"
+- evalScript: "${output.made.push(output.add('E2E 664 Enrolled iOS', '08:00', '09:00', 4, [output.student.playerId]))}"
+- evalScript: "${output.made.push(output.add('E2E 664 Open iOS', '10:00', '11:00', 4, []))}"
+- evalScript: "${output.made.push(output.add('E2E 664 Full iOS', '12:00', '13:00', 1, [output.filler.playerId]))}"
+- evalScript: "${output.invitedClass = output.add('E2E 664 Invited iOS', '14:00', '15:00', 4, [])}"
+- evalScript: "${output.made.push(output.invitedClass)}"
+- evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/manual', { headers: output.auth, body: JSON.stringify({ model: output.invitedClass.model || 'Lesson', originalId: output.invitedClass.originalId, date: output.day, playerIds: [output.student.playerId] }) }).body).sent}"
+- assertTrue: "${output.sent === 1}"
+
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "calendar-next-week"
+          timeout: 15000
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E 664 Enrolled iOS"
+    timeout: 15000
+
+# ── default "all I'm eligible for": every state, each with its second signal and the legend ──
+- assertVisible:
+    id: "calendar-student-filter"
+- assertVisible:
+    id: "calendar-legend-item-full"
+- assertVisible:
+    id: "calendar-enrolled-mark"
+- scrollUntilVisible:
+    element:
+      id: "calendar-relation-full"
+    direction: DOWN
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "calendar-relation-invited"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    id: "calendar-relation-open-spot"
+
+# ── "Só as minhas aulas": the offers go, the invitation stays ──
+- scrollUntilVisible:
+    element:
+      id: "calendar-student-filter-mine"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "calendar-student-filter-mine"
+- extendedWaitUntil:
+    notVisible:
+      id: "calendar-relation-full"
+    timeout: 10000
+- assertNotVisible:
+    id: "calendar-relation-open-spot"
+- assertNotVisible:
+    id: "calendar-legend-item-full"
+- scrollUntilVisible:
+    element:
+      id: "calendar-relation-invited"
+    direction: DOWN
+    timeout: 15000
+
+# ── back to all; the full class offers its waiting list ──
+- scrollUntilVisible:
+    element:
+      id: "calendar-student-filter-eligible"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "calendar-student-filter-eligible"
+- scrollUntilVisible:
+    element:
+      text: "E2E 664 Full iOS"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "E2E 664 Full iOS"
+- scrollUntilVisible:
+    element:
+      id: "class-waiting-list-join"
+    direction: DOWN
+    timeout: 20000
+- assertNotVisible:
+    id: "class-join-request-button"
+- tapOn:
+    id: "class-waiting-list-join"
+- extendedWaitUntil:
+    visible:
+      id: "class-waiting-list-on"
+    timeout: 15000
+- evalScript: "${output.studentTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.places = json(http.get(output.api + '/api/app/class-waiting-list', { headers: { 'Authorization': 'Bearer ' + output.studentTok } }).body)}"
+- assertTrue: "${output.places.some(function (p) { return p.classTitle === 'E2E 664 Full iOS'; })}"

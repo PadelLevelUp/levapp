@@ -155,20 +155,44 @@ describe("the phone card — a student's relations (PAD-611)", () => {
     );
     const cards = screen.getAllByTestId("calendar-event-card");
     expect(cards.map((c) => c.getAttribute("data-event-state"))).toEqual(["invited", "waiting", "not-coming"]);
-    expect(cards[0].style.border.toLowerCase()).toBe(`1.5px dashed ${BLUE.toLowerCase()}`);
-    // jsdom drops the waiting border (its colour is a CSS variable); the surface is pinned on the
-    // shared helper in calendar-card.test.ts.
+    // PAD-664: a student's card is painted by the relation (blue `primary`, a CSS variable jsdom
+    // drops), never by the coach colour; the surface is pinned on the shared helper in
+    // calendar-card.test.ts.
+    expect(cards[0].style.border.toLowerCase()).not.toContain(BLUE.toLowerCase());
     expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
     // This file renders with the real pt locale: the keys resolve.
     expect(screen.getAllByTestId("calendar-relation-chip").map((c) => c.textContent)).toEqual([
       "Convite",
-      "Lista de espera",
+      "Em lista de espera",
       "Não vou",
     ]);
   });
 
-  it("dots: invited takes the class colour, waiting is muted", () => {
+  it("dots (coach viewer, unchanged): invited takes the class colour, waiting is muted", () => {
     expect(dotColor(rel("invited", "i2"), NOW)).toBe(BLUE);
     expect(dotColor(rel("waiting", "w2"), NOW)).toBe("hsl(var(--muted-foreground))");
+  });
+
+  it("dots (student viewer): the relation family, never the coach colour", () => {
+    expect(dotColor(rel("invited", "i3"), NOW, "student")).toBe("hsl(var(--primary))");
+    expect(dotColor(rel("waiting", "w3"), NOW, "student")).toBe("hsl(var(--warning))");
+    expect(dotColor(rel("full", "f3"), NOW, "student")).toBe("hsl(var(--warning))");
+    expect(dotColor(rel("open_spot", "o3"), NOW, "student")).toBe("hsl(var(--muted-foreground))");
+  });
+});
+
+// PAD-664 (calendar.view rule 23): the phone card for a full class.
+describe("the phone card — a full class (PAD-664)", () => {
+  it("full: the 'Cheia' chip, no ✓, and never an amber seats-short flag", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <MobileEventCard event={openSpot({ id: "f2", studentRelation: "full" })} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    const card = screen.getByTestId("calendar-event-card");
+    expect(card.getAttribute("data-event-state")).toBe("full");
+    expect(card.getAttribute("data-needs-players")).toBe("false");
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+    expect(screen.getByTestId("calendar-relation-chip").textContent).toBe("Cheia");
   });
 });

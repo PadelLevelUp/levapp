@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { eventFromLessonInstance, instanceIdFromParams, paramsToEvent } from "./params";
+import { eventFromLessonInstance, eventToParams, instanceIdFromParams, paramsToEvent } from "./params";
 
 /**
  * PAD-326 (`calendar.event-detail` rule 15): an instance id is enough to open a
@@ -133,5 +133,15 @@ describe("the screen asks, and then says which kind of failure it was", () => {
 
   it("still says 'could not find' only when there was nothing to ask about", () => {
     expect(src()).toMatch(/classDetail\.notFound/);
+  });
+});
+
+describe("PAD-664: the student's relation rides the route (like openSpot)", () => {
+  it("round-trips a full class", () => {
+    const event = { ...paramsToEvent({ id: "lessoninstance-1", model: "LessonInstance", originalId: "1" })!, studentRelation: "full" as const };
+    expect(paramsToEvent(eventToParams(event))?.studentRelation).toBe("full");
+  });
+  it("no relation stays undefined", () => {
+    expect(paramsToEvent({ id: "a", model: "LessonInstance", originalId: "1" })?.studentRelation).toBeUndefined();
   });
 });

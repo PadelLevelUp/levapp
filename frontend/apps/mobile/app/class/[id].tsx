@@ -97,6 +97,7 @@ import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { messagesApi } from "@levelup/api";
+import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
@@ -465,6 +466,8 @@ export default function ClassDetailScreen() {
   const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
   // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
   const [joinBusy, setJoinBusy] = React.useState(false);
+  // PAD-664: the student joined this full class's waiting list from this screen.
+  const [waitingJoined, setWaitingJoined] = React.useState(false);
   const [pendingAccept, setPendingAccept] = React.useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -928,6 +931,21 @@ export default function ClassDetailScreen() {
       );
     } finally {
       await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  // PAD-664 (calendar.view rule 23): a full class offers only its waiting list.
+  const handleJoinWaitingList = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await joinClassWaitingList(event);
+      setWaitingJoined(true);
+      toast.success(t("calendar.waitingList.joined"));
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    } catch {
+      toast.error(t("calendar.waitingList.failed"));
+    } finally {
       setJoinBusy(false);
     }
   };
@@ -1755,6 +1773,44 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
+          {/* PAD-664: a full class — join its waiting list, or see that the student is on it. */}
+          {!isCoach &&
+          !isEditing &&
+          !isCanceled &&
+          !myPresence &&
+          !isParticipant &&
+          (event.studentRelation === "full" || event.studentRelation === "waiting" || waitingJoined) ? (
+            <>
+              <Separator />
+              {event.studentRelation === "waiting" || waitingJoined ? (
+                <View
+                  className="gap-1 rounded-md border border-border bg-muted/30 px-3 py-2"
+                  testID="class-waiting-list-student"
+                >
+                  <Text testID="class-waiting-list-on" className="text-sm font-medium">
+                    {t("calendar.waitingList.on")}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</Text>
+                </View>
+              ) : (
+                <View
+                  className="gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                  testID="class-waiting-list-student"
+                >
+                  <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.fullHint")}</Text>
+                  <Button
+                    className="w-full"
+                    disabled={joinBusy}
+                    onPress={() => void handleJoinWaitingList()}
+                    testID="class-waiting-list-join"
+                  >
+                    <Text>{t("calendar.waitingList.join")}</Text>
+                  </Button>
+                </View>
+              )}
+            </>
+          ) : null}
+
           {/* PAD-131: a student outside the class asks for the open spot
               (rule 1) or withdraws their pending ask (rule 4). */}
           {!isCoach &&
@@ -1762,6 +1818,9 @@ export default function ClassDetailScreen() {
           !isCanceled &&
           !myPresence &&
           !isParticipant &&
+          event.studentRelation !== "full" &&
+          event.studentRelation !== "waiting" &&
+          !waitingJoined &&
           (event.openSpot || instance?.myJoinRequest) ? (
             <>
               <Separator />

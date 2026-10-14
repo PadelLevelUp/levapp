@@ -29,16 +29,18 @@ export function MobileEventCard({
   now?: Date;
 }) {
   const { t } = useTranslation();
-  const { variant, seatsShort } = resolveCardVariant(event, { isNext, now });
+  const viewer = useCalendarViewer();
+  const { variant, seatsShort } = resolveCardVariant(event, { isNext, now, viewer });
   // PAD-578 (rule 19): a student's own class is ticked — never by colour alone.
-  const enrolledMark = showsEnrolledMark(event, variant, useCalendarViewer());
+  const enrolledMark = showsEnrolledMark(event, variant, viewer);
   // PAD-611 (mobile-views rule 5): the relation chip from the shared helper.
   const chip = relationChip(variant);
   const isBlock = variant === "block";
   const isCanceled = variant === "canceled";
-  const surface = cardSurfaceWeb(event.color, variant);
+  const surface = cardSurfaceWeb(event.color, variant, viewer);
   // Text sits on a saturated fill when the surface resolved to white ink.
-  const onColor = variant === "scheduled" && surface.color === "#FFFFFF";
+  const onColor =
+    variant === "scheduled" && (viewer === "student" || surface.color === "#FFFFFF");
 
   const capacity = event.maxPlayers ?? 0;
   const filled = event.participantCount ?? 0;

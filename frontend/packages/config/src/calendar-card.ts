@@ -346,7 +346,8 @@ function studentSurfaceNative(variant: CardVariant, surfaces: CalendarSurfaces):
     case "block":
       return cardSurfaceNative(undefined, variant, surfaces);
     case "scheduled":
-      return { backgroundColor: primary, color: lightTheme.primaryForeground };
+      // "#FFFFFF", as `contrastTextOnNative` writes white: the shells test the ink against it.
+      return { backgroundColor: primary, color: "#FFFFFF" };
     case "next":
       return { backgroundColor: surfaces.card, borderWidth: 1.5, borderColor: primary, color: primary };
     case "past":

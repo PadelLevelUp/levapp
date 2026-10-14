@@ -375,6 +375,8 @@ describe("the student's palette (PAD-664, calendar.view rule 23)", () => {
 
   it("native: the same families, resolved to concrete colours", () => {
     expect(cardSurfaceNative(TEAL, "scheduled", SURFACES, "student").backgroundColor).toBe(lightTheme.primary);
+    // White ink is written "#FFFFFF", the form EventCard's onColor test compares against.
+    expect(cardSurfaceNative(TEAL, "scheduled", SURFACES, "student").color).toBe("#FFFFFF");
     expect(cardSurfaceNative(TEAL, "open-spot", SURFACES, "student")).toMatchObject({
       borderStyle: "dashed", borderColor: SURFACES.mutedForeground, backgroundColor: SURFACES.card,
     });

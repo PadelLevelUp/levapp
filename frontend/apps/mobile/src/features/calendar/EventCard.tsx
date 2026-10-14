@@ -41,17 +41,18 @@ const SURFACES = nativeCalendarSurfaces("light");
  */
 export function EventCard({ event, onPress, isNext = false, levelCode }: EventCardProps) {
   const { t } = useTranslation();
-  const { variant, seatsShort } = resolveCardVariant(event, { isNext });
+  const viewer = useCalendarViewer();
+  const { variant, seatsShort } = resolveCardVariant(event, { isNext, viewer });
   const isBlock = variant === "block";
   const isCanceled = variant === "canceled";
-  const surface = cardSurfaceNative(event.color, variant, SURFACES);
+  const surface = cardSurfaceNative(event.color, variant, SURFACES, viewer);
   const ink = isBlock ? SURFACES.foreground : (surface.color ?? SURFACES.foreground);
   const onColor = variant === "scheduled" && ink === "#FFFFFF";
 
   // PAD-130 / B-541: an open spot is an offer — the shared `open-spot` variant
   // (dashed outline, readable ink), so the ink and the week grid agree with it.
   // PAD-578 (rule 19): a student's own class is ticked — never by colour alone.
-  const enrolledMark = showsEnrolledMark(event, variant, useCalendarViewer());
+  const enrolledMark = showsEnrolledMark(event, variant, viewer);
   // PAD-611 (mobile-views rule 5): the relation chip from the shared helper.
   const chip = relationChip(variant);
   const stateStyle: ViewStyle = isBlock
@@ -110,13 +111,16 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
       style={stateStyle}
     >
       {chip ? (
-        <Text
-          testID={chip.testId}
-          className="mb-1 self-start rounded-full border px-1.5 text-[10px] font-sans-bold uppercase"
-          style={{ color: ink, borderColor: ink }}
-        >
-          {t(chip.key)}
-        </Text>
+        // PAD-664: Maestro cannot read attributes, so the relation is in the wrapper's id.
+        <View testID={`calendar-relation-${variant}`} className="self-start">
+          <Text
+            testID={chip.testId}
+            className="mb-1 self-start rounded-full border px-1.5 text-[10px] font-sans-bold uppercase"
+            style={{ color: ink, borderColor: ink }}
+          >
+            {t(chip.key)}
+          </Text>
+        </View>
       ) : null}
       <View className="flex-row items-start justify-between gap-2">
         {/* PAD-580 QA: the ✓ and the title are ONE leading group — as siblings of the level
