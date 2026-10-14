@@ -428,7 +428,15 @@ export default function ClassDetailScreen() {
         if (!isCoach) return;
         // PAD-659 (rule 24): a presence in THIS class moved (the student answered, cancelled,
         // or the coach marked) — refetch so the player changes group without a reload.
-        if (presenceChangedFor(evt, suggestionsInstanceId)) {
+        // B-548: an occurrence opened before it was materialised has no instance id yet; the
+        // event's lesson and date still name it.
+        if (
+          presenceChangedFor(
+            evt,
+            suggestionsInstanceId,
+            event?.model === "Lesson" ? { lessonId: event.originalId, date: event.date } : null
+          )
+        ) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
           return;
         }

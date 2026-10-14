@@ -23,6 +23,13 @@ def publish_presence_changed(instance, player_id) -> None:
         return
     event = {
         "type": "presence_changed",
-        "payload": {"lessonInstanceId": instance.id, "playerId": int(player_id)},
+        "payload": {
+            "lessonInstanceId": instance.id,
+            "playerId": int(player_id),
+            # B-548: a sheet opened on the occurrence before it was materialised knows only its
+            # lesson and date, so the event names them too.
+            "lessonId": instance.lesson_id,
+            "date": (instance.original_lesson_occurence_date or instance.start_datetime.date()).isoformat(),
+        },
     }
     on_commit(lambda: realtime.publish(event, recipients))

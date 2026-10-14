@@ -173,12 +173,24 @@ export function displayStateOf(state: AttendanceState, classEnded: boolean): Att
  */
 export function presenceChangedFor(
   evt: { type?: unknown; payload?: unknown } | null | undefined,
-  instanceId: number | string | null | undefined
+  instanceId: number | string | null | undefined,
+  occurrence?: { lessonId?: number | string | null; date?: string | null } | null
 ): boolean {
-  if (!evt || evt.type !== "presence_changed" || instanceId == null) return false;
-  const raw = (evt.payload as { lessonInstanceId?: unknown } | null | undefined)?.lessonInstanceId;
-  if (raw == null) return false;
-  return String(raw) === String(instanceId);
+  if (!evt || evt.type !== "presence_changed") return false;
+  const payload = evt.payload as
+    | { lessonInstanceId?: unknown; lessonId?: unknown; date?: unknown }
+    | null
+    | undefined;
+  if (!payload) return false;
+  if (instanceId != null && payload.lessonInstanceId != null) {
+    if (String(payload.lessonInstanceId) === String(instanceId)) return true;
+  }
+  // B-548: an occurrence the sheet opened before it was materialised has no instance id;
+  // the write that materialised it names the lesson and the date.
+  if (occurrence?.lessonId != null && occurrence.date && payload.lessonId != null && payload.date != null) {
+    return String(payload.lessonId) === String(occurrence.lessonId) && String(payload.date) === occurrence.date;
+  }
+  return false;
 }
 
 /**
@@ -190,4 +202,26 @@ export function presenceChangedFor(
 export function classHasEnded(date: string, endTime: string, now: Date = new Date()): boolean {
   const end = wallClockMs(date, endTime);
   return !Number.isNaN(end) && end <= lisbonNowMs(now);
+}
+
+/**
+ * B-548: the open class's instance id, for matching live events. The web sheet's
+ * `classInstance.id` is the CALENDAR EVENT id ("lessoninstance-12", "lesson-5-2026-10-17"),
+ * never the instance number, so it cannot be compared with a payload's `lessonInstanceId`.
+ * Read it from a presence (every presence names its instance), else from a
+ * "lessoninstance-<n>" event id, else from an event that is itself an instance. A class not
+ * yet materialised has none: match it by lesson and date instead (`presenceChangedFor`).
+ */
+export function liveInstanceIdOf(
+  classInstance: { id?: unknown; presences?: ReadonlyArray<{ lessonInstanceId?: unknown }> | null } | null | undefined,
+  event: { model?: unknown; originalId?: unknown } | null | undefined
+): number | null {
+  const fromPresence = classInstance?.presences?.find((p) => p?.lessonInstanceId != null)?.lessonInstanceId;
+  if (fromPresence != null && Number.isFinite(Number(fromPresence))) return Number(fromPresence);
+  const match = /^lessoninstance-(\d+)$/.exec(String(classInstance?.id ?? ""));
+  if (match) return Number(match[1]);
+  if (event?.model === "LessonInstance" && event.originalId != null && Number.isFinite(Number(event.originalId))) {
+    return Number(event.originalId);
+  }
+  return null;
 }

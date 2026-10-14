@@ -5,6 +5,7 @@ import {
   groupParticipants,
   presenceChangedFor,
   classHasEnded,
+  liveInstanceIdOf,
 } from "./participant-groups";
 
 /**
@@ -196,5 +197,26 @@ describe("classHasEnded + displayStateOf on each side of the end (rule 25, pinne
     expect(classHasEnded(date, "24:00", new Date("2026-10-20T22:59:00Z"))).toBe(false);
     expect(classHasEnded(date, "24:00", new Date("2026-10-20T23:01:00Z"))).toBe(true);
     expect(classHasEnded(date, "", new Date("2030-01-01T00:00:00Z"))).toBe(false);
+  });
+});
+
+describe("the open class's live identity (rule 24, B-548)", () => {
+  // The web sheet's `classInstance.id` is the CALENDAR EVENT id ("lessoninstance-12",
+  // "lesson-5-2026-10-17"), never the instance number, so comparing it with an event's
+  // lessonInstanceId never matched — neither this rule's event nor B-542's reminder.
+  it("reads the instance id from the presences, then from a lessoninstance event id", () => {
+    expect(liveInstanceIdOf({ id: "lessoninstance-12", presences: [{ lessonInstanceId: 12 }] }, null)).toBe(12);
+    expect(liveInstanceIdOf({ id: "lessoninstance-12", presences: [] }, null)).toBe(12);
+    expect(liveInstanceIdOf({ id: "lesson-5-2026-10-17", presences: [] }, { model: "Lesson", originalId: 5 })).toBeNull();
+    expect(liveInstanceIdOf(null, { model: "LessonInstance", originalId: "33" })).toBe(33);
+  });
+
+  it("an occurrence not yet materialised matches by its lesson and date", () => {
+    const evt = { type: "presence_changed", payload: { lessonInstanceId: 90, playerId: 7, lessonId: 5, date: "2026-10-17" } };
+    expect(presenceChangedFor(evt, null, { lessonId: 5, date: "2026-10-17" })).toBe(true);
+    expect(presenceChangedFor(evt, null, { lessonId: "5", date: "2026-10-17" })).toBe(true);
+    expect(presenceChangedFor(evt, null, { lessonId: 5, date: "2026-10-24" })).toBe(false);
+    expect(presenceChangedFor(evt, null, { lessonId: 6, date: "2026-10-17" })).toBe(false);
+    expect(presenceChangedFor(evt, null, null)).toBe(false);
   });
 });

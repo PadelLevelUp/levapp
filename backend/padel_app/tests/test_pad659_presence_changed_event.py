@@ -44,15 +44,21 @@ def _class_with_student(app, ids, *, days=3):
     with app.app_context():
         enrol(ids["student_id"], db.session.get(LessonInstance, cls["instance_id"]), "coach")
         db.session.commit()
+        inst = db.session.get(LessonInstance, cls["instance_id"])
         return {
             "instance_id": cls["instance_id"],
+            "lesson_id": inst.lesson_id,
+            "date": (inst.original_lesson_occurence_date or inst.start_datetime.date()).isoformat(),
             "student_user_id": db.session.get(Player, ids["student_id"]).user_id,
             "coach_user_id": db.session.get(Coach, ids["coach_id"]).user_id,
         }
 
 
 def _expected(c, ids):
-    return ("presence_changed", {"lessonInstanceId": c["instance_id"], "playerId": ids["student_id"]},
+    # B-548: lessonId and the occurrence date let a sheet opened before the occurrence was
+    # materialised recognise it.
+    return ("presence_changed", {"lessonInstanceId": c["instance_id"], "playerId": ids["student_id"],
+                                 "lessonId": c["lesson_id"], "date": c["date"]},
             [c["coach_user_id"]])
 
 

@@ -242,9 +242,13 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     the student's reminder answer (`respond_to_reminder`), a cancellation or proactive decline
     (`cancel_attendance`), the coach's marks and clears (`add_presences`) — publishes, after its
     commit, `{"type": "presence_changed", "payload": {"lessonInstanceId", "playerId"}}` to the
-    class's coach only. Both shells test the event with one predicate in `@levelup/config`
-    (`presenceChangedFor(evt, instanceId)`, the sibling of `reminderArrivedFor`) and refetch the
-    open class, so a player moves to their new group without a reload. A student receives no
+    class's coach only; the payload also names `lessonId` and the occurrence `date`. Both shells
+    test the event with one predicate in `@levelup/config` (`presenceChangedFor(evt, instanceId,
+    occurrence)`, the sibling of `reminderArrivedFor`) and refetch the open class, so a player
+    moves to their new group without a reload. **(B-548)** The open class's instance id is read
+    by `liveInstanceIdOf` — a presence's `lessonInstanceId`, else a `lessoninstance-<n>` event id
+    — never from the web sheet's `classInstance.id`, which is the calendar-event id; an occurrence
+    opened before it was materialised matches by its lesson and date. A student receives no
     such event: nothing in their own view depends on another student's presence.
 
 25. **"Vai / Não vai" whoever marked (PAD-663; numbering self-assigned, unconfirmed).** Before a

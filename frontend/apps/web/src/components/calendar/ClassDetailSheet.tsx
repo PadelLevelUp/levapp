@@ -49,7 +49,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -485,9 +485,10 @@ export function ClassDetailSheet({
         // landed — "Vou" lives in the fresh payload, so re-read the instance instead of
         // waiting for a re-open.
         const openEvent = eventRef.current;
-        const openId =
-          classInstanceRef.current?.id ??
-          (openEvent?.model === "LessonInstance" ? Number(openEvent.originalId) : null);
+        // B-548: `classInstance.id` is the calendar-event id ("lessoninstance-12"), never the
+        // instance number, so it never matched an event's lessonInstanceId — the shared
+        // reading takes it from a presence or the event instead.
+        const openId = liveInstanceIdOf(classInstanceRef.current, openEvent);
         if (reminderArrivedFor(data, openId)) {
           if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
           return;
@@ -496,7 +497,9 @@ export function ClassDetailSheet({
 
         // PAD-659 (`calendar.event-detail` rule 24): a presence in this class moved — a
         // student's answer or cancellation, or a mark from another tab — so the groups regroup.
-        if (presenceChangedFor(data, openId)) {
+        const occurrence =
+          openEvent?.model === "Lesson" ? { lessonId: openEvent.originalId, date: openEvent.date } : null;
+        if (presenceChangedFor(data, openId, occurrence)) {
           if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
           return;
         }
