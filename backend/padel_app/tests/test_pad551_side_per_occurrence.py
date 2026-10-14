@@ -14,6 +14,7 @@ from padel_app.sql_db import db
 from padel_app.tests.test_effective_level_resolution import _create_class, _create_coach, _create_level
 from padel_app.tests.test_pad421_balance_structural_sides import _enrol
 from padel_app.tests.test_pad581_side_rebalance import _bubble, _event, _invite, _patch_io, _setup
+from padel_app.tests.test_confirm_presences import recurring_lesson  # noqa: F401 — fixture
 
 
 @pytest.fixture(autouse=True)
@@ -36,10 +37,15 @@ def _class(tag, sides):
     return coach, instance, cps
 
 
-def _put(client, app, user_id, instance_id, player_id, side):
+def _put(client, app, user_id, instance_id, player_id, side, class_instance=None):
+    """The occurrence addressed as attendance-confirm addresses it (rule 13)."""
     return client.put(
-        f"/api/app/lesson_instance/{instance_id}/presences/{player_id}/side",
-        json={"side": side},
+        "/api/app/class_instance/presences/side",
+        json={
+            "classInstance": class_instance or {"id": f"lessoninstance-{instance_id}", "originalId": str(instance_id)},
+            "playerId": player_id,
+            "side": side,
+        },
         headers=_auth(app, user_id),
     )
 
@@ -193,3 +199,68 @@ def test_a_change_re_counts_the_open_spots_and_withdraws_for_balance(app, monkey
         e = _event(ana)
         assert (e.status, e.retired_reason) == ("expired", "side_balanced")
         assert _bubble(ana)["response"] == "side_balanced"
+
+
+def _coach_user_of(lesson_id):
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.coaches import Coach
+
+    rel = Association_CoachLesson.query.filter_by(lesson_id=lesson_id).first()
+    return db.session.get(Coach, rel.coach_id).user_id
+
+
+def test_a_virtual_occurrence_is_materialised_only_when_a_side_is_set(app, client, monkeypatch, recurring_lesson):
+    """The common case: a regular's next occurrence of a recurring class has no row yet."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+
+    _patch_io(monkeypatch)
+    lesson_id, player_id, date_str = recurring_lesson
+    with app.app_context():
+        coach_user = _coach_user_of(lesson_id)
+    occurrence = {"id": f"lesson-{lesson_id}-{date_str}", "originalId": str(lesson_id), "date": date_str}
+
+    payload = client.post(
+        f"/api/app/class_instance?model=Lesson&id={lesson_id}&date={date_str}", headers=_auth(app, coach_user)
+    ).get_json()
+    assert payload["sideEditable"] is True and payload["presences"] == []
+    with app.app_context():
+        assert LessonInstance.query.filter_by(lesson_id=lesson_id).count() == 0, "reading does not materialise"
+
+    res = _put(client, app, coach_user, None, player_id, "right", class_instance=occurrence)
+    assert res.status_code == 200, res.get_json()
+    assert (res.get_json()["side"], res.get_json()["sideOverride"]) == ("right", True)
+    with app.app_context():
+        instance = LessonInstance.query.filter_by(lesson_id=lesson_id).one()
+        assert Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).one().side == "right"
+
+
+def test_an_ended_virtual_occurrence_is_refused_and_not_materialised(app, client, monkeypatch, recurring_lesson):
+    from padel_app.models.lesson_instances import LessonInstance
+
+    _patch_io(monkeypatch)
+    lesson_id, player_id, _ = recurring_lesson
+    past = (datetime.utcnow() - timedelta(days=14)).date().isoformat()
+    with app.app_context():
+        coach_user = _coach_user_of(lesson_id)
+    occurrence = {"id": f"lesson-{lesson_id}-{past}", "originalId": str(lesson_id), "date": past}
+    payload = client.post(
+        f"/api/app/class_instance?model=Lesson&id={lesson_id}&date={past}", headers=_auth(app, coach_user)
+    ).get_json()
+    assert payload["sideEditable"] is False
+    assert _put(client, app, coach_user, None, player_id, "right", class_instance=occurrence).status_code == 409
+    with app.app_context():
+        assert LessonInstance.query.filter_by(lesson_id=lesson_id).count() == 0
+
+
+def test_a_student_never_gets_side_editable(app, client, recurring_lesson):
+    from padel_app.models.players import Player
+
+    lesson_id, player_id, date_str = recurring_lesson
+    with app.app_context():
+        student_user = db.session.get(Player, player_id).user_id
+    payload = client.post(
+        f"/api/app/class_instance?model=Lesson&id={lesson_id}&date={date_str}", headers=_auth(app, student_user)
+    ).get_json()
+    assert payload.get("sideEditable") is False
+

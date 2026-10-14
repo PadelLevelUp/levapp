@@ -79,12 +79,9 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, l
 
 
 def _side_editable(presence) -> bool:
-    from padel_app.utils.dates import club_now_naive
+    from padel_app.services.presence_side_service import occurrence_side_editable
 
-    instance = presence.lesson_instance
-    if instance is None or getattr(instance, "status", None) == "canceled":
-        return False
-    return instance.end_datetime is None or instance.end_datetime > club_now_naive()
+    return presence.lesson_instance is not None and occurrence_side_editable(presence.lesson_instance)
 
 
 def _late_cancellation_for(presences) -> dict:

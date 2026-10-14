@@ -42,7 +42,6 @@ import type {
   CoachPlayer,
   CoachLevel,
   Court,
-  Presence,
   PresenceStatus,
   AbsenceJustification,
 } from "@/types";
@@ -552,23 +551,15 @@ export function ClassDetailSheet({
   const isCanceled = active?.status === "canceled";
 
   // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
-  // occurrence; the server re-counts the class's open spots. The returned row replaces ours.
+  // occurrence (a virtual one is materialised on the server). The change may re-side open spots
+  // and withdraw invitations for balance, so the whole class is re-read, not just the row.
   const [sideBusy, setSideBusy] = useState<string | null>(null);
-  const changeSide = async (presence: Presence, side: "left" | "right" | null) => {
-    const playerId = String(presence.playerId);
+  const changeSide = async (playerId: string, side: "left" | "right" | null) => {
+    if (!classInstance) return;
     setSideBusy(playerId);
     try {
-      const row = await setPresenceSide(String(presence.lessonInstanceId), playerId, side);
-      setClassInstance((prev) =>
-        prev
-          ? {
-              ...prev,
-              presences: (prev.presences ?? []).map((x) =>
-                String(x.playerId) === playerId ? { ...x, ...row } : x
-              ),
-            }
-          : prev
-      );
+      await setPresenceSide(classInstance, playerId, side);
+      if (event) setClassInstance(await getClassInstance(event));
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       toast({
@@ -1622,13 +1613,14 @@ export function ClassDetailSheet({
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
                       side={
-                        canManage && presence
+                        // A virtual occurrence has no presence rows yet: the row starts on "Habitual".
+                        canManage && classInstance?.sideEditable !== undefined
                           ? {
-                              current: presence.side ?? null,
-                              override: !!presence.sideOverride,
-                              editable: !!presence.sideEditable && !isCanceled,
+                              current: presence?.side ?? null,
+                              override: !!presence?.sideOverride,
+                              editable: !!classInstance.sideEditable && !isCanceled,
                               busy: sideBusy === String(p.id),
-                              onChange: (next) => void changeSide(presence, next),
+                              onChange: (next) => void changeSide(String(p.id), next),
                             }
                           : undefined
                       }

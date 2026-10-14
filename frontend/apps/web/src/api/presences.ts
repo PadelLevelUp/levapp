@@ -18,11 +18,11 @@ import { mockPresences } from "@/data/mockData";
 
 /** PAD-551 (classes.instance-enrollment rule 13): a player's side in one occurrence. */
 export async function setPresenceSide(
-  lessonInstanceId: string,
+  classInstance: Parameters<typeof presencesApi.setPresenceSide>[0],
   playerId: string,
   side: "left" | "right" | null
 ): Promise<Presence> {
-  return presencesApi.setPresenceSide(lessonInstanceId, playerId, side);
+  return presencesApi.setPresenceSide(classInstance, playerId, side);
 }
 
 export async function confirmClassPresences(

@@ -99,11 +99,16 @@ three separate fields on it. Decision record:
     none). That one definition is what the class's side balancing counts (`notifications.invitations`
     rules 2–2d): the side a player is going on, and the side a freed spot starts from when they
     cancel.
-    - **Who and when.** `PUT /api/app/lesson_instance/<id>/presences/<player_id>/side` with
-      `{"side": "left" | "right" | null}`, by a coach of that class, for a player with a presence on
-      that occurrence (present, absent or not yet answered), **until the occurrence ends**. Any
-      other value is 400; another coach or a student is 403; no presence is 404; an ended
-      occurrence is 409. `both` is not an override: "this week I play right" names one side.
+    - **Who and when.** `PUT /api/app/class_instance/presences/side` with
+      `{"classInstance": {id, originalId, date, parentClassId?}, "playerId": …, "side": "left" |
+      "right" | null}` — the occurrence addressed exactly as attendance-confirm addresses it — by a
+      coach of that class, for a player in it (present, absent or not yet answered), **until the
+      occurrence ends**. A regular's next occurrence of a recurring class is usually virtual (not
+      yet a row): it is materialised (`get_or_materialize_instance`, rule 4's roster copy) only
+      here, when a side is actually set, and never once it has ended. Any other value is 400;
+      another coach or a student is 403; a player not in the class is 404; an ended occurrence is
+      409 (checked before anything is materialised). `both` is not an override: "this week I play
+      right" names one side.
     - **Effect on open spots.** A change (set or clear) re-counts the class's open spots exactly
       as a "yes" does (`notifications.invitations` rule 2d, the dynamic balancing of PAD-581), in
       the same commit, so a spot that was asking the side this player now covers asks the other
@@ -115,9 +120,13 @@ three separate fields on it. Decision record:
       `participant-side-<playerId>`), and the coach changes it from the row's side control
       ("Lado habitual", "Esquerdo nesta aula", "Direito nesta aula"; test ids
       `participant-side-usual-<playerId>`, `participant-side-left-<playerId>`,
-      `participant-side-right-<playerId>`). Each row also carries `sideEditable`, the server's answer
-      to "may the coach still change it" (the occurrence has not ended and is not canceled); the
-      clients show the control only when it is true and never compare a date with their own clock.
+      `participant-side-right-<playerId>`). The class payload carries `sideEditable` (and each
+      presence row its own), the server's answer to "may the coach still change it": the occurrence,
+      materialised or virtual, has not ended and is not canceled; false for a student and for a
+      series template with no date. The clients show the control only when it is true and never
+      compare a date with their own clock. On a virtual occurrence every row starts on "Habitual".
+      After a change the clients re-read the class, since open spots may have re-sided and
+      invitations been withdrawn.
     - It is one occurrence only: the series roster, the other occurrences and the coach–player link
       are untouched.
 
@@ -230,6 +239,15 @@ three separate fields on it. Decision record:
 - **And** `{"side": null}` brings Monday 20 back to left with `sideOverride` false
 - **And** `"both"` is 400, another coach is 403, a player with no presence is 404, and once Monday
   20 has ended the change is 409
+
+#### A virtual occurrence is materialised only when a side is set (rule 13, PAD-551)
+- **Given** a weekly class with Ana on its roster and next week's occurrence not yet a row
+- **When** the coach opens it
+- **Then** the payload has `sideEditable` true and no presence rows, and nothing is materialised
+- **When** the coach sets Ana right for that occurrence
+- **Then** the occurrence is materialised with the roster and Ana's presence has side right
+- **And** for an occurrence that has already ended the payload has `sideEditable` false, the change
+  is 409, and nothing is materialised
 
 #### The override is the side the class counts (rule 13, PAD-551)
 - **Given** a class going 3 left (Ana among them) and 2 right, all regulars

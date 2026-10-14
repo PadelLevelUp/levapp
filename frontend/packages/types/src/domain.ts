@@ -507,6 +507,12 @@ export interface ClassInvitation {
 }
 
 export interface ClassInstance {
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
+   * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
+   * student and for a series template with no date).
+   */
+  sideEditable?: boolean;
   id: string;
   originalId: string;
   parentClassId?: string;

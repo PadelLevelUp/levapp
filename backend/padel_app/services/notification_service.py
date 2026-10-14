@@ -3044,6 +3044,8 @@ def _withdraw_for_balance(vacancy: Vacancy, coach_id: int, left_side: str) -> li
     )
     if not events:
         return []
+    # Invitees, not players going: their usual side on purpose (PAD-551 overrides only the side
+    # of a player in the occurrence; `sides_in_occurrence` is for going and leaving players).
     sides = dict(
         db.session.query(Association_CoachPlayer.player_id, Association_CoachPlayer.side)
         .filter(Association_CoachPlayer.coach_id == coach_id,

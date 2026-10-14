@@ -12,6 +12,25 @@ from padel_app.utils.dates import club_now_naive
 SIDES = ("left", "right")
 
 
+def occurrence_side_editable(obj, occurrence_date=None) -> bool:
+    """May the coach still set a side on this occurrence (rule 13)? Not once it has ended, not on
+    a canceled one, and not on a series template with no date. ``obj`` is a LessonInstance, or a
+    Lesson with ``occurrence_date`` for a virtual (not yet materialised) occurrence."""
+    from datetime import datetime
+
+    from padel_app.models.lesson_instances import LessonInstance
+
+    if getattr(obj, "status", None) == "canceled":
+        return False
+    if isinstance(obj, LessonInstance):
+        end = obj.end_datetime
+    elif occurrence_date is not None and obj.end_datetime is not None:
+        end = datetime.combine(occurrence_date, obj.end_datetime.time())
+    else:
+        return False
+    return end is None or end > club_now_naive()
+
+
 class PresenceSideError(Exception):
     def __init__(self, status, code):
         super().__init__(code)
@@ -44,10 +63,14 @@ def set_presence_side(coach, instance, player_id, side):
     if presence.side == side:
         db.session.rollback()
         return presence
-    presence.side = side
-    db.session.flush()
-    owner = primary_coach(instance)
-    retired = ns.rebalance_after_side_change(instance, owner.id if owner is not None else coach.id)
-    ns._publish_retired(retired)  # queued, sent by the commit below (PAD-499)
-    db.session.commit()
+    try:
+        presence.side = side
+        db.session.flush()
+        owner = primary_coach(instance)
+        retired = ns.rebalance_after_side_change(instance, owner.id if owner is not None else coach.id)
+        ns._publish_retired(retired)  # queued, sent by the commit below (PAD-499)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()  # never leave the class lock held on a failure
+        raise
     return presence

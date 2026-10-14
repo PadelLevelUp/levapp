@@ -9,7 +9,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsCoach } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
-import { dayEvents, deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
+import { deleteClassRequests, removeBlocksOnDay, removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 
@@ -30,9 +30,15 @@ async function token(request: APIRequestContext, username: string, password: str
   return (json.accessToken ?? json.access_token) as string;
 }
 
-async function openClassDetail(page: Page, weeks: number) {
+// This spec's own class is pinned by its start time as well as its title: the seed has other
+// "E2E Student" classes, and the first one on a day can be an ended, validated one.
+async function openClassDetail(page: Page, weeks: number, startTime: string) {
   await openCalendar(page);
-  const card = page.getByTestId("calendar-event-card").filter({ hasText: STUDENT_NAME }).first();
+  const card = page
+    .getByTestId("calendar-event-card")
+    .filter({ hasText: STUDENT_NAME })
+    .filter({ hasText: startTime })
+    .first();
   let found = false;
   for (let week = 0; week < weeks && !found; week++) {
     found = await card.waitFor({ state: "visible", timeout: 6000 }).then(() => true, () => false);
@@ -43,13 +49,21 @@ async function openClassDetail(page: Page, weeks: number) {
   await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
 }
 
-async function presenceOf(request: APIRequestContext, coachAuth: Record<string, string>, day: string) {
-  const event = (await dayEvents(request, coachAuth, day)).find((e) => e.title === STUDENT_NAME);
-  expect(event, "the class is on the coach's day").toBeTruthy();
-  const res = await request.get(`${API_ROOT}/app/lesson_instance/${event!.originalId}/presences`, { headers: coachAuth });
+/** The server's row for `playerId` on the occurrence `lessonInstanceId`. The class is a one-off
+ * the calendar serves as model "Lesson" (its id is the lesson's), so the occurrence id comes from
+ * the side change's own answer, never from the calendar. */
+async function presenceOf(
+  request: APIRequestContext,
+  coachAuth: Record<string, string>,
+  lessonInstanceId: string | number,
+  playerId: string
+) {
+  const res = await request.get(`${API_ROOT}/app/lesson_instance/${lessonInstanceId}/presences`, { headers: coachAuth });
   expect(res.ok()).toBeTruthy();
-  const rows = (await res.json()) as Array<{ side: string | null; sideOverride: boolean; sideEditable: boolean }>;
-  return rows[0];
+  const rows = (await res.json()) as Array<{ playerId: number | string; side: string | null; sideOverride: boolean; sideEditable: boolean }>;
+  const row = rows.find((r) => String(r.playerId) === playerId);
+  expect(row, "the player has a presence on the occurrence").toBeTruthy();
+  return row!;
 }
 
 test("US-PAD-551: the coach sets a player's side for this class and clears it", async ({ page, request }) => {
@@ -86,15 +100,13 @@ test("US-PAD-551: the coach sets a player's side for this class and clears it", 
     expect(acceptRes.ok(), await acceptRes.text()).toBeTruthy();
 
     await loginAsCoach(page);
-    await openClassDetail(page, 3);
+    await openClassDetail(page, 3, slot.startTime);
     const row = page.getByTestId("attendance-row").first();
     await expect(row).toBeVisible({ timeout: 10_000 });
     const playerId = await row.getAttribute("data-player-id");
     expect(playerId, "the row names its player").toBeTruthy();
 
-    const before = await presenceOf(request, coachAuth, day);
-    expect(before.sideOverride).toBe(false);
-    expect(before.sideEditable).toBe(true);
+    // The control is shown only when the server says the side is editable (sideEditable).
     await expect(row.getByTestId(`participant-side-usual-${playerId}`)).toHaveAttribute("data-state", "on");
     await expect(row.getByTestId(`participant-side-${playerId}`)).toHaveCount(0);
 
@@ -104,14 +116,15 @@ test("US-PAD-551: the coach sets a player's side for this class and clears it", 
       row.getByTestId(`participant-side-right-${playerId}`).click(),
     ]);
     expect(set.status(), await set.text()).toBe(200);
+    const instanceId = (await set.json()).lessonInstanceId as number;
     await expect(row.getByTestId(`participant-side-${playerId}`)).toBeVisible();
     await expect(row.getByTestId(`participant-side-right-${playerId}`)).toHaveAttribute("data-state", "on");
-    const after = await presenceOf(request, coachAuth, day);
+    const after = await presenceOf(request, coachAuth, instanceId, playerId!);
     expect([after.side, after.sideOverride]).toEqual(["right", true]);
 
     // A reload keeps it: it is the server's.
     await page.reload();
-    await openClassDetail(page, 3);
+    await openClassDetail(page, 3, slot.startTime);
     const again = page.getByTestId("attendance-row").first();
     await expect(again.getByTestId(`participant-side-${playerId}`)).toBeVisible({ timeout: 10_000 });
 
@@ -122,7 +135,7 @@ test("US-PAD-551: the coach sets a player's side for this class and clears it", 
     ]);
     expect(cleared.status()).toBe(200);
     await expect(again.getByTestId(`participant-side-${playerId}`)).toHaveCount(0);
-    expect((await presenceOf(request, coachAuth, day)).sideOverride).toBe(false);
+    expect((await presenceOf(request, coachAuth, instanceId, playerId!)).sideOverride).toBe(false);
   } finally {
     await removeClassesOnDay(request, coachAuth, day, (e) => e.title === STUDENT_NAME);
     await removeBlocksOnDay(request, coachAuth, day, (e) => String(e.title).includes(STUDENT_NAME));

@@ -42,7 +42,6 @@ import type {
   ApprovalBundle,
   ClassInstance,
   ClassInvitation,
-  Presence,
   PresenceStatus,
 } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -628,22 +627,14 @@ export default function ClassDetailScreen() {
   };
 
   // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
-  // occurrence; the server re-counts the class's open spots. The answered row replaces ours.
-  const changeSide = async (presence: Presence, side: "left" | "right" | null) => {
-    const playerId = String(presence.playerId);
+  // occurrence (a virtual one is materialised on the server). The change may re-side open spots
+  // and withdraw invitations for balance, so the whole class is re-read, not just the row.
+  const changeSide = async (playerId: string, side: "left" | "right" | null) => {
+    if (!instance) return;
     setSideBusy(playerId);
     try {
-      const row = await presencesApi.setPresenceSide(String(presence.lessonInstanceId), playerId, side);
-      queryClient.setQueryData<ClassInstance>(queryKeys.classInstance(event), (old) =>
-        old
-          ? {
-              ...old,
-              presences: (old.presences ?? []).map((x) =>
-                String(x.playerId) === playerId ? { ...x, ...row } : x
-              ),
-            }
-          : old
-      );
+      await presencesApi.setPresenceSide(instance, playerId, side);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       toast.error(t(status === 409 ? "calendar.side.ended" : "calendar.side.saveFailed"));
@@ -1534,16 +1525,18 @@ export default function ClassDetailScreen() {
                       String(presence.playerId) === String(participant.id)
                   )}
                   side={(() => {
+                    // A virtual occurrence has no presence rows yet: the row starts on "Habitual".
                     const presence = instance?.presences?.find(
                       (x) => String(x.playerId) === String(participant.id)
                     );
-                    return isCoach && presence
+                    return isCoach && instance?.sideEditable !== undefined
                       ? {
-                          current: presence.side ?? null,
-                          override: !!presence.sideOverride,
-                          editable: !!presence.sideEditable && !isCanceled && !isEditing,
+                          current: presence?.side ?? null,
+                          override: !!presence?.sideOverride,
+                          editable: !!instance.sideEditable && !isCanceled && !isEditing,
                           busy: sideBusy === String(participant.id),
-                          onChange: (next: "left" | "right" | null) => void changeSide(presence, next),
+                          onChange: (next: "left" | "right" | null) =>
+                            void changeSide(String(participant.id), next),
                         }
                       : undefined;
                   })()}
