@@ -117,3 +117,52 @@ test("US-660b: the student never sees the nickname their coach gave them", async
     expect(await pageText(page, path), path).not.toContain(nickname);
   }
 });
+
+test("US-660c: the class detail's grouped list shows the coach's nickname; the pop-up keeps the real name under it", async ({ page, request }) => {
+  test.setTimeout(150_000);
+  const { openCalendar } = await import("../helpers/navigation");
+  const { goToNextWeek } = await import("../helpers/calendar-navigation");
+  const { removeClassesOnDay } = await import("../helpers/cleanup");
+  const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
+  const stamp = Date.now().toString(36);
+  const realName = `Rui Real P660 ${stamp}`;
+  const nickname = `Ruizinho ${stamp}`;
+  const created = await request.post(`${API_APP}/add_player`, { headers: bearer(coachTok), data: { name: realName } });
+  expect(created.ok()).toBeTruthy();
+  const playerId = String((await created.json()).playerId);
+  const row = (await roster(request, coachTok)).find((r) => String(r.playerId) === playerId)!;
+  await setNickname(request, coachTok, row, nickname, true);
+
+  // Five days out: outside the reminder window, so the student is "Por responder" (PAD-489).
+  const d = new Date();
+  d.setDate(d.getDate() + 5);
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const title = `E2E P660c ${stamp}`;
+  const added = await request.post(`${API_APP}/add_class`, {
+    headers: bearer(coachTok),
+    data: { name: title, classType: "academy", maxPlayers: 4, date: day, startTime: "20:30", endTime: "21:30", isRecurring: false, playerIds: [Number(playerId)] },
+  });
+  expect(added.ok(), await added.text()).toBeTruthy();
+  cleanup.push(async (req) => {
+    await removeClassesOnDay(req, bearer(coachTok), day, (e) => e.title === title);
+    await req.post(`${API_APP}/remove_player`, { headers: bearer(coachTok), data: { coachId: row.coachId, playerId, action: "delete" } });
+  });
+
+  await loginAsCoach(page);
+  await openCalendar(page);
+  const card = page.getByTestId("calendar-event-card").filter({ hasText: title }).first();
+  let found = false;
+  for (let week = 0; week < 2 && !found; week++) {
+    found = await card.waitFor({ state: "visible", timeout: 8000 }).then(() => true, () => false);
+    if (!found) await goToNextWeek(page);
+  }
+  expect(found, "the class is on the calendar").toBe(true);
+  await card.click();
+
+  const open = page.getByTestId(`participant-open-${playerId}`);
+  await expect(open).toContainText(nickname, { timeout: 15_000 });
+  await expect(open).not.toContainText(realName);
+  await open.click();
+  await expect(page.getByTestId("participant-popup")).toContainText(nickname);
+  await expect(page.getByTestId("participant-popup-real-name")).toHaveText(realName);
+});
