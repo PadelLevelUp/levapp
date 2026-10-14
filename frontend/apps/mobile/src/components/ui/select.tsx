@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import * as SelectPrimitive from "@rn-primitives/select";
 import * as React from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
 import { useAndroidBack } from "@/lib/android-back";
@@ -54,6 +54,14 @@ type SelectContentProps = SelectPrimitive.ContentProps & {
 };
 
 /**
+ * PAD-655 (B-549, mobile.android-runtime rule 9b): the option list's height. The content box is
+ * capped at max-h-96 (384) and @rn-primitives' native `Viewport` is a bare fragment, so a list
+ * taller than the box ran off the screen and nothing could scroll it. The options live in a
+ * ScrollView that fits inside the box: 384 less the viewport's padding (p-1) and the border.
+ */
+const SELECT_LIST_MAX_HEIGHT = 384 - 8 - 2;
+
+/**
  * Renders through @rn-primitives/portal — the root layout already mounts a
  * <PortalHost />, so no extra setup is needed by consumers.
  */
@@ -99,7 +107,13 @@ function SelectContent({
             {...props}
           >
             <SelectPrimitive.Viewport className="p-1">
-              {children}
+              <ScrollView
+                style={{ maxHeight: SELECT_LIST_MAX_HEIGHT }}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                {children}
+              </ScrollView>
             </SelectPrimitive.Viewport>
           </SelectPrimitive.Content>
         </Animated.View>
