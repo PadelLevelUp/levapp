@@ -234,3 +234,21 @@ describe("participantInitials and the group dots (rule 22, shared by both shells
     expect(PARTICIPANT_GROUP_DOT).toEqual({ going: "#12946B", pending: "#8592A8", not_going: "#D3453B" });
   });
 });
+
+describe("the coach's nickname in the grouped list (PAD-660, players.nickname rule 3)", () => {
+  it("names and orders a row by the coach's own roster displayName and keeps the real name", () => {
+    const data = build([
+      [1, "Zé Real", "coming", "left"],
+      [2, "Bruno", "coming", "left"],
+    ]);
+    data.roster = [
+      { ...rosterEntry(1, "Zé Real", "left"), displayName: "Alfa", nickname: "Alfa", nicknameAsName: true } as never,
+      rosterEntry(2, "Bruno", "left"),
+    ];
+    const [going] = groupParticipants(data);
+    expect(going.rows.map((r) => [r.name, r.realName])).toEqual([
+      ["Alfa", "Zé Real"],
+      ["Bruno", "Bruno"],
+    ]);
+  });
+});

@@ -59,7 +59,8 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    the student's account clears the nickname on every relation row of theirs; ending the link
    (`remove_player`, disconnect or delete) removes it with the row.
 8. **Not yet covered (part 2; both parts are promoted together, and PAD-660 closes after part 2).** Class requests, waiting lists, the semi-automatic approval card,
-   evaluations and the attendance and presences lists keep the real name until they adopt rule 3.
+   evaluations, the attendance and presences lists, and the class detail's "Editar presenças" marking
+   rows keep the real name until they adopt rule 3.
 
 ### Acceptance Criteria
 

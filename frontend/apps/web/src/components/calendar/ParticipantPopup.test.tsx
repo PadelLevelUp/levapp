@@ -98,3 +98,22 @@ describe("ParticipantPopup (rule 23)", () => {
     expect(screen.getByTestId("participant-popup-profile").textContent).toBe("calendar.participants.fullProfile");
   });
 });
+
+describe("PAD-660: the coach's nickname in the pop-up", () => {
+  it("shows the real name under a nickname, and no second line without one", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ParticipantPopup row={{ ...row, name: "Jorge chato", realName: "Ana Lopes" } as never} onClose={() => {}} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId("participant-popup").textContent).toContain("Jorge chato");
+    expect(screen.getByTestId("participant-popup-real-name").textContent).toBe("Ana Lopes");
+  });
+
+  it("has no real-name line when the name is the real name", () => {
+    open();
+    expect(screen.queryByTestId("participant-popup-real-name")).toBeNull();
+  });
+});

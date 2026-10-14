@@ -101,6 +101,12 @@ export function ParticipantPopup({ row, onClose, returnFocusTo }: ParticipantPop
                   <DialogPrimitive.Title className="truncate font-display text-xl font-bold text-white">
                     {row.name}
                   </DialogPrimitive.Title>
+                  {/* PAD-660 (players.nickname rule 3): the real name under the coach's nickname. */}
+                  {row.realName && row.realName !== row.name ? (
+                    <p className="truncate text-xs text-[#A9BCD6]" data-testid="participant-popup-real-name">
+                      {row.realName}
+                    </p>
+                  ) : null}
                   <div className="flex gap-1.5">
                     {row.side ? (
                       <span className="flex h-[22px] items-center rounded-md bg-white/15 px-2 text-[11px] font-semibold text-[#9CC6FF]">

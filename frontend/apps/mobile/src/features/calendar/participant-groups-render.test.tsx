@@ -111,3 +111,11 @@ describe("wiring (source reads)", () => {
     }
   });
 });
+
+describe("PAD-660: the coach's nickname in the sheet", () => {
+  it("shows the real name under a nickname (participant-popup-real-name)", () => {
+    const p = fs.readFileSync(path.join(HERE, "ParticipantSheet.tsx"), "utf8");
+    expect(p).toMatch(/row\.realName && row\.realName !== row\.name/);
+    expect(p).toContain('testID="participant-popup-real-name"');
+  });
+});
