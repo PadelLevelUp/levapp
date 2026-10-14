@@ -1,4 +1,4 @@
-import type { Page, Response } from "@playwright/test";
+import { expect, type Page, type Response } from "@playwright/test";
 
 /** Wait for the calendar week fetch that a toolbar navigation triggers. */
 function waitForWeekFetch(page: Page): Promise<Response> {
@@ -20,10 +20,21 @@ export async function goToNextWeek(page: Page): Promise<void> {
   await Promise.all([waitForWeekFetch(page), nextBtn.click()]);
 }
 
-/** Mirror of `goToNextWeek`, used by the slow-render rescan below. */
+/**
+ * Step back one week and wait until the toolbar shows it.
+ *
+ * B-530: this used to wait for the week's API response, like `goToNextWeek`. But the slow-render
+ * rescan below walks back over weeks the forward pass has just loaded, and react-query serves those
+ * from its cache with no request — so the wait timed out after 10 s and every caller that expects
+ * the class to be ABSENT (open-spot-visibility, pad335) failed on the base. The week label changes
+ * whether or not a request is made; the card wait that follows (`titleVisible`) covers the render.
+ */
 export async function goToPreviousWeek(page: Page): Promise<void> {
   const prevBtn = page.getByRole("button", { name: /previous week|semana anterior/i }).first();
-  await Promise.all([waitForWeekFetch(page), prevBtn.click()]);
+  const label = page.getByTestId("calendar-week-label");
+  const before = await label.textContent();
+  await prevBtn.click();
+  await expect(label).not.toHaveText(before ?? "", { timeout: 10_000 });
 }
 
 async function titleVisible(
@@ -65,9 +76,10 @@ async function titleVisible(
  * normally paints in well under a second. Only when that finds nothing do we
  * walk back over the same weeks with a generous budget before concluding the
  * class really is absent. A genuine miss costs roughly twice as long; a slow
- * render no longer reads as a missing class. Every caller of this helper
- * asserts the class IS found, so that extra cost is only ever paid on a real
- * failure.
+ * render no longer reads as a missing class. A caller that asserts the class
+ * IS found pays the extra cost only on a real failure; the two that assert it
+ * is ABSENT (open-spot-visibility, pad335) always pay it, and rely on
+ * `goToPreviousWeek` not waiting for a request a cached week never makes (B-530).
  */
 export async function findClassOnCalendar(
   page: Page,

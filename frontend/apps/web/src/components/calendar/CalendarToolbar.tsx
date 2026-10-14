@@ -35,7 +35,10 @@ export function CalendarToolbar({
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        <h2 className="text-base sm:text-lg font-semibold ml-1 sm:ml-2 whitespace-nowrap">
+        <h2
+          className="text-base sm:text-lg font-semibold ml-1 sm:ml-2 whitespace-nowrap"
+          data-testid="calendar-week-label"
+        >
           {weekLabel}
         </h2>
       </div>
