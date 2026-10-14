@@ -42,6 +42,8 @@ the mechanism itself is generic 1:1 (and group) messaging.
    floating with an awkward gap.
 7. System messages — a reminder, an invitation, a spot-filled notice — appear in this same thread,
    indistinguishable in mechanism from a message a person typed, just visually marked as automated.
+8. A coach with many conversations switches the list to "Não lidas" to see only the ones with
+   something new, and back to "Todas" with one tap (PAD-648).
 
 ## Business Rules
 
