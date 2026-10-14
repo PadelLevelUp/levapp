@@ -27,8 +27,8 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    pytest, so the twins cannot drift.
 2. **Folding (B-531).** Text and query are folded the same way: special letters mapped first
    (`ł→l`, `ø→o`, `ß→ss`, `đ→d`, `æ→ae`, `œ→oe`, `ı→i`), then NFKD with combining marks dropped,
-   lower-cased, every character that is not a Unicode letter or digit turned into a space, spaces
-   collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
+   lower-cased, every character that is neither a Unicode letter, a digit nor a space dropped
+   (PAD-516: "Ana-Rita O'Neil" folds to "anarita oneil"), spaces collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
 3. **Words.** The query is split into words. A blank query matches everyone and keeps the screen's
    own order; a query with text but no letter or digit ("%", "!!") matches nobody.
 4. **Fields.** A player is searched across a list of fields: `name`, then `nickname` when the screen
@@ -46,7 +46,9 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    Tiers only add: anyone PAD-516 found is still found.
 6. **Order.** Non-blank queries sort by tier, then name (folded, then as written), then id. On the
    server the order is applied **before** the limit (`notify/player_search`, 20) and before
-   pagination (`coach_players_paginated`), so page 1 holds the best matches.
+   pagination (`coach_players_paginated`), so page 1 holds the best matches. Two surfaces keep their
+   own tie-break inside a tier: the Players tab keeps the coach's chosen sort (name or level), and the
+   claim candidates keep a same-name candidate first (the likely duplicate).
 7. **Scope never changes.** Every surface keeps exactly its current filters and permissions: the
    rule runs only on rows the surface already selected (the coach's roster, minus the rows that
    surface already excludes). No surface gains a player, a field or a coach it did not have.
