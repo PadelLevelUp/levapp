@@ -236,6 +236,7 @@ jobs:
             -e GOOGLE_IOS_CLIENT_ID="${{ vars.GOOGLE_IOS_CLIENT_ID }}" \
             -e APPLE_CLIENT_IDS="${{ vars.APPLE_CLIENT_IDS }}" \
             -e HUBSPOT_DEMO_FORM_ID="${{ vars.HUBSPOT_DEMO_FORM_ID }}" \
+            -e HUBSPOT_MARKETING_SUBSCRIPTION_ID="${{ vars.HUBSPOT_MARKETING_SUBSCRIPTION_ID }}" \
             -e LINEAR_API_KEY="${{ secrets.LINEAR_API_KEY }}" \
             -e WORK_GITHUB_REPO="${{ github.repository }}" \
             -e WORK_GITHUB_TOKEN="${{ secrets.WORK_GITHUB_TOKEN }}" \
@@ -358,6 +359,7 @@ jobs:
           # its own HUBSPOT_DEMO_FORM_ID_STAGING (see deploy-staging.yaml).
           build-args: |
             VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID }}
+            VITE_HUBSPOT_MARKETING_SUBSCRIPTION_ID=${{ vars.HUBSPOT_MARKETING_SUBSCRIPTION_ID }}
             VITE_GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }}
             VITE_API_BASE_URL=${{ vars.API_BASE_URL }}
       - name: Deploy on GCE

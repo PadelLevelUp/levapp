@@ -13,7 +13,8 @@ MAX_DEMO_BODY_BYTES = 16 * 1024
 @bp.route("/demo-request", methods=["POST"])
 @rate_limited("demo")
 def demo_request():
-    """auth.landing-page rule 10: the "Pedir demonstração" form, relayed to HubSpot."""
+    """auth.landing-page rule 10: the site's contact form ("Pedir demonstração", "Falar
+    connosco"), relayed to HubSpot."""
     if (request.content_length or 0) > MAX_DEMO_BODY_BYTES:
         return jsonify({"error": "BODY_TOO_LARGE", "code": "BODY_TOO_LARGE"}), 413
     try:

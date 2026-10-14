@@ -367,7 +367,8 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
                 return
             event = serialize_calendar_event(obj, override_id=override_id, override_date=override_date, now=now_utc.replace(tzinfo=None))
             event["openSpot"] = True
-            event["studentRelation"] = "open_spot"  # PAD-611 (calendar.view rule 22)
+            # PAD-611 (calendar.view rule 22); PAD-664 (rule 23): a full one is `full`.
+            event["studentRelation"] = "full" if full else "open_spot"
             event["coachName"] = cp.coach.user.name if cp.coach and cp.coach.user else None
             if include_full:
                 event["state"] = "full" if full else "open"

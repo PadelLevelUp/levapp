@@ -157,6 +157,10 @@ create one, or ask to join an existing one — happens right after approval (`cl
     next-login screen (`auth.legal-catch-up`) asks them. A new token is needed because every current
     build already declares `terms-acceptance` on every request. Retire once no App Store build older than
     the first declaring one is in use.
+22. **The name field asks for the full name (PAD-666).** Where an account is created — both sign-up
+    forms (`auth.signup.name`) and the two invitation completions (`auth.register.name`,
+    `auth.coachInvite.name`), web and iOS — the name field reads "Nome e Apelido" (pt) / "First and
+    last name" (en).
 
 ### Acceptance Criteria
 
@@ -295,6 +299,11 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Given** a valid web sign-up form whose `POST /api/auth/register` answers 201
 - **When** the user presses Create account twice in a row
 - **Then** exactly one `POST /api/auth/register` is sent and the button stays disabled
+
+#### The name field asks for first and last name (rule 22, PAD-666)
+- **Given** the sign-up form or an invitation completion, in Portuguese or English
+- **When** it renders
+- **Then** the name field's label is "Nome e Apelido" / "First and last name"
 
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2
