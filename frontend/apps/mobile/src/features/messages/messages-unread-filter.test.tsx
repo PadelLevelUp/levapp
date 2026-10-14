@@ -14,6 +14,8 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
+// PAD-665: the tab reads the viewer's role for its search (players.search rule 8); a student here.
+vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ user: { id: 1, roles: ["player"] } }) }));
 
 const row = (id: string, unreadCount: number): Conversation =>
   ({
