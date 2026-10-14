@@ -63,18 +63,19 @@ describe("desktop card ✓ (PAD-578)", () => {
 });
 
 describe("desktop legend for a student (rule 13)", () => {
-  it("adds Inscrito ✓ and the open-spot outline ahead of the shared items", () => {
+  // PAD-664 (rule 23) supersedes PAD-578's student legend: the shared student items, in order.
+  it("lists the student's states (enrolled first, open spot after the own ones)", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <CalendarLegend />
       </CalendarViewerProvider>
     );
     const legend = screen.getByTestId("calendar-legend");
-    expect(legend.querySelector('[data-testid="calendar-legend-enrolled"]')).not.toBeNull();
-    expect(legend.querySelector('[data-testid="calendar-legend-open-spots"]')).not.toBeNull();
-    const text = legend.textContent ?? "";
-    expect(text.indexOf("calendar.legend.enrolled")).toBeGreaterThanOrEqual(0);
-    expect(text.indexOf("calendar.legend.openSpots")).toBeLessThan(text.indexOf("calendar.legend.next"));
+    const items = Array.from(legend.querySelectorAll('[data-testid="calendar-legend-item"]'));
+    expect(items.map((i) => i.getAttribute("data-variant"))).toEqual([
+      "scheduled", "invited", "waiting", "not-coming", "open-spot", "full",
+    ]);
+    expect(items[0].textContent).toBe("calendar.legend.student.enrolled");
   });
 
   it("the coach legend is unchanged", () => {
@@ -109,8 +110,23 @@ describe("desktop card and legend — a student's relations (PAD-611)", () => {
         <CalendarLegend />
       </CalendarViewerProvider>
     );
-    for (const id of ["calendar-legend-invited", "calendar-legend-waiting", "calendar-legend-not-coming"]) {
-      expect(screen.getByTestId(id)).toBeTruthy();
-    }
+    const variants = screen
+      .getAllByTestId("calendar-legend-item")
+      .map((i) => i.getAttribute("data-variant"));
+    for (const v of ["invited", "waiting", "not-coming"]) expect(variants).toContain(v);
+  });
+});
+
+// PAD-664 (calendar.view rule 23): a full class carries its "Cheia" chip, no ✓.
+describe("desktop card — a full class (PAD-664)", () => {
+  it("full: its chip, resolved for the student viewer, and no ✓", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <CalendarEventCard event={cls({ id: "f1", studentRelation: "full", openSpot: true })} />
+      </CalendarViewerProvider>
+    );
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+    const chip = screen.getByTestId("calendar-relation-chip");
+    expect([chip.getAttribute("data-relation"), chip.textContent]).toEqual(["full", "calendar.relation.full"]);
   });
 });

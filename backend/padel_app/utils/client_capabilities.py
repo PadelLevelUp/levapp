@@ -46,6 +46,11 @@ TERMS_ACCEPTANCE = "terms-acceptance"
 # draw them as the student's own bookings, so they reach only a client that declares this.
 # Retire once no App Store build older than the first declaring one is in use.
 STUDENT_RELATIONS = "student-relations"
+# PAD-664 (eligibility.open-spot-visibility rule 1a, calendar.view rule 23): a student's calendar
+# also carries the eligible classes that are FULL (`studentRelation` "full"), so they can join the
+# waiting list. A build that declares only `open-spots` would draw one as a joinable open spot and
+# then be refused on tap, so they reach only a client that declares this. Retire like the others.
+FULL_CLASSES = "full-classes"
 
 # PAD-604 (auth.activate 13a, players.invite-completion 10a, clubs.coach-invitation 8a): the three
 # account-completion forms send a `country`. A client that declares this and sends none is refused
@@ -73,6 +78,7 @@ ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"
 CAPABILITIES = {
     OPEN_SPOTS: "feature",
     STUDENT_RELATIONS: "feature",
+    FULL_CLASSES: "feature",
     EVALUATIONS: "feature",
     CLASS_TYPE_DEFAULTS: "compat",
     COACH_INVITE_EMAIL: "compat",

@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type * as React from "react";
+import {
+  cardSurfaceWeb,
+  STUDENT_FILTER_DEFAULT,
+  studentLegendItems,
+  type StudentCalendarFilter,
+} from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { useCalendarViewer } from "./viewer-context";
 
@@ -12,59 +18,42 @@ import { useCalendarViewer } from "./viewer-context";
  * whatever the coach picked, so each sample uses a neutral stand-in and the
  * distinction carried is the border, the fade and the ring.
  */
-export function CalendarLegend({ className }: { className?: string } = {}) {
+export function CalendarLegend({
+  className,
+  studentFilter = STUDENT_FILTER_DEFAULT,
+}: { className?: string; studentFilter?: StudentCalendarFilter } = {}) {
   const { t } = useTranslation();
   const viewer = useCalendarViewer();
-  // PAD-578 (calendar.view rule 13): a student's legend explains the two treatments rule 6
-  // distinguishes — their own class (✓) and an open spot (dashed outline) — ahead of the rest.
-  const studentItems =
-    viewer === "student"
-      ? [
-          {
-            key: "enrolled",
-            testId: "calendar-legend-enrolled",
-            label: t("calendar.legend.enrolled", { defaultValue: "Enrolled" }),
-            swatch: (
-              <span className="flex h-3 w-5 items-center justify-center rounded-sm bg-muted-foreground/70 text-[9px] font-bold leading-none text-white">
-                ✓
-              </span>
-            ),
-          },
-          {
-            key: "openSpots",
-            testId: "calendar-legend-open-spots",
-            label: t("calendar.legend.openSpots", { defaultValue: "Spots to fill" }),
-            swatch: (
-              <span className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-muted-foreground/70 bg-card" />
-            ),
-          },
-          // PAD-611 (calendar.view rule 22): the student's other relations.
-          {
-            key: "invited",
-            testId: "calendar-legend-invited",
-            label: t("calendar.legend.invited", { defaultValue: "Invited" }),
-            swatch: (
-              <span className="h-3 w-5 rounded-sm border-[1.5px] border-dashed border-primary bg-card" />
-            ),
-          },
-          {
-            key: "waiting",
-            testId: "calendar-legend-waiting",
-            label: t("calendar.legend.waiting", { defaultValue: "Waiting list" }),
-            swatch: (
-              <span className="h-3 w-5 rounded-sm border-[1.5px] border-dotted border-muted-foreground bg-card" />
-            ),
-          },
-          {
-            key: "notComing",
-            testId: "calendar-legend-not-coming",
-            label: t("calendar.legend.notComing", { defaultValue: "Not going" }),
-            swatch: <span className="h-3 w-5 rounded-sm bg-muted-foreground/20" />,
-          },
-        ]
-      : [];
+  // PAD-664 (calendar.view rule 23): a student's legend lists the states the filter leaves
+  // visible, each swatch painted with the same shared surface as its card.
+  if (viewer === "student") {
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground",
+          className
+        )}
+        data-testid="calendar-legend"
+      >
+        {studentLegendItems(studentFilter).map((item) => (
+          <span
+            key={item.variant}
+            className="flex items-center gap-1.5"
+            data-testid="calendar-legend-item"
+            data-variant={item.variant}
+          >
+            <span
+              aria-hidden="true"
+              className="h-3 w-5 rounded-sm"
+              style={cardSurfaceWeb(undefined, item.variant, "student")}
+            />
+            {t(item.key)}
+          </span>
+        ))}
+      </div>
+    );
+  }
   const items: { key: string; testId?: string; label: string; swatch: React.ReactNode }[] = [
-    ...studentItems,
     {
       key: "next",
       label: t("calendar.legend.next", { defaultValue: "Next class" }),
