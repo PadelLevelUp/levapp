@@ -609,7 +609,7 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
 # Read access (PAD-131 × PAD-257, classes.join-requests rule 16)
 # ---------------------------------------------------------------------------
 
-def student_may_view_open_spot(player, instance, *, now=None) -> bool:
+def student_may_view_open_spot(player, instance, *, now=None, allow_full=False) -> bool:
     """Rule 16: may this non-enrolled student read this class instance?
 
     ``classes.detail-visibility`` rule 5 (PAD-257) limits class reads to the
@@ -620,6 +620,10 @@ def student_may_view_open_spot(player, instance, *, now=None) -> bool:
     instance, or the instance is open (not started, cancelled, completed or
     full), advertised (``effective_open_spots_visible``) and the student passes
     its eligibility bar. Pure: no aborts, no writes.
+
+    PAD-664: ``allow_full`` (a client declaring ``full-classes``) drops the
+    "not full" condition, so a student can open a full class from their
+    calendar and join its waiting list; every other condition stands.
     """
     from padel_app.services.notification_service import (
         effective_eligibility,
@@ -639,7 +643,7 @@ def student_may_view_open_spot(player, instance, *, now=None) -> bool:
         lesson_instance_id=instance.id, player_id=player.id
     ).first() is not None:
         return True
-    if _is_closed(instance, now or utcnow_naive()) or _is_full(instance):
+    if _is_closed(instance, now or utcnow_naive()) or (_is_full(instance) and not allow_full):
         return False
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
     if not effective_open_spots_visible(instance, coach_id, config):

@@ -464,12 +464,13 @@ def require_readable_class(model_name, obj):
     # on. They still get the student view (rule 3); everyone else is refused.
     # PAD-352: only for a client that declares open spots. An undeclared client
     # (App Store 1.0/1.1.0) is treated like any student who isn't enrolled.
-    from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+    # PAD-664: a client that declares `full-classes` may also open a full one (rule 16).
+    from padel_app.utils.client_capabilities import FULL_CLASSES, OPEN_SPOTS, client_declares
 
     if player is not None and not is_lesson and client_declares(OPEN_SPOTS):
         from padel_app.services.class_join_request_service import student_may_view_open_spot
 
-        if student_may_view_open_spot(player, obj):
+        if student_may_view_open_spot(player, obj, allow_full=client_declares(FULL_CLASSES)):
             return obj
     abort(403, "Not authorized to view this class")
 
@@ -684,10 +685,19 @@ def calendar():
         # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
         # that declares it understands them. App Store 1.0/1.1.0 would draw an
         # open spot as the student's own booking.
-        from padel_app.utils.client_capabilities import OPEN_SPOTS, STUDENT_RELATIONS, client_declares
+        from padel_app.utils.client_capabilities import (
+            FULL_CLASSES,
+            OPEN_SPOTS,
+            STUDENT_RELATIONS,
+            client_declares,
+        )
 
+        # PAD-664 (eligibility.open-spot-visibility rule 1a): the full ones too, for a client
+        # that declares it — a full class the student waits for stays `waiting` (dedup below).
         open_spots = (
-            load_open_spot_events_for_player(player.id, range_start, range_end)
+            load_open_spot_events_for_player(
+                player.id, range_start, range_end, include_full=client_declares(FULL_CLASSES)
+            )
             if client_declares(OPEN_SPOTS)
             else []
         )

@@ -244,6 +244,7 @@
       "effect": {
         "open-spots": "Off: no student sees open spots in their calendar.",
         "student-relations": "Off: no student sees the classes they are invited to or waiting for in their calendar.",
+        "full-classes": "Off: no student sees the full classes they are eligible for in their calendar (nor joins their waiting list from it).",
         "evaluations": "Off: the shared-evaluation block disappears from the student dashboard.",
         "class-type-defaults": "Off: every app is told a class's open-spot setting comes from the coach, as old apps are. The value shown is the same.",
         "coach-invite-email": "Off: accepting a coach invitation no longer requires an email, as in old apps.",

@@ -244,6 +244,7 @@
       "effect": {
         "open-spots": "Desligado: nenhum aluno vê vagas abertas no calendário.",
         "student-relations": "Desligado: nenhum aluno vê no calendário as aulas para que foi convidado ou em cuja lista de espera está.",
+        "full-classes": "Desligado: nenhum aluno vê no calendário as aulas cheias para que é elegível (nem pode entrar na lista de espera a partir do calendário).",
         "evaluations": "Desligado: o bloco da avaliação partilhada desaparece do painel do aluno.",
         "class-type-defaults": "Desligado: todas as apps recebem que a regra de vagas da aula vem do treinador, como as apps antigas. O valor mostrado é o mesmo.",
         "coach-invite-email": "Desligado: aceitar um convite de treinador deixa de exigir email, como nas apps antigas.",
