@@ -144,6 +144,13 @@ def _lesson_primary_coach_id(lesson_id: int) -> int | None:
     return row.coach_id if row is not None else None
 
 
+#: PAD-661 (invitations rule 1c, B-501): how far out the catch-up fire of an occurrence's
+#: invite-start job is armed when the derivation finds its window already open and the occurrence
+#: not materialised. Not "now": the save that derives still sends nothing itself (config rule 10a),
+#: and a burst at startup spreads over the scheduler's own thread pool two minutes later.
+INVITE_START_CATCH_UP = timedelta(minutes=2)
+
+
 _RESCHEDULE_LOCKS: dict[int, threading.RLock] = {}
 _RESCHEDULE_LOCKS_GUARD = threading.Lock()
 _RESCHEDULE_LOCK_TIMEOUT_S = 30.0
@@ -1111,9 +1118,25 @@ def schedule_lesson_reminder_jobs(
                 # PAD-540 (invitations rule 1c): the occurrence's never-filled places start from
                 # the coach's invitation-start instant, whether or not a reminder comes first.
                 # Not counted in the return value, which has always been the reminder jobs.
+                invite_job_id = f"invite_start_lesson_{lesson_id}_{date_str}"
+                invite_dt = _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing())
+                if (
+                    invite_dt is not None
+                    and invite_dt <= cutoff
+                    and wall_to_utc_naive(occ_dt_naive) > cutoff
+                ):
+                    # PAD-661 (rule 1c, B-501): the window is already open and nothing has
+                    # materialised the occurrence, so neither the past-time job (removed by the
+                    # reconcile below) nor the tick (materialised classes only) would ever open
+                    # its places. Arm the catch-up instead: the same runner, two minutes out. A
+                    # catch-up still pending from an earlier derivation is kept as it is.
+                    armed_for = _armed_fire_time(invite_job_id)
+                    invite_dt = (
+                        armed_for if armed_for is not None and armed_for > cutoff
+                        else cutoff + INVITE_START_CATCH_UP
+                    )
                 _reconcile_date_job(
-                    f"invite_start_lesson_{lesson_id}_{date_str}",
-                    _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing()), cutoff,
+                    invite_job_id, invite_dt, cutoff,
                     func=_run_invite_start_for_lesson_occurrence, args=[lesson_id, date_str],
                 )
                 if outcome == "armed":

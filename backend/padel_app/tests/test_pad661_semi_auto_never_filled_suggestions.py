@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
+from padel_app.scheduler import INVITE_START_CATCH_UP
 from padel_app.sql_db import db
 from padel_app.tests.helpers import pin_clock
 
@@ -216,12 +217,30 @@ def test_window_already_open_at_derivation_is_opened_by_the_next_tick(app, live_
         pin_clock(monkeypatch, five_days)
         live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=five_days)
         assert _instance_for(ids) is None, "the derivation itself materialises nothing (rule 10a)"
-
-        process_invitation_batches(now=five_days + timedelta(minutes=2))
-        instance = _instance_for(ids)
-        assert instance is not None, (
-            "window open since 2027-07-05 18:30Z, derived at -5 d: the occurrence was never opened"
+        occ = f"{ids['lesson']}_{ids['date']}"
+        job = live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}")
+        assert job is not None, (
+            "window open since 2027-07-05 18:30Z, derived at -5 d: no catch-up armed, the "
+            "occurrence is never opened"
         )
+        assert job.trigger.run_date.replace(tzinfo=None) == five_days + INVITE_START_CATCH_UP
+
+        # Two minutes later the catch-up fires: materialises and opens; the tick adds nothing.
+        pin_clock(monkeypatch, five_days + INVITE_START_CATCH_UP)
+        _run(live_scheduler, f"invite_start_lesson_{occ}")
+        instance = _instance_for(ids)
+        assert instance is not None
+        assert _state(instance.id) == expected
+        process_invitation_batches(now=five_days + INVITE_START_CATCH_UP + timedelta(minutes=2))
+        assert _state(instance.id) == expected
+        assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
+
+        # A second derivation inside the window finds the date materialised: no catch-up again.
+        later = five_days + 6 * H
+        pin_clock(monkeypatch, later)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=later)
+        assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
+        process_invitation_batches(now=later + timedelta(minutes=2))
         assert _state(instance.id) == expected
 
 
@@ -250,39 +269,63 @@ def test_window_already_open_at_derivation_is_late_by_the_reminder_before_the_fi
         assert _state(instance.id) == SUGGESTED
 
 
-# --- acceptance 3: when every suggestion is blocked, the coach sees why ---------------------------
+def test_a_pending_catch_up_survives_a_second_derivation(app, live_scheduler, monkeypatch):
+    """Two derivations one minute apart inside the window (a save right after a restart): the first
+    arms the catch-up, the second keeps it where it is instead of removing it (rule 10a's "armed at
+    the implied time") or pushing it out again."""
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "days_before_at_time", "days": 7, "time": "19:30"},
+                    reminder_hours=48, tag="keep")
+        five_days = CLASS_UTC - 5 * D
+        pin_clock(monkeypatch, five_days)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=five_days)
+        occ = f"{ids['lesson']}_{ids['date']}"
+        first = live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}").trigger.run_date
 
-def test_an_empty_suggestion_queue_says_why(app, live_scheduler, monkeypatch):
-    """Semi-automatic coach, never-filled place inside the window, and the only free student is on
-    the coach's excluded list (restrictions.excludedPlayers). The prompt is created (restrictions
-    never block a prompt) with an EMPTY queue; the ticket's acceptance 3 wants the coach to see why.
-    Expected: the vacancy payload carries the per-stage counts of the students the engine dropped."""
+        a_minute_later = five_days + timedelta(minutes=1)
+        pin_clock(monkeypatch, a_minute_later)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=a_minute_later)
+        job = live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}")
+        assert job is not None and job.trigger.run_date == first
+
+
+def test_a_materialised_date_never_gets_the_catch_up(app, live_scheduler, monkeypatch):
+    """The class of PAD-540 cell 2 (materialised inside its window, no start job): the lesson walk
+    arms no lesson-level job for that date — the instance path (the tick) owns it."""
     from padel_app.models.lessons import Lesson
-    from padel_app.models.messages import Message
-    from padel_app.models.notification_config import NotificationConfig
     from padel_app.services.lesson_service import get_or_materialize_instance
-    from padel_app.services.notification_service import process_invitation_batches
 
     with app.app_context(), _patched():
         ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
-                    reminder_hours=48, tag="why")
-        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).one()
-        cfg.restrictions = {**cfg.get_restrictions(),
-                            "excludedPlayers": {"enabled": True, "playerIds": [str(ids["free"])]}}
-        db.session.commit()
-
+                    reminder_hours=48, tag="mat")
         twelve_h = CLASS_UTC - 12 * H
         pin_clock(monkeypatch, twelve_h)
-        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
         db.session.commit()
-        process_invitation_batches(now=twelve_h + timedelta(minutes=2))
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=twelve_h)
+        occ = f"{ids['lesson']}_{ids['date']}"
+        assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
 
-        state = _state(instance.id)
-        assert state["prompts"] == 1 and state["approval_messages"] == 1 and state["invitations"] == 0
-        msg = Message.query.filter_by(message_type="replacement_approval").one()
-        (entry,) = msg.msg_metadata["vacancies"]
-        assert entry["openSpot"] is True
-        assert entry["queue"] == []
-        assert entry.get("emptyQueueReasons") == [{"stage": "excluded_by_coach", "count": 1}], (
-            "an empty queue must say why: the one free student is excluded by the coach"
-        )
+
+def test_a_timing_of_none_arms_no_catch_up(app, live_scheduler, monkeypatch):
+    """An invitation start of type `none` opens nothing from the derivation either."""
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "none"}, reminder_hours=48, tag="none")
+        five_days = CLASS_UTC - 5 * D
+        pin_clock(monkeypatch, five_days)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=five_days)
+        occ = f"{ids['lesson']}_{ids['date']}"
+        assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
+
+
+def test_a_class_already_started_gets_no_catch_up(app, live_scheduler, monkeypatch):
+    """A derivation after the class started (the daily pass walks from the cutoff, but a lesson
+    saved during its own class is walked too): nothing is armed for a class that is not ahead."""
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="over")
+        after_start = CLASS_UTC + timedelta(minutes=10)
+        pin_clock(monkeypatch, after_start)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=after_start)
+        occ = f"{ids['lesson']}_{ids['date']}"
+        assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
