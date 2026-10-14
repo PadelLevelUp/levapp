@@ -3,11 +3,11 @@ id: B-568
 title: "e2e/messaging/conversation-first-unread.spec.ts fails in a whole-folder run (at a different step each time) and passes alone"
 type: test-defect
 severity: medium
-status: triaged
+status: resolved
 affects:
   - frontend/apps/web/e2e/messaging/conversation-first-unread.spec.ts
   - .specflow/specs/messaging/conversation-detail.spec.md
-proposed_fix: "Not diagnosed. Start from the two traces below: decide whether the open's walk-back to the first unread races the list/SSE refetches a busy backend delays (product), or the spec's 20 s viewport wait and the login in beforeEach are too tight for a loaded folder run (test)."
+proposed_fix: "Each test posts its batch before the coach signs in (no beforeEach login), so no coach page receives the batch's 40 SSE events. The other failure (US-415b, Playwright newPage hung 180 s) is the machine, not the spec."
 opened: 2026-10-14T20:45:00Z
 ---
 
@@ -35,3 +35,31 @@ isolation.
 
 **Why it matters:** the batch gate runs folders. A test that reds at random gets re-run until it is
 green (memory: a green on an idle backend is a race won).
+
+## Diagnosis (2026-10-14, la-1410-SessionD)
+
+Two different failures with two different causes.
+
+1. **US-415a, "viewport ratio 0": the spec's race.**
+   - The `beforeEach` signed the coach in, and only then the test posted its 40-message batch from
+     the student. The coach's open page took 40 SSE `message_created` events, and the backend log
+     of the failing run shows 40 `unread_count` refetches during the seeding.
+   - Under a loaded folder run those events were still landing after the thread opened. Their
+     arrivals and the list refetches (an open thread marks each arrival read) moved the thread off
+     its first unread.
+   - The spec alone, on an idle backend, won that race.
+2. **US-415b, a 180 s timeout in `beforeEach`: the environment.**
+   - The trace shows Playwright's `Create page` (browser.newPage) hanging for the full 180 s
+     before any app code ran.
+   - The backend received no request in those three minutes, and the browser took 30 s to close
+     afterwards.
+   - The load was about 300, so the machine's I/O state is a likely cause. Any test could hit
+     this; nothing in this spec can fix it.
+
+**Fix:** no `beforeEach` login. Each test posts its batch first and then calls `signIn`, so no coach
+page is open while the batch is posted.
+
+**Proof:** three `e2e/messaging/` folder runs in a row on origin/staging b96430e35 plus the fix, on
+an isolated stack: 49 passed, 49 passed, 49 passed (7.5, 7.7 and 9.6 min). The 1-minute load at each
+start was 334, 269 and 283, the conditions of both failing runs.
+
