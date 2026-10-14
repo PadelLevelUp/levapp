@@ -6,6 +6,8 @@ import {
   presenceChangedFor,
   classHasEnded,
   liveInstanceIdOf,
+  participantInitials,
+  PARTICIPANT_GROUP_DOT,
 } from "./participant-groups";
 
 /**
@@ -218,5 +220,17 @@ describe("the open class's live identity (rule 24, B-548)", () => {
     expect(presenceChangedFor(evt, null, { lessonId: 5, date: "2026-10-24" })).toBe(false);
     expect(presenceChangedFor(evt, null, { lessonId: 6, date: "2026-10-17" })).toBe(false);
     expect(presenceChangedFor(evt, null, null)).toBe(false);
+  });
+});
+
+describe("participantInitials and the group dots (rule 22, shared by both shells)", () => {
+  it("takes the first and last name's initials, upper-cased", () => {
+    expect(participantInitials("Ana Lopes")).toBe("AL");
+    expect(participantInitials("luís cerqueira gomes")).toBe("LG");
+    expect(participantInitials("  Rui ")).toBe("R");
+    expect(participantInitials("")).toBe("?");
+  });
+  it("names one dot colour per group", () => {
+    expect(PARTICIPANT_GROUP_DOT).toEqual({ going: "#12946B", pending: "#8592A8", not_going: "#D3453B" });
   });
 });

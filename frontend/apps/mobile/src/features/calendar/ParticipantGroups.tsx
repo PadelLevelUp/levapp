@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import {
+  PARTICIPANT_GROUP_DOT,
   PARTICIPANT_GROUP_TITLE_KEYS,
   SIDE_LONG_KEYS,
   SIDE_SHORT_KEYS,
   groupParticipants,
-  type ParticipantGroupKey,
+  participantInitials,
   type ParticipantRowModel,
 } from "@levelup/config";
 import type { CoachPlayer, Player, Presence } from "@levelup/types";
@@ -20,21 +21,6 @@ import { Text } from "@/components/ui/text";
  */
 
 export type ParticipantGroupRow = ParticipantRowModel<Player, Presence, CoachPlayer>;
-
-/** Group dot colours from the approved design (rule 22's table). */
-const DOT: Record<ParticipantGroupKey, string> = {
-  going: "#12946B",
-  pending: "#8592A8",
-  not_going: "#D3453B",
-};
-
-export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const first = parts[0][0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
-  return (first + last).toUpperCase();
-}
 
 interface ParticipantGroupsProps {
   participants: Player[];
@@ -52,7 +38,7 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
       {groups.map((group) => (
         <View key={group.key} testID={`participant-group-${group.key}`} className="gap-1.5">
           <View className="flex-row items-center gap-2 px-1" style={{ minHeight: 18 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: DOT[group.key] }} />
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: PARTICIPANT_GROUP_DOT[group.key] }} />
             <Text className="text-xs font-semibold uppercase text-muted-foreground">
               {t(PARTICIPANT_GROUP_TITLE_KEYS[group.key], { count: group.rows.length })}
             </Text>
@@ -87,7 +73,7 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
                       justifyContent: "center",
                     }}
                   >
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: "#1355DC" }}>{initialsOf(row.name)}</Text>
+                    <Text className="font-bold" style={{ fontSize: 10, color: "#1355DC" }}>{participantInitials(row.name)}</Text>
                   </View>
                   <Text className="flex-1 text-sm font-semibold" numberOfLines={1}>
                     {row.name}

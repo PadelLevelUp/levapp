@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { messagesApi } from "@levelup/api";
 import * as attendanceApi from "@levelup/api/src/resources/attendance";
 import {
+  participantInitials,
   PARTICIPANT_GROUP_WORD_KEYS,
   SIDE_LONG_KEYS,
   cancellationDetail,
@@ -17,7 +18,7 @@ import { Modal, Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { formatEvaluationDate } from "@/features/evaluations/format-date";
-import { initialsOf, type ParticipantGroupRow } from "./ParticipantGroups";
+import type { ParticipantGroupRow } from "./ParticipantGroups";
 
 /**
  * PAD-659 (`calendar.event-detail` rule 23), the phone's half: a player's profile over the class,
@@ -112,21 +113,21 @@ export function ParticipantSheet({ row, onClose }: ParticipantSheetProps) {
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ fontSize: 18, fontWeight: "700", color: "#1355DC" }}>{initialsOf(row.name)}</Text>
+                <Text className="font-bold" style={{ fontSize: 18, color: "#1355DC" }}>{participantInitials(row.name)}</Text>
               </View>
               <View className="flex-1 gap-1.5">
-                <Text numberOfLines={1} style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>
+                <Text numberOfLines={1} className="font-bold" style={{ fontSize: 20, color: "#FFFFFF" }}>
                   {row.name}
                 </Text>
                 <View className="flex-row flex-wrap gap-1.5">
                   {row.side ? (
                     <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 6, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.15)" }}>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: "#9CC6FF" }}>{t(SIDE_LONG_KEYS[row.side])}</Text>
+                      <Text className="font-semibold" style={{ fontSize: 11, color: "#9CC6FF" }}>{t(SIDE_LONG_KEYS[row.side])}</Text>
                     </View>
                   ) : null}
                   {row.level?.label ? (
                     <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 6, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.15)" }}>
-                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#9CC6FF" }}>
+                      <Text className="font-bold" style={{ fontSize: 11, color: "#9CC6FF" }}>
                         {t("calendar.participants.level", { level: row.level.label })}
                       </Text>
                     </View>
@@ -200,7 +201,7 @@ export function ParticipantSheet({ row, onClose }: ParticipantSheetProps) {
                   opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Text style={{ fontSize: 13, fontWeight: "600", color: "#1355DC" }}>{t("calendar.participants.sendMessage")}</Text>
+                <Text className="font-semibold" style={{ fontSize: 13, color: "#1355DC" }}>{t("calendar.participants.sendMessage")}</Text>
               </Pressable>
               <Pressable
                 testID="participant-popup-profile"
@@ -216,7 +217,7 @@ export function ParticipantSheet({ row, onClose }: ParticipantSheetProps) {
                   opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Text style={{ fontSize: 13, fontWeight: "600", color: "#FFFFFF" }}>{t("calendar.participants.fullProfile")}</Text>
+                <Text className="font-semibold" style={{ fontSize: 13, color: "#FFFFFF" }}>{t("calendar.participants.fullProfile")}</Text>
               </Pressable>
             </View>
           </View>

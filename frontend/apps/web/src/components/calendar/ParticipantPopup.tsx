@@ -8,6 +8,7 @@ import {
   SIDE_LONG_KEYS,
   cancellationDetail,
   groupOfState,
+  participantInitials,
   reminderHint,
 } from "@levelup/config";
 import { getAttendanceHistory } from "@/api/attendance";
@@ -15,7 +16,7 @@ import { getAbsenceHistory } from "@/api/absences";
 import { getPlayerProfile } from "@/api/players";
 import { createConversation } from "@/api/messages";
 import { formatEvaluationDate } from "@/components/evaluations/formatEvaluationDate";
-import { initialsOf, type ParticipantRow } from "./ParticipantGroups";
+import type { ParticipantRow } from "./ParticipantGroups";
 
 /**
  * PAD-659 (`calendar.event-detail` rule 23): a player's profile over the class. A Radix dialog
@@ -94,7 +95,7 @@ export function ParticipantPopup({ row, onClose, returnFocusTo }: ParticipantPop
             <>
               <div className="relative flex items-center gap-4 bg-[linear-gradient(150deg,#16294A,#0B1524)] p-6">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#E8F1FF] text-lg font-bold text-[#1355DC]">
-                  {initialsOf(row.name)}
+                  {participantInitials(row.name)}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <DialogPrimitive.Title className="truncate font-display text-xl font-bold text-white">
@@ -129,7 +130,10 @@ export function ParticipantPopup({ row, onClose, returnFocusTo }: ParticipantPop
                 {hint ? <p className="py-1 text-xs text-muted-foreground" data-testid="attendance-reminder-hint">{t(hint)}</p> : null}
                 {cancelled ? (
                   <p className="py-1 text-xs text-muted-foreground" data-testid="attendance-cancelled-by-student">
-                    {t(cancelled.key, { when: cancelled.when })}
+                    {t(cancelled.key, {
+                      // As AttendanceRow words it: the instant in the account's language.
+                      when: new Date(cancelled.when).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }),
+                    })}
                   </p>
                 ) : null}
                 {fact(

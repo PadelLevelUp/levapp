@@ -104,4 +104,10 @@ describe("wiring (source reads)", () => {
     expect(p).toContain("<Modal");
     expect(p).not.toMatch(/className="[^"]*active:/);
   });
+
+  it("R-025: weights are named by class, never by an inline fontWeight (inert on the custom family)", () => {
+    for (const file of ["ParticipantSheet.tsx", "ParticipantGroups.tsx"]) {
+      expect(fs.readFileSync(path.join(HERE, file), "utf8"), file).not.toMatch(/fontWeight/);
+    }
+  });
 });

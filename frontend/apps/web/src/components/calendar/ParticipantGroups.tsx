@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
 import {
+  PARTICIPANT_GROUP_DOT,
   PARTICIPANT_GROUP_TITLE_KEYS,
   SIDE_LONG_KEYS,
   SIDE_SHORT_KEYS,
   groupParticipants,
-  type ParticipantGroupKey,
+  participantInitials,
   type ParticipantRowModel,
 } from "@levelup/config";
 import type { CoachPlayer, Player, Presence } from "@/types";
@@ -17,21 +18,6 @@ import type { CoachPlayer, Player, Presence } from "@/types";
  */
 
 export type ParticipantRow = ParticipantRowModel<Player, Presence, CoachPlayer>;
-
-/** Group dot colours from the approved design (rule 22's table). */
-const DOT: Record<ParticipantGroupKey, string> = {
-  going: "#12946B",
-  pending: "#8592A8",
-  not_going: "#D3453B",
-};
-
-export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const first = parts[0][0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
-  return (first + last).toUpperCase();
-}
 
 interface ParticipantGroupsProps {
   participants: Player[];
@@ -50,7 +36,7 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
       {groups.map((group) => (
         <section key={group.key} data-testid="participant-group" data-group={group.key} className="flex flex-col gap-1.5">
           <h5 className="flex h-[18px] items-center gap-2 px-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground tabular-nums">
-            <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: DOT[group.key] }} />
+            <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: PARTICIPANT_GROUP_DOT[group.key] }} />
             {t(PARTICIPANT_GROUP_TITLE_KEYS[group.key], { count: group.rows.length })}
           </h5>
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
@@ -72,7 +58,7 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
                     aria-hidden="true"
                     className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#E8F1FF] text-[10px] font-bold text-[#1355DC]"
                   >
-                    {initialsOf(row.name)}
+                    {participantInitials(row.name)}
                   </span>
                   <span className="min-w-0 truncate text-sm font-semibold group-hover:text-primary group-hover:underline">
                     {row.name}
