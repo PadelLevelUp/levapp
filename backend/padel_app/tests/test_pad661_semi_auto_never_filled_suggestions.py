@@ -9,10 +9,14 @@ occurrence whose window had already opened when the jobs were derived (a deploy,
 config or lesson save, the daily pass) and that nothing has materialised yet is seen by neither
 path until the reminder materialises it — with a 7-day window and a 48 h reminder, five days late.
 
-The first two tests are controls: the semi-automatic prompt is produced on both existing paths.
-The third pins the gap, in both modes. Dates in 2027 so the real clock never overtakes the pinned
-one; summer, so wall 18:00 Lisbon is 17:00 UTC.
+Groups: two controls (the semi-automatic prompt on both existing paths); the gap, in both modes,
+through the catch-up and a second derivation; what the catch-up must keep (a pending one), replace
+(a job from an earlier timing, a catch-up that never fired) and never arm (a materialised date, a
+timing of `none`, a class already started); the burst over a coach's lessons; the reminder path
+after the catch-up. Dates in 2027 so the real clock never overtakes the pinned one; summer, so
+wall 18:00 Lisbon is 17:00 UTC.
 """
+import contextlib
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -142,12 +146,12 @@ def _run(sched, job_id):
     job.func(*job.args)
 
 
+@contextlib.contextmanager
 def _patched():
-    import contextlib
-    stack = contextlib.ExitStack()
-    for target in PATCHES:
-        stack.enter_context(patch(target))
-    return stack
+    with contextlib.ExitStack() as stack:
+        for target in PATCHES:
+            stack.enter_context(patch(target))
+        yield
 
 
 # --- controls: both existing paths do produce the semi-automatic prompt ---------------------------
@@ -244,11 +248,9 @@ def test_window_already_open_at_derivation_is_opened_by_the_next_tick(app, live_
         assert _state(instance.id) == expected
 
 
-def test_window_already_open_at_derivation_is_late_by_the_reminder_before_the_fix(app, live_scheduler, monkeypatch):
-    """Documentation of the pre-fix behaviour, kept green across the fix: the reminder at 48 h
-    materialises the occurrence and the next tick opens it (PAD-540 cell 2), so without the fix the
-    suggestions arrive five days late, not never. After the fix the state at 48 h is the same, only
-    reached earlier."""
+def test_the_reminder_after_the_catch_up_asks_nothing_twice(app, live_scheduler, monkeypatch):
+    """After the catch-up has materialised and opened the occurrence, the reminder at 48 h (now the
+    instance's own job) reminds the enrolled student and starts nothing more: still one prompt."""
     from padel_app.services.notification_service import process_invitation_batches
 
     with app.app_context(), _patched():
@@ -258,13 +260,15 @@ def test_window_already_open_at_derivation_is_late_by_the_reminder_before_the_fi
         pin_clock(monkeypatch, five_days)
         live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=five_days)
         occ = f"{ids['lesson']}_{ids['date']}"
-        assert live_scheduler._scheduler.get_job(f"reminder_lesson_{occ}") is not None
-
-        at_reminder = CLASS_UTC - 48 * H
-        pin_clock(monkeypatch, at_reminder)
-        _run(live_scheduler, f"reminder_lesson_{occ}")
+        pin_clock(monkeypatch, five_days + INVITE_START_CATCH_UP)
+        _run(live_scheduler, f"invite_start_lesson_{occ}")
         instance = _instance_for(ids)
-        assert instance is not None
+        assert _state(instance.id) == SUGGESTED
+        assert live_scheduler._scheduler.get_job(f"reminder_lesson_{occ}") is None, "materialising moved the reminder to the instance"
+
+        at_reminder = CLASS_UTC - 48 * H + timedelta(minutes=1)
+        pin_clock(monkeypatch, at_reminder)
+        _run(live_scheduler, f"reminder_{instance.id}")
         process_invitation_batches(now=at_reminder + timedelta(minutes=2))
         assert _state(instance.id) == SUGGESTED
 
@@ -329,3 +333,73 @@ def test_a_class_already_started_gets_no_catch_up(app, live_scheduler, monkeypat
         live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=after_start)
         occ = f"{ids['lesson']}_{ids['date']}"
         assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
+
+
+def test_a_job_from_an_earlier_timing_is_replaced_by_the_catch_up(app, live_scheduler, monkeypatch):
+    """The coach had "24 h before" (job armed far ahead), then saves "7 days before at 19:30" with
+    the class five days out: the window is open NOW, so the far-future job is replaced by the
+    catch-up two minutes out, not kept as if it were a pending catch-up."""
+    from padel_app.models.notification_config import NotificationConfig
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="earl")
+        five_days = CLASS_UTC - 5 * D
+        pin_clock(monkeypatch, five_days)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=five_days)
+        occ = f"{ids['lesson']}_{ids['date']}"
+        assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}").trigger.run_date.replace(tzinfo=None) == CLASS_UTC - 24 * H
+
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).one()
+        cfg.reminder_timing = {"firstReminder": {"type": "hours_before", "value": 48},
+                               "invitationStart": {"type": "days_before_at_time", "days": 7, "time": "19:30"}}
+        db.session.commit()
+        a_minute_later = five_days + timedelta(minutes=1)
+        pin_clock(monkeypatch, a_minute_later)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=a_minute_later)
+        job = live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}")
+        assert job.trigger.run_date.replace(tzinfo=None) == a_minute_later + INVITE_START_CATCH_UP
+
+
+def test_a_catch_up_that_never_fired_is_armed_again(app, live_scheduler, monkeypatch):
+    """A restart three minutes after the catch-up was armed (it did not fire: the process was down):
+    the startup derivation arms a fresh catch-up two minutes out instead of leaving a job in the past."""
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "days_before_at_time", "days": 7, "time": "19:30"},
+                    reminder_hours=48, tag="miss")
+        five_days = CLASS_UTC - 5 * D
+        pin_clock(monkeypatch, five_days)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=five_days)
+        occ = f"{ids['lesson']}_{ids['date']}"
+
+        three_min = five_days + timedelta(minutes=3)
+        pin_clock(monkeypatch, three_min)
+        live_scheduler.schedule_lesson_reminder_jobs(ids["lesson"], ids["coach"], now=three_min)
+        job = live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}")
+        assert job.trigger.run_date.replace(tzinfo=None) == three_min + INVITE_START_CATCH_UP
+
+
+def test_the_coach_walk_arms_one_catch_up_per_open_occurrence(app, live_scheduler, monkeypatch):
+    """The burst: a coach with two classes inside their open window and nothing materialised. The
+    per-coach walk (the startup re-arm and the daily pass use it) arms one catch-up for each."""
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.lessons import Lesson
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "days_before_at_time", "days": 7, "time": "19:30"},
+                    reminder_hours=48, tag="two")
+        first = db.session.get(Lesson, ids["lesson"])
+        second = Lesson(title="P661 two b", start_datetime=CLASS_WALL + D, end_datetime=CLASS_WALL + D + H,
+                        is_recurring=False, type="academy", max_players=2, color="#000", status="active",
+                        club_id=first.club_id, default_level_id=first.default_level_id)
+        db.session.add(second)
+        db.session.flush()
+        db.session.add(Association_CoachLesson(coach_id=ids["coach"], lesson_id=second.id))
+        db.session.commit()
+
+        five_days = CLASS_UTC - 5 * D
+        pin_clock(monkeypatch, five_days)
+        live_scheduler._schedule_lesson_occurrences_for_coach(ids["coach"])
+        armed = sorted(j.id for j in live_scheduler._scheduler.get_jobs() if j.id.startswith("invite_start_lesson_"))
+        assert armed == sorted([f"invite_start_lesson_{ids['lesson']}_{ids['date']}",
+                                f"invite_start_lesson_{second.id}_{(CLASS_WALL + D).date().isoformat()}"])
