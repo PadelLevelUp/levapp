@@ -70,7 +70,7 @@ import {
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
 import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
-import { confirmClassPresences } from "@/api/presences";
+import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
@@ -549,6 +549,27 @@ export function ClassDetailSheet({
 
   const active = draft ?? classInstance;
   const isCanceled = active?.status === "canceled";
+
+  // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
+  // occurrence (a virtual one is materialised on the server). The change may re-side open spots
+  // and withdraw invitations for balance, so the whole class is re-read, not just the row.
+  const [sideBusy, setSideBusy] = useState<string | null>(null);
+  const changeSide = async (playerId: string, side: "left" | "right" | null) => {
+    if (!classInstance) return;
+    setSideBusy(playerId);
+    try {
+      await setPresenceSide(classInstance, playerId, side);
+      if (event) setClassInstance(await getClassInstance(event));
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      toast({
+        title: t(status === 409 ? "calendar.side.ended" : "calendar.side.saveFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setSideBusy(null);
+    }
+  };
 
   // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9): the student asks or
   // withdraws; the coach accepts (a manual add — a student who slipped below
@@ -1591,6 +1612,18 @@ export function ClassDetailSheet({
                       // presence, so `!canManage` identifies their own row.
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
+                      side={
+                        // A virtual occurrence has no presence rows yet: the row starts on "Habitual".
+                        canManage && classInstance?.sideEditable !== undefined
+                          ? {
+                              current: presence?.side ?? null,
+                              override: !!presence?.sideOverride,
+                              editable: !!classInstance.sideEditable && !isCanceled,
+                              busy: sideBusy === String(p.id),
+                              onChange: (next) => void changeSide(String(p.id), next),
+                            }
+                          : undefined
+                      }
                     />
                   );
                 })}

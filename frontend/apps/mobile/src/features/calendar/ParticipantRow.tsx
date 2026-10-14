@@ -62,6 +62,18 @@ type ParticipantRowProps = {
    * about them.
    */
   audience?: StateAudience;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence, for the
+   * coach — the same shape as web's AttendanceRow `side`. `onChange(null)` goes back to the usual
+   * side; `editable` is the server's answer (not ended, not canceled).
+   */
+  side?: {
+    current: "left" | "right" | "both" | null;
+    override: boolean;
+    editable: boolean;
+    busy?: boolean;
+    onChange: (side: "left" | "right" | null) => void;
+  };
 };
 
 /** Mobile analogue of the web AttendanceRow: name + presence badges, with
@@ -73,6 +85,7 @@ export function ParticipantRow({
   onChange,
   canMark,
   audience = "coach",
+  side,
 }: ParticipantRowProps) {
   const name = playerName(player);
   const playerId = String(player.id);
@@ -128,6 +141,38 @@ export function ParticipantRow({
           </Badge>
         ) : null}
       </View>
+
+      {/* PAD-551: the side this player plays in this occurrence, when set here. */}
+      {side?.override && (side.current === "left" || side.current === "right") ? (
+        <Text testID={`participant-side-${playerId}`} className="text-xs font-medium">
+          {t(`calendar.side.tag.${side.current}`)}
+        </Text>
+      ) : null}
+      {side?.editable ? (
+        <View className="flex-row items-center gap-2">
+          <Text className="text-xs text-muted-foreground">{t("calendar.side.label")}</Text>
+          {(["usual", "left", "right"] as const).map((v) => {
+            const selected = side.override ? side.current === v : v === "usual";
+            return (
+              <Button
+                key={v}
+                testID={`participant-side-${v}-${playerId}`}
+                accessibilityState={{ selected, disabled: !!side.busy }}
+                accessibilityLabel={`${t("calendar.side.label")}: ${t(`calendar.side.${v}`)}`}
+                variant={selected ? "default" : "outline"}
+                size="sm"
+                disabled={side.busy}
+                onPress={() => {
+                  if (selected) return;
+                  side.onChange(v === "usual" ? null : v);
+                }}
+              >
+                <Text className="text-xs">{t(`calendar.side.${v}`)}</Text>
+              </Button>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/* Secondary facts, each on its own line and never a second state word:
           who cancelled and when (rule 23's provenance, coach's row only while

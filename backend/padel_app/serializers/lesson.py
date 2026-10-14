@@ -416,6 +416,11 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         data.update(_virtual_occurrence_windows(obj, coach_id, occurrence_date))
         data["presences"] = []
 
+    # PAD-551 (classes.instance-enrollment rule 13): may the coach set a side on this occurrence,
+    # materialised or virtual? The server's answer, so no client compares dates with its clock.
+    from padel_app.services.presence_side_service import occurrence_side_editable
+
+    data["sideEditable"] = (not is_student) and occurrence_side_editable(obj, occurrence_date)
     return data
 
 
