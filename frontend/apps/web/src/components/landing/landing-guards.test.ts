@@ -34,6 +34,15 @@ describe("landing page static guards", () => {
     }
   });
 
+  // PAD-595 (inventory item 7): a shared link's preview names the canonical domain.
+  it("index.html's link preview points at levapp.app, never the old domain", () => {
+    const html = read("index.html");
+    expect(html).toContain('<meta property="og:url" content="https://levapp.app/" />');
+    expect(html).toContain('<meta property="og:image" content="https://levapp.app/og-image.png" />');
+    expect(html).toContain('<meta name="twitter:image" content="https://levapp.app/og-image.png" />');
+    expect(html).not.toContain("padellevelup.com");
+  });
+
   it.each(["index.html", "../admin/index.html"])("%s names no Google font host (PAD-635)", (file) => {
     // The fonts are self-hosted: not even a preconnect may tell Google about a visit.
     const html = read(file).toLowerCase();

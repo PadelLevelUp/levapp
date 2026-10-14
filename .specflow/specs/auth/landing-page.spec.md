@@ -143,6 +143,10 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     action; the "others" audience has none. A drawn button, not Apple's badge artwork. The Google
     Play button waits for the Play listing (PAD-355). The redesigned site of the prototype is a
     separate piece of work; when it lands, its App Store buttons use this component.
+16. **The link preview names levapp.app (PAD-595).** `index.html`'s Open Graph and Twitter tags
+    (`og:url`, `og:image`, `twitter:image`) point at `https://levapp.app/`, so a link to the site
+    shared on WhatsApp or elsewhere previews the canonical domain; the old domain appears nowhere
+    in the page.
 
 ### Acceptance Criteria
 
@@ -308,6 +312,11 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Given** the landing page, `/support`, `public/support.html` and the landing copy in both languages
 - **When** any of them offers an email
 - **Then** it is `admin@levapp.app`, and `padellevelup2026@gmail.com` / `admin@levapp.pt` appear nowhere
+
+#### A shared link previews levapp.app (rule 16, PAD-595)
+- **Given** the built `index.html`
+- **When** a link preview reads its Open Graph and Twitter tags
+- **Then** `og:url` is `https://levapp.app/`, `og:image` and `twitter:image` are `https://levapp.app/og-image.png`, and `padellevelup.com` appears nowhere
 
 ### Notes
 - Second iteration, 2026-09-06: ported from the Lovable project "Padellevelup Playground"
