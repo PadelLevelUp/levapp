@@ -3,6 +3,8 @@ import type {
   PresenceStatsTotals,
 } from "@levelup/types";
 
+import { searchPlayers } from "@levelup/config";
+
 import type { ChartPoint } from "@/components/charts/chart-geometry";
 
 /**
@@ -108,16 +110,32 @@ export function filterPlayers(
   players: PresencePlayerStats[],
   filters: PresenceFilters
 ): PresencePlayerStats[] {
-  const needle = filters.query.trim().toLowerCase();
   const min = numericBound(filters.minTotal, -Infinity);
   const max = numericBound(filters.maxUnjustified, Infinity);
 
-  return players.filter(
-    (player) =>
-      player.name.toLowerCase().includes(needle) &&
-      player.total >= min &&
-      player.unjustified <= max
-  );
+  // PAD-665 (players.search): the name goes through the shared rule, best match first; a blank
+  // query keeps the order given. The bounds are unchanged.
+  return searchPlayers(players, filters.query, (player) => ({
+    name: player.name,
+    id: player.playerId,
+  })).filter((player) => player.total >= min && player.unjustified <= max);
+}
+
+/**
+ * The rows the screen lists: the filter's matches, ordered by `sort`. While a name is typed and
+ * the coach has left the sort at its default, the best match comes first instead (PAD-665).
+ */
+export function presenceRows(
+  players: PresencePlayerStats[],
+  filters: PresenceFilters,
+  sort: PresenceSort
+): PresencePlayerStats[] {
+  const matches = filterPlayers(players, filters);
+  const byRelevance =
+    filters.query.trim() !== "" &&
+    sort.key === DEFAULT_SORT.key &&
+    sort.direction === DEFAULT_SORT.direction;
+  return byRelevance ? matches : sortPlayerStats(matches, sort);
 }
 
 function numericBound(raw: string, fallback: number): number {

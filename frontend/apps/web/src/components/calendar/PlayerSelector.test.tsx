@@ -3,7 +3,7 @@
  * primary for the class's level, amber for another level or none, neutral without a class level.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { CoachPlayer } from "@/types";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -42,5 +42,39 @@ describe("PlayerSelector shows every student's level (PAD-527)", () => {
 
   it("is neutral for a class with no level, and a student with no level shows no chip", () => {
     expect(chips(null)).toEqual({ rui: "none", sara: "none", tome: null });
+  });
+});
+
+// PAD-665 (players.search rule 5, 6, 8): the picker's search runs the shared name rule.
+describe("PlayerSelector search (PAD-665)", () => {
+  const rowsFor = (query: string) => {
+    const people = [
+      student("1", "Ana Rita", null),
+      student("2", "Rita Zé", null),
+      student("3", "Rui Pedro Basto", null),
+      student("4", "André", null),
+    ];
+    render(
+      <PlayerSelector players={people} levels={[]} selectedPlayerIds={[]} classLevelId={null} onToggle={() => {}} />
+    );
+    const tab = screen.getByTestId("player-selector-tab-all");
+    fireEvent.mouseDown(tab);
+    fireEvent.click(tab);
+    fireEvent.change(screen.getByTestId("player-selector-search"), { target: { value: query } });
+    return screen
+      .getAllByTestId(/^player-selector-row-/)
+      .map((el) => el.getAttribute("data-testid")!.replace("player-selector-row-", ""));
+  };
+
+  it("finds 'rui basto' → Rui Pedro Basto and 'andre' → André", () => {
+    expect(rowsFor("rui basto")).toEqual(["3"]);
+    cleanup();
+    expect(rowsFor("andre")).toEqual(["4"]);
+  });
+
+  it("lists the best match first and a blank search in the given order", () => {
+    expect(rowsFor("rita")).toEqual(["2", "1"]);
+    cleanup();
+    expect(rowsFor("")).toEqual(["1", "2", "3", "4"]);
   });
 });

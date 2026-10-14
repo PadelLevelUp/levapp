@@ -1,5 +1,5 @@
 import { messagesApi } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, searchPeopleByName } from "@levelup/config";
 import { useConversations } from "@levelup/hooks";
 import type { User } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -101,8 +101,10 @@ export default function NewConversationScreen() {
   );
   const term = search.trim().toLowerCase();
   const candidates = React.useMemo(
-    () => (term ? connected.filter((u) => u.name.toLowerCase().includes(term)) : connected),
-    [connected, term]
+    // PAD-665 (players.search rule 8): a coach's picker uses the shared name rule, best match
+    // first; a student keeps the plain substring match.
+    () => searchPeopleByName(connected, term, (u) => u.name, { coach: !offersConnect }),
+    [connected, term, offersConnect]
   );
 
   const handlePick = async (picked: User) => {

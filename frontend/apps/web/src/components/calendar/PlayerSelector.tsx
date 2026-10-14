@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { classLevelMatch, nameMatchesQuery } from "@levelup/config";
+import { classLevelMatch, searchRoster } from "@levelup/config";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -59,8 +59,8 @@ export function PlayerSelector({
     let result = players;
 
     if (isSearching) {
-      // PAD-516: every typed word, in any order (shared with iOS).
-      result = result.filter((p) => nameMatchesQuery(p.name, search));
+      // PAD-516/PAD-665: the shared name rule (every word, any order, best match first).
+      result = searchRoster(result, search);
     } else if (filterLevelId) {
       result = result.filter((p) => String(p.levelId) === String(filterLevelId));
     }
