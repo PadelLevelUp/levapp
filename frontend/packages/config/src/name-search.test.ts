@@ -47,6 +47,15 @@ describe("players.search shared cases (PAD-665, B-531)", () => {
   );
 });
 
+describe("players.search shared order cases (rule 6)", () => {
+  it.each(cases.order as { query: string; players: { id: string; name: string }[]; expect: string[] }[])(
+    "$query → $expect",
+    ({ query, players, expect: ids }) => {
+      expect(searchPlayers(players, query, (p) => p).map((p) => p.id)).toEqual(ids);
+    }
+  );
+});
+
 describe("searchPlayers (PAD-665, players.search rule 6)", () => {
   const roster = [
     { id: 3, name: "Mariana Costa" },

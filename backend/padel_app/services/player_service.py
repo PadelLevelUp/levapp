@@ -350,9 +350,11 @@ def search_players(items, query, fields_of):
 
 
 def _id_key(value):
-    """Numeric ids sort as numbers, before any non-numeric one."""
+    """Ids made of ASCII digits sort as numbers, first; then the id as written — the twin's
+    `idKey` (``"²".isdigit()`` is true in Python, so the check is ASCII-only on purpose)."""
     s = "" if value is None else str(value)
-    return (0, int(s), "") if s.isdigit() else (1, 0, s)
+    numeric = s.isascii() and s.isdigit()
+    return (0 if numeric else 1, int(s) if numeric else 0, s)
 
 
 class _ListPage:

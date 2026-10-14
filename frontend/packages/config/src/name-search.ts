@@ -112,6 +112,17 @@ export function nameMatchesQuery(name: string | null | undefined, query: string)
 }
 
 /**
+ * Ids made of ASCII digits sort as numbers, first; then the id as written — the twin's `_id_key`.
+ */
+function compareIds(a: string, b: string): number {
+  const na = /^[0-9]+$/.test(a);
+  const nb = /^[0-9]+$/.test(b);
+  if (na !== nb) return na ? -1 : 1;
+  if (na && nb && Number(a) !== Number(b)) return Number(a) - Number(b);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
  * The matches, best first: tier, then folded name, then name as written, then id. A blank query
  * returns the items as they came (each screen keeps its own order).
  */
@@ -137,10 +148,7 @@ export function searchPlayers<T>(
   const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   ranked.sort(
     (a, b) =>
-      a.tier - b.tier ||
-      cmp(a.folded, b.folded) ||
-      cmp(a.name, b.name) ||
-      a.id.localeCompare(b.id, undefined, { numeric: true })
+      a.tier - b.tier || cmp(a.folded, b.folded) || cmp(a.name, b.name) || compareIds(a.id, b.id)
   );
   return ranked.map((r) => r.item);
 }

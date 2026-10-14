@@ -679,7 +679,13 @@ def list_claim_candidates_service(player_id, coach, search=None, limit=50):
             "sameName": bool(wanted) and norm == wanted,
             "_tier": tier,
         })
-    items.sort(key=lambda it: (not it["sameName"], it["_tier"], normalise_name(it["name"]), it["playerId"]))
+    # players.search rule 6 inside a tier (the shared fold, then the name, then the id); the
+    # duplicate check above keeps `normalise_name` (claim rule 4c).
+    from padel_app.services.player_service import fold_search_text
+
+    items.sort(key=lambda it: (
+        not it["sameName"], it["_tier"], fold_search_text(it["name"]), it["name"], it["playerId"]
+    ))
     for it in items:
         del it["_tier"]
     return items[:limit]

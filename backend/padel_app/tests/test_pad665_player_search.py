@@ -97,23 +97,20 @@ def test_type_ahead_ranks_before_its_limit(app, client, world):
         assert _names(search_coach_players(coach_a.id, "rita", limit=1)) == ["Rita Zé"]  # by name alone: Ana Rita
 
 
-@pytest.mark.parametrize("path", [
-    "/api/app/coach_players_paginated?search=rui%20basto",
-    "/api/app/notify/player_search?q=rui%20basto",
+@pytest.mark.parametrize("path,rows_of", [
+    ("/api/app/coach_players_paginated?search=rui%20basto", lambda body: body["items"]),
+    ("/api/app/notify/player_search?q=rui%20basto", lambda body: body["players"]),
 ])
-def test_searching_never_widens_who_appears(app, client, world, path):
+def test_searching_never_widens_who_appears(app, client, world, path, rows_of):
     res = client.get(path, headers=_auth(app, world["a_user"]))
     assert res.status_code == 200
-    body = res.get_json()
-    rows = body if isinstance(body, list) else (body.get("items") or body.get("players") or body.get("data"))
-    names = _names(rows)
+    names = _names(rows_of(res.get_json()))
+    assert names, "the control must find something (R-032)"
     assert "Rui Pedro Basto" in names  # control: A's own player is found
     assert "Rui Basto" not in names    # B's never is
     # and B, searching the same words, sees B's own and not A's
     res_b = client.get(path, headers=_auth(app, world["b_user"]))
-    body_b = res_b.get_json()
-    rows_b = body_b if isinstance(body_b, list) else (body_b.get("items") or body_b.get("players") or body_b.get("data"))
-    assert _names(rows_b) == ["Rui Basto"]
+    assert _names(rows_of(res_b.get_json())) == ["Rui Basto"]
 
 
 def test_claim_candidates_use_the_shared_rule_and_stay_on_the_roster(app, client, world):
@@ -126,3 +123,33 @@ def test_claim_candidates_use_the_shared_rule_and_stay_on_the_roster(app, client
     names = _names(rows)
     assert "Rui Pedro Basto" in names  # words in any order (the old single substring missed it)
     assert "Rui Basto" not in names    # coach B's player
+
+
+def test_claim_candidates_keep_the_duplicate_first_then_order_by_tier(app, client, world):
+    """Rule 6 for this surface: a same-name candidate leads whatever its tier; then best tier."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+
+    with app.app_context():
+        coach_a = Coach.query.filter_by(user_id=world["a_user"]).one()
+        for name, username in (("Rui P. Basto", "dup_rui"), ("Basto Rui", "basto_first")):
+            u = User(name=name, username=username, email=f"{username}@test.com", password="h", status="active")
+            db.session.add(u)
+            db.session.flush()
+            pl = Player(user_id=u.id)
+            db.session.add(pl)
+            db.session.flush()
+            db.session.add(Association_CoachPlayer(coach_id=coach_a.id, player_id=pl.id))
+        db.session.commit()
+    pid = world["ids"]["placeholder"]  # "Rui P. Basto", inactive
+    res = client.get(f"/api/app/player/{pid}/claim-candidates?search=basto",
+                     headers=_auth(app, world["a_user"]))
+    body = res.get_json()
+    rows = body if isinstance(body, list) else body["items"]
+    names = _names(rows)
+    assert names, "the control must find something (R-032)"
+    # same name first; then "Basto Rui" (tier 0) before "Rui Pedro Basto" (tier 1)
+    assert names[0] == "Rui P. Basto"
+    assert names.index("Basto Rui") < names.index("Rui Pedro Basto")
