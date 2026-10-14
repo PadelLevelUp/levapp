@@ -325,7 +325,7 @@ export default function PlayersPage() {
                 // iOS uses on its Pressable, so the two shells share the string.
                 role="button"
                 tabIndex={0}
-                aria-label={t("players.openPlayerAria", { name: cs.name })}
+                aria-label={t("players.openPlayerAria", { name: cs.displayName || cs.name })}
                 className={`cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isSelected ? "bg-accent" : "hover:bg-accent/50"
                 } ${cs.validated ? "" : "opacity-60"}`}
@@ -342,16 +342,17 @@ export default function PlayersPage() {
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10 shrink-0">
                       <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
-                        {getInitials(cs.name || "")}
+                        {getInitials(cs.displayName || cs.name || "")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p
+                        data-testid={`player-card-name-${cs.playerId}`}
                         className={`font-medium truncate ${
                           cs.validated ? "" : "text-muted-foreground"
                         }`}
                       >
-                        {cs.name}
+                        {cs.displayName || cs.name}
                       </p>
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         {level && (

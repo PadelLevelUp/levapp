@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { nicknameShown } from "@levelup/config";
 import { BellOff, Check, Copy, Loader2, Pencil, UserX, X } from "lucide-react";
 import {
   Select,
@@ -27,6 +29,12 @@ interface PlayerHeaderProps {
   draftName: string;
   draftLevelId: string;
   draftSide: PlayerSide | "";
+  /** PAD-660: the coach's private nickname for this student (players.nickname rule 6). */
+  draftNickname: string;
+  draftNicknameAsName: boolean;
+  nicknameError?: boolean;
+  onDraftNicknameChange: (v: string) => void;
+  onDraftNicknameAsNameChange: (v: boolean) => void;
   onDraftNameChange: (v: string) => void;
   onDraftLevelIdChange: (v: string) => void;
   onDraftSideChange: (v: PlayerSide | "") => void;
@@ -43,6 +51,11 @@ export function PlayerHeader({
   draftName,
   draftLevelId,
   draftSide,
+  draftNickname,
+  draftNicknameAsName,
+  nicknameError = false,
+  onDraftNicknameChange,
+  onDraftNicknameAsNameChange,
   onDraftNameChange,
   onDraftLevelIdChange,
   onDraftSideChange,
@@ -53,7 +66,7 @@ export function PlayerHeader({
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
-  const displayName = isEditing ? draftName : (player.name || "");
+  const displayName = isEditing ? draftName : (player.displayName || player.name || "");
   const initials = displayName
     .split(" ")
     .filter(Boolean)
@@ -94,6 +107,39 @@ export function PlayerHeader({
               className="flex-1 text-lg font-semibold"
               placeholder={t("players.playerNamePlaceholder")}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="player-nickname">
+              {t("players.nickname.label")}
+            </label>
+            <Input
+              id="player-nickname"
+              data-testid="player-nickname"
+              value={draftNickname}
+              maxLength={60}
+              onChange={(e) => onDraftNicknameChange(e.target.value)}
+              placeholder={t("players.nickname.placeholder")}
+            />
+            <p className="text-xs text-muted-foreground" data-testid="player-nickname-warning">
+              {t("players.nickname.warning")}
+            </p>
+            {nicknameError && (
+              <p className="text-xs text-destructive" role="alert" data-testid="player-nickname-error">
+                {t("players.nickname.tooLong")}
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="player-nickname-as-name"
+                data-testid="player-nickname-as-name"
+                checked={draftNicknameAsName}
+                onCheckedChange={onDraftNicknameAsNameChange}
+              />
+              <label className="text-sm" htmlFor="player-nickname-as-name">
+                {t("players.nickname.asName")}
+              </label>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -148,7 +194,12 @@ export function PlayerHeader({
           </Avatar>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold truncate">{player.name || t("players.unnamed")}</h1>
+            <h1 className="text-2xl font-bold truncate">{player.displayName || player.name || t("players.unnamed")}</h1>
+            {nicknameShown(player) && (
+              <p className="text-sm text-muted-foreground truncate" data-testid="player-real-name">
+                {player.name}
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-2 mt-1">
               {player.side && (

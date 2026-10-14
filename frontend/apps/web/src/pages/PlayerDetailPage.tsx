@@ -87,6 +87,9 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
   const [draftLevelId, setDraftLevelId] = useState("");
   const [draftSide, setDraftSide] = useState<PlayerSide | "">("");
   const [draftNotes, setDraftNotes] = useState("");
+  const [draftNickname, setDraftNickname] = useState("");
+  const [draftNicknameAsName, setDraftNicknameAsName] = useState(false);
+  const [nicknameError, setNicknameError] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // players.remove rule 7 (PAD-274): the confirmation shows what the removal takes.
@@ -110,7 +113,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
 
   const handleDelete = async () => {
     if (!player || !authUser?.coachId) return;
-    const name = player.name || t("players.defaultPlayerName");
+    const name = player.displayName || player.name || t("players.defaultPlayerName");
     setDeleting(true);
     try {
       await removePlayer(authUser.coachId, player.playerId, removalAction);
@@ -176,6 +179,9 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     setDraftLevelId(player.levelId ?? "");
     setDraftSide(player.side ?? "");
     setDraftNotes(player.notes ?? "");
+    setDraftNickname(player.nickname ?? "");
+    setDraftNicknameAsName(player.nicknameAsName === true);
+    setNicknameError(false);
     setIsEditing(true);
   };
 
@@ -187,7 +193,19 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     if (!player) return;
     const level = draftLevelId ? levels.find((l) => l.id === draftLevelId) : undefined;
 
+    // PAD-660 (players.nickname rule 6): only what changed is sent; a blank box clears it.
+    const nickname = draftNickname.trim();
+    if (nickname.length > 60) {
+      setNicknameError(true);
+      return;
+    }
+    setNicknameError(false);
+    const nicknameChanged = nickname !== (player.nickname ?? "").trim();
+    const asNameChanged = draftNicknameAsName !== (player.nicknameAsName === true);
+
     const updates = {
+      ...(nicknameChanged ? { nickname } : {}),
+      ...(asNameChanged ? { nicknameAsName: draftNicknameAsName } : {}),
       name: draftName.trim() || undefined,
       userId: player.userId,
       // PAD-388: an emptied box is sent as null so the server CLEARS it (an
@@ -204,9 +222,15 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
     try {
       await editPlayer(player, updates);
 
+      const savedName = updates.name ?? player.name;
+      const savedNickname = nicknameChanged ? nickname || null : player.nickname ?? null;
+      const savedAsName = asNameChanged ? draftNicknameAsName : player.nicknameAsName === true;
       const updated: CoachPlayer = {
         ...player,
-        name: updates.name ?? player.name,
+        name: savedName,
+        nickname: savedNickname,
+        nicknameAsName: savedAsName,
+        displayName: savedAsName && savedNickname ? savedNickname : savedName,
         email: updates.email,
         phone: updates.phone,
         levelId: updates.levelId,
@@ -221,7 +245,8 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
       // initials) is stale until the list refetches.
       onUpdated();
     } catch (err) {
-      // PAD-388: a 400 names the fields the server refused (today only an empty name).
+      // PAD-388: a 400 names the fields the server refused (an empty name, PAD-660: a nickname over 60).
+      if (editPlayerInvalidFields(err)?.includes("nickname")) setNicknameError(true);
       toast.error(
         editPlayerInvalidFields(err) ? t("players.invalidFields") : t("players.saveChangesFailed"),
       );
@@ -275,6 +300,11 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         draftName={draftName}
         draftLevelId={draftLevelId}
         draftSide={draftSide}
+        draftNickname={draftNickname}
+        draftNicknameAsName={draftNicknameAsName}
+        nicknameError={nicknameError}
+        onDraftNicknameChange={setDraftNickname}
+        onDraftNicknameAsNameChange={setDraftNicknameAsName}
         onDraftNameChange={setDraftName}
         onDraftLevelIdChange={setDraftLevelId}
         onDraftSideChange={setDraftSide}
@@ -323,7 +353,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
                   try {
                     await removeFromStandingWaitingList(standingEntry.id);
                     setStandingEntry(null);
-                    toast.success(t("players.removedFromWaitingList", { name: player.name }));
+                    toast.success(t("players.removedFromWaitingList", { name: player.displayName || player.name }));
                   } catch {
                     toast.error(t("players.removeFromWaitingListFailed"));
                   } finally {
@@ -430,7 +460,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         key={player.playerId}
         open={isEvalOpen}
         playerId={player.playerId}
-        playerName={player.name}
+        playerName={player.displayName || player.name}
         onClose={() => setIsEvalOpen(false)}
       />
 
@@ -444,10 +474,10 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         open={isWaitingListOpen}
         onClose={() => setIsWaitingListOpen(false)}
         playerId={Number(player.playerId)}
-        playerName={player.name ?? null}
+        playerName={player.displayName || player.name || null}
         onAdded={(entry) => {
           setStandingEntry(entry);
-          toast.success(t("players.addedToWaitingList", { name: player.name }));
+          toast.success(t("players.addedToWaitingList", { name: player.displayName || player.name }));
         }}
       />
       {standingEntry && (
@@ -455,11 +485,11 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
           open={isWaitingListRenewOpen}
           onClose={() => setIsWaitingListRenewOpen(false)}
           playerId={Number(player.playerId)}
-          playerName={player.name ?? null}
+          playerName={player.displayName || player.name || null}
           renewing={standingEntry}
           onAdded={(entry) => {
             setStandingEntry(entry);
-            toast.success(t("players.waitingListRenewed", { name: player.name }));
+            toast.success(t("players.waitingListRenewed", { name: player.displayName || player.name }));
           }}
         />
       )}
@@ -470,8 +500,8 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
             <AlertDialogTitle>{t("players.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {removalAction === "delete"
-                ? t("players.deletePlaceholderConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })
-                : t("players.disconnectConfirmDescription", { name: player.name || t("players.deleteConfirmDefaultName") })}
+                ? t("players.deletePlaceholderConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })
+                : t("players.disconnectConfirmDescription", { name: player.displayName || player.name || t("players.deleteConfirmDefaultName") })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div data-testid="player-removal-impact" className="text-sm text-muted-foreground">
