@@ -106,3 +106,25 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
     expect(screen.queryByTestId("approval-showing-of")).toBeNull();
   });
 });
+
+// ── PAD-661 (semi-auto-approval rule 4b) ─────────────────────────────────────────────────────
+describe("PAD-661 an empty queue says why", () => {
+  it("lists one line per engine stage under the empty state, in the payload's order", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([
+      vac(1, { openSpot: true, side: "left", queue: [], emptyQueueReasons: [{ stage: "eligibility", count: 7 }, { stage: "excluded_by_coach", count: 2 }] }),
+    ])} />);
+    const lines = Array.from(screen.getByTestId("approval-empty-reasons").querySelectorAll("li"));
+    expect(lines.map((li) => li.textContent)).toEqual([
+      "notificationsUi.replacementApproval.emptyReason.eligibility:count=7",
+      "notificationsUi.replacementApproval.emptyReason.excluded_by_coach:count=2",
+    ]);
+  });
+
+  it("an older payload without reasons, or a non-empty queue, shows no reasons", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([
+      vac(1, { openSpot: true, side: "left", queue: [] }),
+      vac(2, { openSpot: true, side: "right", queue: q(2), emptyQueueReasons: [{ stage: "eligibility", count: 7 }] }),
+    ])} />);
+    expect(screen.queryByTestId("approval-empty-reasons")).toBeNull();
+  });
+});
