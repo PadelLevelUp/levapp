@@ -42,6 +42,7 @@ import type {
   ApprovalBundle,
   ClassInstance,
   ClassInvitation,
+  Presence,
   PresenceStatus,
 } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -96,7 +97,7 @@ import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
-import { messagesApi } from "@levelup/api";
+import { messagesApi, presencesApi } from "@levelup/api";
 import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
@@ -162,6 +163,8 @@ export default function ClassDetailScreen() {
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
   const queryClient = useQueryClient();
+  // PAD-551: the participant whose side is being saved (declared with the other hooks, PAD-326).
+  const [sideBusy, setSideBusy] = React.useState<string | null>(null);
 
   const paramsEvent = React.useMemo(() => paramsToEvent(params), [
     params.id,
@@ -621,6 +624,31 @@ export default function ClassDetailScreen() {
     else if (action === "expired") toast.warning(t("calendar.detail.inviteeClassOver"));
     if (outcome === "accepted" || outcome === "withdrawn") {
       void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+    }
+  };
+
+  // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
+  // occurrence; the server re-counts the class's open spots. The answered row replaces ours.
+  const changeSide = async (presence: Presence, side: "left" | "right" | null) => {
+    const playerId = String(presence.playerId);
+    setSideBusy(playerId);
+    try {
+      const row = await presencesApi.setPresenceSide(String(presence.lessonInstanceId), playerId, side);
+      queryClient.setQueryData<ClassInstance>(queryKeys.classInstance(event), (old) =>
+        old
+          ? {
+              ...old,
+              presences: (old.presences ?? []).map((x) =>
+                String(x.playerId) === playerId ? { ...x, ...row } : x
+              ),
+            }
+          : old
+      );
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      toast.error(t(status === 409 ? "calendar.side.ended" : "calendar.side.saveFailed"));
+    } finally {
+      setSideBusy(null);
     }
   };
 
@@ -1505,6 +1533,20 @@ export default function ClassDetailScreen() {
                     (presence) =>
                       String(presence.playerId) === String(participant.id)
                   )}
+                  side={(() => {
+                    const presence = instance?.presences?.find(
+                      (x) => String(x.playerId) === String(participant.id)
+                    );
+                    return isCoach && presence
+                      ? {
+                          current: presence.side ?? null,
+                          override: !!presence.sideOverride,
+                          editable: !!presence.sideEditable && !isCanceled && !isEditing,
+                          busy: sideBusy === String(participant.id),
+                          onChange: (next: "left" | "right" | null) => void changeSide(presence, next),
+                        }
+                      : undefined;
+                  })()}
                   attendance={
                     attendance[String(participant.id)] ?? { status: null }
                   }

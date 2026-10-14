@@ -91,6 +91,35 @@ three separate fields on it. Decision record:
    **The silence on an accepted class request is deliberate, not a gap.** A student who asks for a class through `classes.class-requests` already receives the acceptance; telling them a coach added them would be a second message for one event, about something they initiated — the app narrating a person's own action back at them as news. `add_class_service` therefore takes `notify_students=False` on that path only. Anyone later reading it as a missing notification should read this sentence instead.
 
 12. **One roster order, set on the server (D163; PAD-465, B-233).** Every read that lists a class's participants lists them in the same order: by the player's name as the roster shows it (the account name, `users.name`), ignoring case and accents, then by player id. That covers the class-detail participants list for an occurrence (its presences) and for a series (its roster), and `GET /lesson_instance/<id>/presences`. The server sets the order and the clients render it as given. Nothing a person does to a row (saving attendance, an answer, a cancellation) moves it.
+13. **A player's side in this occurrence (PAD-551; coordinator, 2026-10-14, defaults 1–4).** A
+    regular student usually plays one side (the coach–player link's `side`), but in a given week
+    may play the other. The coach sets it on that occurrence: the presence carries a nullable
+    `side` (`left` | `right`); `null` means "the usual side". A player's **side in the occurrence**
+    is the presence's `side` when set, else the coach–player link's (`left`, `right`, `both` or
+    none). That one definition is what the class's side balancing counts (`notifications.invitations`
+    rules 2–2d): the side a player is going on, and the side a freed spot starts from when they
+    cancel.
+    - **Who and when.** `PUT /api/app/lesson_instance/<id>/presences/<player_id>/side` with
+      `{"side": "left" | "right" | null}`, by a coach of that class, for a player with a presence on
+      that occurrence (present, absent or not yet answered), **until the occurrence ends**. Any
+      other value is 400; another coach or a student is 403; no presence is 404; an ended
+      occurrence is 409. `both` is not an override: "this week I play right" names one side.
+    - **Effect on open spots.** A change (set or clear) re-counts the class's open spots exactly
+      as a "yes" does (`notifications.invitations` rule 2d, the dynamic balancing of PAD-581), in
+      the same commit, so a spot that was asking the side this player now covers asks the other
+      one, and a flip withdraws its live round-1 invitations for balance as rule 2d says.
+    - **No message.** The student is not notified: the coach records what the student told them.
+    - **Reads.** The participants list (class detail, web and iOS) carries each row's `side` (its
+      side in the occurrence) and `sideOverride` (whether this occurrence sets it). A row with an
+      override shows "Esquerdo nesta aula" / "Direito nesta aula" (test id
+      `participant-side-<playerId>`), and the coach changes it from the row's side control
+      ("Lado habitual", "Esquerdo nesta aula", "Direito nesta aula"; test ids
+      `participant-side-usual-<playerId>`, `participant-side-left-<playerId>`,
+      `participant-side-right-<playerId>`). Each row also carries `sideEditable`, the server's answer
+      to "may the coach still change it" (the occurrence has not ended and is not canceled); the
+      clients show the control only when it is true and never compare a date with their own clock.
+    - It is one occurrence only: the series roster, the other occurrences and the coach–player link
+      are untouched.
 
 ### Acceptance Criteria
 
@@ -192,6 +221,31 @@ three separate fields on it. Decision record:
 - **Given** a player enrolled on an occurrence through `enrol()`
 - **When** `Player.lesson_instances` is read
 - **Then** it lists that occurrence, with no junction table involved
+
+#### A coach sets a regular's side for one occurrence (rule 13, PAD-551)
+- **Given** a class with Ana (usual side left) on Monday 20 and Monday 27
+- **When** the coach puts `{"side": "right"}` on Ana's presence of Monday 20
+- **Then** Monday 20's participants list shows Ana with `side` right and `sideOverride` true, and
+  Monday 27 and Ana's coach–player side still say left
+- **And** `{"side": null}` brings Monday 20 back to left with `sideOverride` false
+- **And** `"both"` is 400, another coach is 403, a player with no presence is 404, and once Monday
+  20 has ended the change is 409
+
+#### The override is the side the class counts (rule 13, PAD-551)
+- **Given** a class going 3 left (Ana among them) and 2 right, all regulars
+- **When** the coach sets Ana right for this occurrence and Ana then cancels
+- **Then** the count is 2 left and 2 right going, a tie, so the freed spot keeps the leaver's side
+  in the occurrence and asks **right** (`notifications.invitations` rule 2c)
+- **And** without the override the same cancellation is the same 2 / 2 tie and asks **left**, Ana's
+  usual side: the override changed the answer
+
+#### A change re-counts the open spots (rule 13, PAD-551)
+- **Given** a class with one open freed spot asking left and a live round-1 invitation to a left
+  student
+- **When** the coach sets a going player's side to left for this occurrence so that left is no
+  longer short
+- **Then** the spot re-counts to right in the same commit and the left student's round-1 invitation
+  is withdrawn for balance (`retired_reason = "side_balanced"`)
 
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the

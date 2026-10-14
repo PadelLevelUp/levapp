@@ -634,6 +634,14 @@ export interface Presence {
    */
   cancelledByStudent?: boolean;
   cancelledAt?: string | null;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence — the
+   * coach's override when `sideOverride`, else their usual side — and whether the coach may still
+   * change it (the server's answer: not ended, not canceled).
+   */
+  side?: 'left' | 'right' | 'both' | null;
+  sideOverride?: boolean;
+  sideEditable?: boolean;
 
   player?: Player;
 }

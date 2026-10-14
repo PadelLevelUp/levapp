@@ -42,6 +42,7 @@ import type {
   CoachPlayer,
   CoachLevel,
   Court,
+  Presence,
   PresenceStatus,
   AbsenceJustification,
 } from "@/types";
@@ -70,7 +71,7 @@ import {
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
 import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
-import { confirmClassPresences } from "@/api/presences";
+import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
 import { useAuth } from "@/auth/AuthContext";
@@ -549,6 +550,35 @@ export function ClassDetailSheet({
 
   const active = draft ?? classInstance;
   const isCanceled = active?.status === "canceled";
+
+  // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
+  // occurrence; the server re-counts the class's open spots. The returned row replaces ours.
+  const [sideBusy, setSideBusy] = useState<string | null>(null);
+  const changeSide = async (presence: Presence, side: "left" | "right" | null) => {
+    const playerId = String(presence.playerId);
+    setSideBusy(playerId);
+    try {
+      const row = await setPresenceSide(String(presence.lessonInstanceId), playerId, side);
+      setClassInstance((prev) =>
+        prev
+          ? {
+              ...prev,
+              presences: (prev.presences ?? []).map((x) =>
+                String(x.playerId) === playerId ? { ...x, ...row } : x
+              ),
+            }
+          : prev
+      );
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      toast({
+        title: t(status === 409 ? "calendar.side.ended" : "calendar.side.saveFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setSideBusy(null);
+    }
+  };
 
   // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9): the student asks or
   // withdraws; the coach accepts (a manual add — a student who slipped below
@@ -1591,6 +1621,17 @@ export function ClassDetailSheet({
                       // presence, so `!canManage` identifies their own row.
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
+                      side={
+                        canManage && presence
+                          ? {
+                              current: presence.side ?? null,
+                              override: !!presence.sideOverride,
+                              editable: !!presence.sideEditable && !isCanceled,
+                              busy: sideBusy === String(p.id),
+                              onChange: (next) => void changeSide(presence, next),
+                            }
+                          : undefined
+                      }
                     />
                   );
                 })}

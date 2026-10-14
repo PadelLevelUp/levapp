@@ -2836,7 +2836,8 @@ def vacancy_snapshot_for_player(
     cp = Association_CoachPlayer.query.filter_by(
         coach_id=coach_id, player_id=player_id
     ).first()
-    side = cp.side if cp else None
+    # PAD-551 (rules 2–2c): the leaver's side in THIS occurrence, the coach's override first.
+    side = sides_in_occurrence(instance, coach_id, [player_id]).get(player_id)
     if cp and cp.level_id:
         return side, cp.level_id, "player"
     class_level_id = effective_level_id(instance)
@@ -2943,6 +2944,28 @@ def _open_vacancy_sides(instance: LessonInstance, *, freed_only: bool) -> list:
     return [side for (side,) in query]
 
 
+def sides_in_occurrence(instance: LessonInstance, coach_id: int, player_ids) -> dict:
+    """PAD-551 (classes.instance-enrollment rule 13; invitations rules 2–2d): ``{player_id: side}``,
+    each player's side in this occurrence — the presence's ``side`` when the coach set one, else the
+    coach–player link's (``left``, ``right``, ``both`` or None). The ONE reading of a going or
+    leaving player's side; an invitee with no presence reads their usual side elsewhere."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.presences import Presence
+
+    ids = list(player_ids)
+    if not ids:
+        return {}
+    usual = dict(
+        db.session.query(Association_CoachPlayer.player_id, Association_CoachPlayer.side)
+        .filter(Association_CoachPlayer.coach_id == coach_id, Association_CoachPlayer.player_id.in_(ids))
+    )
+    overrides = dict(
+        db.session.query(Presence.player_id, Presence.side)
+        .filter(Presence.lesson_instance_id == instance.id, Presence.player_id.in_(ids), Presence.side.isnot(None))
+    )
+    return {pid: overrides.get(pid, usual.get(pid)) for pid in ids}
+
+
 def _side_counts(
     instance: LessonInstance,
     coach_id: int,
@@ -2958,23 +2981,22 @@ def _side_counts(
     ``None`` when nobody on the coach's roster plays a side: a sided spot would only empty round 1
     (a side-less player matches no side, rule 4a) and delay the fill by a tick (rule 3c)."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.presences import Presence
 
     if Association_CoachPlayer.query.filter(
         Association_CoachPlayer.coach_id == coach_id,
         Association_CoachPlayer.side.in_(("left", "right")),
+    ).first() is None and Presence.query.filter(
+        Presence.lesson_instance_id == instance.id, Presence.side.isnot(None)
     ).first() is None:
         return None
 
     counts = {"left": 0, "right": 0}
     holding = [p.player_id for p in instance.holding_presences if p.player_id != leaver_id]
-    if holding:
-        for (side,) in (
-            db.session.query(Association_CoachPlayer.side)
-            .filter(Association_CoachPlayer.coach_id == coach_id,
-                    Association_CoachPlayer.player_id.in_(holding))
-        ):
-            if side in counts:
-                counts[side] += 1
+    # PAD-551: each going player's side in this occurrence (the coach's override first).
+    for side in sides_in_occurrence(instance, coach_id, holding).values():
+        if side in counts:
+            counts[side] += 1
     for side in _open_vacancy_sides(instance, freed_only=freed_only):
         if side in counts:
             counts[side] += 1
@@ -3076,10 +3098,20 @@ def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: i
     class's OTHER open spots with the accepter counted as going, one after another so each sees the
     ones before it. A spot another answer holds is passed over (SKIP LOCKED); its own next batch
     re-counts it. Returns the invitations withdrawn for balance, for the caller to publish."""
-    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    accepter_side = sides_in_occurrence(instance, coach_id, [accepter_id]).get(accepter_id)
+    return _recount_open_spots(instance, coach_id, extra_going=accepter_side)
 
-    cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=accepter_id).first()
-    accepter_side = cp.side if cp is not None else None
+
+def rebalance_after_side_change(instance: LessonInstance, coach_id: int) -> list:
+    """PAD-551 (invitations rule 2d, its third moment): a player's side in the occurrence changed,
+    so every open spot of the class is re-counted, as at a "yes" (under rule 10's locks, before the
+    caller's one commit). Returns the invitations withdrawn for balance, for the caller to publish."""
+    return _recount_open_spots(instance, coach_id)
+
+
+def _recount_open_spots(instance: LessonInstance, coach_id: int, *, extra_going: str | None = None) -> list:
+    """Rule 2d's re-count of the class's open spots, one after another so each sees the ones before
+    it; a spot another answer holds is passed over (SKIP LOCKED) and re-counted at its next batch."""
     others = (
         Vacancy.query.filter(Vacancy.lesson_instance_id == instance.id, Vacancy.status == "open")
         .order_by(Vacancy.id.asc())
@@ -3089,7 +3121,7 @@ def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: i
     )
     retired = []
     for vacancy in others:
-        retired.extend(_recount_spot(vacancy, instance, coach_id, extra_going=accepter_side))
+        retired.extend(_recount_spot(vacancy, instance, coach_id, extra_going=extra_going))
     return retired
 
 

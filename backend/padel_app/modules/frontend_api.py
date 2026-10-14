@@ -1138,6 +1138,25 @@ def lesson_instance_presences(instance_id):
     return jsonify(serialize_presences(presences))
 
 
+@bp.put("/lesson_instance/<int:instance_id>/presences/<int:player_id>/side")
+@jwt_required()
+def lesson_instance_presence_side(instance_id, player_id):
+    """classes.instance-enrollment rule 13 (PAD-551): the coach sets or clears a player's side in
+    this occurrence (``{"side": "left" | "right" | null}``); the class's open spots re-count."""
+    from padel_app.services.presence_side_service import PresenceSideError, set_presence_side
+
+    coach = require_coach()
+    instance = require_owned_class(coach, "lessoninstance", instance_id)
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or "side" not in body:
+        abort(400, "side is required")
+    try:
+        presence = set_presence_side(coach, instance, player_id, body["side"])
+    except PresenceSideError as err:
+        return jsonify({"error": err.code, "code": err.code}), err.status
+    return jsonify(serialize_presences([presence])[0])
+
+
 @bp.get("/calendar_event")
 @jwt_required()
 def calendar_event():

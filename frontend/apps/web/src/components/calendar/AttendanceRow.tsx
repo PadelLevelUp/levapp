@@ -2,6 +2,7 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,19 @@ interface AttendanceRowProps {
   presence?: AttendancePresenceLike | null;
   /** Whose row this is, so the state word addresses the right person. */
   audience?: StateAudience;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence, for the
+   * coach. `current` is the side the server reports, `override` whether it is set here, and
+   * `editable` the server's answer to "may it still change". `onChange(null)` goes back to the
+   * usual side.
+   */
+  side?: {
+    current: "left" | "right" | "both" | null;
+    override: boolean;
+    editable: boolean;
+    busy?: boolean;
+    onChange: (side: "left" | "right" | null) => void;
+  };
 }
 
 export function AttendanceRow({
@@ -45,6 +59,7 @@ export function AttendanceRow({
   disabled = false,
   presence,
   audience = "coach",
+  side,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
   const name = player.user?.name ?? t("calendar.attendance.playerFallback");
@@ -120,6 +135,42 @@ export function AttendanceRow({
           {t(attendanceStateLabelKey(state, audience))}
         </Badge>
       </div>
+
+      {/* PAD-551: the side this player plays in this occurrence, when set here. */}
+      {side?.override && (side.current === "left" || side.current === "right") && (
+        <p data-testid={`participant-side-${player.id}`} className="text-xs font-medium text-foreground">
+          {t(`calendar.side.tag.${side.current}`)}
+        </p>
+      )}
+      {side?.editable && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{t("calendar.side.label")}</span>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={side.override && side.current ? side.current : "usual"}
+            // Radix reports "" when the pressed item is pressed again: one choice is always on.
+            onValueChange={(v) => {
+              if (v === "usual") side.onChange(null);
+              else if (v === "left" || v === "right") side.onChange(v);
+            }}
+            disabled={side.busy}
+            aria-label={t("calendar.side.label")}
+            className="justify-start"
+          >
+            {(["usual", "left", "right"] as const).map((v) => (
+              <ToggleGroupItem
+                key={v}
+                value={v}
+                data-testid={`participant-side-${v}-${player.id}`}
+                className="h-8 px-2 text-xs"
+              >
+                {t(`calendar.side.${v}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+      )}
 
       {/* Secondary facts. Never a second state word: lesser weight, own line. */}
       {cancellation && (

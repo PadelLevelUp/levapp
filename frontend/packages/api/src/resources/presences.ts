@@ -37,6 +37,22 @@ export async function confirmClassPresences(
   return res.data;
 }
 
+/**
+ * PAD-551 (`classes.instance-enrollment` rule 13): set (`left` / `right`) or clear (`null`) a
+ * player's side in one occurrence; the class's open spots re-count on the server. Coach only.
+ */
+export async function setPresenceSide(
+  lessonInstanceId: string,
+  playerId: string,
+  side: "left" | "right" | null
+): Promise<Presence> {
+  const res = await getApi().put(
+    `/app/lesson_instance/${lessonInstanceId}/presences/${playerId}/side`,
+    { side }
+  );
+  return res.data;
+}
+
 export async function getClassPresences(
   lessonInstanceId: string
 ): Promise<Presence[]> {

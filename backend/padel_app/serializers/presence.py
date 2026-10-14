@@ -3,7 +3,28 @@ from __future__ import annotations
 from typing import Iterable, List, Optional
 
 
-def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, late_cancellation: Optional[bool] = None):
+_UNSET = object()
+
+
+def _sides_for(presences) -> dict:
+    """PAD-551 (classes.instance-enrollment rule 13): ``{player_id: side in the occurrence}`` for one
+    occurrence's rows — the coach's override first, else the player's usual side with the class's
+    coach — in one query (`notification_service.sides_in_occurrence`)."""
+    from padel_app.services.lesson_service import primary_coach
+    from padel_app.services.notification_service import sides_in_occurrence
+
+    rows = list(presences)
+    if not rows or rows[0].lesson_instance is None:
+        return {p.player_id: p.side for p in rows}
+    instance = rows[0].lesson_instance
+    coach = primary_coach(instance)
+    if coach is None:
+        return {p.player_id: p.side for p in rows}
+    return sides_in_occurrence(instance, coach.id, [p.player_id for p in rows])
+
+
+def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, late_cancellation: Optional[bool] = None,
+                       side=_UNSET):
     """One presence row.
 
     ``reminderSentAt`` (PAD-199, B-017) is the messaging layer's own record of a
@@ -47,7 +68,23 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, l
         # the decline sets.
         "cancelledByStudent": cancelled_by_student,
         "cancelledAt": to_utc_iso(presence.updated_at) if cancelled_by_student and presence.updated_at else None,
+        # PAD-551 (classes.instance-enrollment rule 13): the side in this occurrence, and whether the
+        # coach set it here (else it is the player's usual side).
+        "side": _sides_for([presence]).get(presence.player_id) if side is _UNSET else side,
+        "sideOverride": presence.side is not None,
+        # The server's answer to "may the coach still change it" (rule 13: until the occurrence
+        # ends), so no client compares a date with its own clock.
+        "sideEditable": _side_editable(presence),
     }
+
+
+def _side_editable(presence) -> bool:
+    from padel_app.utils.dates import club_now_naive
+
+    instance = presence.lesson_instance
+    if instance is None or getattr(instance, "status", None) == "canceled":
+        return False
+    return instance.end_datetime is None or instance.end_datetime > club_now_naive()
 
 
 def _late_cancellation_for(presences) -> dict:
@@ -87,4 +124,9 @@ def serialize_presences(presences: Iterable) -> List[dict]:
     rows = in_roster_order(presences)
     sent_at = reminder_sent_at_by_presence(rows)
     late = _late_cancellation_for(rows)
-    return [serialize_presence(p, reminder_sent_at=sent_at.get(p.id), late_cancellation=late.get(p.id, False)) for p in rows]
+    sides = _sides_for(rows)
+    return [
+        serialize_presence(p, reminder_sent_at=sent_at.get(p.id), late_cancellation=late.get(p.id, False),
+                           side=sides.get(p.player_id))
+        for p in rows
+    ]
