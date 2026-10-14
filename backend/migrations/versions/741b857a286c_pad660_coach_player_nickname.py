@@ -6,13 +6,13 @@ absent (prod and staging drift: memory "prod schema drift, migrations must be id
 No data is written, so it runs in milliseconds on any size.
 
 Revision ID: 741b857a286c
-Revises: 734b8e37b4e2
+Revises: 5d2ec4201ccd
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "741b857a286c"
-down_revision = "734b8e37b4e2"
+down_revision = "5d2ec4201ccd"
 branch_labels = None
 depends_on = None
 
