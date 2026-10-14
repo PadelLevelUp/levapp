@@ -133,6 +133,16 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.getByTestId("demo-phone-error")).toBeInTheDocument();
   });
 
+  it("marks the required fields and points each group's options at its error", () => {
+    renderDialog();
+    for (const id of ["demo-firstname", "demo-phone", "demo-clube", "demo-consent"]) {
+      expect(screen.getByTestId(id)).toHaveAttribute("aria-required", "true");
+    }
+    submit();
+    expect(screen.getByTestId("demo-gestao-outro")).toHaveAttribute("aria-describedby", "demo-gestao-error");
+    expect(screen.getByTestId("demo-tempo-1_3h")).toHaveAttribute("aria-describedby", "demo-tempo-error");
+  });
+
   it("refuses an invalid email and an unticked consent", () => {
     renderDialog();
     fillValid();

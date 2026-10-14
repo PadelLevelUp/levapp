@@ -30,6 +30,7 @@ import {
  * HubSpot host, so it neither waits for the cookie choice nor loads the tracking script. The
  * visitor's `hubspotutk` cookie goes along only when the stored cookie choice is "accepted".
  * The qualification answers are sent by the CRM's internal values, never by their labels.
+ * The "Demo" in the names is historical: it is the site's one contact form (PAD-650).
  */
 
 type TextField = "firstname" | "lastname" | "phone" | "email" | "clube";
@@ -69,7 +70,8 @@ const schema = z.object({
   firstname: requiredText,
   lastname: requiredText,
   phone: z.string().refine((v) => normalisePhone(v) !== null),
-  email: z.string().trim().email().max(200),
+  // The server's pattern (demo_request_service._EMAIL_RE), not zod's .email(), so both agree.
+  email: z.string().trim().max(200).regex(/^[^@\s]+@[^@\s]+\.[^@\s]+$/),
   clube: requiredText,
   gestao: z.array(z.enum(GESTAO_VALUES)).min(1),
   lembretes: z.enum(LEMBRETES_VALUES),
@@ -86,9 +88,11 @@ const FIELDS: FieldName[] = [
 const focusId = (f: FieldName) =>
   f === "gestao"
     ? `demo-gestao-${GESTAO_VALUES[0]}`
-    : f === "lembretes" || f === "tempo"
-      ? `demo-${f}-group`
-      : `demo-${f}-input`;
+    : f === "lembretes"
+      ? `demo-lembretes-${LEMBRETES_VALUES[0]}-input`
+      : f === "tempo"
+        ? `demo-tempo-${TEMPO_VALUES[0]}-input`
+        : `demo-${f}-input`;
 
 function hubspotUtk(): string | null {
   // The cookie alone is not consent: a lapsed or declined choice may leave it behind on
@@ -207,7 +211,12 @@ export function DemoRequestDialog({
   };
 
   const describedBy = (name: FieldName) => ({
+    "aria-required": true,
     "aria-invalid": errors[name] ? true : undefined,
+    "aria-describedby": errors[name] ? `demo-${name}-error` : undefined,
+  });
+  /** For an option inside a group: the group's error describes it, the group carries the rest. */
+  const optionDescribedBy = (name: FieldName) => ({
     "aria-describedby": errors[name] ? `demo-${name}-error` : undefined,
   });
 
@@ -245,12 +254,12 @@ export function DemoRequestDialog({
 
   const single = (name: "lembretes" | "tempo", values: readonly string[]) => (
     <fieldset className="space-y-1.5">
-      <legend id={`demo-${name}-legend`} className="text-sm font-medium leading-snug">
+      <legend className="text-sm font-medium leading-snug">
         {t(`landing.demo.questions.${name}.label`)}
       </legend>
+      {/* Named by the fieldset's legend alone, so the question is announced once. */}
       <RadioGroup
         id={`demo-${name}-group`}
-        aria-labelledby={`demo-${name}-legend`}
         {...describedBy(name)}
         value={form[name]}
         onValueChange={(v) => set(name, v)}
@@ -258,7 +267,12 @@ export function DemoRequestDialog({
       >
         {values.map((v) => (
           <Label key={v} htmlFor={`demo-${name}-${v}-input`} className={optionRow}>
-            <RadioGroupItem id={`demo-${name}-${v}-input`} data-testid={`demo-${name}-${v}`} value={v} />
+            <RadioGroupItem
+              id={`demo-${name}-${v}-input`}
+              data-testid={`demo-${name}-${v}`}
+              value={v}
+              {...optionDescribedBy(name)}
+            />
             {t(`landing.demo.questions.${name}.options.${v}`)}
           </Label>
         ))}
@@ -271,7 +285,8 @@ export function DemoRequestDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-testid="demo-dialog"
-        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        // The ticket's form rule: a 1px border and no shadow.
+        className="max-h-[90vh] overflow-y-auto shadow-none sm:max-w-lg"
       >
         <DialogHeader>
           <DialogTitle>{t("landing.demo.title")}</DialogTitle>
@@ -296,7 +311,7 @@ export function DemoRequestDialog({
             {text("phone", { type: "tel", autoComplete: "tel" })}
             {text("email", { type: "email", autoComplete: "email" })}
             {text("clube", { autoComplete: "organization" })}
-            <fieldset className="space-y-1.5" {...describedBy("gestao")}>
+            <fieldset className="space-y-1.5">
               <legend className="text-sm font-medium leading-snug">
                 {t("landing.demo.questions.gestao.label")}
               </legend>
@@ -306,6 +321,7 @@ export function DemoRequestDialog({
                     <Checkbox
                       id={`demo-gestao-${v}`}
                       data-testid={`demo-gestao-${v}`}
+                      {...optionDescribedBy("gestao")}
                       checked={form.gestao.includes(v)}
                       onCheckedChange={(c) => toggleGestao(v, c === true)}
                     />
@@ -318,7 +334,8 @@ export function DemoRequestDialog({
             {single("lembretes", LEMBRETES_VALUES)}
             {single("tempo", TEMPO_VALUES)}
             {/* Honeypot: a person never sees or reaches it (inert: out of the tab order and the
-                accessibility tree); a bot that fills every input fills it. */}
+                accessibility tree); a bot that fills every input fills it. `inert: ""` is React
+                18's spelling; React 19 reads "" as false and needs `inert` (true) instead. */}
             <div
               {...{ inert: "" }}
               style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}

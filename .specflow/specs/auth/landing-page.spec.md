@@ -108,7 +108,8 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     (`AUTH_RATE_LIMIT_DEMO`, 5 per hour); HubSpot filters the rest. The form GUID and the marketing
     subscription id are deployment config (GitHub repo variables `HUBSPOT_DEMO_FORM_ID` / `_STAGING`
     and `HUBSPOT_MARKETING_SUBSCRIPTION_ID` / `_STAGING`, passed to the web build and to the API
-    container). Without the GUID the buttons stay a `mailto:`; with it, a 503, a 502 (HubSpot
+    container; the subscription id is one variable read by both, so the box and the
+    `communications` entry come and go together). Without the GUID the buttons stay a `mailto:`; with it, a 503, a 502 (HubSpot
     refused or unreachable, logged with the status only, never the visitor's data) or a network
     failure shows a retry and the `mailto:` in the dialog. On success the dialog says "Obrigado!
     Vamos falar contigo em breve." (no promised delay).
