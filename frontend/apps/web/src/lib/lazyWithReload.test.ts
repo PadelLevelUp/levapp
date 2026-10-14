@@ -42,4 +42,25 @@ describe("loadWithReload", () => {
     await Promise.resolve();
     expect(reload).toHaveBeenCalledTimes(1);
   });
+
+  // B-532: a navigation away cancels the page's in-flight chunk loads (WebKit rejects the import);
+  // reloading then would send the browser back to the page being left and swallow the navigation.
+  it("does not reload when the chunk failed because the page is being left", async () => {
+    window.dispatchEvent(new Event("beforeunload"));
+    const pending = loadWithReload(failing, () => Date.now());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(reload).not.toHaveBeenCalled();
+    const settled = await Promise.race([pending.then(() => "settled", () => "settled"), new Promise((r) => setTimeout(() => r("pending"), 20))]);
+    expect(settled).toBe("pending");
+  });
+
+  it("reloads again once a cancelled leave is over (2 s after beforeunload)", async () => {
+    window.dispatchEvent(new Event("beforeunload"));
+    void loadWithReload(failing, () => Date.now() + 2_500);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
 });
+
