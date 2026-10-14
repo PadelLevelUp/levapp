@@ -19,6 +19,15 @@ export function demoFormId(): string | null {
   return id ? id : null;
 }
 
+/**
+ * Whether this build carries HubSpot's "Marketing Information" subscription type id
+ * (`VITE_HUBSPOT_MARKETING_SUBSCRIPTION_ID`, PAD-650). Without it the contact dialog has no
+ * marketing box, and the server sends no communications consent.
+ */
+export function hasMarketingSubscription(): boolean {
+  return /^\d+$/.test(import.meta.env.VITE_HUBSPOT_MARKETING_SUBSCRIPTION_ID?.trim() ?? "");
+}
+
 const TRACKING_SCRIPT_ID = "hs-script-loader";
 
 /** Inject the tracking script once per document. Call only with consent. */
