@@ -1,4 +1,4 @@
-import type { CalendarEvent, ClassType } from "@levelup/types";
+import type { CalendarEvent, ClassType, StudentRelation } from "@levelup/types";
 
 /**
  * Serialization of a CalendarEvent into Expo Router query params (and back)
@@ -25,6 +25,8 @@ export type ClassRouteParams = {
   displayTime?: string;
   /** PAD-131: "1" when the card was an open spot the student may ask to join. */
   openSpot?: string;
+  /** PAD-664: the student's relation to the class (e.g. "full"), so the detail screen can offer the waiting list. */
+  studentRelation?: string;
   /** PAD-285: "1" opens the class with the Notificar picker already open. */
   notify?: string;
   coachName?: string;
@@ -47,6 +49,7 @@ export function eventToParams(event: CalendarEvent): ClassRouteParams {
     color: event.color ?? "",
     isRecurring: event.isRecurring ? "1" : "0",
     openSpot: event.openSpot ? "1" : "0",
+    studentRelation: event.studentRelation ?? "",
     coachName: event.coachName ?? "",
   };
 }
@@ -86,6 +89,7 @@ export function paramsToEvent(
         ? participantCount
         : undefined,
     openSpot: first(params.openSpot) === "1",
+    studentRelation: (first(params.studentRelation) || undefined) as StudentRelation | undefined,
     coachName: first(params.coachName) || undefined,
   };
 }

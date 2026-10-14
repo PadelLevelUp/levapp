@@ -428,7 +428,7 @@ def _student_enrolled(player, lesson_id, instance_id=None):
     return False
 
 
-def require_readable_class(model_name, obj):
+def require_readable_class(model_name, obj, occurrence_date=None):
     """PAD-257 / audit H1 — classes.detail-visibility rule 5.
 
     The id-keyed class reads used to stop at a role check, so a coach of ANY
@@ -464,12 +464,25 @@ def require_readable_class(model_name, obj):
     # on. They still get the student view (rule 3); everyone else is refused.
     # PAD-352: only for a client that declares open spots. An undeclared client
     # (App Store 1.0/1.1.0) is treated like any student who isn't enrolled.
-    from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+    # PAD-664: a client that declares `full-classes` may also open a full one (rule 16).
+    from padel_app.utils.client_capabilities import FULL_CLASSES, OPEN_SPOTS, client_declares
 
-    if player is not None and not is_lesson and client_declares(OPEN_SPOTS):
-        from padel_app.services.class_join_request_service import student_may_view_open_spot
+    if player is not None and client_declares(OPEN_SPOTS):
+        from padel_app.services.class_join_request_service import (
+            student_may_view_open_occurrence,
+            student_may_view_open_spot,
+        )
 
-        if student_may_view_open_spot(player, obj):
+        allow_full = client_declares(FULL_CLASSES)
+        if not is_lesson:
+            readable = student_may_view_open_spot(player, obj, allow_full=allow_full)
+        else:
+            # B-529: an occurrence never materialised is read as its series plus a date — the
+            # calendar advertises those too, so the exception is asked of that one occurrence.
+            readable = occurrence_date is not None and student_may_view_open_occurrence(
+                player, obj, occurrence_date, allow_full=allow_full
+            )
+        if readable:
             return obj
     abort(403, "Not authorized to view this class")
 
@@ -684,10 +697,19 @@ def calendar():
         # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
         # that declares it understands them. App Store 1.0/1.1.0 would draw an
         # open spot as the student's own booking.
-        from padel_app.utils.client_capabilities import OPEN_SPOTS, STUDENT_RELATIONS, client_declares
+        from padel_app.utils.client_capabilities import (
+            FULL_CLASSES,
+            OPEN_SPOTS,
+            STUDENT_RELATIONS,
+            client_declares,
+        )
 
+        # PAD-664 (eligibility.open-spot-visibility rule 1a): the full ones too, for a client
+        # that declares it — a full class the student waits for stays `waiting` (dedup below).
         open_spots = (
-            load_open_spot_events_for_player(player.id, range_start, range_end)
+            load_open_spot_events_for_player(
+                player.id, range_start, range_end, include_full=client_declares(FULL_CLASSES)
+            )
             if client_declares(OPEN_SPOTS)
             else []
         )
@@ -781,7 +803,9 @@ def get_conversations():
 
     page = request.args.get("page", default=1, type=int)
     limit = min(request.args.get("limit", default=20, type=int), 50)
-    result = get_user_conversations(user, page=page, limit=limit)
+    # messaging.conversations rule 17 (PAD-648): "Não lidas"; any other value is the full list.
+    unread = request.args.get("unread") in ("1", "true")
+    result = get_user_conversations(user, page=page, limit=limit, unread=unread)
     return jsonify({
         # PAD-204: the whole page at once. Serializing conversation by
         # conversation meant a lazy load of every thread's messages
@@ -1216,6 +1240,7 @@ def class_instance():
     require_readable_class(
         "lessoninstance" if isinstance(current_class, LessonInstance) else "lesson",
         current_class,
+        occurrence_date=occurrence_date,  # B-529: a virtual occurrence's own date
     )
 
     # Role-based visibility (PAD-36): coaches get the full payload; students

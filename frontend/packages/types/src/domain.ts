@@ -715,9 +715,15 @@ export interface CalendarEvent {
    * coach's calendar and from a server older than PAD-611.
    */
   studentRelation?: StudentRelation;
+  /**
+   * PAD-664 (eligibility.open-spot-visibility rule 1a): on an offer sent to a client that declares
+   * `full-classes`, whether it still has room, and how much.
+   */
+  state?: "open" | "full";
+  spotsLeft?: number;
 }
 
-/** PAD-611 (calendar.view rule 22). */
+/** PAD-611 (calendar.view rule 22); `full` is PAD-664's eligible-but-full offer (rule 23). */
 export type StudentRelation =
   | "enrolled"
   | "not_coming"
@@ -725,7 +731,8 @@ export type StudentRelation =
   | "missed"
   | "invited"
   | "waiting"
-  | "open_spot";
+  | "open_spot"
+  | "full";
 
 /**
  * PAD-358 (classes.academy-class-booking rule 9): a class in the "Marcar Aula"

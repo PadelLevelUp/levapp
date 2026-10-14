@@ -21,6 +21,12 @@ separate browse screen. A coach controls whether their open spots are advertised
 1. A student's calendar shows, in addition to the classes they are enrolled in, any **future** class
    that is **visible** (rule 3), has an **empty spot** (rule 4), and for which the student is
    **eligible** (`eligibility.cascade`).
+1a. **(PAD-664) Full classes, for a client that declares `full-classes`.** The same conditions
+    as rule 1 except the empty spot: an eligible, visible, future class of a roster coach that is
+    **full** is also appended, flagged `openSpot: true` with `studentRelation` `full`, `state`
+    `"full"` and `spotsLeft` 0 (the PAD-358 shape, `classes.academy-class-booking` rule 3) — so the
+    student can join its waiting list (`calendar.view` rule 23). With the token present, open ones
+    carry `state` `"open"` and `spotsLeft` too. Without the token a full class is never sent.
 2. Open-spot classes render in a **distinct colour** from the student's own enrolled classes, so the
    two are never confused. They are visibly "available", not "yours".
 3a. **A private class resolves to hidden before the coach standard (PAD-429).** When neither the
@@ -91,6 +97,9 @@ separate browse screen. A coach controls whether their open spots are advertised
       (rule 3a). A client that doesn't declare `class-type-defaults` is sent `coach` in its place. The resolved value is the same;
       only the label of where it came from differs, because a build that predates rule 3a looks
       the label up by source and would show a missing key. Both shells declare it.
+    - **A fourth token, `full-classes` (PAD-664):** gates rule 1a. A build that declares only
+      `open-spots` would draw a full class as a joinable open spot whose detail then refuses it,
+      so full classes reach only a client that declares this. Both shells declare it.
     - **Retirement:** once no App Store build that predates the declaration is still in use, serve
       open spots regardless of the header and delete this rule and its check. The header itself
       stays for later capabilities.
@@ -122,10 +131,12 @@ separate browse screen. A coach controls whether their open spots are advertised
 - **When** they load their calendar
 - **Then** the class does not appear
 
-#### A full class is not advertised
+#### A full class is not advertised to a client that does not declare `full-classes`
 - **Given** a visible class at the student's level with all 6 spots filled
-- **When** the student loads their calendar
+- **When** the student loads their calendar from a client that does not declare `full-classes`
 - **Then** the class does not appear
+- **And** from a client that declares it (PAD-664, rule 1a) it appears once, with
+  `studentRelation` `full`, `state` `"full"` and `spotsLeft` 0
 
 #### A future recurring occurrence with room is advertised
 - **Given** a visible recurring class that has never been materialized for next Tuesday, with 4

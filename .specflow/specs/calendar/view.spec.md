@@ -136,6 +136,42 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     calendar it got before (the field on its own events is harmless and ignored). The treatment is
     `calendar.mobile-views` rule 5; desktop cards follow it, and the student's desktop legend adds
     `calendar.legend.invited`, `calendar.legend.waiting` and `calendar.legend.notComing`.
+23. **(PAD-664; rule number unconfirmed; orchestrator for the owner, 2026-10-14) A student's
+    calendar is coloured by what each class is to them, shows the full classes they could wait
+    for, and can be narrowed to their own.** For a **student** viewer only — the coach's calendar
+    keeps rules 6 and 13 and `calendar.mobile-views` rules 5, 7, 9 and 19 unchanged:
+    - **Full classes.** A client that declares the `full-classes` capability also receives the
+      eligible classes that are **full** (`eligibility.open-spot-visibility` rule 1a), each with
+      `studentRelation` `full`, `openSpot: true`, `state` `"full"` and `spotsLeft` 0; the open ones
+      then carry `state` `"open"` and `spotsLeft`. Rule 22's precedence extends to
+      … › waiting › open_spot / full: a full class the student already waits for is `waiting`, once.
+    - **Three colour families, shared resolver.** The colour says the relation, never the coach:
+      **blue** (`primary`) for the student's own — `enrolled` solid with ✓, `invited` dashed blue
+      outline with "Convite", `not_coming` faded blue with "Não vou", `attended` faded with ✓,
+      `missed` faded; **grey** (`muted-foreground` outline, dashed) for `open_spot` with "Vaga
+      livre"; **amber** (`warning`) for `full` — the warning tint with readable amber ink and a
+      "Cheia" chip — and for `waiting`, a dotted amber outline with "Em lista de espera".
+      `canceled` stays red. One helper in `@levelup/config` (`calendar-card.ts`) resolves card,
+      grid block and month dot, so the three never disagree.
+    - **Amber means only full.** On the student's calendar the fill bar and the `X/Y` count are
+      never amber (`calendar.mobile-views` rule 7 does not apply to a student viewer).
+    - **Opening a full class** offers "Juntar-me à lista de espera"
+      (`classes.academy-class-booking` rule 6's endpoint, `{model, originalId, date}`); a class the
+      student waits for shows "Em lista de espera" instead of the button.
+    - **Filter.** At the top of the student's calendar a two-option selector,
+      "Todas em que sou elegível" (default) / "Só as minhas aulas" (`calendar-student-filter`).
+      "Só as minhas" hides only the offers (`open_spot`, `full`); `enrolled`, `not_coming`,
+      `attended`, `missed`, `invited` and `waiting` stay, so the filter never hides an invitation
+      that needs an answer. The choice is remembered per student **on each device** (web
+      `localStorage`, iOS `AsyncStorage`, keyed by user id); it does not follow the student to
+      another device (decision 2026-10-14: no server preference this wave).
+    - **Legend.** The student's legend lists the states the filter leaves visible, in the same
+      treatments (`calendar-legend`): on desktop as today, and on phones (web below 768px and
+      iOS) as one compact row under the filter. This supersedes `calendar.mobile-views` rules 9 and
+      19 ("no legend on phones") for the student viewer only — the owner's 2026-10-13 ticket asks
+      for a visible legend.
+    - **Old clients.** A client that does not declare `full-classes` gets exactly the calendar it got
+      before (no `full` events); the colours are a client concern and change nothing on the wire.
 
 ### Acceptance Criteria
 
@@ -256,6 +292,35 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
   for Thursday
 - **When** a declaring client loads that week
 - **Then** neither Wednesday's nor Thursday's class is on their calendar (unless an open spot)
+
+#### A declaring client sees the eligible full classes (rule 23, PAD-664)
+- **Given** a student eligible for two visible future classes of their coach, one with 5 of 6
+  filled and one with 6 of 6, and on the waiting list of a third full class
+- **When** a client declaring `open-spots`, `student-relations` and `full-classes` loads that week
+- **Then** the first carries `studentRelation` `open_spot` and `spotsLeft` 1, the second
+  `studentRelation` `full`, `state` `"full"` and `spotsLeft` 0, the third `waiting` — each once
+- **And** a client declaring only `open-spots` and `student-relations` gets the first and the
+  third, and no event with `studentRelation` `full`
+
+#### The student's three states differ in colour and in a second signal (rule 23, PAD-664)
+- **Given** a student with an enrolled class, an eligible class with a spot and an eligible full
+  class this week, all taught by a coach whose class colour is teal `#0D9488`
+- **When** the shared resolver paints them for the student viewer
+- **Then** the enrolled one is solid `primary` with the ✓, the open one a dashed grey outline with
+  "Vaga livre", the full one the `warning` tint with "Cheia" — none of them teal
+- **And** no fill bar or `X/Y` count on the student's cards is amber
+- **And** the same classes on the coach's calendar keep the teal treatment of `calendar.mobile-views` rule 5
+
+#### "Só as minhas aulas" hides offers but never an invitation (rule 23, PAD-664)
+- **Given** a student with an enrolled class, a live invitation, an open spot and a full class this week
+- **When** they pick "Só as minhas aulas", then reload the page (or reopen the app)
+- **Then** the enrolled and invited classes are shown and the open spot and the full class are not
+- **And** the selector still reads "Só as minhas aulas" and the legend lists only the states shown
+
+#### Opening a full class offers the waiting list (rule 23, PAD-664)
+- **Given** an eligible full class on the student's calendar
+- **When** they open it and press "Juntar-me à lista de espera"
+- **Then** a waiting-list entry is written for them, and the card turns to "Em lista de espera"
 
 #### Calendar class card is reachable and activatable by keyboard
 - **Given** a signed-in coach on `/calendar` viewing a week that contains a class

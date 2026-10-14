@@ -152,11 +152,13 @@ export function usePlayerProfile(
 export function useConversations(
   page = 1,
   limit = 20,
-  options?: QueryOverrides<{ conversations: Conversation[]; hasMore: boolean }>
+  options?: QueryOverrides<{ conversations: Conversation[]; hasMore: boolean }>,
+  /** messaging.conversations rule 17 (PAD-648): the "Não lidas" list. */
+  unread = false
 ) {
   return useQuery({
-    queryKey: queryKeys.conversations(page, limit),
-    queryFn: () => messagesApi.getConversations(page, limit),
+    queryKey: queryKeys.conversations(page, limit, unread),
+    queryFn: () => messagesApi.getConversations(page, limit, unread),
     ...options,
   });
 }

@@ -50,6 +50,16 @@ describe("queryKeys", () => {
     ]);
   });
 
+  // PAD-648: the "Não lidas" list is its own entry under the same prefix, so every
+  // `invalidateQueries({ queryKey: ["conversations"] })` reaches it; the full list's key is unchanged.
+  it("conversations keeps the unread filter in its own entry", () => {
+    expect(queryKeys.conversations(1, 20, true)).toEqual([
+      "conversations",
+      { page: 1, limit: 20, unread: true },
+    ]);
+    expect(queryKeys.conversations(1, 20, false)).toEqual(queryKeys.conversations(1, 20));
+  });
+
   it("id-based keys embed the id", () => {
     expect(queryKeys.playerProfile("p1")).toEqual(["player-profile", "p1"]);
     expect(queryKeys.playerEvaluations("p1")).toEqual(["player-evaluations", "p1"]);

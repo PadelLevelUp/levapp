@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Plus, CalendarPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import type { StudentCalendarFilter } from '@levelup/config';
 import { CalendarLegend } from './CalendarLegend';
 
 interface CalendarToolbarProps {
@@ -10,6 +11,8 @@ interface CalendarToolbarProps {
   onToday: () => void;
   onAddClass?: () => void;
   onAddEvent?: () => void;
+  /** PAD-664: the student's filter — the legend lists only the states it leaves visible. */
+  studentFilter?: StudentCalendarFilter;
 }
 
 export function CalendarToolbar({
@@ -19,6 +22,7 @@ export function CalendarToolbar({
   onToday,
   onAddClass,
   onAddEvent,
+  studentFilter,
 }: CalendarToolbarProps) {
   const { t } = useTranslation();
   return (
@@ -35,7 +39,10 @@ export function CalendarToolbar({
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        <h2 className="text-base sm:text-lg font-semibold ml-1 sm:ml-2 whitespace-nowrap">
+        <h2
+          className="text-base sm:text-lg font-semibold ml-1 sm:ml-2 whitespace-nowrap"
+          data-testid="calendar-week-label"
+        >
           {weekLabel}
         </h2>
       </div>
@@ -43,7 +50,10 @@ export function CalendarToolbar({
       {/* Between the dates and the actions, so the key to the grid sits with
           the controls rather than floating above the columns. `order` puts it
           on its own line on narrow screens instead of squeezing the buttons. */}
-      <CalendarLegend className="order-last w-full lg:order-none lg:w-auto lg:flex-1 lg:justify-center" />
+      <CalendarLegend
+        studentFilter={studentFilter}
+        className="order-last w-full lg:order-none lg:w-auto lg:flex-1 lg:justify-center"
+      />
 
       <div className="flex items-center gap-2 shrink-0">
         {onAddEvent && (

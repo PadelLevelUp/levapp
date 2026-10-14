@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ConversationList } from "@/components/messages/ConversationList";
+import { ConversationList, type ConversationFilter } from "@/components/messages/ConversationList";
+import { withPinnedRow } from "@/lib/unreadFilterPin";
 import { ChatThread } from "@/components/messages/ChatThread";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -106,7 +107,10 @@ export default function MessagesPage() {
   const [threadError, setThreadError] = useState<ThreadLoadErrorKey | null>(null);
   // client.query-cache rule 6: page 1 of the list is a query (a return inside the stale window
   // renders from cache); pages 2+ are fetched on "load more" and appended here, as before.
-  const listQuery = useConversations(1);
+  // messaging.conversations rule 17 (PAD-648): "Todas" on every visit; "Não lidas" is the server's.
+  const [filter, setFilter] = useState<ConversationFilter>("all");
+  const unreadOnly = filter === "unread";
+  const listQuery = useConversations(1, 20, undefined, unreadOnly);
   const initialLoading = listQuery.isPending;
   const [extraPages, setExtraPages] = useState<Conversation[]>([]);
   const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
@@ -144,10 +148,13 @@ export default function MessagesPage() {
   // replaces it on the next refetch. Rows on later pages are patched in `extraPages`.
   const patchConversationList = useCallback(
     (update: (list: Conversation[]) => Conversation[]) => {
-      queryClient.setQueryData<{ conversations: Conversation[]; hasMore: boolean }>(
-        queryKeys.conversations(1),
-        (old) => (old ? { ...old, conversations: update(old.conversations) } : old)
-      );
+      // Both lists' page 1: the one on screen and the other, should the filter switch back to it.
+      for (const key of [queryKeys.conversations(1), queryKeys.conversations(1, 20, true)]) {
+        queryClient.setQueryData<{ conversations: Conversation[]; hasMore: boolean }>(
+          key,
+          (old) => (old ? { ...old, conversations: update(old.conversations) } : old)
+        );
+      }
     },
     [queryClient]
   );
@@ -180,14 +187,36 @@ export default function MessagesPage() {
     setLoadingMore(true);
     try {
       const nextPage = page + 1;
-      const result = await getConversations(nextPage);
+      const result = await getConversations(nextPage, 20, unreadOnly);
       setExtraPages((prev) => mergeConversationPages(prev, [result.conversations], normalizeConversationId));
       setPage(nextPage);
       setExtraHasMore(result.hasMore);
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, page]);
+  }, [loadingMore, hasMore, page, unreadOnly]);
+
+  // Switching the filter starts again from page 1 of the other list (rule 17).
+  const pinnedRowRef = useRef<Conversation | null>(null);
+  const changeFilter = useCallback((next: ConversationFilter) => {
+    setFilter(next);
+    setExtraPages([]);
+    setExtraHasMore(null);
+    setPage(1);
+    pinnedRowRef.current = null;
+  }, []);
+
+  // Rule 17: the conversation open in the pane stays in "Não lidas" once it is read.
+  const listedConversations = useMemo(() => {
+    const selectedId = normalizeConversationId(selectedConversation?.id);
+    if (!unreadOnly || selectedId === null) {
+      pinnedRowRef.current = null;
+      return sortedConversations;
+    }
+    const listed = sortedConversations.find((c) => normalizeConversationId(c.id) === selectedId);
+    if (listed) pinnedRowRef.current = listed;
+    return withPinnedRow(sortedConversations, pinnedRowRef.current, selectedId);
+  }, [sortedConversations, selectedConversation?.id, unreadOnly]);
 
   useEffect(() => {
     if (!token) return;
@@ -591,7 +620,9 @@ export default function MessagesPage() {
               <LoadingConversationList />
             ) : (
               <ConversationList
-                conversations={sortedConversations}
+                conversations={listedConversations}
+                filter={filter}
+                onFilterChange={changeFilter}
                 selectedId={selectedConversation?.id ?? null}
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}

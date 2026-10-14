@@ -4,12 +4,15 @@ import * as messagesApi from "@levelup/api/src/resources/messages";
 import { USE_MOCK_DATA } from "@/config";
 import { mockConversations } from "@/data/mockData";
 
-export async function getConversations(page = 1, limit = 20): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
+export async function getConversations(page = 1, limit = 20, unread = false): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
   if (USE_MOCK_DATA) {
-    return { conversations: mockConversations, hasMore: false };
+    return {
+      conversations: unread ? mockConversations.filter((c) => c.unreadCount > 0) : mockConversations,
+      hasMore: false,
+    };
   }
 
-  return messagesApi.getConversations(page, limit);
+  return messagesApi.getConversations(page, limit, unread);
 }
 
 export async function getConversation(
