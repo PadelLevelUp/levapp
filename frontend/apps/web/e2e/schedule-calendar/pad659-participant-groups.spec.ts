@@ -17,6 +17,11 @@ import { goToNextWeek } from "../helpers/calendar-navigation";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
+// Outside the reminder window (48 h by default): a class CREATED after its reminder time counts
+// its students as coming (notifications.reminders rule 22, PAD-489), so a class two days out
+// created after 20:30 had no "Por responder" group at all — CI's first run of this spec.
+const DAYS_AHEAD = 5;
+
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 async function token(request: APIRequestContext, username: string, password: string): Promise<string> {
@@ -128,7 +133,7 @@ test("US-PAD-659a: sixteen players fit at 1440×900, grouped Vão / Por responde
   test.setTimeout(180_000);
   const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
   const stamp = Date.now().toString(36);
-  const day = isoDaysFromToday(2);
+  const day = isoDaysFromToday(DAYS_AHEAD);
   const title = `E2E P659 ${stamp}`;
   const n = (first: string) => `${first} P659 ${stamp}`;
 
@@ -188,7 +193,7 @@ test("US-PAD-659b: the pop-up opens from the name, shows the profile, and every 
   test.setTimeout(150_000);
   const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
   const stamp = Date.now().toString(36);
-  const day = isoDaysFromToday(2);
+  const day = isoDaysFromToday(DAYS_AHEAD);
   const title = `E2E P659b ${stamp}`;
   const name = `Ana P659 ${stamp}`;
   const ids: number[] = [];
@@ -230,7 +235,7 @@ test("US-PAD-659c: a student's answer moves them between groups live, and an emp
   const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
   const studentTok = await token(request, STUDENT_USERNAME, STUDENT_PASSWORD);
   const studentId = Number((await rosterRows(request, coachTok)).find((r) => r.name === "E2E Student")!.playerId);
-  const day = isoDaysFromToday(3);
+  const day = isoDaysFromToday(DAYS_AHEAD);
   const title = `E2E P659c ${Date.now().toString(36)}`;
   created.push({ coachTok, day, title, players: [] });
   await addClass(request, coachTok, day, title, [studentId]);
