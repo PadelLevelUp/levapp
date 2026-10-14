@@ -31,11 +31,42 @@ function writeReloadAt(at: number): boolean {
   }
 }
 
+/**
+ * B-532: a navigation away from the page cancels its in-flight chunk loads — WebKit rejects the
+ * dynamic import — and reloading then sends the browser back to the page being left, swallowing
+ * the navigation (the webkit E2E `goto` after login, or a Safari user typing an address while a
+ * page loads). `beforeunload` marks the moment; for `LEAVING_WINDOW_MS` after it a failed chunk
+ * neither reloads nor throws. The window ends on its own, so a leave the user cancels (the
+ * Settings leave guard's prompt) does not switch the reload off for good — its cost is that a
+ * chunk failing for another reason inside those 2 s keeps the loading fallback until the user
+ * moves on, rather than reloading.
+ */
+export const LEAVING_WINDOW_MS = 2_000;
+let leavingAt: number | null = null;
+
+/** Record that the page is being left, at `at` (the `beforeunload` moment). */
+export function markLeaving(at: number | null): void {
+  leavingAt = at;
+}
+
+/** Whether a failed chunk at `now` is the page being left rather than a missing chunk. */
+export function isLeaving(now: number): boolean {
+  return leavingAt !== null && now - leavingAt >= 0 && now - leavingAt < LEAVING_WINDOW_MS;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => markLeaving(Date.now()));
+}
+
 /** Runs `loader`; on failure reloads the page once per window, otherwise rethrows. */
 export async function loadWithReload<T>(loader: () => Promise<T>, now: () => number = Date.now): Promise<T> {
   try {
     return await loader();
   } catch (error) {
+    if (isLeaving(now())) {
+      // The page is being replaced: let the navigation finish.
+      return new Promise<T>(() => {});
+    }
     const last = readReloadAt();
     const at = now();
     if ((last === null || at - last > RELOAD_WINDOW_MS) && writeReloadAt(at)) {

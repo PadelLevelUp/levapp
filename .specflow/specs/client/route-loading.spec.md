@@ -52,6 +52,10 @@ budget holds the gain.
    `levapp.chunkReloadAt`), it records the time and calls `window.location.reload()`; otherwise
    it rethrows. A deploy replaces the hashed chunks and the server answers a missing one with 404
    (PAD-584), so this is how an open tab reaches the new version.
+   **(B-532) Not while the page is being left:** for 2 s after `beforeunload`, a rejected import
+   neither reloads nor rethrows — the navigation that cancelled the chunk loads (WebKit rejects the
+   import) finishes instead of being sent back to the page being left. The window ends on its own,
+   so a leave the user cancels does not switch the reload off.
 5. **Vendor chunks for cache stability.** `vite.config.ts` `build.rollupOptions.output.manualChunks`
    groups `react`/`react-dom`/`react-router`/`scheduler` (`vendor-react`), `@radix-ui/*`
    (`vendor-radix`), `i18next`/`react-i18next` (`vendor-i18n`), and each lazily loaded language's
@@ -91,6 +95,12 @@ budget holds the gain.
 - **Then** `window.location.reload` is called once and the time is stored
 - **And Given** a reload recorded 3 s ago **When** it rejects again **Then** the error is rethrown
   and no reload happens
+
+#### Leaving the page during a chunk load does not bounce back (rule 4, B-532)
+- **Given** a coach just signed in on WebKit, the dashboard's chunks still loading
+- **When** the page navigates to `/calendar` (a `beforeunload`), cancelling those loads
+- **Then** the app does not reload and the browser arrives at `/calendar`
+- **And** a chunk that fails more than 2 s after a cancelled leave reloads as before
 
 #### The menu's pages are prefetched once (rule 3)
 - **Given** `prefetchAppPages()` called twice
