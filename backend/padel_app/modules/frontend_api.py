@@ -803,7 +803,9 @@ def get_conversations():
 
     page = request.args.get("page", default=1, type=int)
     limit = min(request.args.get("limit", default=20, type=int), 50)
-    result = get_user_conversations(user, page=page, limit=limit)
+    # messaging.conversations rule 17 (PAD-648): "Não lidas"; any other value is the full list.
+    unread = request.args.get("unread") in ("1", "true")
+    result = get_user_conversations(user, page=page, limit=limit, unread=unread)
     return jsonify({
         # PAD-204: the whole page at once. Serializing conversation by
         # conversation meant a lazy load of every thread's messages
