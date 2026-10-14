@@ -38,6 +38,10 @@ review D7).
    `generated_code`, `jti` or `subscription_json` (a web-push endpoint and its keys), prints as
    `"[withheld]"`. Another person's messages, and the `admin_audit_log`
    and `deletion_audit` staff records, are left out.
+4a. **A shared row keeps each side's own columns (PAD-660).** A row exported to both people it
+   names carries a column that is one side's only to that side: a coach's private nickname for a
+   student (`coach_in_player.nickname`, `nickname_as_name`, `players.nickname` rule 7) is in the
+   coach's export and left out of the student's (`_OWNER_ONLY`).
 5. **Formats.** Dates and times print as ISO 8601; decimals as strings; bytes as base64.
 6. **The runbook.** `backend/scripts/data_requests.md`: verify
    the requester (answer from the account's own email, or a code sent to it), record the request and

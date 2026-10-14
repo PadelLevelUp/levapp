@@ -179,6 +179,24 @@ def possible_duplicates_for(coach, relations):
     return out
 
 
+NICKNAME_MAX = 60
+
+
+def nickname_payload(rel, real_name):
+    """PAD-660 (players.nickname rule 2): the coach's own nickname keys for one roster row.
+
+    Only ever called with the REQUESTING coach's relation row, so another coach's nickname cannot
+    reach this payload. `name` stays the real name; `displayName` is what the coach's views show.
+    """
+    nickname = rel.nickname if rel is not None else None
+    as_name = bool(rel.nickname_as_name) if rel is not None else False
+    return {
+        "nickname": nickname,
+        "nicknameAsName": as_name,
+        "displayName": nickname if (as_name and nickname) else real_name,
+    }
+
+
 def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     player = rel.player
     user = player.user if player else None
@@ -213,6 +231,7 @@ def _serialize_coach_player_relation(rel, due=None, duplicates=None):
         "due": bool((due or {}).get(rel.id, False)),
         # players.claim rule 4c (PAD-528): only a claimable row can carry one.
         "possibleDuplicateOf": (duplicates or {}).get(rel.id),
+        **nickname_payload(rel, user.name if user else None),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -291,6 +310,15 @@ def get_coach_players_list(coach):
     return [_serialize_coach_player_relation(rel, due, duplicates) for rel in relations]
 
 
+def _roster_name_matches(rel, query):
+    """PAD-660 (players.nickname rule 5): a roster search finds a student by the real name or by
+    THIS coach's nickname for them, each through the one shared rule (PAD-516). When PAD-665's
+    list-of-fields form of the rule lands, this becomes one call with [name, nickname]."""
+    if name_matches_query(rel.player.user.name, query):
+        return True
+    return bool(rel.nickname) and bool((query or "").strip()) and name_matches_query(rel.nickname, query)
+
+
 def search_coach_players(coach_id, term, limit=20):
     """PAD-109: type-ahead search over a single coach's own roster.
 
@@ -322,7 +350,7 @@ def search_coach_players(coach_id, term, limit=20):
         .all()
     )
     # PAD-516: every typed word, in any order, accents folded; the limit after the match.
-    relations = [rel for rel in relations if name_matches_query(rel.player.user.name, term)][:limit]
+    relations = [rel for rel in relations if _roster_name_matches(rel, term)][:limit]
 
     results = []
     for rel in relations:
@@ -389,7 +417,7 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
     if search and search.strip():
         # PAD-516: filter by name in Python (accent folding), after every SQL filter and the
         # sort, then paginate the filtered list. The coach scope keeps this small.
-        matched = [rel for rel in query.all() if name_matches_query(rel.player.user.name, search)]
+        matched = [rel for rel in query.all() if _roster_name_matches(rel, search)]
         pagination = _ListPage(matched, max(1, int(page or 1)), int(per_page or 25))
     else:
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -551,6 +579,18 @@ def edit_player_service(data):
     # would hand them to set_roster_level and hit the FK after the user part committed.
     if 'levelId' in changes and changes['levelId'] in (0, False, "0"):
         refused.append("level")
+    # PAD-660 (players.nickname rule 6): the coach's own nickname for this student — trimmed,
+    # blank clears it, longer than NICKNAME_MAX is refused. Written to the coach's relation only.
+    nickname_set = {}
+    if "nickname" in updates:
+        raw = updates["nickname"]
+        value = "" if raw is None else str(raw).strip()
+        if len(value) > NICKNAME_MAX:
+            refused.append("nickname")
+        else:
+            nickname_set["nickname"] = value or None
+    if "nicknameAsName" in updates:
+        nickname_set["nickname_as_name"] = bool(updates["nicknameAsName"])
     if refused:
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     payload = {
@@ -568,6 +608,10 @@ def edit_player_service(data):
         player_id=player_info["playerId"],
     ).first_or_404()
 
+    for field, value in nickname_set.items():
+        setattr(rel, field, value)
+    if nickname_set:
+        rel.save()
     return edit_player_helper(player, rel, payload)
 
 

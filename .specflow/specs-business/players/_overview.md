@@ -15,6 +15,8 @@ roster.
 - `players.coach-edits-player-details` — updating a student's details and removing them from the
   roster.
 
+- `players.coach-nicknames-a-player` — a coach's private nickname for a student, never seen by the student or another coach (PAD-660).
+
 ## Why it's grouped this way
 
 Split by moment in the roster lifecycle rather than by entity: "getting someone onto the roster"

@@ -61,7 +61,9 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 8. **The coach's records are kept, off the active roster.** Past attendance (presences of classes
    that already started), evaluations, coach notes, level history, the roster row (`coach_in_player`)
    and the messages the person sent all stay, shown under "Deleted user". They are the coach's and
-   the counterpart's records, not the deleted person's account. Per privacy policy §11 the account
+   the counterpart's records, not the deleted person's account. One exception on the roster row
+   (PAD-660, `players.nickname` rule 7): a coach's nickname for the deleted student is cleared, as
+   personal data about them. Per privacy policy §11 the account
    leaves every roster list and picker: `/app/players`, `/app/coach_players`,
    `/app/coach_players_paginated` (and its alert counts), `/app/notify/player_search`, and the
    Presences table (`/presence_stats`); `/app/users` and the messaging picker already listed active
