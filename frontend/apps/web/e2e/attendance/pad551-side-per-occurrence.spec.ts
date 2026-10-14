@@ -101,41 +101,64 @@ test("US-PAD-551: the coach sets a player's side for this class and clears it", 
 
     await loginAsCoach(page);
     await openClassDetail(page, 3, slot.startTime);
-    const row = page.getByTestId("attendance-row").first();
-    await expect(row).toBeVisible({ timeout: 10_000 });
-    const playerId = await row.getAttribute("data-player-id");
+    // The coach's read view is the grouped list (PAD-659); the side is set from a player's popup.
+    const listRow = page.locator('[data-testid^="participant-row-"]').first();
+    await expect(listRow).toBeVisible({ timeout: 10_000 });
+    const playerId = ((await listRow.getAttribute("data-testid")) ?? "").replace("participant-row-", "");
     expect(playerId, "the row names its player").toBeTruthy();
+    const chip = listRow.getByTestId("participant-side");
+
+    const openPopup = async () => {
+      await page.getByTestId(`participant-open-${playerId}`).click();
+      await expect(page.getByTestId("participant-popup")).toBeVisible({ timeout: 10_000 });
+      return page.getByTestId("participant-popup-side");
+    };
 
     // The control is shown only when the server says the side is editable (sideEditable).
-    await expect(row.getByTestId(`participant-side-usual-${playerId}`)).toHaveAttribute("data-state", "on");
-    await expect(row.getByTestId(`participant-side-${playerId}`)).toHaveCount(0);
+    let popupSide = await openPopup();
+    await expect(popupSide.getByTestId(`participant-side-usual-${playerId}`)).toHaveAttribute("data-state", "on");
+    await expect(popupSide.getByTestId(`participant-side-${playerId}`)).toHaveCount(0);
 
     // Right for this class.
     const [set] = await Promise.all([
       page.waitForResponse((r) => /\/class_instance\/presences\/side$/.test(r.url()) && r.request().method() === "PUT", { timeout: 10_000 }),
-      row.getByTestId(`participant-side-right-${playerId}`).click(),
+      popupSide.getByTestId(`participant-side-right-${playerId}`).click(),
     ]);
     expect(set.status(), await set.text()).toBe(200);
     const instanceId = (await set.json()).lessonInstanceId as number;
-    await expect(row.getByTestId(`participant-side-${playerId}`)).toBeVisible();
-    await expect(row.getByTestId(`participant-side-right-${playerId}`)).toHaveAttribute("data-state", "on");
-    const after = await presenceOf(request, coachAuth, instanceId, playerId!);
+    await expect(popupSide.getByTestId(`participant-side-${playerId}`)).toBeVisible();
+    await expect(popupSide.getByTestId(`participant-side-right-${playerId}`)).toHaveAttribute("data-state", "on");
+    const after = await presenceOf(request, coachAuth, instanceId, playerId);
     expect([after.side, after.sideOverride]).toEqual(["right", true]);
+
+    // The list's chip and order follow the side in this occurrence, not the roster's.
+    await page.getByTestId("participant-popup-close").click();
+    await expect(chip).toHaveAttribute("data-side", "right");
+    await expect(chip).toHaveAttribute("data-side-override", "true");
 
     // A reload keeps it: it is the server's.
     await page.reload();
     await openClassDetail(page, 3, slot.startTime);
-    const again = page.getByTestId("attendance-row").first();
-    await expect(again.getByTestId(`participant-side-${playerId}`)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId(`participant-row-${playerId}`).getByTestId("participant-side")).toHaveAttribute(
+      "data-side-override",
+      "true",
+      { timeout: 10_000 }
+    );
 
     // "Habitual" clears it.
+    popupSide = await openPopup();
     const [cleared] = await Promise.all([
       page.waitForResponse((r) => /\/class_instance\/presences\/side$/.test(r.url()) && r.request().method() === "PUT", { timeout: 10_000 }),
-      again.getByTestId(`participant-side-usual-${playerId}`).click(),
+      popupSide.getByTestId(`participant-side-usual-${playerId}`).click(),
     ]);
     expect(cleared.status()).toBe(200);
-    await expect(again.getByTestId(`participant-side-${playerId}`)).toHaveCount(0);
-    expect((await presenceOf(request, coachAuth, instanceId, playerId!)).sideOverride).toBe(false);
+    await expect(popupSide.getByTestId(`participant-side-${playerId}`)).toHaveCount(0);
+    expect((await presenceOf(request, coachAuth, instanceId, playerId)).sideOverride).toBe(false);
+    await page.getByTestId("participant-popup-close").click();
+    await expect(page.getByTestId(`participant-row-${playerId}`).getByTestId("participant-side")).toHaveAttribute(
+      "data-side-override",
+      "false"
+    );
   } finally {
     await removeClassesOnDay(request, coachAuth, day, (e) => e.title === STUDENT_NAME);
     await removeBlocksOnDay(request, coachAuth, day, (e) => String(e.title).includes(STUDENT_NAME));

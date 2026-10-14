@@ -3979,6 +3979,8 @@ def respond_to_reminder(
             # status is not set to "present": only the coach marks attendance.
             # PAD-271 M5: the answer as one field (attendance.presence rule 7).
             record_response(presence, "confirmed", when=now)
+            from padel_app.services.presence_events import publish_presence_changed
+            publish_presence_changed(instance, presence.player_id)  # PAD-659 (event-detail rule 24)
             presence.save()
         if coach_user_id:
             _send_system_message(
@@ -4037,6 +4039,8 @@ def _free_spot_for_declining_player(
         presence.confirmed = True
         presence.status = "absent"
         presence.justification = "justified"
+        from padel_app.services.presence_events import publish_presence_changed
+        publish_presence_changed(instance, presence.player_id)  # PAD-659 (event-detail rule 24)
         presence.save()
     if coach_user_id:
         _send_system_message(

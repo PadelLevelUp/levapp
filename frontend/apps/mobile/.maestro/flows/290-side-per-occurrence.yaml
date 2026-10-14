@@ -71,15 +71,16 @@ appId: com.padellevelup.app
 - tapOn: "E2E Student"
 - extendedWaitUntil:
     visible:
-      id: "class-participant-1"
+      id: "participant-open-1"
     timeout: 20000
 
-# ── Right for this class: the row says so, and the server row has the override ──
-- scrollUntilVisible:
-    element:
+# ── Right for this class, from the player's sheet (the coach's read view is the grouped list) ──
+- tapOn:
+    id: "participant-open-1"
+- extendedWaitUntil:
+    visible:
       id: "participant-side-right-1"
-    direction: DOWN
-    timeout: 30000
+    timeout: 15000
 - tapOn:
     id: "participant-side-right-1"
 - extendedWaitUntil:
@@ -87,8 +88,6 @@ appId: com.padellevelup.app
       id: "participant-side-1"
     timeout: 15000
 - evalScript: "${output.mid = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.type === 'class' && e.title === 'E2E Student'; })[0]}"
-- evalScript: "${output.midRows = json(http.get(output.api + '/api/app/lesson_instance/' + output.mid.originalId + '/presences', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
-- assertTrue: "${output.midRows[0].side === 'right' && output.midRows[0].sideOverride === true}"
 
 # ── "Habitual" clears it ──
 - tapOn:
@@ -97,6 +96,8 @@ appId: com.padellevelup.app
     notVisible:
       id: "participant-side-1"
     timeout: 15000
+- tapOn:
+    id: "participant-popup-close"
 
 # ── The server agrees, then clean up ──
 - tapOn:

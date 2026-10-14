@@ -51,7 +51,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -73,6 +73,8 @@ import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, out
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
+import { ParticipantGroups, type ParticipantRow } from "./ParticipantGroups";
+import { ParticipantPopup } from "./ParticipantPopup";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
@@ -115,6 +117,7 @@ import {
 } from "@/components/ui/select";
 
 import { ClassScopeDialog, ApplyScope } from "./ClassScopeDialog";
+import type { SideInOccurrence } from "./SideInOccurrenceControl";
 import { AttendanceRow, AttendanceState } from "./AttendanceRow";
 import { PlayerSelector } from "./PlayerSelector";
 import { LevelLabel } from "@/components/LevelLabel";
@@ -230,6 +233,9 @@ export function ClassDetailSheet({
   } | null>(null);
 
   const [isValidating, setIsValidating] = useState(false);
+  // PAD-659 (rule 23): the player pop-up, and the name that opened it (focus goes back there).
+  const [popupRow, setPopupRow] = useState<ParticipantRow | null>(null);
+  const [popupOpener, setPopupOpener] = useState<HTMLElement | null>(null);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
@@ -485,14 +491,24 @@ export function ClassDetailSheet({
         // landed — "Vou" lives in the fresh payload, so re-read the instance instead of
         // waiting for a re-open.
         const openEvent = eventRef.current;
-        const openId =
-          classInstanceRef.current?.id ??
-          (openEvent?.model === "LessonInstance" ? Number(openEvent.originalId) : null);
+        // B-548: `classInstance.id` is the calendar-event id ("lessoninstance-12"), never the
+        // instance number, so it never matched an event's lessonInstanceId — the shared
+        // reading takes it from a presence or the event instead.
+        const openId = liveInstanceIdOf(classInstanceRef.current, openEvent);
         if (reminderArrivedFor(data, openId)) {
           if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
           return;
         }
         if (!canManage) return;
+
+        // PAD-659 (`calendar.event-detail` rule 24): a presence in this class moved — a
+        // student's answer or cancellation, or a mark from another tab — so the groups regroup.
+        const occurrence =
+          openEvent?.model === "Lesson" ? { lessonId: openEvent.originalId, date: openEvent.date } : null;
+        if (presenceChangedFor(data, openId, occurrence)) {
+          if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
+          return;
+        }
 
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {
@@ -569,6 +585,19 @@ export function ClassDetailSheet({
     } finally {
       setSideBusy(null);
     }
+  };
+  // The one shape both the attendance rows and the participant popup read. A virtual occurrence has
+  // no presence rows yet: the player starts on "Habitual".
+  const sideFor = (playerId: string): SideInOccurrence | undefined => {
+    if (!canManage || classInstance?.sideEditable === undefined) return undefined;
+    const presence = classInstance.presences?.find((x) => String(x.playerId) === playerId);
+    return {
+      current: presence?.side ?? null,
+      override: !!presence?.sideOverride,
+      editable: !!classInstance.sideEditable && !isCanceled,
+      busy: sideBusy === playerId,
+      onChange: (next) => void changeSide(playerId, next),
+    };
   };
 
   // PAD-131 (classes.join-requests rules 1, 4, 5, 7, 9): the student asks or
@@ -699,6 +728,8 @@ export function ClassDetailSheet({
   // Club digits on both sides (attendance.confirm rule 9, PAD-295).
   const classStartMs = wallClockMs(active.date, active.startTime);
   const classStarted = !Number.isNaN(classStartMs) && classStartMs <= lisbonNowMs();
+  // PAD-663 (rule 25): until the class ends, a coach's validated mark is worded as intent.
+  const classEnded = classHasEnded(active.date, active.endTime);
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&
@@ -1554,6 +1585,19 @@ export function ClassDetailSheet({
 
           <div>
             <div className="flex items-center justify-between mb-2">
+              {canManage && !isEditing && !isValidating ? (
+                // PAD-659 (rule 5's named exception): the coach's list header names its own
+                // quantity — the enrolled rows below over the capacity.
+                <div className="flex flex-col gap-0.5">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    {t("calendar.participants.title")}
+                  </h4>
+                  <p data-testid="participants-enrolled" className="text-[13px] text-muted-foreground tabular-nums">
+                    {t("calendar.participants.enrolled", { current: active.participants.length, max: active.maxPlayers })}
+                  </p>
+                </div>
+              ) : (
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 {t("calendar.detail.participantsCount", {
@@ -1568,6 +1612,7 @@ export function ClassDetailSheet({
                   max: active.maxPlayers,
                 })}
               </h4>
+              )}
 
               {canManage &&
                 !isEditing &&
@@ -1594,6 +1639,17 @@ export function ClassDetailSheet({
                 classLevelId={active.levelId}
                 onToggle={togglePlayer}
               />
+            ) : canManage && !isValidating && active.participants.length > 0 ? (
+              // PAD-659 (`calendar.event-detail` rule 22): the coach's read view.
+              <ParticipantGroups
+                participants={active.participants}
+                presences={classInstance?.presences}
+                roster={players}
+                onOpen={(row, opener) => {
+                  setPopupOpener(opener);
+                  setPopupRow(row);
+                }}
+              />
             ) : (
               <div className="space-y-2">
                 {active.participants.map((p) => {
@@ -1612,18 +1668,8 @@ export function ClassDetailSheet({
                       // presence, so `!canManage` identifies their own row.
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
-                      side={
-                        // A virtual occurrence has no presence rows yet: the row starts on "Habitual".
-                        canManage && classInstance?.sideEditable !== undefined
-                          ? {
-                              current: presence?.side ?? null,
-                              override: !!presence?.sideOverride,
-                              editable: !!classInstance.sideEditable && !isCanceled,
-                              busy: sideBusy === String(p.id),
-                              onChange: (next) => void changeSide(String(p.id), next),
-                            }
-                          : undefined
-                      }
+                      side={sideFor(String(p.id))}
+                      classEnded={classEnded}
                     />
                   );
                 })}
@@ -2433,6 +2479,15 @@ export function ClassDetailSheet({
           mode="edit"
           onClose={() => setEditScopeDialogOpen(false)}
           onConfirm={commitEdit}
+        />
+      )}
+
+      {canManage && (
+        <ParticipantPopup
+          row={popupRow}
+          onClose={() => setPopupRow(null)}
+          returnFocusTo={popupOpener}
+          side={popupRow ? sideFor(popupRow.playerId) : undefined}
         />
       )}
 

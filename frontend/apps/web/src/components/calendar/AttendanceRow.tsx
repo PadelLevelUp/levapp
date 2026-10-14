@@ -2,7 +2,7 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   cancellationDetail,
+  displayStateOf,
   reminderHint,
   type AttendancePresenceLike,
   type StateAudience,
@@ -43,13 +44,13 @@ interface AttendanceRowProps {
    * `editable` the server's answer to "may it still change". `onChange(null)` goes back to the
    * usual side.
    */
-  side?: {
-    current: "left" | "right" | "both" | null;
-    override: boolean;
-    editable: boolean;
-    busy?: boolean;
-    onChange: (side: "left" | "right" | null) => void;
-  };
+  side?: SideInOccurrence;
+  /**
+   * PAD-663 (`calendar.event-detail` rule 25): has the class ended? Until it has, a coach's
+   * validated mark is worded as the intent ("Vai", not "Presente"). Defaults to true, the
+   * record's own word, for a caller that does not know.
+   */
+  classEnded?: boolean;
 }
 
 export function AttendanceRow({
@@ -60,6 +61,7 @@ export function AttendanceRow({
   presence,
   audience = "coach",
   side,
+  classEnded = true,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
   const name = player.user?.name ?? t("calendar.attendance.playerFallback");
@@ -75,6 +77,8 @@ export function AttendanceRow({
 
   // PAD-313 (`attendance.confirm` rule 25): ONE state word, from one source.
   const state = attendanceStateOf(presence);
+  // PAD-663: the word and tone follow the display state; `data-state` keeps the stored one.
+  const shown = displayStateOf(state, classEnded);
   const cancellation = cancellationDetail(presence, audience);
   const reminder = reminderHint(presence);
   const TONE: Record<StateTone, string> = {
@@ -130,47 +134,14 @@ export function AttendanceRow({
           variant="outline"
           data-testid="attendance-state"
           data-state={state}
-          className={TONE[attendanceStateTone(state)]}
+          className={TONE[attendanceStateTone(shown)]}
         >
-          {t(attendanceStateLabelKey(state, audience))}
+          {t(attendanceStateLabelKey(shown, audience))}
         </Badge>
       </div>
 
-      {/* PAD-551: the side this player plays in this occurrence, when set here. */}
-      {side?.override && (side.current === "left" || side.current === "right") && (
-        <p data-testid={`participant-side-${player.id}`} className="text-xs font-medium text-foreground">
-          {t(`calendar.side.tag.${side.current}`)}
-        </p>
-      )}
-      {side?.editable && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{t("calendar.side.label")}</span>
-          <ToggleGroup
-            type="single"
-            size="sm"
-            value={side.override && side.current ? side.current : "usual"}
-            // Radix reports "" when the pressed item is pressed again: one choice is always on.
-            onValueChange={(v) => {
-              if (v === "usual") side.onChange(null);
-              else if (v === "left" || v === "right") side.onChange(v);
-            }}
-            disabled={side.busy}
-            aria-label={t("calendar.side.label")}
-            className="justify-start"
-          >
-            {(["usual", "left", "right"] as const).map((v) => (
-              <ToggleGroupItem
-                key={v}
-                value={v}
-                data-testid={`participant-side-${v}-${player.id}`}
-                className="h-8 px-2 text-xs"
-              >
-                {t(`calendar.side.${v}`)}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-      )}
+      {/* PAD-551: the side this player plays in this occurrence. */}
+      {side && <SideInOccurrenceControl playerId={String(player.id)} side={side} />}
 
       {/* Secondary facts. Never a second state word: lesser weight, own line. */}
       {cancellation && (
