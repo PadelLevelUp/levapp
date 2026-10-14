@@ -4,6 +4,8 @@ import type { ApprovalQueuePlayer, ApprovalVacancyInfo } from "@levelup/types";
 import {
   APPROVAL_QUEUE_PREVIEW,
   approvalDisplayGroups,
+  approvalEmptyReasonKey,
+  approvalEmptyReasons,
   approvalGroupLabel,
   approvalQueuePreview,
   approvalSideKey,
@@ -78,5 +80,34 @@ describe("PAD-574 the approval card's display groups (semi-auto-approval rules 4
 
   it("counts a group's stale vacancies", () => {
     expect(staleCount({ vacancyIds: [1, 3, 4] }, [3, 4, 9])).toBe(2);
+  });
+});
+
+describe("PAD-661 an empty queue says why (semi-auto-approval rule 4b)", () => {
+  const reasons = [
+    { stage: "eligibility", count: 7 },
+    { stage: "excluded_by_coach", count: 2 },
+    { stage: "unavailable", count: 0 },
+  ];
+
+  it("carries the reasons onto an open block only when the queue is empty, dropping zero counts", () => {
+    const empty = { ...open(1, "left", []), emptyQueueReasons: reasons } as ApprovalVacancyInfo;
+    const [group] = approvalDisplayGroups([empty]);
+    expect(group.emptyQueueReasons).toEqual([
+      { stage: "eligibility", count: 7 },
+      { stage: "excluded_by_coach", count: 2 },
+    ]);
+    const full = { ...open(2, "left", [p(1)]), emptyQueueReasons: reasons } as ApprovalVacancyInfo;
+    expect(approvalEmptyReasons(full)).toEqual([]);
+  });
+
+  it("reads an older payload without the key as no reasons, on open and freed spots alike", () => {
+    const groups = approvalDisplayGroups([open(1, "left", []), declined(2, "Ana", [])]);
+    expect(groups.map((g) => g.emptyQueueReasons)).toEqual([[], []]);
+  });
+
+  it("names a locale key per engine stage and falls back for a stage this build does not know", () => {
+    expect(approvalEmptyReasonKey("excluded_by_coach")).toBe("notificationsUi.replacementApproval.emptyReason.excluded_by_coach");
+    expect(approvalEmptyReasonKey("a_newer_stage")).toBe("notificationsUi.replacementApproval.emptyReason.other");
   });
 });

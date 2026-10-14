@@ -175,6 +175,10 @@ def test_control_tick_path_semi_auto_suggests_a_never_filled_place(app, live_sch
 
         process_invitation_batches(now=twelve_h + timedelta(minutes=2))
         assert _state(instance.id) == SUGGESTED
+        # A non-empty queue carries no reasons (rule 4b, PAD-661).
+        from padel_app.models.messages import Message
+        (entry,) = Message.query.filter_by(message_type="replacement_approval").one().msg_metadata["vacancies"]
+        assert len(entry["queue"]) == 1 and "emptyQueueReasons" not in entry
         # A second tick asks nothing twice.
         process_invitation_batches(now=twelve_h + timedelta(minutes=4))
         assert _state(instance.id) == SUGGESTED

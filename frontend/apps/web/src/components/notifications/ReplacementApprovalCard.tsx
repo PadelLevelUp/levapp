@@ -7,6 +7,7 @@ import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/ty
 import { respondToApproval } from "@/api/notificationEngine";
 import {
   approvalDisplayGroups,
+  approvalEmptyReasonKey,
   approvalGroupLabel,
   approvalQueuePreview,
   approvalSideKey,
@@ -208,9 +209,21 @@ export function ReplacementApprovalCard({
                 )}
               </div>
             ) : (
-              <p className="text-xs italic text-muted-foreground">
-                {t("notificationsUi.replacementApproval.noEligiblePlayers")}
-              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs italic text-muted-foreground">
+                  {t("notificationsUi.replacementApproval.noEligiblePlayers")}
+                </p>
+                {/* PAD-661 (rule 4b): an empty queue says why, one line per engine stage. */}
+                {group.emptyQueueReasons.length > 0 && (
+                  <ul className="text-xs text-muted-foreground" data-testid="approval-empty-reasons">
+                    {group.emptyQueueReasons.map((r) => (
+                      <li key={r.stage} data-stage={r.stage}>
+                        {t(approvalEmptyReasonKey(r.stage), { count: r.count })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
 
             {stale > 0 && !allStale && (
