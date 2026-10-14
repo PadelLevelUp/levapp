@@ -106,7 +106,9 @@ by a student's request — and whichever lands first wins.
     **instance** while they hold a join request for it (any status, so they can see its outcome),
     or while the join-request gate would let them ask — the instance is not started, cancelled,
     completed or full, open spots are visible for it (`effective_open_spots_visible`) and they pass
-    its eligibility bar. Everyone else still gets 403, and what they read is the student view
+    its eligibility bar. **(PAD-664)** For a client that declares `full-classes` the "not full"
+    condition is dropped, so a student can open a full class they found on their calendar and join
+    its waiting list (`calendar.view` rule 23); every other condition stands. Everyone else still gets 403, and what they read is the student view
     (`classes.detail-visibility` rule 3). A never-materialized occurrence is not covered: the read
     stays a series read until a request materializes it (rule 2). Reconciled in the 2026-09-10
     batch, where PAD-257 and PAD-131 met.

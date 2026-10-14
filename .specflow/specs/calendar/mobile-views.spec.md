@@ -87,6 +87,10 @@ canvas is silent (status treatments, coach colour, add controls, students) these
      "per rule 5" (the day card, the grid block, the dots) applies it, so the grid and the panel
      never disagree about the same class.
    A class without a colour falls back to `primary`, exactly as today.
+   **(PAD-664)** For a **student** viewer the colour is the relation, not the coach — blue
+   `primary` for their own, grey for an open spot, amber for a full class or a waiting place, red
+   for canceled; the treatments (solid / dashed / dotted / faded) and chips above stay, and the
+   resolver adds a `full` variant ("Cheia"). `calendar.view` rule 23 is the full statement.
 6. **Swatches never read as a status.** The eight coach-pickable colours live in exactly one
    place, `CLASS_COLOR_SWATCHES` in `@levelup/config`, and every picker (web add and detail
    sheets, iOS new and detail class screens) renders that list. The set contains no amber,
@@ -100,12 +104,15 @@ canvas is silent (status treatments, coach colour, add controls, students) these
    `maxPlayers`, the fill bar and the `X/Y` count render in `warning` amber; the card surface
    stays the coach colour. When full they are white on a coloured surface and `primary` on an
    outlined one. `past` and `canceled` cards never show amber. `X` remains the effective
-   filled-spots value from `calendar.view` rules 8–10.
+   filled-spots value from `calendar.view` rules 8–10. **(PAD-664)** Never amber on a student's
+   calendar, where amber means a full class (`calendar.view` rule 23).
 8. **Recurring events** show the `↻` glyph after the time range, with an accessibility label
    `calendar.eventCard.recurring`.
 9. **No legend at phone widths.** The status treatments above are self-describing, so the
    legend row is not rendered below 768px on web and not at all on iOS. Desktop web keeps
-   `CalendarLegend`. This supersedes `calendar.view` rule 13 on phones.
+   `CalendarLegend`. This supersedes `calendar.view` rule 13 on phones. **(PAD-664)** Coach
+   viewer only: a student's phone calendar shows one compact legend row under its filter
+   (`calendar.view` rule 23).
 
 #### Dia
 10. **Week strip.** Seven columns between `‹` and `›` chevrons (`calendar.toolbar.previousWeek
@@ -189,6 +196,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     coach's calendar; the viewer's role reaches the cards from the calendar screen. Rule 9
     stands: no legend on phones — the ✓ and the chip make the cards self-describing
     (owner decision 2026-10-10: the phone legend stays off; the desktop legend explains both).
+    **(PAD-664, superseding that decision for students)** The student's calendar adds the filter
+    and the compact legend row at the top of all three modes, and the blue / grey / amber palette
+    of `calendar.view` rule 23.
 20. **Screen header.** iOS keeps its navy tab header with the mark and `nav.calendar`. Web
     keeps its existing phone app bar (white, mark only) — **decided 2026-09-08**: the canvas's
     navy web header is not adopted. The calendar screen on web starts at the segmented
