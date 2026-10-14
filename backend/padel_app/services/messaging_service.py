@@ -294,9 +294,7 @@ def get_unread_count(user_id):
         db.session.query(func.count(M.id))
         .join(CP, CP.conversation_id == M.conversation_id)
         .filter(CP.user_id == user_id)
-        .filter(M.sender_id != user_id)
-        .filter(M.is_deleted == False)
-        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .filter(_unread_message_predicate(user_id, CP))
         .scalar()
     )
 
@@ -335,6 +333,21 @@ def first_unread_message_id(conversation_id, user_id):
     return row[0] if row else None
 
 
+def _unread_message_predicate(user_id, participant):
+    """A `Message` the user has not read, against `participant` — the user's own
+    `ConversationParticipant` row (or an alias of it) in the message's conversation.
+
+    The one definition behind `unreadCount`, the list's "Não lidas" filter (messaging.conversations
+    rules 16–17) and, by the same terms, the tab badge: someone else sent it, it is not deleted
+    (R-016), and it is newer than the user's last read (never read when there is no row or no read).
+    """
+    return and_(
+        Message.sender_id != user_id,
+        Message.is_deleted == False,  # noqa: E712 — a SQL expression, not a Python comparison
+        Message.sent_at > func.coalesce(participant.last_read_at, _UNREAD_EPOCH),
+    )
+
+
 def unread_counts_for_conversations(user_id, conversation_ids):
     """`{conversation_id: unread count}` for `user_id`, in ONE query.
 
@@ -370,9 +383,7 @@ def unread_counts_for_conversations(user_id, conversation_ids):
             ),
         )
         .filter(M.conversation_id.in_(conversation_ids))
-        .filter(M.sender_id != user_id)
-        .filter(M.is_deleted == False)
-        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .filter(_unread_message_predicate(user_id, CP))
         .group_by(M.conversation_id)
         .all()
     )
@@ -611,8 +622,12 @@ def toggle_reaction_service(message_id, emoji, user_id):
     )
 
 
-def get_user_conversations(user, page=1, limit=20):
+def get_user_conversations(user, page=1, limit=20, unread=False):
     """Returns paginated conversations the user participates in, ordered by last message descending.
+
+    `unread` (messaging.conversations rule 17, PAD-648) keeps only the conversations holding a
+    message the user has not read — `_unread_message_predicate`, the one `unreadCount` and the
+    badge use — with the same paging, so an unread thread on any page is found.
 
     PAD-204 / messaging.conversations rules 11-12. The order used to come from a
     correlated `MAX(messages.sent_at)` subquery evaluated per candidate row,
@@ -644,9 +659,20 @@ def get_user_conversations(user, page=1, limit=20):
                 joinedload(User.user_image),
             )
         )
-        .order_by(nullslast(Conversation.last_message_at.desc()))
-        .offset(offset)
     )
+    if unread:
+        # Correlated to this row's conversation AND the caller's own participant row (the join
+        # above filters it to `user.id`), so "unread for the other side" never counts.
+        query = query.filter(
+            db.session.query(Message.id)
+            .filter(
+                Message.conversation_id == Conversation.id,
+                _unread_message_predicate(user.id, ConversationParticipant),
+            )
+            .correlate(Conversation, ConversationParticipant)
+            .exists()
+        )
+    query = query.order_by(nullslast(Conversation.last_message_at.desc())).offset(offset)
     convs = query.limit(limit + 1).all()
     has_more = len(convs) > limit
     return {"conversations": convs[:limit], "has_more": has_more}

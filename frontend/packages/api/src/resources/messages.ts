@@ -1,8 +1,11 @@
 import type { BlockedUser, Conversation, Message } from "@levelup/types";
 import { getApi } from "../client";
 
-export async function getConversations(page = 1, limit = 20): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
-  const res = await getApi().get("/app/conversations", { params: { page, limit } });
+/** `unread` (messaging.conversations rule 17, PAD-648): only the conversations with unread messages. */
+export async function getConversations(page = 1, limit = 20, unread = false): Promise<{ conversations: Conversation[]; hasMore: boolean }> {
+  const res = await getApi().get("/app/conversations", {
+    params: unread ? { page, limit, unread: 1 } : { page, limit },
+  });
   return res.data;
 }
 

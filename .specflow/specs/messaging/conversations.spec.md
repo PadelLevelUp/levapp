@@ -126,6 +126,18 @@ Manage conversations between users (1:1 or group chats).
     reads the number up to 9 and **"9+"** above it (`unreadBadgeLabel` in `@levelup/config`, shared).
     A read row is regular weight with no pill. Web and iOS alike; each row exposes its state for tests
     (web `data-unread` on `conversation-row-<id>`, iOS `conversation-unread-<id>`).
+17. **"Não lidas" filter (PAD-648).** Above the conversation list, web and iOS show two choices,
+    "Todas" and "Não lidas" (`conversations-filter-all` / `conversations-filter-unread`), "Todas"
+    selected on every visit (the choice is not kept). "Não lidas" asks the server for
+    `GET /api/app/conversations?unread=1`: the same paging and order as rule 11, holding only the
+    conversations the caller has unread messages in — the very predicate of `unreadCount` and the
+    tab badge (rule 16; one helper, `_unread_message_predicate`), so an unread thread on any page is
+    found and a row is listed exactly when it would carry the pill. Switching the filter starts again
+    from page 1. The name search applies on top of either choice (client-side, over the loaded
+    rows). On web, the conversation open in the thread pane stays in the "Não lidas" list after it
+    is read, until the pane closes or the filter changes, so no row moves under the reader; on iOS
+    the thread is its own screen, and the read row is gone from the list on return. With nothing
+    unread the list says so ("Sem conversas por ler" / "No unread conversations").
 
 ### Acceptance Criteria
 
@@ -315,3 +327,19 @@ Manage conversations between users (1:1 or group chats).
 - **When** the other participant GETs `/api/app/conversations`
 - **Then** that row has `lastMessage` `""` and `lastMessageDeleted: true`, and no field holds "Rua X 12"
 - **And** web and iOS show "Message deleted" in that row's preview; a row whose last message is live has `lastMessageDeleted: false` and shows its text
+
+#### "Não lidas" lists exactly the rows with a pill, on every page (rule 17, PAD-648)
+- **Given** a coach whose oldest conversation (with Ana) holds one unread message from Ana, a read
+  conversation with Rui, one where only the coach wrote, one where Ana's only unread message was
+  deleted, and one the coach read but the other side has not
+- **When** the coach asks for `GET /api/app/conversations?unread=1&limit=2`
+- **Then** only the conversation with Ana is listed, on page 1, with `hasMore` false and
+  `unreadCount` 1
+- **And** without `unread` the list is unchanged
+
+#### The toggle switches the list on web and iOS (rule 17, PAD-648)
+- **Given** a user with one unread and one read conversation, on the messages list
+- **When** they choose "Não lidas"
+- **Then** only the unread row shows; choosing "Todas" shows both again
+- **When** on web they open the unread conversation with "Não lidas" on
+- **Then** its row stays listed while the pane shows it
