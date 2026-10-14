@@ -15,8 +15,13 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 ### Rules
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons
 2. Block events open `EventDetailSheet`: view/edit block details
-3. ClassDetailSheet shows: title, date, time, level, "Participants (X/Y)", presence list
-3a. **(PAD-199, B-017; amended by PAD-313, 2026-09-12)** A participant row shows exactly ONE
+3. ClassDetailSheet shows: title, date, time, level, the participants section (for the coach,
+   rule 22's grouped list under "Participantes" / "N/M inscritos"), presence list
+3a. **(PAD-199, B-017; amended by PAD-313, 2026-09-12; amended by PAD-659, 2026-10-14)** Since
+   PAD-659 this rule governs the rows of the STUDENT's view and of the coach's "Editar
+   presenças" marking mode; the coach's read view is rule 22's compact list, which carries no
+   state word per row (the group title says it) and moves the two detail lines below into the
+   player pop-up (rule 23). A participant row shows exactly ONE
    state word: the single `attendanceState` of `attendance.presence` rule 9, read through the
    shared helper in `@levelup/config` (`attendance-state`), exposed as
    `data-testid="attendance-state"` with `data-state="planned" | "coming" | "not_coming" |
@@ -34,7 +39,14 @@ Clicking a calendar event opens a detail sheet showing full information and avai
    `planned` with no reminder shows the state word alone, and that absence is itself the signal
    the coach acts on. Decided by the coordinator, 2026-09-12.
 4. Actions available: Mark attendance, Edit, Delete, Notify, Training planning
-5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count. **(B-240)** While the coach edits the class, the counts are over the draft's students: a declined student the coach unticked is neither listed nor subtracted (`effectiveFilledSpotsOf`, `@levelup/config`)
+5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count. **(B-240)** While the coach edits the class, the counts are over the draft's students: a declined student the coach unticked is neither listed nor subtracted (`effectiveFilledSpotsOf`, `@levelup/config`). **(PAD-659,
+   2026-10-14) One named exception:** the coach's participants header reads "N/M inscritos" /
+   "N/M enrolled", N being the enrolled rows the list shows (`participants.length`, the draft's
+   while editing) and M `maxPlayers`. The old "Participantes (1/4)" counted only the coming
+   students above a list of every enrolled one, which is the confusion PAD-659 reports; the
+   header now names its own quantity, the capacity card keeps `effectiveFilledSpots`, and rule
+   22's group counts carry the breakdown, so the two numbers measure different things by name
+   and cannot be read as a contradiction
 6. The class-detail "invited" (convidados) list is keyed by STUDENT, not by invite record. A student who received several `NotificationEvent` rows for the same instance (multiple rounds, a manual invite plus an automatic one, a re-invite after a decline — all legitimate per notifications.invitations) appears exactly ONCE. The `invitations` array returned by the class-detail payload therefore contains at most one entry per `playerId`
 7. De-duplication happens in the backend serializer (`serialize_class_instance`) so every surface — web detail sheet, mobile — sees the same one-row-per-student list. No client performs its own de-duplication
 8. Tie-break when a student has several invite records for the same instance: the entry that survives is the one carrying the most meaningful state, ranked `confirmed` > `expired` (an explicit decline) > `sent` (pending) > `queued` (not yet sent). An actual response always beats a still-pending invite. Within the same status rank the most recent record wins (highest `round_number`, then highest `id`). The surviving entry keeps that record's own `id`, so coach response actions still target a real `NotificationEvent`
@@ -173,7 +185,145 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     every serializer and service that needs it; the roster is loaded with its players and their
     users eagerly. The payload is unchanged.
 
+22. **The coach's participant list is compact and grouped (PAD-659; numbering self-assigned,
+    unconfirmed).** Outside "Editar presenças", the coach sees every enrolled participant in
+    groups, each a title in capitals with its count and a coloured dot, in this order:
+
+    | order | group (`data-group`) | pt / en title | dot | states (`attendance.presence` rule 9) |
+    |---|---|---|---|---|
+    | 1 | `going` | Vão · N / Going · N | green `#12946B` | `coming`, `attended` |
+    | 2 | `pending` | Por responder · N / No answer · N | grey `#8592A8` | `planned` |
+    | 3 | `not_going` | Não vão · N / Not going · N | red `#D3453B` | `not_coming`, `missed` |
+
+    `attended` and `missed` join the intent groups because a coach's mark before the class is
+    stored validated (`lesson_service.add_presences`), and to the coach looking at a class that
+    mark means "vai" / "não vai" (PAD-663). An empty group is not rendered. Within a group the
+    order is side — `both` (Amb), `right` (Dir), `left` (Esq), unset last — then the name compared
+    in Portuguese (`localeCompare(…, "pt")`, so "Álvaro" sits with the A's). The grouping and the
+    order are computed by ONE helper in `@levelup/config` that both shells render; neither shell
+    sorts on its own. Side and level are not on a class participant: they are read from the
+    coach's roster (`CoachPlayer`, joined on the player id), and a participant missing from the
+    roster sorts as "no side" and shows no level.
+    Each row: a 26 px initials avatar (`#E8F1FF` on `#1355DC`), the name (14 px, 600, one line
+    with an ellipsis) and, on the right, a side chip "Amb" / "Dir" / "Esq" ("Both" / "Right" /
+    "Left") whose tooltip (web `title`) reads "Ambos os lados" / "Lado direito" / "Lado
+    esquerdo". No level, no state word, no arrow. Rows sit in one bordered container per group
+    (radius 12 px, 1 px `border-subtle` separators, no per-row card and no shadow); web rows are
+    34 px high, mobile and web-at-phone-width rows at least 44 px. Test ids: the group
+    `participant-group` with `data-group`; the row `participant-row-<playerId>` carrying the row's
+    `data-state` (rule 9's value, unchanged, so a test can still read the state); the name/avatar
+    button `participant-open-<playerId>`; the chip `participant-side`.
+    Waiting-list players and pending invitations are NOT in this list: they keep their own
+    sections (rules 16–20). The student's view of a class is unchanged by this rule.
+    "Editar presenças" (web, and now iOS/Android, where marking used to be always on) switches the
+    section to the marking rows of rule 3a; saving or cancelling returns to the grouped list. The
+    toggle on mobile has the web's test id, `attendance-edit`.
+
+23. **The player pop-up (PAD-659).** Tapping a row's name or avatar opens that player's profile
+    over the class: a dialog on web (`role="dialog"`, focus trapped, focus returned to the
+    tapped name on close) and a bottom sheet on iOS and Android. The side chip does not open it.
+    It shows: a navy header with the avatar, the name, the side in full ("Lado direito") and the
+    level ("Nível 3+", from the roster; absent when the roster has none); then "Nesta aula" with
+    rule 22's group word for that player (Vai / Por responder / Não vai — Going / No answer /
+    Not going); "Assiduidade" with the attended and missed counts of `attendance.history`
+    (`/app/attendance_history`, `/app/absence_history`, the coach's own roster player, their
+    default span); "Última avaliação" with the newest `evaluatedAt` of the player's profile, or
+    "Sem avaliações"; "Contacto" with the roster's phone, else the email, else "—". The two
+    detail lines rule 3a used to carry on the row live here now: "Lembrete enviado" while the
+    player is `planned` and `reminderSentAt` is set, and the cancelled-by-student line
+    (`cancellationDetail`) when it applies. Actions: "Enviar mensagem" opens (or creates) the
+    conversation with the player and "Ver perfil completo" opens the player's page (web
+    `/players/<playerId>`, mobile `/player/<playerId>`). Closing — the X, Esc, or a tap
+    outside — closes ONLY the pop-up: the class detail stays open at the same scroll position.
+    Test ids: `participant-popup`, `participant-popup-close`, `participant-popup-state` (with
+    `data-group`), `participant-popup-message`, `participant-popup-profile`.
+
+24. **The class learns of presence changes live (PAD-659).** Every write that moves a presence —
+    the student's reminder answer (`respond_to_reminder`), a cancellation or proactive decline
+    (`cancel_attendance`), the coach's marks and clears (`add_presences`) — publishes, after its
+    commit, `{"type": "presence_changed", "payload": {"lessonInstanceId", "playerId"}}` to the
+    class's coach only; the payload also names `lessonId` and the occurrence `date`. Both shells
+    test the event with one predicate in `@levelup/config` (`presenceChangedFor(evt, instanceId,
+    occurrence)`, the sibling of `reminderArrivedFor`) and refetch the open class, so a player
+    moves to their new group without a reload. **(B-548)** The open class's instance id is read
+    by `liveInstanceIdOf` — a presence's `lessonInstanceId`, else a `lessoninstance-<n>` event id
+    — never from the web sheet's `classInstance.id`, which is the calendar-event id; an occurrence
+    opened before it was materialised matches by its lesson and date. A student receives no
+    such event: nothing in their own view depends on another student's presence.
+
+25. **"Vai / Não vai" whoever marked (PAD-663; numbering self-assigned, unconfirmed).** Before a
+    class ends, every display of a student's state in that class says the INTENT — coach: "Vai" /
+    "Não vai" (en "Going" / "Not going"); the student about themselves: "Vais" / "Não vais" —
+    whether the student answered or the coach marked. A coach's mark is stored validated
+    (`attended` / `missed`), so the word and its tone are chosen by ONE helper in
+    `@levelup/config` (`displayStateOf(state, classHasEnded(date, endTime))`) from the state and
+    whether the class has ended on the club's clock (an unreadable time counts as not ended): before the end `attended` reads as `coming` and `missed` as `not_coming`; after the
+    end they keep "Presente" / "Faltou". `data-state` and the `attendance-state-<state>` test ids
+    keep rule 9's stored value — only the word and tone follow the display state. `planned` keeps
+    its word ("Inscrito") on rows; the class-detail groups and pop-up say "Por responder". The
+    displays this covers (inventory of 2026-10-14): web `AttendanceRow` (the student's row in the
+    class detail and the coach's marking rows), iOS/Android `ParticipantRow` (the same two), and
+    the student's own state badge on the iOS/Android class screen. Not covered, because they are
+    attendance validation: the validation dialog (`ValidateClassesDialog`, web; the Presences
+    tab, mobile) and the coach's mark buttons ("Presente", "Ausente", "Justificada",
+    "Injustificada"), which do not change. The calendar cards' relation chips and the dashboard
+    attendance counts already say "Não vou" / "Presenças" / "Faltas" and are unchanged.
+
 ### Acceptance Criteria
+
+#### Sixteen players fit on a laptop, grouped and ordered (rule 22, PAD-659)
+- **Given** a class of 16 with 4 coming (sides Esq, Dir, Amb, Dir), 8 who have not answered and 4
+  not coming, and "Álvaro" and "Bruno" among the Por responder players, both on the right side
+- **When** the coach opens it on web at 1440×900 and scrolls the sheet to Participantes
+- **Then** all 16 rows are inside the viewport at once and the list has no scroll of its own
+- **And** the groups read "VÃO · 4", "POR RESPONDER · 8", "NÃO VÃO · 4" in that order, the Vão
+  rows run Amb, Dir, Dir, Esq, and Álvaro is listed before Bruno
+- **And** no row shows a level or a state word, and the header reads "16/16 inscritos"
+
+#### An empty group is not shown (rule 22)
+- **Given** a class whose 3 participants have all answered "Vou"
+- **When** the coach opens it
+- **Then** only the "VÃO · 3" group is rendered
+
+#### A coach's own mark lands in Vão, not "Presente" (rules 22, 25, PAD-663)
+- **Given** a class tomorrow and a student the coach marks present in "Editar presenças"
+- **When** the coach saves
+- **Then** the student's row sits in "VÃO" and their pop-up reads "Nesta aula: Vai"
+- **And** the student's own view of that class reads "Vais", not "Presente", and the coach's
+  marking row for them reads "Vai" while its `data-state` stays `attended`
+- **And** after the class has ended, the student's history shows "Presente", and the validation
+  dialog still offers "Presente / Justificada / Injustificada"
+
+#### The pop-up opens and returns the coach where they were (rule 23)
+- **Given** the coach scrolled the class detail to Participantes
+- **When** they click a player's name, then close the pop-up with Esc (and again with the X, and
+  again by clicking outside)
+- **Then** the pop-up showed the player's side in full, their level, "Nesta aula", assiduidade,
+  última avaliação and contacto
+- **And** after each close the class detail is still open at the same scroll position and focus
+  is back on that player's name
+- **And** clicking the side chip opens nothing
+
+#### A student's answer regroups the open class live (rule 24)
+- **Given** the coach has a class open with Ana in "POR RESPONDER"
+- **When** Ana answers the reminder "Não vou" from her own session
+- **Then** without a reload Ana's row moves to "NÃO VÃO" and the group counts change
+- **And** the backend published `presence_changed` with that class's id and Ana's player id to the
+  coach and to no student
+
+#### The word changes at the class's end time (rule 25, pinned clock)
+- **Given** a class on 2026-10-20 ending 21:30 club time, and a student the coach marked present
+- **When** a display reads that student at 21:29 club time, and again at 21:31
+- **Then** at 21:29 it reads "Vai" (the student: "Vais"), and at 21:31 it reads "Presente"
+
+#### Mobile shows the same list behind an edit toggle (rules 22–23)
+- **Given** the same class on iOS
+- **When** the coach opens it
+- **Then** the groups, order and side chips match web, rows are at least 44 px high, and no mark
+  buttons show until the coach taps "Editar presenças"
+- **And** tapping a name opens a bottom sheet with the same contents, and closing it leaves the
+  class screen where it was
+
 
 #### A class detail costs a fixed number of statements (rule 21, PAD-591)
 - **Given** a class instance with 3 participants and another with 12

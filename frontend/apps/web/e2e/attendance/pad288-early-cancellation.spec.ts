@@ -140,11 +140,16 @@ test("US-PAD-288: a student cancels a class eight or more days ahead; both views
     // (rule 23 as amended by rule 25).
     await loginAsCoach(page);
     await openClassDetail(page, 3);
-    const coachRow = page.getByTestId("attendance-row").filter({ hasText: STUDENT_NAME }).first();
-    await expect(coachRow.getByTestId("attendance-state")).toHaveAttribute("data-state", "not_coming");
-    await expect(coachRow.getByTestId("attendance-cancelled-by-student")).toBeVisible({ timeout: 10_000 });
+    // PAD-659: the coach's read view is the grouped list; the state is the row's
+    // data-state and the cancellation detail moved into the player pop-up.
+    const coachRow = page.getByTestId(/^participant-row-/).filter({ hasText: STUDENT_NAME }).first();
+    await expect(coachRow).toHaveAttribute("data-state", "not_coming", { timeout: 10_000 });
+    await coachRow.getByTestId(/^participant-open-/).click();
+    const popup = page.getByTestId("participant-popup");
+    await expect(popup).toBeVisible({ timeout: 5000 });
+    await expect(popup.getByTestId("attendance-cancelled-by-student")).toBeVisible({ timeout: 10_000 });
     // The retired chip must not come back alongside it.
-    await expect(coachRow.locator('[data-testid="attendance-signal"]')).toHaveCount(0);
+    await expect(popup.locator('[data-testid="attendance-signal"]')).toHaveCount(0);
   } finally {
     // PAD-341: the class needs two passes (the cancel materialised an instance
     // over a one-off lesson), and the accepted request outlives the class.

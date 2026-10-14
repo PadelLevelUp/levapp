@@ -47,7 +47,6 @@ export const ALT_BACKLOG: readonly AltBacklogEntry[] = [
   { file: "pw:notification-engine/semi-auto-approval.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /mark attendance|edit attendance/" },
   { file: "pw:player-management/player-side-both.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /error|failed/" },
   { file: "pw:player-management/players-sort-filter-alerts.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /clear|remove|reset|show all/" },
-  { file: "pw:schedule-calendar/attendance-save.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /mark attendance|edit attendance/" },
   { file: "pw:schedule-calendar/class-delete-confirm.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /beginner academy|private/" },
   { file: "pw:schedule-calendar/class-deletion.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /beginner academy|private/" },
   { file: "pw:schedule-calendar/pad335-delete-materialised-one-off.spec.ts", max: 1, reason: "1 bilingual alternation, e.g. /mark attendance|edit attendance/" },
