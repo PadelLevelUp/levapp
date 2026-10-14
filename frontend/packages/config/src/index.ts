@@ -74,3 +74,4 @@ export * from "./country-prompt";
 export * from "./contact";
 export * from "./legal-catch-up";
 export * from "./signup-username";
+export * from "./coach-display-name";

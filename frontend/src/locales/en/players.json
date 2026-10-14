@@ -452,6 +452,13 @@
       "selectPlayerHint": "Their details open here, next to the list.",
       "levelChip": "Level {{code}}"
     },
-    "confirmsAdults": "I confirm this student is 18 or older."
+    "confirmsAdults": "I confirm this student is 18 or older.",
+    "nickname": {
+      "label": "Nickname (optional)",
+      "placeholder": "e.g. Jorge the tall",
+      "warning": "Only you can see this. Avoid offensive nicknames: the student can request a copy of their data.",
+      "asName": "Use the nickname as the main name",
+      "tooLong": "A nickname has at most 60 characters."
+    }
   }
 }
