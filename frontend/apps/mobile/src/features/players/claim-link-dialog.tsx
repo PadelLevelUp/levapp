@@ -1,5 +1,6 @@
 import { playerClaimsApi } from "@levelup/api";
 import { describeMergePlan } from "@levelup/config";
+import { useDebouncedText } from "@/lib/useDebouncedText";
 import type { CoachPlayer } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
@@ -21,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { coachPlayersKey } from "@/features/players/hooks";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 
 type Tab = "roster" | "username";
 
@@ -42,6 +44,9 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
   const [username, setUsername] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [candidates, setCandidates] = React.useState<playerClaimsApi.ClaimCandidate[] | null>(null);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the rows for that text land.
+  const { debounced: debouncedSearch, settling } = useDebouncedText(search);
+  const [loadedFor, setLoadedFor] = React.useState<string | null>(null);
   const [targetId, setTargetId] = React.useState<string | number | null>(null);
   const [preview, setPreview] = React.useState<playerClaimsApi.MergePreview | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
@@ -54,17 +59,21 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
     if (!open || tab !== "roster") return;
     let cancelled = false;
     playerClaimsApi
-      .listClaimCandidates(player.playerId, search.trim() || undefined)
+      .listClaimCandidates(player.playerId, debouncedSearch || undefined)
       .then((rows) => {
-        if (!cancelled) setCandidates(rows);
+        if (cancelled) return;
+        setCandidates(rows);
+        setLoadedFor(debouncedSearch);
       })
       .catch(() => {
-        if (!cancelled) setCandidates([]);
+        if (cancelled) return;
+        setCandidates([]);
+        setLoadedFor(debouncedSearch);
       });
     return () => {
       cancelled = true;
     };
-  }, [open, tab, search, player.playerId]);
+  }, [open, tab, debouncedSearch, player.playerId]);
 
   React.useEffect(() => {
     if (!open || targetId === null) {
@@ -157,6 +166,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
     );
   }
 
+  const searching = settling || loadedFor !== debouncedSearch;
   const canSubmit = tab === "roster" ? targetId !== null : Boolean(username.trim());
   const described = describeMergePlan(preview, t, "theirs");
 
@@ -213,9 +223,15 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                 {candidates === null ? (
                   <Text className="p-2 text-sm text-muted-foreground">{t("players.claim.previewLoading")}</Text>
                 ) : candidates.length === 0 ? (
-                  <Text className="p-2 text-sm text-muted-foreground">{t("players.claim.noCandidates")}</Text>
+                  search.trim() ? (
+                    <PlayerSearchFeedback query={search} searching={searching} count={0} />
+                  ) : (
+                    <Text className="p-2 text-sm text-muted-foreground">{t("players.claim.noCandidates")}</Text>
+                  )
                 ) : (
-                  candidates.map((c) => {
+                  <>
+                  <PlayerSearchFeedback query={search} searching={searching} count={candidates.length} />
+                  {candidates.map((c) => {
                     const selected = String(c.playerId) === String(targetId);
                     return (
                       <Pressable
@@ -236,7 +252,8 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                         {c.sameName ? <Text className="text-xs text-warning">{t("players.claim.sameName")}</Text> : null}
                       </Pressable>
                     );
-                  })
+                  })}
+                  </>
                 )}
               </ScrollView>
               {targetId !== null ? (

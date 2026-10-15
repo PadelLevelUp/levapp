@@ -67,6 +67,9 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
                 {row.side ? (
                   <span
                     data-testid="participant-side"
+                    // PAD-551: the side in this occurrence; `data-side-override` says the coach set it here.
+                    data-side={row.side}
+                    data-side-override={row.presence?.sideOverride ? "true" : "false"}
                     title={t(SIDE_LONG_KEYS[row.side])}
                     className="flex h-[22px] w-[38px] shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"
                   >

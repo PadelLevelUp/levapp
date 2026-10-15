@@ -9,6 +9,7 @@ import {
   groupOfState,
   reminderHint,
 } from "@levelup/config";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import { usePlayerProfile } from "@levelup/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -30,9 +31,11 @@ import type { ParticipantGroupRow } from "./ParticipantGroups";
 interface ParticipantSheetProps {
   row: ParticipantGroupRow | null;
   onClose: () => void;
+  /** PAD-551: this player's side in this occurrence, for the coach (the screen's live state). */
+  side?: SideInOccurrence;
 }
 
-export function ParticipantSheet({ row, onClose }: ParticipantSheetProps) {
+export function ParticipantSheet({ row, onClose, side }: ParticipantSheetProps) {
   const { t, i18n } = useTranslation();
   const playerId = row?.playerId ?? null;
 
@@ -120,9 +123,10 @@ export function ParticipantSheet({ row, onClose }: ParticipantSheetProps) {
                   {row.name}
                 </Text>
                 <View className="flex-row flex-wrap gap-1.5">
-                  {row.side ? (
+                  {/* PAD-551: the side the screen reads now (a change re-reads the class), else the row's. */}
+                  {(side?.current ?? row.side) ? (
                     <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 6, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.15)" }}>
-                      <Text className="font-semibold" style={{ fontSize: 11, color: "#9CC6FF" }}>{t(SIDE_LONG_KEYS[row.side])}</Text>
+                      <Text className="font-semibold" style={{ fontSize: 11, color: "#9CC6FF" }}>{t(SIDE_LONG_KEYS[(side?.current ?? row.side)!])}</Text>
                     </View>
                   ) : null}
                   {row.level?.label ? (
@@ -157,6 +161,11 @@ export function ParticipantSheet({ row, onClose }: ParticipantSheetProps) {
 
             <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 12 }}>
               {fact(t("calendar.participants.inThisClass"), t(PARTICIPANT_GROUP_WORD_KEYS[group]), "participant-popup-state")}
+              {side ? (
+                <View className="gap-1 py-2" testID="participant-popup-side">
+                  <SideInOccurrenceControl playerId={row.playerId} side={side} />
+                </View>
+              ) : null}
               {hint ? (
                 <Text className="py-1 text-xs text-muted-foreground" testID="attendance-reminder-hint">
                   {t(hint)}

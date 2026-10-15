@@ -126,12 +126,17 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    is in the future replaces the old one. A job whose new fire time is already past, or whose
    timing is `none`, is removed: that class gets no automatic reminder (or no invitation start)
    from that job. For a never-filled place whose window is already open, invitations rule 1c
-   (PAD-540) says what opens it instead: the next tick, once the class exists; the save itself
-   still sends nothing. The class gets nothing from the save itself; rule 10f says how the coach can have it sent. A
+   (PAD-540) says what opens it instead: the next tick, once the class exists, and for an
+   occurrence not materialised yet the **catch-up** (PAD-661, B-501): the derivation arms the
+   invite-start job two minutes out instead of removing it, and that job — not the save —
+   materialises and opens the place through every gate; the save itself still sends nothing. The class gets nothing from the save itself; rule 10f says how the coach can have it sent. A
    job already armed at exactly the implied time is left alone, even when that time has just
    passed, so it fires or expires inside its grace time. No job armed from a previous or an
    intermediate value remains. The startup re-arm and the daily window pass use the same
-   derivation, and for them a past fire time always means no job and nothing sent. Both passes
+   derivation, and for them a past fire time always means no job and nothing sent — with the one
+   exception of invitations rule 1c's catch-up: a past invite-start time of an occurrence not yet
+   materialised and still ahead arms the lesson-level start job two minutes out, so the first
+   startup after PAD-661 opens every such class of every engine-on coach (the deploy burst). Both passes
    work coach by coach: a failure for one coach is logged with that coach and the pass goes on
    to the next. Deploying
    this rule sends nothing: the startup pass removes jobs the configuration no longer implies

@@ -2,6 +2,10 @@
   "players": {
     "title": "Players",
     "searchPlaceholder": "Search players...",
+    "search": {
+      "searching": "Searching…",
+      "noResults": "No player found for “{{query}}”"
+    },
     "sortAriaLabel": "Sort players",
     "sortPlaceholder": "Sort by...",
     "sortNameAsc": "Name A-Z",

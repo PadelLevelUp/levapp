@@ -507,6 +507,12 @@ export interface ClassInvitation {
 }
 
 export interface ClassInstance {
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
+   * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
+   * student and for a series template with no date).
+   */
+  sideEditable?: boolean;
   id: string;
   originalId: string;
   parentClassId?: string;
@@ -634,6 +640,14 @@ export interface Presence {
    */
   cancelledByStudent?: boolean;
   cancelledAt?: string | null;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence — the
+   * coach's override when `sideOverride`, else their usual side — and whether the coach may still
+   * change it (the server's answer: not ended, not canceled).
+   */
+  side?: 'left' | 'right' | 'both' | null;
+  sideOverride?: boolean;
+  sideEditable?: boolean;
 
   player?: Player;
 }
@@ -1566,8 +1580,20 @@ export interface ApprovalVacancyInfo {
   /** PAD-574: the side the spot asks for first (rule 7a's group label). */
   side?: PlayerSide | null;
   queue: ApprovalQueuePlayer[];
+  /**
+   * PAD-661 (semi-auto-approval rule 4b): why the queue is empty — the roster counted by the first
+   * engine stage that dropped each student, in engine order. Present only when `queue` is empty;
+   * absent on older payloads.
+   */
+  emptyQueueReasons?: ApprovalEmptyQueueReason[];
   waitingListPlayerId?: number;
   waitingListPlayerName?: string;
+}
+
+/** PAD-661: one line of "why nobody is suggested"; `stage` is a `CANDIDATE_STAGES` key. */
+export interface ApprovalEmptyQueueReason {
+  stage: string;
+  count: number;
 }
 
 /** PAD-545 / PAD-542 (semi-auto-approval rule 12): a class's suggestion state for its coach. */

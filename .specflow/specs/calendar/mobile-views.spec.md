@@ -66,7 +66,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
    - `future` (scheduled): solid coach colour, text via `contrastTextOn`.
    - `next` (the next upcoming class when the visible range contains today, same gate as
      `calendar.view`): white card with a 1.5px outline in the coach colour, title in the
-     coach colour via `readableInk`.
+     coach colour via `readableInk`. **(B-533, PAD-675)** On iOS its lift is inline style, never a
+     class the card gains when it becomes next: a card's className does not depend on its variant
+     changing after mount (css-interop's upgrade warning crashed the debug build).
    - `past` (completed): coach colour faded via `fadeColor`, muted text.
    - `canceled`: solid `destructive` red surface, white title, the existing
      `calendar.eventCard.canceled` label as subtitle. Red means canceled and nothing else.

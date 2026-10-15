@@ -2,6 +2,7 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,13 @@ interface AttendanceRowProps {
   /** Whose row this is, so the state word addresses the right person. */
   audience?: StateAudience;
   /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence, for the
+   * coach. `current` is the side the server reports, `override` whether it is set here, and
+   * `editable` the server's answer to "may it still change". `onChange(null)` goes back to the
+   * usual side.
+   */
+  side?: SideInOccurrence;
+  /**
    * PAD-663 (`calendar.event-detail` rule 25): has the class ended? Until it has, a coach's
    * validated mark is worded as the intent ("Vai", not "Presente"). Defaults to true, the
    * record's own word, for a caller that does not know.
@@ -52,6 +60,7 @@ export function AttendanceRow({
   disabled = false,
   presence,
   audience = "coach",
+  side,
   classEnded = true,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
@@ -130,6 +139,9 @@ export function AttendanceRow({
           {t(attendanceStateLabelKey(shown, audience))}
         </Badge>
       </div>
+
+      {/* PAD-551: the side this player plays in this occurrence. */}
+      {side && <SideInOccurrenceControl playerId={String(player.id)} side={side} />}
 
       {/* Secondary facts. Never a second state word: lesser weight, own line. */}
       {cancellation && (

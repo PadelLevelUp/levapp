@@ -380,7 +380,6 @@
       "loadingGroups": "A carregar grupos…",
       "selectAllIn": "Selecionar todos em {{group}}",
       "searchPlaceholder": "Pesquisar alunos individualmente…",
-      "noResults": "Sem resultados",
       "noEligibleStudents": "Nenhum aluno elegível encontrado",
       "cancel": "Cancelar",
       "send": "Enviar",
@@ -597,6 +596,18 @@
       "onHint": "Avisamos-te se abrir uma vaga.",
       "failed": "Não foi possível entrar na lista de espera",
       "fullHint": "Esta aula está cheia. Podes entrar na lista de espera."
+    },
+    "side": {
+      "label": "Lado nesta aula",
+      "usual": "Habitual",
+      "left": "Esquerdo",
+      "right": "Direito",
+      "tag": {
+        "left": "Esquerdo nesta aula",
+        "right": "Direito nesta aula"
+      },
+      "saveFailed": "Não foi possível mudar o lado. Tenta outra vez.",
+      "ended": "Esta aula já terminou; o lado já não se pode mudar."
     },
     "participants": {
       "group": {

@@ -142,3 +142,15 @@ describe("NotifyModal: inviting below the bar", () => {
     expect(mutateAsync).toHaveBeenCalledWith({ model: "LessonInstance", originalId: "5", date: "2026-06-11", playerIds: ["8"] });
   });
 });
+
+describe("NotifyModal: a search that finds nobody says so (players.search rule 10, PAD-665)", () => {
+  it("shows the shared empty line for a non-matching query, and removes it once the box is cleared", async () => {
+    const ui = await renderNative(<NotifyModal open onClose={() => {}} event={event} existingPlayerIds={[]} />);
+    expect(ui.queryByTestId("player-search-empty")).toBeNull();
+    await ui.changeText("class-notify-search", "  xavier ");
+    expect(ui.byTestId("player-search-empty")).toBeTruthy();
+    expect(ui.queryByTestId("player-search-searching")).toBeNull();
+    await ui.changeText("class-notify-search", "");
+    expect(ui.queryByTestId("player-search-empty")).toBeNull();
+  });
+});

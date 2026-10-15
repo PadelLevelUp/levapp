@@ -1138,6 +1138,58 @@ def lesson_instance_presences(instance_id):
     return jsonify(serialize_presences(presences))
 
 
+@bp.put("/class_instance/presences/side")
+@jwt_required()
+def class_instance_presence_side():
+    """classes.instance-enrollment rule 13 (PAD-551): the coach sets or clears a player's side in
+    one occurrence — ``{"classInstance": {...}, "playerId": …, "side": "left" | "right" | null}``,
+    the occurrence addressed as attendance-confirm addresses it. A virtual occurrence is
+    materialised only here, when a side is actually set, and never once it has ended."""
+    from dateutil import parser as _dtparser
+
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.presence_side_service import (
+        SIDES,
+        PresenceSideError,
+        occurrence_side_editable,
+        set_presence_side,
+    )
+
+    data = request.get_json(silent=True) or {}
+    side = data.get("side", "missing")
+    if side is not None and side not in SIDES:
+        return jsonify({"error": "INVALID_SIDE", "code": "INVALID_SIDE"}), 400
+    coach = require_coach()
+    ci = data.get("classInstance") or {}
+    event_id = str(ci.get("id") or "")
+    if event_id.startswith("lessoninstance-"):
+        is_instance = True
+    elif event_id.startswith("lesson-"):
+        is_instance = False
+    else:
+        is_instance = bool(ci.get("parentClassId"))
+    target = require_owned_class(coach, "lessoninstance" if is_instance else "lesson", ci.get("originalId"))
+    player_id = data.get("playerId")
+    lesson_id = target.lesson_id if is_instance else target.id
+    if not _player_in_class(player_id, lesson_id, target.id if is_instance else None):
+        return jsonify({"error": "NO_PRESENCE", "code": "NO_PRESENCE"}), 404
+    if is_instance:
+        instance = target
+    else:
+        try:
+            occurrence_date = _dtparser.isoparse(str(ci.get("date"))).date()
+        except (TypeError, ValueError):
+            abort(400, "classInstance.date must be an ISO date")
+        if not occurrence_side_editable(target, occurrence_date):
+            return jsonify({"error": "OCCURRENCE_ENDED", "code": "OCCURRENCE_ENDED"}), 409
+        instance = get_or_materialize_instance(target, occurrence_date)
+    try:
+        presence = set_presence_side(coach, instance, int(player_id), side)
+    except PresenceSideError as err:
+        return jsonify({"error": err.code, "code": err.code}), err.status
+    return jsonify(serialize_presences([presence])[0])
+
+
 @bp.get("/calendar_event")
 @jwt_required()
 def calendar_event():

@@ -19,6 +19,7 @@ Public API
 from __future__ import annotations
 
 import uuid
+from collections import Counter
 from datetime import datetime
 
 from padel_app.models import Vacancy
@@ -127,11 +128,41 @@ def _player_name(player_id: int | None) -> str | None:
     return player.user.name if player and player.user else None
 
 
-def _vacancy_payload(vacancy, queue: list[dict], wl_player_id) -> dict:
+#: PAD-661 (semi-auto-approval rule 4b): the engine stages that are NOT a reason nobody is
+#: suggested — a student already in the class, the departing one, and one who IS invited. Every
+#: other ``CANDIDATE_STAGES`` entry counts, in that tuple's order.
+_NOT_A_REASON = frozenset({"departing_player", "already_enrolled", "invited"})
+
+
+def empty_queue_reasons(vacancy, instance, coach_id: int, config) -> list[dict]:
+    """Why the engine suggests nobody for ``vacancy`` (rule 4b, PAD-661): the roster evaluated
+    against the LOOSEST wave, counted by the first stage that dropped each student, in
+    ``CANDIDATE_STAGES`` order, zero counts left out. Called only for an empty queue."""
+    from padel_app.services.notification_service import (
+        CANDIDATE_STAGES,
+        evaluate_candidates,
+        invitation_waves,
+    )
+
+    waves = invitation_waves(config)
+    if not waves:
+        return []
+    number, kind, _rules = waves[-1]
+    verdicts = evaluate_candidates(vacancy, instance, coach_id, config, wave=(kind, number))
+    counts = Counter(v.stage for v in verdicts)
+    return [
+        {"stage": stage, "count": counts[stage]}
+        for stage in CANDIDATE_STAGES
+        if stage not in _NOT_A_REASON and counts.get(stage)
+    ]
+
+
+def _vacancy_payload(vacancy, queue: list[dict], wl_player_id, instance, coach_id: int, config) -> dict:
     """One bundle entry (rule 4, PAD-574): a freed spot names the student; a never-filled spot
     (``original_player_id`` NULL) is ``openSpot`` with no name; ``side`` is what the spot asks for
-    first, so a card can label a group of open spots."""
-    return {
+    first, so a card can label a group of open spots. An empty queue carries ``emptyQueueReasons``
+    (rule 4b, PAD-661); a non-empty one carries no such key."""
+    payload = {
         "vacancyId": vacancy.id,
         "declinedPlayerId": vacancy.original_player_id,
         "declinedPlayerName": _player_name(vacancy.original_player_id),
@@ -141,6 +172,9 @@ def _vacancy_payload(vacancy, queue: list[dict], wl_player_id) -> dict:
         "waitingListPlayerId": wl_player_id,
         "waitingListPlayerName": _player_name(wl_player_id),
     }
+    if not queue:
+        payload["emptyQueueReasons"] = empty_queue_reasons(vacancy, instance, coach_id, config)
+    return payload
 
 
 def _build_prompt_text(vacancies_payload: list[dict]) -> str:
@@ -232,7 +266,7 @@ def create_approval_prompts(
         db.session.add(prompt)
         prompts.append(prompt)
 
-        vacancies_payload.append(_vacancy_payload(vacancy, queue, wl_player_id))
+        vacancies_payload.append(_vacancy_payload(vacancy, queue, wl_player_id, instance, coach_id, config))
 
     db.session.flush()
     return _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts)
@@ -557,7 +591,7 @@ def recompute_suggestions(instance_id: int, coach_id: int, *, now: datetime | No
         prompt.queue_snapshot = queue
         prompt.waiting_list_player_id = None
         prompts.append(prompt)
-        payload.append(_vacancy_payload(vacancy, queue, None))
+        payload.append(_vacancy_payload(vacancy, queue, None, instance, coach_id, config))
     db.session.flush()
     bundle = _post_bundle(bundle_id, instance, coach.user_id if coach else None, window_open_dt, payload, prompts)
     return {"state": "pending", "bundle": bundle}

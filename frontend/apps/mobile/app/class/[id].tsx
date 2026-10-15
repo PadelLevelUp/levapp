@@ -99,7 +99,7 @@ import { classCourtsQuery } from "@/features/calendar/class-courts";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
-import { messagesApi } from "@levelup/api";
+import { messagesApi, presencesApi } from "@levelup/api";
 import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
@@ -131,6 +131,7 @@ import {
 } from "@/features/calendar/params";
 import { ParticipantGroups, type ParticipantGroupRow } from "@/features/calendar/ParticipantGroups";
 import { ParticipantSheet } from "@/features/calendar/ParticipantSheet";
+import type { SideInOccurrence } from "@/features/calendar/SideInOccurrenceControl";
 import {
   ParticipantRow,
   playerName,
@@ -167,6 +168,8 @@ export default function ClassDetailScreen() {
   const { user } = useAuth();
   const isCoach = user?.roles?.includes("coach") ?? false;
   const queryClient = useQueryClient();
+  // PAD-551: the participant whose side is being saved (declared with the other hooks, PAD-326).
+  const [sideBusy, setSideBusy] = React.useState<string | null>(null);
 
   const paramsEvent = React.useMemo(() => paramsToEvent(params), [
     params.id,
@@ -652,6 +655,36 @@ export default function ClassDetailScreen() {
     if (outcome === "accepted" || outcome === "withdrawn") {
       void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
     }
+  };
+
+  // PAD-551 (classes.instance-enrollment rule 13): the coach sets a player's side for this
+  // occurrence (a virtual one is materialised on the server). The change may re-side open spots
+  // and withdraw invitations for balance, so the whole class is re-read, not just the row.
+  const changeSide = async (playerId: string, side: "left" | "right" | null) => {
+    if (!instance) return;
+    setSideBusy(playerId);
+    try {
+      await presencesApi.setPresenceSide(instance, playerId, side);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      toast.error(t(status === 409 ? "calendar.side.ended" : "calendar.side.saveFailed"));
+    } finally {
+      setSideBusy(null);
+    }
+  };
+  // The one shape the attendance rows and the participant sheet read. A virtual occurrence has no
+  // presence rows yet: the player starts on "Habitual".
+  const sideFor = (playerId: string): SideInOccurrence | undefined => {
+    if (!isCoach || instance?.sideEditable === undefined) return undefined;
+    const presence = instance.presences?.find((x) => String(x.playerId) === playerId);
+    return {
+      current: presence?.side ?? null,
+      override: !!presence?.sideOverride,
+      editable: !!instance.sideEditable && !isCanceled && !isEditing,
+      busy: sideBusy === playerId,
+      onChange: (next) => void changeSide(playerId, next),
+    };
   };
 
   const respondForInvitee = async (inv: ClassInvitation, action: "yes" | "no") => {
@@ -1566,7 +1599,11 @@ export default function ClassDetailScreen() {
                   roster={coachPlayers}
                   onOpen={setPopupRow}
                 />
-                <ParticipantSheet row={popupRow} onClose={() => setPopupRow(null)} />
+                <ParticipantSheet
+                  row={popupRow}
+                  onClose={() => setPopupRow(null)}
+                  side={popupRow ? sideFor(popupRow.playerId) : undefined}
+                />
               </>
             ) : (
               participants.map((participant) => (
@@ -1577,6 +1614,7 @@ export default function ClassDetailScreen() {
                     (presence) =>
                       String(presence.playerId) === String(participant.id)
                   )}
+                  side={sideFor(String(participant.id))}
                   attendance={
                     attendance[String(participant.id)] ?? { status: null }
                   }

@@ -66,8 +66,16 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    lookups, exercises/groups/competencies.
 9. **No raw comparison returns.** A guard test fails if any surface in rule 8 compares a player name
    with `toLowerCase().includes(` instead of the shared rule.
-10. **Slice 2 (separate PR):** a debounce of ~200 ms where a surface asks the server, a "searching"
-    state, and "Nenhum jogador encontrado para «…»" when nothing matches — ticket point 7.
+10. **Feedback while typing (slice 2, ticket point 7).** On every surface of rule 8, web and iOS:
+    - **Debounce.** A surface that asks the server waits **200 ms** after the last keystroke
+      (`PLAYER_SEARCH_DEBOUNCE_MS` in `@levelup/config`); a local filter answers on each keystroke.
+    - **Searching.** While a server search for the current text is in flight, the surface shows
+      "A pesquisar…" (`players.search.searching`, test id `player-search-searching`) in place of the
+      empty message; earlier results stay on screen until the new ones arrive.
+    - **Nothing found.** When a non-blank query matches nobody, the surface shows
+      "Nenhum jogador encontrado para «{query}»" (`players.search.noResults`, test id
+      `player-search-empty`, the query as typed, trimmed). A blank query never shows it. A surface that
+      already had its own empty line for a non-blank query uses this one instead.
 
 ### Acceptance Criteria
 
@@ -102,6 +110,18 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
 - **Given** the twelve surfaces of rule 8
 - **When** the guard scans their files
 - **Then** none contains `.toLowerCase().includes(` on a player name
+
+#### A search that finds nobody says so, with the query (rule 10)
+- **Given** a coach's roster without any "Xavier"
+- **When** they type `  xavier ` on any surface of rule 8 and the search settles
+- **Then** "Nenhum jogador encontrado para «xavier»" is shown (`player-search-empty`)
+- **And** clearing the box removes it and shows the list again
+
+#### A server search waits for the typing to stop and says it is searching (rule 10)
+- **Given** the Players tab
+- **When** the coach types `rui` letter by letter, faster than 200 ms apart
+- **Then** one request is made, for `rui`, 200 ms after the last letter
+- **And** while it is in flight `player-search-searching` is shown and the previous rows stay
 
 ### Notes
 - Prod Postgres is the official `postgres:15` image; `unaccent`/`pg_trgm` are not installed by any

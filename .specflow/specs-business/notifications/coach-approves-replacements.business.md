@@ -45,6 +45,9 @@ act unsupervised — particularly one running a smaller or more relationship-dri
   never invite someone who wasn't shown, though it re-checks eligibility at send time, so someone
   shown may later be skipped, and (rarely) someone not shown may qualify by send time if their own
   situation changed in between.
+- When the engine can suggest nobody, the prompt says why in numbers — how many students fall
+  outside the eligibility rules, are excluded, are busy that day, and so on — so the coach can
+  loosen a rule or invite by hand instead of staring at an empty list.
 - A decision is final: once a coach dismisses a prompt, it can't be revived — they'd need to trigger
   a new one or invite manually.
 - Saying no doesn't close the spot. It just means the engine stays out of it; the coach keeps every

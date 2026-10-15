@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { PendingValidationClass, PendingValidationPlayer } from "@/types";
 
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { PresenceMarkToggle } from "./PresenceMarkToggle";
 import { weekLabelDates } from "@/components/attendance/dateRanges";
 import {
@@ -628,7 +629,11 @@ function WalkInSearch({
       </div>
       <ul className="max-h-44 overflow-y-auto overscroll-contain rounded-md border border-border" data-testid="presences-walk-in-list">
         {options.length === 0 ? (
-          <li className="px-3 py-2 text-xs text-muted-foreground">{t("presences.validate.noPlayerMatches")}</li>
+          query.trim() ? (
+            <PlayerSearchFeedback as="li" query={query} count={0} className="px-3 py-2 text-xs text-muted-foreground" />
+          ) : (
+            <li className="px-3 py-2 text-xs text-muted-foreground">{t("presences.validate.noPlayerMatches")}</li>
+          )
         ) : (
           options.map((option) => (
             <li key={option.id}>

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import {
   attendanceStateLabelKey,
   attendanceStateOf,
@@ -64,6 +65,12 @@ type ParticipantRowProps = {
    */
   audience?: StateAudience;
   /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence, for the
+   * coach — the same shape as web's AttendanceRow `side`. `onChange(null)` goes back to the usual
+   * side; `editable` is the server's answer (not ended, not canceled).
+   */
+  side?: SideInOccurrence;
+  /**
    * PAD-663 (`calendar.event-detail` rule 25): before the class ends a coach's validated mark
    * is worded as the intent it records ("Vai"), so the badge word and tone follow
    * `displayStateOf`. The test id below keeps the STORED state.
@@ -80,6 +87,7 @@ export function ParticipantRow({
   onChange,
   canMark,
   audience = "coach",
+  side,
   classEnded = true,
 }: ParticipantRowProps) {
   const name = playerName(player);
@@ -137,6 +145,9 @@ export function ParticipantRow({
           </Badge>
         ) : null}
       </View>
+
+      {/* PAD-551: the side this player plays in this occurrence. */}
+      {side ? <SideInOccurrenceControl playerId={playerId} side={side} /> : null}
 
       {/* Secondary facts, each on its own line and never a second state word:
           who cancelled and when (rule 23's provenance, coach's row only while

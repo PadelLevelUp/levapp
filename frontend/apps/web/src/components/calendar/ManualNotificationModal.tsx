@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { CoachPlayer, StudentGroup } from "@/types";
 import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { runManualInviteFlow, searchRoster, splitBlockedByCause } from "@levelup/config";
 import type { EligibilityCheckEntry } from "@/types";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
@@ -354,7 +355,7 @@ export function ManualNotificationModal({
           {search && (
             <div className="space-y-0.5">
               {searchResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-3">{t("calendar.notify.noResults")}</p>
+                <PlayerSearchFeedback query={search} count={0} className="text-sm text-muted-foreground text-center py-3" />
               ) : (
                 searchResults.map((p) => (
                   <PlayerToggleRow
