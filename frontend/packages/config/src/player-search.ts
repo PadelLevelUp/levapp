@@ -1,3 +1,4 @@
+import { rosterNicknameOf } from "./coach-display-name";
 import { searchPlayers } from "./name-search";
 
 /**
@@ -9,6 +10,8 @@ import { searchPlayers } from "./name-search";
 interface RosterPlayerLike {
   playerId?: string | number | null;
   name: string;
+  nickname?: string | null;
+  displayName?: string | null;
   email?: string | null;
   phone?: string | null;
 }
@@ -21,6 +24,7 @@ interface RosterPlayerLike {
 export function searchRoster<T extends RosterPlayerLike>(items: readonly T[], query: string): T[] {
   return searchPlayers(items, query, (p) => ({
     name: p.name,
+    nickname: rosterNicknameOf(p), // PAD-660: the coach's own nickname finds the student too
     email: p.email,
     phone: p.phone,
     id: p.playerId,

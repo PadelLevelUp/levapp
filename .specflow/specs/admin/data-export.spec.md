@@ -38,6 +38,12 @@ review D7).
    `generated_code`, `jti` or `subscription_json` (a web-push endpoint and its keys), prints as
    `"[withheld]"`. Another person's messages, and the `admin_audit_log`
    and `deletion_audit` staff records, are left out.
+4a. **A coach's nickname for the student is the student's data too (PAD-660).** The relation row
+   (`coach_in_player`) is exported to both people it names, and with it the coach's private
+   nickname for the student (`nickname`, `nickname_as_name`, `players.nickname` rule 7). This
+   script answers a subject-access request, and the nickname is personal data about the student:
+   the owner's approval reads "entra no export de dados (PAD-640)", and the field warns the coach
+   that "o jogador pode pedir acesso aos seus dados".
 5. **Formats.** Dates and times print as ISO 8601; decimals as strings; bytes as base64.
 6. **The runbook.** `backend/scripts/data_requests.md`: verify
    the requester (answer from the account's own email, or a code sent to it), record the request and

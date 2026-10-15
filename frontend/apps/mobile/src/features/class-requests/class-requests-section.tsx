@@ -22,7 +22,7 @@ import {
   splitClassRequestRows,
   type MergedClassRequestRow,
 } from "@levelup/config";
-import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
+import { queryKeys, refreshAfterRequestChange, useCoachDisplayName } from "@levelup/hooks";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
@@ -64,6 +64,8 @@ export function ClassRequestsSection({
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  // PAD-660: a coach sees the nickname they gave the student; the student side stays off the roster.
+  const displayName = useCoachDisplayName({ enabled: role === "coach" });
   const requests = useQuery({ queryKey: queryKeys.classRequests, queryFn: classRequestsApi.listClassRequests });
   // classes.join-requests rule 17 (PAD-460): academy requests, shown beside the
   // private ones above, merged newest first (`@levelup/config`, shared with web).
@@ -117,6 +119,7 @@ export function ClassRequestsSection({
   const [busyJoinId, setBusyJoinId] = React.useState<number | null>(null);
   const [pendingAcademyAccept, setPendingAcademyAccept] = React.useState<{
     id: number;
+    playerId: string;
     playerName: string;
     ineligible: EligibilityCheckEntry[];
   } | null>(null);
@@ -125,12 +128,12 @@ export function ClassRequestsSection({
     setBusyJoinId(row.id);
     try {
       await classJoinRequestsApi.acceptClassJoinRequest(row.id, confirm);
-      toast.success(t("calendar.joinRequest.acceptedToast", { name: row.playerName }));
+      toast.success(t("calendar.joinRequest.acceptedToast", { name: displayName(row.playerId, row.playerName) }));
     } catch (err) {
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setBusyJoinId(null);
-        setPendingAcademyAccept({ id: row.id, playerName: row.playerName, ineligible: refusal.ineligible ?? [] });
+        setPendingAcademyAccept({ id: row.id, playerId: row.playerId, playerName: row.playerName, ineligible: refusal.ineligible ?? [] });
         return;
       }
       toast.error(
@@ -150,7 +153,7 @@ export function ClassRequestsSection({
     setBusyJoinId(row.id);
     try {
       await classJoinRequestsApi.rejectClassJoinRequest(row.id);
-      toast.success(t("calendar.joinRequest.rejectedToast", { name: row.playerName }));
+      toast.success(t("calendar.joinRequest.rejectedToast", { name: displayName(row.playerId, row.playerName) }));
     } catch {
       toast.error(t("calendar.joinRequest.decideFailed"));
     } finally {
@@ -180,7 +183,7 @@ export function ClassRequestsSection({
   const [showClosed, setShowClosed] = React.useState(false);
 
   const renderRow = (r: ClassRequest) => {
-    const who = role === "student" ? t("classRequests.with", { name: r.coachName }) : t("classRequests.from", { name: r.playerName });
+    const who = role === "student" ? t("classRequests.with", { name: r.coachName }) : t("classRequests.from", { name: displayName(r.playerId, r.playerName) });
     const statusKey = role === "student" ? `classRequests.status.${r.status}` : `classRequests.coachStatus.${r.status}`;
     const busy = act.isPending;
     return (
@@ -287,7 +290,7 @@ export function ClassRequestsSection({
             <Text className="text-sm text-muted-foreground">
               {r.date} · {r.startTime}–{r.endTime}
             </Text>
-            {role === "coach" ? <Text className="text-sm text-muted-foreground">{r.playerName}</Text> : null}
+            {role === "coach" ? <Text className="text-sm text-muted-foreground">{displayName(r.playerId, r.playerName)}</Text> : null}
             {r.note ? <Text className="text-sm italic text-muted-foreground">“{r.note}”</Text> : null}
           </View>
           <Badge variant={statusVariant(r.status)}>
@@ -435,7 +438,7 @@ export function ClassRequestsSection({
         onConfirm={() => {
           const parked = pendingAcademyAccept;
           setPendingAcademyAccept(null);
-          if (parked) void handleAcademyAccept({ id: parked.id, playerName: parked.playerName } as ClassJoinRequestListRow, true);
+          if (parked) void handleAcademyAccept({ id: parked.id, playerId: parked.playerId, playerName: parked.playerName } as ClassJoinRequestListRow, true);
         }}
       />
     </>

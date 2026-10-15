@@ -4,6 +4,7 @@ import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { effectiveMark, presentCount, validationGroup, type PresenceMark } from "@levelup/config";
+import { useCoachDisplayName } from "@levelup/hooks";
 import type { PendingValidationClass } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
@@ -672,6 +673,8 @@ function ClassCard({
   onValidate: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
+  const displayName = useCoachDisplayName();
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
     hour: "2-digit",
     minute: "2-digit",
@@ -744,7 +747,7 @@ function ClassCard({
                   <UndecidedFlag playerId={player.playerId} testIDPrefix={`validate-list-undecided-icon-${klass.lessonInstanceId}`} />
                 )}
                 <Text className="flex-1 text-sm" numberOfLines={1}>
-                  {player.name}
+                  {displayName(player.playerId, player.name)}
                 </Text>
                 {player.guest && (
                   <Text className="text-[10px] text-muted-foreground">
@@ -753,7 +756,7 @@ function ClassCard({
                 )}
               </View>
               <PresenceMarkToggle
-                playerName={player.name}
+                playerName={displayName(player.playerId, player.name)}
                 value={effectiveMark(player, edits[player.playerId])}
                 onChange={(mark) => onMark(player.playerId, mark)}
               />
@@ -827,6 +830,8 @@ function ClassDetail({
   onUnvalidate: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
+  const displayName = useCoachDisplayName();
   // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
   // time is the class's actual clock time (same rule as the list).
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
@@ -901,7 +906,7 @@ function ClassDetail({
               <View className="flex-row items-center gap-1.5">
                 {undecided && <UndecidedFlag playerId={player.playerId} />}
                 <Text className="flex-1 text-sm font-sans-bold" numberOfLines={1}>
-                  {player.name}
+                  {displayName(player.playerId, player.name)}
                 </Text>
               </View>
               <Text className="text-xs text-muted-foreground">
@@ -913,7 +918,7 @@ function ClassDetail({
                 {player.guest ? ` · ${t("presences.guest")}` : ""}
               </Text>
               <PresenceMarkToggle
-                playerName={player.name}
+                playerName={displayName(player.playerId, player.name)}
                 value={effectiveMark(player, edits[player.playerId])}
                 onChange={(mark) => onMark(player.playerId, mark)}
               />

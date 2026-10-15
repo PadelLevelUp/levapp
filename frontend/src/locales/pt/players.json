@@ -456,6 +456,13 @@
       "selectPlayerHint": "Os detalhes aparecem aqui, ao lado da lista.",
       "levelChip": "Nível {{code}}"
     },
-    "confirmsAdults": "Confirmo que este aluno tem 18 anos ou mais."
+    "confirmsAdults": "Confirmo que este aluno tem 18 anos ou mais.",
+    "nickname": {
+      "label": "Alcunha (opcional)",
+      "placeholder": "ex.: Jorge chato",
+      "warning": "Visível só para ti. Evita alcunhas ofensivas: o jogador pode pedir acesso aos seus dados.",
+      "asName": "Usar alcunha como nome principal",
+      "tooLong": "A alcunha tem no máximo 60 caracteres."
+    }
   }
 }

@@ -7,6 +7,35 @@ from padel_app.utils.dates import to_utc_iso
 _UNRESOLVED = object()
 
 
+def coach_display_names(viewer_user_id, other_user_ids):
+    """PAD-660 (players.nickname rule 3): ``{user_id: nickname}`` for the students on the VIEWER's
+    roster whose nickname this viewer chose to show as the name. Empty for a student viewer — a
+    student is never served a nickname — and for anyone not on the viewer's own roster. One query.
+    """
+    ids = {i for i in other_user_ids if i is not None}
+    if not ids:
+        return {}
+    from padel_app.models import Association_CoachPlayer, Coach, Player
+    from padel_app.sql_db import db
+
+    rows = db.session.execute(
+        db.select(Player.user_id, Association_CoachPlayer.nickname)
+        .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
+        .join(Coach, Coach.id == Association_CoachPlayer.coach_id)
+        .where(
+            Coach.user_id == viewer_user_id,
+            Player.user_id.in_(ids),
+            Association_CoachPlayer.nickname_as_name.is_(True),
+            Association_CoachPlayer.nickname.isnot(None),
+        )
+    ).all()
+    return {user_id: nickname for user_id, nickname in rows if nickname}
+
+
+def _other_user_id(conversation, user_id):
+    return next((p.user_id for p in conversation.participants if p.user_id != user_id), None)
+
+
 def serialize_conversations(conversations, user_id):
     """Serialize a page of conversations with a constant number of queries.
 
@@ -27,6 +56,9 @@ def serialize_conversations(conversations, user_id):
     last_messages = last_messages_by_id(
         [c.last_message_id for c in conversations]
     )
+    display_names = coach_display_names(
+        user_id, [_other_user_id(c, user_id) for c in conversations]
+    )
 
     return [
         serialize_conversation(
@@ -34,13 +66,15 @@ def serialize_conversations(conversations, user_id):
             user_id,
             unread_count=unread_counts.get(conversation.id, 0),
             last_message=last_messages.get(conversation.last_message_id),
+            display_names=display_names,
         )
         for conversation in conversations
     ]
 
 
 def serialize_conversation(
-    conversation, user_id, unread_count=_UNRESOLVED, last_message=_UNRESOLVED
+    conversation, user_id, unread_count=_UNRESOLVED, last_message=_UNRESOLVED,
+    display_names=_UNRESOLVED,
 ):
     """One conversation's summary payload.
 
@@ -88,11 +122,16 @@ def serialize_conversation(
     participant = (
         conversation_participation.user if conversation_participation else None
     )
+    if display_names is _UNRESOLVED:
+        display_names = coach_display_names(user_id, [participant.id if participant else None])
 
     return {
         "id": conversation.id,
         "participantId": participant.id if participant else None,
-        "participantName": participant.name if participant else None,
+        # PAD-660: the viewer coach's own nickname for a student, when they show it as the name.
+        "participantName": (
+            display_names.get(participant.id, participant.name) if participant else None
+        ),
         # PAD-593: the participant's photo. It read `avatar_url`, which no model defines, so it
         # was always null; the image rides the list's participant join (no lazy load per row).
         "participantAvatar": participant.user_image_url if participant else None,

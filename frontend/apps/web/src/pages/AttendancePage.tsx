@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { ArrowLeft } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -95,7 +96,9 @@ export default function AttendancePage() {
   }, [load]);
 
   const isCoachView = Boolean(playerId);
-  const subjectName = history?.playerName ?? "";
+  // PAD-660 rule 8: a coach viewing a student sees their own name for them; the student's own page asks no roster.
+  const displayName = useCoachDisplayName({ enabled: coachView });
+  const subjectName = displayName(history?.playerId ?? playerId, history?.playerName ?? "");
 
   return (
     <AppLayout>

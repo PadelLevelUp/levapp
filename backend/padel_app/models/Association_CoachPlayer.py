@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint, Enum, String
+from sqlalchemy import Boolean, Column, Integer, ForeignKey, UniqueConstraint, Enum, String, false
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -28,6 +28,11 @@ class Association_CoachPlayer(db.Model, model.Model):
     
     side = Column(Enum("left", "right", "both", name="player_side"), nullable=True)
     notes = Column(String(255), nullable=True)
+    # PAD-660 (players.nickname rules 1–2): the coach's private nickname for this student. It
+    # lives on the relation so each coach has their own, and it leaves the server only in this
+    # coach's own roster payloads — never in anything the student or another coach receives.
+    nickname = Column(String(60), nullable=True)
+    nickname_as_name = Column(Boolean, nullable=False, default=False, server_default=false())
     
     notes_list = relationship("CoachPlayerNote", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)
     evaluations = relationship("EvaluationEntry", back_populates="coach_player", cascade="all, delete-orphan", passive_deletes=True)

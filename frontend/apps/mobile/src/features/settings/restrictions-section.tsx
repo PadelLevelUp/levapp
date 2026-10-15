@@ -1,4 +1,5 @@
 import { notificationEngineApi } from "@levelup/api";
+import { useCoachDisplayName } from "@levelup/hooks";
 import {
   canStepRestriction,
   isValidQuietWindow,
@@ -195,6 +196,8 @@ function ExcludedPlayers({
   onRemove: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  // PAD-660: a chip names the student as the coach does (nickname), not by the saved real name.
+  const displayName = useCoachDisplayName();
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<{ id: string; name: string }[]>([]);
   // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
@@ -278,12 +281,12 @@ function ExcludedPlayers({
               {playerIds.map((id) => (
                 <View key={id} className="flex-row items-center gap-1 rounded-full bg-secondary py-1 pl-2.5 pr-1">
                   <Text testID={`restriction-excluded-chip-${id}`} className="text-xs">
-                    {names[id] ?? id}
+                    {displayName(id, names[id] ?? id)}
                   </Text>
                   <Pressable
                     testID={`restriction-excluded-remove-${id}`}
                     accessibilityRole="button"
-                    accessibilityLabel={names[id] ?? id}
+                    accessibilityLabel={displayName(id, names[id] ?? id)}
                     disabled={disabled}
                     onPress={() => onRemove(id)}
                     hitSlop={8}

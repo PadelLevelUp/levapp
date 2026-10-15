@@ -68,13 +68,18 @@ type PresenceLike = NonNullable<Parameters<typeof attendanceStateOf>[0]> & {
 type RosterLike = {
   playerId?: string | number | null;
   name?: string | null;
+  /** PAD-660: the coach's display name for the student (their nickname when shown as the name). */
+  displayName?: string | null;
   side?: Side | null;
   level?: { label?: string | null } | null;
 };
 
 export type ParticipantRowModel<P extends ParticipantLike, Pr extends PresenceLike, R extends RosterLike> = {
   playerId: string;
+  /** What the coach's list shows: the roster's displayName (PAD-660), else the real name. */
   name: string;
+  /** The student's real name, for the pop-up's line under a nickname. */
+  realName: string;
   side: Side | null;
   level: R["level"] | null;
   /** `attendance.presence` rule 9's stored value, kept for `data-state`. */
@@ -140,9 +145,12 @@ export function groupParticipants<P extends ParticipantLike, Pr extends Presence
     const presence = presenceBy.get(playerId) ?? null;
     const roster = rosterBy.get(playerId) ?? null;
     const state = attendanceStateOf(presence);
+    const realName = player.user?.name ?? roster?.name ?? "";
     buckets[groupOfState(state)].push({
       playerId,
-      name: player.user?.name ?? roster?.name ?? "",
+      // PAD-660 (players.nickname rule 3): this coach's roster is the only source of a nickname.
+      name: roster?.displayName || realName,
+      realName,
       side: (presence?.sideOverride && presence.side ? presence.side : roster?.side) ?? null,
       level: roster?.level ?? null,
       state,

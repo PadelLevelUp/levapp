@@ -1,6 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { classRowCompetencies, classRowSummary, lightTheme } from "@levelup/config";
-import { useClassEvaluations, useEvaluationCompetencies, useHeldWhile, usePutEvaluationRecord } from "@levelup/hooks";
+import {
+  useClassEvaluations,
+  useCoachDisplayName,
+  useEvaluationCompetencies,
+  useHeldWhile,
+  usePutEvaluationRecord,
+} from "@levelup/hooks";
 import type { ClassEvaluationParticipant, EvaluationClassRef, EvaluationCompetency } from "@levelup/types";
 import { useRouter } from "expo-router";
 import * as React from "react";
@@ -125,7 +131,10 @@ interface ParticipantRowProps {
 
 function ParticipantRow({ first, participant, classRef, active, known, open, onToggle, onManage }: ParticipantRowProps) {
   const { t } = useTranslation();
+  // PAD-660: the coach reads the nickname they gave the student.
+  const displayName = useCoachDisplayName();
   const id = participant.playerId;
+  const name = displayName(id, participant.name);
   const put = usePutEvaluationRecord(String(id));
   const record = participant.record;
   const summary = classRowSummary(active, record);
@@ -146,16 +155,16 @@ function ParticipantRow({ first, participant, classRef, active, known, open, onT
   return (
     <View className={first ? "" : "border-t border-border"} testID={`class-eval-row-${id}`}>
       <Pressable onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded: open }}
-        accessibilityLabel={participant.name} testID={`class-eval-row-toggle-${id}`}
+        accessibilityLabel={name} testID={`class-eval-row-toggle-${id}`}
         className="min-h-14 flex-row items-center gap-3 px-3 py-2">
-        <Avatar alt={participant.name} className="h-9 w-9">
+        <Avatar alt={name} className="h-9 w-9">
           <AvatarFallback>
-            <Text className="text-xs">{initials(participant.name)}</Text>
+            <Text className="text-xs">{initials(name)}</Text>
           </AvatarFallback>
         </Avatar>
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
-            <Text className="shrink text-sm font-medium" numberOfLines={1}>{participant.name}</Text>
+            <Text className="shrink text-sm font-medium" numberOfLines={1}>{name}</Text>
             {participant.absent ? (
               <Badge variant="secondary" testID={`class-eval-absent-${id}`}>
                 <Text>{t("calendar.attendance.absent")}</Text>

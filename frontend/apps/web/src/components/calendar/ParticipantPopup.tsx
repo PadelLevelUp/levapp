@@ -104,6 +104,12 @@ export function ParticipantPopup({ row, onClose, returnFocusTo, side }: Particip
                   <DialogPrimitive.Title className="truncate font-display text-xl font-bold text-white">
                     {row.name}
                   </DialogPrimitive.Title>
+                  {/* PAD-660 (players.nickname rule 3): the real name under the coach's nickname. */}
+                  {row.realName && row.realName !== row.name ? (
+                    <p className="truncate text-xs text-[#A9BCD6]" data-testid="participant-popup-real-name">
+                      {row.realName}
+                    </p>
+                  ) : null}
                   <div className="flex gap-1.5">
                     {/* PAD-551: the side the sheet reads now (a change re-reads the class), else the row's. */}
                     {(side?.current ?? row.side) ? (

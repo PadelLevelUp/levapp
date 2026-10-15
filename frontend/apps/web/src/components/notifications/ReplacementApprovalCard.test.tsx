@@ -7,6 +7,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const respondToApproval = vi.fn();
 const toastInfo = vi.fn();
+// PAD-660: these tests are about something else; the coach's resolver answers the real name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 vi.mock("@/api/notificationEngine", () => ({ respondToApproval: (...a: unknown[]) => respondToApproval(...a) }));
 vi.mock("sonner", () => ({ toast: { info: (...a: unknown[]) => toastInfo(...a), error: vi.fn() } }));
 vi.mock("react-i18next", () => ({

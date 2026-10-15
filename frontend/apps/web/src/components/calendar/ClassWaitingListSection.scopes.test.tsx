@@ -9,6 +9,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CoachClassWaitingListRow, CoachPlayer } from "@levelup/types";
 
+// PAD-660: these tests are about something else; the coach's resolver answers the real name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: { date?: string }) => (params?.date ? `${key}:${params.date}` : key),

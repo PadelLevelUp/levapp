@@ -161,7 +161,7 @@ export default function PlayersScreen() {
   const renderPlayer = ({ item }: { item: CoachPlayer }) => (
     <Pressable
       testID={`player-card-${item.playerId}`}
-      accessibilityLabel={t("players.openPlayerAria", { name: item.name })}
+      accessibilityLabel={t("players.openPlayerAria", { name: item.displayName ?? item.name })}
       role="button"
       onPress={() => router.push(`/player/${item.playerId}`)}
       className="mb-3 rounded-lg border border-border bg-card p-4 active:bg-accent"
@@ -176,7 +176,7 @@ export default function PlayersScreen() {
         </Avatar>
         <View className="min-w-0 flex-1">
           <Text className="font-medium" numberOfLines={1}>
-            {item.name}
+            {item.displayName ?? item.name}
           </Text>
           <Text className="text-sm text-muted-foreground" numberOfLines={1}>
             {item.email || "—"}

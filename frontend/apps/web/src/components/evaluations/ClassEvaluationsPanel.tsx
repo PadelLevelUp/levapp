@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Plus, Settings2 } from "lucide-react";
 import type { ClassEvaluationParticipant, EvaluationClassRef, EvaluationCompetency } from "@levelup/types";
 import { classRowCompetencies, classRowSummary } from "@levelup/config";
-import { useClassEvaluations, useEvaluationCompetencies, useHeldWhile, usePutEvaluationRecord } from "@levelup/hooks";
+import { useClassEvaluations, useEvaluationCompetencies, useCoachDisplayName, useHeldWhile, usePutEvaluationRecord } from "@levelup/hooks";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -121,7 +121,10 @@ interface ParticipantRowProps {
 
 function ParticipantRow({ participant, classRef, active, known, open, onToggle, onManage }: ParticipantRowProps) {
   const { t } = useTranslation();
+  // PAD-660 rule 8: the class's evaluation rows are the coach's — their name for the student.
+  const displayName = useCoachDisplayName();
   const id = participant.playerId;
+  const shownName = displayName(participant.playerId, participant.name);
   const put = usePutEvaluationRecord(String(id));
   const record = participant.record;
   const summary = classRowSummary(active, record);
@@ -143,11 +146,11 @@ function ParticipantRow({ participant, classRef, active, known, open, onToggle, 
       <button type="button" onClick={onToggle} aria-expanded={open} data-testid={`class-eval-row-toggle-${id}`}
         className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left hover:bg-accent/50">
         <Avatar className="h-9 w-9">
-          <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">{initials(participant.name)}</AvatarFallback>
+          <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">{initials(shownName)}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium">{participant.name}</span>
+            <span className="truncate text-sm font-medium">{shownName}</span>
             {participant.absent && (
               <Badge variant="secondary" className="shrink-0" data-testid={`class-eval-absent-${id}`}>
                 {t("calendar.attendance.absent")}

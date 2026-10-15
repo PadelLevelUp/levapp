@@ -89,7 +89,7 @@ export function PlayerSelector({
       <Pressable
         key={playerId}
         testID={`player-selector-row-${playerId}`}
-        accessibilityLabel={player.name}
+        accessibilityLabel={player.displayName || player.name}
         role="checkbox"
         accessibilityState={{ checked: isSelected }}
         onPress={() => {
@@ -112,7 +112,7 @@ export function PlayerSelector({
         </View>
         <View className="min-w-0 flex-1 flex-row items-center gap-2">
           <Text className="flex-shrink text-sm" numberOfLines={1}>
-            {player.name}
+            {player.displayName || player.name}
           </Text>
           {/* PAD-527: the level is always shown — primary when it is the class's level,
               amber when it is another (or none), neutral when the class has no level. */}
