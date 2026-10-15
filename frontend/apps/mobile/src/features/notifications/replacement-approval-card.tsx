@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
 import {
   approvalDisplayGroups,
+  approvalEmptyReasonKey,
   approvalGroupLabel,
   approvalQueuePreview,
   approvalSideKey,
@@ -239,9 +240,21 @@ export function ReplacementApprovalCard({
                 ) : null}
               </View>
             ) : (
-              <Text className="text-xs italic text-muted-foreground">
-                {t("notificationsUi.replacementApproval.noEligiblePlayers")}
-              </Text>
+              <View className="gap-0.5">
+                <Text className="text-xs italic text-muted-foreground">
+                  {t("notificationsUi.replacementApproval.noEligiblePlayers")}
+                </Text>
+                {/* PAD-661 (rule 4b): an empty queue says why, one line per engine stage. */}
+                {group.emptyQueueReasons.length > 0 ? (
+                  <View testID="approval-empty-reasons">
+                    {group.emptyQueueReasons.map((r) => (
+                      <Text key={r.stage} className="text-xs text-muted-foreground" testID={`approval-empty-reason-${r.stage}`}>
+                        {t(approvalEmptyReasonKey(r.stage), { count: r.count })}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
             )}
 
             {stale > 0 && !state.allStale ? (

@@ -175,6 +175,10 @@ def test_control_tick_path_semi_auto_suggests_a_never_filled_place(app, live_sch
 
         process_invitation_batches(now=twelve_h + timedelta(minutes=2))
         assert _state(instance.id) == SUGGESTED
+        # A non-empty queue carries no reasons (rule 4b, PAD-661).
+        from padel_app.models.messages import Message
+        (entry,) = Message.query.filter_by(message_type="replacement_approval").one().msg_metadata["vacancies"]
+        assert len(entry["queue"]) == 1 and "emptyQueueReasons" not in entry
         # A second tick asks nothing twice.
         process_invitation_batches(now=twelve_h + timedelta(minutes=4))
         assert _state(instance.id) == SUGGESTED
@@ -403,3 +407,132 @@ def test_the_coach_walk_arms_one_catch_up_per_open_occurrence(app, live_schedule
         armed = sorted(j.id for j in live_scheduler._scheduler.get_jobs() if j.id.startswith("invite_start_lesson_"))
         assert armed == sorted([f"invite_start_lesson_{ids['lesson']}_{ids['date']}",
                                 f"invite_start_lesson_{second.id}_{(CLASS_WALL + D).date().isoformat()}"])
+
+
+# --- acceptance 3: when every suggestion is blocked, the coach sees why ---------------------------
+
+def test_an_empty_suggestion_queue_says_why(app, live_scheduler, monkeypatch):
+    """Semi-automatic coach, never-filled place inside the window, and the only free student is on
+    the coach's excluded list (restrictions.excludedPlayers). The prompt is created (restrictions
+    never block a prompt) with an EMPTY queue; the ticket's acceptance 3 wants the coach to see why.
+    Expected: the vacancy payload carries the per-stage counts of the students the engine dropped."""
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.messages import Message
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.notification_service import process_invitation_batches
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="why")
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).one()
+        cfg.restrictions = {**cfg.get_restrictions(),
+                            "excludedPlayers": {"enabled": True, "playerIds": [str(ids["free"])]}}
+        db.session.commit()
+
+        twelve_h = CLASS_UTC - 12 * H
+        pin_clock(monkeypatch, twelve_h)
+        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        db.session.commit()
+        process_invitation_batches(now=twelve_h + timedelta(minutes=2))
+
+        state = _state(instance.id)
+        assert state["prompts"] == 1 and state["approval_messages"] == 1 and state["invitations"] == 0
+        msg = Message.query.filter_by(message_type="replacement_approval").one()
+        (entry,) = msg.msg_metadata["vacancies"]
+        assert entry["openSpot"] is True
+        assert entry["queue"] == []
+        assert entry.get("emptyQueueReasons") == [{"stage": "excluded_by_coach", "count": 1}], (
+            "an empty queue must say why: the one free student is excluded by the coach"
+        )
+
+
+def test_recomputed_suggestions_carry_the_reasons_too(app, live_scheduler, monkeypatch):
+    """Rule 4b's last sentence: the class detail's recompute (rule 12) shares the payload builder, so
+    its bundle says why as well."""
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.notification_service import process_invitation_batches
+    from padel_app.services.replacement_approval_service import recompute_suggestions
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="rec")
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).one()
+        cfg.restrictions = {**cfg.get_restrictions(),
+                            "excludedPlayers": {"enabled": True, "playerIds": [str(ids["free"])]}}
+        db.session.commit()
+        twelve_h = CLASS_UTC - 12 * H
+        pin_clock(monkeypatch, twelve_h)
+        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        db.session.commit()
+        process_invitation_batches(now=twelve_h + timedelta(minutes=2))
+
+        result = recompute_suggestions(instance.id, ids["coach"], now=twelve_h + timedelta(minutes=5))
+        assert result["state"] == "pending"
+        (entry,) = result["bundle"]["vacancies"]
+        assert entry["queue"] == []
+        assert entry["emptyQueueReasons"] == [{"stage": "excluded_by_coach", "count": 1}]
+
+
+def test_an_empty_queue_with_nobody_to_count_carries_an_empty_list(app, live_scheduler, monkeypatch):
+    """The coach's roster is the enrolled student alone (the free one left the roster): the queue is
+    empty and no stage counts, so the key is present with an empty list — the cards show the plain
+    empty state, never a raw key."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.messages import Message
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.notification_service import process_invitation_batches
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="nob")
+        Association_CoachPlayer.query.filter_by(coach_id=ids["coach"], player_id=ids["free"]).delete()
+        db.session.commit()
+        twelve_h = CLASS_UTC - 12 * H
+        pin_clock(monkeypatch, twelve_h)
+        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        db.session.commit()
+        process_invitation_batches(now=twelve_h + timedelta(minutes=2))
+        (entry,) = Message.query.filter_by(message_type="replacement_approval").one().msg_metadata["vacancies"]
+        assert entry["queue"] == []
+        assert entry["emptyQueueReasons"] == []
+
+
+def test_the_reasons_come_from_the_loosest_wave(app, live_scheduler, monkeypatch):
+    """Rule 4b counts against the LAST invitation group (the widest), not the first: with two groups
+    configured, the evaluator is asked for group 2."""
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services import replacement_approval_service as ras
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.notification_service import process_invitation_batches
+    import padel_app.services.notification_service as ns
+
+    with app.app_context(), _patched():
+        ids = _seed(mode="semi_automatic", invitation_start={"type": "hours_before", "value": 24},
+                    reminder_hours=48, tag="loos")
+        cfg = NotificationConfig.query.filter_by(coach_id=ids["coach"]).one()
+        cfg.invitation_groups = [{"id": "1", "rules": [{"attribute": "level", "operation": "equals_vacancy"}]},
+                                 {"id": "2", "rules": []}]
+        cfg.restrictions = {**cfg.get_restrictions(),
+                            "excludedPlayers": {"enabled": True, "playerIds": [str(ids["free"])]}}
+        db.session.commit()
+        twelve_h = CLASS_UTC - 12 * H
+        pin_clock(monkeypatch, twelve_h)
+        instance = get_or_materialize_instance(db.session.get(Lesson, ids["lesson"]), CLASS_WALL.date())
+        db.session.commit()
+
+        asked = []
+        real = ns.evaluate_candidates
+
+        def spy(*args, **kwargs):
+            asked.append(kwargs.get("wave"))
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(ns, "evaluate_candidates", spy)
+        process_invitation_batches(now=twelve_h + timedelta(minutes=2))
+        assert asked, "the reasons were never computed"
+        assert asked[-1] == ("group", 2), asked
