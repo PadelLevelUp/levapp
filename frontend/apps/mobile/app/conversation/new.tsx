@@ -1,5 +1,5 @@
 import { messagesApi } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, searchPeopleByName } from "@levelup/config";
 import { useConversations } from "@levelup/hooks";
 import type { User } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { useMessageableUsers } from "@/features/messages/hooks";
 import { initialsOf, normalizeId } from "@/features/messages/utils";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { describeApiError } from "@/lib/apiError";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 import { useNativeHeaderKeyboardOffset } from "@/lib/native-header-offset";
@@ -101,8 +102,10 @@ export default function NewConversationScreen() {
   );
   const term = search.trim().toLowerCase();
   const candidates = React.useMemo(
-    () => (term ? connected.filter((u) => u.name.toLowerCase().includes(term)) : connected),
-    [connected, term]
+    // PAD-665 (players.search rule 8): a coach's picker uses the shared name rule, best match
+    // first; a student keeps the plain substring match.
+    () => searchPeopleByName(connected, term, (u) => u.name, { coach: !offersConnect }),
+    [connected, term, offersConnect]
   );
 
   const handlePick = async (picked: User) => {
@@ -176,6 +179,11 @@ export default function NewConversationScreen() {
     </View>
   ) : isError ? (
     <ErrorState message={t("messages.couldNotLoadPeople")} onRetry={() => void refetch()} />
+  ) : term && !offersConnect ? (
+    // players.search rule 10: a coach's search that finds nobody says so, with the query.
+    <View className="items-center px-6 py-8">
+      <PlayerSearchFeedback query={search} count={0} className="text-center text-sm text-muted-foreground" />
+    </View>
   ) : (
     <View className="items-center gap-1 px-6 py-8" testID="new-conversation-empty">
       <Text className="text-base font-medium text-foreground">

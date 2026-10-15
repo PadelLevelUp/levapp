@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Minus, Plus, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +9,8 @@ import { TimeSelect } from "@/components/ui/time-select";
 import type { NotificationRestrictions } from "@/types";
 import { searchPlayers } from "@/api/notificationEngine";
 import { useCoachDisplayName } from "@levelup/hooks";
+import { useDebouncedText } from "@/hooks/useDebouncedText";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import {
   canStepRestriction,
   isValidQuietWindow,
@@ -183,25 +185,33 @@ function ExcludedPlayersRow({
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
-  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
+  const { debounced, settling } = useDebouncedText(query);
+  const [loadedFor, setLoadedFor] = useState("");
+  const searching = settling || (debounced !== "" && loadedFor !== debounced);
 
   useEffect(() => {
-    if (!query.trim()) {
+    if (!debounced) {
       setResults([]);
-      setOpen(false);
+      setLoadedFor("");
       return;
     }
-    if (searchRef.current) clearTimeout(searchRef.current);
-    searchRef.current = setTimeout(async () => {
-      try {
-        const data = await searchPlayers(query);
+    let cancelled = false;
+    searchPlayers(debounced)
+      .then((data) => {
+        if (cancelled) return;
         setResults(data.players.filter((p) => !playerIds.includes(p.id)));
-        setOpen(true);
-      } catch {
+        setLoadedFor(debounced);
+      })
+      .catch(() => {
+        if (cancelled) return;
         setResults([]);
-      }
-    }, 300);
-  }, [query, playerIds]);
+        setLoadedFor(debounced);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced, playerIds]);
 
   const handleAdd = (player: { id: string; name: string }) => {
     setPlayerNames((prev) => ({ ...prev, [player.id]: player.name }));
@@ -229,12 +239,21 @@ function ExcludedPlayersRow({
             <Input
               placeholder={t("settings.restrictions.searchPlayers")}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOpen(true);
+              }}
               className="h-8 text-sm"
               onBlur={() => setTimeout(() => setOpen(false), 150)}
             />
-            {open && results.length > 0 && (
+            {open && query.trim() !== "" && (results.length > 0 || searching || loadedFor === debounced) && (
               <div className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-md">
+                <PlayerSearchFeedback
+                  query={query}
+                  searching={searching}
+                  count={results.length}
+                  className="px-3 py-1.5 text-sm text-muted-foreground"
+                />
                 {results.map((p) => (
                   <button
                     key={p.id}

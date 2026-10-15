@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { PresenceMarkToggle } from "./PresenceMarkToggle";
 import type { ValidatePayload } from "./hooks";
 import { weekLabelDates } from "@/features/attendance/date-ranges";
@@ -567,6 +568,7 @@ function WalkInPicker({
           its parent for the gesture. The search field is how a coach reaches a
           name past the fold. */}
       <View>
+        <PlayerSearchFeedback query={query} count={matches.length} className="px-2 py-2.5 text-sm text-muted-foreground" />
         {matches.map((option) => (
           <Pressable
             key={option.id}

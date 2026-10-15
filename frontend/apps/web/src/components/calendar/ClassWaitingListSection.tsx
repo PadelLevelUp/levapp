@@ -34,6 +34,7 @@ import {
 import { addToClassWaitingList, changeClassWaitingListScope, checkEligibility, removeFromClassWaitingList } from "@/api/notificationEngine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -240,6 +241,7 @@ function ClassWaitingListDialog({
   const seriesUntil = formatShortDate(wholeSeriesEndPreview(recurrenceEnd, clubTodayISO(today)), i18n.language);
   // PAD-558 (rule 20): the search narrows what is offered; the chosen student stays listed.
   const offered = useMemo(() => waitingListPickerOptions(candidates, search, playerId || null), [candidates, search, playerId]);
+  const matchCount = useMemo(() => waitingListPickerOptions(candidates, search, null).length, [candidates, search]);
 
   const confirm = async () => {
     if (!playerId || !periodValid) return;
@@ -290,10 +292,13 @@ function ClassWaitingListDialog({
               </div>
               {/* B-421 (rule 20): the offered students are visible rows the search narrows — no select. */}
               <div data-testid="class-waiting-list-candidates" className="max-h-52 overflow-y-auto overscroll-contain space-y-1">
-                {offered.length === 0 ? (
+                {offered.length === 0 && !search.trim() ? (
                   <p className="text-xs text-muted-foreground px-1">{t("calendar.detail.waitingListNoMatch")}</p>
                 ) : (
-                  offered.map((c) => {
+                  <>
+                  {/* players.search rule 10: counts the matches, not the chosen student the picker keeps listed. */}
+                  <PlayerSearchFeedback query={search} count={matchCount} className="text-xs text-muted-foreground px-1" />
+                  {offered.map((c) => {
                     const id = String(c.playerId);
                     const reasons = reasonsById.get(id);
                     const chosen = playerId === id;
@@ -323,7 +328,8 @@ function ClassWaitingListDialog({
                         ) : null}
                       </button>
                     );
-                  })
+                  })}
+                  </>
                 )}
               </div>
             </>

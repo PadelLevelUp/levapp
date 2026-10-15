@@ -9,13 +9,49 @@
  *   the side because the label names one side; identical lists on different sides stay apart.
  * - Every queue shows its first APPROVAL_QUEUE_PREVIEW players; "Ver mais" reveals the rest.
  */
-import type { ApprovalQueuePlayer, ApprovalVacancyInfo, PlayerSide } from "@levelup/types";
+import type { ApprovalEmptyQueueReason, ApprovalQueuePlayer, ApprovalVacancyInfo, PlayerSide } from "@levelup/types";
 
 export const APPROVAL_QUEUE_PREVIEW = 5;
 
+type ApprovalGroupBase = {
+  key: string;
+  vacancyIds: number[];
+  queue: ApprovalQueuePlayer[];
+  /** PAD-661 (rule 4b): why the queue is empty; `[]` for a non-empty queue or an older payload. */
+  emptyQueueReasons: ApprovalEmptyQueueReason[];
+};
+
 export type ApprovalDisplayGroup =
-  | { kind: "declined"; key: string; vacancyIds: number[]; declinedPlayerName: string | null; queue: ApprovalQueuePlayer[] }
-  | { kind: "open"; key: string; vacancyIds: number[]; count: number; side: PlayerSide | null; queue: ApprovalQueuePlayer[] };
+  | (ApprovalGroupBase & { kind: "declined"; declinedPlayerName: string | null })
+  | (ApprovalGroupBase & { kind: "open"; count: number; side: PlayerSide | null });
+
+/** PAD-661 (rule 4b): the engine stages this build has a line for (the backend's CANDIDATE_STAGES minus the non-reasons). */
+export const APPROVAL_EMPTY_REASON_STAGES = new Set([
+  "declined_this_class",
+  "already_invited",
+  "eligibility",
+  "excluded_by_coach",
+  "inactive_account",
+  "has_class_same_day",
+  "unavailable",
+  "auto_invites_off",
+  "no_round_matched",
+  "offered_another_spot",
+]);
+
+/**
+ * PAD-661 (rule 4b): the i18n key of one "why nobody is suggested" line. An unknown stage (a newer
+ * server) falls back to the generic line so nothing renders raw.
+ */
+export function approvalEmptyReasonKey(stage: string): string {
+  return `notificationsUi.replacementApproval.emptyReason.${APPROVAL_EMPTY_REASON_STAGES.has(stage) ? stage : "other"}`;
+}
+
+/** The reasons a block shows under its empty state: only when the queue is empty, counts > 0. */
+export function approvalEmptyReasons(v: Pick<ApprovalVacancyInfo, "queue" | "emptyQueueReasons">): ApprovalEmptyQueueReason[] {
+  if (v.queue.length > 0) return [];
+  return (v.emptyQueueReasons ?? []).filter((r) => r.count > 0);
+}
 
 /** The payload's flag wins; an older payload without it reads "no declined player" as open. */
 export function isOpenSpot(v: Pick<ApprovalVacancyInfo, "declinedPlayerId" | "openSpot">): boolean {
@@ -57,7 +93,7 @@ export function approvalDisplayGroups(vacancies: ApprovalVacancyInfo[]): Approva
   const openByKey = new Map<string, Extract<ApprovalDisplayGroup, { kind: "open" }>>();
   for (const v of vacancies) {
     if (!isOpenSpot(v)) {
-      groups.push({ kind: "declined", key: `declined-${v.vacancyId}`, vacancyIds: [v.vacancyId], declinedPlayerName: v.declinedPlayerName ?? null, queue: v.queue });
+      groups.push({ kind: "declined", key: `declined-${v.vacancyId}`, vacancyIds: [v.vacancyId], declinedPlayerName: v.declinedPlayerName ?? null, queue: v.queue, emptyQueueReasons: approvalEmptyReasons(v) });
       continue;
     }
     const side = v.side ?? null;
@@ -68,7 +104,8 @@ export function approvalDisplayGroups(vacancies: ApprovalVacancyInfo[]): Approva
       existing.count += 1;
       continue;
     }
-    const group = { kind: "open" as const, key, vacancyIds: [v.vacancyId], count: 1, side, queue: v.queue };
+    // Grouped spots share side and (empty) queue, so the first one's reasons stand for the block.
+    const group = { kind: "open" as const, key, vacancyIds: [v.vacancyId], count: 1, side, queue: v.queue, emptyQueueReasons: approvalEmptyReasons(v) };
     openByKey.set(key, group);
     groups.push(group);
   }

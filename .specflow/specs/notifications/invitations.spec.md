@@ -84,7 +84,23 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
      Named limit of that filter: a class whose one absence vacancy was filled before the window
      while another place was never filled is skipped by the tick (the filled row counts as "a
      vacancy"); a start job or a hand trigger still opens the remaining place.
-     An invitation start of type `none` opens nothing from the tick, as it arms no job.
+     An invitation start of type `none` opens nothing from the tick, as it arms no job;
+   - **an occurrence not yet materialised whose window is already open when its jobs are derived
+     (PAD-661, ledger B-501)**. Neither path above sees it: the derivation
+     (`schedule_lesson_reminder_jobs`: a config or lesson save, the startup re-arm, the daily
+     pass) arms nothing for a past fire time (config rule 10a) and the tick reads only materialised
+     classes, so the place stayed silent until the reminder materialised it â€” five days late for a
+     7-day window with a 48 h reminder. A derivation that finds the occurrence not materialised,
+     still ahead on the club's clock, with an invitation timing that is not `none` and an
+     invite-start time already past, now arms `invite_start_lesson_<lesson>_<date>` for the
+     **catch-up**: two minutes after the derivation (`INVITE_START_CATCH_UP`), not at the past
+     time, unless the job is already armed. The runner is the same, so every gate above holds
+     (semi-automatic approval, the restrictions and the quiet-hours hold, the start-once claim,
+     the class lock), materialising still removes the job, and a later derivation finds the date
+     materialised and arms no second catch-up. Reminder jobs are untouched: a past reminder time
+     still means no job, so a save re-sends nothing (rule 10a). The first startup after this rule
+     arms a catch-up for every such occurrence of every engine-on coach, which opens those classes
+     two minutes later (the deploy burst; owner, 2026-10-14).
    The tick opens every such class it can see, so a deploy or a save that lands inside open
    windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
    measured on staging before merge). A save still sends nothing itself (config rule 10).
@@ -619,6 +635,33 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** the class of the second criterion
 - **When** `trigger_invitations` is called by hand inside the window
 - **Then** one structural vacancy is open and the free student holds one invitation
+
+#### A window already open at derivation is opened by the catch-up (rule 1c, PAD-661)
+- **Given** the class of the first criterion with the coach's invitation start "7 days before at
+  19:30" and first reminder 48 h before, the occurrence not materialised, and the lesson walk run
+  five days before the class (the window opened two days earlier)
+- **When** the walk runs and, two minutes later, the `invite_start_lesson_<lesson>_<date>` job fires
+- **Then** the occurrence is materialised and the place is opened: in semi-automatic mode one
+  `pending` vacancy, one approval prompt and one `replacement_approval` message, no student
+  invitation; in automatic mode one `not_required` vacancy and one invitation to the free student
+
+#### A second derivation inside the window re-fires nothing (rule 1c, PAD-661)
+- **Given** the class of the previous criterion after its catch-up fired
+- **When** the lesson walk runs again inside the window and ticks follow
+- **Then** no `invite_start_lesson_<lesson>_<date>` job is armed (the date is materialised), the
+  class still has one vacancy and the coach one prompt (or the student one invitation)
+
+#### A materialised date never gets the catch-up (rule 1c, PAD-661)
+- **Given** the class of the second criterion (materialised inside its window, no start job)
+- **When** the lesson walk runs
+- **Then** no `invite_start_lesson_<lesson>_<date>` job is armed for that date: the instance path
+  (the tick) owns it
+
+#### A timing of `none` arms no catch-up (rule 1c, PAD-661)
+- **Given** an occurrence not materialised, still ahead, with the coach's invitation start of type
+  `none`
+- **When** the lesson walk runs
+- **Then** no `invite_start_lesson_<lesson>_<date>` job is armed
 
 #### A coach add closes the open vacancy (rule 13)
 - **Given** instance 10 with `max_players=2`, Alice enrolled, Bob declined (his vacancy open with

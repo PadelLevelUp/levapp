@@ -2,6 +2,10 @@
   "players": {
     "title": "Jogadores",
     "searchPlaceholder": "Pesquisar jogadores...",
+    "search": {
+      "searching": "A pesquisar…",
+      "noResults": "Nenhum jogador encontrado para «{{query}}»"
+    },
     "sortAriaLabel": "Ordenar jogadores",
     "sortPlaceholder": "Ordenar por...",
     "sortNameAsc": "Nome A-Z",

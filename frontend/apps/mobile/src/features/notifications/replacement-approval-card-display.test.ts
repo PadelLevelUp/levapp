@@ -37,3 +37,11 @@ describe("the iOS approval card presents the shared display groups (PAD-574)", (
     expect(CARD).toContain('showingOf", { shown: shown.length, total: group.queue.length }');
   });
 });
+
+describe("the iOS approval card says why a queue is empty (PAD-661, rule 4b)", () => {
+  it("renders the shared reasons under the empty state, one line per stage, by the shared key", () => {
+    for (const token of ["group.emptyQueueReasons.length > 0", "approvalEmptyReasonKey(r.stage)", 'testID="approval-empty-reasons"', "{ count: r.count }"]) {
+      expect(CARD).toContain(token);
+    }
+  });
+});

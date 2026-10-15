@@ -350,9 +350,15 @@ executionOrder:
     # marks, clears and removes its own class through the API, so its position is not load
     # bearing.
     - 230-clear-mark
+    # 280 (PAD-655, mobile.android-runtime rule 9b): adds 14 levels, scrolls the level select to
+    # the last one; teardown removes them, so its position is not load bearing.
+    - 280-level-select-scrolls
     # 279 (PAD-659, calendar.event-detail rules 22–23): reads the seeded class's grouped list and
     # opens the player sheet; writes nothing, so its position is not load bearing.
     - 279-participant-groups-sheet
+    # 281 (PAD-660, players.nickname rules 1–3): sets E2E Student's nickname through the UI and
+    # clears it in teardown, so its position is not load bearing.
+    - 281-coach-nickname
     # 289 (PAD-648, messaging.conversations rule 17): reads every e2e-coach conversation, posts
     # one student message in conversation 1 and deletes it after, so its position is not load bearing.
     - 289-unread-filter

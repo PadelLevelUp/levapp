@@ -19,11 +19,13 @@ import type {
   InviteSimulationRequest,
   Player,
 } from "@levelup/types";
+import { useDebouncedText } from "@/lib/useDebouncedText";
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { classDayParts, clubTodayISO } from "@levelup/config";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -400,27 +402,35 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
   // The name of the result the coach picked: refilling the input with it must
   // not re-run the search and reopen the list over the verdict.
   const [selectedName, setSelectedName] = React.useState<string | null>(null);
-  const seq = React.useRef(0);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
+  const activeQuery = query.trim() === selectedName ? "" : query;
+  const { debounced, settling } = useDebouncedText(activeQuery);
+  const [loadedFor, setLoadedFor] = React.useState("");
+  const searching = settling || (debounced !== "" && loadedFor !== debounced);
 
   React.useEffect(() => {
-    const term = query.trim();
-    if (!term || term === selectedName) {
+    if (!debounced) {
       setResults(null);
+      setLoadedFor("");
       return;
     }
-    const mine = ++seq.current;
-    const handle = setTimeout(() => {
-      notificationEngineApi
-        .searchPlayers(term)
-        .then((res) => {
-          if (mine === seq.current) setResults(res.players);
-        })
-        .catch(() => {
-          if (mine === seq.current) setResults([]);
-        });
-    }, 250);
-    return () => clearTimeout(handle);
-  }, [query, selectedName]);
+    let cancelled = false;
+    notificationEngineApi
+      .searchPlayers(debounced)
+      .then((res) => {
+        if (cancelled) return;
+        setResults(res.players);
+        setLoadedFor(debounced);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setResults([]);
+        setLoadedFor(debounced);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced]);
 
   React.useEffect(() => {
     setVerdict(null);
@@ -453,14 +463,15 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
         }}
         autoCorrect={false}
       />
-      {results && (
+      {activeQuery.trim() !== "" && (results !== null || searching) && (
         <View className="rounded-md border border-border">
-          {results.length === 0 ? (
-            <Text className="px-3 py-2 text-sm text-muted-foreground">
-              {t("tutorials.understandInvites.lookupNoResults")}
-            </Text>
-          ) : (
-            results.map((player) => (
+          <PlayerSearchFeedback
+            query={activeQuery}
+            searching={searching}
+            count={results?.length ?? 0}
+            className="px-3 py-2 text-sm text-muted-foreground"
+          />
+          {(results ?? []).map((player) => (
               <Pressable
                 key={player.id}
                 testID={`tutorial-lookup-result-${player.id}`}
@@ -471,8 +482,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
               >
                 <Text className="text-sm">{player.name}</Text>
               </Pressable>
-            ))
-          )}
+          ))}
         </View>
       )}
 

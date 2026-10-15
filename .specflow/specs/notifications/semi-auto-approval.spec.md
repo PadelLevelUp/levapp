@@ -28,6 +28,19 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    student's name, never "confirmou que não vai comparecer". The payload says which with
    `openSpot` and carries the vacancy's `side`; the persisted Assistant text (rule 6) makes the
    same split ("Open spot." / "Spot freed by {name}."). The prompt shows the FULL ordered invite queue — all eligible candidates across all rounds/groups, in the exact order the engine would invite them, computed at prompt-creation time. Exactness principle: the list shown to the coach is exactly the set of players who may receive invitations — the engine may never invite anyone not on the shown list. Eligibility is recomputed at send time using the same rules, which may shrink or reorder the list; a player who wasn't shown may be invited only because their eligibility changed between prompt creation and send time
+4b. **An empty queue says why (PAD-661, B-501 follow-up; numbering unconfirmed).** A prompt is
+   created even when the engine can suggest nobody (restrictions gate sending, not asking), and
+   the coach then saw only "no eligible players". The payload now carries `emptyQueueReasons` for
+   a vacancy whose `queue` is empty: the coach's roster evaluated against the engine's LOOSEST wave
+   (`invitation_waves`, the last group), counted by the first stage that dropped each student
+   (`CANDIDATE_STAGES`: `declined_this_class`, `already_invited`, `eligibility`,
+   `excluded_by_coach`, `inactive_account`, `has_class_same_day`, `unavailable`,
+   `auto_invites_off`, `no_round_matched`, `offered_another_spot`), in that order, zero counts
+   left out; the students already in the class and the departing one are not reasons and are not
+   counted. Web and iOS render it under the empty state as one line per stage ("7 fora dos
+   critérios de elegibilidade · 2 excluídos pelo treinador"). A non-empty queue carries no
+   reasons; an older payload without the key renders the empty state as before. The class
+   detail's recomputed suggestions (rule 12) carry the same key, since they share the payload.
 5. **The waiting list heads the queue (PAD-446).** The class's waiting-list students the engine would ask first (`notifications.invitations` rule 8a) open the queue, in their order, each entry marked `fromWaitingList: true`; clients tag them "from the waiting list". Nobody is placed without an invitation any more, so the old disclosure ("Player X from the waiting list will be added directly to the class") is never made: `waiting_list_player_id` is stored null, which older builds read as "no disclosure"
 6. Every prompt is persisted as a message in the coach's Assistant conversation — the source of truth — regardless of which surface triggered it
 7. Presence-confirmation surface: when confirming presences creates N vacancies, the frontend immediately shows one inline approval card bundling all N vacancies (declined players + invite queues concatenated). One decision applies to the whole bundle; the same bundle is also persisted in the Assistant conversation
@@ -102,6 +115,16 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **Then** the bundle has three vacancies: Alice's with `openSpot: false` and her name, and two with `openSpot: true`, `declinedPlayerName` null and each one's `side`
 - **And** on web and iOS Alice's block reads "A Alice não vai. Convites para a vaga libertada" and the open spots read "Vaga por preencher. Convites sugeridos"
 - **And** the persisted Assistant text says "Open spot." for them and "Spot freed by Alice." for hers
+
+#### An empty queue tells the coach why (rule 4b, PAD-661)
+- **Given** semi-automatic mode, a class of 2 with one roster student enrolled, one free roster
+  student on the coach's excluded list (`restrictions.excludedPlayers`), and the never-filled place
+  inside its invitation window
+- **When** the tick opens the place and the prompt is built
+- **Then** the bundle has one vacancy with `openSpot: true`, `queue: []` and
+  `emptyQueueReasons: [{"stage": "excluded_by_coach", "count": 1}]`
+- **And** on web and iOS the block shows the empty state followed by "1 excluído pelo treinador" /
+  "1 excluded by the coach"; a vacancy with a non-empty queue carries no `emptyQueueReasons`
 
 #### Identical open-spot lists are one block, freed spots never are (rule 7a)
 - **Given** a bundle with 8 open spots: 3 left-side spots with list A, 5 right-side spots with list B, and Bob's freed spot with list A
