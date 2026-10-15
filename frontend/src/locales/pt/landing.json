@@ -273,50 +273,75 @@
       "decline": "Recusar"
     },
     "demo": {
-      "eyebrow": "Demonstração",
-      "title": "Pedir demonstração",
-      "subtitle": "Conta-nos sobre a tua academia e marcamos uma demonstração de 20 minutos.",
+      "title": "Vamos falar!",
+      "subtitle": "Fazemos-te uma demo, ajudamos-te a configurar a LevApp à tua medida ou tiramos qualquer dúvida que possas ter. Deixa os teus dados e falamos contigo pelo WhatsApp/Email.",
+      "providedBy": "O formulário é nosso; os teus dados ficam guardados na HubSpot, o sistema que usamos para gerir contactos.",
       "fields": {
-        "fullname": "Nome e apelido",
-        "email": "Email",
+        "firstname": "Nome",
+        "lastname": "Apelido",
         "phone": "Telemóvel",
-        "company": "Clube ou academia",
-        "city": "Cidade",
-        "alunos": "Número de alunos (aprox.)",
-        "horas": "Horas de aulas por semana",
-        "message": "Mensagem (opcional)"
+        "email": "Email",
+        "clube": "Em que clube dás aulas?"
       },
       "placeholders": {
-        "fullname": "Rita Pereira Lopes",
+        "firstname": "Rita",
+        "lastname": "Pereira Lopes",
+        "phone": "912 345 678",
         "email": "rita@academia.pt",
-        "phone": "+351 912 345 678",
-        "company": "Academia Norte",
-        "city": "Porto",
-        "message": "Há algo que queiras que saibamos?"
+        "clube": "Academia Norte"
+      },
+      "questions": {
+        "gestao": {
+          "label": "Como geres hoje as presenças, faltas e novos convites?",
+          "options": {
+            "ferramentas_classicas": "Uso ferramentas clássicas como Excel / SMS / WhatsApp",
+            "clube_outro_treinador": "Não sou eu que trato – é o meu clube / outro treinador",
+            "ninguem_trata": "Ninguém está realmente a tratar do assunto",
+            "outro": "Outro"
+          }
+        },
+        "lembretes": {
+          "label": "Já envias lembretes para confirmar a presença dos teus alunos?",
+          "options": {
+            "diariamente": "Diariamente",
+            "semanalmente": "Semanalmente",
+            "nao_envia": "Não envio lembretes. Assumo que quem está inscrito ou vem, ou avisa com antecedência."
+          }
+        },
+        "tempo": {
+          "label": "Quanto tempo gastas por semana a confirmar presenças, validar e enviar novos convites?",
+          "options": {
+            "menos_1h": "< 1 hora",
+            "1_3h": "1 - 3 horas",
+            "mais_3h": "Mais de 3 horas"
+          }
+        }
       },
       "errors": {
-        "fullname": "Indica o teu nome e apelido.",
+        "firstname": "Indica o teu nome.",
+        "lastname": "Indica o teu apelido.",
+        "phone": "Indica um telemóvel válido, por exemplo 912 345 678.",
         "email": "Indica um email válido.",
-        "phone": "Indica um telemóvel válido.",
-        "company": "Indica o clube ou academia.",
-        "city": "Indica a cidade.",
-        "alunos": "Indica um número inteiro maior que zero.",
-        "horas": "Indica um número inteiro maior que zero.",
-        "message": "A mensagem pode ter no máximo 2000 caracteres.",
-        "consent": "Tens de aceitar para enviar o pedido."
+        "clube": "Indica o clube onde dás aulas.",
+        "gestao": "Escolhe pelo menos uma opção.",
+        "lembretes": "Escolhe uma opção.",
+        "tempo": "Escolhe uma opção.",
+        "consent": "Para enviarmos o pedido, precisamos da tua autorização."
       },
-      "consent": "Aceito ser contactado pela LevApp sobre a demonstração",
-      "submit": "Pedir demonstração",
+      "consentIntro": "Para responder ao teu pedido, precisamos da tua autorização para guardar e tratar os teus dados pessoais.",
+      "consent": "Aceito que a LevApp guarde e trate os meus dados pessoais para responder a este pedido.",
+      "marketing": "Opcional: quero receber em primeira mão promoções e novas funcionalidades da LevApp. Podes cancelar a qualquer momento.",
+      "privacyLine": "Sabe como tratamos os teus dados na nossa",
+      "privacyLink": "Política de Privacidade",
+      "submit": "Enviar pedido",
       "sending": "A enviar…",
       "close": "Fechar",
       "sent": {
-        "title": "Obrigado, {{name}}!",
-        "message": "Recebemos o teu pedido e entramos em contacto em breve."
+        "message": "Obrigado! Vamos falar contigo em breve."
       },
       "failed": "Não foi possível enviar o pedido.",
       "failedLink": "Envia-nos um email.",
-      "providedBy": "Os pedidos de demonstração ficam guardados na HubSpot. Ver a",
-      "privacyLink": "Política de Privacidade"
+      "retry": "Tentar outra vez"
     },
     "loader": {
       "label": "A entrar…"

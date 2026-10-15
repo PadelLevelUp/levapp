@@ -13,8 +13,8 @@ import { loginAsCoach } from "../helpers/auth";
  * No HubSpot account is needed: every HubSpot host is route-stubbed. The
  * tracking stub sets the cookies the real script would (`hubspotutk`,
  * `__hstc`) and fires one beacon, so "tracking ran" is observable as a
- * request. Since PAD-617 the demo dialog reaches no HubSpot host at all: it
- * posts to LevApp's own API, which relays to HubSpot.
+ * request. Since PAD-617 the contact dialog reaches no HubSpot host at all: it
+ * posts to LevApp's own API, which relays to HubSpot (PAD-650 reshaped its form).
  *
  * The guard that matters is the first test: before the visitor presses
  * Aceitar, nothing leaves the page's own origin, the web fonts included
@@ -354,10 +354,10 @@ test.describe("landing page — every exit loads a new document (PAD-469, rule 5
     await stubHubSpot(page);
     await page.goto("/");
     await page.getByTestId("landing-demo-cta").first().click();
-    const notice = page.getByTestId("demo-hubspot-notice");
-    await expect(notice).toBeVisible();
+    const privacy = page.getByTestId("demo-privacy-line");
+    await expect(privacy).toBeVisible();
     await page.evaluate(() => ((window as { __sameDoc?: boolean }).__sameDoc = true));
-    await notice.getByRole("link").click();
+    await privacy.getByRole("link").click();
     await page.waitForURL("**/privacy");
     await expect
       .poll(() => page.evaluate(() => (window as { __sameDoc?: boolean }).__sameDoc))
@@ -378,27 +378,33 @@ test.describe("landing page — banner scope (PAD-469, rule 11)", () => {
   });
 });
 
-test.describe("landing page — demo dialog (PAD-469, PAD-617)", () => {
-  const RITA = {
-    fullname: "Rita Pereira Lopes",
-    email: "rita@academia.pt",
-    phone: "+351 912 345 678",
-    company: "Academia Norte",
-    city: "Porto",
-    alunos: "30",
-    horas: "20",
-  };
-
+test.describe("landing page — contact dialog (PAD-469, PAD-617, PAD-650)", () => {
   async function fillDemoForm(page: Page) {
     const dialog = page.getByTestId("demo-dialog");
-    for (const [field, value] of Object.entries(RITA)) {
-      await dialog.getByTestId(`demo-${field}`).fill(value);
-    }
+    await dialog.getByTestId("demo-firstname").fill("Rita");
+    await dialog.getByTestId("demo-lastname").fill("Pereira Lopes");
+    await dialog.getByTestId("demo-phone").fill("912 345 678");
+    await dialog.getByTestId("demo-email").fill("rita@academia.pt");
+    await dialog.getByTestId("demo-clube").fill("Academia Norte");
+    await dialog.getByTestId("demo-gestao-ninguem_trata").click();
+    await dialog.getByTestId("demo-gestao-ferramentas_classicas").click();
+    await dialog.getByTestId("demo-lembretes-diariamente").click();
+    await dialog.getByTestId("demo-tempo-mais_3h").click();
     await dialog.getByTestId("demo-consent").click();
     return dialog;
   }
 
-  test("PAD-617: with no form configured on the server, the dialog offers the email instead", async ({
+  /** Answer the relay with 200 and keep every body it receives. */
+  async function captureRelay(page: Page) {
+    const bodies: Record<string, unknown>[] = [];
+    await page.route("**/api/public/demo-request", async (route) => {
+      bodies.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
+    });
+    return bodies;
+  }
+
+  test("PAD-617: with no form configured on the server, the dialog offers the email and a retry", async ({
     page,
   }) => {
     // The real E2E backend: HUBSPOT_DEMO_FORM_ID is unset there, so the relay answers 503.
@@ -410,46 +416,69 @@ test.describe("landing page — demo dialog (PAD-469, PAD-617)", () => {
     expect((await answer).status()).toBe(503);
     await expect(dialog.getByTestId("demo-failed")).toBeVisible();
     await expect(dialog.getByTestId("demo-failed-mailto")).toHaveAttribute("href", /^mailto:admin@levapp\.app/);
+    await expect(dialog.getByTestId("demo-retry")).toBeVisible();
   });
 
-  test("PAD-617: the form posts to LevApp's API, never to HubSpot, and loads no tracker", async ({
+  test("PAD-650: every commercial button opens the dialog and nothing is sent until submit", async ({
     page,
   }) => {
     const requests = await stubHubSpot(page);
-    let sent: Record<string, unknown> | null = null;
-    await page.route("**/api/public/demo-request", async (route) => {
-      sent = route.request().postDataJSON();
-      await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
-    });
+    const bodies = await captureRelay(page);
+    await page.goto("/?para=treinadores");
+    await expect(page.getByTestId("cookie-banner")).toBeVisible();
+
+    const ctas = page.locator('[data-testid="landing-demo-cta"]:visible');
+    const count = await ctas.count();
+    // Header, hero, "Falar connosco" and the closing call to action, at least.
+    expect(count).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i < count; i++) {
+      await ctas.nth(i).click();
+      await expect(page.getByTestId("demo-dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("demo-dialog")).toHaveCount(0);
+    }
+    await settle(page);
+    expect(bodies).toEqual([]);
+    expect(requests).toEqual([]);
+  });
+
+  test("PAD-650: the form posts the ticket's fields to LevApp's API, never to HubSpot", async ({
+    page,
+  }) => {
+    const requests = await stubHubSpot(page);
+    const bodies = await captureRelay(page);
     await page.goto("/");
     await expect(page.getByTestId("cookie-banner")).toBeVisible();
 
-    await page.getByTestId("landing-demo-cta").first().click();
+    await page.locator('[data-testid="landing-demo-cta"][data-pedido="demonstracao"]:visible').first().click();
     const dialog = page.getByTestId("demo-dialog");
-    await expect(dialog).toBeVisible();
-    // The visitor is told where the request is stored before they type.
-    const notice = dialog.getByTestId("demo-hubspot-notice");
-    await expect(notice).toContainText("HubSpot");
-    await expect(notice.getByRole("link")).toHaveAttribute("href", "/privacy");
+    await expect(dialog.getByTestId("demo-hubspot-notice")).toBeVisible();
+    await expect(dialog.getByTestId("demo-privacy-line").getByRole("link")).toHaveAttribute("href", "/privacy");
+    // The build carries a subscription id (playwright.config.ts), so the optional box shows.
+    await expect(dialog.getByTestId("demo-marketing")).toHaveAttribute("data-state", "unchecked");
 
     await fillDemoForm(page);
     await dialog.getByTestId("demo-submit").click();
-    await expect(dialog.getByTestId("demo-sent")).toContainText("Rita");
+    await expect(dialog.getByTestId("demo-sent")).toBeVisible();
 
-    expect(sent).toMatchObject({
-      fullname: RITA.fullname,
-      email: RITA.email,
-      company: RITA.company,
-      city: RITA.city,
-      alunos: 30,
-      horas: 20,
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({
+      firstname: "Rita",
+      lastname: "Pereira Lopes",
+      phone: "+351 912 345 678",
+      email: "rita@academia.pt",
+      clube: "Academia Norte",
+      gestao: ["ferramentas_classicas", "ninguem_trata"],
+      lembretes: "diariamente",
+      tempo: "mais_3h",
       consent: true,
+      marketing: false,
       pedido: "demonstracao",
       website: "",
     });
-    expect(typeof (sent as unknown as { elapsedMs: unknown }).elapsedMs).toBe("number");
-    // No consent was given, so there is no hubspotutk to send.
-    expect(sent).not.toHaveProperty("hutk");
+    expect(typeof bodies[0].elapsedMs).toBe("number");
+    // No cookie choice was made, so there is no hubspotutk to send.
+    expect(bodies[0]).not.toHaveProperty("hutk");
 
     await settle(page);
     expect(requests).toEqual([]);
@@ -457,10 +486,66 @@ test.describe("landing page — demo dialog (PAD-469, PAD-617)", () => {
     expect(await trackerRuns(page)).toBeUndefined();
   });
 
+  test("PAD-650: \"Falar connosco\" sends no pedido", async ({ page }) => {
+    const bodies = await captureRelay(page);
+    await page.goto("/?para=treinadores");
+    const talk = page.locator('[data-testid="landing-demo-cta"]:not([data-pedido]):visible');
+    await expect(talk).toHaveCount(1);
+    await talk.click();
+    const dialog = await fillDemoForm(page);
+    await dialog.getByTestId("demo-submit").click();
+    await expect(dialog.getByTestId("demo-sent")).toBeVisible();
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).not.toHaveProperty("pedido");
+  });
+
+  test("PAD-650: hutk goes along with cookie consent and stays home after a decline", async ({
+    page,
+  }) => {
+    await stubHubSpot(page);
+    const bodies = await captureRelay(page);
+    await page.goto("/");
+    await page.getByTestId("cookie-accept").click();
+    // The tracking stub sets hubspotutk=stub-utk once it runs.
+    await expect.poll(() => trackerRuns(page)).toBe(1);
+
+    await page.getByTestId("landing-demo-cta").first().click();
+    let dialog = await fillDemoForm(page);
+    await dialog.getByTestId("demo-submit").click();
+    await expect(dialog.getByTestId("demo-sent")).toBeVisible();
+    expect(bodies[0]).toHaveProperty("hutk", "stub-utk");
+
+    // Decline on a fresh visit, then leave a hubspotutk behind (as a cookie on HubSpot's parent
+    // domain would be): the dialog still sends none, because the choice is "declined".
+    await page.context().clearCookies();
+    await page.evaluate(() => localStorage.clear());
+    await page.goto("/");
+    await page.getByTestId("cookie-decline").click();
+    await page.evaluate(() => (document.cookie = "hubspotutk=lingering; path=/"));
+    await page.getByTestId("landing-demo-cta").first().click();
+    dialog = await fillDemoForm(page);
+    await dialog.getByTestId("demo-submit").click();
+    await expect(dialog.getByTestId("demo-sent")).toBeVisible();
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).not.toHaveProperty("hutk");
+  });
+
+  test("PAD-650: an incomplete form is refused before anything is sent", async ({ page }) => {
+    const bodies = await captureRelay(page);
+    await page.goto("/");
+    await page.getByTestId("landing-demo-cta").first().click();
+    const dialog = page.getByTestId("demo-dialog");
+    await dialog.getByTestId("demo-submit").click();
+    for (const f of ["firstname", "lastname", "phone", "email", "clube", "gestao", "lembretes", "tempo", "consent"]) {
+      await expect(dialog.getByTestId(`demo-${f}-error`)).toBeVisible();
+    }
+    await expect(dialog.getByTestId("demo-firstname")).toBeFocused();
+    await settle(page);
+    expect(bodies).toEqual([]);
+  });
+
   test("PAD-617: reopening the dialog shows a fresh form", async ({ page }) => {
-    await page.route("**/api/public/demo-request", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' }),
-    );
+    await captureRelay(page);
     await page.goto("/");
     const cta = page.getByTestId("landing-demo-cta").first();
     await cta.click();
@@ -471,7 +556,7 @@ test.describe("landing page — demo dialog (PAD-469, PAD-617)", () => {
     await expect(page.getByTestId("demo-dialog")).toHaveCount(0);
 
     await cta.click();
-    await expect(page.getByTestId("demo-dialog").getByTestId("demo-fullname")).toHaveValue("");
+    await expect(page.getByTestId("demo-dialog").getByTestId("demo-firstname")).toHaveValue("");
     await expect(page.getByTestId("demo-dialog").getByTestId("demo-sent")).toHaveCount(0);
   });
 });

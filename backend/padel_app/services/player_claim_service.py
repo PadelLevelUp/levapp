@@ -661,20 +661,33 @@ def list_claim_candidates_service(player_id, coach, search=None, limit=50):
     if _coach_relation(coach, player.id) is None:
         abort(403, "This player is not on your roster")
     wanted = normalise_name(player.user.name if player.user else "")
-    term = normalise_name(search) if search else ""
+    # players.search (PAD-665): the shared player-search rule, not a single-substring fold — every
+    # word, in any order, best tier first; a same-name candidate still leads (the duplicate).
+    from padel_app.services.player_service import rank_player_match
+
     items = []
     for rel in _candidate_rows(coach, player):
         name = rel.player.user.name or ""
-        norm = normalise_name(name)
-        if term and term not in norm:
+        tier = rank_player_match({"name": name}, search) if search else 0
+        if tier is None:
             continue
+        norm = normalise_name(name)
         items.append({
             "playerId": rel.player_id,
             "name": name,
             "levelLabel": rel.level.label if rel.level is not None else None,
             "sameName": bool(wanted) and norm == wanted,
+            "_tier": tier,
         })
-    items.sort(key=lambda it: (not it["sameName"], normalise_name(it["name"]), it["playerId"]))
+    # players.search rule 6 inside a tier (the shared fold, then the name, then the id); the
+    # duplicate check above keeps `normalise_name` (claim rule 4c).
+    from padel_app.services.player_service import fold_search_text
+
+    items.sort(key=lambda it: (
+        not it["sameName"], it["_tier"], fold_search_text(it["name"]), it["name"], it["playerId"]
+    ))
+    for it in items:
+        del it["_tier"]
     return items[:limit]
 
 

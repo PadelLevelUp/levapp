@@ -6,13 +6,16 @@ import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, searchPeopleByName } from "@levelup/config";
+import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Text } from "@/components/ui/text";
 import { ConversationItem } from "@/features/messages/components/conversation-item";
 import { normalizeId } from "@/features/messages/utils";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -37,9 +40,14 @@ function ConversationListSkeleton() {
 
 export default function MessagesScreen() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  // messaging.conversations rule 17 (PAD-648): "Todas" when the tab mounts; "Não lidas" is the
+  // server's list, so an unread thread on any page is found.
+  const [unreadOnly, setUnreadOnly] = React.useState(false);
   // Page 1 lives in react-query (kept fresh by the SSE-driven invalidations
   // in the tabs layout); extra pages are appended imperatively below.
-  const { data, isLoading, isError, refetch } = useConversations(1, PAGE_SIZE);
+  const { data, isLoading, isError, refetch } = useConversations(1, PAGE_SIZE, undefined, unreadOnly);
 
   const [search, setSearch] = React.useState("");
   const [extra, setExtra] = React.useState<Conversation[]>([]);
@@ -75,18 +83,22 @@ export default function MessagesScreen() {
   // gone, so it falls back to the same label the row renders.
   const filteredConversations = React.useMemo(() => {
     if (!search) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter((c) =>
-      (c.participantName ?? t("messages.deletedUser")).toLowerCase().includes(q)
+    // PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; a student
+    // keeps the plain substring match.
+    return searchPeopleByName(
+      conversations,
+      search,
+      (c) => c.participantName ?? t("messages.deletedUser"),
+      { coach: isCoach }
     );
-  }, [conversations, search, t]);
+  }, [conversations, search, t, isCoach]);
 
   const loadMore = React.useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
       const next = pageRef.current + 1;
-      const result = await messagesApi.getConversations(next, PAGE_SIZE);
+      const result = await messagesApi.getConversations(next, PAGE_SIZE, unreadOnly);
       pageRef.current = next;
       setExtra((prev) => [...prev, ...result.conversations]);
       setMoreAvailable(result.hasMore);
@@ -95,12 +107,46 @@ export default function MessagesScreen() {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore]);
+  }, [loadingMore, hasMore, unreadOnly]);
+
+  // Switching the filter starts again from page 1 of the other list.
+  const chooseFilter = (next: boolean) => {
+    if (next === unreadOnly) return;
+    setUnreadOnly(next);
+    setExtra([]);
+    setMoreAvailable(null);
+    pageRef.current = 1;
+  };
+
+  const filterChip = (value: boolean, testID: string, label: string) => (
+    <Pressable
+      testID={testID}
+      role="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: unreadOnly === value }}
+      onPress={() => chooseFilter(value)}
+      hitSlop={6}
+      className={cn(
+        "min-h-9 justify-center rounded-full border px-4",
+        unreadOnly === value ? "border-primary bg-primary" : "border-border bg-background"
+      )}
+    >
+      <Text
+        className={cn(
+          "text-sm font-medium",
+          unreadOnly === value ? "text-primary-foreground" : "text-foreground"
+        )}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
 
   return (
     <View className="flex-1 bg-background" testID="screen-messages">
-      {!isLoading && !isError && conversations.length > 0 ? (
-        <View className="px-4 pb-3 pt-3">
+      {/* With "Não lidas" on, the controls stay even when nothing is unread, so it can be undone. */}
+      {!isLoading && !isError && (conversations.length > 0 || unreadOnly) ? (
+        <View className="gap-3 px-4 pb-3 pt-3">
           <Input
             testID="conversations-search"
             accessibilityLabel={t("messages.searchConversationAria")}
@@ -108,6 +154,10 @@ export default function MessagesScreen() {
             value={search}
             onChangeText={setSearch}
           />
+          <View className="flex-row gap-2" accessibilityLabel={t("messages.filterAria")}>
+            {filterChip(false, "conversations-filter-all", t("messages.filterAll"))}
+            {filterChip(true, "conversations-filter-unread", t("messages.filterUnread"))}
+          </View>
         </View>
       ) : null}
 
@@ -118,8 +168,15 @@ export default function MessagesScreen() {
           message={t("messages.couldNotLoadConversations")}
           onRetry={() => void refetch()}
         />
+      ) : conversations.length === 0 && unreadOnly ? (
+        <EmptyState
+          testID="conversations-empty-unread"
+          icon="checkmark-done-outline"
+          title={t("messages.noUnreadConversations")}
+        />
       ) : conversations.length === 0 ? (
         <EmptyState
+          testID="conversations-empty-none"
           icon="chatbubbles-outline"
           title={t("messages.noConversationsYet")}
           message={t("messages.startWithPlusButton")}

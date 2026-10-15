@@ -7,6 +7,9 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   canConfirmAttendance,
+  classHasEnded,
+  displayStateOf,
+  presenceChangedFor,
   reminderArrivedFor,
   clearsFor,
   reminderAnswerOutcome,
@@ -97,6 +100,7 @@ import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { messagesApi } from "@levelup/api";
+import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import type { EligibilityCheckEntry } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
@@ -125,6 +129,8 @@ import {
   paramsToEvent,
   type ClassRouteParams,
 } from "@/features/calendar/params";
+import { ParticipantGroups, type ParticipantGroupRow } from "@/features/calendar/ParticipantGroups";
+import { ParticipantSheet } from "@/features/calendar/ParticipantSheet";
 import {
   ParticipantRow,
   playerName,
@@ -215,7 +221,7 @@ export default function ClassDetailScreen() {
   const [attendance, setAttendance] = React.useState<
     Record<string, AttendanceState>
   >({});
-  React.useEffect(() => {
+  const resetAttendanceDraft = React.useCallback(() => {
     if (!instance?.participants) return;
     const initial: Record<string, AttendanceState> = {};
     for (const participant of instance.participants) {
@@ -228,7 +234,16 @@ export default function ClassDetailScreen() {
       };
     }
     setAttendance(initial);
+  }, [instance?.participants, instance?.presences]);
+  React.useEffect(() => {
+    resetAttendanceDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instance?.id, instance?.participants, instance?.presences]);
+  // PAD-659 (`calendar.event-detail` rules 22–23): the coach reads the class grouped; "Editar
+  // presenças" / "Marcar presenças" switches to the marking rows. The pop-up row is the player
+  // whose profile is open over the class.
+  const [isMarking, setIsMarking] = React.useState(false);
+  const [popupRow, setPopupRow] = React.useState<ParticipantGroupRow | null>(null);
 
   const confirmPresences = useConfirmPresences();
   const removeClass = useRemoveClass();
@@ -319,7 +334,7 @@ export default function ClassDetailScreen() {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<ClassInstance | null>(null);
   // classes.edit rule 9 (PAD-474): the picker's students, fetched only while a coach edits.
-  const { data: coachPlayers, isLoading: coachPlayersLoading } = useCoachPlayers({ enabled: isCoach && isEditing });
+  const { data: coachPlayers, isLoading: coachPlayersLoading } = useCoachPlayers({ enabled: isCoach });
   const [editScopeOpen, setEditScopeOpen] = React.useState(false);
   const [overlapOpen, setOverlapOpen] = React.useState(false);
   // classes.edit rule 10: leaving with an unsaved draft — different from the loaded class by
@@ -412,6 +427,20 @@ export default function ClassDetailScreen() {
           return;
         }
         if (!isCoach) return;
+        // PAD-659 (rule 24): a presence in THIS class moved (the student answered, cancelled,
+        // or the coach marked) — refetch so the player changes group without a reload.
+        // B-548: an occurrence opened before it was materialised has no instance id yet; the
+        // event's lesson and date still name it.
+        if (
+          presenceChangedFor(
+            evt,
+            suggestionsInstanceId,
+            event?.model === "Lesson" ? { lessonId: event.originalId, date: event.date } : null
+          )
+        ) {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.classInstance(event) });
+          return;
+        }
         // PAD-131: a student asked to join, or the class filled and the
         // requests closed → refetch so the requests block is current.
         if (evt.type === "join_request_created" || evt.type === "join_requests_superseded" || evt.type === "waiting_list_changed") {
@@ -465,6 +494,8 @@ export default function ClassDetailScreen() {
   const [ineligible, setIneligible] = React.useState<EligibilityCheckEntry[]>([]);
   // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
   const [joinBusy, setJoinBusy] = React.useState(false);
+  // PAD-664: the student joined this full class's waiting list from this screen.
+  const [waitingJoined, setWaitingJoined] = React.useState(false);
   const [pendingAccept, setPendingAccept] = React.useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -558,6 +589,8 @@ export default function ClassDetailScreen() {
   const canApplyScope = event.isRecurring === true;
 
   const participants = instance?.participants ?? [];
+  // PAD-663 (rule 25): until the class ends, a coach's validated mark is worded as intent.
+  const classEnded = classHasEnded(active?.date ?? event.date, active?.endTime ?? event.endTime);
   // classes.edit rule 9 (PAD-474): while editing, the count follows the draft's
   // participants, as web's sheet reads `active`.
   const countedParticipants =
@@ -647,6 +680,10 @@ export default function ClassDetailScreen() {
   };
 
 
+  // PAD-659 (rule 22): the coach's read view is the grouped list; marking is a mode the coach
+  // enters with "Editar presenças" and leaves by saving or cancelling.
+  const coachReadView = isCoach && !isEditing && !isMarking && participants.length > 0;
+  const attendanceAlreadyMarked = (instance?.presences?.length ?? 0) > 0;
   const hasMarkedAttendance =
     Object.values(attendance).some((state) => state.status !== null) ||
     // PAD-567: a cleared row is a change to save too.
@@ -868,6 +905,7 @@ export default function ClassDetailScreen() {
       // ClassDetailSheet's handleSaveAttendance); iOS dropped it, so the
       // invitations sat unapproved with nothing on screen saying so.
       setApprovalBundle(bundle ?? null);
+      setIsMarking(false);
       setFeedback(
         bundle
           ? t("calendar.detail.approvalNeededDescription")
@@ -928,6 +966,21 @@ export default function ClassDetailScreen() {
       );
     } finally {
       await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  // PAD-664 (calendar.view rule 23): a full class offers only its waiting list.
+  const handleJoinWaitingList = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await joinClassWaitingList(event);
+      setWaitingJoined(true);
+      toast.success(t("calendar.waitingList.joined"));
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    } catch {
+      toast.error(t("calendar.waitingList.failed"));
+    } finally {
       setJoinBusy(false);
     }
   };
@@ -1454,16 +1507,43 @@ export default function ClassDetailScreen() {
 
           {/* Participants + attendance */}
           <View className="gap-2">
-            <Text className="text-sm font-semibold">
-              {/* PAD-313 (`calendar.event-detail` rule 5): the same count as the
-                  capacity card above — a not-coming student is listed, visibly
-                  not coming, and out of every count. */}
-              {t("calendar.detail.participantsCount", {
-                label: t("calendar.detail.participants"),
-                current: filled,
-                max: maxPlayers || "—",
-              })}
-            </Text>
+            {coachReadView ? (
+              // PAD-659 (rule 5's named exception): the coach's list header names its own
+              // quantity — the enrolled rows below over the capacity.
+              <View className="flex-row items-center justify-between gap-2">
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-sm font-semibold">{t("calendar.participants.title")}</Text>
+                  <Text testID="participants-enrolled" className="text-[13px] text-muted-foreground">
+                    {t("calendar.participants.enrolled", { current: participants.length, max: maxPlayers || "—" })}
+                  </Text>
+                </View>
+                {!isCanceled ? (
+                  <Button
+                    testID="attendance-edit"
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => setIsMarking(true)}
+                  >
+                    <Text>
+                      {attendanceAlreadyMarked
+                        ? t("calendar.detail.editAttendance")
+                        : t("calendar.detail.markAttendance")}
+                    </Text>
+                  </Button>
+                ) : null}
+              </View>
+            ) : (
+              <Text className="text-sm font-semibold">
+                {/* PAD-313 (`calendar.event-detail` rule 5): the same count as the
+                    capacity card above — a not-coming student is listed, visibly
+                    not coming, and out of every count. */}
+                {t("calendar.detail.participantsCount", {
+                  label: t("calendar.detail.participants"),
+                  current: filled,
+                  max: maxPlayers || "—",
+                })}
+              </Text>
+            )}
             {isEditing && draft ? (
               // classes.edit rule 9 (PAD-474): the same picker as web's sheet.
               <PlayerSelector
@@ -1478,6 +1558,16 @@ export default function ClassDetailScreen() {
               <Text className="text-sm text-muted-foreground">
                 {t("calendar.detail.noParticipants")}
               </Text>
+            ) : coachReadView ? (
+              <>
+                <ParticipantGroups
+                  participants={participants}
+                  presences={instance?.presences}
+                  roster={coachPlayers}
+                  onOpen={setPopupRow}
+                />
+                <ParticipantSheet row={popupRow} onClose={() => setPopupRow(null)} />
+              </>
             ) : (
               participants.map((participant) => (
                 <ParticipantRow
@@ -1500,23 +1590,38 @@ export default function ClassDetailScreen() {
                     }))
                   }
                   canMark={isCoach && !isCanceled && !isEditing}
+                  classEnded={classEnded}
                 />
               ))
             )}
 
-            {isCoach && participants.length > 0 && !isCanceled && !isEditing ? (
-              <Button
-                testID="attendance-confirm"
-                accessibilityLabel={t("classDetail.confirmAttendance")}
-                onPress={() => handleConfirmAttendance()}
-                disabled={!hasMarkedAttendance || confirmPresences.isPending}
-                className="mt-1"
-              >
-                {confirmPresences.isPending ? (
-                  <Spinner color={lightTheme.primaryForeground} />
-                ) : null}
-                <Text>{t("classDetail.confirmAttendance")}</Text>
-              </Button>
+            {isCoach && participants.length > 0 && !isCanceled && !isEditing && isMarking ? (
+              <View className="gap-2">
+                <Button
+                  testID="attendance-confirm"
+                  accessibilityLabel={t("classDetail.confirmAttendance")}
+                  onPress={() => handleConfirmAttendance()}
+                  disabled={!hasMarkedAttendance || confirmPresences.isPending}
+                  className="mt-1"
+                >
+                  {confirmPresences.isPending ? (
+                    <Spinner color={lightTheme.primaryForeground} />
+                  ) : null}
+                  <Text>{t("classDetail.confirmAttendance")}</Text>
+                </Button>
+                {/* PAD-659 (rule 22): cancelling returns to the grouped list and drops the draft. */}
+                <Button
+                  testID="attendance-edit-cancel"
+                  variant="outline"
+                  disabled={confirmPresences.isPending}
+                  onPress={() => {
+                    resetAttendanceDraft();
+                    setIsMarking(false);
+                  }}
+                >
+                  <Text>{t("common.cancel")}</Text>
+                </Button>
+              </View>
             ) : null}
           </View>
 
@@ -1755,6 +1860,44 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
+          {/* PAD-664: a full class — join its waiting list, or see that the student is on it. */}
+          {!isCoach &&
+          !isEditing &&
+          !isCanceled &&
+          !myPresence &&
+          !isParticipant &&
+          (event.studentRelation === "full" || event.studentRelation === "waiting" || waitingJoined) ? (
+            <>
+              <Separator />
+              {event.studentRelation === "waiting" || waitingJoined ? (
+                <View
+                  className="gap-1 rounded-md border border-border bg-muted/30 px-3 py-2"
+                  testID="class-waiting-list-student"
+                >
+                  <Text testID="class-waiting-list-on" className="text-sm font-medium">
+                    {t("calendar.waitingList.on")}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</Text>
+                </View>
+              ) : (
+                <View
+                  className="gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                  testID="class-waiting-list-student"
+                >
+                  <Text className="text-xs text-muted-foreground">{t("calendar.waitingList.fullHint")}</Text>
+                  <Button
+                    className="w-full"
+                    disabled={joinBusy}
+                    onPress={() => void handleJoinWaitingList()}
+                    testID="class-waiting-list-join"
+                  >
+                    <Text>{t("calendar.waitingList.join")}</Text>
+                  </Button>
+                </View>
+              )}
+            </>
+          ) : null}
+
           {/* PAD-131: a student outside the class asks for the open spot
               (rule 1) or withdraws their pending ask (rule 4). */}
           {!isCoach &&
@@ -1762,6 +1905,9 @@ export default function ClassDetailScreen() {
           !isCanceled &&
           !myPresence &&
           !isParticipant &&
+          event.studentRelation !== "full" &&
+          event.studentRelation !== "waiting" &&
+          !waitingJoined &&
           (event.openSpot || instance?.myJoinRequest) ? (
             <>
               <Separator />
@@ -1826,10 +1972,10 @@ export default function ClassDetailScreen() {
                       `confirmed`, then `invited` — three columns, and the
                       `confirmed` branch called a cancellation a confirmation. */}
                   <Badge
-                    variant={STATE_VARIANT[attendanceStateTone(myState)]}
+                    variant={STATE_VARIANT[attendanceStateTone(displayStateOf(myState, classEnded))]}
                     testID="attendance-state"
                   >
-                    <Text testID={`attendance-state-${myState}`}>{t(attendanceStateLabelKey(myState, "student"))}</Text>
+                    <Text testID={`attendance-state-${myState}`}>{t(attendanceStateLabelKey(displayStateOf(myState, classEnded), "student"))}</Text>
                   </Badge>
                 </View>
 

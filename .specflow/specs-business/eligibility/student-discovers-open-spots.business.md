@@ -29,10 +29,14 @@ invited — and a coach deciding whether they want their open spots advertised a
    apart never depends on colour alone (PAD-578).
 3. A student who isn't eligible for that class — too far below its level, say — never sees it at
    all; visibility and eligibility are checked together.
-4. A class that's already full, already happened, or been canceled never shows up as an open spot,
-   whether or not visibility is on.
+4. A class that's already happened or been canceled never shows up as an open spot, whether or not
+   visibility is on. A class that's **full** shows up in amber, marked "Cheia", and opening it
+   offers to join its waiting list (PAD-664) — it's never offered as a spot to take.
 5. If a coach hasn't turned visibility on anywhere, nothing changes for their students — the
    calendar shows exactly the classes they're enrolled in, same as always.
+6. **(PAD-664)** The student can narrow the calendar to "Só as minhas aulas", which hides the
+   offers (open and full classes) but never an invitation waiting for an answer. The app remembers
+   the choice on that device; the default shows every class they're eligible for.
 
 ## Business Rules
 
@@ -63,8 +67,11 @@ invited — and a coach deciding whether they want their open spots advertised a
 - **The difference never rests on colour alone (PAD-578, owner, 2026-10-09).** A student's own
   classes carry a ✓ mark and an open spot carries its "Vaga" chip — on the day cards and in the
   week grid, on web and on the phone apps — and the desktop calendar's legend explains both.
-  The student's own classes keep their coach's colour: the colour says which class it is, the
-  mark and the dashed outline say what it is to the student.
+  ~~The student's own classes keep their coach's colour.~~ **Superseded by PAD-664 (owner,
+  2026-10-13):** on the student's calendar the colour says what a class is to them — blue for
+  their own, grey for a class with a spot, amber for a full class (waiting list only) — with the
+  ✓, the outline and a word on each card as the second signal, and a legend on every screen size
+  listing the states currently shown. The coach's calendar keeps the coach's colours.
 
 ## Success Metrics
 

@@ -120,8 +120,9 @@ function TimeGridImpl({
                 {laid.map(({ event, top, height, column, columns }) => {
                   const { variant } = resolveCardVariant(event, {
                     isNext: event.id === nextEventId,
+                    viewer,
                   });
-                  const surface = cardSurfaceNative(event.color, variant, SURFACES);
+                  const surface = cardSurfaceNative(event.color, variant, SURFACES, viewer);
                   const width = 100 / columns;
                   const isBlock = variant === "block";
                   return (

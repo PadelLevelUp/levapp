@@ -1,0 +1,72 @@
+# PAD-655 — a select whose options are taller than its list box scrolls (mobile.android-runtime
+# rule 9b; number self-assigned, unconfirmed). Reported on iOS: Edit student → Nível, the list
+# did not move, so only the first ~9 levels could be chosen.
+#
+# Setup adds 14 levels after the seed's two (scripts/pad655-setup.js); teardown removes them.
+# The coach opens E2E Student's edit form, opens the level select, swipes the LIST up until the
+# last level is on screen and picks it; the list closes. Nothing is saved.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow 280 is from Session C's
+# wave-15 range (279–288).
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad655-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad655-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- tapOn:
+    id: "player-edit"
+- scrollUntilVisible:
+    element:
+      id: "player-level-select"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "player-level-select"
+- extendedWaitUntil:
+    visible:
+      text: "P655-01 \\| Scroll 01"
+    timeout: 10000
+# The last option starts below the list box. Swipe the list itself (memory: swipe from the
+# element on iOS) until it shows.
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        text: "P655-14 \\| Scroll 14"
+    commands:
+      - swipe:
+          from:
+            text: "P655-.*"
+          direction: UP
+          duration: 600
+      - waitForAnimationToEnd
+- assertVisible:
+    text: "P655-14 \\| Scroll 14"
+- tapOn:
+    text: "P655-14 \\| Scroll 14"
+# The tap chose it: the list closes. (The trigger's value is not in the iOS accessibility tree,
+# so the flow does not read it back; the red-to-green evidence is that row 14 is reached at all.)
+- extendedWaitUntil:
+    notVisible:
+      text: "P655-13 \\| Scroll 13"
+    timeout: 5000

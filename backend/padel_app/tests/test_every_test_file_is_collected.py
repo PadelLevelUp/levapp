@@ -34,7 +34,11 @@ WORKFLOW = REPO / ".github" / "workflows" / "backend-tests.yaml"
 
 DEFINES_A_TEST = re.compile(r"^\s*(?:async\s+)?def test_\w*\(|^class Test\w*[(:]", re.MULTILINE)
 #: pytest options that take a value, so the value is not mistaken for a path.
-OPTIONS_WITH_A_VALUE = {"-p", "-k", "-m", "-o", "-c", "-n", "-W", "--rootdir", "--deselect", "--ignore"}
+OPTIONS_WITH_A_VALUE = {
+    "-p", "-k", "-m", "-o", "-c", "-n", "-W", "--rootdir", "--deselect", "--ignore",
+    # PAD-654: pytest-split's shard options on the Postgres lane.
+    "--splits", "--group", "--splitting-algorithm", "--durations-path",
+}
 
 
 def ci_pytest_commands() -> list[str]:
@@ -44,6 +48,8 @@ def ci_pytest_commands() -> list[str]:
     for line in WORKFLOW.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if stripped.startswith("#") or "python -m pytest" not in stripped:
+            continue
+        if "--collect-only" in stripped:  # PAD-654's shard-coverage job lists tests; it runs none
             continue
         commands.append(stripped[stripped.index("python -m pytest"):])
     return commands
@@ -127,7 +133,12 @@ def test_a_full_session_collected_every_file_that_defines_a_test(request):
     invoked = [Path(str(arg).split("::")[0]).resolve() for arg in request.config.args]
     if not all(_under(root, invoked) for root in roots):
         pytest.skip("partial session: not the full CI invocation")
-    collected = {Path(str(item.path)).resolve() for item in request.session.items}
+    # PAD-654: a Postgres shard runs half the suite; pytest-split deselects the other half, and the
+    # conftest records it, so "collected" stays the whole session's collection in every shard.
+    from padel_app.tests.helpers import DESELECTED
+
+    items = [*request.session.items, *request.config.stash.get(DESELECTED, [])]
+    collected = {Path(str(item.path)).resolve() for item in items}
     missing = [p for p in files_defining_tests() if p not in collected]
     # A module skipped at module level (pytest.skip(allow_module_level=True),
     # pytest.importorskip) WAS collected but leaves no items — it is not an orphan.

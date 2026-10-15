@@ -451,7 +451,15 @@
       "fill": "Confirmed / awaiting / free",
       "invited": "Invited",
       "waiting": "Waiting list",
-      "notComing": "Not going"
+      "notComing": "Not going",
+      "student": {
+        "enrolled": "Enrolled",
+        "invited": "Invited",
+        "waiting": "On waiting list",
+        "notComing": "Not going",
+        "openSpot": "Spot open",
+        "full": "Full · waiting list"
+      }
     },
     "eligibilityConfirm": {
       "title": "Add students who don't meet the bar?",
@@ -573,8 +581,58 @@
     },
     "relation": {
       "invited": "Invited",
-      "waiting": "Waiting list",
-      "notComing": "Not going"
+      "waiting": "On waiting list",
+      "notComing": "Not going",
+      "full": "Full"
+    },
+    "studentFilter": {
+      "label": "Show",
+      "eligible": "All classes I'm eligible for",
+      "mine": "Only my classes"
+    },
+    "waitingList": {
+      "join": "Join the waiting list",
+      "joined": "You're on the waiting list",
+      "on": "On waiting list",
+      "onHint": "We'll let you know if a spot opens.",
+      "failed": "Couldn't join the waiting list",
+      "fullHint": "This class is full. You can join its waiting list."
+    },
+    "participants": {
+      "group": {
+        "going": "Going · {{count}}",
+        "pending": "No answer · {{count}}",
+        "not_going": "Not going · {{count}}"
+      },
+      "state": {
+        "going": "Going",
+        "pending": "No answer",
+        "not_going": "Not going"
+      },
+      "sideShort": {
+        "both": "Both",
+        "right": "Right",
+        "left": "Left"
+      },
+      "sideLong": {
+        "both": "Both sides",
+        "right": "Right side",
+        "left": "Left side"
+      },
+      "title": "Participants",
+      "enrolled": "{{current}}/{{max}} enrolled",
+      "inThisClass": "In this class",
+      "attendance": "Attendance",
+      "attendanceValue": "{{attended}} attended · {{missed}} missed",
+      "lastEvaluation": "Last evaluation",
+      "noEvaluations": "No evaluations",
+      "contact": "Contact",
+      "level": "Level {{level}}",
+      "sendMessage": "Send message",
+      "fullProfile": "View full profile",
+      "close": "Close",
+      "openProfile": "View {{name}}'s profile",
+      "popupLabel": "Player profile"
     }
   }
 }

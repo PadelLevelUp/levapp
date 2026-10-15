@@ -451,7 +451,15 @@
       "fill": "Confirmados / à espera / livres",
       "invited": "Convite",
       "waiting": "Lista de espera",
-      "notComing": "Não vou"
+      "notComing": "Não vou",
+      "student": {
+        "enrolled": "Inscrito",
+        "invited": "Convite",
+        "waiting": "Em lista de espera",
+        "notComing": "Não vou",
+        "openSpot": "Com vaga",
+        "full": "Cheia · lista de espera"
+      }
     },
     "eligibilityConfirm": {
       "title": "Adicionar alunos que não cumprem a fasquia?",
@@ -573,8 +581,58 @@
     },
     "relation": {
       "invited": "Convite",
-      "waiting": "Lista de espera",
-      "notComing": "Não vou"
+      "waiting": "Em lista de espera",
+      "notComing": "Não vou",
+      "full": "Cheia"
+    },
+    "studentFilter": {
+      "label": "Mostrar",
+      "eligible": "Todas em que sou elegível",
+      "mine": "Só as minhas aulas"
+    },
+    "waitingList": {
+      "join": "Juntar-me à lista de espera",
+      "joined": "Entraste na lista de espera",
+      "on": "Em lista de espera",
+      "onHint": "Avisamos-te se abrir uma vaga.",
+      "failed": "Não foi possível entrar na lista de espera",
+      "fullHint": "Esta aula está cheia. Podes entrar na lista de espera."
+    },
+    "participants": {
+      "group": {
+        "going": "Vão · {{count}}",
+        "pending": "Por responder · {{count}}",
+        "not_going": "Não vão · {{count}}"
+      },
+      "state": {
+        "going": "Vai",
+        "pending": "Por responder",
+        "not_going": "Não vai"
+      },
+      "sideShort": {
+        "both": "Amb",
+        "right": "Dir",
+        "left": "Esq"
+      },
+      "sideLong": {
+        "both": "Ambos os lados",
+        "right": "Lado direito",
+        "left": "Lado esquerdo"
+      },
+      "title": "Participantes",
+      "enrolled": "{{current}}/{{max}} inscritos",
+      "inThisClass": "Nesta aula",
+      "attendance": "Assiduidade",
+      "attendanceValue": "{{attended}} presenças · {{missed}} faltas",
+      "lastEvaluation": "Última avaliação",
+      "noEvaluations": "Sem avaliações",
+      "contact": "Contacto",
+      "level": "Nível {{level}}",
+      "sendMessage": "Enviar mensagem",
+      "fullProfile": "Ver perfil completo",
+      "close": "Fechar",
+      "openProfile": "Ver perfil de {{name}}",
+      "popupLabel": "Perfil do jogador"
     }
   }
 }

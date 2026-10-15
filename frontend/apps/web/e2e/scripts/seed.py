@@ -1031,11 +1031,30 @@ with app.app_context(), unit_of_work():
             record_terms_acceptance(_u, _utcnow_naive())
         if _u.birth_date is None:
             _u.birth_date = _date(1990, 1, 1)
+
+    # PAD-637 (auth.legal-catch-up): an account as it stood before the Terms were recorded and before
+    # the birth-date rule — active, no Terms record, no birth date — so Maestro flow 259 sees the
+    # catch-up screen at login. Created after the loop above (which would fill it) and after every
+    # other seeded row, so no id another spec or flow relies on moves; no coach, club or conversation.
+    # Flow 259 accepts the Terms on it, so it is pending again only after a reseed.
+    legacy_user = User(
+        name="E2E Legacy Student",
+        username="e2e-legacy-student",
+        email="e2e-legacy-student@test.com",
+        password=generate_password_hash("E2eLegacy123!"),
+        status="active",
+        language="en",
+        country="PT",
+    )
+    db.session.add(legacy_user)
+    db.session.flush()
+    db.session.add(Player(user_id=legacy_user.id))
     db.session.commit()
     print("[seed] Done. Created:")
     print(f"  Coach: {coach_user.username} / E2eCoach123!")
     print(f"  Student 1: {student_user.username} / E2eStudent123!")
     print(f"  Student 2: {student2_user.username} / E2eStudent2123!")
+    print(f"  Legacy student (PAD-637 catch-up): {legacy_user.username} / E2eLegacy123!")
     print(f"  Eval yesterday class (PAD-376): instance {eval_yesterday_instance.id} at {yesterday_start}, record {eval_yesterday_record.id} for Student Two")
     print(f"  Club: {club.name}")
     print(f"  Lesson instance: {instance.id} at {instance.start_datetime}")

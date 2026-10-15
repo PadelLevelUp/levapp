@@ -6,6 +6,7 @@ implemented_by:
   - ../../specs/players/profile.spec.md
   - ../../specs/players/notes.spec.md
   - ../../specs/players/level-history.spec.md
+  - ../../specs/players/search.spec.md
 ---
 
 # Coach browses and reviews their roster
@@ -43,6 +44,11 @@ to the student themselves.
 ## Business Rules
 
 - Search, sort, and filter all operate only within the coach's own roster — never across coaches.
+- **Finding a player works the same everywhere a coach types a name (PAD-665, owner 2026-10-14).**
+  Accents and case don't matter, the words can come in any order and middle names can be skipped
+  ("Rui Basto" finds "Rui Pedro Basto"), the start of each word is enough while typing ("jo mor"),
+  a small typo is forgiven, and the best match comes first. It changes only how names are compared:
+  who can appear on each screen stays exactly as before.
 - A note is scoped to one specific coach-student relationship, tagged as either a strength or a
   weakness, and capped at 500 characters.
 - A player's level history is a full log, not just the latest value — every assignment is kept, and

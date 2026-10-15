@@ -1,10 +1,17 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { cardSurfaceWeb, isClubToday, resolveCardVariant } from "@levelup/config";
+import {
+  cardSurfaceWeb,
+  isClubToday,
+  resolveCardVariant,
+  studentDotColorWeb,
+  type CalendarViewer,
+} from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
+import { useCalendarViewer } from "../viewer-context";
 
 /** Up to three dots per day, in start order — calendar.mobile-views rule 10. */
 export const MAX_DAY_DOTS = 3;
@@ -31,8 +38,10 @@ export function dayAbbrClass(selected: boolean): string {
 }
 
 /** A day dot's colour (rule 10) — shared with the Mês grid cells. */
-export function dotColor(event: CalendarEvent, now: Date): string {
-  const { variant } = resolveCardVariant(event, { now });
+export function dotColor(event: CalendarEvent, now: Date, viewer: CalendarViewer = "coach"): string {
+  const { variant } = resolveCardVariant(event, { now, viewer });
+  // PAD-664 (calendar.view rule 23): a student's dot names the relation family, not the coach.
+  if (viewer === "student") return studentDotColorWeb(variant);
   if (variant === "block") return "hsl(var(--muted-foreground))";
   // B-541 (rule 10): an outlined treatment's surface is the white card — the dot takes
   // the outline colour instead.
@@ -71,6 +80,7 @@ export function DayStrip({
 }) {
   const { t, i18n } = useTranslation();
   const locale = dateFnsLocale(i18n.language);
+  const viewer = useCalendarViewer();
 
   return (
     <div className="flex items-center gap-2.5 border-b border-border bg-card px-4 py-3">
@@ -135,7 +145,7 @@ export function DayStrip({
                     data-testid="day-fill-dot"
                     data-event-title={event.title}
                     className="h-[5px] w-[5px] rounded-full"
-                    style={{ backgroundColor: dotColor(event, now) }}
+                    style={{ backgroundColor: dotColor(event, now, viewer) }}
                   />
                 ))}
               </span>

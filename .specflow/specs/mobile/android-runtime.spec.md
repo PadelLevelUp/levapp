@@ -93,6 +93,14 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    iteration 1 with the content node present at its full bounds and reported not visible to
    the user (run 35114681841). The same build without the entering animation passed 60 of 60
    (run 35114685284).
+9b. **A select's options scroll when they are taller than the list (PAD-655, B-549; number
+   self-assigned, unconfirmed).** Both platforms, every select: the shared `SelectContent`
+   caps the list box (max-h-96) and puts the options in a `ScrollView` that fits inside it,
+   with `keyboardShouldPersistTaps="handled"` so a tap on an option is never spent dismissing
+   the keyboard. `@rn-primitives/select`'s native `Viewport` is a bare fragment, so before this
+   nothing in the box could scroll: a list taller than the box ran past the bottom of the
+   screen, and on iOS a coach with more than about nine levels could not choose the rest
+   (Edit student → Nível).
 
 10. **A screen does not restyle itself in the commit that removes it.** On Android, Fabric can
    flatten a view whose style changes and reparent its children in one mount pass. If that commit
@@ -151,6 +159,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **When** they open the select and tap the "Português" option by id (`settings-language-pt`)
 - **Then** the language changes and "Language preference saved." appears — Maestro flow
   `12-settings-language`, the same steps on both platforms
+
+#### A long select scrolls to its last option (rule 9b, PAD-655)
+- **Given** the coach has 16 levels and opens a student's edit form on iOS
+- **When** they open the level select and swipe the list up
+- **Then** the last level comes into view, and tapping it chooses it and closes the list —
+  Maestro flow `280-level-select-scrolls` (red on the code before the fix: six swipes and the
+  last level never appeared)
 
 #### A dialog's cancel closes the dialog on Android
 - **Given** the coach is on a player's detail screen on the emulator — a screen that mounts three

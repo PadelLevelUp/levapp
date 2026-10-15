@@ -33,7 +33,7 @@ from padel_app import create_app
 from padel_app.models import User
 from padel_app.sql_db import db, init_db
 from padel_app.tests.git_env import GIT_LOCAL_ENV_VARS
-from padel_app.tests.helpers import heal_clock_bindings
+from padel_app.tests.helpers import DESELECTED, heal_clock_bindings
 
 # B-173: a suite started from a git hook inherits GIT_DIR & co.; a test's `git init <scratch>`
 # then re-initialised the shared repository as bare. No test ever needs them — drop them first.
@@ -184,6 +184,20 @@ def pytest_terminal_summary(terminalreporter):
 def pytest_sessionfinish(session, exitstatus):
     if _LEAKED_SESSIONS and session.exitstatus == 0:
         session.exitstatus = 1
+
+
+def pytest_deselected(items):
+    if items:
+        config = items[0].config
+        config.stash[DESELECTED] = config.stash.get(DESELECTED, []) + list(items)
+
+
+def pytest_collection_finish(session):
+    """PAD-654: with ``LEVAPP_SHARD_IDS`` set, write this session's selected test ids, one per line,
+    so CI can check that the Postgres shards together run every test exactly once."""
+    out = os.getenv("LEVAPP_SHARD_IDS")
+    if out:
+        pathlib.Path(out).write_text("".join(f"{item.nodeid}\n" for item in session.items), encoding="utf-8")
 
 
 def _truncate_all(app):

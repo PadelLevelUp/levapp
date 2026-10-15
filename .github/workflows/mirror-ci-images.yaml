@@ -1,0 +1,61 @@
+name: Mirror CI images
+
+# PAD-653 (delivery.ci-images). CI's postgres service containers pulled anonymously from
+# public.ecr.aws (PAD-598, after Docker Hub's per-IP quota). ECR Public's anonymous pulls carry a
+# per-IP data limit, which other tenants on GitHub's shared runner IPs exhaust: from 2026-10-11 Postgres
+# jobs failed at "Initialize containers" with "toomanyrequests: Data limit exceeded".
+#
+# This job copies the image once into our own GHCR package, and the CI workflows pull it from
+# there with the run's GITHUB_TOKEN, which has no anonymous quota. A copy is registry to registry
+# (`buildx imagetools create`, all architectures, nothing pulled to the runner). ECR is tried
+# first, then Docker Hub, three rounds apart. A run that cannot copy fails loudly and leaves the
+# last good image in place, so CI never notices.
+#
+# Triggers: weekly; by hand; and on a push to staging that changes this file, so the merge that
+# adds or edits it publishes the package before any workflow points at it (the schedule only
+# runs from the default branch, main).
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [ staging ]
+    paths: [ .github/workflows/mirror-ci-images.yaml ]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: mirror-ci-images
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: mirror postgres:15 to GHCR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEST: ghcr.io/padellevelup/ci-postgres:15
+    steps:
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Copy postgres:15
+        run: |
+          for round in 1 2 3; do
+            for src in public.ecr.aws/docker/library/postgres:15 docker.io/library/postgres:15; do
+              if docker buildx imagetools create --tag "$DEST" "$src"; then
+                echo "copied $src -> $DEST (round $round)"
+                exit 0
+              fi
+              echo "::warning::copy from $src failed (round $round)"
+            done
+            [ "$round" -lt 3 ] && sleep $((round * 120))
+          done
+          echo "::error::could not copy postgres:15 from ECR Public or Docker Hub; CI keeps the last good $DEST"
+          exit 1
+
+      - name: Show what CI will pull
+        run: docker buildx imagetools inspect "$DEST"

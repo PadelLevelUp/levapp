@@ -87,13 +87,17 @@ test("US-PAD-567: pressing the selected mark again returns the student to 'no an
 
     await loginAsCoach(page);
     await openClassDetail(page, 3);
+    // PAD-659: the coach's read view is the grouped list with no `attendance-row`; the
+    // marking rows render only in the editor, so enter it first, then take the row.
+    await expect(page.getByTestId("attendance-edit")).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId("attendance-edit").click();
     const row = page.getByTestId("attendance-row").first();
     await expect(row).toBeVisible({ timeout: 10_000 });
-
-    // The marks live behind "Marcar presenças": the row's buttons and the save button
-    // render only in the editor, and saving leaves it (first CI run of this spec
-    // waited forever on a save button that was never rendered).
-    await page.getByTestId("attendance-edit").click();
+    const playerId = await row.getAttribute("data-player-id");
+    expect(playerId, "the marking row names its player").toBeTruthy();
+    // PAD-659: after a save the sheet returns to the grouped read view, where the stored
+    // state is the participant row's data-state.
+    const participantRow = page.getByTestId(`participant-row-${playerId}`);
     await expect(row.getByTestId("attendance-present")).toBeVisible({ timeout: 5000 });
 
     // Mark present and save: the coach's record.
@@ -103,7 +107,7 @@ test("US-PAD-567: pressing the selected mark again returns the student to 'no an
       page.waitForResponse((r) => /\/api\/app\/class_instance\/presences\/confirm(\?|$)/.test(r.url()), { timeout: 10_000 }),
       page.getByTestId("attendance-save").click(),
     ]);
-    await expect(row.getByTestId("attendance-state")).toHaveAttribute("data-state", "attended", { timeout: 10_000 });
+    await expect(participantRow).toHaveAttribute("data-state", "attended", { timeout: 10_000 });
     const marked = await presenceOf(request, coachAuth, day);
     expect(marked.status).toBe("present");
     expect(marked.validated).toBe(true);
@@ -119,7 +123,7 @@ test("US-PAD-567: pressing the selected mark again returns the student to 'no an
     ]);
     expect(cleared.status(), await cleared.text()).toBe(200);
     expect((await cleared.json()).cleared, "the server names the cleared row").toHaveLength(1);
-    await expect(row.getByTestId("attendance-state")).toHaveAttribute("data-state", "planned", { timeout: 10_000 });
+    await expect(participantRow).toHaveAttribute("data-state", "planned", { timeout: 10_000 });
 
     // The never-answered shape, from the server, and still after a reload.
     const back = await presenceOf(request, coachAuth, day);
@@ -128,11 +132,10 @@ test("US-PAD-567: pressing the selected mark again returns the student to 'no an
     expect(back.status).toBeNull();
     await page.reload();
     await openClassDetail(page, 3);
-    await expect(page.getByTestId("attendance-row").first().getByTestId("attendance-state")).toHaveAttribute(
-      "data-state",
-      "planned",
-      { timeout: 10_000 }
-    );
+    // PAD-659: the reopened sheet is the grouped read view.
+    await expect(page.getByTestId(`participant-row-${playerId}`)).toHaveAttribute("data-state", "planned", {
+      timeout: 10_000,
+    });
   } finally {
     await removeClassesOnDay(request, coachAuth, day, (e) => e.title === STUDENT_NAME);
     await removeBlocksOnDay(request, coachAuth, day, (e) => String(e.title).includes(STUDENT_NAME));

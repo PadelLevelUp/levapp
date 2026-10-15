@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createConversation } from "@/api/messages";
+import { joinClassWaitingList } from "@/api/academyClasses";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
@@ -49,7 +51,7 @@ import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -71,6 +73,8 @@ import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, out
 import { confirmClassPresences } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
+import { ParticipantGroups, type ParticipantRow } from "./ParticipantGroups";
+import { ParticipantPopup } from "./ParticipantPopup";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
@@ -170,6 +174,7 @@ export function ClassDetailSheet({
 }: ClassDetailSheetProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
 
@@ -215,6 +220,8 @@ export function ClassDetailSheet({
   const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
   // PAD-131 (classes.join-requests): a student's ask / the coach's decision.
   const [joinBusy, setJoinBusy] = useState(false);
+  // PAD-664: the class (by event id) whose waiting list the student just joined.
+  const [joinedWaitingFor, setJoinedWaitingFor] = useState<string | null>(null);
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -225,6 +232,9 @@ export function ClassDetailSheet({
   } | null>(null);
 
   const [isValidating, setIsValidating] = useState(false);
+  // PAD-659 (rule 23): the player pop-up, and the name that opened it (focus goes back there).
+  const [popupRow, setPopupRow] = useState<ParticipantRow | null>(null);
+  const [popupOpener, setPopupOpener] = useState<HTMLElement | null>(null);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
@@ -480,14 +490,24 @@ export function ClassDetailSheet({
         // landed — "Vou" lives in the fresh payload, so re-read the instance instead of
         // waiting for a re-open.
         const openEvent = eventRef.current;
-        const openId =
-          classInstanceRef.current?.id ??
-          (openEvent?.model === "LessonInstance" ? Number(openEvent.originalId) : null);
+        // B-548: `classInstance.id` is the calendar-event id ("lessoninstance-12"), never the
+        // instance number, so it never matched an event's lessonInstanceId — the shared
+        // reading takes it from a presence or the event instead.
+        const openId = liveInstanceIdOf(classInstanceRef.current, openEvent);
         if (reminderArrivedFor(data, openId)) {
           if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
           return;
         }
         if (!canManage) return;
+
+        // PAD-659 (`calendar.event-detail` rule 24): a presence in this class moved — a
+        // student's answer or cancellation, or a mark from another tab — so the groups regroup.
+        const occurrence =
+          openEvent?.model === "Lesson" ? { lessonId: openEvent.originalId, date: openEvent.date } : null;
+        if (presenceChangedFor(data, openId, occurrence)) {
+          if (openEvent) getClassInstance(openEvent).then(setClassInstance).catch(() => {});
+          return;
+        }
 
         // Player accepted / declined an invite → update badge in-place
         if (data.type === "notification_responded") {
@@ -571,6 +591,21 @@ export function ClassDetailSheet({
       });
     } finally {
       await refreshInstance();
+      setJoinBusy(false);
+    }
+  };
+  // PAD-664 (calendar.view rule 23): a full class offers its waiting list.
+  const handleJoinWaitingList = async () => {
+    if (!event) return;
+    setJoinBusy(true);
+    try {
+      await joinClassWaitingList(event);
+      setJoinedWaitingFor(String(event.id));
+      toast({ title: t("calendar.waitingList.joined") });
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    } catch {
+      toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
+    } finally {
       setJoinBusy(false);
     }
   };
@@ -658,6 +693,8 @@ export function ClassDetailSheet({
   // Club digits on both sides (attendance.confirm rule 9, PAD-295).
   const classStartMs = wallClockMs(active.date, active.startTime);
   const classStarted = !Number.isNaN(classStartMs) && classStartMs <= lisbonNowMs();
+  // PAD-663 (rule 25): until the class ends, a coach's validated mark is worded as intent.
+  const classEnded = classHasEnded(active.date, active.endTime);
   const isStudentParticipant =
     !canManage &&
     event?.type === "class" &&
@@ -1513,6 +1550,19 @@ export function ClassDetailSheet({
 
           <div>
             <div className="flex items-center justify-between mb-2">
+              {canManage && !isEditing && !isValidating ? (
+                // PAD-659 (rule 5's named exception): the coach's list header names its own
+                // quantity — the enrolled rows below over the capacity.
+                <div className="flex flex-col gap-0.5">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    {t("calendar.participants.title")}
+                  </h4>
+                  <p data-testid="participants-enrolled" className="text-[13px] text-muted-foreground tabular-nums">
+                    {t("calendar.participants.enrolled", { current: active.participants.length, max: active.maxPlayers })}
+                  </p>
+                </div>
+              ) : (
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 {t("calendar.detail.participantsCount", {
@@ -1527,6 +1577,7 @@ export function ClassDetailSheet({
                   max: active.maxPlayers,
                 })}
               </h4>
+              )}
 
               {canManage &&
                 !isEditing &&
@@ -1553,6 +1604,17 @@ export function ClassDetailSheet({
                 classLevelId={active.levelId}
                 onToggle={togglePlayer}
               />
+            ) : canManage && !isValidating && active.participants.length > 0 ? (
+              // PAD-659 (`calendar.event-detail` rule 22): the coach's read view.
+              <ParticipantGroups
+                participants={active.participants}
+                presences={classInstance?.presences}
+                roster={players}
+                onOpen={(row, opener) => {
+                  setPopupOpener(opener);
+                  setPopupRow(row);
+                }}
+              />
             ) : (
               <div className="space-y-2">
                 {active.participants.map((p) => {
@@ -1571,6 +1633,7 @@ export function ClassDetailSheet({
                       // presence, so `!canManage` identifies their own row.
                       presence={presence}
                       audience={canManage ? "coach" : "student"}
+                      classEnded={classEnded}
                     />
                   );
                 })}
@@ -1598,6 +1661,8 @@ export function ClassDetailSheet({
             !isCanceled &&
             !classStarted &&
             !isStudentParticipant &&
+            event.studentRelation !== "full" &&
+            event.studentRelation !== "waiting" &&
             (event.openSpot || active.myJoinRequest) && (
               <div
                 className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
@@ -1646,6 +1711,41 @@ export function ClassDetailSheet({
                 )}
               </div>
             )}
+
+          {/* PAD-664: a full class the student is not in — join its waiting list; one they
+              already wait for says so instead of offering the button. */}
+          {!canManage &&
+            !isEditing &&
+            !isCanceled &&
+            !classStarted &&
+            !isStudentParticipant &&
+            (event.studentRelation === "waiting" || joinedWaitingFor === String(event.id) ? (
+              <div
+                className="space-y-1 rounded-md border border-border bg-muted/30 px-3 py-2"
+                data-testid="class-waiting-list-student"
+              >
+                <p className="text-sm font-medium" data-testid="class-waiting-list-on">
+                  {t("calendar.waitingList.on")}
+                </p>
+                <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
+              </div>
+            ) : event.studentRelation === "full" ? (
+              <div
+                className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                data-testid="class-waiting-list-student"
+              >
+                <p className="text-xs text-muted-foreground">{t("calendar.waitingList.fullHint")}</p>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={joinBusy}
+                  onClick={handleJoinWaitingList}
+                  data-testid="class-waiting-list-join"
+                >
+                  {t("calendar.waitingList.join")}
+                </Button>
+              </div>
+            ) : null)}
 
           {/* PAD-131 (rules 5, 7, 9): the coach decides each pending request. */}
           {canManage && !isEditing && (active.joinRequests?.length ?? 0) > 0 && (
@@ -2344,6 +2444,10 @@ export function ClassDetailSheet({
           onClose={() => setEditScopeDialogOpen(false)}
           onConfirm={commitEdit}
         />
+      )}
+
+      {canManage && (
+        <ParticipantPopup row={popupRow} onClose={() => setPopupRow(null)} returnFocusTo={popupOpener} />
       )}
 
       {canManage && onEdit && (

@@ -24,6 +24,10 @@ they have behaviour worth specifying.
 - `delivery.repair-diagnostics` — implementing (PAD-641: the manual repair workflow keeps the app
   log tail on the VM and prints counts, exception class names and `query_id`, never log lines or
   query text)
+- `delivery.ci-images` — implementing (PAD-653: CI's postgres service containers pull our own GHCR
+  copy, refreshed weekly from ECR Public or Docker Hub, never a public registry's anonymous quota)
+- `delivery.backend-ci-lanes` — implementing (PAD-654: SQLite in one job; Postgres as two pytest-split
+  shards of 60 min each, plus a job that checks the shards run every test exactly once)
 
 ## Why it's grouped this way
 
