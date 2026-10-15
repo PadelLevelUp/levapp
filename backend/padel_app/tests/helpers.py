@@ -94,6 +94,24 @@ def insert_user_on_an_old_schema(username, name=None):
     return SimpleNamespace(id=user_id)
 
 
+def insert_coach_player_on_an_old_schema(coach_id, player_id):
+    """A `coach_in_player` row for a migration-walk test, by raw SQL naming only the columns every old
+    schema has — the same trap as `insert_user_on_an_old_schema`: PAD-660 added `nickname` and
+    `nickname_as_name` to the model, so an ORM insert below that revision names columns that do not
+    exist yet (the #738 Postgres lane). Returns an object with `.id`, like the ORM row did.
+    """
+    from types import SimpleNamespace
+
+    from sqlalchemy import text
+
+    link_id = db.session.execute(
+        text("INSERT INTO coach_in_player (coach_id, player_id, created_at, updated_at) "
+             "VALUES (:c, :p, now(), now()) RETURNING id"),
+        {"c": coach_id, "p": player_id},
+    ).scalar_one()
+    return SimpleNamespace(id=link_id)
+
+
 #: PAD-654: the items deselected in this session (`-k`, `-m`, or pytest-split's other shard), recorded
 #: by conftest's `pytest_deselected`, so a guard that needs the whole collection still sees it from
 #: inside one shard. Here, not in conftest: importing conftest by package name loads a second copy
