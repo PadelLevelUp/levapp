@@ -350,6 +350,9 @@ executionOrder:
     # marks, clears and removes its own class through the API, so its position is not load
     # bearing.
     - 230-clear-mark
+    # 280 (PAD-655, mobile.android-runtime rule 9b): adds 14 levels, scrolls the level select to
+    # the last one; teardown removes them, so its position is not load bearing.
+    - 280-level-select-scrolls
     # 279 (PAD-659, calendar.event-detail rules 22–23): reads the seeded class's grouped list and
     # opens the player sheet; writes nothing, so its position is not load bearing.
     - 279-participant-groups-sheet
