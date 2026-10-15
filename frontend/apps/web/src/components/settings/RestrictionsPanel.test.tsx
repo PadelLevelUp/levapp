@@ -10,6 +10,11 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { NotificationRestrictions } from "@/types";
 
+// PAD-660: these tests are about something else; the coach's resolver answers the real name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 vi.mock("react-i18next", () => ({
   // Interpolated values are appended so a test can see what a label was given (PAD-451).
   useTranslation: () => ({

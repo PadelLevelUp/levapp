@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { TimeSelect } from "@/components/ui/time-select";
 import type { NotificationRestrictions } from "@/types";
 import { searchPlayers } from "@/api/notificationEngine";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { useDebouncedText } from "@/hooks/useDebouncedText";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import {
@@ -178,6 +179,8 @@ function ExcludedPlayersRow({
   testId,
 }: ExcludedPlayersRowProps) {
   const { t } = useTranslation();
+  // PAD-660 rule 8: coach-only settings — chips and search hits print the coach's nickname.
+  const displayName = useCoachDisplayName();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
@@ -258,7 +261,7 @@ function ExcludedPlayersRow({
                     className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors"
                     onMouseDown={() => handleAdd(p)}
                   >
-                    {p.name}
+                    {displayName(p.id, p.name)}
                   </button>
                 ))}
               </div>
@@ -269,7 +272,7 @@ function ExcludedPlayersRow({
             <div className="flex flex-wrap gap-1.5">
               {playerIds.map((id) => (
                 <Badge key={id} variant="secondary" className="gap-1 pr-1">
-                  <span className="text-xs">{playerNames[id] ?? excludedPlayerNames[id] ?? id}</span>
+                  <span className="text-xs">{displayName(id, playerNames[id] ?? excludedPlayerNames[id] ?? id)}</span>
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-foreground transition-colors"

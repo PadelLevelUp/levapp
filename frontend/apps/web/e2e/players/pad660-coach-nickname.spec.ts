@@ -166,3 +166,26 @@ test("US-660c: the class detail's grouped list shows the coach's nickname; the p
   await expect(page.getByTestId("participant-popup")).toContainText(nickname);
   await expect(page.getByTestId("participant-popup-real-name")).toHaveText(realName);
 });
+
+test("US-660d (part 2): the attendance page a coach opens for a student prints the coach's nickname", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const coachTok = await token(request, COACH_USERNAME, COACH_PASSWORD);
+  const stamp = Date.now().toString(36);
+  const realName = `Tiago Real P660 ${stamp}`;
+  const nickname = `Tiaguinho ${stamp}`;
+  const created = await request.post(`${API_APP}/add_player`, { headers: bearer(coachTok), data: { name: realName } });
+  expect(created.ok()).toBeTruthy();
+  const playerId = String((await created.json()).playerId);
+  const row = (await roster(request, coachTok)).find((r) => String(r.playerId) === playerId)!;
+  await setNickname(request, coachTok, row, nickname, true);
+  cleanup.push(async (req) => {
+    await req.post(`${API_APP}/remove_player`, { headers: bearer(coachTok), data: { coachId: row.coachId, playerId, action: "delete" } });
+  });
+
+  await loginAsCoach(page);
+  for (const path of [`/players/${playerId}/attendance`, `/players/${playerId}/absences`]) {
+    await page.goto(path);
+    await expect(page.locator("main")).toContainText(nickname, { timeout: 15_000 });
+    await expect(page.locator("main")).not.toContainText(realName);
+  }
+});

@@ -1,3 +1,4 @@
+
 /**
  * PAD-660 (`players.nickname` rule 3): the name a coach's view shows for a student.
  *
@@ -35,4 +36,19 @@ export function coachDisplayName(
 /** True when this row shows a nickname in place of the name (then the real name goes under it). */
 export function nicknameShown(row: RosterRowLike | null | undefined): boolean {
   return !!row && row.nicknameAsName === true && !!row.nickname && row.nickname.trim() !== "";
+}
+
+/**
+ * PAD-660 (players.nickname rule 5): the coach's nickname for this row, as the shared search rule's
+ * `nickname` field (players.search rule 4), so a picker finds a student by either name. A roster
+ * row carries `nickname`; a row built from a display name alone (a picker's candidates) passes it
+ * when it differs from the real name. Null when there is none: the real name only.
+ */
+export function rosterNicknameOf(row: {
+  name?: string | null;
+  nickname?: string | null;
+  displayName?: string | null;
+}): string | null {
+  if (row.nickname && row.nickname.trim()) return row.nickname;
+  return row.displayName && row.displayName !== row.name ? row.displayName : null;
 }

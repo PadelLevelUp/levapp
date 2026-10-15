@@ -13,6 +13,12 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
+// PAD-660: the display-name resolver is a react-query hook the harness cannot mount.
+vi.mock("@levelup/hooks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
+
 import { ParticipantRow } from "./ParticipantRow";
 
 const player = { id: 7, user: { name: "Ana Lopes" } } as unknown as Player;

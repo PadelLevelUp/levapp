@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useCoachDisplayName } from "@levelup/hooks";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -608,6 +609,8 @@ function WalkInSearch({
   onCancel?: () => void;
 }) {
   const { t } = useTranslation();
+  // PAD-660 rule 8: the attendance inbox is the coach's — their name for each student.
+  const displayName = useCoachDisplayName();
   const [query, setQuery] = useState("");
   const options = walkInOptions(available, query);
   return (
@@ -646,7 +649,7 @@ function WalkInSearch({
                   setQuery("");
                 }}
               >
-                {option.name}
+                {displayName(option.id, option.name)}
               </button>
             </li>
           ))
@@ -682,6 +685,8 @@ function ClassCard({
   onValidate: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  // PAD-660 rule 8: the attendance inbox is the coach's — their name for each student.
+  const displayName = useCoachDisplayName();
   const [adding, setAdding] = useState(false);
 
   // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
@@ -758,7 +763,7 @@ function ClassCard({
                   role="img"
                 />
               )}
-              {player.name}
+              {displayName(player.playerId, player.name)}
               {player.guest && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   {t("presences.guest")}
@@ -766,7 +771,7 @@ function ClassCard({
               )}
             </span>
             <PresenceMarkToggle
-              playerName={player.name}
+              playerName={displayName(player.playerId, player.name)}
               value={effectiveMark(player, edits[player.playerId])}
               onChange={(mark) => onMark(player.playerId, mark)}
             />
@@ -827,6 +832,8 @@ function ClassDetail({
   onUnvalidate: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  // PAD-660 rule 8: the attendance inbox is the coach's — their name for each student.
+  const displayName = useCoachDisplayName();
   // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
   // time is the class's actual clock time (same rule as AttendanceHistoryList).
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
@@ -903,7 +910,7 @@ function ClassDetail({
                     role="img"
                   />
                 )}
-                <span className="truncate">{player.name}</span>
+                <span className="truncate">{displayName(player.playerId, player.name)}</span>
               </span>
               <span className="block text-xs text-muted-foreground">
                 {/* PAD-313 rule 20: the same state word the class sheet shows.
@@ -916,7 +923,7 @@ function ClassDetail({
             </span>
             <PresenceMarkToggle
               size="md"
-              playerName={player.name}
+              playerName={displayName(player.playerId, player.name)}
               value={effectiveMark(player, edits[player.playerId])}
               onChange={(mark) => onMark(player.playerId, mark)}
             />

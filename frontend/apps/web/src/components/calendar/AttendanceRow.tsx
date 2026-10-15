@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { cn } from "@/lib/utils";
 import {
   attendanceStateLabelKey,
@@ -64,7 +65,10 @@ export function AttendanceRow({
   classEnded = true,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
-  const name = player.user?.name ?? t("calendar.attendance.playerFallback");
+  // PAD-660 rule 8: only the coach's rows print the coach's name for the student; the student's own
+  // row (no roster request) keeps their name.
+  const displayName = useCoachDisplayName({ enabled: audience === "coach" });
+  const name = displayName(player.id, player.user?.name ?? t("calendar.attendance.playerFallback"));
 
   const getInitials = (n: string) => {
     return n

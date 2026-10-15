@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { standingEndLabel } from "@levelup/config";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { useDebouncedText } from "@/hooks/useDebouncedText";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { getStandingWaitingList, removeFromStandingWaitingList, searchPlayers } from "@/api/notificationEngine";
@@ -13,6 +14,8 @@ import type { StandingWaitingListEntry } from "@/types";
 
 export function StandingWaitingListSection() {
   const { t, i18n } = useTranslation();
+  // PAD-660 rule 8: a coach-only screen — the coach's nickname for each student.
+  const displayName = useCoachDisplayName();
   const [entries, setEntries] = useState<StandingWaitingListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -59,7 +62,7 @@ export function StandingWaitingListSection() {
   }, [debounced]);
 
   const handleSelectPlayer = (p: { id: string; name: string }) => {
-    setSelectedPlayer({ id: Number(p.id), name: p.name });
+    setSelectedPlayer({ id: Number(p.id), name: displayName(p.id, p.name) });
     setQuery("");
     setResults([]);
     setSearchOpen(false);
@@ -147,7 +150,7 @@ export function StandingWaitingListSection() {
                 onClick={() => handleSelectPlayer(p)}
               >
                 <UserPlus className="w-3 h-3 text-muted-foreground" />
-                {p.name}
+                {displayName(p.id, p.name)}
               </button>
             ))}
           </div>
@@ -175,7 +178,7 @@ export function StandingWaitingListSection() {
                   data-testid="standing-wl-name"
                   className={`text-sm font-medium truncate ${expired ? "text-muted-foreground" : ""}`}
                 >
-                  {entry.playerName ?? t("settings.standingList.unknown")}
+                  {entry.playerName ? displayName(entry.playerId, entry.playerName) : t("settings.standingList.unknown")}
                 </p>
                 {/* PAD-547 (waiting-list rule 19): a series-scoped entry names its class. */}
                 {entry.lessonId ? (

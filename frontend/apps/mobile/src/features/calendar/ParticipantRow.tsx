@@ -4,6 +4,7 @@ import type {
   Presence,
   PresenceStatus,
 } from "@levelup/types";
+import { useCoachDisplayName } from "@levelup/hooks";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -90,7 +91,9 @@ export function ParticipantRow({
   side,
   classEnded = true,
 }: ParticipantRowProps) {
-  const name = playerName(player);
+  // PAD-660: a coach reads the nickname they gave the student; the student's own row keeps their name.
+  const displayName = useCoachDisplayName({ enabled: audience === "coach" });
+  const name = displayName(player.id, playerName(player));
   const playerId = String(player.id);
 
   const setStatus = (status: PresenceStatus) => {

@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys, refreshAfterRequestChange } from "@levelup/hooks";
+import { queryKeys, refreshAfterRequestChange, useCoachDisplayName } from "@levelup/hooks";
 import { CalendarPlus, Clock } from "lucide-react";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import {
@@ -90,6 +90,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     enabled: role === "student",
   });
   const waitingRows = useMemo(() => waitingListQuery.data ?? [], [waitingListQuery.data]);
+  // PAD-660 rule 8: the coach's list prints their nickname for the student; a student sees no roster.
+  const displayName = useCoachDisplayName({ enabled: role === "coach" });
   const [confirmLeaveId, setConfirmLeaveId] = useState<number | null>(null);
   const [leavingId, setLeavingId] = useState<number | null>(null);
   const loading =
@@ -175,12 +177,12 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     setBusyJoinId(row.id);
     try {
       await acceptClassJoinRequest(row.id, confirm);
-      toast({ title: t("calendar.joinRequest.acceptedToast", { name: row.playerName }) });
+      toast({ title: t("calendar.joinRequest.acceptedToast", { name: displayName(row.playerId, row.playerName) }) });
     } catch (err) {
       const refusal = joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setBusyJoinId(null);
-        setPendingAcademyAccept({ id: row.id, playerName: row.playerName, ineligible: refusal.ineligible ?? [] });
+        setPendingAcademyAccept({ id: row.id, playerName: displayName(row.playerId, row.playerName), ineligible: refusal.ineligible ?? [] });
         return;
       }
       toast({
@@ -202,7 +204,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     setBusyJoinId(row.id);
     try {
       await rejectClassJoinRequest(row.id);
-      toast({ title: t("calendar.joinRequest.rejectedToast", { name: row.playerName }) });
+      toast({ title: t("calendar.joinRequest.rejectedToast", { name: displayName(row.playerId, row.playerName) }) });
     } catch {
       toast({ title: t("calendar.joinRequest.decideFailed"), variant: "destructive" });
     } finally {
@@ -231,7 +233,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   const { open, closed } = useMemo(() => splitClassRequestRows(merged), [merged]);
 
   const renderRow = (r: ClassRequest) => {
-    const who = role === "student" ? t("classRequests.with", { name: r.coachName }) : t("classRequests.from", { name: r.playerName });
+    const who = role === "student" ? t("classRequests.with", { name: r.coachName }) : t("classRequests.from", { name: displayName(r.playerId, r.playerName) });
     const statusKey = role === "student" ? `classRequests.status.${r.status}` : `classRequests.coachStatus.${r.status}`;
     const busy = busyId === r.id;
     return (
@@ -362,7 +364,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
               <Clock className="w-4 h-4 shrink-0" />
               {r.date} · {r.startTime}–{r.endTime}
             </p>
-            {role === "coach" && <p className="text-sm text-muted-foreground">{r.playerName}</p>}
+            {role === "coach" && <p className="text-sm text-muted-foreground">{displayName(r.playerId, r.playerName)}</p>}
             {r.note && <p className="text-sm text-muted-foreground italic">“{r.note}”</p>}
           </div>
           <Badge variant={statusVariant(r.status)}>{t(statusKey)}</Badge>
