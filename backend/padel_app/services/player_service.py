@@ -251,31 +251,132 @@ def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     return result
 
 
-def normalize_search_text(text):
-    """PAD-516: the same normalisation as @levelup/config ``normalizeSearchText`` — accents
-    stripped (NFD, combining marks dropped), punctuation dropped, lower case."""
-    import re
+# ── players.search (PAD-665): the one coach-side player search rule ──────────────────────────────
+# The TypeScript twin is `@levelup/config` name-search.ts; both run name-search.cases.json
+# (test_name_search_cases.py), so the server and the apps' pickers cannot drift.
+
+# B-531: letters NFKD cannot take apart, mapped before folding — the same table as the twin.
+_SPECIAL_LETTERS = {
+    "ł": "l", "Ł": "l", "ø": "o", "Ø": "o", "ß": "ss", "ẞ": "ss", "đ": "d", "Đ": "d",
+    "æ": "ae", "Æ": "ae", "œ": "oe", "Œ": "oe", "ı": "i",
+}
+_MIN_TYPO_WORD = 4
+_MIN_PHONE_DIGITS = 3
+
+
+def fold_search_text(text):
+    """Special letters mapped, lower-cased, accents dropped (NFKD minus combining marks), anything
+    that is not a letter, a digit or a space dropped, spaces collapsed. Every script's letters are
+    kept (B-531: "Łukasz" folds to "lukasz", never "ukasz"). `lower()`, not `casefold()`: the twin
+    is `toLowerCase()`, and ß is already mapped."""
     import unicodedata
 
-    decomposed = unicodedata.normalize("NFD", text or "")
-    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
-    return re.sub(r"[^a-zA-Z0-9\s]", "", stripped).lower()
+    mapped = "".join(_SPECIAL_LETTERS.get(ch, ch) for ch in (text or "")).lower()
+    decomposed = unicodedata.normalize("NFKD", mapped)
+    kept = "".join(
+        ch for ch in decomposed
+        if not unicodedata.category(ch).startswith("M") and (ch.isalnum() or ch.isspace())
+    )
+    return " ".join(kept.split())
+
+
+# PAD-516's name for the fold.
+normalize_search_text = fold_search_text
+
+
+def _typo_distance(a, b):
+    """Optimal string alignment: Levenshtein plus one adjacent swap ("Marinoh")."""
+    d = [[i if j == 0 else (j if i == 0 else 0) for j in range(len(b) + 1)] for i in range(len(a) + 1)]
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
+def rank_player_match(fields, query):
+    """players.search rule 5: the best tier this player reaches — 0 the whole query starts a field,
+    1 every word starts a word, 2 every word appears anywhere (PAD-516's rule), 3 every word is
+    there or a small typo away — or None. ``fields`` holds ``name`` and, only where the surface's
+    payload already carries them, ``nickname``, ``email``, ``phone``. A blank query is tier 0
+    (everyone); a query with no letter or digit ("%") matches nobody."""
+    import re
+
+    if not (query or "").strip():
+        return 0
+    words = fold_search_text(query).split()
+    if not words:
+        return None
+    # Decision 2026-10-14 (b): an email is searched by its local part — never the domain, which
+    # every address on a roster shares ("a" would otherwise match "example.com").
+    email_local = (fields.get("email") or "").split("@", 1)[0]
+    texts = [t for t in (fold_search_text(v) for v in (fields.get("name"), fields.get("nickname"), email_local)) if t]
+    phone = re.sub(r"\D", "", fields.get("phone") or "")
+    if not texts and not phone:
+        return None
+    tokens = [tok for t in texts for tok in t.split(" ")]
+
+    whole = " ".join(words)
+    if any(t.startswith(whole) for t in texts):
+        return 0
+    if all(any(tok.startswith(w) for tok in tokens) for w in words):
+        return 1
+
+    def anywhere(w):
+        if any(w in t for t in texts):
+            return True
+        return len(w) >= _MIN_PHONE_DIGITS and w.isdigit() and w in phone
+
+    if all(anywhere(w) for w in words):
+        return 2
+
+    def nearly(w):
+        if anywhere(w):
+            return True
+        if len(w) < _MIN_TYPO_WORD or any(ch.isdigit() for ch in w):
+            return False
+        limit = 2 if len(w) >= 7 else 1
+        return any(
+            _typo_distance(w, tok) <= limit or _typo_distance(w, tok[: len(w)]) <= limit for tok in tokens
+        )
+
+    if all(nearly(w) for w in words):
+        return 3
+    return None
 
 
 def name_matches_query(name, query):
-    """players.list rule 3 (PAD-516): every word of ``query`` is in ``name``, in any order,
-    with accents, case and punctuation folded — one rule with the apps' local pickers
-    (``nameMatchesQuery``). Applied in Python after the coach scope: rosters are small, and
-    SQL cannot fold accents without the unaccent extension. A blank query matches all; a
-    query with text but no searchable characters ("%", "_", "!!") matches nobody, so a
-    wildcard never dumps the roster (#569 review)."""
+    """players.list rule 3 (PAD-516), now players.search: the name matches at any tier. Applied
+    in Python after the coach scope: rosters are small, and SQL cannot fold accents without the
+    unaccent extension (not installed in prod; decision 2026-10-14)."""
+    return rank_player_match({"name": name}, query) is not None
+
+
+def search_players(items, query, fields_of):
+    """players.search rule 6: the matches best first — tier, folded name, name, id. A blank query
+    returns ``items`` in their own order. Call it BEFORE any limit or pagination."""
     if not (query or "").strip():
-        return True
-    words = normalize_search_text(query).split()
-    if not words:
-        return False
-    haystack = normalize_search_text(name)
-    return all(w in haystack for w in words)
+        return list(items)
+    ranked = []
+    for item in items:
+        fields = fields_of(item)
+        tier = rank_player_match(fields, query)
+        if tier is None:
+            continue
+        name = fields.get("name") or ""
+        ranked.append((tier, fold_search_text(name), name, _id_key(fields.get("id")), item))
+    ranked.sort(key=lambda r: r[:4])
+    return [r[4] for r in ranked]
+
+
+def _id_key(value):
+    """Ids made of ASCII digits sort as numbers, first; then the id as written — the twin's
+    `idKey` (``"²".isdigit()`` is true in Python, so the check is ASCII-only on purpose)."""
+    s = "" if value is None else str(value)
+    numeric = s.isascii() and s.isdigit()
+    return (0 if numeric else 1, int(s) if numeric else 0, s)
 
 
 class _ListPage:
@@ -310,15 +411,6 @@ def get_coach_players_list(coach):
     return [_serialize_coach_player_relation(rel, due, duplicates) for rel in relations]
 
 
-def _roster_name_matches(rel, query):
-    """PAD-660 (players.nickname rule 5): a roster search finds a student by the real name or by
-    THIS coach's nickname for them, each through the one shared rule (PAD-516). When PAD-665's
-    list-of-fields form of the rule lands, this becomes one call with [name, nickname]."""
-    if name_matches_query(rel.player.user.name, query):
-        return True
-    return bool(rel.nickname) and bool((query or "").strip()) and name_matches_query(rel.nickname, query)
-
-
 def search_coach_players(coach_id, term, limit=20):
     """PAD-109: type-ahead search over a single coach's own roster.
 
@@ -349,8 +441,11 @@ def search_coach_players(coach_id, term, limit=20):
         .order_by(User.name.asc())
         .all()
     )
-    # PAD-516: every typed word, in any order, accents folded; the limit after the match.
-    relations = [rel for rel in relations if _roster_name_matches(rel, term)][:limit]
+    # players.search (PAD-665): the shared rule, best match first, and the limit AFTER the order
+    # (rule 6) — the name, and THIS coach's nickname for the student (PAD-660, players.nickname rule 5).
+    relations = search_players(
+        relations, term, lambda rel: {"name": rel.player.user.name, "nickname": rel.nickname, "id": rel.player_id}
+    )[:limit]
 
     results = []
     for rel in relations:
@@ -415,9 +510,22 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
             query = query.order_by(User.name.asc())
 
     if search and search.strip():
-        # PAD-516: filter by name in Python (accent folding), after every SQL filter and the
-        # sort, then paginate the filtered list. The coach scope keeps this small.
-        matched = [rel for rel in query.all() if _roster_name_matches(rel, search)]
+        # players.search (PAD-665): the shared rule in Python (accent folding), after every SQL
+        # filter, then paginate. The Players tab is always sorted (name or level), so the rule
+        # only filters here and the coach's sort stands (rule 6, decision 2026-10-14 (a)). The row
+        # carries email and phone, so they are searched too (rule 4). The coach scope keeps this small.
+        matched = [
+            rel for rel in query.all()
+            if rank_player_match(
+                {
+                    "name": rel.player.user.name,
+                    "nickname": rel.nickname,  # PAD-660: this coach's own row
+                    "email": rel.player.user.email,
+                    "phone": rel.player.user.phone,
+                },
+                search,
+            ) is not None
+        ]
         pagination = _ListPage(matched, max(1, int(page or 1)), int(per_page or 25))
     else:
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)

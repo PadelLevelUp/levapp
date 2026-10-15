@@ -6,7 +6,8 @@ import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, searchPeopleByName } from "@levelup/config";
+import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { Text } from "@/components/ui/text";
 import { ConversationItem } from "@/features/messages/components/conversation-item";
 import { normalizeId } from "@/features/messages/utils";
 import { cn } from "@/lib/utils";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 
 const PAGE_SIZE = 20;
 
@@ -39,6 +41,8 @@ function ConversationListSkeleton() {
 
 export default function MessagesScreen() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isCoach = user?.roles?.includes("coach") ?? false;
   // messaging.conversations rule 17 (PAD-648): "Todas" when the tab mounts; "Não lidas" is the
   // server's list, so an unread thread on any page is found.
   const [unreadOnly, setUnreadOnly] = React.useState(false);
@@ -80,11 +84,15 @@ export default function MessagesScreen() {
   // gone, so it falls back to the same label the row renders.
   const filteredConversations = React.useMemo(() => {
     if (!search) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter((c) =>
-      (c.participantName ?? t("messages.deletedUser")).toLowerCase().includes(q)
+    // PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; a student
+    // keeps the plain substring match.
+    return searchPeopleByName(
+      conversations,
+      search,
+      (c) => c.participantName ?? t("messages.deletedUser"),
+      { coach: isCoach }
     );
-  }, [conversations, search, t]);
+  }, [conversations, search, t, isCoach]);
 
   const loadMore = React.useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -175,10 +183,17 @@ export default function MessagesScreen() {
           message={t("messages.startWithPlusButton")}
         />
       ) : filteredConversations.length === 0 ? (
-        <EmptyState
-          icon="chatbubbles-outline"
-          title={t("messages.noConversationsFound")}
-        />
+        // players.search rule 10: a coach's search that finds nobody says so, with the query.
+        isCoach && search.trim() ? (
+          <View className="items-center px-6 py-8">
+            <PlayerSearchFeedback query={search} count={0} className="text-center text-sm text-muted-foreground" />
+          </View>
+        ) : (
+          <EmptyState
+            icon="chatbubbles-outline"
+            title={t("messages.noConversationsFound")}
+          />
+        )
       ) : (
         <FlatList
           data={filteredConversations}

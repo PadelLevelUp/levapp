@@ -6,7 +6,7 @@
  * its state for tests: `data-unread` on `conversation-row-<id>`.
  */
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Conversation } from "@/types";
 import { ConversationList } from "./ConversationList";
 
@@ -88,5 +88,45 @@ describe("ConversationList — unread rows are unmistakable (PAD-414)", () => {
 
     // No pill anywhere in this row.
     expect(row.querySelector("[data-testid='unread-pill']")).toBeNull();
+  });
+});
+
+// PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; a student's keeps
+// the plain substring match.
+describe("ConversationList filter (PAD-665)", () => {
+  const convs = [
+    conversation({ id: "1", participantId: "1", participantName: "Ana Rita" }),
+    conversation({ id: "2", participantId: "2", participantName: "Rita Zé" }),
+    conversation({ id: "3", participantId: "3", participantName: "Rui Pedro Basto" }),
+  ];
+  const rowIds = (query: string, isCoach: boolean) => {
+    const { unmount } = render(
+      <ConversationList
+        conversations={convs}
+        selectedId={null}
+        onSelect={noop}
+        onNewConversation={noop}
+        isCoach={isCoach}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText("messages.searchConversationPlaceholder"), {
+      target: { value: query },
+    });
+    const ids = screen
+      .queryAllByTestId(/^conversation-row-/)
+      .map((el) => el.getAttribute("data-testid")!.replace("conversation-row-", ""));
+    unmount();
+    return ids;
+  };
+
+  it("coach: 'rui basto' finds 'Rui Pedro Basto'; best match first; blank keeps the order", () => {
+    expect(rowIds("rui basto", true)).toEqual(["3"]);
+    expect(rowIds("rita", true)).toEqual(["2", "1"]);
+    expect(rowIds("", true)).toEqual(["1", "2", "3"]);
+  });
+
+  it("student: the substring match and the order stay as they were", () => {
+    expect(rowIds("rui basto", false)).toEqual([]);
+    expect(rowIds("rita", false)).toEqual(["1", "2"]);
   });
 });

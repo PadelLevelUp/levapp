@@ -2,7 +2,8 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme } from "@levelup/config";
+import { lightTheme, PLAYER_SEARCH_DEBOUNCE_MS } from "@levelup/config";
+import { keepPreviousData } from "@tanstack/react-query";
 import { useCoachPlayersPaginated } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS, type CoachPlayer } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddByQrSheet } from "@/features/players/add-by-qr-sheet";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
@@ -93,32 +95,41 @@ export default function PlayersScreen() {
     setPage(1);
   }, [missing_level, missing_side, incomplete]);
 
-  // Debounce search — reset to page 1 on a new query (mirrors web, 300ms).
+  // Debounce search — reset to page 1 on a new query (mirrors web, PLAYER_SEARCH_DEBOUNCE_MS = 200ms, players.search rule 10).
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim());
       setPage(1);
-    }, 300);
+    }, PLAYER_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [search]);
 
   const { sortBy, sortDir } = parseSort(sortValue);
 
-  const { data, isPending, isError, refetch } = useCoachPlayersPaginated({
-    page,
-    perPage: PAGE_SIZE,
-    search: debouncedSearch || undefined,
-    sortBy,
-    sortDir,
-    missingLevel: missingLevelFilter,
-    missingSide: missingSideFilter,
-    incomplete: incompleteFilter,
-  });
+  // keepPreviousData: the rows stay on screen while a new search is in flight (rule 10).
+  const { data, isPending, isError, refetch, isFetching } = useCoachPlayersPaginated(
+    {
+      page,
+      perPage: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      sortBy,
+      sortDir,
+      missingLevel: missingLevelFilter,
+      missingSide: missingSideFilter,
+      incomplete: incompleteFilter,
+    },
+    { placeholderData: keepPreviousData }
+  );
 
   const players = data?.items ?? [];
   const totalPages = data?.pagination.pages || 1;
   const totalItems = data?.pagination.total || 0;
   const alerts = data?.alerts ?? { missingLevel: 0, missingSide: 0 };
+  // players.search rule 10: "searching" from the first keystroke until the request for the typed text lands.
+  const searching = search.trim() !== debouncedSearch || (debouncedSearch !== "" && isFetching);
+  const searchFeedback = (
+    <PlayerSearchFeedback query={search} searching={searching} count={totalItems} />
+  );
   const hasActiveFilter = missingLevelFilter || missingSideFilter || incompleteFilter;
 
   const handleSortChange = (option: Option) => {
@@ -222,6 +233,8 @@ export default function PlayersScreen() {
       );
     }
     if (players.length === 0) {
+      // A non-blank query that found nobody says so, with the query (rule 10), instead of the generic line.
+      if (search.trim() !== "") return searchFeedback;
       return (
         <EmptyState
           icon="people-outline"
@@ -235,14 +248,17 @@ export default function PlayersScreen() {
       );
     }
     return (
-      <FlatList
-        data={players}
-        keyExtractor={(item) => `coach-player-${item.id}-${item.playerId}`}
-        renderItem={renderPlayer}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      />
+      <View className="flex-1">
+        {searchFeedback}
+        <FlatList
+          data={players}
+          keyExtractor={(item) => `coach-player-${item.id}-${item.playerId}`}
+          renderItem={renderPlayer}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        />
+      </View>
     );
   };
 

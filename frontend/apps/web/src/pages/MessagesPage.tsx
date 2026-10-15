@@ -630,6 +630,7 @@ export default function MessagesPage() {
                 // PAD-568: a student with no linked coach is sent to "Connect with a coach"
                 // (players.join-token rule 8); coaches never see the shortcut.
                 onConnectWithCoach={canConnectWithCoach ? () => navigate("/connect") : undefined}
+                isCoach={user?.roles?.includes("coach") ?? false}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}
