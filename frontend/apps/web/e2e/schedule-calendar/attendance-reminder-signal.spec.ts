@@ -45,9 +45,10 @@ test("PAD-199: the attendance badge follows reminderSentAt, never invited", asyn
   await page.getByText(title).first().click();
   const payload = (await (await detail).json()) as { presences?: PresenceRow[] };
 
-  const row = page.getByTestId("attendance-row").filter({ hasText: "E2E Student" }).first();
+  // PAD-659: the coach's read view is the grouped list (`participant-row-<id>`), not `attendance-row`.
+  const row = page.getByTestId(/^participant-row-/).filter({ hasText: "E2E Student" }).first();
   await expect(row).toBeVisible({ timeout: 10_000 });
-  const playerId = Number(await row.getAttribute("data-player-id"));
+  const playerId = Number((await row.getAttribute("data-testid"))!.replace("participant-row-", ""));
   const presence = (payload.presences ?? []).find((p) => p.playerId === playerId);
   expect(presence, "the seeded student's presence row").toBeTruthy();
 
@@ -59,14 +60,20 @@ test("PAD-199: the attendance badge follows reminderSentAt, never invited", asyn
   // PAD-313: B-017's guarantee survives, demoted from a chip to a conditional
   // detail line — still gated on `reminderSentAt`, never on `invited`, and shown
   // only while nobody has answered. No reminder here, so no line.
-  await expect(row.locator('[data-testid="attendance-reminder-hint"]')).toHaveCount(0);
+  // PAD-659: the hint now lives in the player pop-up, so open it and look there.
+  await expect(row).toHaveAttribute("data-state", "planned");
+  await row.getByTestId(`participant-open-${playerId}`).click();
+  const popup = page.getByTestId("participant-popup");
+  await expect(popup).toBeVisible({ timeout: 5000 });
+  await expect(popup.locator('[data-testid="attendance-reminder-hint"]')).toHaveCount(0);
 
-  // The chip itself is gone: a row now carries exactly ONE state word, because
-  // the "confirmed" face of that chip read `Presence.confirmed`, which means
-  // ANSWERED — so a student who had cancelled showed as confirmed
+  // The chip itself is gone: the "confirmed" face of that chip read `Presence.confirmed`,
+  // which means ANSWERED — so a student who had cancelled showed as confirmed
   // (`attendance.confirm` rule 25).
-  await expect(row.locator('[data-testid="attendance-signal"]')).toHaveCount(0);
-  await expect(row.locator('[data-testid="attendance-state"]')).toHaveCount(1);
+  await expect(popup.locator('[data-testid="attendance-signal"]')).toHaveCount(0);
+  // PAD-659: the row's one stored state is its data-state (checked above), no badge in read view.
+  await expect(row.locator('[data-testid="attendance-state"]')).toHaveCount(0);
+  await page.getByTestId("participant-popup-close").click();
 
   // The API says the same thing the sheet shows (same serializer everywhere).
   const login = await request.post(`${API_AUTH}/login`, {

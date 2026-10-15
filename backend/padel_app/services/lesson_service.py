@@ -710,6 +710,8 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
 
 
 def add_presences(lesson_instance, payload):
+    from padel_app.services.presence_events import publish_presence_changed
+
     created_presences = []
 
     for item in payload:
@@ -728,6 +730,7 @@ def add_presences(lesson_instance, payload):
             # coach action that moves `response` (attendance.presence rule 7).
             if existing is None:
                 continue
+            publish_presence_changed(lesson_instance, existing.player_id)  # PAD-659 (event-detail rule 24)
             _clear_presence(lesson_instance, existing)
             created_presences.append(existing)
             continue
@@ -774,6 +777,7 @@ def add_presences(lesson_instance, payload):
         values["recorded_by"] = "coach"
 
         was_absent = presence_obj.status == "absent"
+        publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
         presence_obj.update_with_dict(values)
         # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
         # none, whatever the body carries. It has to be said here and not in the form

@@ -159,7 +159,7 @@ onFlowComplete:
 - assertTrue: "${output.readIds() === output.s2}"
 - scrollUntilVisible:
     element:
-      id: "class-participant-${output.s2}"
+      id: "participant-row-${output.s2}"  # PAD-659: the coach's grouped list
     direction: DOWN
     timeout: 30000
 

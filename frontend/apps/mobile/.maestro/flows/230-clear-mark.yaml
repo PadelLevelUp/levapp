@@ -72,6 +72,19 @@ appId: com.padellevelup.app
       text: "E2E Student"
     timeout: 15000
 - tapOn: "E2E Student"
+# PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
+- scrollUntilVisible:
+    element:
+      id: "participant-row-1"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "attendance-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-edit"
 - extendedWaitUntil:
     visible:
       id: "class-participant-1"
@@ -98,6 +111,19 @@ appId: com.padellevelup.app
       id: "screen-calendar"
     timeout: 15000
 - tapOn: "E2E Student"
+# PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
+- scrollUntilVisible:
+    element:
+      id: "participant-row-1"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "attendance-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-edit"
 - extendedWaitUntil:
     visible:
       id: "class-participant-1"
@@ -128,6 +154,19 @@ appId: com.padellevelup.app
       id: "screen-calendar"
     timeout: 15000
 - tapOn: "E2E Student"
+# PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
+- scrollUntilVisible:
+    element:
+      id: "participant-row-1"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "attendance-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-edit"
 - extendedWaitUntil:
     visible:
       id: "class-participant-1"

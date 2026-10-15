@@ -34,19 +34,40 @@ function seededRow(page: Page) {
     .filter({ has: page.getByText(SEEDED_STUDENT, { exact: true }) });
 }
 
-/** Every OTHER row's state, sorted, so a save that touched the wrong row shows. */
-async function otherRowStates(page: Page): Promise<string[]> {
-  await expect(seededRow(page)).toHaveCount(1, { timeout: 5000 });
-  const others = page
-    .getByTestId("attendance-row")
-    .filter({ hasNot: page.getByText(SEEDED_STUDENT, { exact: true }) });
+/**
+ * Every OTHER row's state, sorted, so a save that touched the wrong row shows.
+ * PAD-659: the coach's read view is the grouped list (`participant-row-<id>`);
+ * the `attendance-row` badges exist only in the marking editor, so `editing`
+ * picks which of the two surfaces is read. Both carry the stored `data-state`.
+ */
+async function otherRowStates(page: Page, editing: boolean): Promise<string[]> {
   const states: string[] = [];
-  for (let i = 0; i < (await others.count()); i++) {
-    states.push(
-      (await others.nth(i).getByTestId("attendance-state").getAttribute("data-state")) ?? ""
-    );
+  if (editing) {
+    await expect(seededRow(page)).toHaveCount(1, { timeout: 5000 });
+    const others = page
+      .getByTestId("attendance-row")
+      .filter({ hasNot: page.getByText(SEEDED_STUDENT, { exact: true }) });
+    for (let i = 0; i < (await others.count()); i++) {
+      states.push(
+        (await others.nth(i).getByTestId("attendance-state").getAttribute("data-state")) ?? ""
+      );
+    }
+  } else {
+    const all = page.getByTestId(/^participant-row-/);
+    await expect(seededParticipantRow(page)).toHaveCount(1, { timeout: 5000 });
+    const others = all.filter({ hasNot: page.getByText(SEEDED_STUDENT, { exact: true }) });
+    for (let i = 0; i < (await others.count()); i++) {
+      states.push((await others.nth(i).getAttribute("data-state")) ?? "");
+    }
   }
   return states.sort();
+}
+
+// PAD-659: the seeded student's row in the coach's grouped read view.
+function seededParticipantRow(page: Page) {
+  return page
+    .getByTestId(/^participant-row-/)
+    .filter({ has: page.getByText(SEEDED_STUDENT, { exact: true }) });
 }
 
 /**
@@ -62,15 +83,15 @@ async function markPresentAndSave(
   expect(found, `Expected to find "${title}" on the calendar`).toBe(true);
 
   await page.getByText(title).first().click();
-  const othersBefore = await otherRowStates(page);
 
   // Enter attendance-marking mode. The button reads "Mark attendance" the first
   // time and "Edit attendance" once presences exist.
-  const markBtn = page
-    .getByRole("button", { name: /mark attendance|edit attendance/i })
-    .first();
+  // PAD-659: the marking rows (`attendance-row`) render only after this click, so the
+  // "others before" snapshot is taken from the editor, after entering it.
+  const markBtn = page.getByTestId("attendance-edit");
   await expect(markBtn).toBeVisible({ timeout: 5000 });
   await markBtn.click();
+  const othersBefore = await otherRowStates(page, true);
 
   // Mark the seeded student Present, on their own row.
   await seededRow(page).getByRole("button", { name: /^present$/i }).click();
@@ -124,14 +145,15 @@ async function assertPresentPersists(
   );
   await page.getByText(title).first().click();
 
-  const state = seededRow(page).getByTestId("attendance-state");
+  // PAD-659: the coach's read view is the grouped list; assert the row's stored data-state.
+  const state = seededParticipantRow(page);
   await expect(
     state,
     `the saved attendance state should persist for "${title}" after reload`
   ).toBeVisible({ timeout: 5000 });
   await expect(state).toHaveAttribute("data-state", "attended");
   // Nobody else's row changed: the save was the seeded student's alone.
-  expect(await otherRowStates(page)).toEqual(othersBefore);
+  expect(await otherRowStates(page, false)).toEqual(othersBefore);
 }
 
 test.describe("PAD-64: attendance can be saved for single and recurring classes", () => {

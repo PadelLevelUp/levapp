@@ -102,6 +102,14 @@ async function freshUnreadBatch(request: APIRequestContext, count: number, tag: 
   return ids;
 }
 
+/** Signs the coach in after the test's batch exists (B-568). */
+async function signIn(page: Page) {
+  page.on("pageerror", (err) => {
+    throw err;
+  });
+  await loginAsCoach(page);
+}
+
 async function openThread(page: Page, search = "") {
   const detail = page.waitForResponse(
     (r) => new RegExp(`/api/app/conversation/${conversationId}(\\?|$)`).test(r.url()) && r.status() === 200,
@@ -124,18 +132,18 @@ test.describe("PAD-415 — a thread opens at its first unread message", () => {
     await deleteMessages(request, studentToken, seeded);
   });
 
-  test.beforeEach(async ({ page }) => {
-    await loginAsCoach(page);
-    page.on("pageerror", (err) => {
-      throw err;
-    });
-  });
+  // B-568: no `beforeEach` login. Each test posts its batch FIRST and only then signs the coach
+  // in (`signIn`), so no coach page is open while the batch is posted. With the page open, each
+  // of the 40 messages was an SSE event (an unread-count refetch, and once the thread was open, a
+  // mark-read and an arrival). Under a loaded folder run those events still landed after the
+  // open and moved the thread off its first unread: US-415a then failed with "viewport ratio 0".
 
   test("US-415a: the open walks back to the first unread, under the divider, and a re-open lands on the newest", async ({
     page,
     request,
   }) => {
     const ids = await freshUnreadBatch(request, SEED_COUNT, "pad415-open");
+    await signIn(page);
     const first = page.locator(`[data-msg-id="${ids[0]}"]`);
     const newest = page.locator(`[data-msg-id="${ids[ids.length - 1]}"]`);
     const divider = page.getByTestId("unread-divider");
@@ -163,6 +171,7 @@ test.describe("PAD-415 — a thread opens at its first unread message", () => {
 
   test("US-415b: a push target wins over the first unread", async ({ page, request }) => {
     const ids = await freshUnreadBatch(request, SEED_COUNT, "pad415-push");
+    await signIn(page);
     const pushed = ids[ids.length - 3];
 
     await openThread(page, `?message=${pushed}`);
@@ -179,6 +188,7 @@ test.describe("PAD-415 — a thread opens at its first unread message", () => {
 
   test("US-414: an unread row is marked and its pill caps at 9+", async ({ page, request }) => {
     await freshUnreadBatch(request, 12, "pad414-row");
+    await signIn(page);
 
     await page.goto("/messages");
     const row = page.getByTestId(`conversation-row-${conversationId}`);
