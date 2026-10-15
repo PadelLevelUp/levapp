@@ -43,6 +43,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useCoachPlayers } from "@/features/players/hooks";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { nativeLocaleTag } from "@/lib/native-locale";
 
 /** B-295: the date picker's own dialog renders inside this dialog's overlay, above it. */
@@ -197,6 +198,11 @@ function ScopeDialog({
     () => waitingListPickerOptions(candidates, search, playerId),
     [candidates, search, playerId]
   );
+  // players.search rule 10: counts the matches, not the chosen student the picker keeps listed.
+  const matchCount = React.useMemo(
+    () => waitingListPickerOptions(candidates, search, null).length,
+    [candidates, search]
+  );
   const [scope, setScope] = React.useState<WaitingListDialogScope>("occurrence");
   const [periodMode, setPeriodMode] = React.useState<WaitingListPeriodMode>("classes");
   const [today, setToday] = React.useState(() => new Date());
@@ -287,6 +293,7 @@ function ScopeDialog({
             />
             <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
               <View className="gap-1">
+                <PlayerSearchFeedback query={search} count={matchCount} className="px-1 text-xs text-muted-foreground" />
                 {offered.map((c) => {
                   const reasons = reasonsById.get(String(c.playerId));
                   const chosen = playerId === String(c.playerId);

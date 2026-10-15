@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { GitMerge, Link2, Loader2 } from "lucide-react";
 import type { CoachPlayer } from "@/types";
 import { describeMergePlan } from "@levelup/config";
+import { useDebouncedText } from "@/hooks/useDebouncedText";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,6 +48,9 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
   const [username, setUsername] = useState("");
   const [search, setSearch] = useState("");
   const [candidates, setCandidates] = useState<ClaimCandidate[] | null>(null);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the rows for that text land.
+  const { debounced: debouncedSearch, settling } = useDebouncedText(search);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | number | null>(null);
   const [preview, setPreview] = useState<MergePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -57,17 +62,21 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
   useEffect(() => {
     if (!open || tab !== "roster") return;
     let cancelled = false;
-    listClaimCandidates(player.playerId, search.trim() || undefined)
+    listClaimCandidates(player.playerId, debouncedSearch || undefined)
       .then((rows) => {
-        if (!cancelled) setCandidates(rows);
+        if (cancelled) return;
+        setCandidates(rows);
+        setLoadedFor(debouncedSearch);
       })
       .catch(() => {
-        if (!cancelled) setCandidates([]);
+        if (cancelled) return;
+        setCandidates([]);
+        setLoadedFor(debouncedSearch);
       });
     return () => {
       cancelled = true;
     };
-  }, [open, tab, search, player.playerId]);
+  }, [open, tab, debouncedSearch, player.playerId]);
 
   useEffect(() => {
     if (!open || targetId === null) {
@@ -163,6 +172,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
     );
   }
 
+  const searching = settling || loadedFor !== debouncedSearch;
   const canSubmit = tab === "roster" ? targetId !== null : Boolean(username.trim());
   const described = describeMergePlan(preview, t, "theirs");
 
@@ -230,9 +240,15 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                   {candidates === null ? (
                     <p className="p-2 text-sm text-muted-foreground">{t("players.claim.previewLoading")}</p>
                   ) : candidates.length === 0 ? (
-                    <p className="p-2 text-sm text-muted-foreground">{t("players.claim.noCandidates")}</p>
+                    search.trim() ? (
+                      <PlayerSearchFeedback query={search} searching={searching} count={0} />
+                    ) : (
+                      <p className="p-2 text-sm text-muted-foreground">{t("players.claim.noCandidates")}</p>
+                    )
                   ) : (
-                    candidates.map((c) => {
+                    <>
+                    <PlayerSearchFeedback query={search} searching={searching} count={candidates.length} />
+                    {candidates.map((c) => {
                       const selected = String(c.playerId) === String(targetId);
                       return (
                         <button
@@ -255,7 +271,8 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                           )}
                         </button>
                       );
-                    })
+                    })}
+                    </>
                   )}
                 </div>
                 {targetId !== null && (

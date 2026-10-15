@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { queryKeys, useCoachLevels, useCoachPlayersPaginated } from "@levelup/hooks";
+import { PLAYER_SEARCH_DEBOUNCE_MS } from "@levelup/config";
 import { SIDE_LABEL_KEYS } from "@/types";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -24,6 +25,7 @@ import { AlertTriangle, Copy, X } from "lucide-react";
 
 import { addPlayer } from "@/api/players";
 import { createIncompletePlayer } from "@/api/playerInvitations";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { AddByQrDialog } from "@/components/players/AddByQrDialog";
@@ -68,7 +70,7 @@ export default function PlayersPage() {
   );
 
 
-  // Debounce search input — reset page to 1 on new search
+  // Debounce search input (players.search rule 10: 200 ms) — reset page to 1 on new search
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -76,7 +78,7 @@ export default function PlayersPage() {
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(value.trim());
       setCurrentPage(1);
-    }, 300);
+    }, PLAYER_SEARCH_DEBOUNCE_MS);
   }, []);
 
   useEffect(() => {
@@ -402,6 +404,13 @@ export default function PlayersPage() {
           })}
         </div>
       )}
+
+      {/* players.search rule 10: "searching" until the request for the typed text lands (the rows stay). */}
+      <PlayerSearchFeedback
+        query={search}
+        searching={search.trim() !== debouncedSearch || (debouncedSearch !== "" && playersQuery.isFetching)}
+        count={totalItems}
+      />
 
       <div className="flex items-center justify-between pt-2">
         {/* B-524: the total as data, so a spec can wait for a search's result without matching copy. */}

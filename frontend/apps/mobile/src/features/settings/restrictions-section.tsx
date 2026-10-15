@@ -9,10 +9,12 @@ import {
   type SteppedRestrictionKey,
 } from "@levelup/config";
 import type { NotificationRestrictions } from "@levelup/types";
+import { useDebouncedText } from "@/lib/useDebouncedText";
 import { Ionicons } from "@expo/vector-icons";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
@@ -195,28 +197,34 @@ function ExcludedPlayers({
   const { t } = useTranslation();
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<{ id: string; name: string }[]>([]);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
+  const { debounced, settling } = useDebouncedText(query);
+  const [loadedFor, setLoadedFor] = React.useState("");
+  const searching = settling || (debounced !== "" && loadedFor !== debounced);
 
   React.useEffect(() => {
-    if (!query.trim()) {
+    if (!debounced) {
       setResults([]);
+      setLoadedFor("");
       return;
     }
     let alive = true;
-    const timer = setTimeout(() => {
-      notificationEngineApi
-        .searchPlayers(query)
-        .then((data) => {
-          if (alive) setResults(data.players.filter((p) => !playerIds.includes(p.id)));
-        })
-        .catch(() => {
-          if (alive) setResults([]);
-        });
-    }, 300);
+    notificationEngineApi
+      .searchPlayers(debounced)
+      .then((data) => {
+        if (!alive) return;
+        setResults(data.players.filter((p) => !playerIds.includes(p.id)));
+        setLoadedFor(debounced);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setResults([]);
+        setLoadedFor(debounced);
+      });
     return () => {
       alive = false;
-      clearTimeout(timer);
     };
-  }, [query, playerIds]);
+  }, [debounced, playerIds]);
 
   return (
     <View testID="restriction-row-excludedPlayers" className="gap-2">
@@ -244,8 +252,9 @@ function ExcludedPlayers({
             autoCorrect={false}
             className="h-10 text-sm"
           />
-          {results.length > 0 ? (
+          {query.trim() !== "" && (results.length > 0 || searching || loadedFor === debounced) ? (
             <View className="overflow-hidden rounded-md border border-border">
+              <PlayerSearchFeedback query={query} searching={searching} count={results.length} className="px-3 py-2.5 text-sm text-muted-foreground" />
               {results.map((p) => (
                 <Pressable
                   key={p.id}

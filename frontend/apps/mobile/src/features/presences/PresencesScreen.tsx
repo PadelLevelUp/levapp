@@ -17,6 +17,7 @@ import {
   PresenceColumnsSheet,
   PresenceFiltersSheet,
 } from "./PresenceReportSheets";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { ValidateClassesSheet } from "./ValidateClassesSheet";
 import { sharePresencesCsv } from "./csv-share";
 import {
@@ -294,9 +295,13 @@ export function PresencesScreen() {
             <Skeleton className="h-16 w-full" />
           </View>
         ) : rows.length === 0 ? (
-          <Text className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {t("presences.table.empty")}
-          </Text>
+          filters.query.trim() ? (
+            <PlayerSearchFeedback query={filters.query} count={0} className="px-4 py-8 text-center text-sm text-muted-foreground" />
+          ) : (
+            <Text className="px-4 py-8 text-center text-sm text-muted-foreground">
+              {t("presences.table.empty")}
+            </Text>
+          )
         ) : (
           rows.map((player) => (
             <PlayerRow

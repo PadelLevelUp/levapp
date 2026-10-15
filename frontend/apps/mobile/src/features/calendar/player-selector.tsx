@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import { initialsOf } from "@/features/messages/utils";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { cn } from "@/lib/utils";
 
 import {
@@ -217,9 +218,13 @@ export function PlayerSelector({
           <ScrollView className="max-h-64" nestedScrollEnabled keyboardShouldPersistTaps="handled">
             <View className="gap-1">
               {visible.length === 0 ? (
-                <Text className="py-3 text-center text-sm text-muted-foreground">
-                  {t("calendar.playerSelector.noPlayersFound")}
-                </Text>
+                isSearching ? (
+                  <PlayerSearchFeedback query={search} count={0} className="py-3 text-center text-sm text-muted-foreground" />
+                ) : (
+                  <Text className="py-3 text-center text-sm text-muted-foreground">
+                    {t("calendar.playerSelector.noPlayersFound")}
+                  </Text>
+                )
               ) : (
                 visible.map(renderRow)
               )}

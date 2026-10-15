@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
+import { useDebouncedText } from "@/hooks/useDebouncedText";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeSideReasoning, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
 
 import type {
@@ -435,35 +437,38 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; name: string }[] | null>(null);
-  const [searching, setSearching] = useState(false);
   const [verdict, setVerdict] = useState<InviteExplain | null>(null);
   // The name of the result the coach picked: refilling the input with it must
   // not re-run the search and reopen the dropdown over the verdict.
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  const seq = useRef(0);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
+  const activeQuery = query.trim() === selectedName ? "" : query;
+  const { debounced, settling } = useDebouncedText(activeQuery);
+  const [loadedFor, setLoadedFor] = useState("");
+  const searching = settling || (debounced !== "" && loadedFor !== debounced);
 
   useEffect(() => {
-    const term = query.trim();
-    if (!term || term === selectedName) {
+    if (!debounced) {
       setResults(null);
+      setLoadedFor("");
       return;
     }
-    const mine = ++seq.current;
-    setSearching(true);
-    const handle = setTimeout(() => {
-      searchPlayers(term)
-        .then((res) => {
-          if (mine === seq.current) setResults(res.players);
-        })
-        .catch(() => {
-          if (mine === seq.current) setResults([]);
-        })
-        .finally(() => {
-          if (mine === seq.current) setSearching(false);
-        });
-    }, 250);
-    return () => clearTimeout(handle);
-  }, [query, selectedName]);
+    let cancelled = false;
+    searchPlayers(debounced)
+      .then((res) => {
+        if (cancelled) return;
+        setResults(res.players);
+        setLoadedFor(debounced);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setResults([]);
+        setLoadedFor(debounced);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced]);
 
   // A new class/player invalidates the previous verdict.
   useEffect(() => {
@@ -498,28 +503,27 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
             setVerdict(null);
           }}
         />
-        {results && (
+        {activeQuery.trim() !== "" && (results !== null || searching) && (
           <ul className="absolute z-10 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
-            {results.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted-foreground">
-                {searching
-                  ? t("tutorials.understandInvites.lookupSearching")
-                  : t("tutorials.understandInvites.lookupNoResults")}
+            <PlayerSearchFeedback
+              as="li"
+              query={activeQuery}
+              searching={searching}
+              count={results?.length ?? 0}
+              className="px-3 py-2 text-sm text-muted-foreground"
+            />
+            {(results ?? []).map((player) => (
+              <li key={player.id}>
+                <button
+                  type="button"
+                  data-testid={`tutorial-lookup-result-${player.id}`}
+                  onClick={() => explain(player)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  {player.name}
+                </button>
               </li>
-            ) : (
-              results.map((player) => (
-                <li key={player.id}>
-                  <button
-                    type="button"
-                    data-testid={`tutorial-lookup-result-${player.id}`}
-                    onClick={() => explain(player)}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                  >
-                    {player.name}
-                  </button>
-                </li>
-              ))
-            )}
+            ))}
           </ul>
         )}
       </div>

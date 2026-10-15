@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { cn } from "@/lib/utils";
 import { useNotificationGroups, useSendManualNotifications } from "./hooks";
 
@@ -347,9 +348,7 @@ export function NotifyModal({
             {search ? (
               <View className="gap-0.5">
                 {searchResults.length === 0 ? (
-                  <Text className="py-3 text-center text-sm text-muted-foreground">
-                    {t("calendar.notify.noResults")}
-                  </Text>
+                  <PlayerSearchFeedback query={search} count={0} className="py-3 text-center text-sm text-muted-foreground" />
                 ) : (
                   searchResults.map((p) => (
                     <GroupPlayerRow
