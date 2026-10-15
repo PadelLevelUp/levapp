@@ -39,6 +39,15 @@ const SURFACES = nativeCalendarSurfaces("light");
  * uses — so the two shells cannot drift apart. Amber appears on the fill bar
  * and the count only, for a class the coach can still fill.
  */
+/** Tailwind's `shadow-md` (0 4px 6px rgb(0 0 0 / 0.1)) as React Native style — PAD-675. */
+const NEXT_SHADOW: ViewStyle = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  elevation: 4,
+};
+
 export function EventCard({ event, onPress, isNext = false, levelCode }: EventCardProps) {
   const { t } = useTranslation();
   const viewer = useCalendarViewer();
@@ -62,6 +71,12 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
         borderWidth: surface.borderWidth,
         borderStyle: surface.borderStyle,
         borderColor: surface.borderColor,
+        // PAD-675: the next class's lift is inline (Tailwind's shadow-md), never a `shadow-md`
+        // class added when the card BECOMES next — shadow utilities set CSS variables, and a
+        // component that starts setting variables after its first render hits css-interop's
+        // upgrade warning, which crashed the debug build ("Couldn't find a navigation context").
+        // The student's filter changes which mounted card is next.
+        ...(variant === "next" ? NEXT_SHADOW : null),
       };
 
   const capacity = event.maxPlayers ?? 0;
@@ -105,7 +120,6 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
       className={cn(
         "rounded-2xl p-4",
         isBlock && "border-[1.5px] border-dashed border-border bg-card",
-        variant === "next" && "shadow-md",
         onPress && "active:opacity-90"
       )}
       style={stateStyle}
