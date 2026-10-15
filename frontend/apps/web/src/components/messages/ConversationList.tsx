@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { formatConversationTimestamp } from '@/lib/conversationTime';
-import { unreadBadgeLabel } from '@levelup/config';
+import { searchPeopleByName, unreadBadgeLabel } from '@levelup/config';
 import type { Conversation } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -24,6 +24,8 @@ interface ConversationListProps {
   loadingMore?: boolean;
   /** PAD-568: students only — the picker's "connect with a coach" shortcut when nobody is linked. */
   onConnectWithCoach?: () => void;
+  /** PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; absent = student. */
+  isCoach?: boolean;
   /** messaging.conversations rule 17 (PAD-648): "Todas" / "Não lidas"; the page owns the choice. */
   filter?: ConversationFilter;
   onFilterChange?: (filter: ConversationFilter) => void;
@@ -31,7 +33,7 @@ interface ConversationListProps {
 
 export type ConversationFilter = 'all' | 'unread';
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore, filter = 'all', onFilterChange }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore, isCoach = false, filter = 'all', onFilterChange }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -42,9 +44,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
   const displayName = (conv: Conversation) =>
     conv.participantName ?? t('messages.deletedUser');
 
-  const filteredConversations = conversations.filter(conv =>
-    displayName(conv).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = searchPeopleByName(conversations, searchQuery, displayName, { coach: isCoach });
 
   useEffect(() => {
     if (!sentinelRef.current || !onLoadMore) return;
@@ -92,6 +92,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
           onSelectUser={onNewConversation}
           onStartByUsername={onNewConversationByUsername}
           onConnectWithCoach={onConnectWithCoach}
+          isCoach={isCoach}
         />
         </div>
         {onFilterChange && (

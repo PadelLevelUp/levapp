@@ -15,6 +15,7 @@ import {
   csvFileName,
   filterPlayers,
   nextSort,
+  presenceRows,
   sortPlayerStats,
   splitPoints,
   toggleColumn,
@@ -72,6 +73,53 @@ const BRUNO = player("Bruno Silva", {
 });
 const CARLA = player("Carla Nunes", { total: 0, unjustified: 0 });
 const ROSTER = [ANA, BRUNO, CARLA];
+
+// PAD-665 (players.search): the name filter is the shared rule; relevance orders a typed search.
+describe("presences name search (PAD-665)", () => {
+  const roster = [
+    player("Ana Rita", { total: 9 }),
+    player("Rita Zé", { total: 1 }),
+    player("Rui Pedro Basto", { total: 5 }),
+    player("André Nunes", { total: 3 }),
+  ];
+  const names = (query: string) =>
+    filterPlayers(roster, { ...EMPTY_FILTERS, query }).map((p) => p.name);
+
+  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André Nunes'", () => {
+    expect(names("rui basto")).toEqual(["Rui Pedro Basto"]);
+    expect(names("andre")).toEqual(["André Nunes"]);
+  });
+
+  it("lists the best match first and keeps a blank query in the given order", () => {
+    expect(names("rita")).toEqual(["Rita Zé", "Ana Rita"]);
+    expect(names("")).toEqual(roster.map((p) => p.name));
+  });
+
+  it("still applies the numeric bounds on top of the name", () => {
+    expect(
+      filterPlayers(roster, { ...EMPTY_FILTERS, query: "rita", minTotal: "5" }).map((p) => p.name)
+    ).toEqual(["Ana Rita"]);
+  });
+
+  // Decision 2026-10-14 (a): the table always has a sort of its own, so a typed name only filters.
+  it("presenceRows: a typed name filters and the table's sort stands", () => {
+    const typed = { ...EMPTY_FILTERS, query: "rita" };
+    expect(presenceRows(roster, typed, { key: "total", direction: "desc" }).map((p) => p.name)).toEqual([
+      "Ana Rita",
+      "Rita Zé",
+    ]);
+    expect(presenceRows(roster, typed, { key: "name", direction: "asc" }).map((p) => p.name)).toEqual([
+      "Ana Rita",
+      "Rita Zé",
+    ]);
+    expect(presenceRows(roster, EMPTY_FILTERS, { key: "total", direction: "desc" }).map((p) => p.name)).toEqual([
+      "Ana Rita",
+      "Rui Pedro Basto",
+      "André Nunes",
+      "Rita Zé",
+    ]);
+  });
+});
 
 describe("filterPlayers", () => {
   it("returns everyone when no filter is set", () => {

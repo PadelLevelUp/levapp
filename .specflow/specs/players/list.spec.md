@@ -15,7 +15,9 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 ### Rules
 1. `GET /api/app/coach_players` returns all coach-player pairs for the authenticated coach (with evaluations, notes)
 2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side, incomplete
-3. Search matches against player name (case-insensitive). **Every typed word must appear in the
+3. **(PAD-665) Search follows `players.search`** — the one rule shared by every coach-side player
+   search: folding (B-531), word-start and typo tiers, relevance order applied before pagination.
+   PAD-516's rule below is its tier 2 and still holds. Search matches against player name (case-insensitive). **Every typed word must appear in the
    name, in any order** (PAD-516): "pedro sousa" finds "Pedro Mesquita e Sousa". Words are split on
    whitespace and each matches as a substring. Accents, case and punctuation are folded ("joao"
    finds "João"), with one rule on the server (`player_service.name_matches_query`, applied after

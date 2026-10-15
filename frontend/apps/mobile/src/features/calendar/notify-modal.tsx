@@ -4,6 +4,7 @@ import {
   blockedReasons,
   lightTheme,
   runManualInviteFlow,
+  searchRoster,
   shouldReportSent,
   splitBlockedByCause,
 } from "@levelup/config";
@@ -113,8 +114,8 @@ export function NotifyModal({
 
   const searchResults = React.useMemo(() => {
     if (!search) return [];
-    const q = search.toLowerCase();
-    return allEligible.filter((p) => p.name.toLowerCase().includes(q));
+    // PAD-665: the shared name rule, best match first.
+    return searchRoster(allEligible, search);
   }, [allEligible, search]);
 
   const togglePlayer = (playerId: string) => {

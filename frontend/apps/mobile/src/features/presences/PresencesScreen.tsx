@@ -30,7 +30,7 @@ import {
   buildPresencesCsv,
   csvFileName,
   filterPlayers,
-  sortPlayerStats,
+  presenceRows,
   visibleColumns,
 } from "./report-state";
 import {
@@ -115,7 +115,7 @@ export function PresencesScreen() {
   const columns = React.useMemo(() => visibleColumns(visible), [visible]);
 
   const rows = React.useMemo(
-    () => sortPlayerStats(filterPlayers(players, filters), sort),
+    () => presenceRows(players, filters, sort),
     [players, filters, sort]
   );
 

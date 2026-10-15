@@ -41,6 +41,31 @@ describe("filterPlayers", () => {
   });
 });
 
+// PAD-665 (players.search): the picker's search is the shared name rule.
+describe("filterPlayers search (PAD-665)", () => {
+  const people = [
+    player("1", "Ana Rita"),
+    player("2", "Rita Zé"),
+    player("3", "Rui Pedro Basto"),
+    player("4", "André"),
+  ];
+  const ids = (search: string) => filterPlayers(people, { search, levelId: null }).map((p) => p.playerId);
+
+  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
+    expect(ids("rui basto")).toEqual(["3"]);
+    expect(ids("andre")).toEqual(["4"]);
+  });
+
+  it("lists the best match first: 'rita' → 'Rita Zé' before 'Ana Rita'", () => {
+    expect(ids("rita")).toEqual(["2", "1"]);
+  });
+
+  it("keeps the original order for a blank search and never adds a student", () => {
+    expect(ids("")).toEqual(["1", "2", "3", "4"]);
+    expect(ids("zzzz-nobody")).toEqual([]);
+  });
+});
+
 describe("isOutOfLevel", () => {
   it("marks a student whose level is not the class's", () => {
     expect(isOutOfLevel(bruno, "10")).toBe(true);

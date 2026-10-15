@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { searchPeopleByName } from '@levelup/config';
 import { getMessageableUsers } from '@/api/users';
 
 interface User {
@@ -39,6 +40,11 @@ interface NewConversationDialogProps {
    * passes this for students only; a coach with no roster sees the plain empty line.
    */
   onConnectWithCoach?: () => void;
+  /**
+   * PAD-665 (players.search rule 8): a coach's picker uses the shared name rule; a student's
+   * keeps the plain substring match. Absent = student.
+   */
+  isCoach?: boolean;
 }
 
 function errorStatus(error: unknown): number | undefined {
@@ -54,6 +60,7 @@ export function NewConversationDialog({
   onSelectUser,
   onStartByUsername,
   onConnectWithCoach,
+  isCoach = false,
 }: NewConversationDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -127,9 +134,7 @@ export function NewConversationDialog({
     }
   }, [open, existingParticipantIds]);
 
-  const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = searchPeopleByName(users, searchQuery, (user) => user.name, { coach: isCoach });
 
   // Why the list is empty, in order of precedence; `null` when there are rows to show.
   const emptyKind =
