@@ -99,4 +99,18 @@ opened two minutes later. Sizing read, if wanted, is the same kind of production
 
 ### Resolution
 
-(pending)
+Session A, 2026-10-14, PR #725 (`feature/pad-661`, a37ca9d48) into staging; acceptance 3 of the
+ticket in PR-2 (`feature/pad-661-why`), same ticket.
+- **Spec:** `notifications.invitations` rule 1c third path + four criteria; `notifications.config`
+  rule 10a exception; `notifications.semi-auto-approval` rule 4b + criterion (PR-2); business
+  `coach-approves-replacements` one bullet (PR-2).
+- **Code:** `scheduler._invite_start_fire_time` (the catch-up, `INVITE_START_CATCH_UP` = 2 min)
+  called by `schedule_lesson_reminder_jobs`; `replacement_approval_service.empty_queue_reasons`
+  and the `emptyQueueReasons` payload key (PR-2); shared `approvalEmptyReasonKey` /
+  `approvalEmptyReasons` in `@levelup/config`, both cards, pt + en (PR-2).
+- **Tests:** `test_pad661_semi_auto_never_filled_suggestions.py` (12 in PR-1, 16 with PR-2).
+  Mutants: M1 catch-up branch disabled → 3 cells red; M2 old kept-job condition → 1 cell red.
+  Regression 24 files: 340 passed, 11 skipped. Review (sonnet, unanchored) caught the kept
+  far-future job; fixed in a37ca9d48.
+- **Deploy burst:** sized by the owner before the merge (`docs/handoffs/2026-10-14-pad-661-burst-size.py`).
+- Resolved: 2026-10-14 (on merge of #725; status flips then).
