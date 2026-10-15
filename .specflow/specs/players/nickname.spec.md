@@ -43,8 +43,9 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    reads the relation's nickname.
 5. **Search finds both.** `coach_players_paginated` and `notify/player_search` match the typed
    words against the real name or the requesting coach's nickname (the shared name-matching rule,
-   PAD-665, takes both fields); the apps' local pickers do the same over the roster's
-   `displayName` (`rosterNameMatchesQuery`, `@levelup/config`).
+   PAD-665, takes both fields); the apps' local pickers do the same: `searchRoster` and
+   `waitingListPickerOptions` pass the row's nickname (`rosterNicknameOf`, `@levelup/config`) as
+   the rule's `nickname` field, so a nickname kept off the name still finds the student.
 6. **Setting it.** `POST /app/edit_player` accepts `nickname` (trimmed; blank clears it; over 60
    characters is refused with 400) and `nicknameAsName` for the coach's own relation. The profile
    edit form on web and on iOS/Android shows the field with the warning "Visível só para ti. Evita
@@ -65,7 +66,7 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    detail's marking rows (coach only) and, on iOS/Android, the class screen's join requests and
    invitees print the name through `useCoachDisplayName` (`@levelup/hooks`): one roster query,
    asked by the row's player id; a student's view never asks. Pickers list the display name, and
-   their search matches either name (`rosterNameMatchesQuery`, rule 5). Both parts are promoted
+   their search matches either name (`rosterNicknameOf` into the shared rule, rule 5). Both parts are promoted
    together; PAD-660 closes after part 2.
 
 ### Acceptance Criteria
