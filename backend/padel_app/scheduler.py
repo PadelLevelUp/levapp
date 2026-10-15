@@ -228,6 +228,33 @@ def _armed_fire_time(job_id: str) -> datetime | None:
     return run_date.astimezone(timezone.utc).replace(tzinfo=None) if run_date.tzinfo else run_date
 
 
+#: PAD-661 (invitations rule 1c, B-501): how far out the catch-up fire of an occurrence's
+#: invite-start job is armed when the derivation finds its window already open and the occurrence
+#: not materialised. Not "now": the save that derives still sends nothing itself (config rule 10a),
+#: and a burst at startup spreads over the scheduler's own thread pool two minutes later.
+INVITE_START_CATCH_UP = timedelta(minutes=2)
+
+
+def _invite_start_fire_time(occ_dt_naive: datetime, config, job_id: str, cutoff: datetime) -> datetime | None:
+    """When the lesson-level invite-start job of an occurrence not yet materialised fires
+    (PAD-540, invitations rule 1c): the configured instant while it is still ahead, None for a
+    timing of ``none`` or an occurrence already started. When the configured instant is already
+    past and the occurrence is still ahead on the club's clock, the window is open and nothing has
+    materialised the occurrence: a past time would make ``_reconcile_date_job`` remove the job and
+    the tick (materialised classes only) would never see it, so the job gets the **catch-up**
+    instead (PAD-661, B-501): ``cutoff + INVITE_START_CATCH_UP``, or the catch-up still pending from
+    an earlier derivation (armed after the cutoff, no later than a fresh one). A job armed for any
+    other time came from an earlier timing and is replaced by the catch-up."""
+    fire_dt = _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing())
+    if fire_dt is None or fire_dt > cutoff or wall_to_utc_naive(occ_dt_naive) <= cutoff:
+        return fire_dt
+    catch_up = cutoff + INVITE_START_CATCH_UP
+    armed_for = _armed_fire_time(job_id)
+    if armed_for is not None and cutoff < armed_for <= catch_up:
+        return armed_for
+    return catch_up
+
+
 def _reconcile_date_job(job_id: str, fire_dt: datetime | None, cutoff: datetime, *, func, args) -> str:
     """Make ``job_id`` the job the saved configuration implies (PAD-478, B-249;
     ``notifications.config`` rule 10a). Returns what it did.
@@ -241,7 +268,9 @@ def _reconcile_date_job(job_id: str, fire_dt: datetime | None, cutoff: datetime,
       lands inside that window into a suppressed reminder.
 
     Nothing here sends. Every caller (a settings change, a class edit, the startup re-arm,
-    the daily window pass) therefore sends nothing by reconciling.
+    the daily window pass) therefore sends nothing by reconciling. One caller-side exception:
+    an invite-start job of an occurrence whose window is already open is handed the catch-up
+    instant by ``_invite_start_fire_time`` (PAD-661), never its past configured time.
     """
     from apscheduler.triggers.date import DateTrigger
 
@@ -1111,9 +1140,10 @@ def schedule_lesson_reminder_jobs(
                 # PAD-540 (invitations rule 1c): the occurrence's never-filled places start from
                 # the coach's invitation-start instant, whether or not a reminder comes first.
                 # Not counted in the return value, which has always been the reminder jobs.
+                # A window already open at derivation gets the catch-up (PAD-661, B-501).
+                invite_job_id = f"invite_start_lesson_{lesson_id}_{date_str}"
                 _reconcile_date_job(
-                    f"invite_start_lesson_{lesson_id}_{date_str}",
-                    _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing()), cutoff,
+                    invite_job_id, _invite_start_fire_time(occ_dt_naive, config, invite_job_id, cutoff), cutoff,
                     func=_run_invite_start_for_lesson_occurrence, args=[lesson_id, date_str],
                 )
                 if outcome == "armed":
