@@ -113,11 +113,13 @@ describe("PAD-661 an empty queue says why", () => {
     render(<ReplacementApprovalCard bundle={bundleOf([
       vac(1, { openSpot: true, side: "left", queue: [], emptyQueueReasons: [{ stage: "eligibility", count: 7 }, { stage: "excluded_by_coach", count: 2 }] }),
     ])} />);
-    const lines = Array.from(screen.getByTestId("approval-empty-reasons").querySelectorAll("li"));
-    expect(lines.map((li) => li.textContent)).toEqual([
+    expect(screen.getByTestId("approval-empty-reason-eligibility").textContent).toBe(
       "notificationsUi.replacementApproval.emptyReason.eligibility:count=7",
+    );
+    expect(screen.getByTestId("approval-empty-reason-excluded_by_coach").textContent).toBe(
       "notificationsUi.replacementApproval.emptyReason.excluded_by_coach:count=2",
-    ]);
+    );
+    expect(screen.getByTestId("approval-empty-reasons").children).toHaveLength(2);
   });
 
   it("an older payload without reasons, or a non-empty queue, shows no reasons", () => {

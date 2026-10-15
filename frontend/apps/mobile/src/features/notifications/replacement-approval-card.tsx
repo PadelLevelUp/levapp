@@ -1,6 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
-import { approvalDisplayGroups, approvalEmptyReasonKey, approvalGroupLabel, approvalQueuePreview, approvalSideKey, approvalStaleLabel, lightTheme, staleCount } from "@levelup/config";
+import {
+  approvalDisplayGroups,
+  approvalEmptyReasonKey,
+  approvalGroupLabel,
+  approvalQueuePreview,
+  approvalSideKey,
+  approvalStaleLabel,
+  lightTheme,
+  staleCount,
+} from "@levelup/config";
 import type { ApprovalAction, ApprovalBundle } from "@levelup/types";
 import { format } from "date-fns";
 import * as React from "react";

@@ -217,7 +217,7 @@ export function ReplacementApprovalCard({
                 {group.emptyQueueReasons.length > 0 && (
                   <ul className="text-xs text-muted-foreground" data-testid="approval-empty-reasons">
                     {group.emptyQueueReasons.map((r) => (
-                      <li key={r.stage} data-stage={r.stage}>
+                      <li key={r.stage} data-testid={`approval-empty-reason-${r.stage}`}>
                         {t(approvalEmptyReasonKey(r.stage), { count: r.count })}
                       </li>
                     ))}
