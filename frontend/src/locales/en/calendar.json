@@ -598,6 +598,18 @@
       "failed": "Couldn't join the waiting list",
       "fullHint": "This class is full. You can join its waiting list."
     },
+    "side": {
+      "label": "Side in this class",
+      "usual": "Usual",
+      "left": "Left",
+      "right": "Right",
+      "tag": {
+        "left": "Left in this class",
+        "right": "Right in this class"
+      },
+      "saveFailed": "Couldn't change the side. Try again.",
+      "ended": "This class has ended; its side can no longer change."
+    },
     "participants": {
       "group": {
         "going": "Going · {{count}}",

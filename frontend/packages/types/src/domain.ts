@@ -507,6 +507,12 @@ export interface ClassInvitation {
 }
 
 export interface ClassInstance {
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
+   * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
+   * student and for a series template with no date).
+   */
+  sideEditable?: boolean;
   id: string;
   originalId: string;
   parentClassId?: string;
@@ -634,6 +640,14 @@ export interface Presence {
    */
   cancelledByStudent?: boolean;
   cancelledAt?: string | null;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence — the
+   * coach's override when `sideOverride`, else their usual side — and whether the coach may still
+   * change it (the server's answer: not ended, not canceled).
+   */
+  side?: 'left' | 'right' | 'both' | null;
+  sideOverride?: boolean;
+  sideEditable?: boolean;
 
   player?: Player;
 }

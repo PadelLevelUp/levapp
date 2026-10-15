@@ -82,6 +82,8 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
                 {row.side ? (
                   <View
                     testID="participant-side"
+                    // PAD-551: the side in this occurrence, and whether the coach set it here.
+                    accessibilityValue={{ text: `${row.side}${row.presence?.sideOverride ? " override" : ""}` }}
                     accessible
                     accessibilityLabel={t(SIDE_LONG_KEYS[row.side])}
                     className="items-center justify-center rounded-md bg-muted"

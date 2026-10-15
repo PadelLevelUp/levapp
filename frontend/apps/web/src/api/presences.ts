@@ -16,6 +16,15 @@ import * as presencesApi from "@levelup/api/src/resources/presences";
 import { USE_MOCK_DATA } from "@/config";
 import { mockPresences } from "@/data/mockData";
 
+/** PAD-551 (classes.instance-enrollment rule 13): a player's side in one occurrence. */
+export async function setPresenceSide(
+  classInstance: Parameters<typeof presencesApi.setPresenceSide>[0],
+  playerId: string,
+  side: "left" | "right" | null
+): Promise<Presence> {
+  return presencesApi.setPresenceSide(classInstance, playerId, side);
+}
+
 export async function confirmClassPresences(
   classInstance: ClassInstance,
   presences: Array<{
