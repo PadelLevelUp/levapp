@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import text
 
 from padel_app.sql_db import db
-from padel_app.tests.helpers import insert_user_on_an_old_schema
+from padel_app.tests.helpers import insert_coach_player_on_an_old_schema, insert_user_on_an_old_schema
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
@@ -43,7 +43,7 @@ def _cols(table):
 def test_the_migration_snapshots_each_entry_scale_and_changes_no_score(app):
     from flask_migrate import downgrade, upgrade
 
-    from padel_app.models import Association_CoachPlayer, Coach, Player
+    from padel_app.models import Coach, Player
 
     with app.app_context():
         try:
@@ -59,8 +59,7 @@ def test_the_migration_snapshots_each_entry_scale_and_changes_no_score(app):
             coach, player = Coach(user_id=cu.id), Player(user_id=su.id)
             db.session.add_all([coach, player])
             db.session.flush()
-            link = Association_CoachPlayer(coach_id=coach.id, player_id=player.id)
-            db.session.add(link)
+            link = insert_coach_player_on_an_old_schema(coach.id, player.id)
             db.session.flush()
             coach_id, link_id = coach.id, link.id
             _release()

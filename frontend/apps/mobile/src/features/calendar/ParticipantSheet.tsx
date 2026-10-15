@@ -122,6 +122,12 @@ export function ParticipantSheet({ row, onClose, side }: ParticipantSheetProps) 
                 <Text numberOfLines={1} className="font-bold" style={{ fontSize: 20, color: "#FFFFFF" }}>
                   {row.name}
                 </Text>
+                {/* PAD-660 (players.nickname rule 3): the real name under the coach's nickname. */}
+                {row.realName && row.realName !== row.name ? (
+                  <Text numberOfLines={1} testID="participant-popup-real-name" style={{ fontSize: 12, color: "#A9BCD6" }}>
+                    {row.realName}
+                  </Text>
+                ) : null}
                 <View className="flex-row flex-wrap gap-1.5">
                   {/* PAD-551: the side the screen reads now (a change re-reads the class), else the row's. */}
                   {(side?.current ?? row.side) ? (

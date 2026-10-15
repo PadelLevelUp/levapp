@@ -179,6 +179,24 @@ def possible_duplicates_for(coach, relations):
     return out
 
 
+NICKNAME_MAX = 60
+
+
+def nickname_payload(rel, real_name):
+    """PAD-660 (players.nickname rule 2): the coach's own nickname keys for one roster row.
+
+    Only ever called with the REQUESTING coach's relation row, so another coach's nickname cannot
+    reach this payload. `name` stays the real name; `displayName` is what the coach's views show.
+    """
+    nickname = rel.nickname if rel is not None else None
+    as_name = bool(rel.nickname_as_name) if rel is not None else False
+    return {
+        "nickname": nickname,
+        "nicknameAsName": as_name,
+        "displayName": nickname if (as_name and nickname) else real_name,
+    }
+
+
 def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     player = rel.player
     user = player.user if player else None
@@ -213,6 +231,7 @@ def _serialize_coach_player_relation(rel, due=None, duplicates=None):
         "due": bool((due or {}).get(rel.id, False)),
         # players.claim rule 4c (PAD-528): only a claimable row can carry one.
         "possibleDuplicateOf": (duplicates or {}).get(rel.id),
+        **nickname_payload(rel, user.name if user else None),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -423,9 +442,9 @@ def search_coach_players(coach_id, term, limit=20):
         .all()
     )
     # players.search (PAD-665): the shared rule, best match first, and the limit AFTER the order
-    # (rule 6) — the payload carries only the name, so the name is the only field (rule 4).
+    # (rule 6) — the name, and THIS coach's nickname for the student (PAD-660, players.nickname rule 5).
     relations = search_players(
-        relations, term, lambda rel: {"name": rel.player.user.name, "id": rel.player_id}
+        relations, term, lambda rel: {"name": rel.player.user.name, "nickname": rel.nickname, "id": rel.player_id}
     )[:limit]
 
     results = []
@@ -498,7 +517,12 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
         matched = [
             rel for rel in query.all()
             if rank_player_match(
-                {"name": rel.player.user.name, "email": rel.player.user.email, "phone": rel.player.user.phone},
+                {
+                    "name": rel.player.user.name,
+                    "nickname": rel.nickname,  # PAD-660: this coach's own row
+                    "email": rel.player.user.email,
+                    "phone": rel.player.user.phone,
+                },
                 search,
             ) is not None
         ]
@@ -663,6 +687,19 @@ def edit_player_service(data):
     # would hand them to set_roster_level and hit the FK after the user part committed.
     if 'levelId' in changes and changes['levelId'] in (0, False, "0"):
         refused.append("level")
+    # PAD-660 (players.nickname rule 6): the coach's own nickname for this student — trimmed,
+    # blank clears it, longer than NICKNAME_MAX is refused. Written to the coach's relation only.
+    nickname_set = {}
+    if "nickname" in updates:
+        raw = updates["nickname"]
+        value = "" if raw is None else str(raw).strip()
+        if len(value) > NICKNAME_MAX:
+            refused.append("nickname")
+        else:
+            nickname_set["nickname"] = value or None
+    if "nicknameAsName" in updates:
+        # A boolean, never a truthy string: "false" is not on (review finding).
+        nickname_set["nickname_as_name"] = updates["nicknameAsName"] in (True, 1, "true", "1")
     if refused:
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     payload = {
@@ -680,6 +717,9 @@ def edit_player_service(data):
         player_id=player_info["playerId"],
     ).first_or_404()
 
+    # Saved with the rest of the relation by edit_player_helper's one rel.save().
+    for field, value in nickname_set.items():
+        setattr(rel, field, value)
     return edit_player_helper(player, rel, payload)
 
 

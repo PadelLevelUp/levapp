@@ -353,6 +353,15 @@ export interface CoachPlayer {
   side?: PlayerSide;
   notes?: string;
   level?: CoachLevel;
+  /**
+   * PAD-660 (players.nickname rule 2): this coach's private nickname for the student, sent only
+   * on the requesting coach's own roster rows. `name` stays the real name; `displayName` is what
+   * the coach's views show (the nickname when `nicknameAsName`, else the name). Older payloads
+   * lack them — read through `coachDisplayName` (@levelup/config).
+   */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   phone?: string,
   /**
    * PAD-112: the student's own notification block preferences, surfaced to the

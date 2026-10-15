@@ -139,7 +139,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
     setSaving(false);
 
     if (successCount > 0) {
-      toast.success(t("players.addedToClasses", { name: player.name, count: successCount }));
+      toast.success(t("players.addedToClasses", { name: player.displayName || player.name, count: successCount }));
     }
     if (failureCount > 0) {
       toast.error(t("common.somethingWentWrong"));
@@ -189,7 +189,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-primary" />
-            {t("players.addToClassesTitle", { name: player.name })}
+            {t("players.addToClassesTitle", { name: player.displayName || player.name })}
           </DialogTitle>
           {/* PAD-496: at phone width the line gives its row to the list. Still read by a screen reader. */}
           <DialogDescription className="sr-only sm:not-sr-only">

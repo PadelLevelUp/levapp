@@ -4,7 +4,7 @@ import { playersApi } from "@levelup/api";
 import { Platform, ScrollView, Share, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { lightTheme, standingEndLabel } from "@levelup/config";
+import { lightTheme, nicknameShown, standingEndLabel } from "@levelup/config";
 import { useCoachLevels, usePlayerEvaluations, usePlayerProfile } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -195,6 +195,13 @@ export default function PlayerDetailScreen() {
           levelId: values.levelId,
           side: values.side,
           notes: values.notes ?? null,
+          // PAD-660: sent only when changed; blank clears (the server trims).
+          ...(values.nickname !== undefined && values.nickname !== (player.nickname ?? "")
+            ? { nickname: values.nickname }
+            : {}),
+          ...(values.nicknameAsName !== undefined && values.nicknameAsName !== (player.nicknameAsName ?? false)
+            ? { nicknameAsName: values.nicknameAsName }
+            : {}),
         },
       });
       setIsEditing(false);
@@ -267,7 +274,7 @@ export default function PlayerDetailScreen() {
         className="flex-1 text-xl font-bold"
         numberOfLines={1}
       >
-        {player?.name ?? t("players.defaultPlayerName")}
+        {player?.displayName ?? player?.name ?? t("players.defaultPlayerName")}
       </Text>
     </View>
   );
@@ -490,6 +497,7 @@ export default function PlayerDetailScreen() {
                 levels={levels ?? []}
                 coachId={user?.coachId}
                 lockEmail={player.validated}
+                showNickname
                 initialValues={{
                   name: player.name ?? "",
                   email: player.email ?? "",
@@ -497,6 +505,8 @@ export default function PlayerDetailScreen() {
                   levelId: player.levelId,
                   side: player.side,
                   notes: player.notes ?? "",
+                  nickname: player.nickname ?? "",
+                  nicknameAsName: player.nicknameAsName ?? false,
                 }}
                 saving={editPlayer.isPending}
                 submitLabel={t("common.saveChanges")}
@@ -525,8 +535,17 @@ export default function PlayerDetailScreen() {
                   </Avatar>
                   <View className="min-w-0 flex-1">
                     <Text className="text-lg font-semibold" numberOfLines={1}>
-                      {player.name}
+                      {player.displayName ?? player.name}
                     </Text>
+                    {nicknameShown(player) ? (
+                      <Text
+                        className="text-sm text-muted-foreground"
+                        numberOfLines={1}
+                        testID="player-real-name"
+                      >
+                        {player.name}
+                      </Text>
+                    ) : null}
                     {/* PAD-105: no @username line — the coach never sets it and
                         the record holds a generated placeholder until the player
                         activates their own account. */}

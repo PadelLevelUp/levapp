@@ -128,4 +128,5 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
   migration, so the rule runs in Python after the SQL scope, as PAD-516's did (decision 2026-10-14:
   no extension, no migration).
 - Nickname hook agreed with la-1410-SessionC (PAD-660): the field is `nickname`, read from the
-  requesting coach's own `Association_CoachPlayer` row; this rule lands first with `name` alone.
+  requesting coach's own `Association_CoachPlayer` row. PAD-660 passes it on `coach_players_paginated`
+  and `notify/player_search` (`players.nickname` rule 5).

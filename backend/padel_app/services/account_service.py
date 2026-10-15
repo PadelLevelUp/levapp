@@ -168,6 +168,16 @@ def delete_account_service(user_id, *, now=None):
     BlockedUser.query.filter(
         (BlockedUser.blocker_id == user.id) | (BlockedUser.blocked_id == user.id)
     ).delete(synchronize_session=False)
+    # PAD-660 (players.nickname rule 7): a coach's nickname for this student is personal data
+    # about them; it does not outlive the account. The relation rows stay (the roster filters a
+    # disabled user out), the nickname does not.
+    from padel_app.models import Association_CoachPlayer, Player
+
+    student_ids = [p.id for p in Player.query.filter_by(user_id=user.id).all()]
+    if student_ids:
+        Association_CoachPlayer.query.filter(
+            Association_CoachPlayer.player_id.in_(student_ids)
+        ).update({"nickname": None, "nickname_as_name": False}, synchronize_session=False)
 
     # Rules 6 and 10 (PAD-360, B-135): open class requests do not outlive the
     # account — silently. Before the block purge below, so a coach's holds are
