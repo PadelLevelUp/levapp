@@ -33,7 +33,9 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    own order; a query with text but no letter or digit ("%", "!!") matches nobody.
 4. **Fields.** A player is searched across a list of fields: `name`, then `nickname` when the screen
    has one (null is skipped), then `email` and `phone` **only on screens whose payload already
-   carries them** — the rule never adds a field to a payload. A digits-only query word of three or
+   carries them** — the rule never adds a field to a payload. **An email is searched by its local
+   part only, never its domain** (decision 2026-10-14 (b): every address on a roster shares the
+   domain, so "a" would match "example.com"). A digits-only query word of three or
    more digits matches the phone's digits anywhere (e.g. its last digits).
 5. **Tiers, best first.** A player matches at the best tier any field reaches:
    - 0 — a field starts with the whole folded query ("rui ped" → "Rui Pedro Basto");
@@ -44,11 +46,13 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    - 3 — every query word of 4+ letters is within a small typo distance (Damerau: 1 for 4–6 letters,
      2 for 7+) of a word, or of a word's start, in the fields; shorter words must still meet tier 2.
    Tiers only add: anyone PAD-516 found is still found.
-6. **Order.** Non-blank queries sort by tier, then name (folded, then as written), then id. On the
-   server the order is applied **before** the limit (`notify/player_search`, 20) and before
-   pagination (`coach_players_paginated`), so page 1 holds the best matches. Two surfaces keep their
-   own tie-break inside a tier: the Players tab keeps the coach's chosen sort (name or level), and the
-   claim candidates keep a same-name candidate first (the likely duplicate).
+6. **Order — an explicit sort wins** (decision 2026-10-14 (a)). Where a list has a sort of its
+   own, the rule only filters and that sort stands: the **Players tab** (always by name or level;
+   PAD-521's "a search keeps the level order" holds) and the **presences table** (its column sort).
+   Where a list has no sort of its own, non-blank queries order by tier, then name (folded, then as
+   written), then id: the type-ahead `notify/player_search` (applied **before** its limit of 20),
+   the claim candidates (a same-name candidate still first, then tier), the class pickers, the
+   walk-in and waiting-list pickers, the notify modal and the messaging pickers.
 7. **Scope never changes.** Every surface keeps exactly its current filters and permissions: the
    rule runs only on rows the surface already selected (the coach's roster, minus the rows that
    surface already excludes). No surface gains a player, a field or a coach it did not have.
@@ -73,10 +77,16 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
   `Ricrdo` and `Marinoh`
 - **Then** each query finds its player, by the twins alike (the shared cases file)
 
-#### The best match is first, before the limit and the page
-- **Given** a coach with "Ana Rita", "Mariana Costa" and "Joana Anacleto"
-- **When** they search `ana` on `coach_players_paginated` with `per_page=1`
-- **Then** page 1 holds "Ana Rita" (tier 0), and all three are counted in the total (tier 1 and 2 kept)
+#### An explicit sort stands; elsewhere the best match is first (rule 6)
+- **Given** a coach with "Ana Rita" and "Rita Zé"
+- **When** they search `rita` on the Players tab sorted by name, and on the type-ahead with a limit of 1
+- **Then** the Players tab lists "Ana Rita" then "Rita Zé" (the rule only filters)
+- **And** the type-ahead returns "Rita Zé" (tier 0) before its limit
+
+#### An email domain never matches (rule 4)
+- **Given** players whose emails are all `@test.com`
+- **When** the coach searches `test` on the Players tab
+- **Then** nobody is returned, while the local part (`ritaze`) finds its player
 
 #### Letters without a decomposable accent are kept (B-531)
 - **Given** a player "Łukasz Ørsted Weiß"

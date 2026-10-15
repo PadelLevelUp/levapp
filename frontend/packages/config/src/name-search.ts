@@ -82,7 +82,10 @@ export function rankPlayerMatch(fields: PlayerSearchFields, query: string): Play
   if (!(query ?? "").trim()) return 0;
   const words = searchWords(query);
   if (words.length === 0) return null;
-  const texts = [fields.name, fields.nickname, fields.email].map(foldSearchText).filter(Boolean);
+  // Decision 2026-10-14 (b): an email is searched by its local part, never the domain every
+  // address on a roster shares ("a" would otherwise match "example.com").
+  const emailLocal = (fields.email ?? "").split("@")[0];
+  const texts = [fields.name, fields.nickname, emailLocal].map(foldSearchText).filter(Boolean);
   const phone = (fields.phone ?? "").replace(/\D/g, "");
   if (texts.length === 0 && !phone) return null;
   const tokens = texts.flatMap((t) => t.split(" "));

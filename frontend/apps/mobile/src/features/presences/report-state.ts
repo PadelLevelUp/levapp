@@ -130,12 +130,9 @@ export function presenceRows(
   filters: PresenceFilters,
   sort: PresenceSort
 ): PresencePlayerStats[] {
-  const matches = filterPlayers(players, filters);
-  const byRelevance =
-    filters.query.trim() !== "" &&
-    sort.key === DEFAULT_SORT.key &&
-    sort.direction === DEFAULT_SORT.direction;
-  return byRelevance ? matches : sortPlayerStats(matches, sort);
+  // The table always has a sort of its own, so the name rule only filters (players.search rule 6,
+  // decision 2026-10-14 (a)).
+  return sortPlayerStats(filterPlayers(players, filters), sort);
 }
 
 function numericBound(raw: string, fallback: number): number {

@@ -24,7 +24,9 @@ describe("searchRoster", () => {
   it("searches email and phone only where the row carries them", () => {
     const roster = [p(1, "Ana", { email: "ana.rita@x.pt", phone: "+351 912 345 678" }), p(2, "Bruno")];
     expect(searchRoster(roster, "345 678").map((r) => r.playerId)).toEqual([1]);
-    expect(searchRoster(roster, "x.pt").map((r) => r.playerId)).toEqual([1]);
+    // Decision 2026-10-14 (b): the email's local part matches, its domain never does.
+    expect(searchRoster(roster, "anarita").map((r) => r.playerId)).toEqual([1]);
+    expect(searchRoster(roster, "x.pt").map((r) => r.playerId)).toEqual([]);
   });
 
   it("never returns a row that was not passed in", () => {

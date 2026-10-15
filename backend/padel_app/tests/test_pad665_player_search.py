@@ -70,17 +70,29 @@ def _names(rows, key="name"):
     return [r[key] for r in rows]
 
 
-def test_players_tab_puts_the_best_match_on_page_one_and_counts_every_tier(app, client, world):
-    """Relevance before the page: by name alone "Ana Rita" would lead; "Rita Zé" starts with the
-    query (tier 0) and leads instead, and the tier-1 match is still counted."""
+def test_players_tab_keeps_the_coachs_sort_and_only_filters(app, client, world):
+    """Decision 2026-10-14 (a), players.search rule 6: the Players tab is always sorted (name or
+    level), so the rule only filters there — "Ana Rita" leads by name although "Rita Zé" starts
+    with the query."""
     res = client.get(
         "/api/app/coach_players_paginated?search=rita&per_page=1&page=1",
         headers=_auth(app, world["a_user"]),
     )
     assert res.status_code == 200, res.get_data(as_text=True)[:200]
     body = res.get_json()
-    assert [r["name"] for r in body["items"]] == ["Rita Zé"]
-    assert body["pagination"]["pages"] == 2  # Rita Zé (0), Ana Rita (1)
+    assert [r["name"] for r in body["items"]] == ["Ana Rita"]
+    assert body["pagination"]["pages"] == 2  # Ana Rita, Rita Zé
+
+
+def test_players_tab_never_matches_an_email_domain(app, client, world):
+    """Decision (b), rule 4: an email matches by its local part — every fixture email is
+    @test.com, and searching the domain finds nobody."""
+    res = client.get("/api/app/coach_players_paginated?search=test", headers=_auth(app, world["a_user"]))
+    assert res.status_code == 200
+    assert res.get_json()["items"] == []
+    # control: the local part does match
+    res = client.get("/api/app/coach_players_paginated?search=ritaze", headers=_auth(app, world["a_user"]))
+    assert [r["name"] for r in res.get_json()["items"]] == ["Rita Zé"]
 
 
 def test_players_tab_finds_by_phone_digits_it_already_carries(app, client, world):

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { presenceRowsOrder, searchPresencePlayers } from "./presenceSearch";
+import { searchPresencePlayers } from "./presenceSearch";
 
 const row = (playerId: number, name: string) => ({ playerId, name });
 
@@ -18,14 +18,5 @@ describe("searchPresencePlayers (players.search, PAD-665)", () => {
 
   it("never returns a row that was not passed in", () => {
     expect(searchPresencePlayers([row(1, "Ana")], "bruno")).toEqual([]);
-  });
-});
-
-describe("presenceRowsOrder", () => {
-  it("is relevance only for a typed name on the default sort", () => {
-    expect(presenceRowsOrder("rita", "total", "desc")).toBe("relevance");
-    expect(presenceRowsOrder("", "total", "desc")).toBe("sort");
-    expect(presenceRowsOrder("rita", "name", "asc")).toBe("sort");
-    expect(presenceRowsOrder("rita", "total", "asc")).toBe("sort");
   });
 });

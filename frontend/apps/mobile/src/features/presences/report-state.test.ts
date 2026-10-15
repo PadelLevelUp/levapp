@@ -101,11 +101,12 @@ describe("presences name search (PAD-665)", () => {
     ).toEqual(["Ana Rita"]);
   });
 
-  it("presenceRows: relevance on the default sort, the chosen sort otherwise", () => {
+  // Decision 2026-10-14 (a): the table always has a sort of its own, so a typed name only filters.
+  it("presenceRows: a typed name filters and the table's sort stands", () => {
     const typed = { ...EMPTY_FILTERS, query: "rita" };
     expect(presenceRows(roster, typed, { key: "total", direction: "desc" }).map((p) => p.name)).toEqual([
-      "Rita Zé",
       "Ana Rita",
+      "Rita Zé",
     ]);
     expect(presenceRows(roster, typed, { key: "name", direction: "asc" }).map((p) => p.name)).toEqual([
       "Ana Rita",

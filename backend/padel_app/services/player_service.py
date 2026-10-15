@@ -290,7 +290,10 @@ def rank_player_match(fields, query):
     words = fold_search_text(query).split()
     if not words:
         return None
-    texts = [t for t in (fold_search_text(fields.get(k)) for k in ("name", "nickname", "email")) if t]
+    # Decision 2026-10-14 (b): an email is searched by its local part — never the domain, which
+    # every address on a roster shares ("a" would otherwise match "example.com").
+    email_local = (fields.get("email") or "").split("@", 1)[0]
+    texts = [t for t in (fold_search_text(v) for v in (fields.get("name"), fields.get("nickname"), email_local)) if t]
     phone = re.sub(r"\D", "", fields.get("phone") or "")
     if not texts and not phone:
         return None
@@ -489,18 +492,16 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
 
     if search and search.strip():
         # players.search (PAD-665): the shared rule in Python (accent folding), after every SQL
-        # filter, then paginate. Best tier first; inside a tier the coach's chosen sort stands
-        # (a stable sort over the SQL order). The row carries email and phone, so they are
-        # searched too (rule 4). The coach scope keeps this small.
-        ranked = []
-        for rel in query.all():
-            user = rel.player.user
-            tier = rank_player_match(
-                {"name": user.name, "email": user.email, "phone": user.phone}, search
-            )
-            if tier is not None:
-                ranked.append((tier, rel))
-        matched = [rel for _, rel in sorted(ranked, key=lambda pair: pair[0])]
+        # filter, then paginate. The Players tab is always sorted (name or level), so the rule
+        # only filters here and the coach's sort stands (rule 6, decision 2026-10-14 (a)). The row
+        # carries email and phone, so they are searched too (rule 4). The coach scope keeps this small.
+        matched = [
+            rel for rel in query.all()
+            if rank_player_match(
+                {"name": rel.player.user.name, "email": rel.player.user.email, "phone": rel.player.user.phone},
+                search,
+            ) is not None
+        ]
         pagination = _ListPage(matched, max(1, int(page or 1)), int(per_page or 25))
     else:
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)

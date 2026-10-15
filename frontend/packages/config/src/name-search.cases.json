@@ -292,6 +292,24 @@
       "name": "Иван Петров",
       "query": "петров",
       "tier": 1
+    },
+    {
+      "name": "Zé",
+      "email": "ze@example.com",
+      "query": "a",
+      "tier": null
+    },
+    {
+      "name": "Marta Silva",
+      "email": "marta.silva@example.com",
+      "query": "example",
+      "tier": null
+    },
+    {
+      "name": "Marta Silva",
+      "email": "marta.silva@example.com",
+      "query": "silva",
+      "tier": 1
     }
   ],
   "order": [

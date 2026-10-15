@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { presenceRowsOrder, searchPresencePlayers } from "./presenceSearch";
+import { searchPresencePlayers } from "./presenceSearch";
 import type { PresencePlayerStats } from "@/types";
 
 /** Every metric column, in display order. `name` is pinned and never hidden. */
@@ -102,7 +102,6 @@ export function PresencePlayersTable({
 
   const rows = useMemo(() => {
     // PAD-665: while a name is typed and the coach has not chosen a sort, best match first.
-    if (presenceRowsOrder(query, sortKey, sortDir) === "relevance") return filtered;
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
