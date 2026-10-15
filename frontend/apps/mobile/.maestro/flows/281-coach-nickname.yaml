@@ -1,0 +1,97 @@
+# PAD-660 — players.nickname rules 1–3: the coach gives E2E Student a private nickname on the
+# profile's edit form with "use as the main name" on; the profile shows the nickname with the
+# real name under it, and the roster card shows the nickname. Then the student signs in: their
+# own tabs (home, calendar, messages) never show it.
+#
+# Teardown (scripts/pad660-teardown.js) clears the nickname through the coach's API (R-040).
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow 281 is from Session C's
+# wave-15 range (279–288).
+#
+# Mirrors: apps/web/e2e/players/pad660-coach-nickname.spec.ts (US-660a, US-660b)
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad660-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- tapOn:
+    id: "players-search"
+- inputText: "E2E Student"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- tapOn:
+    id: "player-card-1"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- tapOn:
+    id: "player-edit"
+
+# ── Rule 1: the field, its warning, the switch ──
+- scrollUntilVisible:
+    element:
+      id: "player-nickname"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "player-nickname-warning"
+- tapOn:
+    id: "player-nickname"
+- inputText: "Alcunha M281"
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "player-nickname-as-name"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "player-nickname-as-name"
+- scrollUntilVisible:
+    element:
+      id: "player-save"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "player-save"
+
+# ── Rule 3: the profile shows the nickname, the real name under it ──
+- extendedWaitUntil:
+    visible:
+      id: "player-real-name"
+    timeout: 20000
+- assertVisible:
+    id: "player-real-name"
+    text: "E2E Student"
+- assertVisible: "Alcunha M281"
+
+# ── …and the roster card shows the nickname ──
+- tapOn:
+    id: "player-back"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- assertVisible:
+    id: "player-card-1"
+    text: ".*Alcunha M281.*"
+
+# ── Rule 2: the student's own screens never carry it ──
+- runFlow: ../subflows/logout.yaml
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-dashboard"
+- assertNotVisible: ".*Alcunha M281.*"
+- tapOn:
+    id: "tab-calendar"
+- assertNotVisible: ".*Alcunha M281.*"
+- tapOn:
+    id: "tab-messages"
+- assertNotVisible: ".*Alcunha M281.*"
