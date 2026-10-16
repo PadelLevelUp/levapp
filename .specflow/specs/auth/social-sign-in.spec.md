@@ -70,7 +70,13 @@ neither. Every provider ships dark: its button appears only where its client id 
    "Continuar com Google" and "Continuar com a Apple" on the same screens, shown only when the
    build carries both `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and Sign in with Apple is available on the
    device (Guideline 4.8: together or not at all). On `needsProfile`, both shells show a short
-   completion step (role, birth date, country, Terms) pre-filled with the provider's name.
+   completion step (role, birth date, country, Terms) pre-filled with the provider's name (web
+   `/signup/complete`, iOS `signup-complete`). iOS details: Google through expo-auth-session with the
+   iOS client id and the bundle-id redirect `com.padellevelup.app:/oauth2redirect/google` (the app's
+   second URL scheme); Apple through expo-apple-authentication with Apple's own button, a random
+   nonce whose SHA-256 goes to Apple and whose raw value goes to the server; a cancelled sheet is
+   silent. A successful answer takes the screens' shared post-sign-in path (`enterSession`: landing,
+   then a remembered join link or invite claim).
 8. **What is kept from the provider.** Name, email and the provider's account id (`sub`). No
    profile photo, no access or refresh token is stored. Apple may give a private relay email; it is
    stored as given.

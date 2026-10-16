@@ -24,9 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
-import { postLoginLanding } from "@/auth/postLoginRoute";
-import { consumePendingJoin } from "@/auth/pendingJoin";
-import { consumePendingClaim } from "@/auth/pendingClaim";
+import { enterSession, routeSocialResult } from "@/auth/enterSession";
+import { SocialSignInButtons } from "@/features/auth/SocialSignInButtons";
 import { LegalLinks } from "@/features/auth/LegalLinks";
 import { TestServerNotice } from "@/features/settings/build-info";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
@@ -61,22 +60,7 @@ export default function LoginScreen() {
   };
 
   /** Session in hand: hydrate and route exactly as a fresh login does. */
-  const enter = async (accessToken: string) => {
-    await login(accessToken);
-    // auth.register rule 11: route by approval / club state, not straight
-    // to the tabs.
-    // players.join-token rule 9: a join link opened without a session comes
-    // first, once the account is one that can use it.
-    const route = postLoginLanding(await refreshUser());
-    const pending = consumePendingJoin();
-    // players.claim rule 3: an invite link opened to LINK an existing account.
-    const pendingClaim = consumePendingClaim();
-    if (pendingClaim && (route === "/(tabs)/dashboard" || route === "/connect")) {
-      router.replace(`/invite/player/${pendingClaim}`);
-      return;
-    }
-    router.replace(pending && (route === "/(tabs)/dashboard" || route === "/connect") ? `/join/coach/${pending}` : route);
-  };
+  const enter = (accessToken: string) => enterSession({ login, refreshUser }, accessToken);
 
   const handleReapply = async () => {
     setReapplying(true);
@@ -263,6 +247,9 @@ export default function LoginScreen() {
                 <Text>{t("auth.login.signIn")}</Text>
               )}
             </Button>
+
+            {/* auth.social-sign-in rule 7 (PAD-618): Google + Apple together, only where configured. */}
+            <SocialSignInButtons onResult={(res) => routeSocialResult({ login, refreshUser }, res)} />
 
             {/* auth.login rule 6 / auth.password-recovery rule 7 — the recovery entry point. */}
             <Pressable

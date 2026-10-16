@@ -2,7 +2,7 @@
   "expo": {
     "name": "LevApp",
     "slug": "levapp",
-    "scheme": "levelup",
+    "scheme": ["levelup", "com.padellevelup.app"],
     "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:levapp.app",
         "applinks:padellevelup.com",
@@ -121,7 +122,8 @@
         }
       ],
       "./plugins/with-ci-cleartext",
-      "./plugins/with-pod-deployment-floor"
+      "./plugins/with-pod-deployment-floor",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "tsconfigPaths": false
