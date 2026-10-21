@@ -49,6 +49,9 @@ the waiting list.
    student or by the coach on someone's behalf — and from there the student can join that class's
    waiting list, even if the coach does not show open spots to students (PAD-609, owner
    2026-10-10).
+9. When a class has more than one open spot and the one a student was asked for is taken, the
+   student who would have been asked for another of its open spots anyway keeps the same invitation,
+   now for that spot: no "Vaga preenchida" followed by "abriu uma vaga" (PAD-679).
 
 ## Business Rules
 

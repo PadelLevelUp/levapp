@@ -3071,10 +3071,13 @@ def _withdraw_for_balance(vacancy: Vacancy, coach_id: int, left_side: str) -> li
         .filter(Association_CoachPlayer.coach_id == coach_id,
                 Association_CoachPlayer.player_id.in_([e.player_id for e in events]))
     )
+    wrong_side = [e for e in events if sides.get(e.player_id) == left_side]  # a "both" or side-less student stays
+    # PAD-679 (rule 18a): one another open spot of the class would have asked moves there instead.
+    moved = _move_to_open_sibling(vacancy, wrong_side, vacancy.lesson_instance, coach_id)
     retired = []
-    for event in events:
-        if sides.get(event.player_id) != left_side:
-            continue  # a "both" or side-less student, or the other side's, stays invited
+    for event in wrong_side:
+        if event.id in moved:
+            continue
         event.status = "expired"
         event.retired_reason = SIDE_BALANCED
         _retire_invite_message(event, defer=True, response=SIDE_BALANCED)
@@ -3642,8 +3645,8 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, res
 
 
 def _publish_retired(events: list) -> None:
-    """PAD-499: tell the clients about the invite messages `_close_vacancy` retired, once the
-    caller's commit has made them real. The payloads are built now, from the flushed state that
+    """PAD-499: tell the clients about the invite messages `_close_vacancy` retired (or, PAD-679,
+    moved to another spot), once the caller's commit has made them real. The payloads are built now, from the flushed state that
     commit will write (no SQL can run after a commit); the publishes are queued for after it and
     dropped by a rollback (padel_app.tools.after_commit)."""
     from padel_app.models import Message
@@ -5074,12 +5077,127 @@ LIVE_INVITATION_STATES = ("sent", "queued")
 SIDE_BALANCED = "side_balanced"
 
 
+def _held_by_another_offer(
+    spot: Vacancy, instance: LessonInstance, coach_id: int, config: NotificationConfig, wave: tuple, player_ids
+) -> set:
+    """PAD-679 (rule 18a item 2): the students ``spot``'s ``wave`` would ask but for an offer they
+    hold for another spot of the class (`offered_another_spot`)."""
+    if not player_ids:
+        return set()
+    return {
+        v.cp.player_id
+        for v in evaluate_candidates(spot, instance, coach_id, config, wave=wave, only_player_ids=player_ids)
+        if v.stage == "offered_another_spot"
+    }
+
+
+def _move_to_open_sibling(
+    source: Vacancy, events: list, instance: LessonInstance, coach_id: int, *, now: datetime | None = None
+) -> set:
+    """PAD-679 (notifications.invitations rule 18a): move live invitations of ``source`` — a spot
+    closing, or withdrawing them for balance — to another open spot B of the class that would have
+    asked them, instead of ending them. Returns the ids of the events moved; the caller retires
+    the rest as before.
+
+    A B qualifies when it has no live invitation of its own (read live, so a B an earlier move just
+    filled takes no more from a later source), can send now (approval, `invite_not_before`,
+    automatic invitations), and is free to lock: only a B something moves into is locked, with
+    `SKIP LOCKED` after the caller's locks (rule 10's order), and re-checked under that lock. A student moves to the lowest-id B whose pipeline, in B's current round (group 0 for a
+    waiting-list invitation, which also needs B on ``source``'s side when it has one), says
+    `offered_another_spot`, up to `maxSimultaneous` per B. Decided before anything moves, while the
+    offers still point at ``source``. The message is the same; its `vacancyId` edit is published
+    after the commit, with no push. B's clock and batch continue from the inherited invitations."""
+    from padel_app.models import Message
+
+    now = now or utcnow_naive()
+    if not events or instance is None or _instance_is_over(instance, now) or not effective_auto_invites(instance):
+        return set()
+    others = (
+        Vacancy.query.filter(
+            Vacancy.lesson_instance_id == instance.id,
+            Vacancy.status == "open",
+            Vacancy.id != source.id,
+        )
+        .order_by(Vacancy.id.asc())
+        .all()
+    )
+    if not others:
+        return set()
+    config = get_or_create_config(coach_id)
+    max_sim = config.get_restrictions().get("maxSimultaneous", {})
+    cap = max_sim["value"] if max_sim.get("enabled") else None
+    group_pids = [e.player_id for e in events if e.round_number != 0]
+    list_pids = [e.player_id for e in events if e.round_number == 0]
+
+    fits = []  # (B, its round's students held elsewhere, its group 0's students held elsewhere)
+    for b in others:
+        if b.approval_status in ("pending", "dismissed"):
+            continue
+        if b.invite_not_before is not None and now < b.invite_not_before:
+            continue
+        if _has_live_offers(b):
+            continue
+        same_side = source.side not in ("left", "right") or b.side == source.side
+        fits.append((
+            b,
+            _held_by_another_offer(b, instance, coach_id, config, ("group", b.current_round_number), group_pids),
+            _held_by_another_offer(b, instance, coach_id, config, ("waiting_list", 0), list_pids) if same_side else set(),
+        ))
+    if not fits:
+        return set()
+
+    def lock(b) -> bool:
+        """Rule 10: only a spot something moves into is locked — without waiting (SKIP LOCKED), and
+        re-checked under the lock (still open, still nothing of its own out); a reconcile or a
+        close that moves nothing holds no other spot (PAD-499's probe)."""
+        if b.id not in locked:
+            row = (
+                Vacancy.query.filter(Vacancy.id == b.id, Vacancy.status == "open")
+                .with_for_update(skip_locked=True)
+                .populate_existing()
+                .first()
+            )
+            locked[b.id] = row is not None and not _has_live_offers(row)
+        return locked[b.id]
+
+    moved, into, locked = [], {}, {}
+    for event in events:
+        for b, group_fit, list_fit in fits:
+            if cap is not None and into.get(b.id, 0) >= cap:
+                continue
+            if event.player_id not in (list_fit if event.round_number == 0 else group_fit):
+                continue
+            if not lock(b):
+                continue
+            event.vacancy_id = b.id
+            if event.round_number != 0:
+                event.round_number = max(b.current_round_number, 1)
+            msg = Message.query.get(event.message_id) if event.message_id else None
+            if msg is not None and msg.msg_metadata is not None:
+                msg.msg_metadata = {**msg.msg_metadata, "vacancyId": b.id}
+            into[b.id] = into.get(b.id, 0) + 1
+            moved.append(event)
+            break
+    for b, _, _ in fits:
+        if b.id in into:
+            # C1: B's maxInactiveTime counts from when these students were asked, not from the move;
+            # C3: they are B's current batch.
+            b.last_activity_at = source.last_activity_at or now
+            b.current_batch_number = max(b.current_batch_number or 0, 1)
+    db.session.flush()
+    # Not a retirement: `_publish_retired` is just the after-commit `message_edited` publisher, and
+    # here it carries the `vacancyId` edits. No push.
+    _publish_retired(moved)
+    return {e.id for e in moved}
+
+
 def _close_vacancy(
     vacancy: Vacancy,
     filled_by_player_id: int | None,
     *,
     except_event_id: int | None = None,
     now: "datetime | None" = None,
+    rebalance: "tuple[int, int] | None" = None,
 ) -> list:
     """Mark one vacancy taken and retire the invitations still offering it.
 
@@ -5096,17 +5214,35 @@ def _close_vacancy(
     ``now`` is for the callers that already carry an injected clock (the
     join-request accept takes one and stamps every decision with it); left out,
     the wall clock is used, as every closer did before.
+
+    PAD-679 (rule 18a): a live invitation that another open spot of the class would have asked for
+    moves to that spot instead of ending (`_move_to_open_sibling`); only the rest are retired.
+    ``rebalance=(coach_id, accepter_id)`` is the "yes" paths' rule-2d re-count of the class's other
+    spots, run here after this spot is marked filled and BEFORE the moves, so a move sees the
+    re-counted sides; its withdrawals are published here (queued for the caller's commit, as
+    `_rebalance_and_publish` does) and kept out of the returned fill retirements, whose bubbles
+    read "spot_filled".
     """
     retired = []
     vacancy.status = "filled"
     vacancy.filled_by_player_id = filled_by_player_id
     vacancy.filled_at = now or utcnow_naive()
-    for event in NotificationEvent.query.filter(
-        NotificationEvent.vacancy_id == vacancy.id,
-        NotificationEvent.status.in_(LIVE_INVITATION_STATES),
-    ).all():
-        if except_event_id is not None and event.id == except_event_id:
-            continue  # the winner's own invitation; its caller marks it confirmed
+    db.session.flush()
+    instance = vacancy.lesson_instance
+    if rebalance is not None:
+        _publish_retired(_rebalance_after_yes(instance, *rebalance))
+    live = [
+        event
+        for event in NotificationEvent.query.filter(
+            NotificationEvent.vacancy_id == vacancy.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+        ).order_by(NotificationEvent.id.asc()).all()
+        if except_event_id is None or event.id != except_event_id  # the winner's; its caller confirms it
+    ]
+    moved = _move_to_open_sibling(vacancy, live, instance, vacancy.coach_id, now=now)
+    for event in live:
+        if event.id in moved:
+            continue
         event.status = "expired"
         # PAD-499 (B-261): flushed, never committed here — a commit would end the caller's rule-10
         # lock before the winner is enrolled. The caller commits and calls `_publish_retired`.
@@ -5702,9 +5838,12 @@ def respond_to_notification(
         db.session.flush()
         retired = []
         if vacancy:
-            retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
+            # PAD-581 (rule 2d) re-count, then PAD-679's moves, inside the close (rule 18a).
+            retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id,
+                                     rebalance=(event.coach_id, event.player_id))
+        else:
+            _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
-        _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         # PAD-596: no `save()` after it — `enrol()` committed the answer with the enrolment.
@@ -5822,9 +5961,12 @@ def coach_respond_to_notification(
         db.session.flush()
         retired = []
         if vacancy:
-            retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id)
+            # PAD-581 (rule 2d) re-count, then PAD-679's moves, inside the close (rule 18a).
+            retired = _close_vacancy(vacancy, event.player_id, except_event_id=event.id,
+                                     rebalance=(event.coach_id, event.player_id))
+        else:
+            _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
-        _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
