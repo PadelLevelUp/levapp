@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { CoachPlayer, StudentGroup } from "@/types";
 import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
-import { runManualInviteFlow, searchRoster, splitBlockedByCause } from "@levelup/config";
+import { coachDisplayName, runManualInviteFlow, searchRoster, splitBlockedByCause } from "@levelup/config";
 import type { EligibilityCheckEntry } from "@/types";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { toast } from "sonner";
@@ -68,6 +68,7 @@ function PlayerToggleRow({
   return (
     <label
       htmlFor={checkboxId}
+      data-testid={`notify-player-${playerId}`}
       className={cn(
         "flex items-center gap-3 rounded-lg cursor-pointer transition-colors",
         compact ? "p-2" : "p-2.5",
@@ -120,6 +121,11 @@ export function ManualNotificationModal({
   existingPlayerIds,
 }: ManualNotificationModalProps) {
   const { t } = useTranslation();
+  // PAD-683 (players.nickname rule 9): the picker, its search and its toasts name a student by
+  // this coach's display name, read from the roster this modal is given; the group rows also
+  // carry it from the server (rule 9a).
+  const displayName = (playerId: string | number, fallback: string | null | undefined) =>
+    coachDisplayName(coachPlayers, playerId, fallback);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
@@ -233,7 +239,7 @@ export function ManualNotificationModal({
         toast.error(
           t("calendar.unavailable.blocked", {
             count: unavailable.length,
-            names: unavailable.map((b) => b.name).filter(Boolean).join(", "),
+            names: unavailable.map((b) => displayName(b.playerId, b.name)).filter(Boolean).join(", "),
           })
         );
       }
@@ -243,7 +249,7 @@ export function ManualNotificationModal({
       if (optedOut.length > 0) {
         toast.warning(
           t("calendar.notify.blockedByPreference", {
-            names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
+            names: optedOut.map((b) => displayName(b.playerId, b.name)).filter(Boolean).join(", "),
           }),
           { description: optedOut.map((b) => b.reason).filter(Boolean).join(" · ") || undefined },
         );
@@ -253,7 +259,7 @@ export function ManualNotificationModal({
       if (alreadyInvited.length > 0) {
         toast.warning(
           t("calendar.notify.alreadyInvited", {
-            names: alreadyInvited.map((b) => b.name).filter(Boolean).join(", "),
+            names: alreadyInvited.map((b) => displayName(b.playerId, b.name)).filter(Boolean).join(", "),
           }),
         );
       }
@@ -326,7 +332,7 @@ export function ManualNotificationModal({
                         <PlayerToggleRow
                           key={p.id}
                           playerId={p.id}
-                          name={p.name}
+                          name={displayName(p.id, p.displayName ?? p.name)}
                           levelCode={p.levelCode}
                           declined={!!p.declinedThisClass}
                           selected={selected.has(p.id)}
@@ -361,7 +367,7 @@ export function ManualNotificationModal({
                   <PlayerToggleRow
                     key={p.playerId}
                     playerId={p.playerId}
-                    name={p.name}
+                    name={displayName(p.playerId, p.displayName ?? p.name)}
                     levelCode={p.level?.code}
                     declined={declinedIds.has(p.playerId)}
                     selected={selected.has(p.playerId)}

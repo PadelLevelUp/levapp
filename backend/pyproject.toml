@@ -71,6 +71,7 @@ flake8 = "^7.0.0"
 autoflake = "^2.3.1"
 isort = "*"
 mypy = "*"
+pytest-split = "0.10.0"
 
 [tool.black]
 line-length = 88
