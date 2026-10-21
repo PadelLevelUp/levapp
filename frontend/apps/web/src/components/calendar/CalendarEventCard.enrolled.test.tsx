@@ -5,7 +5,7 @@
  * calendar no ✓ at all. Rule 13: the student legend adds "Inscrito" and "Vagas por preencher".
  */
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { CalendarEvent } from "@/types";
 import { CalendarEventCard } from "./CalendarEventCard";
 import { CalendarLegend } from "./CalendarLegend";
@@ -15,15 +15,26 @@ import { CalendarViewerProvider } from "./viewer-context";
 // ask for (the pt/en strings are pinned by the mobile locale test, same files).
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
+// The class is "upcoming" only while the clock is before it: pin the clock, derive every fixture date from DAY.
+const DAY = "2026-10-19";
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-18T10:00:00Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 const cls = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
   ({
     model: "ClassInstance",
     originalId: 7,
-    id: "class-7-2026-10-19",
+    id: `class-7-${DAY}`,
     type: "class",
     isRecurring: false,
     title: "PEAK PERFORMANCE",
-    date: "2026-10-19",
+    date: DAY,
     startTime: "09:00",
     endTime: "10:30",
     color: "#1355DC",
