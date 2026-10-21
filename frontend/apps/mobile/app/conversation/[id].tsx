@@ -120,7 +120,7 @@ function ChatSkeleton() {
 /** PAD-592: the per-row callbacks a memoised bubble receives; one stable object per message id. */
 type RowHandlers = {
   onReaction: (emoji: string) => void;
-  onRespondReminder: (action: "yes" | "no") => void;
+  onRespondReminder: (action: "yes" | "no") => void | Promise<string | null>;
   onCancelAttendance: () => void;
   onRespondWaitingList: (action: "yes" | "no") => void;
   onRespondInvite: (action: "yes" | "no") => void;
@@ -980,9 +980,9 @@ export default function ConversationScreen() {
   const handleRespondToReminder = async (
     message: Message,
     action: "yes" | "no"
-  ) => {
+  ): Promise<string | null> => {
     const instanceId = lessonInstanceIdOf(message);
-    if (!instanceId || respondingReminderId !== null) return;
+    if (!instanceId || respondingReminderId !== null) return null;
     setRespondingReminderId(message.id);
     try {
       const result = await notificationEngineApi.respondToReminder(
@@ -994,7 +994,7 @@ export default function ConversationScreen() {
       // state that was never recorded. PAD-68's "expired" writes nothing.
       const outcome = reminderResponseOutcome(result?.action);
       if (outcome.toastKey) toast.error(t(outcome.toastKey));
-      if (outcome.write === null) return;
+      if (outcome.write === null) return result?.action ?? null;
       const response = outcome.write;
       updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
         ...m,
@@ -1004,8 +1004,10 @@ export default function ConversationScreen() {
           response,
         },
       }));
+      return result?.action ?? null;
     } catch {
       toast.error(t("messages.somethingWentWrong"));
+      return null;
     } finally {
       setRespondingReminderId(null);
     }
@@ -1288,7 +1290,7 @@ export default function ConversationScreen() {
       onReaction: (emoji) => latestRef.current.handleToggleReaction(id, emoji),
       onRespondReminder: (action) => {
         const m = message();
-        if (m) void latestRef.current.handleRespondToReminder(m, action);
+        return m ? latestRef.current.handleRespondToReminder(m, action) : Promise.resolve(null);
       },
       onCancelAttendance: () => {
         const m = message();

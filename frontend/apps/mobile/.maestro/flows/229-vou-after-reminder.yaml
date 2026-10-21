@@ -216,7 +216,7 @@ appId: com.padellevelup.app
     timeout: 20000
 - scrollUntilVisible:
     element:
-      id: "dashboard-declined-hint"
+      id: "dashboard-come-back"
     direction: DOWN
     timeout: 30000
 
