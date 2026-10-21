@@ -11,8 +11,8 @@ governed_by: []
 
 ### Intent
 Players can join a waiting list for full classes. When a spot opens, the students on the class's
-waiting list are **asked first**: they get the invitation before the coach's invitation groups, in
-the order they joined (PAD-446). Nobody is enrolled from the list without saying yes.
+waiting list are **asked first**: they get the invitation before the coach's invitation groups,
+ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). Nobody is enrolled from the list without saying yes.
 
 > Rule 1's client wiring landed with the PAD-124 build (decided 2026-09-04). Everything else in
 > this spec is implemented, rules 3a/4a-4d included (they landed with PAD-128).
@@ -91,9 +91,12 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
    answering yes, through the same accept path as any invitation (`notifications.invitations`
    rule 10). In semi-automatic mode nothing is sent before the coach approves the spot
    (`notifications.semi-auto-approval`), the waiting list included.
-   - **Order:** the time the student joined the list: a standing entry's creation time for an entry
-     it fanned out, the entry's own `joined_at` otherwise; ties by entry id. The coach's priority
-     criteria do not reorder the list, and a standing entry has no other precedence.
+   - **Order (PAD-723, PAD-669 R4, owner 2026-10-21):** the coach's own priority criteria, the same
+     ranking every invitation group uses (`_rank_invited` on the group's survivors, never a second
+     copy). The student's origin — standing list, series, own request — gives **no** priority. Only
+     between students the criteria cannot separate does the row's own `joined_at` decide (then the
+     entry id); a fanned-out row's time is its own, not its standing entry's. (Before PAD-723 the
+     list went strictly by join time, a standing entry's creation time standing in for its rows.)
    - **Pacing, as a group:** at most `maxSimultaneous` of them at once. The next waiting-list
      students (or, when none is left to ask today — a student at `maxInvitesPerStudentPerDay` is
      not — the coach's current group) are asked on the next batch, after
@@ -406,14 +409,21 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **When** a vacancy opens
 - **Then** they are not invited
 
-#### The waiting list is asked first, in join order (PAD-446)
+#### The waiting list is asked first, by the coach's criteria (PAD-446, PAD-723)
 - **Given** a class with one open spot, `maxSimultaneous` 1, and three students on its waiting list
-  who joined at 10:00 (Ana, her own entry), 09:00 (Bea, a standing entry created at 09:00) and
-  11:00 (Caio), plus roster students in the coach's first invitation group
+  with equal priority stats who joined at 10:00 (Ana, her own entry), 11:00 (Bea, a row fanned out by
+  a standing entry created at 09:00) and 12:00 (Caio), plus roster students in the coach's first
+  invitation group
 - **When** the spot starts
-- **Then** only Bea is invited, and nobody is enrolled
-- **And** after `maxInactiveTime` with no answer, Ana is invited next, then Caio
+- **Then** only Ana is invited, and nobody is enrolled (the standing entry's age gives Bea nothing)
+- **And** after `maxInactiveTime` with no answer, Bea is invited next, then Caio
 - **And** only when no waiting-list student is left to ask does the coach's first group get an invitation
+
+#### The coach's criteria reorder the list (PAD-723)
+- **Given** the coach ranks by attendance; Ana joined the list first and attends 1 in 4, Bea joined
+  later and attends 4 in 4
+- **When** the spot starts with `maxSimultaneous` 1
+- **Then** Bea is invited first
 
 #### A student answers one waiting-list offer before the next spot asks them (PAD-446, coordinator default)
 - **Given** a student on the waiting list of classes A and B of one coach, and an open spot in each
