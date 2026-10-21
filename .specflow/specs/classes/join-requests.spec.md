@@ -203,6 +203,17 @@ by a student's request — and whichever lands first wins.
     - Manual enrolment (Q8) sets the side through PAD-551's per-occurrence side
       (`classes.instance-enrollment` rule 13); no new endpoint.
 
+21. **A coach can let eligible requests in automatically (PAD-672 slice 2, D6; numbering
+    unconfirmed).** With `notifications.config` rule 3a on, a new request is accepted at creation
+    through the coach's own accept path (rule 6–9, rule 20's side) when: the class is open and not
+    full, the student is not in it, a spot of the request's side is open (rule 20) — or the class has
+    room and no vacancy yet —, the student passes the eligibility bar **without** the coach's
+    override (rule 7's confirmation is never given automatically), and the student is not on the
+    coach's excluded list (`excludedPlayers`). A request that fails any of these waits for the
+    coach, exactly as with the setting off. The request's own message (with its note, rule 15) is
+    still mirrored into the conversation, so the coach reads the note as information; it shows as
+    decided. The student is told as for any accept (rule 19).
+
 ### Acceptance Criteria
 
 #### Eligible student requests an open spot

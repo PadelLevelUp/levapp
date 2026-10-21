@@ -122,6 +122,9 @@ def save_config():
     config = update_config(coach.id, data)
 
     payload = get_config_dict(coach.id)
+    # PAD-672 (rule 3a): the switch to semi-automatic turned automatic acceptance off.
+    if getattr(config, "auto_accept_turned_off", False):
+        payload["notice"] = "auto_accept_off"
     # PAD-478 (notifications.config rule 10c): saved, but the jobs were not re-armed.
     if getattr(config, "reschedule_failed", False):
         payload["rescheduleFailed"] = True
