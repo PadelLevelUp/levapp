@@ -25,7 +25,7 @@ export interface LegalDocument {
 
 export const LEGAL_DOCUMENTS: Record<LegalDocumentId, LegalDocument> = {
   terms: { id: "terms", version: "2026-10-13", effectiveDate: "October 13, 2026", bodies: { en: termsEn } },
-  privacy: { id: "privacy", version: "2026-10-14", effectiveDate: "October 14, 2026", bodies: { en: privacyEn } },
+  privacy: { id: "privacy", version: "2026-10-21", effectiveDate: "October 21, 2026", bodies: { en: privacyEn } },
 };
 
 export const PREVAILING_LANGUAGE: LegalLanguage = "en";

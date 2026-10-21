@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective date: October 14, 2026
+Effective date: October 21, 2026
 
 This Privacy Policy explains how Sucesso Fractal – Lda ("LevApp", "we", "us", or "our") collects, uses, shares, stores, and protects personal data when you use LevApp, including our mobile applications, websites, and related services (collectively, the "Service").
 
@@ -119,6 +119,17 @@ For these transfers we rely on the European Commission's adequacy decision for t
 We retain personal data only for as long as reasonably necessary to provide the Service, fulfil the purposes described in this Policy, comply with legal obligations, maintain security, or establish or defend legal claims.
 
 When information is no longer required, we delete or anonymize it.
+
+In particular, an automated job runs every day and applies these periods:
+
+- **Invitations, join links and one-time codes** (email-verification and password-reset codes): deleted 30 days after they expire.
+- **Notification and reminder history** (the record of reminders and invitations sent about a class, and the answers to them): deleted 12 months after the class.
+- **Records of deletions and of actions taken by LevApp staff**, kept to answer disputes and for security: deleted after 5 years.
+- **Web server access logs**: kept for about 14 days.
+- **Students a coach added who never created an account**: kept until the coach removes them.
+- **Messages you delete**: the text is erased when you delete the message; the conversation keeps a marker that a message was deleted.
+
+Contact requests made through our website are kept as described in section 8.
 
 You can delete your LevApp account through:
 
