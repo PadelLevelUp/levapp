@@ -320,7 +320,7 @@ def test_the_entrypoint_gates_and_never_migrates():
     script = (BACKEND / "scripts" / "entrypoint.sh").read_text()
     assert "db upgrade" not in script
     gate_at = script.index("python -m padel_app.schema_state --require not_behind")
-    assert gate_at < script.index('exec "$@"')
+    assert gate_at < script.rindex('exec "$@"')
     assert "set -e" in script
 
 
@@ -331,6 +331,22 @@ def test_the_image_turns_the_gate_on_and_ships_the_migrate_step():
     migrate_sh = (BACKEND / "scripts" / "migrate.sh").read_text()
     assert "exec python -m padel_app.migrate" in migrate_sh
     assert os.access(BACKEND / "scripts" / "migrate.sh", os.X_OK)
+
+
+def test_the_migrate_step_is_the_one_command_the_gate_lets_through(tmp_path):
+    """Found by the docker smoke run: `docker run <image> /app/scripts/migrate.sh` goes through the
+    entrypoint too, and the gate refused the empty database the step was there to migrate."""
+    script = (BACKEND / "scripts" / "entrypoint.sh").read_text().replace(
+        "python -m padel_app.schema_state --require not_behind", "echo GATE-RAN; exit 1"
+    )
+    entry = tmp_path / "entrypoint.sh"
+    entry.write_text(script)
+    for cmd in ("/app/scripts/migrate.sh", "scripts/migrate.sh"):
+        r = subprocess.run(["sh", str(entry), cmd], capture_output=True, text=True, cwd=tmp_path,
+                           env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"})
+        assert "GATE-RAN" not in r.stdout, cmd
+    r = subprocess.run(["sh", str(entry), "gunicorn"], capture_output=True, text=True)
+    assert "GATE-RAN" in r.stdout and r.returncode == 1
 
 
 def test_the_entrypoint_refuses_a_stale_database_end_to_end(tmp_path):
