@@ -176,7 +176,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    nothing flips while left students fill the left spots; if a left student takes the right spot in
    a widened round, the remaining left spot re-counts to right and its live left invitations are
    withdrawn. Rounds 2–3 still widen to any side (Q1: they do not wait for balance), and only
-   round-1 invitations are withdrawn. A withdrawal for balance:
+   round-1 invitations are withdrawn. Before it is withdrawn, an invitation is offered to the
+   class's other open spots by rule 18a's move (PAD-679); only one that does not move is withdrawn.
+   A withdrawal for balance:
    - is **not a "no"** (rule 18, Q4): the student may be invited again by a widened round — but
      **not by round 1 of that class again** (one round-1 invitation per student and class);
    - **offers the class's waiting list** from the bubble (Q3, owner): the student may join it even
@@ -491,8 +493,10 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
       student (group 0, rule 8a), and their waiting-list entry for the class closes
       (`notifications.waiting-list` rule 15);
     - a student holding a live invitation (`LIVE_INVITATION_STATES`) for one spot is skipped for
-      its other spots until that offer resolves; if it resolves without a "no" (the spot went to
-      someone else), they may be asked for another spot on the next pass.
+      its other spots until that offer resolves; if the spot it was for closes or is withdrawn for
+      balance while another open spot of the class would have asked them, the offer **moves** to
+      that spot instead (rule 18a); otherwise, resolved without a "no" (the spot went to someone
+      else), they may be asked for another spot on the next pass.
       Every sender — the tick's next batch, a decline's follow-up, on any spot of the class —
       decides each student under its spot's row lock and then the class's (rule 10's order), held
       until the student's invitation commits with its message. Two senders on the same spot wait on
@@ -552,6 +556,49 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     **A coach-recorded "no"** (rule 9) is final in the same way. Its only undo is the coach
     recording a "yes" on that invitation; removing the student and adding them back does not clear
     it. The coach recording the same answer twice changes nothing (rule 17).
+
+18a. **A live invitation moves to a sibling spot instead of ending (PAD-679; owner's decisions
+    2026-10-21, recorded on the ticket; numbering unconfirmed).** Before PAD-679 a class with two open
+    spots told the students asked for the first "Vaga preenchida" when someone took it, and the
+    second spot, which had been waiting only on their offers (rule 18), asked them again at the
+    next tick: "spot filled", then "a spot opened". Now, when a spot **closes** (rule 10's paths and
+    rule 13's reconcile, all through `_close_vacancy`) or one of its live invitations is
+    **withdrawn for balance** (rule 2d, `_withdraw_for_balance`), each of its live invitations
+    (except the winner's) moves to another open spot B of the same class **if and only if**:
+    1. B had no live invitation of its own when the move began (it was waiting only on other
+       spots' offers);
+    2. B's own candidate pipeline, in B's **current** round (`("group", B.current_round_number)`;
+       for a waiting-list invitation, group 0's `("waiting_list", 0)`), gives that student
+       `offered_another_spot` — "this round would ask them but for that other offer" — so the
+       student fits B (side, level, eligibility, exclusions, the round's rules) and nobody is
+       overtaken; this is decided before any invitation of the closing spot changes;
+    3. B can send now: not awaiting or dismissed by semi-automatic approval, no
+       `invite_not_before` still ahead, automatic invitations on for the class;
+    4. at most `maxSimultaneous` (when enabled) invitations move into one B — one batch of B;
+    5. B can be locked without waiting (`SKIP LOCKED`, after the closing spot and the class:
+       rule 10's order holds); a B another answer holds is passed over, and the invitation ends
+       as before;
+    6. a **waiting-list** invitation (group 0), whose message names its spot's side
+       (`notifications.waiting-list` rule 16), moves only to a B of the same side (owner,
+       2026-10-21); one whose spot had no side moves to any B.
+    With several Bs, the lowest `Vacancy.id` that qualifies takes it. A move changes the
+    invitation's `vacancy_id` to B and its `round_number` to B's current round (group 0 stays 0),
+    and its message's `vacancyId` metadata; the edit is published after the commit as a
+    `message_edited` event, with **no push and no new message**: the student sees the same bubble,
+    and their "yes" now takes B. B's pacing continues from the invitations it inherited:
+    `last_activity_at` becomes the closing spot's last batch stamp (the send time of its newest
+    batch), so `maxInactiveTime` counts from when the students were asked, not from the move; the
+    moved invitations count as B's current batch (`current_batch_number` at least 1); B's round is
+    not touched. A move creates no invitation, so it counts again toward neither `maxTotal` nor the
+    one-waiting-list-offer-per-student limit. Otherwise the invitation ends as before:
+    `spot_filled` on a close, `side_balanced` on a balance withdrawal (and the balance-withdrawn
+    waiting-list filter of rule 2d still applies to it). After a "yes" (the student's or the
+    coach's) the class's other spots are re-counted first (rule 2d) and the moves use the
+    re-counted sides; a withdrawal that re-count makes is itself tried as a move. Not shown to the
+    coach as a separate history line in this change (the owner's decision; a follow-up ticket
+    carries it). Manual invitations (no `vacancy_id`) never move. Two "yes" at once on two spots: the
+    second spot is locked by its own answer, so nothing moves into it, and its invitations end as
+    before.
 
 19. **A coach withdraws a live invitation (PAD-548).** `DELETE
     /api/app/notify/invitations/<event_id>` by the invitation's coach (403 for any other coach,
