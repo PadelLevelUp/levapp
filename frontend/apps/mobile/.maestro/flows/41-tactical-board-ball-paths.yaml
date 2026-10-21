@@ -55,12 +55,24 @@ appId: com.padellevelup.app
     timeout: 15000
 - assertVisible:
     id: "piece-feeder"
+# PAD-710 (Android lane): the toolbar scrolls off the top once the flow has scrolled down to the court pieces, and Android exposes only on-screen elements.
+- scrollUntilVisible:
+    element:
+      id: "board-tool-ball"
+    direction: UP
+    timeout: 15000
 - tapOn:
     id: "board-tool-ball"
 - assertVisible:
     id: "board-hint-ball"
 
 # ── First feed: feeder → A1 ──
+# PAD-710 (Android lane): bring the court pieces back on screen after scrolling up to the toolbar.
+- scrollUntilVisible:
+    element:
+      id: "piece-a1"
+    direction: DOWN
+    timeout: 15000
 - tapOn:
     id: "piece-a1"
 - assertVisible:

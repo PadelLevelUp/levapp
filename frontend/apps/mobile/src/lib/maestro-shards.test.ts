@@ -1,6 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  changedFlows,
   checkShards,
   currentFlow,
   parseFlowsOrder,
@@ -9,6 +10,7 @@ import {
   runnableSuite,
   shardConfig,
   shardFlows,
+  shardMatrix,
   watchdogStep,
 } from "../../scripts/maestro-shards.mjs";
 
@@ -133,5 +135,32 @@ describe("the watchdog (rule 4)", () => {
     for (let t = 5; t <= 70; t += 5) s = watchdogStep(s.state, `flow-${t}`, t * MIN, limits);
     s = watchdogStep(s.state, "flow-70", 75 * MIN + 1, limits);
     expect(s.stop).toMatch(/^::error title=Maestro shard over its budget::flow-70 /);
+  });
+});
+
+describe("a pull request's changed flows (rule 1b)", () => {
+  const { shardFile, suite } = readWorkspace(MAESTRO_DIR);
+  const F = "frontend/apps/mobile/.maestro/flows/";
+
+  it("keeps the runnable ones, in suite order, and drops tagged, deleted and subflow paths", () => {
+    const names = changedFlows(suite, [
+      `${F}47-push-tap-routing.yaml`,
+      `${F}99-gone.yaml`,
+      `${F}27-unknown-sender-block.yaml`,
+      `${F}03-class-management.yaml`,
+      "frontend/apps/mobile/.maestro/subflows/login.yaml",
+    ]);
+    expect(names).toEqual(["03-class-management", "27-unknown-sender-block"]);
+  });
+
+  it("runs them led by the warm-up, like a shard", () => {
+    expect(shardFlows(suite, shardFile, "changed", ["27-unknown-sender-block"])).toEqual(["01-login", "27-unknown-sender-block"]);
+    expect(shardFlows(suite, shardFile, "changed", ["01-login", "27-unknown-sender-block"])).toEqual(["01-login", "27-unknown-sender-block"]);
+  });
+
+  it("adds the changed job to whichever matrix the run has", () => {
+    expect(shardMatrix(shardFile, { full: false, changed: true })).toEqual(["all", "changed"]);
+    expect(shardMatrix(shardFile, { full: true, changed: true })).toEqual(["1", "2", "3", "4", "changed"]);
+    expect(shardMatrix(shardFile, { full: false, changed: false })).toEqual(["all"]);
   });
 });

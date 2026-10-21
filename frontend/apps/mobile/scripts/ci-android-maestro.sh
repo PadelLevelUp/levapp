@@ -7,7 +7,8 @@
 #
 # Env (set by the workflow):
 #   MAESTRO_FLOWS      space-separated flow paths relative to apps/mobile/.maestro
-#   MAESTRO_SHARD      a shard number of the whole suite (PAD-710), or "all" to run MAESTRO_FLOWS
+#   MAESTRO_SHARD      a shard number of the whole suite (PAD-710), "changed" for the PR's changed
+#                      flows in MAESTRO_CHANGED_FLOWS (rule 1b), or "all" to run MAESTRO_FLOWS
 #   FLOW_LIMIT_MIN / SHARD_BUDGET_MIN   the watchdog's limits (default 12 / 75)
 #   MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD   flow 45's approved no-club coach;
 #                      default the E2E seed's e2e-coach-noclub (PAD-306, no secret)

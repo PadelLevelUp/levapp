@@ -33,6 +33,13 @@ signal (PAD-710).
      files are `android-build.yaml`, `ci-android-maestro.sh`, `maestro-shards.mjs` and
      `android-shards.json`. Otherwise a lane change is first exercised by the nightly run on `main`,
      after promotion.
+   - **1b. A pull request that changes flow files also runs exactly those flows** (PAD-710
+     follow-up). This is one more job, `changed`, next to whatever else the PR runs.
+     - The changed flows are the files under `.maestro/flows/*.yaml` that the PR adds or modifies
+       and that are runnable (tagged and deleted flows drop out).
+     - They run in suite order, led by the warm-up, on their own fresh emulator and database.
+     - Every flow edit gets an Android proof on its own PR in minutes, without the four-shard cost.
+       A change under `subflows/` alone does not trigger the job, because it would touch many flows.
 2. **A shard is a contiguous slice of the suite order.**
    - The suite order is `config.yaml`'s `flowsOrder`, followed by any `flows/*.yaml` it does not
      list, by file name.
@@ -87,6 +94,14 @@ signal (PAD-710).
 - **When** the planner writes its config
 - **Then** `flows` lists exactly `flows/01-login.yaml` and then shard 2's files
 - **And** `flowsOrder` lists the same names in the same order, with `continueOnFailure: true`
+
+#### A pull request's changed flows run on their own (rule 1b)
+- **Given** a pull request that modifies `flows/27-unknown-sender-block.yaml` and
+  `flows/47-push-tap-routing.yaml`, and deletes `flows/99-gone.yaml`
+- **When** the plan runs
+- **Then** the matrix holds `changed` next to `all`, and the changed job's config lists exactly
+  `01-login` then `27-unknown-sender-block`
+- **And** `47-push-tap-routing` (tagged `ios-only`) and the deleted flow are not in it
 
 #### A hung flow is named
 - **Given** `maestro.log`'s last `Running flow 61-availability-two-cards` line, older than
