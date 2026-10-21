@@ -29,13 +29,13 @@ describe("upcomingPickerClasses (PAD-439, players.profile rule 5a)", () => {
 
 describe("canStepBackPickerWeek (PAD-439, players.profile rule 5b)", () => {
   it("cannot step back from the current week", () => {
-    expect(canStepBackPickerWeek(new Date(2026, 8, 21), NOW)).toBe(false);
+    expect(canStepBackPickerWeek(new Date(2026, 8, 20), NOW)).toBe(false);
   });
   it("can step back from a later week, to the current one", () => {
-    expect(canStepBackPickerWeek(new Date(2026, 8, 28), NOW)).toBe(true);
+    expect(canStepBackPickerWeek(new Date(2026, 8, 27), NOW)).toBe(true);
   });
-  it("uses the club's today: at 00:30 Monday in Lisbon (Sunday 23:30Z) the current week is the new one", () => {
-    const mondayLisbon = new Date("2026-09-27T23:30:00Z");
-    expect(canStepBackPickerWeek(new Date(2026, 8, 28), mondayLisbon)).toBe(false);
+  it("uses the club's today: at 00:30 Sunday in Lisbon (Saturday 23:30Z) the current week is the new one", () => {
+    const sundayLisbon = new Date("2026-10-03T23:30:00Z");
+    expect(canStepBackPickerWeek(new Date(2026, 9, 4), sundayLisbon)).toBe(false);
   });
 });

@@ -14,7 +14,7 @@ import {
   startOfMonth,
   endOfDay,
 } from "date-fns";
-import { buildMonthGrid, formatMonthLabel, formatWeekRangeLabel, isClubToday, lisbonNow, resolveDateLocale } from "@levelup/config";
+import { WEEK_STARTS_ON, buildMonthGrid, formatMonthLabel, formatWeekRangeLabel, isClubToday, lisbonNow, resolveDateLocale } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 /** The phone calendar's three modes (calendar.mobile-views rule 1). */
@@ -57,7 +57,7 @@ export function useCalendar(
   options: UseCalendarOptions = {}
 ) {
   const {
-    weekStartsOn = 1,
+    weekStartsOn = WEEK_STARTS_ON,
     initialDate,
     language,
     initialViewMode = "day",

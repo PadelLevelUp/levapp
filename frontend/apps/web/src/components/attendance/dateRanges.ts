@@ -7,7 +7,7 @@
  * off-by-one-day drift PAD-33 chased down in the messaging timestamps.
  */
 
-import { clubTodayUtcDate } from "@levelup/config";
+import { clubTodayUtcDate, daysSinceWeekStart } from "@levelup/config";
 
 export type AttendanceRangePreset = "1w" | "1m" | "1y" | "season";
 
@@ -36,7 +36,7 @@ export function parseIsoDate(value: string): Date {
 /**
  * The range for a preset, computed from `now` on the club's day (B-060).
  *
- * - `1w` — the current week, Monday through Sunday (7 daily buckets)
+ * - `1w` — the current week, Sunday through Saturday (WEEK_STARTS_ON) (7 daily buckets)
  * - `1m` — the current calendar month (one bucket per day)
  * - `1y` — the current calendar year (12 monthly buckets)
  * - `season` — the coach's current season occurrence (calendar.seasons rule
@@ -59,8 +59,8 @@ export function presetRange(
   const d = today.getUTCDate();
 
   if (preset === "1w") {
-    // getUTCDay(): Sunday = 0. Shift so the week starts on Monday.
-    const dayOfWeek = (today.getUTCDay() + 6) % 7;
+    // getUTCDay(): Sunday = 0. Shift so the week starts on WEEK_STARTS_ON (PAD-682).
+    const dayOfWeek = daysSinceWeekStart(today.getUTCDay());
     const monday = new Date(Date.UTC(y, m, d - dayOfWeek));
     const sunday = new Date(Date.UTC(y, m, d - dayOfWeek + 6));
     return { from: toIsoDate(monday), to: toIsoDate(sunday) };
@@ -80,12 +80,12 @@ export function presetRange(
 }
 
 /**
- * B-060: the Presences week, Monday through Sunday, on the club's day.
+ * B-060: the Presences week, from WEEK_STARTS_ON (Sunday, PAD-682) through the day before the next, on the club's day.
  * `offset` moves by whole weeks (0 is this week, -1 last week).
  */
 export function weekBounds(offset: number, now: Date = new Date()): AttendanceRange {
   const today = clubTodayUtcDate(now);
-  const dayOfWeek = (today.getUTCDay() + 6) % 7; // Monday-first
+  const dayOfWeek = daysSinceWeekStart(today.getUTCDay()); // WEEK_STARTS_ON-first
   const monday = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - dayOfWeek + offset * 7)
   );
@@ -94,7 +94,7 @@ export function weekBounds(offset: number, now: Date = new Date()): AttendanceRa
 }
 
 /**
- * The Monday and Sunday of `weekBounds(offset)` as UTC-midnight Dates, for a
+ * The first and last day (`monday`/`sunday` are historical names) of `weekBounds(offset)` as UTC-midnight Dates, for a
  * label formatted with `timeZone: "UTC"` — so the label can only ever name the
  * week the query asked for (PAD-295).
  */
