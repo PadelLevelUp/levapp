@@ -56,4 +56,6 @@ ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 # SSE_MAX_STREAMS_PER_USER (default 4) the user's oldest stream is evicted. A
 # keep-alive every SSE_KEEPALIVE_SECONDS (default 5) notices vanished clients
 # (messaging.sse-realtime rules 11-14; numbers in the single-VM decision).
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "1", "--threads", "64", "--timeout", "3600", "app:run_app"]
+# PAD-689: the thread count comes from GUNICORN_THREADS (default 64), so the SSE cap and the
+# threads rise together by an env change; `exec` keeps gunicorn as PID 1 for SIGTERM.
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:80 --workers 1 --threads \"${GUNICORN_THREADS:-64}\" --timeout 3600 app:run_app"]
