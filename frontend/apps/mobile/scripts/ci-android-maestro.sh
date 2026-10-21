@@ -108,6 +108,15 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     fi
   } >> "$GITHUB_STEP_SUMMARY"
 fi
+# Rule 7 (PAD-720): the lane-result job reads this verdict from the artifact and posts the
+# Android lane check (neutral while the lane is experimental).
+EXPECTED=""
+[ "$SHARD" != all ] && EXPECTED=$(grep -c '^    - ' "$SHARD_CONFIG")
+FINISHED=$(grep -cE '\[(Passed|Failed)\]' "$OUT_LOG" || true)
+STOP_LINE=""
+if [ -f "$STOP_FILE" ]; then STOP_LINE=$(head -1 "$STOP_FILE"); fi
+printf 'shard=%s\nrc=%s\nexpected=%s\nfinished=%s\nstop=%s\n' "$SHARD" "$RC" "$EXPECTED" "$FINISHED" "$STOP_LINE" \
+  > "$HOME/.maestro/tests/shard-verdict.txt"
 if [ -f "$STOP_FILE" ]; then
   cat "$STOP_FILE"
   exit 1
@@ -115,8 +124,6 @@ fi
 # A shard that finished without a stop must have reported every flow its config lists: a
 # --config that resolved to fewer (or more) flows would otherwise pass quietly.
 if [ "$SHARD" != all ]; then
-  EXPECTED=$(grep -c '^    - ' "$SHARD_CONFIG")
-  FINISHED=$(grep -cE '\[(Passed|Failed)\]' "$OUT_LOG" || true)
   if [ "$FINISHED" != "$EXPECTED" ]; then
     echo "::error title=Maestro shard ran the wrong flows::shard $SHARD reported $FINISHED flows; its config lists $EXPECTED"
     exit 1

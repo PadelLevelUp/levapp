@@ -62,6 +62,12 @@ concurrency:
 
 env:
   NODE_VERSION: "24.15.0"
+  # PAD-720 (delivery.android-nightly-lane rule 7): while the lane is being brought up (PAD-710), a
+  # red shard does not fail the run, so GitHub sends no failure email; the `lane-result` job posts
+  # the "Android lane" check as neutral with the red flows named. It turns strict by itself on a
+  # scheduled run on main after two consecutive scheduled greens; delete this line to make it
+  # strict now.
+  ANDROID_LANE_EXPERIMENTAL: "true"
   # The PR smoke list; `.` (nightly / dispatch) is the whole suite — see the flow policy above.
   MAESTRO_FLOWS_SMOKE: "flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml"
   # The runner as seen from inside the emulator.
@@ -366,6 +372,8 @@ jobs:
           script: echo "AVD snapshot generated for the cache"
 
       - name: Install the APK and run Maestro
+        # Rule 7: an experimental lane's red is reported by `lane-result`, not by failing the run.
+        continue-on-error: ${{ env.ANDROID_LANE_EXPERIMENTAL == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -394,3 +402,67 @@ jobs:
           path: maestro-results
           if-no-files-found: warn
           retention-days: 14
+
+  # PAD-720 (delivery.android-nightly-lane rule 7): one "Android lane" check for the whole matrix,
+  # read from every shard's artifact: success when every flow passed; neutral while the lane is
+  # experimental and something is red (the summary names each red flow); failure once strict, and
+  # then this job fails the run.
+  lane-result:
+    name: Android lane result
+    needs: [apk, maestro]
+    if: always() && needs.apk.result == 'success' && needs.maestro.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      checks: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # A shard with no artifact is reported as "reported nothing", so a missing download is not fatal.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: maestro-results-*
+          path: ${{ runner.temp }}/lane
+
+      # Strict after two consecutive scheduled greens on main: read the Android lane check that the
+      # two previous scheduled runs posted. Pull requests and dispatches stay neutral while flagged.
+      - name: Count the recent scheduled greens on main
+        id: greens
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          n=0
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            for sha in $(gh run list -R "$GITHUB_REPOSITORY" --workflow android-build.yaml --event schedule --branch main \
+                --status completed -L 3 --json headSha,databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .headSha" | head -2); do
+              c=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?check_name=Android%20lane" --jq '.check_runs[0].conclusion // ""')
+              [ "$c" = success ] && n=$((n + 1))
+            done
+          fi
+          echo "greens=$n" >> "$GITHUB_OUTPUT"
+          echo "recent scheduled greens on main: $n/2"
+
+      - name: Post the Android lane check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LANE_SHARDS: ${{ needs.apk.outputs.shards }}
+          LANE_EXPERIMENTAL: ${{ env.ANDROID_LANE_EXPERIMENTAL }}
+          LANE_RECENT_GREENS: ${{ steps.greens.outputs.greens }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          verdict=$(node frontend/apps/mobile/scripts/maestro-shards.mjs report "$RUNNER_TEMP/lane")
+          conclusion=$(node -p 'JSON.parse(process.argv[1]).conclusion' "$verdict")
+          node -e '
+            const v = JSON.parse(process.argv[1]);
+            process.stdout.write(JSON.stringify({ name: "Android lane", head_sha: process.env.HEAD_SHA, status: "completed",
+              conclusion: v.conclusion, output: { title: v.title, summary: v.summary } }));
+          ' "$verdict" > "$RUNNER_TEMP/check.json"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" --input "$RUNNER_TEMP/check.json" --jq '.html_url'
+          node -p 'JSON.parse(process.argv[1]).summary' "$verdict" >> "$GITHUB_STEP_SUMMARY"
+          echo "Android lane: $conclusion"
+          [ "$conclusion" != failure ]

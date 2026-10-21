@@ -72,6 +72,20 @@ signal (PAD-710).
 6. The Postgres service's health check names its database (`pg_isready -U … -d postgres`). Without
    it, every probe logged `FATAL: database "padel_app_user" does not exist`, about 1,200 lines a
    night.
+7. **While the lane is being brought up, a red is reported, not failed (PAD-720).**
+   - While `ANDROID_LANE_EXPERIMENTAL` is `"true"` in `android-build.yaml`, each Maestro step runs
+     with `continue-on-error`, so a red shard does not fail the run and GitHub sends no failure email.
+   - Each shard writes `shard-verdict.txt`: exit code, flows expected, flows finished, and any
+     watchdog stop.
+   - The `lane-result` job reads every shard's artifact and posts one check run, **Android lane**:
+     - `success` when every flow passed in every shard;
+     - `neutral` while the lane is experimental and something is red;
+     - `failure` once the lane is strict. A failure also fails the run.
+     - The check's summary names each red flow with its reason, each watchdog stop, and each shard
+       that reported nothing.
+   - The lane turns **strict** when the flag is removed, or automatically on a scheduled run on
+     `main` whose two previous scheduled runs both posted a `success` Android lane (the PAD-710
+     acceptance). Pull requests stay neutral while the flag is set.
 
 ### Acceptance Criteria
 
@@ -102,6 +116,15 @@ signal (PAD-710).
 - **Then** the matrix holds `changed` next to `all`, and the changed job's config lists exactly
   `01-login` then `27-unknown-sender-block`
 - **And** `47-push-tap-routing` (tagged `ios-only`) and the deleted flow are not in it
+
+#### An experimental red lane is neutral, a strict one fails (rule 7)
+- **Given** shard 2 reports `[Failed] 27-unknown-sender-block (…) (Element not found: chat-back)`
+  and shard 3 left no artifact
+- **When** the lane is experimental and has fewer than two recent greens
+- **Then** the Android lane check is `neutral`, and its summary names `27-unknown-sender-block`,
+  its reason, and "shard 3 reported nothing"
+- **And** with the flag off, or after two scheduled greens on `main`, the same input is `failure`,
+  and a run where every flow passed is `success`
 
 #### A hung flow is named
 - **Given** `maestro.log`'s last `Running flow 61-availability-two-cards` line, older than
