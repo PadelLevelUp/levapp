@@ -3634,8 +3634,8 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, res
 
 
 def _publish_retired(events: list) -> None:
-    """PAD-499: tell the clients about the invite messages `_close_vacancy` retired, once the
-    caller's commit has made them real. The payloads are built now, from the flushed state that
+    """PAD-499: tell the clients about the invite messages `_close_vacancy` retired (or, PAD-679,
+    moved to another spot), once the caller's commit has made them real. The payloads are built now, from the flushed state that
     commit will write (no SQL can run after a commit); the publishes are queued for after it and
     dropped by a rollback (padel_app.tools.after_commit)."""
     from padel_app.models import Message
@@ -5065,24 +5065,41 @@ LIVE_INVITATION_STATES = ("sent", "queued")
 SIDE_BALANCED = "side_balanced"
 
 
-def _move_to_open_sibling(source: Vacancy, events: list, instance: LessonInstance, coach_id: int) -> set:
+def _held_by_another_offer(
+    spot: Vacancy, instance: LessonInstance, coach_id: int, config: NotificationConfig, wave: tuple, player_ids
+) -> set:
+    """PAD-679 (rule 18a item 2): the students ``spot``'s ``wave`` would ask but for an offer they
+    hold for another spot of the class (`offered_another_spot`)."""
+    if not player_ids:
+        return set()
+    return {
+        v.cp.player_id
+        for v in evaluate_candidates(spot, instance, coach_id, config, wave=wave, only_player_ids=player_ids)
+        if v.stage == "offered_another_spot"
+    }
+
+
+def _move_to_open_sibling(
+    source: Vacancy, events: list, instance: LessonInstance, coach_id: int, *, now: datetime | None = None
+) -> set:
     """PAD-679 (notifications.invitations rule 18a): move live invitations of ``source`` — a spot
     closing, or withdrawing them for balance — to another open spot B of the class that would have
     asked them, instead of ending them. Returns the ids of the events moved; the caller retires
     the rest as before.
 
-    A B qualifies when it had no live invitation of its own (it was waiting only on other spots'
-    offers), can send now (approval, `invite_not_before`, automatic invitations), and is free to
-    lock (`SKIP LOCKED`, after the caller's spot and class locks: rule 10's order). A student moves
-    to the lowest-id B whose pipeline, in B's current round (group 0 for a waiting-list
-    invitation, which also needs B on the same side as ``source``), says `offered_another_spot`,
-    up to `maxSimultaneous` per B. Decided before anything moves, while the offers still point at
-    ``source``. The message is the same; its `vacancyId` edit is published after the commit, with
-    no push. B's clock and batch continue from the inherited invitations (C1, C3)."""
-    if not events or instance is None:
-        return set()
+    A B qualifies when it has no live invitation of its own (read live, so a B an earlier move just
+    filled takes no more from a later source), can send now (approval, `invite_not_before`,
+    automatic invitations), and is free to lock: only a B something moves into is locked, with
+    `SKIP LOCKED` after the caller's locks (rule 10's order), and re-checked under that lock. A student moves to the lowest-id B whose pipeline, in B's current round (group 0 for a
+    waiting-list invitation, which also needs B on ``source``'s side when it has one), says
+    `offered_another_spot`, up to `maxSimultaneous` per B. Decided before anything moves, while the
+    offers still point at ``source``. The message is the same; its `vacancyId` edit is published
+    after the commit, with no push. B's clock and batch continue from the inherited invitations."""
     from padel_app.models import Message
 
+    now = now or utcnow_naive()
+    if not events or instance is None or _instance_is_over(instance, now) or not effective_auto_invites(instance):
+        return set()
     others = (
         Vacancy.query.filter(
             Vacancy.lesson_instance_id == instance.id,
@@ -5090,12 +5107,9 @@ def _move_to_open_sibling(source: Vacancy, events: list, instance: LessonInstanc
             Vacancy.id != source.id,
         )
         .order_by(Vacancy.id.asc())
-        .with_for_update(skip_locked=True)
-        .populate_existing()
         .all()
     )
-    now = utcnow_naive()
-    if not others or _instance_is_over(instance, now) or not effective_auto_invites(instance):
+    if not others:
         return set()
     config = get_or_create_config(coach_id)
     max_sim = config.get_restrictions().get("maxSimultaneous", {})
@@ -5103,7 +5117,7 @@ def _move_to_open_sibling(source: Vacancy, events: list, instance: LessonInstanc
     group_pids = [e.player_id for e in events if e.round_number != 0]
     list_pids = [e.player_id for e in events if e.round_number == 0]
 
-    fits = []  # (B, players its current round would ask but for their other offer, group-0 likewise)
+    fits = []  # (B, its round's students held elsewhere, its group 0's students held elsewhere)
     for b in others:
         if b.approval_status in ("pending", "dismissed"):
             continue
@@ -5111,24 +5125,37 @@ def _move_to_open_sibling(source: Vacancy, events: list, instance: LessonInstanc
             continue
         if _has_live_offers(b):
             continue
-        def held(wave, pids):
-            if not pids:
-                return set()
-            return {v.cp.player_id
-                    for v in evaluate_candidates(b, instance, coach_id, config, wave=wave, only_player_ids=pids)
-                    if v.stage == "offered_another_spot"}
         same_side = source.side not in ("left", "right") or b.side == source.side
-        fits.append((b, held(("group", b.current_round_number), group_pids),
-                     held(("waiting_list", 0), list_pids) if same_side else set()))
+        fits.append((
+            b,
+            _held_by_another_offer(b, instance, coach_id, config, ("group", b.current_round_number), group_pids),
+            _held_by_another_offer(b, instance, coach_id, config, ("waiting_list", 0), list_pids) if same_side else set(),
+        ))
     if not fits:
         return set()
 
-    moved, into = [], {}
+    def lock(b) -> bool:
+        """Rule 10: only a spot something moves into is locked — without waiting (SKIP LOCKED), and
+        re-checked under the lock (still open, still nothing of its own out); a reconcile or a
+        close that moves nothing holds no other spot (PAD-499's probe)."""
+        if b.id not in locked:
+            row = (
+                Vacancy.query.filter(Vacancy.id == b.id, Vacancy.status == "open")
+                .with_for_update(skip_locked=True)
+                .populate_existing()
+                .first()
+            )
+            locked[b.id] = row is not None and not _has_live_offers(row)
+        return locked[b.id]
+
+    moved, into, locked = [], {}, {}
     for event in events:
         for b, group_fit, list_fit in fits:
             if cap is not None and into.get(b.id, 0) >= cap:
                 continue
             if event.player_id not in (list_fit if event.round_number == 0 else group_fit):
+                continue
+            if not lock(b):
                 continue
             event.vacancy_id = b.id
             if event.round_number != 0:
@@ -5146,7 +5173,9 @@ def _move_to_open_sibling(source: Vacancy, events: list, instance: LessonInstanc
             b.last_activity_at = source.last_activity_at or now
             b.current_batch_number = max(b.current_batch_number or 0, 1)
     db.session.flush()
-    _publish_retired(moved)  # the `vacancyId` edits, after the caller's commit; no push
+    # Not a retirement: `_publish_retired` is just the after-commit `message_edited` publisher, and
+    # here it carries the `vacancyId` edits. No push.
+    _publish_retired(moved)
     return {e.id for e in moved}
 
 
@@ -5198,7 +5227,7 @@ def _close_vacancy(
         ).order_by(NotificationEvent.id.asc()).all()
         if except_event_id is None or event.id != except_event_id  # the winner's; its caller confirms it
     ]
-    moved = _move_to_open_sibling(vacancy, live, instance, vacancy.coach_id)
+    moved = _move_to_open_sibling(vacancy, live, instance, vacancy.coach_id, now=now)
     for event in live:
         if event.id in moved:
             continue

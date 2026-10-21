@@ -1,8 +1,10 @@
 """
-PAD-679 (invitations rule 18): when a spot closes, a live invitation that also fits another open spot
-of the same class moves to that spot instead of being retired ("Vaga preenchida") and re-sent.
+PAD-679 (notifications.invitations rule 18a): when a spot closes or withdraws an invitation for
+balance, a live invitation that another open spot of the class would have asked moves to that spot
+instead of being retired ("Vaga preenchida") and re-sent.
 
-Repro first (the ticket asks for it before any fix): these cells are expected RED on staging 4ba53e151.
+The move cells fail on the engine before PAD-679 (run against staging 68b62ac59: 7 failed, the 6
+no-move controls passed); the controls pass on both.
 """
 from datetime import timedelta
 
@@ -11,9 +13,10 @@ import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_pad493_invitations_run_twice import NOW, _live_events, _seed, _vacancies
 from padel_app.tests.test_pad497_a_no_is_final import _answer, _events, _instance, _io, _tick
+from padel_app.tests.test_pad581_side_rebalance import _bubble, _event, _invite, _patch_io, _setup
 
 
-def test_repro_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second(app, monkeypatch):
+def test_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second(app, monkeypatch):
     """The real case of 15/10: two spots, three students asked for the first, the second waits on
     them (rule 18, offered_another_spot). One says yes to the first spot. Expected: the other two keep
     their live invitation, now for the second spot; nobody is told "spot filled" or asked again."""
@@ -37,19 +40,23 @@ def test_repro_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second
         assert len(events) == 3, events
         assert sorted(p for v, p in _live_events(instance_id)) == sorted(others)
         assert {v for v, p in _live_events(instance_id)} == {second_spot}
+        # Their bubbles were never told "Vaga preenchida".
+        from padel_app.models import Message
+        from padel_app.models.notification_event import NotificationEvent
+
+        for e in NotificationEvent.query.filter(NotificationEvent.player_id.in_(others)).all():
+            assert not Message.query.get(e.message_id).msg_metadata.get("responded")
 
 
 # ── the conditions of rule 18a, on PAD-581's sided class (4 places, 1 left + 1 right going,
 #    open spots: one left, one right; default groups: round 1 asks the spot's own side) ─────────
 
-from padel_app.tests.test_pad581_side_rebalance import _bubble, _event, _invite, _patch_io, _setup  # noqa: E402
 
-
-def _close(spot, winner_event_id=None):
+def _close(spot):
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.notification_service import _close_vacancy
 
-    retired = _close_vacancy(db.session.get(Vacancy, spot.id), None, except_event_id=winner_event_id)
+    retired = _close_vacancy(db.session.get(Vacancy, spot.id), None)
     db.session.commit()
     return {e.id for e in retired}
 
@@ -83,7 +90,7 @@ def test_a_both_sided_student_moves_to_the_free_spot_with_no_new_message(app, mo
 
 
 def test_nothing_moves_into_a_spot_with_offers_of_its_own(app, monkeypatch):
-    """D1.1 / the ticket's "Ana is both" row: the right spot already asked Rui, so Carla's offer is not
+    """Rule 18a item 1 (the ticket's "Ana is both" row): the right spot already asked Rui, so Carla's offer is not
     moved into it (no overtaking); it ends as "spot_filled" and Rui's is untouched."""
     _patch_io(monkeypatch)
     with app.app_context():
@@ -96,7 +103,7 @@ def test_nothing_moves_into_a_spot_with_offers_of_its_own(app, monkeypatch):
 
 @pytest.mark.parametrize("gate", ["approval_pending", "window_ahead"])
 def test_nothing_moves_into_a_spot_that_cannot_send_now(app, monkeypatch, gate):
-    """C6: a spot awaiting semi-automatic approval, or approved for a window still ahead, would not
+    """Rule 18a item 3: a spot awaiting semi-automatic approval, or approved for a window still ahead, would not
     send now, so it takes nothing: moving into it would bypass the coach's approval."""
     from datetime import datetime, timedelta
 
@@ -112,18 +119,36 @@ def test_nothing_moves_into_a_spot_that_cannot_send_now(app, monkeypatch, gate):
         assert _close(spots["left"]) == {carla}
 
 
-def test_a_waiting_list_invitation_moves_only_to_a_spot_of_its_own_side(app, monkeypatch):
-    """Owner, 2026-10-21 (rule 18a item 6): a group-0 invitation names its spot's side, so Carla's
-    waiting-list offer for the left spot does not move to the right one."""
+def _on_waiting_list(coach, instance, player_id):
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+
+    db.session.add(WaitingListEntry(lesson_instance_id=instance.id, player_id=player_id, coach_id=coach.id,
+                                    is_active=True))
+    db.session.commit()
+
+
+@pytest.mark.parametrize("other_side", ["right", "left"])
+def test_a_waiting_list_invitation_moves_only_to_a_spot_of_its_own_side(app, monkeypatch, other_side):
+    """Rule 18a item 6 (owner, 2026-10-21): a group-0 invitation names its spot's side, so Carla's
+    waiting-list offer for the left spot does not move to a right spot, and does move to another
+    left one (the control, so the refusal is the side's and not her list entry's)."""
     _patch_io(monkeypatch)
     with app.app_context():
-        coach, instance, spots, players = _setup("e")
+        coach, instance, spots, players = _setup(f"e{other_side[0]}")
+        _on_waiting_list(coach, instance, players["carla"])
+        spots["right"].side = other_side
+        db.session.commit()
         carla = _invite(coach, instance, spots["left"], players["carla"], round_number=0)
-        assert _close(spots["left"]) == {carla}
+        if other_side == "right":
+            assert _close(spots["left"]) == {carla}
+        else:
+            assert _close(spots["left"]) == set()
+            moved = _event(carla)
+            assert (moved.status, moved.vacancy_id, moved.round_number) == ("sent", spots["right"].id, 0)
 
 
 def test_a_balance_withdrawal_moves_the_invitation_when_another_spot_would_ask(app, monkeypatch):
-    """D5: the left spot withdraws Ana's round-1 offer for balance (it no longer wants a left
+    """Rule 2d + 18a: the left spot withdraws Ana's round-1 offer for balance (it no longer wants a left
     player), but another open spot of the class is a left spot with nothing out: her offer moves
     there instead of reading "Já não é preciso deste lado"."""
     from padel_app.models.vacancy import Vacancy
@@ -143,7 +168,7 @@ def test_a_balance_withdrawal_moves_the_invitation_when_another_spot_would_ask(a
 
 
 def test_a_balance_withdrawal_with_nowhere_to_go_is_withdrawn_as_before(app, monkeypatch):
-    """D5's control: no other open spot would ask Ana (the other spot is a right one), so she is
+    """Rule 2d + 18a, the control: no other open spot would ask Ana (the other spot is a right one), so she is
     withdrawn for balance as before PAD-679."""
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.notification_service import SIDE_BALANCED, _withdraw_for_balance
@@ -161,7 +186,7 @@ def test_a_balance_withdrawal_with_nowhere_to_go_is_withdrawn_as_before(app, mon
 # ── the engine around a move (two spots, three students, no sides) ─────────────────────────────
 
 def test_the_receiving_spot_keeps_the_invitations_clock_and_batch(app, monkeypatch):
-    """C1 / C3: the moved invitations were sent at NOW; the move happens at NOW+20. The second spot's
+    """Rule 18a, the clock and the batch: the moved invitations were sent at NOW; the move happens at NOW+20. The second spot's
     maxInactiveTime counts from NOW (its `last_activity_at` is the first spot's batch stamp) and the
     moved invitations are its current batch; nothing new is sent on the next ticks."""
     from padel_app.models.vacancy import Vacancy
@@ -184,7 +209,7 @@ def test_the_receiving_spot_keeps_the_invitations_clock_and_batch(app, monkeypat
 
 
 def test_after_a_move_the_next_yes_takes_the_second_spot_and_the_last_offer_ends(app, monkeypatch):
-    """Ticket test 7: after the move, one student's yes takes the second spot; the class is full, so
+    """After the move, one student's yes takes the second spot; the class is full, so
     the third student's offer ends as "spot_filled" and nobody is asked again."""
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.services.notification_service import trigger_invitations
@@ -207,7 +232,7 @@ def test_after_a_move_the_next_yes_takes_the_second_spot_and_the_last_offer_ends
 
 
 def test_a_coach_recorded_yes_moves_the_others_too(app, monkeypatch):
-    """D2: the coach recording the yes for a student closes the spot through the same routine."""
+    """Rule 18a (every closer): the coach recording the yes for a student closes the spot through the same routine."""
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.services.notification_service import coach_respond_to_notification, trigger_invitations
     from padel_app.tests.helpers import pin_clock
@@ -225,7 +250,7 @@ def test_a_coach_recorded_yes_moves_the_others_too(app, monkeypatch):
 
 
 def test_a_waiting_list_invitation_of_a_side_less_spot_moves(app, monkeypatch):
-    """D3: a group-0 invitation whose spot has no side moves under the same rule, and stays group 0."""
+    """Rule 18a item 6: a group-0 invitation whose spot has no side moves under the same rule, and stays group 0."""
     from padel_app.models import Message
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.models.players import Player
@@ -252,3 +277,40 @@ def test_a_waiting_list_invitation_of_a_side_less_spot_moves(app, monkeypatch):
         db.session.commit()
         moved = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).one()
         assert (moved.status, moved.vacancy_id, moved.round_number) == ("sent", second, 0)
+
+
+def test_at_most_one_batch_moves_into_a_spot(app, monkeypatch):
+    """Rule 18a item 4: four students were asked for the first spot; the coach's maxSimultaneous is
+    then 2. One takes the first spot: two of the other three move (send order), the third ends."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=4, max_players=2, max_sim=4)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        first, second = (v[0] for v in _vacancies(instance_id))
+        asked = [p for v, p in _live_events(instance_id) if v == first]
+        assert len(asked) == 4
+        config = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+        config.restrictions = {**config.restrictions, "maxSimultaneous": {"enabled": True, "value": 2}}
+        db.session.commit()
+        _answer(instance_id, asked[0], "yes", NOW + timedelta(minutes=1))
+        assert sorted(_live_events(instance_id)) == sorted((second, p) for p in asked[1:3])
+
+
+def test_with_two_spots_waiting_the_lowest_id_takes_them(app, monkeypatch):
+    """Rule 18a: three spots, three students all asked for the first. One takes it: the other two
+    move to the second spot (lowest id), and the third spot is untouched."""
+    from padel_app.services.notification_service import trigger_invitations
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context(), _io():
+        instance_id, coach_id, _, _ = _seed(enrolled=0, candidates=3, max_players=3, max_sim=3)
+        trigger_invitations(_instance(instance_id), coach_id, now=NOW)
+        first, second, third = (v[0] for v in _vacancies(instance_id))
+        winner, *others = [p for v, p in _live_events(instance_id) if v == first]
+        _answer(instance_id, winner, "yes", NOW + timedelta(minutes=1))
+        assert sorted(_live_events(instance_id)) == sorted((second, p) for p in others)

@@ -576,13 +576,14 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
        `invite_not_before` still ahead, automatic invitations on for the class;
     4. at most `maxSimultaneous` (when enabled) invitations move into one B — one batch of B;
     5. B can be locked without waiting (`SKIP LOCKED`, after the closing spot and the class:
-       rule 10's order holds); a B another answer holds is passed over, and the invitation ends
-       as before;
+       rule 10's order holds), and is locked only when something moves into it, then re-checked
+       under that lock — so a close or a reconcile that moves nothing holds no other spot; a B
+       another answer holds is passed over, and the invitation ends as before;
     6. a **waiting-list** invitation (group 0), whose message names its spot's side
        (`notifications.waiting-list` rule 16), moves only to a B of the same side (owner,
        2026-10-21); one whose spot had no side moves to any B.
     With several Bs, the lowest `Vacancy.id` that qualifies takes it. A move changes the
-    invitation's `vacancy_id` to B and its `round_number` to B's current round (group 0 stays 0),
+    invitation's `vacancy_id` to B and its `round_number` to B's current round (at least 1; group 0 stays 0),
     and its message's `vacancyId` metadata; the edit is published after the commit as a
     `message_edited` event, with **no push and no new message**: the student sees the same bubble,
     and their "yes" now takes B. B's pacing continues from the invitations it inherited:
