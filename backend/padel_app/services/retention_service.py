@@ -40,17 +40,18 @@ def _positive_config(name: str, default: int) -> int:
     from flask import current_app
 
     raw = current_app.config.get(name)
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
+    if isinstance(raw, str) and raw.strip().isdigit():
+        raw = int(raw.strip())
+    if not isinstance(raw, int) or isinstance(raw, bool):
         return default
-    return value if value > 0 and not isinstance(raw, bool) else default
+    return raw if raw > 0 else default
 
 
-def _batches(due_ids, act) -> int:
+def _batches(due_ids, act, after_commit=None) -> int:
     """Rule 3: select at most one batch of due ids, act on exactly those by primary key, commit, repeat
     up to the per-run ceiling. `due_ids(limit)` returns a list of ids; `act(ids)` removes or clears them
-    and answers how many rows it touched. What is left is due again the next run."""
+    and answers how many rows it touched; `after_commit()` runs only once that batch has committed.
+    What is left is due again the next run."""
     size = _positive_config("RETENTION_BATCH_SIZE", BATCH_SIZE)
     ceiling = _positive_config("RETENTION_MAX_BATCHES", MAX_BATCHES)
     removed = 0
@@ -59,11 +60,14 @@ def _batches(due_ids, act) -> int:
         if not ids:
             break
         try:
-            removed += act(ids)
+            touched = act(ids)
             db.session.commit()
         except Exception as exc:  # noqa: BLE001
             db.session.rollback()
             raise PartialSweep(removed, exc) from exc
+        removed += touched  # counted only once committed: a rolled-back batch removed nothing
+        if after_commit is not None:
+            after_commit()
         if len(ids) < size:
             break
     return removed
@@ -152,7 +156,7 @@ def _deleted_message_text(now: datetime, days: int, apply: bool) -> int:
     )
     if not apply:
         return Message.query.filter(*criteria).count()
-    freed_keys = []
+    batch_keys = []
 
     def due_ids(limit):
         return [i for (i,) in db.session.query(Message.id).filter(*criteria).order_by(Message.id).limit(limit)]
@@ -168,15 +172,21 @@ def _deleted_message_text(now: datetime, days: int, apply: bool) -> int:
             if image_id is not None and not image_in_use(image_id, except_message_id=m.id):
                 image = db.session.get(Image, image_id)
                 if image is not None:
-                    freed_keys.append(image.object_key)
+                    batch_keys.append(image.object_key)
                     db.session.delete(image)
         return len(rows)
 
-    try:
-        return _batches(due_ids, act)
-    finally:
-        for key in freed_keys:  # after the commits, best-effort, as publish_message_deleted does
+    def free_objects():
+        # After the batch's commit only, best-effort, as publish_message_deleted does: a batch that
+        # rolls back keeps its rows pointing at objects that must still exist.
+        for key in batch_keys:
             delete_stored_object(key, what="message attachment")
+        batch_keys.clear()
+
+    try:
+        return _batches(due_ids, act, after_commit=free_objects)
+    finally:
+        batch_keys.clear()
 
 
 def _expired_invitations(now: datetime, days: int, apply: bool) -> int:
@@ -320,8 +330,8 @@ def retention_settings() -> dict[str, dict]:
         item = item or {}
         days = item.get("days", default)
         valid_days = isinstance(days, int) and not isinstance(days, bool) and days > 0
-        enabled = item.get("enabled", name not in KEEP_BY_DEFAULT)  # a keep item turns on only explicitly
-        enabled = enabled is True and valid_days
+        raw_enabled = item.get("enabled", name not in KEEP_BY_DEFAULT)  # a keep item turns on only explicitly
+        enabled = raw_enabled is True and valid_days
         settings[name] = {"enabled": enabled, "days": days if valid_days else default}
     return settings
 

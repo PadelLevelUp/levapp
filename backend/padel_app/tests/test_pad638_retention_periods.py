@@ -274,3 +274,68 @@ def test_the_audit_log_refuses_every_delete_but_the_sweeps(app):
     assert not _exists(app, AdminAuditLog, old_id) and _exists(app, AdminAuditLog, recent_id)
     with app.app_context():
         assert not db.session.info.get("retention_sweep")  # the flag never outlives the sweep
+
+
+def test_the_flag_is_cleared_when_the_audit_sweep_fails(app, monkeypatch):
+    from padel_app.models.admin_audit_log import AdminAuditLog
+    from padel_app.services import retention_service
+
+    with app.app_context():
+        db.session.add(_admin_row(_ago(2000), "f5"))
+        db.session.commit()
+    real = retention_service._run_parts
+
+    def failing(parts, apply):
+        if apply:
+            raise retention_service.PartialSweep(0, RuntimeError("db hiccup"))
+        return real(parts, apply)
+
+    monkeypatch.setattr(retention_service, "_run_parts", failing)
+    with app.app_context():
+        report = retention_service.run_retention(now=NOW)
+        assert report["admin_audit_log"]["error"] == "db hiccup"
+        assert not db.session.info.get("retention_sweep")
+        assert AdminAuditLog.query.count() == 1
+
+
+def test_a_failed_batch_keeps_its_images_objects(app, monkeypatch):
+    """Review: a batch that rolls back must not delete the bucket objects its rows still point at."""
+    from padel_app.model import Image
+    from padel_app.models import Conversation, Message, User
+    from padel_app.services import image_cleanup
+
+    freed = []
+    monkeypatch.setattr(image_cleanup, "delete_stored_object", lambda key, **kw: freed.append(key))
+    with app.app_context():
+        a = User(name="A", username="fail-img-a-638p", password="x", status="active")
+        b = User(name="B", username="fail-img-b-638p", password="x", status="active")
+        db.session.add_all([a, b])
+        db.session.flush()
+        conv = Conversation.get_or_insert([a.id, b.id])
+        for n in range(2):
+            img = Image(object_key=f"uploads/fail-{n}.jpg")
+            db.session.add(img)
+            db.session.flush()
+            m = Message(conversation_id=conv.id, sender_id=a.id, text="x", is_deleted=True, attachment_id=img.id)
+            db.session.add(m)
+            db.session.flush()
+            m.updated_at = _ago(40)
+        db.session.commit()
+    _set(app, {"deleted_message_text": {"enabled": True, "days": 30}})
+    app.config["RETENTION_BATCH_SIZE"] = 1
+    real_commit = db.session.commit
+    calls = {"n": 0}
+
+    def commit_fails_on_the_second_batch():
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("commit failed")
+        return real_commit()
+
+    with app.app_context():
+        monkeypatch.setattr(db.session, "commit", commit_fails_on_the_second_batch)
+        from padel_app.services.retention_service import run_retention
+        report = run_retention(now=NOW)["deleted_message_text"]
+
+    assert (report["removed"], report["error"]) == (1, "commit failed")
+    assert freed == ["uploads/fail-0.jpg"]

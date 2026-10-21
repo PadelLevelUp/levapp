@@ -82,6 +82,9 @@ of data, so the Privacy Policy (§11, "Retention and account deletion") states r
    `admin_audit_log` append-only; the retention sweep's batch delete of rows past the period is
    the single sanctioned removal. It runs with the session flag `retention_sweep` set; any other
    ORM delete of an audit row, or bulk update/delete of the table without that flag, is refused.
+   The guard is the ORM's: a Core-table or raw SQL statement is outside it by design (the staging
+   scrub, `delivery.staging-data-sync`, clears the copy's before/after that way); no app code path
+   writes the table like that.
 6. **nginx logs** are rotated on the VM (14 generations, coordinator read 2026-10-12); not this job.
    The Privacy Policy states about 14 days.
 
