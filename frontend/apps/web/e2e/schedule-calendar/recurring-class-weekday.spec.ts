@@ -1,3 +1,4 @@
+import { WEEK_STARTS_ON } from "../../../../packages/config/src/week-start";
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
@@ -19,7 +20,7 @@ import { findClassOnCalendar } from "../helpers/calendar-navigation";
  *
  * The desktop CalendarGrid renders a `grid-cols-[60px_repeat(7,1fr)]` grid:
  * child 0 is the time gutter, then one column per week day. useCalendar uses
- * `weekStartsOn: 1` (Monday), so column index 1 = Monday and 2 = Tuesday. The
+ * `WEEK_STARTS_ON` (Sunday, PAD-682), so Monday and Tuesday are at the indices computed below. The
  * CalendarHeader row (same column layout, no `min-h-full`) labels each column
  * with its weekday abbreviation, which we assert to prove column 2 really is
  * Tuesday.
@@ -52,11 +53,13 @@ test.describe("PAD-59: recurring class materializes on the correct weekday", () 
     const headerCols = page.locator(`${GRID_COLS}:not(.min-h-full) > div`);
     const bodyCols = page.locator(`${GRID_COLS}.min-h-full > div`);
 
-    // Column indices (child 0 = time gutter): 1 = Monday, 2 = Tuesday.
-    const mondayHeader = headerCols.nth(1);
-    const tuesdayHeader = headerCols.nth(2);
-    const mondayCol = bodyCols.nth(1);
-    const tuesdayCol = bodyCols.nth(2);
+    // Column indices (child 0 = time gutter), derived from the week start: getDay() 1 = Monday,
+    // 2 = Tuesday.
+    const colOf = (dayOfWeek: number) => 1 + ((dayOfWeek - WEEK_STARTS_ON + 7) % 7);
+    const mondayHeader = headerCols.nth(colOf(1));
+    const tuesdayHeader = headerCols.nth(colOf(2));
+    const mondayCol = bodyCols.nth(colOf(1));
+    const tuesdayCol = bodyCols.nth(colOf(2));
 
     // Sanity-check the column mapping via the weekday labels (coach locale = en,
     // so the header abbreviations are Mon/Tue/...). This guarantees column 2 is

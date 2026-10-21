@@ -47,8 +47,8 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@levelup/config";
-import { useClassEvaluations } from "@levelup/hooks";
+import { blockedNames, classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@levelup/config";
+import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
 import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
@@ -178,6 +178,10 @@ export function ClassDetailSheet({
   const queryClient = useQueryClient();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
+  // PAD-683 (players.nickname rules 8, 9b): the class detail is a shared payload, so the invitee
+  // list, join requests and their toasts resolve the coach's display name here; a student's view
+  // asks nothing and keeps the real name.
+  const displayName = useCoachDisplayName({ enabled: canManage });
 
   const [classInstance, setClassInstance] = useState<ClassInstance | null>(null);
 
@@ -664,7 +668,7 @@ export function ClassDetailSheet({
       else await rejectClassJoinRequest(id);
       toast({
         title: t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
-          name: req?.playerName ?? "",
+          name: req ? displayName(req.playerId, req.playerName) : "",
         }),
       });
     } catch (err) {
@@ -1798,7 +1802,7 @@ export function ClassDetailSheet({
                     data-testid="class-join-request-row"
                   >
                     <div className="min-w-0">
-                      <span className="text-sm truncate block">{req.playerName}</span>
+                      <span className="text-sm truncate block">{displayName(req.playerId, req.playerName)}</span>
                       {/* PAD-358 (classes.academy-class-booking rule 5): the student's note. */}
                       {req.note && (
                         <p
@@ -1923,7 +1927,7 @@ export function ClassDetailSheet({
                           data-outcome={inv.outcome}
                           className="flex items-center justify-between gap-2 py-1.5"
                         >
-                          <span className="text-sm">{inv.playerName}</span>
+                          <span className="text-sm">{displayName(inv.playerId, inv.playerName)}</span>
                           <div className="flex items-center gap-1.5">
                             <div className="flex flex-col items-end">
                               <span
@@ -2077,6 +2081,7 @@ export function ClassDetailSheet({
                       <Button
                         variant="outline"
                         className="flex-1"
+                        data-testid="class-notify-open"
                         onClick={() => setShowNotifyModal(true)}
                         disabled={isValidating || sendingReminders}
                       >
@@ -2111,7 +2116,7 @@ export function ClassDetailSheet({
                                 title: t("calendar.unavailable.title"),
                                 description: t("calendar.unavailable.blocked", {
                                   count: unavailable.length,
-                                  names: unavailable.map((b) => b.name).filter(Boolean).join(", "),
+                                  names: blockedNames(unavailable, displayName),
                                 }),
                               });
                             }
@@ -2121,7 +2126,7 @@ export function ClassDetailSheet({
                             if (optedOut.length > 0) {
                               toast({
                                 title: t("calendar.notify.blockedByPreference", {
-                                  names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
+                                  names: blockedNames(optedOut, displayName),
                                 }),
                               });
                             }

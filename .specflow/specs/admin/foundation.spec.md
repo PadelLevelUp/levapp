@@ -105,8 +105,10 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
    rule 9) are `POST` routes and so are covered by the same wrapper.
 9. **The audit log is append-only.** `GET /admin/api/audit` (`support`) lists rows newest first,
    filtered by `actorEmail`, `action`, `targetType`, `targetId` and a date range, 50 per page.
-   There is no route that updates or deletes an audit row; the model refuses an update in
-   `before_flush`.
+   There is no route that updates or deletes an audit row; the model refuses an update or a
+   delete in `before_flush`, and a bulk update or delete of the table. The one exception is
+   retention (`admin.data-retention` rule 5, owner decision 2026-10-21 on PAD-638): rows older than
+   the period (5 years by default) are removed by the daily sweep, under its session flag.
 10. **Request ids.** Every `/admin/api/*` response carries `X-Request-Id`. An incoming
     `X-Request-Id` of 8–64 characters from `[A-Za-z0-9-]` is kept; otherwise a new UUID4 is
     generated. The audit row stores the same value, so a log line, a response and an audit row

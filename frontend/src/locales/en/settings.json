@@ -609,8 +609,8 @@
           "date": "The class's date as day/month",
           "type": "The kind of class: academy or private",
           "court": "The class's court (empty when it has none)",
-          "class": "The class's title (\"added to class\" messages only)",
-          "when": "The class's date, weekday and time (\"added to class\" messages only)",
+          "class": "The class's title",
+          "when": "The class's date, weekday and time",
           "side": "The side of the open spot (waiting-list invitation only)"
         }
       }

@@ -127,6 +127,21 @@ def sse_stream_limits(environ=None):
     )
 
 
+def sse_broker(value) -> str:
+    """``SSE_BROKER`` (messaging.sse-realtime rule 20): ``postgres`` or, for anything else, ``memory``."""
+    name = str(value or "").strip().lower()
+    return name if name in ("memory", "postgres") else "memory"
+
+
+def realtime_retention_minutes(value) -> int:
+    """``REALTIME_EVENTS_RETENTION_MINUTES`` (rule 24): a positive int, else the default 10."""
+    try:
+        minutes = int(str(value).strip())
+    except (TypeError, ValueError):
+        return 10
+    return minutes if minutes > 0 else 10
+
+
 def sse_keepalive_seconds(environ=None):
     """Seconds between SSE keep-alive comments (``SSE_KEEPALIVE_SECONDS``,
     default 5). A missing, non-numeric or non-positive value falls back to the
@@ -269,6 +284,12 @@ class Config:
     # messaging.sse-realtime rules 11-12 (PAD-277): SSE stream caps.
     SSE_MAX_STREAMS, SSE_MAX_STREAMS_PER_USER = sse_stream_limits()
     SSE_KEEPALIVE_SECONDS = sse_keepalive_seconds()
+    # messaging.sse-realtime rules 20-24 (PAD-692): `memory` (one process) or `postgres`
+    # (LISTEN/NOTIFY). The prod switch is a PR to the tracked env template, after staging.
+    SSE_BROKER = sse_broker(os.getenv("SSE_BROKER"))
+    REALTIME_EVENTS_RETENTION_MINUTES = realtime_retention_minutes(
+        os.getenv("REALTIME_EVENTS_RETENTION_MINUTES")
+    )
 
     # admin.foundation (PAD-531): the staff console. The Google OAuth client id
     # is public (the browser needs it too) and lives in the tracked env

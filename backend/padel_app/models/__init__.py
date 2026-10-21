@@ -59,3 +59,4 @@ from .app_setting import AppSetting
 from .admin_role import AdminRole
 from .delivery_incident import DeliveryIncident
 from .admin_audit_log import AdminAuditLog
+from .realtime_event import realtime_events
