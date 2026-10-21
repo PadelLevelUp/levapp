@@ -103,15 +103,17 @@ gunicorn's boot path into the leadership thread.
    database's `alembic_version` is classified against the image's migration scripts: **at_head**;
    **behind** (every revision known to the image, not all heads); **ahead** (a revision the
    image does not know); **empty** (no table or no row). Behind or empty: one line with the state
-   and both revision lists (no secrets) and exit 1, before any port is bound. Ahead: one warning
+   and both revision lists (no secrets) and exit 1, before gunicorn listens. (Docker's userland
+   proxy still accepts on the published loopback port while the container lives, so for those
+   seconds a request gets a reset rather than a refusal: B-663, remedy PAD-714.) Ahead: one warning
    line and boot (expand/contract, rule 12, is what makes that safe — the same state the old
    container serves on during every rolling deploy). A connection error is retried for 30 s
    (`SCHEMA_GATE_DB_WAIT`) before exiting, because after a host reboot Docker starts Postgres and
    the API in no particular order. `SCHEMA_GATE=off` skips the check (the only escape hatch);
    the Dockerfile sets `SCHEMA_GATE=on`, every other way of running the app (pytest, Playwright,
    the Android lane, local runs) leaves it off. **On the VM this exit is the gate:** nginx
-   round-robins both ports and fails over only on a refused connection, never on a 503, so a
-   container that bound its port while unready would take requests. **On GKE readiness (rule
+   round-robins both ports and fails over only on a connection error, never on a 503, so a
+   container that served while unready would take requests; the exit ends it in seconds. **On GKE readiness (rule
    11) is the gate**, and the exit makes a stale pod crash-loop visibly until the migrate Job
    has run.
 11. **Readiness and liveness.** `/api/app/livez` answers 200 `{"status": "ok"}` without touching
@@ -199,8 +201,9 @@ gunicorn's boot path into the leadership thread.
 - **Given** a restore of prod's dump into the staging database
 - **When** the sync restarts the app
 - **Then** it first runs `/app/scripts/migrate.sh` in a one-shot container of the staging
-  container's own image, env (a mode-600 env-file from `docker inspect`, removed afterwards) and
-  network, then starts the container and waits on `/healthz`
+  container's own image, env (a mode-600 env-file from `docker inspect`, removed afterwards;
+  variables the image itself sets and multi-line values left out, the latter named in the log)
+  and network, then starts the container and waits on `/healthz`
 
 #### A bad release never takes the old one down (rule 4)
 - **Given** a new container that never answers, or restarts
@@ -222,6 +225,10 @@ gunicorn's boot path into the leadership thread.
 - **Then** no probe answers non-200
 
 ### Notes
+- Image-level proof of rules 9-11 is manual: `backend/scripts/smoke_image_schema_gate.sh <image>`
+  (Docker + a local Postgres; not CI). Run it after any change to the Dockerfile, the entrypoint
+  or the migrate step: the stub tests replace Docker, and the first PAD-691 build gated its own
+  migrate one-shot (ENTRYPOINT runs for it too), which only the real image showed.
 - Memory during the overlap: two prod API containers at the PAD-590 cap (512 MB) for a few seconds;
   a concurrent staging deploy makes four. Accepted.
 - GAP (NORMAL, pre-existing): the shared SSE hub (`packages/api/src/sse.ts`) reconnects with

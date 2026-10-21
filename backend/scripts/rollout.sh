@@ -67,10 +67,12 @@ die() { echo "::error::[rollout] $*"; exit 1; }
 PORT_A="${PORTS%%,*}"; PORT_B="${PORTS##*,}"
 [ -n "$PORT_A" ] && [ -n "$PORT_B" ] && [ "$PORT_A" != "$PORT_B" ] || die "--ports must be two different ports, got '$PORTS'"
 
-# --dry-run prints every docker call (on stderr: callers silence stdout) instead of making it; the read-only ones (port, inspect)
-# still run so the plan is the real one.
+# --dry-run prints every docker call instead of making it, on fd 3 (the script's own stderr, so
+# the callers' `>/dev/null 2>&1` cannot swallow it); the read-only calls (port, inspect) still run
+# so the plan is the real one.
+exec 3>&2
 dk() {
-  if [ "$DRY_RUN" = 1 ]; then echo "[rollout] dry-run: docker $*" >&2; return 0; fi
+  if [ "$DRY_RUN" = 1 ]; then echo "[rollout] dry-run: docker $*" >&3; return 0; fi
   docker "$@"
 }
 
@@ -86,6 +88,12 @@ run_migrate() {
       *) args+=("$a") ;;
     esac
   done
+  # A migrate container from an earlier run whose ssh session dropped may still be migrating:
+  # wait for it rather than kill it mid-way (this run then finds the schema at head).
+  if [ "$(docker inspect -f '{{.State.Running}}' "${NAME}_migrate" 2>/dev/null)" = true ]; then
+    log "a migrate step from an earlier run is still running: waiting for it to finish"
+    dk wait "${NAME}_migrate" >/dev/null 2>&1 || true
+  fi
   dk rm -f "${NAME}_migrate" >/dev/null 2>&1 || true
   log "migrate step: one-shot ${NAME}_migrate of ${RUN_ARGS[${#RUN_ARGS[@]}-1]}"
   dk run --rm --name "${NAME}_migrate" "${args[@]}" /app/scripts/migrate.sh
@@ -127,22 +135,29 @@ elif ! grep -qsE "proxy_pass[[:space:]]+http://${UPSTREAM}[;/]" "$NGINX_SITES_DI
 fi
 log "plan: $([ "$rolling" = 1 ] && echo rolling || echo stop-first), ports $PORT_A/$PORT_B, migrate $([ "$MIGRATE" = 1 ] && echo yes || echo no)"
 
+# Stop-first keeps the old container as <name>_old until the new one is healthy (rule 7).
+had_old=0
+restore_old() {
+  [ "$had_old" = 1 ] || return 0
+  dk rm -f "$NAME" >/dev/null 2>&1 || true
+  dk rename "${NAME}_old" "$NAME" >/dev/null 2>&1 || true
+  if dk start "$NAME" >/dev/null 2>&1; then log "old $NAME started again"
+  else log "WARNING: could not start the old $NAME again"; fi
+}
+
 if [ "$rolling" = 0 ]; then
-  had_old=0
-  docker inspect "$NAME" >/dev/null 2>&1 && had_old=1
-  dk rm -f "${NAME}_next" "${NAME}_old" >/dev/null 2>&1 || true
-  # Rule 7: stop the old container but keep it until the new one is healthy.
-  if [ "$had_old" = 1 ]; then
+  dk rm -f "${NAME}_next" >/dev/null 2>&1 || true
+  if docker inspect "$NAME" >/dev/null 2>&1; then
+    had_old=1
+    dk rm -f "${NAME}_old" >/dev/null 2>&1 || true
     dk stop -t "$STOP_GRACE" "$NAME" >/dev/null 2>&1 || true
     dk rename "$NAME" "${NAME}_old" >/dev/null 2>&1 || true
+  elif docker inspect "${NAME}_old" >/dev/null 2>&1; then
+    # An earlier stop-first run died between the rename and the swap: its <name>_old is the
+    # only release that ever served, so it is the one to restore, never a leftover to delete.
+    had_old=1
+    log "found ${NAME}_old from an interrupted run: keeping it as the old container"
   fi
-  restore_old() {
-    if [ "$had_old" = 1 ]; then
-      dk rm -f "$NAME" >/dev/null 2>&1 || true
-      dk rename "${NAME}_old" "$NAME" >/dev/null 2>&1 || true
-      dk start "$NAME" >/dev/null 2>&1 && log "old $NAME started again" || log "WARNING: could not start the old $NAME again"
-    fi
-  }
   if [ "$MIGRATE" = 1 ] && ! run_migrate; then
     restore_old
     die "migrate step failed (stop-first)"
@@ -156,7 +171,9 @@ if [ "$rolling" = 0 ]; then
     restore_old
     die "$NAME is not healthy"
   fi
-  [ "$had_old" = 1 ] && { dk rm "${NAME}_old" >/dev/null 2>&1 || log "WARNING: could not remove ${NAME}_old"; }
+  if [ "$had_old" = 1 ]; then
+    dk rm "${NAME}_old" >/dev/null 2>&1 || log "WARNING: could not remove ${NAME}_old"
+  fi
   log "done (stop-first) on 127.0.0.1:$PORT_A"
   exit 0
 fi

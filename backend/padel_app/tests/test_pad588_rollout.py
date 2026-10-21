@@ -40,7 +40,8 @@ case "$1" in
     echo "cid-$name" ;;
   port) [ -e "$C/$2" ] && echo "127.0.0.1:$(cat "$C/$2")" || exit 1 ;;
   inspect)
-    if [ "$2" = "-f" ]; then n="$4"; [ -e "$C/$n" ] || exit 1; cat "$C/$n.restarts" 2>/dev/null || echo 0
+    if [ "$2" = "-f" ] && [ "$3" = "{{.State.Running}}" ]; then n="$4"; [ -e "$C/$n.running" ] && echo true || exit 1
+    elif [ "$2" = "-f" ]; then n="$4"; [ -e "$C/$n" ] || exit 1; cat "$C/$n.restarts" 2>/dev/null || echo 0
     else [ -e "$C/$2" ] || exit 1; fi ;;
   stop) n="${@: -1}"; [ -e "$C/$n" ] || exit 1; p="$(cat "$C/$n")"; grep -vx "$p" "$STUB_HOME/healthy" > "$STUB_HOME/h.tmp" 2>/dev/null; mv "$STUB_HOME/h.tmp" "$STUB_HOME/healthy" ;;
   rm)
@@ -51,6 +52,7 @@ case "$1" in
   start) n="$2"; [ -e "$C/$n" ] || exit 1; cat "$C/$n" >> "$STUB_HOME/healthy" ;;
   rename) [ -e "$C/$2" ] || exit 1; [ -e "$C/$3" ] && exit 1; mv "$C/$2" "$C/$3" ;;
   logs) echo "log of ${@: -1}" ;;
+  wait) rm -f "$C/$2.running"; echo 0 ;;
   *) echo "unexpected docker $*" >&2; exit 2 ;;
 esac
 """
@@ -291,6 +293,39 @@ def test_a_dry_run_prints_the_plan_and_changes_nothing(sb):
     mutating = ("docker run", "docker stop", "docker rm", "docker rename", "docker start")
     assert not any(c.startswith(mutating) for c in calls), calls
     assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_a_stop_first_dry_run_shows_every_step(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--stop-first", "--migrate", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for step in ("docker stop -t 10 padelapp", "docker rename padelapp padelapp_old",
+                 "docker run --rm --name padelapp_migrate", "docker run -d --name padelapp -p",
+                 "docker rm padelapp_old"):
+        assert f"dry-run: {step}" in r.stderr, step
+    assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_an_interrupted_stop_first_leaves_old_which_is_kept_and_restored(sb):
+    """Review signal: a run killed after the rename leaves only <name>_old; the next run must
+    treat it as the old release, not delete it."""
+    (sb["home"] / "containers" / "padelapp_old").write_text("5000\n")
+    r, calls = run(sb, "--stop-first", "--migrate", STUB_MIGRATE_EXIT="1")
+    assert r.returncode == 1
+    assert "found padelapp_old from an interrupted run" in r.stdout
+    assert "docker rm -f padelapp_old" not in calls
+    assert "docker start padelapp" in calls
+    assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_a_migrate_still_running_from_an_earlier_run_is_waited_for_not_killed(sb):
+    live(sb, "padelapp", 5000)
+    (sb["home"] / "containers" / "padelapp_migrate").write_text("\n")
+    (sb["home"] / "containers" / "padelapp_migrate.running").write_text("")
+    r, calls = run(sb, "--migrate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "still running: waiting" in r.stdout
+    assert index(calls, "docker wait padelapp_migrate") < index(calls, "docker rm -f padelapp_migrate")
 
 
 WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"

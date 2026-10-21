@@ -120,6 +120,29 @@ fi
 # by the same migrate step the deploy runs, in a one-shot container of the staging app's own
 # image, env and network (read from `docker inspect`, so nothing here can drift from the
 # container). The env goes through a mode-600 file, never `-e` on the command line (`ps`).
+# An env-file holds one KEY=VALUE per line, so a multi-line value (a PEM key) is left out and
+# named in the log (the migration needs the database settings, not those); variables the image
+# itself sets are left out too, so the image's own ENV (PATH, Python, SCHEMA_GATE) applies.
+write_migrate_env() {
+  python3 - "$APP_CONTAINER" "$1" "$2" <<'PYEOF'
+import json, subprocess, sys
+container, image, out = sys.argv[1:]
+def env_of(*cmd):
+    return json.loads(subprocess.check_output(["docker", *cmd, "-f", "{{json .Config.Env}}"]) or b"null") or []
+image_env = set(env_of("image", "inspect", image))
+skipped = []
+with open(out, "w") as f:
+    for kv in env_of("inspect", container):
+        if kv in image_env:
+            continue
+        if "\n" in kv or "\r" in kv:
+            skipped.append(kv.split("=", 1)[0])
+            continue
+        f.write(kv + "\n")
+if skipped:
+    print("[sync-staging-db] not passed to the migrate step (multi-line): " + ", ".join(skipped))
+PYEOF
+}
 migrate_restored() {
   local image network envfile rc
   image=$(docker inspect -f '{{.Config.Image}}' "$APP_CONTAINER" 2>/dev/null)
@@ -129,7 +152,9 @@ migrate_restored() {
     network=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$APP_CONTAINER" 2>/dev/null | awk '{print $1}') ;;
   esac
   envfile=$(umask 077 && mktemp) || { log "WARNING: mktemp failed: not migrating"; return 1; }
-  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$APP_CONTAINER" > "$envfile" 2>/dev/null
+  if ! write_migrate_env "$image" "$envfile"; then
+    rm -f "$envfile"; log "WARNING: could not read $APP_CONTAINER's env: not migrating"; return 1
+  fi
   log "migrate step: one-shot ${APP_CONTAINER}_migrate of $image${network:+ on $network}"
   docker rm -f "${APP_CONTAINER}_migrate" >/dev/null 2>&1 || true
   docker run --rm --name "${APP_CONTAINER}_migrate" ${network:+--network "$network"} \

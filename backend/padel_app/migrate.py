@@ -64,8 +64,9 @@ def run_upgrade():
 
 def migrate(engine, *, lock_timeout, upgrade=run_upgrade, acquire=acquire_lock):
     t0 = time.monotonic()
+    is_pg = engine.dialect.name == "postgresql"  # SQLite (tests) has no advisory locks
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock_conn:
-        if engine.dialect.name == "postgresql":
+        if is_pg:
             if not acquire(lock_conn, lock_timeout):
                 log(f"gave up waiting for the migrate lock after {lock_timeout:.0f}s")
                 return LOCK_TIMEOUT_EXIT
@@ -94,8 +95,11 @@ def migrate(engine, *, lock_timeout, upgrade=run_upgrade, acquire=acquire_lock):
             log(f"done: {ss.describe(state, db_revs, heads)} ({time.monotonic() - t0:.1f}s in all)")
             return 0
         finally:
-            if engine.dialect.name == "postgresql":
-                lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": MIGRATE_LOCK_KEY})
+            if is_pg:
+                try:
+                    lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": MIGRATE_LOCK_KEY})
+                except Exception as exc:  # never mask the real outcome; the lock dies with the session
+                    log(f"could not release the migrate lock ({type(exc).__name__}); it goes with the connection")
 
 
 def main(environ=None):

@@ -7,9 +7,7 @@ set -e
 # otherwise send it requests. SCHEMA_GATE=off skips the check. The migrate step itself runs
 # through this entrypoint (`docker run <image> /app/scripts/migrate.sh`) and is the one command
 # the gate must let through: its job is the schema the gate would refuse.
-case "$1" in
-  /app/scripts/migrate.sh|scripts/migrate.sh|./scripts/migrate.sh) exec "$@" ;;
-esac
+if [ "$1" = /app/scripts/migrate.sh ]; then exec "$@"; fi
 python -m padel_app.schema_state --require not_behind
 
 echo "Starting app..."

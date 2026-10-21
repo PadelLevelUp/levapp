@@ -341,12 +341,12 @@ def test_the_migrate_step_is_the_one_command_the_gate_lets_through(tmp_path):
     )
     entry = tmp_path / "entrypoint.sh"
     entry.write_text(script)
-    for cmd in ("/app/scripts/migrate.sh", "scripts/migrate.sh"):
-        r = subprocess.run(["sh", str(entry), cmd], capture_output=True, text=True, cwd=tmp_path,
-                           env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"})
-        assert "GATE-RAN" not in r.stdout, cmd
-    r = subprocess.run(["sh", str(entry), "gunicorn"], capture_output=True, text=True)
-    assert "GATE-RAN" in r.stdout and r.returncode == 1
+    env = {**os.environ}
+    r = subprocess.run(["sh", str(entry), "/app/scripts/migrate.sh"], capture_output=True, text=True, env=env)
+    assert "GATE-RAN" not in r.stdout
+    for cmd in ("gunicorn", "scripts/migrate.sh"):  # only the image's absolute path bypasses the gate
+        r = subprocess.run(["sh", str(entry), cmd], capture_output=True, text=True, env=env)
+        assert "GATE-RAN" in r.stdout and r.returncode == 1, cmd
 
 
 def test_the_entrypoint_refuses_a_stale_database_end_to_end(tmp_path):

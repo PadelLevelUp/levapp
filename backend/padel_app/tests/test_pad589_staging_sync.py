@@ -19,11 +19,14 @@ WORKFLOW = BACKEND.parent / ".github" / "workflows" / "deploy-staging.yaml"
 DOCKER_STUB = r"""#!/usr/bin/env bash
 echo "docker $*" >> "$STUB_HOME/calls.log"
 case "$1" in
+  image)
+    # the image's own ENV (PAD-691: left out of the migrate env-file)
+    echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on"]'; exit 0 ;;
   inspect)
     case "$*" in
       *Config.Image*) echo "repo/levelup_backend:staging" ;;
       *HostConfig.NetworkMode*) echo "levelup_net" ;;
-      *Config.Env*) printf 'POSTGRES_DB=padel_app_staging\nSCHEMA_GATE=on\n' ;;
+      *"json .Config.Env"*) echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on", "POSTGRES_DB=padel_app_staging", "VAPID_PRIVATE_KEY=-----BEGIN KEY-----\nabc\n-----END KEY-----", "MAIL_PASSWORD=a=b c"]' ;;
     esac
     exit 0 ;;
   stop|start) exit 0 ;;
@@ -137,7 +140,9 @@ def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     assert call.endswith("repo/levelup_backend:staging /app/scripts/migrate.sh")
     assert " -e " not in call, "secrets never go on the command line"
     home = sandbox["home"]
-    assert (home / "migrate.env").read_text() == "POSTGRES_DB=padel_app_staging\nSCHEMA_GATE=on\n"
+    # the image's own ENV is left out, a multi-line value is left out and named, '=' and spaces pass
+    assert (home / "migrate.env").read_text() == "POSTGRES_DB=padel_app_staging\nMAIL_PASSWORD=a=b c\n"
+    assert "not passed to the migrate step (multi-line): VAPID_PRIVATE_KEY" in result.stdout
     assert (home / "migrate.env.mode").read_text().startswith("-rw-------")
     assert not Path((home / "migrate.env.path").read_text().strip()).exists(), "the env-file is removed"
 

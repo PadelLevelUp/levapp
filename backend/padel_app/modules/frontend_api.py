@@ -192,13 +192,13 @@ SCHEMA_READING_TTL = 10.0
 def _cached_schema_state():
     """The schema state, read at most every SCHEMA_READING_TTL seconds (PAD-696)."""
     import time as _time
-    from padel_app.schema_state import schema_state
+    from padel_app import schema_state as _ss
     from padel_app.sql_db import db
 
     now = _time.monotonic()
     if _schema_reading["at"] is None or now - _schema_reading["at"] >= SCHEMA_READING_TTL:
         with db.engine.connect() as connection:
-            _schema_reading["value"] = schema_state(connection)[0]
+            _schema_reading["value"] = _ss.schema_state(connection)[0]
         _schema_reading["at"] = now
     return _schema_reading["value"]
 
