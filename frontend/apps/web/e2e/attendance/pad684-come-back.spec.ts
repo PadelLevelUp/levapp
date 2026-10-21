@@ -8,9 +8,9 @@
  * Cleanup per R-040: the class (by title) and the join request this spec created.
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, STUDENT2_PASSWORD, STUDENT2_USERNAME, loginAsStudent } from "../helpers/auth";
+import { COACH_PASSWORD, COACH_USERNAME, STUDENT_PASSWORD, STUDENT_USERNAME, loginAsStudent } from "../helpers/auth";
 import { API_ROOT } from "../helpers/api";
-import { deleteClassJoinRequests, removeClassesOnDay } from "../helpers/cleanup";
+import { removeClassesOnDay } from "../helpers/cleanup";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 
@@ -52,7 +52,8 @@ async function createClassWithStudent(
   request: APIRequestContext,
   coachAuth: Record<string, string>,
   title: string,
-  day: string
+  day: string,
+  extraName?: string
 ) {
   const rosterRes = await request.get(`${API_ROOT}/app/coach_players`, { headers: coachAuth });
   expect(rosterRes.ok()).toBeTruthy();
@@ -60,11 +61,14 @@ async function createClassWithStudent(
   const roster = (body.items ?? body) as Array<{ playerId: number; name: string }>;
   const student = roster.find((p) => p.name === "E2E Student");
   expect(student, "the seeded student is on the roster").toBeTruthy();
+  const extra = extraName ? roster.find((p) => p.name === extraName) : undefined;
+  if (extraName) expect(extra, `${extraName} is on the roster`).toBeTruthy();
   const add = await request.post(`${API_ROOT}/app/add_class`, {
     headers: coachAuth,
     data: {
-      name: title, classType: "academy", maxPlayers: 1, date: day, startTime: "19:00", endTime: "20:00",
-      isRecurring: false, notificationsEnabled: false, playerIds: [student!.playerId],
+      name: title, classType: "academy", maxPlayers: extra ? 2 : 1, date: day, startTime: "19:00", endTime: "20:00",
+      isRecurring: false, notificationsEnabled: false,
+      playerIds: extra ? [student!.playerId, extra.playerId] : [student!.playerId],
     },
   });
   expect(add.ok(), `add_class: ${add.status()} ${await add.text()}`).toBeTruthy();
@@ -121,26 +125,17 @@ test("US-PAD-684: with no spot left, the student sees it and joins the occurrenc
   test.setTimeout(180_000);
   const coachAuth = await bearer(request, COACH_USERNAME, COACH_PASSWORD);
   const studentAuth = await bearer(request, STUDENT_USERNAME, STUDENT_PASSWORD);
-  const student2Auth = await bearer(request, STUDENT2_USERNAME, STUDENT2_PASSWORD);
   const day = isoDaysAhead(DAYS_AHEAD);
-  const joinRequestIds: Array<string | number> = [];
   try {
-    const event = await createClassWithStudent(request, coachAuth, TITLE_FULL, day);
+    // Two places, two students; E2E Student says "Não vou" and the coach then takes the class down
+    // to one place, so the one left holds it and there is no spot to come back to.
+    const event = await createClassWithStudent(request, coachAuth, TITLE_FULL, day, "Filler Player 02");
     await sayNoByApi(request, studentAuth, event);
-
-    // Another student takes the freed place: a join request, accepted by the coach (PAD-131).
-    const asked = await request.post(`${API_ROOT}/app/class-join-requests`, {
-      headers: student2Auth,
-      data: { model: event.model, originalId: event.originalId, date: event.date },
-    });
-    expect(asked.status(), await asked.text()).toBe(201);
-    const requestId = (await asked.json()).id;
-    joinRequestIds.push(requestId);
-    const accepted = await request.post(`${API_ROOT}/app/class-join-requests/${requestId}/accept`, {
+    const shrunk = await request.post(`${API_ROOT}/app/edit_class`, {
       headers: coachAuth,
-      data: { confirm: true },
+      data: { event: { model: event.model, originalId: event.originalId, date: event.date }, scope: "single", updates: { maxPlayers: 1 } },
     });
-    expect(accepted.ok(), `accept: ${accepted.status()} ${await accepted.text()}`).toBeTruthy();
+    expect(shrunk.ok(), `edit_class: ${shrunk.status()} ${await shrunk.text()}`).toBeTruthy();
 
     await loginAsStudent(page);
     await openClassDetail(page, TITLE_FULL);
@@ -159,6 +154,5 @@ test("US-PAD-684: with no spot left, the student sees it and joins the occurrenc
     await expect(page.getByTestId("attendance-come-back-waiting-list")).toHaveCount(0);
   } finally {
     await removeClassesOnDay(request, coachAuth, day, (e) => e.title === TITLE_FULL);
-    await deleteClassJoinRequests(request, coachAuth, joinRequestIds);
   }
 });
