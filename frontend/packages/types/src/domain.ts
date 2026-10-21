@@ -80,6 +80,11 @@ export interface User {
   avatarUrl?: string;
   abbreviation: string;
   isActive?: boolean;
+  /**
+   * PAD-683 (players.nickname rule 9b): only on a COACH viewer's rows of the messageable list, for
+   * a student on their roster, so the picker names them through `useCoachDisplayName`. Never a nickname.
+   */
+  playerId?: number;
 }
 
 /** Entry in the blocked-users list (GET /app/blocked-users). */
@@ -342,7 +347,7 @@ export interface CoachPlayer {
    * same normalised name — the account this record is probably a duplicate of. `null` or
    * absent otherwise; never on a non-claimable row.
    */
-  possibleDuplicateOf?: { playerId: string | number; name: string } | null,
+  possibleDuplicateOf?: { playerId: string | number; name: string; displayName?: string } | null,
   /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
@@ -991,7 +996,15 @@ export interface DashboardNextClassBlock {
     filled: number;
     capacity: number;
     /** Signed-up players for the avatar stack, already capped by the server. */
-    players: Array<{ id: number; name: string; initials: string }>;
+    players: Array<{
+      id: number;
+      name: string;
+      initials: string;
+      /** PAD-683 (rule 9a): coach dashboard only; `initials` is then of the display name. */
+      nickname?: string | null;
+      nicknameAsName?: boolean;
+      displayName?: string;
+    }>;
     href: string;
     /**
      * PAD-202 (student only): the materialised instance behind the class, or
@@ -1025,6 +1038,11 @@ export interface DashboardNeedsYouReply {
   kind: "reply";
   id: string;
   personName: string;
+  /** PAD-683 (rule 9a): the coach's name for a sender who is their student (coach dashboard only). */
+  playerId?: number;
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   initials: string;
   preview: string;
   href: string;
@@ -1505,6 +1523,10 @@ export type InviteSimulationPriority =
 export interface InviteSimulationCandidate {
   playerId: string;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   levelCode: string | null;
   levelId: string | null;
   side: PlayerSide | null;
@@ -1534,6 +1556,10 @@ export interface InviteSimulationRound {
 export interface InviteSimulationWaitingListEntry {
   playerId: string;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   standing: boolean;
   /** naive-UTC ISO instant the student joined the list (a standing entry's creation time) */
   joinedAt: string | null;
@@ -1573,6 +1599,10 @@ export type InviteExplainStage =
 export interface InviteExplain {
   playerId: string;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   stage: InviteExplainStage;
   details: {
     roundNumber?: number;
@@ -1799,6 +1829,10 @@ export interface AbsenceHistory extends Omit<AttendanceHistory, "sessions"> {
 export interface PresencePlayerStats {
   playerId: number;
   name: string;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   /** Classes attended (`status === "present"`). Equals private + academy. */
   total: number;
   private: number;
@@ -1849,6 +1883,10 @@ export interface PendingValidationPlayer {
   presenceId: number;
   playerId: number;
   name: string;
+  /** PAD-683 (rule 9a): the asking coach's nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   /**
    * PAD-313 (`attendance.validation` rule 20): the ONE state this row is in,
    * the same field and the same computation the class-detail presence carries,
@@ -1985,7 +2023,16 @@ export interface DashboardIncompletePlayersBlock {
     count: number;
     missingLevel: number;
     missingSide: number;
-    players: { playerId: number; name: string; missing: ProfileMissing[]; href: string }[];
+    players: {
+      playerId: number;
+      name: string;
+      /** PAD-683 (rule 9a): the coach's own nickname keys; `name` stays real. */
+      nickname?: string | null;
+      nicknameAsName?: boolean;
+      displayName?: string;
+      missing: ProfileMissing[];
+      href: string;
+    }[];
     seeAllHref: string;
   };
 }

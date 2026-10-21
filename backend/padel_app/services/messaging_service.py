@@ -257,6 +257,30 @@ def get_messageable_users_service(user):
     )
 
 
+def roster_player_ids_for_coach(user, users):
+    """PAD-683 (players.nickname rule 9b): ``{user_id: player_id}`` for the people in ``users`` who
+    are on the requesting COACH's roster; empty for any other viewer. The messageable list is
+    shared with students, so the nickname is never put on it: the coach's picker asks
+    ``useCoachDisplayName`` with this player id instead. A player id is already known to the coach
+    (it is on every roster row), so it adds nothing a student could read.
+    """
+    coach = getattr(user, "coach", None)
+    if coach is None or not users:
+        return {}
+    from padel_app.models import Association_CoachPlayer, Player
+
+    rows = (
+        db.session.query(Player.user_id, Player.id)
+        .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
+        .filter(
+            Association_CoachPlayer.coach_id == coach.id,
+            Player.user_id.in_([u.id for u in users]),
+        )
+        .all()
+    )
+    return {user_id: player_id for user_id, player_id in rows}
+
+
 def report_message_service(reporter_id, message_id, reason=None):
     """Report a message. Only participants of that message's conversation may report it."""
     message = Message.query.get_or_404(message_id)

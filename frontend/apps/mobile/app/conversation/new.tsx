@@ -1,6 +1,6 @@
 import { messagesApi } from "@levelup/api";
-import { lightTheme, searchPeopleByName } from "@levelup/config";
-import { useConversations } from "@levelup/hooks";
+import { lightTheme, rosterNicknameOf, searchPeopleByName } from "@levelup/config";
+import { useCoachDisplayName, useConversations } from "@levelup/hooks";
 import type { User } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, Stack } from "expo-router";
@@ -93,19 +93,31 @@ export default function NewConversationScreen() {
   // state (players.join-token rule 8). Coaches never see it.
   const offersConnect = !(me?.roles?.includes("coach") ?? false);
 
+  // PAD-683 (players.nickname rule 9b): the list is shared with students, so a COACH names a
+  // student through their own roster (by the row's player id); a student's view never asks.
+  const displayName = useCoachDisplayName({ enabled: !offersConnect });
+  const labelOf = React.useCallback(
+    (u: User) => (offersConnect ? u.name : displayName(u.playerId, u.name)),
+    [offersConnect, displayName]
+  );
+
   const connected = React.useMemo(
     () =>
       (users ?? [])
         .filter((u) => String(u.id) !== String(me?.id))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [users, me?.id]
+        .sort((a, b) => labelOf(a).localeCompare(labelOf(b))),
+    [users, me?.id, labelOf]
   );
   const term = search.trim().toLowerCase();
   const candidates = React.useMemo(
     // PAD-665 (players.search rule 8): a coach's picker uses the shared name rule, best match
     // first; a student keeps the plain substring match.
-    () => searchPeopleByName(connected, term, (u) => u.name, { coach: !offersConnect }),
-    [connected, term, offersConnect]
+    () =>
+      searchPeopleByName(connected, term, (u) => u.name, {
+        coach: !offersConnect,
+        nicknameOf: (u) => rosterNicknameOf({ name: u.name, displayName: labelOf(u) }),
+      }),
+    [connected, term, offersConnect, labelOf]
   );
 
   const handlePick = async (picked: User) => {
@@ -270,20 +282,20 @@ export default function NewConversationScreen() {
         renderItem={({ item }) => (
           <Pressable
             testID={`user-item-${item.id}`}
-            accessibilityLabel={t("messages.startConversationWithAria", { name: item.name })}
+            accessibilityLabel={t("messages.startConversationWithAria", { name: labelOf(item) })}
             role="button"
             disabled={!!creatingId}
             onPress={() => void handlePick(item)}
             className="flex-row items-center gap-3 border-b border-border bg-card px-4 py-3 active:bg-accent"
           >
-            <Avatar alt={item.name}>
+            <Avatar alt={labelOf(item)}>
               {item.avatarUrl ? <AvatarImage source={{ uri: item.avatarUrl }} /> : null}
               <AvatarFallback>
-                <Text>{item.abbreviation || initialsOf(item.name)}</Text>
+                <Text>{item.abbreviation || initialsOf(labelOf(item))}</Text>
               </AvatarFallback>
             </Avatar>
             <View className="flex-1">
-              <Text className="text-base text-foreground">{item.name}</Text>
+              <Text className="text-base text-foreground">{labelOf(item)}</Text>
               {/* PAD-227: the picker carries the public shape — the username, never the email. */}
               {item.username ? (
                 <Text className="text-xs text-muted-foreground" numberOfLines={1}>

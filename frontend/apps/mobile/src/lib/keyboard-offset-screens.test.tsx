@@ -27,6 +27,7 @@ vi.mock("@levelup/api", () => ({ messagesApi: { createConversation: vi.fn() } })
 vi.mock("@levelup/hooks", () => ({
   queryKeys: { classRequestCoaches: ["class-request-coaches"] },
   useConversations: () => ({ data: undefined }),
+  useCoachDisplayName: () => (_id: unknown, name: string) => name,
 }));
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ user: { id: 1 } }) }));
 vi.mock("@/features/messages/hooks", () => ({

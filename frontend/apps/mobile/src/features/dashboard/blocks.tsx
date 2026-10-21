@@ -684,7 +684,7 @@ function QueueItem({ item }: { item: DashboardNeedsYouItem }) {
           </View>
           <View className="flex-1">
             <Text className="text-[15px] font-sans-bold text-foreground">
-              {t("dashboard.needsYou.reply.title", { name: it.personName })}
+              {t("dashboard.needsYou.reply.title", { name: it.displayName ?? it.personName })}
             </Text>
             <Text numberOfLines={1} className="text-[13px] text-muted-foreground">
               {it.preview}

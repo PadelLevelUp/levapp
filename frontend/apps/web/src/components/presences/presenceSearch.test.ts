@@ -20,3 +20,14 @@ describe("searchPresencePlayers (players.search, PAD-665)", () => {
     expect(searchPresencePlayers([row(1, "Ana")], "bruno")).toEqual([]);
   });
 });
+
+describe("searchPresencePlayers: the nickname (PAD-683, players.nickname rule 5)", () => {
+  it("finds a student by the coach's nickname and by the real name", () => {
+    const rows = [
+      { playerId: 1, name: "Rui Pedro Basto", nickname: "Tigre", displayName: "Tigre" },
+      { playerId: 2, name: "Ana Rita" },
+    ];
+    expect(searchPresencePlayers(rows, "tigre").map((r) => r.playerId)).toEqual([1]);
+    expect(searchPresencePlayers(rows, "rui basto").map((r) => r.playerId)).toEqual([1]);
+  });
+});
