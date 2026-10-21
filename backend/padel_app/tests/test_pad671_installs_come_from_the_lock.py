@@ -30,6 +30,8 @@ PIP_INSTALL = re.compile(r"(?:^|[\s/])(?:python[\d.]*\s+-m\s+)?(?:uv\s+)?pip3?\s
 # copy), or a path ending in `backend`, with optional extras.
 BACKEND_TOKEN = re.compile(r"^(?:\.|(?:\.{1,2}/)?(?:[\w.-]+/)*backend/?)(?:\[[^\]]*\])?$")
 HASHED_EXPORT = re.compile(r"--require-hashes\s+-r\s+\S*requirements(?:-dev)?\.txt")
+# pip 23.0.1 (the runners' and a fresh venv's) reads a hashed requirement with extras as unpinned.
+PINNED_PIP = re.compile(r"pip install\b[^\n]*\spip==\d+\.\d+(?:\.\d+)?")
 
 
 def _statements(path):
@@ -140,8 +142,11 @@ def test_each_install_site_installs_the_hashed_lock_export_first():
         for number in sites:
             # Between the previous backend install (or the file's start) and this one: each
             # site needs its own hashed install, not one borrowed from another job.
-            if not HASHED_EXPORT.search("\n".join(lines[previous:number])):
+            window = "\n".join(lines[previous:number])
+            if not HASHED_EXPORT.search(window):
                 missing.append(f"{path.relative_to(ROOT)}:{number}")
+            elif not PINNED_PIP.search(window):
+                missing.append(f"{path.relative_to(ROOT)}:{number} (pip not pinned)")
             previous = number
     assert missing == []
 

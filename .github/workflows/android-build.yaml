@@ -230,6 +230,8 @@ jobs:
         run: |
           python -m venv backend/.venv
           # PAD-671: the hashed lock export, then the package with --no-deps.
+          # pip pinned: a fresh venv's 23.0.1 refuses hashed requirements with extras.
+          backend/.venv/bin/python -m pip install --quiet pip==25.1.1
           backend/.venv/bin/pip install --quiet --require-hashes -r backend/requirements.txt
           backend/.venv/bin/pip install --quiet --no-deps ./backend
 

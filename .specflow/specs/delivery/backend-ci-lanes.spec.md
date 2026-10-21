@@ -35,6 +35,9 @@ another hour, and a test that no lane runs is a test nobody runs.
    - Each one installs `backend/requirements.txt` (main) or `backend/requirements-dev.txt`
      (main + dev, for the test lanes) with `--require-hashes`, then the package itself with
      `--no-deps`. An upstream release cannot change what CI tests or what a deploy image holds.
+   - Each site first pins pip itself (`pip==25.1.1`). The runners' and a fresh venv's pip 23.0.1
+     reads a hashed requirement that another package asks for with extras (`google-api-core[grpc]`)
+     as unpinned, and refuses the whole install. pip 23.3 and later accept it.
    - Both files are `poetry export` output, with hashes. Regenerate them whenever `poetry.lock`
      changes:
      `poetry export -f requirements.txt --only main -o requirements.txt` and
