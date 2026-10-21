@@ -368,6 +368,9 @@ executionOrder:
     # 290 (PAD-551, classes.instance-enrollment rule 13): books, sets and clears a side, and removes
     # its own class through the API, so its position is not load bearing.
     - 290-side-per-occurrence
+    # 297 (PAD-677, classes.join-requests rule 18): adds and removes its own class through the API,
+    # as flow 112 does, so its position is not load bearing.
+    - 297-join-request-buttons-width
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
