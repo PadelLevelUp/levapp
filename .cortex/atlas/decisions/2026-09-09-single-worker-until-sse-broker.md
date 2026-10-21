@@ -9,6 +9,10 @@ sources: []
 
 # Production stays on one gunicorn worker until SSE has a shared broker
 
+> **Superseded in part by [2026-10-21 GKE readiness](2026-10-21-gke-readiness.md)** (PAD-694): the
+> broker is Postgres LISTEN/NOTIFY (PAD-692), not Redis pub/sub. One worker per container stays
+> until R-027's exit condition is met.
+
 The messaging and notification live updates ride on an in-memory, per-process SSE registry
 (`padel_app/realtime.py`, PAD-206 made it per-user). Audit item M19 flagged the consequence:
 a second gunicorn worker cannot see the first worker's connections, so live events would
