@@ -5,6 +5,7 @@ implemented_by:
   - ../../specs/delivery/pr-e2e-subset.spec.md
   - ../../specs/delivery/ci-images.spec.md
   - ../../specs/delivery/backend-ci-lanes.spec.md
+  - ../../specs/delivery/android-nightly-lane.spec.md
 ---
 
 # The owner sees a broken screen on its change, not at the release

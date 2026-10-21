@@ -530,7 +530,7 @@
       "withdrawn": "Pedido retirado",
       "rejected": "O treinador não aceitou o teu pedido",
       "superseded": "A vaga foi ocupada antes de o treinador decidir",
-      "accepted": "O teu pedido foi aceite",
+      "accepted": "Está marcado! Estás inscrito/a nesta aula.",
       "failed": "Não foi possível enviar o pedido",
       "refusal": {
         "already_enrolled": "Já estás nesta aula",

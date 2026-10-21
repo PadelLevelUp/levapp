@@ -45,8 +45,9 @@ Not yet measured.
 
 ## Out of Scope
 
-Until the second part ships, these coach views keep the real name: class requests, waiting lists,
-the semi-automatic approval card, evaluations, and the attendance and presences lists.
+Nothing the student, or another coach, can read: the shared coach–student conversation, messages,
+templates and notifications sent to the student keep the real name. Every view and notification
+that only the coach sees uses the nickname while the switch is on, with no exception (PAD-683).
 
 ## Notes
 

@@ -108,7 +108,7 @@ export function PlayerSelector({
           color={isSelected ? lightTheme.primary : lightTheme.mutedForeground}
         />
         <View className="h-8 w-8 items-center justify-center rounded-full bg-muted">
-          <Text className="text-xs font-medium">{initialsOf(player.name)}</Text>
+          <Text className="text-xs font-medium">{initialsOf(player.displayName || player.name)}</Text>
         </View>
         <View className="min-w-0 flex-1 flex-row items-center gap-2">
           <Text className="flex-shrink text-sm" numberOfLines={1}>

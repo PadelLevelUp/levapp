@@ -177,15 +177,23 @@ def _vacancy_payload(vacancy, queue: list[dict], wl_player_id, instance, coach_i
     return payload
 
 
-def _build_prompt_text(vacancies_payload: list[dict]) -> str:
+def _build_prompt_text(vacancies_payload: list[dict], coach_user_id: int | None = None) -> str:
+    """The prompt text. PAD-683 (players.nickname rule 9c): it lives in the coach's private
+    Assistant conversation and is pushed to the coach alone, so a student is named by the coach's
+    display name; the payload's ``declinedPlayerName`` stays the real name (the client resolves it)."""
+    from padel_app.services.player_service import coach_display_name
+
     parts = []
     for v in vacancies_payload:
-        queue_names = ", ".join(e["name"] for e in v.get("queue", []))
+        queue_names = ", ".join(e.get("displayName") or e["name"] for e in v.get("queue", []))
         # PAD-574 (rule 4): a never-filled spot is not a decline.
         if v.get("openSpot"):
             part = "Open spot."
         else:
-            part = f"Spot freed by {v.get('declinedPlayerName') or 'a player'}."
+            declined = coach_display_name(
+                coach_user_id, v.get("declinedPlayerId"), v.get("declinedPlayerName")
+            )
+            part = f"Spot freed by {declined or 'a player'}."
         if queue_names:
             part += f" Invite queue: {queue_names}."
         else:
@@ -290,7 +298,7 @@ def _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_p
 
     if coach_user_id:
         conv, assistant = _get_or_create_assistant_conversation(coach_user_id)
-        text = _build_prompt_text(vacancies_payload)
+        text = _build_prompt_text(vacancies_payload, coach_user_id)
         msg = Message(
             text=text,
             sender_id=assistant.id,

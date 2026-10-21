@@ -607,8 +607,8 @@
           "date": "A data da aula em dia/mês",
           "type": "O tipo de aula: academia ou privada",
           "court": "O campo da aula (vazio quando não tem)",
-          "class": "O título da aula (só nas mensagens de \"adicionado à aula\")",
-          "when": "A data, o dia da semana e a hora da aula (só nas mensagens de \"adicionado à aula\")",
+          "class": "O título da aula",
+          "when": "A data, o dia da semana e a hora da aula",
           "side": "O lado da vaga (só no convite da lista de espera)"
         }
       }

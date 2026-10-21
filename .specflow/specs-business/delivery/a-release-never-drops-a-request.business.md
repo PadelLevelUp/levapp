@@ -34,6 +34,9 @@ the day without choosing a quiet minute.
 2. Only one running version sends scheduled reminders at any moment.
 3. A database change that the previous version cannot work with is released with a short,
    announced stop instead (chosen by hand).
+4. A slow database change does not take the app down: the change runs while the current version
+   keeps serving, and a version whose database has not been brought up to date never starts
+   taking requests (PAD-691, PAD-696).
 
 ## Success Metrics
 

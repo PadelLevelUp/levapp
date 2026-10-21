@@ -530,7 +530,7 @@
       "withdrawn": "Request withdrawn",
       "rejected": "The coach did not accept your request",
       "superseded": "This spot was taken before the coach decided",
-      "accepted": "Your request was accepted",
+      "accepted": "You're booked! You're enrolled in this class.",
       "failed": "Could not send the request",
       "refusal": {
         "already_enrolled": "You are already in this class",

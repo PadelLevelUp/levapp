@@ -48,7 +48,7 @@ resource "google_compute_instance" "levelup" {
   }
 
   name         = "levelup-instance"
-  machine_type = "e2-micro"
+  machine_type = "e2-small" # resized by hand on 2026-10-19 (PAD-688); was e2-micro
   zone         = var.zone
 
   allow_stopping_for_update = true
