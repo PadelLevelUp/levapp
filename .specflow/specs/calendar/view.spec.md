@@ -25,6 +25,19 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
    `eligibility.open-spot-visibility` for the full conditions. With the visibility toggle off, or
    with no such class, this is exactly rule 4 as it has always been: enrolled classes only
 5. Frontend renders week view (7-day grid) with `useCalendar` hook
+5a. **Weeks start on Sunday (PAD-682; coordinator for the owner, 2026-10-21; numbering
+   unconfirmed).** One constant, `WEEK_STARTS_ON = 0` in `@levelup/config`, is the first day of
+   every week a coach or student sees: the week grid and its headers, the phone week strip, the
+   month grid's columns (`calendar.mobile-views` rule 16), the add-class weekday chips, the
+   add-to-classes pickers, and the "esta semana" ranges of the presences and attendance views.
+   It is global (no per-coach setting). The backend's own weeks — the coach dashboard's "this
+   week" and the validation badge's `weekOffset` (`attendance.validation`) — start on the same
+   Sunday, so a count never disagrees with the grid beside it; a backend test reads the constant
+   from the config package to keep the two in step. Not covered: the `{day}` placeholder's
+   "esta / na próxima" wording sent to students (`notifications.message-templates` rule 18 keeps
+   Monday-to-Sunday weeks) and recurrence weekday numbering (`daysOfWeek`, `weekdays`), which are
+   conventions, not a week's first day. App Store builds 32/33 compute their grid on the device
+   and keep Monday until they update.
 6. Events are color-coded: academy classes, private classes, calendar block types. **(PAD-130)**
    an **open-spot class a player is not enrolled in uses a distinct colour** from that
    player's own classes — the two must never be mistaken for each other, since one is a commitment
@@ -174,6 +187,13 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       before (no `full` events); the colours are a client concern and change nothing on the wire.
 
 ### Acceptance Criteria
+
+#### The week starts on Sunday (rule 5a, PAD-682)
+- **Given** Wednesday 2026-10-21 on the club clock
+- **When** a coach opens the weekly calendar on web and on iOS
+- **Then** the first column is Sunday 18 October and the last Saturday 24 October; the month grid
+  for October 2026 opens on Sunday 27 September; the presences "esta semana" range is 18–24
+  October; and the dashboard's "this week" counts the classes of 18–24 October
 
 #### A coach calendar costs a fixed number of statements (rule 19, PAD-591)
 - **Given** a coach with 3 one-off lessons in a 6-week range and another coach with 13, each with

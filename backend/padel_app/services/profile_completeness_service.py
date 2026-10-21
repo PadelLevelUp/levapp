@@ -203,7 +203,15 @@ def send_profile_reminder(*, player, coach_id: int, now_utc=None):
     msg.create()  # commits: the reminder is written and the lock released together
 
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
-    title = player.user.name if player.user else ("Aluno" if locale == "pt" else "Student")
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone — display name.
+    # The reminder Message above sits in the shared thread (text carries no name).
+    from padel_app.services.player_service import coach_display_name
+
+    title = (
+        coach_display_name(coach_user.id, player.id, player.user.name)
+        if player.user
+        else ("Aluno" if locale == "pt" else "Student")
+    )
     _push_to_coach(coach_user.id, title, text, conv.id, msg.id)
     return msg
 

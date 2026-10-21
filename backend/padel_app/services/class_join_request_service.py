@@ -157,6 +157,20 @@ def _class_label(instance: LessonInstance, locale: str) -> str:
     return f"{title}{_format_class_when(instance, locale)}"
 
 
+def _accepted_text(instance: LessonInstance, locale: str) -> str:
+    """PAD-678 (rule 19): the student's "you are in the class" message for an accepted request. It
+    leads with the outcome and never says "pedido"/"aceite", which students read as a waiting-list
+    place. The pt text is the coach-approved one (2026-10-15); "inscrito/a" is literal."""
+    from padel_app.services.notification_service import _format_when
+
+    when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
+    if locale == "pt":
+        where = f"em {instance.title}" if instance.title else "nesta aula"
+        return f"Está marcado! Estás inscrito/a {where}{when}. Contamos contigo!"
+    where = f"in {instance.title}" if instance.title else "in this class"
+    return f"You're booked! You're enrolled {where}{when}. See you there!"
+
+
 # ---------------------------------------------------------------------------
 # Student side
 # ---------------------------------------------------------------------------
@@ -414,11 +428,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     if coach_user_id and player_user_id:
         _send_system_message(
             coach_user_id, player_user_id,
-            _localized(
-                coach.user,
-                f"Estás dentro: o teu pedido para {_class_label(instance, 'pt')} foi aceite.",
-                f"You're in: your request for {_class_label(instance, 'en')} was accepted.",
-            ),
+            _accepted_text(instance, _localized(coach.user, "pt", "en")),
             msg_metadata={"joinRequest": {"id": row.id, "status": "accepted"}},
             class_instance_id=instance.id,
         )
@@ -470,6 +480,8 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
     spot_taken = resolve_message_template(templates, "spot_filled", locale)
     label = _class_label(instance, locale)
 
+    from padel_app.services.player_service import coach_display_name
+
     names = []
     for row in pending:
         row.status = "superseded"
@@ -477,7 +489,9 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
         db.session.add(row)
         player_user_id = _user_id_for_player(row.player_id)
         player_name = row.player.user.name if row.player and row.player.user else ""
-        names.append(player_name)
+        # PAD-683 (rule 9c): the push below goes to the coach alone — its names are the coach's
+        # display names; the alert Message stored in the student's thread keeps the real name.
+        names.append(coach_display_name(coach_user_id, row.player_id, player_name))
         if not coach_user_id or not player_user_id:
             continue
         # Rule 12: the coach's alert, inside this requester's own conversation
@@ -586,9 +600,14 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
         [coach_user_id],
     )
     title = "Pedido para entrar" if locale == "pt" else "Request to join"
-    send_push_notification(user_id=coach_user_id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
+    # PAD-683 (rule 9c): the push goes to the coach alone — display name; the stored Message
+    # (the student's own thread) keeps the real name.
+    from padel_app.services.player_service import coach_facing_text
+
+    push_body = coach_facing_text(text, coach_user_id, row.player_id, player_name)[:100]
+    send_push_notification(user_id=coach_user_id, title=title, body=push_body, url=f"/messages/{conv.id}?message={msg.id}")
     send_expo_push_to_user(
-        coach_user_id, title=title, body=text[:100],
+        coach_user_id, title=title, body=push_body,
         # PAD-324 (messaging.push-notifications rule 7): there IS a message
         # behind this, so the tap opens the thread — the same place the web
         # push points. `{"type": "class"}` is reserved for pushes with no

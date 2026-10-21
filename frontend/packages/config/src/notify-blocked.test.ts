@@ -98,3 +98,13 @@ describe("PAD-620: already_invited is its own bucket", () => {
     expect(split.alreadyInvited.map((r) => r.name)).toEqual(["Carla"]);
   });
 });
+
+describe("blockedNames with the coach's resolver (PAD-683, players.nickname rule 9b)", () => {
+  it("names each student through it, by player id", () => {
+    const nameOf = (id: string | number | undefined, fallback: string | null | undefined) =>
+      String(id) === "7" ? "Ana Tigre" : fallback ?? "";
+    expect(
+      blockedNames([{ playerId: 7, name: "Ana", cause: "unavailable" }, { playerId: 8, name: "Bruno" }], nameOf)
+    ).toBe("Ana Tigre, Bruno");
+  });
+});

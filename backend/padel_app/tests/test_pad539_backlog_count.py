@@ -153,14 +153,15 @@ def test_badge_lands_on_the_most_recent_pending_week(app):
     assert badge == {"count": 3, "weekOffset": -2, "href": "/presences?validate=1&week=-2"}
 
 
-def test_week_offset_of_is_monday_aligned(app):
+def test_week_offset_of_is_sunday_aligned(app):  # calendar.view rule 5a, PAD-682
     from padel_app.helpers.dashboard.coach_home import week_offset_of
 
     tuesday = datetime(2026, 8, 4, 10, 0)
-    assert week_offset_of(datetime(2026, 8, 3, 0, 0), tuesday) == 0  # this Monday
-    assert week_offset_of(datetime(2026, 8, 2, 23, 0), tuesday) == -1  # last Sunday
-    assert week_offset_of(datetime(2026, 7, 13, 9, 0), tuesday) == -3
-    assert week_offset_of(datetime(2026, 8, 10, 9, 0), tuesday) == 1
+    assert week_offset_of(datetime(2026, 8, 2, 0, 0), tuesday) == 0  # this Sunday, the week's first day
+    assert week_offset_of(datetime(2026, 8, 1, 23, 0), tuesday) == -1  # last Saturday
+    assert week_offset_of(datetime(2026, 7, 12, 9, 0), tuesday) == -3
+    assert week_offset_of(datetime(2026, 8, 8, 9, 0), tuesday) == 0  # this Saturday
+    assert week_offset_of(datetime(2026, 8, 9, 9, 0), tuesday) == 1
 
 
 def test_a_canceled_occurrence_is_never_pending(app):

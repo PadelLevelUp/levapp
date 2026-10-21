@@ -60,6 +60,7 @@ from padel_app.models.notification_config import (
 )
 from padel_app.realtime import publish
 from padel_app.services.conversation_access import message_recipient_ids
+from padel_app.services.player_service import nickname_payload  # PAD-683 (players.nickname rule 9a)
 from padel_app.services.level_ladder import (
     get_level_ladder,
     ladder_index,
@@ -603,9 +604,12 @@ def eligibility_failures_for_players(
             continue
         failures = eligibility_failures(cp, instance, coach_id, rules)
         if failures:
+            real_name = cp.player.user.name if cp.player and cp.player.user else ""
             out.append({
                 "playerId": pid,
-                "name": (cp.player.user.name if cp.player and cp.player.user else ""),
+                "name": real_name,
+                # PAD-683 (players.nickname rule 9a): `cp` is the asking coach's own row.
+                **nickname_payload(cp, real_name),
                 "failures": failures,
             })
     return out
@@ -662,9 +666,12 @@ def students_failing_eligibility_bar(
                 continue
             failures = eligibility_failures(cp, instance, coach_id, rules)
             if failures:
+                real_name = cp.player.user.name if cp.player and cp.player.user else ""
                 out.append({
                     "playerId": int(rel.player_id),
-                    "name": (cp.player.user.name if cp.player and cp.player.user else ""),
+                    "name": real_name,
+                    # PAD-683 (players.nickname rule 9a): `cp` is the asking coach's own row.
+                    **nickname_payload(cp, real_name),
                     "instanceId": int(instance.id),
                     "classTitle": (
                         getattr(instance, "overwrite_title", None)
@@ -2407,10 +2414,17 @@ def _notify_coach_of_cancellation(
     # one. Early cancellations are visible in the class detail, not noisy.
     if not is_late:
         return msg
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone, so it names the
+    # student by the coach's display name; the stored message above keeps the real name.
+    from padel_app.services.player_service import coach_facing_text
+
+    push_body = coach_facing_text(
+        text, coach_user_id, player.id if player else None, player_name
+    )[:100]
     send_push_notification(
         user_id=coach_user_id,
         title=push_title,
-        body=text[:100],
+        body=push_body,
         url=f"/messages/{conv.id}?message={msg.id}",
     )
 
@@ -2422,7 +2436,7 @@ def _notify_coach_of_cancellation(
     send_expo_push_to_user(
         coach_user_id,
         title=push_title,
-        body=text[:100],
+        body=push_body,
         data={
             "type": "message",
             "conversationId": conv.id,
@@ -2436,9 +2450,10 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
-    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default, and
-    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``.
+def _format_when(dt, locale: str = "en", *, dated: bool = False, weekday_first: bool = False) -> str:
+    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default,
+    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``, and ' on <weekday>, <dd/mm>, at <time>'
+    with ``dated=True, weekday_first=True`` (``weekday_first`` alone changes nothing).
 
     PAD-519 (notifications.message-templates rule 17): ``dated=True`` names the day of the
     month as well — ' no dia 10/04 (sábado) às 18:00' / ' on 10/04 (Saturday) at 18:00'. A
@@ -2455,21 +2470,28 @@ def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
     ``start_datetime`` is its first occurrence) and a LessonInstance share one
     localisation — PAD-100 fixed this wording once and it should not be
     duplicated to gain a second caller (PAD-330).
+
+    PAD-678 (rule 17's weekday-first form): the student's "Está marcado!" on an accepted join
+    request reads ' na sexta-feira, 16/10, às 09:00' / ' on Friday, 16/10, at 09:00'.
     """
     if dt is None:
         return ""
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
     is_pt = (locale or "").startswith("pt")
+    # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6) are masculine ("no").
+    prep = "no" if dt.weekday() >= 5 else "na"
+    if dated and weekday_first and weekday:
+        day_month = _format_day_month(dt)
+        if is_pt:
+            return f" {prep} {weekday}, {day_month}, às {time_str}"
+        return f" on {weekday}, {day_month}, at {time_str}"
     if dated:
         # "dia" is masculine, so the day form needs no na/no switch on the weekday.
         day = _format_day_month(dt) + (f" ({weekday})" if weekday else "")
         return f" no dia {day} às {time_str}" if is_pt else f" on {day} at {time_str}"
     if is_pt:
         if weekday:
-            # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6)
-            # are masculine ("no").
-            prep = "no" if dt.weekday() >= 5 else "na"
             return f" {prep} {weekday} às {time_str}"
         return f" às {time_str}"
     if weekday:
@@ -6704,9 +6726,13 @@ def _students_with_justified_absences(coach_players: list, coach_id: int) -> lis
 def _serialize_cp_for_group(cp: Association_CoachPlayer, declined_ids: set = frozenset()) -> dict:
     player = cp.player
     user = player.user if player else None
+    real_name = user.name if user else "Unknown"
     return {
         "id": str(cp.player_id),
-        "name": user.name if user else "Unknown",
+        "name": real_name,
+        # PAD-683 (players.nickname rule 9a): `cp` is the requesting coach's own row — the picker
+        # (`notify/groups`) and the semi-automatic queue are coach-private payloads.
+        **nickname_payload(cp, real_name),
         "levelCode": cp.level.code if cp.level else None,
         "levelId": str(cp.level_id) if cp.level_id else None,
         # PAD-497 (rule 18): the engine will not invite them to this class again; the coach still

@@ -223,13 +223,17 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
+          cache-dependency-path: backend/requirements.txt
 
       # reset-test-db.sh activates backend/.venv, so give it one.
       - name: Backend venv
         run: |
           python -m venv backend/.venv
-          backend/.venv/bin/pip install --quiet ./backend
+          # PAD-671: the hashed lock export, then the package with --no-deps.
+          # pip pinned: a fresh venv's 23.0.1 refuses hashed requirements with extras.
+          backend/.venv/bin/python -m pip install --quiet pip==25.1.1
+          backend/.venv/bin/pip install --quiet --require-hashes -r backend/requirements.txt
+          backend/.venv/bin/pip install --quiet --no-deps ./backend
 
       - name: Migrate + seed the isolated database
         env:

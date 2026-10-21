@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { TimeSelect } from '@/components/ui/time-select';
-import { endFromUsualLength, usualClassMinutes } from '@levelup/config';
+import { endFromUsualLength, usualClassMinutes, WEEKDAYS_FROM_WEEK_START, WEEK_STARTS_ON } from '@levelup/config';
 import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
 import {
@@ -98,9 +98,9 @@ interface AddClassSheetProps {
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
 const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
-// Monday..Sunday order (date-fns getDay() values: Mon=1 … Sat=6, Sun=0).
-// Keep this ORDER stable — only the locale-aware initial label changes per language.
-const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 0];
+// Chip order starts at WEEK_STARTS_ON (Sunday, calendar.view rule 5a / PAD-682). The VALUES are
+// date-fns getDay() numbers (Sun=0 … Sat=6) and never change — only the display order does.
+const WEEKDAY_VALUES = WEEKDAYS_FROM_WEEK_START;
 
 /** How long a class lasts when nothing says otherwise. */
 const DEFAULT_DURATION_MIN = 90;
@@ -156,10 +156,10 @@ export function AddClassSheet({
   const { t, i18n } = useTranslation();
   const autoInviteEnabled = useAutoInviteEnabled(open);
   // Locale-aware weekday initials (e.g. PT: S/T/Q/Q/S/S/D), derived from date-fns
-  // rather than hardcoded — keeps the Mon..Sun rendering order identical.
+  // rather than hardcoded — keeps the rendering order identical (Sunday first).
   const daysOfWeek = useMemo(() => {
     const dateFnsLocale = i18n.language === 'pt' ? pt : enUS;
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON });
     return WEEKDAY_VALUES.map((value, index) => ({
       value,
       label: format(addDays(weekStart, index), 'EEEEE', { locale: dateFnsLocale }).toUpperCase(),
