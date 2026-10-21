@@ -19,26 +19,26 @@ describe("presetRange uses the club's day (B-060)", () => {
     });
   });
 
-  it("1w at 23:30 UTC on Sunday 18 July is the next week", () => {
-    expect(ranges.presetRange("1w", new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
-      from: "2027-07-19",
-      to: "2027-07-25",
+  it("1w at 23:30 UTC on Saturday 17 July is the week from Sunday 18 July", () => {
+    expect(ranges.presetRange("1w", new Date(Date.UTC(2027, 6, 17, 23, 30)))).toEqual({
+      from: "2027-07-18",
+      to: "2027-07-24",
     });
   });
 });
 
 describe("weekBounds (B-060)", () => {
   it("is the club's week", () => {
-    expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
-      from: "2027-07-19",
-      to: "2027-07-25",
+    expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 6, 17, 23, 30)))).toEqual({
+      from: "2027-07-18",
+      to: "2027-07-24",
     });
   });
 
-  it("in winter, 23:30 UTC on Sunday 17 January is still that Sunday", () => {
+  it("in winter, 23:30 UTC on Sunday 17 January is still that Sunday, the first day of its week", () => {
     expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 0, 17, 23, 30)))).toEqual({
-      from: "2027-01-11",
-      to: "2027-01-17",
+      from: "2027-01-17",
+      to: "2027-01-23",
     });
   });
 });
@@ -46,14 +46,14 @@ describe("weekBounds (B-060)", () => {
 import { weekBounds as wb, weekLabelDates } from "./dateRanges";
 
 // PAD-295 review (G-2): the Presences week label must name the week `weekBounds`
-// queried — both on the club's clock. 23:30Z on Sunday 13 Sep 2026 is already
-// Monday the 14th in Lisbon.
+// queried — both on the club's clock. 23:30Z on Saturday 12 Sep 2026 is already
+// Sunday the 13th in Lisbon, the first day of its week (WEEK_STARTS_ON, PAD-682).
 describe("weekLabelDates agrees with weekBounds", () => {
   it("names the club's week, not the device's", () => {
-    const now = new Date(Date.UTC(2026, 8, 13, 23, 30));
+    const now = new Date(Date.UTC(2026, 8, 12, 23, 30));
     const { monday, sunday } = weekLabelDates(0, now);
     expect(monday.toISOString().slice(0, 10)).toBe(wb(0, now).from);
     expect(sunday.toISOString().slice(0, 10)).toBe(wb(0, now).to);
-    expect(monday.toISOString().slice(0, 10)).toBe("2026-09-14");
+    expect(monday.toISOString().slice(0, 10)).toBe("2026-09-13");
   });
 });

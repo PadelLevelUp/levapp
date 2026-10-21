@@ -21,7 +21,7 @@ Notes on two deliberate choices:
   ``{start} – {end}`` only rather than inventing a location.
 * **Validation is a Presences-tab week, in classes.** (PAD-190 / PAD-201,
   B-045.) The old item counted presence rows over a rolling 7 days while the
-  tab counted classes over a Monday–Sunday week, so the two never agreed. The
+  tab counted classes over a calendar week (Sunday–Saturday since PAD-682), so the two never agreed. The
   item now reads ``count_pending_validation`` — the tab's own helper — for the
   current UTC week, falling back to the previous week when this one is clean
   (a Monday-morning coach still needs to see the weekend's backlog), and links
@@ -61,7 +61,7 @@ from padel_app.services.presence_overview_service import (
     latest_pending_start,
 )
 from padel_app.tools.tools import _safe_int
-from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive, week_start as week_start_of
 # PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
 # the clock class times are stored in. It goes back to UTC only where it meets
 # an event timestamp (the calendar serializer, the snooze).
@@ -135,7 +135,7 @@ def cut_events(events: Sequence[Dict[str, Any]], *, start: datetime, end: dateti
 def coach_home_window(now: datetime) -> Tuple[datetime, datetime]:
     """The superset window: a week before the current week (week-pulse delta)
     to the hero's look-ahead."""
-    week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    week_start = datetime.combine(week_start_of(now.date()), datetime.min.time())
     start = min(week_start - timedelta(days=7), now - timedelta(days=SCHEDULE_DAYS))
     end = max(week_start + timedelta(days=7), now + timedelta(days=HERO_LOOKAHEAD_DAYS))
     return start, end
@@ -424,17 +424,17 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
 
 
 def week_bounds(now: datetime, offset: int) -> Tuple[datetime, datetime]:
-    """Monday 00:00:00 – Sunday 23:59:59 (naive UTC) for the week ``offset`` weeks from ``now``.
+    """Sunday 00:00:00 – Saturday 23:59:59 (naive UTC; weeks start on Sunday, calendar.view rule 5a) for the week ``offset`` weeks from ``now``.
 
     Byte-for-byte the window both shells' ``weekBounds`` produce once the bare
     ``to`` date is expanded to end-of-day by ``_parse_attendance_bound``
     (``attendance.validation`` rule 15), so the dashboard counts exactly the
     week the tab will show.
     """
-    monday = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
-    monday += timedelta(weeks=offset)
-    sunday_end = monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
-    return monday, sunday_end
+    first_day = datetime.combine(week_start_of(now.date()), datetime.min.time())
+    first_day += timedelta(weeks=offset)
+    last_day_end = first_day + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    return first_day, last_day_end
 
 
 def validation_href(week_offset: int) -> str:
@@ -444,10 +444,10 @@ def validation_href(week_offset: int) -> str:
 
 
 def week_offset_of(moment: datetime, now: datetime) -> int:
-    """How many weeks ``moment``'s Monday–Sunday week lies from ``now``'s (0 = this week, -1 = last)."""
-    monday_now = now.date() - timedelta(days=now.weekday())
-    monday_then = moment.date() - timedelta(days=moment.weekday())
-    return (monday_then - monday_now).days // 7
+    """How many weeks ``moment``'s Sunday–Saturday week lies from ``now``'s (0 = this week, -1 = last)."""
+    start_now = week_start_of(now.date())
+    start_then = week_start_of(moment.date())
+    return (start_then - start_now).days // 7
 
 
 def validation_badge(*, coach_id: int, now: datetime) -> Dict[str, Any]:
@@ -537,7 +537,7 @@ def build_week_pulse_block(
     """Two metrics, each with a denominator, plus a 7-day seats trend."""
     now = now or club_now_naive()
 
-    week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    week_start = datetime.combine(week_start_of(now.date()), datetime.min.time())
     week_end = week_start + timedelta(days=7)
 
     # PAD-262: nine windows off one loaded set instead of nine pipeline runs.

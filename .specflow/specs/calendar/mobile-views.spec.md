@@ -160,7 +160,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 15. **Month nav.** `‹`, the month and year in the active language ("Setembro 2026" /
     "September 2026"), `›`. Paging the month applies rule 2 to the selected day and refetches
     the six-week range that covers the grid.
-16. **Month grid.** A weekday header row, then Monday-start cells for every week that touches
+16. **Month grid.** A weekday header row, then Sunday-start cells (`calendar.view` rule 5a, PAD-682) for every week that touches
     the month. In-month cells show a 26px date circle using rule 10's states and the dot row
     from rule 10; out-of-month cells render at 32% opacity and are not tappable. **(PAD-437)** The grid is
     seven columns on every screen: one row per week, seven equal cells, never one wrapping row of
@@ -368,7 +368,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 #### Month grid dims other months and marks days
 - **Given** `Mês` on September 2026 (starts on a Tuesday)
 - **When** the grid renders
-- **Then** Monday 31 August renders at 32% opacity and does not respond to a tap
+- **Then** Sunday 30 and Monday 31 August (the grid opens on Sunday, PAD-682) render at 32%
+  opacity and do not respond to a tap
 - **And** each September day with events shows up to three dots
 - **And** tapping 10 September selects it and shows it in the day sheet
 

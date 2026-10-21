@@ -18,6 +18,7 @@ import type {
 } from "@/types";
 import type { Exercise, ExerciseGroup } from "@/types/training";
 import { addDays, format, startOfWeek } from "date-fns";
+import { WEEK_STARTS_ON } from "@levelup/config";
 
 // Would come from auth in a real app
 export const MOCK_COACH_ID = "coach-1";
@@ -149,7 +150,7 @@ export const mockCoachPlayers: CoachPlayer[] = mockPlayers.map((player, index) =
  * Dates for "this week"
  */
 const today = new Date();
-const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+const weekStart = startOfWeek(today, { weekStartsOn: WEEK_STARTS_ON });
 
 /**
  * Recurring series ids (use ClassInstance.originalId to group instances)

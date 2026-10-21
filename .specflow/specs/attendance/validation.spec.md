@@ -249,7 +249,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       `{ count, weekOffset, href }`: `count` is rule 18's `pendingTotal` (the whole backlog, 0 when
       nothing is pending); `weekOffset` is the **most recent week that has something pending**
       (0 for the current week, negative for earlier ones, any distance back), derived from the
-      latest pending class's start, Monday-aligned against the current week; `href` is
+      latest pending class's start, aligned to the week start of `calendar.view` rule 5a (Sunday,
+      PAD-682) against the current week; `href` is
       `/presences?validate=1` or `/presences?validate=1&week=<offset>`. Before PAD-539 it was the
       current week's count, else the previous week's, and 0 when both were clean even with older
       classes waiting. It is exposed as `GET /class_instances/pending_validation/badge` (coach-only,
