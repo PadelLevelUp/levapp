@@ -96,6 +96,11 @@ gunicorn's boot path into the leadership thread.
 - **When** `rollout.sh` runs **Then** it is removed, the old container was never stopped, and the
   deploy fails with the new container's log
 
+#### A vhost enabled by symlink counts (rule 6, B-662)
+- **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it
+- **When** `rollout.sh` runs
+- **Then** it rolls (starts `padelapp_next`), never "no enabled vhost"
+
 #### No upstream on the host, no rolling (rule 6)
 - **Given** no upstream file, or no enabled vhost proxying to it
 - **When** `rollout.sh` runs **Then** it stops, runs on the first port and waits for health
