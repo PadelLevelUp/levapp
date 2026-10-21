@@ -3127,20 +3127,16 @@ def vacancy_for_joiner(instance: LessonInstance, coach_id: int, player_id: int) 
             or next((v for v in open_spots if v.side not in ("left", "right")), None)
             or open_spots[0]
         )
-    going = {"left": 0, "right": 0}
-    holding = [p.player_id for p in instance.holding_presences]
-    for s in sides_in_occurrence(instance, coach_id, holding).values():
-        if s in going:
-            going[s] += 1
+    # Rule 2b's count: the going players' sides plus every open spot's side; closing spot v takes
+    # its side out. No sided roster at all: every pick is equal, so the oldest.
+    counts = _side_counts(instance, coach_id)
+    if counts is None:
+        return open_spots[0]
 
-    def imbalance(closing: Vacancy) -> int:
-        counts = dict(going)
-        for v in open_spots:
-            if v is not closing and v.side in counts:
-                counts[v.side] += 1
-        return abs(counts["left"] - counts["right"])
+    def imbalance_after_closing(v: Vacancy) -> int:
+        return abs(counts["left"] - counts["right"] - (v.side == "left") + (v.side == "right"))
 
-    return min(open_spots, key=lambda v: (imbalance(v), v.id))
+    return min(open_spots, key=lambda v: (imbalance_after_closing(v), v.id))
 
 
 def rebalance_after_side_change(instance: LessonInstance, coach_id: int) -> list:

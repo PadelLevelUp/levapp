@@ -18,7 +18,6 @@ from padel_app.models import (
     Lesson,
     LessonInstance,
     NotificationConfig,
-    Vacancy,
     StandingWaitingListEntry,
 )
 from padel_app.sql_db import db
@@ -359,7 +358,9 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         # rows this has just expired.
         # PAD-715: and the class's other spots are re-counted with this student going, as after a
         # "yes" (invitations rule 2d), before PAD-679's moves.
-        retired = _close_vacancy(vacancy, row.player_id, now=now, rebalance=(row.coach_id, row.player_id))
+        retired = _close_vacancy(
+            vacancy, row.player_id, now=now, rebalance=(row.coach_id, row.player_id)
+        )
         # Rule 13: the request IS the coach's decision — a pending approval
         # prompt for this vacancy has nothing left to guard.
         if vacancy.approval_status == "pending":

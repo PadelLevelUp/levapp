@@ -56,18 +56,10 @@ def _statuses(spots):
     return {db.session.get(Vacancy, v.id).side: db.session.get(Vacancy, v.id).status for v in spots}
 
 
-def test_a_student_of_the_newer_spots_side_closes_that_spot_not_the_oldest(app, monkeypatch):
-    """The ticket's 4+4 example, red before the fix: the accepted student plays the side of the
-    NEWER spot, so "the oldest open spot" is always the wrong one."""
-    _patch_io(monkeypatch)
-    with app.app_context():
-        coach, level, instance, (older, newer) = _class_of_ten("a")
-        _accept(coach, level, instance, "p715a-new", newer.side)
-        assert _statuses([older, newer]) == {newer.side: "filled", older.side: "open"}
-
-
 @pytest.mark.parametrize("which", ["older", "newer"])
 def test_a_student_of_either_side_closes_their_own_sides_spot(app, monkeypatch, which):
+    """The ticket's 4+4 example. "newer" is red before the fix (the oldest open spot is always the
+    wrong one for that student); "older" is the control, right both before and after."""
     _patch_io(monkeypatch)
     with app.app_context():
         coach, level, instance, spots = _class_of_ten(f"b{which[0]}")
@@ -89,6 +81,7 @@ def test_a_both_sided_student_closes_the_spot_that_leaves_the_class_balanced(app
         coach, level, instance, (older, newer) = _class_of_ten("c")
         resided = (Association_CoachPlayer.query.filter_by(coach_id=coach.id, side=older.side)
                    .order_by(Association_CoachPlayer.id).first())
+        assert resided.player_id in {p.player_id for p in instance.holding_presences}  # one of the 8 going
         resided.side = newer.side
         db.session.commit()
         _accept(coach, level, instance, "p715c-both", "both")
@@ -96,16 +89,44 @@ def test_a_both_sided_student_closes_the_spot_that_leaves_the_class_balanced(app
 
 
 def test_the_accept_re_counts_the_other_spots(app, monkeypatch):
-    """Rule 2d after a join-request accept, as after a "yes": the accepted student counts as going
-    and the class's other open spot is re-counted (here it keeps its side: 4+5 going with the open
-    spot on the short side). Pinned through the recount's own call."""
-    from padel_app.services import notification_service as ns
-
+    """Rule 2d after a join-request accept, as after a "yes": 4 left + 4 right going and two LEFT
+    spots open (the second set left by hand). A left student takes the first; counted as going
+    (5 left / 4 right) the remaining spot re-counts to RIGHT. Without the re-count it stays left."""
     _patch_io(monkeypatch)
-    calls = []
-    real = ns._rebalance_after_yes
-    monkeypatch.setattr(ns, "_rebalance_after_yes", lambda *a, **k: calls.append(a) or real(*a, **k))
     with app.app_context():
         coach, level, instance, (older, newer) = _class_of_ten("d")
-        pid = _accept(coach, level, instance, "p715d-new", newer.side)
-        assert [(c[1], c[2]) for c in calls] == [(coach.id, pid)]
+        for v in (older, newer):
+            v.side = "left"
+        db.session.commit()
+        _accept(coach, level, instance, "p715d-new", "left")
+        from padel_app.models.vacancy import Vacancy
+
+        db.session.expire_all()
+        closed, kept = db.session.get(Vacancy, older.id), db.session.get(Vacancy, newer.id)
+        assert (closed.status, kept.status, kept.side) == ("filled", "open", "right")
+
+
+def test_a_sided_student_with_no_spot_of_their_side_takes_a_side_less_one(app, monkeypatch):
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, level, instance, (older, newer) = _class_of_ten("e")
+        older.side, newer.side = "right", None
+        db.session.commit()
+        _accept(coach, level, instance, "p715e-new", "left")
+        from padel_app.models.vacancy import Vacancy
+
+        db.session.expire_all()
+        assert (db.session.get(Vacancy, older.id).status, db.session.get(Vacancy, newer.id).status) == ("open", "filled")
+
+
+def test_a_sided_student_with_only_other_side_spots_takes_the_oldest(app, monkeypatch):
+    _patch_io(monkeypatch)
+    with app.app_context():
+        coach, level, instance, (older, newer) = _class_of_ten("f")
+        older.side = newer.side = "right"
+        db.session.commit()
+        _accept(coach, level, instance, "p715f-new", "left")
+        from padel_app.models.vacancy import Vacancy
+
+        db.session.expire_all()
+        assert (db.session.get(Vacancy, older.id).status, db.session.get(Vacancy, newer.id).status) == ("filled", "open")
