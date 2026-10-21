@@ -82,7 +82,10 @@ if [ "$STOP_FIRST" = 1 ]; then
   rolling=0; log "stop-first requested"
 elif ! grep -qE "^[[:space:]]*upstream[[:space:]]+${UPSTREAM}[[:space:]]*\{" "$UPSTREAM_CONF" 2>/dev/null; then
   rolling=0; log "no 'upstream $UPSTREAM' in $UPSTREAM_CONF yet: stop-first (rule 6)"
-elif ! grep -rqsE "proxy_pass[[:space:]]+http://${UPSTREAM}[;/]" "$NGINX_SITES_DIR"; then
+# B-662: the entries are named on the command line (a glob), not found by recursion.
+# sites-enabled holds symlinks into sites-available; GNU grep -r skips a symlink it meets while
+# recursing (and BSD grep -R does too), but every grep follows a symlink named as an argument.
+elif ! grep -qsE "proxy_pass[[:space:]]+http://${UPSTREAM}[;/]" "$NGINX_SITES_DIR"/*; then
   # The upstream exists but no enabled vhost uses it: nginx still proxies to the first port
   # only, so moving to the second would answer 502.
   rolling=0; log "no enabled vhost in $NGINX_SITES_DIR proxies to $UPSTREAM yet: stop-first (rule 6)"
