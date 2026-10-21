@@ -5,7 +5,8 @@
 # [14..35] and [42..63]) while still carrying their labels as accessibility text, so flow 112 —
 # which taps by id — stayed green on a screen nobody could read. Fixed, each is ~146 pt on an
 # iPhone 17 Pro. Maestro selectors match `width` within `tolerance`, so 146 ± 100 accepts any
-# sensible bubble (46–246 pt) and rejects the collapsed 21 pt. Flow 112 stays the tap test.
+# sensible bubble (46–246 pt) and rejects the collapsed 21 pt (flat 21 pt vs >= 46 pt). The label
+# is asserted too, though it alone passed on the broken screen. Flow 112 stays the tap test.
 #
 # Setup and teardown are flow 112's (API only, class removed and openSpotsVisible restored).
 # Flow number 297 is from Session C's wave-16 range (296–300).
@@ -40,10 +41,12 @@ appId: com.padellevelup.app
     timeout: 30000
 - assertVisible:
     id: "join-request-bubble-accept"
+    text: "Accept|Aceitar"
     width: 146
     tolerance: 100
 - assertVisible:
     id: "join-request-bubble-decline"
+    text: "Reject|Recusar"
     width: 146
     tolerance: 100
 - assertVisible:
