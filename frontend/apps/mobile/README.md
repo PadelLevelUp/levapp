@@ -138,7 +138,8 @@ workflow **Android build** (`.github/workflows/android-build.yaml`) is the Andro
   permission, so a store build can never inherit it.
 - `maestro` job — Postgres 15 + the real migrations + the E2E seed into `levelup_ci_android`,
   Flask on `:5001`, an x86_64 API 34 emulator, and Maestro running the flows in
-  `MAESTRO_FLOWS` (default `flows/01-login.yaml`). `maestro-results` carries the junit report,
+  `MAESTRO_FLOWS` (default `flows/01-login.yaml`), or one shard of the whole suite (PAD-710).
+  `maestro-results-<shard>` carries the junit report,
   Maestro's screenshots/logs and the Flask log, on success and on failure.
 
 Flows tagged `ios-only` (today `47-push-tap-routing`, which drives `xcrun simctl push`) are

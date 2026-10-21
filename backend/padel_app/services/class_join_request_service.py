@@ -157,6 +157,20 @@ def _class_label(instance: LessonInstance, locale: str) -> str:
     return f"{title}{_format_class_when(instance, locale)}"
 
 
+def _accepted_text(instance: LessonInstance, locale: str) -> str:
+    """PAD-678 (rule 19): the student's "you are in the class" message for an accepted request. It
+    leads with the outcome and never says "pedido"/"aceite", which students read as a waiting-list
+    place. The pt text is the coach-approved one (2026-10-15); "inscrito/a" is literal."""
+    from padel_app.services.notification_service import _format_when
+
+    when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
+    if locale == "pt":
+        where = f"em {instance.title}" if instance.title else "nesta aula"
+        return f"Está marcado! Estás inscrito/a {where}{when}. Contamos contigo!"
+    where = f"in {instance.title}" if instance.title else "in this class"
+    return f"You're booked! You're enrolled {where}{when}. See you there!"
+
+
 # ---------------------------------------------------------------------------
 # Student side
 # ---------------------------------------------------------------------------
@@ -414,11 +428,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     if coach_user_id and player_user_id:
         _send_system_message(
             coach_user_id, player_user_id,
-            _localized(
-                coach.user,
-                f"Estás dentro: o teu pedido para {_class_label(instance, 'pt')} foi aceite.",
-                f"You're in: your request for {_class_label(instance, 'en')} was accepted.",
-            ),
+            _accepted_text(instance, _localized(coach.user, "pt", "en")),
             msg_metadata={"joinRequest": {"id": row.id, "status": "accepted"}},
             class_instance_id=instance.id,
         )
@@ -440,9 +450,11 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
         _get_or_create_direct_conversation,
         _send_system_message,
         _user_id_for_coach,
+        _format_template,
         _user_id_for_player,
         publish,
         resolve_message_template,
+        template_variables,
     )
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
@@ -467,7 +479,7 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
     auto_reply = bool(config.auto_notify_enabled) if config is not None else False
     locale = _localized(coach_user, "pt", "en")
     templates = config.get_message_templates(locale) if config is not None else {}
-    spot_taken = resolve_message_template(templates, "spot_filled", locale)
+    spot_taken_template = resolve_message_template(templates, "spot_filled", locale)
     label = _class_label(instance, locale)
 
     from padel_app.services.player_service import coach_display_name
@@ -508,6 +520,10 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
         )
         # Rule 11: the automatic reply to the student only when the coach wants it.
         if auto_reply:
+            # PAD-670 (message-templates rule 3a): the template is about this student and this class.
+            spot_taken = _format_template(
+                spot_taken_template, **template_variables(row.player, instance, locale)
+            )
             _send_system_message(
                 coach_user_id, player_user_id, spot_taken,
                 msg_metadata={"joinRequest": {"id": row.id, "status": "superseded"}},

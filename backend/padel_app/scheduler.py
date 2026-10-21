@@ -745,8 +745,8 @@ def init_scheduler(app, test_config=None) -> None:
         return
 
     # Skip every Flask CLI process except `flask run` (PAD-264, audit H12;
-    # notifications.reminders rule 16). The production entrypoint runs
-    # `python -m flask --app app.py db upgrade`, and under `python -m`
+    # notifications.reminders rule 16). Production's migrate step (padel_app.migrate,
+    # PAD-691) runs `python -m flask --app app.py db upgrade`, and under `python -m`
     # sys.argv[0] is ".../flask/__main__.py". The old basename check
     # ("flask"/"flask.exe") missed that, so APScheduler started inside every
     # deploy's migration. Options are skipped when looking for the command, so
