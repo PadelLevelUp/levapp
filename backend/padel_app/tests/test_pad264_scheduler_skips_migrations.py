@@ -1,7 +1,7 @@
 """PAD-264 / audit H12 — the scheduler never starts inside a migration process.
 
 Production runs migrations as `python -m flask --app app.py db upgrade`
-(backend/scripts/entrypoint.sh). Under `python -m`, sys.argv[0] is
+(padel_app/migrate.py since PAD-691; backend/scripts/entrypoint.sh before it). Under `python -m`, sys.argv[0] is
 ".../flask/__main__.py", so init_scheduler's guard, which only recognised the
 `flask` console script, let APScheduler start inside every deploy's migration:
 jobs fired against a half-migrated schema and the startup reschedule (M18)

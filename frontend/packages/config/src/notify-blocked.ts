@@ -23,6 +23,7 @@
 
 /** The little a blocked-student row has to expose to be classified. */
 export interface BlockedLike {
+  playerId?: string | number;
   name?: string | null;
   /** Absent on a payload from an older backend — treated as `unavailable`. */
   cause?: string | null;
@@ -62,9 +63,16 @@ export function splitBlockedByCause<T extends BlockedLike>(
  * both `calendar.unavailable.blocked` and `calendar.notify.blockedByPreference`
  * expect. Nameless rows are dropped rather than rendered as a gap.
  */
-export function blockedNames(blocked: BlockedLike[] | null | undefined): string {
+/**
+ * PAD-683 (players.nickname rule 9b): a coach's view passes `nameOf` (its `useCoachDisplayName`
+ * resolver) so each student reads by the coach's display name; the rows carry only the real name.
+ */
+export function blockedNames(
+  blocked: BlockedLike[] | null | undefined,
+  nameOf?: (playerId: string | number | undefined, fallback: string | null | undefined) => string
+): string {
   return (blocked ?? [])
-    .map((b) => b?.name)
+    .map((b) => (nameOf && b ? nameOf(b.playerId, b.name) : b?.name))
     .filter((name): name is string => Boolean(name))
     .join(", ");
 }

@@ -1,3 +1,4 @@
+import re
 from padel_app.models import (
     Player,
     User,
@@ -195,6 +196,41 @@ def nickname_payload(rel, real_name):
         "nicknameAsName": as_name,
         "displayName": nickname if (as_name and nickname) else real_name,
     }
+
+
+def coach_display_name(coach_user_id, player_id, real_name):
+    """PAD-683 (players.nickname rule 9c): the name text sent ONLY to a coach uses for a student.
+
+    Keyed on the RECIPIENT coach's user id, so the nickname is that coach's own (rule 1); a
+    recipient who is not a coach, or not this student's coach, gets ``real_name``. Never use it
+    for text the student can read — the shared coach–student conversation keeps the real name.
+    """
+    from padel_app.models import Coach
+
+    if not coach_user_id or not player_id:
+        return real_name
+    rel = (
+        Association_CoachPlayer.query.join(Coach, Coach.id == Association_CoachPlayer.coach_id)
+        .filter(Coach.user_id == coach_user_id, Association_CoachPlayer.player_id == player_id)
+        .first()
+    )
+    if rel is None:
+        return real_name
+    return nickname_payload(rel, real_name)["displayName"]
+
+
+def coach_facing_text(text, coach_user_id, player_id, real_name):
+    """PAD-683 (rule 9c): ``text`` with the student's real name replaced by the recipient coach's
+    display name — for a push title/body that repeats a notice whose stored copy stays real.
+
+    Only the FIRST whole-word occurrence is replaced: every coach notice opens on the student's
+    name, and a later occurrence (inside a class title or the student's own note) is left as is."""
+    if not text or not real_name:
+        return text
+    shown = coach_display_name(coach_user_id, player_id, real_name)
+    if shown == real_name:
+        return text
+    return re.sub(rf"(?<!\w){re.escape(real_name)}(?!\w)", lambda _m: shown, text, count=1)
 
 
 def _serialize_coach_player_relation(rel, due=None, duplicates=None):
@@ -453,7 +489,8 @@ def search_coach_players(coach_id, term, limit=20):
         user = player.user if player else None
         if not player or not user:
             continue
-        results.append({"id": str(player.id), "name": user.name})
+        # PAD-683 (players.nickname rules 2, 9a): this coach's own nickname keys beside the real name.
+        results.append({"id": str(player.id), "name": user.name, **nickname_payload(rel, user.name)})
     return results
 
 

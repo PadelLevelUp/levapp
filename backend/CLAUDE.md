@@ -17,6 +17,19 @@ CI (`.github/workflows/backend-tests.yaml`) runs both backends on every PR into 
 (default localhost:5432, the E2E server) and drops it afterwards; a model column without a
 migration, or a second Alembic head, fails there.
 
+## Dependencies
+
+CI and the deploy image install `requirements.txt` / `requirements-dev.txt` (hashed `poetry export`
+output), never pyproject's ranges (PAD-671). After any `poetry add` / `poetry lock`, regenerate both
+files from `backend/` and commit them with the lock. `test_pad671_installs_come_from_the_lock.py`
+fails while an export's packages, versions or hashes differ from `poetry.lock`. Poetry 2.x needs
+`poetry-plugin-export` for both commands:
+
+```bash
+poetry export -f requirements.txt --only main -o requirements.txt
+poetry export -f requirements.txt --with dev -o requirements-dev.txt
+```
+
 ## Before every push
 
 Run the pre-push gate (`.githooks/prepush-gate.sh`; see the root CLAUDE.md "Ticket workflow"). For

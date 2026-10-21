@@ -23,7 +23,8 @@ export interface StudentReasons {
 export function describeIneligible(entries: EligibilityCheckEntry[]): StudentReasons[] {
   return entries.map((e) => ({
     playerId: e.playerId,
-    name: e.name ?? "",
+    // PAD-683 (players.nickname rule 9a): the asking coach's display name, from the server.
+    name: e.displayName ?? e.name ?? "",
     reasons: e.failures.map(describeEligibilityFailure),
   }));
 }
@@ -48,11 +49,11 @@ export function describeImpact(affected: EligibilityImpactEntry[]): ImpactLine[]
     .sort(
       (a, b) =>
         String(a.startDatetime ?? "").localeCompare(String(b.startDatetime ?? "")) ||
-        String(a.name ?? "").localeCompare(String(b.name ?? ""))
+        String(a.displayName ?? a.name ?? "").localeCompare(String(b.displayName ?? b.name ?? ""))
     )
     .map((e) => ({
       playerId: e.playerId,
-      name: e.name ?? "",
+      name: e.displayName ?? e.name ?? "",
       instanceId: e.instanceId,
       classTitle: e.classTitle ?? "",
       startDatetime: e.startDatetime,

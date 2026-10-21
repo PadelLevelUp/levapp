@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { canStepBackPickerWeek, upcomingPickerClasses } from "@levelup/config";
+import { canStepBackPickerWeek, upcomingPickerClasses, WEEK_STARTS_ON } from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
 
@@ -37,7 +37,7 @@ interface AddToClassesDialogProps {
 export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClassesDialogProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = dateFnsLocale(i18n.language);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON }));
   const [classes, setClasses] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,7 +49,7 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   const [ineligibleClasses, setIneligibleClasses] = useState<EligibilityCheckEntry[]>([]);
   const [pendingTargets, setPendingTargets] = useState<CalendarEvent[] | null>(null);
 
-  const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: 1 }), [weekStart]);
+  const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: WEEK_STARTS_ON }), [weekStart]);
 
   useEffect(() => {
     if (!open) return;

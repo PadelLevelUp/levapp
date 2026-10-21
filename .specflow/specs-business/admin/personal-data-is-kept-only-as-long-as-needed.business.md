@@ -18,30 +18,32 @@ Students and coaches, whose old data does not linger; the owner, who can state r
 
 ## User Journey
 
-1. The owner decides a period for each kind of data.
-2. The operator switches each one on; until then nothing is removed.
-3. Once a day the app removes what is past its period and records what it removed.
+1. The owner decided a period for each kind of data (2026-10-21).
+2. Those periods are the defaults; the operator can change a period, switch an item off or keep it.
+3. Once a day the app removes a bounded amount of what is past its period and logs what it removed;
+   what is left goes the next day.
 
 ## Business Rules
 
-- Each kind of data has its own switch and period; all start off.
-- A student a coach added who never created an account is kept until the coach removes them (owner
-  decision); the switch exists, set to keep.
-- A deleted message keeps its place in the conversation but loses its text.
-- Audit records of deletions and staff actions are kept long enough to answer a dispute.
+- Invitations, join links and expired verification or reset codes go 30 days after they expire.
+- Notification and reminder history goes after 12 months.
+- Audit records of deletions and of staff actions go after 5 years; until then nothing changes them.
+- A student a coach added who never created an account is never deleted by the schedule (owner);
+  the coach removes them.
+- A deleted message keeps its place in the conversation forever; its text is erased when it is
+  deleted.
+- Web server access logs rotate after about 14 days.
 
 ## Success Metrics
 
-- Every period stated in Privacy Policy §10 has a switch that is on.
+- Every period stated in Privacy Policy §11 is the period the daily job applies.
 
 ## Out of Scope
 
-- nginx log rotation on the VM (an infrastructure change).
+- Changing the nginx rotation (already 14 generations on the VM).
 
 ## Notes
 
-- Owner, 2026-10-12: never-activated students are kept until the coach removes them (keep). Code
-  hashes after 1 day and nginx at 14 days were not objected to but stay off until confirmed.
-- OPEN: invitations, notification history and audit records ("why delete?" — no choice yet); the
-  deleted-message text period. Every switch also offers "keep". The Privacy Policy §10 text waits for
-  the final answers.
+- Owner, 2026-10-21 (PAD-638 comment): the periods above. Owner, 2026-10-13: never-activated
+  students are never deleted. The policy section is §11 since PAD-649 renumbered §9–§15 (the
+  ticket says §10).

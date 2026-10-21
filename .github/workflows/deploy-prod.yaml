@@ -193,6 +193,9 @@ jobs:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        # PAD-691 (delivery.zero-downtime-deploy rule 7): the migrate step runs inside this ssh
+        # session while the old API serves; the action's 10-min default would fail a long migration.
+        command_timeout: 30m
         script: |
           set -euo pipefail
           docker network create levelup_net || true
@@ -210,12 +213,16 @@ jobs:
           # VM with `docker update` (they are not recreated by a deploy); see the PAD-590 ticket.
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
           # PAD-588 (delivery.zero-downtime-deploy rules 4-7): rollout.sh starts padelapp_next on the idle
-          # loopback port of 5000,5002, waits for /api/app/healthz (which also proves the entrypoint's
-          # migrations ran: PAD-220), stops the old container, and renames the new one padelapp. Without
+          # loopback port of 5000,5002, waits for /api/app/healthz (readiness: DB reachable, schema not behind head;
+          # PAD-696), stops the old container, and renames the new one padelapp. Without
           # the `levapp_api` upstream on the host (owner's nginx step) it falls back to stop-then-start.
+          # PAD-691 (rules 4, 7, 9): --migrate runs /app/scripts/migrate.sh in a one-shot container of
+          # the same image first, while the old container serves; the container no longer migrates
+          # itself and refuses to start against a schema behind its head (rule 10). On rollback_to the
+          # migrate step finds the database ahead of the image and does nothing.
           ROLLOUT_MODE=""
           if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
-          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp --ports 5000,5002 --upstream levapp_api $ROLLOUT_MODE -- \
+          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp --ports 5000,5002 --upstream levapp_api --migrate $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --memory 512m --memory-swap 768m \

@@ -23,7 +23,7 @@ from padel_app.tests.test_dashboard_coach_home import (
     _seed,
 )
 
-TUESDAY = datetime(2026, 8, 4, 10, 0)  # the seed leaves one pending class last week (Sun 2 Aug)
+TUESDAY = datetime(2026, 8, 4, 10, 0)  # the seed leaves one pending class last week (Sat 1 Aug)
 
 
 def test_badge_counts_this_week_and_the_backlog_and_lands_on_this_week(app):

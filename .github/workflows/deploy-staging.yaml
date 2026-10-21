@@ -196,18 +196,25 @@ jobs:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        # PAD-691 (delivery.zero-downtime-deploy rule 7): the migrate step runs inside this ssh
+        # session while the old API serves; the action's 10-min default would fail a long migration.
+        command_timeout: 30m
         script: |
           set -euo pipefail
           docker network create levelup_net || true
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # PAD-229: published on 127.0.0.1 only; the host nginx is the only way in.
           # PAD-588 (delivery.zero-downtime-deploy rules 4-7): rollout.sh starts padelapp_staging_next on the idle
-          # loopback port of 5100,5102, waits for /api/app/healthz (which also proves the entrypoint's
-          # migrations ran: PAD-220), stops the old container, and renames the new one padelapp_staging. Without
+          # loopback port of 5100,5102, waits for /api/app/healthz (readiness: DB reachable, schema not behind head;
+          # PAD-696), stops the old container, and renames the new one padelapp_staging. Without
           # the `levapp_api_staging` upstream on the host (owner's nginx step) it falls back to stop-then-start.
+          # PAD-691 (rules 4, 7, 9): --migrate runs /app/scripts/migrate.sh in a one-shot container of
+          # the same image first, while the old container serves; the container no longer migrates
+          # itself and refuses to start against a schema behind its head (rule 10). On rollback_to the
+          # migrate step finds the database ahead of the image and does nothing.
           ROLLOUT_MODE=""
           if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
-          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $ROLLOUT_MODE -- \
+          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging --migrate $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
@@ -238,9 +245,9 @@ jobs:
   # `continue-on-error` keeps a failed copy from failing the deploy, the script
   # itself exits 0 on every guard, and it always restarts the staging app.
   # Runs after `backend` (which may be skipped on a frontend-only push — the
-  # copy still happens) and in parallel with `frontend`. The restart the script
-  # performs re-runs the entrypoint's `flask db upgrade`, so the copied prod
-  # schema is brought up to whatever migrations staging carries.
+  # copy still happens) and in parallel with `frontend`. Before the restart the
+  # script runs the migrate step (PAD-691: scripts/migrate.sh in a one-shot container of the
+  # staging image), so the copied prod schema is brought up to whatever migrations staging carries.
   sync-db:
     needs: [ changes, backend ]
     if: >-
