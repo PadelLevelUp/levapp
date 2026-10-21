@@ -98,6 +98,7 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
 def join_class_waiting_list_service(player, model, original_id, date_str, *, now=None):
     """Rule 6: the student's own place on a full class's waiting list. Returns
     ``(entry, created)`` — ``created`` is False when they were already on it."""
+    from padel_app.models import Presence
     from padel_app.services.class_join_request_service import (
         _coach_id_for,
         _is_closed,
@@ -117,7 +118,12 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     coach_id = _coach_id_for(instance)
     if coach_id is None:
         _refuse("not_visible", "This class has no coach")
-    if _is_enrolled(instance, player.id):
+    # PAD-684 (attendance.confirm rule 28; waiting-list rule 14): a student whose own presence on
+    # the occurrence is not_coming holds no spot - not "already enrolled" - and the class they
+    # are enrolled in is visible to them.
+    own_presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player.id).first()
+    gave_up_place = own_presence is not None and own_presence.status == "absent"
+    if _is_enrolled(instance, player.id) and not gave_up_place:
         _refuse("already_enrolled", "You are already in this class")
     if _is_closed(instance, now):
         _refuse("class_closed", "This class is no longer open")
@@ -129,7 +135,9 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     # not hide its waiting list from them — "ainda que naquele momento não hajam vagas". Their own
     # "no" is final (rule 18) and grants nothing. The roster, has-spots and eligibility gates stand.
     if cp is None or not (
-        effective_open_spots_visible(instance, coach_id, config) or _was_invited(instance.id, player.id)
+        effective_open_spots_visible(instance, coach_id, config)
+        or _was_invited(instance.id, player.id)
+        or gave_up_place
     ):
         _refuse("not_visible", "This class is not open to requests")
     # PAD-581 (invitations rule 2d, owner Q3): a student whose invitation was withdrawn for side

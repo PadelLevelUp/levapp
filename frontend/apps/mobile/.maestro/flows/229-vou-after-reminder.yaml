@@ -1,5 +1,7 @@
 # PAD-570 — attendance.confirm rules 27-28: a student may say "Vou" only once
-# asked (the coach's first reminder, or one sent by hand), and "Não vou" is final.
+# asked (the coach's first reminder, or one sent by hand). PAD-684 (rule 28) reversed
+# "Não vou is final": with a spot free, a yes after "Não vou" is `confirmed` ("Afinal
+# vou"), and the detail offers `attendance-come-back` instead of the old hint.
 #
 # Replaces 50-come-back (rule 26 is reversed by this ticket). The class is booked
 # eight to fourteen days out, so under the seeded coach's 48 h first reminder the
@@ -189,11 +191,11 @@ appId: com.padellevelup.app
     timeout: 20000
 - scrollUntilVisible:
     element:
-      id: "class-declined-hint"
+      id: "attendance-come-back"
     direction: DOWN
     timeout: 30000
-- assertVisible:
-    id: "class-chat-coach"
+- assertNotVisible:
+    id: "class-declined-hint"
 - assertNotVisible:
     id: "class-confirm-attendance"
 - assertNotVisible:
@@ -225,6 +227,6 @@ appId: com.padellevelup.app
 - evalScript: "${output.presences = json(http.get(output.api + '/api/app/lesson_instance/' + output.instance.originalId + '/presences', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
 - assertTrue: "${output.presences.length === 1 && output.presences[0].attendanceState === 'not_coming'}"
 - evalScript: "${output.lateYes = json(http.post(output.api + '/api/app/notify/respond_reminder', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ lessonInstanceId: output.instance.originalId, action: 'yes' }) }).body).action}"
-- assertTrue: "${output.lateYes === 'already_declined'}"
+- assertTrue: "${output.lateYes === 'confirmed'}"
 - evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
 - assertTrue: "${output.removed >= 1}"

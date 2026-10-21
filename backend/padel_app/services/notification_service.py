@@ -3966,6 +3966,16 @@ def respond_to_reminder(
             message_recipient_ids(reminder_msg),
         )
 
+    # PAD-684 (attendance.confirm rules 28-29): a "yes" from a row that is not_coming (their own
+    # "no", or the coach's "Não vai" mark) is "Afinal vou". The class is known not to have started
+    # here (the over-check above returned `expired`). The capacity decision is taken under the
+    # lock BEFORE anything is recorded, so a refusal leaves the reminder unanswered.
+    if action == "yes" and presence is not None and presence.status == "absent":
+        return _retake_spot(
+            instance, presence, player, coach_user_id, acting_user_id, reminder_msg,
+            record_answer=_record_reminder_answer, locale=locale, now=now, at=_now,
+        )
+
     # B-284: these writes commit, so a return records the answer after its own commit, never
     # inside the lock it holds.
     _record_reminder_answer()
@@ -4212,15 +4222,162 @@ def student_may_confirm(
     return _now >= deadline
 
 
+def student_come_back(
+    presence, instance, *, player_id: int, now: datetime | None = None
+) -> "str | None":
+    """PAD-684 (attendance.confirm rule 28): what the screen of a not_coming student offers.
+
+    ONE server predicate, served as ``comeBack``. ``None`` unless the row is not_coming - a
+    student's "no"/cancel (absent, not validated) or the coach's "Não vai" mark (validated
+    absent, rule 29) - on a class that has not started and is not cancelled. Then ``"rejoin"``
+    (a spot is free now), ``"on_waiting_list"`` (no spot, an active entry for this occurrence) or
+    ``"waiting_list"`` (no spot). A hint for what to SHOW: the decision is taken at the tap.
+    """
+    if instance is None or presence is None or presence.status != "absent":
+        return None
+    if _instance_is_over(instance, now):
+        return None
+    max_players = instance.effective_max_players
+    if max_players is None or _effective_filled_spots(instance) < max_players:
+        return "rejoin"
+    if WaitingListEntry.query.filter_by(
+        lesson_instance_id=instance.id, player_id=player_id, is_active=True
+    ).first() is not None:
+        return "on_waiting_list"
+    return "waiting_list"
+
+
+def _retake_spot(
+    instance, presence, player, coach_user_id, acting_user_id, reminder_msg,
+    *, record_answer, locale, now, at,
+) -> dict:
+    """PAD-684 ("Afinal vou", attendance.confirm rules 28-29): a not_coming student takes their
+    place back if the class still has room.
+
+    Lock order (rule 10, B-284): the student's own open vacancy (may be None, e.g. a coach's
+    mark), then the class. Capacity is re-read under that lock BEFORE anything is recorded: full
+    -> commit (releasing the lock), record nothing, ``spot_filled``. Otherwise re-seat: status,
+    justification and ``validated`` cleared, the answer recorded as a "yes", the student's own
+    vacancy closed (its live invitations expire ``spot_filled``) and its pending approval prompt
+    marked stale. From the locks to ``presence.save()`` nothing commits.
+    """
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+    from padel_app.services.presence_events import publish_presence_changed
+
+    own, locked = _lock_vacancy_and_instance(_open_vacancy_for(instance.id, player.id), instance)
+    db.session.refresh(presence)
+    if _instance_is_over(locked, at):
+        db.session.commit()
+        return {"action": "expired"}
+    if presence.status != "absent":
+        db.session.commit()  # a parallel tap seated them already
+        return {"action": "confirmed", "duplicate": True}
+    # Capacity is the override, else the lesson's (PAD-275) - never the copied column.
+    if (
+        locked.effective_max_players is not None
+        and _effective_filled_spots(locked) >= locked.effective_max_players
+    ):
+        db.session.commit()  # release the lock, change nothing
+        return {"action": "spot_filled"}
+
+    presence.status = None
+    presence.justification = None
+    presence.validated = False  # the coach's "Não vai" mark is cleared (rule 29)
+    presence.confirmed = True
+    record_response(presence, "confirmed", when=now)
+    retired = []
+    if own is not None and own.status == "open":
+        retired = _close_vacancy(own, player.id)
+        for prompt in ReplacementApprovalPrompt.query.filter_by(
+            vacancy_id=own.id, status="pending"
+        ).all():
+            prompt.status = "stale"
+            prompt.decided_at = at
+    _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+    publish_presence_changed(instance, presence.player_id)
+    presence.save()  # commits: the lock ends here
+    record_answer()
+    _notify_coach_of_return(instance, player, acting_user_id, coach_user_id, locale=locale)
+    _mark_answered_message_read(reminder_msg, acting_user_id)
+    return {"action": "confirmed"}
+
+
+def _notify_coach_of_return(
+    instance: LessonInstance, player, player_user_id: int, coach_user_id: int | None, locale: str = "en"
+) -> "object | None":
+    """PAD-684 (attendance.confirm rule 28): tell the coach a student is coming after all.
+
+    A message from the student in their shared conversation (real name, ``players.nickname``
+    rule 4) and a push to the coach, modelled on ``_notify_coach_of_cancellation``.
+    """
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
+
+    if not coach_user_id or not player_user_id:
+        return None
+    is_pt = (locale or "").startswith("pt")
+    player_name = (player.user.name if player and player.user else None) or (
+        "Um jogador" if is_pt else "A player"
+    )
+    class_title = instance.title or ("a aula" if is_pt else "the class")
+    when = _format_class_when(instance, locale)
+    if is_pt:
+        text = f"{player_name} afinal vai a {class_title}{when}."
+        push_title = "Afinal vai"
+    else:
+        text = f"{player_name} is coming to {class_title}{when} after all."
+        push_title = "Coming after all"
+    push_body = text[:100]
+
+    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
+    msg = Message(
+        text=text,
+        sender_id=player_user_id,
+        conversation_id=conv.id,
+        message_type="text",
+        msg_metadata={"comeBack": True, "lessonInstanceId": instance.id},
+    )
+    msg.create()
+    publish(
+        {"type": "message_created", "payload": serialize_message(msg, None)},
+        message_recipient_ids(msg),
+    )
+
+    send_push_notification(
+        user_id=coach_user_id,
+        title=push_title,
+        body=push_body,
+        url=f"/messages/{conv.id}?message={msg.id}",
+    )
+    from padel_app.utils.expo_push import send_expo_push_to_user
+    from padel_app.services.messaging_service import get_unread_count
+
+    send_expo_push_to_user(
+        coach_user_id,
+        title=push_title,
+        body=push_body,
+        data={
+            "type": "message",
+            "conversationId": conv.id,
+            "messageId": msg.id,
+            "classInstanceId": instance.id,
+        },
+        badge=get_unread_count(coach_user_id),
+    )
+    return msg
+
+
 def _refuse_yes(presence, instance, config, *, now: datetime) -> "str | None":
     """PAD-570: why a "yes" is refused, or None when it may be recorded.
 
     ``already_declined`` (rule 28) and ``already_marked`` (rule 29) name the state the
     row is in; ``not_yet_asked`` (rule 27) is a ``planned`` row whose ask has not come.
     """
+    if presence is not None and presence.status == "absent":
+        # PAD-684 (rules 28-29): not_coming - a "no" or the coach's "Não vai" - is "Afinal vou",
+        # decided at the lock by `_retake_spot`; never `already_declined` on a class not started.
+        return None
     state = presence.attendance_state if presence is not None else "planned"
-    if state == "not_coming":
-        return "already_declined"
     if state in ("attended", "missed"):
         return "already_marked"
     if state == "coming":

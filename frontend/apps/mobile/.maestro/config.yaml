@@ -359,6 +359,10 @@ executionOrder:
     # 281 (PAD-660, players.nickname rules 1–3): sets E2E Student's nickname through the UI and
     # clears it in teardown, so its position is not load bearing.
     - 281-coach-nickname
+    # 302 (PAD-684, attendance.confirm rule 28): books a one-place class, the student says "Não vou"
+    # through the API, then taps "Afinal vou"; teardown removes its own class, so its position is not
+    # load bearing.
+    - 302-afinal-vou
     # 289 (PAD-648, messaging.conversations rule 17): reads every e2e-coach conversation, posts
     # one student message in conversation 1 and deletes it after, so its position is not load bearing.
     - 289-unread-filter
