@@ -203,6 +203,11 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     The coach recording the answer for the student settles the entry the same way, and so does the
     coach withdrawing the invitation (`notifications.invitations` rule 19, PAD-548): the entry
     closes as on a "no", no credit is spent.
+15a. **A credit is spent only when the student takes a spot (PAD-669 R2, PAD-721; numbering
+    unconfirmed).** An invitation sent, answered "no" or left unanswered spends nothing. The engine's
+    "yes" (rule 15) and the coach accepting the student's join request (`classes.join-requests`)
+    each spend one; a standing entry with no credit limit (`credits_total` NULL, PAD-560) never runs
+    out and never fails (B-616).
 16. **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado

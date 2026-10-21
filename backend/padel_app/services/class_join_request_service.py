@@ -417,7 +417,8 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     if standing is not None:
         standing.credits_used += 1
         standing.save()
-        if standing.credits_used >= standing.credits_total:
+        # PAD-721: a NULL credit limit (PAD-560) is no limit, as the engine's own settle reads it.
+        if standing.credits_total is not None and standing.credits_used >= standing.credits_total:
             _deactivate_standing_entry(standing)
 
     row.status = "accepted"
