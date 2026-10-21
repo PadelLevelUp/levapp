@@ -185,13 +185,41 @@ bp = Blueprint("frontend_api", __name__, url_prefix="/api/app")
 # Health check
 # -------------------------------------------------------------------
 
+_schema_reading = {"at": None, "value": None}
+SCHEMA_READING_TTL = 10.0
+
+
+def _cached_schema_state():
+    """The schema state, read at most every SCHEMA_READING_TTL seconds (PAD-696)."""
+    import time as _time
+    from padel_app.schema_state import schema_state
+    from padel_app.sql_db import db
+
+    now = _time.monotonic()
+    if _schema_reading["at"] is None or now - _schema_reading["at"] >= SCHEMA_READING_TTL:
+        with db.engine.connect() as connection:
+            _schema_reading["value"] = schema_state(connection)[0]
+        _schema_reading["at"] = now
+    return _schema_reading["value"]
+
+
+@bp.get("/livez")
+def livez():
+    """Liveness (PAD-696, delivery.zero-downtime-deploy rule 11): the process answers. No database
+    call, so a database blip never gets the container killed."""
+    return jsonify({"status": "ok"})
+
+
 @bp.get("/healthz")
 def healthz():
-    """Liveness + readiness check. 200 when DB is reachable and (in TEST_MODE)
-    the scheduler has initialised. Used by Playwright's webServer readiness."""
+    """Readiness (PAD-696, delivery.zero-downtime-deploy rule 11): 200 when the DB is reachable and,
+    with SCHEMA_GATE on (the image), the schema is not behind this code's head; a DB ahead of it
+    (a newer release migrated it) is ready, reported as schema_ahead. In TEST_MODE the scheduler
+    must also have initialised. Used by rollout.sh, the staging sync and Playwright's webServer."""
     from sqlalchemy import text
     from padel_app.sql_db import db
     from padel_app.scheduler import ensure_scheduler_ready
+    from padel_app import schema_state as _ss
     import os as _os
 
     try:
@@ -204,6 +232,16 @@ def healthz():
             ensure_scheduler_ready()
         except Exception as exc:
             return jsonify({"status": "scheduler_not_ready", "error": str(exc)}), 503
+
+    if _ss.gate_enabled():
+        try:
+            state = _cached_schema_state()
+        except Exception as exc:
+            return jsonify({"status": "db_unreachable", "error": str(exc)}), 503
+        if state in (_ss.BEHIND, _ss.EMPTY):
+            return jsonify({"status": "schema_behind"}), 503
+        if state == _ss.AHEAD:
+            return jsonify({"status": "schema_ahead"})
 
     return jsonify({"status": "ok"})
 

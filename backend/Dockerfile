@@ -39,7 +39,12 @@ ENV FLASK_APP=app.py
 
 EXPOSE 80
 
-RUN chmod +x /app/scripts/entrypoint.sh
+# PAD-691/696 (delivery.zero-downtime-deploy rules 10-11): the image refuses to boot against a
+# schema behind its head, and /healthz reports schema_behind. Every other way of running the app
+# (pytest, Playwright, local) leaves the gate off. SCHEMA_GATE=off on `docker run` is the escape hatch.
+ENV SCHEMA_GATE=on
+
+RUN chmod +x /app/scripts/entrypoint.sh /app/scripts/migrate.sh
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
 # 1 worker (APScheduler must stay in a single process, AND the SSE registry in

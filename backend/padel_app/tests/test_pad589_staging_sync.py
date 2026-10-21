@@ -19,7 +19,19 @@ WORKFLOW = BACKEND.parent / ".github" / "workflows" / "deploy-staging.yaml"
 DOCKER_STUB = r"""#!/usr/bin/env bash
 echo "docker $*" >> "$STUB_HOME/calls.log"
 case "$1" in
-  inspect|stop|start) exit 0 ;;
+  inspect)
+    case "$*" in
+      *Config.Image*) echo "repo/levelup_backend:staging" ;;
+      *HostConfig.NetworkMode*) echo "levelup_net" ;;
+      *Config.Env*) printf 'POSTGRES_DB=padel_app_staging\nSCHEMA_GATE=on\n' ;;
+    esac
+    exit 0 ;;
+  stop|start) exit 0 ;;
+  rm) exit 0 ;;
+  run)
+    # PAD-691: the one-shot migrate container; keep a copy of the env-file it was given
+    prev=""; for a in "$@"; do [ "$prev" = "--env-file" ] && { cp "$a" "$STUB_HOME/migrate.env"; ls -l "$a" | cut -c1-10 > "$STUB_HOME/migrate.env.mode"; echo "$a" > "$STUB_HOME/migrate.env.path"; }; prev="$a"; done
+    exit "${STUB_MIGRATE_EXIT:-0}" ;;
 esac
 case " $* " in
   *" pg_dump "*) printf 'PGDMP-live-%s' "${@: -1}" ;;
@@ -107,6 +119,35 @@ def state(sandbox):
 def restored(sandbox):
     p = sandbox["home"] / "restored.dump"
     return p.read_bytes() if p.exists() else None
+
+
+def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
+    """PAD-691 (zero-downtime-deploy rule 9): the app no longer migrates itself, so the sync runs
+    the migrate step in a one-shot container of the app's own image, env and network first."""
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    result, calls = run(sandbox)
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = calls.splitlines()
+    migrate = next(i for i, c in enumerate(lines) if c.startswith("docker run --rm --name padelapp_staging_migrate"))
+    started = lines.index("docker start padelapp_staging")
+    restored_at = next(i for i, c in enumerate(lines) if "pg_restore" in c)
+    assert restored_at < migrate < started
+    call = lines[migrate]
+    assert "--network levelup_net" in call
+    assert call.endswith("repo/levelup_backend:staging /app/scripts/migrate.sh")
+    assert " -e " not in call, "secrets never go on the command line"
+    home = sandbox["home"]
+    assert (home / "migrate.env").read_text() == "POSTGRES_DB=padel_app_staging\nSCHEMA_GATE=on\n"
+    assert (home / "migrate.env.mode").read_text().startswith("-rw-------")
+    assert not Path((home / "migrate.env.path").read_text().strip()).exists(), "the env-file is removed"
+
+
+def test_a_failed_migrate_step_still_starts_the_app(sandbox):
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    result, calls = run(sandbox, STUB_MIGRATE_EXIT="1")
+    assert result.returncode == 0, "best-effort: the sync never fails the deploy"
+    assert "the migrate step exited 1" in result.stdout
+    assert "docker start padelapp_staging" in calls
 
 
 def test_a_push_after_the_dump_was_restored_leaves_staging_alone(sandbox):

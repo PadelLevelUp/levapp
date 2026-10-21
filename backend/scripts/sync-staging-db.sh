@@ -4,9 +4,11 @@
 #
 # Runs ON THE VM, invoked by deploy-staging.yaml after the staging backend
 # container is up. Replaces `padel_app_staging` with a copy of production data,
-# then restarts the staging app so its entrypoint runs `flask db upgrade` and
-# the copied schema matches staging's code (staging can carry migrations prod
-# does not have yet).
+# then runs the migrate step (PAD-691: scripts/migrate.sh in a one-shot container
+# of the staging app's own image, env and network) and restarts the staging app,
+# so the copied schema matches staging's code (staging can carry migrations prod
+# does not have yet). The app no longer migrates itself: it refuses to start
+# against a schema behind its head.
 #
 # Source (PAD-589, spec delivery.staging-data-sync), by MODE (2nd argument):
 #   auto   (every push)  the newest NIGHTLY DUMP in GCS ($BACKUP_BUCKET/padel_app/,
@@ -114,8 +116,33 @@ else
 fi
 
 # ── 3. Stop the staging app; ALWAYS start it again, whatever happens below ──
+# PAD-691 (delivery.zero-downtime-deploy rule 9): the restored copy is brought to staging's head
+# by the same migrate step the deploy runs, in a one-shot container of the staging app's own
+# image, env and network (read from `docker inspect`, so nothing here can drift from the
+# container). The env goes through a mode-600 file, never `-e` on the command line (`ps`).
+migrate_restored() {
+  local image network envfile rc
+  image=$(docker inspect -f '{{.Config.Image}}' "$APP_CONTAINER" 2>/dev/null)
+  [ -n "$image" ] || { log "WARNING: cannot read the image of $APP_CONTAINER: not migrating"; return 1; }
+  network=$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$APP_CONTAINER" 2>/dev/null)
+  case "$network" in ""|default|bridge|host|none)
+    network=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$APP_CONTAINER" 2>/dev/null | awk '{print $1}') ;;
+  esac
+  envfile=$(umask 077 && mktemp) || { log "WARNING: mktemp failed: not migrating"; return 1; }
+  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$APP_CONTAINER" > "$envfile" 2>/dev/null
+  log "migrate step: one-shot ${APP_CONTAINER}_migrate of $image${network:+ on $network}"
+  docker rm -f "${APP_CONTAINER}_migrate" >/dev/null 2>&1 || true
+  docker run --rm --name "${APP_CONTAINER}_migrate" ${network:+--network "$network"} \
+    --env-file "$envfile" "$image" /app/scripts/migrate.sh
+  rc=$?
+  rm -f "$envfile"
+  [ "$rc" = 0 ] || log "WARNING: the migrate step exited $rc: $APP_CONTAINER will refuse to start behind head"
+  return "$rc"
+}
+
 restart_app() {
-  log "starting $APP_CONTAINER (its entrypoint runs flask db upgrade)"
+  migrate_restored || true
+  log "starting $APP_CONTAINER"
   docker start "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $APP_CONTAINER"
   if [ -z "$HEALTH_URL" ]; then
     local port
@@ -143,7 +170,7 @@ pg postgres "select pg_terminate_backend(pid) from pg_stat_activity where datnam
 # and prod does not yet (a migration ahead of prod — e.g. coach_join_tokens
 # referencing coaches/clubs/users) blocks the DROP of the prod tables it points
 # at: "cannot drop table users because other objects depend on it". The
-# restore then half-applies over the old schema, the entrypoint's
+# restore then half-applies over the old schema, the
 # `flask db upgrade` trips on objects that already exist, and staging answers
 # 502 (2026-09-07, first deploy after PAD-210..215). Dropping the schema takes
 # every object with it, whatever its origin; prod's dump recreates the schema.
