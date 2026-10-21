@@ -68,6 +68,8 @@
     "preferences": {
       "requestAlerts": "Alertas de pedidos",
       "requestAlertsDescription": "Push e email quando um pedido precisa de ti (entrada no clube, ligação de conta, aprovação de treinador) e quando o teu é decidido. Os avisos dentro da app continuam sempre.",
+      "notificationSound": "Som das notificações",
+      "notificationSoundDescription": "Um som curto quando chega uma mensagem ou notificação com a app aberta, e som nas notificações do telemóvel. No navegador, só toca depois de clicares ou escreveres na página.",
       "title": "Preferências",
       "description": "Como queres que a aplicação se comporte.",
       "theme": "Tema",

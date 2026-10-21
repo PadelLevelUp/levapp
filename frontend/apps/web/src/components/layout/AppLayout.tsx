@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
+import { installChimeUnlock, playChime, setNotificationSoundEnabled, shouldChime } from "@/lib/notificationSound";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
@@ -208,6 +209,18 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       if (data.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
         void refreshUnreadCount();
       }
+      // notifications.notification-sound rules 2–3 (PAD-680): a message from someone else — every
+      // system notification arrives as one — chimes, unless its thread is open in the focused tab.
+      if (
+        shouldChime(data, {
+          myUserId: user?.id,
+          // The live route: this effect's closure keeps the location it subscribed with.
+          pathname: window.location.pathname,
+          attentive: document.visibilityState === "visible" && document.hasFocus(),
+        })
+      ) {
+        playChime();
+      }
       // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
       // Availability section render off the request's live row.
       // classes.join-requests rule 17 (PAD-460): the two lists are merged in
@@ -222,7 +235,16 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
         void queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
       }
     });
-  }, [refreshUnreadCount, token, queryClient]);
+  }, [refreshUnreadCount, token, queryClient, user?.id]);
+
+  // notifications.notification-sound rules 1 and 3 (PAD-680): the switch from /auth/me, and the
+  // autoplay unlock on the first interaction.
+  useEffect(() => {
+    installChimeUnlock();
+  }, []);
+  useEffect(() => {
+    setNotificationSoundEnabled(user?.notificationSound !== false);
+  }, [user?.notificationSound]);
   
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
