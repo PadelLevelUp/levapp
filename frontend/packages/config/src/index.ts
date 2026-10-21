@@ -73,6 +73,7 @@ export * from "./walk-in-options";
 export * from "./waiting-list-origin";
 export * from "./install-suggestion";
 export * from "./country-prompt";
+export * from "./same-day-default-note";
 export * from "./contact";
 export * from "./legal-catch-up";
 export * from "./signup-username";
