@@ -89,14 +89,9 @@ import { DemoRequestDialog } from "@/components/landing/DemoRequestDialog";
 import { AppStoreLink } from "@/components/landing/AppStoreLink";
 // PAD-656: the audience-in-the-URL rule lives in the site module the new site shares.
 import { AUDIENCES, AUDIENCE_SLUG, audienceFromParams, type Audience } from "@/site/audience";
-import { demoFormId, hasMarketingSubscription, loadTrackingScript } from "@/lib/hubspot";
+import { demoFormId, hasMarketingSubscription } from "@/lib/hubspot";
 import type { DemoPedido } from "@/lib/demoRequest";
-import {
-  clearHubSpotCookies,
-  loadConsent,
-  writeConsent,
-  type ConsentChoice,
-} from "@/lib/cookieConsent";
+import { useSiteConsent } from "@/site/useSiteConsent";
 
 /** The brand navy, as a gradient. Matches the loader and the app's chrome. */
 export { AUDIENCE_SLUG, audienceFromParams };
@@ -1094,33 +1089,7 @@ const LandingPage = () => {
   };
 
   // Rules 11–13: nothing reaches HubSpot's tracking hosts until the visitor accepts.
-  const [consent, setConsent] = useState<ConsentChoice | null>(() => loadConsent());
-  const [bannerOpen, setBannerOpen] = useState(consent === null);
-
-  useEffect(() => {
-    if (consent === "accepted") loadTrackingScript();
-  }, [consent]);
-
-  const accept = () => {
-    writeConsent("accepted");
-    setConsent("accepted");
-    setBannerOpen(false);
-  };
-
-  const decline = () => {
-    const wasAccepted = consent === "accepted";
-    // Rule 13's order: cookies, then the stored choice, then the reload — a
-    // reload before the write would come back accepted and loop.
-    clearHubSpotCookies();
-    writeConsent("declined");
-    if (wasAccepted) {
-      // The tracking script is already running in this document; only a new one stops it.
-      window.location.reload();
-      return;
-    }
-    setConsent("declined");
-    setBannerOpen(false);
-  };
+  const { bannerOpen, accept, decline, reopen } = useSiteConsent();
 
   return (
     <div className="min-h-screen bg-card">
@@ -1145,7 +1114,7 @@ const LandingPage = () => {
           onSwitch={() => setAudience(NEXT_AUDIENCE[audience])}
         />
       </main>
-      <Footer onCookiePreferences={() => setBannerOpen(true)} />
+      <Footer onCookiePreferences={reopen} />
       {bannerOpen && <CookieBanner onAccept={accept} onDecline={decline} />}
       {formId && (
         <DemoRequestDialog
