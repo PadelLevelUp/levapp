@@ -3,6 +3,7 @@ id: R-027
 title: "SSE fan-out is per-process: one gunicorn worker until a shared broker exists"
 source:
   - ../../atlas/decisions/2026-09-09-single-worker-until-sse-broker.md
+  - ../../atlas/decisions/2026-10-21-gke-readiness.md
 governs:
   - backend/Dockerfile
   - backend/padel_app/realtime.py
@@ -22,8 +23,11 @@ one-process constraint for a different reason (duplicate jobs).
 **Must:** `backend/Dockerfile` keeps `--workers 1` (raise `--threads`, never workers) and no
 deploy workflow overrides it. Nobody "scales" prod by adding workers.
 
-**Until:** `publish`/`subscribe` are backed by a shared broker (Redis pub/sub or equivalent),
-at which point this rule is replaced by one that names the broker as the requirement.
+**Until:** `publish`/`subscribe` are backed by a shared broker — **Postgres LISTEN/NOTIFY**
+(decided 2026-10-21, [GKE readiness](../../atlas/decisions/2026-10-21-gke-readiness.md); it
+replaced the Redis pub/sub of 2026-09-09) — **and** two API copies have been proven on the VM
+(PAD-692 and PAD-704 both done). Then this rule is replaced by one that names the broker as the
+requirement.
 
 *Surfaced by audit item M19; recorded by PAD-237 (2026-09-09).*
 
