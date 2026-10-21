@@ -1,0 +1,46 @@
+{
+  "site": {
+    "layout": {
+      "home": "LevApp, início",
+      "audienceLabel": "Para quem",
+      "audience": {
+        "coaches": "Para treinadores",
+        "players": "Para alunos",
+        "others": "Outros"
+      },
+      "nav": {
+        "label": "Secções",
+        "benefits": "Vantagens",
+        "how": "Como funciona",
+        "results": "Resultados"
+      },
+      "login": "Entrar",
+      "demo": "Pedir demonstração",
+      "openMenu": "Abrir menu",
+      "closeMenu": "Fechar menu",
+      "demoSubject": "Pedido de demonstração da LevApp"
+    },
+    "footer": {
+      "label": "Rodapé",
+      "contact": "Contacto",
+      "privacy": "Privacidade",
+      "terms": "Termos",
+      "cookies": "Preferências de cookies"
+    },
+    "coaches": {
+      "hero": {
+        "title": "Mais turmas cheias. Menos horas no WhatsApp."
+      }
+    },
+    "players": {
+      "hero": {
+        "title": "Joga mais. Espera menos."
+      }
+    },
+    "others": {
+      "hero": {
+        "title": "Novidades a caminho. Fala connosco."
+      }
+    }
+  }
+}

@@ -87,6 +87,8 @@ import { CookieBanner } from "@/components/landing/CookieBanner";
 import { ExitLink } from "@/components/landing/ExitLink";
 import { DemoRequestDialog } from "@/components/landing/DemoRequestDialog";
 import { AppStoreLink } from "@/components/landing/AppStoreLink";
+// PAD-656: the audience-in-the-URL rule lives in the site module the new site shares.
+import { AUDIENCES, AUDIENCE_SLUG, audienceFromParams, type Audience } from "@/site/audience";
 import { demoFormId, hasMarketingSubscription, loadTrackingScript } from "@/lib/hubspot";
 import type { DemoPedido } from "@/lib/demoRequest";
 import {
@@ -97,6 +99,9 @@ import {
 } from "@/lib/cookieConsent";
 
 /** The brand navy, as a gradient. Matches the loader and the app's chrome. */
+export { AUDIENCE_SLUG, audienceFromParams };
+export type { Audience };
+
 const NAVY = "linear-gradient(150deg, #16294A 0%, #0B1524 100%)";
 const NAVY_DEEP = "#0B1524";
 const NAVY_MUTED = "#A9BCD6";
@@ -111,36 +116,6 @@ const SECTION_HOW = "como-funciona";
 const SECTION_RESULTS = "resultados";
 
 const MARK_ON_DARK = "/brand/levapp-mark-on-dark.svg";
-
-export type Audience = "coaches" | "players" | "others";
-const AUDIENCES: Audience[] = ["coaches", "players", "others"];
-
-/** `?audience=` accepts both the i18n ids and the Portuguese slugs Lovable used. */
-const AUDIENCE_ALIASES: Record<string, Audience> = {
-  coaches: "coaches",
-  treinadores: "coaches",
-  players: "players",
-  alunos: "players",
-  jogadores: "players",
-  others: "others",
-  outros: "others",
-};
-
-function readAudience(raw: string | null): Audience {
-  return (raw && AUDIENCE_ALIASES[raw.toLowerCase()]) || "coaches";
-}
-
-/** PAD-582 (rule 4): the slug the URL carries for each audience, `?para=<slug>`. */
-export const AUDIENCE_SLUG: Record<Audience, string> = {
-  coaches: "treinadores",
-  players: "jogadores",
-  others: "outros",
-};
-
-/** `?para=` wins; the older `?audience=` keeps working for links already out there. */
-export function audienceFromParams(params: URLSearchParams): Audience {
-  return readAudience(params.get("para") ?? params.get("audience"));
-}
 
 const mailto = (address: string, subject: string) =>
   `mailto:${address}?subject=${encodeURIComponent(subject)}`;

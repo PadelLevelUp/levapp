@@ -1,0 +1,46 @@
+{
+  "site": {
+    "layout": {
+      "home": "LevApp, home",
+      "audienceLabel": "For whom",
+      "audience": {
+        "coaches": "For coaches",
+        "players": "For players",
+        "others": "Others"
+      },
+      "nav": {
+        "label": "Sections",
+        "benefits": "Benefits",
+        "how": "How it works",
+        "results": "Results"
+      },
+      "login": "Sign in",
+      "demo": "Request a demo",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "demoSubject": "LevApp demo request"
+    },
+    "footer": {
+      "label": "Footer",
+      "contact": "Contact",
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "cookies": "Cookie preferences"
+    },
+    "coaches": {
+      "hero": {
+        "title": "Fuller classes. Fewer hours on WhatsApp."
+      }
+    },
+    "players": {
+      "hero": {
+        "title": "Play more. Wait less."
+      }
+    },
+    "others": {
+      "hero": {
+        "title": "News on the way. Talk to us."
+      }
+    }
+  }
+}
