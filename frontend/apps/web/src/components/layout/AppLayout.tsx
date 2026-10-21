@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { answerResync, isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
@@ -194,6 +194,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   // pages' chunks while the browser is idle, so the first visit to each shows no wait.
   useEffect(() => schedulePagePrefetch(), []);
 
+  // notifications.notification-sound rule 2: the signed-in id, read by the stream handler without
+  // re-subscribing the tab's one stream when /auth/me lands.
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
+
   useEffect(() => {
     if (!token) return;
 
@@ -213,7 +218,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       // system notification arrives as one — chimes, unless its thread is open in the focused tab.
       if (
         shouldChime(data, {
-          myUserId: user?.id,
+          myUserId: userIdRef.current,
           // The live route: this effect's closure keeps the location it subscribed with.
           pathname: window.location.pathname,
           attentive: document.visibilityState === "visible" && document.hasFocus(),
@@ -235,7 +240,7 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
         void queryClient.invalidateQueries({ queryKey: ["academy-classes"] });
       }
     });
-  }, [refreshUnreadCount, token, queryClient, user?.id]);
+  }, [refreshUnreadCount, token, queryClient]);
 
   // notifications.notification-sound rules 1 and 3 (PAD-680): the switch from /auth/me, and the
   // autoplay unlock on the first interaction.

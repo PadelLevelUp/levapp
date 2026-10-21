@@ -75,12 +75,16 @@ test("PAD-680: a message from someone else chimes; the switch off silences it an
   await countNotes(page);
   await loginAsCoach(page);
   await setSound(page, true);
+  // SSE is not replayed: send only once this page's stream is open.
+  const stream = page.waitForResponse((r) => /\/app\/events\?/.test(r.url()), { timeout: 15_000 });
   await page.goto("/calendar");
+  await stream;
   // Rule 3 (autoplay): the page may make sound only after an interaction.
   await page.mouse.click(5, 5);
 
   await studentWritesToCoach(request);
-  await expect.poll(() => notes(page), { timeout: 10_000 }).toBe(2);
+  // At least one chime (two notes); a system message arriving meanwhile may add one.
+  await expect.poll(() => notes(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
 
   await setSound(page, false);
   const counted = await notes(page);
