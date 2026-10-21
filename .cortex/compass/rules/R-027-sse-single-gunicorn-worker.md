@@ -3,6 +3,7 @@ id: R-027
 title: "SSE fan-out across processes needs the Postgres broker; one gunicorn worker until PAD-704"
 source:
   - ../../atlas/decisions/2026-09-09-single-worker-until-sse-broker.md
+  - ../../atlas/decisions/2026-10-21-gke-readiness.md
 governs:
   - backend/Dockerfile
   - backend/padel_app/realtime.py
@@ -20,7 +21,7 @@ attached to the other process silently misses it. There is no error, just missin
 a stale unread badge.
 
 Since PAD-692 (2026-10-21) the broker is **Postgres LISTEN/NOTIFY**, superseding the 2026-09-09
-Redis choice: with `SSE_BROKER=postgres` every stream-holding process runs one listener on a
+Redis choice ([GKE readiness](../../atlas/decisions/2026-10-21-gke-readiness.md)): with `SSE_BROKER=postgres` every stream-holding process runs one listener on a
 dedicated connection and receives every event (`messaging.sse-realtime` rules 20-24).
 APScheduler has the same one-process constraint for a different reason (duplicate jobs); that one
 is PAD-695's.
