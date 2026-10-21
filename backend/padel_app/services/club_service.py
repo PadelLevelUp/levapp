@@ -124,6 +124,9 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
         assert_email_free,
         normalised_email,
         validate_adult_birth_date,
+        validate_completion_country,
+        validate_completion_terms,
+        record_terms_acceptance,
     )
     from padel_app.utils.client_capabilities import COACH_INVITE_EMAIL, client_declares
     from padel_app.utils.dates import utcnow_naive
@@ -131,6 +134,9 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     birth_date = validate_adult_birth_date(
         data.get("birthDate"), utcnow_naive().date(), update_app_message=_UPDATE_APP["birthDate"]
     )
+    # clubs.coach-invitation rule 8a (PAD-604): the country, after the birth date, before any write.
+    country = validate_completion_country(data)
+    terms_accepted = validate_completion_terms(data)  # clubs.coach-invitation rule 8b (PAD-637)
 
     # clubs.coach-invitation rule 9 (PAD-477, B-241): the email, validated as sign-up validates it,
     # before anything is written. A client declaring `coach-invite-email` must send one; a build
@@ -164,7 +170,10 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
             password=generate_password_hash(password),
             status="active",
             birth_date=birth_date,
+            country=country,
         )
+        if terms_accepted:
+            record_terms_acceptance(user, utcnow_naive())
         db.session.add(user)
         db.session.flush()
 

@@ -24,7 +24,23 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
   published, `pt/<id>.md`.
 - **Drafts** (`content/legal/drafts/<version>/<lang>/<id>.md`, when one is staged): texts kept
   for review, never imported by the app. None is staged: v2026-10-10 (18+, Sucesso Fractal – Lda
-  as controller, delete path, admin@levapp.app) is published from the owner's final .docx.
+  as controller, delete path, admin@levapp.app) is published from the owner's final .docx; Privacy
+  v2026-10-13 (PAD-603, owner-requested) adds the push-notification providers to §5 and the
+  deletion request by email to §10, and, in the same version (PAD-634, owner decision 2026-10-12:
+  version change only, no notice, nobody asked again; both ship in promotion 11), names the providers in §5 (Google Cloud, Gmail,
+  Expo for push and app updates, HubSpot with its legal basis, OpenRouter and Inception for the AI
+  import), states the US transfers and their mechanism in §9, and adds availability and calendar
+  data to §1. The legal text is web-only by nature: the iOS app opens these pages in the browser
+  (`legal-url`), so no iOS change ships with it. Terms v2026-10-13 (PAD-642, owner decision 2026-10-12) adds
+  to §2: a coach adds, creates or imports only people aged 18 or over and confirms it each time
+  (`players.create` rule 10). Privacy v2026-10-14 (PAD-649, before or with PAD-650's contact form
+  going live): §7 names the website's HubSpot cookies, the banner, the 12-month choice and "Cookie
+  preferences", and the `hubspotutk` sent with a contact request only after "Accept"; a new §8
+  covers the website contact form (data, purpose, consent and pre-contractual basis, HubSpot as
+  processor in the EU, kept 24 months after the last contact unless the person becomes a user —
+  coordinator default, 2026-10-14 — and rights by email to admin@levapp.app, CNPD); the former
+  §8–§14 become §9–§15. English only, like the rest of the text; the ticket's Portuguese wording is
+  the source of §8 and goes into the PT translation when it lands. Legal review is the owner's step.
 
 ### Rules
 1. **One source, rendered.** `/terms` and `/privacy` render `LegalPage`, which renders the

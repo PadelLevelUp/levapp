@@ -32,6 +32,7 @@ import {
   type WaitingListPeriodMode,
 } from "@levelup/config";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import { useCoachDisplayName } from "@levelup/hooks";
 import type { CoachClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -43,6 +44,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useCoachPlayers } from "@/features/players/hooks";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { nativeLocaleTag } from "@/lib/native-locale";
 
 /** B-295: the date picker's own dialog renders inside this dialog's overlay, above it. */
@@ -60,6 +62,8 @@ interface Props {
 
 export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, rows, enrolledIds, onChanged }: Props) {
   const { t, i18n } = useTranslation();
+  // PAD-660: the coach reads the nickname they gave the student (coach-only section).
+  const displayName = useCoachDisplayName();
   const [open, setOpen] = React.useState(rows.length > 0);
   const [dialog, setDialog] = React.useState<null | { editing: CoachClassWaitingListRow | null }>(null);
 
@@ -98,7 +102,7 @@ export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, row
                 className="flex-row items-center justify-between py-1"
               >
                 <View className="flex-1">
-                  <Text className="text-sm" numberOfLines={1}>{row.playerName}</Text>
+                  <Text className="text-sm" numberOfLines={1}>{displayName(row.playerId, row.playerName)}</Text>
                   <Text
                     testID={`class-waiting-list-row-scope-${row.playerId}-${row.scope}`}
                     className="text-[11px] text-muted-foreground"
@@ -185,6 +189,7 @@ function ScopeDialog({
   onSaved: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const displayName = useCoachDisplayName({ enabled: open });
   const { data: roster } = useCoachPlayers({ enabled: open && !editing });
   const candidates = React.useMemo(
     () => waitingListCandidates(roster ?? [], enrolledIds, rows),
@@ -196,6 +201,11 @@ function ScopeDialog({
   const offered = React.useMemo(
     () => waitingListPickerOptions(candidates, search, playerId),
     [candidates, search, playerId]
+  );
+  // players.search rule 10: counts the matches, not the chosen student the picker keeps listed.
+  const matchCount = React.useMemo(
+    () => waitingListPickerOptions(candidates, search, null).length,
+    [candidates, search]
   );
   const [scope, setScope] = React.useState<WaitingListDialogScope>("occurrence");
   const [periodMode, setPeriodMode] = React.useState<WaitingListPeriodMode>("classes");
@@ -274,7 +284,7 @@ function ScopeDialog({
           <DialogTitle>{t(editing ? "calendar.detail.waitingListEdit" : "calendar.detail.waitingListAdd")}</DialogTitle>
         </DialogHeader>
         {editing ? (
-          <Text testID="class-waiting-list-editing-name" className="text-sm font-medium">{editing.playerName}</Text>
+          <Text testID="class-waiting-list-editing-name" className="text-sm font-medium">{displayName(editing.playerId, editing.playerName)}</Text>
         ) : (
           <>
             <Input
@@ -287,6 +297,7 @@ function ScopeDialog({
             />
             <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
               <View className="gap-1">
+                <PlayerSearchFeedback query={search} count={matchCount} className="px-1 text-xs text-muted-foreground" />
                 {offered.map((c) => {
                   const reasons = reasonsById.get(String(c.playerId));
                   const chosen = playerId === String(c.playerId);
@@ -298,7 +309,7 @@ function ScopeDialog({
                       onPress={() => setPlayerId(String(c.playerId))}
                       className={`rounded-md border px-3 py-2 ${chosen ? "border-primary bg-primary/10" : "border-border"}`}
                     >
-                      <Text className="text-sm">{c.name}</Text>
+                      <Text className="text-sm">{c.displayName || c.name}</Text>
                       {reasons ? (
                         <View testID={`class-waiting-list-ineligible-${c.playerId}`}>
                           <Text className="text-[11px] text-warning">{t("calendar.detail.waitingListIneligibleHint")}</Text>

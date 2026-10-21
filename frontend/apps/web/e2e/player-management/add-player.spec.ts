@@ -19,6 +19,9 @@ test("US-35: coach adds a new player manually", async ({ page }) => {
   // PAD-105: the coach supplies no username — the backend assigns a placeholder
   // that the player replaces when they activate their own account.
 
+  // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+  await page.getByTestId("add-player-confirms-adults").click();
+
   const createBtn = page.getByRole("button", { name: /create player/i });
   await expect(createBtn).toBeEnabled({ timeout: 5000 });
   await createBtn.click();

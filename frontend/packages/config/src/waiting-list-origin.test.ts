@@ -114,5 +114,32 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
       expect(ids("pinto", "3")).toEqual(["2", "3"]);
       expect(ids("pinto", "2")).toEqual(["2"]);
     });
+
+    // PAD-665 (players.search rule 5, 6): a typed search is ranked; the picker lists the best first.
+    it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
+      const roster = [
+        { playerId: 1, name: "Rui Pedro Basto" },
+        { playerId: 2, name: "André Nunes" },
+      ];
+      expect(waitingListPickerOptions(roster, "rui basto", null).map((p) => p.playerId)).toEqual([1]);
+      expect(waitingListPickerOptions(roster, "andre", null).map((p) => p.playerId)).toEqual([2]);
+    });
+
+    it("lists the best match first and a blank search in the given order", () => {
+      const roster = [
+        { playerId: 1, name: "Ana Rita" },
+        { playerId: 2, name: "Rita Zé" },
+      ];
+      expect(waitingListPickerOptions(roster, "rita", null).map((p) => p.playerId)).toEqual([2, 1]);
+      expect(waitingListPickerOptions(roster, "", null).map((p) => p.playerId)).toEqual([1, 2]);
+    });
+
+    it("lists a chosen student the search no longer matches after the matches (was: roster order)", () => {
+      expect(ids("pinto", "1")).toEqual(["2", "1"]);
+    });
+
+    it("never offers a candidate the caller did not pass", () => {
+      expect(ids("zzzz-nobody")).toEqual([]);
+    });
   });
 });

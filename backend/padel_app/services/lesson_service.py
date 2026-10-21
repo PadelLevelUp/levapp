@@ -638,6 +638,10 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
         lesson_instance = LessonInstance.query.get_or_404(
             data.get("lesson_instance_id")
         )
+    # PAD-623: a move drops the follow-ups armed on the old schedule; their ids are read now.
+    from padel_app.scheduler import followup_prefixes
+    _old_start = lesson_instance.start_datetime
+    _old_followups = followup_prefixes(lesson_instance)
 
     data = transform_to_datetime(lesson_instance, data)
     # PAD-275 (classes.edit rule 4): a title equal to the lesson's is not an
@@ -698,13 +702,16 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
         unenrol(player_id, lesson_instance)
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
-    from padel_app.scheduler import _maybe_schedule_instance
+    from padel_app.scheduler import _maybe_drop_followups, _maybe_schedule_instance
+    _maybe_drop_followups(lesson_instance, _old_start, _old_followups)  # PAD-623 (reminders rule 15a)
     _maybe_schedule_instance(lesson_instance)
 
     return lesson_instance
 
 
 def add_presences(lesson_instance, payload):
+    from padel_app.services.presence_events import publish_presence_changed
+
     created_presences = []
 
     for item in payload:
@@ -723,6 +730,7 @@ def add_presences(lesson_instance, payload):
             # coach action that moves `response` (attendance.presence rule 7).
             if existing is None:
                 continue
+            publish_presence_changed(lesson_instance, existing.player_id)  # PAD-659 (event-detail rule 24)
             _clear_presence(lesson_instance, existing)
             created_presences.append(existing)
             continue
@@ -769,6 +777,7 @@ def add_presences(lesson_instance, payload):
         values["recorded_by"] = "coach"
 
         was_absent = presence_obj.status == "absent"
+        publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
         presence_obj.update_with_dict(values)
         # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
         # none, whatever the body carries. It has to be said here and not in the form

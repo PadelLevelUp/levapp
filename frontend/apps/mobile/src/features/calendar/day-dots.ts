@@ -1,4 +1,11 @@
-import { cardSurfaceNative, lightTheme, resolveCardVariant, type CalendarSurfaces } from "@levelup/config";
+import {
+  cardSurfaceNative,
+  lightTheme,
+  resolveCardVariant,
+  studentDotColorNative,
+  type CalendarSurfaces,
+  type CalendarViewer,
+} from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 
 /** Up to three dots per day, in start order — calendar.mobile-views rule 10. */
@@ -13,15 +20,18 @@ export const MAX_DAY_DOTS = 3;
 export function dayDotColors(
   events: CalendarEvent[],
   surfaces: CalendarSurfaces,
-  now: Date = new Date()
+  now: Date = new Date(),
+  viewer: CalendarViewer = "coach"
 ): string[] {
   return events.slice(0, MAX_DAY_DOTS).map((event) => {
-    const { variant } = resolveCardVariant(event, { now });
+    const { variant } = resolveCardVariant(event, { now, viewer });
     if (variant === "block") return surfaces.mutedForeground;
+    // PAD-664 (calendar.view rule 23): a student's dot names the relation family, not the coach.
+    if (viewer === "student") return studentDotColorNative(variant, surfaces);
     const surface = cardSurfaceNative(event.color, variant, surfaces);
     // B-541 (rule 10): an outlined treatment's surface is the white card — the dot takes
     // the outline colour instead.
-    const outlined = variant === "open-spot" || variant === "next";
+    const outlined = variant === "open-spot" || variant === "next" || variant === "invited" || variant === "waiting";
     return (
       (outlined ? surface.borderColor : surface.backgroundColor) ?? lightTheme.primary
     );

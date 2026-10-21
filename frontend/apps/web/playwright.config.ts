@@ -100,6 +100,8 @@ export default defineConfig({
         // PAD-469: a placeholder demo form ID, so the landing page renders the
         // HubSpot demo dialog (every HubSpot host is stubbed in the specs).
         VITE_HUBSPOT_DEMO_FORM_ID: "e2e-demo-form-id",
+        // PAD-650: shows the optional marketing box in the contact dialog.
+        VITE_HUBSPOT_MARKETING_SUBSCRIPTION_ID: "1",
       },
     },
   ],

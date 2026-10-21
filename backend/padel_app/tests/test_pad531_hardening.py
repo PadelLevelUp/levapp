@@ -192,6 +192,8 @@ REQUIRED_HEADERS = {
         "connect-src 'self' https://accounts.google.com/gsi/",
         "frame-ancestors 'none'",
         "object-src 'none'",
+        # PAD-635: the fonts are self-hosted.
+        "font-src 'self'",
     ],
     "Referrer-Policy": ["no-referrer"],
     "X-Content-Type-Options": ["nosniff"],
@@ -207,6 +209,7 @@ def test_the_console_sends_its_security_headers_on_every_location():
         assert line is not None and line.rstrip().endswith("always;"), header
         for part in parts:
             assert part in line, (header, part)
+    assert "fonts.googleapis.com" not in snippet and "fonts.gstatic.com" not in snippet
     conf = (admin / "nginx.conf").read_text()
     # nginx drops server-level add_header in any location that has its own, so every location includes them.
     locations = re.findall(r"location [^{]+\{(.*?)\n  \}", conf, re.S)

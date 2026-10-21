@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { queryKeys, useCoachLevels, useCoachPlayersPaginated } from "@levelup/hooks";
+import { PLAYER_SEARCH_DEBOUNCE_MS } from "@levelup/config";
 import { SIDE_LABEL_KEYS } from "@/types";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -24,6 +25,7 @@ import { AlertTriangle, Copy, X } from "lucide-react";
 
 import { addPlayer } from "@/api/players";
 import { createIncompletePlayer } from "@/api/playerInvitations";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { PlayersToolbar, type SortOption } from "@/components/players/PlayersToolbar";
 import { AddPlayerSheet, type AddPlayerInput } from "@/components/players/AddPlayerSheet";
 import { AddByQrDialog } from "@/components/players/AddByQrDialog";
@@ -68,7 +70,7 @@ export default function PlayersPage() {
   );
 
 
-  // Debounce search input — reset page to 1 on new search
+  // Debounce search input (players.search rule 10: 200 ms) — reset page to 1 on new search
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -76,7 +78,7 @@ export default function PlayersPage() {
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(value.trim());
       setCurrentPage(1);
-    }, 300);
+    }, PLAYER_SEARCH_DEBOUNCE_MS);
   }, []);
 
   useEffect(() => {
@@ -325,7 +327,7 @@ export default function PlayersPage() {
                 // iOS uses on its Pressable, so the two shells share the string.
                 role="button"
                 tabIndex={0}
-                aria-label={t("players.openPlayerAria", { name: cs.name })}
+                aria-label={t("players.openPlayerAria", { name: cs.displayName || cs.name })}
                 className={`cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isSelected ? "bg-accent" : "hover:bg-accent/50"
                 } ${cs.validated ? "" : "opacity-60"}`}
@@ -342,16 +344,17 @@ export default function PlayersPage() {
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10 shrink-0">
                       <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">
-                        {getInitials(cs.name || "")}
+                        {getInitials(cs.displayName || cs.name || "")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p
+                        data-testid={`player-card-name-${cs.playerId}`}
                         className={`font-medium truncate ${
                           cs.validated ? "" : "text-muted-foreground"
                         }`}
                       >
-                        {cs.name}
+                        {cs.displayName || cs.name}
                       </p>
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         {level && (
@@ -403,8 +406,16 @@ export default function PlayersPage() {
         </div>
       )}
 
+      {/* players.search rule 10: "searching" until the request for the typed text lands (the rows stay). */}
+      <PlayerSearchFeedback
+        query={search}
+        searching={search.trim() !== debouncedSearch || (debouncedSearch !== "" && playersQuery.isFetching)}
+        count={totalItems}
+      />
+
       <div className="flex items-center justify-between pt-2">
-        <p className="text-sm text-muted-foreground">
+        {/* B-524: the total as data, so a spec can wait for a search's result without matching copy. */}
+        <p className="text-sm text-muted-foreground" data-testid="players-pagination" data-total={totalItems}>
           {t("players.pagination", { current: currentPage, total: totalPages, players: totalItems })}
         </p>
         <div className="flex items-center gap-2">

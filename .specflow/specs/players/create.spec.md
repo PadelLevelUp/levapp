@@ -48,6 +48,16 @@ Coach-side player creation therefore never asks for, nor accepts, a username.
    `save` and `delete` flush instead of committing while a unit of work is open and behave exactly as
    before outside one, so no other service changes.
 
+10. **Adults only on a roster (PAD-642; owner decision 2026-10-12, "forbid under-18").** The Terms say a
+    coach may only add people aged 18 or over (Terms §2, `auth.legal-pages`). Creating a player (`POST
+    /add_player`, `POST /incomplete_player`) carries `confirmsAdults: true`: the coach ticks "Confirmo que
+    este aluno tem 18 anos ou mais" / "I confirm this student is 18 or older" before saving (web
+    AddPlayerSheet, iOS `player/new`). A request that declares the capability
+    `adult-roster-confirmation` and does not send it is 400 `{field: "confirmsAdults", code:
+    "ADULTS_CONFIRMATION_REQUIRED"}` and nothing is written. **Legacy path:** a client that does not
+    declare the token creates as before. No date of birth is collected for a roster entry; the student
+    gives it when the account is completed (`auth.activate` rule 13).
+
 ### Acceptance Criteria
 
 #### Create player
@@ -93,3 +103,10 @@ Coach-side player creation therefore never asks for, nor accepts, a username.
 - **Then** the request fails
 - **And** no `users` row and no `players` row remain for that player
 - **And** a player added with a valid level still produces the four rows of "Create player"
+
+#### The coach confirms the student is an adult (rule 10, PAD-642)
+- **Given** a client declaring `adult-roster-confirmation`
+- **When** the coach creates a player without `confirmsAdults: true`
+- **Then** the answer is 400 `ADULTS_CONFIRMATION_REQUIRED` and no player, user or roster row exists
+- **And** with `confirmsAdults: true` the player is created as before
+- **And** a client that does not declare the token creates as before

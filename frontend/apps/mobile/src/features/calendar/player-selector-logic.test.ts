@@ -41,6 +41,31 @@ describe("filterPlayers", () => {
   });
 });
 
+// PAD-665 (players.search): the picker's search is the shared name rule.
+describe("filterPlayers search (PAD-665)", () => {
+  const people = [
+    player("1", "Ana Rita"),
+    player("2", "Rita Zé"),
+    player("3", "Rui Pedro Basto"),
+    player("4", "André"),
+  ];
+  const ids = (search: string) => filterPlayers(people, { search, levelId: null }).map((p) => p.playerId);
+
+  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
+    expect(ids("rui basto")).toEqual(["3"]);
+    expect(ids("andre")).toEqual(["4"]);
+  });
+
+  it("lists the best match first: 'rita' → 'Rita Zé' before 'Ana Rita'", () => {
+    expect(ids("rita")).toEqual(["2", "1"]);
+  });
+
+  it("keeps the original order for a blank search and never adds a student", () => {
+    expect(ids("")).toEqual(["1", "2", "3", "4"]);
+    expect(ids("zzzz-nobody")).toEqual([]);
+  });
+});
+
 describe("isOutOfLevel", () => {
   it("marks a student whose level is not the class's", () => {
     expect(isOutOfLevel(bruno, "10")).toBe(true);
@@ -80,5 +105,16 @@ describe("filterPlayers matches every word in any order (PAD-516)", () => {
   it("finds the name with the words out of order and skips one missing a word", () => {
     expect(filterPlayers([pedro, alves], { search: "pedro sousa", levelId: null })).toEqual([pedro]);
     expect(filterPlayers([pedro, alves], { search: "sousa pedro", levelId: null })).toEqual([pedro]);
+  });
+});
+
+describe("PAD-660: the class editor's picker finds a student by the coach's nickname", () => {
+  it("matches the display name as well as the real name", () => {
+    const rows = [
+      { playerId: "7", name: "Jorge Silva", displayName: "Jorge chato" },
+      { playerId: "8", name: "Ana Pinto", displayName: "Ana Pinto" },
+    ] as never;
+    expect(filterPlayers(rows, { search: "chato", levelId: null }).map((p: { playerId: string }) => p.playerId)).toEqual(["7"]);
+    expect(filterPlayers(rows, { search: "silva", levelId: null }).map((p: { playerId: string }) => p.playerId)).toEqual(["7"]);
   });
 });

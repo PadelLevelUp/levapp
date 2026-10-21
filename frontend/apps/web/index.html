@@ -9,21 +9,9 @@
 
     <link rel="icon" type="image/svg+xml" href="/brand/levapp-mark-on-light.svg" />
 
-    <!-- Poppins for display (titles, hero numbers), Plus Jakarta Sans for
-         everything else. Loaded via <link> rather than an @import in CSS so it
-         does not block the stylesheet. Only the weights the system actually
-         uses are requested. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- client.route-loading rule 7 (PAD-585): preloaded and applied on load, so the font
-         stylesheet never blocks the first paint (display=swap shows the fallback font meanwhile). -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" /></noscript>
+    <!-- PAD-635: Poppins (display) and Plus Jakarta Sans (body) are self-hosted from
+         @fontsource, imported in src/main.tsx, so no page asks Google for them before consent.
+         font-display: swap keeps the first paint on the fallback face (client.route-loading rule 7). -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- Ink, not the old #2bab6f green: this paints the mobile browser chrome. -->
     <meta name="theme-color" content="#0B1524" />
@@ -47,8 +35,8 @@
     <meta property="og:title" content="LevApp" />
     <meta property="og:description" content="Gestão de aulas para academias de padel e ténis" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://padellevelup.com/" />
-    <meta property="og:image" content="https://padellevelup.com/og-image.png" />
+    <meta property="og:url" content="https://levapp.app/" />
+    <meta property="og:image" content="https://levapp.app/og-image.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -56,7 +44,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="LevApp" />
     <meta name="twitter:description" content="Gestão de aulas para academias de padel e ténis" />
-    <meta name="twitter:image" content="https://padellevelup.com/og-image.png" />
+    <meta name="twitter:image" content="https://levapp.app/og-image.png" />
   </head>
 
   <body>

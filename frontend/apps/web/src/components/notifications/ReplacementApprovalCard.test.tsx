@@ -7,6 +7,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const respondToApproval = vi.fn();
 const toastInfo = vi.fn();
+// PAD-660: these tests are about something else; the coach's resolver answers the real name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 vi.mock("@/api/notificationEngine", () => ({ respondToApproval: (...a: unknown[]) => respondToApproval(...a) }));
 vi.mock("sonner", () => ({ toast: { info: (...a: unknown[]) => toastInfo(...a), error: vi.fn() } }));
 vi.mock("react-i18next", () => ({
@@ -104,5 +109,29 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
     render(<ReplacementApprovalCard bundle={bundleOf([vac(1, { openSpot: true, side: "left", queue: q(5) })])} />);
     expect(screen.queryByTestId("approval-show-more")).toBeNull();
     expect(screen.queryByTestId("approval-showing-of")).toBeNull();
+  });
+});
+
+// ── PAD-661 (semi-auto-approval rule 4b) ─────────────────────────────────────────────────────
+describe("PAD-661 an empty queue says why", () => {
+  it("lists one line per engine stage under the empty state, in the payload's order", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([
+      vac(1, { openSpot: true, side: "left", queue: [], emptyQueueReasons: [{ stage: "eligibility", count: 7 }, { stage: "excluded_by_coach", count: 2 }] }),
+    ])} />);
+    expect(screen.getByTestId("approval-empty-reason-eligibility").textContent).toBe(
+      "notificationsUi.replacementApproval.emptyReason.eligibility:count=7",
+    );
+    expect(screen.getByTestId("approval-empty-reason-excluded_by_coach").textContent).toBe(
+      "notificationsUi.replacementApproval.emptyReason.excluded_by_coach:count=2",
+    );
+    expect(screen.getByTestId("approval-empty-reasons").children).toHaveLength(2);
+  });
+
+  it("an older payload without reasons, or a non-empty queue, shows no reasons", () => {
+    render(<ReplacementApprovalCard bundle={bundleOf([
+      vac(1, { openSpot: true, side: "left", queue: [] }),
+      vac(2, { openSpot: true, side: "right", queue: q(2), emptyQueueReasons: [{ stage: "eligibility", count: 7 }] }),
+    ])} />);
+    expect(screen.queryByTestId("approval-empty-reasons")).toBeNull();
   });
 });

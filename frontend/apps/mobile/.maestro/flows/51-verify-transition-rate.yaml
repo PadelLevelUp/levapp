@@ -67,6 +67,8 @@ appId: com.padellevelup.app
       - inputText: "Maestro Rate Probe"
       - tapOn:
           id: "signup-username"
+      # PAD-651: the username is pre-filled from the name; clear it before typing.
+      - eraseText
       - inputText: "maestro-r-${output.stamp}"
       - pressKey: Enter
       - inputText: "maestro-r-${output.stamp}@example.com"

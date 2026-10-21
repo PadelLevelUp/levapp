@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/api/base";
 // Audit findings (Phase 1):
 // - Messaging updates currently arrive via SSE while the app is open.
 // - Auth token is stored in localStorage and sent as Bearer on API requests.
@@ -5,7 +6,7 @@
 const SW_PATH = "/sw.js";
 
 export async function fetchVapidPublicKey(): Promise<string> {
-  const response = await fetch("/api/notifications/vapid-public-key");
+  const response = await fetch(`${API_BASE_URL}/notifications/vapid-public-key`);
   if (!response.ok) {
     throw new Error("Failed to load VAPID public key");
   }
@@ -33,7 +34,23 @@ async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration> 
   return navigator.serviceWorker.register(SW_PATH);
 }
 
-export async function subscribeToPush(token: string): Promise<boolean> {
+// auth.push-subscription rule 8 (PAD-652, B-581): sign-in saves the subscription twice at
+// once (`login()` and the token effect both call `requestAndSubscribe`). A second call for the
+// same token joins the save already in flight instead of sending its own.
+let inFlight: { token: string; save: Promise<boolean> } | null = null;
+
+export function subscribeToPush(token: string): Promise<boolean> {
+  if (inFlight?.token === token) {
+    return inFlight.save;
+  }
+  const save = saveSubscription(token).finally(() => {
+    if (inFlight?.save === save) inFlight = null;
+  });
+  inFlight = { token, save };
+  return save;
+}
+
+async function saveSubscription(token: string): Promise<boolean> {
   if (Notification.permission !== "granted") {
     return false;
   }
@@ -46,7 +63,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
     applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
   });
 
-  const response = await fetch("/api/notifications/save-subscription", {
+  const response = await fetch(`${API_BASE_URL}/notifications/save-subscription`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -99,7 +116,7 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
     await subscription.unsubscribe();
   }
 
-  const response = await fetch("/api/notifications/unsubscribe", {
+  const response = await fetch(`${API_BASE_URL}/notifications/unsubscribe`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

@@ -158,6 +158,32 @@ export function applyIncomingMessage(
 }
 
 /**
+ * Settle the sender's optimistic `tempId` row once the POST returns `saved`.
+ *
+ * The live echo of the same message can land before the POST answers; it is
+ * appended by `applyIncomingMessage` under the saved id. Replacing the temp with
+ * `saved` then would show the message twice (PAD-647), so when the saved id is
+ * already present the temp row is dropped instead.
+ */
+export function reconcileSentMessage(
+  current: Conversation,
+  tempId: string,
+  saved: Message
+): Conversation {
+  const alreadyDelivered = current.messages.some(
+    (m) => String(m.id) === String(saved.id)
+  );
+  return {
+    ...current,
+    messages: alreadyDelivered
+      ? current.messages.filter((m) => m.id !== tempId)
+      : current.messages.map((m) =>
+          m.id === tempId ? { ...saved, status: "sent" as const } : m
+        ),
+  };
+}
+
+/**
  * The conversation list as the user sees it: page 1 (the cached query) followed by the later pages
  * appended on "load more" (client.query-cache rule 6). A row on several pages keeps page 1's
  * version, the fresher read, so a page-1 refetch never duplicates a row an extra page already
@@ -189,4 +215,37 @@ export function hasConversation(
 ): boolean {
   const wanted = normalizeId(id);
   return list.some((c) => normalizeId(c.id) === wanted);
+}
+
+
+/**
+ * PAD-616 (messaging.sse-realtime rule 19): fold a re-read newest page into the loaded thread after
+ * the stream re-opened. A message the server changed meanwhile (edited, deleted, reacted) is
+ * replaced in place; one missed while the stream was down is appended after the loaded server
+ * messages; an optimistic send not yet echoed (`temp-…`) stays last; older pages, `hasMore` and
+ * `oldestMessageId` are untouched. `added` lists the missed messages, so the caller can mark the
+ * thread read and flag "new below" as `message_created` would have. (More than one newest page
+ * missed leaves a gap above the appended page — acceptable for a blip; a reopen reloads it.)
+ */
+export function mergeNewestPage(
+  current: Conversation,
+  newest: Pick<Conversation, "messages"> & { hasMore?: boolean }
+): { conversation: Conversation; added: Message[] } {
+  const freshById = new Map(newest.messages.map((m) => [String(m.id), m]));
+  const isPending = (m: Message) => String(m.id).startsWith("temp-");
+  const known = new Set(current.messages.map((m) => String(m.id)));
+  const updated = current.messages.map((m) => freshById.get(String(m.id)) ?? m);
+  const added = newest.messages.filter((m) => !known.has(String(m.id)));
+  if (added.length === 0 && updated.every((m, i) => m === current.messages[i])) {
+    return { conversation: current, added: [] };
+  }
+  const settled = updated.filter((m) => !isPending(m));
+  const pending = updated.filter(isPending);
+  return {
+    conversation: {
+      ...current,
+      messages: [...settled, ...added.map((m) => ({ ...m, status: "delivered" as const })), ...pending],
+    },
+    added,
+  };
 }

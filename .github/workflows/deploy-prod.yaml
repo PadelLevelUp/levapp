@@ -77,10 +77,13 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        # PAD-598: the official image from AWS's public mirror, not Docker Hub, whose anonymous
-        # per-IP quota and auth endpoint failed GitHub's shared runners (`toomanyrequests`,
-        # then token-endpoint timeouts). Same bytes as postgres:15.
-        image: public.ecr.aws/docker/library/postgres:15
+        # PAD-653 (delivery.ci-images rule 4): our own GHCR copy of postgres:15, refreshed weekly by
+        # mirror-ci-images.yaml. Anonymous ECR Public (PAD-598) hit its per-IP data limit on the
+        # shared runners ("toomanyrequests: Data limit exceeded" at Initialize containers).
+        image: ghcr.io/padellevelup/ci-postgres:15
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         env:
           POSTGRES_USER: padel_app_user
           POSTGRES_PASSWORD: drift-gate
@@ -229,6 +232,14 @@ jobs:
             -e VAPID_CLAIMS_EMAIL="${{ secrets.VAPID_CLAIMS_EMAIL }}" \
             -e EXPO_ACCESS_TOKEN="${{ secrets.EXPO_ACCESS_TOKEN }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.HUBSPOT_PRIVATE_APP_TOKEN }}" \
+            -e GOOGLE_WEB_CLIENT_ID="${{ vars.GOOGLE_WEB_CLIENT_ID }}" \
+            -e GOOGLE_IOS_CLIENT_ID="${{ vars.GOOGLE_IOS_CLIENT_ID }}" \
+            -e APPLE_CLIENT_IDS="${{ vars.APPLE_CLIENT_IDS }}" \
+            -e HUBSPOT_DEMO_FORM_ID="${{ vars.HUBSPOT_DEMO_FORM_ID }}" \
+            -e HUBSPOT_MARKETING_SUBSCRIPTION_ID="${{ vars.HUBSPOT_MARKETING_SUBSCRIPTION_ID }}" \
+            -e LINEAR_API_KEY="${{ secrets.LINEAR_API_KEY }}" \
+            -e WORK_GITHUB_REPO="${{ github.repository }}" \
+            -e WORK_GITHUB_TOKEN="${{ secrets.WORK_GITHUB_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:$TAG
           # PAD-338: keep the last three images of this repository instead of
           # pruning on success. `docker image prune -f` deleted the image we had
@@ -348,6 +359,9 @@ jobs:
           # its own HUBSPOT_DEMO_FORM_ID_STAGING (see deploy-staging.yaml).
           build-args: |
             VITE_HUBSPOT_DEMO_FORM_ID=${{ vars.HUBSPOT_DEMO_FORM_ID }}
+            VITE_HUBSPOT_MARKETING_SUBSCRIPTION_ID=${{ vars.HUBSPOT_MARKETING_SUBSCRIPTION_ID }}
+            VITE_GOOGLE_WEB_CLIENT_ID=${{ vars.GOOGLE_WEB_CLIENT_ID }}
+            VITE_API_BASE_URL=${{ vars.API_BASE_URL }}
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5
         with:

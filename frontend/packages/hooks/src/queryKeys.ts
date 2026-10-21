@@ -13,6 +13,9 @@ export const queryKeys = {
     ["calendar-events", { from, to }] as const,
   classInstance: (event: Pick<CalendarEvent, "model" | "originalId" | "date">) =>
     ["class-instance", event.model, event.originalId, event.date] as const,
+  // The coach's whole roster (`GET /app/coach_players`): mobile's coachPlayersKey, and the
+  // source of PAD-660's display names (useCoachDisplayName).
+  coachPlayers: ["coach-players"] as const,
   coachPlayersPaginated: (params: PlayersQueryParams = {}) =>
     ["coach-players-paginated", params] as const,
   // client.query-cache: the prefix every roster write invalidates (all pages and filters).
@@ -33,8 +36,11 @@ export const queryKeys = {
   evaluationSettings: ["evaluation-settings"] as const,
   // PAD-423: the coach's evaluation scale (one per coach).
   evaluationScale: ["evaluation-scale"] as const,
-  conversations: (page = 1, limit = 20) =>
-    ["conversations", { page, limit }] as const,
+  // PAD-648: the "Não lidas" list is its own entry under the same prefix; the full list's key is unchanged.
+  conversations: (page = 1, limit = 20, unread = false) =>
+    unread
+      ? (["conversations", { page, limit, unread: true }] as const)
+      : (["conversations", { page, limit }] as const),
   conversation: (conversationId: string) =>
     ["conversation", conversationId] as const,
   unreadCount: ["messages-unread-count"] as const,

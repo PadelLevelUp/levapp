@@ -33,6 +33,9 @@ Coaches running an existing class's week-to-week occurrences.
 4. The coach assigns which coach(es) teach the class, and can override who teaches a specific
    occurrence.
 5. As the season goes on, the coach marks an occurrence completed, canceled, or rescheduled.
+6. A regular student who usually plays left tells the coach they will play right this week; the
+   coach marks it on that week's class only, and the class's side balancing — who gets invited
+   first when a place opens — counts them on the right that week (PAD-551).
 
 ## Business Rules
 

@@ -11,6 +11,19 @@ appId: com.padellevelup.app
 
 # ── Open the seeded class ──
 - tapOn: "E2E Academy Class"
+# PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
+- scrollUntilVisible:
+    element:
+      id: "participant-row-1"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "attendance-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-edit"
 - extendedWaitUntil:
     visible:
       id: "class-participant-1"
@@ -34,10 +47,25 @@ appId: com.padellevelup.app
       id: "screen-calendar"
     timeout: 15000
 - tapOn: "E2E Academy Class"
+# PAD-659: the coach reads the class grouped; the marking rows live behind "Editar presenças".
+- scrollUntilVisible:
+    element:
+      id: "participant-row-1"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "attendance-edit"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "attendance-edit"
 - extendedWaitUntil:
     visible:
       id: "class-participant-1"
     timeout: 20000
+# PAD-663: the badge WORD reads "Going" until the class ends (a coach's mark is intent
+# before the class); the id keeps the stored state, so this assertion is unchanged.
 # PAD-313: the row carries ONE state word. Saving attendance ends with
 # `validated = True` in `add_presences` ("attendance was explicitly recorded by
 # the coach"), so the saved row reads "Attended" — the coach's record.

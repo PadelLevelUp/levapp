@@ -1,12 +1,13 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
-import { lightTheme } from "@levelup/config";
+import { Pressable, View } from "react-native";
+import { NICKNAME_MAX, lightTheme } from "@levelup/config";
 import { useFieldAvailability } from "@levelup/hooks";
 import { fieldConflictText } from "@levelup/api/src/resources/fields";
 import type { CoachLevel, PlayerSide } from "@levelup/types";
 import { playerFormSchema } from "@levelup/validation";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,6 +19,7 @@ import {
   type Option,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { levelOptionLabel } from "./LevelLabel";
@@ -29,6 +31,9 @@ export interface PlayerFormValues {
   levelId?: string;
   side?: PlayerSide;
   notes?: string;
+  /** PAD-660: this coach's private nickname (edit form only). */
+  nickname?: string;
+  nicknameAsName?: boolean;
 }
 
 interface PlayerFormProps {
@@ -54,7 +59,15 @@ interface PlayerFormProps {
   lockEmail?: boolean;
   /** Spinner state for the invite action, kept separate from `saving`. */
   inviting?: boolean;
+  /**
+   * PAD-642 (players.create rule 10; owner: "forbid under-18"): on the create screen the coach ticks
+   * "I confirm this student is 18 or older" before either save. Omitted on the edit screen.
+   */
+  requireAdultConfirmation?: boolean;
+  /** PAD-660 (players.nickname rule 6): the edit screen shows the nickname field; the create form does not. */
+  showNickname?: boolean;
 }
+
 
 const SIDE_OPTIONS: { value: PlayerSide; labelKey: string }[] = [
   { value: "left", labelKey: "players.sideLeft" },
@@ -83,12 +96,19 @@ export function PlayerForm({
   onInvite,
   lockEmail = false,
   inviting = false,
+  requireAdultConfirmation = false,
+  showNickname = false,
 }: PlayerFormProps) {
   const { t } = useTranslation();
+  const [adultsConfirmed, setAdultsConfirmed] = React.useState(false);
+  const blockedByAdults = requireAdultConfirmation && !adultsConfirmed;
   const [name, setName] = React.useState(initialValues?.name ?? "");
   const [email, setEmail] = React.useState(initialValues?.email ?? "");
   const [phone, setPhone] = React.useState(initialValues?.phone ?? "");
   const [notes, setNotes] = React.useState(initialValues?.notes ?? "");
+  const [nickname, setNickname] = React.useState(initialValues?.nickname ?? "");
+  const [nicknameAsName, setNicknameAsName] = React.useState(initialValues?.nicknameAsName ?? false);
+  const nicknameTooLong = nickname.trim().length > NICKNAME_MAX;
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const initialLevel = levels.find((l) => l.id === initialValues?.levelId);
@@ -153,6 +173,10 @@ export function PlayerForm({
       setFormError(t(raw, { defaultValue: raw }));
       return null;
     }
+    if (showNickname && nicknameTooLong) {
+      setFormError(t("players.nickname.tooLong"));
+      return null;
+    }
     if (hasFieldError) {
       setFormError(fieldConflictText(emailCheck.conflict, t));
       return null;
@@ -165,16 +189,18 @@ export function PlayerForm({
       levelId: levelOption?.value || undefined,
       side: side || undefined,
       notes: notes.trim() || undefined,
+      ...(showNickname ? { nickname: nickname.trim(), nicknameAsName } : {}),
     };
   };
 
   const handleSave = () => {
+    if (blockedByAdults) return; // PAD-642: the box gates the save, not only the button
     const values = validate();
     if (values) onSubmit(values);
   };
 
   const handleInvite = () => {
-    if (!onInvite) return;
+    if (!onInvite || blockedByAdults) return;
     const values = validate();
     if (values) onInvite(values);
   };
@@ -313,15 +339,66 @@ export function PlayerForm({
         />
       </View>
 
+      {showNickname ? (
+        <View className="gap-2">
+          <Label>{t("players.nickname.label")}</Label>
+          <Input
+            testID="player-nickname"
+            accessibilityLabel={t("players.nickname.label")}
+            placeholder={t("players.nickname.placeholder")}
+            maxLength={NICKNAME_MAX}
+            value={nickname}
+            onChangeText={setNickname}
+          />
+          <Text className="text-xs text-muted-foreground" testID="player-nickname-warning">
+            {t("players.nickname.warning")}
+          </Text>
+          {nicknameTooLong ? (
+            <Text className="text-sm text-destructive" testID="player-nickname-too-long">
+              {t("players.nickname.tooLong")}
+            </Text>
+          ) : null}
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="flex-1 text-sm">{t("players.nickname.asName")}</Text>
+            <Switch
+              testID="player-nickname-as-name"
+              accessibilityLabel={t("players.nickname.asName")}
+              checked={nicknameAsName}
+              onCheckedChange={setNicknameAsName}
+            />
+          </View>
+        </View>
+      ) : null}
+
       {formError ? (
         <Text className="text-sm text-destructive">{formError}</Text>
+      ) : null}
+
+      {requireAdultConfirmation ? (
+        <View className="flex-row items-start gap-2">
+          <Pressable
+            testID="player-confirms-adults"
+            role="checkbox"
+            accessibilityState={{ checked: adultsConfirmed, disabled: saving || inviting }}
+            accessibilityLabel={t("players.confirmsAdults")}
+            disabled={saving || inviting}
+            hitSlop={8}
+            onPress={() => setAdultsConfirmed((on) => !on)}
+          >
+            {/* One owner of the toggle: the box only shows the state; the Pressable takes the tap. */}
+            <View pointerEvents="none">
+              <Checkbox checked={adultsConfirmed} onCheckedChange={() => undefined} />
+            </View>
+          </Pressable>
+          <Text className="flex-1 text-sm">{t("players.confirmsAdults")}</Text>
+        </View>
       ) : null}
 
       <View className="mt-1 gap-2">
         <Button
           testID="player-save"
           accessibilityLabel={submitLabel}
-          disabled={!name.trim() || hasFieldError || saving || inviting}
+          disabled={!name.trim() || hasFieldError || blockedByAdults || saving || inviting}
           onPress={handleSave}
         >
           {saving ? <Spinner size="small" color="white" /> : null}
@@ -332,7 +409,7 @@ export function PlayerForm({
             variant="outline"
             testID="player-create-and-invite"
             accessibilityLabel={t("players.createAndInvite")}
-            disabled={!name.trim() || hasFieldError || saving || inviting}
+            disabled={!name.trim() || hasFieldError || blockedByAdults || saving || inviting}
             onPress={handleInvite}
           >
             {inviting ? (

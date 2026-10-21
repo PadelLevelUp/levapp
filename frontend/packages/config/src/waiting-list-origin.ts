@@ -3,7 +3,8 @@
  * a class's waiting-list row, read by both shells.
  */
 import type { ClassWaitingListScopeRequest, CoachClassWaitingListRow } from "@levelup/types";
-import { nameMatchesQuery } from "./name-search";
+import { rosterNicknameOf } from "./coach-display-name";
+import { searchPlayers } from "./name-search";
 import { DEFAULT_STANDING_PRESET, isStandingEndAllowed, standingEndFor } from "./standing-end";
 
 export function waitingListOriginKey(row: Pick<CoachClassWaitingListRow, "origin" | "seriesScoped">): string {
@@ -73,15 +74,23 @@ export function waitingListCandidates<P extends { playerId: number | string }>(
 
 /**
  * PAD-558 (calendar.event-detail rule 20): the picker's name search, under the class editor's
- * rule (`nameMatchesQuery`, PAD-516). It only narrows what is offered: the chosen student stays
+ * rule (`searchPlayers`, PAD-516/PAD-665: best match first). It only narrows what is offered: the chosen student stays
  * listed, so the choice the confirm button acts on is always on screen.
  */
-export function waitingListPickerOptions<P extends { playerId: number | string; name?: string | null }>(
+export function waitingListPickerOptions<
+  P extends { playerId: number | string; name?: string | null; displayName?: string | null },
+>(
   candidates: P[],
   query: string,
   chosenId: string | null,
 ): P[] {
-  return candidates.filter((p) => String(p.playerId) === chosenId || nameMatchesQuery(p.name, query));
+  // PAD-665: a typed search lists the best match first; the chosen student, if the search no
+  // longer matches them, follows the matches. A blank search offers everyone, as given.
+  const matches = searchPlayers(candidates, query, (p) => ({ name: p.name, nickname: rosterNicknameOf(p), id: p.playerId }));
+  if (chosenId === null || !query.trim()) return matches;
+  if (matches.some((p) => String(p.playerId) === chosenId)) return matches;
+  const chosen = candidates.find((p) => String(p.playerId) === chosenId);
+  return chosen ? [...matches, chosen] : matches;
 }
 
 // ── PAD-560 (calendar.event-detail rule 20): the add/edit dialog's scope logic, one copy for both

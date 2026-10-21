@@ -6,6 +6,8 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
+import { CountryField } from "@/features/auth/CountryField";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
+import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 
 /**
@@ -43,6 +46,9 @@ export type AccountFormField = {
   autoComplete?: React.ComponentProps<typeof Input>["autoComplete"];
   /** PAD-457: e.g. "DD/MM/AAAA" for the activation form's birth date. */
   placeholder?: string;
+  /** PAD-604: a country picker (ISO alpha-2 in `values`) instead of a text box.
+   * PAD-637: "terms" is the Terms box (`values[id]` is "true" when ticked; auth.register rule 19b). */
+  kind?: "country" | "terms";
 };
 
 export function PreAuthShell({
@@ -170,32 +176,53 @@ export function AccountSetupForm({
         </CardHeader>
 
         <CardContent className="gap-4">
-          {fields.map((field) => (
-            <View key={field.id} className="gap-1.5">
-              <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
-              <Input
+          {fields.map((field) =>
+            field.kind === "terms" ? (
+              <TermsAcceptField
+                key={field.id}
                 testID={`${testID}-${field.id}`}
-                accessibilityLabel={field.label}
-                value={values[field.id] ?? ""}
-                onChangeText={(next) => onChangeField(field.id, next)}
-                secureTextEntry={field.secure}
-                keyboardType={field.keyboardType ?? "default"}
-                placeholder={field.placeholder}
-                autoComplete={field.autoComplete}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!submitting}
+                checked={values[field.id] === "true"}
+                onToggle={() => onChangeField(field.id, values[field.id] === "true" ? "" : "true")}
+                error={errors[field.id]}
+                disabled={submitting}
               />
-              {errors[field.id] ? (
-                <Text
-                  className="text-sm text-destructive"
-                  testID={`${testID}-${field.id}-error`}
-                >
-                  {errors[field.id]}
-                </Text>
-              ) : null}
-            </View>
-          ))}
+            ) : field.kind === "country" ? (
+              <CountryField
+                key={field.id}
+                testID={`${testID}-${field.id}`}
+                label={field.label}
+                value={values[field.id] ?? ""}
+                error={errors[field.id]}
+                disabled={submitting}
+                onChange={(code) => onChangeField(field.id, code)}
+              />
+            ) : (
+              <View key={field.id} className="gap-1.5">
+                <Label testID={`${testID}-${field.id}-label`}>{field.label}</Label>
+                <Input
+                  testID={`${testID}-${field.id}`}
+                  accessibilityLabel={field.label}
+                  value={values[field.id] ?? ""}
+                  onChangeText={(next) => onChangeField(field.id, next)}
+                  secureTextEntry={field.secure}
+                  keyboardType={field.keyboardType ?? "default"}
+                  placeholder={field.placeholder}
+                  autoComplete={field.autoComplete}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                />
+                {errors[field.id] ? (
+                  <Text
+                    className="text-sm text-destructive"
+                    testID={`${testID}-${field.id}-error`}
+                  >
+                    {errors[field.id]}
+                  </Text>
+                ) : null}
+              </View>
+            )
+          )}
 
           {submitError ? (
             <Text

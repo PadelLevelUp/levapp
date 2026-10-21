@@ -353,6 +353,15 @@ export interface CoachPlayer {
   side?: PlayerSide;
   notes?: string;
   level?: CoachLevel;
+  /**
+   * PAD-660 (players.nickname rule 2): this coach's private nickname for the student, sent only
+   * on the requesting coach's own roster rows. `name` stays the real name; `displayName` is what
+   * the coach's views show (the nickname when `nicknameAsName`, else the name). Older payloads
+   * lack them — read through `coachDisplayName` (@levelup/config).
+   */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   phone?: string,
   /**
    * PAD-112: the student's own notification block preferences, surfaced to the
@@ -507,6 +516,12 @@ export interface ClassInvitation {
 }
 
 export interface ClassInstance {
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
+   * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
+   * student and for a series template with no date).
+   */
+  sideEditable?: boolean;
   id: string;
   originalId: string;
   parentClassId?: string;
@@ -634,6 +649,14 @@ export interface Presence {
    */
   cancelledByStudent?: boolean;
   cancelledAt?: string | null;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence — the
+   * coach's override when `sideOverride`, else their usual side — and whether the coach may still
+   * change it (the server's answer: not ended, not canceled).
+   */
+  side?: 'left' | 'right' | 'both' | null;
+  sideOverride?: boolean;
+  sideEditable?: boolean;
 
   player?: Player;
 }
@@ -710,7 +733,29 @@ export interface CalendarEvent {
    */
   openSpot?: boolean;
   coachName?: string | null;
+  /**
+   * PAD-611 (calendar.view rule 22): what this class is to the student viewing it. Absent on a
+   * coach's calendar and from a server older than PAD-611.
+   */
+  studentRelation?: StudentRelation;
+  /**
+   * PAD-664 (eligibility.open-spot-visibility rule 1a): on an offer sent to a client that declares
+   * `full-classes`, whether it still has room, and how much.
+   */
+  state?: "open" | "full";
+  spotsLeft?: number;
 }
+
+/** PAD-611 (calendar.view rule 22); `full` is PAD-664's eligible-but-full offer (rule 23). */
+export type StudentRelation =
+  | "enrolled"
+  | "not_coming"
+  | "attended"
+  | "missed"
+  | "invited"
+  | "waiting"
+  | "open_spot"
+  | "full";
 
 /**
  * PAD-358 (classes.academy-class-booking rule 9): a class in the "Marcar Aula"
@@ -846,6 +891,11 @@ export interface Conversation {
   isKnownContact?: boolean;
 
   lastMessage: string | null;
+  /**
+   * messaging.conversations rule 12a (PAD-639, B-547): the last message was deleted, so
+   * `lastMessage` is "" and the row shows "Message deleted". Absent from older servers.
+   */
+  lastMessageDeleted?: boolean;
   lastMessageAt: string | null;
 
   unreadCount: number;
@@ -1433,7 +1483,9 @@ export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";
 
 export type InviteSimulationPriority =
   | { id: "level"; ladderDistance: number | null; levelCode: string | null }
-  | { id: "justified_misses"; rate: number }
+  /** PAD-505: `owed` is the classes owed (justified absences minus make-ups taken), the value the
+   * engine sorts on. A server from before PAD-505 sends only `rate`. */
+  | { id: "justified_misses"; owed?: number; rate: number }
   | { id: "attendance"; rate: number }
   | { id: "playing_side"; match: "exact" | "both" | "other"; side: PlayerSide | null }
   | { id: "subscription_status"; active: boolean };
@@ -1537,8 +1589,20 @@ export interface ApprovalVacancyInfo {
   /** PAD-574: the side the spot asks for first (rule 7a's group label). */
   side?: PlayerSide | null;
   queue: ApprovalQueuePlayer[];
+  /**
+   * PAD-661 (semi-auto-approval rule 4b): why the queue is empty — the roster counted by the first
+   * engine stage that dropped each student, in engine order. Present only when `queue` is empty;
+   * absent on older payloads.
+   */
+  emptyQueueReasons?: ApprovalEmptyQueueReason[];
   waitingListPlayerId?: number;
   waitingListPlayerName?: string;
+}
+
+/** PAD-661: one line of "why nobody is suggested"; `stage` is a `CANDIDATE_STAGES` key. */
+export interface ApprovalEmptyQueueReason {
+  stage: string;
+  count: number;
 }
 
 /** PAD-545 / PAD-542 (semi-auto-approval rule 12): a class's suggestion state for its coach. */

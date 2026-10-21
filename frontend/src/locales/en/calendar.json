@@ -41,8 +41,10 @@
     "mobile": {
       "classCount_one": "{{count}} class",
       "classCount_other": "{{count}} classes",
+      "classCount_zero": "{{count}} classes",
       "dayDots_one": "{{count}} event",
       "dayDots_other": "{{count}} events",
+      "dayDots_zero": "{{count}} events",
       "noClassesScheduled": "No classes scheduled",
       "noClasses": "No classes",
       "loadFailed": "Could not load the calendar."
@@ -231,11 +233,13 @@
       "approvalNeededDescription": "Approval needed to invite replacements",
       "invitesSentDescription_one": "Sent an invite to {{count}} player",
       "invitesSentDescription_other": "Sent an invite to {{count}} players",
+      "invitesSentDescription_zero": "Sent an invite to {{count}} players",
       "failedSaveAttendance": "Failed to save attendance",
       "trainingSaved": "Training saved",
       "failedSaveTraining": "Failed to save training",
       "remindersSent_one": "Reminders sent to {{count}} student",
       "remindersSent_other": "Reminders sent to {{count}} students",
+      "remindersSent_zero": "Reminders sent to {{count}} students",
       "failedSendReminders": "Failed to send reminders",
       "cancelAttendance": "Cancel attendance",
       "cancelAttendanceConfirmTitle": "Not going to make it?",
@@ -285,6 +289,7 @@
       "noGroupsFound": "No groups found",
       "exerciseCount_one": "{{count}} exercise",
       "exerciseCount_other": "{{count}} exercises",
+      "exerciseCount_zero": "{{count}} exercises",
       "allAlreadyAdded": " · all already added",
       "editPlan": "Edit training plan",
       "removeExercise": "Remove {{name}}",
@@ -375,14 +380,15 @@
       "loadingGroups": "Loading groups…",
       "selectAllIn": "Select all in {{group}}",
       "searchPlaceholder": "Search individual students…",
-      "noResults": "No results",
       "noEligibleStudents": "No eligible students found",
       "cancel": "Cancel",
       "send": "Send",
       "sendToCount_one": "Send to {{count}} student",
       "sendToCount_other": "Send to {{count}} students",
+      "sendToCount_zero": "Send to {{count}} students",
       "invitationSent_one": "Invitation sent to {{count}} student",
       "invitationSent_other": "Invitation sent to {{count}} students",
+      "invitationSent_zero": "Invitation sent to {{count}} students",
       "failedSendInvitations": "Failed to send invitations",
       "alreadyInvited": "Already holding an open invitation for this class: {{names}}",
       "blockedByPreference": "Could not notify: {{names}} (notifications blocked)",
@@ -427,10 +433,12 @@
       "title": "Student unavailable",
       "description_one": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
       "description_other": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
+      "description_zero": "{{names}} marked themselves as unavailable at this time. Are you sure you want to go ahead with them in the class? You will not be able to send them notifications during this period, because they are marked as unavailable and do not want to be disturbed.",
       "confirm": "Proceed anyway",
       "cancel": "Cancel",
       "blocked_one": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable.",
-      "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
+      "blocked_other": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable.",
+      "blocked_zero": "You cannot send notifications to {{names}} at this time, because they marked themselves as unavailable."
     },
     "legend": {
       "enrolled": "Enrolled",
@@ -439,7 +447,18 @@
       "full": "Full / upcoming",
       "done": "Finished",
       "event": "Event / not a class",
-      "fill": "Confirmed / awaiting / free"
+      "fill": "Confirmed / awaiting / free",
+      "invited": "Invited",
+      "waiting": "Waiting list",
+      "notComing": "Not going",
+      "student": {
+        "enrolled": "Enrolled",
+        "invited": "Invited",
+        "waiting": "On waiting list",
+        "notComing": "Not going",
+        "openSpot": "Spot open",
+        "full": "Full · waiting list"
+      }
     },
     "eligibilityConfirm": {
       "title": "Add students who don't meet the bar?",
@@ -520,6 +539,7 @@
       },
       "coachTitle_one": "{{count}} request to join",
       "coachTitle_other": "{{count}} requests to join",
+      "coachTitle_zero": "{{count}} requests to join",
       "accept": "Accept",
       "reject": "Reject",
       "acceptedToast": "{{name}} is in",
@@ -552,6 +572,78 @@
         "coach": "Missed"
       },
       "reminderSent": "Reminder sent"
+    },
+    "overflow": {
+      "label": "+{{count}}",
+      "aria": "{{count}} more classes",
+      "title": "More classes at this time"
+    },
+    "relation": {
+      "invited": "Invited",
+      "waiting": "On waiting list",
+      "notComing": "Not going",
+      "full": "Full"
+    },
+    "studentFilter": {
+      "label": "Show",
+      "eligible": "All classes I'm eligible for",
+      "mine": "Only my classes"
+    },
+    "waitingList": {
+      "join": "Join the waiting list",
+      "joined": "You're on the waiting list",
+      "on": "On waiting list",
+      "onHint": "We'll let you know if a spot opens.",
+      "failed": "Couldn't join the waiting list",
+      "fullHint": "This class is full. You can join its waiting list."
+    },
+    "side": {
+      "label": "Side in this class",
+      "usual": "Usual",
+      "left": "Left",
+      "right": "Right",
+      "tag": {
+        "left": "Left in this class",
+        "right": "Right in this class"
+      },
+      "saveFailed": "Couldn't change the side. Try again.",
+      "ended": "This class has ended; its side can no longer change."
+    },
+    "participants": {
+      "group": {
+        "going": "Going · {{count}}",
+        "pending": "No answer · {{count}}",
+        "not_going": "Not going · {{count}}"
+      },
+      "state": {
+        "going": "Going",
+        "pending": "No answer",
+        "not_going": "Not going"
+      },
+      "sideShort": {
+        "both": "Both",
+        "right": "Right",
+        "left": "Left"
+      },
+      "sideLong": {
+        "both": "Both sides",
+        "right": "Right side",
+        "left": "Left side"
+      },
+      "title": "Participants",
+      "enrolled": "{{current}}/{{max}} enrolled",
+      "inThisClass": "In this class",
+      "attendance": "Attendance",
+      "attendanceValue": "{{attended}} attended · {{missed}} missed",
+      "lastEvaluation": "Last evaluation",
+      "noEvaluations": "No evaluations",
+      "contact": "Contact",
+      "level": "Level {{level}}",
+      "sendMessage": "Send message",
+      "fullProfile": "View full profile",
+      "close": "Close",
+      "openProfile": "View {{name}}'s profile",
+      "popupLabel": "Player profile"
     }
   }
 }

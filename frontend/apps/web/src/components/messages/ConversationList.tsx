@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { formatConversationTimestamp } from '@/lib/conversationTime';
-import { unreadBadgeLabel } from '@levelup/config';
+import { searchPeopleByName, unreadBadgeLabel } from '@levelup/config';
 import type { Conversation } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { NewConversationDialog } from './NewConversationDialog';
+import { PlayerSearchFeedback } from '@/components/players/PlayerSearchFeedback';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -23,9 +25,16 @@ interface ConversationListProps {
   loadingMore?: boolean;
   /** PAD-568: students only — the picker's "connect with a coach" shortcut when nobody is linked. */
   onConnectWithCoach?: () => void;
+  /** PAD-665 (players.search rule 8): a coach's filter uses the shared name rule; absent = student. */
+  isCoach?: boolean;
+  /** messaging.conversations rule 17 (PAD-648): "Todas" / "Não lidas"; the page owns the choice. */
+  filter?: ConversationFilter;
+  onFilterChange?: (filter: ConversationFilter) => void;
 }
 
-export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore }: ConversationListProps) {
+export type ConversationFilter = 'all' | 'unread';
+
+export function ConversationList({ conversations, selectedId, onSelect, onNewConversation, onNewConversationByUsername, onConnectWithCoach, onLoadMore, hasMore, loadingMore, isCoach = false, filter = 'all', onFilterChange }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -36,9 +45,7 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
   const displayName = (conv: Conversation) =>
     conv.participantName ?? t('messages.deletedUser');
 
-  const filteredConversations = conversations.filter(conv =>
-    displayName(conv).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = searchPeopleByName(conversations, searchQuery, displayName, { coach: isCoach });
 
   useEffect(() => {
     if (!sentinelRef.current || !onLoadMore) return;
@@ -86,17 +93,46 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
           onSelectUser={onNewConversation}
           onStartByUsername={onNewConversationByUsername}
           onConnectWithCoach={onConnectWithCoach}
+          isCoach={isCoach}
         />
         </div>
+        {onFilterChange && (
+          <ToggleGroup
+            type="single"
+            value={filter}
+            // Radix reports "" when the pressed item is pressed again: one choice is always on.
+            onValueChange={(v) => {
+              if (v === 'all' || v === 'unread') onFilterChange(v);
+            }}
+            aria-label={t("messages.filterAria")}
+            className="mt-3 justify-start"
+          >
+            <ToggleGroupItem value="all" size="sm" data-testid="conversations-filter-all" className="min-h-9 px-3">
+              {t("messages.filterAll")}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="unread" size="sm" data-testid="conversations-filter-unread" className="min-h-9 px-3">
+              {t("messages.filterUnread")}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </div>
 
       {/* Conversation List */}
       <ScrollArea className="flex-1 min-h-0">
         <div className="divide-y divide-border">
           {filteredConversations.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              {t("messages.noConversationsFound")}
-            </div>
+            // players.search rule 10: a coach's search that finds nobody says so, with the query.
+            isCoach && searchQuery.trim() ? (
+              <PlayerSearchFeedback query={searchQuery} count={0} className="text-center py-8 text-muted-foreground text-sm" />
+            ) : (
+              <div
+                data-testid="conversations-empty"
+                data-filter={filter}
+                className="text-center py-8 text-muted-foreground text-sm"
+              >
+                {filter === 'unread' ? t("messages.noUnreadConversations") : t("messages.noConversationsFound")}
+              </div>
+            )
           ) : (
             filteredConversations.map((conversation) => (
               <button
@@ -149,6 +185,8 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p
+                      data-testid="conversation-last-message"
+                      data-deleted={conversation.lastMessageDeleted ? "true" : "false"}
                       className={cn(
                         "text-sm leading-snug overflow-hidden break-words [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
                         conversation.unreadCount > 0
@@ -156,7 +194,10 @@ export function ConversationList({ conversations, selectedId, onSelect, onNewCon
                           : "text-muted-foreground"
                       )}
                     >
-                      {conversation.lastMessage}
+                      {/* messaging.conversations rule 12a (PAD-639): a deleted last message. */}
+                      {conversation.lastMessageDeleted
+                        ? t("messages.messageDeleted")
+                        : conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (
                       <span

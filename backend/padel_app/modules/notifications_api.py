@@ -8,6 +8,7 @@ import os
 
 from flask import Blueprint, jsonify, request, abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 
 from padel_app.models import PushSubscription, DeviceToken
 from padel_app.sql_db import db
@@ -51,9 +52,19 @@ def register_device_token():
     )
     record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
     if record is None:
-        record = DeviceToken(user_id=user_id, token=token, platform=platform)
-        db.session.add(record)
-    else:
+        # messaging.push-notifications rule 9a (PAD-652, B-581): two registrations at once both
+        # found no row and the loser's insert failed on uq_device_tokens_user_token with a 500.
+        # Same shape as `save_subscription`: the insert runs in a SAVEPOINT (after the delete
+        # above, which the rollback keeps), and a collision updates the winner's row.
+        savepoint = db.session.begin_nested()
+        try:
+            db.session.add(DeviceToken(user_id=user_id, token=token, platform=platform))
+            db.session.flush()
+            savepoint.commit()
+        except IntegrityError:
+            savepoint.rollback()
+            record = DeviceToken.query.filter_by(token=token, user_id=user_id).one()
+    if record is not None:
         record.platform = platform
 
     db.session.commit()
@@ -95,15 +106,23 @@ def save_subscription():
     if not subscription:
         abort(400, "subscription is required")
 
+    payload = json.dumps(subscription)
     record = PushSubscription.query.filter_by(user_id=user_id).first()
     if record is None:
-        record = PushSubscription(
-            user_id=user_id,
-            subscription_json=json.dumps(subscription),
-        )
-        db.session.add(record)
-    else:
-        record.subscription_json = json.dumps(subscription)
+        # auth.push-subscription rule 7 (PAD-652, B-581): two saves at once both found no row,
+        # and the loser's insert failed on ix_push_subscriptions_user_id with a 500. The insert
+        # runs in a SAVEPOINT; on that collision only the savepoint rolls back and the save
+        # updates the winner's row, the `Conversation.get_or_insert` shape (PAD-411).
+        savepoint = db.session.begin_nested()
+        try:
+            db.session.add(PushSubscription(user_id=user_id, subscription_json=payload))
+            db.session.flush()
+            savepoint.commit()
+        except IntegrityError:
+            savepoint.rollback()
+            record = PushSubscription.query.filter_by(user_id=user_id).one()
+    if record is not None:
+        record.subscription_json = payload
 
     db.session.commit()
     return jsonify({"success": True}), 201

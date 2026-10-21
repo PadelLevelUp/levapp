@@ -34,7 +34,6 @@ class Player(db.Model, model.Model):
     __tablename__ = "players"
     __table_args__ = {"extend_existing": True}
 
-    page_title = "Players"
     model_name = "Player"
 
     id = Column(Integer, primary_key=True)
@@ -120,14 +119,6 @@ class Player(db.Model, model.Model):
         return self.name
 
     @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "name", "label": "Name"}
-        columns = [
-            {"field": "name", "label": "Name"},
-        ]
-        return searchable, columns
-
-    @classmethod
     def get_create_form(cls):
         def get_field(name, type, label=None, **kwargs):
             return Field(
@@ -170,6 +161,7 @@ class Player(db.Model, model.Model):
         # if the two ever drifted.
         from padel_app.services.player_service import (
             _activation_token_if_inactive,
+            nickname_payload,
             possible_duplicates_for,
         )
         from padel_app.services.student_notification_preferences import (
@@ -209,6 +201,8 @@ class Player(db.Model, model.Model):
             # players.remove rule 5 (PAD-274): whether this coach may delete the
             # record; otherwise the apps offer Disconnect.
             "deletable": _is_deletable_by_coach(self),
+            # PAD-660 (players.nickname rule 2): same keys as the roster serializer.
+            **nickname_payload(rel, self.user.name),
             # evaluations.reminders rule 4 (PAD-404): the roster serializer's key.
             "due": bool(due.get(rel.id, False)) if rel is not None else False,
             # players.claim rule 4c (PAD-528): the roster serializer's key, so an edit's

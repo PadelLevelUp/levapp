@@ -28,8 +28,6 @@
       "rank": "#{{rank}}",
       "lookupTitle": "Porque é que … não é convidado(a)?",
       "lookupPlaceholder": "Escreve o nome de um aluno",
-      "lookupNoResults": "Nenhum aluno com esse nome.",
-      "lookupSearching": "A procurar…",
       "notInvited": "{{name}}:",
       "invitedPosition": "Convidado(a) na ronda {{round}}, posição {{rank}} — {{status}}",
       "roundReason": "Ronda {{round}}: {{reason}}",
@@ -153,6 +151,9 @@
       "levelAbove": "{{n}} acima",
       "levelUnknown": "nível desconhecido",
       "justifiedMisses": "faltas justificadas {{pct}}%",
+      "makeupsOwed_zero": "nenhuma aula por repor",
+      "makeupsOwed_one": "{{count}} aula por repor",
+      "makeupsOwed_other": "{{count}} aulas por repor",
       "attendance": "assiduidade {{pct}}%",
       "playingSide": {
         "exact": "lado certo",

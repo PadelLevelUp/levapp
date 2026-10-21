@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Pressable,
   ScrollView,
   type TextInput,
@@ -18,7 +17,7 @@ import { consumePendingJoin } from "@/auth/pendingJoin";
 import { consumePendingClaim } from "@/auth/pendingClaim";
 import { LevAppMark } from "@/components/brand/LevAppMark";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import {
   Card,
   CardContent,
@@ -29,9 +28,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
-import { PRIVACY_POLICY_URL, TERMS_URL, legalUrl } from "@/lib/config";
 import { describeApiError } from "@/lib/apiError";
-import { COUNTRIES, countryName } from "@levelup/config";
+import { COUNTRIES, countryName, suggestUsername } from "@levelup/config";
 import { CODE_KEYS, formatBirthInput, signUpSchema, toIso } from "@/features/auth/signup-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
@@ -65,6 +63,12 @@ export default function SignUpScreen() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // auth.register rule 21c (PAD-651): one sign-up per account. The ref is set synchronously, so a
+  // double tap cannot start two requests; `created` keeps the form shut once the account exists.
+  const inFlight = React.useRef(false);
+  const [created, setCreated] = React.useState(false);
+  // auth.register rule 21a: the username follows the suggestion until the user types in it.
+  const [usernameTyped, setUsernameTyped] = React.useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
   // y offset of each field inside the scroll view, so the first invalid one
   // can be brought into view (auth.register rule 10: every rejection names
@@ -97,7 +101,14 @@ export default function SignUpScreen() {
   };
 
   const setField = (field: Field, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if (!usernameTyped && (field === "name" || field === "email")) {
+        next.username = suggestUsername(next.name, next.email);
+      }
+      return next;
+    });
+    if (field === "username") setUsernameTyped(true);
     setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
@@ -122,9 +133,12 @@ export default function SignUpScreen() {
   };
 
   const handleSubmit = async () => {
+    if (inFlight.current || created) return;
     setFormError(null);
     if (!validate()) return;
+    inFlight.current = true;
     setLoading(true);
+    let accountCreated = false;
     try {
       const result = await register({
         role,
@@ -136,6 +150,8 @@ export default function SignUpScreen() {
         country,
         termsAccepted,
       });
+      accountCreated = true;
+      setCreated(true);
       const me = result.user;
       let destination: string;
       if (role === "student") {
@@ -202,7 +218,11 @@ export default function SignUpScreen() {
         setFormError(info.message ?? t("auth.signup.failedDescription"));
       }
     } finally {
-      setLoading(false);
+      // rule 21c: once the account exists the form stays shut.
+      if (!accountCreated) {
+        inFlight.current = false;
+        setLoading(false);
+      }
     }
   };
 
@@ -381,48 +401,18 @@ export default function SignUpScreen() {
             </View>
 
             {/* auth.register rule 19 (PAD-485): required, with both documents a tap away. */}
-            <View className="gap-1" onLayout={(e) => { termsOffset.current = e.nativeEvent.layout.y; }}>
-              <View className="flex-row items-start gap-2">
-                <Pressable
-                  testID="signup-terms"
-                  role="checkbox"
-                  accessibilityState={{ checked: termsAccepted, disabled: loading }}
-                  accessibilityLabel={`${t("auth.signup.termsAcceptPrefix")} ${t("auth.legal.privacyPolicy")} ${t("auth.signup.termsAcceptJoin")} ${t("auth.legal.terms")}`}
-                  disabled={loading}
-                  hitSlop={8}
-                  onPress={() => {
-                    setTermsAccepted((on) => !on);
-                    setErrors((e) => ({ ...e, terms: undefined }));
-                  }}
-                >
-                  {/* One owner of the toggle (#517 review): the box only shows the state; the Pressable
-                      around it takes the tap, so a tap can never toggle twice and cancel itself. */}
-                  <View pointerEvents="none">
-                    <Checkbox
-                      checked={termsAccepted}
-                      onCheckedChange={() => undefined}
-                      disabled={loading}
-                      className={errors.terms ? "border-destructive" : undefined}
-                    />
-                  </View>
-                </Pressable>
-                <View className="flex-1 flex-row flex-wrap items-center gap-x-1">
-                  <Text className="text-sm">{t("auth.signup.termsAcceptPrefix")}</Text>
-                  <Pressable accessibilityRole="link" testID="signup-terms-privacy" onPress={() => void Linking.openURL(legalUrl(PRIVACY_POLICY_URL, i18n.language))}>
-                    <Text className="text-sm text-primary underline">{t("auth.legal.privacyPolicy")}</Text>
-                  </Pressable>
-                  <Text className="text-sm">{t("auth.signup.termsAcceptJoin")}</Text>
-                  <Pressable accessibilityRole="link" testID="signup-terms-terms" onPress={() => void Linking.openURL(legalUrl(TERMS_URL, i18n.language))}>
-                    <Text className="text-sm text-primary underline">{t("auth.legal.terms")}</Text>
-                  </Pressable>
-                </View>
-              </View>
-              {errors.terms ? (
-                <Text className="text-sm text-destructive" testID="signup-error-terms" accessibilityLiveRegion="polite">
-                  {errors.terms}
-                </Text>
-              ) : null}
-            </View>
+            <TermsAcceptField
+              testID="signup-terms"
+              errorTestID="signup-error-terms"
+              checked={termsAccepted}
+              disabled={loading}
+              error={errors.terms}
+              onLayout={(e) => { termsOffset.current = e.nativeEvent.layout.y; }}
+              onToggle={() => {
+                setTermsAccepted((on) => !on);
+                setErrors((e) => ({ ...e, terms: undefined }));
+              }}
+            />
 
             {formError ? (
               <Text className="text-center text-sm text-destructive" testID="signup-error">
@@ -434,7 +424,7 @@ export default function SignUpScreen() {
               testID="signup-submit"
               accessibilityLabel={t("auth.signup.create")}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || created}
             >
               {loading ? <ActivityIndicator color="#ffffff" /> : <Text>{t("auth.signup.create")}</Text>}
             </Button>

@@ -30,6 +30,25 @@ A coach who belongs to a club can invite another coach to join that club via a s
    shared check; 400 on `birthDate` with `BIRTH_DATE_REQUIRED`, `INVALID_BIRTH_DATE` or `UNDERAGE`), creating
    nothing on a refusal. The existing-coach branch creates no account and is unchanged. Web and iOS
    add the field.
+8a. **The country (PAD-604; Privacy Policy §1).** The new-user branch also takes
+   `country` (ISO 3166-1 alpha-2, stored upper-cased on `users.country`), validated with sign-up's
+   check (`auth.register` rule 18): a value that is not two letters is 400 `{field: "country", code:
+   "INVALID_COUNTRY"}`. A request that declares the client capability `country-on-completion`
+   (`X-LevApp-Capabilities`, PAD-352) and sends no country is 400 `{field: "country", code:
+   "COUNTRY_REQUIRED"}` with the bilingual "update the app" text. **Legacy path:** a request that does
+   not declare it (iOS up to 1.3.0 (32), whose form predates the field) and sends none is accepted, and
+   the country stays as it was (null on a new account; PAD-630 asks for it later). Checked after the
+   birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
+   `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability. The existing-coach branch is unchanged.
+
+8b. **The Terms are accepted (PAD-637; `auth.register` rule 19b).** The new-user branch of the coach-invite accept shows the same required
+    "I have read and accept the Privacy Policy and the Terms of Service" checkbox as sign-up, each
+    document a link, and sends `termsAccepted: true`. A client that declares `terms-on-completion` and
+    does not send it is 400 `{field: "terms", code: "TERMS_REQUIRED"}`, checked after the country, and
+    nothing is written. On success the user records `terms_accepted_at`, `terms_version` and
+    `privacy_version`. **Legacy path:** a client that does not declare the token completes as before
+    with the three columns NULL (the next-login screen asks, `auth.legal-catch-up`). Web and iOS add the
+    box and declare the token. The existing-coach branch creates no account and is unchanged.
 
 9. **A coach who joins by invitation confirms their email (PAD-477, B-241; owner decision 2026-10-02).**
    - The new-user accept takes an `email`, validated as sign-up validates it (`auth.register`): a valid
@@ -122,7 +141,21 @@ A coach who belongs to a club can invite another coach to join that club via a s
 - **Then** the invitation becomes `revoked` and accepting its link answers 410
 - **And** the same call from a coach outside club 1 is 403
 
+#### A coach who joins by invitation gives their country (rule 8a, PAD-604)
+- **Given** a pending coach invitation and a client declaring `country-on-completion` and `coach-invite-email`
+- **When** a new coach accepts with name, username, password, email, an adult `birthDate` and `country: "PT"`
+- **Then** the coach account exists and `users.country` is `PT`
+- **And** without `country` it is 400 `COUNTRY_REQUIRED` and no account is created
+- **And** with no capability declared and no `country`, the account is created with no country
+
 #### A club invitation does not create an under-18 coach (PAD-457)
 - **Given** a pending coach invitation and no user `teencoach457`, today 2026-09-25 (UTC)
 - **When** it is accepted as a new user with `birthDate` `2009-01-01`
 - **Then** the response is 400 `UNDERAGE` and no user `teencoach457` exists; with `birthDate` `1990-05-05` the coach is created with that birth date
+
+#### The Terms are recorded on completion (rule 8b, PAD-637)
+- **Given** a client declaring `terms-on-completion`
+- **When** it completes with `termsAccepted: true`
+- **Then** the new account records `terms_accepted_at`, `terms_version` and `privacy_version`
+- **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
+- **And** a client that does not declare the token completes as before, with the columns NULL

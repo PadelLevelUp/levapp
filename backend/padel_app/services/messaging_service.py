@@ -266,8 +266,16 @@ def report_message_service(reporter_id, message_id, reason=None):
     # remembered to make it.
     require_participant(message.conversation_id, reporter_id)
 
-    report = MessageReport(reporter_id=reporter_id, message_id=message_id, reason=reason)
+    # block-and-report rule 4a (PAD-639): the report keeps what was reported — a later edit or
+    # deletion erases the message, never this copy.
+    report = MessageReport(
+        reporter_id=reporter_id, message_id=message_id, reason=reason, message_text=message.text,
+    )
     report.create()
+    # admin.moderation rule 8 (PAD-631): tell the admin, after the report is stored.
+    from padel_app.services.report_alert_service import notify_admin_of_report
+
+    notify_admin_of_report(report)
     return report
 
 
@@ -286,9 +294,7 @@ def get_unread_count(user_id):
         db.session.query(func.count(M.id))
         .join(CP, CP.conversation_id == M.conversation_id)
         .filter(CP.user_id == user_id)
-        .filter(M.sender_id != user_id)
-        .filter(M.is_deleted == False)
-        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .filter(_unread_message_predicate(user_id, CP))
         .scalar()
     )
 
@@ -327,6 +333,21 @@ def first_unread_message_id(conversation_id, user_id):
     return row[0] if row else None
 
 
+def _unread_message_predicate(user_id, participant):
+    """A `Message` the user has not read, against `participant` — the user's own
+    `ConversationParticipant` row (or an alias of it) in the message's conversation.
+
+    The one definition behind `unreadCount`, the list's "Não lidas" filter (messaging.conversations
+    rules 16–17) and, by the same terms, the tab badge: someone else sent it, it is not deleted
+    (R-016), and it is newer than the user's last read (never read when there is no row or no read).
+    """
+    return and_(
+        Message.sender_id != user_id,
+        Message.is_deleted == False,  # noqa: E712 — a SQL expression, not a Python comparison
+        Message.sent_at > func.coalesce(participant.last_read_at, _UNREAD_EPOCH),
+    )
+
+
 def unread_counts_for_conversations(user_id, conversation_ids):
     """`{conversation_id: unread count}` for `user_id`, in ONE query.
 
@@ -362,9 +383,7 @@ def unread_counts_for_conversations(user_id, conversation_ids):
             ),
         )
         .filter(M.conversation_id.in_(conversation_ids))
-        .filter(M.sender_id != user_id)
-        .filter(M.is_deleted == False)
-        .filter(M.sent_at > func.coalesce(CP.last_read_at, _UNREAD_EPOCH))
+        .filter(_unread_message_predicate(user_id, CP))
         .group_by(M.conversation_id)
         .all()
     )
@@ -513,18 +532,66 @@ def edit_message_service(message_id, new_text, user_id):
 
 
 def delete_message_service(message_id, user_id):
-    """Soft-delete a message. Only the sender may delete."""
+    """Delete a message (rule 3: erased, the row kept). Only the sender may delete."""
     message = Message.query.get_or_404(message_id)
     require_participant(message.conversation_id, user_id)
     if message.sender_id != user_id:
         abort(403, "Not your message")
-    message.is_deleted = True
+    soft_delete_message(message)
     message.save()
+    publish_message_deleted(message)
+
+
+def soft_delete_message(message):
+    """What a delete does to the row (messaging.messages rule 3, PAD-639): it erases what the
+    message said. The row stays (R-016) — sender, conversation, sent_at, message_type and
+    reply_to_id keep the placeholder, the thread order and the reply chain — but its text,
+    metadata, attachment and reactions go, and the attachment's image row too unless something
+    else still points at it. A report keeps its own copy of the text (block-and-report rule 4a).
+
+    Shared by the sender's delete and the console's (admin.moderation rule 4); the caller commits
+    and then calls `publish_message_deleted`, which also deletes the freed image's bucket object.
+    Returns False when it was already deleted.
+    """
+    from padel_app.model import Image
+    from padel_app.services.image_cleanup import image_in_use
+
+    if message.is_deleted:
+        return False
+    image_id = message.attachment_id
+    message.is_deleted = True
+    message.text = ""
+    message.msg_metadata = None
+    message.attachment_id = None
+    message.edited = False
+    MessageReaction.query.filter_by(message_id=message.id).delete(synchronize_session=False)
+    db.session.flush()
+    if image_id is not None and not image_in_use(image_id, except_message_id=message.id):
+        image = db.session.get(Image, image_id)
+        if image is not None:
+            # Deleted from the bucket after the caller's commit (publish_message_deleted), so a
+            # failed commit can never leave a row pointing at a missing object.
+            message._freed_object_key = image.object_key
+            db.session.delete(image)
+    return True
+
+
+def publish_message_deleted(message):
+    """The `message_deleted` live event to the message's conversation (messaging.messages rule 3).
+    Shared with the console's delete (admin.moderation rule 4), which sends it after its commit.
+    Runs after the commit, so it is also where the image `soft_delete_message` freed leaves the
+    bucket (best-effort, auth.account-deletion rule 2a's helper)."""
+    from padel_app.services.image_cleanup import delete_stored_object
+
+    object_key = getattr(message, "_freed_object_key", None)
+    if object_key:
+        message._freed_object_key = None
+        delete_stored_object(object_key, what="message deletion: attachment")
     publish(
         {
             "type": "message_deleted",
             "payload": {
-                "id": message_id,
+                "id": message.id,
                 "conversationId": message.conversation_id,
             },
         },
@@ -555,8 +622,12 @@ def toggle_reaction_service(message_id, emoji, user_id):
     )
 
 
-def get_user_conversations(user, page=1, limit=20):
+def get_user_conversations(user, page=1, limit=20, unread=False):
     """Returns paginated conversations the user participates in, ordered by last message descending.
+
+    `unread` (messaging.conversations rule 17, PAD-648) keeps only the conversations holding a
+    message the user has not read — `_unread_message_predicate`, the one `unreadCount` and the
+    badge use — with the same paging, so an unread thread on any page is found.
 
     PAD-204 / messaging.conversations rules 11-12. The order used to come from a
     correlated `MAX(messages.sent_at)` subquery evaluated per candidate row,
@@ -588,9 +659,20 @@ def get_user_conversations(user, page=1, limit=20):
                 joinedload(User.user_image),
             )
         )
-        .order_by(nullslast(Conversation.last_message_at.desc()))
-        .offset(offset)
     )
+    if unread:
+        # Correlated to this row's conversation AND the caller's own participant row (the join
+        # above filters it to `user.id`), so "unread for the other side" never counts.
+        query = query.filter(
+            db.session.query(Message.id)
+            .filter(
+                Message.conversation_id == Conversation.id,
+                _unread_message_predicate(user.id, ConversationParticipant),
+            )
+            .correlate(Conversation, ConversationParticipant)
+            .exists()
+        )
+    query = query.order_by(nullslast(Conversation.last_message_at.desc())).offset(offset)
     convs = query.limit(limit + 1).all()
     has_more = len(convs) > limit
     return {"conversations": convs[:limit], "has_more": has_more}

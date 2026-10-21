@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/api/base";
 import { initApi, getApi, type TokenStorage } from "@levelup/api";
 
 import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
@@ -30,8 +31,23 @@ function redirectToAuth() {
   }
 }
 
+/** The capabilities this shell declares (PAD-352). Exported for the one request that bypasses the
+ * axios client: the streamed import (PAD-642, import.confirm rule 9). */
+export const WEB_CAPABILITIES = [
+  "open-spots",
+  "evaluations",
+  "class-type-defaults",
+  "coach-invite-email",
+  "terms-acceptance",
+  "country-on-completion",
+  "terms-on-completion",
+  "adult-roster-confirmation",
+  "student-relations",
+  "full-classes",
+] as const;
+
 initApi({
-  baseURL: "/api",
+  baseURL: API_BASE_URL,
   storage: webTokenStorage,
   onUnauthorized: redirectToAuth,
   // PAD-352 (eligibility.open-spot-visibility rule 12): the web renders open
@@ -41,7 +57,9 @@ initApi({
   // removes the feature, nothing crashes.
   // PAD-429 (eligibility.open-spot-visibility rule 12): `class-type-defaults` lets the server
   // send the `type` open-spots source label instead of falling it back to `coach`.
-  capabilities: ["open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance"],
+  // PAD-664 (calendar.view rule 23): `full-classes` asks the server for a full eligible class
+  // (`studentRelation: "full"`) so the student can join its waiting list; without it none is sent.
+  capabilities: WEB_CAPABILITIES,
 });
 
 export const api = getApi();

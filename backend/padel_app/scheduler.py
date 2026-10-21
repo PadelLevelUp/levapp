@@ -228,6 +228,33 @@ def _armed_fire_time(job_id: str) -> datetime | None:
     return run_date.astimezone(timezone.utc).replace(tzinfo=None) if run_date.tzinfo else run_date
 
 
+#: PAD-661 (invitations rule 1c, B-501): how far out the catch-up fire of an occurrence's
+#: invite-start job is armed when the derivation finds its window already open and the occurrence
+#: not materialised. Not "now": the save that derives still sends nothing itself (config rule 10a),
+#: and a burst at startup spreads over the scheduler's own thread pool two minutes later.
+INVITE_START_CATCH_UP = timedelta(minutes=2)
+
+
+def _invite_start_fire_time(occ_dt_naive: datetime, config, job_id: str, cutoff: datetime) -> datetime | None:
+    """When the lesson-level invite-start job of an occurrence not yet materialised fires
+    (PAD-540, invitations rule 1c): the configured instant while it is still ahead, None for a
+    timing of ``none`` or an occurrence already started. When the configured instant is already
+    past and the occurrence is still ahead on the club's clock, the window is open and nothing has
+    materialised the occurrence: a past time would make ``_reconcile_date_job`` remove the job and
+    the tick (materialised classes only) would never see it, so the job gets the **catch-up**
+    instead (PAD-661, B-501): ``cutoff + INVITE_START_CATCH_UP``, or the catch-up still pending from
+    an earlier derivation (armed after the cutoff, no later than a fresh one). A job armed for any
+    other time came from an earlier timing and is replaced by the catch-up."""
+    fire_dt = _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing())
+    if fire_dt is None or fire_dt > cutoff or wall_to_utc_naive(occ_dt_naive) <= cutoff:
+        return fire_dt
+    catch_up = cutoff + INVITE_START_CATCH_UP
+    armed_for = _armed_fire_time(job_id)
+    if armed_for is not None and cutoff < armed_for <= catch_up:
+        return armed_for
+    return catch_up
+
+
 def _reconcile_date_job(job_id: str, fire_dt: datetime | None, cutoff: datetime, *, func, args) -> str:
     """Make ``job_id`` the job the saved configuration implies (PAD-478, B-249;
     ``notifications.config`` rule 10a). Returns what it did.
@@ -241,7 +268,9 @@ def _reconcile_date_job(job_id: str, fire_dt: datetime | None, cutoff: datetime,
       lands inside that window into a suppressed reminder.
 
     Nothing here sends. Every caller (a settings change, a class edit, the startup re-arm,
-    the daily window pass) therefore sends nothing by reconciling.
+    the daily window pass) therefore sends nothing by reconciling. One caller-side exception:
+    an invite-start job of an occurrence whose window is already open is handed the catch-up
+    instant by ``_invite_start_fire_time`` (PAD-661), never its past configured time.
     """
     from apscheduler.triggers.date import DateTrigger
 
@@ -645,6 +674,20 @@ def _run_prune_delivery_incidents() -> None:
             app.logger.error("prune_delivery_incidents failed: %s", exc)
 
 
+def _run_retention_sweep() -> None:
+    """admin.data-retention (PAD-638) rule 2: the daily sweep. Every item OFF until its switch is on;
+    the sweep then only counts."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services.retention_service import run_retention
+            run_retention()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("retention_sweep failed: %s", exc)
+
+
 def _run_extend_schedule_window() -> None:
     """Extend the rolling 60-day reminder horizon for all coaches.
 
@@ -735,6 +778,7 @@ def init_scheduler(app, test_config=None) -> None:
 
     from apscheduler.events import EVENT_JOB_MISSED
     from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 
     test_mode = os.environ.get("TEST_MODE", "").lower() == "true"
@@ -789,6 +833,18 @@ def init_scheduler(app, test_config=None) -> None:
         func=_run_prune_delivery_incidents,
         trigger=IntervalTrigger(days=1),
         id="prune_delivery_incidents",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+
+    # admin.data-retention (PAD-638): one daily sweep, every item OFF until the owner decides.
+    sched.add_job(
+        func=_run_retention_sweep,
+        # A fixed hour, not IntervalTrigger(days=1): replace_existing on every boot would push an
+        # interval's next run a day ahead each deploy, so with daily deploys it might never fire.
+        trigger=CronTrigger(hour=3, minute=17),
+        id="retention_sweep",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
@@ -1084,9 +1140,10 @@ def schedule_lesson_reminder_jobs(
                 # PAD-540 (invitations rule 1c): the occurrence's never-filled places start from
                 # the coach's invitation-start instant, whether or not a reminder comes first.
                 # Not counted in the return value, which has always been the reminder jobs.
+                # A window already open at derivation gets the catch-up (PAD-661, B-501).
+                invite_job_id = f"invite_start_lesson_{lesson_id}_{date_str}"
                 _reconcile_date_job(
-                    f"invite_start_lesson_{lesson_id}_{date_str}",
-                    _fire_time_utc(occ_dt_naive, config.get_invitation_start_timing()), cutoff,
+                    invite_job_id, _invite_start_fire_time(occ_dt_naive, config, invite_job_id, cutoff), cutoff,
                     func=_run_invite_start_for_lesson_occurrence, args=[lesson_id, date_str],
                 )
                 if outcome == "armed":
@@ -1342,6 +1399,63 @@ def _retry_job_instance(job_id: str):
         except ValueError:
             return None
     return None
+
+
+def followup_prefixes(instance) -> tuple:
+    """PAD-623: the job-id prefixes of an occurrence's follow-up reminders, read from the instance
+    AS IT IS NOW — call it before an edit changes the date or the lesson. Both id forms: the
+    materialised ``reminder_<id>_retry_`` and the lesson-occurrence ``reminder_lesson_<L>_<date>_retry_``
+    (the date being the occurrence key, the original date or else the start's)."""
+    prefixes = [f"reminder_{instance.id}_retry_"]
+    occ = instance.original_lesson_occurence_date or (
+        instance.start_datetime.date() if instance.start_datetime else None
+    )
+    if instance.lesson_id and occ is not None:
+        prefixes.append(f"reminder_lesson_{instance.lesson_id}_{occ.isoformat()}_retry_")
+    return tuple(prefixes)
+
+
+def drop_pending_followups(instance_id: int, prefixes=()) -> int:
+    """PAD-623 (notifications.reminders rule 15a): remove the occurrence's armed follow-up reminder
+    jobs. Called only when an edit moves the class: a follow-up is timed from the last reminder of
+    the OLD schedule, and the re-armed base pass at the new time sends whatever reminder is still owed
+    (count and spacing still apply). Startup, the daily pass and settings saves never call this, so a
+    chain survives a restart. A job matches by the ``prefixes`` taken before the edit
+    (`followup_prefixes`) or, failing that, resolves to this instance (`_retry_job_instance`).
+    Returns how many were removed."""
+    from apscheduler.jobstores.base import JobLookupError
+
+    if _scheduler is None:
+        return 0
+    removed = 0
+    for job in list(_scheduler.get_jobs()):
+        if "_retry_" not in job.id or not job.id.startswith("reminder_"):
+            continue
+        if not job.id.startswith(tuple(prefixes)):
+            instance = _retry_job_instance(job.id)
+            if instance is None or instance.id != instance_id:
+                continue
+        try:
+            _scheduler.remove_job(job.id)
+            removed += 1
+        except JobLookupError:
+            continue  # it fired between the listing and this line
+    if removed and _app is not None:
+        _app.logger.info("class moved: dropped %d pending follow-up(s) of instance %s", removed, instance_id)
+    return removed
+
+
+def _maybe_drop_followups(instance, old_start, old_prefixes) -> None:
+    """PAD-623: best-effort after the edit's commit, like `_maybe_schedule_instance`: when the edit
+    moved the class, drop the follow-ups armed on the old schedule. A failure is logged, never raised,
+    so the edit and the re-arm that follows it stand."""
+    if instance.start_datetime == old_start:
+        return
+    try:
+        drop_pending_followups(instance.id, old_prefixes)
+    except Exception:  # noqa: BLE001 — scheduler work after a commit is best-effort (PAD-10)
+        if _app is not None:
+            _app.logger.exception("dropping follow-ups of instance %s failed", instance.id)
 
 
 def _retime_pending_followups(coach_id: int, config) -> None:

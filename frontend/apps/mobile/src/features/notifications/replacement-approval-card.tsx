@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
+import { useCoachDisplayName } from "@levelup/hooks";
 import {
   approvalDisplayGroups,
+  approvalEmptyReasonKey,
   approvalGroupLabel,
   approvalQueuePreview,
   approvalSideKey,
@@ -57,6 +59,8 @@ export function ReplacementApprovalCard({
   allowDismiss = false,
 }: Props) {
   const { t } = useTranslation();
+  // PAD-660: the card is the coach's; students show under the nickname the coach gave them.
+  const displayName = useCoachDisplayName();
   const locale = useDateLocale();
   const [responding, setResponding] = React.useState(false);
   const [localResponse, setLocalResponse] = React.useState<ApprovalAction | null>(
@@ -173,7 +177,12 @@ export function ReplacementApprovalCard({
             {/* PAD-574 (rule 4): a freed spot names the student; a never-filled spot is an open spot. */}
             {group.kind === "declined" ? (
               <Text className="text-sm" testID="approval-reason-declined">
-                {t("notificationsUi.replacementApproval.declinedReason", { name: group.declinedPlayerName ?? "" })}
+                {t("notificationsUi.replacementApproval.declinedReason", {
+                  name: displayName(
+                    bundle.vacancies.find((v) => group.vacancyIds.includes(v.vacancyId))?.declinedPlayerId,
+                    group.declinedPlayerName ?? ""
+                  ),
+                })}
               </Text>
             ) : (
               <View className="gap-0.5">
@@ -204,7 +213,7 @@ export function ReplacementApprovalCard({
                       <Text className="w-5 text-right text-xs text-muted-foreground">
                         {index + 1}.
                       </Text>
-                      <Text className="shrink text-sm">{player.name}</Text>
+                      <Text className="shrink text-sm">{displayName(player.id, player.name)}</Text>
                       {badge ? (
                         <View className="rounded-full bg-muted px-1.5 py-0.5">
                           <Text className="text-[10px] font-medium text-muted-foreground">
@@ -239,9 +248,21 @@ export function ReplacementApprovalCard({
                 ) : null}
               </View>
             ) : (
-              <Text className="text-xs italic text-muted-foreground">
-                {t("notificationsUi.replacementApproval.noEligiblePlayers")}
-              </Text>
+              <View className="gap-0.5">
+                <Text className="text-xs italic text-muted-foreground">
+                  {t("notificationsUi.replacementApproval.noEligiblePlayers")}
+                </Text>
+                {/* PAD-661 (rule 4b): an empty queue says why, one line per engine stage. */}
+                {group.emptyQueueReasons.length > 0 ? (
+                  <View testID="approval-empty-reasons">
+                    {group.emptyQueueReasons.map((r) => (
+                      <Text key={r.stage} className="text-xs text-muted-foreground" testID={`approval-empty-reason-${r.stage}`}>
+                        {t(approvalEmptyReasonKey(r.stage), { count: r.count })}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
             )}
 
             {stale > 0 && !state.allStale ? (

@@ -9,6 +9,11 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { CoachClassWaitingListRow, CoachPlayer } from "@levelup/types";
 
+// PAD-660: these tests are about something else; the coach's resolver answers the real name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: { date?: string }) => (params?.date ? `${key}:${params.date}` : key),
@@ -68,6 +73,28 @@ describe("PAD-558 the waiting-list picker searches by name (rule 20)", () => {
     expect(screen.getByTestId("class-waiting-list-candidate-3")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("class-waiting-list-candidate-2")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByTestId("class-waiting-list-confirm")).not.toBeDisabled();
+  });
+});
+
+describe("players.search rule 10 (PAD-665): a search that finds nobody says so", () => {
+  it("shows the shared empty line for a non-blank query that matches nobody, and removes it once cleared", () => {
+    openPicker();
+    expect(screen.queryByTestId("player-search-empty")).toBeNull();
+    fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "  xavier " } });
+    expect(offered).toThrow(); // no rows
+    expect(screen.getByTestId("player-search-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("player-search-searching")).toBeNull();
+    fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "" } });
+    expect(screen.queryByTestId("player-search-empty")).toBeNull();
+    expect(offered()).toEqual(["1", "2", "3"]);
+  });
+
+  it("still says so when the picker keeps a chosen student listed", () => {
+    openPicker();
+    fireEvent.click(screen.getByTestId("class-waiting-list-candidate-3"));
+    fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "xavier" } });
+    expect(screen.getByTestId("class-waiting-list-candidate-3")).toBeInTheDocument();
+    expect(screen.getByTestId("player-search-empty")).toBeInTheDocument();
   });
 });
 

@@ -15,6 +15,7 @@ const state = {
 };
 
 vi.mock("@levelup/hooks", async () => ({
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
   ...(await vi.importActual<typeof import("../../../../../packages/hooks/src/useHeldWhile")>(
     "../../../../../packages/hooks/src/useHeldWhile"
   )),

@@ -190,11 +190,6 @@ class Config:
     JWT_TOKEN_LOCATION = ["headers"]
     JWT_QUERY_STRING_NAME = "token"
 
-    # settings.admin-editor rule 1 (PAD-267): whether the generic editor exists.
-    # Subclasses set the default; EDITOR_ENABLED in the environment overrides it
-    # (create_app reads it at startup).
-    EDITOR_ENABLED_DEFAULT = False
-
     # auth.token-refresh rule 6: a session ends this many days after its login,
     # however often its token is silently refreshed.
     JWT_ABSOLUTE_SESSION_DAYS = int(os.getenv("JWT_ABSOLUTE_SESSION_DAYS", "90"))
@@ -248,11 +243,24 @@ class Config:
     AUTH_RATE_LIMIT_LOGIN = os.getenv("AUTH_RATE_LIMIT_LOGIN", "20/60")
     AUTH_RATE_LIMIT_REGISTER = os.getenv("AUTH_RATE_LIMIT_REGISTER", "5/600")
     AUTH_RATE_LIMIT_RECOVERY = os.getenv("AUTH_RATE_LIMIT_RECOVERY", "5/600")
-    LEGAL_TERMS_VERSION = os.getenv("LEGAL_TERMS_VERSION", "2026-09-06")
     # auth.email-verification rule 13 (PAD-269): send and confirm share one bucket.
     AUTH_RATE_LIMIT_VERIFICATION = os.getenv("AUTH_RATE_LIMIT_VERIFICATION", "20/600")
     # admin.foundation hardening (PAD-531): the staff console's Google sign-in, per IP.
     AUTH_RATE_LIMIT_ADMIN_SIGN_IN = os.getenv("AUTH_RATE_LIMIT_ADMIN_SIGN_IN", "10/60")
+    # auth.social-sign-in rule 1 (PAD-618): the ID-token audiences each provider accepts. Unset →
+    # that provider answers 503 and the clients show no button (ships dark).
+    GOOGLE_CLIENT_IDS = [
+        v.strip() for v in (os.getenv("GOOGLE_WEB_CLIENT_ID", ""), os.getenv("GOOGLE_IOS_CLIENT_ID", "")) if v.strip()
+    ]
+    APPLE_CLIENT_IDS = [v.strip() for v in os.getenv("APPLE_CLIENT_IDS", "").split(",") if v.strip()]
+    # auth.landing-page rule 10 (PAD-617): the site's demo request, per IP.
+    AUTH_RATE_LIMIT_DEMO = os.getenv("AUTH_RATE_LIMIT_DEMO", "5/3600")
+    # PAD-617: the HubSpot form the demo request is forwarded to (the GitHub repo variable
+    # HUBSPOT_DEMO_FORM_ID / _STAGING). Unset → the endpoint answers 503 and the site offers email.
+    HUBSPOT_DEMO_FORM_ID = os.getenv("HUBSPOT_DEMO_FORM_ID", "")
+    # PAD-650: HubSpot's "Marketing Information" subscription type id (repo variable
+    # HUBSPOT_MARKETING_SUBSCRIPTION_ID / _STAGING). Unset → no marketing consent box or entry.
+    HUBSPOT_MARKETING_SUBSCRIPTION_ID = os.getenv("HUBSPOT_MARKETING_SUBSCRIPTION_ID", "")
     # players.join-token rule 3 (PAD-212): when set, the coach's join link is
     # returned as an absolute URL (e.g. https://levapp.app); otherwise clients
     # build it from their own origin, as they do for player invite links.
@@ -272,6 +280,13 @@ class Config:
     # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
     # pending-coach mail and push. Empty = the bare path (local development).
     ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
+    # admin.work-dashboard rule 5 (PAD-555): server-side only, never sent to a client or logged.
+    # Unset LINEAR_API_KEY → tickets "not configured"; unset WORK_GITHUB_REPO (the deploys set it to
+    # the repository) → GitHub "not configured", so tests and local runs never call GitHub.
+    # WORK_GITHUB_TOKEN is optional (the repository is public); Actions reserves GITHUB_* secrets.
+    LINEAR_API_KEY = (os.getenv("LINEAR_API_KEY") or "").strip()
+    WORK_GITHUB_REPO = (os.getenv("WORK_GITHUB_REPO") or "").strip()
+    WORK_GITHUB_TOKEN = (os.getenv("WORK_GITHUB_TOKEN") or "").strip()
     # admin.engine-health rule 5 (PAD-534): the other environment's admin API and the token this
     # console presents to it; and the token this environment accepts from the other one. All three
     # unset (the default) means the console shows the other environment as "not configured".
@@ -330,7 +345,6 @@ class Config:
 
 class DevConfig(Config):
     DEBUG = True
-    EDITOR_ENABLED_DEFAULT = True
     DEFAULT_POSTGRES_HOST = LOCAL_POSTGRES_HOST
 
 
@@ -343,8 +357,6 @@ class DevConfigProdDB(Config):
 
 class ProdConfig(Config):
     DEBUG = False
-    # Off unless the deploy sets EDITOR_ENABLED=1 (staging does; production must not).
-    EDITOR_ENABLED_DEFAULT = False
     DEFAULT_POSTGRES_HOST = "10.132.0.2"
 
 
@@ -353,22 +365,6 @@ Config.refresh_database_settings()
 
 
 DEV_SECRET_FALLBACKS = frozenset({"dev-secret-key", "dev-jwt-secret", ""})
-
-_TRUTHY = frozenset({"1", "true", "yes", "on"})
-
-
-def editor_enabled_from_env(environ=None, *, default):
-    """settings.admin-editor rule 1: EDITOR_ENABLED from the environment, or ``default``.
-
-    Unset or blank keeps the config class's default (on in development, off in
-    production); any other value is on only when it reads as true.
-    """
-    environ = os.environ if environ is None else environ
-    raw = (environ.get("EDITOR_ENABLED") or "").strip()
-    if not raw:
-        return default
-    return raw.lower() in _TRUTHY
-
 
 def assert_production_secrets(environ=None):
     """Refuse to run production with unset or dev-fallback signing secrets.
@@ -405,3 +401,20 @@ def get_config_class(env=None, environ=None):
         assert_production_secrets(environ)
         return ProdConfig
     return DevConfig
+
+
+#: PAD-614 (delivery.api-host rule 3): origins every environment allows (local dev, the VM's
+#: legacy address). Each environment adds its public web origins with CORS_ALLOWED_ORIGINS.
+DEFAULT_CORS_ORIGINS = ("http://localhost:8080", "http://34.78.247.45")
+
+
+def cors_allowed_origins(environ=None):
+    """The defaults plus the comma-separated CORS_ALLOWED_ORIGINS (blank entries and a trailing
+    slash ignored, order kept, no duplicates). No wildcard: only listed origins may call /api."""
+    env = os.environ if environ is None else environ
+    extra = [o.strip().rstrip("/") for o in str(env.get("CORS_ALLOWED_ORIGINS", "")).split(",")]
+    origins = []
+    for origin in (*DEFAULT_CORS_ORIGINS, *extra):
+        if origin and origin != "*" and origin not in origins:
+            origins.append(origin)
+    return origins

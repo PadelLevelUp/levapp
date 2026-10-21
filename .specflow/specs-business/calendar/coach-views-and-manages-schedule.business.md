@@ -56,6 +56,18 @@ classes — see `classes.student-joins-and-views-classes`.)
   The coach can also withdraw an invitation: the student then sees the invitation as "spot
   filled", cannot take it, is not asked again for that class, and the next candidate is asked
   instead.
+- A class's participants fit on one laptop screen (PAD-659): up to 16 players show at once, in
+  compact rows grouped as "Vão", "Por responder" and "Não vão", each ordered by side (both,
+  right, left, none) and then by name, with the header counting enrolled students over the
+  class's capacity. The level is not on the row: tapping a player opens their profile over the
+  class (contact, attendance, last evaluation, level, a message button) and closing it returns
+  the coach exactly where they were. A student's answer moves them between groups live.
+- A student's plan for a class reads "Vai" / "Não vai" until the class ends, whoever recorded it
+  — the student answering the reminder or the coach marking it (PAD-663). "Presente" / "Faltou"
+  are the words of the record after the class, and the attendance validation keeps them.
+- A busy day stays readable (PAD-625): classes that overlap sit side by side only as far as they
+  actually run at the same time, and when too many run at once to fit, the rest are gathered
+  behind a "+N" that lists them — the coach can always read and open every class.
 - The colour a coach picks for a class identifies that class and nothing else; what a class is
   *doing* is carried by its treatment — filled when upcoming, outlined when it is the next one,
   faded when finished, red when canceled, dashed when it is a personal block rather than a

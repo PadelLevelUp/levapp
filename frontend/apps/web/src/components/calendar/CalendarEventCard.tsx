@@ -10,6 +10,8 @@ import {
   hasOpenSpots,
   readableInk,
   resolveEventState,
+  cardSurfaceWeb,
+  relationChip,
   resolveCardVariant,
   showsEnrolledMark,
   type EventVisualState,
@@ -102,12 +104,31 @@ export function CalendarEventCard({
   const isOpenSpot = !!event.openSpot;
   // PAD-578 (rule 6): a student's own class is ticked — never by colour alone.
   const viewer = useCalendarViewer();
-  const enrolledMark = showsEnrolledMark(event, resolveCardVariant(event, { isNext }).variant, viewer);
+  const cardVariant = resolveCardVariant(event, { isNext, viewer }).variant;
+  const enrolledMark = showsEnrolledMark(event, cardVariant, viewer);
+  // PAD-611 (calendar.view rule 22): the student's relation chip, from the shared helper.
+  const chip = relationChip(cardVariant);
   if (isOpenSpot) {
     stateStyle.backgroundColor = 'hsl(var(--card))';
     stateStyle.border = `1.5px dashed ${hex ?? 'hsl(var(--primary))'}`;
     stateStyle.color = hex ? readableInk(hex) : 'hsl(var(--foreground))';
     onColor = false;
+  }
+  // PAD-611: invited / waiting / "Não vou" take the shared treatment (mobile-views rule 5).
+  // PAD-664 (calendar.view rule 23): a student's card is painted by the relation, whatever the
+  // coach colour — every upcoming variant takes the shared student surface.
+  if (
+    viewer === 'student' ||
+    cardVariant === 'invited' ||
+    cardVariant === 'waiting' ||
+    cardVariant === 'not-coming'
+  ) {
+    const surface = cardSurfaceWeb(hex, cardVariant, viewer);
+    stateStyle.backgroundColor = surface.backgroundColor;
+    stateStyle.border = surface.border;
+    stateStyle.color = surface.color;
+    // The solid primary fill of a student's own class is the one saturated surface.
+    onColor = viewer === 'student' && cardVariant === 'scheduled';
   }
 
   const capacity = event.maxPlayers ?? 0;
@@ -191,12 +212,13 @@ export function CalendarEventCard({
               ✓
             </span>
           )}
-          {isOpenSpot && (
+          {chip && (
             <span
-              data-testid="calendar-open-spot-chip"
+              data-testid={chip.testId}
+              data-relation={cardVariant}
               className="mb-0.5 inline-block rounded-full border border-current px-1.5 text-[10px] font-semibold uppercase tracking-wide"
             >
-              {t('calendar.openSpot.chip')}
+              {t(chip.key)}
             </span>
           )}
           {event.title}

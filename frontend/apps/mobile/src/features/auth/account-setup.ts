@@ -109,7 +109,8 @@ const mismatchIssue = {
  * creates a login asks for the birth date, typed DD/MM/AAAA as on sign-up, and refuses under 18 on
  * the device's date — the server judges on UTC and stays the authority. One rule for all three.
  */
-const birthDateField = { birthDate: z.string() };
+// PAD-604: the country (ISO alpha-2, default PT) is required on all three forms, as on sign-up.
+const birthDateField = { birthDate: z.string(), country: z.string().length(2, "countryRequired") };
 function adultBirthDate(d: { birthDate: string }, ctx: z.RefinementCtx) {
   if (!d.birthDate) {
     ctx.addIssue({ code: "custom", message: "birthDateRequired", path: ["birthDate"] });
@@ -166,6 +167,12 @@ export const ACTIVATION_BIRTH_CODES: Record<string, string> = {
   BIRTH_DATE_REQUIRED: "birthDateRequired",
   INVALID_BIRTH_DATE: "birthDateInvalid",
   UNDERAGE: "birthDateUnderage",
+};
+
+/** PAD-604: the server's country codes, in the forms' own words. */
+export const ACTIVATION_COUNTRY_CODES: Record<string, string> = {
+  COUNTRY_REQUIRED: "countryRequired",
+  INVALID_COUNTRY: "countryRequired",
 };
 
 export type FieldErrorCodes = Record<string, string>;
@@ -236,6 +243,10 @@ export function coachInviteAcceptPayload(values: Record<string, string>) {
     email: (values.email ?? "").trim(),
     password: values.password,
     birthDate: toIso(values.birthDate) ?? "",
+    country: values.country,
+    // PAD-637 (clubs.coach-invitation rule 8b): the screen sends only once the box is ticked, as the
+    // player-invite and activation screens do.
+    termsAccepted: true,
   };
 }
 

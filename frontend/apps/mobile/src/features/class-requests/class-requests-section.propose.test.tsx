@@ -14,6 +14,11 @@ vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/features/calendar/eligibility-confirm-dialog", () => ({ EligibilityConfirmDialog: () => null }));
+// The real resolver is a react-query hook (PAD-660); this test is about the proposal form.
+vi.mock("@levelup/hooks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+}));
 
 const PENDING = {
   id: 7,

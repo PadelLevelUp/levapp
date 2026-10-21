@@ -32,9 +32,10 @@
  *     locales — that is the product, not copy.
  *
  * CTA destinations, same decisions as the first iteration:
- *   - "Pedir demonstração" -> the HubSpot demo dialog when the build carries
- *     a demo form ID (PAD-469, `VITE_HUBSPOT_DEMO_FORM_ID`); otherwise mailto
- *     the support address, as before.
+ *   - "Pedir demonstração" and "Falar connosco" -> the contact dialog when the
+ *     build carries a demo form ID (PAD-469, PAD-650, `VITE_HUBSPOT_DEMO_FORM_ID`);
+ *     otherwise mailto the support address. Only the demo buttons record
+ *     `pedido: demonstracao`.
  *   - Every link that leaves the page is an `ExitLink` (a new document),
  *     so the HubSpot tracking script — loaded here only after the visitor
  *     accepts cookies — never keeps running on another page or in the app.
@@ -85,7 +86,9 @@ import { cn } from "@/lib/utils";
 import { CookieBanner } from "@/components/landing/CookieBanner";
 import { ExitLink } from "@/components/landing/ExitLink";
 import { DemoRequestDialog } from "@/components/landing/DemoRequestDialog";
-import { demoFormId, loadTrackingScript } from "@/lib/hubspot";
+import { AppStoreLink } from "@/components/landing/AppStoreLink";
+import { demoFormId, hasMarketingSubscription, loadTrackingScript } from "@/lib/hubspot";
+import type { DemoPedido } from "@/lib/demoRequest";
 import {
   clearHubSpotCookies,
   loadConsent,
@@ -143,12 +146,12 @@ const mailto = (address: string, subject: string) =>
   `mailto:${address}?subject=${encodeURIComponent(subject)}`;
 
 /**
- * Where every "Pedir demonstração" goes: the HubSpot dialog when the build
- * carries a demo form ID (`open` set), otherwise the mailto (PAD-469).
+ * Where every commercial contact button goes: the contact dialog when the build
+ * carries a demo form ID (`open` set), otherwise the mailto (PAD-469, PAD-650).
  */
 interface DemoCta {
   href: string;
-  open: (() => void) | null;
+  open: ((pedido: DemoPedido | null) => void) | null;
 }
 
 /**
@@ -157,15 +160,18 @@ interface DemoCta {
  */
 const DemoLink = forwardRef<
   HTMLElement,
-  { demo: DemoCta; children: ReactNode } & HTMLAttributes<HTMLElement>
->(({ demo, children, ...rest }, ref) =>
+  /** `pedido` is what HubSpot records as the button used: a demo button by default; `null` for
+   * "Falar connosco", which records none. */
+  { demo: DemoCta; pedido?: DemoPedido | null; children: ReactNode } & HTMLAttributes<HTMLElement>
+>(({ demo, pedido = "demonstracao", children, ...rest }, ref) =>
   demo.open ? (
     <button
       ref={ref as Ref<HTMLButtonElement>}
       {...rest}
       type="button"
       data-testid="landing-demo-cta"
-      onClick={demo.open}
+      data-pedido={pedido ?? undefined}
+      onClick={() => demo.open?.(pedido)}
     >
       {children}
     </button>
@@ -658,6 +664,8 @@ function Hero({
             </li>
           ))}
         </ul>
+        {/* PAD-619 (rule 15): under the ✓ points, for the two audiences the app serves. */}
+        {audience !== "others" && <AppStoreLink placement="hero" className="mt-8" />}
       </div>
       {audience === "others" ? (
         <OthersMockup />
@@ -820,7 +828,7 @@ function HowItWorks({
 
             <div className="mt-8">
               <Button asChild variant="outline" className="bg-card">
-                <DemoLink demo={demo}>
+                <DemoLink demo={demo} pedido={null}>
                   {t("landing.how.cta")}
                   <ArrowRight className="size-4" />
                 </DemoLink>
@@ -1019,6 +1027,12 @@ function FinalCta({
               {t(`${k}.switch`)}
             </Button>
           </div>
+          {/* PAD-619 (rule 15): players can get the app straight from the closing call to action. */}
+          {audience === "players" && (
+            <div className="mt-6 flex justify-center">
+              <AppStoreLink placement="cta" />
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -1093,7 +1107,16 @@ const LandingPage = () => {
 
   const formId = demoFormId();
   const [demoOpen, setDemoOpen] = useState(false);
-  const demo: DemoCta = { href: demoHref, open: formId ? () => setDemoOpen(true) : null };
+  const [demoPedido, setDemoPedido] = useState<DemoPedido | null>(null);
+  const demo: DemoCta = {
+    href: demoHref,
+    open: formId
+      ? (pedido) => {
+          setDemoPedido(pedido);
+          setDemoOpen(true);
+        }
+      : null,
+  };
 
   // Rules 11–13: nothing reaches HubSpot's tracking hosts until the visitor accepts.
   const [consent, setConsent] = useState<ConsentChoice | null>(() => loadConsent());
@@ -1153,8 +1176,9 @@ const LandingPage = () => {
         <DemoRequestDialog
           open={demoOpen}
           onOpenChange={setDemoOpen}
-          formId={formId}
           fallbackHref={demoHref}
+          pedido={demoPedido ?? undefined}
+          showMarketing={hasMarketingSubscription()}
         />
       )}
     </div>

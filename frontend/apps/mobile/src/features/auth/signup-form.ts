@@ -4,7 +4,7 @@
  * codes in the form's words.
  */
 import { z } from "zod";
-import { isUnderSignupAge } from "@levelup/config";
+import { isUnderSignupAge, usernameCharsIssue } from "@levelup/config";
 
 /**
  * auth.parental-consent rule 10 (PAD-198): the birth date is typed as
@@ -28,6 +28,12 @@ export function toIso(display: string): string | null {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+/** YYYY-MM-DD → DD/MM/AAAA, the field's own format (PAD-640: Perfil shows the stored date); "" otherwise. */
+export function toDisplay(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
 /** auth.register rule 18: the server's codes, in the form's own words. */
 export const CODE_KEYS: Record<string, string> = {
   BIRTH_DATE_REQUIRED: "birthDateRequired",
@@ -47,7 +53,11 @@ export const signUpSchema = z
       .trim()
       .min(3, "usernameMin")
       .max(80, "usernameMax")
-      .regex(/^[A-Za-z0-9._-]+$/, "usernameChars")
+      // auth.register rule 21b (PAD-651): an "@" names the mistake (an email in the wrong field).
+      .superRefine((u, ctx) => {
+        const issue = usernameCharsIssue(u);
+        if (issue) ctx.addIssue({ code: "custom", message: issue });
+      })
       .refine((u) => !u.toLowerCase().startsWith("pending-"), "usernameReserved"),
     email: z.string().trim().email("emailInvalid"),
     password: z.string().min(8, "passwordMin"),

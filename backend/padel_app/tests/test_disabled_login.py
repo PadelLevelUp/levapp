@@ -10,18 +10,6 @@ PASSWORD = "Segura1234"
 @pytest.fixture(autouse=True)
 def _jwt_secret(app):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
-    # The legacy /auth/login uses Flask-Session. The mapping-built test app gets
-    # no SESSION_TYPE, so Flask-Session installs its null interface at startup;
-    # mirror production's filesystem sessions (they can hold the User object
-    # the legacy route stores) so "no session is opened" means something.
-    import tempfile
-
-    from flask_session import Session
-
-    app.config["SECRET_KEY"] = "test-secret"
-    app.config["SESSION_TYPE"] = "filesystem"
-    app.config["SESSION_FILE_DIR"] = tempfile.mkdtemp()
-    Session(app)
 
 
 def _user(app, username, *, status="active", coach=None, reason=None, player=False):
@@ -77,10 +65,3 @@ def test_active_account_still_signs_in(client, app):
     assert res.status_code == 200
     assert res.get_json()["accessToken"]
 
-
-def test_legacy_login_refuses_a_disabled_account(client, app):
-    _user(app, "ana", status="disabled", player=True)
-    res = client.post("/auth/login", data={"username": "ana", "password": PASSWORD})
-    assert res.status_code == 401
-    with client.session_transaction() as sess:
-        assert "_user_id" not in sess and "user" not in sess

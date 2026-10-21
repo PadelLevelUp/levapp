@@ -40,8 +40,10 @@
     },
     "mobile": {
       "classCount_one": "{{count}} aula",
+      "classCount_zero": "{{count}} aulas",
       "classCount_other": "{{count}} aulas",
       "dayDots_one": "{{count}} evento",
+      "dayDots_zero": "{{count}} eventos",
       "dayDots_other": "{{count}} eventos",
       "noClassesScheduled": "Sem aulas agendadas",
       "noClasses": "Sem aulas",
@@ -230,11 +232,13 @@
       "attendanceSavedTitle": "Presenças guardadas",
       "approvalNeededDescription": "É necessária aprovação para convidar substitutos",
       "invitesSentDescription_one": "Convite enviado a {{count}} jogador",
+      "invitesSentDescription_zero": "Convite enviado a {{count}} jogadores",
       "invitesSentDescription_other": "Convite enviado a {{count}} jogadores",
       "failedSaveAttendance": "Falha ao guardar as presenças",
       "trainingSaved": "Treino guardado",
       "failedSaveTraining": "Falha ao guardar o treino",
       "remindersSent_one": "Lembrete enviado a {{count}} aluno",
+      "remindersSent_zero": "Lembretes enviados a {{count}} alunos",
       "remindersSent_other": "Lembretes enviados a {{count}} alunos",
       "failedSendReminders": "Falha ao enviar lembretes",
       "cancelAttendance": "Cancelar presença",
@@ -284,6 +288,7 @@
       "allExercisesAdded": "Todos os exercícios já foram adicionados",
       "noGroupsFound": "Nenhum grupo encontrado",
       "exerciseCount_one": "{{count}} exercício",
+      "exerciseCount_zero": "{{count}} exercícios",
       "exerciseCount_other": "{{count}} exercícios",
       "allAlreadyAdded": " · já adicionados",
       "editPlan": "Editar plano de treino",
@@ -375,13 +380,14 @@
       "loadingGroups": "A carregar grupos…",
       "selectAllIn": "Selecionar todos em {{group}}",
       "searchPlaceholder": "Pesquisar alunos individualmente…",
-      "noResults": "Sem resultados",
       "noEligibleStudents": "Nenhum aluno elegível encontrado",
       "cancel": "Cancelar",
       "send": "Enviar",
       "sendToCount_one": "Enviar a {{count}} aluno",
+      "sendToCount_zero": "Enviar a {{count}} alunos",
       "sendToCount_other": "Enviar a {{count}} alunos",
       "invitationSent_one": "Convite enviado a {{count}} aluno",
+      "invitationSent_zero": "Convite enviado a {{count}} alunos",
       "invitationSent_other": "Convite enviado a {{count}} alunos",
       "failedSendInvitations": "Falha ao enviar os convites",
       "alreadyInvited": "Já têm um convite em aberto para esta aula: {{names}}",
@@ -426,10 +432,12 @@
     "unavailable": {
       "title": "Aluno indisponível",
       "description_one": "O aluno {{names}} marcou-se como indisponível nesta hora. Tem a certeza que pretende avançar com ele na aula? Não poderá enviar-lhe notificações neste período por ele estar marcado como indisponível e não querer ser incomodado.",
+      "description_zero": "Os alunos {{names}} marcaram-se como indisponíveis nesta hora. Tem a certeza que pretende avançar com eles na aula? Não poderá enviar-lhes notificações neste período por estarem marcados como indisponíveis e não quererem ser incomodados.",
       "description_other": "Os alunos {{names}} marcaram-se como indisponíveis nesta hora. Tem a certeza que pretende avançar com eles na aula? Não poderá enviar-lhes notificações neste período por estarem marcados como indisponíveis e não quererem ser incomodados.",
       "confirm": "Avançar mesmo assim",
       "cancel": "Cancelar",
       "blocked_one": "Não pode enviar notificações ao aluno {{names}} neste horário, pois ele marcou-se como indisponível.",
+      "blocked_zero": "Não pode enviar notificações aos alunos {{names}} neste horário, pois marcaram-se como indisponíveis.",
       "blocked_other": "Não pode enviar notificações aos alunos {{names}} neste horário, pois marcaram-se como indisponíveis."
     },
     "legend": {
@@ -439,7 +447,18 @@
       "full": "Cheia / a decorrer",
       "done": "Concluída",
       "event": "Evento / não é aula",
-      "fill": "Confirmados / à espera / livres"
+      "fill": "Confirmados / à espera / livres",
+      "invited": "Convite",
+      "waiting": "Lista de espera",
+      "notComing": "Não vou",
+      "student": {
+        "enrolled": "Inscrito",
+        "invited": "Convite",
+        "waiting": "Em lista de espera",
+        "notComing": "Não vou",
+        "openSpot": "Com vaga",
+        "full": "Cheia · lista de espera"
+      }
     },
     "eligibilityConfirm": {
       "title": "Adicionar alunos que não cumprem a fasquia?",
@@ -519,6 +538,7 @@
         "not_pending": "Este pedido já foi decidido"
       },
       "coachTitle_one": "{{count}} pedido para entrar",
+      "coachTitle_zero": "{{count}} pedidos para entrar",
       "coachTitle_other": "{{count}} pedidos para entrar",
       "accept": "Aceitar",
       "reject": "Recusar",
@@ -552,6 +572,78 @@
         "coach": "Faltou"
       },
       "reminderSent": "Lembrete enviado"
+    },
+    "overflow": {
+      "label": "+{{count}}",
+      "aria": "Mais {{count}} aulas",
+      "title": "Mais aulas a esta hora"
+    },
+    "relation": {
+      "invited": "Convite",
+      "waiting": "Em lista de espera",
+      "notComing": "Não vou",
+      "full": "Cheia"
+    },
+    "studentFilter": {
+      "label": "Mostrar",
+      "eligible": "Todas em que sou elegível",
+      "mine": "Só as minhas aulas"
+    },
+    "waitingList": {
+      "join": "Juntar-me à lista de espera",
+      "joined": "Entraste na lista de espera",
+      "on": "Em lista de espera",
+      "onHint": "Avisamos-te se abrir uma vaga.",
+      "failed": "Não foi possível entrar na lista de espera",
+      "fullHint": "Esta aula está cheia. Podes entrar na lista de espera."
+    },
+    "side": {
+      "label": "Lado nesta aula",
+      "usual": "Habitual",
+      "left": "Esquerdo",
+      "right": "Direito",
+      "tag": {
+        "left": "Esquerdo nesta aula",
+        "right": "Direito nesta aula"
+      },
+      "saveFailed": "Não foi possível mudar o lado. Tenta outra vez.",
+      "ended": "Esta aula já terminou; o lado já não se pode mudar."
+    },
+    "participants": {
+      "group": {
+        "going": "Vão · {{count}}",
+        "pending": "Por responder · {{count}}",
+        "not_going": "Não vão · {{count}}"
+      },
+      "state": {
+        "going": "Vai",
+        "pending": "Por responder",
+        "not_going": "Não vai"
+      },
+      "sideShort": {
+        "both": "Amb",
+        "right": "Dir",
+        "left": "Esq"
+      },
+      "sideLong": {
+        "both": "Ambos os lados",
+        "right": "Lado direito",
+        "left": "Lado esquerdo"
+      },
+      "title": "Participantes",
+      "enrolled": "{{current}}/{{max}} inscritos",
+      "inThisClass": "Nesta aula",
+      "attendance": "Assiduidade",
+      "attendanceValue": "{{attended}} presenças · {{missed}} faltas",
+      "lastEvaluation": "Última avaliação",
+      "noEvaluations": "Sem avaliações",
+      "contact": "Contacto",
+      "level": "Nível {{level}}",
+      "sendMessage": "Enviar mensagem",
+      "fullProfile": "Ver perfil completo",
+      "close": "Fechar",
+      "openProfile": "Ver perfil de {{name}}",
+      "popupLabel": "Perfil do jogador"
     }
   }
 }

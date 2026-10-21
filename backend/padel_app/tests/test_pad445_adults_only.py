@@ -1,9 +1,9 @@
 """PAD-445 — auth.register rule 18: LevApp accepts adults only.
 
 Anyone under 18 on the request's UTC date is refused with 400 `UNDERAGE` on `birthDate`, and
-nothing is written: no User, no Player/Coach, no GuardianConsent, no mail. It holds whatever the
-country's digital-consent age, so a minor never reaches the guardian branch of
-auth.parental-consent rule 3. Someone who turns 18 today signs up.
+nothing is written: no User, no Player/Coach, no mail. It holds whatever the country, so the
+retired guardian flow (auth.parental-consent, dropped by PAD-644) can never be needed. Someone who
+turns 18 today signs up.
 
     pytest padel_app/tests/test_pad445_adults_only.py -v
 """
@@ -11,7 +11,6 @@ from datetime import datetime
 
 import pytest
 
-from padel_app.sql_db import db
 from padel_app.tests.helpers import pin_clock
 
 MESSAGE = (
@@ -23,17 +22,6 @@ MESSAGE = (
 @pytest.fixture(autouse=True)
 def _jwt_secret(app):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
-
-
-@pytest.fixture(autouse=True)
-def consent_ages(app):
-    """The migration seeds these; create_all in tests does not."""
-    from padel_app.models import DigitalConsentAge
-
-    with app.app_context():
-        for country, age in (("PT", 13), ("DE", 16)):
-            db.session.add(DigitalConsentAge(country=country, age=age))
-        db.session.commit()
 
 
 @pytest.fixture
@@ -54,11 +42,10 @@ def _body(birth, username="teen", country="PT", role="student", **over):
 
 
 def _nothing_written(app, username):
-    from padel_app.models import GuardianConsent, User
+    from padel_app.models import User
 
     with app.app_context():
         assert User.query.filter_by(username=username).first() is None
-        assert GuardianConsent.query.count() == 0
 
 
 def test_a_day_short_of_18_is_refused_and_nothing_is_written(client, app, outbox, monkeypatch):
@@ -82,7 +69,7 @@ def test_turning_18_today_signs_up(client, app, outbox, monkeypatch):
     assert res.status_code == 201, res.get_json()
     assert res.get_json()["accessToken"]
     with app.app_context():
-        assert User.query.filter_by(username="adult").first().guardian_consent_status is None
+        assert User.query.filter_by(username="adult").first() is not None
 
 
 @pytest.mark.parametrize("today, status", [(datetime(2026, 2, 28, 12, 0), 400), (datetime(2026, 3, 1, 12, 0), 201)])

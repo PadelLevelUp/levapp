@@ -18,6 +18,8 @@ The players domain.
 - `players.claim` — implemented (merge a coach-created placeholder into a student's real account; PAD-213)
 - `players.notes` — implemented
 - `players.level-history` — implemented
+- `players.nickname` — draft (PAD-660: a coach-private nickname on the coach–student relation, optionally shown as the name in the coach's views)
+- `players.search` — draft (PAD-665: one player-search rule for every coach-side screen)
 
 ## Why it's grouped this way
 

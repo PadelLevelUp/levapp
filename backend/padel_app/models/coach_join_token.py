@@ -21,7 +21,6 @@ class CoachJoinToken(HashedTokenMixin, db.Model, model.Model):
         {"extend_existing": True},
     )
 
-    page_title = "Coach Join Tokens"
     model_name = "CoachJoinToken"
 
     id = Column(Integer, primary_key=True)
@@ -56,18 +55,6 @@ class CoachJoinToken(HashedTokenMixin, db.Model, model.Model):
     @property
     def display_name(self):
         return str(self)
-
-    @classmethod
-    def display_all_info(cls):
-        searchable = {"field": "token_hash", "label": "Token hash"}
-        columns = [
-            {"field": "coach", "label": "Coach"},
-            {"field": "club", "label": "Club"},
-            {"field": "is_active", "label": "Active"},
-            {"field": "uses", "label": "Uses"},
-            {"field": "expires_at", "label": "Expires At"},
-        ]
-        return searchable, columns
 
     @classmethod
     def get_create_form(cls):

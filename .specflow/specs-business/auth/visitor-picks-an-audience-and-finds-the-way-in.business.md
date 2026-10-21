@@ -29,9 +29,11 @@ an idea.
    Resultados, lets them switch to the player story or to "Others"; the whole page follows
    the choice — hero, benefits, how it works, results, and the closing call to action.
 3. A coach reads the three benefits (less admin, more revenue, more competitive classes), the
-   three-step onboarding, and the results, then asks for a demo — in a short HubSpot form that
-   opens on the page, so the request lands in the sales CRM as an inbound lead from the site
-   (PAD-469). Until the form is configured, the demo button is an email.
+   three-step onboarding, and the results, then asks for a demo or just to talk — in a short
+   LevApp form that opens on the page ("Vamos falar!": name, phone, email, club and three quick
+   questions about how they run attendance today), so the request lands in the sales CRM as an
+   inbound lead from the site, already qualified (PAD-469, PAD-617, PAD-650). Until the form is
+   configured, the demo button is an email.
 4. A player sees what they gain, how to get started, and signs in — or asks support for help if
    their invitation is missing.
 5. A partner is told plainly that there is nothing for them yet and invited to email an idea.
@@ -46,11 +48,15 @@ an idea.
 - A shareable link can open the page directly on an audience (`?para=jogadores`; older
   `?audience=…` links keep working), and choosing an audience puts it in the URL to share.
 - No backend of our own: every call to action is a link — email, login, support, or an anchor —
-  except the demo request, which is HubSpot's form, embedded (PAD-469).
+  except the contact request, which the site's own server passes on to the sales CRM, so the
+  visitor's browser never talks to HubSpot (PAD-617, PAD-650). The request asks for consent to
+  handle the visitor's data, and separately, optionally, for consent to news and offers.
 - Privacy first: the site measures visits with HubSpot only after the visitor accepts cookies, and
   declining is as easy as accepting. The choice can be changed from the footer and is asked again
   after 12 months.
 - Copy is Portuguese by default with an English translation; product screenshots stay Portuguese.
+- Coaches and players can go straight to LevApp's App Store page from the top of their page, and
+  players again from the closing call to action. It opens in a new tab (PAD-619).
 
 ## Success Metrics
 

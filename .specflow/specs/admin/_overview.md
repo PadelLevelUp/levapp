@@ -9,6 +9,7 @@ hold a role, and every write is audited. Epic PAD-530, owner decisions 2026-10-0
 
 ## What it covers
 
+- `admin.data-retention` — implementing (PAD-638: a daily sweep, one switch and period per kind of personal data, all OFF until the owner decides)
 - `admin.foundation` — draft (PAD-531: Google SSO restricted to `levapp.app`, the `levapp-admin`
   token audience, `admin_roles` owner/operator/support replacing `is_superadmin` for new code,
   `admin_audit_log` with a route-coverage guard, deploy topology, no admin code in the product apps)
@@ -21,6 +22,10 @@ hold a role, and every write is audited. Epic PAD-530, owner decisions 2026-10-0
   deployed SHA and migration head per environment, per-coach engine settings)
 - `admin.commercial-groundwork` — draft, **blocked** (PAD-535, by PAD-536 and PAD-472: `plans`,
   `coach_plans`, entitlements through capabilities, no payment provider)
+- `admin.data-export` — draft (PAD-640: the data-subject access runbook and the read-only one-user
+  JSON export script)
+- `admin.work-dashboard` — implementing (PAD-555: tickets, merged PRs and deploys from Linear and
+  GitHub, read-only, operator and owner)
 - `admin.phone-console` — draft (PAD-572: every console page usable at 375 px from a phone
   browser; the sidebar collapses to a top bar and drawer, tables become cards or scroll in their
   own container, 44 px tap targets, Playwright at phone viewport; still web-only, no staff app)
@@ -33,6 +38,7 @@ the product apps. A separate domain keeps that boundary visible: product specs d
 
 ## Related groups
 
+- `admin.moderation` — draft (PAD-631: message reports — list, context, dismiss / delete the message / disable the author, audited — and the read-only deletion audit; web only)
 - `auth/` — `auth.coach-approval` keeps the approval rules; only the approving screen moves here.
 - `settings/` — `settings.admin-editor` (`/editor`) is retired (owner, 2026-10-07; PAD-532 removes it with the Settings → Admin tab);
   `settings.role-scope`'s `superadmin` audience loses its Admin section.

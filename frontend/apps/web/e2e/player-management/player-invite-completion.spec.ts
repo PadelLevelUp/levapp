@@ -31,6 +31,8 @@ async function createPlayerInviteLink(page: Page): Promise<string> {
 
   // The new-player sheet.
   await page.getByLabel(/^name$/i).fill(NEW_PLAYER_NAME);
+  // PAD-642: the coach confirms the student is 18+ (players.create rule 10).
+  await page.getByTestId("add-player-confirms-adults").click();
 
   // Create as an invite — no username required. The button surfaces a
   // shareable link instead of fully creating an active account.
@@ -89,6 +91,8 @@ test.describe("players.invite-completion", () => {
     }
     // PAD-457 (players.invite-completion rule 10): the invitation asks for an adult birth date.
     await invitePage.locator("#birthDate").fill("1990-01-01");
+    // PAD-637: the Terms box (auth.register rule 19b).
+    await invitePage.getByTestId("playerInvite-terms").click();
 
     await invitePage
       .getByRole("button", {

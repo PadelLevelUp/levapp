@@ -1,16 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { standingEndLabel } from "@levelup/config";
+import { useCoachDisplayName } from "@levelup/hooks";
+import { useDebouncedText } from "@/hooks/useDebouncedText";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { getStandingWaitingList, removeFromStandingWaitingList, searchPlayers } from "@/api/notificationEngine";
 import { AddToStandingWaitingListDialog } from "@/components/players/AddToStandingWaitingListDialog";
 import type { StandingWaitingListEntry } from "@/types";
 
 export function StandingWaitingListSection() {
   const { t, i18n } = useTranslation();
+  // PAD-660 rule 8: a coach-only screen — the coach's nickname for each student.
+  const displayName = useCoachDisplayName();
   const [entries, setEntries] = useState<StandingWaitingListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -22,8 +27,10 @@ export function StandingWaitingListSection() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
+  const { debounced, settling } = useDebouncedText(query);
+  const [loadedFor, setLoadedFor] = useState("");
+  const searching = settling || (debounced !== "" && loadedFor !== debounced);
 
   useEffect(() => {
     getStandingWaitingList()
@@ -32,28 +39,30 @@ export function StandingWaitingListSection() {
   }, []);
 
   useEffect(() => {
-    if (!query.trim()) {
+    if (!debounced) {
       setResults([]);
-      setSearchOpen(false);
+      setLoadedFor("");
       return;
     }
-    if (searchRef.current) clearTimeout(searchRef.current);
-    setSearching(true);
-    searchRef.current = setTimeout(async () => {
-      try {
-        const data = await searchPlayers(query);
+    let cancelled = false;
+    searchPlayers(debounced)
+      .then((data) => {
+        if (cancelled) return;
         setResults(data.players);
-        setSearchOpen(true);
-      } catch {
+        setLoadedFor(debounced);
+      })
+      .catch(() => {
+        if (cancelled) return;
         setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-  }, [query]);
+        setLoadedFor(debounced);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced]);
 
   const handleSelectPlayer = (p: { id: string; name: string }) => {
-    setSelectedPlayer({ id: Number(p.id), name: p.name });
+    setSelectedPlayer({ id: Number(p.id), name: displayName(p.id, p.name) });
     setQuery("");
     setResults([]);
     setSearchOpen(false);
@@ -122,13 +131,17 @@ export function StandingWaitingListSection() {
           <Input
             placeholder={t("settings.standingList.searchToAdd")}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSearchOpen(true);
+            }}
             className="text-sm h-8"
           />
           {searching && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
-        {searchOpen && results.length > 0 && (
+        {searchOpen && query.trim() !== "" && (results.length > 0 || searching || loadedFor === debounced) && (
           <div className="absolute z-10 top-9 left-0 right-0 bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
+            <PlayerSearchFeedback query={query} searching={searching} count={results.length} className="px-3 py-2 text-sm text-muted-foreground" />
             {results.map((p) => (
               <button
                 key={p.id}
@@ -137,7 +150,7 @@ export function StandingWaitingListSection() {
                 onClick={() => handleSelectPlayer(p)}
               >
                 <UserPlus className="w-3 h-3 text-muted-foreground" />
-                {p.name}
+                {displayName(p.id, p.name)}
               </button>
             ))}
           </div>
@@ -165,7 +178,7 @@ export function StandingWaitingListSection() {
                   data-testid="standing-wl-name"
                   className={`text-sm font-medium truncate ${expired ? "text-muted-foreground" : ""}`}
                 >
-                  {entry.playerName ?? t("settings.standingList.unknown")}
+                  {entry.playerName ? displayName(entry.playerId, entry.playerName) : t("settings.standingList.unknown")}
                 </p>
                 {/* PAD-547 (waiting-list rule 19): a series-scoped entry names its class. */}
                 {entry.lessonId ? (

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
+import { answerResync, isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
 import {
   Calendar,
   CalendarOff,
@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InstallAppBanner } from "@/components/layout/InstallAppBanner";
+import { CountryPrompt } from "@/components/layout/CountryPrompt";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -198,6 +199,10 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
     // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream,
     // which also reconnects — this effect used to close for good on any error.
     return subscribeAppEvents(token, (data) => {
+      // messaging.sse-realtime rule 18 (PAD-616): the stream re-opened after a drop — anything
+      // published meanwhile never arrived, so every live query is invalidated (on-screen ones
+      // refetch, the rest go stale). The hub throttles resyncs.
+      if (answerResync(data, queryClient)) return;
       // When viewing a specific conversation, MessagesPage marks it read first
       // then calls refreshUnreadCount — avoid racing with it here.
       if (data.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
@@ -518,6 +523,8 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       </div>
       {/* PAD-373: "Gerir competências" opens over any page via ?competencies=open (coach only). */}
       <CompetencyManagerHost />
+      {/* PAD-630 (auth.login rule 13): an account with no country is asked once, over any page. */}
+      <CountryPrompt />
     </div>
   );
 }

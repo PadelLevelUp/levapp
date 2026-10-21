@@ -3,6 +3,8 @@ import type {
   PresenceStatsTotals,
 } from "@levelup/types";
 
+import { searchPlayers } from "@levelup/config";
+
 import type { ChartPoint } from "@/components/charts/chart-geometry";
 
 /**
@@ -108,16 +110,29 @@ export function filterPlayers(
   players: PresencePlayerStats[],
   filters: PresenceFilters
 ): PresencePlayerStats[] {
-  const needle = filters.query.trim().toLowerCase();
   const min = numericBound(filters.minTotal, -Infinity);
   const max = numericBound(filters.maxUnjustified, Infinity);
 
-  return players.filter(
-    (player) =>
-      player.name.toLowerCase().includes(needle) &&
-      player.total >= min &&
-      player.unjustified <= max
-  );
+  // PAD-665 (players.search): the name goes through the shared rule, best match first; a blank
+  // query keeps the order given. The bounds are unchanged.
+  return searchPlayers(players, filters.query, (player) => ({
+    name: player.name,
+    id: player.playerId,
+  })).filter((player) => player.total >= min && player.unjustified <= max);
+}
+
+/**
+ * The rows the screen lists: the filter's matches, ordered by `sort`. While a name is typed and
+ * the coach has left the sort at its default, the best match comes first instead (PAD-665).
+ */
+export function presenceRows(
+  players: PresencePlayerStats[],
+  filters: PresenceFilters,
+  sort: PresenceSort
+): PresencePlayerStats[] {
+  // The table always has a sort of its own, so the name rule only filters (players.search rule 6,
+  // decision 2026-10-14 (a)).
+  return sortPlayerStats(filterPlayers(players, filters), sort);
 }
 
 function numericBound(raw: string, fallback: number): number {

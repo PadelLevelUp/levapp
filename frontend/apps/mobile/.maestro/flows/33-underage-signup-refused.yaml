@@ -1,0 +1,82 @@
+# PAD-445 — auth.register rule 18: LevApp accepts adults only. A 10-year-old in Portugal fills
+# the sign-up form on the phone: no guardian's-email field appears, submitting shows the refusal
+# under the birth date and the screen stays on sign-up. The same person sent straight to the API
+# is refused with UNDERAGE and cannot sign in.
+#
+# Until PAD-445 this flow walked PAD-198's guardian consent from a minor's sign-up. That journey
+# can no longer start (the guardian flow is kept for accounts created before; owner decision
+# pending) and is covered for those accounts by the backend's test_parental_consent.py.
+#
+# Renamed from 33-parental-consent (PAD-637 follow-up): the file now says what the flow checks.
+# Mirrors: apps/web/e2e/auth-onboarding/parental-consent.spec.ts
+appId: com.padellevelup.app
+---
+# The backend the API checks hit: Maestro -e API_BASE=http://localhost:<port> for an
+# isolated backend; the shared test backend on :5001 otherwise.
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- launchApp:
+    clearState: true
+- evalScript: ${output.stamp = String(Date.now())}
+- evalScript: ${output.year = String(new Date().getFullYear() - 10)}
+- evalScript: ${output.username = 'maestro-minor-' + output.stamp}
+- extendedWaitUntil:
+    visible:
+      id: "login-create-account"
+    timeout: 25000
+- tapOn:
+    id: "login-create-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-signup"
+    timeout: 15000
+- tapOn:
+    id: "signup-role-student"
+- tapOn:
+    id: "signup-name"
+- inputText: "Maestro Minor"
+- tapOn:
+    id: "signup-username"
+# PAD-651: the username is pre-filled from the name; clear it before typing.
+- eraseText
+- inputText: ${output.username}
+# Next moves focus down the form and scrolls the field into view (PAD-198).
+- pressKey: Enter
+- inputText: ${output.username + '@example.com'}
+- pressKey: Enter
+- inputText: "Segura1234"
+- pressKey: Enter
+- inputText: "Segura1234"
+- pressKey: Enter
+- inputText: ${'0101' + output.year}
+# The number pad closes itself once the date is complete.
+- assertVisible:
+    id: "signup-birthDate"
+    text: "${'01/01/' + output.year}"
+# No guardian's email for a minor any more.
+- assertNotVisible:
+    id: "signup-guardian"
+- scrollUntilVisible:
+    element:
+      id: "signup-submit"
+    direction: DOWN
+    timeout: 10000
+# PAD-485 (auth.register rule 19): the Terms box is required; ticked once per form.
+- tapOn:
+    id: "signup-terms"
+- tapOn:
+    id: "signup-submit"
+- scrollUntilVisible:
+    element:
+      id: "signup-error-birthDate"
+    direction: UP
+    timeout: 10000
+- assertVisible:
+    id: "screen-signup"
+- assertNotVisible:
+    id: "guardian-pending"
+
+# ── The server is the authority: straight to the API, refused and not created ──
+- evalScript: "${output.reg = http.post(output.api + '/api/auth/register', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'student', name: 'Maestro Minor', username: output.username, email: output.username + '@example.com', password: 'Segura1234', birthDate: output.year + '-01-01', country: 'PT', guardianEmail: 'g-' + output.username + '@example.com' }) })}"
+- assertTrue: "${output.reg.status == 400 && json(output.reg.body).code == 'UNDERAGE' && json(output.reg.body).field == 'birthDate'}"
+- evalScript: "${output.login = http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: output.username, password: 'Segura1234' }) })}"
+- assertTrue: "${output.login.status == 401}"

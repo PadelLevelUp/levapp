@@ -1,20 +1,12 @@
-"""PAD-280 (data-model audit §13) — the model registry has no naming or
-dead-code traps left.
+"""PAD-280 (data-model audit §13) — the model layer has no dead-code traps left.
 
-`padel_app.models.MODELS` is what the generic admin editor (`/api/editor/*`),
-the legacy editor and `api.py` look models up in, always by
-`model_name.lower()`. Before PAD-280:
+Before PAD-280:
 
-* Message was registered as "lessage", so `/api/editor/message/*` was a 404;
-* DeviceToken's form declared a field type the form layer rejects, and
-  LessonInstanceTraining (a plain association table, no editor mixin, no `id`)
-  was registered at all — both made the editor's schema route a 500;
-* MessageReaction, MessageReport and BlockedUser had no page_title/model_name;
 * Presence assigned `__table_args__` twice, silently dropping the first;
 * four migration docstrings named the wrong parent revision.
 
-These tests walk the whole registry with the SAME calls the editor makes, at
-the model level, so they do not depend on how the editor routes are gated.
+(The registry and generic-editor checks this file once held went with the
+editor and the `MODELS` registry in PAD-550.)
 """
 import ast
 import pathlib
@@ -23,52 +15,6 @@ import re
 import pytest
 
 VERSIONS = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
-
-
-def test_every_registry_key_is_the_lowercased_class_name():
-    from padel_app.models import MODELS
-
-    wrong = {key: cls.__name__ for key, cls in MODELS.items() if key != cls.__name__.lower()}
-    assert wrong == {}, f"registry keys that do not follow the rule: {wrong}"
-
-
-def test_message_is_reachable_in_the_editor_under_message():
-    from padel_app.models import MODELS, Message
-
-    assert MODELS.get("message") is Message
-
-
-def test_every_registered_model_has_a_title_and_a_model_name_matching_its_key():
-    from padel_app.models import MODELS
-
-    wrong = {}
-    for key, cls in MODELS.items():
-        title = getattr(cls, "page_title", None)
-        name = getattr(cls, "model_name", None)
-        if not isinstance(title, str) or not isinstance(name, str) or name.lower() != key:
-            wrong[key] = (title, name)
-    assert wrong == {}, f"models missing page_title/model_name or with a mismatched model_name: {wrong}"
-
-
-def test_every_registered_model_survives_the_editor_calls(app):
-    """`/api/editor/<model>/schema` builds the create form and every field's
-    dict; `/api/editor/<model>` calls display_all_info() and orders by `id`."""
-    from padel_app.models import MODELS
-
-    broken = {}
-    with app.app_context():
-        for key, cls in MODELS.items():
-            try:
-                form = cls().get_create_form()
-                [field.get_field_dict() for field in form.fields]
-                cls().display_all_info()
-                assert hasattr(cls, "id"), "no id column"
-            except NotImplementedError:
-                # The editor answers [] for models without a form; that is fine.
-                pass
-            except Exception as exc:  # noqa: BLE001 — report every broken model at once
-                broken[key] = f"{type(exc).__name__}: {exc}"
-    assert broken == {}, f"models the editor cannot serve: {broken}"
 
 
 def test_presence_keeps_its_unique_constraint_and_extend_existing():

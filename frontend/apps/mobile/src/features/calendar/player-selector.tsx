@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import { initialsOf } from "@/features/messages/utils";
+import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { cn } from "@/lib/utils";
 
 import {
@@ -88,7 +89,7 @@ export function PlayerSelector({
       <Pressable
         key={playerId}
         testID={`player-selector-row-${playerId}`}
-        accessibilityLabel={player.name}
+        accessibilityLabel={player.displayName || player.name}
         role="checkbox"
         accessibilityState={{ checked: isSelected }}
         onPress={() => {
@@ -111,7 +112,7 @@ export function PlayerSelector({
         </View>
         <View className="min-w-0 flex-1 flex-row items-center gap-2">
           <Text className="flex-shrink text-sm" numberOfLines={1}>
-            {player.name}
+            {player.displayName || player.name}
           </Text>
           {/* PAD-527: the level is always shown — primary when it is the class's level,
               amber when it is another (or none), neutral when the class has no level. */}
@@ -217,9 +218,13 @@ export function PlayerSelector({
           <ScrollView className="max-h-64" nestedScrollEnabled keyboardShouldPersistTaps="handled">
             <View className="gap-1">
               {visible.length === 0 ? (
-                <Text className="py-3 text-center text-sm text-muted-foreground">
-                  {t("calendar.playerSelector.noPlayersFound")}
-                </Text>
+                isSearching ? (
+                  <PlayerSearchFeedback query={search} count={0} className="py-3 text-center text-sm text-muted-foreground" />
+                ) : (
+                  <Text className="py-3 text-center text-sm text-muted-foreground">
+                    {t("calendar.playerSelector.noPlayersFound")}
+                  </Text>
+                )
               ) : (
                 visible.map(renderRow)
               )}

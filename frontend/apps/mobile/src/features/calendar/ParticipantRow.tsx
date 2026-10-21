@@ -4,6 +4,7 @@ import type {
   Presence,
   PresenceStatus,
 } from "@levelup/types";
+import { useCoachDisplayName } from "@levelup/hooks";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -12,11 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import {
   attendanceStateLabelKey,
   attendanceStateOf,
   attendanceStateTone,
   cancellationDetail,
+  displayStateOf,
   reminderHint,
   type StateAudience,
   type StateTone,
@@ -62,6 +65,18 @@ type ParticipantRowProps = {
    * about them.
    */
   audience?: StateAudience;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence, for the
+   * coach — the same shape as web's AttendanceRow `side`. `onChange(null)` goes back to the usual
+   * side; `editable` is the server's answer (not ended, not canceled).
+   */
+  side?: SideInOccurrence;
+  /**
+   * PAD-663 (`calendar.event-detail` rule 25): before the class ends a coach's validated mark
+   * is worded as the intent it records ("Vai"), so the badge word and tone follow
+   * `displayStateOf`. The test id below keeps the STORED state.
+   */
+  classEnded?: boolean;
 };
 
 /** Mobile analogue of the web AttendanceRow: name + presence badges, with
@@ -73,8 +88,12 @@ export function ParticipantRow({
   onChange,
   canMark,
   audience = "coach",
+  side,
+  classEnded = true,
 }: ParticipantRowProps) {
-  const name = playerName(player);
+  // PAD-660: a coach reads the nickname they gave the student; the student's own row keeps their name.
+  const displayName = useCoachDisplayName({ enabled: audience === "coach" });
+  const name = displayName(player.id, playerName(player));
   const playerId = String(player.id);
 
   const setStatus = (status: PresenceStatus) => {
@@ -98,6 +117,7 @@ export function ParticipantRow({
 
   // PAD-313: one state, one source, same helper as web.
   const state = attendanceStateOf(presence);
+  const shown = displayStateOf(state, classEnded);
   const cancellation = cancellationDetail(presence, audience);
   const reminder = reminderHint(presence);
 
@@ -121,13 +141,16 @@ export function ParticipantRow({
             showed "presença confirmada" beside "falta justificada" — the
             founder's report. The coach's toggle below still writes the mark. */}
         {presence ? (
-          <Badge variant={BADGE_VARIANT[attendanceStateTone(state)]} testID="attendance-state">
+          <Badge variant={BADGE_VARIANT[attendanceStateTone(shown)]} testID="attendance-state">
             {/* The state in the id (web: data-state on attendance-state), so a
                 flow asserts the state, not its rendered word (PAD-320). */}
-            <Text testID={`attendance-state-${state}`}>{t(attendanceStateLabelKey(state, audience))}</Text>
+            <Text testID={`attendance-state-${state}`}>{t(attendanceStateLabelKey(shown, audience))}</Text>
           </Badge>
         ) : null}
       </View>
+
+      {/* PAD-551: the side this player plays in this occurrence. */}
+      {side ? <SideInOccurrenceControl playerId={playerId} side={side} /> : null}
 
       {/* Secondary facts, each on its own line and never a second state word:
           who cancelled and when (rule 23's provenance, coach's row only while

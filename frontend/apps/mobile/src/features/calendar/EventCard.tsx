@@ -4,6 +4,7 @@ import {
   lightTheme,
   nativeCalendarSurfaces,
   resolveCardVariant,
+  relationChip,
   showsEnrolledMark,
   withAlpha,
 } from "@levelup/config";
@@ -38,20 +39,31 @@ const SURFACES = nativeCalendarSurfaces("light");
  * uses — so the two shells cannot drift apart. Amber appears on the fill bar
  * and the count only, for a class the coach can still fill.
  */
+/** Tailwind's `shadow-md` (0 4px 6px rgb(0 0 0 / 0.1)) as React Native style — PAD-675. */
+const NEXT_SHADOW: ViewStyle = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  elevation: 4,
+};
+
 export function EventCard({ event, onPress, isNext = false, levelCode }: EventCardProps) {
   const { t } = useTranslation();
-  const { variant, seatsShort } = resolveCardVariant(event, { isNext });
+  const viewer = useCalendarViewer();
+  const { variant, seatsShort } = resolveCardVariant(event, { isNext, viewer });
   const isBlock = variant === "block";
   const isCanceled = variant === "canceled";
-  const surface = cardSurfaceNative(event.color, variant, SURFACES);
+  const surface = cardSurfaceNative(event.color, variant, SURFACES, viewer);
   const ink = isBlock ? SURFACES.foreground : (surface.color ?? SURFACES.foreground);
   const onColor = variant === "scheduled" && ink === "#FFFFFF";
 
   // PAD-130 / B-541: an open spot is an offer — the shared `open-spot` variant
   // (dashed outline, readable ink), so the ink and the week grid agree with it.
-  const isOpenSpot = variant === "open-spot";
   // PAD-578 (rule 19): a student's own class is ticked — never by colour alone.
-  const enrolledMark = showsEnrolledMark(event, variant, useCalendarViewer());
+  const enrolledMark = showsEnrolledMark(event, variant, viewer);
+  // PAD-611 (mobile-views rule 5): the relation chip from the shared helper.
+  const chip = relationChip(variant);
   const stateStyle: ViewStyle = isBlock
     ? {}
     : {
@@ -59,6 +71,12 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
         borderWidth: surface.borderWidth,
         borderStyle: surface.borderStyle,
         borderColor: surface.borderColor,
+        // PAD-675: the next class's lift is inline (Tailwind's shadow-md), never a `shadow-md`
+        // class added when the card BECOMES next — shadow utilities set CSS variables, and a
+        // component that starts setting variables after its first render hits css-interop's
+        // upgrade warning, which crashed the debug build ("Couldn't find a navigation context").
+        // The student's filter changes which mounted card is next.
+        ...(variant === "next" ? NEXT_SHADOW : null),
       };
 
   const capacity = event.maxPlayers ?? 0;
@@ -102,19 +120,21 @@ export function EventCard({ event, onPress, isNext = false, levelCode }: EventCa
       className={cn(
         "rounded-2xl p-4",
         isBlock && "border-[1.5px] border-dashed border-border bg-card",
-        variant === "next" && "shadow-md",
         onPress && "active:opacity-90"
       )}
       style={stateStyle}
     >
-      {isOpenSpot ? (
-        <Text
-          testID="calendar-open-spot-chip"
-          className="mb-1 self-start rounded-full border px-1.5 text-[10px] font-sans-bold uppercase"
-          style={{ color: ink, borderColor: ink }}
-        >
-          {t("calendar.openSpot.chip")}
-        </Text>
+      {chip ? (
+        // PAD-664: Maestro cannot read attributes, so the relation is in the wrapper's id.
+        <View testID={`calendar-relation-${variant}`} className="self-start">
+          <Text
+            testID={chip.testId}
+            className="mb-1 self-start rounded-full border px-1.5 text-[10px] font-sans-bold uppercase"
+            style={{ color: ink, borderColor: ink }}
+          >
+            {t(chip.key)}
+          </Text>
+        </View>
       ) : null}
       <View className="flex-row items-start justify-between gap-2">
         {/* PAD-580 QA: the ✓ and the title are ONE leading group — as siblings of the level

@@ -6,6 +6,7 @@ from padel_app.models import User
 from padel_app.sql_db import db
 from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
+from padel_app.utils.dates import utcnow_naive
 
 
 #: PAD-93 — privilege flags that must never be settable from an app-facing
@@ -120,12 +121,21 @@ def activate_user_service(user_id, data, *, token):
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     # auth.activate rule 13 (PAD-457): adults only, judged as sign-up judges it. Raises
     # RegistrationError (400 on birthDate) before anything is written.
-    from padel_app.services.registration_service import UPDATE_APP_TO_ACTIVATE, validate_adult_birth_date
+    from padel_app.services.registration_service import (
+        UPDATE_APP_TO_ACTIVATE,
+        validate_adult_birth_date,
+        validate_completion_country,
+        validate_completion_terms,
+        record_terms_acceptance,
+    )
     from padel_app.utils.dates import utcnow_naive
 
     birth_date = validate_adult_birth_date(
         (data or {}).get("birthDate"), utcnow_naive().date(), update_app_message=UPDATE_APP_TO_ACTIVATE
     )
+    # Rule 13a (PAD-604): the country, after the birth date, still before anything is written.
+    country = validate_completion_country(data)
+    terms_accepted = validate_completion_terms(data)  # auth.activate rule 13b (PAD-637)
     if "username" in sent:
         taken = User.query.filter_by(username=sent["username"]).first()
         if taken is not None and taken.id != user.id:
@@ -136,8 +146,12 @@ def activate_user_service(user_id, data, *, token):
     values = _strip_privilege_fields(form.set_values(fake_request))
     values["status"] = "active"
     values["birth_date"] = birth_date
+    if country is not None:
+        values["country"] = country
 
     user.update_with_dict(values, write_none=True)
+    if terms_accepted:
+        record_terms_acceptance(user, utcnow_naive())
     user.save()
     return user
 
@@ -179,6 +193,10 @@ OWN_PROFILE_FIELDS = (
     "notificationBlockReason",
     # PAD-232: opt-out for request alerts (notifications.request-alerts rule 6).
     "requestAlerts",
+    # PAD-630 (auth.login rule 13): the country, asked once of accounts that have none.
+    "country",
+    # PAD-640 (settings.profile rule 10): the date of birth, corrected in Perfil.
+    "birthDate",
 )
 
 #: PAD-112: payload key → `users` column, for the three block toggles.
@@ -206,10 +224,27 @@ class ProfileValidationError(Exception):
     409 for a conflict with another user's data).
     """
 
-    def __init__(self, message, status=400):
+    def __init__(self, message, status=400, *, code=None, field=None):
         super().__init__(message)
         self.message = message
         self.status = status
+        #: PAD-640: a machine code and the field it belongs on, for the clients to localise.
+        self.code = code
+        self.field = field
+
+
+def _own_birth_date(raw):
+    """settings.profile rule 10 (PAD-640): sign-up's one birth-date check (auth.register rule 18). A
+    stored date can be changed, never cleared, so an absent value is a malformed one here."""
+    from padel_app.services.registration_service import RegistrationError, validate_adult_birth_date
+
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        raise ProfileValidationError("birthDate must be a real date (YYYY-MM-DD)",
+                                     code="INVALID_BIRTH_DATE", field="birthDate")
+    try:
+        return validate_adult_birth_date(raw, utcnow_naive().date(), update_app_message="")
+    except RegistrationError as err:
+        raise ProfileValidationError(err.message, code=err.code, field="birthDate") from None
 
 
 def update_own_profile_service(user_id, data):
@@ -224,6 +259,12 @@ def update_own_profile_service(user_id, data):
     """
     user = User.query.get_or_404(user_id)
     email_changed = False
+
+    # settings.profile rule 10 (PAD-640): judged before anything is written, so an under-18 date
+    # refuses the whole PATCH.
+    birth_date = _own_birth_date(data.get("birthDate")) if "birthDate" in data else None
+    if birth_date is not None:
+        user.birth_date = birth_date
 
     if "name" in data:
         name = (data.get("name") or "").strip()
@@ -273,6 +314,16 @@ def update_own_profile_service(user_id, data):
     for key, column in NOTIFICATION_BLOCK_FIELDS.items():
         if key in data:
             setattr(user, column, _coerce_bool(data.get(key), key))
+
+    if "country" in data:
+        # PAD-630 (auth.login rule 13): sign-up's own check (two letters, upper-cased); a missing or
+        # empty value is refused like any other, so a stored country can never be cleared here.
+        from padel_app.services.registration_service import RegistrationError, _two_letter_country
+
+        try:
+            user.country = _two_letter_country(data.get("country"))
+        except RegistrationError:
+            raise ProfileValidationError("INVALID_COUNTRY: country must be a two-letter code") from None
 
     # PAD-232: same membership-checked boolean handling as the block toggles.
     if "requestAlerts" in data:

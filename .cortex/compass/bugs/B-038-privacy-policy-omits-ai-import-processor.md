@@ -3,7 +3,8 @@ id: B-038
 title: "Privacy policy does not name the AI import processor or the transfer it implies"
 type: layer-drift
 severity: medium
-status: open
+status: resolved
+resolved: 2026-10-12T16:57:46Z
 affects:
   - import.analyze
   - .cortex/archive/documents/privacy-policy-2026-09-06
@@ -42,4 +43,10 @@ stakeholder-facing legal layer, which was written without the import's data flow
 
 ### Resolution
 
-_Open — owner action._
+Resolved by PAD-634 (Privacy Policy v2026-10-13, text approved by the owner in the PR):
+- §5 names OpenRouter and the model provider it routes to (Inception, `inception/mercury-2`) and
+  what the import sends them; the request already asks OpenRouter for providers that do not
+  collect data (`provider: {data_collection: "deny"}`, PAD-636, `helpers/llm.py`).
+- §9 names the US transfers (OpenRouter and Inception among them) and the mechanism (DPF adequacy
+  decision where the provider is certified, otherwise SCCs).
+- Spec changes: `auth.legal-pages` entity note, business spec `anyone-can-read-the-terms-and-privacy-policy`.

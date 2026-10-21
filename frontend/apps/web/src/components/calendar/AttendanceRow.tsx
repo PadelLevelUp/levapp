@@ -2,14 +2,17 @@ import type { Player, PresenceStatus, AbsenceJustification } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurrenceControl";
 import { Check, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { cn } from "@/lib/utils";
 import {
   attendanceStateLabelKey,
   attendanceStateOf,
   attendanceStateTone,
   cancellationDetail,
+  displayStateOf,
   reminderHint,
   type AttendancePresenceLike,
   type StateAudience,
@@ -36,6 +39,19 @@ interface AttendanceRowProps {
   presence?: AttendancePresenceLike | null;
   /** Whose row this is, so the state word addresses the right person. */
   audience?: StateAudience;
+  /**
+   * PAD-551 (`classes.instance-enrollment` rule 13): the player's side in this occurrence, for the
+   * coach. `current` is the side the server reports, `override` whether it is set here, and
+   * `editable` the server's answer to "may it still change". `onChange(null)` goes back to the
+   * usual side.
+   */
+  side?: SideInOccurrence;
+  /**
+   * PAD-663 (`calendar.event-detail` rule 25): has the class ended? Until it has, a coach's
+   * validated mark is worded as the intent ("Vai", not "Presente"). Defaults to true, the
+   * record's own word, for a caller that does not know.
+   */
+  classEnded?: boolean;
 }
 
 export function AttendanceRow({
@@ -45,9 +61,14 @@ export function AttendanceRow({
   disabled = false,
   presence,
   audience = "coach",
+  side,
+  classEnded = true,
 }: AttendanceRowProps) {
   const { t, i18n } = useTranslation();
-  const name = player.user?.name ?? t("calendar.attendance.playerFallback");
+  // PAD-660 rule 8: only the coach's rows print the coach's name for the student; the student's own
+  // row (no roster request) keeps their name.
+  const displayName = useCoachDisplayName({ enabled: audience === "coach" });
+  const name = displayName(player.id, player.user?.name ?? t("calendar.attendance.playerFallback"));
 
   const getInitials = (n: string) => {
     return n
@@ -60,6 +81,8 @@ export function AttendanceRow({
 
   // PAD-313 (`attendance.confirm` rule 25): ONE state word, from one source.
   const state = attendanceStateOf(presence);
+  // PAD-663: the word and tone follow the display state; `data-state` keeps the stored one.
+  const shown = displayStateOf(state, classEnded);
   const cancellation = cancellationDetail(presence, audience);
   const reminder = reminderHint(presence);
   const TONE: Record<StateTone, string> = {
@@ -115,11 +138,14 @@ export function AttendanceRow({
           variant="outline"
           data-testid="attendance-state"
           data-state={state}
-          className={TONE[attendanceStateTone(state)]}
+          className={TONE[attendanceStateTone(shown)]}
         >
-          {t(attendanceStateLabelKey(state, audience))}
+          {t(attendanceStateLabelKey(shown, audience))}
         </Badge>
       </div>
+
+      {/* PAD-551: the side this player plays in this occurrence. */}
+      {side && <SideInOccurrenceControl playerId={String(player.id)} side={side} />}
 
       {/* Secondary facts. Never a second state word: lesser weight, own line. */}
       {cancellation && (

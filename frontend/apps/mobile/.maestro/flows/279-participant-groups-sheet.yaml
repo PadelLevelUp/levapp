@@ -1,0 +1,70 @@
+# PAD-659 — calendar.event-detail rules 22–23: the coach's class screen lists its participants
+# grouped (Vão / Por responder / Não vão) in compact rows; tapping a name opens the player's
+# sheet; closing it (the X, then the backdrop) leaves the class screen where it was.
+#
+# Reads the seeded academy class only — writes nothing. E2E Student (player id 1) is in it;
+# which group they sit in depends on whether flow 04 ran first, so this flow does not assert
+# the group key, only that the student's row is inside a group and the sheet says a state.
+# Flow number 279 is from Session C's wave-15 range (279–288).
+#
+# Mirrors: apps/web/e2e/schedule-calendar/pad659-participant-groups.spec.ts (US-PAD-659b)
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+- runFlow: ../subflows/goto-seeded-monday.yaml
+- tapOn: "E2E Academy Class"
+- scrollUntilVisible:
+    element:
+      id: "participants-enrolled"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "participant-row-1"
+    direction: DOWN
+    timeout: 30000
+# Rule 22: no marking controls and no state word until "Editar presenças".
+- assertNotVisible:
+    id: "attendance-present-1"
+- assertNotVisible:
+    id: "attendance-confirm"
+- assertVisible:
+    id: "attendance-edit"
+
+# ── Rule 23: the sheet opens from the name and closes with the X ──
+- tapOn:
+    id: "participant-open-1"
+- extendedWaitUntil:
+    visible:
+      id: "participant-popup"
+    timeout: 10000
+- assertVisible:
+    id: "participant-popup-state"
+- assertVisible:
+    id: "participant-popup-profile"
+- tapOn:
+    id: "participant-popup-close"
+- extendedWaitUntil:
+    notVisible:
+      id: "participant-popup"
+    timeout: 10000
+- assertVisible:
+    id: "participant-row-1"
+
+# ── …and with a tap on the backdrop, above the sheet ──
+- tapOn:
+    id: "participant-open-1"
+- extendedWaitUntil:
+    visible:
+      id: "participant-popup"
+    timeout: 10000
+- tapOn:
+    point: "50%,8%"
+- extendedWaitUntil:
+    notVisible:
+      id: "participant-popup"
+    timeout: 10000
+- assertVisible:
+    id: "participant-row-1"
+- assertVisible:
+    id: "class-detail"

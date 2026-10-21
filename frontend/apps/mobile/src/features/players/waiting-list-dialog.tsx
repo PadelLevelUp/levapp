@@ -7,6 +7,7 @@ import {
   standingEndFor,
   standingPresetOf,
 } from "@levelup/config";
+import { useCoachDisplayName } from "@levelup/hooks";
 import type { StandingWaitingListEntry } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -53,6 +54,8 @@ export function WaitingListDialog({
   renewing,
 }: WaitingListDialogProps) {
   const { t } = useTranslation();
+  // PAD-660: the coach reads the student under the nickname they gave them.
+  const displayName = useCoachDisplayName();
   const [today, setToday] = React.useState(() => new Date());
   const [expiresOn, setExpiresOn] = React.useState(() =>
     standingEndFor(DEFAULT_STANDING_PRESET, new Date())
@@ -78,7 +81,8 @@ export function WaitingListDialog({
     onClose();
   };
 
-  const name = playerName ?? t("players.waitingListDefaultName");
+  const shownName = playerName == null ? null : displayName(playerId, playerName);
+  const name = shownName ?? t("players.waitingListDefaultName");
 
   const handleConfirm = async () => {
     if (!valid) return;
@@ -96,8 +100,13 @@ export function WaitingListDialog({
     }
   };
 
+  // A nickname is already the short form the coach uses; only the real name is cut to its first word.
   const firstName =
-    playerName?.split(" ")[0] ?? t("players.waitingListDefaultName");
+    shownName == null
+      ? t("players.waitingListDefaultName")
+      : shownName === playerName
+        ? shownName.split(" ")[0]
+        : shownName;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>

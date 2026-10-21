@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
 import i18n from "@/i18n";
-import { emailPromptSession } from "@levelup/config";
+import { emailPromptSession, legalCatchUpSession } from "@levelup/config";
 import { endViewAs, getViewAsToken, isViewingAs } from "@/lib/viewAs";
 
 // PAD-40: apply the user's persisted language globally so it drives the whole UI,
@@ -111,6 +111,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     // PAD-482 (auth.email-verification rule 14): the next sign-in asks for a missing email again.
     emailPromptSession.reset();
+    // PAD-637 (auth.legal-catch-up rule 4): the next sign-in shows the catch-up again.
+    legalCatchUpSession.reset();
     if (isViewingAs()) {
       // PAD-532: leaving a view-as discards its token only; the tab's own session is untouched.
       endViewAs();

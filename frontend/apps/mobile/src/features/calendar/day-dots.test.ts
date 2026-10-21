@@ -1,4 +1,4 @@
-import { fadeColorNative, lightTheme, nativeCalendarSurfaces } from "@levelup/config";
+import { fadeColorNative, lightTheme, nativeCalendarSurfaces, studentDotColorNative } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { describe, expect, it } from "vitest";
 import { dayDotColors, MAX_DAY_DOTS } from "./day-dots";
@@ -74,9 +74,47 @@ describe("dayDotColors", () => {
     expect(colors).not.toContain(SURFACES.card);
   });
 
+  it("PAD-611: an invitation's dot is the class colour, a waiting place's is muted", () => {
+    const colors = dayDotColors(
+      [
+        event({ id: "i", color: "#1355DC", studentRelation: "invited" }),
+        event({ id: "w", color: "#1355DC", studentRelation: "waiting", startTime: "16:00", endTime: "17:00" }),
+      ],
+      SURFACES,
+      NOW
+    );
+    expect(colors).toEqual(["#1355DC", SURFACES.mutedForeground]);
+  });
+
   it("a class without a colour falls back to primary", () => {
     expect(dayDotColors([event({ color: undefined })], SURFACES, NOW)).toEqual([
       lightTheme.primary,
     ]);
+  });
+
+  it("PAD-664: a student's dots name the relation, never the coach colour", () => {
+    const colors = dayDotColors(
+      [
+        event({ id: "m", color: "#8B5CF6", startTime: "14:00", endTime: "15:00" }),
+        event({ id: "o", color: "#8B5CF6", studentRelation: "open_spot", startTime: "15:00", endTime: "16:00" }),
+        event({ id: "f", color: "#8B5CF6", studentRelation: "full", startTime: "16:00", endTime: "17:00" }),
+      ],
+      SURFACES,
+      NOW,
+      "student"
+    );
+    expect(colors).toEqual([
+      studentDotColorNative("scheduled", SURFACES),
+      studentDotColorNative("open-spot", SURFACES),
+      studentDotColorNative("full", SURFACES),
+    ]);
+    expect(colors).not.toContain("#8B5CF6");
+    expect(colors[0]).toBe(lightTheme.primary);
+    expect(colors[2]).not.toBe(lightTheme.primary);
+  });
+
+  it("PAD-664: the coach's dots are unchanged when the viewer is named", () => {
+    const e = [event({ id: "a", color: "#0EA5E9" })];
+    expect(dayDotColors(e, SURFACES, NOW, "coach")).toEqual(dayDotColors(e, SURFACES, NOW));
   });
 });

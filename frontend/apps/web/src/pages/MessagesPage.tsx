@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ConversationList } from "@/components/messages/ConversationList";
+import { ConversationList, type ConversationFilter } from "@/components/messages/ConversationList";
+import { withPinnedRow } from "@/lib/unreadFilterPin";
 import { ChatThread } from "@/components/messages/ChatThread";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -20,6 +21,8 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
+  mergeNewestPage,
+  reconcileSentMessage,
   hasConversation,
   mergeConversationPages,
   mergeOlderPage,
@@ -29,7 +32,7 @@ import {
   type ThreadLoadErrorKey,
 } from "@levelup/hooks";
 import type { Conversation, Message } from "@/types";
-import { mergeEditedMessage } from "@levelup/api";
+import { RESYNC_EVENT, eraseDeletedMessage, mergeEditedMessage } from "@levelup/api";
 import { Button } from "@/components/ui/button";
 import {
   LoadingMessages,
@@ -86,6 +89,10 @@ export default function MessagesPage() {
 
   const queryClient = useQueryClient();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  // PAD-616: the resync handler reads the loaded thread to know what it missed; a state updater
+  // may run later, at render, so the decision cannot be taken inside one.
+  const loadedConversationRef = useRef<Conversation | null>(null);
+  loadedConversationRef.current = selectedConversation;
   // PAD-415 (messaging.conversation-detail rule 9a): the open response's
   // firstUnreadMessageId, frozen for this visit — the follow-up
   // markConversationRead call clears it server-side, so a later refetch of
@@ -100,7 +107,10 @@ export default function MessagesPage() {
   const [threadError, setThreadError] = useState<ThreadLoadErrorKey | null>(null);
   // client.query-cache rule 6: page 1 of the list is a query (a return inside the stale window
   // renders from cache); pages 2+ are fetched on "load more" and appended here, as before.
-  const listQuery = useConversations(1);
+  // messaging.conversations rule 17 (PAD-648): "Todas" on every visit; "Não lidas" is the server's.
+  const [filter, setFilter] = useState<ConversationFilter>("all");
+  const unreadOnly = filter === "unread";
+  const listQuery = useConversations(1, 20, undefined, unreadOnly);
   const initialLoading = listQuery.isPending;
   const [extraPages, setExtraPages] = useState<Conversation[]>([]);
   const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
@@ -138,10 +148,13 @@ export default function MessagesPage() {
   // replaces it on the next refetch. Rows on later pages are patched in `extraPages`.
   const patchConversationList = useCallback(
     (update: (list: Conversation[]) => Conversation[]) => {
-      queryClient.setQueryData<{ conversations: Conversation[]; hasMore: boolean }>(
-        queryKeys.conversations(1),
-        (old) => (old ? { ...old, conversations: update(old.conversations) } : old)
-      );
+      // Both lists' page 1: the one on screen and the other, should the filter switch back to it.
+      for (const key of [queryKeys.conversations(1), queryKeys.conversations(1, 20, true)]) {
+        queryClient.setQueryData<{ conversations: Conversation[]; hasMore: boolean }>(
+          key,
+          (old) => (old ? { ...old, conversations: update(old.conversations) } : old)
+        );
+      }
     },
     [queryClient]
   );
@@ -174,20 +187,72 @@ export default function MessagesPage() {
     setLoadingMore(true);
     try {
       const nextPage = page + 1;
-      const result = await getConversations(nextPage);
+      const result = await getConversations(nextPage, 20, unreadOnly);
       setExtraPages((prev) => mergeConversationPages(prev, [result.conversations], normalizeConversationId));
       setPage(nextPage);
       setExtraHasMore(result.hasMore);
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, page]);
+  }, [loadingMore, hasMore, page, unreadOnly]);
+
+  // Switching the filter starts again from page 1 of the other list (rule 17).
+  const pinnedRowRef = useRef<Conversation | null>(null);
+  const changeFilter = useCallback((next: ConversationFilter) => {
+    setFilter(next);
+    setExtraPages([]);
+    setExtraHasMore(null);
+    setPage(1);
+    pinnedRowRef.current = null;
+  }, []);
+
+  // Rule 17: the conversation open in the pane stays in "Não lidas" once it is read.
+  const listedConversations = useMemo(() => {
+    const selectedId = normalizeConversationId(selectedConversation?.id);
+    if (!unreadOnly || selectedId === null) {
+      pinnedRowRef.current = null;
+      return sortedConversations;
+    }
+    const listed = sortedConversations.find((c) => normalizeConversationId(c.id) === selectedId);
+    if (listed) pinnedRowRef.current = listed;
+    return withPinnedRow(sortedConversations, pinnedRowRef.current, selectedId);
+  }, [sortedConversations, selectedConversation?.id, unreadOnly]);
 
   useEffect(() => {
     if (!token) return;
 
     // messaging.sse-realtime rule 15 (PAD-277): the tab's one shared stream.
     return subscribeAppEvents(token, async (data) => {
+
+      // ---------------------------------------------------------------
+      // resync — messaging.sse-realtime rule 19 (PAD-616): the stream re-opened after a drop.
+      // The open thread re-reads its newest page and folds it in (`mergeNewestPage`): missed
+      // messages appended, changed ones replaced, older pages kept; then read as an arrival.
+      // (AppLayout's handler already invalidated the list and the unread count.)
+      // ---------------------------------------------------------------
+      if (data.type === RESYNC_EVENT) {
+        const openId = selectedConversationIdRef.current;
+        if (!openId) return;
+        try {
+          const newest = await getConversation(openId, { limit: CONVERSATION_FIRST_PAGE_SIZE });
+          const loaded = loadedConversationRef.current;
+          if (!loaded || normalizeConversationId(loaded.id) !== openId) return;
+          const { added } = mergeNewestPage(loaded, newest);
+          setSelectedConversation((prev) =>
+            prev && normalizeConversationId(prev.id) === openId
+              ? mergeNewestPage(prev, newest).conversation
+              : prev
+          );
+          if (added.some((m) => Number(m.senderId) !== Number(user.id))) {
+            await markConversationRead(openId);
+            void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+            void refreshUnreadCount();
+          }
+        } catch {
+          // The next resync, or reopening the thread, catches up.
+        }
+        return;
+      }
 
       // ---------------------------------------------------------------
       // message_created — promote own optimistic message to 'delivered'
@@ -253,12 +318,16 @@ export default function MessagesPage() {
           prev && normalizeConversationId(prev.id) === normalizeConversationId(conversationId)
             ? {
                 ...prev,
+                // messaging.messages rule 3 (PAD-639): nothing the message said stays cached.
                 messages: prev.messages.map((m) =>
-                  String(m.id) === String(id) ? { ...m, isDeleted: true } : m
+                  String(m.id) === String(id) ? eraseDeletedMessage(m) : m
                 ),
               }
             : prev
         );
+        // conversations rule 12a: a deleted last message stops previewing its text.
+        void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        void refreshUnreadCount();
         return;
       }
 
@@ -407,7 +476,8 @@ export default function MessagesPage() {
     );
 
     try {
-      // 2. API resolves — replace temp id with real id, status: 'sent'
+      // 2. API resolves — replace temp id with real id, status: 'sent', unless
+      //    the live echo already delivered it (PAD-647)
       const saved = await sendMessage({
         conversationId: selectedConversation.id,
         content,
@@ -415,14 +485,7 @@ export default function MessagesPage() {
       });
 
       setSelectedConversation((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === tempId ? { ...saved, status: "sent" as const } : m
-              ),
-            }
-          : prev
+        prev ? reconcileSentMessage(prev, tempId, saved) : prev
       );
     } catch {
       setSelectedConversation((prev) =>
@@ -463,12 +526,14 @@ export default function MessagesPage() {
         prev
           ? {
               ...prev,
+              // messaging.messages rule 3 (PAD-639): nothing the message said stays cached.
               messages: prev.messages.map((m) =>
-                String(m.id) === messageId ? { ...m, isDeleted: true } : m
+                String(m.id) === messageId ? eraseDeletedMessage(m) : m
               ),
             }
           : prev
       );
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch {
       // SSE will deliver the authoritative state
     }
@@ -555,7 +620,9 @@ export default function MessagesPage() {
               <LoadingConversationList />
             ) : (
               <ConversationList
-                conversations={sortedConversations}
+                conversations={listedConversations}
+                filter={filter}
+                onFilterChange={changeFilter}
                 selectedId={selectedConversation?.id ?? null}
                 onSelect={handleSelectConversation}
                 onNewConversation={handleNewConversation}
@@ -563,6 +630,7 @@ export default function MessagesPage() {
                 // PAD-568: a student with no linked coach is sent to "Connect with a coach"
                 // (players.join-token rule 8); coaches never see the shortcut.
                 onConnectWithCoach={canConnectWithCoach ? () => navigate("/connect") : undefined}
+                isCoach={user?.roles?.includes("coach") ?? false}
                 onLoadMore={loadMoreConversations}
                 hasMore={hasMore}
                 loadingMore={loadingMore}

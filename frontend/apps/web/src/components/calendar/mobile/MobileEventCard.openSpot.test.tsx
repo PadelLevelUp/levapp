@@ -6,8 +6,8 @@
  * inline values, so the surface and the ink are pinned by `calendar-card.test.ts` on the shared
  * helper; here the variant and the dashed border prove the card resolved through it.
  */
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { CalendarEvent } from "@levelup/types";
 import { MobileEventCard } from "./MobileEventCard";
 import { TimeGrid } from "./TimeGrid";
@@ -114,5 +114,95 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
   it("a coach (the default viewer) sees no tick", () => {
     render(<MobileEventCard event={enrolled()} now={NOW} />);
     expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+  });
+});
+
+// B-543 (calendar.mobile-views rule 13): past two classes at once, one "+N" selects the day.
+describe("the phone grid on a busy hour (B-543)", () => {
+  it("three at 18:00: one block and a '+2' that selects the day", () => {
+    const day = new Date(2026, 9, 28);
+    const onSelectDay = vi.fn();
+    const at6 = (id: string) => openSpot({ id, openSpot: false, title: id, date: "2026-10-28", startTime: "18:00", endTime: "19:00" });
+    render(
+      <TimeGrid
+        weekDays={[day]}
+        selectedDay={new Date(2026, 9, 27)}
+        onSelectDay={onSelectDay}
+        eventsByDay={{ "2026-10-28": [at6("x1"), at6("x2"), at6("x3")] }}
+        hourRange={{ startHour: 17, endHour: 20 }}
+      />
+    );
+    expect(screen.getAllByTestId("calendar-grid-block")).toHaveLength(1);
+    const marker = screen.getByTestId("calendar-overflow");
+    expect(marker.getAttribute("data-count")).toBe("2");
+    fireEvent.click(marker);
+    expect(onSelectDay).toHaveBeenCalledWith(day);
+  });
+});
+
+// PAD-611 (calendar.mobile-views rule 5): the student's relations on the phone card and dots.
+describe("the phone card — a student's relations (PAD-611)", () => {
+  const rel = (studentRelation: CalendarEvent["studentRelation"], id: string) =>
+    openSpot({ id, openSpot: false, studentRelation });
+
+  it("invited is dashed with its chip; waiting is dotted with its chip; 'Não vou' has its chip and no ✓", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <MobileEventCard event={rel("invited", "i1")} now={NOW} />
+        <MobileEventCard event={rel("waiting", "w1")} now={NOW} />
+        <MobileEventCard event={rel("not_coming", "n1")} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    const cards = screen.getAllByTestId("calendar-event-card");
+    expect(cards.map((c) => c.getAttribute("data-event-state"))).toEqual(["invited", "waiting", "not-coming"]);
+    // PAD-664: a student's card is painted by the relation (blue `primary`, a CSS variable jsdom
+    // drops), never by the coach colour; the surface is pinned on the shared helper in
+    // calendar-card.test.ts.
+    expect(cards[0].style.border.toLowerCase()).not.toContain(BLUE.toLowerCase());
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+    // This file renders with the real pt locale: the keys resolve.
+    expect(screen.getAllByTestId("calendar-relation-chip").map((c) => c.textContent)).toEqual([
+      "Convite",
+      "Em lista de espera",
+      "Não vou",
+    ]);
+  });
+
+  it("control: the same invited card read by the coach keeps the class colour (R-032)", () => {
+    render(
+      <CalendarViewerProvider viewer="coach">
+        <MobileEventCard event={rel("invited", "i3")} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    expect(screen.getByTestId("calendar-event-card").style.border.toLowerCase()).toBe(
+      `1.5px dashed ${BLUE.toLowerCase()}`
+    );
+  });
+  it("dots (coach viewer, unchanged): invited takes the class colour, waiting is muted", () => {
+    expect(dotColor(rel("invited", "i2"), NOW)).toBe(BLUE);
+    expect(dotColor(rel("waiting", "w2"), NOW)).toBe("hsl(var(--muted-foreground))");
+  });
+
+  it("dots (student viewer): the relation family, never the coach colour", () => {
+    expect(dotColor(rel("invited", "i3"), NOW, "student")).toBe("hsl(var(--primary))");
+    expect(dotColor(rel("waiting", "w3"), NOW, "student")).toBe("hsl(var(--warning))");
+    expect(dotColor(rel("full", "f3"), NOW, "student")).toBe("hsl(var(--warning))");
+    expect(dotColor(rel("open_spot", "o3"), NOW, "student")).toBe("hsl(var(--muted-foreground))");
+  });
+});
+
+// PAD-664 (calendar.view rule 23): the phone card for a full class.
+describe("the phone card — a full class (PAD-664)", () => {
+  it("full: the 'Cheia' chip, no ✓, and never an amber seats-short flag", () => {
+    render(
+      <CalendarViewerProvider viewer="student">
+        <MobileEventCard event={openSpot({ id: "f2", studentRelation: "full" })} now={NOW} />
+      </CalendarViewerProvider>
+    );
+    const card = screen.getByTestId("calendar-event-card");
+    expect(card.getAttribute("data-event-state")).toBe("full");
+    expect(card.getAttribute("data-needs-players")).toBe("false");
+    expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
+    expect(screen.getByTestId("calendar-relation-chip").textContent).toBe("Cheia");
   });
 });

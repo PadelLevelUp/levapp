@@ -57,6 +57,18 @@ out of scope (no backend support exists for them).
    code — so the account reads `unverified` (B-262). The state is shown next to the field on web and iOS
    (`auth.email-verification` rule 9).
 
+10. **Date of birth (PAD-640).** `GET /api/auth/me` returns `birthDate` (ISO or `null`); `PATCH
+    /api/auth/me` accepts `birthDate` and judges it with `auth.register` rule 18's one shared check:
+    a real past date (`YYYY-MM-DD`) of someone aged 18 or over on the day of the save. A missing,
+    empty or malformed value is 400 `INVALID_BIRTH_DATE` and an under-18 date is 400 `UNDERAGE`, both
+    on `field: "birthDate"`, and nothing in that PATCH is written. A stored date can be changed, never
+    cleared. Web shows a date input and iOS sign-up's DD/MM/AAAA field, both in Perfil for every role;
+    `UNDERAGE` shows "Esta app só aceita maiores de 18 anos." under the field.
+11. **Country (PAD-640).** Perfil also edits the country (the `COUNTRIES` list, `auth.login` rule 13's
+    `PATCH /me` check: two letters, upper-cased, or 400 `INVALID_COUNTRY`; never cleared). Both fields
+    save with the tab's one "Guardar alterações" (`settings.explicit-save`) and send only when changed
+    (rule 8).
+
 ### Acceptance Criteria
 
 #### Profile is loaded from the server
@@ -113,8 +125,20 @@ out of scope (no backend support exists for them).
 - **Then** `abbreviation` is `AB`
 - **And** after they save the abbreviation "ABC", a subsequent read returns `ABC`
 
+#### An adult edits their date of birth and country (rules 10–11)
+- **Given** a student born 1990-05-01 in PT on Settings → Perfil
+- **When** they change the date to 1991-06-02 and the country to ES and save
+- **Then** `PATCH /api/auth/me` sends `{birthDate: "1991-06-02", country: "ES"}` and a reload shows both
+
+#### An under-18 date is refused and nothing changes (rule 10)
+- **Given** a user whose stored birth date is 1990-05-01
+- **When** they PATCH `/api/auth/me` with a birth date that makes them 17 today, and a new name
+- **Then** the answer is 400 `UNDERAGE` on `birthDate`, the stored birth date and name are unchanged
+- **And** web and iOS show "Esta app só aceita maiores de 18 anos." under the field
+- **And** `{"birthDate": ""}` and `{"birthDate": "2001-02-30"}` are 400 `INVALID_BIRTH_DATE`
+
 ### Notes
-- Source: ticket PAD-81
+- Source: ticket PAD-81; rules 10–11 PAD-640 (privacy review D7: correction of one's own data).
 - The Settings Profile panel was removed from the web UI in the App Store readiness pass (commit
   `804cf5d`) precisely because it was fake; PAD-81 rebuilds it for real rather than leaving the gap.
 - Avatar upload, bio, and password change remain unbuilt — they were mocked and stay out of the UI until

@@ -179,6 +179,24 @@ def possible_duplicates_for(coach, relations):
     return out
 
 
+NICKNAME_MAX = 60
+
+
+def nickname_payload(rel, real_name):
+    """PAD-660 (players.nickname rule 2): the coach's own nickname keys for one roster row.
+
+    Only ever called with the REQUESTING coach's relation row, so another coach's nickname cannot
+    reach this payload. `name` stays the real name; `displayName` is what the coach's views show.
+    """
+    nickname = rel.nickname if rel is not None else None
+    as_name = bool(rel.nickname_as_name) if rel is not None else False
+    return {
+        "nickname": nickname,
+        "nicknameAsName": as_name,
+        "displayName": nickname if (as_name and nickname) else real_name,
+    }
+
+
 def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     player = rel.player
     user = player.user if player else None
@@ -213,6 +231,7 @@ def _serialize_coach_player_relation(rel, due=None, duplicates=None):
         "due": bool((due or {}).get(rel.id, False)),
         # players.claim rule 4c (PAD-528): only a claimable row can carry one.
         "possibleDuplicateOf": (duplicates or {}).get(rel.id),
+        **nickname_payload(rel, user.name if user else None),
     }
     # PAD-112: the student's own notification block preferences + reason, so the
     # coach can tell "deliberately silent" from "ignoring me". Shared helper —
@@ -232,31 +251,132 @@ def _serialize_coach_player_relation(rel, due=None, duplicates=None):
     return result
 
 
-def normalize_search_text(text):
-    """PAD-516: the same normalisation as @levelup/config ``normalizeSearchText`` — accents
-    stripped (NFD, combining marks dropped), punctuation dropped, lower case."""
-    import re
+# ── players.search (PAD-665): the one coach-side player search rule ──────────────────────────────
+# The TypeScript twin is `@levelup/config` name-search.ts; both run name-search.cases.json
+# (test_name_search_cases.py), so the server and the apps' pickers cannot drift.
+
+# B-531: letters NFKD cannot take apart, mapped before folding — the same table as the twin.
+_SPECIAL_LETTERS = {
+    "ł": "l", "Ł": "l", "ø": "o", "Ø": "o", "ß": "ss", "ẞ": "ss", "đ": "d", "Đ": "d",
+    "æ": "ae", "Æ": "ae", "œ": "oe", "Œ": "oe", "ı": "i",
+}
+_MIN_TYPO_WORD = 4
+_MIN_PHONE_DIGITS = 3
+
+
+def fold_search_text(text):
+    """Special letters mapped, lower-cased, accents dropped (NFKD minus combining marks), anything
+    that is not a letter, a digit or a space dropped, spaces collapsed. Every script's letters are
+    kept (B-531: "Łukasz" folds to "lukasz", never "ukasz"). `lower()`, not `casefold()`: the twin
+    is `toLowerCase()`, and ß is already mapped."""
     import unicodedata
 
-    decomposed = unicodedata.normalize("NFD", text or "")
-    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
-    return re.sub(r"[^a-zA-Z0-9\s]", "", stripped).lower()
+    mapped = "".join(_SPECIAL_LETTERS.get(ch, ch) for ch in (text or "")).lower()
+    decomposed = unicodedata.normalize("NFKD", mapped)
+    kept = "".join(
+        ch for ch in decomposed
+        if not unicodedata.category(ch).startswith("M") and (ch.isalnum() or ch.isspace())
+    )
+    return " ".join(kept.split())
+
+
+# PAD-516's name for the fold.
+normalize_search_text = fold_search_text
+
+
+def _typo_distance(a, b):
+    """Optimal string alignment: Levenshtein plus one adjacent swap ("Marinoh")."""
+    d = [[i if j == 0 else (j if i == 0 else 0) for j in range(len(b) + 1)] for i in range(len(a) + 1)]
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
+def rank_player_match(fields, query):
+    """players.search rule 5: the best tier this player reaches — 0 the whole query starts a field,
+    1 every word starts a word, 2 every word appears anywhere (PAD-516's rule), 3 every word is
+    there or a small typo away — or None. ``fields`` holds ``name`` and, only where the surface's
+    payload already carries them, ``nickname``, ``email``, ``phone``. A blank query is tier 0
+    (everyone); a query with no letter or digit ("%") matches nobody."""
+    import re
+
+    if not (query or "").strip():
+        return 0
+    words = fold_search_text(query).split()
+    if not words:
+        return None
+    # Decision 2026-10-14 (b): an email is searched by its local part — never the domain, which
+    # every address on a roster shares ("a" would otherwise match "example.com").
+    email_local = (fields.get("email") or "").split("@", 1)[0]
+    texts = [t for t in (fold_search_text(v) for v in (fields.get("name"), fields.get("nickname"), email_local)) if t]
+    phone = re.sub(r"\D", "", fields.get("phone") or "")
+    if not texts and not phone:
+        return None
+    tokens = [tok for t in texts for tok in t.split(" ")]
+
+    whole = " ".join(words)
+    if any(t.startswith(whole) for t in texts):
+        return 0
+    if all(any(tok.startswith(w) for tok in tokens) for w in words):
+        return 1
+
+    def anywhere(w):
+        if any(w in t for t in texts):
+            return True
+        return len(w) >= _MIN_PHONE_DIGITS and w.isdigit() and w in phone
+
+    if all(anywhere(w) for w in words):
+        return 2
+
+    def nearly(w):
+        if anywhere(w):
+            return True
+        if len(w) < _MIN_TYPO_WORD or any(ch.isdigit() for ch in w):
+            return False
+        limit = 2 if len(w) >= 7 else 1
+        return any(
+            _typo_distance(w, tok) <= limit or _typo_distance(w, tok[: len(w)]) <= limit for tok in tokens
+        )
+
+    if all(nearly(w) for w in words):
+        return 3
+    return None
 
 
 def name_matches_query(name, query):
-    """players.list rule 3 (PAD-516): every word of ``query`` is in ``name``, in any order,
-    with accents, case and punctuation folded — one rule with the apps' local pickers
-    (``nameMatchesQuery``). Applied in Python after the coach scope: rosters are small, and
-    SQL cannot fold accents without the unaccent extension. A blank query matches all; a
-    query with text but no searchable characters ("%", "_", "!!") matches nobody, so a
-    wildcard never dumps the roster (#569 review)."""
+    """players.list rule 3 (PAD-516), now players.search: the name matches at any tier. Applied
+    in Python after the coach scope: rosters are small, and SQL cannot fold accents without the
+    unaccent extension (not installed in prod; decision 2026-10-14)."""
+    return rank_player_match({"name": name}, query) is not None
+
+
+def search_players(items, query, fields_of):
+    """players.search rule 6: the matches best first — tier, folded name, name, id. A blank query
+    returns ``items`` in their own order. Call it BEFORE any limit or pagination."""
     if not (query or "").strip():
-        return True
-    words = normalize_search_text(query).split()
-    if not words:
-        return False
-    haystack = normalize_search_text(name)
-    return all(w in haystack for w in words)
+        return list(items)
+    ranked = []
+    for item in items:
+        fields = fields_of(item)
+        tier = rank_player_match(fields, query)
+        if tier is None:
+            continue
+        name = fields.get("name") or ""
+        ranked.append((tier, fold_search_text(name), name, _id_key(fields.get("id")), item))
+    ranked.sort(key=lambda r: r[:4])
+    return [r[4] for r in ranked]
+
+
+def _id_key(value):
+    """Ids made of ASCII digits sort as numbers, first; then the id as written — the twin's
+    `idKey` (``"²".isdigit()`` is true in Python, so the check is ASCII-only on purpose)."""
+    s = "" if value is None else str(value)
+    numeric = s.isascii() and s.isdigit()
+    return (0 if numeric else 1, int(s) if numeric else 0, s)
 
 
 class _ListPage:
@@ -321,8 +441,11 @@ def search_coach_players(coach_id, term, limit=20):
         .order_by(User.name.asc())
         .all()
     )
-    # PAD-516: every typed word, in any order, accents folded; the limit after the match.
-    relations = [rel for rel in relations if name_matches_query(rel.player.user.name, term)][:limit]
+    # players.search (PAD-665): the shared rule, best match first, and the limit AFTER the order
+    # (rule 6) — the name, and THIS coach's nickname for the student (PAD-660, players.nickname rule 5).
+    relations = search_players(
+        relations, term, lambda rel: {"name": rel.player.user.name, "nickname": rel.nickname, "id": rel.player_id}
+    )[:limit]
 
     results = []
     for rel in relations:
@@ -387,9 +510,22 @@ def get_coach_players_paginated(coach, page=1, per_page=25, search=None,
             query = query.order_by(User.name.asc())
 
     if search and search.strip():
-        # PAD-516: filter by name in Python (accent folding), after every SQL filter and the
-        # sort, then paginate the filtered list. The coach scope keeps this small.
-        matched = [rel for rel in query.all() if name_matches_query(rel.player.user.name, search)]
+        # players.search (PAD-665): the shared rule in Python (accent folding), after every SQL
+        # filter, then paginate. The Players tab is always sorted (name or level), so the rule
+        # only filters here and the coach's sort stands (rule 6, decision 2026-10-14 (a)). The row
+        # carries email and phone, so they are searched too (rule 4). The coach scope keeps this small.
+        matched = [
+            rel for rel in query.all()
+            if rank_player_match(
+                {
+                    "name": rel.player.user.name,
+                    "nickname": rel.nickname,  # PAD-660: this coach's own row
+                    "email": rel.player.user.email,
+                    "phone": rel.player.user.phone,
+                },
+                search,
+            ) is not None
+        ]
         pagination = _ListPage(matched, max(1, int(page or 1)), int(per_page or 25))
     else:
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -469,6 +605,23 @@ def get_player_profile(coach, player_id):
     }
 
 
+def require_adults_confirmation(data):
+    """PAD-642 (players.create rule 10, import.confirm rule 9; owner decision 2026-10-12, "forbid
+    under-18"): a client declaring `adult-roster-confirmation` sends the coach's `confirmsAdults: true`
+    when creating or importing players; without it, 400 before anything is written. An older build is
+    not asked."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.utils.client_capabilities import ADULT_ROSTER_CONFIRMATION, client_declares
+
+    if client_declares(ADULT_ROSTER_CONFIRMATION) and (data or {}).get("confirmsAdults") is not True:
+        abort(make_response(jsonify({
+            "error": "Confirma que os alunos têm 18 anos ou mais. / Confirm the students are 18 or older.",
+            "field": "confirmsAdults",
+            "code": "ADULTS_CONFIRMATION_REQUIRED",
+        }), 400))
+
+
 @transactional
 def add_player_service(data):
     """Builds the full player creation payload and delegates to create_player_helper.
@@ -534,6 +687,19 @@ def edit_player_service(data):
     # would hand them to set_roster_level and hit the FK after the user part committed.
     if 'levelId' in changes and changes['levelId'] in (0, False, "0"):
         refused.append("level")
+    # PAD-660 (players.nickname rule 6): the coach's own nickname for this student — trimmed,
+    # blank clears it, longer than NICKNAME_MAX is refused. Written to the coach's relation only.
+    nickname_set = {}
+    if "nickname" in updates:
+        raw = updates["nickname"]
+        value = "" if raw is None else str(raw).strip()
+        if len(value) > NICKNAME_MAX:
+            refused.append("nickname")
+        else:
+            nickname_set["nickname"] = value or None
+    if "nicknameAsName" in updates:
+        # A boolean, never a truthy string: "false" is not on (review finding).
+        nickname_set["nickname_as_name"] = updates["nicknameAsName"] in (True, 1, "true", "1")
     if refused:
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
     payload = {
@@ -551,6 +717,9 @@ def edit_player_service(data):
         player_id=player_info["playerId"],
     ).first_or_404()
 
+    # Saved with the rest of the relation by edit_player_helper's one rel.save().
+    for field, value in nickname_set.items():
+        setattr(rel, field, value)
     return edit_player_helper(player, rel, payload)
 
 

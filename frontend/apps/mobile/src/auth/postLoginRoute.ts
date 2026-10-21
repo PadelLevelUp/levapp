@@ -1,4 +1,5 @@
 import type { authApi } from "@levelup/api";
+import { legalCatchUpSession, needsLegalCatchUp } from "@levelup/config";
 
 type Me = authApi.MeResponse;
 
@@ -23,7 +24,7 @@ export type PostLoginRoute = "/(tabs)/dashboard" | "/verify-email" | "/coach-pen
 export function needsEmailVerification(user: Me | null | undefined): boolean {
   return user?.emailVerification === "pending";
 }
-export type PostLoginLanding = PostLoginRoute | "/connect";
+export type PostLoginLanding = PostLoginRoute | "/connect" | "/legal-catch-up";
 
 /**
  * Where a user LANDS after login / signup: `postLoginRoute` plus the student
@@ -34,6 +35,9 @@ export type PostLoginLanding = PostLoginRoute | "/connect";
 export function postLoginLanding(user: Me | null | undefined): PostLoginLanding {
   const held = postLoginRoute(user);
   if (held !== "/(tabs)/dashboard") return held;
+  // PAD-637 (auth.legal-catch-up rules 2, 4, 6): mirrors web — once per session, after every hold
+  // above; a landing, never a gate (the tab-layout guard does not use it).
+  if (needsLegalCatchUp(user, legalCatchUpSession.isSkipped(user?.id))) return "/legal-catch-up";
   const isCoach = user?.roles?.includes("coach") ?? false;
   if (!isCoach && Array.isArray(user?.coaches) && user.coaches.length === 0) return "/connect";
   return "/(tabs)/dashboard";
@@ -49,4 +53,14 @@ export function postLoginRoute(user: Me | null | undefined): PostLoginRoute {
   if (approval !== "approved") return "/coach-pending";
   if ((user.clubs?.length ?? 0) === 0) return "/club-onboarding";
   return "/(tabs)/dashboard";
+}
+
+/**
+ * PAD-637 (auth.legal-catch-up rule 2): where the app OPENS with a stored session — `postLoginRoute`,
+ * plus the catch-up once per session. The `/connect` landing stays a sign-in-only rule here.
+ */
+export function appStartRoute(user: Me | null | undefined): PostLoginRoute | "/legal-catch-up" {
+  const held = postLoginRoute(user);
+  if (held !== "/(tabs)/dashboard") return held;
+  return needsLegalCatchUp(user, legalCatchUpSession.isSkipped(user?.id)) ? "/legal-catch-up" : held;
 }

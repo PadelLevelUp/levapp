@@ -95,3 +95,40 @@ describe("the label keys resolve on the phone (i18n static imports)", () => {
     });
   }
 });
+
+// B-543 (calendar.mobile-views rule 13): past two classes at once, one "+N" selects the day.
+describe("the iOS grid on a busy hour (B-543)", () => {
+  it("three at 18:00: one block and a '+2' that selects the day", async () => {
+    const day = new Date(2026, 9, 28);
+    const onSelectDay = vi.fn();
+    const at6 = (id: string) => cls({ id, title: id, date: "2026-10-28", startTime: "18:00", endTime: "19:00" });
+    const n = await renderNative(
+      <TimeGrid
+        weekDays={[day]}
+        selectedDay={new Date(2026, 9, 27)}
+        onSelectDay={onSelectDay}
+        eventsByDay={{ "2026-10-28": [at6("x1"), at6("x2"), at6("x3")] }}
+        hourRange={{ startHour: 17, endHour: 20 }}
+      />
+    );
+    expect(n.queryByTestId("calendar-grid-block-x1")).not.toBeNull();
+    expect(n.queryByTestId("calendar-grid-block-x2")).toBeNull();
+    await n.press("calendar-overflow");
+    expect(onSelectDay).toHaveBeenCalledWith(day);
+  });
+});
+
+// PAD-611 (calendar.mobile-views rule 5): the student's relations on the iOS card.
+describe("the iOS card — a student's relations (PAD-611)", () => {
+  it("invited, waiting and 'Não vou' carry their chips and no ✓", async () => {
+    for (const [studentRelation, key] of [
+      ["invited", "calendar.relation.invited"],
+      ["waiting", "calendar.relation.waiting"],
+      ["not_coming", "calendar.relation.notComing"],
+    ] as const) {
+      const n = await renderNative(student(<EventCard event={cls({ studentRelation })} />));
+      expect(n.queryByTestId("calendar-enrolled-mark")).toBeNull();
+      expect(n.byTestId("calendar-relation-chip").props.children).toBe(key);
+    }
+  });
+});

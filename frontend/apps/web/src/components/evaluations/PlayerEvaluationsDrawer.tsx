@@ -10,6 +10,7 @@ import {
   useEvaluationCompetencies,
   usePlayerEvaluations,
   usePutEvaluationRecord,
+  useCoachDisplayName,
 } from "@levelup/hooks";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -41,6 +42,9 @@ type FormTarget = "new" | EvaluationRecord | null;
  */
 export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }: PlayerEvaluationsDrawerProps) {
   const { t, i18n } = useTranslation();
+  // PAD-660 rule 8: coach-only drawer — the title and the share dialog use the coach's name for the student.
+  const displayName = useCoachDisplayName();
+  const shownName = displayName(playerId, playerName);
   const navigate = useNavigate();
   const history = usePlayerEvaluations(playerId, open);
   const competencySet = useEvaluationCompetencies(open);
@@ -80,7 +84,7 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-[520px]" data-testid="player-evaluations-drawer">
         <SheetHeader>
-          <SheetTitle>{t("players.evaluationHistory.title", { name: playerName })}</SheetTitle>
+          <SheetTitle>{t("players.evaluationHistory.title", { name: shownName })}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-8">
@@ -138,7 +142,7 @@ export function PlayerEvaluationsDrawer({ open, playerId, playerName, onClose }:
                 onEdit={() => setTarget(record)}
                 onDelete={() => setDeleting(record)}
                 playerId={playerId}
-                playerName={playerName}
+                playerName={shownName}
               />
             ))}
           </section>

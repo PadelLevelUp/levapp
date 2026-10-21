@@ -30,6 +30,12 @@ vi.mock("@/components/ui/time-picker-input", async () => {
   };
 });
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+// PAD-660: the coach's display-name resolver is a react-query hook the harness cannot mount.
+vi.mock("@levelup/hooks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@levelup/hooks")>()),
+  useCoachDisplayName: () => (id: string | number | null | undefined, real: string | null | undefined) =>
+    String(id) === "77" ? "Jorge chato" : (real ?? ""),
+}));
 vi.mock("@/components/ui/input", async () => {
   const { TextInput } = await import("react-native");
   return { Input: (p: Record<string, unknown>) => createElement(TextInput, p) };
@@ -169,6 +175,12 @@ describe("excluded players are named (PAD-433, B-168)", () => {
   it("names a saved player from excludedPlayerNames, not the id", async () => {
     const { n } = await mount({}, { "42": "Alice Andrade" });
     expect(text(n.byTestId("restriction-excluded-chip-42"))).toBe("Alice Andrade");
+  });
+
+  it("shows the coach's nickname on the chip and its remove label (PAD-660 rule 8)", async () => {
+    const { n } = await mount({ excludedPlayers: { enabled: true, playerIds: ["77"] } }, { "77": "Jorge Silva" });
+    expect(text(n.byTestId("restriction-excluded-chip-77"))).toBe("Jorge chato");
+    expect(n.byTestId("restriction-excluded-remove-77").props.accessibilityLabel).toBe("Jorge chato");
   });
 
   it("falls back to the id for a player the coach no longer has", async () => {

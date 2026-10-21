@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
+import { searchPresencePlayers } from "./presenceSearch";
 import type { PresencePlayerStats } from "@/types";
 
 /** Every metric column, in display order. `name` is pinned and never hidden. */
@@ -87,14 +89,11 @@ export function PresencePlayersTable({
   const isFiltered = query.trim() !== "" || minTotal !== "" || maxUnjustified !== "";
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     const min = minTotal === "" ? -Infinity : Number(minTotal);
     const max = maxUnjustified === "" ? Infinity : Number(maxUnjustified);
-    return players.filter(
-      (p) =>
-        p.name.toLowerCase().includes(needle) &&
-        p.total >= min &&
-        p.unjustified <= max
+    // PAD-665: the name goes through the shared rule (best match first); the bounds are unchanged.
+    return searchPresencePlayers(players, query).filter(
+      (p) => p.total >= min && p.unjustified <= max
     );
   }, [players, query, minTotal, maxUnjustified]);
 
@@ -103,12 +102,13 @@ export function PresencePlayersTable({
   }, [filtered, isFiltered, onFilteredChange]);
 
   const rows = useMemo(() => {
+    // PAD-665: while a name is typed and the coach has not chosen a sort, best match first.
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
       return ((a[sortKey] as number) - (b[sortKey] as number)) * dir;
     });
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, query, sortKey, sortDir]);
 
   function toggleSort(key: ColumnKey) {
     if (key === sortKey) {
@@ -328,7 +328,11 @@ export function PresencePlayersTable({
                     colSpan={shown.length}
                     className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
-                    {t("presences.table.empty")}
+                    {query.trim() ? (
+                      <PlayerSearchFeedback query={query} count={0} className="text-sm text-muted-foreground" />
+                    ) : (
+                      t("presences.table.empty")
+                    )}
                   </td>
                 </tr>
               )}

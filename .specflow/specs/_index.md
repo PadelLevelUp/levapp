@@ -8,16 +8,16 @@ governing leaf spec and its dependencies before touching code.
 
 ## Domains
 
-- `admin/` — The staff console at `admin.levapp.app` (6 leaves: 5 added 2026-10-06, PAD-530: `admin.foundation` PAD-531, `admin.approvals-and-users` PAD-532, `admin.clubs-and-switches` PAD-533, `admin.engine-health` PAD-534, `admin.commercial-groundwork` PAD-535, blocked by PAD-536/PAD-472; `admin.phone-console` PAD-572 added 2026-10-09)
+- `admin/` — The staff console at `admin.levapp.app` (10 leaves; `admin.work-dashboard` added 2026-10-12, PAD-555; `admin.data-export` added 2026-10-12, PAD-640; `admin.data-retention` added 2026-10-12, PAD-638: `admin.moderation` drafted 2026-10-11, PAD-631 — message reports and the deletion audit; 5 added 2026-10-06, PAD-530: `admin.foundation` PAD-531, `admin.approvals-and-users` PAD-532, `admin.clubs-and-switches` PAD-533, `admin.engine-health` PAD-534, `admin.commercial-groundwork` PAD-535, blocked by PAD-536/PAD-472; `admin.phone-console` PAD-572 added 2026-10-09)
 - `attendance/` — Presence & Attendance Tracking (6 leaves)
-- `auth/` — Authentication & User Management (14 leaves; `auth.coach-crm-sync` added 2026-10-01, PAD-471; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
+- `auth/` — Authentication & User Management (20 leaves, recounted 2026-10-11; `auth.legal-catch-up` added 2026-10-12, PAD-637; `auth.social-sign-in` drafted 2026-10-11, PAD-618 — Google / Apple sign-in; `auth.delete-account-page` added 2026-10-11, PAD-603; `auth.coach-crm-sync` added 2026-10-01, PAD-471; `auth.account-deletion` added 2026-09-10, PAD-268; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139; `auth.parental-consent` added 2026-09-10, PAD-198)
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
 - `classes/` — Lessons & Instances (13 leaves; `classes.clone` added 2026-10-07, PAD-524; `classes.class-requests` added 2026-09-10, PAD-104; `classes.availability` added 2026-09-17, PAD-357)
 - `client/` — Client Data Runtime (2 leaves; `client.query-cache` added 2026-10-10, PAD-586/PAD-592: one stale window and retry policy for both apps, cache-first returns, event-driven freshness; `client.route-loading` added 2026-10-10, PAD-585: web route code splitting with a first-download budget)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
-- `delivery/` — How changes reach production safely (3 leaves; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511; `delivery.staging-data-sync` added 2026-10-10, PAD-589: staging restored from the nightly dump once per dump; `delivery.zero-downtime-deploy` added 2026-10-10, PAD-588)
+- `delivery/` — How changes reach production safely (7 leaves; `delivery.transport-security` added 2026-10-12, PAD-643; `delivery.repair-diagnostics` added 2026-10-12, PAD-641; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511; `delivery.staging-data-sync` added 2026-10-10, PAD-589: staging restored from the nightly dump once per dump; `delivery.zero-downtime-deploy` added 2026-10-10, PAD-588; `delivery.api-host` added 2026-10-11, PAD-614; `delivery.production-activity-reset` added 2026-10-11, PAD-632: the one-transaction script that clears production activity before real use)
 - `eligibility/` — Who May Join a Class (4 leaves)
 - `evaluations/` — Player Evaluation System (13 leaves: 4 implemented, 9 draft; `evaluations.legacy-client-contract`, `.competencies`, `.records`, `.class-panel`, `.history`, `.evolution`, `.sharing`, `.student-view`, `.reminders` drafted 2026-09-21 from the "Sistema de Avaliações" canvas ingest, and the four shipped leaves corrected for drift the same day; sharing, student-view and reminders are owner-pending)
 - `import/` — Bulk Data Import (4 leaves)
@@ -25,8 +25,8 @@ governing leaf spec and its dependencies before touching code.
 - `messaging/` — Real-Time Messaging (9 leaves)
 - `mobile/` — Mobile Platform Runtime (6 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419; `mobile.install-suggestion` drafted 2026-10-09, PAD-573 — web-only nudge to the iOS app; `mobile.launch` drafted 2026-10-10, PAD-587 — cold start and the launch overlay; `mobile.interaction-performance` drafted 2026-10-10, PAD-592 — iOS render hot spots)
 - `notifications/` — Notification Engine (14 leaves)
-- `players/` — Player Management (12 leaves, 1 deprecated)
-- `settings/` — User Preferences & Internationalization (8 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267; `settings.coach-working-hours` added 2026-09-17, PAD-357; `settings.unsaved-edits` added 2026-09-22, PAD-394; `settings.explicit-save` added 2026-10-03, PAD-506, replacing `settings.save-on-change` of PAD-473)
+- `players/` — Player Management (13 leaves, 1 deprecated)
+- `settings/` — User Preferences & Internationalization (8 leaves; `settings.admin-editor` added 2026-09-10, PAD-175/PAD-267, deprecated 2026-10-11 by PAD-550; `settings.coach-working-hours` added 2026-09-17, PAD-357; `settings.unsaved-edits` added 2026-09-22, PAD-394; `settings.explicit-save` added 2026-10-03, PAD-506, replacing `settings.save-on-change` of PAD-473)
 - `training/` — Exercise Library & Training Planning (6 leaves; `training.tactical-board` drafted 2026-09-08)
 
 ## Tooling Manifest

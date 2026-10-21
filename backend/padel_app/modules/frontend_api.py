@@ -11,6 +11,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_tok
 
 from padel_app.utils.dates import club_now_naive
 from padel_app.models import *
+from padel_app.models import User
 from padel_app.realtime import STOP, stream_count, try_subscribe, unsubscribe
 from padel_app.serializers.calendar_event import serialize_calendar_event
 from padel_app.serializers.lesson import (
@@ -43,6 +44,8 @@ from padel_app.helpers.calendar_helpers import (
     load_lessons_for_player,
     load_lesson_instances_for_player,
     load_open_spot_events_for_player,
+    annotate_own_relations,
+    load_relation_events_for_player,
     build_lesson_events,
     load_calendar_blocks_for_user,
     build_block_events,
@@ -58,6 +61,7 @@ from padel_app.services.lesson_service import (
     remove_class_service,
 )
 from padel_app.services.player_service import (
+    require_adults_confirmation,
     get_players_list,
     get_player_profile,
     add_player_service,
@@ -424,7 +428,7 @@ def _student_enrolled(player, lesson_id, instance_id=None):
     return False
 
 
-def require_readable_class(model_name, obj):
+def require_readable_class(model_name, obj, occurrence_date=None):
     """PAD-257 / audit H1 — classes.detail-visibility rule 5.
 
     The id-keyed class reads used to stop at a role check, so a coach of ANY
@@ -460,12 +464,25 @@ def require_readable_class(model_name, obj):
     # on. They still get the student view (rule 3); everyone else is refused.
     # PAD-352: only for a client that declares open spots. An undeclared client
     # (App Store 1.0/1.1.0) is treated like any student who isn't enrolled.
-    from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+    # PAD-664: a client that declares `full-classes` may also open a full one (rule 16).
+    from padel_app.utils.client_capabilities import FULL_CLASSES, OPEN_SPOTS, client_declares
 
-    if player is not None and not is_lesson and client_declares(OPEN_SPOTS):
-        from padel_app.services.class_join_request_service import student_may_view_open_spot
+    if player is not None and client_declares(OPEN_SPOTS):
+        from padel_app.services.class_join_request_service import (
+            student_may_view_open_occurrence,
+            student_may_view_open_spot,
+        )
 
-        if student_may_view_open_spot(player, obj):
+        allow_full = client_declares(FULL_CLASSES)
+        if not is_lesson:
+            readable = student_may_view_open_spot(player, obj, allow_full=allow_full)
+        else:
+            # B-529: an occurrence never materialised is read as its series plus a date — the
+            # calendar advertises those too, so the exception is asked of that one occurrence.
+            readable = occurrence_date is not None and student_may_view_open_occurrence(
+                player, obj, occurrence_date, allow_full=allow_full
+            )
+        if readable:
             return obj
     abort(403, "Not authorized to view this class")
 
@@ -680,17 +697,39 @@ def calendar():
         # PAD-352 (eligibility.open-spot-visibility rule 12): only for a client
         # that declares it understands them. App Store 1.0/1.1.0 would draw an
         # open spot as the student's own booking.
-        from padel_app.utils.client_capabilities import OPEN_SPOTS, client_declares
+        from padel_app.utils.client_capabilities import (
+            FULL_CLASSES,
+            OPEN_SPOTS,
+            STUDENT_RELATIONS,
+            client_declares,
+        )
 
+        # PAD-664 (eligibility.open-spot-visibility rule 1a): the full ones too, for a client
+        # that declares it — a full class the student waits for stays `waiting` (dedup below).
         open_spots = (
-            load_open_spot_events_for_player(player.id, range_start, range_end)
+            load_open_spot_events_for_player(
+                player.id, range_start, range_end, include_full=client_declares(FULL_CLASSES)
+            )
             if client_declares(OPEN_SPOTS)
             else []
         )
+        # PAD-611 (calendar.view rule 22): invited and waiting occurrences, only for a client that
+        # declares it understands them — App Store 1.3.0 would draw them as bookings. They take
+        # precedence over an open spot for the same occurrence.
+        relation_events = (
+            load_relation_events_for_player(player.id, range_start, range_end)
+            if client_declares(STUDENT_RELATIONS)
+            else []
+        )
+        if relation_events:
+            taken = {e["id"] for e in relation_events}
+            open_spots = [e for e in open_spots if e["id"] not in taken] + relation_events
     else:
         abort(403, "User has no coach or player profile")
 
     lesson_events = build_lesson_events(lessons, instances_by_key, range_start, range_end)
+    if player is not None and coach is None:
+        annotate_own_relations(lesson_events, player.id)  # PAD-611: harmless to an old client
     blocks = load_calendar_blocks_for_user(user.id, range_start, range_end)
     block_events = build_block_events(blocks, range_start, range_end)
 
@@ -764,7 +803,9 @@ def get_conversations():
 
     page = request.args.get("page", default=1, type=int)
     limit = min(request.args.get("limit", default=20, type=int), 50)
-    result = get_user_conversations(user, page=page, limit=limit)
+    # messaging.conversations rule 17 (PAD-648): "Não lidas"; any other value is the full list.
+    unread = request.args.get("unread") in ("1", "true")
+    result = get_user_conversations(user, page=page, limit=limit, unread=unread)
     return jsonify({
         # PAD-204: the whole page at once. Serializing conversation by
         # conversation meant a lazy load of every thread's messages
@@ -1097,6 +1138,58 @@ def lesson_instance_presences(instance_id):
     return jsonify(serialize_presences(presences))
 
 
+@bp.put("/class_instance/presences/side")
+@jwt_required()
+def class_instance_presence_side():
+    """classes.instance-enrollment rule 13 (PAD-551): the coach sets or clears a player's side in
+    one occurrence — ``{"classInstance": {...}, "playerId": …, "side": "left" | "right" | null}``,
+    the occurrence addressed as attendance-confirm addresses it. A virtual occurrence is
+    materialised only here, when a side is actually set, and never once it has ended."""
+    from dateutil import parser as _dtparser
+
+    from padel_app.services.lesson_service import get_or_materialize_instance
+    from padel_app.services.presence_side_service import (
+        SIDES,
+        PresenceSideError,
+        occurrence_side_editable,
+        set_presence_side,
+    )
+
+    data = request.get_json(silent=True) or {}
+    side = data.get("side", "missing")
+    if side is not None and side not in SIDES:
+        return jsonify({"error": "INVALID_SIDE", "code": "INVALID_SIDE"}), 400
+    coach = require_coach()
+    ci = data.get("classInstance") or {}
+    event_id = str(ci.get("id") or "")
+    if event_id.startswith("lessoninstance-"):
+        is_instance = True
+    elif event_id.startswith("lesson-"):
+        is_instance = False
+    else:
+        is_instance = bool(ci.get("parentClassId"))
+    target = require_owned_class(coach, "lessoninstance" if is_instance else "lesson", ci.get("originalId"))
+    player_id = data.get("playerId")
+    lesson_id = target.lesson_id if is_instance else target.id
+    if not _player_in_class(player_id, lesson_id, target.id if is_instance else None):
+        return jsonify({"error": "NO_PRESENCE", "code": "NO_PRESENCE"}), 404
+    if is_instance:
+        instance = target
+    else:
+        try:
+            occurrence_date = _dtparser.isoparse(str(ci.get("date"))).date()
+        except (TypeError, ValueError):
+            abort(400, "classInstance.date must be an ISO date")
+        if not occurrence_side_editable(target, occurrence_date):
+            return jsonify({"error": "OCCURRENCE_ENDED", "code": "OCCURRENCE_ENDED"}), 409
+        instance = get_or_materialize_instance(target, occurrence_date)
+    try:
+        presence = set_presence_side(coach, instance, int(player_id), side)
+    except PresenceSideError as err:
+        return jsonify({"error": err.code, "code": err.code}), err.status
+    return jsonify(serialize_presences([presence])[0])
+
+
 @bp.get("/calendar_event")
 @jwt_required()
 def calendar_event():
@@ -1199,6 +1292,7 @@ def class_instance():
     require_readable_class(
         "lessoninstance" if isinstance(current_class, LessonInstance) else "lesson",
         current_class,
+        occurrence_date=occurrence_date,  # B-529: a virtual occurrence's own date
     )
 
     # Role-based visibility (PAD-36): coaches get the full payload; students
@@ -2293,6 +2387,7 @@ def create_incomplete_player():
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
     require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
+    require_adults_confirmation(data)  # players.create rule 10 (PAD-642)
     data["coachId"] = coach.id
     invitation = create_incomplete_player_service(data)
     return jsonify({
@@ -2724,7 +2819,8 @@ def check_field_available():
     if not value:
         return jsonify({"available": True})
 
-    ModelClass = MODELS[model_key]
+    # Both check tables above only name "user".
+    ModelClass = {"user": User}[model_key]
     column = getattr(ModelClass, field)
 
     if is_unique:
@@ -2774,6 +2870,7 @@ def add_player():
     coach = require_coach()
     assert_acting_coach(coach, data.get("coachId"))
     require_club()  # clubs.join-request rule 8: 409 NO_CLUB, never a 500
+    require_adults_confirmation(data)  # players.create rule 10 (PAD-642)
     data["coachId"] = coach.id
     coach_player_info = add_player_service(data)
     return jsonify(coach_player_info)
@@ -3060,6 +3157,8 @@ def import_confirm():
     coach = require_coach()
     club = require_club()
     data = request.get_json() or {}
+    if data.get("Players"):
+        require_adults_confirmation(data)  # import.confirm rule 9 (PAD-642)
 
     final = {}
     for ev in _run_import_confirm(data, coach, club):
@@ -3085,6 +3184,8 @@ def import_confirm_stream():
     coach = require_coach()
     club = require_club()
     data = request.get_json() or {}
+    if data.get("Players"):
+        require_adults_confirmation(data)  # import.confirm rule 9, refused before the first event
 
     def gen():
         # Initial keepalive comment flushes headers immediately.

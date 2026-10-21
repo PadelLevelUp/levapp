@@ -2,6 +2,10 @@
   "players": {
     "title": "Players",
     "searchPlaceholder": "Search players...",
+    "search": {
+      "searching": "Searching…",
+      "noResults": "No player found for “{{query}}”"
+    },
     "sortAriaLabel": "Sort players",
     "sortPlaceholder": "Sort by...",
     "sortNameAsc": "Name A-Z",
@@ -11,8 +15,10 @@
     "addPlayer": "Add player",
     "missingLevelAlert_one": "{{count}} player without level defined",
     "missingLevelAlert_other": "{{count}} players without level defined",
+    "missingLevelAlert_zero": "{{count}} players without level defined",
     "missingSideAlert_one": "{{count}} player without Playing Side defined",
     "missingSideAlert_other": "{{count}} players without Playing Side defined",
+    "missingSideAlert_zero": "{{count}} players without Playing Side defined",
     "missingLevelFilterActive": "Missing level filter active",
     "incompleteFilterActive": "Incomplete profile filter active",
     "missingSideFilterActive": "Missing side filter active",
@@ -46,6 +52,7 @@
     "removeWeaknessFailed": "Failed to remove weakness",
     "addedToClasses_one": "Added {{name}} to {{count}} class",
     "addedToClasses_other": "Added {{name}} to {{count}} classes",
+    "addedToClasses_zero": "Added {{name}} to {{count}} classes",
     "addedToWaitingList": "{{name}} added to the waiting list",
     "deleteConfirmTitle": "Are you sure?",
     "deleteConfirmDescription": "This will remove {{name}} from your roster. This action cannot be undone.",
@@ -148,6 +155,7 @@
     "classFull": "Full",
     "addToSelectedClasses_one": "Add to {{count}} class",
     "addToSelectedClasses_other": "Add to {{count}} classes",
+    "addToSelectedClasses_zero": "Add to {{count}} classes",
     "loading": "Loading...",
     "notificationsBlockedBadge": "Notifications off",
     "notificationsBlockedTitle": "Notifications turned off by the student",
@@ -302,18 +310,25 @@
       "bucket": {
         "attendances_one": "{{count}} attendance",
         "attendances_other": "{{count}} attendances",
+        "attendances_zero": "{{count}} attendances",
         "evaluations_one": "{{count}} evaluation",
         "evaluations_other": "{{count}} evaluations",
+        "evaluations_zero": "{{count}} evaluations",
         "notes_one": "{{count}} note",
         "notes_other": "{{count}} notes",
+        "notes_zero": "{{count}} notes",
         "classes_one": "{{count}} class",
         "classes_other": "{{count}} classes",
+        "classes_zero": "{{count}} classes",
         "waitingList_one": "{{count}} waiting-list entry",
         "waitingList_other": "{{count}} waiting-list entries",
+        "waitingList_zero": "{{count}} waiting-list entries",
         "messages_one": "{{count}} conversation",
         "messages_other": "{{count}} conversations",
+        "messages_zero": "{{count}} conversations",
         "other_one": "{{count}} other item",
-        "other_other": "{{count}} other items"
+        "other_other": "{{count}} other items",
+        "other_zero": "{{count}} other items"
       },
       "mergeSubmit": "Merge records",
       "merged": "Records merged"
@@ -440,6 +455,14 @@
       "selectPlayer": "Select a player",
       "selectPlayerHint": "Their details open here, next to the list.",
       "levelChip": "Level {{code}}"
+    },
+    "confirmsAdults": "I confirm this student is 18 or older.",
+    "nickname": {
+      "label": "Nickname (optional)",
+      "placeholder": "e.g. Jorge the tall",
+      "warning": "Only you can see this. Avoid offensive nicknames: the student can request a copy of their data.",
+      "asName": "Use the nickname as the main name",
+      "tooLong": "A nickname has at most 60 characters."
     }
   }
 }

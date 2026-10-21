@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Pencil, Plus, Search, X } from "lucide-react";
+import { useCoachDisplayName } from "@levelup/hooks";
 import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } from "@levelup/types";
 import {
   WAITING_LIST_MAX_PERIOD_CLASSES,
@@ -33,6 +34,7 @@ import {
 import { addToClassWaitingList, changeClassWaitingListScope, checkEligibility, removeFromClassWaitingList } from "@/api/notificationEngine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,6 +54,8 @@ interface Props {
 export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, rows, roster, enrolledIds, onChanged }: Props) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  // PAD-660 rule 8: coach only — the rows print the coach's nickname for the student.
+  const displayName = useCoachDisplayName();
   const [open, setOpen] = useState(rows.length > 0);
   const [dialog, setDialog] = useState<null | { editing: CoachClassWaitingListRow | null }>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -98,7 +102,7 @@ export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, row
                   className="flex items-center justify-between gap-2 py-1"
                 >
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm">{row.playerName}</span>
+                    <span className="text-sm">{displayName(row.playerId, row.playerName)}</span>
                     <span className="text-[11px] text-muted-foreground">
                       {t(waitingListOriginKey(row))} · {t(scope.key, scope.params)}
                     </span>
@@ -190,6 +194,7 @@ function ClassWaitingListDialog({
 }) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const displayName = useCoachDisplayName();
   const [playerId, setPlayerId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<WaitingListDialogScope>("occurrence");
@@ -236,6 +241,7 @@ function ClassWaitingListDialog({
   const seriesUntil = formatShortDate(wholeSeriesEndPreview(recurrenceEnd, clubTodayISO(today)), i18n.language);
   // PAD-558 (rule 20): the search narrows what is offered; the chosen student stays listed.
   const offered = useMemo(() => waitingListPickerOptions(candidates, search, playerId || null), [candidates, search, playerId]);
+  const matchCount = useMemo(() => waitingListPickerOptions(candidates, search, null).length, [candidates, search]);
 
   const confirm = async () => {
     if (!playerId || !periodValid) return;
@@ -270,7 +276,7 @@ function ClassWaitingListDialog({
         </DialogHeader>
         <div className="space-y-4 py-1">
           {editing ? (
-            <p data-testid="class-waiting-list-editing-name" className="text-sm font-medium">{editing.playerName}</p>
+            <p data-testid="class-waiting-list-editing-name" className="text-sm font-medium">{displayName(editing.playerId, editing.playerName)}</p>
           ) : (
             <>
               <div className="relative">
@@ -286,10 +292,13 @@ function ClassWaitingListDialog({
               </div>
               {/* B-421 (rule 20): the offered students are visible rows the search narrows — no select. */}
               <div data-testid="class-waiting-list-candidates" className="max-h-52 overflow-y-auto overscroll-contain space-y-1">
-                {offered.length === 0 ? (
+                {offered.length === 0 && !search.trim() ? (
                   <p className="text-xs text-muted-foreground px-1">{t("calendar.detail.waitingListNoMatch")}</p>
                 ) : (
-                  offered.map((c) => {
+                  <>
+                  {/* players.search rule 10: counts the matches, not the chosen student the picker keeps listed. */}
+                  <PlayerSearchFeedback query={search} count={matchCount} className="text-xs text-muted-foreground px-1" />
+                  {offered.map((c) => {
                     const id = String(c.playerId);
                     const reasons = reasonsById.get(id);
                     const chosen = playerId === id;
@@ -305,7 +314,7 @@ function ClassWaitingListDialog({
                           chosen ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
                         }`}
                       >
-                        <span className="text-sm">{c.name}</span>
+                        <span className="text-sm">{displayName(c.playerId, c.name)}</span>
                         {reasons ? (
                           <div data-testid={`class-waiting-list-ineligible-${id}`} className="mt-1 text-[11px] text-warning">
                             <p className="flex items-center gap-1 font-medium">
@@ -319,7 +328,8 @@ function ClassWaitingListDialog({
                         ) : null}
                       </button>
                     );
-                  })
+                  })}
+                  </>
                 )}
               </div>
             </>

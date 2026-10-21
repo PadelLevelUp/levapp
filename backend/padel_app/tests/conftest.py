@@ -33,7 +33,7 @@ from padel_app import create_app
 from padel_app.models import User
 from padel_app.sql_db import db, init_db
 from padel_app.tests.git_env import GIT_LOCAL_ENV_VARS
-from padel_app.tests.helpers import heal_clock_bindings
+from padel_app.tests.helpers import DESELECTED, heal_clock_bindings
 
 # B-173: a suite started from a git hook inherits GIT_DIR & co.; a test's `git init <scratch>`
 # then re-initialised the shared repository as bare. No test ever needs them — drop them first.
@@ -186,6 +186,20 @@ def pytest_sessionfinish(session, exitstatus):
         session.exitstatus = 1
 
 
+def pytest_deselected(items):
+    if items:
+        config = items[0].config
+        config.stash[DESELECTED] = config.stash.get(DESELECTED, []) + list(items)
+
+
+def pytest_collection_finish(session):
+    """PAD-654: with ``LEVAPP_SHARD_IDS`` set, write this session's selected test ids, one per line,
+    so CI can check that the Postgres shards together run every test exactly once."""
+    out = os.getenv("LEVAPP_SHARD_IDS")
+    if out:
+        pathlib.Path(out).write_text("".join(f"{item.nodeid}\n" for item in session.items), encoding="utf-8")
+
+
 def _truncate_all(app):
     tables = ", ".join(f'"{t.name}"' for t in reversed(db.metadata.sorted_tables))
     with app.app_context():
@@ -295,24 +309,6 @@ def seed_users(app):
         db.session.add_all([user1, user2])
         db.session.commit()
         return [user1, user2]
-
-
-class AuthActions:
-    def __init__(self, client):
-        self._client = client
-
-    def login(self, username="test", password="secret"):
-        return self._client.post(
-            "/auth/login", data={"username": username, "password": password}
-        )
-
-    def logout(self):
-        return self._client.get("/auth/logout")
-
-
-@pytest.fixture
-def auth(client):
-    return AuthActions(client)
 
 
 @pytest.fixture

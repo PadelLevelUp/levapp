@@ -42,6 +42,8 @@ the mechanism itself is generic 1:1 (and group) messaging.
    floating with an awkward gap.
 7. System messages — a reminder, an invitation, a spot-filled notice — appear in this same thread,
    indistinguishable in mechanism from a message a person typed, just visually marked as automated.
+8. A coach with many conversations switches the list to "Não lidas" to see only the ones with
+   something new, and back to "Todas" with one tap (PAD-648).
 
 ## Business Rules
 
@@ -53,6 +55,10 @@ the mechanism itself is generic 1:1 (and group) messaging.
 - A conversation between the same two people is found, not recreated, every time — starting a
   "new" conversation with someone you've already messaged reuses the existing thread.
 - Only the sender of a message can edit or delete it.
+- Deleting a message erases what it said and any photo it carried; the thread keeps only a
+  "Message deleted" placeholder, the conversation list never shows the old text, and nothing
+  the person deleted stays readable on the server. A report is the exception: whoever reported
+  the message keeps a copy with the report so staff can still review it.
 - An edit or delete is a real-time event, not just a stored change — every connected client sees it
   update live.
 - A message can carry a photo attachment, or reply to a specific earlier message in the thread,

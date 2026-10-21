@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 
 import type { CoachPlayer, StudentGroup } from "@/types";
 import { checkEligibility, sendManualNotifications, getNotificationGroups } from "@/api/notificationEngine";
-import { runManualInviteFlow, splitBlockedByCause } from "@levelup/config";
+import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
+import { runManualInviteFlow, searchRoster, splitBlockedByCause } from "@levelup/config";
 import type { EligibilityCheckEntry } from "@/types";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { toast } from "sonner";
@@ -150,8 +151,8 @@ export function ManualNotificationModal({
 
   const searchResults = useMemo(() => {
     if (!search) return [];
-    const q = search.toLowerCase();
-    return allEligible.filter((p) => p.name.toLowerCase().includes(q));
+    // PAD-665: the shared name rule, best match first.
+    return searchRoster(allEligible, search);
   }, [allEligible, search]);
 
   const togglePlayer = (playerId: string) => {
@@ -354,7 +355,7 @@ export function ManualNotificationModal({
           {search && (
             <div className="space-y-0.5">
               {searchResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-3">{t("calendar.notify.noResults")}</p>
+                <PlayerSearchFeedback query={search} count={0} className="text-sm text-muted-foreground text-center py-3" />
               ) : (
                 searchResults.map((p) => (
                   <PlayerToggleRow

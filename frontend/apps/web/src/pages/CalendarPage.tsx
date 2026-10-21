@@ -3,7 +3,12 @@ import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { CalendarLegend } from "@/components/calendar/CalendarLegend";
 import { CalendarToolbar } from "@/components/calendar/CalendarToolbar";
+import {
+  StudentCalendarFilter,
+  useStudentCalendarFilter,
+} from "@/components/calendar/StudentCalendarFilter";
 import { CalendarViewerProvider } from "@/components/calendar/viewer-context";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
@@ -29,7 +34,7 @@ import {
 } from "@/components/calendar/AddClassSheet";
 import { AddEventSheet } from "@/components/calendar/AddEventSheet";
 import { EventDetailSheet } from "@/components/calendar/EventDetailSheet";
-import { effectiveFilledSpots, isHoldOccurrenceLocked } from "@levelup/config";
+import { effectiveFilledSpots, filterStudentEvents, isHoldOccurrenceLocked } from "@levelup/config";
 import { addCalendarBlock, rescheduleCalendarBlock } from "@/api/calendar";
 import { useCalendar } from "@/hooks/useCalendar";
 import type { CalendarEvent, ClassInstance, CoachLevel, CoachPlayer } from "@/types";
@@ -117,6 +122,8 @@ export default function CalendarPage() {
   const [addButtonsHidden, setAddButtonsHidden] = useState(false);
 
   const canManageClasses = user?.roles.includes("coach") ?? false;
+  // PAD-664 (calendar.view rule 23): a student's own filter, remembered per user on this device.
+  const [studentFilter, setStudentFilter] = useStudentCalendarFilter(user?.id);
 
   // client.query-cache: the range, the roster and the levels are queries (rules 6-7). The roster and
   // levels share one key with presences / player detail / the class sheets, so moving between
@@ -174,25 +181,31 @@ export default function CalendarPage() {
     () => Array.from({ length: 7 }, (_, i) => addDays(gridWeekStart, i)),
     [gridWeekStart]
   );
+  // The filter narrows what the views paint (grid, phone modes, dots, day panel); `allEvents`
+  // stays whole for the deep link and the sheets.
+  const visibleEvents = useMemo(
+    () => (canManageClasses ? allEvents : filterStudentEvents(allEvents, studentFilter)),
+    [allEvents, canManageClasses, studentFilter]
+  );
   const weekEvents = useMemo(
     () =>
-      allEvents.filter((e) =>
+      visibleEvents.filter((e) =>
         isWithinInterval(parseISO(e.date), {
           start: gridWeekStart,
           end: addDays(gridWeekStart, 6),
         })
       ),
-    [allEvents, gridWeekStart]
+    [visibleEvents, gridWeekStart]
   );
   const monthEvents = useMemo(
     () =>
-      allEvents.filter((e) =>
+      visibleEvents.filter((e) =>
         isWithinInterval(parseISO(e.date), {
           start: calendar.monthRange.start,
           end: endOfDay(calendar.monthRange.end),
         })
       ),
-    [allEvents, calendar.monthRange]
+    [visibleEvents, calendar.monthRange]
   );
 
   // Every read of the calendar is the `calendar-events` prefix: every cached range goes stale and
@@ -564,8 +577,22 @@ export default function CalendarPage() {
         {/* PAD-246 (calendar.mobile-views rules 9, 18, 21): the toolbar — and
             the legend inside it — is desktop-only. On a phone the add actions
             are floating buttons, as on iOS. */}
+        {/* PAD-664: a student's filter sits at the top on both layouts; on a phone the legend
+            follows as one compact row (a coach has none there). */}
+        {!canManageClasses && (
+          <div
+            className={cn(
+              "flex flex-col gap-2 border-b border-border bg-card",
+              isMobile ? "px-4 py-3" : "px-4 pt-4"
+            )}
+          >
+            <StudentCalendarFilter value={studentFilter} onChange={setStudentFilter} className="self-start" />
+            {isMobile && <CalendarLegend studentFilter={studentFilter} />}
+          </div>
+        )}
         {!isMobile && (
           <CalendarToolbar
+            studentFilter={studentFilter}
             weekLabel={calendar.weekLabel}
             onPrevWeek={() => calendar.navigateWeek("prev")}
             onNextWeek={() => calendar.navigateWeek("next")}

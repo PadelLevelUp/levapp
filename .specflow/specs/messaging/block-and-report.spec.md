@@ -23,7 +23,7 @@ reporting it is one tap away.
 
 ### Entities
 - **READS/WRITES:** BlockedUser (`blocked_users`: blocker_id, blocked_id, unique pair),
-  MessageReport (`message_reports`: reporter_id, message_id, reason)
+  MessageReport (`message_reports`: reporter_id, message_id, reason, message_text)
 - **READS:** Conversation, ConversationParticipant, Message, Association_CoachClub,
   Association_PlayerClub, Association_CoachPlayer
 
@@ -35,8 +35,17 @@ reporting it is one tap away.
    `create_message_service` reject with 403 when either party has blocked the other.
 3. Blocked users (either direction) are excluded from `GET /api/app/messageable-users`.
 4. `POST /api/app/messages/<id>/report` `{reason?}` creates a `MessageReport`; only a
-   participant of that message's conversation may report it (403 otherwise). Reports are
-   reviewed through the generic editor (`/editor/MessageReport`, superadmin).
+   participant of that message's conversation may report it (403 otherwise). Staff review and act
+   on reports in the console (`admin.moderation`, PAD-631); the generic editor that was meant to
+   show them never ran in production and was deleted by PAD-550.
+4a. **A report keeps what was reported (PAD-639).** The report row stores `message_text`, a copy
+   of the message's text at the moment it is reported. Deleting the message later erases the
+   message (`messaging.messages` rule 3) but never the report's copy, and an edit after the report
+   does not change it, so a moderator reviews what the reporter saw. Reports filed before PAD-639
+   were backfilled from the message row by its migration, before that migration erased the
+   already-deleted messages. The staff console (`admin.moderation`) shows this copy as the
+   reported message's text, in the list and in the detail's context, falling back to the
+   message's own text only for a report that has no copy; the surrounding messages show their own.
 5. Thread UI on web and iOS offers **Block** / **Unblock** (conversation header menu) and
    **Report** (per-message action) with confirmation and a toast.
 6. A blocked conversation stays in the list; its composer is replaced by "You blocked {name}"
@@ -75,6 +84,11 @@ reporting it is one tap away.
 - **Then** the response is 403 and no `message_reports` row exists
 - **And** user 5 POSTing the same creates one row with `reporter_id = 5`
 
+#### A report outlives the message's deletion (rule 4a, PAD-639)
+- **Given** user 5 reports message 50, "you are useless", from user 1
+- **When** user 1 then edits it to "sorry" and deletes it
+- **Then** the message row's text is `""` and the report's `message_text` is still "you are useless"
+
 #### Unknown sender is flagged
 - **Given** student `ana` and student `bruno` who share no coach and no club, and `bruno` started a conversation with `ana` by username
 - **When** `ana` GETs `/api/app/conversation/<id>`
@@ -111,3 +125,9 @@ reporting it is one tap away.
   `padel_app/modules/frontend_api.py` (`/users/<id>/block`, `/blocked-users`,
   `/messages/<id>/report`), tests `padel_app/tests/test_messaging_report_block_scope.py`.
 - OPEN: operator workflow beyond the editor (email on report, report counts). v1: none.
+
+#### The console shows what was reported after the message is deleted (rule 4a, PAD-639)
+- **Given** a student reported message "msg 3" through the app, and the author then deleted it
+- **When** staff open the report list and the report detail in the console
+- **Then** the reported message reads "msg 3" with `deleted: true`, and the messages around it read their own text
+- **And** a report with no copy (filed before the backfill) shows the message's own text

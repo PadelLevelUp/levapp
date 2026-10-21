@@ -11,8 +11,13 @@ export type {
   CoachApprovalStatus,
   EmailVerificationState,
   SendVerificationCodeResponse,
+  SocialLoginResponse,
+  SocialNeedsProfileResponse,
+  SocialSignInResponse,
 } from "@levelup/api/src/resources/auth";
 import type {
+  SocialSignInPayload,
+  CompleteSocialSignUpPayload,
   MeResponse,
   UpdateMePayload,
   RegisterPayload,
@@ -53,6 +58,9 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
   return authApi.register(payload);
 }
 
+/** PAD-637 (auth.legal-catch-up rule 3). */
+export const acceptLegal = authApi.acceptLegal;
+
 export async function updateMe(payload: UpdateMePayload): Promise<MeResponse> {
   return authApi.updateMe(payload);
 }
@@ -87,3 +95,13 @@ export const confirmPasswordRecovery = authApi.confirmPasswordRecovery;
 
 /** auth.coach-approval rule 12 (PAD-233). Not mockable — it notifies the admin. */
 export const reapplyCoachApproval = authApi.reapplyCoachApproval;
+
+/** auth.social-sign-in rule 1. Not mockable — it signs in a real account. */
+export async function socialSignIn(payload: SocialSignInPayload) {
+  return authApi.socialSignIn(payload);
+}
+
+/** auth.social-sign-in rule 4. Not mockable — it creates a real account. */
+export async function completeSocialSignUp(payload: CompleteSocialSignUpPayload) {
+  return authApi.completeSocialSignUp(payload);
+}

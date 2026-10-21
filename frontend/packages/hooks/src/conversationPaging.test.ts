@@ -5,10 +5,12 @@ import {
   CONVERSATION_FIRST_PAGE_SIZE,
   CONVERSATION_PAGE_SIZE,
   applyIncomingMessage,
+  reconcileSentMessage,
   hasConversation,
   mergeConversationPages,
   isAtBottom,
   isNearTop,
+  mergeNewestPage,
   mergeOlderPage,
   shouldLoadOlder,
   shouldShowJumpToBottom,
@@ -326,5 +328,70 @@ describe("hasConversation", () => {
     const list = [{ id: 7 } as unknown as Conversation];
     expect(hasConversation(list, "7", norm)).toBe(true);
     expect(hasConversation(list, 8, norm)).toBe(false);
+  });
+});
+
+
+// PAD-616 (messaging.sse-realtime rule 19): after a resync the open thread re-reads its newest page
+// and folds it into what is loaded — older pages stay, messages missed while the stream was down
+// are appended, and a message the server changed meanwhile (edited, deleted, reacted) is replaced.
+describe("mergeNewestPage — the open thread after a resync (PAD-616)", () => {
+  it("appends the missed messages and keeps the older pages", () => {
+    const loaded = conversation([message(1), message(2), message(3)]);
+    const newest = { messages: [message(2), message(3), message(4), message(5)], hasMore: true };
+    const { conversation: merged, added } = mergeNewestPage(loaded, newest);
+    expect(merged.messages.map((m) => m.id)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(added.map((m) => m.id)).toEqual(["4", "5"]);
+    expect(merged.hasMore).toBe(loaded.hasMore);
+    expect(merged.oldestMessageId).toBe(loaded.oldestMessageId);
+  });
+
+  it("replaces a message the server changed while the stream was down", () => {
+    const loaded = conversation([message(1), message(2, "before")]);
+    const edited = { ...message(2, "after"), edited: true };
+    const { conversation: merged, added } = mergeNewestPage(loaded, { messages: [message(1), edited] });
+    expect(merged.messages[1]).toMatchObject({ id: "2", content: "after", edited: true });
+    expect(added).toEqual([]);
+  });
+
+  it("keeps an optimistic send that has not been echoed yet, after the missed messages", () => {
+    const pending = { ...message("temp-1", "sending"), status: "sending" as const };
+    const loaded = conversation([message(1), pending]);
+    const { conversation: merged } = mergeNewestPage(loaded, { messages: [message(1), message(2)] });
+    expect(merged.messages.map((m) => m.id)).toEqual(["1", "2", "temp-1"]);
+  });
+
+  it("nothing missed: the thread is unchanged", () => {
+    const loaded = conversation([message(1), message(2)]);
+    const { conversation: merged, added } = mergeNewestPage(loaded, { messages: [message(1), message(2)] });
+    expect(merged.messages.map((m) => m.id)).toEqual(["1", "2"]);
+    expect(added).toEqual([]);
+  });
+});
+
+/**
+ * PAD-647 — a sent message is one bubble, whichever answers first: the POST that saved it or the live
+ * `message_created` echo (applyIncomingMessage). Web replaced the temp bubble with the saved message
+ * even when the echo had already appended it, so the same id rendered twice until a reload.
+ */
+describe("reconcileSentMessage — one bubble per send (PAD-647)", () => {
+  const temp = { ...message("temp-1", "hello"), status: "sending" } as Message;
+  const saved = message(42, "hello");
+
+  it("POST first: the temp bubble becomes the saved message", () => {
+    const next = reconcileSentMessage(conversation([message(1), temp]), "temp-1", saved);
+    expect(next.messages.map((m) => [m.id, m.status])).toEqual([["1", "delivered"], ["42", "sent"]]);
+  });
+
+  it("echo first: the temp bubble goes and the echoed message stays, once", () => {
+    const echoed = applyIncomingMessage(conversation([message(1), temp]), saved);
+    expect(echoed.messages.map((m) => m.id)).toEqual(["1", "temp-1", "42"]);
+    const next = reconcileSentMessage(echoed, "temp-1", saved);
+    expect(next.messages.map((m) => m.id)).toEqual(["1", "42"]);
+  });
+
+  it("leaves the conversation alone when the temp is gone and the message is there", () => {
+    const current = conversation([message(1), saved]);
+    expect(reconcileSentMessage(current, "temp-1", saved).messages.map((m) => m.id)).toEqual(["1", "42"]);
   });
 });

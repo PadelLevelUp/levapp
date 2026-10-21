@@ -1,9 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import { classJoinRequestsApi, classRequestsApi, messagesApi, notificationEngineApi } from "@levelup/api";
+import {
+  RESYNC_EVENT,
+  classJoinRequestsApi,
+  classRequestsApi,
+  eraseDeletedMessage,
+  messagesApi,
+  notificationEngineApi,
+} from "@levelup/api";
 import { lightTheme } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
+  mergeNewestPage,
+  reconcileSentMessage,
   queryKeys,
   refreshAfterRequestChange,
   shouldShowJumpToBottom,
@@ -377,6 +386,31 @@ export default function ConversationScreen() {
   useAppEvents(
     React.useCallback(
       (evt) => {
+        // messaging.sse-realtime rule 19 (PAD-616): the stream re-opened after a drop. The open
+        // thread re-reads its newest page and folds it in (`mergeNewestPage`): missed messages are
+        // appended, changed ones replaced, older pages kept — then reads them as an arrival would.
+        if (evt.type === RESYNC_EVENT) {
+          void messagesApi
+            .getConversation(conversationId, { limit: CONVERSATION_FIRST_PAGE_SIZE })
+            .then((newest) => {
+              let added: Message[] = [];
+              updateConversationCache(queryClient, conversationId, (c) => {
+                const merged = mergeNewestPage(c, newest);
+                added = merged.added;
+                return merged.conversation;
+              });
+              const fromOthers = added.some((m) => Number(m.senderId) !== myId);
+              if (!fromOthers) return;
+              if (!atBottomRef.current) {
+                hasNewBelowRef.current = true;
+                setHasNewBelow(true);
+                setShowJumpToBottom(true);
+              }
+              void messagesApi.markConversationRead(conversationId);
+            })
+            .catch(() => undefined); // the next resync or a reopen catches up
+          return;
+        }
         if (evt.type === "message_created") {
           const message = evt.payload as Message;
           if (normalizeId(message.conversationId) !== conversationId) return;
@@ -423,10 +457,9 @@ export default function ConversationScreen() {
           ) {
             return;
           }
-          updateMessageInCache(queryClient, conversationId, payload.id, (m) => ({
-            ...m,
-            isDeleted: true,
-          }));
+          // messaging.messages rule 3 (PAD-639): nothing the message said stays cached; the
+          // tabs layout refetches the list (PAD-592 rule 2).
+          updateMessageInCache(queryClient, conversationId, payload.id, (m) => eraseDeletedMessage(m));
           return;
         }
 
@@ -483,24 +516,10 @@ export default function ConversationScreen() {
         replyToId,
       });
       setRepliedLocally(true);
-      updateConversationCache(queryClient, conversationId, (c) => {
-        // SSE may already have delivered the saved message — drop the temp.
-        const alreadyDelivered = c.messages.some(
-          (m) => String(m.id) === String(saved.id)
-        );
-        if (alreadyDelivered) {
-          return {
-            ...c,
-            messages: c.messages.filter((m) => m.id !== tempId),
-          };
-        }
-        return {
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === tempId ? { ...saved, status: "sent" as const } : m
-          ),
-        };
-      });
+      // SSE may already have delivered the saved message — shared with web.
+      updateConversationCache(queryClient, conversationId, (c) =>
+        reconcileSentMessage(c, tempId, saved)
+      );
       invalidateMessagesLists(queryClient);
     } catch {
       updateMessageInCache(queryClient, conversationId, tempId, (m) => ({
@@ -1183,10 +1202,8 @@ export default function ConversationScreen() {
     setConfirmingDelete(null);
     try {
       await messagesApi.deleteMessage(String(messageId));
-      updateMessageInCache(queryClient, conversationId, messageId, (m) => ({
-        ...m,
-        isDeleted: true,
-      }));
+      // messaging.messages rule 3 (PAD-639): nothing the message said stays cached.
+      updateMessageInCache(queryClient, conversationId, messageId, (m) => eraseDeletedMessage(m));
       invalidateMessagesLists(queryClient);
     } catch {
       // SSE delivers authoritative state on failure races.

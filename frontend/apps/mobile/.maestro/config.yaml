@@ -77,7 +77,7 @@ executionOrder:
     # 33 fills the sign-up form as a minor and is refused (PAD-445); it creates nothing, so
     # its position is not load bearing.
     # (29 is PAD-233's; 31-32 belong to the calendar work — numbers kept by the coordinator.)
-    - 33-parental-consent
+    - 33-underage-signup-refused
     # 34 (PAD-274) deletes only the placeholder and category it creates, so
     # its position is not load bearing.
     - 34-player-removal
@@ -339,10 +339,32 @@ executionOrder:
     # 269 (PAD-577, notifications.invitations rule 15a): an invitation that lost the spot offers the
     # waiting list; joining reads "Estás na lista de espera".
     - 269-invite-lost-spot-waiting-list
+    # 270 (PAD-664, calendar.view rule 23): the student's calendar paints enrolled / open / full /
+    # invited apart, "Só as minhas aulas" keeps the invitation, a full class offers its waiting list.
+    - 270-student-calendar-states
+    # 259 (PAD-637, auth.legal-catch-up): the seeded e2e-legacy-student skips the catch-up, meets it
+    # again after signing out and in, and saves it. It accepts the Terms on that account, so it passes
+    # once per seed (e2e.sh reseeds); its position is not load bearing.
+    - 259-legal-catch-up
     # 230 (PAD-567, attendance.validation rule 26; number self-assigned, unconfirmed): books,
     # marks, clears and removes its own class through the API, so its position is not load
     # bearing.
     - 230-clear-mark
+    # 280 (PAD-655, mobile.android-runtime rule 9b): adds 14 levels, scrolls the level select to
+    # the last one; teardown removes them, so its position is not load bearing.
+    - 280-level-select-scrolls
+    # 279 (PAD-659, calendar.event-detail rules 22–23): reads the seeded class's grouped list and
+    # opens the player sheet; writes nothing, so its position is not load bearing.
+    - 279-participant-groups-sheet
+    # 281 (PAD-660, players.nickname rules 1–3): sets E2E Student's nickname through the UI and
+    # clears it in teardown, so its position is not load bearing.
+    - 281-coach-nickname
+    # 289 (PAD-648, messaging.conversations rule 17): reads every e2e-coach conversation, posts
+    # one student message in conversation 1 and deletes it after, so its position is not load bearing.
+    - 289-unread-filter
+    # 290 (PAD-551, classes.instance-enrollment rule 13): books, sets and clears a side, and removes
+    # its own class through the API, so its position is not load bearing.
+    - 290-side-per-occurrence
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

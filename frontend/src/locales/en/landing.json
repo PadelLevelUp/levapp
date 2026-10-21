@@ -273,14 +273,83 @@
       "decline": "Decline"
     },
     "demo": {
-      "title": "Request a demo",
-      "providedBy": "This form is provided by HubSpot, where we keep demo requests. See the",
+      "title": "Let's talk!",
+      "subtitle": "We'll give you a demo, help you set LevApp up the way you need it, or answer any question you have. Leave your details and we'll get back to you on WhatsApp/Email.",
+      "providedBy": "The form is ours; your details are stored in HubSpot, the system we use to manage contacts.",
+      "fields": {
+        "firstname": "First name",
+        "lastname": "Last name",
+        "phone": "Mobile",
+        "email": "Email",
+        "clube": "Which club do you coach at?"
+      },
+      "placeholders": {
+        "firstname": "Rita",
+        "lastname": "Pereira Lopes",
+        "phone": "912 345 678",
+        "email": "rita@academia.pt",
+        "clube": "Academia Norte"
+      },
+      "questions": {
+        "gestao": {
+          "label": "How do you handle attendance, absences and new invitations today?",
+          "options": {
+            "ferramentas_classicas": "I use classic tools like Excel / SMS / WhatsApp",
+            "clube_outro_treinador": "It's not me – my club / another coach handles it",
+            "ninguem_trata": "Nobody is really handling it",
+            "outro": "Other"
+          }
+        },
+        "lembretes": {
+          "label": "Do you already send reminders to confirm your students' attendance?",
+          "options": {
+            "diariamente": "Daily",
+            "semanalmente": "Weekly",
+            "nao_envia": "I don't send reminders. I assume whoever is signed up either comes or lets me know in advance."
+          }
+        },
+        "tempo": {
+          "label": "How much time a week do you spend confirming attendance, checking and sending new invitations?",
+          "options": {
+            "menos_1h": "< 1 hour",
+            "1_3h": "1 - 3 hours",
+            "mais_3h": "More than 3 hours"
+          }
+        }
+      },
+      "errors": {
+        "firstname": "Enter your first name.",
+        "lastname": "Enter your last name.",
+        "phone": "Enter a valid mobile number, for example 912 345 678.",
+        "email": "Enter a valid email.",
+        "clube": "Enter the club where you coach.",
+        "gestao": "Choose at least one option.",
+        "lembretes": "Choose an option.",
+        "tempo": "Choose an option.",
+        "consent": "We need your permission to send the request."
+      },
+      "consentIntro": "To answer your request, we need your permission to store and process your personal data.",
+      "consent": "I agree that LevApp may store and process my personal data to answer this request.",
+      "marketing": "Optional: I want to be the first to hear about LevApp's offers and new features. You can unsubscribe at any time.",
+      "privacyLine": "See how we handle your data in our",
       "privacyLink": "Privacy Policy",
-      "failed": "The form could not be loaded.",
-      "failedLink": "Send us an email."
+      "submit": "Send request",
+      "sending": "Sending…",
+      "close": "Close",
+      "sent": {
+        "message": "Thank you! We'll be in touch soon."
+      },
+      "failed": "We couldn't send the request.",
+      "failedLink": "Email us instead.",
+      "retry": "Try again"
     },
     "loader": {
       "label": "Signing in…"
+    },
+    "appStore": {
+      "eyebrow": "Download on the",
+      "name": "App Store",
+      "newTab": " (opens in a new tab)"
     }
   }
 }

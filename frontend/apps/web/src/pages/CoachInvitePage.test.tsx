@@ -38,7 +38,7 @@ async function mount() {
   await screen.findByLabelText("auth.coachInvite.email");
 }
 
-function fill(email: string) {
+function fill(email: string, terms = true) {
   const set = (id: string, value: string) =>
     fireEvent.change(document.getElementById(id) as HTMLInputElement, { target: { value } });
   set("name", "Rita Coach");
@@ -47,6 +47,7 @@ function fill(email: string) {
   set("password", "Secret123!");
   set("repeatPassword", "Secret123!");
   set("birthDate", "1990-01-01");
+  if (terms) fireEvent.click(screen.getByTestId("coachInvite-terms"));
 }
 
 const submit = () => fireEvent.click(screen.getByRole("button", { name: "auth.coachInvite.join" }));
@@ -102,5 +103,53 @@ describe("CoachInvitePage — the invited coach's email (PAD-477, rule 9)", () =
     fill("taken@example.com");
     submit();
     expect(await screen.findByTestId("coachInvite-email-error")).toHaveTextContent("auth.coachInvite.emailTaken");
+  });
+});
+
+describe("CoachInvitePage — the country (PAD-604, clubs.coach-invitation rule 8a)", () => {
+  it("shows the country field defaulted to Portugal and sends PT", async () => {
+    accept.mockResolvedValue({ accessToken: "t" });
+    refreshUser.mockResolvedValue({ emailVerification: "pending" });
+    await mount();
+    fill("rita@example.com");
+    expect(screen.getByTestId("coachInvite-country")).toHaveTextContent("Portugal");
+    submit();
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
+    expect(accept.mock.calls[0][1]).toMatchObject({ country: "PT" });
+  });
+
+  it.each(["COUNTRY_REQUIRED", "INVALID_COUNTRY"])("puts a server %s on the country field", async (code) => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "country", code } } });
+    await mount();
+    fill("rita@example.com");
+    submit();
+    expect(await screen.findByTestId("coachInvite-country-error")).toHaveTextContent("auth.coachInvite.countryRequired");
+  });
+});
+
+describe("CoachInvitePage — the Terms (PAD-637, clubs.coach-invitation rule 8b)", () => {
+  it("refuses an unticked box on the box and sends nothing", async () => {
+    await mount();
+    fill("rita@example.com", false);
+    submit();
+    expect(await screen.findByTestId("coachInvite-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
+    expect(accept).not.toHaveBeenCalled();
+  });
+
+  it("sends termsAccepted with the accept", async () => {
+    accept.mockResolvedValue({ accessToken: "t" });
+    await mount();
+    fill("rita@example.com");
+    submit();
+    await waitFor(() => expect(accept).toHaveBeenCalled());
+    expect(accept.mock.calls[0][1]).toMatchObject({ termsAccepted: true });
+  });
+
+  it("puts a server TERMS_REQUIRED on the box", async () => {
+    accept.mockRejectedValue({ response: { status: 400, data: { field: "terms", code: "TERMS_REQUIRED" } } });
+    await mount();
+    fill("rita@example.com");
+    submit();
+    expect(await screen.findByTestId("coachInvite-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
   });
 });

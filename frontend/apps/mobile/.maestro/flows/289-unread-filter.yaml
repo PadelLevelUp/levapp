@@ -1,0 +1,33 @@
+# Mirrors: apps/web/e2e/messaging/unread-filter.spec.ts (PAD-648, messaging.conversations
+# rule 17). "Não lidas" shows only the conversation with an unread message; "Todas" brings the
+# read one back. By test id, never rendered copy.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad648-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad648-teardown.js
+---
+- assertTrue: "${output.messageId > 0 && output.readId != ''}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-unread-1"
+    timeout: 20000
+- assertVisible:
+    id: "conversation-item-${output.readId}"
+- tapOn:
+    id: "conversations-filter-unread"
+- extendedWaitUntil:
+    notVisible:
+      id: "conversation-item-${output.readId}"
+    timeout: 15000
+- assertVisible:
+    id: "conversation-item-1"
+- tapOn:
+    id: "conversations-filter-all"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-${output.readId}"
+    timeout: 15000
