@@ -1,3 +1,4 @@
+import { WEEK_STARTS_ON } from "../../../../packages/config/src/week-start";
 import { test, expect } from "@playwright/test";
 import { addDays, format, startOfWeek } from "date-fns";
 import { loginAsCoach } from "../helpers/auth";
@@ -11,10 +12,10 @@ import { loginAsCoach } from "../helpers/auth";
  * preview and the daily detail view display them sorted by startTime.
  */
 
-// Pick the Monday of NEXT week relative to "today". Hardcoding a date here
+// Pick the first day (WEEK_STARTS_ON, Sunday since PAD-682) of NEXT week relative to "today". Hardcoding a date here
 // would fail every time the calendar passes that date — the test loops
 // forward looking for the day, so the date must always be in the future.
-const NEXT_MONDAY = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 7);
+const NEXT_MONDAY = addDays(startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON }), 7);
 const MOCK_DATE = format(NEXT_MONDAY, "yyyy-MM-dd");
 const MOCK_DAY_NUMBER = format(NEXT_MONDAY, "d"); // e.g. "4" or "11"
 

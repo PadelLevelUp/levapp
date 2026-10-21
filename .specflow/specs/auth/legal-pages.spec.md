@@ -41,6 +41,12 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
   coordinator default, 2026-10-14 — and rights by email to admin@levapp.app, CNPD); the former
   §8–§14 become §9–§15. English only, like the rest of the text; the ticket's Portuguese wording is
   the source of §8 and goes into the PT translation when it lands. Legal review is the owner's step.
+  Privacy v2026-10-21 (PAD-638, owner decisions 2026-10-21; version change only, no notice, nobody
+  asked again, as PAD-634): §11 lists the retention periods `admin.data-retention` applies —
+  invitations, join links and expired codes 30 days after expiry, notification and reminder history
+  12 months, deletion and staff audit records 5 years, web server logs about 14 days,
+  never-activated students kept until the coach removes them, deleted messages' rows kept with their
+  text erased. Web-only, like every legal text: the iOS app opens the hosted page.
 
 ### Rules
 1. **One source, rendered.** `/terms` and `/privacy` render `LegalPage`, which renders the

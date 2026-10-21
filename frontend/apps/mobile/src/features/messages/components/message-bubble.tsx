@@ -775,11 +775,13 @@ function MessageBubbleImpl({
           <View
             testID={`class-request-proposal-actions-${classRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: classRequest.kind }}
-            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+            // The bubble's width, so the flex-1 Accept / Decline row cannot collapse; the waiting
+            // line and the outcome chip keep their own width and side.
+            className={cn("mt-1.5 gap-2 self-stretch", own ? "items-end" : "items-start")}
           >
             {classRequest.kind === "actions" ? (
               <>
-                <View className="flex-row gap-2">
+                <View className="flex-row gap-2 self-stretch">
                   <Pressable
                     testID="class-request-bubble-accept"
                     accessibilityLabel={t("classRequests.bubble.accept")}
@@ -818,7 +820,7 @@ function MessageBubbleImpl({
                   disabled={respondingClassRequest}
                   onPress={() => onCounterClassRequest?.()}
                   className={cn(
-                    "items-center rounded-xl border border-border bg-background px-3 py-1.5",
+                    "items-center self-stretch rounded-xl border border-border bg-background px-3 py-1.5",
                     respondingClassRequest && "opacity-50"
                   )}
                 >
@@ -876,10 +878,12 @@ function MessageBubbleImpl({
           <View
             testID={`join-request-bubble-actions-${joinRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: joinRequest.kind }}
-            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+            // A self-start column has no width of its own, so its two flex-1 buttons collapsed to
+            // empty pills: the column takes the bubble's width, the outcome chip keeps its own.
+            className={cn("mt-1.5 gap-2 self-stretch", own ? "items-end" : "items-start")}
           >
             {joinRequest.kind === "actions" ? (
-              <View className="flex-row gap-2">
+              <View className="flex-row gap-2 self-stretch">
                 <Pressable
                   testID="join-request-bubble-accept"
                   accessibilityLabel={t("calendar.joinRequest.accept")}
