@@ -222,7 +222,11 @@ jobs:
           # migrate step finds the database ahead of the image and does nothing.
           ROLLOUT_MODE=""
           if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
-          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp --ports 5000,5002 --upstream levapp_api --probe-host levapp.app --migrate $ROLLOUT_MODE -- \
+          # PAD-695 (delivery.worker-role): with WORKER_SPLIT on in the env file the jobs run in a
+          # <name>_worker container that rollout.sh swaps after the API; off, it removes any leftover one.
+          WORKER_OPT=""
+          if grep -qiE '^WORKER_SPLIT=(on|1|true|yes)[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.prod; then WORKER_OPT="--worker"; fi
+          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp --ports 5000,5002 --upstream levapp_api --probe-host levapp.app --migrate $ROLLOUT_MODE $WORKER_OPT -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --memory 512m --memory-swap 768m \
