@@ -35,7 +35,7 @@ through the history without the thread ever moving under the reader.
    from one shared function (`@levelup/config` `messageDayLabel`, so the apps cannot diverge
    again): today "Hoje"/"Today"; yesterday "Ontem"/"Yesterday"; 2–6 days ago the weekday
    ("Terça-feira"/"Tuesday"); older the day and short month ("12 out"/"Oct 12"), with the year when it
-   is not this year ("30 dez 2025"). A message stamped ahead of the device's clock reads as today.
+   is not this year ("30 dez 2025" / "Dec 30, 2025"); an unparsable timestamp gets no label. A message stamped ahead of the device's clock reads as today.
    Labels are worked out at render: a thread left open across midnight relabels on its next render
    (a new message, a refetch, a re-open). The separator carries `message-day-separator` (web
    `data-testid` with `data-day`; iOS `testID` with the date as its accessibility value).

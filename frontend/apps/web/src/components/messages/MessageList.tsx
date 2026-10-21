@@ -2,7 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AT_BOTTOM_THRESHOLD_PX, nextTargetStep, openingTarget } from '@levelup/hooks';
-import { messageDayKey, messageDayLabel } from '@levelup/config';
+import { groupByDay, messageDayLabel } from '@levelup/config';
 import type { Message } from '@/types';
 import { MessageBubble } from './MessageBubble';
 
@@ -277,18 +277,9 @@ export function MessageList({
     }
   };
 
-  // PAD-676 (rule 4a): grouped by the message's date on the club's clock; the label is
-  // shared with the mobile thread (`@levelup/config` message-day).
-  const grouped: { day: string; messages: Message[] }[] = [];
-  messages.forEach(msg => {
-    const day = messageDayKey(msg.timestamp);
-    const last = grouped[grouped.length - 1];
-    if (last && last.day === day) {
-      last.messages.push(msg);
-    } else {
-      grouped.push({ day, messages: [msg] });
-    }
-  });
+  // PAD-676 (rule 4a): grouped by the message's date on the club's clock; the grouping and the
+  // label are shared with the iOS thread (`@levelup/config` message-day).
+  const grouped = groupByDay(messages, (msg) => msg.timestamp);
   const dayLabelOptions = {
     language: i18n.language,
     todayLabel: t('messages.today'),
@@ -333,8 +324,8 @@ export function MessageList({
                 {messageDayLabel(group.day, dayLabelOptions)}
               </span>
             </div>
-            {group.messages.map((msg, i) => {
-              const prev = group.messages[i - 1];
+            {group.items.map((msg, i) => {
+              const prev = group.items[i - 1];
               const showTail = !prev || prev.senderId !== msg.senderId;
               const isMine = msg.senderId === userId;
               const replyMsg = msg.replyTo != null

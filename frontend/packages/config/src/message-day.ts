@@ -6,7 +6,9 @@
  * never by UTC, so a message at 00:30 belongs to the day it was sent. Labels:
  * today → "Hoje"; yesterday → "Ontem"; 2–6 days ago → the weekday ("Terça-feira");
  * older → "12 out", with the year when it is not this year ("12 out 2025").
- * The names are tables, not `Intl`, so Hermes and every browser print the same words.
+ * The names are tables, not `Intl` or date-fns (`dateLocale`), so Hermes and every browser print
+ * the same words — a shared formatter whose output depends on the runtime is how the two apps
+ * diverged in the first place.
  */
 import { clubDateOfInstant, clubTodayISO } from "./club-date";
 
@@ -42,6 +44,8 @@ function utcMidnight(isoDate: string): number {
 
 /** The separator label for the club date `dayKey` (`YYYY-MM-DD`), as of `now`. */
 export function messageDayLabel(dayKey: string, options: MessageDayLabelOptions): string {
+  // An unparsable timestamp gives no day: no label rather than "NaN undefined".
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return "";
   const lang = options.language.toLowerCase().startsWith("en") ? "en" : "pt";
   const today = clubTodayISO(options.now ?? new Date());
   const daysAgo = Math.round((utcMidnight(today) - utcMidnight(dayKey)) / 86_400_000);
@@ -53,20 +57,21 @@ export function messageDayLabel(dayKey: string, options: MessageDayLabelOptions)
   const day = date.getUTCDate();
   const month = MONTHS[lang][date.getUTCMonth()];
   const label = lang === "en" ? `${month} ${day}` : `${day} ${month}`;
-  return dayKey.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${dayKey.slice(0, 4)}`;
+  if (dayKey.slice(0, 4) === today.slice(0, 4)) return label;
+  return lang === "en" ? `${label}, ${dayKey.slice(0, 4)}` : `${label} ${dayKey.slice(0, 4)}`;
 }
 
 /**
- * The indexes in `timestamps` (oldest first, as both lists render) that open a new day — the
- * first message always does. A separator goes directly above each.
+ * Consecutive runs of `items` (oldest first, as both lists render) that share a club date — one
+ * separator above each run. Web renders the groups; iOS marks each group's first message.
  */
-export function dayStartIndexes(timestamps: readonly string[]): number[] {
-  const starts: number[] = [];
-  let previous: string | null = null;
-  timestamps.forEach((timestamp, index) => {
-    const key = messageDayKey(timestamp);
-    if (key !== previous) starts.push(index);
-    previous = key;
-  });
-  return starts;
+export function groupByDay<T>(items: readonly T[], timestampOf: (item: T) => string): { day: string; items: T[] }[] {
+  const groups: { day: string; items: T[] }[] = [];
+  for (const item of items) {
+    const day = messageDayKey(timestampOf(item));
+    const last = groups[groups.length - 1];
+    if (last && last.day === day) last.items.push(item);
+    else groups.push({ day, items: [item] });
+  }
+  return groups;
 }

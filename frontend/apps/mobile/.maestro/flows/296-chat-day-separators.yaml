@@ -12,6 +12,8 @@ appId: com.padellevelup.app
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
 - evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).conversations.filter(function (c) { return c.participantName === 'E2E Student Three'; })[0].id)}"
+# A probe left by a run that failed before its teardown goes first, so every run starts clean.
+- evalScript: "${output.left = json(http.get(output.api + '/api/app/conversation/' + output.convId + '?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).messages.filter(function (m) { return m.content === 'PAD-676 day separator probe' && !m.isDeleted; }).map(function (m) { return http.delete(output.api + '/api/app/message/' + m.id, { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok; })}"
 - evalScript: "${output.sent = json(http.post(output.api + '/api/app/message', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ conversationId: output.convId, text: 'PAD-676 day separator probe' }) }).body)}"
 - assertTrue: "${output.sent.id != null}"
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayStartIndexes, messageDayKey, messageDayLabel } from "./message-day";
+import { groupByDay, messageDayKey, messageDayLabel } from "./message-day";
 
 // Wednesday 2026-10-21, 20:00 in Lisbon (summer time, UTC+1).
 const NOW = new Date("2026-10-21T19:00:00Z");
@@ -27,11 +27,22 @@ describe("messageDayLabel (PAD-676, conversation-detail rule 4a)", () => {
     expect(messageDayLabel("2026-10-20", en)).toBe("Yesterday");
     expect(messageDayLabel("2026-10-18", en)).toBe("Sunday");
     expect(messageDayLabel("2026-10-07", en)).toBe("Oct 7");
-    expect(messageDayLabel("2025-12-30", en)).toBe("Dec 30 2025");
+    expect(messageDayLabel("2025-12-30", en)).toBe("Dec 30, 2025");
   });
 
   it("treats a message a little ahead of the clock as today", () => {
     expect(messageDayLabel("2026-10-22", pt)).toBe("Hoje");
+  });
+
+  it("gives no label for an unparsable timestamp", () => {
+    expect(messageDayLabel(messageDayKey("not a date"), pt)).toBe("");
+  });
+
+  it("counts days on the Lisbon calendar across the October clock change", () => {
+    // 2026-10-25 is the last Sunday of October: Lisbon goes from UTC+1 to UTC+0.
+    const monday = new Date("2026-10-26T10:00:00Z");
+    expect(messageDayLabel("2026-10-25", { ...pt, now: monday })).toBe("Ontem");
+    expect(messageDayLabel("2026-10-24", { ...pt, now: monday })).toBe("Sábado");
   });
 });
 
@@ -46,8 +57,8 @@ describe("messageDayKey groups by the Lisbon date, not UTC", () => {
   });
 });
 
-describe("dayStartIndexes", () => {
-  it("opens a day at the first message and at every change of Lisbon date", () => {
+describe("groupByDay", () => {
+  it("opens a group at the first message and at every change of Lisbon date", () => {
     const stamps = [
       "2026-10-07T10:00:00Z", // two weeks ago
       "2026-10-18T09:00:00Z", // three days ago
@@ -55,7 +66,9 @@ describe("dayStartIndexes", () => {
       "2026-10-20T23:30:00Z", // 00:30 Lisbon on the 21st: today
       "2026-10-21T18:00:00Z",
     ];
-    expect(dayStartIndexes(stamps)).toEqual([0, 1, 3]);
-    expect(dayStartIndexes([])).toEqual([]);
+    const groups = groupByDay(stamps, (s) => s);
+    expect(groups.map((g) => g.day)).toEqual(["2026-10-07", "2026-10-18", "2026-10-21"]);
+    expect(groups.map((g) => g.items.length)).toEqual([1, 2, 2]);
+    expect(groupByDay([], (s: string) => s)).toEqual([]);
   });
 });

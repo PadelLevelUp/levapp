@@ -7,7 +7,7 @@ import {
   messagesApi,
   notificationEngineApi,
 } from "@levelup/api";
-import { dayStartIndexes, lightTheme, messageDayKey, messageDayLabel } from "@levelup/config";
+import { groupByDay, lightTheme, messageDayLabel } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
@@ -1267,18 +1267,15 @@ export default function ConversationScreen() {
     return map;
   }, [conversation?.messages]);
   // PAD-676 (messaging.conversation-detail rule 4a): the day separator above the first message of
-  // each club date, labelled as web labels it (`@levelup/config` message-day). Keyed by message id,
-  // and rebuilt only when the set of day starts changes, so the stable renderItem stays stable.
-  const dayStartsKey = React.useMemo(() => {
-    const list = conversation?.messages ?? [];
-    return dayStartIndexes(list.map((m) => m.timestamp))
-      .map((i) => `${list[i].id}=${messageDayKey(list[i].timestamp)}`)
-      .join("|");
+  // each club date, grouped and labelled as web does (`@levelup/config` message-day). Same dep as
+  // `messagesById`, which renderItem already depends on.
+  const dayStarts = React.useMemo(() => {
+    const starts = new Map<string, string>();
+    for (const group of groupByDay(conversation?.messages ?? [], (m) => m.timestamp)) {
+      starts.set(String(group.items[0].id), group.day);
+    }
+    return starts;
   }, [conversation?.messages]);
-  const dayStarts = React.useMemo(
-    () => new Map(dayStartsKey ? dayStartsKey.split("|").map((pair) => pair.split("=") as [string, string]) : []),
-    [dayStartsKey]
-  );
   const messagesByIdRef = React.useRef(messagesById);
   messagesByIdRef.current = messagesById;
   const stableOnLongPressMenu = React.useCallback(
