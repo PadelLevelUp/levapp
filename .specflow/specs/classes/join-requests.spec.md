@@ -162,6 +162,43 @@ by a student's request — and whichever lands first wins.
     - The student's own copy of the message never offers actions.
     - There's no "propose another time" for academy requests (coordinator, 2026-09-26).
 
+20. **A request names the side the student will play in that class (PAD-672 slice 1; owner's answers
+    Q1, Q2, Q6, 2026-10-21; numbering unconfirmed).** The profile side (`Association_CoachPlayer.side`)
+    stays the default and is never changed by a request.
+    - **Wire.** `POST /api/app/class-join-requests` takes `side`: `"left"`, `"right"` or `"both"`.
+      The request stores it (`class_join_requests.side`, nullable). Both request lists and the
+      coach's class payload return `side` on each row, and `suggestedProfileSide` (the request's
+      side when it is `left`/`right` and the student has no profile side, else `null`) so the coach
+      can adopt it for the profile (Q6). The clients pre-select the profile side and ask everyone,
+      `both` students included (Q1); for a student with no profile side the answer is mandatory.
+    - **Old clients keep today's behaviour (coordinator, binding).** The side round trip below exists
+      only for a client that declares the `join-side` capability (`X-LevApp-Capabilities`,
+      `client-capabilities` convention). A request without `side` from a client that does not
+      declare it — every App Store build up to 33 — is created exactly as before: no side check, no
+      409, `side` stored as the profile side (`null` when there is none). The token retires when
+      no client older than the first build that declares it can still be used (the App Store
+      minimum version moves past it).
+    - **A spot of that side** is an open vacancy of the class whose side is the requested one,
+      `both`, or none; for `side: "both"` any open vacancy. A class with free places but no open
+      vacancy yet (before its invitation window) has no side to refuse on: the request is taken.
+    - **No spot of that side, but one of another (capable clients only):** `409 side_full` with
+      `sides`, the sides of the open spots (`["right"]`), and no request is written. The client
+      shows two choices: play either side — the same request again with `side: "both"` — or join
+      the waiting list of that side (`classes.academy-class-booking` rule 6, with `side`).
+    - **Accepting** enrols the student with the request's side written on their presence for that
+      occurrence (`presences.side`, PAD-551's per-occurrence side) unless it is `both` or empty, and
+      closes a spot of that side (rule 6, `vacancy_for_joiner`, which reads that side).
+    - **A pending request whose side lost its last spot** (an invitation, another request or the
+      coach filled it while the coach had not answered) is **moved to that side's waiting list**
+      (Q2): it becomes `superseded` and an active waiting-list entry with its side is created (or an
+      existing one reactivated), in the same commit as the fill, and the student is told in their
+      conversation: pt "A vaga da {lado} em {aula} {quando} foi ocupada. Ficaste em lista de espera
+      da {lado}: avisamos-te se abrir uma vaga.", en "The {side} spot in {class} {when} was taken.
+      You're on the {side} waiting list: we'll let you know if a spot opens." A `both` request moves
+      only when the class has no open spot at all (rule 11's superseding, unchanged otherwise).
+    - Manual enrolment (Q8) sets the side through PAD-551's per-occurrence side
+      (`classes.instance-enrollment` rule 13); no new endpoint.
+
 ### Acceptance Criteria
 
 #### Eligible student requests an open spot

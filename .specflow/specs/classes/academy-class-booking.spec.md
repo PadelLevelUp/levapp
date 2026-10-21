@@ -91,6 +91,14 @@ point that composes them (PAD-358).
      `has_spots` (the class has room: request it instead) — except for a student whose invitation to
      that class the engine withdrew for side balance, who may join while it has places
      (`notifications.invitations` rule 2d, PAD-581).
+     **PAD-672 slice 1 (numbering unconfirmed):** the body may carry `side` (`left`|`right`|`both`),
+     stored on the entry (`waiting_list_entries.side`). With a side and the `join-side` capability
+     (`classes.join-requests` rule 20), `has_spots` refuses only when an open spot **of that side**
+     exists (a spot of the side, `both` or none; any spot for `both`); "not full, but no spot of my
+     side" is the reason to be on the list. Without the capability the join is as before (no side
+     check; `side` stored as the profile side or `null`). The standing list's
+     `POST /api/app/notify/standing_waiting_list` takes `side` the same way, chosen per entry (Q4),
+     and the entries it fans out carry it.
    - `POST /api/app/class-waiting-list/<lessonInstanceId>/leave` → `200 {lessonInstanceId,
      onWaitingList: false}`; deactivates the caller's active entry for that class, whatever its origin
      (rule 7); `404` when they have none.

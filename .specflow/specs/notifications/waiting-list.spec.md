@@ -111,6 +111,11 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
    - **Side, for a balance-withdrawn member (PAD-581, `notifications.invitations` rule 2d):** a
      member whose invitation to the class was withdrawn for side balance is in group 0 only for a
      spot of their own side or one with no side; a `both` or side-less member matches any spot.
+4d. **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
+    numbering unconfirmed).** A `left` (or `right`) entry is group 0 only for a vacancy whose side is
+    `left` (or `right`), `both` or none; a `both` entry, or one with no side (every entry before
+    PAD-672), for any vacancy. The join order is unchanged. A standing entry's side is chosen when it
+    is created (Q4) and copied to every entry it fans out.
 4a. **Waiting-list invitations are gated by eligibility.** A waiting-list student is invited only if
    they pass `effective_eligibility()` for that class (`eligibility.cascade`). The side rules of the
    coach's invitation groups do **not** apply to group 0: the invitation names the spot's side
