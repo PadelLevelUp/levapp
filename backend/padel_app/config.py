@@ -269,6 +269,10 @@ class Config:
     # messaging.sse-realtime rules 11-12 (PAD-277): SSE stream caps.
     SSE_MAX_STREAMS, SSE_MAX_STREAMS_PER_USER = sse_stream_limits()
     SSE_KEEPALIVE_SECONDS = sse_keepalive_seconds()
+    # messaging.sse-realtime rules 20-24 (PAD-692): `memory` (one process) or `postgres`
+    # (LISTEN/NOTIFY). The prod switch is a PR to the tracked env template, after staging.
+    SSE_BROKER = os.getenv("SSE_BROKER", "memory")
+    REALTIME_EVENTS_RETENTION_MINUTES = os.getenv("REALTIME_EVENTS_RETENTION_MINUTES", "10")
 
     # admin.foundation (PAD-531): the staff console. The Google OAuth client id
     # is public (the browser needs it too) and lives in the tracked env

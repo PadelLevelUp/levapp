@@ -160,6 +160,10 @@ def create_app(test_config=None):
     sql_db.init_db(app)
     cli.register_cli(app)
 
+    # messaging.sse-realtime rule 20 (PAD-692): which broker carries events between processes.
+    from padel_app import realtime
+    realtime.init_app(app)
+
     from .scheduler import init_scheduler
     init_scheduler(app, test_config=test_config)
 
