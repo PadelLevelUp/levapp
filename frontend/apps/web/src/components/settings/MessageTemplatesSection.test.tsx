@@ -197,3 +197,35 @@ describe("MessageTemplatesSection explains templates and previews them (PAD-549)
     expect(previewTemplate).toHaveBeenCalledWith("vaga para {day}, {name}");
   });
 });
+
+describe("MessageTemplatesSection — every placeholder in every field (PAD-670, message-templates rule 3a)", () => {
+  const ALL_KEYS = Object.keys(TEMPLATES) as (keyof MessageTemplates)[];
+  const VOCABULARY = ["{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{class}", "{when}"];
+
+  beforeEach(() => {
+    previewTemplate.mockReset().mockImplementation(async (template: string) => ({
+      text: template.replace("{day}", "amanhã"),
+      examples: { day: "amanhã" },
+    }));
+  });
+
+  it.each(ALL_KEYS)("offers the whole vocabulary and a preview on %s", async (key) => {
+    render(<Wrapper />);
+    const badges = screen.getByTestId(`template-variables-${key}`);
+    for (const token of VOCABULARY) expect(within(badges).getByText(token)).toBeTruthy();
+    expect(await screen.findByTestId(`template-preview-${key}`)).toBeTruthy();
+    // {side} stays on the waiting-list invitation alone
+    expect(within(badges).queryByText("{side}") !== null).toBe(key === "waiting_list_invite");
+  });
+
+  it("inserting {day} into reminder_declined shows the server's preview, amanhã", async () => {
+    render(<Wrapper />);
+    fireEvent.click(within(screen.getByTestId("template-variables-reminder_declined")).getByText("{day}"));
+    const area = within(screen.getByTestId("template-row-reminder_declined")).getByRole("textbox") as HTMLTextAreaElement;
+    expect(area.value).toContain("{day}");
+    await waitFor(
+      () => expect(screen.getByTestId("template-preview-reminder_declined").textContent).toContain("amanhã"),
+      { timeout: 2000 }
+    );
+  });
+});

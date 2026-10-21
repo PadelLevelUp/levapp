@@ -9,23 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { TemplateHelp, TemplatePreview } from "@/components/settings/TemplateHelp";
 
-// notifications.message-templates rule 3: every template that describes a class
-// takes the same vocabulary. {type}, {date} (dd/mm) and {court} are PAD-430's.
-// PAD-549: {day} says the day naturally ("amanhã", "a próxima segunda-feira"), at send time.
-const CLASS_VARIABLES = ["{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}"];
+// notifications.message-templates rule 3a (PAD-670): every template takes the same vocabulary, so a
+// field typed into ANY template is replaced when the message is sent. {type}, {date} (dd/mm) and
+// {court} are PAD-430's; {day} (PAD-549) says the day naturally; {class} (the title) and {when} came
+// with the "added to class" messages (PAD-489).
+const CLASS_VARIABLES = [
+  "{name}", "{level}", "{weekday}", "{time}", "{day}", "{type}", "{date}", "{court}", "{class}", "{when}",
+];
 
-// PAD-489: the two "added to class" messages also take {class} (the title) and {when}.
-const ADDED_VARIABLES = [...CLASS_VARIABLES, "{class}", "{when}"];
+// PAD-446 (rule 16): {side} names the spot's side, on the waiting-list invitation only.
+const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite"];
 
-const VARIABLE_HINTS: Partial<Record<keyof MessageTemplates, string[]>> = {
-  invite: CLASS_VARIABLES,
-  reminder: CLASS_VARIABLES,
-  reminder_followup: CLASS_VARIABLES,
-  // PAD-446 (message-templates rule 16): {side} names the spot's side, on this template only.
-  waiting_list_invite: [...CLASS_VARIABLES, "{side}"],
-  added_to_class: ADDED_VARIABLES,
-  added_to_class_coming: ADDED_VARIABLES,
-};
+const variablesFor = (key: keyof MessageTemplates): string[] =>
+  SIDE_VARIABLE_KEYS.includes(key) ? [...CLASS_VARIABLES, "{side}"] : CLASS_VARIABLES;
 
 const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   invite: "settings.templates.labels.invite",
@@ -131,22 +127,20 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
                   rows={2}
                   className="text-sm resize-none"
                 />
-                {/* PAD-549: the live preview with example values (class templates only). */}
-                {VARIABLE_HINTS[key] && <TemplatePreview template={local[key] ?? ""} templateKey={key} />}
-                {VARIABLE_HINTS[key] && VARIABLE_HINTS[key]!.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    {VARIABLE_HINTS[key]!.map((v) => (
-                      <Badge
-                        key={v}
-                        variant="secondary"
-                        className="cursor-pointer font-mono text-[10px] px-1.5 py-0.5"
-                        onClick={() => insertVariable(key, v)}
-                      >
-                        {v}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                {/* PAD-549 / PAD-670: the live preview with example values, under every field. */}
+                <TemplatePreview template={local[key] ?? ""} templateKey={key} />
+                <div className="flex flex-wrap gap-1 pt-0.5" data-testid={`template-variables-${key}`}>
+                  {variablesFor(key).map((v) => (
+                    <Badge
+                      key={v}
+                      variant="secondary"
+                      className="cursor-pointer font-mono text-[10px] px-1.5 py-0.5"
+                      onClick={() => insertVariable(key, v)}
+                    >
+                      {v}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
