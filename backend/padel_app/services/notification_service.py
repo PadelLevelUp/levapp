@@ -2436,9 +2436,13 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
+def _format_when(dt, locale: str = "en", *, dated: bool = False, weekday_first: bool = False) -> str:
     """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default, and
     ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``.
+
+    PAD-678 (rule 17's weekday-first form): ``weekday_first=True`` with ``dated=True`` puts the
+    weekday before the date — ' na sexta-feira, 16/10, às 09:00' / ' on Friday, 16/10, at 09:00' —
+    for the student's "Está marcado!" on an accepted join request.
 
     PAD-519 (notifications.message-templates rule 17): ``dated=True`` names the day of the
     month as well — ' no dia 10/04 (sábado) às 18:00' / ' on 10/04 (Saturday) at 18:00'. A
@@ -2461,6 +2465,10 @@ def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
     is_pt = (locale or "").startswith("pt")
+    if dated and weekday_first and weekday:
+        prep = "no" if dt.weekday() >= 5 else "na"
+        day_month = _format_day_month(dt)
+        return f" {prep} {weekday}, {day_month}, às {time_str}" if is_pt else f" on {weekday}, {day_month}, at {time_str}"
     if dated:
         # "dia" is masculine, so the day form needs no na/no switch on the weekday.
         day = _format_day_month(dt) + (f" ({weekday})" if weekday else "")

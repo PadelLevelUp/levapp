@@ -54,6 +54,11 @@ Customize the text of notification messages sent to players.
     cannot name it is ` no dia 10/04 às 18:00` / ` on 10/04 at 18:00`. The
     coach-editable templates are untouched: `{date}` stays opt-in there (rule 14), and the
     built-in defaults still read weekday-only unless the owner decides otherwise.
+    **Weekday-first form (PAD-678; numbering unconfirmed).** One notice puts the weekday before the
+    date: the student's "Está marcado!" on an accepted join request (`classes.join-requests`
+    rule 19). The same formatter writes it: pt ` na sexta-feira, 16/10, às 09:00` (`no` for
+    sábado/domingo, as for a series), en ` on Friday, 16/10, at 09:00`. Every other notice keeps the
+    ` no dia 10/04 (sábado) às 18:00` form above.
 18. **`{day}` says the class's day naturally (PAD-549; numbering unconfirmed).** Accepted by every
     template that describes a class (rule 3). It is computed when the message is rendered — in the
     engine, the moment it is sent, so a message held by quiet hours past midnight is right — on the

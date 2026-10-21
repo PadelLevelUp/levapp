@@ -150,6 +150,23 @@ def _localized(coach_user, pt: str, en: str) -> str:
     return pt if (not lang or str(lang).startswith("pt")) else en
 
 
+def _accepted_texts(instance: LessonInstance) -> tuple[str, str]:
+    """PAD-678 (rule 19): the pt and en "you are in the class" message for an accepted request. It
+    leads with the outcome and never says "pedido"/"aceite", which students read as a waiting-list
+    place. The pt text is the coach-approved one (2026-10-15); "inscrito/a" is literal."""
+    from padel_app.services.notification_service import _format_when
+
+    start = getattr(instance, "start_datetime", None)
+    pt_when = _format_when(start, "pt", dated=True, weekday_first=True)
+    en_when = _format_when(start, "en", dated=True, weekday_first=True)
+    pt_class = f"em {instance.title}" if instance.title else "na aula"
+    en_class = f"in {instance.title}" if instance.title else "in the class"
+    return (
+        f"Está marcado! Estás inscrito/a {pt_class}{pt_when}. Contamos contigo!",
+        f"You're booked! You're enrolled {en_class}{en_when}. See you there!",
+    )
+
+
 def _class_label(instance: LessonInstance, locale: str) -> str:
     from padel_app.services.notification_service import _format_class_when
 
@@ -414,11 +431,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     if coach_user_id and player_user_id:
         _send_system_message(
             coach_user_id, player_user_id,
-            _localized(
-                coach.user,
-                f"Estás dentro: o teu pedido para {_class_label(instance, 'pt')} foi aceite.",
-                f"You're in: your request for {_class_label(instance, 'en')} was accepted.",
-            ),
+            _localized(coach.user, *_accepted_texts(instance)),
             msg_metadata={"joinRequest": {"id": row.id, "status": "accepted"}},
             class_instance_id=instance.id,
         )
