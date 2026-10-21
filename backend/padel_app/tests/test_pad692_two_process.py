@@ -27,6 +27,8 @@ from pathlib import Path
 import pytest
 import requests
 
+from padel_app.tests.two_process_app import READY_LINE
+
 pytestmark = [
     pytest.mark.two_process,
     pytest.mark.skipif(
@@ -64,7 +66,7 @@ class Proc:
         self.lines = []
         self._cv = threading.Condition()
         threading.Thread(target=self._pump, daemon=True).start()
-        self.wait_for("HARNESS SERVING", 30)
+        self.wait_for(READY_LINE, 30)
 
     def _pump(self):
         for line in self.proc.stderr:
@@ -174,6 +176,9 @@ def _open_ready(b, broker, token):
     stream = Stream(b, token)
     if broker == "postgres":
         assert b.wait_for(LISTEN_READY, 10), "B's listener never reported LISTEN ready:\n" + "\n".join(b.lines[-20:])
+        # This stream started B's listener, so it was open before the first LISTEN: rule 24's resync.
+        first = stream.next(timeout=3)
+        assert first is not None and json.loads(first) == {"type": "resync"}, first
     return stream
 
 

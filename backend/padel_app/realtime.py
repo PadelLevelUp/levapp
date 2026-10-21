@@ -39,8 +39,9 @@ import logging
 import os
 import queue
 import random
-import select
+import selectors
 import threading
+import time
 from collections.abc import Iterable
 from datetime import datetime, timezone
 
@@ -82,22 +83,18 @@ _listener = None
 def init_app(app) -> None:
     """Choose the broker from ``SSE_BROKER`` for this process. Anything but ``postgres`` is
     ``memory``; ``postgres`` on a database that is not Postgres falls back to ``memory``."""
-    name = str(app.config.get("SSE_BROKER") or os.getenv("SSE_BROKER") or "memory").strip().lower()
+    from padel_app.config import realtime_retention_minutes, sse_broker
+
+    name = sse_broker(app.config.get("SSE_BROKER"))
     uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
-    if name not in BROKERS:
-        name = "memory"
     if name == "postgres" and not uri.startswith("postgresql"):
         logger.warning("SSE_BROKER=postgres falls back to memory: the database is not Postgres")
         name = "memory"
-    try:
-        retention = int(app.config.get("REALTIME_EVENTS_RETENTION_MINUTES") or DEFAULT_RETENTION_MINUTES)
-    except (TypeError, ValueError):
-        retention = DEFAULT_RETENTION_MINUTES
+    retention = realtime_retention_minutes(app.config.get("REALTIME_EVENTS_RETENTION_MINUTES"))
     with _broker_lock:
-        if (name, uri) != (_broker["name"], _broker["uri"]):
-            _stop_locked()
-        _broker.update(name=name, uri=uri if name == "postgres" else None,
-                       retention_minutes=max(retention, 1))
+        stale = _detach_locked() if (name, uri) != (_broker["name"], _broker["uri"]) else (None, None)
+        _broker.update(name=name, uri=uri if name == "postgres" else None, retention_minutes=retention)
+    _close(*stale)
 
 
 def broker_status() -> dict:
@@ -114,17 +111,24 @@ def broker_status() -> dict:
 def shutdown() -> None:
     """Stop this process's listener and close the publish pool (tests, and a reconfiguration)."""
     with _broker_lock:
-        _stop_locked()
+        stale = _detach_locked()
+    _close(*stale)
 
 
-def _stop_locked() -> None:
+def _detach_locked():
+    """Take the listener and the pool out of service under the lock; `_close` them after it, so a
+    listener's up-to-5 s join never holds up a publish waiting for `_publish_engine`."""
     global _engine, _listener
-    if _listener is not None:
-        _listener.stop()
-        _listener = None
-    if _engine is not None:
-        _engine.dispose()
-        _engine = None
+    stale = (_listener, _engine)
+    _listener = _engine = None
+    return stale
+
+
+def _close(listener, engine) -> None:
+    if listener is not None:
+        listener.stop()
+    if engine is not None:
+        engine.dispose()
 
 
 def _publish_engine():
@@ -145,7 +149,8 @@ def _publish_engine():
 # --- the local registry -------------------------------------------------------------------------
 
 def subscribe(user_id: int) -> queue.Queue:
-    """Register a queue for one open SSE connection belonging to ``user_id``."""
+    """Register a queue for one open SSE connection belonging to ``user_id``, and start this
+    process's listener if the broker is Postgres (rule 23). The route uses `try_subscribe`."""
     user_id = int(user_id)
     q: queue.Queue = queue.Queue()
     with _lock:
@@ -185,11 +190,7 @@ def try_subscribe(user_id: int, *, max_total: int, max_per_user: int):
         _subscribers[user_id] = queues[to_evict:] + [q]
 
     # Outside the lock, like publish(): a put must never block a subscribe.
-    for old in evicted:
-        try:
-            old.put_nowait(STOP)
-        except Exception:
-            pass
+    _put_all(evicted, STOP)
     if evicted:
         logger.info("SSE stream evicted: user=%s evicted=%s", user_id, len(evicted))
     # Rule 23: the first stream a process accepts starts its listener.
@@ -211,28 +212,27 @@ def unsubscribe(user_id: int, q: queue.Queue) -> None:
             del _subscribers[user_id]
 
 
-def _deliver_local(event, recipients: Iterable[int]) -> None:
-    with _lock:
-        # Snapshot under the lock; deliver outside it, so a slow put_nowait
-        # never blocks a subscribe.
-        targets = [q for uid in recipients for q in _subscribers.get(uid, ())]
-
-    for q in targets:
+def _put_all(queues, item) -> None:
+    for q in queues:
         try:
-            q.put_nowait(event)
+            q.put_nowait(item)
         except Exception:
             # One dead subscriber must never stop the others from being served.
             pass
 
 
+def _deliver_local(event, recipients: Iterable[int]) -> None:
+    with _lock:
+        # Snapshot under the lock; deliver outside it, so a slow put_nowait
+        # never blocks a subscribe.
+        targets = [q for uid in recipients for q in _subscribers.get(uid, ())]
+    _put_all(targets, event)
+
+
 def _resync_all() -> None:
     with _lock:
         targets = [q for queues in _subscribers.values() for q in queues]
-    for q in targets:
-        try:
-            q.put_nowait(dict(RESYNC_EVENT))
-        except Exception:
-            pass
+    _put_all(targets, dict(RESYNC_EVENT))
 
 
 # --- publish (rules 8, 21, 22) ------------------------------------------------------------------
@@ -291,14 +291,19 @@ _PRUNE_SQL = "DELETE FROM realtime_events WHERE created_at < now() - make_interv
 
 
 def prune_events(retention_minutes: int) -> None:
-    """Delete `realtime_events` rows older than the retention (rule 24)."""
+    """Delete `realtime_events` rows older than the retention (rule 24) — the listener's own step,
+    on a pool connection, for a caller that holds no listener."""
     conn = _publish_engine().raw_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(_PRUNE_SQL, {"m": int(retention_minutes)})
+            _prune(cur, retention_minutes)
         conn.commit()
     finally:
         conn.close()
+
+
+def _prune(cursor, retention_minutes: int) -> None:
+    cursor.execute(_PRUNE_SQL, {"m": int(retention_minutes)})
 
 
 # --- the listener (rules 23, 24) ----------------------------------------------------------------
@@ -322,18 +327,11 @@ def _in_arrival_order(ids, rows):
     return [by_id[i] for i in ids if i in by_id]
 
 
-def _connect_kwargs(uri: str) -> dict:
+def _listener_dsn(uri: str) -> str:
+    """The SQLAlchemy URI as a libpq URI (driver suffix dropped, every query option kept)."""
     from sqlalchemy.engine import make_url
 
-    url = make_url(uri)
-    kwargs = url.translate_connect_args(username="user", database="dbname")
-    kwargs.update({k: v for k, v in url.query.items() if isinstance(v, str)})
-    kwargs.update(
-        application_name=LISTENER_APPLICATION_NAME,
-        # A silently dead peer is noticed by TCP, not only by the next query.
-        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
-    )
-    return kwargs
+    return make_url(uri).set(drivername="postgresql").render_as_string(hide_password=False)
 
 
 class _Listener(threading.Thread):
@@ -357,15 +355,26 @@ class _Listener(threading.Thread):
             pass
         self.join(timeout=5)
 
-    def run(self) -> None:
+    def _connect(self):
         import psycopg2
 
+        return psycopg2.connect(
+            _listener_dsn(self._uri),
+            application_name=LISTENER_APPLICATION_NAME,
+            # A silently dead peer is noticed by TCP, not only by the next query.
+            keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
+        )
+
+    def run(self) -> None:
         attempt = 0
-        missed = False  # an event may have been missed: a connect failed, or a connection dropped
+        # Events may have been missed while nothing was LISTENing: before the first LISTEN (the
+        # stream that started this listener is already open), after a failed connect, after a
+        # dropped connection. Each LISTEN that follows such a gap resyncs every local stream.
+        missed = True
         while not self._stopping.is_set():
             conn = None
             try:
-                conn = psycopg2.connect(**_connect_kwargs(self._uri))
+                conn = self._connect()
                 conn.autocommit = True
                 with conn.cursor() as cur:
                     cur.execute(f"LISTEN {CHANNEL}")
@@ -373,7 +382,7 @@ class _Listener(threading.Thread):
                 logger.info("realtime listener: LISTEN ready")
                 attempt = 0
                 if missed:
-                    # Rule 24: streams that stayed open across the gap catch up as after a re-open.
+                    # Rule 24: streams open across the gap catch up as after their own re-open.
                     _resync_all()
                     missed = False
                 self._loop(conn)
@@ -400,28 +409,45 @@ class _Listener(threading.Thread):
                 pass
 
     def _loop(self, conn) -> None:
-        import time
+        # A selector, not select.select: a busy process holds hundreds of sockets, and select()
+        # refuses any descriptor at or above FD_SETSIZE (1024).
+        with selectors.DefaultSelector() as selector:
+            selector.register(conn, selectors.EVENT_READ)
+            selector.register(self._wake_r, selectors.EVENT_READ)
+            last_prune = 0.0
+            while not self._stopping.is_set():
+                if time.monotonic() - last_prune >= PRUNE_EVERY_SECONDS:
+                    self._prune_step(conn)
+                    last_prune = time.monotonic()
+                # A notification that arrived during any query on this connection (the prune, a
+                # fetch) is already filed in conn.notifies and leaves the socket unreadable:
+                # serve those first, or the wait below sleeps a whole poll interval on them.
+                if not conn.notifies:
+                    ready = selector.select(LISTEN_POLL_SECONDS)
+                    if any(key.fileobj == self._wake_r for key, _ in ready):
+                        return
+                    conn.poll()
+                ids = []
+                while conn.notifies:
+                    note = conn.notifies.pop(0)
+                    if note.channel == CHANNEL:
+                        try:
+                            ids.append(int(note.payload))
+                        except ValueError:
+                            pass
+                if ids:
+                    self._deliver(conn, ids)
 
-        last_prune = 0.0
-        while not self._stopping.is_set():
-            if time.monotonic() - last_prune >= PRUNE_EVERY_SECONDS:
-                with conn.cursor() as cur:
-                    cur.execute(_PRUNE_SQL, {"m": self._retention})
-                last_prune = time.monotonic()
-            ready, _, _ = select.select([conn, self._wake_r], [], [], LISTEN_POLL_SECONDS)
-            if self._wake_r in ready:
-                return
-            conn.poll()
-            ids = []
-            while conn.notifies:
-                note = conn.notifies.pop(0)
-                if note.channel == CHANNEL:
-                    try:
-                        ids.append(int(note.payload))
-                    except ValueError:
-                        pass
-            if ids:
-                self._deliver(conn, ids)
+    def _prune_step(self, conn) -> None:
+        """A failed prune is logged, not taken for a lost connection (which would resync every
+        stream); only a connection that is really closed goes on to the reconnect."""
+        try:
+            with conn.cursor() as cur:
+                _prune(cur, self._retention)
+        except Exception:  # noqa: BLE001
+            if conn.closed:
+                raise
+            logger.warning("realtime listener: prune failed", exc_info=True)
 
     def _deliver(self, conn, ids) -> None:
         with conn.cursor() as cur:

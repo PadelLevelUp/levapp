@@ -134,6 +134,9 @@ def test_listener_delivers_to_local_streams_with_scoping(pg_app):
     q_v = realtime.subscribe(2)
     realtime.ensure_listener()
     assert _wait(lambda: realtime.broker_status()["listening"], 10)
+    # Both streams were open before the first LISTEN, so each is told to resync first.
+    assert q_u.get(timeout=1) == {"type": "resync"}
+    assert q_v.get(timeout=1) == {"type": "resync"}
 
     event = {"type": "message_created", "payload": {"id": 9}}
     with pg_app.app_context():
@@ -168,3 +171,118 @@ def _wait(predicate, timeout):
             return True
         time.sleep(0.05)
     return False
+
+
+# --- review round 1 (missing-test signals) ------------------------------------------------------
+
+@needs_postgres
+def test_a_stream_open_before_the_first_listen_gets_a_resync(pg_app, monkeypatch):
+    """The first stream starts the listener, so it is registered before LISTEN returns; an event
+    published in that window reaches nobody. The stream must be told to resync (rule 24)."""
+    import threading
+
+    gate = threading.Event()
+    real_connect = realtime._Listener._connect
+
+    def slow_connect(self):
+        gate.wait(10)  # only the listener waits; the publish pool connects as usual
+        return real_connect(self)
+
+    monkeypatch.setattr(realtime._Listener, "_connect", slow_connect)
+    q = realtime.subscribe(1)  # starts the listener, which now waits at connect
+    with pg_app.app_context():
+        realtime.publish({"type": "notify_sent", "payload": {}}, [1])  # nobody is LISTENing yet
+    gate.set()
+    assert q.get(timeout=5) == {"type": "resync"}
+
+
+@needs_postgres
+def test_a_failing_prune_does_not_reconnect_or_resync(pg_app, monkeypatch, caplog):
+    monkeypatch.setattr(realtime, "_PRUNE_SQL", "DELETE FROM realtime_events_no_such_table")
+    q = realtime.subscribe(1)
+    assert _wait(lambda: realtime.broker_status()["listening"], 10)
+    q.get(timeout=1)  # the first-LISTEN resync (previous cell)
+    with caplog.at_level(logging.WARNING, logger="padel_app.realtime"):
+        time.sleep(2.5)
+    with pytest.raises(queue.Empty):
+        q.get_nowait()
+    assert realtime.broker_status()["listening"]
+    assert not any("connection lost" in r.getMessage() for r in caplog.records)
+
+
+@needs_postgres
+def test_listener_survives_file_descriptors_above_fd_setsize(pg_app):
+    """A busy process holds hundreds of sockets; `select.select` refuses a descriptor >= 1024."""
+    import resource
+
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    want = 1400
+    if soft < want:
+        if hard != resource.RLIM_INFINITY and hard < want:
+            pytest.skip(f"RLIMIT_NOFILE hard limit {hard} < {want}")
+        resource.setrlimit(resource.RLIMIT_NOFILE, (want, hard))
+    pipes = []
+    try:
+        while not pipes or pipes[-1][1] < 1100:
+            pipes.append(os.pipe())
+        q = realtime.subscribe(1)
+        assert _wait(lambda: realtime.broker_status()["listening"], 10)
+        q.get(timeout=1)  # first-LISTEN resync
+        event = {"type": "notify_sent", "payload": {"n": 1}}
+        with pg_app.app_context():
+            realtime.publish(event, [1])
+        assert q.get(timeout=3) == event
+    finally:
+        realtime.shutdown()
+        for r, w in pipes:
+            os.close(r)
+            os.close(w)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+
+@needs_postgres
+def test_stopping_the_listener_never_holds_up_a_publish(pg_app, monkeypatch):
+    import threading
+
+    realtime._publish_engine()
+    realtime.ensure_listener()
+    real_stop = realtime._Listener.stop
+
+    def slow_stop(self):
+        time.sleep(3)
+        real_stop(self)  # really stop it: a listener left running outlives the test database
+
+    monkeypatch.setattr(realtime._Listener, "stop", slow_stop)
+    stopper = threading.Thread(target=realtime.shutdown)
+    stopper.start()
+    time.sleep(0.2)
+    started = time.monotonic()
+    realtime._publish_engine()
+    assert time.monotonic() - started < 1
+    stopper.join()
+
+
+def test_listener_dsn_keeps_every_query_option():
+    dsn = realtime._listener_dsn(
+        "postgresql+psycopg2://u:p%40ss@db:5433/levapp?sslmode=require&connect_timeout=5"
+    )
+    assert dsn.startswith("postgresql://u:p%40ss@db:5433/levapp?")
+    assert "sslmode=require" in dsn and "connect_timeout=5" in dsn
+
+
+@needs_postgres
+def test_a_notify_that_arrives_during_a_listener_query_is_not_delayed(pg_app, monkeypatch):
+    """psycopg2 files a notification that arrives during a query into `conn.notifies`; the socket
+    is then no longer readable, so a listener that waits in select first sleeps the full poll
+    interval (seen once in the harness: 4.7 s). The prune runs right after LISTEN; hold it 1.5 s."""
+    monkeypatch.setattr(realtime, "_PRUNE_SQL", "SELECT pg_sleep(1.5) -- %(m)s")
+    monkeypatch.setattr(realtime, "LISTEN_POLL_SECONDS", 30)
+    q = realtime.subscribe(1)
+    assert _wait(lambda: realtime.broker_status()["listening"], 10)
+    q.get(timeout=1)  # the first-LISTEN resync
+    event = {"type": "notify_sent", "payload": {"n": 2}}
+    started = time.monotonic()
+    with pg_app.app_context():
+        realtime.publish(event, [1])  # lands while the prune holds the connection
+    assert q.get(timeout=10) == event
+    assert time.monotonic() - started < 3

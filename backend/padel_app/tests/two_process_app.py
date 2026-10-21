@@ -36,6 +36,8 @@ def build_app():
         "SSE_KEEPALIVE_SECONDS": 1,
         "ADMIN_HOSTS": ("admin.localhost",),
     })
+    # Bound inside an app context, as the test fixtures do: the scratch database already has the
+    # schema (the pytest session migrated it), this only attaches the session to this app.
     with app.app_context():
         init_db(app)
 

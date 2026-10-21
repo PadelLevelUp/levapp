@@ -148,7 +148,10 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     migrations, a worker) never start a listener.
 24. **(PAD-692; unconfirmed) NOTIFY is not durable; a gap ends in a resync.** If the listener's
     connection drops, the listener reconnects with back-off (1 s doubling to 30 s, jittered), runs
-    `LISTEN` again, and then puts `{"type": "resync"}` into **every** open local stream. Clients
+    `LISTEN` again, and then puts `{"type": "resync"}` into **every** open local stream. The
+    same holds for the **first** LISTEN of a process: the stream that started the listener was
+    open before LISTEN returned, so it gets a resync too. A failing prune is logged and never
+    treated as a lost connection. Clients
     answer it exactly as they answer their own re-open (rule 19, PAD-616), so a stream that stayed
     open across the server's gap still catches up. Nothing is replayed from the table. A process
     that was down holds no streams; its clients reconnect and resync by rule 19. The listener also
@@ -307,6 +310,16 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **Given** `SSE_BROKER=postgres` on the SQLite test database
 - **When** the app starts and an event is published to a local stream
 - **Then** one WARNING names the fallback and the local stream receives the event as with `memory`
+
+#### A stream open before the first LISTEN is told to resync (rule 24)
+- **Given** `SSE_BROKER=postgres` and a process with no listener yet
+- **When** a user's stream starts the listener, and an event is published before its LISTEN returns
+- **Then** that stream receives `{"type": "resync"}` once the listener is listening
+
+#### A failing prune is not a lost connection (rule 24)
+- **Given** a listening listener whose prune statement fails
+- **When** the prune runs
+- **Then** a WARNING is logged, the listener stays listening, and no stream receives a resync
 
 ### Notes
 - The registry is in memory and nothing persists across restarts; with `postgres`, event rows live

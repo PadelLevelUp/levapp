@@ -20,8 +20,10 @@ depends_on = None
 
 
 def upgrade():
-    bind = op.get_bind()
-    if not inspect(bind).has_table('realtime_events'):
+    # The columns and the index mirror padel_app/models/realtime_event.py (`flask db check` holds
+    # the two together).
+    insp = inspect(op.get_bind())
+    if not insp.has_table('realtime_events'):
         op.create_table(
             'realtime_events',
             sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), primary_key=True),
@@ -29,7 +31,8 @@ def upgrade():
             sa.Column('user_ids', sa.Text(), nullable=False),
             sa.Column('body', sa.Text(), nullable=False),
         )
-    existing = {ix['name'] for ix in inspect(bind).get_indexes('realtime_events')}
+    insp = inspect(op.get_bind())  # fresh: the cached one predates the create_table above
+    existing = {ix['name'] for ix in insp.get_indexes('realtime_events')}
     if 'ix_realtime_events_created_at' not in existing:
         op.create_index('ix_realtime_events_created_at', 'realtime_events', ['created_at'])
 
