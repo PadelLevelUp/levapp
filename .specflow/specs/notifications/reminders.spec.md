@@ -80,8 +80,8 @@ Automatically send class reminders to enrolled players at a configured time befo
     `init_scheduler` returns without starting APScheduler when the process is a migration
     (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
     `run`. That holds whether the process was launched as the `flask` console script or as
-    `python -m flask`, which is how the production entrypoint (`backend/scripts/entrypoint.sh`)
-    runs `db upgrade`. Server processes (gunicorn, `flask run`, including `flask --app app.py
+    `python -m flask`, which is how production runs `db upgrade` (the deploy's migrate step,
+    `padel_app.migrate`, since PAD-691; the container entrypoint before it). Server processes (gunicorn, `flask run`, including `flask --app app.py
     run`) start it as before. Before this, `python -m flask … db upgrade` put `sys.argv[0]` at
     `flask/__main__.py`, the guard missed it, and every deploy's migration started the
     scheduler: jobs could fire against a half-migrated schema and the startup reschedule ran
@@ -356,7 +356,7 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **And** for a class stored at 10:00 on 2026-01-13, a pass at 09:30 UTC (09:30 Lisbon) sends it
 
 #### The scheduler does not start inside a migration (PAD-264)
-- **Given** the production entrypoint running `python -m flask --app app.py db upgrade`
+- **Given** the production migrate step running `python -m flask --app app.py db upgrade`
 - **When** the app factory runs
 - **Then** APScheduler is not started and no reminder job is rescheduled
 - **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it

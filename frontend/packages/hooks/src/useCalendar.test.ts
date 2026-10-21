@@ -37,13 +37,13 @@ describe("useCalendar selected day", () => {
     expect(day(result.current.selectedDay)).toBe("2026-09-11");
   });
 
-  it("paging to a week without today reselects that week's Monday", () => {
+  it("paging to a week without today reselects that week's first day (Sunday)", () => {
     const { result } = renderHook(() => useCalendar([]));
     act(() => result.current.navigateWeek("next"));
-    expect(day(result.current.selectedDay)).toBe("2026-09-14");
+    expect(day(result.current.selectedDay)).toBe("2026-09-13");
   });
 
-  it("paging back into today's week reselects today, not Monday", () => {
+  it("paging back into today's week reselects today, not Sunday", () => {
     const { result } = renderHook(() => useCalendar([]));
     act(() => result.current.navigateWeek("next"));
     act(() => result.current.navigateWeek("prev"));
@@ -62,7 +62,7 @@ describe("useCalendar selected day", () => {
       useCalendar([], { initialDate: new Date("2026-09-22T00:00:00") })
     );
     expect(day(result.current.selectedDay)).toBe("2026-09-22");
-    expect(day(result.current.weekStart)).toBe("2026-09-21");
+    expect(day(result.current.weekStart)).toBe("2026-09-20");
   });
 });
 
@@ -106,10 +106,10 @@ describe("useCalendar month", () => {
     expect(ptHook.result.current.monthLabel).toBe("Setembro 2026");
   });
 
-  it("exposes the grid range covering the month (Mon 31 Aug – Sun 4 Oct)", () => {
+  it("exposes the grid range covering the month (Sun 30 Aug – Sat 3 Oct)", () => {
     const { result } = renderHook(() => useCalendar([]));
-    expect(day(result.current.monthRange.start)).toBe("2026-08-31");
-    expect(day(result.current.monthRange.end)).toBe("2026-10-04");
+    expect(day(result.current.monthRange.start)).toBe("2026-08-30");
+    expect(day(result.current.monthRange.end)).toBe("2026-10-03");
     expect(result.current.monthDays).toHaveLength(35);
   });
 
@@ -119,7 +119,13 @@ describe("useCalendar month", () => {
     act(() => result.current.navigateMonth("next"));
     expect(result.current.monthLabel).toBe("October 2026");
     expect(day(result.current.selectedDay)).toBe("2026-10-01");
-    expect(day(result.current.weekStart)).toBe("2026-09-28");
+    expect(day(result.current.weekStart)).toBe("2026-09-27");
+  });
+
+  it("week start for Wednesday 2026-10-21 is Sunday 2026-10-18 (PAD-682)", () => {
+    vi.setSystemTime(new Date("2026-10-21T10:00:00"));
+    const { result } = renderHook(() => useCalendar([]));
+    expect(day(result.current.weekStart)).toBe("2026-10-18");
   });
 
   it("paging back into today's month reselects today", () => {
@@ -133,7 +139,7 @@ describe("useCalendar month", () => {
     const { result } = renderHook(() => useCalendar([]));
     act(() => result.current.selectDay(new Date("2026-09-24T00:00:00")));
     expect(day(result.current.selectedDay)).toBe("2026-09-24");
-    expect(day(result.current.weekStart)).toBe("2026-09-21");
+    expect(day(result.current.weekStart)).toBe("2026-09-20");
   });
 
   it("monthEvents holds every event inside the grid range", () => {

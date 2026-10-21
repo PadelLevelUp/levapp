@@ -44,7 +44,7 @@ import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { RecurrenceEndChoice } from "@/features/calendar/recurrence-end-choice";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
-import { endFromUsualLength, usualClassMinutes } from "@levelup/config";
+import { endFromUsualLength, usualClassMinutes, WEEKDAYS_FROM_WEEK_START } from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { useAddClass } from "@/features/calendar/hooks";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
@@ -61,9 +61,9 @@ import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
 const COLORS: readonly string[] = CLASS_COLOR_SWATCHES;
 
-// Monday-first, matching the web AddClassSheet. Initials and day names come
+// Week-start-first (Sunday, calendar.view rule 5a / PAD-682), matching the web AddClassSheet. Initials and day names come
 // from availability.dayInitials.<n> / availability.days.<n>, keyed by getDay().
-const DAYS_OF_WEEK = [1, 2, 3, 4, 5, 6, 0];
+const DAYS_OF_WEEK = WEEKDAYS_FROM_WEEK_START;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
