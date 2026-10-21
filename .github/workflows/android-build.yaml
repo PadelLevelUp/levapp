@@ -30,8 +30,10 @@ name: Android build
 # the APK — so mobile-touching PRs and batch PRs do not pay the ~75 min of the
 # whole suite. The WHOLE suite (`.` = the workspace in config.yaml's flowsOrder,
 # continueOnFailure) runs nightly on the schedule below and on demand through
-# workflow_dispatch (its `flows` input defaults to `.`). The maestro job's
-# timeout is sized for the whole suite.
+# workflow_dispatch (its `flows` input defaults to `.`). Since PAD-710 the whole
+# suite runs as parallel shards cut by flow name (.maestro/android-shards.json,
+# delivery.android-nightly-lane), each under a watchdog that names a slow flow; a
+# PR that changes the lane itself runs the whole suite as shards too.
 
 on:
   pull_request:
@@ -73,6 +75,7 @@ jobs:
     timeout-minutes: 60
     outputs:
       built: ${{ steps.filter.outputs.mobile }}
+      shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
 
@@ -89,6 +92,31 @@ jobs:
               - 'frontend/package.json'
               - 'frontend/package-lock.json'
               - '.github/workflows/android-build.yaml'
+            lane:
+              - '.github/workflows/android-build.yaml'
+              - 'frontend/apps/mobile/scripts/ci-android-maestro.sh'
+              - 'frontend/apps/mobile/scripts/maestro-shards.mjs'
+              - 'frontend/apps/mobile/.maestro/android-shards.json'
+
+      # PAD-710 (delivery.android-nightly-lane rule 1): the whole suite runs as parallel shards
+      # (the schedule, a dispatch of `.`, a PR that changes the lane itself); anything else is one
+      # job ("all") running MAESTRO_FLOWS. The planner refuses a shard file that drops, doubles or
+      # splits a flow chain, before an emulator is booted.
+      - name: Plan the Maestro shards
+        id: plan
+        env:
+          FLOWS_INPUT: ${{ github.event.inputs.flows }}
+          LANE_CHANGED: ${{ steps.filter.outputs.lane }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = schedule ] || { [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "${FLOWS_INPUT:-.}" = . ]; } || [ "$LANE_CHANGED" = true ]; then
+            node frontend/apps/mobile/scripts/maestro-shards.mjs check
+            shards=$(node frontend/apps/mobile/scripts/maestro-shards.mjs matrix)
+          else
+            shards='["all"]'
+          fi
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+          echo "Maestro shards: $shards"
 
       - uses: actions/setup-node@v4
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
@@ -181,11 +209,20 @@ jobs:
           retention-days: 14
 
   maestro:
-    name: Maestro on an Android emulator
+    name: Maestro on an Android emulator (${{ matrix.shard }})
     needs: apk
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || needs.apk.outputs.built == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 100  # the full ~36-flow suite is ~60 min of emulator time (PAD-298)
+    # PAD-710 (delivery.android-nightly-lane rules 2 and 4): the whole suite (~131 flows, ~200 min
+    # of emulator time) outgrew one 100-min job and was cancelled every night from 2026-10-08. Each
+    # shard is its own job with its own emulator and freshly seeded database; the watchdog in
+    # ci-android-maestro.sh stops a shard at 75 min (or a flow at 12), naming the flow, before
+    # this cap could turn the run into "cancelled".
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.apk.outputs.shards) }}
     services:
       postgres:
         # PAD-653 (delivery.ci-images rule 4): our own GHCR copy of postgres:15, refreshed weekly by
@@ -201,7 +238,7 @@ jobs:
           POSTGRES_DB: postgres
         ports: [ "5432:5432" ]
         options: >-
-          --health-cmd "pg_isready -U padel_app_user"
+          --health-cmd "pg_isready -U padel_app_user -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       # Isolation (PAD-218 rules): this lane owns its own database name.
@@ -216,6 +253,8 @@ jobs:
       # dispatch input → `.` on the nightly schedule → the PR smoke list.
       # (the `env` context is not available in a job-level env block, so the smoke list is spelled out here too)
       MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml' }}
+      # A shard number runs that shard of the whole suite (scripts/maestro-shards.mjs); "all" runs MAESTRO_FLOWS.
+      MAESTRO_SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v4
 
@@ -338,7 +377,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: maestro-results
+          name: maestro-results-${{ matrix.shard }}
           path: maestro-results
           if-no-files-found: warn
           retention-days: 14

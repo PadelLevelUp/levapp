@@ -44,3 +44,6 @@ yarn-error.*
 # curated composites go in .maestro/evidence/ instead.
 screenshots/
 screenshots-control/
+
+# PAD-710: the per-shard workspace config ci-android-maestro.sh generates (scripts/maestro-shards.mjs).
+.maestro/shard-*.config.yaml
