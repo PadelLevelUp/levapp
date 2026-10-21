@@ -96,7 +96,7 @@ point that composes them (PAD-358).
      (`classes.join-requests` rule 20), `has_spots` refuses only when an open spot **of that side**
      exists (a spot of the side, `both` or none; any spot for `both`); "not full, but no spot of my
      side" is the reason to be on the list. Without the capability the join is as before (no side
-     check; `side` stored as the profile side or `null`). The standing list's
+     check; `side` stored as the profile side or `null`). The answer echoes the stored `side`. The standing list's
      `POST /api/app/notify/standing_waiting_list` takes `side` the same way, chosen per entry (Q4),
      and the entries it fans out carry it.
    - `POST /api/app/class-waiting-list/<lessonInstanceId>/leave` → `200 {lessonInstanceId,

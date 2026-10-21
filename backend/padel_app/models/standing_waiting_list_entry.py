@@ -1,5 +1,5 @@
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Index, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import relationship
 
 from padel_app import model
@@ -45,6 +45,8 @@ class StandingWaitingListEntry(db.Model, model.Model):
     # PAD-560 (rule 19): the entry covers the whole series; false is a dated window (rule 19a).
     whole_series = Column(Boolean, default=False, nullable=False, server_default="0")
     is_active = Column(Boolean, default=True, nullable=False)
+    # PAD-672 (waiting-list rule 4d, Q4): chosen per entry, copied to the entries it fans out.
+    side = Column(String(5), nullable=True)
     created_at = Column(DateTime, default=lambda: utcnow_naive())
 
     coach = relationship("Coach")

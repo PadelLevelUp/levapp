@@ -169,7 +169,9 @@ by a student's request — and whichever lands first wins.
       The request stores it (`class_join_requests.side`, nullable). Both request lists and the
       coach's class payload return `side` on each row, and `suggestedProfileSide` (the request's
       side when it is `left`/`right` and the student has no profile side, else `null`) so the coach
-      can adopt it for the profile (Q6). The clients pre-select the profile side and ask everyone,
+      can adopt it for the profile (Q6). The student's own class payload, each open-spot calendar
+      event and the academy-classes step carry `profileSide` (`left`|`right`|`both`|null, the student's
+      side with that class's coach) for the picker. The clients pre-select it and ask everyone,
       `both` students included (Q1); for a student with no profile side the answer is mandatory.
     - **Old clients keep today's behaviour (coordinator, binding).** The side round trip below exists
       only for a client that declares the `join-side` capability (`X-LevApp-Capabilities`,
@@ -182,14 +184,16 @@ by a student's request — and whichever lands first wins.
       `both`, or none; for `side: "both"` any open vacancy. A class with free places but no open
       vacancy yet (before its invitation window) has no side to refuse on: the request is taken.
     - **No spot of that side, but one of another (capable clients only):** `409 side_full` with
-      `sides`, the sides of the open spots (`["right"]`), and no request is written. The client
+      `sides`, the sides of the open spots (`["right"]`), and `requestedSide`, and no request is
+      written. The client
       shows two choices: play either side — the same request again with `side: "both"` — or join
       the waiting list of that side (`classes.academy-class-booking` rule 6, with `side`).
     - **Accepting** enrols the student with the request's side written on their presence for that
       occurrence (`presences.side`, PAD-551's per-occurrence side) unless it is `both` or empty, and
       closes a spot of that side (rule 6, `vacancy_for_joiner`, which reads that side).
-    - **A pending request whose side lost its last spot** (an invitation, another request or the
-      coach filled it while the coach had not answered) is **moved to that side's waiting list**
+    - **A pending request whose side lost its last spot** (an invitation's "yes" or another accepted
+      request filled it — rule 10's fill paths — while the coach had not answered) is **moved to that
+      side's waiting list**
       (Q2): it becomes `superseded` and an active waiting-list entry with its side is created (or an
       existing one reactivated), in the same commit as the fill, and the student is told in their
       conversation: pt "A vaga da {lado} em {aula} {quando} foi ocupada. Ficaste em lista de espera
