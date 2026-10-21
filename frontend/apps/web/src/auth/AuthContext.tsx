@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { QueryClientContext } from "@tanstack/react-query";
 import { getMe, MeResponse } from "@/api/auth";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
@@ -46,6 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     USE_MOCK_DATA ? "mock-token" : getViewAsToken() ?? localStorage.getItem("accessToken")
   );
   const [user, setUser] = useState<MeResponse | null>(null);
+  // auth.logout rule 6 (PAD-716): the app's query cache, cleared when a session ends or starts. Read
+  // through the context (not useQueryClient) so a provider-less test render still mounts.
+  const queryClient = useContext(QueryClientContext);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   const login = async (newToken: string) => {
+    // auth.logout rule 6 (PAD-716): the new account starts from an empty cache.
+    queryClient?.clear();
     localStorage.setItem("accessToken", newToken);
     setToken(newToken);
 
@@ -117,6 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // PAD-532: leaving a view-as discards its token only; the tab's own session is untouched.
       endViewAs();
       setToken(USE_MOCK_DATA ? "mock-token" : localStorage.getItem("accessToken"));
+      // auth.logout rule 6: what was cached belongs to the viewed account.
+      queryClient?.clear();
       setUser(null);
       return;
     }
@@ -127,6 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     localStorage.removeItem("accessToken");
     setToken(USE_MOCK_DATA ? "mock-token" : null);
+    // auth.logout rule 6 (PAD-716, B-601): the next account in this tab must not be served this one's
+    // cached answers (60 s fresh), and the web signs out without a reload. After the token is gone.
+    queryClient?.clear();
     setUser(null);
   };
 
