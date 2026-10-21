@@ -181,6 +181,21 @@ def test_an_upstream_no_vhost_uses_still_means_stop_first(sb):
     assert containers(sb) == {"padelapp": "5000"}
 
 
+def test_a_vhost_enabled_by_symlink_is_seen_and_the_deploy_rolls(sb, tmp_path):
+    """B-662: Debian's sites-enabled holds symlinks into sites-available. GNU `grep -r` skips a
+    symlink met while recursing, so every deploy after the host apply fell back to stop-first."""
+    available = tmp_path / "sites-available"
+    available.mkdir()
+    (sb["sites"] / "levapp").rename(available / "levapp")
+    (sb["sites"] / "levapp").symlink_to(available / "levapp")
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "no enabled vhost" not in r.stdout
+    assert any(c.startswith("docker run -d --name padelapp_next -p 127.0.0.1:5002:80") for c in calls)
+    assert containers(sb) == {"padelapp": "5002"}
+
+
 WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
 
