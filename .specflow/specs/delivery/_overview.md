@@ -28,6 +28,8 @@ they have behaviour worth specifying.
   copy, refreshed weekly from ECR Public or Docker Hub, never a public registry's anonymous quota)
 - `delivery.backend-ci-lanes` — implementing (PAD-654: SQLite in one job; Postgres as two pytest-split
   shards of 60 min each, plus a job that checks the shards run every test exactly once)
+- `delivery.android-nightly-lane` — implementing (PAD-710: the nightly Android Maestro suite as
+  parallel shards cut by flow name, each under a watchdog that turns a slow flow into a named red)
 
 ## Why it's grouped this way
 
