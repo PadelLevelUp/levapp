@@ -104,7 +104,7 @@ export function PlayerSelector({
                   >
                     <Checkbox checked />
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                      {getInitials(player.name)}
+                      {getInitials(player.displayName || player.name)}
                     </div>
                     <span className="text-sm truncate flex-1">{player.displayName || player.name}</span>
                   </div>
@@ -195,7 +195,7 @@ export function PlayerSelector({
                 >
                   <Checkbox checked={selected} />
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                    {getInitials(player.name)}
+                    {getInitials(player.displayName || player.name)}
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span className="text-sm truncate">{player.displayName || player.name}</span>

@@ -37,3 +37,18 @@ describe("describeImpact", () => {
     expect(impactStudentCount([])).toBe(0);
   });
 });
+
+describe("the coach's display name from the server (PAD-683, players.nickname rule 9a)", () => {
+  it("describeIneligible and describeImpact print displayName when the row carries it", () => {
+    const failures = [] as never[];
+    expect(describeIneligible([{ playerId: 7, name: "Jorge Silva", displayName: "Jorge chato", failures }])[0].name).toBe(
+      "Jorge chato"
+    );
+    expect(
+      describeImpact([
+        { playerId: 7, name: "Jorge Silva", displayName: "Jorge chato", instanceId: 1, classTitle: null, startDatetime: null, failures },
+      ])[0].name
+    ).toBe("Jorge chato");
+    expect(describeIneligible([{ playerId: 8, name: "Rui", failures }])[0].name).toBe("Rui");
+  });
+});
