@@ -208,6 +208,10 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado
     esquerdo", "right side" / "lado direito"); for a `both` or empty side it renders nothing, and the
     message says nothing about sides.
+16a. **A waiting-list invitation can move to a sibling spot of the same side (PAD-679; numbering
+    unconfirmed).** When its spot closes or flips side, a live group-0 invitation moves to another
+    open spot of the class under `notifications.invitations` rule 18a, and only to one of the same
+    side as its own (or any, when its own had none), since its message named the side.
 17. **No placement message, no placement event.** The `waiting_list_placed` template and the coach's
     `waiting_list_filled` live event are retired: a waiting-list student who says yes gets the
     accept's `confirm` message, and the coach sees the same `notification_responded` event as for any

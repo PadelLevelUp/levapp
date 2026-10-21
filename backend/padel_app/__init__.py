@@ -1,11 +1,9 @@
 import os
 from datetime import datetime, timezone, timedelta
-from tempfile import mkdtemp
 
 from flask import Flask
 from flask_cors import CORS
 from flask_assets import Bundle, Environment
-from flask_session import Session
 from flask_jwt_extended import JWTManager, get_jwt, get_jwt_identity, create_access_token
 from .auth import register_jwt_handlers
 
@@ -118,9 +116,6 @@ def create_app(test_config=None):
 
     with app.app_context():
         modules.startup.add_to_session()
-
-    app.config["SESSION_FILE_DIR"] = mkdtemp()
-    Session(app)
 
     jwt = JWTManager(app)
     register_jwt_handlers(jwt)

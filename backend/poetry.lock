@@ -367,18 +367,6 @@ files = [
 ]
 
 [[package]]
-name = "cachelib"
-version = "0.13.0"
-description = "A collection of cache libraries in the same API interface."
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "cachelib-0.13.0-py3-none-any.whl", hash = "sha256:8c8019e53b6302967d4e8329a504acf75e7bc46130291d30188a6e4e58162516"},
-    {file = "cachelib-0.13.0.tar.gz", hash = "sha256:209d8996e3c57595bee274ff97116d1d73c4980b2fd9a34c7846cd07fd2e1a48"},
-]
-
-[[package]]
 name = "cachetools"
 version = "5.5.2"
 description = "Extensible memoizing collections and decorators"
@@ -922,22 +910,6 @@ files = [
 alembic = ">=1.9.0"
 Flask = ">=0.9"
 Flask-SQLAlchemy = ">=1.0"
-
-[[package]]
-name = "flask-session"
-version = "0.6.0"
-description = "Server-side session support for Flask"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "flask_session-0.6.0-py3-none-any.whl", hash = "sha256:dd77b6c5916021a540a8c188731c529596ad9ea382c07a24f9654355fa40c9ad"},
-    {file = "flask_session-0.6.0.tar.gz", hash = "sha256:b1ed06cf4c5a211305579a132e81307d242cec6fe2714a276405730ffd22a034"},
-]
-
-[package.dependencies]
-cachelib = "*"
-flask = ">=2.2"
 
 [[package]]
 name = "flask-sqlalchemy"
@@ -3746,4 +3718,4 @@ docs = ["Sphinx"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "d0219ed651496b8f453e881e3a3a5578e25791e6721c4e7bcd7755a889bb4c75"
+content-hash = "67ef4afd1a67c0f3faf0ddf2a8b13b3e2fb0437134abc582d3b655bd8e45f559"
