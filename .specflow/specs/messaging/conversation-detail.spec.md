@@ -28,6 +28,17 @@ through the history without the thread ever moving under the reader.
    `limit` takes the newest messages rather than the oldest
 3. Includes reaction data and reply chains
 4. Frontend renders as scrollable message list with chat bubbles
+4a. **A separator names each day, on web and iOS alike (PAD-676; numbering unconfirmed).** A centred
+   pill sits above the first message of the thread and above every message whose day differs from
+   the one before. The day is the message's date on the club's clock (Europe/Lisbon,
+   `clubDateOfInstant`), never UTC, so a message at 00:30 belongs to the day it was sent. Labels,
+   from one shared function (`@levelup/config` `messageDayLabel`, so the apps cannot diverge
+   again): today "Hoje"/"Today"; yesterday "Ontem"/"Yesterday"; 2–6 days ago the weekday
+   ("Terça-feira"/"Tuesday"); older the day and short month ("12 out"/"Oct 12"), with the year when it
+   is not this year ("30 dez 2025"). A message stamped ahead of the device's clock reads as today.
+   Labels are worked out at render: a thread left open across midnight relabels on its next render
+   (a new message, a refetch, a re-open). The separator carries `message-day-separator` (web
+   `data-testid` with `data-day`; iOS `testID` with the date as its accessibility value).
 5. Conversation payload includes the other participant's role (`participantRole`: `"coach"` or `"player"`), derived from `User.role`. When there is no other participant to derive it from, the payload degrades exactly as `messaging.conversations` rule 10 prescribes — `participantRole: null` alongside `participantDeleted: true` — rather than failing (B-024)
 6. The chat header subtitle displays the participant's actual role (capitalized), not a hardcoded value
 7. While the on-screen keyboard is open, the message composer stays docked directly above it with no gap, and the most recent message stays visible: when the keyboard opens while the reader is **at the bottom**, the thread rises with it and stays pinned to the newest message (the viewport shrank, so the list scrolls to its end — the same gate as rule 10's "content grew": at the bottom and not during a landing); away from the bottom the keyboard opening moves nothing (rule 10). Closing the keyboard restores the layout without a jump — the native scroll view clamps the offset; nothing scrolls. PAD-569, B-462. On the native shell the `KeyboardAvoidingView` offset must equal the real distance between that view's bottom edge and the bottom of the screen — 0 for a full-height stack route — never a hardcoded constant, since React Native adds the offset to the avoided height rather than subtracting it
@@ -259,6 +270,12 @@ through the history without the thread ever moving under the reader.
 - **Given** a participant whose `last_read_at` is before messages 46–60 from the other participant, and message 47 is soft-deleted by its sender
 - **When** they GET the conversation
 - **Then** `firstUnreadMessageId` is 46; for a participant with nothing unread it is `null`; their own messages are never the first unread
+
+#### Each day of a thread opens under its own separator (rule 4a, PAD-676)
+- **Given** a conversation with messages from two weeks ago, three days ago, yesterday and today, on a Wednesday
+- **When** it is opened, on the web or on iOS
+- **Then** four separators show, in order: "7 out", "Domingo", "Ontem", "Hoje"
+- **And** a message sent at 00:30 Lisbon time sits under that day's separator, not the day before
 
 #### An automatic message carries the note, a typed one does not (rule 16, PAD-492)
 - **Given** a conversation holding a class reminder and a message the coach typed

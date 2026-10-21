@@ -1,21 +1,10 @@
 import { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { AT_BOTTOM_THRESHOLD_PX, nextTargetStep, openingTarget } from '@levelup/hooks';
+import { messageDayKey, messageDayLabel } from '@levelup/config';
 import type { Message } from '@/types';
 import { MessageBubble } from './MessageBubble';
-
-function formatDateSeparator(iso: string, t: TFunction): string {
-  const date = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) return t('messages.today');
-  if (date.toDateString() === yesterday.toDateString()) return t('messages.yesterday');
-  return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-}
 
 interface Props {
   messages: Message[];
@@ -59,7 +48,7 @@ export function MessageList({
   onTargetConsumed,
   firstUnreadMessageId = null,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
@@ -288,17 +277,23 @@ export function MessageList({
     }
   };
 
-  // Group messages by date
-  const grouped: { date: string; messages: Message[] }[] = [];
+  // PAD-676 (rule 4a): grouped by the message's date on the club's clock; the label is
+  // shared with the mobile thread (`@levelup/config` message-day).
+  const grouped: { day: string; messages: Message[] }[] = [];
   messages.forEach(msg => {
-    const dateStr = formatDateSeparator(msg.timestamp, t);
+    const day = messageDayKey(msg.timestamp);
     const last = grouped[grouped.length - 1];
-    if (last && last.date === dateStr) {
+    if (last && last.day === day) {
       last.messages.push(msg);
     } else {
-      grouped.push({ date: dateStr, messages: [msg] });
+      grouped.push({ day, messages: [msg] });
     }
   });
+  const dayLabelOptions = {
+    language: i18n.language,
+    todayLabel: t('messages.today'),
+    yesterdayLabel: t('messages.yesterday'),
+  };
 
   if (messages.length === 0) {
     return (
@@ -328,10 +323,14 @@ export function MessageList({
         <div ref={topSentinelRef} aria-hidden="true" className="h-px" />
 
         {grouped.map(group => (
-          <div key={group.date}>
+          <div key={group.day}>
             <div className="flex justify-center my-3">
-              <span className="px-3 py-1 rounded-full bg-card/80 backdrop-blur-sm text-xs text-muted-foreground shadow-sm">
-                {group.date}
+              <span
+                data-testid="message-day-separator"
+                data-day={group.day}
+                className="px-3 py-1 rounded-full bg-card/80 backdrop-blur-sm text-xs text-muted-foreground shadow-sm"
+              >
+                {messageDayLabel(group.day, dayLabelOptions)}
               </span>
             </div>
             {group.messages.map((msg, i) => {

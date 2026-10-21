@@ -1,0 +1,43 @@
+# PAD-676 — messaging.conversation-detail rule 4a on iOS: a conversation shows a day separator
+# above the first message of each day, labelled as the web labels it (shared
+# @levelup/config message-day: Hoje / Ontem / weekday / "12 out").
+#
+# Fixture: the seed's conversation e2e-coach ↔ "E2E Student Three" holds messages dated yesterday
+# (PAD-98's fixture; no engine spec writes into it). The flow sends one message today through the
+# API, so the thread holds two days: "Ontem"/"Yesterday" above the old messages, "Hoje"/"Today"
+# above the new one, deleted again at the end. Opened by deep link (never by tapping a row by name).
+# Flow number 296 is from Session C's wave-16 range (296–300).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).conversations.filter(function (c) { return c.participantName === 'E2E Student Three'; })[0].id)}"
+- evalScript: "${output.sent = json(http.post(output.api + '/api/app/message', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ conversationId: output.convId, text: 'PAD-676 day separator probe' }) }).body)}"
+- assertTrue: "${output.sent.id != null}"
+
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://conversation/${output.convId}"
+- extendedWaitUntil:
+    visible: "PAD-676 day separator probe"
+    timeout: 20000
+# Today's separator sits above the message just sent; yesterday's above the seeded ones.
+- assertVisible:
+    id: "message-day-separator"
+    text: "Hoje|Today"
+- scrollUntilVisible:
+    element:
+      id: "message-day-separator"
+      text: "Ontem|Yesterday"
+    direction: UP
+    timeout: 20000
+- assertVisible:
+    text: "Ontem|Yesterday"
+    above:
+      text: "Hoje|Today"
+- takeScreenshot: pad676-day-separators
+
+- openLink: "levelup://players"
+- runFlow: ../subflows/logout.yaml
+# Teardown: the probe goes (a "message deleted" placeholder stays, as for any deleted message).
+- evalScript: "${output.gone = http.delete(output.api + '/api/app/message/' + output.sent.id, { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
+- assertTrue: "${output.gone == true}"
