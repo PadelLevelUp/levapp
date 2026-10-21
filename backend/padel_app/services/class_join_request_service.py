@@ -463,7 +463,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
             vacancy.approval_status = "approved"
     _publish_retired(retired)  # PAD-499: queued now, sent by the enrolment's commit
     _add_player_to_instance(row.player_id, instance)
-    if row.side in ("left", "right"):
+    if row.side in SIDES:  # PAD-672 slice 3: `both` too (instance-enrollment rule 13a)
         _side_for_enrolment(row, instance)
     if vacancy is not None:
         vacancy.save()

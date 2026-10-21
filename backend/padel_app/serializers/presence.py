@@ -72,10 +72,25 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, l
         # coach set it here (else it is the player's usual side).
         "side": _sides_for([presence]).get(presence.player_id) if side is _UNSET else side,
         "sideOverride": presence.side is not None,
+        # PAD-672 (instance-enrollment rule 13a): a "both" player's side once the class is full.
+        "assignedSide": _assigned_side(presence),
         # The server's answer to "may the coach still change it" (rule 13: until the occurrence
         # ends), so no client compares a date with its own clock.
         "sideEditable": _side_editable(presence),
     }
+
+
+def _assigned_side(presence):
+    from padel_app.services.lesson_service import primary_coach
+    from padel_app.services.notification_service import assigned_sides
+
+    instance = presence.lesson_instance
+    if instance is None:
+        return None
+    if presence.assigned_side:
+        return presence.assigned_side
+    coach = primary_coach(instance)
+    return assigned_sides(instance, coach.id if coach else None).get(presence.player_id)
 
 
 def _side_editable(presence) -> bool:
