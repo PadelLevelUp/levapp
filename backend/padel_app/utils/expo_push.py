@@ -193,17 +193,26 @@ def send_expo_push_to_user(
         return False
     if not user_id:
         return False
-    tokens = [
-        row.token
-        for row in DeviceToken.query.filter_by(user_id=user_id).all()
-    ]
-    if not tokens:
+    rows = DeviceToken.query.filter_by(user_id=user_id).all()
+    if not rows:
         return False
+    from padel_app.utils.client_capabilities import NOTIFICATION_SOUND, switched_off
     from padel_app.utils.push_sender import submit
 
-    # notifications.notification-sound rule 5 (PAD-680): the recipient's switch, read here on the
-    # caller's thread (the sender runs without a session).
+    # notifications.notification-sound rule 5 (PAD-680), read here on the caller's thread (the sender
+    # runs without a session): `sound` only for a token whose build declared the capability, while the
+    # recipient's switch is on and the capability is not switched off; every other token stays silent.
     user = db.session.get(User, user_id)
-    sound = "default" if user is None or user.notif_sound is not False else None
-    return submit(send_expo_push, tokens, title, body, data, badge=badge, sound=sound,
-                  label=f"expo push for user {user_id}")
+    sound_on = (user is None or user.notif_sound is not False) and not (
+        switched_off().get(NOTIFICATION_SOUND) or {}
+    ).get("off")
+    groups = {
+        "default": [r.token for r in rows if sound_on and r.sound_capable],
+        None: [r.token for r in rows if not (sound_on and r.sound_capable)],
+    }
+    sent = False
+    for sound, tokens in groups.items():
+        if tokens:
+            sent = submit(send_expo_push, tokens, title, body, data, badge=badge, sound=sound,
+                          label=f"expo push for user {user_id}") or sent
+    return sent

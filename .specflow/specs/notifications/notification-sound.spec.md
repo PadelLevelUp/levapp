@@ -16,7 +16,7 @@ request alert) has arrived while the app is open, so they don't have to keep che
 turns it off.
 
 ### Entities
-- **READS / WRITES:** User (`notif_sound`)
+- **READS / WRITES:** User (`notif_sound`), DeviceToken (`sound_capable`)
 
 ### Rules
 1. **One per-user switch, on by default.** `users.notif_sound` (boolean, default true) is
@@ -39,13 +39,19 @@ turns it off.
    browser's rule, not a setting. Web push notifications sound as the operating system decides.
 4. **iOS, foreground.** The notification handler plays the system sound for a push that arrives
    while the app is open (`shouldPlaySound`) when the signed-in user's switch is on, and stays
-   silent when it is off. The app keeps no audio dependency: a message that arrives over SSE
+   silent when it is off (older builds' handler never plays one). The app keeps no audio dependency: a message that arrives over SSE
    without a push makes no sound (an in-app sound would need a native audio module and a new
    binary; out of scope).
-5. **iOS, background (the payload).** Every Expo push to a user whose switch is on carries
-   `sound: "default"`, so iOS plays the system sound for it in the background too. For a user who
-   switched it off, the payload has no `sound` and the push is silent. Before PAD-680 every push was
-   silent on iOS.
+5. **iOS, background (the payload), gated by capability.** A build that has the switch declares
+   `notification-sound` (`X-LevApp-Capabilities`, PAD-352) when it registers its push token
+   (`POST /api/notifications/device`, on every app start), and the server keeps that on the token
+   (`device_tokens.sound_capable`). An Expo push carries `sound: "default"` only to a token whose
+   build declared it, while the recipient's switch is on and the capability is not switched off
+   (PAD-533); every other token gets no `sound` and stays silent. So App Store 1.3.1 (33) and older
+   keep the silent pushes they always had (they have no switch to turn sound off), and the sound
+   arrives with the first iOS build that carries the switch. Web shows the switch from this release;
+   it also governs the new build's sound. **Retire** the gate with the capability, once no App Store
+   build older than the first declaring one is in use.
 
 ### Acceptance Criteria
 
@@ -65,6 +71,10 @@ turns it off.
 - **Given** the signed-in user's switch is on **Then** the handler answers `shouldPlaySound: true`;
   off → false
 
-#### The Expo payload carries the sound per recipient (rule 5)
-- **Given** a recipient with the switch on **Then** each Expo message has `sound: "default"`
-- **Given** the switch off **Then** no message has a `sound` key
+#### The Expo payload carries the sound only to a build that declared it (rule 5)
+- **Given** a recipient with the switch on whose token was registered declaring `notification-sound`
+  **Then** the Expo message has `sound: "default"`
+- **Given** the switch off, or a token registered without the capability (1.3.1), or the capability
+  switched off **Then** the message has no `sound` key
+- **Given** a registration with the header **Then** the token is sound-capable; re-registering the
+  same token from a declaring build turns it on
