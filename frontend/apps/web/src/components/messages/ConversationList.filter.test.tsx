@@ -6,6 +6,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { Conversation } from "@/types";
 import { ConversationList } from "./ConversationList";
 
+// PAD-683: the list mounts NewConversationDialog, whose coach-only name resolver reads the roster
+// through react-query; these tests are about the list, so the resolver returns the payload's name.
+vi.mock("@levelup/hooks", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  useCoachDisplayName: () => (_id: unknown, fallback: string | null | undefined) => fallback ?? "",
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }),
   initReactI18next: { type: "3rdParty", init: () => {} },
