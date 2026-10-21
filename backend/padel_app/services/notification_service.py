@@ -2450,9 +2450,10 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
-    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default, and
-    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``.
+def _format_when(dt, locale: str = "en", *, dated: bool = False, weekday_first: bool = False) -> str:
+    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default,
+    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``, and ' on <weekday>, <dd/mm>, at <time>'
+    with ``dated=True, weekday_first=True`` (``weekday_first`` alone changes nothing).
 
     PAD-519 (notifications.message-templates rule 17): ``dated=True`` names the day of the
     month as well — ' no dia 10/04 (sábado) às 18:00' / ' on 10/04 (Saturday) at 18:00'. A
@@ -2469,21 +2470,28 @@ def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
     ``start_datetime`` is its first occurrence) and a LessonInstance share one
     localisation — PAD-100 fixed this wording once and it should not be
     duplicated to gain a second caller (PAD-330).
+
+    PAD-678 (rule 17's weekday-first form): the student's "Está marcado!" on an accepted join
+    request reads ' na sexta-feira, 16/10, às 09:00' / ' on Friday, 16/10, at 09:00'.
     """
     if dt is None:
         return ""
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
     is_pt = (locale or "").startswith("pt")
+    # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6) are masculine ("no").
+    prep = "no" if dt.weekday() >= 5 else "na"
+    if dated and weekday_first and weekday:
+        day_month = _format_day_month(dt)
+        if is_pt:
+            return f" {prep} {weekday}, {day_month}, às {time_str}"
+        return f" on {weekday}, {day_month}, at {time_str}"
     if dated:
         # "dia" is masculine, so the day form needs no na/no switch on the weekday.
         day = _format_day_month(dt) + (f" ({weekday})" if weekday else "")
         return f" no dia {day} às {time_str}" if is_pt else f" on {day} at {time_str}"
     if is_pt:
         if weekday:
-            # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6)
-            # are masculine ("no").
-            prep = "no" if dt.weekday() >= 5 else "na"
             return f" {prep} {weekday} às {time_str}"
         return f" às {time_str}"
     if weekday:
