@@ -365,6 +365,10 @@ executionOrder:
     # 290 (PAD-551, classes.instance-enrollment rule 13): books, sets and clears a side, and removes
     # its own class through the API, so its position is not load bearing.
     - 290-side-per-occurrence
+    # 306 (PAD-680, notifications.notification-sound rule 1): switches the coach's notification sound
+    # off and on again through Settings and leaves it on (the seed state), so its position is not load
+    # bearing.
+    - 306-notification-sound-switch
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
