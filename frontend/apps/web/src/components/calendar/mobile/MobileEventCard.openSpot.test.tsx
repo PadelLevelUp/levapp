@@ -7,12 +7,23 @@
  * helper; here the variant and the dashed border prove the card resolved through it.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { CalendarEvent } from "@levelup/types";
 import { MobileEventCard } from "./MobileEventCard";
 import { TimeGrid } from "./TimeGrid";
 import { dotColor } from "./DayStrip";
 import { CalendarViewerProvider } from "../viewer-context";
+
+// The class is "upcoming" only while the clock is before it: pin the clock, derive every fixture date from DAY.
+const DAY = "2026-10-19";
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-18T10:00:00Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const BLUE = "#1355DC";
 const NOW = new Date(2026, 9, 10, 12, 0);
@@ -21,10 +32,10 @@ const openSpot = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
   ({
     model: "ClassInstance",
     originalId: 7,
-    id: "class-7-2026-10-19",
+    id: `class-7-${DAY}`,
     type: "class",
     title: "PEAK PERFORMANCE",
-    date: "2026-10-19",
+    date: DAY,
     startTime: "09:00",
     endTime: "10:30",
     color: BLUE,
@@ -59,7 +70,7 @@ describe("the phone Semana grid block for an open spot", () => {
         weekDays={[day]}
         selectedDay={day}
         onSelectDay={() => undefined}
-        eventsByDay={{ "2026-10-19": [openSpot()] }}
+        eventsByDay={{ [DAY]: [openSpot()] }}
         hourRange={{ startHour: 8, endHour: 12 }}
       />
     );
@@ -78,7 +89,7 @@ describe("the day's dot for an outlined treatment (rule 10)", () => {
 // PAD-578 (calendar.mobile-views rule 19): a student's enrolled class is ticked on the card and
 // the grid block; an open spot carries the chip and no tick; a coach sees no tick.
 describe("the ✓ on a student's enrolled class (PAD-578)", () => {
-  const enrolled = () => openSpot({ id: "class-8-2026-10-19", openSpot: false, title: "Treino" });
+  const enrolled = () => openSpot({ id: `class-8-${DAY}`, openSpot: false, title: "Treino" });
   const day = new Date(2026, 9, 19);
 
   it("marks the card for a student, not an open spot", () => {
@@ -101,14 +112,14 @@ describe("the ✓ on a student's enrolled class (PAD-578)", () => {
           weekDays={[day]}
           selectedDay={day}
           onSelectDay={() => undefined}
-          eventsByDay={{ "2026-10-19": [enrolled(), openSpot()] }}
+          eventsByDay={{ [DAY]: [enrolled(), openSpot()] }}
           hourRange={{ startHour: 8, endHour: 12 }}
         />
       </CalendarViewerProvider>
     );
     const blocks = screen.getAllByTestId("calendar-grid-block");
     const marked = blocks.filter((b) => b.querySelector('[data-testid="calendar-enrolled-mark"]'));
-    expect(marked.map((b) => b.getAttribute("data-event-id"))).toEqual(["class-8-2026-10-19"]);
+    expect(marked.map((b) => b.getAttribute("data-event-id"))).toEqual([`class-8-${DAY}`]);
   });
 
   it("a coach (the default viewer) sees no tick", () => {

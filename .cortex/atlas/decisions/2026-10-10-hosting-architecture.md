@@ -14,6 +14,10 @@ sources:
 
 # Hosting architecture — production and staging off the single 1 GB VM (PAD-613)
 
+> **Superseded in part by [2026-10-21 GKE readiness](2026-10-21-gke-readiness.md)** (PAD-694): the
+> host was resized e2-micro → e2-small on 2026-10-19, and the platform target is GKE Autopilot
+> (not Cloud Run). Owner decisions 2 and 3 below stand; decision 1 stands while on the VM.
+
 Status: DECIDED 2026-10-10 (see Owner decision) · drafted 2026-10-10 · Session E (wave 14) for the owner. Decision document only: nothing
 was changed on any server. Production facts are the read-only measurements of 2026-10-09
 (PAD-571, `2026-10-09-app-speed-study.md` in this folder). Prices were re-verified on
