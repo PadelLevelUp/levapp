@@ -775,7 +775,8 @@ function MessageBubbleImpl({
           <View
             testID={`class-request-proposal-actions-${classRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: classRequest.kind }}
-            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+            // PAD-677: the bubble's width, not the "propose" button's (which alone kept the row open).
+            className="mt-1.5 gap-2 self-stretch"
           >
             {classRequest.kind === "actions" ? (
               <>
@@ -876,7 +877,9 @@ function MessageBubbleImpl({
           <View
             testID={`join-request-bubble-actions-${joinRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: joinRequest.kind }}
-            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+            // PAD-677: stretched to the bubble's width, as the invite row is. A self-start column
+            // has no width of its own, so its two flex-1 buttons collapsed to empty pills.
+            className="mt-1.5 gap-2 self-stretch"
           >
             {joinRequest.kind === "actions" ? (
               <View className="flex-row gap-2">
