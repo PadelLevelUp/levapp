@@ -1,7 +1,7 @@
 """PAD-685: "do not invite a student who already has a class that day" comes on by default
 
 Revision ID: c6203aa9b167
-Revises: 741b857a286c
+Revises: f7d4690a49cd
 Create Date: 2026-10-21
 
 notifications.config rule 6e (PAD-685, owner decision 2026-10-20: the restriction must come on by
@@ -19,7 +19,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "c6203aa9b167"
-down_revision = "741b857a286c"
+down_revision = "f7d4690a49cd"
 branch_labels = None
 depends_on = None
 
