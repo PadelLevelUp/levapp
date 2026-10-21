@@ -42,8 +42,10 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - run: pip install . pytest
+          cache-dependency-path: backend/requirements-dev.txt
+      # PAD-671 (delivery.backend-ci-lanes rule 6): the hashed lock export, then the package with
+      # --no-deps, so an upstream release cannot change what this job tests.
+      - run: pip install --require-hashes -r requirements-dev.txt && pip install --no-deps . && pip check
       # B-091: the VM-side scripts are shell; shellcheck had flagged the
       # restore-check bug (SC2318) and nothing ran it. The runner image ships
       # shellcheck, so this costs a second. startup.sh is a Terraform template
@@ -103,8 +105,10 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - run: pip install . pytest pytest-split==0.10.0
+          cache-dependency-path: backend/requirements-dev.txt
+      # PAD-671 (delivery.backend-ci-lanes rule 6): the hashed lock export, then the package with
+      # --no-deps, so an upstream release cannot change what this job tests.
+      - run: pip install --require-hashes -r requirements-dev.txt && pip install --no-deps . && pip check
       # B-127: the second path is the E2E seed's own pytest file (PAD-223). It lives
       # beside the seed it tests, outside padel_app/tests, and until 2026-09-21 no lane
       # collected it. test_every_test_file_is_collected.py reads THIS line.
@@ -146,8 +150,10 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - run: pip install . pytest
+          cache-dependency-path: backend/requirements-dev.txt
+      # PAD-671 (delivery.backend-ci-lanes rule 6): the hashed lock export, then the package with
+      # --no-deps, so an upstream release cannot change what this job tests.
+      - run: pip install --require-hashes -r requirements-dev.txt && pip install --no-deps . && pip check
       - uses: actions/download-artifact@v4
         with:
           pattern: shard-ids-*

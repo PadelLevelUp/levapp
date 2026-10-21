@@ -29,6 +29,22 @@ another hour, and a test that no lane runs is a test nobody runs.
    items pytest-split deselects, and the guard counts them as collected. A `--collect-only`
    command is not a lane.
 5. `test_backend_ci_timeouts.py` pins each cap by job name.
+6. **Every backend install comes from `poetry.lock` (PAD-671).** That covers each CI job (the three
+   lanes here, `e2e-subset`, `admin-e2e`, `android-build`) and the image (`backend/Dockerfile`,
+   behind deploy-staging and deploy-prod).
+   - Each one installs `backend/requirements.txt` (main) or `backend/requirements-dev.txt`
+     (main + dev, for the test lanes) with `--require-hashes`, then the package itself with
+     `--no-deps`. An upstream release cannot change what CI tests or what a deploy image holds.
+   - Both files are `poetry export` output, with hashes. Regenerate them whenever `poetry.lock`
+     changes:
+     `poetry export -f requirements.txt --only main -o requirements.txt` and
+     `--with dev -o requirements-dev.txt` (Poetry 2.x needs `poetry-plugin-export`).
+   - `test_pad671_installs_come_from_the_lock.py` fails in three cases:
+     - an install site resolves the backend from `pyproject.toml` ranges, meaning any pip install of
+       the backend path without `--no-deps` (continued and chained statements included), or a site
+       without its own hashed requirements install before it;
+     - an exported file names a different package set, version or hash set than `poetry.lock`;
+     - it finds fewer install sites than it expects.
 
 ### Acceptance Criteria
 
@@ -43,11 +59,23 @@ another hour, and a test that no lane runs is a test nobody runs.
 - **When** `test_a_full_session_collected_every_file_that_defines_a_test` runs in either shard
 - **Then** it passes, because the other shard's files count as collected through the deselected items
 
+#### Backend installs come from the lock (rule 6)
+- **Given** the workflows and `backend/Dockerfile`
+- **When** a step pip-installs the backend
+- **Then** it first installs a hashed `requirements*.txt` with `--require-hashes` and installs the
+  package with `--no-deps`. Any bare install of the backend path makes the guard fail and name the
+  file and line.
+- **And** `requirements.txt` holds exactly `poetry.lock`'s main-group packages at their locked
+  versions and hashes, and `requirements-dev.txt` holds all of the lock's packages the same way.
+  py-vapid sits at 1.9.4 in both, where the 2026-10-14 incident pulled the broken 1.9.5.
+
 #### Each shard has its own cap
 - **Given** `backend-tests.yaml`
 - **Then** the Postgres matrix job has `timeout-minutes: 60` and the SQLite job has 60
 
 ### Notes
+- Rule 6 comes from the 2026-10-14 incident. py-vapid 1.9.5 (sdist with an absolute symlink) broke
+  every `pip install .` job from ~19:10Z to ~19:40Z, while `poetry.lock` pinned 1.9.4 (PAD-671).
 - Numbers that led here (PAD-654): the 14 green Postgres runs on 12–13 Oct had a median of 54 min
   (range 46–73) against a 75 cap; two runs used 94–98% of it. The suite is 4241 tests in 402
   files, in one flat directory, so a split by directory was not possible.

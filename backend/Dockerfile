@@ -8,11 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# PAD-671 (delivery.backend-ci-lanes rule 6): the image holds poetry.lock's versions, hash-checked,
+# never what pyproject's ranges resolve to on the day of the build (py-vapid 1.9.5, 2026-10-14).
+# The dependency layer comes before the source, so a code change does not re-download it.
+COPY requirements.txt ./
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install --prefix=/install --require-hashes -r requirements.txt
 COPY pyproject.toml ./
 COPY padel_app ./padel_app
-
-RUN pip install --upgrade pip setuptools wheel
-RUN pip install --prefix=/install .
+RUN pip install --prefix=/install --no-deps .
 
 # ----------------------------
 # Stage 2: Runtime image
