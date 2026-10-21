@@ -30,9 +30,14 @@ export function invitationWithdrawnForBalance(metadata: InviteWaitingListMetadat
 }
 
 /** The badge of a retired invitation, both shells: "Já não é preciso deste lado" for a balance
- * withdrawal (PAD-581), "Vaga preenchida" for every other end that is neither yes nor no. */
+ * withdrawal (PAD-581), "Já usaste os créditos da lista de espera" when the standing list's last
+ * credit went on another class (PAD-725), "Vaga preenchida" for every other end that is neither
+ * yes nor no. */
 export function retiredInviteLabelKey(metadata: InviteWaitingListMetadata | undefined): string {
-  return invitationWithdrawnForBalance(metadata) ? "messages.noLongerNeededOnSide" : "messages.spotFilled";
+  if (invitationWithdrawnForBalance(metadata)) return "messages.noLongerNeededOnSide";
+  // PAD-725 (waiting-list rule 15b): withdrawn because the standing list's last credit was spent.
+  if (metadata?.responded && metadata?.response === "credits_spent") return "messages.waitingListCreditsSpent";
+  return "messages.spotFilled";
 }
 
 /**

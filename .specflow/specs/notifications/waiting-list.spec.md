@@ -203,6 +203,15 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     The coach recording the answer for the student settles the entry the same way, and so does the
     coach withdrawing the invitation (`notifications.invitations` rule 19, PAD-548): the entry
     closes as on a "no", no credit is spent.
+15b. **The last credit spent withdraws the other offers it paid for (PAD-669 edge case, PAD-725;
+    owner-confirmed 2026-10-21; numbering unconfirmed).** When a "yes" spends a standing entry's
+    last credit (rule 15 closes the entry and its other class rows), the student's other live
+    group-0 invitations for the classes that entry had reached are withdrawn in the same commit:
+    `expired`, `retired_reason = "credits_spent"`, not a "no", the bubble reading "Já usaste os
+    créditos da lista de espera" / "Your waiting-list credits are used up" with no new message and
+    no waiting-list join offer, its edit published after the commit. Otherwise a student holding two
+    offers could take a second class with no credit left. Offers from the student's own class
+    entries (not this standing entry) are untouched.
 16. **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado
