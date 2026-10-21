@@ -450,9 +450,11 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
         _get_or_create_direct_conversation,
         _send_system_message,
         _user_id_for_coach,
+        _format_template,
         _user_id_for_player,
         publish,
         resolve_message_template,
+        template_variables,
     )
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
@@ -477,7 +479,7 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
     auto_reply = bool(config.auto_notify_enabled) if config is not None else False
     locale = _localized(coach_user, "pt", "en")
     templates = config.get_message_templates(locale) if config is not None else {}
-    spot_taken = resolve_message_template(templates, "spot_filled", locale)
+    spot_taken_template = resolve_message_template(templates, "spot_filled", locale)
     label = _class_label(instance, locale)
 
     from padel_app.services.player_service import coach_display_name
@@ -518,6 +520,10 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
         )
         # Rule 11: the automatic reply to the student only when the coach wants it.
         if auto_reply:
+            # PAD-670 (message-templates rule 3a): the template is about this student and this class.
+            spot_taken = _format_template(
+                spot_taken_template, **template_variables(row.player, instance, locale)
+            )
             _send_system_message(
                 coach_user_id, player_user_id, spot_taken,
                 msg_metadata={"joinRequest": {"id": row.id, "status": "superseded"}},
