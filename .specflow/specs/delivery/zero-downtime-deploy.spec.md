@@ -128,6 +128,8 @@ gunicorn's boot path into the leadership thread.
    rolling deploy (and after a `rollback_to`): a new column is nullable or has a server default;
    a column or table is dropped or renamed only in a release after the one whose code stopped
    reading it; anything else ships with `rollout: stop-first`. A warn-only CI guard is PAD-711.
+   Because the migrate step now runs while the old container serves, schema changes take a short
+   `lock_timeout` and data backfills run in batches outside the schema transaction: PAD-718.
 
 ### Acceptance Criteria
 
