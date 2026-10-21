@@ -335,8 +335,13 @@ def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:
 
     locale = _localized(coach_user, "pt", "en")
     title = "Lista de espera" if locale == "pt" else "Waiting list"
-    send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone — display name; the
+    # Message stored in the student's thread keeps the real name.
+    from padel_app.services.player_service import coach_facing_text
+
+    push_body = coach_facing_text(text, coach_user.id, player.id, player_user.name)[:100]
+    send_push_notification(user_id=coach_user.id, title=title, body=push_body, url=f"/messages/{conv.id}?message={msg.id}")
     send_expo_push_to_user(
-        coach_user.id, title=title, body=text[:100],
+        coach_user.id, title=title, body=push_body,
         data={"type": "message", "conversationId": conv.id, "messageId": msg.id, "classInstanceId": instance.id},
     )

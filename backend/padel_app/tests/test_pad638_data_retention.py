@@ -1,11 +1,10 @@
 """PAD-638 (PAD-602 D5) — admin.data-retention: one daily sweep, one switch and period per kind of
-personal data, all OFF until the owner decides (the `data_retention` app setting).
+personal data (the `data_retention` app setting). The owner's default periods, the batches and the
+admin audit log's retention are in test_pad638_retention_periods.py.
 
     pytest padel_app/tests/test_pad638_data_retention.py -v
 """
 from datetime import timedelta
-
-import pytest
 
 from padel_app.sql_db import db
 from padel_app.tests.test_pad128_eligibility import _add_student, _seed
@@ -275,7 +274,7 @@ def test_expired_code_hashes_are_cleared(app):
 
 # ── audit logs ────────────────────────────────────────────────────────────────
 
-def test_old_deletion_audit_rows_go_and_the_admin_log_is_never_touched(app):
+def test_old_deletion_audit_rows_go_and_the_admin_log_inside_its_period_stays(app):
     from padel_app.models.admin_audit_log import AdminAuditLog
     from padel_app.models.deletion_audit import DeletionAudit
 
@@ -284,7 +283,7 @@ def test_old_deletion_audit_rows_go_and_the_admin_log_is_never_touched(app):
         new = DeletionAudit(entity="player", entity_id=2, action="deleted", label="y", details={})
         admin = AdminAuditLog(actor_email="ops@levapp.app", actor_role="owner", action="x",
                               target_type="user", target_id="1", outcome="ok", request_id="req-638",
-                              created_at=_days_ago(2000))  # set at insert: the row is append-only
+                              created_at=_days_ago(1000))  # set at insert: the row is append-only
         db.session.add_all([old, new, admin])
         db.session.flush()
         old.created_at = _days_ago(2000)
@@ -294,7 +293,7 @@ def test_old_deletion_audit_rows_go_and_the_admin_log_is_never_touched(app):
 
     assert _sweep(app)["audit_logs"]["removed"] == 1
     assert not _exists(app, DeletionAudit, ids[0]) and _exists(app, DeletionAudit, ids[1])
-    assert _exists(app, AdminAuditLog, ids[2])  # admin.foundation rule 9: append-only
+    assert _exists(app, AdminAuditLog, ids[2])  # inside its 5-year period (admin.data-retention rule 1)
 
 
 # ── isolation ─────────────────────────────────────────────────────────────────
@@ -323,20 +322,6 @@ def test_one_failing_item_does_not_stop_the_others(app, monkeypatch):
     assert report["code_hashes"]["removed"] == 1
     with app.app_context():
         assert db.session.get(User, uid).email_verification_code_hash is None
-
-
-@pytest.mark.parametrize("value, days", [(None, 1), ({}, 1), ({"code_hashes": {"enabled": True, "days": 0}}, 1),
-                                         ({"code_hashes": {"enabled": "yes", "days": 5}}, 5)])
-def test_a_missing_or_odd_setting_is_off(app, value, days):
-    from padel_app.models.app_setting import AppSetting
-    from padel_app.services.retention_service import retention_settings
-
-    with app.app_context():
-        if value is not None:
-            db.session.add(AppSetting(key="data_retention", value=value))
-            db.session.commit()
-        # A stored period is kept even while OFF; a missing or non-positive one falls back.
-        assert retention_settings()["code_hashes"] == {"enabled": False, "days": days}
 
 
 # ── review round ──────────────────────────────────────────────────────────────
@@ -409,7 +394,7 @@ def test_the_dry_count_is_what_an_enabled_sweep_removes(app):
     player_id, _ = _placeholder(app, ids, "dueplace", created_days_ago=400)
     with app.app_context():
         a = User(name="A", username="due638a", password="x", status="active",
-                 email_verification_code_hash="h", email_verification_expires_at=_days_ago(3))
+                 email_verification_code_hash="h", email_verification_expires_at=_days_ago(40))  # past the 30-day default
         b = User(name="B", username="due638b", password="x", status="active")
         db.session.add_all([a, b])
         db.session.flush()
@@ -428,6 +413,10 @@ def test_the_dry_count_is_what_an_enabled_sweep_removes(app):
         db.session.add(PlayerInvitation(player_id=student, token_hash="e" * 64,
                                         invited_by_coach_id=ids["coach_id"], expires_at=_days_ago(40)))
         audit = DeletionAudit(entity="player", entity_id=9, action="deleted", label="z", details={})
+        from padel_app.models.admin_audit_log import AdminAuditLog
+        db.session.add(AdminAuditLog(actor_email="ops@levapp.app", actor_role="owner", action="x",
+                                     target_type="user", target_id="9", outcome="ok", request_id="req-638-due",
+                                     created_at=_days_ago(2000)))
         db.session.add(audit)
         db.session.flush()
         m.updated_at = _days_ago(40)
@@ -436,7 +425,13 @@ def test_the_dry_count_is_what_an_enabled_sweep_removes(app):
 
     from padel_app.services.retention_service import ITEMS
 
-    _enable(app, stale_placeholders=0)  # an explicit (invalid-days) entry: OFF, counted, not "keep"
+    # Every item explicitly OFF (counted, not "keep"); the placeholder one through invalid days.
+    _set_all_off = {name: {"enabled": False} for name in ITEMS}
+    _set_all_off["stale_placeholders"] = {"enabled": True, "days": 0}
+    from padel_app.models.app_setting import AppSetting
+    with app.app_context():
+        db.session.add(AppSetting(key="data_retention", value=_set_all_off))
+        db.session.commit()
     off = _sweep(app)
     assert set(off) == set(ITEMS)
     assert all(off[name]["removed"] == 0 and off[name]["due"] >= 1 for name in off), off

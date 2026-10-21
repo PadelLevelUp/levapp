@@ -1,6 +1,7 @@
 """PAD-588 — ``backend/scripts/rollout.sh`` starts the new container before stopping the old one.
+PAD-691 — with ``--migrate`` it runs the migrate step first, in a one-shot container.
 
-Spec: ``delivery.zero-downtime-deploy`` rules 4-7. R-028 harness: a stub ``docker`` keeps one file
+Spec: ``delivery.zero-downtime-deploy`` rules 4-7 and 9. R-028 harness: a stub ``docker`` keeps one file
 per container (its published loopback port) and logs every call; a stub ``curl`` answers 200 for
 the ports listed in ``$STUB_HOME/healthy``. No Docker, no network.
 """
@@ -18,7 +19,12 @@ echo "docker $*" >> "$STUB_HOME/calls.log"
 C="$STUB_HOME/containers"; mkdir -p "$C"
 case "$1" in
   run)
-    shift; name=""; port=""
+    shift; name=""; port=""; oneshot=0
+    case " $* " in *" --rm "*) oneshot=1 ;; esac
+    if [ "$oneshot" = 1 ]; then
+      echo "migrate-ran" >> "$STUB_HOME/migrate.log"
+      exit "${STUB_MIGRATE_EXIT:-0}"
+    fi
     while [ $# -gt 0 ]; do
       case "$1" in
         -d) shift ;;
@@ -34,14 +40,19 @@ case "$1" in
     echo "cid-$name" ;;
   port) [ -e "$C/$2" ] && echo "127.0.0.1:$(cat "$C/$2")" || exit 1 ;;
   inspect)
-    if [ "$2" = "-f" ]; then n="$4"; [ -e "$C/$n" ] || exit 1; cat "$C/$n.restarts" 2>/dev/null || echo 0
+    if [ "$2" = "-f" ] && [ "$3" = "{{.State.Running}}" ]; then n="$4"; [ -e "$C/$n.running" ] && echo true || exit 1
+    elif [ "$2" = "-f" ]; then n="$4"; [ -e "$C/$n" ] || exit 1; cat "$C/$n.restarts" 2>/dev/null || echo 0
     else [ -e "$C/$2" ] || exit 1; fi ;;
   stop) n="${@: -1}"; [ -e "$C/$n" ] || exit 1; p="$(cat "$C/$n")"; grep -vx "$p" "$STUB_HOME/healthy" > "$STUB_HOME/h.tmp" 2>/dev/null; mv "$STUB_HOME/h.tmp" "$STUB_HOME/healthy" ;;
   rm)
-    if [ "$2" = "-f" ]; then n="$3"; else n="$2"; fi
-    [ -e "$C/$n" ] || exit 1; rm -f "$C/$n" "$C/$n.restarts" ;;
-  rename) [ -e "$C/$2" ] || exit 1; mv "$C/$2" "$C/$3" ;;
+    shift; [ "$1" = "-f" ] && shift
+    rc=0
+    for n in "$@"; do [ -e "$C/$n" ] || { rc=1; continue; }; rm -f "$C/$n" "$C/$n.restarts"; done
+    exit $rc ;;
+  start) n="$2"; [ -e "$C/$n" ] || exit 1; cat "$C/$n" >> "$STUB_HOME/healthy" ;;
+  rename) [ -e "$C/$2" ] || exit 1; [ -e "$C/$3" ] && exit 1; mv "$C/$2" "$C/$3" ;;
   logs) echo "log of ${@: -1}" ;;
+  wait) rm -f "$C/$2.running"; echo 0 ;;
   *) echo "unexpected docker $*" >&2; exit 2 ;;
 esac
 """
@@ -181,6 +192,142 @@ def test_an_upstream_no_vhost_uses_still_means_stop_first(sb):
     assert containers(sb) == {"padelapp": "5000"}
 
 
+def test_a_vhost_enabled_by_symlink_is_seen_and_the_deploy_rolls(sb, tmp_path):
+    """B-662: Debian's sites-enabled holds symlinks into sites-available. GNU `grep -r` skips a
+    symlink met while recursing, so every deploy after the host apply fell back to stop-first."""
+    available = tmp_path / "sites-available"
+    available.mkdir()
+    (sb["sites"] / "levapp").rename(available / "levapp")
+    (sb["sites"] / "levapp").symlink_to(available / "levapp")
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "no enabled vhost" not in r.stdout
+    assert any(c.startswith("docker run -d --name padelapp_next -p 127.0.0.1:5002:80") for c in calls)
+    assert containers(sb) == {"padelapp": "5002"}
+
+
+# --- PAD-691: the migrate step (rules 4, 7, 9) -------------------------------------------------
+
+
+def migrate_call(calls):
+    return next(c for c in calls if c.startswith("docker run --rm --name padelapp_migrate"))
+
+
+def test_the_migrate_step_runs_before_the_new_container_while_the_old_one_serves(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--migrate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    migrated = calls.index(migrate_call(calls))
+    started = index(calls, "docker run -d --name padelapp_next")
+    stopped = index(calls, "docker stop -t 10 padelapp")
+    assert migrated < started < stopped
+    assert "old container padelapp serving on 5000 during the migrate step" in r.stdout
+    assert containers(sb) == {"padelapp": "5002"}
+
+
+def test_the_migrate_container_drops_the_restart_policy_and_keeps_the_rest(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--migrate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    call = migrate_call(calls)
+    assert "--restart" not in call and "unless-stopped" not in call
+    assert call.endswith("--network levelup_net repo/levelup_backend:abc123 /app/scripts/migrate.sh")
+    assert "-p " not in call, "the migrate container publishes no port"
+
+
+def test_a_failed_migrate_step_touches_no_api_container(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--migrate", STUB_MIGRATE_EXIT="1")
+    assert r.returncode == 1
+    assert "migrate step failed" in r.stdout and "keeps serving on 5000" in r.stdout
+    assert not any("padelapp_next" in c for c in calls if c.startswith("docker run"))
+    assert not any(c.startswith("docker stop") for c in calls)
+    assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_without_migrate_no_migrate_container_runs(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not any("padelapp_migrate" in c for c in calls)
+    assert not (sb["home"] / "migrate.log").exists()
+
+
+def test_stop_first_migrates_after_the_stop(sb):
+    live(sb, "padelapp", 5002)
+    r, calls = run(sb, "--stop-first", "--migrate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    stopped = index(calls, "docker stop -t 10 padelapp")
+    migrated = calls.index(migrate_call(calls))
+    started = index(calls, "docker run -d --name padelapp -p 127.0.0.1:5000:80")
+    assert stopped < migrated < started
+    assert containers(sb) == {"padelapp": "5000"}, "the old container is removed once the new one is healthy"
+
+
+def test_stop_first_starts_the_old_container_again_when_the_migrate_step_fails(sb):
+    live(sb, "padelapp", 5002)
+    r, calls = run(sb, "--stop-first", "--migrate", STUB_MIGRATE_EXIT="1")
+    assert r.returncode == 1
+    assert "migrate step failed (stop-first)" in r.stdout
+    assert "docker start padelapp" in calls
+    assert containers(sb) == {"padelapp": "5002"}
+    assert "5002" in (sb["home"] / "healthy").read_text().split()
+
+
+def test_stop_first_starts_the_old_container_again_when_the_new_one_is_unhealthy(sb):
+    live(sb, "padelapp", 5002)
+    r, calls = run(sb, "--stop-first", "--migrate", STUB_NEW_IS_HEALTHY="0")
+    assert r.returncode == 1
+    assert "docker start padelapp" in calls
+    assert containers(sb) == {"padelapp": "5002"}
+
+
+def test_a_dry_run_prints_the_plan_and_changes_nothing(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--migrate", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "plan: rolling, ports 5000/5002, migrate yes" in r.stdout
+    assert "dry-run: docker run --rm --name padelapp_migrate" in r.stderr
+    assert "dry-run: docker run -d --name padelapp_next -p 127.0.0.1:5002:80" in r.stderr
+    mutating = ("docker run", "docker stop", "docker rm", "docker rename", "docker start")
+    assert not any(c.startswith(mutating) for c in calls), calls
+    assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_a_stop_first_dry_run_shows_every_step(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--stop-first", "--migrate", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for step in ("docker stop -t 10 padelapp", "docker rename padelapp padelapp_old",
+                 "docker run --rm --name padelapp_migrate", "docker run -d --name padelapp -p",
+                 "docker rm padelapp_old"):
+        assert f"dry-run: {step}" in r.stderr, step
+    assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_an_interrupted_stop_first_leaves_old_which_is_kept_and_restored(sb):
+    """Review signal: a run killed after the rename leaves only <name>_old; the next run must
+    treat it as the old release, not delete it."""
+    (sb["home"] / "containers" / "padelapp_old").write_text("5000\n")
+    r, calls = run(sb, "--stop-first", "--migrate", STUB_MIGRATE_EXIT="1")
+    assert r.returncode == 1
+    assert "found padelapp_old from an interrupted run" in r.stdout
+    assert "docker rm -f padelapp_old" not in calls
+    assert "docker start padelapp" in calls
+    assert containers(sb) == {"padelapp": "5000"}
+
+
+def test_a_migrate_still_running_from_an_earlier_run_is_waited_for_not_killed(sb):
+    live(sb, "padelapp", 5000)
+    (sb["home"] / "containers" / "padelapp_migrate").write_text("\n")
+    (sb["home"] / "containers" / "padelapp_migrate.running").write_text("")
+    r, calls = run(sb, "--migrate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "still running: waiting" in r.stdout
+    assert index(calls, "docker wait padelapp_migrate") < index(calls, "docker rm -f padelapp_migrate")
+
+
 WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
 
@@ -198,7 +345,10 @@ def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upst
     text = (WORKFLOWS / workflow).read_text()
     yaml.safe_load(text)  # still valid YAML
     assert 'source: "backend/scripts/rollout.sh"' in text
-    assert f"rollout.sh --name {name} --ports {ports} --upstream {upstream} $ROLLOUT_MODE --" in text
+    # PAD-691: the deploys migrate through the script's one-shot container, inside a 30-min ssh step.
+    assert f"rollout.sh --name {name} --ports {ports} --upstream {upstream} --migrate $ROLLOUT_MODE --" in text
+    deploy_step = text.split("bash /home/${{ secrets.GCE_USER }}/rollout.sh", 1)[0].rsplit("uses: appleboy/ssh-action", 1)[1]
+    assert "command_timeout: 30m" in deploy_step
     assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"
     assert f"docker run -d --name {name} " not in text
     dispatch = text.split("workflow_dispatch:", 1)[1].split("concurrency:", 1)[0]

@@ -1,3 +1,4 @@
+import { WEEK_STARTS_ON } from "../../../../packages/config/src/week-start";
 import { test, expect, type Page } from "@playwright/test";
 import { addDays, format, startOfWeek } from "date-fns";
 import { loginAsCoach } from "../helpers/auth";
@@ -19,7 +20,11 @@ import { loginAsCoach } from "../helpers/auth";
  * events by minutes", "Empty week shows the default range", "Bottom sheet
  * resizes within bounds".
  */
-const MONDAY = startOfWeek(new Date(), { weekStartsOn: 1 });
+// This week's Monday inside the week that starts on WEEK_STARTS_ON (Sunday, PAD-682).
+const MONDAY = addDays(
+  startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON }),
+  (1 - WEEK_STARTS_ON + 7) % 7
+);
 const day = (offset: number) => format(addDays(MONDAY, offset), "yyyy-MM-dd");
 const MON = day(0);
 const TUE = day(1);

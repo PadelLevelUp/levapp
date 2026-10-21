@@ -470,18 +470,29 @@ def create_message_service(data, user_id, now=None):
     sender = User.query.get(user_id)
 
     sender_name = sender.name if sender else "Someone"
+    # PAD-683 (rule 9c): a push to a coach titles a student's message with the coach's display
+    # name for that student; the stored message and any non-coach recipient see the real name.
+    from padel_app.models.players import Player
+    from padel_app.services.player_service import coach_display_name
+
+    sender_player = Player.query.filter_by(user_id=user_id).first() if sender else None
     for participant in recipient_participants:
+        push_title = (
+            coach_display_name(participant.user_id, sender_player.id, sender_name)
+            if sender_player
+            else sender_name
+        )
         message_text = data.get("text", "")
         body = message_text[:100] if message_text else "Sent you a message"
         send_push_notification(
             participant.user_id,
-            title=sender_name,
+            title=push_title,
             body=body,
             url=f"/messages/{message.conversation_id}?message={message.id}",
         )
         send_expo_push_to_user(
             participant.user_id,
-            title=sender_name,
+            title=push_title,
             body=body,
             data={"type": "message", "conversationId": message.conversation_id, "messageId": message.id},
             # The iOS home-screen badge. message.create() has already

@@ -1311,6 +1311,10 @@ export interface StudentGroupPlayer {
   levelId: string | null;
   /** PAD-497: said "no" to an invitation for this class; the coach may still invite them. Absent from older servers. */
   declinedThisClass?: boolean;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
 }
 
 export interface StudentGroup {
@@ -1421,6 +1425,10 @@ export interface EligibilityFailure {
 export interface EligibilityCheckEntry {
   playerId: number;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   failures: EligibilityFailure[];
 }
 
@@ -1436,6 +1444,10 @@ export interface EligibilityCheckResult {
 export interface EligibilityImpactEntry {
   playerId: number;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   instanceId: number;
   classTitle: string | null;
   /** Naive-UTC ISO start of the class. */
