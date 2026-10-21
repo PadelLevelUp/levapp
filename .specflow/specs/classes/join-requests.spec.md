@@ -162,7 +162,7 @@ by a student's request — and whichever lands first wins.
     `{when}` is the weekday-first form of `notifications.message-templates` rule 17: pt
     `na sexta-feira, 16/10, às 09:00` (`no` for sábado/domingo), en `on Friday, 16/10, at 09:00`.
     "inscrito/a" is literal, so it serves students of any gender without reading a profile. A class
-    with no title reads "na aula" / "in the class". The conversation-list preview and the push body
+    with no title reads "nesta aula" / "in this class". The conversation-list preview and the push body
     are this text (`messaging.push-notifications`), so their first words are the outcome. The
     student's class view says the same once the request is accepted: pt "Está marcado! Estás
     inscrito/a nesta aula.", en "You're booked! You're enrolled in this class." (key

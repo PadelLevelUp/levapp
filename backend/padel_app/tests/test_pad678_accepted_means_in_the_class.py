@@ -19,6 +19,7 @@ def _weekday_first(dt, locale="pt"):
 
 
 def test_the_formatter_has_a_weekday_first_form(app):
+    """The literals are rule 19's and rule 17's own examples."""
     from padel_app.services.notification_service import _format_when
 
     friday = datetime(2026, 10, 16, 9, 0)
@@ -68,3 +69,15 @@ def test_an_english_coach_sends_the_english_text(app, monkeypatch):
     texts, start, _ = _accept(app, language="en", title="PEAK PERFORMANCE")
     told = [t for t in texts if t.startswith("You're booked!")]
     assert told == [f"You're booked! You're enrolled in PEAK PERFORMANCE{_weekday_first(start, 'en')}. See you there!"], texts
+
+
+def test_a_class_with_no_title_reads_nesta_aula(app):
+    """Rule 19: no title gives "nesta aula" / "in this class", never "na aula na sexta-feira"."""
+    from padel_app.services.class_join_request_service import _accepted_text
+
+    class _Untitled:
+        title = None
+        start_datetime = datetime(2026, 10, 18, 10, 0)   # a Sunday: "no domingo"
+
+    assert _accepted_text(_Untitled(), "pt") == "Está marcado! Estás inscrito/a nesta aula no domingo, 18/10, às 10:00. Contamos contigo!"
+    assert _accepted_text(_Untitled(), "en") == "You're booked! You're enrolled in this class on Sunday, 18/10, at 10:00. See you there!"
