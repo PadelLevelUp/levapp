@@ -3107,6 +3107,42 @@ def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: i
     return _recount_open_spots(instance, coach_id, extra_going=accepter_side)
 
 
+def vacancy_for_joiner(instance: LessonInstance, coach_id: int, player_id: int) -> "Vacancy | None":
+    """PAD-715 (classes.join-requests rule 6, D7 of PAD-672): the open spot a student the coach lets
+    in (a join request accepted) takes. A left or right student takes a spot of their own side (else
+    a side-less one, else the oldest); a "both" or side-less student takes the spot whose closing
+    leaves the class most balanced — the going players' sides plus the sides of the spots still
+    open — the oldest on a tie. Before PAD-715 it was always the oldest, so a right student could
+    close the left spot and the class end 4 left / 6 right. Read unlocked: the caller locks it in
+    rule 10's order."""
+    open_spots = (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").order_by(Vacancy.id.asc()).all()
+    )
+    if not open_spots:
+        return None
+    side = sides_in_occurrence(instance, coach_id, [player_id]).get(player_id)
+    if side in ("left", "right"):
+        return (
+            next((v for v in open_spots if v.side == side), None)
+            or next((v for v in open_spots if v.side not in ("left", "right")), None)
+            or open_spots[0]
+        )
+    going = {"left": 0, "right": 0}
+    holding = [p.player_id for p in instance.holding_presences]
+    for s in sides_in_occurrence(instance, coach_id, holding).values():
+        if s in going:
+            going[s] += 1
+
+    def imbalance(closing: Vacancy) -> int:
+        counts = dict(going)
+        for v in open_spots:
+            if v is not closing and v.side in counts:
+                counts[v.side] += 1
+        return abs(counts["left"] - counts["right"])
+
+    return min(open_spots, key=lambda v: (imbalance(v), v.id))
+
+
 def rebalance_after_side_change(instance: LessonInstance, coach_id: int) -> list:
     """PAD-551 (invitations rule 2d, its third moment): a player's side in the occurrence changed,
     so every open spot of the class is re-counted, as at a "yes" (under rule 10's locks, before the
