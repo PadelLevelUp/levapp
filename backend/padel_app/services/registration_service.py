@@ -29,7 +29,7 @@ ROLES = ("coach", "student")
 # `en/terms.md`, tied by test_pad485_terms_acceptance.py). Change them together when the Terms change.
 TERMS_VERSION = "2026-10-13"
 # The Privacy Policy's version, the same way (`index.ts` and `en/privacy.md`); see auth.register rule 19.
-PRIVACY_VERSION = "2026-10-14"
+PRIVACY_VERSION = "2026-10-21"
 
 
 def validate_terms(data):
