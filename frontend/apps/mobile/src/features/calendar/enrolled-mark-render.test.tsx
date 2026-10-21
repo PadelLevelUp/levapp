@@ -8,12 +8,23 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { CalendarEvent } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
 import { EventCard } from "./EventCard";
 import { TimeGrid } from "./TimeGrid";
 import { CalendarViewerProvider } from "./viewer-context";
+
+// The class is "upcoming" only while the clock is before it: pin the clock, derive every fixture date from DAY.
+const DAY = "2026-10-19";
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-18T10:00:00Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -23,10 +34,10 @@ const cls = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
   ({
     model: "ClassInstance",
     originalId: 7,
-    id: "class-7-2026-10-19",
+    id: `class-7-${DAY}`,
     type: "class",
     title: "PEAK PERFORMANCE",
-    date: "2026-10-19",
+    date: DAY,
     startTime: "09:00",
     endTime: "10:30",
     color: "#1355DC",
@@ -72,15 +83,15 @@ describe("the Semana grid block (rule 19)", () => {
           weekDays={[day]}
           selectedDay={day}
           onSelectDay={() => undefined}
-          eventsByDay={{ "2026-10-19": [cls(), cls({ id: "class-9-2026-10-19", openSpot: true, startTime: "11:00", endTime: "12:00" })] }}
+          eventsByDay={{ [DAY]: [cls(), cls({ id: `class-9-${DAY}`, openSpot: true, startTime: "11:00", endTime: "12:00" })] }}
           hourRange={{ startHour: 8, endHour: 13 }}
         />
       )
     );
     const hasMark = (blockId: string) =>
       n.byTestId(blockId).findAll((x) => typeof x.type === "string" && x.props.testID === "calendar-enrolled-mark").length > 0;
-    expect(hasMark("calendar-grid-block-class-7-2026-10-19")).toBe(true);
-    expect(hasMark("calendar-grid-block-class-9-2026-10-19")).toBe(false);
+    expect(hasMark(`calendar-grid-block-class-7-${DAY}`)).toBe(true);
+    expect(hasMark(`calendar-grid-block-class-9-${DAY}`)).toBe(false);
   });
 });
 
