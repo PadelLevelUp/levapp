@@ -5,6 +5,7 @@ transaction, commits each row's outcome on its own, and maps sent | retry | skip
 sent | pending (backed off) / dead | skipped. At least once: a row is sent again only when the
 process died between the provider's accept and that row's commit.
 """
+import os
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -15,6 +16,40 @@ from sqlalchemy import text
 from padel_app.sql_db import db
 from padel_app.utils import push_outbox as po
 from padel_app.utils.dates import utcnow_naive
+
+
+@pytest.fixture(autouse=True)
+def _no_leaked_queue_state(request, monkeypatch):
+    """Each test starts from its own premise, whatever an earlier test left in the process.
+
+    On #796's Postgres shard 2 (run 39832889821) the sender took the outbox path with the flag off
+    and its row was never seen: an earlier test leaves PUSH_QUEUE in os.environ or a unit of work
+    open on this thread. Name what leaked on the terminal, even on a pass, then clear it.
+    """
+    from padel_app.tools import unit_of_work as uow
+
+    import sys
+    import threading
+
+    import padel_app.utils as utils_pkg
+    from padel_app.utils import expo_push
+
+    leaked = {k: os.environ[k] for k in ("PUSH_QUEUE", "EXPO_PUSH_DISABLED") if k in os.environ}
+    depth = getattr(uow._state, "depth", 0)
+    stale = [m for m in ("push_sender", "push_outbox", "expo_push")
+             if getattr(utils_pkg, m, None) is not sys.modules.get(f"padel_app.utils.{m}")]
+    if po is not sys.modules.get("padel_app.utils.push_outbox"):
+        stale.append("po")
+    sender = type(expo_push.send_expo_push_to_user).__name__
+    threads = sorted(t.name for t in threading.enumerate() if t is not threading.main_thread())
+    probe = request.node.name == "test_the_senders_enqueue_what_not_where"  # one line per run, leak or not
+    if leaked or depth or stale or sender != "function" or probe:
+        reporter = request.config.pluginmanager.get_plugin("terminalreporter")
+        line = (f"[pad699 leak] {request.node.name}: environ={leaked} unit_of_work_depth={depth} "
+                f"stale_modules={stale} sender={sender} threads={threads}")
+        (reporter.write_line if reporter else print)(line)
+    monkeypatch.delenv("PUSH_QUEUE", raising=False)
+    monkeypatch.setattr(uow._state, "depth", 0, raising=False)
 
 
 @pytest.fixture
