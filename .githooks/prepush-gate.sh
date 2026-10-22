@@ -25,6 +25,17 @@
 # the hook says so. Untracked files are warned about: they are in the tested tree, not the push.
 # Escape hatch: a line `[skip-prepush: <reason>]` in one of the pushed commits' messages. The hook
 # honours it and prints it; the reason is then in the history for review. Never --no-verify.
+# The trade-off (PAD-720), so a skip is a choice and not a default:
+# - The gate costs local minutes (≤ 5, ~7 with --full; more on a loaded machine). It buys a red
+#   caught before CI. CI then runs once per push instead of once per fix, nobody is emailed for a
+#   red run, and a broken head never sits on a PR for others to rebase onto.
+# - A skip moves every red the gate would have caught into CI. Each costs a full CI run and a
+#   failure email to the pushing account, and the next push repeats both.
+# - So the reason must name what is being skipped. That is either the known reds by test name or
+#   ledger id (e.g. "the 10 calendar fixture reds, B-632"), or the situation with who decided it
+#   (e.g. "overnight 2026-10-21, coordinator: local gate starved; CI is the gate"). Run the
+#   targeted tests for what you changed anyway. A skip also covers every later push that contains
+#   its commit (B-253), so drop it from the message once the reason is gone.
 set -uo pipefail
 
 # Git runs a hook with its repository variables exported (in a worktree: GIT_DIR=<its gitdir>).

@@ -1,4 +1,5 @@
 import {
+  academyClassesApi,
   calendarApi,
   classesApi,
   notificationEngineApi,
@@ -289,6 +290,23 @@ export function useDeclineFromDashboard() {
   return useMutation({
     mutationFn: (target: number | notificationEngineApi.CancelAttendanceTarget) =>
       notificationEngineApi.cancelAttendance(target),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
+  });
+}
+
+/**
+ * PAD-684 (attendance.confirm rule 28): a `not_coming` student whose spot went joins THIS
+ * occurrence's waiting list from the dashboard, addressed by the row's `declineTarget`.
+ */
+export function useJoinWaitingListFromDashboard() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: (target: { model: string; originalId: string | number; date?: string | null }) =>
+      academyClassesApi.joinClassWaitingList(target),
     onSuccess: () => {
       invalidate();
       invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);

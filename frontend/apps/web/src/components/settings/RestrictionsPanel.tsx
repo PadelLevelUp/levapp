@@ -15,11 +15,54 @@ import {
   canStepRestriction,
   isValidQuietWindow,
   quietWindowOf,
+  sameDayDefaultNoteShown,
+  SAME_DAY_DEFAULT_NOTE_DISMISSED,
+  SAME_DAY_DEFAULT_NOTE_STORAGE_KEY,
   stepRestriction,
   type QuietWindow,
   type SteppedRestrictionKey,
   QUIET_HOURS_STEP_MINUTES,
 } from "@levelup/config";
+
+/**
+ * PAD-685 (rule 6e): the one-time note that the same-day restriction now comes on by default.
+ * Dismissal is remembered in this browser only; storage that throws never breaks the panel.
+ */
+function SameDayDefaultNote() {
+  const { t } = useTranslation();
+  const [shown, setShown] = useState(() => {
+    try {
+      return sameDayDefaultNoteShown(localStorage.getItem(SAME_DAY_DEFAULT_NOTE_STORAGE_KEY));
+    } catch {
+      return true;
+    }
+  });
+  if (!shown) return null;
+  return (
+    <div
+      className="flex items-start justify-between gap-3 rounded-md border bg-muted/50 p-3"
+      data-testid="restriction-same-day-default-note"
+    >
+      <p className="text-xs text-muted-foreground">{t("settings.restrictions.noSameDayClassDefaultNote")}</p>
+      <Button
+        variant="outline"
+        size="sm"
+        className="shrink-0"
+        data-testid="restriction-same-day-default-note-dismiss"
+        onClick={() => {
+          setShown(false);
+          try {
+            localStorage.setItem(SAME_DAY_DEFAULT_NOTE_STORAGE_KEY, SAME_DAY_DEFAULT_NOTE_DISMISSED);
+          } catch {
+            // Storage unavailable: the note stays hidden for this page's lifetime only.
+          }
+        }}
+      >
+        {t("settings.restrictions.noSameDayClassDefaultNoteDismiss")}
+      </Button>
+    </div>
+  );
+}
 
 interface RestrictionRowProps {
   label: string;
@@ -498,6 +541,7 @@ export function RestrictionsPanel({ restrictions, excludedPlayerNames = {}, onCh
         testId="restriction-row-exclude-unpaid"
       />
 
+      <SameDayDefaultNote />
       <RestrictionRow
         label={t("settings.restrictions.noSameDayClass")}
         description={t("settings.restrictions.noSameDayClassDescription")}

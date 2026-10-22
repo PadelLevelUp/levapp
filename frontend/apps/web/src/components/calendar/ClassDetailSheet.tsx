@@ -51,7 +51,7 @@ import { blockedNames, classEvaluationsAction, endsAfterStart, errorStatusOf, is
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -335,6 +335,8 @@ export function ClassDetailSheet({
   // PAD-46: student cancels attendance from the class-detail view.
   const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // PAD-684: the server's own answer, shown until the refetch lands (never invented).
+  const [comeBackShown, setComeBackShown] = useState<ReturnType<typeof comeBackAction>>(null);
   const [openingChat, setOpeningChat] = useState(false);
   const navigate = useNavigate();
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
@@ -1118,12 +1120,17 @@ export function ClassDetailSheet({
       classStarted,
     });
   const ownInstanceId = Number(ownPresence?.lessonInstanceId);
+  // PAD-684 (attendance.confirm rule 28): "Afinal vou" - the SERVER's `comeBack` decides.
+  const comeBackKind = comeBackShown ?? comeBackAction(classInstance?.comeBack, ownState);
 
   const handleConfirmMyAttendance = async () => {
     if (!Number.isFinite(ownInstanceId) || confirming) return;
     setConfirming(true);
     try {
-      const outcome = reminderAnswerOutcome(await respondToReminder(ownInstanceId, "yes"));
+      const answer = await respondToReminder(ownInstanceId, "yes");
+      const outcome = reminderAnswerOutcome(answer);
+      const shown = comeBackFromAnswer(answer);
+      if (shown) setComeBackShown(shown);
       if (outcome.record === "confirmed") {
         toast({ title: t("calendar.detail.confirmAttendanceDone") });
       } else if (outcome.messageKey) {
@@ -1134,10 +1141,29 @@ export function ClassDetailSheet({
       }
       // Either way the server is the truth: re-read rather than paint.
       await refreshInstance();
+      setComeBackShown(null);
     } catch {
       toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
     } finally {
       setConfirming(false);
+    }
+  };
+
+  // PAD-684 rule 28: no spot left - the PAD-547 / PAD-577 join for THIS occurrence.
+  const handleComeBackWaitingList = async () => {
+    if (!event || joinBusy) return;
+    setJoinBusy(true);
+    try {
+      const place = await joinClassWaitingList(event);
+      if ((place as { onWaitingList?: boolean } | null)?.onWaitingList) setComeBackShown("on_waiting_list");
+      toast({ title: t("calendar.waitingList.joined") });
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      await refreshInstance();
+      setComeBackShown(null);
+    } catch {
+      toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
+    } finally {
+      setJoinBusy(false);
     }
   };
 
@@ -2186,7 +2212,44 @@ export function ClassDetailSheet({
                   )}
                   {/* PAD-570 rule 28: "Não vou" is final — no way back (the PAD-315
                       come-back lived here); the hint points to the coach's chat. */}
-                  {hasDeclined && (
+                  {comeBackKind === "rejoin" && (
+                    <Button
+                      data-testid="attendance-come-back"
+                      className="w-full"
+                      onClick={handleConfirmMyAttendance}
+                      disabled={confirming}
+                    >
+                      {confirming ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
+                      {t("calendar.detail.comeBack")}
+                    </Button>
+                  )}
+                  {comeBackKind === "waiting_list" && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground" data-testid="attendance-come-back-spot-taken">
+                        {t("calendar.detail.spotTaken")}
+                      </p>
+                      <Button
+                        data-testid="attendance-come-back-waiting-list"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleComeBackWaitingList}
+                        disabled={joinBusy}
+                      >
+                        {t("calendar.waitingList.join")}
+                      </Button>
+                    </div>
+                  )}
+                  {comeBackKind === "on_waiting_list" && (
+                    <p className="text-xs text-muted-foreground" data-testid="attendance-come-back-on-waiting-list">
+                      {t("calendar.detail.onWaitingList")}
+                    </p>
+                  )}
+                  {(hasDeclined || comeBackKind === "final_hint") &&
+                    (comeBackKind === null || comeBackKind === "final_hint") && (
                     <div className="space-y-2" data-testid="class-declined-hint">
                       <p className="text-xs text-muted-foreground">
                         {t("calendar.detail.declinedFinalHint")}

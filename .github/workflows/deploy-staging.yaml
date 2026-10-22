@@ -214,7 +214,16 @@ jobs:
           # migrate step finds the database ahead of the image and does nothing.
           ROLLOUT_MODE=""
           if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
-          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging --probe-host staging.levapp.app --migrate $ROLLOUT_MODE -- \
+          # PAD-695 (delivery.worker-role): with WORKER_SPLIT on in the env file the jobs run in a
+          # <name>_worker container that rollout.sh swaps after the API; off, it removes any leftover one.
+          WORKER_OPT=""
+          if grep -qiE '^WORKER_SPLIT=(on|1|true|yes)[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.staging; then WORKER_OPT="--worker"; fi
+          # B-666: a rollback (deploy-prod's rollback_to) checks out an older rollout.sh, which exits 2
+          # on an option it does not know (--probe-host came with #769, --migrate with #753). Pass an
+          # option only when the checked-out script accepts it, and say so when one is dropped.
+          RO=/home/${{ secrets.GCE_USER }}/rollout.sh
+          opt() { if grep -qF -- "    $1)" "$RO"; then printf '%s ' "$@"; else echo "[deploy] this rollout.sh has no $1: not passing it" >&2; fi; }
+          bash "$RO" --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $(opt --probe-host staging.levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
@@ -234,6 +243,16 @@ jobs:
             -e WORK_GITHUB_REPO="${{ github.repository }}" \
             -e WORK_GITHUB_TOKEN="${{ secrets.WORK_GITHUB_TOKEN }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+          # PAD-695: no worker outlives a deploy that did not pass --worker: WORKER_SPLIT is off, or a
+          # rollback checked out a rollout.sh from before the worker role (it can neither swap nor remove
+          # one). The API then competes for the scheduler lock again; jobs never run twice either way.
+          if [ -z "$WORKER_OPT" ] || ! grep -qF -- "    --worker)" /home/${{ secrets.GCE_USER }}/rollout.sh; then
+            if docker inspect padelapp_staging_worker >/dev/null 2>&1; then
+              echo "[deploy] removing padelapp_staging_worker (no worker in this deploy)"
+              docker stop -t 60 padelapp_staging_worker >/dev/null 2>&1 || true
+              docker rm padelapp_staging_worker >/dev/null 2>&1 || true
+            fi
+          fi
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true

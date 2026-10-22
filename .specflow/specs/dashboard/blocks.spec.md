@@ -155,10 +155,11 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      não vou" (`dashboard.answer.notGoing`; the ticket's own words for the dashboard), which
      confirms in a dialog and calls `POST /app/notify/cancel_attendance` with the row's
      `lessonInstanceId` or `declineTarget`, so the server classifies the decline (rule 11); the
-     hero shows the same. A row whose state is `not_coming` shows no button and the one-line hint
-     "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador."
-     (`calendar.detail.declinedFinalHint`); the chat shortcut itself lives on the class detail,
-     which the row opens (`attendance.confirm` rule 28). A class with reminders off is never in "Precisa de
+     hero shows the same. A row whose state is `not_coming` on a class that has not started shows what its
+     `comeBack` says (PAD-684, `attendance.confirm` rule 28): "Afinal vou", or "A tua vaga já foi
+     ocupada" with "Juntar-me à lista de espera", or "Estás na lista de espera". (Before PAD-684
+     it showed the one-line hint "Respondeste que não vais…", `calendar.detail.declinedFinalHint`,
+     which App Store builds that do not read `comeBack` still show.) A class with reminders off is never in "Precisa de
      ti" and never shows Yes / No. Nothing about a *coach's* rows changes.
    - Every number ships with its denominator or context; every time, date and x/y count is
      tabular.

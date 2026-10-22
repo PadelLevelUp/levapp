@@ -5,9 +5,13 @@
  * `.maestro/android-shards.json` and the flow files' text, plus a small CLI:
  *
  *   node scripts/maestro-shards.mjs check                 # rule 3; exits 1 naming the problem
- *   node scripts/maestro-shards.mjs matrix                # the shard numbers as a JSON list, for the workflow
- *   node scripts/maestro-shards.mjs config <k> <out.yaml> # workspace config for shard k (1-based)
+ *   node scripts/maestro-shards.mjs matrix [--full] [--changed]  # the job list as JSON, for the workflow
+ *   node scripts/maestro-shards.mjs changed --json <list> # rule 1b: a PR's runnable changed flows
+ *   node scripts/maestro-shards.mjs config <k> <out.yaml> # workspace config for shard k (1-based), or
+ *                                                         # "changed" (names in MAESTRO_CHANGED_FLOWS)
  *   node scripts/maestro-shards.mjs watch <pid> <testsDir> <stopFile> <flowLimitMin> <shardBudgetMin>
+ *   node scripts/maestro-shards.mjs report <artifactsDir>  # rule 7: the Android lane check, as JSON
+ *                                     (env LANE_SHARDS, LANE_EXPERIMENTAL, LANE_RECENT_GREENS)
  *                                                         # rule 4: stop Maestro, naming the flow
  *
  * No YAML library: config.yaml's flowsOrder is a flat list under `  flowsOrder:`,
@@ -94,12 +98,27 @@ export function checkShards(suite, shardFile, flows) {
   return problems;
 }
 
-/** The flows shard k (1-based) runs: its slice, led by the warm-up from shard 2 on. */
-export function shardFlows(suite, shardFile, k) {
-  const slice = planShards(suite, shardFile.starts)[k - 1];
+/** The flows shard k (1-based) runs: its slice, led by the warm-up from shard 2 on. Shard
+ * "changed" (rule 1b) runs the given names, led by the warm-up too. */
+export function shardFlows(suite, shardFile, k, changed = []) {
+  const slice = k === "changed" ? changed : planShards(suite, shardFile.starts)[k - 1];
   if (!slice) throw new Error(`no shard ${k}; there are ${shardFile.starts.length}`);
   const { warmup } = shardFile;
-  return k > 1 && warmup && !slice.includes(warmup) ? [warmup, ...slice] : slice;
+  return k !== 1 && warmup && !slice.includes(warmup) ? [warmup, ...slice] : slice;
+}
+
+/** Rule 1b: the runnable flows among a PR's changed paths, in suite order. */
+export function changedFlows(suite, paths) {
+  const names = new Set(
+    paths.map((p) => p.match(/(?:^|\/)\.maestro\/flows\/([^/]+)\.yaml$/)?.[1]).filter(Boolean)
+  );
+  return suite.filter((n) => names.has(n));
+}
+
+/** Rule 1: the job list — the shards for a full run, else the single "all" job — plus "changed" (rule 1b). */
+export function shardMatrix(shardFile, { full, changed }) {
+  const jobs = full ? shardFile.starts.map((_, i) => String(i + 1)) : ["all"];
+  return changed ? [...jobs, "changed"] : jobs;
 }
 
 /** A Maestro workspace config that runs exactly `names`, in that order. */
@@ -186,6 +205,56 @@ function watch(pid, testsDir, stopFile, flowLimitMin, shardBudgetMin) {
   tick();
 }
 
+/**
+ * Rule 7: each expected shard's result, from the artifacts the lane uploaded
+ * (`<dir>/maestro-results-<shard>/tests/{shard-verdict.txt,maestro-stdout.txt}`).
+ */
+export function readShardResults(dir, shards) {
+  return shards.map((shard) => {
+    const tests = path.join(dir, `maestro-results-${shard}`, "tests");
+    const verdictFile = path.join(tests, "shard-verdict.txt");
+    if (!fs.existsSync(verdictFile)) return { shard, missing: true, rc: null, expected: null, finished: null, stop: "", failed: [] };
+    const kv = Object.fromEntries(
+      fs.readFileSync(verdictFile, "utf8").split("\n").filter(Boolean).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)])
+    );
+    const num = (v) => (v === undefined || v === "" ? null : Number(v));
+    const stdoutFile = path.join(tests, "maestro-stdout.txt");
+    const stdout = fs.existsSync(stdoutFile) ? fs.readFileSync(stdoutFile, "utf8") : "";
+    const failed = [...stdout.matchAll(/\[Failed\] (\S+) \([^)]*\)(?: \((.*)\))?\s*$/gm)].map((m) => ({ flow: m[1], reason: m[2] ?? "" }));
+    return { shard, missing: false, rc: num(kv.rc), expected: num(kv.expected), finished: num(kv.finished), stop: kv.stop ?? "", failed };
+  });
+}
+
+/** Rule 7: the Android lane check — success, neutral while experimental, failure once strict. */
+export function laneVerdict(results, { experimental, recentGreens }) {
+  const lines = [];
+  for (const r of results) {
+    if (r.missing) {
+      lines.push(`- **shard ${r.shard} reported nothing** (no verdict in its artifact: cancelled, or failed before Maestro)`);
+      continue;
+    }
+    for (const f of r.failed) lines.push(`- shard ${r.shard}: **${f.flow}** — ${f.reason || "failed"}`);
+    if (r.stop) lines.push(`- shard ${r.shard}: ${r.stop.replace(/^::error title=([^:]*)::/, "**$1:** ")}`);
+    if (r.expected !== null && r.finished !== null && r.finished !== r.expected) {
+      lines.push(`- shard ${r.shard}: reported ${r.finished} of ${r.expected} flows`);
+    }
+    if (r.rc && !r.failed.length && !r.stop && r.finished === r.expected) lines.push(`- shard ${r.shard}: Maestro exited ${r.rc}`);
+  }
+  const strict = !experimental || recentGreens >= 2;
+  const red = lines.length > 0;
+  const conclusion = !red ? "success" : strict ? "failure" : "neutral";
+  const flows = results.reduce((n, r) => n + (r.failed?.length ?? 0), 0);
+  const title = !red
+    ? `All flows passed in ${results.length} job(s)`
+    : `${flows} flow(s) red${strict ? "" : " — experimental lane, reported as neutral"}`;
+  const mode = strict
+    ? experimental
+      ? "Strict: the two previous scheduled runs on main were green."
+      : "Strict: the lane is no longer experimental."
+    : `Experimental (ANDROID_LANE_EXPERIMENTAL): a red is neutral until two consecutive scheduled greens on main (${recentGreens}/2).`;
+  return { conclusion, title, summary: [mode, "", ...(red ? lines : ["Every flow passed."])].join("\n"), strict };
+}
+
 /** Read the committed workspace: suite order, shard file and flow texts. */
 export function readWorkspace(maestroDir) {
   const order = parseFlowsOrder(fs.readFileSync(path.join(maestroDir, "config.yaml"), "utf8"));
@@ -199,6 +268,14 @@ export function readWorkspace(maestroDir) {
 
 function main(argv) {
   const [cmd, k, out] = argv;
+  if (cmd === "report") {
+    const shards = JSON.parse(process.env.LANE_SHARDS || "[]");
+    const verdict = laneVerdict(readShardResults(argv[1], shards), {
+      experimental: process.env.LANE_EXPERIMENTAL === "true",
+      recentGreens: Number(process.env.LANE_RECENT_GREENS || 0),
+    });
+    return console.log(JSON.stringify(verdict));
+  }
   if (cmd === "watch") {
     const [, pid, testsDir, stopFile, flowLimit, shardBudget] = argv;
     return watch(Number(pid), testsDir, stopFile, Number(flowLimit), Number(shardBudget));
@@ -212,14 +289,26 @@ function main(argv) {
     planShards(suite, shardFile.starts).forEach((s, i) => console.log(`shard ${i + 1}: ${s.length} flows, ${s[0]} .. ${s.at(-1)}`));
     if (cmd === "check") return;
   }
-  if (cmd === "matrix") return console.log(JSON.stringify(shardFile.starts.map((_, i) => String(i + 1))));
+  if (cmd === "matrix") {
+    return console.log(JSON.stringify(shardMatrix(shardFile, { full: argv.includes("--full"), changed: argv.includes("--changed") })));
+  }
+  if (cmd === "changed") {
+    // The workflow passes paths-filter's JSON list; nothing here goes through a shell.
+    const paths = argv[1] === "--json" ? JSON.parse(argv[2] || "[]") : argv.slice(1);
+    return console.log(changedFlows(suite, paths).join(" "));
+  }
   if (cmd === "config") {
-    const names = shardFlows(suite, shardFile, Number(k));
+    const changed = (process.env.MAESTRO_CHANGED_FLOWS ?? "").split(/\s+/).filter(Boolean);
+    if (k === "changed" && !changed.length) {
+      console.error("android-shards: config changed needs MAESTRO_CHANGED_FLOWS");
+      process.exit(2);
+    }
+    const names = shardFlows(suite, shardFile, k === "changed" ? "changed" : Number(k), changedFlows(suite, changed.map((n) => `.maestro/flows/${n}.yaml`)));
     fs.writeFileSync(out, shardConfig(names));
     console.log(`shard ${k}: ${names.length} flows -> ${out}`);
     return;
   }
-  console.error("usage: maestro-shards.mjs check | matrix | config <k> <out.yaml> | watch <pid> <testsDir> <stopFile> <flowLimitMin> <shardBudgetMin>");
+  console.error("usage: maestro-shards.mjs check | matrix [--full] [--changed] | changed --json <list> | report <dir> | config <k> <out.yaml> | watch <pid> <testsDir> <stopFile> <flowLimitMin> <shardBudgetMin>");
   process.exit(2);
 }
 

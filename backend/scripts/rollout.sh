@@ -37,14 +37,26 @@
 # there is no upstream), wait for health, then remove the old one. If the migrate step or the new
 # container fails, the old one is started again and the deploy exits 1 (rule 7).
 # --dry-run: print the plan (mode, ports, migrate) and the docker commands, run nothing.
+# --worker (PAD-695, rule 13; delivery.worker-role): after the API swap, in both modes, start
+# <name>_worker_next from the same arguments with --memory WORKER_MEMORY, -e ROLE=worker (it
+# overrides --env-file whatever the order; ROLE is never in the env templates) and the command
+# `python -m padel_app.worker`, no published port. Once its /livez answers (docker exec: the image
+# has no curl), stop the old <name>_worker (-t WORKER_STOP_GRACE: running jobs finish), rename,
+# and require livez "leader": true within WORKER_LEAD_TIMEOUT s: with WORKER_SPLIT on the API never
+# competes, so a worker that never leads means no job runs anywhere. An unhealthy new worker is
+# removed and the old one keeps leading (exit 1); one that does not lead is left running, since it
+# may still take over (exit 1). Without --worker, a leftover <name>_worker is stopped and removed
+# (the flag went off: the API competes again).
 #
 # Env: NGINX_UPSTREAM_CONF (default /etc/nginx/conf.d/levapp-api-upstream.conf),
 #      NGINX_SITES_DIR (default /etc/nginx/sites-enabled: a vhost must proxy to the upstream),
-#      HEALTH_TIMEOUT (120), STOP_GRACE (10), POLL_SECONDS (1), PROBE_TRIES (10)
+#      HEALTH_TIMEOUT (120), STOP_GRACE (10), POLL_SECONDS (1), PROBE_TRIES (10), WORKER_MEMORY (256m),
+#      WORKER_HEALTH_TIMEOUT (60), WORKER_STOP_GRACE (60), WORKER_LEAD_TIMEOUT (30),
+#      WORKER_LIVEZ_PORT (8081)
 # =============================================================================
 set -uo pipefail
 
-NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST=""
+NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST="" WORKER=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) NAME="$2"; shift 2 ;;
@@ -56,6 +68,7 @@ while [ $# -gt 0 ]; do
     --migrate) MIGRATE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --probe-host) PROBE_HOST="$2"; shift 2 ;;
+    --worker) WORKER=1; shift ;;
     --) shift; break ;;
     *) echo "[rollout] unknown option $1" >&2; exit 2 ;;
   esac
@@ -67,6 +80,11 @@ HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
 STOP_GRACE="${STOP_GRACE:-10}"
 POLL_SECONDS="${POLL_SECONDS:-1}"
 PROBE_TRIES="${PROBE_TRIES:-10}"
+WORKER_MEMORY="${WORKER_MEMORY:-256m}"
+WORKER_HEALTH_TIMEOUT="${WORKER_HEALTH_TIMEOUT:-60}"
+WORKER_STOP_GRACE="${WORKER_STOP_GRACE:-60}"
+WORKER_LEAD_TIMEOUT="${WORKER_LEAD_TIMEOUT:-30}"
+WORKER_LIVEZ_PORT="${WORKER_LIVEZ_PORT:-8081}"
 
 log() { echo "[rollout] $*"; }
 die() { echo "::error::[rollout] $*"; exit 1; }
@@ -152,6 +170,60 @@ through_nginx() {
   [ -n "$code" ] && [ "$code" != 000 ] && [ "$code" -lt 500 ] 2>/dev/null
 }
 
+# The worker's /livez as one word: leader, standby, or nothing when it does not answer.
+worker_state() {
+  docker exec "$1" python -c "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:${WORKER_LIVEZ_PORT}/livez', timeout=3)); print('leader' if d.get('leader') else 'standby')" 2>/dev/null
+}
+
+# PAD-695: the worker container, after the API swap (see --worker above).
+deploy_worker() {
+  local w="${NAME}_worker" n="${#RUN_ARGS[@]}" waited=0 state restarts
+  if [ "$WORKER" = 0 ]; then
+    if docker inspect "$w" >/dev/null 2>&1; then
+      log "no --worker: stopping and removing $w (WORKER_SPLIT off, the API runs the jobs)"
+      dk stop -t "$WORKER_STOP_GRACE" "$w" >/dev/null 2>&1 || true
+      dk rm "$w" >/dev/null 2>&1 || log "WARNING: could not remove $w"
+    fi
+    return 0
+  fi
+  local image="${RUN_ARGS[$((n - 1))]}" opts=("${RUN_ARGS[@]:0:$((n - 1))}")
+  log "worker: starting ${w}_next of $image"
+  dk rm -f "${w}_next" >/dev/null 2>&1 || true
+  dk run -d --name "${w}_next" "${opts[@]}" --memory "$WORKER_MEMORY" -e ROLE=worker \
+    -e WORKER_LIVEZ_PORT="$WORKER_LIVEZ_PORT" "$image" python -m padel_app.worker >/dev/null \
+    || die "docker run ${w}_next failed; $w keeps leading"
+  if [ "$DRY_RUN" = 1 ]; then
+    dk stop -t "$WORKER_STOP_GRACE" "$w"; dk rm "$w"; dk rename "${w}_next" "$w"
+    return 0
+  fi
+  while :; do
+    state=$(worker_state "${w}_next")
+    if [ -n "$state" ]; then log "worker: ${w}_next alive after ${waited}s ($state)"; break; fi
+    restarts=$(docker inspect -f '{{.RestartCount}}' "${w}_next" 2>/dev/null || echo 0)
+    if [ "${restarts:-0}" -gt 0 ] || [ "$waited" -ge "$WORKER_HEALTH_TIMEOUT" ]; then
+      docker logs --tail 60 "${w}_next" 2>&1 || true
+      docker rm -f "${w}_next" >/dev/null 2>&1 || true
+      die "worker ${w}_next did not answer /livez (restarts ${restarts:-0}, ${waited}s); $w keeps leading"
+    fi
+    sleep "$POLL_SECONDS"; waited=$((waited + POLL_SECONDS))
+  done
+  if docker inspect "$w" >/dev/null 2>&1; then
+    docker stop -t "$WORKER_STOP_GRACE" "$w" >/dev/null 2>&1 || log "WARNING: could not stop $w"
+    docker rm "$w" >/dev/null 2>&1 || log "WARNING: could not remove $w"
+  fi
+  docker rename "${w}_next" "$w" || die "could not rename ${w}_next to $w"
+  waited=0
+  while [ "$waited" -le "$WORKER_LEAD_TIMEOUT" ]; do
+    if [ "$(worker_state "$w")" = leader ]; then
+      log "worker: $w leads the scheduler after ${waited}s"
+      return 0
+    fi
+    sleep "$POLL_SECONDS"; waited=$((waited + POLL_SECONDS))
+  done
+  docker logs --tail 30 "$w" 2>&1 || true
+  die "worker $w is not the scheduler leader after ${WORKER_LEAD_TIMEOUT}s: no job runs until it is (left running; it may still take over)"
+}
+
 rolling=1
 if [ "$STOP_FIRST" = 1 ]; then
   rolling=0; log "stop-first requested"
@@ -165,7 +237,7 @@ elif ! grep -qsE "proxy_pass[[:space:]]+http://${UPSTREAM}[;/]" "$NGINX_SITES_DI
   # only, so moving to the second would answer 502.
   rolling=0; log "no enabled vhost in $NGINX_SITES_DIR proxies to $UPSTREAM yet: stop-first (rule 6)"
 fi
-log "plan: $([ "$rolling" = 1 ] && echo rolling || echo stop-first), ports $PORT_A/$PORT_B, migrate $([ "$MIGRATE" = 1 ] && echo yes || echo no)"
+log "plan: $([ "$rolling" = 1 ] && echo rolling || echo stop-first), ports $PORT_A/$PORT_B, migrate $([ "$MIGRATE" = 1 ] && echo yes || echo no), worker $([ "$WORKER" = 1 ] && echo yes || echo no)"
 
 # Stop-first keeps the old container as <name>_old until the new one is healthy (rule 7).
 had_old=0
@@ -207,6 +279,7 @@ if [ "$rolling" = 0 ]; then
     dk rm "${NAME}_old" >/dev/null 2>&1 || log "WARNING: could not remove ${NAME}_old"
   fi
   log "done (stop-first) on 127.0.0.1:$PORT_A"
+  deploy_worker
   exit 0
 fi
 
@@ -227,7 +300,7 @@ dk run -d --name "${NAME}_next" -p "127.0.0.1:${IDLE}:${CPORT}" "${RUN_ARGS[@]}"
   || die "docker run ${NAME}_next failed; $NAME keeps serving"
 if [ "$DRY_RUN" = 1 ]; then
   dk stop -t "$STOP_GRACE" "$NAME"; dk rm "$NAME"; dk rename "${NAME}_next" "$NAME"
-  log "dry-run: done"; exit 0
+  deploy_worker; log "dry-run: done"; exit 0
 fi
 if ! wait_healthy "${NAME}_next" "$IDLE"; then
   docker logs --tail 60 "${NAME}_next" 2>&1 || true
@@ -259,3 +332,4 @@ if [ -n "$LIVE" ] || docker inspect "$NAME" >/dev/null 2>&1; then
 fi
 docker rename "${NAME}_next" "$NAME" || die "could not rename ${NAME}_next to $NAME"
 log "done: $NAME serves on 127.0.0.1:$IDLE"
+deploy_worker

@@ -47,13 +47,19 @@ appId: com.padellevelup.app
 - repeat:
     times: 10
     commands:
-      - launchApp:
-          clearState: true
+      # PAD-710 (Android lane): the freshly forked app process can be SIGKILLed right after a
+      # clearState launch ("failed to attach"), so the login screen never appears. Relaunch cleanly,
+      # as subflows/login.yaml does.
+      - retry:
+          maxRetries: 3
+          commands:
+            - launchApp:
+                clearState: true
+            - extendedWaitUntil:
+                visible:
+                  id: "login-create-account"
+                timeout: 25000
       - evalScript: ${output.stamp = String(Date.now())}
-      - extendedWaitUntil:
-          visible:
-            id: "login-create-account"
-          timeout: 25000
       - tapOn:
           id: "login-create-account"
       - extendedWaitUntil:
