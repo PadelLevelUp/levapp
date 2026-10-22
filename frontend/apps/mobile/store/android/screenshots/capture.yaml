@@ -15,7 +15,7 @@ appId: com.padellevelup.app
 ---
 # ── coach ────────────────────────────────────────────────────────────────────
 - runFlow:
-    file: ../../../.maestro/subflows/login.yaml
+    file: login.yaml
     env:
       USERNAME: e2e-coach
       PASSWORD: E2eCoach123!
@@ -123,9 +123,9 @@ appId: com.padellevelup.app
     timeout: 15000
 
 # ── student ──────────────────────────────────────────────────────────────────
-# login.yaml relaunches the app, signs the coach out through the UI and logs the student in.
+# login.yaml (this folder) relaunches the app, signs the coach out through the UI and logs the student in.
 - runFlow:
-    file: ../../../.maestro/subflows/login.yaml
+    file: login.yaml
     env:
       USERNAME: e2e-student
       PASSWORD: E2eStudent123!
