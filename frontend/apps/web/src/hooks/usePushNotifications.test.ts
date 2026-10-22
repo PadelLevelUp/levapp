@@ -80,4 +80,25 @@ describe("usePushNotifications (rule 9)", () => {
     expect(result.current.saveState).toBe("saved");
     expect(saves()).toBe(2);
   });
+
+  it("a failed save reports its phase and class to the PAD-746 hook, never the message", async () => {
+    const { onPushSaveFailure } = await import("@/utils/pushNotifications");
+    const failures: unknown[] = [];
+    const stop = onPushSaveFailure((f) => failures.push(f));
+    saveStatus = 503;
+    const { result } = renderHook(() => usePushNotifications("tok-hook"));
+    await waitFor(() => expect(result.current.saveState).toBe("failed"));
+    stop();
+    expect(failures).toEqual([{ phase: "post", errorClass: "http_503" }]);
+  });
+
+  it("permission not granted reports nothing", async () => {
+    const { onPushSaveFailure, subscribeToPush } = await import("@/utils/pushNotifications");
+    vi.stubGlobal("Notification", { permission: "default", requestPermission });
+    const failures: unknown[] = [];
+    const stop = onPushSaveFailure((f) => failures.push(f));
+    await expect(subscribeToPush("tok-none")).resolves.toBe(false);
+    stop();
+    expect(failures).toEqual([]);
+  });
 });

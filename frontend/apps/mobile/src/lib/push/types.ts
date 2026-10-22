@@ -9,6 +9,18 @@
  */
 export type PushStatus = "unknown" | "registered" | "no-permission" | "failed" | "unsupported";
 
+/**
+ * PAD-746's hook (PAD-744 provides it): where a registration attempt failed. `token` is anything
+ * before the POST (permission read, channel, token fetch); `post` is the POST itself.
+ */
+export type PushFailurePhase = "token" | "post";
+
+/** `errorClass` is the error's name or `http_<status>`, at most 60 characters, never its message. */
+export interface PushFailure {
+  phase: PushFailurePhase;
+  errorClass: string;
+}
+
 export interface PushRegistrar {
   /**
    * Request permission, obtain a push token and sync it to the backend. Prompts: called only by
@@ -28,6 +40,11 @@ export interface PushRegistrar {
   status(): PushStatus;
   /** Calls `listener` on every status change; returns the unsubscribe function. */
   onStatusChange(listener: (status: PushStatus) => void): () => void;
+  /**
+   * Calls `listener` once per failed attempt (each one that retries, and the last), including a
+   * rotated token's. A denial and a simulator are not failures. Returns the unsubscribe function.
+   */
+  onRegistrationFailure(listener: (failure: PushFailure) => void): () => void;
   /** Remove this device's token from the backend (e.g. on logout). */
   unregister(): Promise<void>;
   /**

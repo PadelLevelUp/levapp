@@ -39,6 +39,37 @@ async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration> 
 // same token joins the save already in flight instead of sending its own.
 let inFlight: { token: string; save: Promise<boolean> } | null = null;
 
+/**
+ * PAD-746's hook (PAD-744 provides it): where a save failed. `subscribe` is the browser's
+ * `pushManager.subscribe`; `post` is the save-subscription request (non-2xx or thrown).
+ * `errorClass` is `http_<status>` or the error's name, at most 60 characters, never its message.
+ * Permission not granted is not a failure.
+ */
+export type PushFailurePhase = "subscribe" | "post";
+export type PushSaveFailure = { phase: PushFailurePhase; errorClass: string };
+
+const failureListeners = new Set<(failure: PushSaveFailure) => void>();
+
+export function onPushSaveFailure(listener: (failure: PushSaveFailure) => void): () => void {
+  failureListeners.add(listener);
+  return () => {
+    failureListeners.delete(listener);
+  };
+}
+
+function reportFailure(phase: PushFailurePhase, errorClass: string): void {
+  const failure = { phase, errorClass: errorClass.slice(0, 60) };
+  for (const listener of failureListeners) {
+    try {
+      listener(failure);
+    } catch {
+      // A reporter must never break the save.
+    }
+  }
+}
+
+const nameOf = (error: unknown) => (error instanceof Error ? error.name : typeof error);
+
 // auth.push-subscription rule 9 (PAD-744): the token this page session has already saved a
 // subscription for, so the focus re-save runs once per session, not on every focus.
 let savedFor: string | null = null;
@@ -71,21 +102,34 @@ async function saveSubscription(token: string): Promise<boolean> {
   const publicKey = await fetchVapidPublicKey();
   const registration = await getOrRegisterServiceWorker();
 
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
-  });
+  let subscription: PushSubscription;
+  try {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
+    });
+  } catch (error) {
+    reportFailure("subscribe", nameOf(error));
+    throw error;
+  }
 
-  const response = await fetch(`${API_BASE_URL}/notifications/save-subscription`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ subscription }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/notifications/save-subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ subscription }),
+    });
+  } catch (error) {
+    reportFailure("post", nameOf(error));
+    throw error;
+  }
 
   if (!response.ok) {
+    reportFailure("post", `http_${response.status}`);
     throw new Error("Failed to save push subscription");
   }
 

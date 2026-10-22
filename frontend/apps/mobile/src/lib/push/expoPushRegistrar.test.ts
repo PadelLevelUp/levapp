@@ -33,7 +33,7 @@ vi.mock("expo-notifications", () => ({
   }),
 }));
 
-import { ExpoPushRegistrar, PUSH_TOKEN_ENDPOINT, RETRY_DELAYS_MS } from "./expoPushRegistrar";
+import { ExpoPushRegistrar, PUSH_TOKEN_ENDPOINT, RETRY_DELAYS_MS, errorClassOf } from "./expoPushRegistrar";
 import { startPushRecovery } from "./recovery";
 import { __emitAppState } from "@/test/mocks/react-native";
 
@@ -150,6 +150,56 @@ describe("ExpoPushRegistrar (rule 15)", () => {
     stop();
     await registrar.unregister();
     expect(seen).toEqual(["registered"]);
+  });
+});
+
+describe("onRegistrationFailure (the PAD-746 hook)", () => {
+  it("reports each failed attempt's phase and error class, never the message", async () => {
+    post.mockRejectedValue(Object.assign(new Error("secret detail"), { response: { status: 503 } }));
+    const registrar = new ExpoPushRegistrar();
+    const failures: unknown[] = [];
+    registrar.onRegistrationFailure((f) => failures.push(f));
+    await registrar.register();
+    for (const delay of RETRY_DELAYS_MS) await vi.advanceTimersByTimeAsync(delay);
+    expect(failures).toHaveLength(4);
+    expect(failures[0]).toEqual({ phase: "post", errorClass: "http_503" });
+    expect(JSON.stringify(failures)).not.toContain("secret");
+  });
+
+  it("a token fetch that throws is the token phase; a denial and a simulator report nothing", async () => {
+    const { getExpoPushTokenAsync } = await import("expo-notifications");
+    vi.mocked(getExpoPushTokenAsync).mockRejectedValueOnce(new TypeError("no aps-environment"));
+    const registrar = new ExpoPushRegistrar();
+    const failures: unknown[] = [];
+    registrar.onRegistrationFailure((f) => failures.push(f));
+    await registrar.register();
+    expect(failures).toEqual([{ phase: "token", errorClass: "TypeError" }]);
+
+    failures.length = 0;
+    await registrar.unregister();
+    notifications.permission = "denied";
+    await registrar.register();
+    device.isDevice = false;
+    notifications.permission = "granted";
+    await registrar.register();
+    expect(failures).toEqual([]);
+  });
+
+  it("a listener that throws never breaks registration", async () => {
+    post.mockRejectedValueOnce(new Error("x"));
+    const registrar = new ExpoPushRegistrar();
+    registrar.onRegistrationFailure(() => {
+      throw new Error("reporter down");
+    });
+    await registrar.register();
+    await vi.advanceTimersByTimeAsync(RETRY_DELAYS_MS[0]);
+    expect(registrar.status()).toBe("registered");
+  });
+
+  it("caps the class at 60 characters", () => {
+    const e = new Error("m");
+    e.name = "N".repeat(80);
+    expect(errorClassOf(e)).toHaveLength(60);
   });
 });
 

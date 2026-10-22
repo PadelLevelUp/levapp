@@ -3,7 +3,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { api } from "@/lib/api";
-import type { PushRegistrar, PushStatus } from "./types";
+import type { PushFailure, PushFailurePhase, PushRegistrar, PushStatus } from "./types";
 
 /**
  * Native device-token registration endpoint. The same path is used for both
@@ -29,6 +29,22 @@ export const ANDROID_CHANNEL_ID = "default";
  */
 export const RETRY_DELAYS_MS: readonly number[] = [2_000, 10_000, 30_000];
 
+/** A failed POST, tagged so the failure hook can tell it from a failure before it. */
+class PostFailed extends Error {
+  constructor(readonly inner: unknown) {
+    super("push token POST failed");
+    this.name = "PostFailed";
+  }
+}
+
+/** `http_<status>` for an HTTP error, else the error's name; never its message (PAD-746). */
+export function errorClassOf(error: unknown): string {
+  const e = error instanceof PostFailed ? error.inner : error;
+  const status = (e as { response?: { status?: unknown } } | null)?.response?.status;
+  const name = typeof status === "number" ? `http_${status}` : e instanceof Error ? e.name : typeof e;
+  return name.slice(0, 60);
+}
+
 /**
  * expo-notifications implementation. Every step is best-effort: missing
  * permissions, simulators, or network failures all resolve silently —
@@ -39,6 +55,7 @@ export class ExpoPushRegistrar implements PushRegistrar {
   private currentToken: string | null = null;
   private state: PushStatus = "unknown";
   private readonly listeners = new Set<(status: PushStatus) => void>();
+  private readonly failureListeners = new Set<(failure: PushFailure) => void>();
   /** Bumped by unregister(): a retry or a rotation from an earlier session sees a stale value and stops. */
   private generation = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -60,6 +77,18 @@ export class ExpoPushRegistrar implements PushRegistrar {
     if (next === this.state) return;
     this.state = next;
     for (const listener of this.listeners) listener(next);
+  }
+
+  private reportFailure(error: unknown): void {
+    const phase: PushFailurePhase = error instanceof PostFailed ? "post" : "token";
+    const failure: PushFailure = { phase, errorClass: errorClassOf(error) };
+    for (const listener of this.failureListeners) {
+      try {
+        listener(failure);
+      } catch {
+        // A reporter must never break registration.
+      }
+    }
   }
 
   private clearRetry(): void {
@@ -127,6 +156,7 @@ export class ExpoPushRegistrar implements PushRegistrar {
       await this.send(token, generation);
     } catch (error) {
       console.warn("[push] register failed", error);
+      this.reportFailure(error);
       this.scheduleRetry(() => this.attempt({ prompt: false }, retry + 1, generation), retry, generation);
     }
   }
@@ -135,10 +165,14 @@ export class ExpoPushRegistrar implements PushRegistrar {
   private async send(token: string, generation: number): Promise<void> {
     if (generation !== this.generation) return;
     this.currentToken = token;
-    await api.post(PUSH_TOKEN_ENDPOINT, {
-      token,
-      platform: Platform.OS,
-    });
+    try {
+      await api.post(PUSH_TOKEN_ENDPOINT, {
+        token,
+        platform: Platform.OS,
+      });
+    } catch (error) {
+      throw new PostFailed(error);
+    }
     if (generation !== this.generation) return;
     this.clearRetry();
     this.setStatus("registered");
@@ -167,6 +201,7 @@ export class ExpoPushRegistrar implements PushRegistrar {
         const sendRotated = (retry: number): Promise<void> =>
           this.send(data, generation).catch((error) => {
             console.warn("[push] rotated token register failed", error);
+            this.reportFailure(error);
             this.scheduleRetry(() => sendRotated(retry + 1), retry, generation);
           });
         void sendRotated(0);
@@ -186,6 +221,13 @@ export class ExpoPushRegistrar implements PushRegistrar {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  onRegistrationFailure(listener: (failure: PushFailure) => void): () => void {
+    this.failureListeners.add(listener);
+    return () => {
+      this.failureListeners.delete(listener);
     };
   }
 

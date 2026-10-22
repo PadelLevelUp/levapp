@@ -13,4 +13,4 @@ export function getPushRegistrar(): PushRegistrar {
 
 export { PUSH_TOKEN_ENDPOINT, RETRY_DELAYS_MS } from "./expoPushRegistrar";
 export { startPushRecovery } from "./recovery";
-export type { PushRegistrar, PushStatus } from "./types";
+export type { PushFailure, PushFailurePhase, PushRegistrar, PushStatus } from "./types";
