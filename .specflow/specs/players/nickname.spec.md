@@ -103,9 +103,31 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    **Delivery (PAD-683, two parts promoted together, like PAD-660).** Part 1: (a) for the invite
    picker's groups, the coach's search and the `ineligible` rows; (b) for the web class detail,
    the invite toasts and the unavailable-student dialogs; (c) for every coach-bound send named
-   above; (d) both guards. Part 2 burns the `backlog` entries to zero: presence statistics, the
-   dashboard rows, the claim candidates, the invite tutorial's simulation, the new-conversation
-   picker and the iOS profile's dialogs; after it no coach-only file holds a `backlog` entry.
+   above; (d) both guards. Part 2 (done) burned the `backlog` entries to zero, and both guards now
+   fail on any `backlog` entry, so only `allowed` entries remain:
+   - **Server, rule 9a** (`nickname_payload` from the REQUESTING coach's relation, one query per
+     payload through `relations_by_player` / `coach_relation_payloads`): the presence statistics
+     rows and the validation list's players (`presence_overview_service`); the dashboard's
+     next-class avatar stack (`displayName`, initials of it), the "needs you" reply card (`playerId`,
+     `displayName`, initials) and the incomplete-players block (`coach_home`,
+     `profile_completeness_service`) — the student's dashboard shares the first two builders and
+     never passes the coach, so it carries no nickname key; the claim candidates (which also match
+     the coach's nickname in their search) and the duplicate hint's `displayName`
+     (`player_claim_service`, `possible_duplicates_for`); the invite simulation's waiting-list rows,
+     candidates and single-student verdict (`invite_simulation_service`).
+   - **New-conversation picker, rule 9b:** `GET messageable-users` is shared with students, so a
+     nickname is never put on it; a COACH viewer's rows for students on their roster gain
+     `playerId` (nothing a student reads), and web and iOS resolve through `useCoachDisplayName`
+     (enabled for a coach only), search either name and sort by the name shown.
+   - **Clients, web and iOS/Android:** the presence table / rows, chart labels, search and sort
+     (search matches both names through `rosterSearchFields`), the walk-in picker (options print and
+     sort by the display name and are found by either), the dashboard cards, the claim/merge
+     dialog, the invite tutorial, the parked academy-accept dialog (the row is parked whole and the
+     accept resolves the name), the iOS profile's toasts, dialogs, initials and the add-to-classes
+     and waiting-list dialogs, the Players tab avatar, and the restrictions' excluded-player search.
+   - **Left on the real name on purpose** (`allowed` in the guards): the profile edit draft and the
+     real name under the nickname, the walk-in row's `name` (a record kept real; every render
+     resolves it) and the CSV export of the presences table (a file the coach may send on).
    Switching the nickname off shows the real name on every one of these, since `displayName` then
    is the real name.
 

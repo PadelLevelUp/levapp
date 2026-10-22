@@ -321,7 +321,7 @@ function ReplyCard({ item }: { item: DashboardNeedsYouReply }) {
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-[15px] font-bold">
-          {t("dashboard.needsYou.reply.title", { name: item.personName })}
+          {t("dashboard.needsYou.reply.title", { name: item.displayName ?? item.personName })}
         </span>
         <span className="truncate text-[13px] text-muted-foreground">
           {item.preview}

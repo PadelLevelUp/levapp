@@ -5,7 +5,7 @@
 #   DeviceToken is unique per (user, token): a user can have several device tokens
 #   (multiple phones/reinstalls), and registering never takes another user's row
 #   (messaging.push-notifications rule 9, PAD-269; it used to reassign it).
-from sqlalchemy import Column, Index, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Boolean, Column, Index, Integer, String, ForeignKey, UniqueConstraint, false
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -34,6 +34,10 @@ class DeviceToken(db.Model, model.Model):
     )
     token = Column(String(255), nullable=False)
     platform = Column(String(32), nullable=True)
+    #: notifications.notification-sound rule 5 (PAD-680): the registering build declared
+    #: `notification-sound` (it has the switch), so its pushes may carry `sound`. Refreshed on every
+    #: registration (each app start); a row from an older build stays False: silent pushes.
+    sound_capable = Column(Boolean, nullable=False, default=False, server_default=false())
 
     user = relationship("User")
 

@@ -71,6 +71,12 @@ TERMS_ON_COMPLETION = "terms-on-completion"
 ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"
 
 
+# PAD-680 (notifications.notification-sound rule 5): the build has the "Notification sound" switch
+# in Settings, so its Expo pushes may carry `sound`. Declared at device registration and stored on
+# the token (a push is sent outside any request); App Store 1.3.1 (33) and older keep silent pushes.
+# Retire once no App Store build older than the first declaring one is in use.
+NOTIFICATION_SOUND = "notification-sound"
+
 # PAD-533 (admin.clubs-and-switches rule 6): every capability the server knows, with its kind.
 # "feature": switching it off hides a feature from every client. "compat": switching it off sends
 # every client down the old-client path (the legacy shape, or the legacy, looser request check).
@@ -80,6 +86,7 @@ CAPABILITIES = {
     STUDENT_RELATIONS: "feature",
     FULL_CLASSES: "feature",
     EVALUATIONS: "feature",
+    NOTIFICATION_SOUND: "feature",
     CLASS_TYPE_DEFAULTS: "compat",
     COACH_INVITE_EMAIL: "compat",
     TERMS_ACCEPTANCE: "compat",

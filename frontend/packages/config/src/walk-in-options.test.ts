@@ -42,3 +42,19 @@ describe("walkInOptions (PAD-537, attendance.validation rule 8a)", () => {
     expect(roster).toEqual(copy);
   });
 });
+
+describe("walkInOptions: the nickname (PAD-683)", () => {
+  const people = [
+    { id: 1, name: "Rui Pedro Basto", nickname: "Tigre", displayName: "Tigre" },
+    { id: 2, name: "Ana Rita" },
+  ];
+
+  it("finds the student by either name", () => {
+    expect(walkInOptions(people, "tigre").map((o) => o.id)).toEqual([1]);
+    expect(walkInOptions(people, "rui basto").map((o) => o.id)).toEqual([1]);
+  });
+
+  it("lists them alphabetically by the name the coach reads", () => {
+    expect(walkInOptions(people, "").map((o) => o.id)).toEqual([2, 1]); // Ana, Tigre
+  });
+});

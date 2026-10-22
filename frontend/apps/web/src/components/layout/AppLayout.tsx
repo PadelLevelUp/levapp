@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { answerResync, isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge } from "@levelup/hooks";
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/auth/AuthContext";
+import { installChimeUnlock, playChime, setNotificationSoundEnabled, shouldChime } from "@/lib/notificationSound";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { PresencesBadge } from "@/components/layout/PresencesBadge";
 import { subscribeAppEvents } from "@/api/events";
@@ -193,6 +194,11 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
   // pages' chunks while the browser is idle, so the first visit to each shows no wait.
   useEffect(() => schedulePagePrefetch(), []);
 
+  // notifications.notification-sound rule 2: the signed-in id, read by the stream handler without
+  // re-subscribing the tab's one stream when /auth/me lands.
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
+
   useEffect(() => {
     if (!token) return;
 
@@ -207,6 +213,18 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       // then calls refreshUnreadCount — avoid racing with it here.
       if (data.type === "message_created" && !/^\/messages\/.+/.test(location.pathname)) {
         void refreshUnreadCount();
+      }
+      // notifications.notification-sound rules 2–3 (PAD-680): a message from someone else — every
+      // system notification arrives as one — chimes, unless its thread is open in the focused tab.
+      if (
+        shouldChime(data, {
+          myUserId: userIdRef.current,
+          // The live route: this effect's closure keeps the location it subscribed with.
+          pathname: window.location.pathname,
+          attentive: document.visibilityState === "visible" && document.hasFocus(),
+        })
+      ) {
+        playChime();
       }
       // classes.class-requests rule 6 (PAD-281): the proposal bubble and the
       // Availability section render off the request's live row.
@@ -223,6 +241,15 @@ export function AppLayoutInner({ children }: AppLayoutProps) {
       }
     });
   }, [refreshUnreadCount, token, queryClient]);
+
+  // notifications.notification-sound rules 1 and 3 (PAD-680): the switch from /auth/me, and the
+  // autoplay unlock on the first interaction.
+  useEffect(() => {
+    installChimeUnlock();
+  }, []);
+  useEffect(() => {
+    setNotificationSoundEnabled(user?.notificationSound !== false);
+  }, [user?.notificationSound]);
   
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">

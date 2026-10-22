@@ -59,7 +59,7 @@ jobs:
       # B-127: the second path is the E2E seed's own pytest file (PAD-223). It lives
       # beside the seed it tests, outside padel_app/tests, and until 2026-09-21 no lane
       # collected it. test_every_test_file_is_collected.py reads THIS line.
-      - run: python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts -q -p no:warnings
+      - run: python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts ../infra/k8s/tests -q -p no:warnings
 
   postgres:
     name: pytest (postgres, real migrations, group ${{ matrix.group }}/2)
@@ -119,7 +119,7 @@ jobs:
       # beside the seed it tests, outside padel_app/tests, and until 2026-09-21 no lane
       # collected it. test_every_test_file_is_collected.py reads THIS line.
       # PAD-654: pytest-split runs group $SHARD of 2 (by count until a durations file is committed).
-      - run: python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts -q -p no:warnings --splits 2 --group "$SHARD"
+      - run: python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts ../infra/k8s/tests -q -p no:warnings --splits 2 --group "$SHARD"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -170,6 +170,6 @@ jobs:
           path: ${{ github.workspace }}/shards
       - name: Compare the shards with a full collection
         run: |
-          python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts --collect-only -q -p no:warnings \
+          python -m pytest padel_app/tests ../frontend/apps/web/e2e/scripts ../infra/k8s/tests --collect-only -q -p no:warnings \
             | grep '::' | sort > "$RUNNER_TEMP/all.txt"
           python scripts/check_shards_cover_suite.py "$RUNNER_TEMP/all.txt" "${{ github.workspace }}"/shards/*/shard-ids.txt
