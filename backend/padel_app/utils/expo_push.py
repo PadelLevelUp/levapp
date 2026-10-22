@@ -75,17 +75,34 @@ def send_expo_push(
     unknown. Pass the recipient's real unread total; 0 clears the badge
     (PAD-153).
     """
+    return send_expo_push_outcome(tokens, title, body, data, badge=badge)[0] == SENT
+
+
+#: The three outcomes a push outbox row can take from one send (PAD-699, architecture review R2).
+SENT, RETRY, SKIP = "sent", "retry", "skip"
+
+
+def send_expo_push_outcome(
+    tokens: list[str], title, body, data: dict | None = None, badge: int | None = None
+) -> tuple[str, str | None]:
+    """`send_expo_push`, answering `(outcome, detail)` for the push outbox. `sent` as soon as any token
+    accepted (a retry never re-sends to a token that accepted); `skip` when there is nothing to send
+    to (no tokens, Expo disabled here, every token DeviceNotRegistered); `retry` otherwise (HTTP or
+    parse failure, rate limits, unknown receipt errors). `detail` names a class or code, never a
+    token."""
     tokens = [t for t in (tokens or []) if t]
     if not tokens:
-        return False
+        return SKIP, "no device"
     if expo_push_disabled():
         # PAD-624: staging builds share production's Expo project, so a phone that ever ran the
         # staging app keeps its token in the production app. Staging must never reach it.
         logger.info("Expo push disabled in this environment (EXPO_PUSH_DISABLED); %d token(s) skipped", len(tokens))
-        return False
+        return SKIP, "expo disabled"
 
     data = data or {}
     any_success = False
+    transient = None
+    other_errors = []
 
     for batch in _chunks(tokens, _BATCH_SIZE):
         messages = [
@@ -113,12 +130,15 @@ def send_expo_push(
             response.raise_for_status()
         except Exception as exc:
             logger.warning("Failed to send Expo push notification batch: %s", exc)
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            transient = f"{type(exc).__name__}" + (f" status={status}" if status else "")
             continue
 
         try:
             payload = response.json()
         except Exception as exc:
             logger.warning("Failed to parse Expo push response: %s", exc)
+            transient = type(exc).__name__
             continue
 
         receipts = payload.get("data", [])
@@ -143,6 +163,7 @@ def send_expo_push(
                 if DeviceToken.query.filter_by(token=token).delete(synchronize_session=False):
                     db.session.commit()
             else:
+                other_errors.append(error_type or "unknown")
                 # B-254: the status and Expo's error code, not the receipt's message (it quotes
                 # the whole token).
                 logger.warning(
@@ -152,7 +173,13 @@ def send_expo_push(
                     error_type,
                 )
 
-    return any_success
+    if any_success:
+        return SENT, None
+    if transient:
+        return RETRY, transient[:120]
+    if other_errors:
+        return RETRY, f"error={other_errors[0]}"[:120]
+    return SKIP, "DeviceNotRegistered"
 
 
 def _record_expo_failure(token, error_type) -> None:
@@ -193,6 +220,12 @@ def send_expo_push_to_user(
     ]
     if not tokens:
         return False
+    from padel_app.utils import push_outbox
+
+    # PAD-699 (rule 10a): a row in the outbox; the drainer looks the tokens up again when it sends.
+    if push_outbox.enabled():
+        return push_outbox.enqueue("expo", user_id, {"title": title, "body": body, "data": data or {},
+                                                     "badge": badge})
     from padel_app.utils.push_sender import submit
 
     return submit(send_expo_push, tokens, title, body, data, badge=badge,

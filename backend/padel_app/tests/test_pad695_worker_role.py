@@ -173,7 +173,8 @@ class Clock:
 def make_worker(calls, *, leader, split=True, clock=None):
     return worker_mod.Worker(
         scheduler=FakeScheduler(calls), leadership=FakeLeadership(calls, leader), split=split,
-        drain=lambda: calls.append("drain"), clock=clock or Clock(),
+        drain=lambda: calls.append("drain"), stop_outbox=lambda: calls.append("outbox.stop"),
+        clock=clock or Clock(),
         status_line=lambda w: f"worker: leader={w.is_leader}",
     )
 
@@ -211,7 +212,8 @@ def test_sigterm_finishes_jobs_then_drains_then_gives_up_the_lock():
     w.request_stop()
     w.run()  # returns at once: the stop is set
     w.shutdown()
-    assert calls == ["shutdown(wait=True)", "drain", "leadership.stop"]
+    # PAD-699: the outbox drainer puts its claims back while the lock is still held.
+    assert calls == ["shutdown(wait=True)", "outbox.stop", "drain", "leadership.stop"]
 
 
 def test_livez_is_served_over_http():

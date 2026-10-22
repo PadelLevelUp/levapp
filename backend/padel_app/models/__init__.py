@@ -58,6 +58,7 @@ from .app_setting import AppSetting
 # so create_all and Alembic see them.
 from .admin_role import AdminRole
 from .delivery_incident import DeliveryIncident
+from .push_outbox import PushOutbox
 from .admin_audit_log import AdminAuditLog
 from .realtime_event import realtime_events
 from .auth_rate_limit_hit import auth_rate_limit_hits

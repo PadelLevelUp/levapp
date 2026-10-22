@@ -902,6 +902,9 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+    # No leadership thread (SCHEDULER_LEADERSHIP off): this process runs the jobs, and the outbox.
+    _start_push_drainer(app)
+    atexit.register(stop_push_drainer, app)
 
 
 MODE_COMPETE = "compete"
@@ -931,6 +934,34 @@ def scheduler_mode(role: str, split: bool) -> str:
     return MODE_CLIENT if split else MODE_COMPETE
 
 
+def _push_drainer(app):
+    """PAD-699: this process's push outbox drainer, created on first use; None while PUSH_QUEUE is not
+    outbox (the in-memory sender then carries the pushes, as before)."""
+    from padel_app.utils import push_outbox
+
+    with app.app_context():
+        if not push_outbox.enabled():
+            return None
+    drainer = app.extensions.get("push_drainer")
+    if drainer is None:
+        drainer = push_outbox.Drainer(app)
+        app.extensions["push_drainer"] = drainer
+    return drainer
+
+
+def _start_push_drainer(app) -> None:
+    drainer = _push_drainer(app)
+    if drainer is not None:
+        drainer.start()
+
+
+def stop_push_drainer(app) -> None:
+    """Idempotent; the worker calls it before giving up the lock, atexit calls it again."""
+    drainer = app.extensions.get("push_drainer")
+    if drainer is not None:
+        drainer.stop()
+
+
 def _shutdown_quietly(sched) -> None:
     """At exit: the worker may already have shut the scheduler down (a second shutdown raises)."""
     if not sched.running:
@@ -958,15 +989,23 @@ def _start_scheduler_leadership(app, sched) -> None:
     def on_acquire() -> None:
         _startup_reschedule(app)
         sched.resume()
+        _start_push_drainer(app)  # PAD-699: the push outbox drains where the jobs run
+
+    def on_lose() -> None:
+        sched.pause()
+        stop_push_drainer(app)
 
     leadership = SchedulerLeadership(
         pg_lock_connector(app.config["SQLALCHEMY_DATABASE_URI"]),
         on_acquire=on_acquire,
-        on_lose=sched.pause,
+        on_lose=on_lose,
         logger=app.logger,
     )
     app.extensions["scheduler_leadership"] = leadership
     atexit.register(leadership.stop)
+    # Registered after leadership.stop, so it runs before it at exit (atexit is last-in, first-out):
+    # the drainer puts its claims back before the lock goes (PAD-699).
+    atexit.register(stop_push_drainer, app)
     leadership.start_thread()
 
 
@@ -990,6 +1029,7 @@ def release_scheduler(app) -> dict:
         return {"released": False, "state": "running"}
     _startup_reschedule(app)
     _scheduler.resume()
+    _start_push_drainer(app)
     return {"released": True, "state": "running"}
 
 
