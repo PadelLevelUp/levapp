@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import i18n, { AppLanguage } from "@/i18n";
+import { setNotificationSoundEnabled } from "@/lib/notificationSound";
 import {
   getMe,
   updateMe,
@@ -323,9 +324,15 @@ export default function SettingsPage() {
   // `undefined` until /me answers, so the switch never flashes the default
   // before the server value lands.
   const [requestAlerts, setRequestAlerts] = useState<boolean | undefined>(undefined);
+  // PAD-680: the notification sound (notifications.notification-sound rule 1), held like the alerts.
+  const [notificationSound, setNotificationSound] = useState<boolean | undefined>(undefined);
   // settings.explicit-save (PAD-506): language and request alerts are held until the tab's Save.
   // `storedPrefs` is what the server last confirmed (the profile read, then each Save's answer).
-  const [storedPrefs, setStoredPrefs] = useState<{ language: AppLanguage; requestAlerts: boolean } | null>(null);
+  const [storedPrefs, setStoredPrefs] = useState<{
+    language: AppLanguage;
+    requestAlerts: boolean;
+    notificationSound: boolean;
+  } | null>(null);
 
   // PAD-103: `tab` is plain state and `isCoach` only settles once the session is
   // restored, so the selected tab can briefly be one this role may not see.
@@ -360,7 +367,8 @@ export default function SettingsPage() {
   const preferencesUnsaved =
     storedPrefs !== null &&
     (language !== storedPrefs.language ||
-      (requestAlerts !== undefined && requestAlerts !== storedPrefs.requestAlerts));
+      (requestAlerts !== undefined && requestAlerts !== storedPrefs.requestAlerts) ||
+      (notificationSound !== undefined && notificationSound !== storedPrefs.notificationSound));
   useEffect(() => {
     setUnsaved("preferences", preferencesUnsaved);
   }, [preferencesUnsaved, setUnsaved]);
@@ -439,6 +447,7 @@ export default function SettingsPage() {
         setStoredPrefs({
           language: (me.language ?? "pt") as AppLanguage,
           requestAlerts: me.requestAlerts !== false,
+          notificationSound: me.notificationSound !== false,
         });
         if (!languageDirty.current) {
           const lang = (me.language ?? "pt") as AppLanguage;
@@ -449,6 +458,7 @@ export default function SettingsPage() {
         setSavedProfile(loaded);
         setEmailState(me.emailVerification);
         setRequestAlerts(me.requestAlerts !== false);
+        setNotificationSound(me.notificationSound !== false);
         setProfile((current) => hydrateUntouched(loaded, current, profileTouched.current));
         setProfileLoaded(true);
       })
@@ -462,6 +472,7 @@ export default function SettingsPage() {
 
   // settings.explicit-save rule 2: held — the app keeps its language until the Save is confirmed.
   const handleRequestAlertsChange = (checked: boolean) => setRequestAlerts(checked);
+  const handleNotificationSoundChange = (checked: boolean) => setNotificationSound(checked);
   const handleLanguageChange = (lang: AppLanguage) => {
     languageDirty.current = true;
     setLanguage(lang);
@@ -473,15 +484,22 @@ export default function SettingsPage() {
     const payload: UpdateMePayload = {};
     if (language !== storedPrefs.language) payload.language = language;
     if (requestAlerts !== undefined && requestAlerts !== storedPrefs.requestAlerts) payload.requestAlerts = requestAlerts;
+    if (notificationSound !== undefined && notificationSound !== storedPrefs.notificationSound) {
+      payload.notificationSound = notificationSound;
+    }
     if (Object.keys(payload).length === 0) return;
     const me = await updateMe(payload);
     const confirmed = {
       language: (me.language ?? language) as AppLanguage,
       requestAlerts: me.requestAlerts !== false,
+      notificationSound: me.notificationSound !== false,
     };
     setStoredPrefs(confirmed);
     setLanguage(confirmed.language);
     setRequestAlerts(confirmed.requestAlerts);
+    setNotificationSound(confirmed.notificationSound);
+    // notifications.notification-sound rule 3: the open tab's chime follows the saved switch.
+    setNotificationSoundEnabled(confirmed.notificationSound);
     // Rule 2: the app re-renders in the language once the server has it.
     void i18n.changeLanguage(confirmed.language);
   };
@@ -586,6 +604,7 @@ export default function SettingsPage() {
     if (storedPrefs) {
       setLanguage(storedPrefs.language);
       setRequestAlerts(storedPrefs.requestAlerts);
+      setNotificationSound(storedPrefs.notificationSound);
     }
     languageDirty.current = false;
   };
@@ -890,6 +909,26 @@ export default function SettingsPage() {
                       checked={requestAlerts ?? true}
                       disabled={requestAlerts === undefined}
                       onCheckedChange={handleRequestAlertsChange}
+                    />
+                  </div>
+
+                  {/* PAD-680: the notification sound (notifications.notification-sound rule 1). */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="notification-sound-switch">
+                        {t("settings.preferences.notificationSound")}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.preferences.notificationSoundDescription")}
+                      </p>
+                    </div>
+                    <Switch
+                      id="notification-sound-switch"
+                      data-testid="settings-notification-sound"
+                      aria-label={t("settings.preferences.notificationSound")}
+                      checked={notificationSound ?? true}
+                      disabled={notificationSound === undefined}
+                      onCheckedChange={handleNotificationSoundChange}
                     />
                   </div>
 

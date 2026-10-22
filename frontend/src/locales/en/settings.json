@@ -68,6 +68,8 @@
     "preferences": {
       "requestAlerts": "Request alerts",
       "requestAlertsDescription": "Push and email when a request needs you (club join, account link, coach approval) and when yours is decided. In-app badges always stay on.",
+      "notificationSound": "Notification sound",
+      "notificationSoundDescription": "A short sound when a message or notification arrives while the app is open, and sound on phone notifications. In a browser it only plays after you have clicked or typed on the page.",
       "title": "Preferences",
       "description": "How you want the app to behave.",
       "theme": "Theme",

@@ -26,6 +26,7 @@ import { EvaluationSettingsGroup } from "@/features/evaluations/evaluation-setti
 import { useSectionSave } from "@/features/settings/unsaved-registry";
 import { writeAuthMe } from "@/features/settings/write-auth-me";
 import i18n from "@/lib/i18n";
+import { setForegroundSound } from "@/lib/push/foreground-sound";
 
 type Language = "pt" | "en";
 
@@ -68,13 +69,18 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
   const storedLanguage = ((me?.language ?? user?.language ?? "pt") as Language);
   // PAD-232: request alerts opt-out (notifications.request-alerts rule 6). An explicit `false` is the only "off".
   const storedRequestAlerts = me?.requestAlerts !== false;
+  // PAD-680: the notification sound (notifications.notification-sound rule 1), held the same way.
+  const storedNotificationSound = me?.notificationSound !== false;
   const [languageDraft, setLanguageDraft] = React.useState<Language | null>(null);
   const [requestAlertsDraft, setRequestAlertsDraft] = React.useState<boolean | null>(null);
+  const [notificationSoundDraft, setNotificationSoundDraft] = React.useState<boolean | null>(null);
   const language = languageDraft ?? storedLanguage;
   const requestAlerts = requestAlertsDraft ?? storedRequestAlerts;
+  const notificationSound = notificationSoundDraft ?? storedNotificationSound;
   // settings.unsaved-edits rule 2: by value — changing and changing back is clean.
   const unsaved = (languageDraft !== null && languageDraft !== storedLanguage) ||
-    (requestAlertsDraft !== null && requestAlertsDraft !== storedRequestAlerts);
+    (requestAlertsDraft !== null && requestAlertsDraft !== storedRequestAlerts) ||
+    (notificationSoundDraft !== null && notificationSoundDraft !== storedNotificationSound);
 
   // settings.explicit-save rule 3: this section's part of the one Save — one PATCH with what changed.
   useSectionSave("preferences", unsaved, {
@@ -83,12 +89,18 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
       const payload: authApi.UpdateMePayload = {};
       if (languageDraft !== null && languageDraft !== storedLanguage) payload.language = languageDraft;
       if (requestAlertsDraft !== null && requestAlertsDraft !== storedRequestAlerts) payload.requestAlerts = requestAlertsDraft;
+      if (notificationSoundDraft !== null && notificationSoundDraft !== storedNotificationSound) {
+        payload.notificationSound = notificationSoundDraft;
+      }
       if (Object.keys(payload).length === 0) return;
       const updated = await authApi.updateMe(payload);
       // B-185: the save's answer is the newest profile.
       await writeAuthMe(queryClient, updated);
       setLanguageDraft(null);
       setRequestAlertsDraft(null);
+      setNotificationSoundDraft(null);
+      // notifications.notification-sound rule 4: a push arriving now follows the saved switch.
+      setForegroundSound(updated.notificationSound !== false);
       // Rule 2: the app re-renders in the language once the server has it.
       if (payload.language) void i18n.changeLanguage((updated.language ?? payload.language) as Language);
     },
@@ -147,6 +159,22 @@ export function PreferencesSection({ isCoach }: { isCoach: boolean }) {
               accessibilityLabel={t("settings.preferences.requestAlerts")}
               checked={requestAlerts}
               onCheckedChange={(checked) => setRequestAlertsDraft(checked)}
+            />
+          </View>
+
+          {/* PAD-680: the notification sound (notifications.notification-sound rule 1). */}
+          <View className="mt-4 flex-row items-start justify-between gap-3">
+            <View className="flex-1 gap-0.5">
+              <Label>{t("settings.preferences.notificationSound")}</Label>
+              <Text className="text-xs text-muted-foreground">
+                {t("settings.preferences.notificationSoundDescription")}
+              </Text>
+            </View>
+            <Switch
+              testID="settings-notification-sound"
+              accessibilityLabel={t("settings.preferences.notificationSound")}
+              checked={notificationSound}
+              onCheckedChange={(checked) => setNotificationSoundDraft(checked)}
             />
           </View>
         </CardContent>
