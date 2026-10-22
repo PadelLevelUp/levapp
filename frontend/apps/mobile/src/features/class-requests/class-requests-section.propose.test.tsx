@@ -2,11 +2,12 @@
  * classes.class-requests rule 20 (PAD-491) on iOS: in the coach's "propose another time" form,
  * changing the start moves the end so the form keeps its length; changing the end never moves
  * the start. The rule is unit-tested in @levelup/config (proposalAfterStartChange); this pins the
- * form's wiring, through what is sent. react-query, the API and the pickers are stand-ins (the
- * mobile harness cannot mount react-query against the app's React copy).
+ * form's wiring, through what is sent. The hooks and react-query are real since PAD-406 (stand-ins
+ * before), in a real QueryClientProvider; the API and the pickers are stand-ins.
  */
 import * as React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -14,10 +15,10 @@ vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/features/calendar/eligibility-confirm-dialog", () => ({ EligibilityConfirmDialog: () => null }));
-// The real resolver is a react-query hook (PAD-660); this test is about the proposal form.
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+// The real resolver (PAD-660) reads a roster with no nicknames; this test is about the proposal form.
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachPlayers: async () => [],
 }));
 
 const PENDING = {
@@ -39,22 +40,9 @@ const PENDING = {
   recurrence: null,
 };
 
-vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
-  useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => ({
-    data: queryKey[0] === "class-requests" ? [PENDING] : [],
-    isLoading: false,
-    isError: false,
-  }),
-  useMutation: (opts: { mutationFn: (v: unknown) => Promise<unknown> }) => ({
-    mutate: (v: unknown) => void opts.mutationFn(v),
-    isPending: false,
-  }),
-}));
-
 const api = vi.hoisted(() => ({
   proposeClassRequest: vi.fn(async () => ({})),
-  listClassRequests: vi.fn(async () => []),
+  listClassRequests: vi.fn(async () => [PENDING]),
   classRequestRefusal: () => null,
 }));
 vi.mock("@levelup/api/src/resources/classRequests", () => api);
@@ -82,8 +70,18 @@ import { ClassRequestsSection } from "./class-requests-section";
 type N = Awaited<ReturnType<typeof renderNative>>;
 const pick = (n: N, id: string, v: string) => act(async () => { n.byTestId(id).props.onChange(v); });
 
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
+
 async function openForm() {
-  const n = await renderNative(<ClassRequestsSection role="coach" />);
+  const n = await renderNative(
+    <QueryClientProvider client={client}>
+      <ClassRequestsSection role="coach" />
+    </QueryClientProvider>
+  );
+  await n.flush(); // the request list lands
   await n.press("class-request-propose");
   return n;
 }
