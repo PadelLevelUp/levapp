@@ -242,6 +242,7 @@ jobs:
             -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
             -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
             -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+            -e STAGING_TEST_PASSWORD="${{ secrets.STAGING_TEST_PASSWORD }}" \
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
             -e GOOGLE_WEB_CLIENT_ID="${{ vars.GOOGLE_WEB_CLIENT_ID_STAGING }}" \
@@ -295,18 +296,44 @@ jobs:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
-        source: "backend/scripts/sync-staging-db.sh"
+        source: "backend/scripts/sync-staging-db.sh,backend/scripts/staging-scrub.sql"
         target: "/home/${{ secrets.GCE_USER }}/"
         strip_components: 2
         overwrite: true
+    # PAD-606 rule 9: the script exits 0 when it skipped or copied and scrubbed, 3 when a restore's
+    # scrub failed (staging wiped, empty) and 4 when the wipe failed too (staging left stopped). The
+    # remote command always ends 0 and prints SYNC_EXIT=<code>, so the log is captured either way;
+    # the next step puts the scrub's lines in the summary and fails this job on a non-zero code.
+    # The job stays continue-on-error, so the deploy itself never fails (rule 6).
     - name: Sync staging DB from prod
+      id: sync
       uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        capture_stdout: true
         script: |
-          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging "${{ inputs.sync_db || 'auto' }}" || true
+          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging "${{ inputs.sync_db || 'auto' }}"
+          echo "SYNC_EXIT=$?"
+    - name: Scrub verdict
+      if: always()
+      env:
+        SYNC_LOG: ${{ steps.sync.outputs.stdout }}
+      run: |
+        code=$(printf '%s\n' "$SYNC_LOG" | sed -n 's/.*SYNC_EXIT=\([0-9]*\).*/\1/p' | tail -1)
+        {
+          echo "### Staging DB sync: exit ${code:-unknown}"
+          echo '```'
+          printf '%s\n' "$SYNC_LOG" | grep -E 'SKIPPED|restor|scrub|wip|NOT starting|ERROR' || echo "(no sync lines captured)"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        case "$code" in
+          0) echo "sync ok (skipped, or restored and scrubbed)" ;;
+          3) echo "::error::the scrub failed after a restore; staging was wiped and comes up empty"; exit 3 ;;
+          4) echo "::error::the scrub and the wipe failed; staging may hold unscrubbed data and was left stopped"; exit 4 ;;
+          *) echo "::error::no SYNC_EXIT line from the sync (ssh or script failure); check the log"; exit 1 ;;
+        esac
 
   frontend:
     needs: [ changes, backend ]

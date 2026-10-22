@@ -18,11 +18,18 @@
 #   reload (by hand)     the newest nightly dump, even if already restored.
 #   live   (by hand)     the PAD-200 path: pg_dump of live prod. Records no state.
 #
-# Contract (PAD-200, still true):
-#   * no anonymisation — prod data is copied as-is (staging has no push / mail
-#     / AI credentials, so copied students can never be contacted from it);
-#   * BEST-EFFORT: nothing here may fail the deploy. Every failure path logs
-#     and exits 0, and the staging app is always started again (EXIT trap).
+# Contract:
+#   * every personal column is scrubbed after a restore (PAD-606, staging-scrub.sql), and
+#     staging has no push / AI credentials, so copied students can never be contacted from it;
+#   * BEST-EFFORT for the copy: a skipped or failed restore logs and exits 0, and the staging
+#     app is started again (EXIT trap). The scrub is the exception (PAD-606 rule 9), because a
+#     green job must mean nothing personal is on staging:
+#       exit 3  restored, the scrub failed (or its file is missing), staging was wiped and
+#               comes up empty;
+#       exit 4  the scrub failed AND the wipe failed: staging may hold unscrubbed data, so the
+#               app is left stopped.
+#     The deploy's sync-db job fails on either; it stays continue-on-error, so the deploy
+#     does not (rule 6).
 #
 # Safety:
 #   * the target must be exactly `padel_app_staging` (read from .env.staging),
@@ -62,6 +69,9 @@ STALE_HOURS="${SYNC_STALE_HOURS:-48}"
 
 log() { echo "[sync-staging-db] $*"; }
 skip() { log "SKIPPED: $*"; exit 0; }
+EXIT_SCRUB_FAILED=3
+EXIT_SCRUB_FAILED_NOT_WIPED=4
+unsafe=0   # set when the target may hold unscrubbed data: the EXIT trap then leaves staging stopped
 
 # ── 1. Read the staging DB identity from .env.staging (KEY=VALUE lines only) ──
 case "$MODE" in auto|reload|live) ;; *) skip "unknown mode '$MODE' (auto, reload or live)" ;; esac
@@ -172,6 +182,10 @@ migrate_restored() {
 }
 
 restart_app() {
+  if [ "$unsafe" = 1 ]; then
+    log "NOT starting $APP_CONTAINER: $TARGET_DB may hold unscrubbed data (wipe or reload by hand)"
+    return 0
+  fi
   migrate_restored || true
   log "starting $APP_CONTAINER"
   docker start "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $APP_CONTAINER"
@@ -201,6 +215,15 @@ restart_app() {
 worker_stopped=0
 copy_stopped=0
 trap restart_app EXIT
+
+# PAD-606 rule 10: the shared staging password, hashed by the app's own werkzeug inside the running
+# staging container (the secret reaches it as STAGING_TEST_PASSWORD; it is never in the repo or
+# printed). Empty when the secret is missing: the scrub then sets an unusable password.
+PWHASH=$(docker exec "$APP_CONTAINER" python -c 'import os
+from werkzeug.security import generate_password_hash
+p = os.environ.get("STAGING_TEST_PASSWORD", "")
+print(generate_password_hash(p) if p else "")' 2>/dev/null || true)
+[ -n "$PWHASH" ] || log "WARNING: no STAGING_TEST_PASSWORD in $APP_CONTAINER; scrubbed accounts get no usable password"
 
 docker stop "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $APP_CONTAINER"
 if docker inspect "$SECOND_COPY" >/dev/null 2>&1; then
@@ -247,32 +270,40 @@ else
   # when the restore produced users, so a failed one is retried on the next push.
   RESTORED_USERS=$(pg "$TARGET_DB" "select count(*) from users;" 2>/dev/null || echo 0)
   if [ "${RESTORED_USERS:-0}" -gt 0 ] 2>/dev/null; then
-    printf '%s\n' "$DUMP" > "$STATE_FILE" || log "WARNING: could not write $STATE_FILE"
+    RESTORED_DUMP="$DUMP"   # recorded in the state file only once the scrub has run (rule 9)
     log "restored $RESTORED_USERS users from $DUMP"
   else
     log "WARNING: restore of $DUMP produced no users; it will be tried again on the next push"
   fi
 fi
 
-# ── 5. Safety scrub — nothing on staging may ever reach a real person ────────
-# Staging carries no push / mail credentials today; this makes that permanent.
-# If someone later adds VAPID / Expo / mail secrets to staging, there is no
-# token to push to and no deliverable address to mail. Usernames, passwords,
-# names, phones, classes and messages are left intact on purpose: they are what
-# makes testing on staging meaningful, and no automated channel uses them.
-log "scrubbing outbound channels on $TARGET_DB"
-pg "$TARGET_DB" "delete from push_subscriptions;" >/dev/null \
-  || log "WARNING: could not clear push_subscriptions"
-pg "$TARGET_DB" "delete from device_tokens;" >/dev/null \
-  || log "WARNING: could not clear device_tokens"
-# PAD-498 (auth.password-recovery rule 11, B-276): a recovery code belongs to the address it was mailed
-# to. This bulk UPDATE bypasses the ORM listener that discards a pending code when an email changes, so
-# the rewrite clears the codes itself: a code copied from prod must not confirm against the rewritten
-# address. The email-verification code is cleared the same way. (Both codes are also bound to their
-# address in the HMAC, so a copied one would not match anyway; this keeps the copy clean.)
-pg "$TARGET_DB" "update users set email = 'user' || id || '@staging.invalid', password_reset_code_hash = null, password_reset_expires_at = null, password_reset_sent_at = null, password_reset_attempts = 0, email_verification_code_hash = null, email_verification_expires_at = null, email_verification_sent_at = null, email_verification_attempts = 0 where email is not null;" >/dev/null \
-  || log "WARNING: could not rewrite emails"
-log "scrub done: $(pg "$TARGET_DB" 'select count(*) from push_subscriptions;' 2>/dev/null || echo '?') push subscriptions, $(pg "$TARGET_DB" 'select count(*) from device_tokens;' 2>/dev/null || echo '?') device tokens, $(pg "$TARGET_DB" "select count(*) from users where email not like '%@staging.invalid';" 2>/dev/null || echo '?') real emails left"
+# ── 5. Scrub — nothing on staging identifies a real person (PAD-606) ───────
+# staging-scrub.sql (next to this script) rewrites every personal column in ONE transaction, before
+# the EXIT trap starts the app. It fails closed: if it does not complete, the schema is wiped, so
+# staging comes up empty (its migrations recreate the tables) rather than serving production data,
+# and the dump is not recorded, so the next push restores and scrubs again.
+SCRUB_SQL="$(dirname "$0")/staging-scrub.sql"
+fail_closed() {
+  log "ERROR: $1; wiping $TARGET_DB rather than serving unscrubbed data"
+  if pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/dev/null; then
+    log "ERROR: scrub failed; $TARGET_DB wiped, staging comes up empty (exit $EXIT_SCRUB_FAILED)"
+    exit "$EXIT_SCRUB_FAILED"
+  fi
+  unsafe=1
+  log "ERROR: scrub failed and the wipe failed; $TARGET_DB may hold unscrubbed data (exit $EXIT_SCRUB_FAILED_NOT_WIPED)"
+  exit "$EXIT_SCRUB_FAILED_NOT_WIPED"
+}
+[ -f "$SCRUB_SQL" ] || fail_closed "$SCRUB_SQL missing"
+log "scrubbing personal data on $TARGET_DB"
+if docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$TARGET_DB" -q -1 -v ON_ERROR_STOP=1 \
+     -v pwhash="$PWHASH" -f - < "$SCRUB_SQL" >/dev/null; then
+  if [ -n "${RESTORED_DUMP:-}" ]; then
+    printf '%s\n' "$RESTORED_DUMP" > "$STATE_FILE" || log "WARNING: could not write $STATE_FILE"
+  fi
+  log "scrub done: $(pg "$TARGET_DB" "select count(*) from users where email not like '%@staging.invalid';" 2>/dev/null || echo '?') real emails, $(pg "$TARGET_DB" 'select count(*) from device_tokens;' 2>/dev/null || echo '?') device tokens, $(pg "$TARGET_DB" 'select count(*) from push_subscriptions;' 2>/dev/null || echo '?') push subscriptions left"
+else
+  fail_closed "the scrub failed"
+fi
 # ── 6. Seed placeholder objects so staging images resolve ────────────────────
 # The database is a copy of prod, so every images.object_key names a file that
 # lives in the PRODUCTION bucket. Staging deliberately has its own bucket
