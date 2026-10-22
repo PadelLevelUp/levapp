@@ -159,8 +159,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    spot's current side — at two moments, and stored on the spot when it changes:
    - **each batch** of the spot, under its lock, before the candidates are read (round 1's
      "same side" and the side sort use the re-counted side);
-   - **each "yes"** of the class (a student's or the coach's), under rule 10's locks and in the
-     same one commit, for the class's **other** open spots, the yes counted as going;
+   - **each "yes"** of the class (a student's or the coach's) **and each accepted join request**
+     (PAD-715, `classes.join-requests` rule 6), under rule 10's locks and in the same one commit,
+     for the class's **other** open spots, the new player counted as going;
    - **each change of a player's side in the occurrence** (`classes.instance-enrollment` rule 13,
      PAD-551), set or cleared by the coach, under the same locks and in the same one commit, for
      all the class's open spots, counted with the new side — the same re-count as a yes, so the
