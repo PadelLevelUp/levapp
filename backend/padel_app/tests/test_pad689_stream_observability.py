@@ -83,3 +83,68 @@ def test_gunicorn_threads_come_from_the_environment_with_64_by_default():
     assert "${GUNICORN_THREADS:-64}" in cmd
     assert re.search(r"--workers[ \"',]+1\b", cmd), "R-027: one gunicorn worker"
     assert "exec gunicorn" in cmd, "gunicorn must be PID 1's exec target so it gets SIGTERM"
+
+
+# --- B-676: visible under the process's own logging, not caplog's ----------------------------------
+
+def _fresh_app():
+    import tempfile
+
+    from padel_app import create_app
+
+    return create_app({
+        "TESTING": True,
+        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///" + tempfile.mktemp(),
+    })
+
+
+@pytest.fixture
+def default_logging():
+    """Put the realtime logger back to NOTSET (the deployed starting point), and restore the root
+    level afterwards: no caplog here, because caplog.at_level sets the very level under test."""
+    logger = logging.getLogger("padel_app.realtime")
+    package = logging.getLogger("padel_app")
+    root = logging.getLogger()
+    saved = (logger.level, logger.disabled, package.level, root.level, list(root.handlers))
+    logger.setLevel(logging.NOTSET)
+    logger.disabled = False
+    package.setLevel(logging.NOTSET)
+    root.setLevel(logging.WARNING)
+    yield logger
+    logger.setLevel(saved[0])
+    logger.disabled = saved[1]
+    package.setLevel(saved[2])
+    root.setLevel(saved[3])
+    root.handlers[:] = saved[4]  # Alembic's fileConfig swaps in its own console handler
+
+
+def test_the_realtime_info_lines_are_enabled_under_default_logging(default_logging):
+    _fresh_app()
+    assert default_logging.isEnabledFor(logging.INFO), (
+        "padel_app.realtime's INFO is dropped at the root WARNING level: the stats line and "
+        "'LISTEN ready' never reach the container logs (B-676)"
+    )
+
+
+def test_the_realtime_info_lines_survive_alembics_file_config(default_logging):
+    from logging.config import fileConfig
+
+    _fresh_app()
+    fileConfig(str(BACKEND / "migrations" / "alembic.ini"), disable_existing_loggers=False)
+    assert default_logging.isEnabledFor(logging.INFO)
+    assert not default_logging.disabled
+
+
+def test_the_package_logger_is_info_so_app_logger_lines_are_read(default_logging):
+    """`app.logger` IS the `padel_app` logger: "Scheduler leadership acquired", the reschedule
+    counts, the migrate lines were all dropped at the root WARNING level too (B-676, widened)."""
+    app = _fresh_app()
+    assert app.logger is logging.getLogger("padel_app")
+    assert app.logger.isEnabledFor(logging.INFO)
+
+
+def test_a_sibling_module_needs_no_level_of_its_own(default_logging):
+    _fresh_app()
+    assert logging.getLogger("padel_app.scheduler").isEnabledFor(logging.INFO)
+    assert not logging.getLogger().isEnabledFor(logging.INFO), "root stays at WARNING"
