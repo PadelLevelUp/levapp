@@ -3,6 +3,8 @@ import os
 import sys
 from datetime import timedelta
 
+from padel_app.roles import process_role
+
 logger = logging.getLogger(__name__)
 
 # Hosts that are known to hold real (remote) data. Used to fail closed: a
@@ -124,8 +126,6 @@ def sse_stream_limits(environ=None):
         except ValueError:
             return default
         return value if value > 0 else default
-
-    from padel_app.roles import process_role
 
     total_default = DEFAULT_SSE_MAX_STREAMS_EVENTS if process_role(environ) == "events" else DEFAULT_SSE_MAX_STREAMS
     return (

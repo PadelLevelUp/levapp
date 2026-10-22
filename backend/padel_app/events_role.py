@@ -9,19 +9,23 @@ instead of routing clients to a process whose streams would stay silent.
 `EVENTS_SPLIT=on` in the API answers 410 on the moved path. It is set only after the host routes
 the path to the events upstream (R3: the 410 comes last).
 """
-import os
-
 from flask import jsonify, request
 
-from padel_app.roles import process_role
+from padel_app.roles import flag_enabled, process_role
 
 EVENTS_PATH = "/api/app/events"
 EVENTS_ROLE_PATHS = frozenset({EVENTS_PATH, "/api/app/livez", "/api/app/healthz"})
 
 
 def events_split_enabled(environ=None) -> bool:
-    environ = os.environ if environ is None else environ
-    return str(environ.get("EVENTS_SPLIT", "off")).strip().lower() in ("1", "true", "yes", "on")
+    return flag_enabled("EVENTS_SPLIT", environ)
+
+
+def _broker_problem():
+    """The one place that decides the memory broker disqualifies this process (rule 4)."""
+    from padel_app import realtime
+
+    return None if realtime.broker_status()["broker"] == "postgres" else "events_needs_postgres_broker"
 
 
 def init_app(app) -> None:
@@ -29,7 +33,7 @@ def init_app(app) -> None:
     if role == "events":
         from padel_app import realtime
 
-        if realtime.broker_status()["broker"] != "postgres":
+        if _broker_problem():
             app.logger.error(
                 "ROLE=events needs SSE_BROKER=postgres: under memory it receives nothing the API "
                 "publishes, so this process stays unready (PAD-697 R1)."
@@ -43,14 +47,19 @@ def init_app(app) -> None:
         app.before_request(_events_moved)
 
 
+def _path():
+    # One trailing slash must neither dodge the 410 nor be refused as a stray route.
+    return request.path.rstrip("/") or "/"
+
+
 def _events_only():
-    if request.path not in EVENTS_ROLE_PATHS:
+    if _path() not in EVENTS_ROLE_PATHS:
         return jsonify({"error": "NOT_ON_EVENTS"}), 404
     return None
 
 
 def _events_moved():
-    if request.path == EVENTS_PATH:
+    if _path() == EVENTS_PATH:
         return jsonify({"error": "EVENTS_MOVED"}), 410
     return None
 
@@ -62,9 +71,9 @@ def readiness_problem():
         return None
     from padel_app import realtime
 
-    status = realtime.broker_status()
-    if status["broker"] != "postgres":
-        return "events_needs_postgres_broker"
-    if not status["listening"]:
+    problem = _broker_problem()
+    if problem:
+        return problem
+    if not realtime.broker_status()["listening"]:
         return "listener_down"
     return None

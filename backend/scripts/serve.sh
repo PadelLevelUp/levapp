@@ -11,7 +11,9 @@
 # No access log here. The stream's token rides in the query string, so a format with the request
 # line or the query (PAD-435) must never be added; nginx keeps the redacted request log.
 set -eu
-ROLE="${ROLE:-api}"
+# Trimmed and lowercased like padel_app.roles.process_role(), or ROLE=Events would run the events app
+# on threads.
+ROLE="$(printf '%s' "${ROLE:-api}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
 if [ "$ROLE" = "events" ] && [ "${EVENTS_WORKER_CLASS:-gevent}" = "gevent" ]; then
   exec gunicorn --config python:padel_app.gunicorn_events --bind 0.0.0.0:80 --workers 1 \
     --worker-class gevent --worker-connections "${EVENTS_WORKER_CONNECTIONS:-1200}" \

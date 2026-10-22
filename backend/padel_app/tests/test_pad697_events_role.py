@@ -206,3 +206,54 @@ def test_both_staging_hosts_route_the_stream_to_the_events_upstream(vhost):
     assert "proxy_pass http://levapp_events_staging;" in loc
     assert "error_log /var/log/nginx/error.log crit;" in loc  # B-182: no token at level error
     assert "proxy_buffering off;" in loc
+
+
+def test_the_leftover_removal_never_strands_a_routed_stream():
+    """F (2026-10-22): with the host still routing /api/app/events to the events upstream, removing
+    the container would 502 every stream. Remove only when no enabled vhost proxies there (rollout.sh
+    rule 6's detector; a glob over sites-enabled, B-662), else keep it and warn."""
+    branch = _events_block().split("elif")[1]
+    assert 'proxy_pass[[:space:]]+http://levapp_events_staging[;/]' in branch
+    assert "/etc/nginx/sites-enabled/*" in branch and "grep -r" not in branch
+    assert "::warning::" in branch
+    keep, remove = branch.index("::warning::"), branch.index("docker rm padelapp_staging_events")
+    assert keep < remove, "the warning path must come first and skip the removal"
+
+
+# --- review round 1 -------------------------------------------------------------------------------
+
+def test_the_serve_script_reads_role_like_the_app_does(tmp_path):
+    """process_role() trims and lowercases ROLE; the script must pick the same branch, or
+    ROLE=Events would run the events app on threads."""
+    out = _serve({"ROLE": " Events "}, tmp_path)
+    assert "--worker-class gevent" in out
+
+
+def test_a_trailing_slash_does_not_slip_past_the_guard_or_the_410(events_app, app_with_config, monkeypatch):
+    # The guard lets it through (Flask's router then answers as it does on the API); the 410 is what
+    # must never be dodged.
+    res = events_app.test_client().get("/api/app/events/")
+    assert (res.get_json(silent=True) or {}).get("error") != "NOT_ON_EVENTS"
+    monkeypatch.setenv("ROLE", "api")
+    monkeypatch.setenv("EVENTS_SPLIT", "on")
+    assert app_with_config({}).test_client().get("/api/app/events/").status_code == 410
+
+
+def test_the_split_never_ships_without_the_events_role():
+    """R3: a 410 before the route is a total outage of live updates."""
+    import re
+
+    for env in ("backend/.env.staging", "backend/.env.prod"):
+        text = (REPO / env).read_text()
+        split_on = re.search(r"^EVENTS_SPLIT=(on|1|true|yes)\s*$", text, re.M | re.I)
+        role_on = re.search(r"^EVENTS_ROLE=(on|1|true|yes)\s*$", text, re.M | re.I)
+        assert not split_on or role_on, env
+
+
+def test_the_workflow_events_block_is_valid_shell():
+    import re
+
+    block = re.sub(r"\$\{\{[^}]*\}\}", "X", _events_block())
+    body = "if " + block.split("\n", 1)[0] + "\n" + block.split("\n", 1)[1]
+    out = subprocess.run(["bash", "-n"], input="RO=x; ROLLOUT_MODE=''\n" + body, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr

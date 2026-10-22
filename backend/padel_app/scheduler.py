@@ -38,6 +38,8 @@ Convenience hooks for lesson_service (safe no-ops when scheduler is absent)
 
 from __future__ import annotations
 
+from padel_app.roles import ROLES, flag_enabled, process_role  # noqa: F401 — re-exported (delivery.worker-role rule 1)
+
 import atexit
 import contextvars
 import os
@@ -910,14 +912,11 @@ def init_scheduler(app, test_config=None) -> None:
 MODE_COMPETE = "compete"
 MODE_CLIENT = "client"
 MODE_OFF = "off"
-# delivery.worker-role rule 1: the role helper lives in a leaf module (config needs it too).
-from padel_app.roles import ROLES, process_role  # noqa: E402,F401
 
 
 def worker_split_enabled(environ=None) -> bool:
     """``WORKER_SPLIT``: the worker runs the jobs and the API only writes the job store. Default off."""
-    environ = os.environ if environ is None else environ
-    return environ.get("WORKER_SPLIT", "off").strip().lower() in ("1", "true", "yes", "on")
+    return flag_enabled("WORKER_SPLIT", environ)
 
 
 def scheduler_mode(role: str, split: bool) -> str:

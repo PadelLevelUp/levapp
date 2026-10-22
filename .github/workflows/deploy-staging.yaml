@@ -274,11 +274,17 @@ jobs:
               -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
               ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           elif docker inspect padelapp_staging_events >/dev/null 2>&1; then
-            # EVENTS_ROLE went off, or a rollback's env file predates it: no events container outlives
-            # the flag. The host must already route /api/app/events back to levapp_api_staging (R3).
-            echo "[deploy] removing padelapp_staging_events (EVENTS_ROLE off in this deploy)"
-            docker stop -t 10 padelapp_staging_events >/dev/null 2>&1 || true
-            docker rm padelapp_staging_events >/dev/null 2>&1 || true
+            # EVENTS_ROLE went off, or a rollback's env file predates it. Removing the container while
+            # the host still routes /api/app/events to levapp_events_staging would 502 every stream, so
+            # remove it only when no enabled vhost proxies there (rollout.sh rule 6's detector: a glob
+            # over sites-enabled, B-662); otherwise keep it serving and name the host step (R3 reverse).
+            if grep -qsE 'proxy_pass[[:space:]]+http://levapp_events_staging[;/]' /etc/nginx/sites-enabled/*; then
+              echo "::warning::EVENTS_ROLE is off but nginx still routes /api/app/events to levapp_events_staging: keeping padelapp_staging_events. Route the path back to levapp_api_staging on the host first (docs/handoffs/2026-10-22-pad-697-staging-events-apply.sh, rollback), then deploy again."
+            else
+              echo "[deploy] removing padelapp_staging_events (EVENTS_ROLE off, nothing routes to it)"
+              docker stop -t 10 padelapp_staging_events >/dev/null 2>&1 || true
+              docker rm padelapp_staging_events >/dev/null 2>&1 || true
+            fi
           fi
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
