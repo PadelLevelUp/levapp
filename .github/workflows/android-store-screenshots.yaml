@@ -1,0 +1,267 @@
+name: Android store screenshots
+
+# PAD-608 item 5: the Google Play phone screenshots, taken from the real Android app.
+#
+#   apk         — the CI APK, built exactly as android-build.yaml's `apk` job (API URL
+#                 http://10.0.2.2:5001/api baked in, LEVAPP_CI_APK=1 prebuild, two ABIs), uploaded
+#                 as `store-screenshots-apk`.
+#   screenshots — Postgres 15, the backend's migrations + the E2E seed into the throwaway database
+#                 levelup_store_shots, then store/android/screenshots/fictional.sql repaints every
+#                 name, the academy, the class titles and the chat text with fictional ones and
+#                 switches the coach and the student to Portuguese. Flask on :5001, a pixel_2
+#                 (1080 x 1920, ratio 1.78: Play takes at most 2) API 34 emulator, Maestro 2.6.1
+#                 running store/android/screenshots/capture.yaml. Artefact `play-store-screenshots`
+#                 holds the PNGs; the owner picks 2 to 8.
+#
+# Triggers: workflow_dispatch (works once this file is on the default branch), and pull requests
+# into staging that touch this file or frontend/apps/mobile/store/android/screenshots/** (path
+# filtering inside the job, like android-build.yaml, so a PR that does not touch them reports
+# "success", not "skipped"). The PR that adds this file therefore produces the artefact itself.
+
+on:
+  pull_request:
+    branches: [ staging ]
+  workflow_dispatch:
+
+concurrency:
+  group: android-store-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.15.0"
+  # The runner as seen from inside the emulator.
+  EMULATOR_HOST_API_URL: "http://10.0.2.2:5001/api"
+  APK_PATH: frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+jobs:
+  apk:
+    name: APK (prebuild + Gradle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      built: ${{ steps.filter.outputs.shots }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            shots:
+              - '.github/workflows/android-store-screenshots.yaml'
+              - 'frontend/apps/mobile/store/android/screenshots/**'
+
+      - uses: actions/setup-node@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-java@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+
+      - name: Install workspace dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Prebuild the CI test app (cleartext to the runner allowed)
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+        working-directory: frontend/apps/mobile
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          LEVAPP_CI_APK: "1"
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --no-install
+          grep -q 'android:usesCleartextTraffic="true"' android/app/src/main/AndroidManifest.xml \
+            || { echo "::error::CI prebuild did not set usesCleartextTraffic — the emulator could not reach Flask"; exit 1; }
+          chmod +x android/gradlew
+
+      - name: Gradle assembleRelease (debug keystore, JS bundled)
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+        working-directory: frontend/apps/mobile/android
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          EXPO_PUBLIC_API_URL: ${{ env.EMULATOR_HOST_API_URL }}
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g
+        # Two ABIs, not four (android-build.yaml): arm64-v8a for phones, x86_64 for this emulator.
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,x86_64
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.shots == 'true'
+        with:
+          name: store-screenshots-apk
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  screenshots:
+    name: Play screenshots on a pixel_2 emulator
+    needs: apk
+    if: github.event_name == 'workflow_dispatch' || needs.apk.outputs.built == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        # Our own GHCR copy of postgres:15 (delivery.ci-images rule 4), as android-build.yaml.
+        image: ghcr.io/padellevelup/ci-postgres:15
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          POSTGRES_USER: padel_app_user
+          POSTGRES_PASSWORD: padel_app_test
+          POSTGRES_DB: postgres
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U padel_app_user -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Isolation (PAD-218): this workflow owns its own throwaway database.
+      E2E_DB_NAME: levelup_store_shots
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: padel_app_user
+      POSTGRES_PW: padel_app_test
+      FLASK_APP: padel_app
+      FLASK_ENV: development
+      JWT_SECRET_KEY: e2e-test-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # reset-test-db.sh activates backend/.venv, so give it one.
+      - name: Backend venv
+        run: |
+          python -m venv backend/.venv
+          backend/.venv/bin/python -m pip install --quiet pip==25.1.1
+          backend/.venv/bin/pip install --quiet --require-hashes -r backend/requirements.txt
+          backend/.venv/bin/pip install --quiet --no-deps ./backend
+
+      - name: Migrate + seed the throwaway database
+        env:
+          POSTGRES_DB: ${{ env.E2E_DB_NAME }}
+        run: bash frontend/apps/web/e2e/scripts/reset-test-db.sh
+
+      # Every name, the academy, the class titles and the chat text become fictional; the coach and
+      # the student switch to Portuguese. Fails here if a test-looking row survives.
+      - name: Repaint the data with fictional names
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PW }}
+        run: |
+          psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$E2E_DB_NAME" \
+            -v ON_ERROR_STOP=1 -f frontend/apps/mobile/store/android/screenshots/fictional.sql
+
+      - name: Start Flask on :5001 (reachable from the emulator as 10.0.2.2)
+        env:
+          POSTGRES_DB: ${{ env.E2E_DB_NAME }}
+          E2E_DEBUG_ENDPOINTS: "true"
+          TEST_MODE: "true"
+          AUTH_RATE_LIMIT_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd backend
+          nohup .venv/bin/flask run --host 0.0.0.0 --port 5001 --no-reload > "$RUNNER_TEMP/flask.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:5001/api/app/healthz >/dev/null; then echo "flask up"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::Flask did not answer on :5001"; cat "$RUNNER_TEMP/flask.log"; exit 1
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: store-screenshots-apk
+          path: ${{ runner.temp }}/apk
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Pinned to the version the Android lane uses (android-build.yaml, PAD-345).
+      - name: Install Maestro
+        env:
+          MAESTRO_VERSION: "2.6.1"
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version | grep -qx "$MAESTRO_VERSION" || { echo "Maestro is not $MAESTRO_VERSION"; exit 1; }
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-api34-pixel2-default-x86_64-v1
+
+      - name: Create the AVD snapshot (cache miss only)
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "AVD snapshot generated for the cache"
+
+      - name: Take the screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          # The action runs `script:` with /bin/sh (dash): keep the bash in a file.
+          script: bash frontend/apps/mobile/store/android/screenshots/capture.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-store-screenshots
+          path: ~/.maestro/store-shots/*.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Collect Maestro output
+        if: failure()
+        run: |
+          mkdir -p shots-debug
+          cp -r ~/.maestro/tests shots-debug/ 2>/dev/null || true
+          cp -r ~/.maestro/store-shots shots-debug/ 2>/dev/null || true
+          cp "$RUNNER_TEMP/flask.log" shots-debug/ 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: store-screenshots-debug
+          path: shots-debug
+          if-no-files-found: warn
+          retention-days: 14

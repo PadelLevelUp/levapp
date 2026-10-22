@@ -7,6 +7,9 @@
 # last level is on screen and picks it; the list closes. Nothing is saved.
 # Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow 280 is from Session C's
 # wave-15 range (279–288).
+# BLOCKED on PAD-727 (Android): the select's list is not clamped to the safe area, so on the
+# lane's emulator options 13–14 sit under the nav bar and this flow is red there by design until
+# the app fix lands. No flow workaround (coordinator, 2026-10-22). iOS is unaffected.
 appId: com.padellevelup.app
 onFlowStart:
   - runScript: ../scripts/pad655-setup.js
