@@ -316,6 +316,12 @@ class Config:
     LINEAR_API_KEY = (os.getenv("LINEAR_API_KEY") or "").strip()
     WORK_GITHUB_REPO = (os.getenv("WORK_GITHUB_REPO") or "").strip()
     WORK_GITHUB_TOKEN = (os.getenv("WORK_GITHUB_TOKEN") or "").strip()
+    # admin.work-dashboard rule 9 (PAD-646): the App Store Connect API key for TestFlight builds.
+    # All four or nothing ("not configured"); ASC_PRIVATE_KEY is the .p8 PEM (a secret, never logged).
+    ASC_KEY_ID = (os.getenv("ASC_KEY_ID") or "").strip()
+    ASC_ISSUER_ID = (os.getenv("ASC_ISSUER_ID") or "").strip()
+    ASC_PRIVATE_KEY = os.getenv("ASC_PRIVATE_KEY") or ""
+    ASC_APP_ID = (os.getenv("ASC_APP_ID") or "").strip()
     # admin.engine-health rule 5 (PAD-534): the other environment's admin API and the token this
     # console presents to it; and the token this environment accepts from the other one. All three
     # unset (the default) means the console shows the other environment as "not configured".
