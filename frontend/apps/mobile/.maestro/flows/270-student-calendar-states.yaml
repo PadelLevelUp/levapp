@@ -87,6 +87,12 @@ onFlowComplete:
       id: "calendar-relation-invited"
     direction: DOWN
     timeout: 15000
+# PAD-710 (Android lane): scrolling down to the invited card clips the open-spot card at the top; bring it back on screen.
+- scrollUntilVisible:
+    element:
+      id: "calendar-relation-open-spot"
+    direction: UP
+    timeout: 15000
 - assertVisible:
     id: "calendar-relation-open-spot"
 
