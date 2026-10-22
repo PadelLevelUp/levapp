@@ -233,7 +233,9 @@ API 34 `pixel_6`, the APK from `expo prebuild` + Gradle, flows from `MAESTRO_FLO
 default). Since PAD-710 it runs as four parallel shards (`android-shards.json` names where
 each starts; `delivery.android-nightly-lane`), each with its own emulator and database, and a
 watchdog stops a flow past 12 min or a shard past 75 min with an error naming the flow. A PR
-that changes the lane itself runs the shards too. Read failures in the `maestro-results-<shard>`
+that changes the lane itself runs the shards too. A PR that adds or changes `flows/*.yaml` also runs exactly
+those flows in a `changed` job (led by `01-login`, fresh emulator and database), so every flow
+edit is proven on Android on its own PR. Read failures in the `maestro-results-<shard>`
 artefacts (`maestro-results-all` for the smoke list).
 
 The nightly only starts once this workflow reaches `main`: GitHub runs a `schedule:` trigger

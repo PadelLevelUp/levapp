@@ -48,6 +48,12 @@ appId: com.padellevelup.app
     timeout: 15000
 - assertVisible:
     id: "board-tab-game"
+# PAD-710 (Android lane): in game mode the court is below the fold and Android exposes only on-screen elements.
+- scrollUntilVisible:
+    element:
+      id: "piece-a1"
+    direction: DOWN
+    timeout: 15000
 - assertVisible:
     id: "piece-a1"
 - assertVisible:
