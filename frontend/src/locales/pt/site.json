@@ -41,6 +41,12 @@
       "hero": {
         "title": "Novidades a caminho. Fala connosco."
       }
+    },
+    "contact": {
+      "title": "Fala connosco",
+      "intro": "Conta-nos o que procuras e respondemos-te pelo telefone ou por email.",
+      "backHome": "Voltar ao início",
+      "mailSubject": "Contacto pelo site da LevApp"
     }
   }
 }
