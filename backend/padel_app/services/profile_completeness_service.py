@@ -48,6 +48,8 @@ def _incomplete_rows(coach_id: int):
 
 def build_incomplete_players_block(*, coach_id: int) -> Optional[Dict[str, Any]]:
     """Rule 3: the coach's block, or None when nobody is missing anything."""
+    from padel_app.services.player_service import nickname_payload
+
     rows = _incomplete_rows(coach_id)
     if not rows:
         return None
@@ -57,6 +59,8 @@ def build_incomplete_players_block(*, coach_id: int) -> Optional[Dict[str, Any]]
         {
             "playerId": cp.player_id,
             "name": user.name,
+            # PAD-683 (players.nickname rule 9a): coach-only block, the asking coach's own relation.
+            **nickname_payload(cp, user.name),
             "missing": missing_of(cp),
             "href": f"/players/{cp.player_id}",
         }
@@ -203,7 +207,15 @@ def send_profile_reminder(*, player, coach_id: int, now_utc=None):
     msg.create()  # commits: the reminder is written and the lock released together
 
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
-    title = player.user.name if player.user else ("Aluno" if locale == "pt" else "Student")
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone — display name.
+    # The reminder Message above sits in the shared thread (text carries no name).
+    from padel_app.services.player_service import coach_display_name
+
+    title = (
+        coach_display_name(coach_user.id, player.id, player.user.name)
+        if player.user
+        else ("Aluno" if locale == "pt" else "Student")
+    )
     _push_to_coach(coach_user.id, title, text, conv.id, msg.id)
     return msg
 

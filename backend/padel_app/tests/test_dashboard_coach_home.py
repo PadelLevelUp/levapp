@@ -88,8 +88,9 @@ def _seed(app, *, now):
         soon = make_class("B1 Class", now + timedelta(minutes=45), 6, players[:2])
         make_class("A2 Class", now + timedelta(days=1), 4, players)
 
-        # A class that already ended, with one attendance still unvalidated.
-        past = make_class("Past Class", now - timedelta(days=2), 4, players[:1])
+        # A class that already ended (Sat 1 Aug for Tue 4 Aug: last week, weeks start on Sunday,
+        # PAD-682) with one attendance still unvalidated.
+        past = make_class("Past Class", now - timedelta(days=3), 4, players[:1])
         past_presence = Presence.query.filter_by(
             lesson_instance_id=past.id, player_id=players[0].id
         ).one()
@@ -231,7 +232,7 @@ def test_validation_item_prefers_the_current_week(app):
     from padel_app.helpers.dashboard.coach_home import build_needs_you_block
 
     now = datetime(2026, 8, 4, 10, 0)  # Tuesday
-    coach_id, user_id, _ = _seed(app, now=now)  # one pending class last week (Sun 2 Aug)
+    coach_id, user_id, _ = _seed(app, now=now)  # one pending class last week (Sat 1 Aug)
     _add_past_class_with_unvalidated_presence(
         app, coach_id=coach_id, ended_at=datetime(2026, 8, 3, 19, 0), title="Monday Class"
     )
@@ -317,7 +318,7 @@ def test_validation_item_is_the_count_endpoints_number(app):
         assert count_pending_validation(
             coach_id=coach_id, range_start=start, range_end=end, now=now
         ) == validation["count"]
-    assert (start, end) == (datetime(2026, 7, 27), datetime(2026, 8, 2, 23, 59, 59))
+    assert (start, end) == (datetime(2026, 7, 26), datetime(2026, 8, 1, 23, 59, 59))
 
 
 def test_queue_reaches_zero(app):

@@ -174,14 +174,14 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
     <>
       {duplicate ? (
         <View className="gap-2 rounded-md border border-warning/40 bg-warning/5 p-3" testID="player-duplicate-hint">
-          <Text className="text-sm">{t("players.claim.possibleDuplicateHint", { name: duplicate.name })}</Text>
+          <Text className="text-sm">{t("players.claim.possibleDuplicateHint", { name: duplicate.displayName ?? duplicate.name })}</Text>
           <Button
             size="sm"
             testID="player-claim-merge-into"
-            accessibilityLabel={t("players.claim.mergeInto", { name: duplicate.name })}
+            accessibilityLabel={t("players.claim.mergeInto", { name: duplicate.displayName ?? duplicate.name })}
             onPress={() => openWith(duplicate.playerId)}
           >
-            <Text>{t("players.claim.mergeInto", { name: duplicate.name })}</Text>
+            <Text>{t("players.claim.mergeInto", { name: duplicate.displayName ?? duplicate.name })}</Text>
           </Button>
         </View>
       ) : null}
@@ -238,7 +238,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                         key={String(c.playerId)}
                         accessibilityRole="radio"
                         accessibilityState={{ checked: selected }}
-                        accessibilityLabel={c.name}
+                        accessibilityLabel={c.displayName ?? c.name}
                         testID={`player-claim-candidate-${c.playerId}`}
                         onPress={() => setTargetId(c.playerId)}
                         className={`mb-1 flex-row items-center justify-between rounded-md border px-3 py-2 ${
@@ -246,7 +246,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                         }`}
                       >
                         <View className="flex-row items-center gap-2">
-                          <Text className="text-sm font-medium">{c.name}</Text>
+                          <Text className="text-sm font-medium">{c.displayName ?? c.name}</Text>
                           {c.levelLabel ? <Text className="text-sm text-muted-foreground">{c.levelLabel}</Text> : null}
                         </View>
                         {c.sameName ? <Text className="text-xs text-warning">{t("players.claim.sameName")}</Text> : null}

@@ -156,7 +156,8 @@ appId: com.padellevelup.app
     id: "class-requests"
 - tapOn:
     id: "class-request-book"
+# PAD-710 (Android lane): PAD-357 replaced the booking form (`class-request-form`) with the wizard.
 - extendedWaitUntil:
     visible:
-      id: "class-request-form"
+      id: "class-request-wizard"
     timeout: 15000

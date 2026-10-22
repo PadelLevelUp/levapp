@@ -29,7 +29,11 @@ import type {
 
 export interface RosterOption {
   id: number;
+  /** The real name: the walk-in row it becomes keeps it; the picker prints the display name. */
   name: string;
+  /** PAD-683: the coach's nickname keys, so the picker searches both names. */
+  nickname?: string | null;
+  displayName?: string;
 }
 
 /** Per class, per player: the mark the coach chose locally, not yet persisted. */
@@ -145,13 +149,15 @@ export function resolvePresences(
 /** Undecided players first — the coach should see what is blocking them. */
 export function sortPlayers(
   players: PendingValidationPlayer[],
-  edits: Record<number, PresenceMark | null>
+  edits: Record<number, PresenceMark | null>,
+  nameOf: (playerId: number, fallback: string) => string
 ): PendingValidationPlayer[] {
   return [...players].sort((a, b) => {
     const aDone = effectiveMark(a, edits[a.playerId]) !== null;
     const bDone = effectiveMark(b, edits[b.playerId]) !== null;
     if (aDone !== bDone) return aDone ? 1 : -1;
-    return a.name.localeCompare(b.name);
+    // PAD-683: ordered by the name the coach reads (their nickname when it is the main name).
+    return nameOf(a.playerId, a.name).localeCompare(nameOf(b.playerId, b.name));
   });
 }
 

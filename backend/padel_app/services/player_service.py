@@ -1,3 +1,4 @@
+import re
 from padel_app.models import (
     Player,
     User,
@@ -158,7 +159,7 @@ def possible_duplicates_for(coach, relations):
     # The picker's exclusions (rule 4b): an active student account, not a coach, not
     # claimable — so a flag never points at someone the merge would refuse.
     rows = (
-        db.session.query(Player.id, User)
+        db.session.query(Player.id, User, Association_CoachPlayer)
         .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
         .join(User, Player.user_id == User.id)
         .outerjoin(Coach, Coach.user_id == User.id)
@@ -166,12 +167,17 @@ def possible_duplicates_for(coach, relations):
         .all()
     )
     by_name = {}
-    for player_id, user in rows:
+    for player_id, user, rel_row in rows:
         if _is_claimable_user(user):      # rule 1's one definition, not a second copy
             continue
         key = normalise_name(user.name)
         if key and (key not in by_name or player_id < by_name[key]["playerId"]):
-            by_name[key] = {"playerId": player_id, "name": user.name}
+            # PAD-683 (rule 9a): the other student as THIS coach names them (coach-private payload).
+            by_name[key] = {
+                "playerId": player_id,
+                "name": user.name,
+                "displayName": nickname_payload(rel_row, user.name)["displayName"],
+            }
     out = {}
     for rel in claimable:
         key = normalise_name(rel.player.user.name)
@@ -195,6 +201,65 @@ def nickname_payload(rel, real_name):
         "nicknameAsName": as_name,
         "displayName": nickname if (as_name and nickname) else real_name,
     }
+
+
+def relations_by_player(coach_id, player_ids=None):
+    """PAD-683 (rule 9a): ``{player_id: relation row}`` for ONE coach, in a single query, so a
+    coach-private payload with many student rows reads each nickname without a query per row."""
+    if not coach_id:
+        return {}
+    q = Association_CoachPlayer.query.filter(Association_CoachPlayer.coach_id == coach_id)
+    if player_ids is not None:
+        ids = list(player_ids)
+        if not ids:
+            return {}
+        q = q.filter(Association_CoachPlayer.player_id.in_(ids))
+    return {rel.player_id: rel for rel in q.all()}
+
+
+def coach_relation_payloads(coach_id, rows, real_name_of):
+    """PAD-683 (rule 9a): add the requesting coach's ``nickname`` / ``nicknameAsName`` /
+    ``displayName`` to every dict in ``rows`` that has a ``playerId`` (in place; returns ``rows``).
+    ``real_name_of(row)`` gives the row's real name. ``name`` is left untouched (rule 2)."""
+    rels = relations_by_player(coach_id, {r.get("playerId") for r in rows if r.get("playerId")})
+    for row in rows:
+        row.update(nickname_payload(rels.get(row.get("playerId")), real_name_of(row)))
+    return rows
+
+
+def coach_display_name(coach_user_id, player_id, real_name):
+    """PAD-683 (players.nickname rule 9c): the name text sent ONLY to a coach uses for a student.
+
+    Keyed on the RECIPIENT coach's user id, so the nickname is that coach's own (rule 1); a
+    recipient who is not a coach, or not this student's coach, gets ``real_name``. Never use it
+    for text the student can read — the shared coach–student conversation keeps the real name.
+    """
+    from padel_app.models import Coach
+
+    if not coach_user_id or not player_id:
+        return real_name
+    rel = (
+        Association_CoachPlayer.query.join(Coach, Coach.id == Association_CoachPlayer.coach_id)
+        .filter(Coach.user_id == coach_user_id, Association_CoachPlayer.player_id == player_id)
+        .first()
+    )
+    if rel is None:
+        return real_name
+    return nickname_payload(rel, real_name)["displayName"]
+
+
+def coach_facing_text(text, coach_user_id, player_id, real_name):
+    """PAD-683 (rule 9c): ``text`` with the student's real name replaced by the recipient coach's
+    display name — for a push title/body that repeats a notice whose stored copy stays real.
+
+    Only the FIRST whole-word occurrence is replaced: every coach notice opens on the student's
+    name, and a later occurrence (inside a class title or the student's own note) is left as is."""
+    if not text or not real_name:
+        return text
+    shown = coach_display_name(coach_user_id, player_id, real_name)
+    if shown == real_name:
+        return text
+    return re.sub(rf"(?<!\w){re.escape(real_name)}(?!\w)", lambda _m: shown, text, count=1)
 
 
 def _serialize_coach_player_relation(rel, due=None, duplicates=None):
@@ -453,7 +518,8 @@ def search_coach_players(coach_id, term, limit=20):
         user = player.user if player else None
         if not player or not user:
             continue
-        results.append({"id": str(player.id), "name": user.name})
+        # PAD-683 (players.nickname rules 2, 9a): this coach's own nickname keys beside the real name.
+        results.append({"id": str(player.id), "name": user.name, **nickname_payload(rel, user.name)})
     return results
 
 

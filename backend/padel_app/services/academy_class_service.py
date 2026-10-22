@@ -98,6 +98,7 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
 def join_class_waiting_list_service(player, model, original_id, date_str, *, now=None):
     """Rule 6: the student's own place on a full class's waiting list. Returns
     ``(entry, created)`` — ``created`` is False when they were already on it."""
+    from padel_app.models import Presence
     from padel_app.services.class_join_request_service import (
         _coach_id_for,
         _is_closed,
@@ -117,7 +118,12 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     coach_id = _coach_id_for(instance)
     if coach_id is None:
         _refuse("not_visible", "This class has no coach")
-    if _is_enrolled(instance, player.id):
+    # PAD-684 (attendance.confirm rule 28; waiting-list rule 14): a student whose own presence on
+    # the occurrence is not_coming holds no spot - not "already enrolled" - and the class they
+    # are enrolled in is visible to them.
+    own_presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player.id).first()
+    gave_up_place = own_presence is not None and own_presence.status == "absent"
+    if _is_enrolled(instance, player.id) and not gave_up_place:
         _refuse("already_enrolled", "You are already in this class")
     if _is_closed(instance, now):
         _refuse("class_closed", "This class is no longer open")
@@ -129,7 +135,9 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
     # not hide its waiting list from them — "ainda que naquele momento não hajam vagas". Their own
     # "no" is final (rule 18) and grants nothing. The roster, has-spots and eligibility gates stand.
     if cp is None or not (
-        effective_open_spots_visible(instance, coach_id, config) or _was_invited(instance.id, player.id)
+        effective_open_spots_visible(instance, coach_id, config)
+        or _was_invited(instance.id, player.id)
+        or gave_up_place
     ):
         _refuse("not_visible", "This class is not open to requests")
     # PAD-581 (invitations rule 2d, owner Q3): a student whose invitation was withdrawn for side
@@ -327,8 +335,13 @@ def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:
 
     locale = _localized(coach_user, "pt", "en")
     title = "Lista de espera" if locale == "pt" else "Waiting list"
-    send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone — display name; the
+    # Message stored in the student's thread keeps the real name.
+    from padel_app.services.player_service import coach_facing_text
+
+    push_body = coach_facing_text(text, coach_user.id, player.id, player_user.name)[:100]
+    send_push_notification(user_id=coach_user.id, title=title, body=push_body, url=f"/messages/{conv.id}?message={msg.id}")
     send_expo_push_to_user(
-        coach_user.id, title=title, body=text[:100],
+        coach_user.id, title=title, body=push_body,
         data={"type": "message", "conversationId": conv.id, "messageId": msg.id, "classInstanceId": instance.id},
     )

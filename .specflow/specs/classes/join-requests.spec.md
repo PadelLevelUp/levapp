@@ -33,7 +33,15 @@ by a student's request — and whichever lands first wins.
    the coach's alone; nothing about a request is automatic.
 6. **On accept**, the student is enrolled exactly as any other enrolment: enrolment association plus
    presence, through the same path the invitation engine uses (`_add_player_to_instance`). Any
-   vacancy for that spot is marked filled and attributed to the requesting student.
+   vacancy for that spot is marked filled and attributed to the requesting student. **Which spot
+   (PAD-715, D7 of PAD-672; owner 2026-10-21, Q7):** a left or right student takes an open spot of
+   their own side (else a side-less one, else the oldest); a `both` or side-less student takes the
+   spot whose closing leaves the class most balanced — the going players' sides plus the sides of the
+   spots still open — the oldest on a tie (`vacancy_for_joiner`). Before PAD-715 it was always the
+   oldest open spot, so in a class of 10 with 4 left and 4 right going a right student could close
+   the left spot and the class end 4 / 6. The accept then re-counts the class's other open spots
+   with the student counted as going (`notifications.invitations` rule 2d), and the closed spot's
+   live invitations move or end by rule 18a, exactly as after a "yes".
 7. **Eligibility is re-checked at accept time.** Between request and decision the student's level or
    absence record may have changed. A student who no longer passes the bar is not silently enrolled:
    the coach gets the same named-reason warning as a manual add (`eligibility.enforcement` rule 7)
@@ -153,6 +161,20 @@ by a student's request — and whichever lands first wins.
       instead of the actions.
     - The student's own copy of the message never offers actions.
     - There's no "propose another time" for academy requests (coordinator, 2026-09-26).
+19. **An accepted request tells the student they have a place, never that a request "was accepted"
+    (PAD-678; numbering unconfirmed).** Two students read the old "Estás dentro: o teu pedido … foi
+    aceite" as a place on the waiting list. The decision message (rule 15) leads with the outcome and
+    never says "pedido" or "aceite", because "aceite" is what a waiting-list place sounds like. pt
+    (text approved by the coach, 2026-10-15): "Está marcado! Estás inscrito/a em {title} {when}.
+    Contamos contigo!". en: "You're booked! You're enrolled in {title} {when}. See you there!".
+    `{when}` is the weekday-first form of `notifications.message-templates` rule 17: pt
+    `na sexta-feira, 16/10, às 09:00` (`no` for sábado/domingo), en `on Friday, 16/10, at 09:00`.
+    "inscrito/a" is literal, so it serves students of any gender without reading a profile. A class
+    with no title reads "nesta aula" / "in this class". The conversation-list preview and the push body
+    are this text (`messaging.push-notifications`), so their first words are the outcome. The
+    student's class view says the same once the request is accepted: pt "Está marcado! Estás
+    inscrito/a nesta aula.", en "You're booked! You're enrolled in this class." (key
+    `calendar.joinRequest.accepted`, web and iOS).
 
 ### Acceptance Criteria
 
@@ -168,6 +190,13 @@ by a student's request — and whichever lands first wins.
 - **Then** the student is enrolled with an association and a presence
 - **And** any vacancy for that spot is marked filled and attributed to that student
 - **And** the request status becomes `accepted`
+
+#### The accepted student reads that they are in the class, not waiting (rule 19, PAD-678)
+- **Given** Carla's pending request for "PEAK PERFORMANCE" on Friday 16/10 at 09:00, and a Portuguese coach
+- **When** the coach accepts it
+- **Then** Carla's message reads "Está marcado! Estás inscrito/a em PEAK PERFORMANCE na sexta-feira, 16/10, às 09:00. Contamos contigo!"
+- **And** it contains neither "pedido" nor "aceite"
+- **And** with an English coach it reads "You're booked! You're enrolled in PEAK PERFORMANCE on Friday, 16/10, at 09:00. See you there!"
 
 #### Coach rejects
 - **Given** a pending request

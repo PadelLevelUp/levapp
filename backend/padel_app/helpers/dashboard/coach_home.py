@@ -21,7 +21,7 @@ Notes on two deliberate choices:
   ``{start} – {end}`` only rather than inventing a location.
 * **Validation is a Presences-tab week, in classes.** (PAD-190 / PAD-201,
   B-045.) The old item counted presence rows over a rolling 7 days while the
-  tab counted classes over a Monday–Sunday week, so the two never agreed. The
+  tab counted classes over a calendar week (Sunday–Saturday since PAD-682), so the two never agreed. The
   item now reads ``count_pending_validation`` — the tab's own helper — for the
   current UTC week, falling back to the previous week when this one is clean
   (a Monday-morning coach still needs to see the weekend's backlog), and links
@@ -61,7 +61,7 @@ from padel_app.services.presence_overview_service import (
     latest_pending_start,
 )
 from padel_app.tools.tools import _safe_int
-from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive
+from padel_app.utils.dates import club_now_naive, utcnow_naive, wall_to_utc_naive, week_start as week_start_of
 # PAD-256 (R-023): inside the dashboard helpers `now` is the club's wall clock,
 # the clock class times are stored in. It goes back to UTC only where it meets
 # an event timestamp (the calendar serializer, the snooze).
@@ -135,7 +135,7 @@ def cut_events(events: Sequence[Dict[str, Any]], *, start: datetime, end: dateti
 def coach_home_window(now: datetime) -> Tuple[datetime, datetime]:
     """The superset window: a week before the current week (week-pulse delta)
     to the hero's look-ahead."""
-    week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    week_start = datetime.combine(week_start_of(now.date()), datetime.min.time())
     start = min(week_start - timedelta(days=7), now - timedelta(days=SCHEDULE_DAYS))
     end = max(week_start + timedelta(days=7), now + timedelta(days=HERO_LOOKAHEAD_DAYS))
     return start, end
@@ -225,11 +225,17 @@ def build_next_class_block(
     """
     now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=HERO_LOOKAHEAD_DAYS))
-    return next_class_block(window, now=now)
+    return next_class_block(window, now=now, coach_id=coach_id)
 
 
-def next_class_block(events: Sequence[Dict[str, Any]], *, now: datetime) -> Optional[Dict[str, Any]]:
-    """The ``next_class`` block for the earliest of ``events``; ``None`` for none."""
+def next_class_block(
+    events: Sequence[Dict[str, Any]], *, now: datetime, coach_id: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
+    """The ``next_class`` block for the earliest of ``events``; ``None`` for none.
+
+    ``coach_id`` is set only on the coach's own dashboard (PAD-683 rule 9a): the avatar stack then
+    carries that coach's ``displayName``. The student's dashboard shares this builder and never
+    passes it, so no nickname reaches a student."""
     if not events:
         return None
 
@@ -257,13 +263,13 @@ def next_class_block(events: Sequence[Dict[str, Any]], *, now: datetime) -> Opti
             "minutesUntil": minutes_until if is_today and 0 <= minutes_until <= HERO_SOON_MINUTES else None,
             "filled": filled,
             "capacity": capacity,
-            "players": _roster(event, limit=HERO_AVATAR_LIMIT),
+            "players": _roster(event, limit=HERO_AVATAR_LIMIT, coach_id=coach_id),
             "href": class_href(event),
         },
     }
 
 
-def _roster(event: Dict[str, Any], *, limit: int) -> List[Dict[str, Any]]:
+def _roster(event: Dict[str, Any], *, limit: int, coach_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """Signed-up players for the avatar stack, capped at ``limit``.
 
     An unmaterialized occurrence has no instance row, so enrolment comes off the
@@ -286,11 +292,21 @@ def _roster(event: Dict[str, Any], *, limit: int) -> List[Dict[str, Any]]:
         lesson = db.session.get(Lesson, original_id)
         rows = [rel.player for rel in getattr(lesson, "players_relations", [])] if lesson else []
 
-    return [
+    players = [
         {"id": p.id, "name": p.name, "initials": _initials(p.name)}
         for p in rows[:limit]
         if p is not None
     ]
+    if coach_id is not None:
+        # PAD-683 (players.nickname rule 9a): the requesting coach's display name and the initials
+        # of it; `name` stays the real name.
+        from padel_app.services.player_service import relations_by_player, nickname_payload
+
+        rels = relations_by_player(coach_id, [p["id"] for p in players])
+        for p in players:
+            p.update(nickname_payload(rels.get(p["id"]), p["name"]))
+            p["initials"] = _initials(p["displayName"])
+    return players
 
 
 # ── 2. needs-you queue ─────────────────────────────────────────────────────
@@ -312,7 +328,7 @@ def build_needs_you_block(
 
     items: List[Dict[str, Any]] = []
     items.extend(_empty_seat_items(coach_id=coach_id, now=now, events=events))
-    items.extend(reply_items(user_id=user_id))
+    items.extend(reply_items(user_id=user_id, coach_id=coach_id))
 
     validation = _validation_item(coach_id=coach_id, now=now)
     if validation:
@@ -358,8 +374,12 @@ def _empty_seat_items(
     return out
 
 
-def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
+def reply_items(*, user_id: int, coach_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """Unread inbound messages, most recent first, one per conversation.
+
+    ``coach_id`` is set only on the coach's dashboard (PAD-683 rule 9a): a sender who is that
+    coach's student then gets the coach's ``displayName`` (and its initials); the student's own
+    dashboard shares this builder and never passes it.
 
     PAD-262: the database picks the newest unread message per conversation
     and returns at most ``QUEUE_REPLY_LIMIT`` rows; this used to pull every
@@ -400,18 +420,37 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
         .all()
     )
 
+    rels_by_user: Dict[int, Any] = {}
+    if coach_id is not None and rows:
+        from padel_app.models import Player
+        from padel_app.services.player_service import relations_by_player
+
+        sender_ids = {sender.id for _m, sender, _c in rows}
+        players = Player.query.filter(Player.user_id.in_(sender_ids)).all()
+        rels = relations_by_player(coach_id, [pl.id for pl in players])
+        rels_by_user = {pl.user_id: (pl.id, rels[pl.id]) for pl in players if pl.id in rels}
+
     seen: set = set()
     out: List[Dict[str, Any]] = []
     for message, sender, conversation_id in rows:
         if conversation_id in seen:
             continue
         seen.add(conversation_id)
+        shown = sender.name
+        nick = {}
+        if sender.id in rels_by_user:
+            from padel_app.services.player_service import nickname_payload
+
+            player_id, rel = rels_by_user[sender.id]
+            nick = {"playerId": player_id, **nickname_payload(rel, sender.name)}
+            shown = nick["displayName"]
         out.append(
             {
                 "kind": "reply",
                 "id": f"conversation-{conversation_id}",
                 "personName": sender.name,
-                "initials": _initials(sender.name),
+                "initials": _initials(shown),
+                **nick,
                 "preview": (message.text or "").strip(),
                 # PAD-284 (dashboard.blocks rule 10): the web conversation route;
                 # iOS maps it to its conversation screen (`dashboardRoute`).
@@ -424,17 +463,17 @@ def reply_items(*, user_id: int) -> List[Dict[str, Any]]:
 
 
 def week_bounds(now: datetime, offset: int) -> Tuple[datetime, datetime]:
-    """Monday 00:00:00 – Sunday 23:59:59 (naive UTC) for the week ``offset`` weeks from ``now``.
+    """Sunday 00:00:00 – Saturday 23:59:59 (naive UTC; weeks start on Sunday, calendar.view rule 5a) for the week ``offset`` weeks from ``now``.
 
     Byte-for-byte the window both shells' ``weekBounds`` produce once the bare
     ``to`` date is expanded to end-of-day by ``_parse_attendance_bound``
     (``attendance.validation`` rule 15), so the dashboard counts exactly the
     week the tab will show.
     """
-    monday = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
-    monday += timedelta(weeks=offset)
-    sunday_end = monday + timedelta(days=6, hours=23, minutes=59, seconds=59)
-    return monday, sunday_end
+    first_day = datetime.combine(week_start_of(now.date()), datetime.min.time())
+    first_day += timedelta(weeks=offset)
+    last_day_end = first_day + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    return first_day, last_day_end
 
 
 def validation_href(week_offset: int) -> str:
@@ -444,10 +483,10 @@ def validation_href(week_offset: int) -> str:
 
 
 def week_offset_of(moment: datetime, now: datetime) -> int:
-    """How many weeks ``moment``'s Monday–Sunday week lies from ``now``'s (0 = this week, -1 = last)."""
-    monday_now = now.date() - timedelta(days=now.weekday())
-    monday_then = moment.date() - timedelta(days=moment.weekday())
-    return (monday_then - monday_now).days // 7
+    """How many weeks ``moment``'s Sunday–Saturday week lies from ``now``'s (0 = this week, -1 = last)."""
+    start_now = week_start_of(now.date())
+    start_then = week_start_of(moment.date())
+    return (start_then - start_now).days // 7
 
 
 def validation_badge(*, coach_id: int, now: datetime) -> Dict[str, Any]:
@@ -537,7 +576,7 @@ def build_week_pulse_block(
     """Two metrics, each with a denominator, plus a 7-day seats trend."""
     now = now or club_now_naive()
 
-    week_start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time())
+    week_start = datetime.combine(week_start_of(now.date()), datetime.min.time())
     week_end = week_start + timedelta(days=7)
 
     # PAD-262: nine windows off one loaded set instead of nine pipeline runs.

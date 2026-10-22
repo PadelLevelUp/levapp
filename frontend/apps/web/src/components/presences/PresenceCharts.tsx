@@ -83,7 +83,7 @@ export function PresenceCharts({
         .slice(0, 8)
         .map((p) => {
           // "Miguel Ferreira" -> "Miguel F." so eight labels fit the axis.
-          const [first = "", last = ""] = p.name.split(" ");
+          const [first = "", last = ""] = (p.displayName ?? p.name).split(" "); // PAD-683 rule 9a
           return {
             name: last ? `${first} ${last.charAt(0)}.` : first,
             presences: p.total,

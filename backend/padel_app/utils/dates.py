@@ -7,7 +7,7 @@ wall-clock: the digits the person typed. Compare each with its own clock
 (`utcnow_naive()` / `club_now_naive()`) and cross between the two only through
 `wall_to_utc_naive()` / `utc_to_wall_naive()`."""
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -21,6 +21,19 @@ from zoneinfo import ZoneInfo
 # `utils.dates` imports nothing from the app, so there is no circular-import
 # risk in depending on it from anywhere.
 CLUB_TZ = ZoneInfo("Europe/Lisbon")
+
+# calendar.view rule 5a (PAD-682): every week a coach or student sees starts on Sunday. The
+# value is in JS ``getDay()`` numbering (0 = Sunday) so it can be compared with the frontend's
+# ``WEEK_STARTS_ON`` in ``@levelup/config``; a test reads that file to keep the two in step.
+# Not used for ``format_relative_day`` (notifications.message-templates rule 18 keeps
+# Monday-to-Sunday) nor for recurrence weekday numbering.
+WEEK_STARTS_ON_SUNDAY = 0
+
+
+def week_start(day: date) -> date:
+    """The first day of ``day``'s week: the Sunday on or before it (calendar.view rule 5a)."""
+    # ``isoweekday()``: Monday = 1 … Sunday = 7, so ``% 7`` is the days since Sunday.
+    return day - timedelta(days=(day.isoweekday() - WEEK_STARTS_ON_SUNDAY) % 7)
 
 
 def utcnow_naive() -> datetime:

@@ -50,6 +50,10 @@ def register_device_token():
     DeviceToken.query.filter(DeviceToken.token == token, DeviceToken.user_id != user_id).delete(
         synchronize_session=False
     )
+    # notifications.notification-sound rule 5 (PAD-680): what this build declared, kept on the token.
+    from padel_app.utils.client_capabilities import NOTIFICATION_SOUND, client_declares
+
+    sound_capable = client_declares(NOTIFICATION_SOUND)
     record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
     if record is None:
         # messaging.push-notifications rule 9a (PAD-652, B-581): two registrations at once both
@@ -58,7 +62,8 @@ def register_device_token():
         # above, which the rollback keeps), and a collision updates the winner's row.
         savepoint = db.session.begin_nested()
         try:
-            db.session.add(DeviceToken(user_id=user_id, token=token, platform=platform))
+            db.session.add(DeviceToken(user_id=user_id, token=token, platform=platform,
+                                       sound_capable=sound_capable))
             db.session.flush()
             savepoint.commit()
         except IntegrityError:
@@ -66,6 +71,7 @@ def register_device_token():
             record = DeviceToken.query.filter_by(token=token, user_id=user_id).one()
     if record is not None:
         record.platform = platform
+        record.sound_capable = sound_capable
 
     db.session.commit()
     return jsonify({"success": True}), 200

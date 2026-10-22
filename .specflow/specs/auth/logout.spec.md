@@ -31,6 +31,14 @@ Invalidate the current JWT token so it cannot be reused.
    `jti` up in `token_blocklist` once; a later step of the same request (the sliding refresh in
    `after_request`, the view-as gate) reuses that answer instead of querying again.
 
+6. **(PAD-716) A session's cached data ends with it, on every client.** The web, iOS and Android
+   clients keep server answers in a query cache (60 s fresh). Signing out, losing the session to a
+   401, and signing in all clear that cache (`queryClient.clear()`), so the next account on the same
+   device or tab never sees the previous account's profile, Settings sections, conversations,
+   calendar or players. On sign-out the cache is cleared after the stored token is gone, so no
+   in-flight read refills it with the old session. Privacy defect B-601 (Android nightly lane): a
+   coach's Settings showed the student's sections for up to 60 s after the student signed out.
+
 ### Acceptance Criteria
 
 #### One blocklist lookup per request (rule 5, PAD-591)
@@ -60,3 +68,9 @@ Invalidate the current JWT token so it cannot be reused.
 - **Given** coach `coach1` registered `ExponentPushToken[pad418]`
 - **When** `coach1` posts `/api/auth/logout` with no body
 - **Then** the response is 200 `{"message": "Successfully logged out"}` and the row remains, exactly as before PAD-418
+
+#### The next account starts with an empty cache (rule 6, PAD-716)
+- **Given** a signed-in student whose `auth-me` and conversations are cached
+- **When** they sign out (or a 401 ends the session) and a coach signs in on the same device or tab
+- **Then** the query cache holds nothing of the student's, and the coach's Settings read their own
+  `auth-me`
