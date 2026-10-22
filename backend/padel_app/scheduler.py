@@ -779,7 +779,10 @@ def init_scheduler(app, test_config=None) -> None:
     # there is nothing to split: every process runs as before.
     mode = MODE_COMPETE if test_mode else scheduler_mode(process_role(), worker_split_enabled())
     if mode == MODE_OFF:
-        app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
+        if process_role() == "events":
+            app.logger.info("APScheduler not started: ROLE=events holds streams only (B-677).")
+        else:
+            app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
         return
 
     _app = app
@@ -907,15 +910,8 @@ def init_scheduler(app, test_config=None) -> None:
 MODE_COMPETE = "compete"
 MODE_CLIENT = "client"
 MODE_OFF = "off"
-ROLES = ("api", "worker", "events")
-
-
-def process_role(environ=None) -> str:
-    """delivery.worker-role rule 1 (PAD-695): ``ROLE`` = api | worker | events, default api.
-    ``events`` is PAD-697's and behaves as ``api`` until then; anything else is ``api``."""
-    environ = os.environ if environ is None else environ
-    role = environ.get("ROLE", "api").strip().lower()
-    return role if role in ROLES else "api"
+# delivery.worker-role rule 1: the role helper lives in a leaf module (config needs it too).
+from padel_app.roles import ROLES, process_role  # noqa: E402,F401
 
 
 def worker_split_enabled(environ=None) -> bool:
@@ -926,6 +922,10 @@ def worker_split_enabled(environ=None) -> bool:
 
 def scheduler_mode(role: str, split: bool) -> str:
     """``compete`` (run jobs as the lock holder), ``client`` (write the job store only) or ``off``."""
+    if role == "events":
+        # B-677: an events process holds the live-update streams and nothing else; it neither
+        # competes for the leader lock nor writes the job store, whatever WORKER_SPLIT says.
+        return MODE_OFF
     if role == "worker":
         return MODE_COMPETE if split else MODE_OFF
     return MODE_CLIENT if split else MODE_COMPETE

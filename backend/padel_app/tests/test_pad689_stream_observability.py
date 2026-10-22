@@ -79,7 +79,10 @@ def test_the_alert_strings_are_frozen(path, text):
 # --- gunicorn threads from the environment --------------------------------------------------------
 
 def test_gunicorn_threads_come_from_the_environment_with_64_by_default():
+    # PAD-697: the image's CMD runs scripts/serve.sh, which owns the gunicorn command line.
     cmd = [l for l in (BACKEND / "Dockerfile").read_text().splitlines() if l.startswith("CMD ")][-1]
-    assert "${GUNICORN_THREADS:-64}" in cmd
-    assert re.search(r"--workers[ \"',]+1\b", cmd), "R-027: one gunicorn worker"
-    assert "exec gunicorn" in cmd, "gunicorn must be PID 1's exec target so it gets SIGTERM"
+    assert "scripts/serve.sh" in cmd
+    serve = (BACKEND / "scripts" / "serve.sh").read_text()
+    api_line = [l for l in serve.splitlines() if l.startswith("exec gunicorn") and "--threads" in l][-1]
+    assert "${GUNICORN_THREADS:-64}" in api_line
+    assert re.search(r"--workers[ \"',]+1\b", api_line), "R-027: one gunicorn worker"

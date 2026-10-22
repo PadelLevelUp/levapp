@@ -243,6 +243,14 @@ def healthz():
         if state == _ss.AHEAD:
             return jsonify({"status": "schema_ahead"})
 
+    # delivery.events-role (PAD-697): an events process is ready only on the Postgres broker with
+    # its listener LISTENing. The API has no such condition (a LISTEN outage must not unready it).
+    from padel_app.events_role import readiness_problem
+
+    problem = readiness_problem()
+    if problem:
+        return jsonify({"status": problem}), 503
+
     return jsonify({"status": "ok"})
 
 

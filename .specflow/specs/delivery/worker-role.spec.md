@@ -30,14 +30,15 @@ until B8 has proven it.
 
 ### Rules
 
-1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697's; it
-   behaves as `api` until then); anything else is `api`. `WORKER_SPLIT` (default off) decides
+1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697: the process
+   that holds the live-update streams); anything else is `api`. `WORKER_SPLIT` (default off) decides
    the scheduler's mode in each process:
 
    | | `WORKER_SPLIT` off | `WORKER_SPLIT` on |
    |---|---|---|
    | `api` (gunicorn) | competes for the scheduler-leader lock (zero-downtime-deploy rules 1–3) | **job-store client** |
    | `worker` | no scheduler (idles, see rule 2) | competes for the lock |
+   | `events` | **no scheduler** (B-677) | **no scheduler** |
 
    A job-store client starts its scheduler **paused** and never resumes it: request handlers
    still call `schedule_*`/`cancel_*`, which write the shared `apscheduler_jobs` table through
@@ -83,8 +84,9 @@ until B8 has proven it.
 
 #### The modes follow role and flag (rule 1)
 - **Given** each of api/events/worker with the flag on and off **When** the mode is computed
-  **Then** it is: api off → compete, api on → client, events on → client, worker on → compete,
-  worker off → off (no scheduler)
+  **Then** it is: api off → compete, api on → client, events off → off, events on → off (B-677:
+  an events process neither runs jobs nor writes the job store), worker on → compete, worker off →
+  off (no scheduler)
 
 #### The worker waits for the lock without exiting (rule 2)
 - **Given** another process holds the lock **When** the worker has waited 61 s **Then** it has

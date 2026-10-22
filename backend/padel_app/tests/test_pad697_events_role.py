@@ -1,0 +1,166 @@
+"""PAD-697 — the events role: `/api/app/events` served by its own process (`ROLE=events`).
+
+`delivery.events-role` (new) and `messaging.sse-realtime`. The API keeps its threads; the events
+process serves only the stream route plus its probes, needs the Postgres broker to receive anything
+(R1), answers ready only while its listener is LISTENing, and its worker class and stream cap come
+from one place (the serve script, the role-aware defaults). `EVENTS_SPLIT` makes the API answer a
+loud 410 on the moved path.
+"""
+import os
+import pathlib
+import subprocess
+import sys
+
+import pytest
+
+from padel_app import realtime
+
+BACKEND = pathlib.Path(__file__).resolve().parents[2]
+SERVE = BACKEND / "scripts" / "serve.sh"
+
+
+@pytest.fixture(autouse=True)
+def _clean_realtime():
+    realtime._subscribers.clear()
+    yield
+    realtime.shutdown()
+    realtime._subscribers.clear()
+
+
+@pytest.fixture
+def events_app(app_with_config, monkeypatch):
+    monkeypatch.setenv("ROLE", "events")
+    return app_with_config({"SSE_BROKER": "memory"})
+
+
+# --- the role guard -------------------------------------------------------------------------------
+
+def test_the_events_role_serves_only_the_stream_and_its_probes(events_app):
+    client = events_app.test_client()
+    res = client.get("/api/app/messages/unread_count")
+    assert res.status_code == 404 and res.get_json() == {"error": "NOT_ON_EVENTS"}
+    assert client.get("/api/app/livez").status_code == 200
+    # The stream route is not refused by the guard (no token here, so the JWT layer answers).
+    assert client.get("/api/app/events").status_code == 401
+
+
+def test_the_api_answers_410_on_the_moved_path_only_when_split(app_with_config, monkeypatch):
+    monkeypatch.setenv("ROLE", "api")
+    monkeypatch.setenv("EVENTS_SPLIT", "on")
+    client = app_with_config({}).test_client()
+    res = client.get("/api/app/events")
+    assert res.status_code == 410 and res.get_json() == {"error": "EVENTS_MOVED"}
+    assert client.get("/api/app/livez").status_code == 200
+
+
+def test_without_the_split_the_api_still_serves_the_stream(app_with_config, monkeypatch):
+    monkeypatch.setenv("ROLE", "api")
+    monkeypatch.delenv("EVENTS_SPLIT", raising=False)
+    assert app_with_config({}).test_client().get("/api/app/events").status_code == 401
+
+
+# --- readiness (R1) -------------------------------------------------------------------------------
+
+def test_the_events_role_is_never_ready_on_the_memory_broker(events_app, caplog):
+    import logging
+
+    res = events_app.test_client().get("/api/app/healthz")
+    assert res.status_code == 503 and res.get_json()["status"] == "events_needs_postgres_broker"
+    # liveness never depends on the broker or the listener
+    assert events_app.test_client().get("/api/app/livez").status_code == 200
+
+
+def test_the_events_role_logs_an_error_on_the_memory_broker(app_with_config, monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setenv("ROLE", "events")
+    with caplog.at_level(logging.ERROR, logger="padel_app"):
+        app_with_config({"SSE_BROKER": "memory"})
+    assert any("ROLE=events needs SSE_BROKER=postgres" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("listening,code,status", [(False, 503, "listener_down"), (True, 200, "ok")])
+def test_events_readiness_follows_the_listener(events_app, monkeypatch, listening, code, status):
+    monkeypatch.setattr(realtime, "broker_status", lambda: {"broker": "postgres", "listening": listening, "since": None})
+    res = events_app.test_client().get("/api/app/healthz")
+    assert res.status_code == code and res.get_json()["status"] == status
+
+
+def test_api_readiness_never_depends_on_the_listener(app_with_config, monkeypatch):
+    monkeypatch.setenv("ROLE", "api")
+    app = app_with_config({})
+    monkeypatch.setattr(realtime, "broker_status", lambda: {"broker": "postgres", "listening": False, "since": None})
+    assert app.test_client().get("/api/app/healthz").status_code == 200
+
+
+# --- role-aware stream cap (R6) -------------------------------------------------------------------
+
+def test_the_stream_cap_default_is_role_aware():
+    from padel_app.config import sse_stream_limits
+
+    assert sse_stream_limits({"ROLE": "events"}) == (1000, 4)
+    assert sse_stream_limits({"ROLE": "api"}) == (40, 4)
+    assert sse_stream_limits({}) == (40, 4)
+    assert sse_stream_limits({"ROLE": "events", "SSE_MAX_STREAMS": "300"}) == (300, 4)
+
+
+# --- one serve script (R4, R5) --------------------------------------------------------------------
+
+def _serve(env, tmp_path):
+    fake = tmp_path / "gunicorn"
+    fake.write_text('#!/bin/sh\necho "$@"\n')
+    fake.chmod(0o755)
+    run_env = {"PATH": f"{tmp_path}:/usr/bin:/bin", **env}
+    return subprocess.run(["sh", str(SERVE)], env=run_env, capture_output=True, text=True, check=True).stdout
+
+
+def test_the_image_runs_the_serve_script():
+    cmd = [l for l in (BACKEND / "Dockerfile").read_text().splitlines() if l.startswith("CMD ")][-1]
+    assert "scripts/serve.sh" in cmd
+
+
+def test_the_api_role_runs_threads(tmp_path):
+    out = _serve({}, tmp_path)
+    assert "--workers 1" in out and "--threads 64" in out and "gevent" not in out
+    assert "--threads 160" in _serve({"GUNICORN_THREADS": "160"}, tmp_path)
+
+
+def test_the_events_role_runs_gevent_and_can_fall_back_to_threads(tmp_path):
+    out = _serve({"ROLE": "events"}, tmp_path)
+    assert "--worker-class gevent" in out and "--workers 1" in out
+    assert "--config python:padel_app.gunicorn_events" in out
+    fallback = _serve({"ROLE": "events", "EVENTS_WORKER_CLASS": "gthread"}, tmp_path)
+    assert "gevent" not in fallback and "--threads" in fallback
+
+
+def test_no_preload_and_no_query_string_in_any_access_log(tmp_path):
+    text = "\n".join(
+        line for f in (SERVE, BACKEND / "Dockerfile")
+        for line in f.read_text().splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "--preload" not in text, "preload loads the app before gevent patches and psycogreen runs"
+    for fmt in ("%(r)s", "%(q)s"):
+        assert fmt not in text, "the stream's token rides in the query string (PAD-435)"
+
+
+def test_the_api_role_never_imports_gevent():
+    code = (
+        "import sys, tempfile; from padel_app import create_app; "
+        "create_app({'TESTING': True, 'SQLALCHEMY_TRACK_MODIFICATIONS': False, "
+        "'SQLALCHEMY_DATABASE_URI': 'sqlite:///' + tempfile.mktemp()}); "
+        "print(any(m == 'gevent' or m.startswith('gevent.') for m in sys.modules))"
+    )
+    env = {**os.environ, "PYTHONPATH": str(BACKEND), "ROLE": "api"}
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, cwd=BACKEND)
+    assert out.stdout.strip().splitlines()[-1] == "False", out.stderr[-500:]
+
+
+def test_the_gevent_config_patches_psycopg_after_fork(monkeypatch):
+    import psycogreen.gevent
+
+    from padel_app import gunicorn_events
+
+    calls = []
+    monkeypatch.setattr(psycogreen.gevent, "patch_psycopg", lambda: calls.append(1))
+    gunicorn_events.post_fork(None, None)
+    assert calls == [1]

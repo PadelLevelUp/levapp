@@ -159,6 +159,10 @@ def create_app(test_config=None):
     from padel_app import realtime
     realtime.init_app(app)
 
+    # delivery.events-role (PAD-697): the guard, the moved-path 410, the listener at boot.
+    from padel_app import events_role
+    events_role.init_app(app)
+
     from .scheduler import init_scheduler
     init_scheduler(app, test_config=test_config)
 
