@@ -10,59 +10,81 @@ governed_by: []
 
 
 ### Intent
-Give a visitor with no session a public page at `/` that speaks to the audience they belong to
-(coach, player, or "other"), shows the real product on real devices, and hands them to the right
-next step: a demo request, the login form, support for a lost invite, or an email for ideas.
-Visits are measured with HubSpot only with the visitor's consent (PAD-469).
+Give a visitor with no session the public LevApp site at `/` (PAD-656: the FINAL Claude design,
+owner decisions 2026-10-21): one page per audience (coach, player, "other") that shows what the
+product does with the real app's screenshots and HTML mock-ups of it, and hands them to the right
+next step: a demo request or contact, the login or sign-up form, the coach's invitation link, or an
+email for ideas. Visits are measured with HubSpot only with the visitor's consent (PAD-469).
 
 ### Entities
-No server entities; the page reads no API. Client state: the selected audience, and one stored
-record — the visitor's cookie choice, in localStorage key `levapp.cookieConsent` as
+No server entities; the pages read no API. Client state: the selected audience (`?para=`), and one
+stored record — the visitor's cookie choice, in localStorage key `levapp.cookieConsent` as
 `{choice: "accepted" | "declined", at: <ISO timestamp>}`.
 
 ### Rules
-1. `/` renders the landing page when there is no session and the dashboard when there is one
+1. `/` renders the site when there is no session and the dashboard when there is one
    (`HomeRoute`); a returning user must never see the marketing page flash before their dashboard.
-2. The page is **web-only** — the iOS equivalent is the App Store listing. The reason is recorded in
-   the page header comment and in this spec so the "web and iOS ship together" rule is met. The
-   HubSpot tracking, the cookie banner and the demo dialog (rules 10–13) are web-only for the same
-   reason: the mobile app has no landing page and carries no tracking.
-3. Three audiences: `coaches` (default), `players`, `others`. **The audience is chosen in the
-   header (PAD-582):** a dropdown left of the section links — "Para treinadores ▾", "Para
-   jogadores", "Para outros" — on every width (the short labels "Treinadores / Jogadores / Outros"
-   below `md`), so the visitor sees whom "Vantagens · Como funciona · Resultados" speak to. It is the
-   only place the audience is chosen: the tabs that used to sit at the top of the hero are gone
-   (owner decision). Choosing re-renders the hero, benefits, how-it-works, results and final CTA for
-   that audience without a navigation and without moving the scroll position. `others` replaces the
-   three middle sections with a single "ideas" section. On this page the player audience is
-   "jogadores" / "players" throughout; the app keeps "alunos" for its own students.
+   `/contacto` (rule 17) renders the site's contact page.
+2. **Web-only by nature (R-024 exception).** The site is the public website: the iOS app has no
+   marketing pages, and its pre-install equivalent is the App Store listing. The HubSpot tracking,
+   the cookie banner and the contact form (rules 10–13, 17–19) are web-only for the same reason: the
+   mobile app has no site and carries no tracking. The reason is recorded here and in the PR.
+3. **Three audiences, chosen in the header (PAD-582, PAD-656):** a pill left of the section links —
+   "Para treinadores ▾" / "Para alunos" / "Outros" (✓ on the current one) — on every width, so the
+   visitor sees whom "Vantagens · Como funciona · Resultados" speak to. Choosing swaps the page body
+   for that audience without a navigation and without moving the scroll position. There is no
+   "Preço" link or section (owner, 2026-10-21) and no FAQ. On "Outros" the header shows no section
+   links. Off `/` (the contact page) the section links go to `/?para=<slug>#<section>`.
 4. **The choice is in the URL (PAD-582).** Choosing writes `?para=<slug>` in place (`treinadores`,
-   `jogadores`, `outros`; `history.replaceState`, no reload), so a link opens the page on an
-   audience — campaigns share `/?para=jogadores`. Reading: `?para=` first, then the older
-   `?audience=`, which keeps accepting the i18n ids (`coaches`, `players`, `others`) and the old
-   Portuguese slugs (`treinadores`, `alunos`, `outros`) so links already out there still work;
-   `jogadores` is accepted everywhere; anything else falls back to `coaches`.
-5. CTA destinations (no backend of ours exists for any of them):
-   - coach "Pedir demonstração" (header, mobile menu, hero, how-it-works, final CTA) → when the
-     build carries a demo form ID (`VITE_HUBSPOT_DEMO_FORM_ID`), the demo dialog (rule 10);
-     without one, `mailto:` the support address with a subject, as before.
-   - player primary ("Entrar") → `/auth`; player secondary ("Recebi um convite") → `/support`
-     (invites are tokenised links; a lost one needs a human).
-   - others primary ("Enviar ideia") → `mailto:` the admin address.
-   - nav links and coach secondary → in-page anchors (`#vantagens`, `#como-funciona`, `#resultados`).
-   - Every link that leaves the page (Entrar, Recebi um convite, the footer links, the privacy
-     links in the banner and the dialog) loads a new document, so a tracking script loaded here
-     never runs on another page or inside the app. By construction: every exit is an `ExitLink`,
-     and the landing files may not use react-router's `Link` directly.
-6. Every string goes through i18n (`landing` namespace, `pt` + `en`). Pre-auth pages render in the
-   default locale (`pt`). Device screenshots are of the real product and stay Portuguese in both
-   locales.
-7. Device renders are frame PNGs with a transparent screen area under `/public/landing/`, with the
-   app screenshot layered underneath; a missing image degrades to the bezel with a black screen,
-   never a broken layout.
-8. The header always shows "Entrar"; the demo button and section links collapse into a menu button
-   below the `md` breakpoint. The footer links to `/support`, `/privacy`, `/terms`.
-9. The page must never render the app shell (no sidebar, no app navigation).
+   `jogadores`, `outros`; replace, no reload), so a link opens the site on an audience — campaigns
+   share `/?para=jogadores`. Reading: `?para=` first, then the older `?audience=`, which keeps
+   accepting the i18n ids (`coaches`, `players`, `others`) and the old Portuguese slugs
+   (`treinadores`, `alunos`, `outros`) so links already out there still work; anything else falls
+   back to `coaches`. The visible label for players is "Para alunos"; the URL slug stays `jogadores`.
+5. **The pages (the FINAL design's sections, in order; copy verbatim in `site.*`, pt-PT with "tu"):**
+   - **Para treinadores:** hero (badge, "Mais turmas cheias. / Menos horas no WhatsApp.", Pedir
+     demonstração, Ver como funciona, four ✓ points, store buttons); **Vantagens** (three cards, the
+     messages composite, feature rows Avisos / Novos alunos / Reservas, the week calendar mock-up);
+     **Como funciona** (three steps, Falar connosco, the import row, the two-phone demo); **Resultados**
+     (pilot figures with the pilot note, a quote, the tactical board); a closing call (Pedir
+     demonstração, "Sou aluno").
+   - **Para alunos:** hero ("Joga mais. / Espera menos.", Criar conta grátis, Recebi um convite, four
+     ✓ points, store buttons); **O que ganhas** (four cards, the coach's chat, the Disponibilidade
+     row); **Como funciona** (three steps, Falar connosco); **Resultados**; "Grátis para alunos"
+     (store buttons; no prices); its own closing call (Criar conta grátis, "Sou treinador") — never the
+     coaches' one.
+   - **Outros:** the "em construção" hero, the ideas list, "Tens uma ideia?"; no closing call.
+6. **Destinations.** "Pedir demonstração" / "Quero ser treinador piloto" open the contact dialog with
+   `pedido=demonstracao` (rule 18; without a form ID a `mailto:` CONTACT_EMAIL). "Falar connosco"
+   opens it with no `pedido`. "Entrar" → `/auth`; "Criar conta grátis" → `/signup`. "Recebi um
+   convite" opens, in place, the explanation of the coach's link or QR code with "Cria a conta na
+   mesma" → `/signup` (PAD-656: the design and the ticket; it replaces the old `/support` exit).
+   "Enviar ideia" → `mailto:` CONTACT_EMAIL. "Ver como funciona" and the section links → in-page
+   anchors (`#vantagens`, `#como-funciona`, `#resultados`). "Sou aluno" / "Sou treinador" / "Ver
+   para treinadores" switch the audience. Every link that leaves the site (Entrar, Criar conta, the
+   legal links, the privacy links in the banner and the dialog) loads a new document, so a tracking
+   script loaded here never runs on another page or inside the app: every exit is an `ExitLink`, and
+   the site's page files may not use react-router's `Link` (the footer's in-site link to `/contacto`
+   is the one exception, in the layout).
+7. **Media.** Raster images are the real app's screenshots inside device frames
+   (`/public/landing/`; a missing image degrades to the bezel with a black screen, never a broken
+   layout) — no photos. The design's product mock-ups (calendar, chats, two-phone demo, tactical
+   board, availability block, import panel) are drawn in HTML with the design's fictitious names
+   (Bernardo T., Ana, ACADEMIA NORTE…), never real users, each one image to assistive technology.
+   Every string goes through i18n (`site` namespace, `pt` source + `en`); pre-auth pages render in
+   `pt`. Screenshots stay Portuguese in both locales.
+8. **Responsive (one page, the design's breakpoints).** Desktop layout from 993 px; 993–1100 px
+   tighter header links; ≤ 992 px the section links and both header buttons move into the ☰ menu
+   (it closes after a link); ≤ 640 px sections stack, no wordmark, the demo shows only the active
+   phone, the calendar hides its side column and scrolls inside its own box; ≤ 380 px a compact
+   audience pill. No width from 320 to 1920 px may scroll the page sideways or cut content: wide
+   content sits in an `overflow-x: auto` box. The site is light-only (it forces the light theme
+   while mounted). Touch targets ≥ 44 px.
+9. **Motion.** The two-phone demo starts when its section enters the screen: five steps of 5.8 s
+   (falta → vaga → convite → aceitação → confirmação), pause / play / replay, a step button jumps to
+   it and stops autoplay; it stops at the last step. The tactical board loops. With
+   `prefers-reduced-motion` nothing animates and the demo does not autoplay. The page never renders
+   the app shell (no sidebar, no app navigation).
 10. **Contact dialog (PAD-469; PAD-617; PAD-650).** HubSpot hosts fall into two sets, listed once in
     code (`frontend/apps/web/src/lib/hubspotConfig.ts`, which the tests import): the *tracking* hosts
     (the tracking script and everything it loads) and the *forms* hosts. One form serves every
@@ -139,14 +161,30 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
     `APP_STORE_URL` from `@levelup/config` (the link the install suggestion uses, PAD-573), in a new
     tab (`target="_blank"`, `rel="noopener noreferrer"`). Its accessible name is the visible text plus
     a screen-reader-only "(abre num separador novo)", so it contains the visible label (WCAG 2.5.3). It
-    sits under the hero's ✓ points for coaches and players, and in the players' closing call to
-    action; the "others" audience has none. A drawn button, not Apple's badge artwork. The Google
-    Play button waits for the Play listing (PAD-355). The redesigned site of the prototype is a
-    separate piece of work; when it lands, its App Store buttons use this component.
+    sits under the hero's ✓ points for coaches and players, and in the players' "Grátis para alunos"
+    section (PAD-656); the "others" audience has none. A drawn button, not Apple's badge artwork.
+    Beside it "Em breve na Google Play" is a plain, dashed label, not a link, until the Play listing
+    (PAD-355).
 16. **The link preview names levapp.app (PAD-595).** `index.html`'s Open Graph and Twitter tags
     (`og:url`, `og:image`, `twitter:image`) point at `https://levapp.app/`, so a link to the site
     shared on WhatsApp or elsewhere previews the canonical domain; the old domain appears nowhere
     in the page.
+
+17. **Contact page (PAD-656).** `/contacto` renders the site layout (header, footer, consent slot)
+    with the contact form: the same fields, order, validation and test ids (`demo-*`) as the dialog,
+    inside a `contact-page` wrapper with an h1. It sends no `pedido`; its `pageUri` is the `/contacto`
+    URL (so HubSpot tells a contact from a demo request). Success replaces the form in place
+    (`demo-sent`) with a "Voltar ao início" exit to `/`. A network failure shows `demo-failed` with the
+    `mailto:` fallback and keeps the typed values.
+18. **One form (PAD-656).** The dialog and the page share one form component (`DemoRequestForm`); the
+    dialog is only the shell: it opens clean every time, closes on X, Esc and a click outside, and
+    keeps its `demo-dialog` id. The design's extra demo fields (number of students, hours a week,
+    city) are not used: the owner kept PAD-650's form (2026-10-21).
+19. **Consent on every site page.** The site layout mounts the cookie banner and the HubSpot
+    tracking exactly as rules 11–13 say, through one hook (`useSiteConsent`); the footer's
+    "Preferências de cookies" reopens it on every site page, `/contacto` included.
+20. **Contact page widths.** `/contacto` fits every width of rule 8; its fields are full width at
+    ≤ 640 px.
 
 ### Acceptance Criteria
 
@@ -181,8 +219,37 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 
 #### The final CTA rotates audiences
 - **Given** the coach audience
-- **When** the visitor presses "Sou aluno" in the final CTA
-- **Then** the players audience renders; pressing "Sou treinador" returns to coaches
+- **When** the visitor presses "Sou aluno" in the closing call
+- **Then** the players audience renders (`?para=jogadores`); its own closing call's "Sou treinador"
+  returns to coaches
+
+#### Each audience shows its own sections, and none shows a price (rules 3, 5, PAD-656)
+- **Given** `/`, `/?para=jogadores` and `/?para=outros` at 1280 px
+- **Then** coaches show hero, Vantagens (with the calendar), Como funciona (with the two-phone demo),
+  Resultados (with the tactical board) and the closing call; players show hero, O que ganhas (with
+  the Disponibilidade row), Como funciona, Resultados, "Grátis para alunos" and their closing call;
+  Outros show the em-construção hero, the ideas and "Tens uma ideia?"
+- **And** no page has a `#preco` section or a "Preço" link, and the header has 3 section links for
+  coaches and players and none for Outros
+
+#### "Recebi um convite" explains the coach's link in place (rule 6, PAD-656)
+- **Given** the players audience
+- **When** the visitor presses "Recebi um convite"
+- **Then** it expands (`aria-expanded="true"`) the explanation of the coach's link, whose "Cria a conta
+  na mesma" leads to `/signup` as a new document; nothing navigates until a link is pressed
+
+#### No width scrolls the page sideways (rule 8, PAD-656)
+- **Given** each audience page at 320, 360, 390, 414, 768, 992, 1024, 1100, 1280, 1440 and 1920 px
+- **Then** every rendered element of the site lies inside the viewport, except inside an
+  `overflow-x: auto` box (the calendar); at ≤ 992 px the ☰ menu holds the links, Entrar and Pedir
+  demonstração
+
+#### The demo plays once it is seen, and holds still for reduced motion (rule 9, PAD-656)
+- **Given** the coaches' two-phone demo
+- **When** it enters the screen
+- **Then** it advances one step every 5.8 s and stops at the fifth; pressing a step shows it and stops
+  autoplay
+- **And** with `prefers-reduced-motion: reduce` it never advances by itself
 
 #### Entrar reaches the login form
 - **Given** the landing page
@@ -319,6 +386,21 @@ record — the visitor's cookie choice, in localStorage key `levapp.cookieConsen
 - **Then** `og:url` is `https://levapp.app/`, `og:image` and `twitter:image` are `https://levapp.app/og-image.png`, and `padellevelup.com` appears nowhere
 
 ### Notes
+- PAD-656 (2026-10-21/22, la-2110-SessionE + la-2110-SessionB on feature/pad-656): the new site from
+  the FINAL Claude design replaces the Lovable-port landing page. Owner decisions via the coordinator:
+  - the design is final;
+  - pages Para treinadores / Para alunos / Outros, Contacto (the PAD-650 form), Privacidade and
+    Termos as they are;
+  - no Preço section or link and no FAQ, though the pilot claims "Grátis na fase piloto" and
+    "Na fase piloto não pagas nada" stay;
+  - pt-PT with "tu";
+  - media is the App Store screenshots plus HTML mock-ups with mock data, no photos;
+  - "Continuar com Google" stays hidden until PAD-618, and `/auth` / `/signup` are untouched;
+  - CONTACT_EMAIL replaces the design's admin@levapp.pt;
+  - the brand blue is #2854D4.
+
+  Not built: the demo's 5-beat intro overlay. The real-device matrix of the ticket is the owner's
+  check after promotion; Lighthouse mobile and the width sweep are run on the switched build.
 - Second iteration, 2026-09-06: ported from the Lovable project "Padellevelup Playground"
   (`src/routes/index.tsx`), replacing the first hand-built page. Lovable's TanStack route, hard-coded
   Portuguese and custom utilities were translated to react-router, i18n and the app's tokens.
