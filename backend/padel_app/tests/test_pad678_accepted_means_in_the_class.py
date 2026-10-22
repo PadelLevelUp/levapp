@@ -81,3 +81,39 @@ def test_a_class_with_no_title_reads_nesta_aula(app):
 
     assert _accepted_text(_Untitled(), "pt") == "Está marcado! Estás inscrito/a nesta aula no domingo, 18/10, às 10:00. Contamos contigo!"
     assert _accepted_text(_Untitled(), "en") == "You're booked! You're enrolled in this class on Sunday, 18/10, at 10:00. See you there!"
+
+
+def test_a_refusal_says_not_enrolled_in_both_languages(app):
+    """Rule 19a: the refusal leads with the outcome, same `{when}` and untitled form as rule 19."""
+    from padel_app.services.class_join_request_service import _declined_text
+
+    class _Class:
+        title = "PEAK PERFORMANCE"
+        start_datetime = datetime(2026, 10, 16, 9, 0)   # a Friday
+
+    class _Untitled:
+        title = None
+        start_datetime = datetime(2026, 10, 18, 10, 0)   # a Sunday
+
+    assert _declined_text(_Class(), "pt") == (
+        "Não ficaste inscrito/a em PEAK PERFORMANCE na sexta-feira, 16/10, às 09:00: "
+        "o treinador não aceitou o pedido desta vez."
+    )
+    assert _declined_text(_Class(), "en") == (
+        "You're not enrolled in PEAK PERFORMANCE on Friday, 16/10, at 09:00: "
+        "the coach didn't accept the request this time."
+    )
+    assert _declined_text(_Untitled(), "pt").startswith("Não ficaste inscrito/a nesta aula no domingo, 18/10")
+
+
+def test_the_waiting_list_confirmation_says_there_is_no_place_yet():
+    """PAD-678 #4: the default `waiting_list_confirm` leads with "on the list, no place yet". A coach
+    who saved the template editor keeps their stored text (not migrated, coordinator 2026-10-22)."""
+    from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES, DEFAULT_MESSAGE_TEMPLATES_PT
+
+    assert DEFAULT_MESSAGE_TEMPLATES_PT["waiting_list_confirm"] == (
+        "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga."
+    )
+    assert DEFAULT_MESSAGE_TEMPLATES["waiting_list_confirm"] == (
+        "You're on the waiting list. You don't have a place yet; we'll let you know if a spot opens."
+    )

@@ -26,7 +26,11 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
    `POST /api/app/notify/respond_waiting_list`. The offer is sent by `_offer_waiting_list()`
    only on the "sorry, that spot was just filled" path (`respond_to_waiting_list()` upserts a
    `WaitingListEntry` for that same instance on "yes", sends `waiting_list_confirm` back, and is a
-   no-op on a late/expired instance per PAD-68). There is no separate "browse and join" surface —
+   no-op on a late/expired instance per PAD-68; PAD-678: its default text leads with the outcome,
+   pt "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga.", en
+   "You're on the waiting list. You don't have a place yet; we'll let you know if a spot opens."; a
+   coach who saved the template editor keeps their stored text, which is not migrated). There is no
+   separate "browse and join" surface —
    this message is the entire self-service join path.
    **Since PAD-621 (owner, PAD-612 D4) no engine path sends a new offer.** A spot that fills retires
    every live invitation for it as "Vaga preenchida" at once — a live bubble edit, no push, no new
