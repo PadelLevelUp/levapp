@@ -55,3 +55,15 @@ describe("searchPeopleByName", () => {
     expect(searchPeopleByName(people, "", nameOf, { coach: false })).toEqual(people);
   });
 });
+
+describe("searchPeopleByName: the nickname option (PAD-683)", () => {
+  const people = [{ name: "Rui Pedro Basto", nick: "Tigre" }, { name: "Ana Rita", nick: null }];
+  const nameOf = (x: { name: string }) => x.name;
+
+  it("coach: either name finds the row; a student's list ignores the nickname", () => {
+    const nicknameOf = (x: { nick: string | null }) => x.nick;
+    expect(searchPeopleByName(people, "tigre", nameOf, { coach: true, nicknameOf })).toEqual([people[0]]);
+    expect(searchPeopleByName(people, "rui", nameOf, { coach: true, nicknameOf })).toEqual([people[0]]);
+    expect(searchPeopleByName(people, "tigre", nameOf, { coach: false, nicknameOf })).toEqual([]);
+  });
+});

@@ -37,6 +37,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
 
 from padel_app.serializers.presence import _late_cancellation_for  # PAD-271 M5
+from padel_app.services.player_service import coach_relation_payloads  # PAD-683 rule 9a
 from padel_app.models import (
     Association_CoachLesson,
     Association_CoachPlayer,
@@ -173,6 +174,8 @@ def build_presence_stats(
             }
         )
 
+    # PAD-683 (players.nickname rule 9a): coach-private rows carry the REQUESTING coach's nickname.
+    coach_relation_payloads(coach_id, players, lambda r: r["name"])
     players.sort(key=lambda p: (-p["total"], p["name"].lower()))
 
     total_private = sum(p["private"] for p in players)
@@ -433,6 +436,7 @@ def list_pending_validation(
             )
             for presence in presences
         ]
+        coach_relation_payloads(coach_id, players, lambda r: r["name"])  # PAD-683 rule 9a
         players.sort(key=lambda p: (p["response"] != "none", p["name"].lower()))
 
         unanswered = sum(1 for p in players if p["response"] == "none")

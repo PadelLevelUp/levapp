@@ -118,9 +118,8 @@ export function ClassRequestsSection({
   // toasts read the same from the list as from the class detail screen.
   const [busyJoinId, setBusyJoinId] = React.useState<number | null>(null);
   const [pendingAcademyAccept, setPendingAcademyAccept] = React.useState<{
-    id: number;
-    playerId: string;
-    playerName: string;
+    /** The parked row: confirming replays the accept, which resolves the name itself (PAD-683). */
+    row: ClassJoinRequestListRow;
     ineligible: EligibilityCheckEntry[];
   } | null>(null);
 
@@ -133,7 +132,7 @@ export function ClassRequestsSection({
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setBusyJoinId(null);
-        setPendingAcademyAccept({ id: row.id, playerId: row.playerId, playerName: row.playerName, ineligible: refusal.ineligible ?? [] });
+        setPendingAcademyAccept({ row, ineligible: refusal.ineligible ?? [] });
         return;
       }
       toast.error(
@@ -438,7 +437,7 @@ export function ClassRequestsSection({
         onConfirm={() => {
           const parked = pendingAcademyAccept;
           setPendingAcademyAccept(null);
-          if (parked) void handleAcademyAccept({ id: parked.id, playerId: parked.playerId, playerName: parked.playerName } as ClassJoinRequestListRow, true);
+          if (parked) void handleAcademyAccept(parked.row, true);
         }}
       />
     </>

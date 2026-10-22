@@ -25,6 +25,10 @@ export interface PlayerClaimRequest {
 export interface ClaimCandidate {
   playerId: string | number;
   name: string;
+  /** PAD-683 (rule 9a): this coach's nickname keys for the student; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   levelLabel: string | null;
   /** Same normalised name as the placeholder — listed first. */
   sameName: boolean;

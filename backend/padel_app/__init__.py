@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timezone, timedelta
 
@@ -11,6 +12,11 @@ from . import cli, mail, modules, sql_db
 
 
 def create_app(test_config=None):
+    # B-676: the root logger stays at WARNING and nothing set a level below it, so every INFO
+    # line under `padel_app` (app.logger IS that logger) was dropped: scheduler leadership, the
+    # reschedule counts, the migrate lines, rule 25's stats line. One level for the package;
+    # third-party libraries keep the root's WARNING.
+    logging.getLogger("padel_app").setLevel(logging.INFO)
     app = Flask(__name__, instance_relative_config=True)
     from .config import cors_allowed_origins
 

@@ -382,3 +382,20 @@ describe("splitPoints", () => {
     expect(splitPoints(undefined, labels).map((p) => p.value)).toEqual([0, 0]);
   });
 });
+
+describe("presences: the coach's nickname (PAD-683)", () => {
+  const rows = [
+    player("Rui Pedro Basto", { playerId: 1, nickname: "Tigre", nicknameAsName: true, displayName: "Tigre" }),
+    player("Ana Rita", { playerId: 2 }),
+  ];
+
+  it("search finds the student by either name", () => {
+    expect(filterPlayers(rows, { ...EMPTY_FILTERS, query: "tigre" }).map((p) => p.playerId)).toEqual([1]);
+    expect(filterPlayers(rows, { ...EMPTY_FILTERS, query: "rui basto" }).map((p) => p.playerId)).toEqual([1]);
+  });
+
+  it("sorts and labels by the display name", () => {
+    expect(sortPlayerStats(rows, { key: "name", direction: "asc" }).map((p) => p.playerId)).toEqual([2, 1]);
+    expect(topPlayerPoints([{ ...rows[0], total: 3 }])[0].fullLabel).toBe("Tigre");
+  });
+});

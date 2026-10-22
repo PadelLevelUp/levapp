@@ -1,7 +1,7 @@
 """PAD-697 — an API process and an events process (gunicorn's gevent worker) on one Postgres.
 
 `delivery.events-role`. Process A is the API (the PAD-692 harness process, threads). Process B is
-the events role exactly as scripts/serve.sh starts it — `--config python:padel_app.gunicorn_events
+the events role exactly as scripts/serve.sh starts it — `--config gunicorn_events.conf.py
 --workers 1 --worker-class gevent` (psycogreen from post_fork) — only bound to a loopback port and
 pointed at the harness app factory. B is waited for on its own readiness, which for this role means
 "LISTEN is up" (R1): the race-cell rule's signal from inside the thing that must be ready.

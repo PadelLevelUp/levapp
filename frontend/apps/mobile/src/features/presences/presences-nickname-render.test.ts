@@ -10,7 +10,8 @@ const SHEET = readFileSync(resolve(__dirname, "ValidateClassesSheet.tsx"), "utf8
 describe("the presences sheet names students as the coach does (PAD-660 rule 8)", () => {
   it("resolves the name once per row list, from the row's player id", () => {
     expect(SHEET).toContain('useCoachDisplayName');
-    expect(SHEET.match(/const displayName = useCoachDisplayName\(\)/g)?.length).toBe(2);
+    // the two row lists, plus the walk-in picker (PAD-683: its options print the display name too)
+    expect(SHEET.match(/const displayName = useCoachDisplayName\(\)/g)?.length).toBe(3);
   });
 
   it("prints and labels every row by the display name, never the payload's", () => {

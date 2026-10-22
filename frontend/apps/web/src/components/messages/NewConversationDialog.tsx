@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { searchPeopleByName } from '@levelup/config';
+import { rosterNicknameOf, searchPeopleByName } from '@levelup/config';
+import { useCoachDisplayNameByUser } from '@levelup/hooks';
 import { PlayerSearchFeedback } from '@/components/players/PlayerSearchFeedback';
 import { getMessageableUsers } from '@/api/users';
 
@@ -23,6 +24,8 @@ interface User {
   /** PAD-227: the picker carries the public shape — username, never email. */
   username?: string;
   avatarUrl?: string;
+  /** PAD-683: set by the server for a coach viewer's students only. */
+  playerId?: number;
 }
 
 interface NewConversationDialogProps {
@@ -135,7 +138,16 @@ export function NewConversationDialog({
     }
   }, [open, existingParticipantIds]);
 
-  const filteredUsers = searchPeopleByName(users, searchQuery, (user) => user.name, { coach: isCoach });
+  // PAD-683 (players.nickname rule 9b): the list is shared with students, so a COACH names a student
+  // through their own roster, by the row's USER id (rule 15 pins this payload's public shape, so it
+  // carries no player id); a student's view never asks.
+  const displayName = useCoachDisplayNameByUser({ enabled: isCoach });
+  const labelOf = (user: User) => (isCoach ? displayName(user.id, user.name) : user.name);
+
+  const filteredUsers = searchPeopleByName(users, searchQuery, (user) => user.name, {
+    coach: isCoach,
+    nicknameOf: (user) => rosterNicknameOf({ name: user.name, displayName: labelOf(user) }),
+  });
 
   // Why the list is empty, in order of precedence; `null` when there are rows to show.
   const emptyKind =
@@ -270,13 +282,13 @@ export function NewConversationDialog({
                     <Avatar className="w-10 h-10 shrink-0">
                       <AvatarImage src={user.avatarUrl} />
                       <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
-                        {getInitials(user.name)}
+                        {getInitials(labelOf(user))}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-sm">
-                        {user.name}
+                        {labelOf(user)}
                       </span>
                       {/* PAD-227: the picker carries the public shape — the
                           username, never the email. */}

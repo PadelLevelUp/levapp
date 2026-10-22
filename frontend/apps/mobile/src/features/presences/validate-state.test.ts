@@ -189,22 +189,30 @@ describe("resolvePresences", () => {
 });
 
 describe("sortPlayers", () => {
+  const realName = (_id: number, name: string) => name;
+
+  it("orders by the name the coach reads (PAD-683): a nickname moves the student", () => {
+    const zoe = player({ playerId: 4, name: "Zoe", response: "confirmed" });
+    const nick = (id: number, name: string) => (id === 4 ? "Abel" : name);
+    expect(sortPlayers([ana, zoe], { 1: "present", 4: "present" }, nick).map((p) => p.playerId)).toEqual([4, 1]);
+  });
+
   it("puts undecided players first, then sorts by name", () => {
     const zoe = player({ playerId: 4, name: "Zoe", response: "none" });
     expect(
-      sortPlayers([ana, silent, bruno, zoe], {}).map((p) => p.name)
+      sortPlayers([ana, silent, bruno, zoe], {}, realName).map((p) => p.name)
     ).toEqual(["Carlos", "Zoe", "Ana", "Bruno"]);
   });
 
   it("moves a player down once they are decided", () => {
     expect(
-      sortPlayers([ana, silent], { 3: "present" }).map((p) => p.name)
+      sortPlayers([ana, silent], { 3: "present" }, realName).map((p) => p.name)
     ).toEqual(["Ana", "Carlos"]);
   });
 
   it("does not mutate the input array", () => {
     const players = [silent, ana];
-    sortPlayers(players, {});
+    sortPlayers(players, {}, realName);
     expect(players.map((p) => p.playerId)).toEqual([3, 1]);
   });
 });

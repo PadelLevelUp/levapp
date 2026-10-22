@@ -125,7 +125,9 @@ def test_the_roster_flags_the_likely_duplicate_on_the_placeholder_row_only(app, 
     res = client.get("/api/app/coach_players_paginated?per_page=50", headers=_auth(app, world["coach_user"]))
     assert res.status_code == 200
     rows = {r["name"]: r for r in res.json["items"]}
-    assert rows["Ana  Silva"]["possibleDuplicateOf"] == {"playerId": world["st_player"], "name": "Ana Silva"}
+    assert rows["Ana  Silva"]["possibleDuplicateOf"] == {
+        "playerId": world["st_player"], "name": "Ana Silva", "displayName": "Ana Silva",  # PAD-683 rule 9a
+    }
     assert rows["Rui"]["possibleDuplicateOf"] is None
     assert rows["Ana Silva"]["possibleDuplicateOf"] is None      # the active student carries none
     assert rows["Ana S."]["possibleDuplicateOf"] is None
@@ -312,7 +314,9 @@ def test_the_edit_response_keeps_the_duplicate_flag(app, client, world):
     _, dup = _placeholder(app, world["coach"], world["club"], name="ana  SILVA")
     with app.app_context():
         info = Player.query.get(dup).coach_player_info(world["coach"])
-        assert info["possibleDuplicateOf"] == {"playerId": world["st_player"], "name": "Ana Silva"}
+        assert info["possibleDuplicateOf"] == {
+        "playerId": world["st_player"], "name": "Ana Silva", "displayName": "Ana Silva",  # PAD-683 rule 9a
+    }
         assert Player.query.get(world["st_player"]).coach_player_info(world["coach"])["possibleDuplicateOf"] is None
 
 
