@@ -1,0 +1,140 @@
+# Google Play phone screenshots (PAD-608 item 5). Run by capture.sh against the CI APK, on a
+# pixel_2 emulator (1080 x 1920), on a database that fictional.sql has repainted. Never against
+# a real account.
+#
+#   1 coach dashboard   2 calendar (Semana)   3 players list   4 a player with evaluations
+#   5 messages list     6 an open conversation                 7 student dashboard
+#
+# ${OUT} is the output folder (capture.sh passes -e OUT=$HOME/.maestro/store-shots); the files are
+# written as ${OUT}/NN-name.png. Waits are on each screen's testID, never on seeded copy (the copy
+# is Portuguese and fictional). No hideKeyboard: on Android it is a back key and would pop the
+# screen; no step types into a field after login, so no keyboard is up when a shot is taken.
+# No tap lands on the bottom edge: tabs sit above the navigation bar, and the logout subflow
+# centres its row (maestro-android-taps-under-nav-bar).
+appId: com.padellevelup.app
+---
+# ── coach ────────────────────────────────────────────────────────────────────
+- runFlow:
+    file: login.yaml
+    env:
+      USERNAME: e2e-coach
+      PASSWORD: E2eCoach123!
+
+# 1. dashboard (login.yaml already waited for screen-dashboard)
+- extendedWaitUntil:
+    visible:
+      id: "coach-dashboard"
+    timeout: 20000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/01-dashboard
+
+# 2. calendar, Semana
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-time-grid"
+    timeout: 15000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/02-calendar-week
+
+# 3. players list (the search box keeps its text between visits: it is empty on a fresh login)
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "players-search"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "player-card-1"
+    timeout: 20000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/03-players
+
+# 4. a player's detail with evaluations: player 2 (Helena Gomes, e2e-student-2) holds the seeded
+#    five-point evaluation history. player-card-1/2 ids are deterministic on a fresh seed.
+- tapOn:
+    id: "players-search"
+- eraseText: 40
+- inputText: "Helena Gomes"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-2"
+    timeout: 20000
+- tapOn:
+    id: "player-card-2"
+- extendedWaitUntil:
+    visible:
+      id: "player-detail"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "evaluation-card"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/04-player-evaluations
+# Leave the detail with its own back control; it sits in the fixed header, above the scroll.
+- tapOn:
+    id: "player-back"
+
+# 5. messages list (conversation 1, coach <-> Ana Ribeiro, still shows its unread badge)
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 20000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/05-messages
+
+# 6. an open conversation
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      id: "chat-header-role"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "Obrigada, treinador!"
+    timeout: 15000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/06-conversation
+- tapOn:
+    id: "chat-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-messages"
+    timeout: 15000
+
+# ── student ──────────────────────────────────────────────────────────────────
+# login.yaml (this folder) relaunches the app, signs the coach out through the UI and logs the student in.
+- runFlow:
+    file: login.yaml
+    env:
+      USERNAME: e2e-student
+      PASSWORD: E2eStudent123!
+
+# 7. student dashboard
+- extendedWaitUntil:
+    visible:
+      id: "student-dashboard"
+    timeout: 20000
+- waitForAnimationToEnd
+- runFlow: guard-fictional.yaml
+- takeScreenshot: ${OUT}/07-student-dashboard

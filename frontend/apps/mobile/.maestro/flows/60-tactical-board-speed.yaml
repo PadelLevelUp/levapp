@@ -8,6 +8,8 @@
 # AUTO ends), although AUTO plays on schedule (ledger B-114).
 #
 # Mirrors: apps/web/e2e/exercise-management/tactical-board-speed.spec.ts
+# PAD-710 batch 4: its Android scrolls go through subflows/board-show-*.yaml, which search both ways
+# (listed here so a change to them re-runs this flow in the PR's changed job).
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml

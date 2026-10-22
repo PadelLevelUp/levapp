@@ -6304,8 +6304,8 @@ def send_manual_notifications(
     from padel_app.models import Coach, Player
 
     instance = LessonInstance.query.get_or_404(instance_id)
-    if not instance.notifications_enabled:
-        return []
+    # PAD-732 (toggle-class rule 3b, owner 2026-10-22): no `notifications_enabled` check here. That
+    # switch governs the engine's automatic sends; a coach's manual invitation always goes out.
     config = get_or_create_config(coach_id)
 
     coach = Coach.query.get(coach_id)

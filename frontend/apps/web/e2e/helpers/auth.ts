@@ -31,7 +31,7 @@ async function login(page: Page, username: string, password: string) {
   // This has to be emulateMedia and not `use: { reducedMotion }` in
   // playwright.config.ts: the `use` option is silently inert here (see the
   // note in that file). Specs that want the full animation, like
-  // e2e/landing/landing-page.spec.ts, log in by hand instead of via this
+  // e2e/auth/login-loader.spec.ts, log in by hand instead of via this
   // helper.
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/auth");

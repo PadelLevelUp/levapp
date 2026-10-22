@@ -68,6 +68,20 @@ def _resolve_instance(model: str, original_id: int, date_str: str | None) -> Les
     return get_or_materialize_instance(lesson, date)
 
 
+def _resolve_owned_instance(coach, model: str, original_id: int, date_str: str | None, *,
+                            refusal: int = 403) -> LessonInstance:
+    """`_resolve_instance` for a class the caller must own, checked BEFORE anything is written
+    (B-619): a Lesson ref is checked on the lesson, so another coach's virtual occurrence is never
+    materialised; the resolved occurrence is then checked too (its own coaches, PAD-275 rule 4).
+    `refusal` otherwise: 403, or 404 where the route's contract hides the class."""
+    if model.lower() != "lessoninstance" and not coach_owns_lesson(coach, Lesson.query.get_or_404(original_id)):
+        abort(refusal, "Not your class")
+    instance = _resolve_instance(model, original_id, date_str)
+    if not coach_owns_instance(coach, instance):
+        abort(refusal, "Not your class")
+    return instance
+
+
 @bp.post("/template_preview")
 @jwt_required()
 def template_preview():
@@ -177,7 +191,8 @@ def eligibility_check():
     """
     coach = _current_coach()
     data = request.get_json() or {}
-    instance = _resolve_instance(
+    instance = _resolve_owned_instance(  # B-619
+        coach,
         data.get("model", "LessonInstance"),
         int(data.get("originalId")),
         data.get("date"),
@@ -208,15 +223,14 @@ def _simulation_inputs(coach):
     data = request.get_json() or {}
     if data.get("originalId") in (None, ""):
         abort(400, "originalId is required")
-    instance = _resolve_instance(
+    # PAD-275 rule 4; B-619: checked before a virtual occurrence is materialised.
+    instance = _resolve_owned_instance(
+        coach,
         data.get("model", "LessonInstance"),
         int(data.get("originalId")),
         data.get("date"),
+        refusal=404,
     )
-    from padel_app.services.lesson_service import coaches_for
-
-    if not any(c.id == coach.id for c in coaches_for(instance)):  # PAD-275 rule 4
-        abort(404)
     try:
         departing_player_id = int(data.get("departingPlayerId"))
     except (TypeError, ValueError):
@@ -293,12 +307,10 @@ def manual_notify():
     player_ids = [int(pid) for pid in data.get("playerIds", [])]
     if not player_ids:
         return jsonify({"error": "No player IDs provided"}), 400
-    instance = _resolve_instance(model, original_id, date_str)
     # PAD-258 — notifications.manual rule 7: the class must be the caller's
     # and every player must be on the caller's roster; otherwise no event, no
-    # message.
-    if not coach_owns_instance(coach, instance):
-        abort(403, "Not authorized to notify for this class")
+    # message. B-619: checked before a virtual occurrence is materialised.
+    instance = _resolve_owned_instance(coach, model, original_id, date_str)
     for pid in player_ids:
         if Association_CoachPlayer.query.filter_by(coach_id=coach.id, player_id=pid).first() is None:
             abort(403, "Player is not on your roster")
@@ -347,12 +359,13 @@ def send_past_due_reminders():
 @jwt_required()
 def send_reminders():
     """Send reminder messages to all enrolled players for a class instance."""
-    _current_coach()
+    coach = _current_coach()
     data = request.get_json() or {}
     model = data.get("model", "LessonInstance")
     original_id = int(data.get("originalId"))
     date_str = data.get("date")
-    instance = _resolve_instance(model, original_id, date_str)
+    # B-619 (class-reminders-manual rule 4): only the class's coach sends its reminders.
+    instance = _resolve_owned_instance(coach, model, original_id, date_str)
     result = send_class_reminders(instance.id)
     # PAD-107 + PAD-112: report what the service actually sent. This used to
     # return ``len(instance.players_relations)`` — the enrolment count — which
@@ -522,9 +535,7 @@ def class_waiting_list_add():
         player_id = int(data.get("playerId"))
     except (TypeError, ValueError):
         return jsonify({"error": "originalId and playerId must be integers"}), 400
-    instance = _resolve_instance(str(data.get("model", "")), original_id, data.get("date"))
-    if not coach_owns_instance(coach, instance):
-        return jsonify({"error": "Not your class"}), 403
+    instance = _resolve_owned_instance(coach, str(data.get("model", "")), original_id, data.get("date"))  # B-619
     scope, classes, expires_at = _parse_scope_body(data)
     # `credits` from old builds is accepted and ignored (rule 19); it is not validated.
     result = add_to_class_waiting_list(
