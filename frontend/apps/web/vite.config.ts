@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -11,6 +11,48 @@ import { componentTagger } from "lovable-tagger";
 // error and no runtime symptom other than the link opening Safari.
 // apps/web/src/test/apple-app-site-association.test.ts pins that; the
 // application/json content type it also needs lives in apps/web/nginx.conf.
+/**
+ * PAD-656 (auth.landing-page, Lighthouse): a visitor's `/` renders only after the entry script runs
+ * and then fetches the site's lazy chunks — a second round trip that Lighthouse counted as 93% of
+ * the LCP. At build time this finds the SitePage chunk and its static imports and adds an inline
+ * script to index.html that, on `/` for a visitor with no stored token only, inserts
+ * `<link rel="modulepreload">` for them, so they download alongside the entry. A signed-in user (or
+ * any other path) downloads nothing extra.
+ */
+function sitePreload(): Plugin {
+  return {
+    name: "levapp-site-preload",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, ctx) {
+        const bundle = ctx.bundle;
+        if (!bundle) return html;
+        const chunks = new Map<string, { imports: string[]; isEntry: boolean; facadeModuleId?: string | null }>();
+        for (const [file, out] of Object.entries(bundle)) {
+          if (out.type === "chunk") chunks.set(file, { imports: out.imports, isEntry: out.isEntry, facadeModuleId: out.facadeModuleId });
+        }
+        const entryDeps = new Set<string>();
+        const walk = (file: string, into: Set<string>) => {
+          if (into.has(file)) return;
+          into.add(file);
+          for (const dep of chunks.get(file)?.imports ?? []) walk(dep, into);
+        };
+        for (const [file, c] of chunks) if (c.isEntry) walk(file, entryDeps);
+        const root = [...chunks].find(([, c]) => c.facadeModuleId?.endsWith("/src/site/SitePage.tsx"))?.[0];
+        if (!root) return html;
+        const site = new Set<string>();
+        walk(root, site);
+        const files = [...site].filter((f) => !entryDeps.has(f)).map((f) => `/${f}`);
+        const script = `<script>(function(){try{if(location.pathname!=="/"||localStorage.getItem("accessToken"))return;${JSON.stringify(
+          files,
+        )}.forEach(function(h){var l=document.createElement("link");l.rel="modulepreload";l.crossOrigin="";l.href=h;document.head.appendChild(l);});}catch(e){}})();</script>`;
+        return html.replace("</head>", `    ${script}\n  </head>`);
+      },
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
@@ -27,6 +69,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === 'development' && componentTagger(),
+    sitePreload(),
   ].filter(Boolean),
   resolve: {
     alias: {

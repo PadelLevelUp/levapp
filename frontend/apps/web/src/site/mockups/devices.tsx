@@ -59,15 +59,77 @@ export const SCREENS = {
   mobileDashboardCoach: "/landing/screen-movel-painel-treinador.png",
 } as const;
 
+/**
+ * PAD-656 (auth.landing-page rule 7, the ticket's WebP + srcset): a screenshot or frame served as
+ * WebP — a 640 px variant and the full size, chosen by the rendered width — with the PNG as the
+ * fallback `<img>` (and the one tests and older browsers see). `priority` is the hero's
+ * fetchpriority=high. The watch frame (316 px) has no 640 variant.
+ */
+export function SiteImage({
+  src,
+  nativeWidth,
+  sizes,
+  alt,
+  eager,
+  priority,
+  className,
+  width,
+  height,
+}: {
+  src: string;
+  nativeWidth: number;
+  sizes: string;
+  alt: string;
+  eager?: boolean;
+  priority?: boolean;
+  className?: string;
+  width?: number;
+  height?: number;
+}) {
+  const base = src.replace(/\.png$/, "");
+  const srcSet = nativeWidth > 640 ? `${base}-640.webp 640w, ${base}.webp ${nativeWidth}w` : `${base}.webp ${nativeWidth}w`;
+  // React 18 has no fetchPriority prop; the lowercase attribute passes through to the DOM.
+  const fetchAttrs = priority ? ({ fetchpriority: "high" } as Record<string, string>) : {};
+  return (
+    <picture className="contents">
+      <source type="image/webp" srcSet={srcSet} sizes={sizes} />
+      <img
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        loading={eager ? "eager" : "lazy"}
+        decoding={eager ? "sync" : "async"}
+        className={className}
+        draggable={false}
+        {...fetchAttrs}
+      />
+    </picture>
+  );
+}
+
+/** Rendered widths of the frames: the laptop up to ~720 px, phones up to ~320 px, the watch ~160 px. */
+const SIZES = {
+  macbook: "(max-width: 900px) 92vw, 720px",
+  iphone: "(max-width: 640px) 45vw, 320px",
+  watch: "160px",
+} as const;
+
+/** Native widths of the screenshots (desktop captures 1280 px, phone captures ~890 px). */
+const SCREEN_WIDTH = { macbook: 1280, iphone: 890 } as const;
+
 export function DeviceFrame({
   kind,
   className,
   eager,
+  priority,
   children,
 }: {
   kind: keyof typeof FRAMES;
   className: string;
   eager?: boolean;
+  /** The hero's frame and screenshot load first (fetchpriority=high). */
+  priority?: boolean;
   children: ReactNode;
 }) {
   const f = FRAMES[kind];
@@ -88,14 +150,16 @@ export function DeviceFrame({
         >
           {children}
         </div>
-        <img
+        <SiteImage
           src={f.src}
+          nativeWidth={f.w}
+          sizes={SIZES[kind]}
           alt=""
           width={f.w}
           height={f.h}
-          loading={eager ? "eager" : "lazy"}
+          eager={eager}
+          priority={priority}
           className="pointer-events-none relative h-full w-full select-none"
-          draggable={false}
         />
       </div>
     </div>
@@ -106,39 +170,32 @@ export type ShotProps = {
   src: string;
   alt: string;
   eager?: boolean;
+  priority?: boolean;
   className?: string;
 };
 
-export function PhoneShot({ src, alt, eager = false, className }: ShotProps) {
+export function PhoneShot({ src, alt, eager = false, priority, className }: ShotProps) {
   return (
     <DeviceFrame
       kind="iphone"
       className={className ?? "relative mx-auto w-[280px]"}
       eager={eager}
+      priority={priority}
     >
-      <img
-        src={src}
-        alt={alt}
-        loading={eager ? "eager" : "lazy"}
-        className="h-full w-full object-cover object-top"
-      />
+      <SiteImage src={src} nativeWidth={SCREEN_WIDTH.iphone} sizes={SIZES.iphone} alt={alt} eager={eager} priority={priority} className="h-full w-full object-cover object-top" />
     </DeviceFrame>
   );
 }
 
-export function LaptopShot({ src, alt, eager = false, className }: ShotProps) {
+export function LaptopShot({ src, alt, eager = false, priority, className }: ShotProps) {
   return (
     <DeviceFrame
       kind="macbook"
       className={className ?? "relative w-full"}
       eager={eager}
+      priority={priority}
     >
-      <img
-        src={src}
-        alt={alt}
-        loading={eager ? "eager" : "lazy"}
-        className="h-full w-full object-cover object-left-top"
-      />
+      <SiteImage src={src} nativeWidth={SCREEN_WIDTH.macbook} sizes={SIZES.macbook} alt={alt} eager={eager} priority={priority} className="h-full w-full object-cover object-left-top" />
     </DeviceFrame>
   );
 }
@@ -200,7 +257,7 @@ export function CoachHeroMockup() {
   const { t } = useTranslation();
   return (
     <div className="relative mx-auto w-full max-w-[720px] pb-20 pl-8 pt-6 sm:pl-14">
-      <LaptopShot src={SCREENS.calendar} alt={t("landing.alt.calendar")} eager />
+      <LaptopShot src={SCREENS.calendar} alt={t("landing.alt.calendar")} eager priority />
       <PhoneShot
         src={SCREENS.mobileDashboardCoach}
         alt={t("landing.alt.mobileDashboardCoach")}
