@@ -1,6 +1,7 @@
 # LevApp on Google Play — release prep (PAD-216)
 
-Status: **prepared, not published.** Owner decision 2026-09-09: prepare only. Nothing here uploads,
+Status: **prepared, not published.** Data safety and target audience were brought up to date on
+2026-10-22 (PAD-608). Owner decision 2026-09-09: prepare only. Nothing here uploads,
 submits or publishes anything. The Android build config lives in `../../app.json` (`expo.android`)
 and `../../eas.json`; this folder holds what the Play Console listing needs.
 
@@ -155,47 +156,62 @@ Your data syncs automatically between your phone and the web version at levapp.a
 | Asset | Play requirement | Status |
 |---|---|---|
 | App icon | 512 × 512 PNG, up to 1 MB | `icon-512.png` here (from `assets/icon.png`) |
-| Feature graphic | 1024 × 500 JPEG or 24-bit PNG, no transparency | **to make** — brand navy `#0d1a30`, the lockup, one line of copy |
-| Phone screenshots | 2–8, JPEG or 24-bit PNG, each side 320–3840 px, long side at most 2× the short side | **to make** — the iOS set in `../../appstore-screenshots/` is 1320 × 2868 (ratio 2.17), which Play rejects; shoot Android screenshots from an emulator (1080 × 1920 is safe) |
+| Feature graphic | 1024 × 500 JPEG or 24-bit PNG, no transparency | **draft, owner picks** (PAD-608): `feature-graphic.png` ("Mais turmas cheias. Menos mensagens para gerir.") or `feature-graphic-alt-whatsapp.png` (the site's own line, "Menos horas no WhatsApp"). The second names a third-party brand, which Play's metadata policy can flag, hence the default. Both are 1024 × 500 RGB without alpha, rendered from `feature-graphic-source/feature-graphic.html` (site navy, the on-dark lockup, Poppins and Plus Jakarta Sans from `@fontsource`) with Playwright's Chromium. |
+| Phone screenshots | 2–8, JPEG or 24-bit PNG, each side 320–3840 px, long side at most 2× the short side | **to make**. The iOS set in `../../appstore-screenshots/` is 1320 × 2868 (ratio 2.17), which Play rejects. Shoot Android screenshots from an emulator with a 1080 × 1920 profile: the CI lane's pixel_6 is 1080 × 2400, ratio 2.22, also too tall. Use a throwaway DB and fictional names. The 1.2.0 iOS set (`~/levapp-appstore-shots-1.2.0/`) is the content reference. |
 | Tablet screenshots | only if tablets are targeted | not needed for v1 |
 | Adaptive icon | foreground on a background colour | `assets/adaptive-icon.png` on `#ffffff` (configured) |
 
 Marketing screenshots must use fictional names (repaint real players' names, keep the initials).
 
-## Data safety form — draft answers
+## Data safety form — answers (PAD-608, decided 2026-10-21)
 
-Collected, **not shared** with third parties (hosting, email and push providers act as processors).
-All data is **encrypted in transit** (HTTPS). Users can **delete their account in the app**
-(Settings → Delete account). Sign-up is adults-only (18+, PAD-445/PAD-457); there is no guardian flow.
+Sources: the Privacy Policy **v2026-10-14** (`apps/web/src/content/legal/en/privacy.md`, served
+at https://levapp.app/privacy) and the Android app's code. PAD-608 holds the evidence for each row.
+
+General answers:
+- **Collects or shares required data:** yes.
+- **Encrypted in transit:** yes (`https://levapp.app/api`).
+- **Shared:** nothing. Google Cloud (hosting), Gmail (email) and Expo (push and updates) act as
+  service providers, which is not "sharing" under Play's definitions.
+- **Deletion:** in the app (Settings → Account → Delete account) and on the web at
+  **https://levapp.app/delete-account** (PAD-603). The account, profile, sessions and push
+  registrations are deleted. Sent messages stay as "Deleted user", the coach's class records stay,
+  and backups expire on their own schedule.
 
 | Data type (Play category) | Collected | Optional | Purpose |
 |---|---|---|---|
 | Name (Personal info) | yes | no | App functionality, account management |
-| Email address (Personal info) | yes | no | Account management, communications (codes, recovery) |
-| User IDs (Personal info) — username | yes | no | App functionality, account management |
-| Phone number (Personal info) | yes | yes | App functionality (coach contact) |
-| Date of birth, country (Personal info → Other) | yes, once PAD-198 ships | no | Legal compliance (parental consent) |
+| Email address (Personal info) | yes | no | App functionality, account management, developer communications (codes, invitations, notices) |
+| User IDs (Personal info): username | yes | no | App functionality, account management |
+| Phone number (Personal info) | yes | **yes** (`packages/validation`: phone optional) | App functionality, account management |
+| Other info (Personal info): date of birth, country, level | yes | no | App functionality (age eligibility, categories), account management |
 | Other in-app messages (Messages) | yes | yes | App functionality |
-| Photos (Photos and videos) — avatar and chat images | yes | yes | App functionality |
-| Other user-generated content (App activity) — classes, attendance, evaluations | yes | no | App functionality |
-| Device or other IDs — push token | yes, once push is enabled | yes | App functionality (notifications) |
+| Other user-generated content (App activity): notes, evaluations, classes, information about other people entered by coaches | yes | yes | App functionality |
+| Device or other IDs: Expo push token | yes | yes (needs the notification permission) | App functionality (notifications) |
+| App info and performance | **no** | | No crash or analytics SDK ships (grep of `apps/mobile/package.json` and the lockfile, 2026-10-21; re-check before each Console update). expo-updates sends IP, platform and version only to deliver updates. |
+| Photos and videos | **no** | | The Android app has no photo upload (no picker, camera or `FormData`). It only displays photos uploaded on the web. **Flips to yes** (optional, user-provided, app functionality) the day the app gains an upload. |
 
 Not collected: location, financial info, health and fitness, contacts, calendar, audio, files, web
-history, advertising IDs. No ads SDK, no analytics SDK.
+history, advertising IDs. There is no ads SDK and no analytics SDK.
+
+The AI spreadsheet import (OpenRouter/Inception) is web-only: mobile only lists past imports and
+reverts them, so the Android form leaves it out.
 
 ## Content rating (IARC) — draft answers
 
 No violence, sexual content, profanity, drugs, gambling or purchases. **Users can interact**
-(in-app messaging between coaches and students) and users can share user-generated content (chat
-images). Location is not shared. Expected result: the lowest age rating, with the "Users interact"
+(in-app messaging between coaches and students) and users share user-generated content (messages,
+notes, evaluations); report and block exist in the app. Location is not shared. Expected result: the lowest age rating, with the "Users interact"
 notice.
 
 ## Target audience — owner decision
 
 LevApp accepts **adults only**: sign-up, invitation acceptance and account activation all refuse
-anyone under 18 (PAD-445, PAD-457), and the PAD-198 guardian-consent flow was removed. Declare the
-**18+** age group in Play Console; the app does not target children, so the Families Policy does
-not apply.
+anyone under 18 (PAD-445, PAD-457), and the PAD-198 guardian-consent flow was removed. In Play
+Console (PAD-608):
+- Target age groups: **18 and over** only.
+- Appeals to children: no. The Families Policy does not apply.
+- **Restrict Minor Access: on.**
 
 ## Follow-ups (not in this change)
 
