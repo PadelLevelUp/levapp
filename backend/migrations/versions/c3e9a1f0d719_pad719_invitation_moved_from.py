@@ -1,7 +1,7 @@
 """where a moved invitation came from (PAD-719)
 
 Revision ID: c3e9a1f0d719
-Revises: c6203aa9b167
+Revises: f846919317aa
 Create Date: 2026-10-22 03:30:00.000000
 
 notifications.invitations rule 18a: `moved_from_vacancy_id` (FK vacancies, SET NULL) and
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'c3e9a1f0d719'
-down_revision = 'c6203aa9b167'  # PAD-685 (#755); re-pointed onto #760's head when it lands
+down_revision = 'f846919317aa'  # #760
 branch_labels = None
 depends_on = None
 
