@@ -92,6 +92,7 @@ NON_PERSONAL = {
     "presences.side",
     # Merge of 2026-10-22: court sides, and the rate limiter's scope (an endpoint name; its rows go).
     "class_join_requests.side", "standing_waiting_list_entries.side", "waiting_list_entries.side",
+    "presences.assigned_side",  # PAD-672 slice 3: the side a "both" player was kept to
     "auth_rate_limit_hits.scope",
     "user_identities.provider",
 }
