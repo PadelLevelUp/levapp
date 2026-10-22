@@ -248,6 +248,11 @@ Send browser push notifications when a new message arrives and the recipient isn
       registers again (`testID` `notifications-banner-retry`), instead of only a console line. The
       two existing cases (never asked, blocked) are unchanged. A simulator, which cannot hold a
       token, is `unsupported` and shows no third case.
+    - **Each failed attempt is reported to the server** (PAD-746): the registrar's
+      `onRegistrationFailure` hook fires once per failed attempt (`token` = anything that fails
+      before the POST, `post` = the POST), and the app sends it to
+      `POST /api/notifications/registration-failure` with the permission state and the build,
+      never the token (`admin.engine-health` rule 8). A denial and a simulator report nothing.
     - Web's counterpart is `auth.push-subscription` rule 9.
 
 ### Acceptance Criteria

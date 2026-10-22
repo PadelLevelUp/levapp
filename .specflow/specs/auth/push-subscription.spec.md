@@ -55,8 +55,11 @@ Register browser push notification subscriptions for authenticated users.
    Messages page in a "not active" state: "Browser alerts aren't active" with a button that tries
    again (`data-testid` `push-inactive-banner`), instead of the generic "enable" prompt. The
    enable prompt (permission not yet decided) and the PAD-195 blocked banner (`denied`) are
-   unchanged. `subscribe()` resolves `false` on a failed save and never rejects. Native's
-   counterpart is `messaging.push-notifications` rule 15.
+   unchanged. `subscribe()` resolves `false` on a failed save and never rejects. Each failed save
+   (`subscribe` = the browser's `pushManager.subscribe`, `post` = the save request) is reported to
+   `POST /api/notifications/registration-failure` with the permission state, never the
+   subscription (`admin.engine-health` rule 8, PAD-746); permission not granted reports nothing.
+   Native's counterpart is `messaging.push-notifications` rule 15.
 
 ### Acceptance Criteria
 
