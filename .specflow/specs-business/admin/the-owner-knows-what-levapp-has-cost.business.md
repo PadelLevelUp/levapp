@@ -43,7 +43,9 @@ card statements, invoices and the Google Cloud console.
   *(Assumption pending question 2.)*
 - Only the owner sees and changes the finance page; other staff roles do not see it.
   *(Assumption pending question 4.)*
-- Every change to a cost is recorded with who made it and when, and the old value is kept.
+- Every change to a cost is recorded with who made it and when, and the old value is kept in the
+  finance history, which only the owner sees. The console's general activity log notes that a
+  cost changed and which fields, never the amounts, so other staff never see money.
 - Google Cloud figures are read, never changed: the console only reads the billing data.
 - Google Cloud costs are counted once: a month has either the owner's invoice total or the
   imported figures, never both.

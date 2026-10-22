@@ -29,6 +29,7 @@ and category, with month totals and the running total since the start.
   running), `gcp_invoice` (bool, default false: the row is a Google Cloud invoice total entered by
   hand), `notes` (Text, nullable), `created_by_email`, `updated_by_email`, `deleted_at`,
   `deleted_by_email` (nullable), `created_at`, `updated_at`.
+- **CREATES:** `finance_cost_revisions` — the owner-only history of each manual cost (rule 5b).
 - **CREATES:** `finance_gcp_costs` — one imported line per invoice month, project and service.
   `id`, `invoice_month` (date, always the 1st), `project_id` (String(64)), `service`
   (String(120)), `currency` (3 letters), `cost` (`Numeric(16,6)`, before credits), `credits`
@@ -49,8 +50,8 @@ and category, with month totals and the running total since the start.
    reads as well as writes **(assumption Q4)**. This is a deliberate exception to
    `admin.foundation` rule 5 (`support` reads every `GET`): cost data is the owner's. A lower role
    gets 403 `ADMIN_ROLE_TOO_LOW` with a denied audit row, as everywhere. The nav item and the route
-   are hidden from lower roles. Finance writes still appear in the console audit log
-   (`admin.foundation` rule 9), which `support` can read; the amounts are in its `before`/`after`.
+   are hidden from lower roles. Finance writes appear in the console audit log without their
+   values (rule 5a), so `support`, who can read that log, never sees money.
 2. **Euros, with the original kept (assumption Q1).** Every total is in euros. A cost charged in
    another currency stores the charged `amount` and `currency` and the euro `amount_eur` the owner
    was debited (from the card statement); there is no exchange-rate service. When `currency` is
@@ -66,13 +67,27 @@ and category, with month totals and the running total since the start.
 4. **Start (assumption Q2).** The history starts at the month of the earliest charge, manual or
    imported. There is no configured start date.
 5. **Manual entries.** `POST /admin/api/finance/costs`, `PUT …/costs/<id>`,
-   `DELETE …/costs/<id>`, each `@audited` (`finance.cost.create` / `.update` / `.delete`) with the
-   row before and after. Delete is soft: `deleted_at`/`deleted_by_email` are set and the row is
+   `DELETE …/costs/<id>`, each `@audited` (`finance.cost.create` / `.update` / `.delete`), redacted
+   as rule 5a says; each write also appends the row's full state to `finance_cost_revisions`.
+   Delete is soft: `deleted_at`/`deleted_by_email` are set and the row is
    listed with `includeDeleted=true`. `created_by_email`/`updated_by_email` are the caller's.
    Validation (400 `{"error": "INVALID_COST", "field": <name>}`): `amount`, `amountEur` > 0 with at
    most 2 decimals; `currency` 3 upper-case letters; `category` and `recurrence` from the lists;
    `endsOn` ≥ `startsOn` and only on a recurring cost; `gcpInvoice` only with `recurrence = once`
    and `category = infrastructure`; `vendor` and `description` non-empty.
+5a. **The console audit log carries no money (coordinator decision 2026-10-22).** A finance audit
+   row (`finance.*`) names the target (`finance_cost` / `finance_import_run` and its id), who and
+   when, as every audit row does; its `before` is null and its `after` is only
+   `{"changedFields": [<camelCase field names>]}` (for a create, every field set; for a delete,
+   `["deletedAt"]`; for `finance.gcp.import`, `{"changedFields": [], "runId": <id>}`). No amount,
+   currency, vendor, description or note is written to `admin_audit_log`. A guard test fails if a
+   `finance.*` audit row's JSON holds any key other than `changedFields` and `runId`.
+5b. **History is kept in finance, owner-only.** `finance_cost_revisions` (`id`, `cost_id` FK →
+   `finance_costs` CASCADE, `revision` (int, 1-based per cost), `action` (`create`|`update`|`delete`),
+   `snapshot` (JSON: the row's camelCase state after the write), `actor_email`, `created_at`,
+   `updated_at`; append-only like the audit log: the model refuses an update or delete) is written
+   in the same transaction as the cost. `GET /admin/api/finance/costs/<id>/revisions`
+   (`FINANCE_ROLE`) lists them newest first.
 6. **Google Cloud is counted once.** A month is *imported* when `finance_gcp_costs` holds any row
    for it. A manual `gcpInvoice` cost in an imported month is refused on create or update (409
    `GCP_MONTH_IMPORTED`). A manual `gcpInvoice` cost whose month became imported later charges
@@ -149,17 +164,17 @@ and category, with month totals and the running total since the start.
 #### A manual cost is created and audited (rules 2, 5)
 - **Given** the owner
 - **When** they post `{category: "ai_tools", vendor: "Anthropic", description: "Claude Max", currency: "USD", amount: "200.00", amountEur: "184.37", recurrence: "monthly", startsOn: "2026-07-03"}`
-- **Then** the response is 201 with the row, `createdByEmail = "owner@levapp.app"`, and one audit row `finance.cost.create` with `outcome = ok` and the row in `after`
+- **Then** the response is 201 with the row, `createdByEmail = "owner@levapp.app"`, one audit row `finance.cost.create` with `outcome = ok` whose `after` holds only `changedFields`, and one revision (`create`) with the row
 
 #### A euro cost with a different euro amount is refused (rule 2)
 - **Given** the owner
 - **When** they post a cost with `currency: "EUR"`, `amount: "10.00"`, `amountEur: "9.00"`
 - **Then** the response is 400 `INVALID_COST` with `field = "amountEur"` and no row is stored
 
-#### An edit keeps the old value in the audit (rule 5)
+#### An edit keeps the old value in finance, not in the audit log (rules 5, 5a, 5b)
 - **Given** a `once` cost of `amountEur = "99.00"`
-- **When** the owner puts `amountEur: "119.00"`
-- **Then** the row has 119.00, `updatedByEmail` is the owner, and the audit row `finance.cost.update` has 99.00 in `before` and 119.00 in `after`
+- **When** the owner puts `amountEur: "119.00"`, `notes: "renewal"`
+- **Then** the row has 119.00, `updatedByEmail` is the owner; `GET …/costs/<id>/revisions` lists revision 2 (`update`, 119.00) and revision 1 (`create`, 99.00); the audit row `finance.cost.update` has `before` null and `after` = `{"changedFields": ["amountEur", "notes"]}`, and no `99`, `119` or `renewal` appears anywhere in it
 
 #### A deleted cost stops counting but stays listed (rules 3, 5)
 - **Given** a `once` cost of 50.00 on 2026-08-10
