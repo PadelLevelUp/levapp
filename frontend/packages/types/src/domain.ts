@@ -609,6 +609,8 @@ export interface ClassInstance {
    * started), the same one the dashboard serves. `false` for a coach viewer.
    */
   pendingConfirmation?: boolean;
+  /** PAD-684 (attendance.confirm rule 28): "Afinal vou" state; absent on an older server. */
+  comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
   /** PAD-570 rule 28: the user behind `coachId`, for the chat shortcut after "Não vou". */
   coachUserId?: string | null;
 }
@@ -1019,6 +1021,8 @@ export interface DashboardNextClassBlock {
      */
     lessonInstanceId?: number | null;
     pendingConfirmation?: boolean;
+    /** PAD-684: see `ClassInstance.comeBack`. */
+    comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
     /** PAD-570: the student's one state word (`planned` for a projected occurrence). */
     attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
     /** PAD-570: how to decline a projected occurrence (`cancel_attendance` target). */
@@ -1163,6 +1167,8 @@ export interface DashboardSchedule7dBlock {
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
+      /** PAD-684: see `ClassInstance.comeBack`. */
+      comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
       /** PAD-570 — see `DashboardNextClassBlock`. */
       attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
       declineTarget?: { model: string; originalId: string | number; date: string } | null;
@@ -1324,6 +1330,10 @@ export interface StudentGroupPlayer {
   levelId: string | null;
   /** PAD-497: said "no" to an invitation for this class; the coach may still invite them. Absent from older servers. */
   declinedThisClass?: boolean;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
 }
 
 export interface StudentGroup {
@@ -1434,6 +1444,10 @@ export interface EligibilityFailure {
 export interface EligibilityCheckEntry {
   playerId: number;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   failures: EligibilityFailure[];
 }
 
@@ -1449,6 +1463,10 @@ export interface EligibilityCheckResult {
 export interface EligibilityImpactEntry {
   playerId: number;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   instanceId: number;
   classTitle: string | null;
   /** Naive-UTC ISO start of the class. */
@@ -1659,7 +1677,7 @@ export interface StandingWaitingListEntry {
   /** PAD-547 (waiting-list rule 19): set when the entry is scoped to one series. */
   lessonId?: number | null;
   lessonTitle?: string | null;
-  /** PAD-672 (waiting-list rule 4d, Q4): the side the entry is asked for; null/absent: any. */
+  /** PAD-672 (waiting-list rule 4e, Q4): the side the entry is asked for; null/absent: any. */
   side?: PlayerSide | null;
 }
 

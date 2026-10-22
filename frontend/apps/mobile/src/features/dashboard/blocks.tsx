@@ -35,7 +35,13 @@ import type {
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { reminderAnswerOutcome, studentRowAction } from "@levelup/config";
+import {
+  comeBackAction,
+  comeBackFromAnswer,
+  reminderAnswerOutcome,
+  studentRowAction,
+} from "@levelup/config";
+import type { ComeBackAction } from "@levelup/config";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -54,6 +60,7 @@ import {
   useRespondInvite,
   useRespondReminder,
   useDeclineFromDashboard,
+  useJoinWaitingListFromDashboard,
   useRespondWaitingListOffer,
 } from "@/features/calendar/hooks";
 import { nativeRouteForWebPath } from "@/features/dashboard/routes";
@@ -286,6 +293,121 @@ function AnswerButtons({
       </Button>
     </View>
   );
+}
+
+/**
+ * PAD-684 (attendance.confirm rule 28, dashboard.blocks rule 3a): what a `not_coming` student's hero or
+ * row shows, by the SERVER's `comeBack` (`comeBackAction`). "Afinal vou" answers yes through the same
+ * reminder endpoint; a refused yes (`spot_filled`) shows the waiting-list branch until the refetch lands;
+ * the join is addressed by the item's `declineTarget` (the calendar-event ref, as the class detail uses).
+ */
+function ComeBackSlot({
+  item,
+  onNavy,
+}: {
+  item: {
+    lessonInstanceId?: number | null;
+    comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
+    attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
+    declineTarget?: { model: string; originalId: string | number; date: string } | null;
+  };
+  onNavy?: boolean;
+}) {
+  const { t } = useTranslation();
+  const respond = useRespondReminder();
+  const join = useJoinWaitingListFromDashboard();
+  const [shown, setShown] = React.useState<ComeBackAction | null>(null);
+  const kind = shown ?? comeBackAction(item.comeBack, item.attendanceState);
+  const busy = respond.isPending || join.isPending;
+  const textCls = cn("text-xs", onNavy ? "text-[13px] text-sidebar-foreground/80" : "text-muted-foreground");
+
+  const comeBack = () => {
+    if (typeof item.lessonInstanceId !== "number") return;
+    respond.mutate(
+      { lessonInstanceId: item.lessonInstanceId, action: "yes" },
+      {
+        onSuccess: (result) => {
+          const outcome = reminderAnswerOutcome(result);
+          const next = comeBackFromAnswer(result);
+          if (next) setShown(next);
+          if (outcome.record === "confirmed") toast.success(t("dashboard.answer.confirmed"));
+          else if (outcome.messageKey) {
+            if (outcome.tone === "error") toast.error(t(outcome.messageKey));
+            else toast.success(t(outcome.messageKey));
+          }
+        },
+        onError: () => toast.error(t("dashboard.answer.failed")),
+      },
+    );
+  };
+  const joinWaitingList = () => {
+    if (!item.declineTarget) return;
+    join.mutate(item.declineTarget, {
+      onSuccess: () => {
+        setShown("on_waiting_list");
+        toast.success(t("calendar.waitingList.joined"));
+      },
+      onError: () => toast.error(t("calendar.waitingList.failed")),
+    });
+  };
+
+  if (kind === "final_hint") {
+    return (
+      <Text className={textCls} testID="dashboard-declined-hint">
+        {t("calendar.detail.declinedFinalHint")}
+      </Text>
+    );
+  }
+  if (kind === "rejoin") {
+    return (
+      <View className="flex-row">
+        <Button
+          size="sm"
+          disabled={busy}
+          testID="dashboard-come-back"
+          accessibilityLabel={t("calendar.detail.comeBack")}
+          className={cn(onNavy && "bg-sidebar-primary")}
+          onPress={comeBack}
+        >
+          <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-primary-foreground" : "text-primary-foreground")}>
+            {t("calendar.detail.comeBack")}
+          </Text>
+        </Button>
+      </View>
+    );
+  }
+  if (kind === "waiting_list") {
+    return (
+      <View className="gap-2">
+        <Text className={textCls} testID="dashboard-come-back-spot-taken">
+          {t("calendar.detail.spotTaken")}
+        </Text>
+        <View className="flex-row">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            testID="dashboard-come-back-waiting-list"
+            accessibilityLabel={t("calendar.waitingList.join")}
+            className={cn(onNavy && "border-sidebar-foreground/30 bg-transparent")}
+            onPress={joinWaitingList}
+          >
+            <Text className={cn("font-sans-semibold", onNavy ? "text-sidebar-foreground" : "text-foreground")}>
+              {t("calendar.waitingList.join")}
+            </Text>
+          </Button>
+        </View>
+      </View>
+    );
+  }
+  if (kind === "on_waiting_list") {
+    return (
+      <Text className={textCls} testID="dashboard-come-back-on-waiting-list">
+        {t("calendar.detail.onWaitingList")}
+      </Text>
+    );
+  }
+  return null;
 }
 
 /**
@@ -530,9 +652,9 @@ export function NextClassHero({
         </View>
       )}
       {heroAction === "declined" && (
-        <Text className="mt-4 text-[13px] text-sidebar-foreground/80" testID="dashboard-declined-hint">
-          {t("calendar.detail.declinedFinalHint")}
-        </Text>
+        <View className="mt-4">
+          <ComeBackSlot item={d} onNavy />
+        </View>
       )}
 
       <View className="mt-4 flex-row items-center gap-3">
@@ -836,9 +958,9 @@ export function Schedule7Days({
                     </View>
                   )}
                   {action === "declined" && (
-                    <Text className="mt-1 text-xs text-muted-foreground" testID="dashboard-declined-hint">
-                      {t("calendar.detail.declinedFinalHint")}
-                    </Text>
+                    <View className="mt-1">
+                      <ComeBackSlot item={row} />
+                    </View>
                   )}
                 </View>
                 {!student &&

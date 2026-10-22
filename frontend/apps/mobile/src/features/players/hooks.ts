@@ -195,7 +195,7 @@ export function useAddToStandingWaitingList() {
       credits: number;
       /** PAD-507: the ISO date the entry runs to, at most 12 months ahead. */
       expiresOn: string;
-      /** PAD-672 (waiting-list rule 4d, Q4): the side the entry is asked for; null/omitted: none. */
+      /** PAD-672 (waiting-list rule 4e, Q4): the side the entry is asked for; null/omitted: none. */
       side?: "left" | "right" | "both" | null;
     }) =>
       notificationEngineApi.addToStandingWaitingList(

@@ -45,7 +45,7 @@ class StandingWaitingListEntry(db.Model, model.Model):
     # PAD-560 (rule 19): the entry covers the whole series; false is a dated window (rule 19a).
     whole_series = Column(Boolean, default=False, nullable=False, server_default="0")
     is_active = Column(Boolean, default=True, nullable=False)
-    # PAD-672 (waiting-list rule 4d, Q4): chosen per entry, copied to the entries it fans out.
+    # PAD-672 (waiting-list rule 4e, Q4): chosen per entry, copied to the entries it fans out.
     side = Column(String(5), nullable=True)
     created_at = Column(DateTime, default=lambda: utcnow_naive())
 

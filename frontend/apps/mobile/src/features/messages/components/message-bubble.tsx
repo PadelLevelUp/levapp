@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   classRequestBubbleState,
+  comeBackFromAnswer,
   joinRequestBubbleState,
   lightTheme,
+  lisbonNowMs,
+  wallClockISOMs,
   type ClassRequestLive,
   type JoinRequestLive,
   retiredInviteLabelKey,
@@ -124,7 +127,7 @@ type MessageBubbleProps = {
   /** True while a notification_reminder answer is in flight (PAD-151). */
   respondingReminder?: boolean;
   /** Fires when the user taps Yes/No on a notification_reminder message. */
-  onRespondReminder?: (action: "yes" | "no") => void;
+  onRespondReminder?: (action: "yes" | "no") => void | Promise<string | null | undefined>;
   /** Fires when a confirmed student cancels their attendance. */
   onCancelAttendance?: () => void;
   /** True while a waiting_list_offer answer is in flight (PAD-124). */
@@ -233,6 +236,38 @@ function MessageBubbleImpl({
   // late cancellation, already-answered) live in reminder-state.ts.
   const isReminder = message.messageType === "notification_reminder";
   const reminder = reminderState(message.metadata, null);
+  // PAD-684 (attendance.confirm rule 28): after a recorded "no" on a class that has not started the
+  // bubble offers "Afinal vou" and renders the SERVER's answer (it has no comeBack payload).
+  const [comeBackShown, setComeBackShown] = React.useState<"waiting_list" | "on_waiting_list" | null>(null);
+  const [comeBackBusy, setComeBackBusy] = React.useState(false);
+  const reminderStartsAt = message.metadata?.startsAt as string | undefined;
+  const reminderClassInFuture = !reminderStartsAt || wallClockISOMs(reminderStartsAt) > lisbonNowMs();
+  const canComeBack = reminder.declined && message.metadata?.response === "no" && reminderClassInFuture;
+  const handleComeBack = async () => {
+    if (comeBackBusy) return;
+    setComeBackBusy(true);
+    try {
+      const action = (await onRespondReminder?.("yes")) as string | null | undefined;
+      if (comeBackFromAnswer({ action }) === "waiting_list") setComeBackShown("waiting_list");
+    } finally {
+      setComeBackBusy(false);
+    }
+  };
+  const handleComeBackWaitingList = async () => {
+    const instanceId = Number(message.metadata?.lessonInstanceId);
+    if (comeBackBusy || !Number.isFinite(instanceId)) return;
+    setComeBackBusy(true);
+    try {
+      // The reminder names the materialised instance, so the occurrence ref is (LessonInstance, id).
+      await academyClassesApi.joinClassWaitingList({ model: "LessonInstance", originalId: instanceId });
+      setComeBackShown("on_waiting_list");
+      toast.success(t("calendar.waitingList.joined"));
+    } catch {
+      toast.error(t("calendar.waitingList.failed"));
+    } finally {
+      setComeBackBusy(false);
+    }
+  };
 
   // PAD-124: the `waiting_list_offer` sent on the "that spot was just filled"
   // path is the entire self-service route onto the waiting list, and neither
@@ -625,12 +660,58 @@ function MessageBubbleImpl({
                 </Text>
               </View>
             ) : reminder.declined ? (
-              <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
-                <Ionicons name="close" size={14} color={lightTheme.destructive} />
-                <Text className="text-xs font-medium text-destructive">
-                  {t("messages.absent")}
-                </Text>
-              </View>
+              <>
+                <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
+                  <Ionicons name="close" size={14} color={lightTheme.destructive} />
+                  <Text className="text-xs font-medium text-destructive">
+                    {t("messages.absent")}
+                  </Text>
+                </View>
+                {canComeBack && !comeBackShown ? (
+                  <Pressable
+                    testID="bubble-come-back"
+                    accessibilityLabel={t("calendar.detail.comeBack")}
+                    role="button"
+                    disabled={comeBackBusy || respondingReminder}
+                    onPress={handleComeBack}
+                    className={cn(
+                      "items-center rounded-full bg-primary px-3 py-1.5",
+                      (comeBackBusy || respondingReminder) && "opacity-50"
+                    )}
+                  >
+                    <Text className="text-xs font-medium text-primary-foreground">
+                      {t("calendar.detail.comeBack")}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {comeBackShown === "waiting_list" ? (
+                  <View className="w-full gap-1.5">
+                    <Text className="text-xs text-muted-foreground" testID="bubble-come-back-spot-taken">
+                      {t("calendar.detail.spotTaken")}
+                    </Text>
+                    <Pressable
+                      testID="bubble-come-back-waiting-list"
+                      accessibilityLabel={t("calendar.waitingList.join")}
+                      role="button"
+                      disabled={comeBackBusy}
+                      onPress={handleComeBackWaitingList}
+                      className={cn(
+                        "items-center self-start rounded-full bg-muted px-3 py-1.5",
+                        comeBackBusy && "opacity-50"
+                      )}
+                    >
+                      <Text className="text-xs font-medium text-foreground">
+                        {t("calendar.waitingList.join")}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+                {comeBackShown === "on_waiting_list" ? (
+                  <Text className="text-xs text-muted-foreground" testID="bubble-come-back-on-waiting-list">
+                    {t("calendar.detail.onWaitingList")}
+                  </Text>
+                ) : null}
+              </>
             ) : reminder.superseded ? (
               <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 opacity-70">
                 <Ionicons
@@ -775,11 +856,13 @@ function MessageBubbleImpl({
           <View
             testID={`class-request-proposal-actions-${classRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: classRequest.kind }}
-            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+            // The bubble's width, so the flex-1 Accept / Decline row cannot collapse; the waiting
+            // line and the outcome chip keep their own width and side.
+            className={cn("mt-1.5 gap-2 self-stretch", own ? "items-end" : "items-start")}
           >
             {classRequest.kind === "actions" ? (
               <>
-                <View className="flex-row gap-2">
+                <View className="flex-row gap-2 self-stretch">
                   <Pressable
                     testID="class-request-bubble-accept"
                     accessibilityLabel={t("classRequests.bubble.accept")}
@@ -818,7 +901,7 @@ function MessageBubbleImpl({
                   disabled={respondingClassRequest}
                   onPress={() => onCounterClassRequest?.()}
                   className={cn(
-                    "items-center rounded-xl border border-border bg-background px-3 py-1.5",
+                    "items-center self-stretch rounded-xl border border-border bg-background px-3 py-1.5",
                     respondingClassRequest && "opacity-50"
                   )}
                 >
@@ -876,10 +959,12 @@ function MessageBubbleImpl({
           <View
             testID={`join-request-bubble-actions-${joinRequestMeta?.id ?? ""}`}
             accessibilityValue={{ text: joinRequest.kind }}
-            className={cn("mt-1.5 gap-2", own ? "self-end" : "self-start")}
+            // A self-start column has no width of its own, so its two flex-1 buttons collapsed to
+            // empty pills: the column takes the bubble's width, the outcome chip keeps its own.
+            className={cn("mt-1.5 gap-2 self-stretch", own ? "items-end" : "items-start")}
           >
             {joinRequest.kind === "actions" ? (
-              <View className="flex-row gap-2">
+              <View className="flex-row gap-2 self-stretch">
                 <Pressable
                   testID="join-request-bubble-accept"
                   accessibilityLabel={t("calendar.joinRequest.accept")}

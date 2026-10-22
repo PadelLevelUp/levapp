@@ -8,7 +8,9 @@
  * decline, the dashboard row carries `pendingConfirmation: false`, and a "yes"
  * sent straight to the API answers `not_yet_asked`. The coach's manual reminder
  * is the ask; after it "Vou" appears and records `coming`. Then the decline:
- * the way back is gone — the hint shows, a "yes" answers `already_declined`.
+ * PAD-684 (rule 28) reversed "Não vou is final": the class has a free spot, so the
+ * detail offers "Afinal vou" (`attendance-come-back`) instead of the hint, and a
+ * "yes" sent to the API answers `confirmed` (it re-seats the student, so it is sent last).
  */
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { COACH_PASSWORD, COACH_USERNAME, loginAsStudent } from "../helpers/auth";
@@ -168,26 +170,22 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     await expect(page.getByTestId("attendance-state").first()).toHaveAttribute("data-state", "not_coming", {
       timeout: 10_000,
     });
-    await expect(page.getByTestId("class-declined-hint")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId("class-chat-coach")).toBeVisible();
+    await expect(page.getByTestId("attendance-come-back")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("class-declined-hint")).toHaveCount(0);
     await expect(page.getByTestId("class-confirm-attendance")).toHaveCount(0);
     await expect(page.getByTestId("class-cancel-attendance")).toHaveCount(0);
 
     const after = (await studentRows(request, studentAuth)).find((r) => r.title === STUDENT_NAME);
     expect(after!.attendanceState).toBe("not_coming");
     expect(after!.pendingConfirmation).toBe(false);
-    const late = await request.post(`${API_ROOT}/app/notify/respond_reminder`, {
-      headers: studentAuth,
-      data: { lessonInstanceId: after!.lessonInstanceId, action: "yes" },
-    });
-    expect(late.status(), await late.text()).toBe(200);
-    expect((await late.json()).action, "no way back").toBe("already_declined");
 
-    // The dashboard row shows the hint and no button (dashboard.blocks rule 3a).
+    // PAD-684: the dashboard row offers "Afinal vou" (the free spot), not the hint, and no decline /
+    // Yes-No buttons (dashboard.blocks rule 3a).
     await openDashboard(page);
     const declinedRow = page.getByTestId("dashboard-schedule-row").filter({ hasText: STUDENT_NAME }).first();
     await expect(declinedRow).toBeVisible({ timeout: 15_000 });
-    await expect(declinedRow.getByTestId("dashboard-declined-hint")).toBeVisible();
+    await expect(declinedRow.getByTestId("dashboard-come-back")).toBeVisible();
+    await expect(declinedRow.getByTestId("dashboard-declined-hint")).toHaveCount(0);
     await expect(declinedRow.getByTestId("dashboard-decline-open")).toHaveCount(0);
     await expect(declinedRow.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
 
@@ -196,8 +194,16 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     await expect(page.getByTestId("attendance-state").first()).toHaveAttribute("data-state", "not_coming", {
       timeout: 10_000,
     });
-    await expect(page.getByTestId("class-declined-hint")).toBeVisible();
+    await expect(page.getByTestId("attendance-come-back")).toBeVisible();
     await expect(page.getByTestId("class-confirm-attendance")).toHaveCount(0);
+
+    // PAD-684: a yes sent straight to the API re-seats the student while a spot is free.
+    const late = await request.post(`${API_ROOT}/app/notify/respond_reminder`, {
+      headers: studentAuth,
+      data: { lessonInstanceId: after!.lessonInstanceId, action: "yes" },
+    });
+    expect(late.status(), await late.text()).toBe(200);
+    expect((await late.json()).action, "Afinal vou with a spot").toBe("confirmed");
   } finally {
     // PAD-341: the class needs two passes (the cancel materialised an instance
     // over a one-off lesson), and the accepted request outlives the class.

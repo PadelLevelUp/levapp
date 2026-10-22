@@ -60,6 +60,7 @@ from padel_app.models.notification_config import (
 )
 from padel_app.realtime import publish
 from padel_app.services.conversation_access import message_recipient_ids
+from padel_app.services.player_service import nickname_payload  # PAD-683 (players.nickname rule 9a)
 from padel_app.services.level_ladder import (
     get_level_ladder,
     ladder_index,
@@ -603,9 +604,12 @@ def eligibility_failures_for_players(
             continue
         failures = eligibility_failures(cp, instance, coach_id, rules)
         if failures:
+            real_name = cp.player.user.name if cp.player and cp.player.user else ""
             out.append({
                 "playerId": pid,
-                "name": (cp.player.user.name if cp.player and cp.player.user else ""),
+                "name": real_name,
+                # PAD-683 (players.nickname rule 9a): `cp` is the asking coach's own row.
+                **nickname_payload(cp, real_name),
                 "failures": failures,
             })
     return out
@@ -662,9 +666,12 @@ def students_failing_eligibility_bar(
                 continue
             failures = eligibility_failures(cp, instance, coach_id, rules)
             if failures:
+                real_name = cp.player.user.name if cp.player and cp.player.user else ""
                 out.append({
                     "playerId": int(rel.player_id),
-                    "name": (cp.player.user.name if cp.player and cp.player.user else ""),
+                    "name": real_name,
+                    # PAD-683 (players.nickname rule 9a): `cp` is the asking coach's own row.
+                    **nickname_payload(cp, real_name),
                     "instanceId": int(instance.id),
                     "classTitle": (
                         getattr(instance, "overwrite_title", None)
@@ -2101,6 +2108,33 @@ def class_placeholders(source, locale) -> dict:
     }
 
 
+def template_variables(player, source, locale, *, side: str = "") -> dict:
+    """PAD-670 (notifications.message-templates rule 3a): the ONE set of values every template
+    is rendered with, for one student and one class — ``{name}``, ``{level}``, ``{weekday}``,
+    ``{time}``, ``{day}``, ``{type}``, ``{date}``, ``{court}``, ``{class}`` and ``{when}`` — so a
+    placeholder typed into any field is replaced when the message is sent.
+
+    ``source`` is a LessonInstance (``{when}`` dated, rule 17) or a Lesson (weekday-only). The name
+    is the student's real first name, never a nickname (players.nickname rule 4). ``side`` fills
+    ``{side}`` and is passed only by the round-0 waiting-list invitation (rule 16).
+    """
+    user = getattr(player, "user", None) if player is not None else None
+    full_name = (getattr(user, "name", None) or "").strip()
+    first_name = full_name.split()[0] if full_name else "there"
+    is_instance = isinstance(source, LessonInstance)
+    start = getattr(source, "start_datetime", None)
+    return {
+        "name": first_name,
+        "level": effective_level_code(source),
+        "weekday": _format_weekday(start, locale) if start else "",
+        "time": start.strftime("%H:%M") if start else "",
+        "class": getattr(source, "title", None) or "",
+        "when": _format_when(start, locale, dated=is_instance),
+        **class_placeholders(source, locale),
+        **({"side": side} if side else {}),
+    }
+
+
 def _get_or_create_direct_conversation(coach_user_id: int, player_user_id: int):
     """PAD-411: race-safe (`Conversation.get_or_insert`); commits as `create()` always did —
     unless a unit of work is open, which commits at its end (PAD-272)."""
@@ -2246,10 +2280,16 @@ def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
     Native: PAD-240 — a MESSAGE notification (messaging.push-notifications rule 7); the tap opens the
     conversation, where the Yes/No and the reply live (routing to class/[id] dead-ended: a push never
     carries the route params that screen rebuilds its event from). The instance id rides along as
-    context only. PAD-147: the badge is the recipient's real unread total (rule 5)."""
+    context only. PAD-147: the badge is the recipient's real unread total (rule 5).
+    PAD-713 (rule 14): titled in the student's own language, web and iOS alike."""
+    from padel_app.models.users import User
+
+    student = db.session.get(User, player_user_id)
+    language = getattr(student, "language", None) or "pt"
+    title = "New message" if str(language).startswith("en") else "Nova mensagem"
     send_push_notification(
         user_id=player_user_id,
-        title="New message",
+        title=title,
         body=(msg.text or "")[:100],
         url=f"/messages/{msg.conversation_id}?message={msg.id}",
     )
@@ -2260,7 +2300,7 @@ def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
     from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         player_user_id,
-        title="New message",
+        title=title,
         body=(msg.text or "")[:100],
         data=push_data,
         badge=get_unread_count(player_user_id),
@@ -2407,10 +2447,17 @@ def _notify_coach_of_cancellation(
     # one. Early cancellations are visible in the class detail, not noisy.
     if not is_late:
         return msg
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone, so it names the
+    # student by the coach's display name; the stored message above keeps the real name.
+    from padel_app.services.player_service import coach_facing_text
+
+    push_body = coach_facing_text(
+        text, coach_user_id, player.id if player else None, player_name
+    )[:100]
     send_push_notification(
         user_id=coach_user_id,
         title=push_title,
-        body=text[:100],
+        body=push_body,
         url=f"/messages/{conv.id}?message={msg.id}",
     )
 
@@ -2422,7 +2469,7 @@ def _notify_coach_of_cancellation(
     send_expo_push_to_user(
         coach_user_id,
         title=push_title,
-        body=text[:100],
+        body=push_body,
         data={
             "type": "message",
             "conversationId": conv.id,
@@ -2436,9 +2483,10 @@ def _notify_coach_of_cancellation(
     return msg
 
 
-def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
-    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default, and
-    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``.
+def _format_when(dt, locale: str = "en", *, dated: bool = False, weekday_first: bool = False) -> str:
+    """The ' on <weekday> at <time>' suffix for a datetime — weekday-only by default,
+    ' on <dd/mm> (<weekday>) at <time>' with ``dated=True``, and ' on <weekday>, <dd/mm>, at <time>'
+    with ``dated=True, weekday_first=True`` (``weekday_first`` alone changes nothing).
 
     PAD-519 (notifications.message-templates rule 17): ``dated=True`` names the day of the
     month as well — ' no dia 10/04 (sábado) às 18:00' / ' on 10/04 (Saturday) at 18:00'. A
@@ -2455,21 +2503,28 @@ def _format_when(dt, locale: str = "en", *, dated: bool = False) -> str:
     ``start_datetime`` is its first occurrence) and a LessonInstance share one
     localisation — PAD-100 fixed this wording once and it should not be
     duplicated to gain a second caller (PAD-330).
+
+    PAD-678 (rule 17's weekday-first form): the student's "Está marcado!" on an accepted join
+    request reads ' na sexta-feira, 16/10, às 09:00' / ' on Friday, 16/10, at 09:00'.
     """
     if dt is None:
         return ""
     weekday = _format_weekday(dt, locale)
     time_str = dt.strftime("%H:%M")
     is_pt = (locale or "").startswith("pt")
+    # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6) are masculine ("no").
+    prep = "no" if dt.weekday() >= 5 else "na"
+    if dated and weekday_first and weekday:
+        day_month = _format_day_month(dt)
+        if is_pt:
+            return f" {prep} {weekday}, {day_month}, às {time_str}"
+        return f" on {weekday}, {day_month}, at {time_str}"
     if dated:
         # "dia" is masculine, so the day form needs no na/no switch on the weekday.
         day = _format_day_month(dt) + (f" ({weekday})" if weekday else "")
         return f" no dia {day} às {time_str}" if is_pt else f" on {day} at {time_str}"
     if is_pt:
         if weekday:
-            # Weekdays segunda–sexta are feminine ("na"); sábado/domingo (5, 6)
-            # are masculine ("no").
-            prep = "no" if dt.weekday() >= 5 else "na"
             return f" {prep} {weekday} às {time_str}"
         return f" às {time_str}"
     if weekday:
@@ -2538,27 +2593,13 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
             if player and player.user and player.user.name
             else ""
         )
-        started_at = getattr(source, "start_datetime", None)
+        # PAD-670 (rule 3a): the one set of values every template gets. `{when}` is dated for one
+        # occurrence and weekday-only for the whole series (rule 17).
         text = _format_template(
             resolve_message_template(
                 templates, "added_to_class_coming" if counted_as_coming else "added_to_class", locale,
             ),
-            **{
-                "name": first_name,
-                # `class` is a keyword, so the placeholder is passed by name.
-                "class": getattr(source, "title", None) or "",
-                # Dated for one occurrence, weekday-only for the whole series (rule 17).
-                "when": _format_when(started_at, locale, dated=instance is not None),
-                # Every other template describes a class as level + weekday +
-                # time, so a coach editing this one finds the vocabulary they
-                # already know. `{class}` and `{when}` are the additions: the
-                # title is what a student recognises, and one `{when}` serves a
-                # series and a single occurrence alike.
-                "level": effective_level_code(source),
-                **class_placeholders(source, locale),
-                "weekday": _format_weekday(started_at, locale) if started_at else "",
-                "time": started_at.strftime("%H:%M") if started_at else "",
-            },
+            **{**template_variables(player, source, locale), "name": first_name},
         )
         metadata = {"addedToClass": True}
         if counted_as_coming:
@@ -2613,12 +2654,6 @@ def collect_cancellation_recipients(source) -> list[dict]:
     config = get_or_create_config(coach.id)
     templates = config.get_message_templates(locale)
 
-    level = effective_level(source)  # PAD-275: NULL level_id inherits the lesson's
-    level_code = level.code if level else ""
-    start_dt = getattr(source, "start_datetime", None)
-    weekday = _format_weekday(start_dt, locale)
-    time_str = start_dt.strftime("%H:%M") if start_dt else ""
-
     # Only a materialized LessonInstance carries an id the mobile app can route to.
     instance_id = source.id if isinstance(source, LessonInstance) else None
 
@@ -2630,18 +2665,9 @@ def collect_cancellation_recipients(source) -> list[dict]:
         player_user_id = player.user_id if player else None
         if not player_user_id:
             continue
-        first_name = (
-            (player.user.name or "").split()[0]
-            if player and player.user and player.user.name
-            else ""
-        )
         text = _format_template(
             resolve_message_template(templates, "class_cancelled", locale),
-            name=first_name,
-            level=level_code,
-            weekday=weekday,
-            time=time_str,
-            **class_placeholders(source, locale),
+            **template_variables(player, source, locale),
         )
         recipients.append(
             {
@@ -3503,10 +3529,6 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
     templates = config.get_message_templates(locale)
     reminder_count = config.get_reminder_count()
 
-    level_code = effective_level_code(instance)
-    weekday = _format_weekday(instance.start_datetime, locale)
-    time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
-
     from padel_app.models import Message, Player
 
     sent_this_round = 0
@@ -3542,16 +3564,11 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
         player_user_id = _user_id_for_player(player_id)
 
         player = Player.query.get(player_id)
-        player_name = (player.user.name if player and player.user else "there").split()[0]
 
         template_key = "reminder_followup" if sent_count > 0 else "reminder"
         text = _format_template(
             resolve_message_template(templates, template_key, locale),
-            name=player_name,
-            level=level_code,
-            weekday=weekday,
-            time=time_str,
-            **class_placeholders(instance, locale),
+            **template_variables(player, instance, locale),
         )
 
         # PAD-49: Supersede older un-actioned reminders for THIS (player, instance)
@@ -4015,6 +4032,16 @@ def respond_to_reminder(
             message_recipient_ids(reminder_msg),
         )
 
+    # PAD-684 (attendance.confirm rules 28-29): a "yes" from a row that is not_coming (their own
+    # "no", or the coach's "Não vai" mark) is "Afinal vou". The class is known not to have started
+    # here (the over-check above returned `expired`). The capacity decision is taken under the
+    # lock BEFORE anything is recorded, so a refusal leaves the reminder unanswered.
+    if action == "yes" and presence is not None and presence.status == "absent":
+        return _retake_spot(
+            instance, presence, player, coach_user_id, acting_user_id, reminder_msg,
+            record_answer=_record_reminder_answer, locale=locale, now=now, at=_now,
+        )
+
     # B-284: these writes commit, so a return records the answer after its own commit, never
     # inside the lock it holds.
     _record_reminder_answer()
@@ -4035,7 +4062,10 @@ def respond_to_reminder(
             _send_system_message(
                 coach_user_id,
                 acting_user_id,
-                resolve_message_template(templates, "reminder_confirmed", locale),
+                _format_template(
+                    resolve_message_template(templates, "reminder_confirmed", locale),
+                    **template_variables(player, instance, locale),
+                ),
                 class_instance_id=instance.id,
             )
         # Rule 13: the answer may have come from the dashboard — count it as read.
@@ -4095,7 +4125,10 @@ def _free_spot_for_declining_player(
         _send_system_message(
             coach_user_id,
             acting_user_id,
-            resolve_message_template(templates, "reminder_declined", locale),
+            _format_template(
+                resolve_message_template(templates, "reminder_declined", locale),
+                **template_variables(player, instance, locale),
+            ),
             class_instance_id=instance.id,
         )
 
@@ -4261,15 +4294,162 @@ def student_may_confirm(
     return _now >= deadline
 
 
+def student_come_back(
+    presence, instance, *, player_id: int, now: datetime | None = None
+) -> "str | None":
+    """PAD-684 (attendance.confirm rule 28): what the screen of a not_coming student offers.
+
+    ONE server predicate, served as ``comeBack``. ``None`` unless the row is not_coming - a
+    student's "no"/cancel (absent, not validated) or the coach's "Não vai" mark (validated
+    absent, rule 29) - on a class that has not started and is not cancelled. Then ``"rejoin"``
+    (a spot is free now), ``"on_waiting_list"`` (no spot, an active entry for this occurrence) or
+    ``"waiting_list"`` (no spot). A hint for what to SHOW: the decision is taken at the tap.
+    """
+    if instance is None or presence is None or presence.status != "absent":
+        return None
+    if _instance_is_over(instance, now):
+        return None
+    max_players = instance.effective_max_players
+    if max_players is None or _effective_filled_spots(instance) < max_players:
+        return "rejoin"
+    if WaitingListEntry.query.filter_by(
+        lesson_instance_id=instance.id, player_id=player_id, is_active=True
+    ).first() is not None:
+        return "on_waiting_list"
+    return "waiting_list"
+
+
+def _retake_spot(
+    instance, presence, player, coach_user_id, acting_user_id, reminder_msg,
+    *, record_answer, locale, now, at,
+) -> dict:
+    """PAD-684 ("Afinal vou", attendance.confirm rules 28-29): a not_coming student takes their
+    place back if the class still has room.
+
+    Lock order (rule 10, B-284): the student's own open vacancy (may be None, e.g. a coach's
+    mark), then the class. Capacity is re-read under that lock BEFORE anything is recorded: full
+    -> commit (releasing the lock), record nothing, ``spot_filled``. Otherwise re-seat: status,
+    justification and ``validated`` cleared, the answer recorded as a "yes", the student's own
+    vacancy closed (its live invitations expire ``spot_filled``) and its pending approval prompt
+    marked stale. From the locks to ``presence.save()`` nothing commits.
+    """
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+    from padel_app.services.presence_events import publish_presence_changed
+
+    own, locked = _lock_vacancy_and_instance(_open_vacancy_for(instance.id, player.id), instance)
+    db.session.refresh(presence)
+    if _instance_is_over(locked, at):
+        db.session.commit()
+        return {"action": "expired"}
+    if presence.status != "absent":
+        db.session.commit()  # a parallel tap seated them already
+        return {"action": "confirmed", "duplicate": True}
+    # Capacity is the override, else the lesson's (PAD-275) - never the copied column.
+    if (
+        locked.effective_max_players is not None
+        and _effective_filled_spots(locked) >= locked.effective_max_players
+    ):
+        db.session.commit()  # release the lock, change nothing
+        return {"action": "spot_filled"}
+
+    presence.status = None
+    presence.justification = None
+    presence.validated = False  # the coach's "Não vai" mark is cleared (rule 29)
+    presence.confirmed = True
+    record_response(presence, "confirmed", when=now)
+    retired = []
+    if own is not None and own.status == "open":
+        retired = _close_vacancy(own, player.id)
+        for prompt in ReplacementApprovalPrompt.query.filter_by(
+            vacancy_id=own.id, status="pending"
+        ).all():
+            prompt.status = "stale"
+            prompt.decided_at = at
+    _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+    publish_presence_changed(instance, presence.player_id)
+    presence.save()  # commits: the lock ends here
+    record_answer()
+    _notify_coach_of_return(instance, player, acting_user_id, coach_user_id, locale=locale)
+    _mark_answered_message_read(reminder_msg, acting_user_id)
+    return {"action": "confirmed"}
+
+
+def _notify_coach_of_return(
+    instance: LessonInstance, player, player_user_id: int, coach_user_id: int | None, locale: str = "en"
+) -> "object | None":
+    """PAD-684 (attendance.confirm rule 28): tell the coach a student is coming after all.
+
+    A message from the student in their shared conversation (real name, ``players.nickname``
+    rule 4) and a push to the coach, modelled on ``_notify_coach_of_cancellation``.
+    """
+    from padel_app.models import Message
+    from padel_app.serializers.message import serialize_message
+
+    if not coach_user_id or not player_user_id:
+        return None
+    is_pt = (locale or "").startswith("pt")
+    player_name = (player.user.name if player and player.user else None) or (
+        "Um jogador" if is_pt else "A player"
+    )
+    class_title = instance.title or ("a aula" if is_pt else "the class")
+    when = _format_class_when(instance, locale)
+    if is_pt:
+        text = f"{player_name} afinal vai a {class_title}{when}."
+        push_title = "Afinal vai"
+    else:
+        text = f"{player_name} is coming to {class_title}{when} after all."
+        push_title = "Coming after all"
+    push_body = text[:100]
+
+    conv = _get_or_create_direct_conversation(coach_user_id, player_user_id)
+    msg = Message(
+        text=text,
+        sender_id=player_user_id,
+        conversation_id=conv.id,
+        message_type="text",
+        msg_metadata={"comeBack": True, "lessonInstanceId": instance.id},
+    )
+    msg.create()
+    publish(
+        {"type": "message_created", "payload": serialize_message(msg, None)},
+        message_recipient_ids(msg),
+    )
+
+    send_push_notification(
+        user_id=coach_user_id,
+        title=push_title,
+        body=push_body,
+        url=f"/messages/{conv.id}?message={msg.id}",
+    )
+    from padel_app.utils.expo_push import send_expo_push_to_user
+    from padel_app.services.messaging_service import get_unread_count
+
+    send_expo_push_to_user(
+        coach_user_id,
+        title=push_title,
+        body=push_body,
+        data={
+            "type": "message",
+            "conversationId": conv.id,
+            "messageId": msg.id,
+            "classInstanceId": instance.id,
+        },
+        badge=get_unread_count(coach_user_id),
+    )
+    return msg
+
+
 def _refuse_yes(presence, instance, config, *, now: datetime) -> "str | None":
     """PAD-570: why a "yes" is refused, or None when it may be recorded.
 
     ``already_declined`` (rule 28) and ``already_marked`` (rule 29) name the state the
     row is in; ``not_yet_asked`` (rule 27) is a ``planned`` row whose ask has not come.
     """
+    if presence is not None and presence.status == "absent":
+        # PAD-684 (rules 28-29): not_coming - a "no" or the coach's "Não vai" - is "Afinal vou",
+        # decided at the lock by `_retake_spot`; never `already_declined` on a class not started.
+        return None
     state = presence.attendance_state if presence is not None else "planned"
-    if state == "not_coming":
-        return "already_declined"
     if state in ("attended", "missed"):
         return "already_marked"
     if state == "coming":
@@ -4616,9 +4796,6 @@ def _send_invitation_batch(
     coach_user_id = coach_obj.user_id if coach_obj else None
     locale = _resolve_locale(coach_obj)
     templates = config.get_message_templates(locale)
-    level_code = effective_level_code(instance)
-    weekday = _format_weekday(instance.start_datetime, locale)
-    time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
 
     notified = []
     for cp in eligible:
@@ -4695,12 +4872,10 @@ def _send_invitation_batch(
             resolve_message_template(
                 templates, "waiting_list_invite" if wave_round == 0 else "invite", locale
             ),
-            name=player_name,
-            level=level_code,
-            weekday=weekday,
-            time=time_str,
-            side=_side_phrase(vacancy.side, locale) if wave_round == 0 else "",
-            **class_placeholders(instance, locale),
+            **template_variables(
+                player, instance, locale,
+                side=_side_phrase(vacancy.side, locale) if wave_round == 0 else "",
+            ),
         )
         msg = _send_system_message(
             coach_user_id=coach_user_id,
@@ -5768,7 +5943,10 @@ def respond_to_notification(
             _send_system_message(
                 coach_user_id,
                 player_user_id,
-                resolve_message_template(templates, "decline", locale),
+                _format_template(
+                    resolve_message_template(templates, "decline", locale),
+                    **template_variables(player, instance, locale),
+                ),
                 class_instance_id=instance.id,
             )
 
@@ -5883,7 +6061,10 @@ def respond_to_notification(
             _send_system_message(
                 coach_user_id,
                 player_user_id,
-                resolve_message_template(templates, "confirm", locale),
+                _format_template(
+                    resolve_message_template(templates, "confirm", locale),
+                    **template_variables(player, instance, locale),
+                ),
                 class_instance_id=instance.id,
             )
             _broadcast_spot_filled(
@@ -6172,18 +6353,10 @@ def send_manual_notifications(
         db.session.flush()
 
         player = Player.query.get(player_id)
-        player_name = (player.user.name if player and player.user else "there").split()[0]
-        level_code = effective_level_code(instance)
-        weekday = _format_weekday(instance.start_datetime, locale)
-        time_str = instance.start_datetime.strftime("%H:%M") if instance.start_datetime else ""
 
         text = _format_template(
             resolve_message_template(templates, "invite", locale),
-            name=player_name,
-            level=level_code,
-            weekday=weekday,
-            time=time_str,
-            **class_placeholders(instance, locale),
+            **template_variables(player, instance, locale),
         )
 
         msg = _send_system_message(
@@ -6242,7 +6415,7 @@ def _offer_waiting_list(
     live invitation as "spot_filled" (rule 15) and the bubble offers the list (rule 15a). Kept as the
     test and E2E seeding path (`debug_offer_waiting_list` in notification_engine_api.py).
     """
-    from padel_app.models import Coach
+    from padel_app.models import Coach, Player
     coach = Coach.query.get(coach_id)
     if not coach:
         return
@@ -6250,7 +6423,10 @@ def _offer_waiting_list(
     if not player_user_id:
         return
 
-    text = resolve_message_template(templates, "waiting_list_offer", locale)
+    text = _format_template(
+        resolve_message_template(templates, "waiting_list_offer", locale),
+        **template_variables(Player.query.get(player_id), instance, locale),
+    )
     _send_system_message(
         coach_user_id=coach.user_id,
         player_user_id=player_user_id,
@@ -6429,7 +6605,10 @@ def respond_to_waiting_list(
             _send_system_message(
                 coach_user_id=coach.user_id,
                 player_user_id=acting_user_id,
-                text=resolve_message_template(templates, "waiting_list_confirm", locale),
+                text=_format_template(
+                    resolve_message_template(templates, "waiting_list_confirm", locale),
+                    **template_variables(player, instance, locale),
+                ),
                 class_instance_id=instance.id,
             )
         return {"action": "added_to_waiting_list"}
@@ -6782,7 +6961,7 @@ def _waiting_list_candidates(
         ).all()
     }
     keyed = [(key, entry) for key, entry in keyed if entry.player_id not in asked_elsewhere]
-    # PAD-672 (waiting-list rule 4d): an entry that names a side waits only for a spot that side can
+    # PAD-672 (waiting-list rule 4e): an entry that names a side waits only for a spot that side can
     # take — one of its side, `both` or side-less; a `both` or side-less entry for any spot.
     keyed = [
         (key, entry) for key, entry in keyed
@@ -6811,9 +6990,15 @@ def _waiting_list_candidates(
         vacancy, instance, coach_id, config, wave=("waiting_list", 0),
         only_player_ids={entry.player_id for _, entry in keyed},
     )
-    invited = {v.cp.player_id: v.cp for v in verdicts if v.invited}
-    keyed.sort(key=lambda pair: pair[0])
-    return [(entry, invited[entry.player_id]) for _, entry in keyed if entry.player_id in invited]
+    # PAD-723 (PAD-669 R4, rule 4): the coach's own priority criteria order group 0, through the same
+    # `_rank_invited` every other group uses; the origin (standing, series, own request) gives no
+    # priority. The row's own join time (then its id) is only the last tie-breaker: `_rank_invited`'s
+    # sort is stable, so the survivors go in in that order.
+    entry_of = {entry.player_id: entry for _, entry in keyed}
+    by_join = sorted((e for e in entry_of.values()), key=lambda e: (e.joined_at or datetime.min, e.id))
+    position = {e.player_id: i for i, e in enumerate(by_join)}
+    survivors = sorted((v for v in verdicts if v.invited), key=lambda v: position[v.cp.player_id])
+    return [(entry_of[cp.player_id], cp) for cp in _rank_invited(survivors, config, vacancy)]
 
 
 def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
@@ -6843,11 +7028,39 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
                 # PAD-560 (rules 19, 19a): no credit limit (NULL) never closes the entry.
                 if standing.credits_total is not None and standing.credits_used >= standing.credits_total:
                     standing.is_active = False
+                    closed_classes = []
                     for other in WaitingListEntry.query.filter_by(
                         standing_entry_id=standing.id, is_active=True
                     ).all():
                         other.is_active = False
+                        closed_classes.append(other.lesson_instance_id)
+                    # PAD-725 (rule 15b): the last credit is spent, so the student's other live
+                    # group-0 offers from this entry go too — else they could take a second class
+                    # with nothing left. Not a "no"; the bubble says why; published after the commit.
+                    _publish_retired(_withdraw_spent_offers(event.player_id, closed_classes))
     db.session.flush()
+
+
+CREDITS_SPENT = "credits_spent"
+
+
+def _withdraw_spent_offers(player_id: int, instance_ids: list) -> list:
+    """PAD-725: retire the student's live group-0 invitations for ``instance_ids`` (the classes the
+    exhausted standing entry had reached). Flushed only; the caller's commit carries it."""
+    if not instance_ids:
+        return []
+    events = NotificationEvent.query.filter(
+        NotificationEvent.player_id == player_id,
+        NotificationEvent.lesson_instance_id.in_(instance_ids),
+        NotificationEvent.round_number == 0,
+        NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+    ).all()
+    for event in events:
+        event.status = "expired"
+        event.retired_reason = CREDITS_SPENT
+        _retire_invite_message(event, defer=True, response=CREDITS_SPENT)
+    db.session.flush()
+    return events
 # ---------------------------------------------------------------------------
 # Notification groups (manual notify modal)
 # ---------------------------------------------------------------------------
@@ -6898,9 +7111,13 @@ def _students_with_justified_absences(coach_players: list, coach_id: int) -> lis
 def _serialize_cp_for_group(cp: Association_CoachPlayer, declined_ids: set = frozenset()) -> dict:
     player = cp.player
     user = player.user if player else None
+    real_name = user.name if user else "Unknown"
     return {
         "id": str(cp.player_id),
-        "name": user.name if user else "Unknown",
+        "name": real_name,
+        # PAD-683 (players.nickname rule 9a): `cp` is the requesting coach's own row — the picker
+        # (`notify/groups`) and the semi-automatic queue are coach-private payloads.
+        **nickname_payload(cp, real_name),
         "levelCode": cp.level.code if cp.level else None,
         "levelId": str(cp.level_id) if cp.level_id else None,
         # PAD-497 (rule 18): the engine will not invite them to this class again; the coach still
@@ -6991,21 +7208,22 @@ def _deactivate_standing_entry(entry: StandingWaitingListEntry) -> None:
         wle.save()
 
 
-def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
-    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
-    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
+def standing_target_instances(coach_id: int, lesson_id: int | None, expires_at: datetime) -> list:
+    """The classes a standing entry reaches: the coach's upcoming occurrences that start before it
+    ends (B-293, rule 2), only its series' when scoped to one (PAD-547, rule 19). One reading, used
+    by the fan-out and by the coach's eligibility pre-check (PAD-724)."""
     now = utcnow_naive()
-    if entry.expires_at <= now:
-        return
-    end_wall = utc_to_wall_naive(entry.expires_at)
+    if expires_at <= now:
+        return []
+    end_wall = utc_to_wall_naive(expires_at)
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
-    coach_instance_ids = _coach_instances(entry.coach_id)  # PAD-275 rule 4
-    for instance_id in coach_instance_ids:
+    out = []
+    for instance_id in _coach_instances(coach_id):  # PAD-275 rule 4
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
-        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+        if lesson_id is not None and instance.lesson_id != lesson_id:
             continue  # PAD-547 (rule 19): a series entry reaches only its series
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
@@ -7013,6 +7231,35 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
             continue
         if instance.start_datetime >= end_wall:  # B-293: not past the entry's end
             continue
+        out.append(instance)
+    return out
+
+
+def standing_eligibility_failures(coach_id: int, player_id: int, expires_at: datetime,
+                                  lesson_id: int | None = None) -> list:
+    """PAD-724 (PAD-669 R5; standing part decided 2026-10-21 under the owner's mandate): the classes
+    a standing entry would reach whose eligibility bar the student fails, each with the PAD-133
+    reasons, in start order — so the coach is warned before adding, and confirms or not."""
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    out = []
+    for instance in sorted(standing_target_instances(coach_id, lesson_id, expires_at),
+                           key=lambda i: i.start_datetime):
+        failing = eligibility_failures_for_players(instance, coach_id, [player_id], config)
+        if failing:
+            out.append({
+                "lessonInstanceId": instance.id,
+                "title": instance.title,
+                "startDatetime": instance.start_datetime.isoformat(),
+                "ineligible": failing,
+            })
+    return out
+
+
+def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
+    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
+    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
+    for instance in standing_target_instances(entry.coach_id, entry.lesson_id, entry.expires_at):
+        instance_id = instance.id
         # PAD-109: match on the (lesson_instance_id, player_id) pair the
         # uq_waiting_session_player constraint covers — NOT on is_active, which
         # is not part of it. Removing a standing entry only flips its per-class
@@ -7032,7 +7279,7 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
             existing.is_active = True
             existing.coach_id = entry.coach_id
             existing.standing_entry_id = entry.id
-            existing.side = entry.side  # PAD-672 (rule 4d): the standing entry's side, per entry (Q4)
+            existing.side = entry.side  # PAD-672 (rule 4e): the standing entry's side, per entry (Q4)
             existing.save()
             continue
         WaitingListEntry(
@@ -7121,7 +7368,7 @@ def add_standing_waiting_list_entry(
         lesson_id=lesson_id,
         credits_total=credits_total,
         whole_series=whole_series,
-        side=side if side in ("left", "right", "both") else None,  # PAD-672 (rule 4d, Q4)
+        side=side if side in ("left", "right", "both") else None,  # PAD-672 (rule 4e, Q4)
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
         is_active=True,
@@ -7178,7 +7425,7 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "playerName": user.name if user else None,
             "creditsUsed": e.credits_used,
             "creditsTotal": e.credits_total,  # PAD-560: null is no credit limit
-            "side": e.side,  # PAD-672 (waiting-list rule 4d)
+            "side": e.side,  # PAD-672 (waiting-list rule 4e)
             "wholeSeries": bool(e.whole_series),
             "expiresAt": e.expires_at.isoformat() if e.expires_at else None,
             # PAD-507: the club date the entry runs to, inclusive.

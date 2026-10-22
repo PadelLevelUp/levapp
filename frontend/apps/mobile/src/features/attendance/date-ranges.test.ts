@@ -20,28 +20,28 @@ describe("presetRange", () => {
   // Wednesday 2026-09-16, 23:30 UTC.
   const now = new Date(Date.UTC(2026, 8, 16, 23, 30));
 
-  it("1w is Monday through Sunday of the current UTC week", () => {
+  it("1w is Sunday through Saturday of the current week (PAD-682)", () => {
     expect(presetRange("1w", now)).toEqual({
-      from: "2026-09-14",
-      to: "2026-09-20",
+      from: "2026-09-13",
+      to: "2026-09-19",
     });
   });
 
-  it("1w on a Sunday still returns the week that Sunday closes", () => {
-    // 2026-09-20 is a Sunday; getUTCDay() === 0 must not restart the week.
+  it("1w on a Sunday starts the week that Sunday opens", () => {
+    // 2026-09-20 is a Sunday; getUTCDay() === 0 is the first day of the week.
     const sunday = new Date(Date.UTC(2026, 8, 20, 12));
     expect(presetRange("1w", sunday)).toEqual({
-      from: "2026-09-14",
-      to: "2026-09-20",
+      from: "2026-09-20",
+      to: "2026-09-26",
     });
   });
 
   it("1w spanning a month boundary rolls the month over", () => {
-    // Tuesday 2026-12-01 — its Monday is in November.
+    // Tuesday 2026-12-01 — its Sunday is in November.
     const dec1 = new Date(Date.UTC(2026, 11, 1, 8));
     expect(presetRange("1w", dec1)).toEqual({
-      from: "2026-11-30",
-      to: "2026-12-06",
+      from: "2026-11-29",
+      to: "2026-12-05",
     });
   });
 
@@ -123,33 +123,33 @@ describe("presets use the club's day (B-060)", () => {
     });
   });
 
-  it("1w at 23:30 UTC on Sunday 18 July is the next week: it is Monday in Lisbon", () => {
-    expect(ranges.presetRange("1w", new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
-      from: "2027-07-19",
-      to: "2027-07-25",
+  it("1w at 23:30 UTC on Saturday 17 July is the week from Sunday 18 July (it is Sunday in Lisbon)", () => {
+    expect(ranges.presetRange("1w", new Date(Date.UTC(2027, 6, 17, 23, 30)))).toEqual({
+      from: "2027-07-18",
+      to: "2027-07-24",
     });
   });
 });
 
 describe("weekBounds (B-060)", () => {
-  it("is the club's week: 23:30 UTC on Sunday 18 July is Monday 19 July in Lisbon", () => {
-    expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
-      from: "2027-07-19",
-      to: "2027-07-25",
+  it("is the club's week: 23:30 UTC on Saturday 17 July is Sunday 18 July in Lisbon", () => {
+    expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 6, 17, 23, 30)))).toEqual({
+      from: "2027-07-18",
+      to: "2027-07-24",
     });
   });
 
   it("moves by whole weeks", () => {
-    expect(ranges.weekBounds(-1, new Date(Date.UTC(2027, 6, 18, 23, 30)))).toEqual({
-      from: "2027-07-12",
-      to: "2027-07-18",
+    expect(ranges.weekBounds(-1, new Date(Date.UTC(2027, 6, 17, 23, 30)))).toEqual({
+      from: "2027-07-11",
+      to: "2027-07-17",
     });
   });
 
   it("in winter, 23:30 UTC on Sunday 17 January is still that Sunday", () => {
     expect(ranges.weekBounds(0, new Date(Date.UTC(2027, 0, 17, 23, 30)))).toEqual({
-      from: "2027-01-11",
-      to: "2027-01-17",
+      from: "2027-01-17",
+      to: "2027-01-23",
     });
   });
 });
@@ -160,10 +160,10 @@ import { weekBounds as wb, weekLabelDates } from "./date-ranges";
 // queried — both on the club's clock.
 describe("weekLabelDates agrees with weekBounds", () => {
   it("names the club's week, not the device's", () => {
-    const now = new Date(Date.UTC(2026, 8, 13, 23, 30));
+    const now = new Date(Date.UTC(2026, 8, 12, 23, 30));
     const { monday, sunday } = weekLabelDates(0, now);
     expect(monday.toISOString().slice(0, 10)).toBe(wb(0, now).from);
     expect(sunday.toISOString().slice(0, 10)).toBe(wb(0, now).to);
-    expect(monday.toISOString().slice(0, 10)).toBe("2026-09-14");
+    expect(monday.toISOString().slice(0, 10)).toBe("2026-09-13");
   });
 });

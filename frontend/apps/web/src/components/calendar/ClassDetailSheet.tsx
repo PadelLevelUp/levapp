@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { dateFnsLocale } from "@/lib/dateLocale";
+import { joinClassWaitingList } from "@/api/academyClasses";
 import {
   Users,
   Clock,
@@ -46,11 +47,11 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, sideWordKey } from "@levelup/config";
-import { useClassEvaluations } from "@levelup/hooks";
+import { blockedNames, classEvaluationsAction, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, sideWordKey } from "@levelup/config";
+import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -179,6 +180,10 @@ export function ClassDetailSheet({
   const queryClient = useQueryClient();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
+  // PAD-683 (players.nickname rules 8, 9b): the class detail is a shared payload, so the invitee
+  // list, join requests and their toasts resolve the coach's display name here; a student's view
+  // asks nothing and keeps the real name.
+  const displayName = useCoachDisplayName({ enabled: canManage });
 
   const [classInstance, setClassInstance] = useState<ClassInstance | null>(null);
 
@@ -335,6 +340,8 @@ export function ClassDetailSheet({
   // PAD-46: student cancels attendance from the class-detail view.
   const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // PAD-684: the server's own answer, shown until the refetch lands (never invented).
+  const [comeBackShown, setComeBackShown] = useState<ReturnType<typeof comeBackAction>>(null);
   const [openingChat, setOpeningChat] = useState(false);
   const navigate = useNavigate();
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
@@ -662,7 +669,7 @@ export function ClassDetailSheet({
       else await rejectClassJoinRequest(id);
       toast({
         title: t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
-          name: req?.playerName ?? "",
+          name: req ? displayName(req.playerId, req.playerName) : "",
         }),
       });
     } catch (err) {
@@ -1112,12 +1119,17 @@ export function ClassDetailSheet({
       classStarted,
     });
   const ownInstanceId = Number(ownPresence?.lessonInstanceId);
+  // PAD-684 (attendance.confirm rule 28): "Afinal vou" - the SERVER's `comeBack` decides.
+  const comeBackKind = comeBackShown ?? comeBackAction(classInstance?.comeBack, ownState);
 
   const handleConfirmMyAttendance = async () => {
     if (!Number.isFinite(ownInstanceId) || confirming) return;
     setConfirming(true);
     try {
-      const outcome = reminderAnswerOutcome(await respondToReminder(ownInstanceId, "yes"));
+      const answer = await respondToReminder(ownInstanceId, "yes");
+      const outcome = reminderAnswerOutcome(answer);
+      const shown = comeBackFromAnswer(answer);
+      if (shown) setComeBackShown(shown);
       if (outcome.record === "confirmed") {
         toast({ title: t("calendar.detail.confirmAttendanceDone") });
       } else if (outcome.messageKey) {
@@ -1128,10 +1140,29 @@ export function ClassDetailSheet({
       }
       // Either way the server is the truth: re-read rather than paint.
       await refreshInstance();
+      setComeBackShown(null);
     } catch {
       toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
     } finally {
       setConfirming(false);
+    }
+  };
+
+  // PAD-684 rule 28: no spot left - the PAD-547 / PAD-577 join for THIS occurrence.
+  const handleComeBackWaitingList = async () => {
+    if (!event || joinBusy) return;
+    setJoinBusy(true);
+    try {
+      const place = await joinClassWaitingList(event);
+      if ((place as { onWaitingList?: boolean } | null)?.onWaitingList) setComeBackShown("on_waiting_list");
+      toast({ title: t("calendar.waitingList.joined") });
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      await refreshInstance();
+      setComeBackShown(null);
+    } catch {
+      toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
+    } finally {
+      setJoinBusy(false);
     }
   };
 
@@ -1839,7 +1870,7 @@ export function ClassDetailSheet({
                     data-testid="class-join-request-row"
                   >
                     <div className="min-w-0">
-                      <span className="text-sm truncate block">{req.playerName}</span>
+                      <span className="text-sm truncate block">{displayName(req.playerId, req.playerName)}</span>
                       {/* PAD-358 (classes.academy-class-booking rule 5): the student's note. */}
                       {req.note && (
                         <p
@@ -1966,7 +1997,7 @@ export function ClassDetailSheet({
                           data-outcome={inv.outcome}
                           className="flex items-center justify-between gap-2 py-1.5"
                         >
-                          <span className="text-sm">{inv.playerName}</span>
+                          <span className="text-sm">{displayName(inv.playerId, inv.playerName)}</span>
                           <div className="flex items-center gap-1.5">
                             <div className="flex flex-col items-end">
                               <span
@@ -2120,6 +2151,7 @@ export function ClassDetailSheet({
                       <Button
                         variant="outline"
                         className="flex-1"
+                        data-testid="class-notify-open"
                         onClick={() => setShowNotifyModal(true)}
                         disabled={isValidating || sendingReminders}
                       >
@@ -2154,7 +2186,7 @@ export function ClassDetailSheet({
                                 title: t("calendar.unavailable.title"),
                                 description: t("calendar.unavailable.blocked", {
                                   count: unavailable.length,
-                                  names: unavailable.map((b) => b.name).filter(Boolean).join(", "),
+                                  names: blockedNames(unavailable, displayName),
                                 }),
                               });
                             }
@@ -2164,7 +2196,7 @@ export function ClassDetailSheet({
                             if (optedOut.length > 0) {
                               toast({
                                 title: t("calendar.notify.blockedByPreference", {
-                                  names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
+                                  names: blockedNames(optedOut, displayName),
                                 }),
                               });
                             }
@@ -2224,7 +2256,44 @@ export function ClassDetailSheet({
                   )}
                   {/* PAD-570 rule 28: "Não vou" is final — no way back (the PAD-315
                       come-back lived here); the hint points to the coach's chat. */}
-                  {hasDeclined && (
+                  {comeBackKind === "rejoin" && (
+                    <Button
+                      data-testid="attendance-come-back"
+                      className="w-full"
+                      onClick={handleConfirmMyAttendance}
+                      disabled={confirming}
+                    >
+                      {confirming ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
+                      {t("calendar.detail.comeBack")}
+                    </Button>
+                  )}
+                  {comeBackKind === "waiting_list" && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground" data-testid="attendance-come-back-spot-taken">
+                        {t("calendar.detail.spotTaken")}
+                      </p>
+                      <Button
+                        data-testid="attendance-come-back-waiting-list"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleComeBackWaitingList}
+                        disabled={joinBusy}
+                      >
+                        {t("calendar.waitingList.join")}
+                      </Button>
+                    </div>
+                  )}
+                  {comeBackKind === "on_waiting_list" && (
+                    <p className="text-xs text-muted-foreground" data-testid="attendance-come-back-on-waiting-list">
+                      {t("calendar.detail.onWaitingList")}
+                    </p>
+                  )}
+                  {(hasDeclined || comeBackKind === "final_hint") &&
+                    (comeBackKind === null || comeBackKind === "final_hint") && (
                     <div className="space-y-2" data-testid="class-declined-hint">
                       <p className="text-xs text-muted-foreground">
                         {t("calendar.detail.declinedFinalHint")}

@@ -1,3 +1,4 @@
+import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CLASS_COLOR_SWATCHES,
@@ -7,6 +8,8 @@ import {
   attendanceStateOf,
   attendanceStateTone,
   canConfirmAttendance,
+  comeBackAction,
+  comeBackFromAnswer,
   classHasEnded,
   displayStateOf,
   presenceChangedFor,
@@ -279,6 +282,8 @@ export default function ClassDetailScreen() {
   // PAD-567: the over-capacity warning before a cleared absence is saved.
   const [clearOverCapacity, setClearOverCapacity] = React.useState<{ filled: number; capacity: number } | null>(null);
   const [confirming, setConfirming] = React.useState(false);
+  // PAD-684: the server's own answer, shown until the refetch lands (never invented).
+  const [comeBackShown, setComeBackShown] = React.useState<ReturnType<typeof comeBackAction>>(null);
   const [openingChat, setOpeningChat] = React.useState(false);
   // PAD-170 C5: distinct from `cancelOpen` — a proactive decline gets its own
   // confirmation, with no deadline warning, because by definition it happens
@@ -1096,15 +1101,18 @@ export default function ClassDetailScreen() {
       classStarted: hasClassStarted(declineGate.date, declineGate.startTime),
     });
   const ownInstanceId = Number(myPresence?.lessonInstanceId);
+  // PAD-684 (attendance.confirm rule 28): "Afinal vou" - the SERVER's `comeBack` decides.
+  const comeBackKind = comeBackShown ?? comeBackAction(instance?.comeBack, myState);
 
   const handleConfirmMyAttendance = async () => {
     if (!Number.isFinite(ownInstanceId) || confirming) return;
     setConfirming(true);
     setFeedback(null);
     try {
-      const outcome = reminderAnswerOutcome(
-        await notificationEngineApi.respondToReminder(ownInstanceId, "yes")
-      );
+      const answer = await notificationEngineApi.respondToReminder(ownInstanceId, "yes");
+      const outcome = reminderAnswerOutcome(answer);
+      const shown = comeBackFromAnswer(answer);
+      if (shown) setComeBackShown(shown);
       if (outcome.record === "confirmed") {
         toast.success(t("calendar.detail.confirmAttendanceDone"));
       } else if (outcome.messageKey) {
@@ -1114,10 +1122,29 @@ export default function ClassDetailScreen() {
         else toast.success(t(outcome.messageKey));
       }
       await refetch();
+      setComeBackShown(null);
     } catch {
       toast.error(t("messages.somethingWentWrong"));
     } finally {
       setConfirming(false);
+    }
+  };
+
+  // PAD-684 rule 28: no spot left - the PAD-547 / PAD-577 join for THIS occurrence.
+  const handleComeBackWaitingList = async () => {
+    if (!event || joinBusy) return;
+    setJoinBusy(true);
+    try {
+      const place = await joinClassWaitingList(event);
+      if (place?.onWaitingList) setComeBackShown("on_waiting_list");
+      toast.success(t("calendar.waitingList.joined"));
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      await refetch();
+      setComeBackShown(null);
+    } catch {
+      toast.error(t("calendar.waitingList.failed"));
+    } finally {
+      setJoinBusy(false);
     }
   };
 
@@ -2073,7 +2100,39 @@ export default function ClassDetailScreen() {
 
                 {/* PAD-570 rule 28: "Não vou" is final — the hint and the chat
                     shortcut live where the come-back used to. */}
-                {declined ? (
+                {comeBackKind === "rejoin" ? (
+                  <Button
+                    testID="attendance-come-back"
+                    accessibilityLabel={t("calendar.detail.comeBack")}
+                    onPress={handleConfirmMyAttendance}
+                    disabled={confirming}
+                  >
+                    <Text>{t("calendar.detail.comeBack")}</Text>
+                  </Button>
+                ) : null}
+                {comeBackKind === "waiting_list" ? (
+                  <View className="gap-2">
+                    <Text className="text-xs text-muted-foreground" testID="attendance-come-back-spot-taken">
+                      {t("calendar.detail.spotTaken")}
+                    </Text>
+                    <Button
+                      testID="attendance-come-back-waiting-list"
+                      accessibilityLabel={t("calendar.waitingList.join")}
+                      variant="outline"
+                      onPress={handleComeBackWaitingList}
+                      disabled={joinBusy}
+                    >
+                      <Text>{t("calendar.waitingList.join")}</Text>
+                    </Button>
+                  </View>
+                ) : null}
+                {comeBackKind === "on_waiting_list" ? (
+                  <Text className="text-xs text-muted-foreground" testID="attendance-come-back-on-waiting-list">
+                    {t("calendar.detail.onWaitingList")}
+                  </Text>
+                ) : null}
+                {(declined || comeBackKind === "final_hint") &&
+                (comeBackKind === null || comeBackKind === "final_hint") ? (
                   <View className="gap-2" testID="class-declined-hint">
                     <Text className="text-xs text-muted-foreground">
                       {t("calendar.detail.declinedFinalHint")}

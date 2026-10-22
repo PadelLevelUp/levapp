@@ -1,8 +1,10 @@
 """admin.foundation (PAD-531): one append-only row per console write.
 
 Rule 8: the row is inserted in the request's transaction by `@audited` (utils/admin_auth.py), so
-the write and its record commit or roll back together. Rule 9: no route updates or deletes a row,
-and the ORM refuses an update or delete in `before_flush`.
+the write and its record commit or roll back together. Rule 9: no route updates or deletes a row;
+the ORM refuses an update or delete in `before_flush`, and a bulk update or delete of the table in
+`do_orm_execute`. The one exception is the retention sweep (admin.data-retention rule 5), which
+deletes rows past the period with `session.info[RETENTION_FLAG]` set.
 """
 from sqlalchemy import JSON, Column, DateTime, Index, Integer, String, event
 from sqlalchemy.orm import Session
@@ -11,6 +13,8 @@ from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
 
 OUTCOMES = ("ok", "denied", "error")
+#: The session flag under which the retention sweep alone may delete rows (admin.data-retention rule 5).
+RETENTION_FLAG = "retention_sweep"
 
 
 class AdminAuditLogImmutable(RuntimeError):
@@ -66,3 +70,17 @@ def _audit_rows_are_append_only(session, flush_context, instances):
     for obj in list(session.deleted):
         if isinstance(obj, AdminAuditLog):
             raise AdminAuditLogImmutable("admin_audit_log rows cannot be deleted (admin.foundation rule 9)")
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _audit_table_refuses_bulk_writes(orm_execute_state):
+    """Rule 9: a bulk UPDATE or DELETE never reaches `before_flush`, so it is refused here; the
+    retention sweep's DELETE under its flag is the only one let through (admin.data-retention rule 5)."""
+    if not (orm_execute_state.is_update or orm_execute_state.is_delete):
+        return
+    mapper = orm_execute_state.bind_mapper
+    if mapper is None or mapper.class_ is not AdminAuditLog:
+        return
+    if orm_execute_state.is_delete and orm_execute_state.session.info.get(RETENTION_FLAG):
+        return
+    raise AdminAuditLogImmutable("admin_audit_log rows are append-only (admin.foundation rule 9)")

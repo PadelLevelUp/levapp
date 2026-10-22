@@ -5,6 +5,7 @@ import type {
   ApprovalVacancyResult,
   ClassWaitingListScopeRequest,
   CoachClassWaitingListRow,
+  EligibilityCheckEntry,
   EligibilityCheckResult,
   EligibilityImpact,
   InviteExplain,
@@ -354,13 +355,31 @@ export async function addToStandingWaitingList(
   expiresOn: string,
   side?: PlayerSide | null,
 ): Promise<StandingWaitingListEntry> {
-  // PAD-672 (waiting-list rule 4d, Q4): the side the entry is asked for; omitted when none.
+  // PAD-672 (waiting-list rule 4e, Q4): the side the entry is asked for; omitted when none.
   const res = await getApi().post("/app/notify/standing_waiting_list", {
     playerId,
     credits,
     expiresOn,
     ...(side ? { side } : {}),
   });
+  return res.data;
+}
+
+/** PAD-724 (waiting-list rule 2a): a class a standing entry would reach whose bar the student fails. */
+export type StandingEligibilityClass = {
+  lessonInstanceId: number;
+  title: string | null;
+  /** The class's club wall-clock start, ISO without zone (R-023). */
+  startDatetime: string;
+  ineligible: EligibilityCheckEntry[];
+};
+
+/** PAD-724: read-only — before adding to the standing list, the classes whose bar the student fails. */
+export async function checkStandingEligibility(
+  playerId: number,
+  expiresOn: string,
+): Promise<{ classes: StandingEligibilityClass[] }> {
+  const res = await getApi().post("/app/notify/standing_waiting_list/eligibility_check", { playerId, expiresOn });
   return res.data;
 }
 

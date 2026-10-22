@@ -27,6 +27,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import type { StandingEligibilityClass } from "@levelup/api/src/resources/notificationEngine";
 import { useAddToStandingWaitingList, useRenewStandingWaitingList } from "./hooks";
 
 const DEFAULT_CREDITS = 3;
@@ -43,7 +45,7 @@ interface WaitingListDialogProps {
   playerName: string | null;
   /** PAD-507: renew this entry — only its end date changes; credits stay. */
   renewing?: StandingWaitingListEntry | null;
-  /** PAD-672 (waiting-list rule 4d, Q4): the student's profile side — the side picked by default. */
+  /** PAD-672 (waiting-list rule 4e, Q4): the student's profile side — the side picked by default. */
   profileSide?: PlayerSide | null;
 }
 
@@ -71,7 +73,11 @@ export function WaitingListDialog({
   const [side, setSide] = React.useState<PlayerSide | null>(standingDefaultSide(profileSide));
   const addToWaitingList = useAddToStandingWaitingList();
   const renew = useRenewStandingWaitingList();
-  const pending = addToWaitingList.isPending || renew.isPending;
+  // PAD-724 (PAD-669 R5, waiting-list rule 2a): the classes in reach whose bar the student fails,
+  // shown before the add (submit path only); null until checked.
+  const [warnClasses, setWarnClasses] = React.useState<StandingEligibilityClass[] | null>(null);
+  const [checking, setChecking] = React.useState(false);
+  const pending = addToWaitingList.isPending || renew.isPending || checking;
 
   React.useEffect(() => {
     if (!open) return;
@@ -81,6 +87,7 @@ export function WaitingListDialog({
     setCredits(DEFAULT_CREDITS);
     setSide(standingDefaultSide(profileSide));
   }, [open, profileSide]);
+  React.useEffect(() => setWarnClasses(null), [open, expiresOn]);
 
   const valid = isStandingEndAllowed(expiresOn, today);
   const preset = standingPresetOf(expiresOn, today);
@@ -95,6 +102,17 @@ export function WaitingListDialog({
 
   const handleConfirm = async () => {
     if (!valid) return;
+    if (!renewing && warnClasses === null) {
+      setChecking(true);
+      const { classes } = await notificationEngineApi
+        .checkStandingEligibility(playerId, expiresOn)
+        .catch(() => ({ classes: [] as StandingEligibilityClass[] }));
+      setChecking(false);
+      if (classes.length > 0) {
+        setWarnClasses(classes);
+        return;
+      }
+    }
     try {
       if (renewing) {
         await renew.mutateAsync({ entryId: renewing.id, expiresOn });
@@ -259,6 +277,18 @@ export function WaitingListDialog({
           )}
         </View>
 
+        {warnClasses && warnClasses.length > 0 ? (
+          <View testID="standing-wl-eligibility-warning" className="rounded-md border border-warning/40 bg-warning/10 p-3">
+            <Text className="text-sm font-medium">{t("calendar.eligibilityConfirm.waitingListTitle")}</Text>
+            <Text className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.standingClasses")}</Text>
+            {warnClasses.map((c) => (
+              <Text key={c.lessonInstanceId} className="mt-1 text-xs text-muted-foreground">
+                • {c.title ?? ""} · {c.startDatetime.slice(8, 10)}/{c.startDatetime.slice(5, 7)} {c.startDatetime.slice(11, 16)}
+              </Text>
+            ))}
+            <Text className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.waitingListBody")}</Text>
+          </View>
+        ) : null}
         <DialogFooter className="flex-row gap-2">
           <Button
             variant="outline"
@@ -279,7 +309,13 @@ export function WaitingListDialog({
             {pending ? (
               <Spinner size="small" color={lightTheme.primaryForeground} />
             ) : null}
-            <Text>{renewing ? t("players.renewWaitingList") : t("players.addToWaitingList")}</Text>
+            <Text>
+              {renewing
+                ? t("players.renewWaitingList")
+                : warnClasses && warnClasses.length > 0
+                  ? t("calendar.eligibilityConfirm.confirm")
+                  : t("players.addToWaitingList")}
+            </Text>
           </Button>
         </DialogFooter>
       </DialogContent>

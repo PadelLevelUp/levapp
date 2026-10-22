@@ -33,7 +33,6 @@ dependencies = [
     "alembic==1.13.2",
 
     # --- Sessions / auth / assets / mail ---
-    "Flask-Session==0.6.0",
     "Flask-Assets==2.1.0",
     "Flask-Mail==0.9.1",
     "pyScss==1.4.0",
@@ -72,6 +71,7 @@ flake8 = "^7.0.0"
 autoflake = "^2.3.1"
 isort = "*"
 mypy = "*"
+pytest-split = "0.10.0"
 
 [tool.black]
 line-length = 88
