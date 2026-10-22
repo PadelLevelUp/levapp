@@ -35,10 +35,15 @@ import { deleteClassJoinRequests, removeClassesOnDay } from "../helpers/cleanup"
 
 const TITLE = "E2E Side Class";
 
-function isoDaysAhead(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/** A one-hour slot starting about `hours` from now on the machine's (club) clock, never past 22:00. */
+function slotHoursAhead(hours: number): { day: string; startTime: string; endTime: string } {
+  const start = new Date(Date.now() + hours * 3600_000);
+  if (start.getHours() >= 22) start.setHours(21, 0, 0, 0);
+  start.setMinutes(start.getMinutes() - (start.getMinutes() % 5), 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const day = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+  const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return { day, startTime: hhmm(start), endTime: hhmm(new Date(start.getTime() + 3600_000)) };
 }
 
 async function bearer(request: APIRequestContext, username: string, password: string) {
@@ -70,7 +75,10 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
   const coachAuth = await bearer(request, COACH_USERNAME, COACH_PASSWORD);
   const studentAuth = await bearer(request, STUDENT_USERNAME, STUDENT_PASSWORD);
   const student2Auth = await bearer(request, STUDENT2_USERNAME, STUDENT2_PASSWORD);
-  const day = isoDaysAhead(3);
+  // Session C (classes.join-requests rule 20): a side can only be refused once a vacancy exists, so
+  // the class starts ~20 h out, inside the coach's 24 h invitation window; Student Two's decline then
+  // opens the vacancy at once, on the right (rule 2c: a tie keeps the leaver's side).
+  const { day, startTime, endTime } = slotHoursAhead(20);
   const requestIds: Array<string | number> = [];
 
   const coachesRes = await request.get(`${API_ROOT}/app/class-requests/coaches`, { headers: studentAuth });
@@ -112,8 +120,8 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
         name: TITLE,
         date: day,
         classType: "academy",
-        startTime: "18:00",
-        endTime: "19:00",
+        startTime,
+        endTime,
         isRecurring: false,
         notificationsEnabled: true,
         maxPlayers: 2,
