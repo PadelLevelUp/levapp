@@ -59,6 +59,7 @@ test.afterEach(async ({ request }) => {
     autoNotifyEnabled: true,
     invitationMode: "automatic",
   });
+  await setSameDayRestriction(request, coachToken, true);
   while (createdClasses.length > 0) {
     const event = createdClasses.pop()!;
     await request.post(`${API_BASE}/remove_class`, {
@@ -82,6 +83,25 @@ async function getToken(
 }
 
 /** Update the coach notification config via the API. */
+/**
+ * PAD-685 (notifications.config rule 6e): "no other class that day" is on by default, and the
+ * seed gives the queue's students other classes on the test day. This spec is about the approval
+ * card, not that restriction, so it switches it off for its run and back on in afterEach. The
+ * whole restrictions object is sent back so no other restriction moves.
+ */
+async function setSameDayRestriction(
+  request: APIRequestContext,
+  coachToken: string,
+  enabled: boolean
+): Promise<void> {
+  const res = await request.get(`${API_BASE}/notify/config`, {
+    headers: { Authorization: `Bearer ${coachToken}` },
+  });
+  expect(res.ok()).toBeTruthy();
+  const restrictions = { ...((await res.json()).restrictions ?? {}), noSameDayClass: { enabled } };
+  await setCoachConfig(request, coachToken, { restrictions });
+}
+
 async function setCoachConfig(
   request: APIRequestContext,
   coachToken: string,
@@ -280,6 +300,7 @@ test("US-NSA-01: semi-automatic mode holds invitations behind an approval card a
   // below is the behavior under test).
   const coachToken = await getToken(request, "e2e-coach", "E2eCoach123!");
   await setCoachConfig(request, coachToken, { autoNotifyEnabled: true });
+  await setSameDayRestriction(request, coachToken, false);
 
   await loginAsCoach(page);
   await openSettings(page);
