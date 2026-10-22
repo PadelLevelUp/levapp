@@ -96,11 +96,14 @@ test("switching the audience from the header keeps the scroll position (rule 3)"
 
 test("the two-phone demo steps once it is seen and stops on a step press (rule 9)", async ({ page }) => {
   await openSite(page);
+  await expect(page.getByTestId("site-page-coaches")).toBeVisible();
   // After the site is up (a frozen clock would hold the launch screen), before the demo is seen.
   await page.clock.install();
   const demo = page.getByTestId("site-demo-two-phones");
   await demo.scrollIntoViewIfNeeded();
   await expect(demo).toHaveAttribute("data-step", "0");
+  // Autoplay starts when the observer sees the demo; the clock runs only once its first step is armed.
+  await expect(demo).toHaveAttribute("data-playing", "true");
   await page.clock.runFor(5900);
   await expect(demo).toHaveAttribute("data-step", "1");
   await page.getByTestId("site-demo-step-3").click();
@@ -113,6 +116,7 @@ test("the two-phone demo steps once it is seen and stops on a step press (rule 9
 test("with reduced motion the demo never advances by itself (rule 9)", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await openSite(page);
+  await expect(page.getByTestId("site-page-coaches")).toBeVisible();
   await page.clock.install();
   const demo = page.getByTestId("site-demo-two-phones");
   await demo.scrollIntoViewIfNeeded();

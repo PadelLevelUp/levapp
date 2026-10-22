@@ -201,6 +201,7 @@ export function TwoPhoneDemo() {
       ref={rootRef}
       data-testid="site-demo-two-phones"
       data-step={step}
+      data-playing={playing}
       className="grid items-center gap-10 rounded-[28px] border border-site-border bg-white p-9 shadow-[0_24px_48px_-32px_rgba(13,27,49,0.28)] min-[900px]:grid-cols-[minmax(0,1fr)_auto] max-[640px]:p-5"
     >
       <div className="min-w-0">
