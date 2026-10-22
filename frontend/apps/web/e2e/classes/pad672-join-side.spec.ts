@@ -121,20 +121,21 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
       },
     });
     expect(added.ok(), `add_class: ${added.status()} ${await added.text()}`).toBeTruthy();
-    const listed = await request.get(`${API_ROOT}/app/academy-classes?coachId=${coach!.id}`, { headers: student2Auth });
-    const mine = ((await listed.json()).classes ?? []) as Array<{ title: string; originalId: number }>;
-    // Student 2 is IN the class, so the student-facing list does not show it to them; read the id
+    // Student 2 is IN the class, so the student-facing list does not show it to them; read the class
     // from the coach's calendar day instead.
-    const dayRes = await request.get(`${API_ROOT}/app/calendar_events`, {
+    const dayRes = await request.get(`${API_ROOT}/app/calendar`, {
       headers: coachAuth,
       params: { from: `${day}T00:00:00`, to: `${day}T23:59:59` },
     });
-    const event = ((await dayRes.json()) as Array<{ title: string; originalId: number }>).find((e) => e.title === TITLE);
-    expect(event ?? mine.find((c) => c.title === TITLE), "the new class is found").toBeTruthy();
-    const instanceId = (event ?? mine.find((c) => c.title === TITLE))!.originalId;
+    const event = ((await dayRes.json()) as Array<{ title: string; model: string; originalId: number; date: string }>).find(
+      (e) => e.title === TITLE
+    );
+    expect(event, "the new class is on the coach's day").toBeTruthy();
+    // A one-off class is a Lesson until an occurrence exists, so its `originalId` is not an instance
+    // id: decline by the calendar event's ref, which the server resolves to the occurrence.
     const declined = await request.post(`${API_ROOT}/app/notify/cancel_attendance`, {
       headers: student2Auth,
-      data: { lessonInstanceId: instanceId },
+      data: { model: event!.model, originalId: String(event!.originalId), date: event!.date },
     });
     expect(declined.ok(), `cancel_attendance: ${declined.status()} ${await declined.text()}`).toBeTruthy();
 
