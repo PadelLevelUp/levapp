@@ -103,6 +103,14 @@ UPDATE replacement_approval_prompts SET queue_snapshot = NULL WHERE queue_snapsh
 -- Raw SQL on purpose: the ORM refuses changes to the audit log; staff actor emails stay.
 UPDATE admin_audit_log SET before = NULL, after = NULL;
 
+-- Transient stores, emptied rather than rewritten (both prune themselves by age in production).
+-- scrubbed: auth_rate_limit_hits.key
+-- PAD-693: the limiter's key identifies the client that signed in (an address or an account).
+DELETE FROM auth_rate_limit_hits;
+-- scrubbed: realtime_events.body realtime_events.user_ids
+-- PAD-692: an event body is a copy of what the stream sent, message text included.
+DELETE FROM realtime_events;
+
 -- scrubbed: coach_in_player.nickname
 -- PAD-660: the coach's private nickname for a student is as personal as the name.
 UPDATE coach_in_player SET nickname = 'Alcunha ' || id WHERE nickname IS NOT NULL;

@@ -87,7 +87,9 @@ reload and a live copy stay available through `workflow_dispatch`.
      `admin_audit_log.before/after` → NULL (raw SQL: the ORM refuses changes to the audit log);
    - **images**: `object_key` → `images/scrubbed/<id>` (unique; the placeholder step seeds these);
    - **delivery channels**: `push_subscriptions` and `device_tokens` emptied (B's PAD-624 also
-     disables Expo sends on staging); `apscheduler_jobs` emptied (the scheduler re-arms on boot).
+     disables Expo sends on staging); `apscheduler_jobs` emptied (the scheduler re-arms on boot);
+   - **transient stores**: `auth_rate_limit_hits` (its key names the client) and `realtime_events`
+     (bodies copy what the stream sent) emptied;
    Kept on purpose: clubs, courts, exercises and notification templates (business and training
    content), `admin_roles` and the audit log's actor emails (staff, who sign in to the console with
    Google), ids, timestamps and statuses.

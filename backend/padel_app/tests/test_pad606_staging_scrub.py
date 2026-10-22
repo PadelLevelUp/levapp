@@ -27,7 +27,6 @@ NON_PERSONAL = {
     "admin_audit_log.target_id", "admin_audit_log.request_id", "admin_audit_log.outcome",
     "admin_roles.email", "admin_roles.role", "admin_roles.granted_by_email",  # staff
     "app_settings.key", "app_settings.value",
-    "backend_app.name", "backend_app.app_model_name", "backend_app.color",
     "bulk_imports.status", "bulk_imports.summary", "bulk_imports.record_ids",  # counts and ids
     "calendar_blocks.type", "calendar_blocks.recurrence_rule",
     "class_join_requests.status",
@@ -49,7 +48,6 @@ NON_PERSONAL = {
     "delivery_incidents.kind", "delivery_incidents.channel", "delivery_incidents.subject_type",
     "delivery_incidents.error_class",
     "device_tokens.platform",
-    "digital_consent_ages.country",
     "evaluation_categories.name", "evaluation_categories.catalogue_key",
     "evaluation_categories.competency_group",
     "evaluation_shares.category_ids", "evaluation_shares.evolution",
@@ -92,6 +90,9 @@ NON_PERSONAL = {
     # that closed a report (staff emails stay, as in admin_audit_log), a court side, a provider name.
     "message_reports.status", "message_reports.outcome", "message_reports.closed_by",
     "presences.side",
+    # Merge of 2026-10-22: court sides, and the rate limiter's scope (an endpoint name; its rows go).
+    "class_join_requests.side", "standing_waiting_list_entries.side", "waiting_list_entries.side",
+    "auth_rate_limit_hits.scope",
     "user_identities.provider",
 }
 
@@ -130,6 +131,10 @@ def test_every_text_column_is_scrubbed_or_declared_non_personal():
     assert stale == [], f"no such column any more: {stale}"
 
 
+# Tables the scrub empties instead of rewriting: their scrubbed columns are covered by the DELETE.
+EMPTIED_TABLES = ("push_subscriptions", "device_tokens", "auth_rate_limit_hits", "realtime_events")
+
+
 def test_every_listed_column_is_actually_written_by_the_sql():
     sql = SCRUB_SQL.read_text()
     statements = [
@@ -138,7 +143,7 @@ def test_every_listed_column_is_actually_written_by_the_sql():
     ]
     for name in sorted(_scrubbed_columns()):
         table, column = name.split(".")
-        if table in ("push_subscriptions", "device_tokens"):
+        if table in EMPTIED_TABLES:
             assert re.search(rf"DELETE FROM {table};", sql), name
             continue
         writes = [
@@ -207,6 +212,8 @@ def test_on_postgres_nothing_personal_survives(app):
         def ins(sql, **kw):
             return conn.execute(text(sql), kw).scalar()
 
+        conn.execute(text("INSERT INTO auth_rate_limit_hits (scope, key, hit_at) VALUES ('login', 'joao@example.com', 1)"))
+        conn.execute(text("""INSERT INTO realtime_events (user_ids, body) VALUES ('[1]', '{"text": "Olá João"}')"""))
         counts_before = {t: ins(f"SELECT count(*) FROM {t}") for t in ("users", "messages", "players", "coach_in_player")}
 
         sql = SCRUB_SQL.read_text().replace(":'pwhash'", "'pbkdf2:sha256:600000$shared$hash'")
@@ -228,6 +235,8 @@ def test_on_postgres_nothing_personal_survives(app):
         assert ins("SELECT notes FROM coach_in_player") is None
         assert ins("SELECT count(*) FROM push_subscriptions") == 0
         assert ins("SELECT count(*) FROM device_tokens") == 0
+        assert ins("SELECT count(*) FROM auth_rate_limit_hits") == 0
+        assert ins("SELECT count(*) FROM realtime_events") == 0
         assert {t: ins(f"SELECT count(*) FROM {t}") for t in counts_before} == counts_before
 
 
