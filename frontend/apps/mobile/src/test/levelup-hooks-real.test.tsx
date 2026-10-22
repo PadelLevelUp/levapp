@@ -6,7 +6,8 @@
  * PAD-406 part C.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Text } from "react-native";
+// A View, not a Text: react-native's Text is the font-class guard's (R-025) and nothing here renders copy.
+import { View } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 import { version as reactVersion } from "react";
 
@@ -20,7 +21,7 @@ vi.mock("@levelup/api/src/resources/players", () => ({
 
 function Roster() {
   const roster = useCoachRoster();
-  return <Text testID="roster">{roster.isSuccess ? `${roster.data.length} players` : roster.status}</Text>;
+  return <View testID="roster" accessibilityLabel={roster.isSuccess ? `${roster.data.length} players` : roster.status} />;
 }
 
 describe("@levelup/hooks under the mobile harness (PAD-406)", () => {
@@ -32,7 +33,7 @@ describe("@levelup/hooks under the mobile harness (PAD-406)", () => {
       </QueryClientProvider>,
     );
     await view.flush();
-    expect(view.byTestId("roster").props.children).toBe("2 players");
+    expect(view.byTestId("roster").props.accessibilityLabel).toBe("2 players");
     expect(reactVersion).toBe("19.1.0");
   });
 });
