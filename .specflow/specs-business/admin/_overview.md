@@ -13,6 +13,8 @@ healthy, all from a separate staff console instead of the database.
   engine health, and later the plan each coach is on.
 - Staff act under the company's own Google identity, every change they make is attributable, and
   the coach and student apps carry no staff surface.
+- The owner knows what LevApp has cost: every cost since the start, by month and category, with
+  the running total.
 
 ## Why it's grouped this way
 
