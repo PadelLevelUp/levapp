@@ -83,6 +83,8 @@ test("the closing calls rotate the audience (rule 6)", async ({ page }) => {
 test("switching the audience from the header keeps the scroll position (rule 3)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openSite(page);
+  // The coaches page is its own chunk: until it renders the page is the placeholder, too short to scroll to 900.
+  await expect(page.getByTestId("site-page-coaches")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 900));
   await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(900);
   await page.getByTestId("site-audience").click();

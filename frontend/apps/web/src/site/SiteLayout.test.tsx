@@ -69,8 +69,9 @@ describe("the site layout (PAD-656)", { timeout: 20_000 }, () => {
     const nav = screen.getByTestId("site-nav");
     expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["#vantagens", "#como-funciona", "#resultados"]);
     await choose("others");
-    expect(within(screen.getByTestId("site-nav")).queryAllByRole("link")).toHaveLength(0);
+    // The switch is a transition: header and page change together once the Outros chunk is in.
     expect(await screen.findByTestId("site-page-others", {}, PAGE_WAIT)).toBeInTheDocument();
+    expect(within(screen.getByTestId("site-nav")).queryAllByRole("link")).toHaveLength(0);
   });
 
   it("the ☰ menu carries the links and both buttons, and closes after a link", () => {

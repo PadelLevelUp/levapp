@@ -5,15 +5,18 @@
  * preloads the URL's audience with the site chunks (vite.config.ts `sitePreload`), so the split
  * costs no extra round trip.
  */
-import { Suspense } from "react";
+import { startTransition, Suspense } from "react";
 
 import { SiteCoachesPage as CoachesPage, SiteOthersPage as OthersPage, SitePlayersPage as PlayersPage } from "@/routes/lazyPages";
 
-import { useAudience } from "./audience";
+import { type Audience, useAudience } from "./audience";
 import { SiteFrame } from "./SiteFrame";
 
 export default function SitePage() {
-  const [audience, setAudience] = useAudience();
+  const [audience, writeAudience] = useAudience();
+  // A transition keeps the current page on screen until the next audience's chunk is in: the
+  // placeholder never replaces it, so the page never shrinks under the scroll position (rule 3).
+  const setAudience = (next: Audience) => startTransition(() => writeAudience(next));
   return (
     <SiteFrame audience={audience} onAudienceChange={setAudience}>
       {(openDemo) => (
