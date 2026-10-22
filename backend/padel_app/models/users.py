@@ -134,6 +134,11 @@ class User(db.Model, model.Model):
     notif_request_alerts = Column(
         Boolean, nullable=False, server_default="1", default=True,
     )
+    #: PAD-680 (notifications.notification-sound rule 1): a sound for a new message or system
+    #: notification while the app is open, and `sound` on this user's Expo pushes. Default on.
+    notif_sound = Column(
+        Boolean, nullable=False, server_default="1", default=True,
+    )
 
     @property
     def notifications_blocked(self):

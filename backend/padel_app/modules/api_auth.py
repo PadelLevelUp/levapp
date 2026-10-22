@@ -101,6 +101,8 @@ def _serialize_me(user):
         "notificationBlockReason": user.notif_block_reason or "",
         # PAD-232: request alerts opt-out (notifications.request-alerts rule 6).
         "requestAlerts": user.notif_request_alerts is not False,
+        # PAD-680: the notification sound (notifications.notification-sound rule 1).
+        "notificationSound": user.notif_sound is not False,
         "birthDate": user.birth_date.isoformat() if user.birth_date else None,
         "country": user.country,
         # PAD-637 (auth.legal-catch-up rule 1): what the next-login screen asks for.
