@@ -1,0 +1,25 @@
+# PAD-710 (Android lane): bring a toolbar-side element of the tactical board on screen.
+#
+# On the Android phone the board's tab row / toolbar (`board-tab-*`, `board-tool-*`,
+# `board-undo`...) and the court do not fit together, and Android exposes only on-screen
+# elements. `scrollUntilVisible` swipes from the screen centre, which is the court, and the
+# court consumes the gesture (piece dragging), so the page never scrolls (run 39691332376).
+# This swipes on the page's left margin instead, outside the board card, until ${TARGET} is
+# visible; a no-op when it already is. Call it only under `runFlow: when: platform: Android`.
+#
+# Usage: runFlow: { file: board-show-toolbar.yaml, env: { TARGET: "board-tool-ball" } }
+appId: com.padellevelup.app
+---
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: "${TARGET}"
+    commands:
+      # A vertical swipe on the page's left margin (x 4%), outside the board card and its court:
+      # the court takes any gesture that starts on it (piece dragging), and an element anchor can
+      # itself be off screen. Finger down: the page scrolls up, towards the tabs and toolbar.
+      - swipe:
+          start: "4%, 35%"
+          end: "4%, 75%"
+          duration: 600
