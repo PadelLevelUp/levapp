@@ -118,12 +118,13 @@ def test_a_write_after_a_commit_that_never_read_the_address_still_discards_the_c
 
 
 def test_the_staging_sync_rewrite_clears_codes_too():
-    """The one writer the listener cannot see: scripts/sync-staging-db.sh rewrites every email with a bulk
-    SQL UPDATE after each staging deploy. That same statement must clear any pending recovery code."""
+    """The one writer the listener cannot see: the staging scrub rewrites every email with a bulk SQL
+    UPDATE after each restore (scripts/staging-scrub.sql since PAD-606, run by sync-staging-db.sh).
+    That same statement must clear any pending recovery code."""
     import pathlib
     import re
 
-    script = (pathlib.Path(__file__).resolve().parents[2] / "scripts/sync-staging-db.sh").read_text()
+    script = (pathlib.Path(__file__).resolve().parents[2] / "scripts/staging-scrub.sql").read_text()
     (rewrite,) = [line for line in script.splitlines() if re.search(r"update users set email", line, re.I)]
 
     for column in ("password_reset_code_hash = null", "password_reset_expires_at = null",

@@ -17,6 +17,9 @@ they have behaviour worth specifying.
 - `delivery.worker-role` — implementing (PAD-695): the scheduler's jobs run in a `worker`
   process of the API image behind `WORKER_SPLIT` (on for staging, off for prod until B8); the API
   becomes a paused job-store client.
+- `delivery.events-role` — implementing (PAD-697): the live-update streams in their own process
+  (`ROLE=events`, gunicorn's gevent worker via `scripts/serve.sh`), ready only with the Postgres
+  broker's listener up; the API answers 410 once `EVENTS_SPLIT` is on. Staging only until PAD-704.
 - `delivery.k8s-manifests` — implementing (PAD-698): the GKE Autopilot target in Kustomize
   (`infra/k8s`), validated in CI, applied by no one until PAD-705.
 - `delivery.zero-downtime-deploy` — implementing (PAD-588: one scheduler leader by advisory lock,
