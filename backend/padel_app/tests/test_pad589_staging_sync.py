@@ -28,6 +28,8 @@ case "$1" in
       *_worker) [ -n "${STUB_WORKER:-}" ] || exit 1 ;;
       # PAD-697: likewise the events container
       *_events) [ -n "${STUB_EVENTS:-}" ] || exit 1 ;;
+      # PAD-704: the second API copy, likewise
+      *_b) [ -n "${STUB_SECOND:-}" ] || exit 1 ;;
       *Config.Image*) echo "repo/levelup_backend:staging" ;;
       *HostConfig.NetworkMode*) echo "levelup_net" ;;
       *"json .Config.Env"*) echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on", "POSTGRES_DB=padel_app_staging", "VAPID_PRIVATE_KEY=-----BEGIN KEY-----\nabc\n-----END KEY-----", "MAIL_PASSWORD=a=b c"]' ;;
@@ -286,3 +288,13 @@ def test_the_events_container_is_stopped_with_the_app_and_started_after_it(sandb
 def test_without_an_events_container_the_sync_touches_none(sandbox):
     result, calls = run(sandbox, "reload")
     assert "padelapp_staging_events" not in calls.replace("docker inspect padelapp_staging_events", "")
+
+
+def test_the_second_copy_is_stopped_with_the_app_and_started_after_it(sandbox):
+    """PAD-704 (zero-downtime-deploy rule 14): padelapp_staging_b holds connections to the target too."""
+    result, calls = run(sandbox, "reload", STUB_SECOND="1")
+    lines = calls.splitlines()
+    stopped = lines.index("docker stop padelapp_staging_b")
+    restore = next(i for i, c in enumerate(lines) if "pg_restore" in c or " sh -c " in c)
+    assert lines.index("docker stop padelapp_staging") < stopped < restore
+    assert lines.index("docker start padelapp_staging") < lines.index("docker start padelapp_staging_b")
