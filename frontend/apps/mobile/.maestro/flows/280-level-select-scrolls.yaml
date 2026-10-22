@@ -40,6 +40,8 @@ onFlowComplete:
       id: "player-level-select"
     direction: DOWN
     timeout: 30000
+    # PAD-710 (Android lane): centre the field so the option list has room above the nav bar.
+    centerElement: true
 - tapOn:
     id: "player-level-select"
 - extendedWaitUntil:

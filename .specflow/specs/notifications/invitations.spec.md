@@ -585,7 +585,10 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
        2026-10-21); one whose spot had no side moves to any B.
     With several Bs, the lowest `Vacancy.id` that qualifies takes it. A move changes the
     invitation's `vacancy_id` to B and its `round_number` to B's current round (at least 1; group 0 stays 0),
-    and its message's `vacancyId` metadata; the edit is published after the commit as a
+    and its message's `vacancyId` metadata, and records where it came from: `moved_from_vacancy_id`
+    (the closing spot; a later move overwrites it, so it always names the immediately previous
+    spot) and `moved_at` (PAD-719; the coach's invitation row reads "transferido da vaga anterior",
+    `calendar.event-detail` rule 16); the edit is published after the commit as a
     `message_edited` event, with **no push and no new message**: the student sees the same bubble,
     and their "yes" now takes B. B's pacing continues from the invitations it inherited:
     `last_activity_at` becomes the closing spot's last batch stamp (the send time of its newest

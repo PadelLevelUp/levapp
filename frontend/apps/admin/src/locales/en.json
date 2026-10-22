@@ -470,7 +470,42 @@
       "linear": "Linear",
       "github": "GitHub",
       "newTab": "opens in a new tab",
-      "truncated": "Incomplete list: there are more than this page's limit."
+      "truncated": "Incomplete list: there are more than this page's limit.",
+      "testflight": {
+        "title": "TestFlight builds",
+        "empty": "No builds.",
+        "build": "{{version}} ({{build}})",
+        "expired": "Expired",
+        "internal": "Internal: {{state}}",
+        "external": "External: {{state}}",
+        "noNotes": "No \"What to Test\" notes."
+      },
+      "bugs": {
+        "title": "Open bugs",
+        "empty": "No open bugs.",
+        "resolved_one": "{{count}} resolved",
+        "resolved_other": "{{count}} resolved",
+        "unparsed_one": "{{count}} index line not read",
+        "unparsed_other": "{{count}} index lines not read",
+        "severity": {
+          "critical": "Critical",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        }
+      },
+      "ci": {
+        "title": "CI lanes",
+        "noRuns": "no recent runs",
+        "failureRate": "{{percent}} % failed over {{runs}} runs",
+        "nearLimit": "Near the limit",
+        "minutes": "latest {{latest}} min · median {{median}} · longest {{longest}} / limit {{limit}}"
+      },
+      "sources": {
+        "testflight": "TestFlight",
+        "bugs": "Bug ledger",
+        "ci": "CI"
+      }
     }
   }
 }

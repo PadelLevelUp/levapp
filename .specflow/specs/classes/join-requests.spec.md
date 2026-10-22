@@ -175,6 +175,12 @@ by a student's request — and whichever lands first wins.
     student's class view says the same once the request is accepted: pt "Está marcado! Estás
     inscrito/a nesta aula.", en "You're booked! You're enrolled in this class." (key
     `calendar.joinRequest.accepted`, web and iOS).
+19a. **A refused request says the student is not in the class, in the same shape (PAD-678;
+    numbering unconfirmed).** pt: "Não ficaste inscrito/a em {title} {when}: o treinador não aceitou
+    o pedido desta vez."; en: "You're not enrolled in {title} {when}: the coach didn't accept the
+    request this time." Same `{when}`, the same "nesta aula" / "in this class" for an untitled class,
+    and the same language rule as rule 19. Texts approved by the coordinator on the owner's behalf
+    (2026-10-22); owner to confirm.
 
 20. **A request names the side the student will play in that class (PAD-672 slice 1; owner's answers
     Q1, Q2, Q6, 2026-10-21; numbering unconfirmed).** The profile side (`Association_CoachPlayer.side`)
