@@ -27,7 +27,8 @@ export default {
           "primary-hover": "#1F45B8",
           ink: "#101E33",
           muted: "#55627A",
-          faint: "#7E8BA0",
+          // Darker than the design's #7E8BA0 so small grey text passes 4.5:1 on every site surface.
+          faint: "#5F6B82",
           wash: "#E8F1FF",
           "wash-hover": "#DCE8FF",
           surface: "#F1F4F9",
@@ -39,7 +40,8 @@ export default {
           "green-bg": "#E7F5EF",
           amber: "#9A5B10",
           "amber-bg": "#FDF1E1",
-          red: "#C0392F",
+          // Darker than the design's #C0392F: 5.1:1 on red-bg (4.42 failed).
+          red: "#B0342B",
           "red-bg": "#F9E3E1",
           navy: "#16294A",
           "navy-deep": "#0B1524",

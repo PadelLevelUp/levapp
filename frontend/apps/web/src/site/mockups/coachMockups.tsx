@@ -73,7 +73,7 @@ export function NoticesMockup() {
   const { t } = useTranslation();
   return (
     <div role="img" aria-label={t("site.coaches.notices.label")} data-testid="site-notices-mockup" className="flex flex-wrap justify-center gap-6">
-      <Phone time="14:42" className="bg-[#0D1B31]">
+      <Phone time="14:42" className="bg-[#0D1B31]" dark>
         <div className="flex flex-col items-center gap-1 pt-6 text-white">
           <span className="text-[12px] opacity-80">sáb. 10/10</span>
           <span className="font-display text-[52px] font-bold leading-none">14:42</span>

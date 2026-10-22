@@ -156,7 +156,7 @@ export function WatchShot({
   const meta = t(`landing.watch.${variant}.meta`);
 
   return (
-    <div aria-label={t("landing.watch.label", { text })} className="contents">
+    <div role="img" aria-label={t("landing.watch.label", { text })} className="contents">
       <DeviceFrame
         kind="watch"
         className={className ?? "relative mx-auto w-[168px]"}

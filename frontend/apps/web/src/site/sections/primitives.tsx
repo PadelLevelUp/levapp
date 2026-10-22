@@ -221,14 +221,14 @@ export function ClosingCta({ title, body, actions, testId }: { title: string; bo
 }
 
 /** A CSS-drawn phone for the chat and lock-screen mockups (bezel, notch, status bar). */
-export function Phone({ children, time = "17:42", className, label }: { children: ReactNode; time?: string; className?: string; label?: string }) {
+export function Phone({ children, time = "17:42", className, label, dark }: { children: ReactNode; time?: string; className?: string; label?: string; dark?: boolean }) {
   return (
     <div
       role={label ? "img" : undefined}
       aria-label={label}
       className={cn("relative w-[270px] max-w-full shrink-0 overflow-hidden rounded-[40px] border-[9px] border-[#12161C] bg-white", cardShadow, className)}
     >
-      <div className="flex h-8 items-center justify-between px-5 text-[12px] font-semibold text-site-ink" aria-hidden>
+      <div className={cn("flex h-8 items-center justify-between px-5 text-[12px] font-semibold", dark ? "text-white" : "text-site-ink")} aria-hidden>
         <span>{time}</span>
         <span className="h-5 w-24 rounded-b-2xl bg-[#12161C]" />
         <span>82</span>
