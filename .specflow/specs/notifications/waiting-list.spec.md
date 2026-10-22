@@ -11,8 +11,8 @@ governed_by: []
 
 ### Intent
 Players can join a waiting list for full classes. When a spot opens, the students on the class's
-waiting list are **asked first**: they get the invitation before the coach's invitation groups, in
-the order they joined (PAD-446). Nobody is enrolled from the list without saying yes.
+waiting list are **asked first**: they get the invitation before the coach's invitation groups,
+ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). Nobody is enrolled from the list without saying yes.
 
 > Rule 1's client wiring landed with the PAD-124 build (decided 2026-09-04). Everything else in
 > this spec is implemented, rules 3a/4a-4d included (they landed with PAD-128).
@@ -78,6 +78,21 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
      rows this entry queued there; classes it now covers gain one (rule 10).
    - **Bounded fan-out (B-293):** an entry queues the player only for classes that start before its
      end, and an expired entry queues nothing more, at add, renew and materialisation (rules 3, 10).
+2a. **The coach is warned before adding a student who fails the bar (PAD-724, PAD-669 R5; standing
+    part decided 2026-10-21 under the owner's mandate; numbering unconfirmed).** Adding never blocks:
+    the bar is a warning the coach confirms, as PAD-133's manual add (eligibility.enforcement rules
+    6–7), and old clients that do not ask are not refused.
+    - **A class's list (this class, the series, a period):** the add dialog already marks the
+      students who fail the class's bar (`/eligibility_check`, rule 20); choosing one and pressing
+      add shows the reasons inside the dialog and turns the button into "Adicionar mesmo assim" /
+      "Add anyway"; the second press adds. A student who passes is added on the first press.
+    - **The standing list (no single class):** `POST /api/app/notify/standing_waiting_list/eligibility_check`
+      `{playerId, expiresOn | durationDays}` → `{classes: [{lessonInstanceId, title, startDatetime,
+      ineligible}]}`: the classes the entry would reach (the fan-out's own selection,
+      `standing_target_instances`) whose bar the student fails, in start order. The dialog asks it on
+      the submit path; a non-empty answer names them ("Sábado 18h · 24/10 18:00") and the button turns
+      into "Adicionar mesmo assim"; an empty one adds at once. Read-only, like `/eligibility_check`.
+    Web and iOS alike, inline in the dialog (no nested modal).
 3. When a new instance is materialized, `_sync_standing_entries_for_new_instance()` auto-creates waiting list entries for standing members whose entry has not expired and ends after the class starts (rule 2)
 3a. **Fan-out is not a promise of a place.** A standing entry fans out to every upcoming class of
    the coach, and matching happens when a spot opens (rule 4a), not at fan-out time — a student's
@@ -91,9 +106,12 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
    answering yes, through the same accept path as any invitation (`notifications.invitations`
    rule 10). In semi-automatic mode nothing is sent before the coach approves the spot
    (`notifications.semi-auto-approval`), the waiting list included.
-   - **Order:** the time the student joined the list: a standing entry's creation time for an entry
-     it fanned out, the entry's own `joined_at` otherwise; ties by entry id. The coach's priority
-     criteria do not reorder the list, and a standing entry has no other precedence.
+   - **Order (PAD-723, PAD-669 R4, owner 2026-10-21):** the coach's own priority criteria, the same
+     ranking every invitation group uses (`_rank_invited` on the group's survivors, never a second
+     copy). The student's origin — standing list, series, own request — gives **no** priority. Only
+     between students the criteria cannot separate does the row's own `joined_at` decide (then the
+     entry id); a fanned-out row's time is its own, not its standing entry's. (Before PAD-723 the
+     list went strictly by join time, a standing entry's creation time standing in for its rows.)
    - **Pacing, as a group:** at most `maxSimultaneous` of them at once. The next waiting-list
      students (or, when none is left to ask today — a student at `maxInvitesPerStudentPerDay` is
      not — the coach's current group) are asked on the next batch, after
@@ -206,6 +224,15 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     The coach recording the answer for the student settles the entry the same way, and so does the
     coach withdrawing the invitation (`notifications.invitations` rule 19, PAD-548): the entry
     closes as on a "no", no credit is spent.
+15b. **The last credit spent withdraws the other offers it paid for (PAD-669 edge case, PAD-725;
+    owner-confirmed 2026-10-21; numbering unconfirmed).** When a "yes" spends a standing entry's
+    last credit (rule 15 closes the entry and its other class rows), the student's other live
+    group-0 invitations for the classes that entry had reached are withdrawn in the same commit:
+    `expired`, `retired_reason = "credits_spent"`, not a "no", the bubble reading "Já usaste os
+    créditos da lista de espera" / "Your waiting-list credits are used up" with no new message and
+    no waiting-list join offer, its edit published after the commit. Otherwise a student holding two
+    offers could take a second class with no credit left. Offers from the student's own class
+    entries (not this standing entry) are untouched.
 16. **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado
@@ -409,14 +436,21 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
 - **When** a vacancy opens
 - **Then** they are not invited
 
-#### The waiting list is asked first, in join order (PAD-446)
+#### The waiting list is asked first, by the coach's criteria (PAD-446, PAD-723)
 - **Given** a class with one open spot, `maxSimultaneous` 1, and three students on its waiting list
-  who joined at 10:00 (Ana, her own entry), 09:00 (Bea, a standing entry created at 09:00) and
-  11:00 (Caio), plus roster students in the coach's first invitation group
+  with equal priority stats who joined at 10:00 (Ana, her own entry), 11:00 (Bea, a row fanned out by
+  a standing entry created at 09:00) and 12:00 (Caio), plus roster students in the coach's first
+  invitation group
 - **When** the spot starts
-- **Then** only Bea is invited, and nobody is enrolled
-- **And** after `maxInactiveTime` with no answer, Ana is invited next, then Caio
+- **Then** only Ana is invited, and nobody is enrolled (the standing entry's age gives Bea nothing)
+- **And** after `maxInactiveTime` with no answer, Bea is invited next, then Caio
 - **And** only when no waiting-list student is left to ask does the coach's first group get an invitation
+
+#### The coach's criteria reorder the list (PAD-723)
+- **Given** the coach ranks by attendance; Ana joined the list first and attends 1 in 4, Bea joined
+  later and attends 4 in 4
+- **When** the spot starts with `maxSimultaneous` 1
+- **Then** Bea is invited first
 
 #### A student answers one waiting-list offer before the next spot asks them (PAD-446, coordinator default)
 - **Given** a student on the waiting list of classes A and B of one coach, and an open spot in each

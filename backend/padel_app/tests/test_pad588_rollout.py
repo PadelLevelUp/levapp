@@ -357,9 +357,11 @@ def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upst
     # PAD-691: the deploys migrate through the script's one-shot container, inside a 30-min ssh step.
     # B-664: the request through nginx goes to the environment's own vhost.
     # B-666: each option only when the checked-out rollout.sh (a rollback's older one) accepts it.
+    # PAD-695: --worker when the env file turns WORKER_SPLIT on (delivery.worker-role), filtered too.
     assert "RO=/home/${{ secrets.GCE_USER }}/rollout.sh" in text
+    assert "then WORKER_OPT=\"--worker\"; fi" in text
     assert (f'bash "$RO" --name {name} --ports {ports} --upstream {upstream} $(opt --probe-host {host}) '
-            "$(opt --migrate) $ROLLOUT_MODE --") in text
+            '$(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $ROLLOUT_MODE --') in text
     deploy_step = text.split("RO=/home/${{ secrets.GCE_USER }}/rollout.sh", 1)[0].rsplit("uses: appleboy/ssh-action", 1)[1]
     assert "command_timeout: 30m" in deploy_step
     assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"

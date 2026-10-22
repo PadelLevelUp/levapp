@@ -55,7 +55,7 @@ def test_the_fixture_is_the_script_at_0ee4e837d():
     assert FIXTURE.read_text() == shown.stdout
 
 
-def run_workflow_lines(sb, workflow, script):  # noqa: F811
+def run_workflow_lines(sb, workflow, script, worker_opt=""):  # noqa: F811
     helper, call = rollout_lines(workflow)
     port_a = re.search(r"--ports (\d+),", call).group(1)
     name = re.search(r"--name (\S+)", call).group(1)
@@ -63,7 +63,8 @@ def run_workflow_lines(sb, workflow, script):  # noqa: F811
     upstream = re.search(r"--upstream (\S+)", call).group(1)
     sb["upstream"].write_text(f"upstream {upstream} {{\n    server 127.0.0.1:{port_a};\n}}\n")
     (sb["sites"] / "levapp").write_text(f"location /api/ {{\n    proxy_pass http://{upstream};\n}}\n")
-    bash = f'set -euo pipefail\nRO="{script}"\nROLLOUT_MODE=""\n{helper}\n{call}-- --restart unless-stopped repo/levelup_backend:abc123\n'
+    bash = (f'set -euo pipefail\nRO="{script}"\nROLLOUT_MODE=""\nWORKER_OPT="{worker_opt}"\n{helper}\n'
+            f'{call}-- --restart unless-stopped repo/levelup_backend:abc123\n')
     r = subprocess.run(["bash", "-c", bash], env=sb["env"], capture_output=True, text=True, timeout=60)
     calls = (sb["home"] / "calls.log").read_text().splitlines() if (sb["home"] / "calls.log").exists() else []
     return r, calls, name
@@ -77,6 +78,15 @@ def test_a_rollback_to_before_migrate_and_probe_host_still_rolls(sb, tmp_path, w
     assert "this rollout.sh has no --probe-host: not passing it" in r.stderr
     assert "this rollout.sh has no --migrate: not passing it" in r.stderr
     assert any(c.startswith(f"docker run -d --name {name}_next") for c in calls), "it rolled"
+
+
+@pytest.mark.parametrize("workflow", ["deploy-prod.yaml", "deploy-staging.yaml"])
+def test_a_rollback_drops_worker_too_when_the_env_turns_the_split_on(sb, tmp_path, workflow):  # noqa: F811
+    """PAD-695 joined after 0ee4e837d: its --worker goes through the same filter."""
+    r, calls, name = run_workflow_lines(sb, workflow, old_rollout(tmp_path), worker_opt="--worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "this rollout.sh has no --worker: not passing it" in r.stderr
+    assert "unknown option" not in r.stdout + r.stderr
 
 
 @pytest.mark.parametrize("workflow", ["deploy-prod.yaml", "deploy-staging.yaml"])

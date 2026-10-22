@@ -2280,10 +2280,16 @@ def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
     Native: PAD-240 — a MESSAGE notification (messaging.push-notifications rule 7); the tap opens the
     conversation, where the Yes/No and the reply live (routing to class/[id] dead-ended: a push never
     carries the route params that screen rebuilds its event from). The instance id rides along as
-    context only. PAD-147: the badge is the recipient's real unread total (rule 5)."""
+    context only. PAD-147: the badge is the recipient's real unread total (rule 5).
+    PAD-713 (rule 14): titled in the student's own language, web and iOS alike."""
+    from padel_app.models.users import User
+
+    student = db.session.get(User, player_user_id)
+    language = getattr(student, "language", None) or "pt"
+    title = "New message" if str(language).startswith("en") else "Nova mensagem"
     send_push_notification(
         user_id=player_user_id,
-        title="New message",
+        title=title,
         body=(msg.text or "")[:100],
         url=f"/messages/{msg.conversation_id}?message={msg.id}",
     )
@@ -2294,7 +2300,7 @@ def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
     from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         player_user_id,
-        title="New message",
+        title=title,
         body=(msg.text or "")[:100],
         data=push_data,
         badge=get_unread_count(player_user_id),
@@ -3125,6 +3131,38 @@ def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: i
     re-counts it. Returns the invitations withdrawn for balance, for the caller to publish."""
     accepter_side = sides_in_occurrence(instance, coach_id, [accepter_id]).get(accepter_id)
     return _recount_open_spots(instance, coach_id, extra_going=accepter_side)
+
+
+def vacancy_for_joiner(instance: LessonInstance, coach_id: int, player_id: int) -> "Vacancy | None":
+    """PAD-715 (classes.join-requests rule 6, D7 of PAD-672): the open spot a student the coach lets
+    in (a join request accepted) takes. A left or right student takes a spot of their own side (else
+    a side-less one, else the oldest); a "both" or side-less student takes the spot whose closing
+    leaves the class most balanced — the going players' sides plus the sides of the spots still
+    open — the oldest on a tie. Before PAD-715 it was always the oldest, so a right student could
+    close the left spot and the class end 4 left / 6 right. Read unlocked: the caller locks it in
+    rule 10's order."""
+    open_spots = (
+        Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").order_by(Vacancy.id.asc()).all()
+    )
+    if not open_spots:
+        return None
+    side = sides_in_occurrence(instance, coach_id, [player_id]).get(player_id)
+    if side in ("left", "right"):
+        return (
+            next((v for v in open_spots if v.side == side), None)
+            or next((v for v in open_spots if v.side not in ("left", "right")), None)
+            or open_spots[0]
+        )
+    # Rule 2b's count: the going players' sides plus every open spot's side; closing spot v takes
+    # its side out. No sided roster at all: every pick is equal, so the oldest.
+    counts = _side_counts(instance, coach_id)
+    if counts is None:
+        return open_spots[0]
+
+    def imbalance_after_closing(v: Vacancy) -> int:
+        return abs(counts["left"] - counts["right"] - (v.side == "left") + (v.side == "right"))
+
+    return min(open_spots, key=lambda v: (imbalance_after_closing(v), v.id))
 
 
 def rebalance_after_side_change(instance: LessonInstance, coach_id: int) -> list:
@@ -6932,9 +6970,15 @@ def _waiting_list_candidates(
         vacancy, instance, coach_id, config, wave=("waiting_list", 0),
         only_player_ids={entry.player_id for _, entry in keyed},
     )
-    invited = {v.cp.player_id: v.cp for v in verdicts if v.invited}
-    keyed.sort(key=lambda pair: pair[0])
-    return [(entry, invited[entry.player_id]) for _, entry in keyed if entry.player_id in invited]
+    # PAD-723 (PAD-669 R4, rule 4): the coach's own priority criteria order group 0, through the same
+    # `_rank_invited` every other group uses; the origin (standing, series, own request) gives no
+    # priority. The row's own join time (then its id) is only the last tie-breaker: `_rank_invited`'s
+    # sort is stable, so the survivors go in in that order.
+    entry_of = {entry.player_id: entry for _, entry in keyed}
+    by_join = sorted((e for e in entry_of.values()), key=lambda e: (e.joined_at or datetime.min, e.id))
+    position = {e.player_id: i for i, e in enumerate(by_join)}
+    survivors = sorted((v for v in verdicts if v.invited), key=lambda v: position[v.cp.player_id])
+    return [(entry_of[cp.player_id], cp) for cp in _rank_invited(survivors, config, vacancy)]
 
 
 def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
@@ -6964,11 +7008,39 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
                 # PAD-560 (rules 19, 19a): no credit limit (NULL) never closes the entry.
                 if standing.credits_total is not None and standing.credits_used >= standing.credits_total:
                     standing.is_active = False
+                    closed_classes = []
                     for other in WaitingListEntry.query.filter_by(
                         standing_entry_id=standing.id, is_active=True
                     ).all():
                         other.is_active = False
+                        closed_classes.append(other.lesson_instance_id)
+                    # PAD-725 (rule 15b): the last credit is spent, so the student's other live
+                    # group-0 offers from this entry go too — else they could take a second class
+                    # with nothing left. Not a "no"; the bubble says why; published after the commit.
+                    _publish_retired(_withdraw_spent_offers(event.player_id, closed_classes))
     db.session.flush()
+
+
+CREDITS_SPENT = "credits_spent"
+
+
+def _withdraw_spent_offers(player_id: int, instance_ids: list) -> list:
+    """PAD-725: retire the student's live group-0 invitations for ``instance_ids`` (the classes the
+    exhausted standing entry had reached). Flushed only; the caller's commit carries it."""
+    if not instance_ids:
+        return []
+    events = NotificationEvent.query.filter(
+        NotificationEvent.player_id == player_id,
+        NotificationEvent.lesson_instance_id.in_(instance_ids),
+        NotificationEvent.round_number == 0,
+        NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+    ).all()
+    for event in events:
+        event.status = "expired"
+        event.retired_reason = CREDITS_SPENT
+        _retire_invite_message(event, defer=True, response=CREDITS_SPENT)
+    db.session.flush()
+    return events
 # ---------------------------------------------------------------------------
 # Notification groups (manual notify modal)
 # ---------------------------------------------------------------------------
@@ -7116,21 +7188,22 @@ def _deactivate_standing_entry(entry: StandingWaitingListEntry) -> None:
         wle.save()
 
 
-def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
-    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
-    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
+def standing_target_instances(coach_id: int, lesson_id: int | None, expires_at: datetime) -> list:
+    """The classes a standing entry reaches: the coach's upcoming occurrences that start before it
+    ends (B-293, rule 2), only its series' when scoped to one (PAD-547, rule 19). One reading, used
+    by the fan-out and by the coach's eligibility pre-check (PAD-724)."""
     now = utcnow_naive()
-    if entry.expires_at <= now:
-        return
-    end_wall = utc_to_wall_naive(entry.expires_at)
+    if expires_at <= now:
+        return []
+    end_wall = utc_to_wall_naive(expires_at)
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
-    coach_instance_ids = _coach_instances(entry.coach_id)  # PAD-275 rule 4
-    for instance_id in coach_instance_ids:
+    out = []
+    for instance_id in _coach_instances(coach_id):  # PAD-275 rule 4
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
-        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+        if lesson_id is not None and instance.lesson_id != lesson_id:
             continue  # PAD-547 (rule 19): a series entry reaches only its series
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
@@ -7138,6 +7211,35 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
             continue
         if instance.start_datetime >= end_wall:  # B-293: not past the entry's end
             continue
+        out.append(instance)
+    return out
+
+
+def standing_eligibility_failures(coach_id: int, player_id: int, expires_at: datetime,
+                                  lesson_id: int | None = None) -> list:
+    """PAD-724 (PAD-669 R5; standing part decided 2026-10-21 under the owner's mandate): the classes
+    a standing entry would reach whose eligibility bar the student fails, each with the PAD-133
+    reasons, in start order — so the coach is warned before adding, and confirms or not."""
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    out = []
+    for instance in sorted(standing_target_instances(coach_id, lesson_id, expires_at),
+                           key=lambda i: i.start_datetime):
+        failing = eligibility_failures_for_players(instance, coach_id, [player_id], config)
+        if failing:
+            out.append({
+                "lessonInstanceId": instance.id,
+                "title": instance.title,
+                "startDatetime": instance.start_datetime.isoformat(),
+                "ineligible": failing,
+            })
+    return out
+
+
+def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
+    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
+    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
+    for instance in standing_target_instances(entry.coach_id, entry.lesson_id, entry.expires_at):
+        instance_id = instance.id
         # PAD-109: match on the (lesson_instance_id, player_id) pair the
         # uq_waiting_session_player constraint covers — NOT on is_active, which
         # is not part of it. Removing a standing entry only flips its per-class
