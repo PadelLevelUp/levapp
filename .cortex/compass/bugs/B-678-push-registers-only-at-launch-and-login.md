@@ -76,8 +76,18 @@ opened: 2026-10-22T19:30:00Z
 3. Run the files touched and the three tsc commands (machine quiet); CI is the gate.
 4. Maestro banner-grant flow when the simulator is free.
 
-**Follow-up (separate ticket, by the coordinator's decision):** an engine-health count of active students with no push channel, and server-side logging of registration errors.
+**Follow-up, PAD-746 (a separate ticket, by the coordinator's decision):** an engine-health count of active students with no push channel, and server-side logging of registration errors.
 
 ### Resolution
 
-*(Filled in when the plan has been executed.)*
+Executed on `feature/pad-744`. It is resolved when the PR merges and the Maestro banner-grant flow has run.
+- **Spec changes:** `messaging.push-notifications` rule 15 and four criteria; `auth.push-subscription` rule 9 and two criteria; one business rule in `user-manages-unread-and-notifications`.
+- **Tests added:**
+  - `apps/mobile/src/lib/push/expoPushRegistrar.test.ts`: 10 tests on the registrar and startPushRecovery;
+  - `notifications-blocked-banner.test.tsx`: 3 tests (component, under the harness);
+  - `notification-banner.test.ts`: +1 test;
+  - `apps/web/src/hooks/usePushNotifications.test.ts`: 3 tests.
+  - Mutants that go red: no register on the banner's grant; a prompt on every path; no once-per-session guard on web.
+- **Code:**
+  - mobile: `registerIfPermitted()`, retries, a status the banner can read, and `watchTokenRotation()`, plus `startPushRecovery` mounted in AuthContext while signed in and the banner's grant and retry;
+  - web: `savedThisSession()`, a focus/visibility re-save, `saveState`, a `subscribe()` that never rejects, and `push-inactive-banner`.

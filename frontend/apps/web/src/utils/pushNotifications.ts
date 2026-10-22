@@ -39,13 +39,26 @@ async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration> 
 // same token joins the save already in flight instead of sending its own.
 let inFlight: { token: string; save: Promise<boolean> } | null = null;
 
+// auth.push-subscription rule 9 (PAD-744): the token this page session has already saved a
+// subscription for, so the focus re-save runs once per session, not on every focus.
+let savedFor: string | null = null;
+
+export function savedThisSession(token: string): boolean {
+  return savedFor === token;
+}
+
 export function subscribeToPush(token: string): Promise<boolean> {
   if (inFlight?.token === token) {
     return inFlight.save;
   }
-  const save = saveSubscription(token).finally(() => {
-    if (inFlight?.save === save) inFlight = null;
-  });
+  const save = saveSubscription(token)
+    .then((saved) => {
+      if (saved) savedFor = token;
+      return saved;
+    })
+    .finally(() => {
+      if (inFlight?.save === save) inFlight = null;
+    });
   inFlight = { token, save };
   return save;
 }
@@ -110,6 +123,7 @@ export async function requestAndSubscribe(token: string): Promise<void> {
 }
 
 export async function unsubscribeFromPush(token: string): Promise<boolean> {
+  savedFor = null;
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
   if (subscription) {
