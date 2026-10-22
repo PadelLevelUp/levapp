@@ -146,7 +146,11 @@ gunicorn's boot path into the leadership thread.
    the API never competes, so a worker that never leads means no job runs anywhere. An unanswering
    new worker is removed and the old one keeps leading (exit 1); one that does not lead is left
    running, since it may still take over (exit 1). Without `--worker` a leftover `<name>_worker` is
-   stopped and removed: the flag went off and the API competes again.
+   stopped and removed: the flag went off and the API competes again. The deploy workflow itself also
+   removes a leftover `<name>_worker` whenever it passes no `--worker`, or the checked-out
+   `rollout.sh` has no `--worker` case (a `rollback_to` from before the worker role, whose script
+   can neither swap nor remove one). Jobs never run twice in any mix: every scheduler gates on the
+   same advisory lock.
 
 ### Acceptance Criteria
 

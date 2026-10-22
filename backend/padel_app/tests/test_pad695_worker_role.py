@@ -7,10 +7,12 @@ without exiting, wakes its scheduler while it leads, answers ``/livez``, and shu
 ``test_pad588_rollout``).
 """
 import json
+import os
 import subprocess
 import sys
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from flask import Flask
@@ -319,3 +321,41 @@ def test_the_split_is_on_for_staging_and_off_for_prod():
     assert "\nSSE_BROKER=postgres\n" in (backend / ".env.staging").read_text(), "rule 3: the split needs it"
     for template in (".env.staging", ".env.prod"):
         assert "\nROLE=" not in (backend / template).read_text(), "ROLE comes from -e, never the env file"
+
+
+# --- a deploy without --worker leaves no worker behind (rollback question, 2026-10-22) -----------
+
+WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+
+
+def leftover_block(workflow):
+    lines = (WORKFLOWS / workflow).read_text().splitlines()
+    start = next(i for i, l in enumerate(lines) if "PAD-695: no worker outlives" in l)
+    end = start
+    while lines[end].strip() != "fi" or lines[end].startswith("            "):
+        end += 1
+    return "\n".join(l.strip() for l in lines[start:end + 1])
+
+
+@pytest.mark.parametrize("workflow,name", [("deploy-prod.yaml", "padelapp"), ("deploy-staging.yaml", "padelapp_staging")])
+@pytest.mark.parametrize("worker_opt,script_knows_worker,removed", [
+    ("", True, True),             # WORKER_SPLIT off
+    ("--worker", False, True),    # a rollback: the checked-out rollout.sh predates the worker role
+    ("--worker", True, False),    # the worker was just swapped by rollout.sh: leave it
+])
+def test_a_deploy_without_a_worker_removes_a_leftover_one(tmp_path, workflow, name, worker_opt, script_knows_worker, removed):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "rollout.sh").write_text("case x in\n    --worker) ;;\nesac\n" if script_knows_worker else "case x in\n    --migrate) ;;\nesac\n")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    docker = bin_dir / "docker"
+    docker.write_text('#!/usr/bin/env bash\necho "docker $*" >> "$STUB/calls.log"\nexit 0\n')
+    docker.chmod(0o755)
+    block = leftover_block(workflow).replace("/home/${{ secrets.GCE_USER }}", str(home))
+    r = subprocess.run(["bash", "-c", f'WORKER_OPT="{worker_opt}"\n{block}'], capture_output=True, text=True, timeout=30,
+                       env={"PATH": f"{bin_dir}:{os.environ['PATH']}", "STUB": str(tmp_path)})
+    assert r.returncode == 0, r.stderr
+    calls = (tmp_path / "calls.log").read_text() if (tmp_path / "calls.log").exists() else ""
+    assert (f"docker stop -t 60 {name}_worker" in calls) is removed
+    assert (f"docker rm {name}_worker" in calls) is removed
