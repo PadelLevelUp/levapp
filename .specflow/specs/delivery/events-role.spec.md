@@ -64,6 +64,13 @@ live fallback (architecture review, 2026-10-22).
    the path back first.
 9. **Staging only in this ticket.** Prod's events role waits for PAD-704's two-copies proof and for
    PAD-692's prod `SSE_BROKER=postgres` (rule 4).
+10. **The staging sync stops the events container with the API.** `sync-staging-db.sh` stops
+    `<app>_events`, when it exists, beside the worker before it terminates the target's backends
+    and wipes the schema, and starts it again after the migrate step. Otherwise its listener and
+    reconnecting stream handshakes would hit a database with no tables (F's review of #802).
+    An older image deployed with `ROLE=events`, after a rollback below PAD-697, runs as the API on
+    threads. It never runs jobs (`WORKER_SPLIT` on → client mode) and its cap is 40; nothing
+    routes to it until the host apply.
 
 ### Acceptance Criteria
 
@@ -117,3 +124,8 @@ live fallback (architecture review, 2026-10-22).
 - **Given** `deploy-staging.yaml` and `EVENTS_ROLE=on`
 - **When** the deploy step runs
 - **Then** `rollout.sh` runs a second time with `--name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging`, `-e ROLE=events` and `NGINX_UPSTREAM_CONF` set to the events upstream, without `--migrate`, `--worker`, `--probe-host` or the API's third-party secrets; with the flag off, a leftover `padelapp_staging_events` is removed; both staging vhosts route `location /api/app/events` to `levapp_events_staging` with B-182's `error_log … crit`
+
+#### The staging sync stops the events container around a restore (rule 10)
+- **Given** a `padelapp_staging_events` container
+- **When** the sync restores
+- **Then** it stops the events container before the restore and starts it after the API; without one, it touches none

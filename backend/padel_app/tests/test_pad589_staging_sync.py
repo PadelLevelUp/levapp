@@ -26,6 +26,8 @@ case "$1" in
     case "$*" in
       # PAD-695: the worker container exists only when the test says so
       *_worker) [ -n "${STUB_WORKER:-}" ] || exit 1 ;;
+      # PAD-697: likewise the events container
+      *_events) [ -n "${STUB_EVENTS:-}" ] || exit 1 ;;
       *Config.Image*) echo "repo/levelup_backend:staging" ;;
       *HostConfig.NetworkMode*) echo "levelup_net" ;;
       *"json .Config.Env"*) echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on", "POSTGRES_DB=padel_app_staging", "VAPID_PRIVATE_KEY=-----BEGIN KEY-----\nabc\n-----END KEY-----", "MAIL_PASSWORD=a=b c"]' ;;
@@ -268,3 +270,19 @@ def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
 def test_without_a_worker_the_sync_touches_none(sandbox):
     result, calls = run(sandbox, "reload")
     assert "padelapp_staging_worker" not in calls.replace("docker inspect padelapp_staging_worker", "")
+
+
+def test_the_events_container_is_stopped_with_the_app_and_started_after_it(sandbox):
+    """PAD-697 (delivery.events-role rule 10): its listener and stream handshakes would hit a wiped
+    schema mid-restore."""
+    result, calls = run(sandbox, "reload", STUB_EVENTS="1")
+    lines = calls.splitlines()
+    stopped = next(i for i, c in enumerate(lines) if c.startswith("docker stop") and c.endswith(" padelapp_staging_events"))
+    restore = next(i for i, c in enumerate(lines) if "pg_restore" in c or " sh -c " in c)
+    assert lines.index("docker stop padelapp_staging") < stopped < restore
+    assert lines.index("docker start padelapp_staging") < lines.index("docker start padelapp_staging_events")
+
+
+def test_without_an_events_container_the_sync_touches_none(sandbox):
+    result, calls = run(sandbox, "reload")
+    assert "padelapp_staging_events" not in calls.replace("docker inspect padelapp_staging_events", "")

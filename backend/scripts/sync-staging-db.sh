@@ -37,7 +37,7 @@
 #     prod does not have would otherwise block `--clean`).
 #
 # Usage:  bash sync-staging-db.sh [/path/to/.env.staging] [auto|reload|live]
-# Env overrides: APP_CONTAINER, WORKER_CONTAINER, PG_CONTAINER, SOURCE_DB, MIN_FREE_MB,
+# Env overrides: APP_CONTAINER, WORKER_CONTAINER, EVENTS_CONTAINER, PG_CONTAINER, SOURCE_DB, MIN_FREE_MB,
 #                HEALTH_URL, EXPECTED_TARGET_DB, BACKUP_CONFIG, BACKUP_BUCKET,
 #                SYNC_STATE_FILE, SYNC_STALE_HOURS, SYNC_NOW_EPOCH (tests)
 # =============================================================================
@@ -49,6 +49,9 @@ APP_CONTAINER="${APP_CONTAINER:-padelapp_staging}"
 # stopped with the API (it holds connections to the target and would run jobs mid-restore) and
 # started again after it.
 WORKER_CONTAINER="${WORKER_CONTAINER:-${APP_CONTAINER}_worker}"
+# PAD-697 (delivery.events-role rule 10): the events container's listener and stream handshakes
+# would hit the wiped schema mid-restore, so it is stopped and started like the worker.
+EVENTS_CONTAINER="${EVENTS_CONTAINER:-${APP_CONTAINER}_events}"
 PG_CONTAINER="${PG_CONTAINER:-postgres}"
 SOURCE_DB="${SOURCE_DB:-padel_app}"
 EXPECTED_TARGET_DB="${EXPECTED_TARGET_DB:-padel_app_staging}"
@@ -177,6 +180,10 @@ restart_app() {
     log "starting $WORKER_CONTAINER"
     docker start "$WORKER_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $WORKER_CONTAINER"
   fi
+  if [ "$events_stopped" = 1 ]; then
+    log "starting $EVENTS_CONTAINER"
+    docker start "$EVENTS_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $EVENTS_CONTAINER"
+  fi
   if [ -z "$HEALTH_URL" ]; then
     local port
     port=$(docker port "$APP_CONTAINER" 80 2>/dev/null | head -1 | sed -E 's/.*:([0-9]+)$/\1/')
@@ -193,12 +200,17 @@ restart_app() {
   log "WARNING: staging did not report healthy within 90s"
 }
 worker_stopped=0
+events_stopped=0
 trap restart_app EXIT
 
 docker stop "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $APP_CONTAINER"
 if docker inspect "$WORKER_CONTAINER" >/dev/null 2>&1; then
   worker_stopped=1
   docker stop -t 60 "$WORKER_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $WORKER_CONTAINER"
+fi
+if docker inspect "$EVENTS_CONTAINER" >/dev/null 2>&1; then
+  events_stopped=1
+  docker stop "$EVENTS_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $EVENTS_CONTAINER"
 fi
 pg postgres "select pg_terminate_backend(pid) from pg_stat_activity where datname = '$TARGET_DB' and pid <> pg_backend_pid();" >/dev/null 2>&1 || true
 
