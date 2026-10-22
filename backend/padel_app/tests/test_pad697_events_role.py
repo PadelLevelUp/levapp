@@ -14,6 +14,7 @@ import sys
 import pytest
 
 from padel_app import realtime
+from padel_app.tests.git_env import git_env
 
 BACKEND = pathlib.Path(__file__).resolve().parents[2]
 SERVE = BACKEND / "scripts" / "serve.sh"
@@ -262,5 +263,6 @@ def test_the_workflow_events_block_is_valid_shell():
 
     block = re.sub(r"\$\{\{[^}]*\}\}", "X", _events_block())
     body = "if " + block.split("\n", 1)[0] + "\n" + block.split("\n", 1)[1]
-    out = subprocess.run(["bash", "-n"], input="RO=x; ROLLOUT_MODE=''\n" + body, capture_output=True, text=True)
+    out = subprocess.run(["bash", "-n"], input="RO=x; ROLLOUT_MODE=''\n" + body, capture_output=True, text=True,
+                         env=git_env())
     assert out.returncode == 0, out.stderr

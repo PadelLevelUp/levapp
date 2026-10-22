@@ -20,6 +20,7 @@ import pytest
 import requests
 
 from padel_app.tests.test_pad692_two_process import BACKEND, Proc, Stream, _free_port, _publish
+from padel_app.tests.git_env import git_env
 
 pytestmark = [
     pytest.mark.two_process,
@@ -72,7 +73,7 @@ class EventsProc:
         return False
 
     def worker_pid(self):
-        out = subprocess.run(["pgrep", "-P", str(self.proc.pid)], capture_output=True, text=True).stdout.split()
+        out = subprocess.run(["pgrep", "-P", str(self.proc.pid)], capture_output=True, text=True, env=git_env()).stdout.split()
         return int(out[0]) if out else self.proc.pid
 
     def os_threads(self):
@@ -80,7 +81,7 @@ class EventsProc:
         status = pathlib.Path(f"/proc/{pid}/status")
         if status.exists():
             return int(next(l.split()[1] for l in status.read_text().splitlines() if l.startswith("Threads:")))
-        out = subprocess.run(["ps", "-M", "-p", str(pid)], capture_output=True, text=True).stdout
+        out = subprocess.run(["ps", "-M", "-p", str(pid)], capture_output=True, text=True, env=git_env()).stdout
         return max(len(out.strip().splitlines()) - 1, 0)
 
     def stop(self):
