@@ -1,7 +1,7 @@
 """PAD-742: the finance tables (admin.finance)
 
 Revision ID: 459fc0208b0d
-Revises: e532fea8c4d4
+Revises: 573da995cdbd
 Create Date: 2026-10-22 20:00:00.000000
 
 Four tables, each created only when absent (idempotent), none with data: `finance_costs` (manual
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "459fc0208b0d"
-down_revision = "e532fea8c4d4"  # PAD-672 slice 3
+down_revision = "573da995cdbd"  # PAD-699 push outbox (#796 merges first; coordinator, 2026-10-22)
 branch_labels = None
 depends_on = None
 

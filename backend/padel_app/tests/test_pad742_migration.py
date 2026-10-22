@@ -16,7 +16,7 @@ def _load():
     spec = importlib.util.spec_from_file_location("pad742_mig", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    assert mod.revision == "459fc0208b0d" and mod.down_revision == "e532fea8c4d4"
+    assert mod.revision == "459fc0208b0d" and mod.down_revision == "573da995cdbd"
     return mod
 
 
