@@ -222,8 +222,18 @@ jobs:
           # on an option it does not know (--probe-host came with #769, --migrate with #753). Pass an
           # option only when the checked-out script accepts it, and say so when one is dropped.
           RO=/home/${{ secrets.GCE_USER }}/rollout.sh
+          # PAD-704 (rule 14): API_COPIES=2 in the env file runs a second API copy, padelapp_staging_b, on the
+          # port the swap freed. An older checked-out rollout.sh (a rollback) has no --copies and cannot
+          # free that port itself, so a leftover second copy goes here first.
+          API_COPIES=1
+          if grep -qE '^API_COPIES=2[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.staging; then API_COPIES=2; fi
+          if ! grep -qF -- "    --copies)" "$RO" && docker inspect padelapp_staging_b >/dev/null 2>&1; then
+            echo "[deploy] this rollout.sh predates --copies: removing padelapp_staging_b before it runs"
+            docker stop -t 10 padelapp_staging_b >/dev/null 2>&1 || true
+            docker rm padelapp_staging_b >/dev/null 2>&1 || true
+          fi
           opt() { if grep -qF -- "    $1)" "$RO"; then printf '%s ' "$@"; else echo "[deploy] this rollout.sh has no $1: not passing it" >&2; fi; }
-          bash "$RO" --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $(opt --probe-host staging.levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $ROLLOUT_MODE -- \
+          bash "$RO" --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $(opt --probe-host staging.levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $([ "$API_COPIES" != 2 ] || opt --copies 2) $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
@@ -242,6 +252,10 @@ jobs:
             -e LINEAR_API_KEY="${{ secrets.LINEAR_API_KEY }}" \
             -e WORK_GITHUB_REPO="${{ github.repository }}" \
             -e WORK_GITHUB_TOKEN="${{ secrets.WORK_GITHUB_TOKEN }}" \
+            -e ASC_KEY_ID="${{ vars.ASC_KEY_ID }}" \
+            -e ASC_ISSUER_ID="${{ vars.ASC_ISSUER_ID }}" \
+            -e ASC_PRIVATE_KEY="${{ secrets.ASC_PRIVATE_KEY }}" \
+            -e ASC_APP_ID="${{ vars.ASC_APP_ID }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # PAD-695: no worker outlives a deploy that did not pass --worker: WORKER_SPLIT is off, or a
           # rollback checked out a rollout.sh from before the worker role (it can neither swap nor remove

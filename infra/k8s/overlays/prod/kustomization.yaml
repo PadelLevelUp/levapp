@@ -7,6 +7,8 @@ resources:
   - namespace.yaml
   - ../../base
   - legacy-domain.yaml
+components:
+  - config
 images:
   - {name: levapp-backend, newName: REGISTRY/levelup_backend, newTag: latest}
   - {name: levapp-web, newName: REGISTRY/levelup_frontend, newTag: latest}

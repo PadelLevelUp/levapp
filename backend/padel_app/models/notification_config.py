@@ -50,7 +50,9 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "reminder_confirmed": "Great, see you then! 🎾",
     "reminder_declined": "Got it, thanks for letting us know!",
     "waiting_list_offer": "This spot was just taken, but we can put you on the waiting list and notify you if another opens up. Interested?",
-    "waiting_list_confirm": "You're on the waiting list! We'll let you know if a spot opens.",
+    # PAD-678 (#4): leads with the outcome, so a "yes" that left the student on the list never
+    # reads as a place. A coach who saved the template editor keeps their stored text.
+    "waiting_list_confirm": "You're on the waiting list. You don't have a place yet; we'll let you know if a spot opens.",
     # PAD-446: the waiting list is asked first (group 0); `{side}` names the spot's side only when it has one.
     "waiting_list_invite": "Hey {name}, you're on the waiting list for the {level} class on {weekday} at {time}{side}, and a spot just opened. You're asked first: do you want it?",
     # PAD-330: the coach put this student in a class. `{when}` already carries
@@ -73,7 +75,7 @@ DEFAULT_MESSAGE_TEMPLATES_PT = {
     "reminder_confirmed": "Boa, até já! 🎾",
     "reminder_declined": "Entendido, obrigado por avisares!",
     "waiting_list_offer": "Esta vaga acabou de ser ocupada, mas podemos pôr-te na lista de espera e avisar-te se abrir outra. Interessa?",
-    "waiting_list_confirm": "Estás na lista de espera! Avisamos-te se abrir uma vaga.",
+    "waiting_list_confirm": "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga.",
     "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {level} na {weekday} às {time}{side} e abriu uma vaga. És o primeiro a ser perguntado: queres vir?",
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
@@ -303,6 +305,9 @@ class NotificationConfig(db.Model, model.Model):
     # PAD-130: the coach's standard "make empty spots for future classes visible
     # to eligible students" toggle. NULL/False = off (today's behaviour).
     open_spots_visible = Column(Boolean, nullable=True)
+    # PAD-672 (rule 3a, owner Q3): accept eligible join requests at creation; off by default, never
+    # with semi_automatic.
+    auto_accept_join_requests = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
     coach = relationship("Coach")
 

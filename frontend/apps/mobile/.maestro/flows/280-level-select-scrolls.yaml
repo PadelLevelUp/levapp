@@ -7,6 +7,9 @@
 # last level is on screen and picks it; the list closes. Nothing is saved.
 # Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow 280 is from Session C's
 # wave-15 range (279–288).
+# Android (PAD-727, B-605): the list stays between the system bars, so levels 13–14 are no longer
+# under the navigation bar. Before that fix this flow was red on the lane by design; it is the
+# guard for rule 9b's Android sentence.
 appId: com.padellevelup.app
 onFlowStart:
   - runScript: ../scripts/pad655-setup.js
@@ -40,6 +43,8 @@ onFlowComplete:
       id: "player-level-select"
     direction: DOWN
     timeout: 30000
+    # PAD-710 (Android lane): centre the field so the option list has room above the nav bar.
+    centerElement: true
 - tapOn:
     id: "player-level-select"
 - extendedWaitUntil:

@@ -3,10 +3,10 @@ import { Pressable, View } from "react-native";
 import {
   PARTICIPANT_GROUP_DOT,
   PARTICIPANT_GROUP_TITLE_KEYS,
-  SIDE_LONG_KEYS,
-  SIDE_SHORT_KEYS,
   groupParticipants,
   participantInitials,
+  sideLongKeyOf,
+  sideShortKeyOf,
   type ParticipantRowModel,
 } from "@levelup/config";
 import type { CoachPlayer, Player, Presence } from "@levelup/types";
@@ -85,11 +85,11 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
                     // PAD-551: the side in this occurrence, and whether the coach set it here.
                     accessibilityValue={{ text: `${row.side}${row.presence?.sideOverride ? " override" : ""}` }}
                     accessible
-                    accessibilityLabel={t(SIDE_LONG_KEYS[row.side])}
+                    accessibilityLabel={t(sideLongKeyOf(row.side, row.assignedSide))}
                     className="items-center justify-center rounded-md bg-muted"
-                    style={{ height: 22, width: 38 }}
+                    style={{ height: 22, minWidth: 38, paddingHorizontal: 6 }}
                   >
-                    <Text className="text-[11px] font-semibold text-muted-foreground">{t(SIDE_SHORT_KEYS[row.side])}</Text>
+                    <Text className="text-[11px] font-semibold text-muted-foreground">{t(sideShortKeyOf(row.side, row.assignedSide))}</Text>
                   </View>
                 ) : null}
               </View>

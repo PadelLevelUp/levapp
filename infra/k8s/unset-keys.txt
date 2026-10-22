@@ -1,0 +1,52 @@
+# PAD-702 (delivery.k8s-manifests rule 10): environment keys the backend reads that neither the
+# env template (backend/.env.<env>), nor sources.txt, nor a Deployment's env sets, each with why
+# that is right. The guard (test_pad702_config_guard.py) fails on any key read by the code that is
+# in none of these. Columns: KEY  envs (all|staging|prod)  class  reason.
+# Classes: test (tests, E2E or a manual run only), image (the Dockerfile's ENV sets it), default
+# (the code's default is what the environment runs), off (unset on purpose: the feature is off),
+# template-unread (in the templates, read by nothing; harmless; removal is a separate chore).
+TEST_MODE                         all     test     E2E backends only
+E2E_DEBUG_ENDPOINTS               all     test     E2E backends only
+E2E_SCHEDULER_HELD                all     test     Playwright's scheduler hold (PAD-610)
+WERKZEUG_RUN_MAIN                 all     test     set by the Werkzeug dev reloader, never deployed
+ALLOW_PRODUCTION_MIGRATIONS       all     test     a deliberate one-off override from a workstation (config.py)
+GIT_SHA                           all     image    Dockerfile ARG/ENV at build time
+SCHEMA_GATE                       all     image    Dockerfile ENV SCHEMA_GATE=on (zero-downtime-deploy rule 10)
+SECRET_KEY                        all     default  alias; FLASK_SECRET_KEY (a secret) is what is set
+JWT_ABSOLUTE_SESSION_DAYS         all     default  90
+COACH_APPROVAL_REQUIRED           all     default  "1" (on): never set in any deploy, so on everywhere
+EMAIL_VERIFICATION_REQUIRED       all     default  "1" (on): never set in any deploy, so on everywhere
+AUTH_RATE_LIMIT_ENABLED           all     default  "1"
+AUTH_RATE_LIMIT_LOGIN             all     default  20/60
+AUTH_RATE_LIMIT_REGISTER          all     default  5/600
+AUTH_RATE_LIMIT_RECOVERY          all     default  5/600
+AUTH_RATE_LIMIT_VERIFICATION      all     default  20/600
+AUTH_RATE_LIMIT_ADMIN_SIGN_IN     all     default  10/60
+AUTH_RATE_LIMIT_DEMO              all     default  5/3600
+SSE_MAX_STREAMS                   prod    default  40 (staging's template raises it to 120 with GUNICORN_THREADS=160, PAD-689)
+SSE_MAX_STREAMS_PER_USER          all     default  4
+SSE_KEEPALIVE_SECONDS             all     default  5
+PUSH_QUEUE_MAX                    all     default  500
+PUSH_QUEUE                        prod    default  memory (staging's template sets outbox; prod after B8)
+PUSH_OUTBOX_POLL_SECONDS          all     default  1
+REALTIME_EVENTS_RETENTION_MINUTES all     default  10
+SCHEDULER_LEADERSHIP              all     default  on
+WORKER_WAKE_SECONDS               all     default  5 (delivery.worker-role rule 2)
+SCHEMA_GATE_DB_WAIT               all     default  30
+MIGRATE_LOCK_TIMEOUT              all     default  1500 (the migrate Job's activeDeadlineSeconds is 1800)
+OPENROUTER_BASE_URL               all     default  https://openrouter.ai/api/v1
+OPENROUTER_MODEL                  all     default  inception/mercury-2
+OPENROUTER_REASONING_ENABLED      all     default  true
+ADMIN_PEER_URL                    all     off      the staff console's peer link is unset in every deploy today
+ADMIN_PEER_TOKEN                  all     off      as ADMIN_PEER_URL
+ADMIN_PEER_INBOUND_TOKEN          all     off      as ADMIN_PEER_URL
+OPENAI_API_KEY                    all     off      OpenRouter is the provider; this fallback is unset everywhere
+VAPID_PUBLIC_KEY                  staging off      no web push on staging, today on the VM and so on GKE staging
+VAPID_PRIVATE_KEY                 staging off      as VAPID_PUBLIC_KEY
+VAPID_CLAIMS_EMAIL                staging off      as VAPID_PUBLIC_KEY
+EXPO_ACCESS_TOKEN                 staging off      no Expo push on staging, today and on GKE staging
+OPENROUTER_API_KEY                staging off      no AI features on staging, today and on GKE staging
+EXPO_PUSH_DISABLED                prod    default  unset: push on in prod (staging's template sets it)
+MAIL_ALLOWED_RECIPIENTS           prod    default  unset: mail goes to everyone in prod (staging's template filters it)
+MAIL_SERVER                       all     template-unread  config.py fixes it
+MAIL_PORT                         all     template-unread  config.py fixes it

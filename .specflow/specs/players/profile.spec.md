@@ -33,6 +33,9 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
      - action row: Ver presenças · Ver faltas · Adicionar a aulas · Lista de espera ·
        **Avaliações** (primary) · **Desassociar** (destructive, last);
      - cards: Avaliação, Informação, Pontos fortes e fracos.
+     - Informação shows the email and the phone, each behind its icon, or "Sem email" /
+       "Sem telefone" (`players.noEmail` / `players.noPhone`) when empty. That holds on both shells,
+       with no literal label (PAD-731, B-603).
    - Every existing control, test id, accessible name and i18n key is kept; this is a layout
      change, not a feature cut. `/players/:playerId/attendance` and `/absences` stay full
      pages.
@@ -143,3 +146,8 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **Then** the actions read, in order, Ver presenças, Ver faltas, Adicionar a aulas, Lista de
   espera, Avaliações, Desassociar, and Desassociar is styled as destructive
 
+#### The Informação card is translated on iOS (PAD-731, B-603)
+- **Given** a player with email "ana@example.pt" and no phone, and the app in Portuguese
+- **When** the coach opens the player's profile on the phone
+- **Then** the card shows "ana@example.pt" and "Sem telefone", each behind its icon, and no
+  "Email:" or "Phone:" label

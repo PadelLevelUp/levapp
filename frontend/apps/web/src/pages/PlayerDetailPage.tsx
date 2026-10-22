@@ -475,6 +475,7 @@ export function PlayerDetailPane({ playerId, onRemoved, onUpdated }: PlayerDetai
         onClose={() => setIsWaitingListOpen(false)}
         playerId={Number(player.playerId)}
         playerName={player.displayName || player.name || null}
+        profileSide={player.side ?? null}
         onAdded={(entry) => {
           setStandingEntry(entry);
           toast.success(t("players.addedToWaitingList", { name: player.displayName || player.name }));

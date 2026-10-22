@@ -12,7 +12,8 @@ import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ENTRY_BUDGET_GZIP_BYTES = 300 * 1000;
+// 320 kB since PAD-406: React 19 adds ~15 kB to an entry already at ~288 kB with the PAD-656 site.
+const ENTRY_BUDGET_GZIP_BYTES = 320 * 1000;
 const CHUNK_LIMIT_RAW_BYTES = 500 * 1000;
 
 const here = path.dirname(fileURLToPath(import.meta.url));

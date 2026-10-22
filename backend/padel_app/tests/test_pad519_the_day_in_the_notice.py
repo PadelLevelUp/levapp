@@ -128,10 +128,14 @@ def test_a_refused_join_request_names_the_day(app, monkeypatch):
         start = db.session.get(LessonInstance, ids["instance_id"]).start_datetime
     texts = [t for _, t, _ in _messages_for(app, ids, pid)]
     asked = [t for t in texts if t.startswith("carla pediu para entrar em") or " pediu para entrar em " in t]
-    refused = [t for t in texts if t.startswith("O teu pedido para entrar em")]
+    # PAD-678 (join-requests rule 19a): the refusal leads with the outcome and names the day in the
+    # weekday-first form.
+    from padel_app.tests.test_pad678_accepted_means_in_the_class import _weekday_first
+
+    refused = [t for t in texts if t.startswith("Não ficaste inscrito/a")]
     assert len(asked) == 1 and len(refused) == 1, texts
     assert asked[0].endswith(f"{_dated(start)}."), asked[0]
-    assert refused[0].endswith(f"{_dated(start)} não foi aceite."), refused[0]
+    assert refused[0].endswith(f"{_weekday_first(start)}: o treinador não aceitou o pedido desta vez."), refused[0]
 
 
 # ── `{when}` in added_to_class: dated for one occurrence, not for a series ────

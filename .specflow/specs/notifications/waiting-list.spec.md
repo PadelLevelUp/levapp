@@ -26,7 +26,11 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
    `POST /api/app/notify/respond_waiting_list`. The offer is sent by `_offer_waiting_list()`
    only on the "sorry, that spot was just filled" path (`respond_to_waiting_list()` upserts a
    `WaitingListEntry` for that same instance on "yes", sends `waiting_list_confirm` back, and is a
-   no-op on a late/expired instance per PAD-68). There is no separate "browse and join" surface —
+   no-op on a late/expired instance per PAD-68; PAD-678: its default text leads with the outcome,
+   pt "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga.", en
+   "You're on the waiting list. You don't have a place yet; we'll let you know if a spot opens."; a
+   coach who saved the template editor keeps their stored text, which is not migrated). There is no
+   separate "browse and join" surface —
    this message is the entire self-service join path.
    **Since PAD-621 (owner, PAD-612 D4) no engine path sends a new offer.** A spot that fills retires
    every live invitation for it as "Vaga preenchida" at once — a live bubble edit, no push, no new
@@ -144,6 +148,13 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
    or not an eligibility bar is defined.
 4d. *(Retired with PAD-446: "placement is silent enrolment". Nothing on the waiting-list path adds a
    student without their yes.)*
+4e. **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
+    numbering unconfirmed).** A `left` (or `right`) entry is group 0 only for a vacancy whose side is
+    `left` (or `right`), `both` or none; a `both` entry, or one with no side (every entry before
+    PAD-672), for any vacancy. The join order is unchanged. A standing entry's side is chosen when it
+    is created (Q4) and copied to every entry it fans out. The student's own join from a group-0
+    invite bubble names `both`: the invitation already named the spot's side (rule 16), so a "yes"
+    is never refused with `side_full`.
 5. `GET /api/app/waiting_list/{instance_id}` lists active entries
 6. The coach manages standing entries from Settings > Notifications > Standing waiting list:
    - `GET /api/app/notify/standing_waiting_list` lists the coach's active entries
@@ -224,6 +235,11 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
     The coach recording the answer for the student settles the entry the same way, and so does the
     coach withdrawing the invitation (`notifications.invitations` rule 19, PAD-548): the entry
     closes as on a "no", no credit is spent.
+15a. **A credit is spent only when the student takes a spot (PAD-669 R2, PAD-721; numbering
+    unconfirmed).** An invitation sent, answered "no" or left unanswered spends nothing. The engine's
+    "yes" (rule 15) and the coach accepting the student's join request (`classes.join-requests`)
+    each spend one; a standing entry with no credit limit (`credits_total` NULL, PAD-560) never runs
+    out and never fails (B-616).
 15b. **The last credit spent withdraws the other offers it paid for (PAD-669 edge case, PAD-725;
     owner-confirmed 2026-10-21; numbering unconfirmed).** When a "yes" spends a standing entry's
     last credit (rule 15 closes the entry and its other class rows), the student's other live

@@ -74,6 +74,16 @@ until B8 has proven it.
      lock.
    - The staging sync stops the worker with the API before a restore (it holds connections to
      the target and would run jobs on a half-restored database) and starts it after the API.
+4. **A daily job fires whatever the deploy rhythm (B-667).** Every recurring job of a day or more
+   runs at a fixed UTC minute (`CronTrigger`), never `IntervalTrigger(days=…)`: the scheduler
+   re-registers its jobs with `replace_existing` on every boot, which put an interval's next run at
+   boot + 24 h, so with a deploy a day it never fired. The daily jobs are `extend_schedule_window`
+   02:47, `prune_delivery_incidents` 03:07 and `retention_sweep` 03:17, each with a 6 h misfire
+   grace (a run due while the leader is paused for a lock handover still runs). A boot whose job
+   store holds a daily job whose next run is already past (no leader was running at its minute)
+   adds one `<id>_catchup` run now. The jobs are idempotent, so a catch-up that races the outgoing
+   leader's own run costs one extra pass. Sub-hour intervals (`process_batches`, 2 min) stay
+   intervals: a boot delays them at most one interval.
 
 ### Acceptance Criteria
 
@@ -111,6 +121,18 @@ until B8 has proven it.
 - **Given** an API and a worker against one Postgres with the split on **When** the API arms a
   job 20 s ahead **Then** it fires once, in the worker, and its live event reaches a stream held
   by the API
+
+#### A boot never moves a daily job (rule 4)
+- **Given** a job store where a previous boot registered the daily jobs
+- **When** the process boots again
+- **Then** each daily job is a `CronTrigger` with the same next run as before, and no recurring job
+  of an hour or more is an `IntervalTrigger`
+
+#### A missed daily run is caught up once (rule 4)
+- **Given** a job store where `extend_schedule_window`'s next run is 2 h in the past
+- **When** the process boots
+- **Then** `extend_schedule_window_catchup` runs now, `extend_schedule_window` is back on its fixed
+  minute, and no catch-up is added for a daily job that was not missed (nor on a first boot)
 
 ### Notes
 - B8 (PAD-704) turns the flag on in prod after a week on staging; GKE runs the worker as its own

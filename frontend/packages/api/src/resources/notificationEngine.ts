@@ -1,4 +1,5 @@
 import type {
+  PlayerSide,
   ApprovalAction,
   ApprovalSuggestionState,
   ApprovalVacancyResult,
@@ -49,6 +50,9 @@ export async function updateNotificationConfig(
     pastDue?: PastDue;
     /** The timing is saved, but the server could not make that check. */
     pastDueUnknown?: boolean;
+    /** PAD-672 (rule 3a): `auto_accept_off` — this save switched the mode to semi-automatic, which
+     *  turned automatic acceptance of join requests off in the same save. */
+    notice?: "auto_accept_off";
   }
 > {
   const res = await getApi().post("/app/notify/config", data);
@@ -354,8 +358,15 @@ export async function addToStandingWaitingList(
   playerId: number,
   credits: number,
   expiresOn: string,
+  side?: PlayerSide | null,
 ): Promise<StandingWaitingListEntry> {
-  const res = await getApi().post("/app/notify/standing_waiting_list", { playerId, credits, expiresOn });
+  // PAD-672 (waiting-list rule 4e, Q4): the side the entry is asked for; omitted when none.
+  const res = await getApi().post("/app/notify/standing_waiting_list", {
+    playerId,
+    credits,
+    expiresOn,
+    ...(side ? { side } : {}),
+  });
   return res.data;
 }
 

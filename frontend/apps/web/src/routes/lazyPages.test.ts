@@ -15,7 +15,7 @@ describe("prefetchAppPages", () => {
     expect(loaded).toHaveLength(MENU_PAGES.length);
     expect(new Set(loaded)).toEqual(new Set(MENU_PAGES));
     expect(loaded).toContain("CalendarPage");
-    for (const publicPage of ["LandingPage", "AuthPage", "LegalPage", "PlayerInvitePage"] as const) {
+    for (const publicPage of ["SitePage", "ContactPage", "AuthPage", "LegalPage", "PlayerInvitePage"] as const) {
       expect(loaded).not.toContain(publicPage);
     }
   });

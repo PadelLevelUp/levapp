@@ -119,8 +119,8 @@ def test_the_screen_lists_every_capability_with_its_last_change(app, client, sta
     by_name = {i["capability"]: i for i in items}
     assert set(by_name) == {"open-spots", "evaluations", "class-type-defaults", "coach-invite-email", "terms-acceptance", "country-on-completion",
                             "terms-on-completion", "adult-roster-confirmation",
-                            "student-relations", "full-classes",
-                            "notification-sound"}  # PAD-637, PAD-642, PAD-664, PAD-680
+                            "student-relations", "full-classes", "join-side",
+                            "notification-sound"}  # PAD-637, PAD-642, PAD-664, PAD-672, PAD-680
     assert by_name["evaluations"]["off"] is True and by_name["evaluations"]["reason"] == "dashboard block misdraws"
     assert by_name["evaluations"]["changedBy"] == "own533@levapp.app" and by_name["evaluations"]["changedAt"]
     assert by_name["open-spots"]["off"] is False and by_name["open-spots"]["changedAt"] is None

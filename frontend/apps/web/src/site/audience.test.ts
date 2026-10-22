@@ -3,7 +3,7 @@
  * `?audience=` (ids and old Portuguese slugs) still read, anything else is coaches.
  */
 import { describe, expect, it } from "vitest";
-import { AUDIENCE_SLUG, audienceFromParams } from "./LandingPage";
+import { AUDIENCE_SLUG, audienceFromParams } from "./audience";
 
 const read = (qs: string) => audienceFromParams(new URLSearchParams(qs));
 

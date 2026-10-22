@@ -47,7 +47,8 @@ of data, so the Privacy Policy (§11, "Retention and account deletion") states r
    default.
 2. **One daily job.** `retention_sweep` runs once a day at 03:17 on the scheduler leader (a fixed
    id, R-010; one of `admin.engine-health`'s singletons). A fixed hour, because an interval re-armed
-   on every boot would slip a day with each deploy. For every item it
+   on every boot would slip a day with each deploy (B-667 found the other two daily jobs doing exactly that;
+   delivery.worker-role rule 4 now governs all three, with a 6 h misfire grace and a boot catch-up). For every item it
    counts what is due; it deletes only for an enabled item. It logs one line per item:
    `retention <item> enabled=<bool> days=<n> due=<count> removed=<count>`. An item that raises is
    logged and the others still run; an item that fails part-way reports what it had already
