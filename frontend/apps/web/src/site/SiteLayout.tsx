@@ -151,7 +151,7 @@ function Header({ audience, onAudienceChange, onDemo }: { audience: Audience; on
             </a>
           ))}
           <div className="mt-2 flex gap-3">
-            <ExitLink to="/auth" className={cn(siteButton.outline, siteButton.small, "flex-1")}>
+            <ExitLink to="/auth" className={cn(siteButton.outline, siteButton.small, "flex-1")} data-testid="site-menu-login">
               {t("site.layout.login")}
             </ExitLink>
             <button
@@ -161,6 +161,7 @@ function Header({ audience, onAudienceChange, onDemo }: { audience: Audience; on
                 onDemo();
               }}
               className={cn(siteButton.primary, siteButton.small, "flex-1 whitespace-nowrap")}
+              data-testid="site-menu-demo"
             >
               {t("site.layout.demo")}
             </button>
