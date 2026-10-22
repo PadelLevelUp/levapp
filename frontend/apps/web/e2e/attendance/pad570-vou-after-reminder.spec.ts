@@ -179,11 +179,13 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     expect(after!.attendanceState).toBe("not_coming");
     expect(after!.pendingConfirmation).toBe(false);
 
-    // The dashboard row shows the hint and no button (dashboard.blocks rule 3a).
+    // PAD-684: the dashboard row offers "Afinal vou" (the free spot), not the hint, and no decline /
+    // Yes-No buttons (dashboard.blocks rule 3a).
     await openDashboard(page);
     const declinedRow = page.getByTestId("dashboard-schedule-row").filter({ hasText: STUDENT_NAME }).first();
     await expect(declinedRow).toBeVisible({ timeout: 15_000 });
-    await expect(declinedRow.getByTestId("dashboard-declined-hint")).toBeVisible();
+    await expect(declinedRow.getByTestId("dashboard-come-back")).toBeVisible();
+    await expect(declinedRow.getByTestId("dashboard-declined-hint")).toHaveCount(0);
     await expect(declinedRow.getByTestId("dashboard-decline-open")).toHaveCount(0);
     await expect(declinedRow.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
 

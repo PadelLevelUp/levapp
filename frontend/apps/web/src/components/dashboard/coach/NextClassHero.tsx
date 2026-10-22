@@ -14,7 +14,8 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AvatarStack } from "./primitives";
-import { AnswerButtons, DeclineButton, DeclinedHint } from "./AnswerButtons";
+import { AnswerButtons, DeclineButton } from "./AnswerButtons";
+import { ComeBackSlot } from "./ComeBackSlot";
 import { useAnswerReminder } from "./useAnswerReminder";
 import { useDeclineFromDashboard } from "./useDeclineFromDashboard";
 import { studentRowAction, weekdayLong } from "@levelup/config";
@@ -96,7 +97,7 @@ export function NextClassHero({
       )}
       {action === "declined" && (
         <div className="mt-4">
-          <DeclinedHint onNavy />
+          <ComeBackSlot item={d} onAnswered={onAnswered} onNavy />
         </div>
       )}
 
