@@ -205,6 +205,7 @@ def _waiting_list_asked_first(vacancy, instance, coach_id: int, config) -> list[
     from padel_app.models import Player
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
     from padel_app.services.notification_service import _waiting_list_candidates
+    from padel_app.services.player_service import nickname_payload
 
     asked = []
     for entry, _cp in _waiting_list_candidates(vacancy, instance, coach_id, config, dry_run=True):
@@ -217,6 +218,8 @@ def _waiting_list_asked_first(vacancy, instance, coach_id: int, config) -> list[
         asked.append({
             "playerId": str(entry.player_id),
             "name": player.user.name if player and player.user else None,
+            # PAD-683 (players.nickname rule 9a): this coach's own relation row.
+            **nickname_payload(_cp, player.user.name if player and player.user else None),
             "standing": standing is not None,
             "joinedAt": joined.isoformat() if joined else None,
         })
@@ -310,6 +313,8 @@ def _serialize_rounds(rounds, vacancy, instance, coach_id: int, config, now: dat
         first_size = next(len(cps) for number, _k, _r, cps in rounds if number == first_non_empty)
         batch = _batch_size(config, instance, first_size)
 
+    from padel_app.services.player_service import nickname_payload
+
     payload = []
     for number, kind, rules, cps in rounds:
         candidates = []
@@ -327,6 +332,7 @@ def _serialize_rounds(rounds, vacancy, instance, coach_id: int, config, now: dat
             candidates.append({
                 "playerId": str(cp.player_id),
                 "name": user.name if user else None,
+                **nickname_payload(cp, user.name if user else None),  # PAD-683 rule 9a
                 "levelCode": cp.level.code if cp.level else None,
                 "levelId": str(cp.level_id) if cp.level_id else None,
                 "side": cp.side,
@@ -405,6 +411,7 @@ def explain_player(
         evaluate_candidates,
         invitation_waves,
     )
+    from padel_app.services.player_service import nickname_payload
 
     cp = Association_CoachPlayer.query.filter_by(
         coach_id=coach_id, player_id=player_id
@@ -421,6 +428,7 @@ def explain_player(
                 return {
                     "playerId": str(player_id),
                     "name": name,
+                    **nickname_payload(cp, name),  # PAD-683 rule 9a
                     "stage": "invited",
                     "details": {
                         "roundNumber": rnd["number"],
@@ -453,6 +461,7 @@ def explain_player(
         return {
             "playerId": str(player_id),
             "name": name,
+            **nickname_payload(cp, name),  # PAD-683 rule 9a
             "stage": verdict.stage,
             "details": details,
         }
@@ -460,6 +469,7 @@ def explain_player(
     return {
         "playerId": str(player_id),
         "name": name,
+        **nickname_payload(cp, name),  # PAD-683 rule 9a
         "stage": "no_round_matched",
         "details": {"rounds": round_failures},
     }

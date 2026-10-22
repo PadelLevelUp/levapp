@@ -14,6 +14,7 @@ export const NICKNAME_MAX = 60;
 
 type RosterRowLike = {
   playerId?: string | number | null;
+  userId?: string | number | null;
   name?: string | null;
   nickname?: string | null;
   nicknameAsName?: boolean | null;
@@ -28,6 +29,22 @@ export function coachDisplayName(
 ): string {
   if (playerId != null && roster) {
     const row = roster.find((r) => r.playerId != null && String(r.playerId) === String(playerId));
+    if (row?.displayName) return row.displayName;
+  }
+  return fallbackName ?? "";
+}
+
+/**
+ * PAD-683 (players.nickname rule 9b): the same, for a payload that names a person by their USER
+ * id (the messageable list, whose public shape rule 15 pins): the coach's roster row for that user.
+ */
+export function coachDisplayNameByUserId(
+  roster: ReadonlyArray<RosterRowLike> | null | undefined,
+  userId: string | number | null | undefined,
+  fallbackName: string | null | undefined
+): string {
+  if (userId != null && roster) {
+    const row = roster.find((r) => r.userId != null && String(r.userId) === String(userId));
     if (row?.displayName) return row.displayName;
   }
   return fallbackName ?? "";

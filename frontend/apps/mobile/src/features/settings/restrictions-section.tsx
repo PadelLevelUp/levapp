@@ -273,7 +273,7 @@ function ExcludedPlayers({
                   }}
                   className="border-b border-border px-3 py-2.5"
                 >
-                  <Text className="text-sm">{p.name}</Text>
+                  <Text className="text-sm">{displayName(p.id, p.name)}</Text>
                 </Pressable>
               ))}
             </View>
