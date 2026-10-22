@@ -689,7 +689,9 @@ def standing_waiting_list_add():
             expires_at = standing_end_from_days(data.get("durationDays", 30))
     except InvalidStandingEndError as exc:
         return jsonify({"error": "invalid_fields", "fields": [exc.field]}), 400
-    entry = add_standing_waiting_list_entry(coach.id, player_id, credits_total, expires_at=expires_at)
+    entry = add_standing_waiting_list_entry(
+        coach.id, player_id, credits_total, expires_at=expires_at, side=data.get("side")  # PAD-672
+    )
     entries = get_standing_waiting_list(coach.id)
     added = next((e for e in entries if e["id"] == entry.id), None)
     return jsonify(added), 201

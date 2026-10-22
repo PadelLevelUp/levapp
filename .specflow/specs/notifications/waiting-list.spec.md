@@ -148,6 +148,13 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
    or not an eligibility bar is defined.
 4d. *(Retired with PAD-446: "placement is silent enrolment". Nothing on the waiting-list path adds a
    student without their yes.)*
+4e. **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
+    numbering unconfirmed).** A `left` (or `right`) entry is group 0 only for a vacancy whose side is
+    `left` (or `right`), `both` or none; a `both` entry, or one with no side (every entry before
+    PAD-672), for any vacancy. The join order is unchanged. A standing entry's side is chosen when it
+    is created (Q4) and copied to every entry it fans out. The student's own join from a group-0
+    invite bubble names `both`: the invitation already named the spot's side (rule 16), so a "yes"
+    is never refused with `side_full`.
 5. `GET /api/app/waiting_list/{instance_id}` lists active entries
 6. The coach manages standing entries from Settings > Notifications > Standing waiting list:
    - `GET /api/app/notify/standing_waiting_list` lists the coach's active entries

@@ -29,6 +29,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { ClassSideSheet } from "@/features/calendar/ClassSideSheet";
 import { nativeLocaleTag } from "@/lib/native-locale";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,8 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
   const [noteFor, setNoteFor] = React.useState<string | null>(null);
   const [note, setNote] = React.useState("");
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  // PAD-672 (join-requests rule 20): the side sheet in front of a request / waiting-list join.
+  const [sideFor, setSideFor] = React.useState<{ c: AcademyClass; mode: "request" | "waiting" } | null>(null);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: academyClassesKey(coachId) });
 
@@ -179,13 +182,7 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
                     disabled={busy}
                     testID="academy-class-join-waitlist"
                     accessibilityLabel={t("classRequests.academy.joinWaitlist")}
-                    onPress={() =>
-                      void run(
-                        c,
-                        () => academyClassesApi.joinClassWaitingList(c),
-                        t("classRequests.academy.joinedWaitlist")
-                      )
-                    }
+                    onPress={() => setSideFor({ c, mode: "waiting" })}
                   >
                     <Text>{t("classRequests.academy.joinWaitlist")}</Text>
                   </Button>
@@ -221,13 +218,7 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
                         disabled={busy}
                         testID="academy-class-send"
                         accessibilityLabel={t("classRequests.academy.send")}
-                        onPress={() =>
-                          void run(
-                            c,
-                            () => classJoinRequestsApi.createClassJoinRequest(c, note),
-                            t("classRequests.academy.requestSent")
-                          )
-                        }
+                        onPress={() => setSideFor({ c, mode: "request" })}
                       >
                         <Text>{t("classRequests.academy.send")}</Text>
                       </Button>
@@ -248,6 +239,33 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
           })}
         </View>
       ))}
+      {sideFor ? (
+        <ClassSideSheet
+          open
+          onClose={() => setSideFor(null)}
+          mode={sideFor.mode}
+          event={sideFor.c}
+          profileSide={sideFor.c.profileSide ?? query.data.profileSide ?? null}
+          note={sideFor.mode === "request" ? note : undefined}
+          onRequestSent={() => {
+            toast.success(t("classRequests.academy.requestSent"));
+            setNoteFor(null);
+            setNote("");
+            void refresh();
+          }}
+          onWaitingListJoined={() => {
+            toast.success(t("classRequests.academy.joinedWaitlist"));
+            void refresh();
+          }}
+          onFailed={(err) => {
+            const code = classJoinRequestsApi.joinRequestRefusal(err)?.code as string | undefined;
+            if (code === "spot_filled") toast.warning(t("classRequests.academy.nowFull"));
+            else if (code === "has_spots") toast.warning(t("classRequests.academy.nowOpen"));
+            else toast.error(t("classRequests.academy.failed"));
+            void refresh();
+          }}
+        />
+      ) : null}
       <View className="flex-row justify-end">
         <Button
           variant="outline"
