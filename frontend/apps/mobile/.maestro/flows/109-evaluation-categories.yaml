@@ -82,6 +82,17 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "competency-row-id-${output.competencyId}"
 
+# PAD-710 (Android lane): Done is the last child of the ScrollView, below the fold, and Android cannot tap an off-screen element. Android only: on iOS centerElement times out on the last element of the content (README).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "competency-manager-done"
+          direction: DOWN
+          timeout: 30000
+          centerElement: true
 - tapOn:
     id: "competency-manager-done"
 

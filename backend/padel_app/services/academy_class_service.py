@@ -88,6 +88,7 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
     # Rule 2: an empty step says why — the coach does not advertise open spots.
     config = NotificationConfig.query.filter_by(coach_id=cp.coach_id).first()
     return {
+        "profileSide": cp.side,  # PAD-672 (join-requests rule 20): the side picker's default
         "from": today.isoformat(),
         "to": (today + timedelta(days=WINDOW_DAYS)).isoformat(),
         "openSpotsVisible": bool(config and config.open_spots_visible),
@@ -95,7 +96,7 @@ def list_academy_classes(player, coach_id, *, now=None) -> dict:
     }
 
 
-def join_class_waiting_list_service(player, model, original_id, date_str, *, now=None):
+def join_class_waiting_list_service(player, model, original_id, date_str, *, side=None, now=None):
     """Rule 6: the student's own place on a full class's waiting list. Returns
     ``(entry, created)`` — ``created`` is False when they were already on it."""
     from padel_app.models import Presence
@@ -105,7 +106,10 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
         _is_enrolled,
         _is_full,
         _refuse,
+        open_spot_sides,
+        requested_side,
         resolve_instance,
+        side_has_spot,
     )
     from padel_app.services.notification_service import (
         effective_eligibility,
@@ -142,7 +146,14 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
         _refuse("not_visible", "This class is not open to requests")
     # PAD-581 (invitations rule 2d, owner Q3): a student whose invitation was withdrawn for side
     # balance may join the list while the class has places — the places left are for the other side.
-    if not _is_full(instance) and not _withdrawn_for_balance(instance.id, player.id):
+    # PAD-672 (booking rule 6): a capable client's side — "not full, but no spot of my side" is the
+    # reason to be on the list; anyone else is refused as before.
+    side, check_side = requested_side(side, cp)
+    if (
+        not _is_full(instance)
+        and not _withdrawn_for_balance(instance.id, player.id)
+        and (not check_side or side_has_spot(side, open_spot_sides(instance)))
+    ):
         _refuse("has_spots", "This class has room: ask to join it instead")
     if not passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)):
         _refuse("ineligible", "You do not meet this class's eligibility bar")
@@ -152,13 +163,14 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, now
         return entry, False
     if entry is None:
         entry = WaitingListEntry(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id,
-                                 added_by="student")  # PAD-547 (rule 20)
+                                 added_by="student", side=side)  # PAD-547 (rule 20); PAD-672
         db.session.add(entry)
     else:
         # Reactivated by the student: it is theirs now, never a standing fan-out row.
         entry.is_active = True
         entry.standing_entry_id = None
         entry.added_by = "student"  # PAD-547 (rule 20)
+        entry.side = side  # PAD-672
     try:
         db.session.commit()
     except IntegrityError:

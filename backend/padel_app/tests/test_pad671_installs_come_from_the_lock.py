@@ -22,7 +22,7 @@ except ImportError:  # Python 3.10 (CI): pytest depends on tomli there
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 BACKEND = ROOT / "backend"
 SITES = sorted((ROOT / ".github" / "workflows").glob("*.yaml")) + [BACKEND / "Dockerfile"]
-EXPECTED_SITES = 7  # backend-tests x3, e2e-subset, admin-e2e, android-build, Dockerfile
+EXPECTED_SITES = 8  # backend-tests x3, e2e-subset, admin-e2e, android-build, android-store-screenshots, Dockerfile
 
 # `pip install`, `pip3 install`, `python -m pip install`, `uv pip install`.
 PIP_INSTALL = re.compile(r"(?:^|[\s/])(?:python[\d.]*\s+-m\s+)?(?:uv\s+)?pip3?\s+install\b(.*)$")

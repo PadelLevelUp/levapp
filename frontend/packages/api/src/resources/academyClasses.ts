@@ -1,4 +1,4 @@
-import type { AcademyClassesResponse, ClassWaitingListRow } from "@levelup/types";
+import type { PlayerSide, AcademyClassesResponse, ClassWaitingListRow } from "@levelup/types";
 import { getApi } from "../client";
 
 /**
@@ -14,6 +14,8 @@ export async function listAcademyClasses(coachId: string | number): Promise<Acad
 export interface WaitingListPlace {
   lessonInstanceId: number;
   onWaitingList: boolean;
+  /** PAD-672 (rule 6): the side the place is for, echoed by a capable server. */
+  side?: PlayerSide | null;
 }
 
 /** The student's own place on a full class's waiting list; addressed by the calendar event. */
@@ -21,11 +23,13 @@ export async function joinClassWaitingList(event: {
   model: string;
   originalId: number | string;
   date?: string | null;
-}): Promise<WaitingListPlace> {
+}, side?: PlayerSide): Promise<WaitingListPlace> {
   const res = await getApi().post("/app/class-waiting-list", {
     model: event.model,
     originalId: event.originalId,
     date: event.date ?? null,
+    // PAD-672 (rule 6): omitted by callers that predate the side choice.
+    ...(side ? { side } : {}),
   });
   return res.data;
 }

@@ -34,10 +34,12 @@ an idea.
    questions about how they run attendance today), so the request lands in the sales CRM as an
    inbound lead from the site, already qualified (PAD-469, PAD-617, PAD-650). Until the form is
    configured, the demo button is an email.
-4. A player sees what they gain, how to get started, and signs in — or asks support for help if
-   their invitation is missing.
+4. A player sees what they gain, how to get started, and creates an account or signs in. Someone
+   told they got an invitation learns, on the page, to open their coach's link or QR code, or to
+   create the account anyway and link to the coach later (PAD-656).
 5. A partner is told plainly that there is nothing for them yet and invited to email an idea.
-6. Anyone can reach the login, contact, privacy and terms pages from the header and footer.
+6. Anyone can reach the login, contact, privacy and terms pages from the header and footer; the
+   contact page carries the same short form as the demo dialog (PAD-656).
 
 ## Business Rules
 
@@ -47,7 +49,7 @@ an idea.
   surface is the App Store listing.
 - A shareable link can open the page directly on an audience (`?para=jogadores`; older
   `?audience=…` links keep working), and choosing an audience puts it in the URL to share.
-- No backend of our own: every call to action is a link — email, login, support, or an anchor —
+- No backend of our own: every call to action is a link — email, login, sign-up, or an anchor —
   except the contact request, which the site's own server passes on to the sales CRM, so the
   visitor's browser never talks to HubSpot (PAD-617, PAD-650). The request asks for consent to
   handle the visitor's data, and separately, optionally, for consent to news and offers.
@@ -56,10 +58,12 @@ an idea.
   after 12 months.
 - Copy is Portuguese by default with an English translation; product screenshots stay Portuguese.
 - Coaches and players can go straight to LevApp's App Store page from the top of their page, and
-  players again from the closing call to action. It opens in a new tab (PAD-619).
+  players again from "Grátis para alunos". It opens in a new tab (PAD-619).
+- The site shows no prices (owner, 2026-10-21): the pilot is free for coaches and the app is free
+  for students; there is no pricing section.
 
 ## Success Metrics
 
 - Demo requests from coaches arriving in HubSpot as contacts with source Inbound / Site.
-- Players reaching `/auth` from the landing page rather than bouncing to support.
+- Players reaching `/auth` or `/signup` from the site rather than writing to support.
 - Idea emails from the "Others" audience.

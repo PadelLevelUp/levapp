@@ -1,0 +1,52 @@
+# Login for the store screenshots: the shared .maestro/subflows/login.yaml plus one scroll.
+#
+# Why not the shared subflow: the capture runs on a pixel_2 (1080 x 1920, inside Play's 2:1
+# limit), where the open keyboard covers "Sign In" — the KeyboardAvoidingView shrinks the
+# ScrollView and login-submit drops out of the hierarchy (run 39719814512, attempt 2). The lane
+# runs on a taller pixel_6 and never sees it. scrollUntilVisible drags the ScrollView, and its
+# keyboardDismissMode="on-drag" closes the keyboard (app/login.tsx); on a tall screen the
+# command returns at once. The shared subflow stays as it is: every flow in both lanes runs it.
+#
+# Simpler than the shared one: the APK is freshly installed, so the coach finds the login
+# screen, and the student finds the coach signed in (logout.yaml handles that).
+appId: com.padellevelup.app
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "tab-dashboard"
+    file: ../../../.maestro/subflows/logout.yaml
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 30000
+- waitForAnimationToEnd
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: ${USERNAME}
+      - assertVisible: ${USERNAME}
+      - tapOn:
+          id: "login-password"
+      - eraseText: 40
+      - inputText: ${PASSWORD}
+      - scrollUntilVisible:
+          element:
+            id: "login-submit"
+          direction: DOWN
+          timeout: 10000
+      - tapOn:
+          id: "login-submit"
+      - extendedWaitUntil:
+          visible:
+            id: "screen-dashboard"
+          timeout: 25000

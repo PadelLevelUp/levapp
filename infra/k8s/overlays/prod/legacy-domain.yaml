@@ -1,0 +1,36 @@
+# padellevelup.com (prod only; delivery.k8s-manifests rule 3), mirroring the VM vhost
+# infra/nginx/sites-available/padellevelup. Web app tabs loaded from the old domain keep calling
+# /api/ same-origin (102 API requests over 8 days to 2026-10-21, all browsers), so the API, the
+# events stream, the activation lookup and /.well-known/ are served; every other path is a 301 to
+# levapp.app keeping the path. Retiring it to a Cloudflare redirect waits until that count is zero
+# for some weeks after the cutover.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: legacy-domain
+spec:
+  parentRefs: [{name: levapp, sectionName: https}]
+  hostnames: [padellevelup.com, www.padellevelup.com]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /api/app/events}}]
+      backendRefs: [{name: events, port: 80}]
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set: [{name: Strict-Transport-Security, value: "max-age=31536000"}]
+    - matches: [{path: {type: PathPrefix, value: /api/}}]
+      backendRefs: [{name: api, port: 80}]
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set: [{name: Strict-Transport-Security, value: "max-age=31536000"}]
+    - matches: [{path: {type: PathPrefix, value: /.well-known/}}]
+      backendRefs: [{name: web, port: 80}]
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set: [{name: Strict-Transport-Security, value: "max-age=31536000"}]
+    - matches: [{path: {type: PathPrefix, value: /}}]
+      filters:
+        - type: RequestRedirect
+          requestRedirect: {scheme: https, hostname: levapp.app, statusCode: 301}

@@ -59,8 +59,14 @@ def _github(url):
         return {"commits": [{"sha": "sha11"}]}
     if "/pulls?state=open" in url:
         return [{**_pr(30, "staging", None, None, "feature/pad-30"), "draft": True}]
+    if "/contents/" in url:
+        # PAD-646's bug ledger and CI workflow files (rules 10–11): an empty index, an empty workflow.
+        import base64
+        return {"encoding": "base64", "content": base64.b64encode(b"# index\njobs:\n").decode()}
+    if "/actions/runs/" in url and "/jobs" in url:
+        return {"jobs": []}
     if "/actions/workflows/" in url:
-        return {"workflow_runs": [{"status": "completed", "conclusion": "success", "head_sha": "abcdef1234567",
+        return {"workflow_runs": [{"id": 1, "status": "completed", "conclusion": "success", "head_sha": "abcdef1234567",
                                    "created_at": _iso(1), "html_url": "https://gh/run"}]}
     raise AssertionError(f"unexpected GitHub call {url}")
 

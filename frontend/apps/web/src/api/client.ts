@@ -44,6 +44,7 @@ export const WEB_CAPABILITIES = [
   "adult-roster-confirmation",
   "student-relations",
   "full-classes",
+  "join-side",
 ] as const;
 
 initApi({
@@ -59,6 +60,8 @@ initApi({
   // send the `type` open-spots source label instead of falling it back to `coach`.
   // PAD-664 (calendar.view rule 23): `full-classes` asks the server for a full eligible class
   // (`studentRelation: "full"`) so the student can join its waiting list; without it none is sent.
+  // PAD-672 (join-requests rule 20): `join-side` — declared with the side picker (ClassSideChoice):
+  // a request without a side is answered 409 `side_full` only to a client that can show the choice.
   capabilities: WEB_CAPABILITIES,
 });
 

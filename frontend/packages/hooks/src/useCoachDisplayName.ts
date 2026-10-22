@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { coachDisplayName } from "@levelup/config";
+import { coachDisplayName, coachDisplayNameByUserId } from "@levelup/config";
 import * as playersApi from "@levelup/api/src/resources/players";
 import type { CoachPlayer } from "@levelup/types";
 
@@ -29,6 +29,28 @@ export function useCoachDisplayName(options?: {
   return useCallback(
     (playerId: string | number | null | undefined, fallback: string | null | undefined) =>
       coachDisplayName(enabled ? data : undefined, playerId, fallback),
+    [data, enabled]
+  );
+}
+
+/**
+ * PAD-683 (rule 9b): the resolver keyed by USER id, for the new-conversation picker (the
+ * messageable list carries no player id: rule 15 pins its public shape). Same roster query.
+ */
+export function useCoachDisplayNameByUser(options?: {
+  enabled?: boolean;
+  fetchRoster?: () => Promise<CoachPlayer[]>;
+}) {
+  const enabled = options?.enabled ?? true;
+  const { data } = useQuery({
+    queryKey: queryKeys.coachPlayers,
+    queryFn: options?.fetchRoster ?? playersApi.getCoachPlayers,
+    enabled,
+    staleTime: 60_000,
+  });
+  return useCallback(
+    (userId: string | number | null | undefined, fallback: string | null | undefined) =>
+      coachDisplayNameByUserId(enabled ? data : undefined, userId, fallback),
     [data, enabled]
   );
 }

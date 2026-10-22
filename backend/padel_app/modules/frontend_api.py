@@ -2264,7 +2264,8 @@ def create_class_join_request():
         abort(403, "Only a student can ask to join a class")
     data = request.get_json() or {}
     row, created = create_join_request_service(
-        player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note")
+        player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note"),
+        side=data.get("side"),
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
 
@@ -2293,9 +2294,10 @@ def join_class_waiting_list_route():
         abort(403, "Only a student can join a waiting list")
     data = request.get_json() or {}
     entry, created = join_class_waiting_list_service(
-        player, data.get("model"), data.get("originalId"), data.get("date")
+        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side")
     )
-    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True}), (201 if created else 200)
+    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True,
+                    "side": entry.side}), (201 if created else 200)  # PAD-672: the side stored
 
 
 @bp.get("/class-waiting-list")

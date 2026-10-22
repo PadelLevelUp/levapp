@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { useTranslation } from "react-i18next";
 import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
@@ -48,14 +49,16 @@ function isPickableClass(event: CalendarEvent): boolean {
   );
 }
 
-function playerName(player: Player): string {
-  return player.user?.name ?? `#${player.id}`;
+/** PAD-683: the class's participants are a shared payload, so the coach's name for each is resolved here. */
+function playerLabel(player: Player, displayName: (id: string | number, fallback: string) => string): string {
+  return displayName(player.id, player.user?.name ?? `#${player.id}`);
 }
 
 type Step = "class" | "player" | "results";
 
 export function UnderstandInvitesTutorial() {
   const { t, i18n } = useTranslation();
+  const displayName = useCoachDisplayName(); // PAD-683 rule 9b: the coach's name for each participant
 
   const [classes, setClasses] = useState<CalendarEvent[] | null>(null);
   const [selectedClass, setSelectedClass] = useState<CalendarEvent | null>(null);
@@ -230,7 +233,7 @@ export function UnderstandInvitesTutorial() {
                             : "border-border hover:bg-muted",
                         )}
                       >
-                        {playerName(player)}
+                        {playerLabel(player, displayName)}
                       </button>
                     );
                   })}
@@ -333,7 +336,7 @@ function SimulationResults({
             <ol className="mt-1 list-decimal pl-5">
               {waitingListAskedFirst(simulation).map((entry) => (
                 <li key={entry.playerId} data-testid={`tutorial-waiting-list-${entry.playerId}`}>
-                  {entry.name ?? ""}
+                  {entry.displayName ?? entry.name ?? ""}
                   {entry.standing ? ` ${t("tutorials.understandInvites.waitingListStanding")}` : ""}
                 </li>
               ))}
@@ -405,7 +408,7 @@ function CandidateRow({ candidate }: { candidate: InviteSimulationCandidate }) {
       </span>
       {/* Not `tutorial-candidate-*`: tests count rows by that prefix. */}
       <span className="font-medium" data-testid="tutorial-name">
-        {candidate.name}
+        {candidate.displayName ?? candidate.name}
       </span>
       {candidate.levelCode && <Badge variant="outline">{candidate.levelCode}</Badge>}
       {candidate.side && (
@@ -436,7 +439,7 @@ function CandidateRow({ candidate }: { candidate: InviteSimulationCandidate }) {
 function Lookup({ request }: { request: InviteSimulationRequest }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ id: string; name: string }[] | null>(null);
+  const [results, setResults] = useState<{ id: string; name: string; displayName?: string }[] | null>(null);
   const [verdict, setVerdict] = useState<InviteExplain | null>(null);
   // The name of the result the coach picked: refilling the input with it must
   // not re-run the search and reopen the dropdown over the verdict.
@@ -475,10 +478,11 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
     setVerdict(null);
   }, [request.originalId, request.date, request.departingPlayerId]);
 
-  const explain = (player: { id: string; name: string }) => {
+  const explain = (player: { id: string; name: string; displayName?: string }) => {
+    const shown = player.displayName ?? player.name;
     setResults(null);
-    setSelectedName(player.name);
-    setQuery(player.name);
+    setSelectedName(shown);
+    setQuery(shown);
     explainInviteCandidate({ ...request, playerId: player.id })
       .then(setVerdict)
       .catch(() => setVerdict(null));
@@ -520,7 +524,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
                   onClick={() => explain(player)}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
                 >
-                  {player.name}
+                  {player.displayName ?? player.name}
                 </button>
               </li>
             ))}
@@ -532,7 +536,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
         <div className="rounded-lg border border-border p-3 text-sm" data-testid="tutorial-verdict">
           <p>
             <span className="font-medium">
-              {t("tutorials.understandInvites.notInvited", { name: verdict.name ?? "" })}
+              {t("tutorials.understandInvites.notInvited", { name: verdict.displayName ?? verdict.name ?? "" })}
             </span>{" "}
             <span data-testid={`tutorial-verdict-stage-${verdict.stage}`}>
               {resolveText(t, text.headline)}

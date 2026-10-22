@@ -26,6 +26,7 @@ import {
   type MergedClassRequestRow,
 } from "@levelup/config";
 import { Button } from "@/components/ui/button";
+import { JoinRequestSide } from "@/components/calendar/JoinRequestSide";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -103,8 +104,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
   // Rule 7: accepting an academy row is a manual add — the same named-reason
   // confirmation the class sheet asks (ClassDetailSheet, EligibilityConfirmDialog).
   const [pendingAcademyAccept, setPendingAcademyAccept] = useState<{
-    id: number;
-    playerName: string;
+    /** The parked row: confirming replays the accept, which resolves the name itself (PAD-683). */
+    row: ClassJoinRequestListRow;
     ineligible: EligibilityCheckEntry[];
   } | null>(null);
   const [proposingId, setProposingId] = useState<number | null>(null);
@@ -182,7 +183,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
       const refusal = joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setBusyJoinId(null);
-        setPendingAcademyAccept({ id: row.id, playerName: displayName(row.playerId, row.playerName), ineligible: refusal.ineligible ?? [] });
+        setPendingAcademyAccept({ row, ineligible: refusal.ineligible ?? [] });
         return;
       }
       toast({
@@ -253,6 +254,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
             </p>
             <p className="text-sm text-muted-foreground">{who}</p>
             {r.note && <p className="text-sm text-muted-foreground italic">“{r.note}”</p>}
+            {/* PAD-672 (join-requests rule 20): the side asked for, and "Usar … no perfil". */}
+            {role === "coach" && <JoinRequestSide request={r} />}
           </div>
           <Badge variant={statusVariant(r.status)}>{t(statusKey)}</Badge>
         </div>
@@ -521,7 +524,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
         onConfirm={() => {
           const parked = pendingAcademyAccept;
           setPendingAcademyAccept(null);
-          if (parked) void handleAcademyAccept({ id: parked.id, playerName: parked.playerName } as ClassJoinRequestListRow, true);
+          if (parked) void handleAcademyAccept(parked.row, true);
         }}
       />
     </>

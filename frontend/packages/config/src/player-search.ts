@@ -22,13 +22,22 @@ interface RosterPlayerLike {
  * rows unchanged, in the screen's own order.
  */
 export function searchRoster<T extends RosterPlayerLike>(items: readonly T[], query: string): T[] {
-  return searchPlayers(items, query, (p) => ({
+  return searchPlayers(items, query, (p) => rosterSearchFields(p));
+}
+
+/**
+ * The fields the shared rule reads from a roster-shaped row (PAD-660, PAD-683): the real name,
+ * the coach's own nickname (so either name finds the student), and email / phone where the payload
+ * has them. For a surface that calls `searchPlayers` itself (the presences screens).
+ */
+export function rosterSearchFields(p: RosterPlayerLike) {
+  return {
     name: p.name,
     nickname: rosterNicknameOf(p), // PAD-660: the coach's own nickname finds the student too
     email: p.email,
     phone: p.phone,
     id: p.playerId,
-  }));
+  };
 }
 
 // student side, out of PAD-665 scope (players.search rule 8)
@@ -43,8 +52,20 @@ export function searchPeopleByName<T>(
   items: readonly T[],
   query: string,
   nameOf: (item: T) => string,
-  { coach }: { coach: boolean }
+  {
+    coach,
+    nicknameOf,
+  }: {
+    coach: boolean;
+    /** PAD-683 (players.nickname rule 5): the coach's nickname for the row, so either name finds it. */
+    nicknameOf?: (item: T) => string | null;
+  }
 ): T[] {
-  if (coach) return searchPlayers(items, query, (item) => ({ name: nameOf(item) }));
+  if (coach) {
+    return searchPlayers(items, query, (item) => ({
+      name: nameOf(item),
+      nickname: nicknameOf ? nicknameOf(item) : undefined,
+    }));
+  }
   return items.filter((item) => legacyContains(nameOf(item), query));
 }

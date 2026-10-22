@@ -48,107 +48,314 @@ appId: com.padellevelup.app
     timeout: 15000
 - assertVisible:
     id: "board-tab-game"
-# PAD-710 (Android lane): in game mode the court is below the fold and Android exposes only on-screen elements.
-- scrollUntilVisible:
-    element:
-      id: "piece-a1"
-    direction: DOWN
-    timeout: 15000
+# PAD-710 (Android lane): the board's toolbar and its court do not fit on the phone together and Android exposes only on-screen elements; scrollUntilVisible swipes from the centre (the court) and the court eats the gesture, so the Android steps scroll by swiping the page margin (subflows/board-show-*.yaml).
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
 - assertVisible:
     id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-b2"
 - assertVisible:
     id: "piece-b2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-select"
 - assertVisible:
     id: "board-hint-select"
 
 # Tool hints follow the active tool.
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
 - tapOn:
     id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
 - assertVisible:
     id: "board-hint-ball"
 
 # Cone at the court centre (tapOn without a point taps the element's centre), then undo.
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-cone"
 - tapOn:
     id: "board-tool-cone"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
 - tapOn:
     id: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
 - assertVisible:
     id: "piece-cone-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
 - tapOn:
     id: "board-undo"
 - assertNotVisible:
     id: "piece-cone-1"
 
 # ── Wave 4: steps and playback — add a step, Passo, AUTO ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-step-indicator"
 - assertVisible:
     id: "board-step-indicator"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-add-step"
 - tapOn:
     id: "board-add-step"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-step-indicator"
 - assertVisible:
-    text: ".*2 de 2.*"
+    # PAD-710 (Android lane): the lane renders English ("Step 2 of 2"); match either locale.
+    text: ".*2 (de|of) 2.*"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-passo"
 - tapOn:
     id: "board-passo"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "board-auto"
 - tapOn:
     id: "board-auto"
+# PAD-710 (Android lane): the playback ball is drawn on the court; bring the court on screen before it disappears (it may still be missed on a slow emulator).
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
 - assertVisible:
     id: "playback-ball"
 - extendedWaitUntil:
     notVisible:
       id: "playback-ball"
     timeout: 10000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-delete-step"
 - tapOn:
     id: "board-delete-step"
 - assertVisible:
-    text: ".*1 de 1.*"
+    text: ".*1 (de|of) 1.*"
 
 # ── Wave 3: Magnético — pen stroke by swiping the court, then back to game ──
 # (the fresh game board has no content after the undo, so no prompt appears)
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-magnetic"
 - tapOn:
     id: "board-tab-magnetic"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-pen"
 - assertVisible:
     id: "board-hint-pen"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-color-red"
 - tapOn:
     id: "board-color-red"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
 - swipe:
     start: "40%, 45%"
     end: "60%, 55%"
     duration: 600
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-stroke-1"
 - assertVisible:
     id: "piece-stroke-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
 - tapOn:
     id: "board-undo"
 - assertNotVisible:
     id: "piece-stroke-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-game"
 - tapOn:
     id: "board-tab-game"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-b2"
 - assertVisible:
     id: "piece-b2"
 
 # ── Wave 2: Exercícios de cesto — a fresh board switches without a prompt ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-basket"
 - tapOn:
     id: "board-tab-basket"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
 - assertVisible:
     id: "piece-feeder"
 - assertNotVisible:
     id: "piece-b1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-add-players"
 - tapOn:
     id: "board-add-players"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a3"
 - assertVisible:
     id: "piece-a3"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-add-players"
 - tapOn:
     id: "board-add-players"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a4"
 - assertVisible:
     id: "piece-a4"
 # Bola in basket mode: one tap on the court draws the feed from the feeder.
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
 - tapOn:
     id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
 - assertVisible:
     id: "board-hint-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
 - tapOn:
     id: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-flat"
 - assertVisible:
     id: "ball-path-flat"
 
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "exercise-save"
 - scrollUntilVisible:
     element:
       id: "exercise-save"
@@ -178,10 +385,22 @@ appId: com.padellevelup.app
     timeout: 30000
 - tapOn:
     id: "exercise-diagram-toggle"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
 - extendedWaitUntil:
     visible:
       id: "piece-feeder"
     timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a4"
 - assertVisible:
     id: "piece-a4"
 

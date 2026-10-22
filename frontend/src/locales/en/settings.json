@@ -68,6 +68,8 @@
     "preferences": {
       "requestAlerts": "Request alerts",
       "requestAlertsDescription": "Push and email when a request needs you (club join, account link, coach approval) and when yours is decided. In-app badges always stay on.",
+      "notificationSound": "Notification sound",
+      "notificationSoundDescription": "A short sound when a message or notification arrives while the app is open, and sound on phone notifications. In a browser it only plays after you have clicked or typed on the page.",
       "title": "Preferences",
       "description": "How you want the app to behave.",
       "theme": "Theme",
@@ -518,7 +520,9 @@
       "excludeUnpaid": "Exclude inactive accounts",
       "excludeUnpaidDescription": "Don't invite students whose account is not active yet (they have not finished setting up their login). This is account status, not payment.",
       "noSameDayClass": "Skip students who already have a class that day",
-      "noSameDayClassDescription": "Don't automatically invite a student who already holds a place in another class on the same day (any coach). Classes they declined or were marked absent from do not count. Your own manual invitations are not affected.",
+      "noSameDayClassDescription": "Don't automatically invite a student who already holds a place in another class on the same day (any coach). Classes they declined or were marked absent from do not count. Your own manual invitations are not affected. It comes on by default, and you can switch it off here.",
+      "noSameDayClassDefaultNote": "New: this restriction now comes on by default. You can switch it off here.",
+      "noSameDayClassDefaultNoteDismiss": "Got it",
       "hours": "hours",
       "cancellationDeadline": "Cancellation deadline",
       "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"

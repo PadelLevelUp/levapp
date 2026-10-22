@@ -48,6 +48,8 @@ def _incomplete_rows(coach_id: int):
 
 def build_incomplete_players_block(*, coach_id: int) -> Optional[Dict[str, Any]]:
     """Rule 3: the coach's block, or None when nobody is missing anything."""
+    from padel_app.services.player_service import nickname_payload
+
     rows = _incomplete_rows(coach_id)
     if not rows:
         return None
@@ -57,6 +59,8 @@ def build_incomplete_players_block(*, coach_id: int) -> Optional[Dict[str, Any]]
         {
             "playerId": cp.player_id,
             "name": user.name,
+            # PAD-683 (players.nickname rule 9a): coach-only block, the asking coach's own relation.
+            **nickname_payload(cp, user.name),
             "missing": missing_of(cp),
             "href": f"/players/{cp.player_id}",
         }

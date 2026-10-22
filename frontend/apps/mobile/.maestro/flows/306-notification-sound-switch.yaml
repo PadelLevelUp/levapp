@@ -1,0 +1,84 @@
+# PAD-680 (notifications.notification-sound rule 1): on iOS the "Notification sound" switch sits in
+# Settings → Preferências next to request alerts, is held until the footer Save, and the server then
+# holds it. (Whether the system sound plays for a foreground push cannot be asserted by Maestro; the
+# handler's answer is pinned by src/lib/push/foreground-sound.test.ts.)
+#
+# Journey: coach login → header avatar → Settings → Preferências → switch the sound off → Save →
+# /auth/me says false → switch it back on → Save → /auth/me says true (the seed state again).
+#
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 306 is from Session E's range
+# (306–310), wave 16 (unconfirmed until the coordinator's roll-up).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- assertTrue: "${json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).notificationSound === true}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- scrollUntilVisible:
+    element:
+      id: "settings-notification-sound"
+    direction: DOWN
+    timeout: 15000
+
+# ── Off, saved ──
+- tapOn:
+    id: "settings-notification-sound"
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+# The server holds it only once Save has run (read until it lands; the 12-settings-language pattern).
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b680-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.sound = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).notificationSound}"
+      - assertTrue: "${output.sound === false}"
+- scrollUntilVisible:
+    element:
+      id: "settings-notification-sound"
+    direction: UP
+    timeout: 15000
+
+# ── On again, saved (seed state) ──
+- tapOn:
+    id: "settings-notification-sound"
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+# The server holds it only once Save has run (read until it lands; the 12-settings-language pattern).
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b680-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.sound = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).notificationSound}"
+      - assertTrue: "${output.sound === true}"
+- scrollUntilVisible:
+    element:
+      id: "settings-notification-sound"
+    direction: UP
+    timeout: 15000

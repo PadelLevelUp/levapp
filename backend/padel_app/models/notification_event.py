@@ -50,11 +50,17 @@ class NotificationEvent(db.Model, model.Model):
     # invitation because its spot re-counted to the other side; NULL otherwise. Not a "no" (rule 18):
     # it keeps the student out of round 1 of the class only, and lets them join its waiting list.
     retired_reason = Column(String(16), nullable=True)
+    # PAD-719 (invitations rule 18a): the spot this live invitation was moved from when its own
+    # closed or withdrew it for balance, and when; NULL for an invitation never moved. A second
+    # move overwrites both, so they always name the immediately previous spot. SET NULL: the event
+    # belongs to its new spot, so deleting the old one must not take the event with it.
+    moved_from_vacancy_id = Column(Integer, ForeignKey("vacancies.id", ondelete="SET NULL"), nullable=True)
+    moved_at = Column(DateTime, nullable=True)
 
     lesson_instance = relationship("LessonInstance")
     player = relationship("Player")
     coach = relationship("Coach")
-    vacancy = relationship("Vacancy", back_populates="notification_events")
+    vacancy = relationship("Vacancy", back_populates="notification_events", foreign_keys=[vacancy_id])
 
     @property
     def name(self):
