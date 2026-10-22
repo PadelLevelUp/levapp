@@ -43,9 +43,12 @@ jobs:
         working-directory: infra/k8s
         run: |
           set -euo pipefail
+          # PAD-702: the deploy writes vars.env from GitHub variables; here it is empty. The config
+          # Component reads backend/.env.<env> (one source), outside the kustomization root.
+          touch overlays/staging/config/vars.env overlays/prod/config/vars.env
           for k in overlays/staging overlays/prod overlays/staging/migrate overlays/prod/migrate; do
             echo "== $k"
-            kubectl kustomize "$k" | kubeconform -strict -summary -kubernetes-version 1.30.0 \
+            kubectl kustomize --load-restrictor LoadRestrictionsNone "$k" | kubeconform -strict -summary -kubernetes-version 1.30.0 \
               -schema-location default -schema-location "$CRDS_CATALOG" -
           done
       - uses: actions/setup-python@v5

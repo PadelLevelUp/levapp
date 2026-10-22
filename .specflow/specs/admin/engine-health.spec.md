@@ -31,7 +31,7 @@ database query or a log search, and failed sends are only in the logs.
   `subject_type` / `subject_id` (nullable: the lesson instance, vacancy or notification the
   incident belongs to), `error_class` (String(120)), `detail` (String(500), truncated). No
   recipient address, message body, device token or push key is stored. Rows older than 30 days
-  are deleted by a daily scheduler job `prune_delivery_incidents` (R-010 naming: fixed id).
+  are deleted by a daily scheduler job `prune_delivery_incidents` at 03:07 UTC (R-010 naming: fixed id; a fixed minute, delivery.worker-role rule 4, B-667).
 - **WRITES:** `delivery_incidents` only, from the existing failure paths (rule 3). The page
   itself writes nothing.
 

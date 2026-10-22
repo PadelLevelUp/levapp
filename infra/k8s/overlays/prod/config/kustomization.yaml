@@ -1,0 +1,13 @@
+# PAD-702 (delivery.k8s-manifests rule 8): the prod ConfigMap, levapp-config. One source: the same
+# backend/.env.prod the VM deploy reads, plus vars.env, which the deploy workflow writes from
+# GitHub variables (gitignored; the lint job writes an empty one). A Component, included by the
+# overlay and by migrate/, so both builds produce the same hashed name: the Job is applied before
+# the overlay and must point at the ConfigMap the Deployments will use. Reading a file outside this
+# directory needs `kubectl kustomize --load-restrictor LoadRestrictionsNone`.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+configMapGenerator:
+  - name: levapp-config
+    envs:
+      - ../../../../../backend/.env.prod
+      - vars.env
