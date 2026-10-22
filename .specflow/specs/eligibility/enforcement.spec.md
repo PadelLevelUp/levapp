@@ -69,6 +69,10 @@ a coach acts by hand. The coach's roster always wins.
    and never blocks, so the save path is unchanged and a client that ignores the check cannot be
    prevented from enrolling anyone. It returns only the students who FAIL, so an empty list means
    "no confirmation needed".
+7e. **(B-619) Only the class's coach may ask.** `eligibility_check` resolves the class through the
+   engine's owned resolver, before anything is written: another coach's class is 403, and a
+   Lesson + date ref of another coach's class materialises no occurrence (before B-619 it did,
+   then answered).
 7d. **(PAD-150) Both shells render the check the same way.** When a class edit ADDS participants,
     the client calls `eligibility_check` for the added ids first. A non-empty `ineligible` list
     opens a confirmation listing **each failing student by name with one line per failed rule**,
@@ -193,6 +197,12 @@ a coach acts by hand. The coach's roster always wins.
 - **When** the coach sends
 - **Then** one confirmation lists the two failing students, each with their reasons, and the passing one is not named
 - **And** confirming sends to all three
+
+#### Another coach's class is refused before it is materialised (rule 7e, B-619)
+- **Given** coach Ana's one-off class with no occurrence row yet, and coach Bruno
+- **When** Bruno posts `eligibility_check` with that lesson and its date
+- **Then** the response is 403 and no occurrence is created
+- **And** Ana's same request is 200 and creates the occurrence, as before (R-001)
 
 #### Tightening the bar leaves enrolled students in place
 - **Given** a class with 6 enrolled students, 3 of whom would fail a stricter bar
