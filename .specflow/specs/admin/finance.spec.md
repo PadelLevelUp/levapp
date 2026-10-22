@@ -1,6 +1,6 @@
 ---
 id: admin.finance
-status: draft
+status: implementing
 depends_on: [admin.foundation, admin.engine-health, admin.phone-console]
 implements: ../../specs-business/admin/the-owner-knows-what-levapp-has-cost.business.md
 governed_by: [R-005, R-010, R-022, R-023, R-024, R-036]
@@ -8,7 +8,7 @@ governed_by: [R-005, R-010, R-022, R-023, R-024, R-036]
 
 # admin.finance
 
-> Linear: PAD-742 (owner request 2026-10-22). Draft: no code exists. Four questions are open on the
+> Linear: PAD-742 (owner request 2026-10-22). Batch A (backend) implemented 2026-10-22; the page is batch B. Four questions are open on the
 > ticket (currency, start date, the initial manual list, who enters); the rules marked
 > **(assumption Qn)** are this draft's answer until the owner's, and each is one constant or one
 > rule to change. Plan: `docs/plans/2026-10-22-pad-742-plan.md` (gitignored).
@@ -137,7 +137,9 @@ and category, with month totals and the running total since the start.
       separated, dot decimals.
 11. **Configuration and identifiers (R-036).** `FINANCE_GCP_BILLING_TABLE` (the export table's
     full id) and `FINANCE_GCP_MAX_BYTES` are read from the environment. The tracked env templates
-    carry the names with empty values; the table id, the project ids it contains, the billing
+    do not set the table: prod reads it from the deploy variable `FINANCE_GCP_BILLING_TABLE`
+    (`deploy-prod.yaml`, `overlays/prod/sources.txt`), staging leaves it unset on purpose
+    (`infra/k8s/unset-keys.txt`), so staging's import is `not_configured`; the table id, the project ids it contains, the billing
     account and the dataset never appear in tracked files, specs or test fixtures (tests use
     invented ids). The backend reads BigQuery with the backend's own Google credentials, which the
     owner grants BigQuery Data Viewer on the export dataset and BigQuery Job User on the project
@@ -256,7 +258,7 @@ and category, with month totals and the running total since the start.
 #### No identifiers in tracked files (rule 11)
 - **Given** the repository
 - **When** the R-036 guard scans tracked files
-- **Then** `FINANCE_GCP_BILLING_TABLE` has an empty value in every tracked env template and no fixture holds a real project, dataset or billing-account id
+- **Then** no tracked env template sets `FINANCE_GCP_BILLING_TABLE`, prod takes it only from the deploy variable, the config guard (`infra/k8s/tests/test_pad702_config.py`) accounts for it in both environments, and no fixture holds a real project, dataset or billing-account id
 
 ### Notes
 - Billing export to BigQuery, not the Cloud Billing API: the Cloud Billing API manages billing

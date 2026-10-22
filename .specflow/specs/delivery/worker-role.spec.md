@@ -76,7 +76,7 @@ until B8 has proven it.
    runs at a fixed UTC minute (`CronTrigger`), never `IntervalTrigger(days=…)`: the scheduler
    re-registers its jobs with `replace_existing` on every boot, which put an interval's next run at
    boot + 24 h, so with a deploy a day it never fired. The daily jobs are `extend_schedule_window`
-   02:47, `prune_delivery_incidents` 03:07 and `retention_sweep` 03:17, each with a 6 h misfire
+   02:47, `prune_delivery_incidents` 03:07, `retention_sweep` 03:17 and `finance_gcp_import` 04:07 (admin.finance, PAD-742), each with a 6 h misfire
    grace (a run due while the leader is paused for a lock handover still runs). A boot whose job
    store holds a daily job whose next run is already past (no leader was running at its minute)
    adds one `<id>_catchup` run now. The jobs are idempotent, so a catch-up that races the outgoing
