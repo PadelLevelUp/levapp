@@ -19,6 +19,15 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 1. One config per coach (upserted on first access)
 2. `auto_notify_enabled` toggles the automatic invitation engine
 3. `invitation_mode`: `"automatic"` (default) or `"semi_automatic"`. Only relevant when `auto_notify_enabled` is true. In `semi_automatic` mode, vacancies require coach approval before the engine sends invitations (see notifications.semi-auto-approval); in `automatic` mode behavior is unchanged
+3a. **Accept join requests automatically (PAD-672 slice 2, D6; owner Q3, 2026-10-21; numbering
+   unconfirmed).** `auto_accept_join_requests` (boolean, **off by default**; on the wire
+   `autoAcceptJoinRequests`): "Aceitar automaticamente pedidos de inscrição de alunos elegíveis em
+   aulas com vaga". On, a student's join request is accepted the moment it is created when every
+   check the coach would make passes (`classes.join-requests` rule 21); otherwise it waits for the
+   coach as before. **Incompatible with `semi_automatic`:** a save that turns it on while the mode is
+   (or becomes) `semi_automatic` answers `400` and stores nothing; a save that switches the mode to
+   `semi_automatic` while it is on turns it off in the same save and the response carries
+   `notice: "auto_accept_off"` for the client to tell the coach.
 4. First reminder timing (`reminder_type`, `reminder_value`, `reminder_time`; on the wire `reminderTiming.firstReminder`): `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
 5. Invitation window (`invitation_start_type`, `invitation_start_value`, `invitation_start_time`; on the wire `reminderTiming.invitationStart`): when to start sending invitations after a vacancy. One home only — the duplicate `invitation_start_timing` column and its precedence dance are gone (PAD-279)
 6. Restrictions (typed columns, composed on the wire as the `restrictions` object): maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c), noSameDayClass (rule 6e)

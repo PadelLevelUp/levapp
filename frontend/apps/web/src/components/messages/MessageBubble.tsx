@@ -318,7 +318,7 @@ export function MessageBubble({
     }
   };
 
-  const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const x = useMotionValue(0);
   const replyOpacity = useTransform(x, [40, 80], [0, 1]);
   const hasSwipedRef = useRef(false);
