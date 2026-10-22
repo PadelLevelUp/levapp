@@ -273,6 +273,9 @@
       "notYetAsked": "You can't confirm yet: wait for your coach's reminder. If you can't make it, say so now.",
       "alreadyMarked": "Your coach has already recorded your attendance for this class.",
       "declinedFinalHint": "You said you're not coming. If you change your mind, talk to your coach.",
+      "comeBack": "I can come after all",
+      "spotTaken": "Your spot has been taken",
+      "onWaitingList": "You're on the waiting list",
       "declinedFinalChat": "Talk to the coach"
     },
     "planning": {

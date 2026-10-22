@@ -273,6 +273,9 @@
       "notYetAsked": "Ainda não podes confirmar: espera pelo lembrete do teu treinador. Se não puderes ir, avisa já.",
       "alreadyMarked": "O teu treinador já registou a tua presença nesta aula.",
       "declinedFinalHint": "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador.",
+      "comeBack": "Afinal vou",
+      "spotTaken": "A tua vaga já foi ocupada",
+      "onWaitingList": "Estás na lista de espera",
       "declinedFinalChat": "Falar com o treinador"
     },
     "planning": {

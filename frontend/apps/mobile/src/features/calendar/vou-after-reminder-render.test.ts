@@ -102,10 +102,10 @@ describe("every key the mapper and the rows can show resolves in both languages"
     const t = tree(locale);
     for (const key of keys) expect(typeof resolve(t, key), key).toBe("string");
   });
-  it("the retired come-back strings are gone from both languages", () => {
+  it("the retired come-back strings are gone from both languages (PAD-684 revived only `comeBack`)", () => {
     for (const locale of ["pt", "en"]) {
       const t = tree(locale);
-      for (const key of ["calendar.detail.comeBack", "calendar.detail.comeBackHint", "calendar.detail.comeBackDone"]) {
+      for (const key of ["calendar.detail.comeBackHint", "calendar.detail.comeBackDone"]) {
         expect(resolve(t, key), `${locale}:${key}`).toBeUndefined();
       }
     }

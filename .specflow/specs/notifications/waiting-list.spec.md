@@ -181,7 +181,10 @@ the order they joined (PAD-446). Nobody is enrolled from the list without saying
     `notifications.invitations` rule 15a)** writes the same `WaitingListEntry` the
     offer path writes — `standing_entry_id IS NULL`, upserted on `(lesson_instance_id, player_id)`
     and reactivated rather than duplicated — and is gated by `classes.academy-class-booking`
-    rules 2 and 6. Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates the
+    rules 2 and 6. **(PAD-684, `attendance.confirm` rule 28)** A student whose own presence on
+    the occurrence is `not_coming` holds no spot, so the join does not refuse them as
+    `already_enrolled`, and the class they are enrolled in is visible to them; their "Não vou" is
+    to the place, not to the class, so it is not rule 18's invitation "no". Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates the
     student's active entry for that class whatever its origin; a standing entry (rule 10) itself
     stays active for its other classes.
 13. **Under the lock, as every invitation (PAD-261, PAD-495).** A waiting-list invitation is
