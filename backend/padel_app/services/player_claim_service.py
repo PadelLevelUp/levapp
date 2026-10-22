@@ -771,6 +771,16 @@ def decide_claim_request_service(request_id, user, accept):
     # the placeholder's name.
     coach_user = req.requested_by_coach.user if req.requested_by_coach else None
     placeholder_name = req.player.user.name if req.player and req.player.user else ""
+    # PAD-683 (players.nickname rule 9c): the alert goes to the coach alone (push, Expo, email), so
+    # it names both students by the coach's display name — read before the merge retires the rows.
+    # (`claim.received` goes to the invited student, not a coach: it keeps real names.)
+    from padel_app.models.players import Player
+    from padel_app.services.player_service import coach_display_name
+
+    coach_uid = coach_user.id if coach_user else None
+    actor_player = Player.query.filter_by(user_id=user.id).first()
+    actor_shown = coach_display_name(coach_uid, actor_player.id if actor_player else None, user.name)
+    placeholder_shown = coach_display_name(coach_uid, req.player_id, placeholder_name)
     from padel_app.services.request_alert_service import notify_request_event
     if accept:
         merge_placeholder_player_into(   # marks the request accepted
@@ -778,7 +788,7 @@ def decide_claim_request_service(request_id, user, accept):
             confirmed_by=user, requested_by_coach_id=req.requested_by_coach_id,
         )
         notify_request_event(
-            "claim.decided", [coach_user], actor=user.name, player=placeholder_name,
+            "claim.decided", [coach_user], actor=actor_shown, player=placeholder_shown,
             decision="approved",
         )
         return PlayerClaimRequest.query.get(request_id)
@@ -786,7 +796,7 @@ def decide_claim_request_service(request_id, user, accept):
     req.decided_at = utcnow_naive()
     db.session.commit()
     notify_request_event(
-        "claim.decided", [coach_user], actor=user.name, player=placeholder_name,
+        "claim.decided", [coach_user], actor=actor_shown, player=placeholder_shown,
         decision="rejected",
     )
     return req

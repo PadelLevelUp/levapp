@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   blockedNames,
   blockedReasons,
+  coachDisplayName,
   lightTheme,
   runManualInviteFlow,
   searchRoster,
@@ -82,6 +83,10 @@ export function NotifyModal({
     queryFn: playersApi.getCoachPlayers,
     enabled: open,
   });
+  // PAD-683 (players.nickname rule 9): every row and toast here names a student by this coach's
+  // display name, from the roster above; the group rows also carry it from the server (rule 9a).
+  const displayName = (playerId: string | number | undefined, fallback: string | null | undefined) =>
+    coachDisplayName(allPlayers, playerId, fallback);
 
   const sendNotifications = useSendManualNotifications();
   // eligibility.enforcement rule 6a (PAD-562): inviting a student who fails the bar asks first,
@@ -199,7 +204,7 @@ export function NotifyModal({
         toast.error(
           t("calendar.unavailable.blocked", {
             count: unavailable.length,
-            names: blockedNames(unavailable),
+            names: blockedNames(unavailable, displayName),
           })
         );
       }
@@ -210,14 +215,14 @@ export function NotifyModal({
       if (optedOut.length > 0) {
         toast.warning(
           t("calendar.notify.blockedByPreference", {
-            names: blockedNames(optedOut),
+            names: blockedNames(optedOut, displayName),
           }),
           blockedReasons(optedOut) || undefined
         );
       }
       // PAD-620: already holding an open invitation for this class — not invited twice.
       if (alreadyInvited.length > 0) {
-        toast.warning(t("calendar.notify.alreadyInvited", { names: blockedNames(alreadyInvited) }));
+        toast.warning(t("calendar.notify.alreadyInvited", { names: blockedNames(alreadyInvited, displayName) }));
       }
       // PAD-107's ordering: no "invitations sent to 0" when everyone was
       // skipped — the toasts above already told the whole story.
@@ -232,11 +237,17 @@ export function NotifyModal({
   const GroupPlayerRow = ({
     player,
   }: {
-    player: { id: string; name: string; levelCode: string | null; declinedThisClass?: boolean };
+    player: {
+      id: string;
+      name: string;
+      displayName?: string;
+      levelCode: string | null;
+      declinedThisClass?: boolean;
+    };
   }) => (
     <Pressable
       testID={`notify-player-${player.id}`}
-      accessibilityLabel={player.name}
+      accessibilityLabel={displayName(player.id, player.displayName ?? player.name)}
       role="button"
       onPress={() => togglePlayer(player.id)}
       className={cn(
@@ -250,7 +261,7 @@ export function NotifyModal({
       />
       <View className="min-w-0 flex-1 flex-row items-center gap-2">
         <Text className="flex-1 text-sm" numberOfLines={1}>
-          {player.name}
+          {displayName(player.id, player.displayName ?? player.name)}
         </Text>
         {player.levelCode ? (
           <Text className="text-xs text-muted-foreground">
@@ -355,7 +366,7 @@ export function NotifyModal({
                       key={p.playerId}
                       player={{
                         id: p.playerId,
-                        name: p.name,
+                        name: displayName(p.playerId, p.displayName ?? p.name),
                         levelCode: p.level?.code ?? null,
                         declinedThisClass: declinedIds.has(p.playerId),
                       }}

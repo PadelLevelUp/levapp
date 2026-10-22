@@ -42,6 +42,7 @@ LogBox.ignoreLogs([
 import "@/lib/api";
 // i18next init (side effect) — must run before any screen calls useTranslation().
 import "@/lib/i18n";
+import { bindSessionCache } from "@/auth/session-cache";
 
 // PAD-587: the session restore (keychain, /auth/me) starts now, in parallel with the fonts,
 // instead of after the root has rendered. The provider awaits the same promise and handles its
@@ -53,6 +54,8 @@ void startSessionRestore().catch(() => undefined);
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient({ defaultOptions: queryClientDefaultOptions });
+// auth.logout rule 6 (PAD-716): sign-out, a 401 and sign-in empty this cache.
+bindSessionCache(queryClient);
 
 export default function RootLayout() {
   usePushNotificationRouting();

@@ -1,11 +1,11 @@
 """admin.data-retention (PAD-638, PAD-602 D5): remove personal data the app no longer needs, one switch
-and one period per kind, all OFF until the owner decides.
+and one period per kind, with the owner's periods (2026-10-21) as the defaults.
 
-The settings live in the `data_retention` app setting: ``{<item>: {"enabled": bool, "days": int}}``
-or ``{<item>: {"keep": true}}``. A missing row or item, a non-boolean ``enabled`` or a non-positive
-``days`` means OFF with the recommended period; ``keep`` means no period at all — not even counted
-(rule 1). An item the owner answered "keep" (`KEEP_BY_DEFAULT`) is keep until a setting says otherwise. The daily job (`scheduler._run_retention_sweep`) calls `run_retention`,
-which counts every item and removes only for the enabled ones (rule 2).
+Each default period is app config `RETENTION_DAYS_<ITEM>` (rule 1); the `data_retention` app setting
+overrides it: ``{<item>: {"enabled": bool, "days": int}}`` or ``{<item>: {"keep": true}}``. A missing row
+or item means the default; a malformed item is OFF; ``keep`` means no period at all — not even counted.
+The daily job (`scheduler._run_retention_sweep`) calls `run_retention`, which counts every item and
+removes only for the enabled ones, in bounded batches (rules 2, 3).
 """
 from __future__ import annotations
 
@@ -28,6 +28,67 @@ class PartialSweep(Exception):
     def __init__(self, removed: int, cause: Exception):
         super().__init__(str(cause))
         self.removed = removed
+
+
+BATCH_SIZE = 500
+MAX_BATCHES = 20
+
+
+def _positive_config(name: str, default: int) -> int:
+    """An app config value that must be a positive integer; anything else is the code default (test
+    apps carry no Config class attributes, so the default lives here)."""
+    from flask import current_app
+
+    raw = current_app.config.get(name)
+    if isinstance(raw, str) and raw.strip().isdigit():
+        raw = int(raw.strip())
+    if not isinstance(raw, int) or isinstance(raw, bool):
+        return default
+    return raw if raw > 0 else default
+
+
+def _batches(due_ids, act, after_commit=None) -> int:
+    """Rule 3: select at most one batch of due ids, act on exactly those by primary key, commit, repeat
+    up to the per-run ceiling. `due_ids(limit)` returns a list of ids; `act(ids)` removes or clears them
+    and answers how many rows it touched; `after_commit()` runs only once that batch has committed.
+    What is left is due again the next run."""
+    size = _positive_config("RETENTION_BATCH_SIZE", BATCH_SIZE)
+    ceiling = _positive_config("RETENTION_MAX_BATCHES", MAX_BATCHES)
+    removed = 0
+    for _ in range(ceiling):
+        ids = due_ids(size)
+        if not ids:
+            break
+        try:
+            touched = act(ids)
+            db.session.commit()
+        except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
+            raise PartialSweep(removed, exc) from exc
+        removed += touched  # counted only once committed: a rolled-back batch removed nothing
+        if after_commit is not None:
+            after_commit()
+        if len(ids) < size:
+            break
+    return removed
+
+
+def _delete_rows(model, *criteria):
+    """(count, remove) for rows of `model` matching `criteria`, removed in batches by id."""
+
+    def count():
+        return model.query.filter(*criteria).count()
+
+    def remove():
+        def due_ids(limit):
+            return [i for (i,) in db.session.query(model.id).filter(*criteria).order_by(model.id).limit(limit)]
+
+        def act(ids):
+            return model.query.filter(model.id.in_(ids)).delete(synchronize_session=False)
+
+        return _batches(due_ids, act)
+
+    return count, remove
 
 
 def _stale_placeholders(now: datetime, days: int, apply: bool) -> int:
@@ -88,30 +149,44 @@ def _deleted_message_text(now: datetime, days: int, apply: bool) -> int:
     from padel_app.models import Message
     from padel_app.services.image_cleanup import delete_stored_object, image_in_use
 
-    q = Message.query.filter(
+    criteria = (
         Message.is_deleted.is_(True),
         Message.updated_at < now - timedelta(days=days),
         db.or_(Message.text != "", Message.msg_metadata.isnot(None), Message.attachment_id.isnot(None)),
     )
     if not apply:
-        return q.count()
-    rows = q.all()
-    freed_keys = []
-    for m in rows:
-        image_id = m.attachment_id
-        m.text = ""
-        m.msg_metadata = None
-        m.attachment_id = None
-        db.session.flush()
-        if image_id is not None and not image_in_use(image_id, except_message_id=m.id):
-            image = db.session.get(Image, image_id)
-            if image is not None:
-                freed_keys.append(image.object_key)
-                db.session.delete(image)
-    db.session.commit()
-    for key in freed_keys:  # after the commit, best-effort, as publish_message_deleted does
-        delete_stored_object(key, what="message attachment")
-    return len(rows)
+        return Message.query.filter(*criteria).count()
+    batch_keys = []
+
+    def due_ids(limit):
+        return [i for (i,) in db.session.query(Message.id).filter(*criteria).order_by(Message.id).limit(limit)]
+
+    def act(ids):
+        rows = Message.query.filter(Message.id.in_(ids)).all()
+        for m in rows:
+            image_id = m.attachment_id
+            m.text = ""
+            m.msg_metadata = None
+            m.attachment_id = None
+            db.session.flush()
+            if image_id is not None and not image_in_use(image_id, except_message_id=m.id):
+                image = db.session.get(Image, image_id)
+                if image is not None:
+                    batch_keys.append(image.object_key)
+                    db.session.delete(image)
+        return len(rows)
+
+    def free_objects():
+        # After the batch's commit only, best-effort, as publish_message_deleted does: a batch that
+        # rolls back keeps its rows pointing at objects that must still exist.
+        for key in batch_keys:
+            delete_stored_object(key, what="message attachment")
+        batch_keys.clear()
+
+    try:
+        return _batches(due_ids, act, after_commit=free_objects)
+    finally:
+        batch_keys.clear()
 
 
 def _expired_invitations(now: datetime, days: int, apply: bool) -> int:
@@ -122,18 +197,29 @@ def _expired_invitations(now: datetime, days: int, apply: bool) -> int:
     from padel_app.models.player_invitation import PlayerInvitation
 
     cutoff = now - timedelta(days=days)
-    queries = [
-        CoachInvitation.query.filter(CoachInvitation.expires_at < cutoff),
-        PlayerInvitation.query.filter(PlayerInvitation.expires_at < cutoff),
-        CoachJoinToken.query.filter(
+    parts = [
+        _delete_rows(CoachInvitation, CoachInvitation.expires_at < cutoff),
+        _delete_rows(PlayerInvitation, PlayerInvitation.expires_at < cutoff),
+        _delete_rows(
+            CoachJoinToken,
             db.or_(CoachJoinToken.expires_at < cutoff,
-                   db.and_(CoachJoinToken.is_active.is_(False), CoachJoinToken.updated_at < cutoff))
+                   db.and_(CoachJoinToken.is_active.is_(False), CoachJoinToken.updated_at < cutoff)),
         ),
     ]
+    return _run_parts(parts, apply)
+
+
+def _run_parts(parts, apply: bool) -> int:
+    """Count or remove several tables' rows for one item; a failure part-way keeps the earlier
+    tables' removals in the report (rule 2)."""
     if not apply:
-        return sum(q.count() for q in queries)
-    removed = sum(q.delete(synchronize_session=False) for q in queries)
-    db.session.commit()
+        return sum(count() for count, _remove in parts)
+    removed = 0
+    for _count, remove in parts:
+        try:
+            removed += remove()
+        except PartialSweep as exc:
+            raise PartialSweep(removed + exc.removed, exc) from exc
     return removed
 
 
@@ -143,15 +229,11 @@ def _notification_history(now: datetime, days: int, apply: bool) -> int:
     from padel_app.models.lesson_instances import LessonInstance
 
     old = db.session.query(LessonInstance.id).filter(LessonInstance.end_datetime < now - timedelta(days=days))
-    queries = [
-        ReminderAttempt.query.filter(ReminderAttempt.lesson_instance_id.in_(old)),
-        NotificationEvent.query.filter(NotificationEvent.lesson_instance_id.in_(old)),
+    parts = [
+        _delete_rows(ReminderAttempt, ReminderAttempt.lesson_instance_id.in_(old)),
+        _delete_rows(NotificationEvent, NotificationEvent.lesson_instance_id.in_(old)),
     ]
-    if not apply:
-        return sum(q.count() for q in queries)
-    removed = sum(q.delete(synchronize_session=False) for q in queries)
-    db.session.commit()
-    return removed
+    return _run_parts(parts, apply)
 
 
 def _code_hashes(now: datetime, days: int, apply: bool) -> int:
@@ -160,66 +242,97 @@ def _code_hashes(now: datetime, days: int, apply: bool) -> int:
     from padel_app.models import User
 
     cutoff = now - timedelta(days=days)
-    email = User.query.filter(User.email_verification_code_hash.isnot(None),
-                              User.email_verification_expires_at < cutoff)
-    reset = User.query.filter(User.password_reset_code_hash.isnot(None),
-                              User.password_reset_expires_at < cutoff)
-    if not apply:
-        return email.count() + reset.count()
-    removed = email.update({User.email_verification_code_hash: None, User.email_verification_expires_at: None,
-                            User.email_verification_sent_at: None}, synchronize_session=False)
-    removed += reset.update({User.password_reset_code_hash: None, User.password_reset_expires_at: None,
-                             User.password_reset_sent_at: None}, synchronize_session=False)
-    db.session.commit()
-    return removed
+    kinds = [
+        ((User.email_verification_code_hash.isnot(None), User.email_verification_expires_at < cutoff),
+         {User.email_verification_code_hash: None, User.email_verification_expires_at: None,
+          User.email_verification_sent_at: None}),
+        ((User.password_reset_code_hash.isnot(None), User.password_reset_expires_at < cutoff),
+         {User.password_reset_code_hash: None, User.password_reset_expires_at: None,
+          User.password_reset_sent_at: None}),
+    ]
+    parts = []
+    for criteria, cleared in kinds:
+        def count(criteria=criteria):
+            return User.query.filter(*criteria).count()
+
+        def remove(criteria=criteria, cleared=cleared):
+            def due_ids(limit):
+                return [i for (i,) in db.session.query(User.id).filter(*criteria).order_by(User.id).limit(limit)]
+
+            def act(ids):
+                return User.query.filter(User.id.in_(ids)).update(cleared, synchronize_session=False)
+
+            return _batches(due_ids, act)
+
+        parts.append((count, remove))
+    return _run_parts(parts, apply)
 
 
 def _audit_logs(now: datetime, days: int, apply: bool) -> int:
-    """deletion_audit rows older than `days`. admin_audit_log is never swept: it is append-only
-    (admin.foundation rule 9), so its retention needs that rule changed first."""
+    """deletion_audit rows created more than `days` ago."""
     from padel_app.models.deletion_audit import DeletionAudit
 
-    q = DeletionAudit.query.filter(DeletionAudit.created_at < now - timedelta(days=days))
+    return _run_parts([_delete_rows(DeletionAudit, DeletionAudit.created_at < now - timedelta(days=days))], apply)
+
+
+def _admin_audit_log(now: datetime, days: int, apply: bool) -> int:
+    """admin_audit_log rows created more than `days` ago — the single sanctioned removal from the
+    append-only log (rule 5; admin.foundation rule 9): only under the session flag the model's guard
+    honours, cleared again whatever happens."""
+    from padel_app.models.admin_audit_log import RETENTION_FLAG, AdminAuditLog
+
+    parts = [_delete_rows(AdminAuditLog, AdminAuditLog.created_at < now - timedelta(days=days))]
     if not apply:
-        return q.count()
-    removed = q.delete(synchronize_session=False)
-    db.session.commit()
-    return removed
+        return _run_parts(parts, False)
+    db.session.info[RETENTION_FLAG] = True
+    try:
+        return _run_parts(parts, True)
+    finally:
+        db.session.info.pop(RETENTION_FLAG, None)
 
 
-#: name → (recommended days, sweep). The recommendations are the ones put to the owner (2026-10-12).
-#: KEEP_BY_DEFAULT: items the owner answered "keep, never delete" — they stay "keep" until a setting
-#: says otherwise (owner, 2026-10-12: never-activated students are kept until the coach removes them).
+#: name → (default days, sweep): the owner's periods (2026-10-21), each overridable by app config
+#: `RETENTION_DAYS_<NAME>` (rule 1). KEEP_BY_DEFAULT: items the owner answered "keep" — never-activated
+#: students (2026-10-13) and deleted messages' rows (2026-10-21; PAD-639 already erases the text) —
+#: which stay keep until a setting turns them on.
 ITEMS: dict[str, tuple[int, Callable[[datetime, int, bool], int]]] = {
     "stale_placeholders": (365, _stale_placeholders),
     "deleted_message_text": (30, _deleted_message_text),
     "expired_invitations": (30, _expired_invitations),
     "notification_history": (365, _notification_history),
-    "code_hashes": (1, _code_hashes),
-    "audit_logs": (1095, _audit_logs),
+    "code_hashes": (30, _code_hashes),
+    "audit_logs": (1825, _audit_logs),
+    "admin_audit_log": (1825, _admin_audit_log),
 }
-KEEP_BY_DEFAULT = frozenset({"stale_placeholders"})
+KEEP_BY_DEFAULT = frozenset({"stale_placeholders", "deleted_message_text"})
+
+
+def default_days(name: str) -> int:
+    """Rule 1: the item's period from app config, else the owner's period."""
+    return _positive_config(f"RETENTION_DAYS_{name.upper()}", ITEMS[name][0])
 
 
 def retention_settings() -> dict[str, dict]:
-    """Rule 1: every item's switch and period, OFF with the recommended period unless the setting
-    says otherwise in the right shape."""
+    """Rule 1: every item's switch and period — the default unless the setting says otherwise; a
+    malformed stored item is OFF, never swept at a period nobody meant."""
     from padel_app.models.app_setting import AppSetting
 
     row = db.session.get(AppSetting, SETTING_KEY)
     stored = row.value if row is not None and isinstance(row.value, dict) else {}
     settings = {}
-    for name, (default_days, _sweep) in ITEMS.items():
+    for name in ITEMS:
+        default = default_days(name)
         item = stored.get(name) if isinstance(stored.get(name), dict) else None
         if item is None and name in KEEP_BY_DEFAULT or (item or {}).get("keep") is True:
             # "Keep": no period at all — nothing is due and nothing is removed (rule 1).
             settings[name] = {"enabled": False, "keep": True, "days": None}
             continue
         item = item or {}
-        days = item.get("days")
+        days = item.get("days", default)
         valid_days = isinstance(days, int) and not isinstance(days, bool) and days > 0
-        enabled = item.get("enabled") is True and valid_days
-        settings[name] = {"enabled": enabled, "days": days if valid_days else default_days}
+        raw_enabled = item.get("enabled", name not in KEEP_BY_DEFAULT)  # a keep item turns on only explicitly
+        enabled = raw_enabled is True and valid_days
+        settings[name] = {"enabled": enabled, "days": days if valid_days else default}
     return settings
 
 

@@ -1,5 +1,5 @@
 """PAD-672 slice 1 — classes.join-requests rule 20, classes.academy-class-booking rule 6 and
-notifications.waiting-list rule 4d: a join request and a waiting-list entry name the side the student
+notifications.waiting-list rule 4e: a join request and a waiting-list entry name the side the student
 will play in that class.
 
 Every App Store build up to 33 sends no `side` and no `join-side` capability: those requests keep
@@ -200,7 +200,7 @@ def test_a_pending_request_whose_side_spot_is_taken_moves_to_that_sides_waiting_
         assert entry is None and told == []
 
 
-# ── waiting-list rule 4d: group 0 by the entry's side ────────────────────────────────────────────
+# ── waiting-list rule 4e: group 0 by the entry's side ────────────────────────────────────────────
 
 @pytest.mark.parametrize("entry_side,spot_side,asked", [
     ("left", "right", False), ("left", "left", True), ("left", None, True), ("both", "right", True), (None, "right", True),

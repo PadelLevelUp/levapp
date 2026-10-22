@@ -14,6 +14,8 @@
  */
 import { emailPromptSession } from "@levelup/config";
 
+import { clearSessionCache } from "./session-cache";
+
 export const PUSH_UNREGISTER_TIMEOUT_MS = 3000;
 /** The API client has no timeout; a blackholed /auth/logout must not hold logout either. */
 export const REVOKE_TIMEOUT_MS = 5000;
@@ -37,6 +39,8 @@ function bounded(work: Promise<void>, ms: number): Promise<void> {
  */
 export function endSessionState(): void {
   emailPromptSession.reset();
+  // auth.logout rule 6 (PAD-716): a session lost to a 401 takes its cached answers with it.
+  clearSessionCache();
 }
 
 export async function signOut(deps: {
@@ -51,4 +55,7 @@ export async function signOut(deps: {
   await bounded(deps.unregisterPush(), deps.unregisterTimeoutMs ?? PUSH_UNREGISTER_TIMEOUT_MS);
   await bounded(deps.revokeSession(), deps.revokeTimeoutMs ?? REVOKE_TIMEOUT_MS);
   await deps.clearToken().catch(() => undefined);
+  // auth.logout rule 6 (PAD-716, B-601): emptied again once the token is gone, so a read that was in
+  // flight with the old session cannot leave its answer for the next account.
+  clearSessionCache();
 }

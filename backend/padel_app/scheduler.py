@@ -745,8 +745,8 @@ def init_scheduler(app, test_config=None) -> None:
         return
 
     # Skip every Flask CLI process except `flask run` (PAD-264, audit H12;
-    # notifications.reminders rule 16). The production entrypoint runs
-    # `python -m flask --app app.py db upgrade`, and under `python -m`
+    # notifications.reminders rule 16). Production's migrate step (padel_app.migrate,
+    # PAD-691) runs `python -m flask --app app.py db upgrade`, and under `python -m`
     # sys.argv[0] is ".../flask/__main__.py". The old basename check
     # ("flask"/"flask.exe") missed that, so APScheduler started inside every
     # deploy's migration. Options are skipped when looking for the command, so
@@ -774,14 +774,20 @@ def init_scheduler(app, test_config=None) -> None:
     if app.debug and werkzeug_run_main is not None and werkzeug_run_main != "true":
         return
 
+    test_mode = os.environ.get("TEST_MODE", "").lower() == "true"
+    # delivery.worker-role rule 1 (PAD-695). TEST_MODE keeps one in-memory store per process, so
+    # there is nothing to split: every process runs as before.
+    mode = MODE_COMPETE if test_mode else scheduler_mode(process_role(), worker_split_enabled())
+    if mode == MODE_OFF:
+        app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
+        return
+
     _app = app
 
     from apscheduler.events import EVENT_JOB_MISSED
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
-
-    test_mode = os.environ.get("TEST_MODE", "").lower() == "true"
 
     if test_mode:
         # Tests drop/recreate the DB on every run. SQLAlchemyJobStore would hold
@@ -805,6 +811,19 @@ def init_scheduler(app, test_config=None) -> None:
         }
 
     sched = BackgroundScheduler(jobstores=jobstores, timezone="UTC")
+
+    if mode == MODE_CLIENT:
+        # delivery.worker-role rule 1 (PAD-695): request handlers still call schedule_*/cancel_*,
+        # which write the shared job store through this object, so it is started (paused, never
+        # resumed). It registers none of the recurring jobs: replace_existing on a started
+        # scheduler resets their next run time, so every API boot would push the worker's
+        # interval jobs forward. No leadership thread, no startup reschedule: the worker owns both.
+        sched.start(paused=True)
+        _scheduler = sched
+        app.extensions["scheduler"] = sched
+        atexit.register(_shutdown_quietly, sched)
+        app.logger.info("APScheduler in job-store client mode (WORKER_SPLIT on, ROLE=api): the worker runs the jobs.")
+        return
 
     # TEST_MODE shortens the batch interval for E2E verification
     batch_seconds = 30 if test_mode else 120
@@ -867,8 +886,8 @@ def init_scheduler(app, test_config=None) -> None:
     _scheduler = sched
     app.extensions["scheduler"] = sched
 
-    # Graceful shutdown when the process exits
-    atexit.register(lambda: sched.shutdown(wait=False))
+    # Graceful shutdown when the process exits; the worker shuts down first itself (PAD-695)
+    atexit.register(_shutdown_quietly, sched)
 
     if lead:
         _start_scheduler_leadership(app, sched)
@@ -883,6 +902,43 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+
+
+MODE_COMPETE = "compete"
+MODE_CLIENT = "client"
+MODE_OFF = "off"
+ROLES = ("api", "worker", "events")
+
+
+def process_role(environ=None) -> str:
+    """delivery.worker-role rule 1 (PAD-695): ``ROLE`` = api | worker | events, default api.
+    ``events`` is PAD-697's and behaves as ``api`` until then; anything else is ``api``."""
+    environ = os.environ if environ is None else environ
+    role = environ.get("ROLE", "api").strip().lower()
+    return role if role in ROLES else "api"
+
+
+def worker_split_enabled(environ=None) -> bool:
+    """``WORKER_SPLIT``: the worker runs the jobs and the API only writes the job store. Default off."""
+    environ = os.environ if environ is None else environ
+    return environ.get("WORKER_SPLIT", "off").strip().lower() in ("1", "true", "yes", "on")
+
+
+def scheduler_mode(role: str, split: bool) -> str:
+    """``compete`` (run jobs as the lock holder), ``client`` (write the job store only) or ``off``."""
+    if role == "worker":
+        return MODE_COMPETE if split else MODE_OFF
+    return MODE_CLIENT if split else MODE_COMPETE
+
+
+def _shutdown_quietly(sched) -> None:
+    """At exit: the worker may already have shut the scheduler down (a second shutdown raises)."""
+    if not sched.running:
+        return
+    try:
+        sched.shutdown(wait=False)
+    except Exception:  # noqa: BLE001 — SchedulerNotRunningError from a shutdown racing this one
+        pass
 
 
 def use_scheduler_leadership(*, test_mode: bool, held: bool) -> bool:

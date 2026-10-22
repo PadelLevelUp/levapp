@@ -374,13 +374,18 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
     _publish_request_changed(row)
     title = "Pedido de aula" if locale == "pt" else "Class request"
-    send_push_notification(user_id=coach_user.id, title=title, body=text[:100], url=f"/messages/{conv.id}?message={msg.id}")
+    # PAD-683 (players.nickname rule 9c): the push goes to the coach alone, so it names the
+    # student by the coach's display name; the Message stored in the shared thread keeps the real name.
+    from padel_app.services.player_service import coach_facing_text
+
+    push_body = coach_facing_text(text, coach_user.id, row.player_id, player_user.name)[:100]
+    send_push_notification(user_id=coach_user.id, title=title, body=push_body, url=f"/messages/{conv.id}?message={msg.id}")
     # PAD-324 (messaging.push-notifications rule 7): the same defect as the
     # join-request push. There is a message behind this — the web push already
     # opens its thread — and `class_request` is not one of the two shapes the
     # contract defines, so `routeForPushData` returns null and the tap opens
     # the app and does nothing. The request id stays as context.
-    send_expo_push_to_user(coach_user.id, title=title, body=text[:100],
+    send_expo_push_to_user(coach_user.id, title=title, body=push_body,
                            data={
                                "type": "message",
                                "conversationId": conv.id,

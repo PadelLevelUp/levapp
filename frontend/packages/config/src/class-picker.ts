@@ -1,4 +1,5 @@
 import { clubTodayISO, lisbonNowMs, wallClockMs } from "./club-date";
+import { daysSinceWeekStart } from "./week-start";
 
 /**
  * PAD-439 (players.profile rules 5a/5b): what the "Add to classes" picker offers, on web and iOS.
@@ -17,15 +18,15 @@ export function upcomingPickerClasses<T extends { date: string; startTime: strin
 const isoOf = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** The Monday (YYYY-MM-DD) of the club's current week. */
-function clubWeekMondayISO(now: Date): string {
+/** The first day (YYYY-MM-DD, `WEEK_STARTS_ON`) of the club's current week. */
+function clubWeekStartISO(now: Date): string {
   const [y, m, d] = clubTodayISO(now).split("-").map(Number);
   const today = new Date(Date.UTC(y, m - 1, d));
-  const back = (today.getUTCDay() + 6) % 7;
+  const back = daysSinceWeekStart(today.getUTCDay());
   return new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10);
 }
 
-/** Whether the picker may step back from `weekStart` (a local Monday): only when it is after the current week. */
+/** Whether the picker may step back from `weekStart` (a local week start): only when it is after the current week. */
 export function canStepBackPickerWeek(weekStart: Date, now: Date = new Date()): boolean {
-  return isoOf(weekStart) > clubWeekMondayISO(now);
+  return isoOf(weekStart) > clubWeekStartISO(now);
 }
