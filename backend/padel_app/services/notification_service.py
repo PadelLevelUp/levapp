@@ -6932,9 +6932,15 @@ def _waiting_list_candidates(
         vacancy, instance, coach_id, config, wave=("waiting_list", 0),
         only_player_ids={entry.player_id for _, entry in keyed},
     )
-    invited = {v.cp.player_id: v.cp for v in verdicts if v.invited}
-    keyed.sort(key=lambda pair: pair[0])
-    return [(entry, invited[entry.player_id]) for _, entry in keyed if entry.player_id in invited]
+    # PAD-723 (PAD-669 R4, rule 4): the coach's own priority criteria order group 0, through the same
+    # `_rank_invited` every other group uses; the origin (standing, series, own request) gives no
+    # priority. The row's own join time (then its id) is only the last tie-breaker: `_rank_invited`'s
+    # sort is stable, so the survivors go in in that order.
+    entry_of = {entry.player_id: entry for _, entry in keyed}
+    by_join = sorted((e for e in entry_of.values()), key=lambda e: (e.joined_at or datetime.min, e.id))
+    position = {e.player_id: i for i, e in enumerate(by_join)}
+    survivors = sorted((v for v in verdicts if v.invited), key=lambda v: position[v.cp.player_id])
+    return [(entry_of[cp.player_id], cp) for cp in _rank_invited(survivors, config, vacancy)]
 
 
 def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
