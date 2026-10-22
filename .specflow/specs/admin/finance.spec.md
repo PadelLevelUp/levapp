@@ -8,7 +8,7 @@ governed_by: [R-005, R-010, R-022, R-023, R-024, R-036]
 
 # admin.finance
 
-> Linear: PAD-742 (owner request 2026-10-22). Batch A (backend) implemented 2026-10-22; the page is batch B. Four questions are open on the
+> Linear: PAD-742 (owner request 2026-10-22). Backend and page implemented 2026-10-22 (PR #817); the phone e2e `frontend/apps/admin/e2e/finance.spec.ts` runs on the coordinator's grant. Four questions are open on the
 > ticket (currency, start date, the initial manual list, who enters); the rules marked
 > **(assumption Qn)** are this draft's answer until the owner's, and each is one constant or one
 > rule to change. Plan: `docs/plans/2026-10-22-pad-742-plan.md` (gitignored).
