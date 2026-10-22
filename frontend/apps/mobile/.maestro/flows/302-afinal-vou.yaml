@@ -1,0 +1,92 @@
+# PAD-684 — attendance.confirm rule 28 ("Afinal vou"): a student who said "Não vou" to a class five
+# days out, with a free spot, opens the class detail, taps "Afinal vou" (`attendance-come-back`) and
+# reads their state `coming`.
+#
+# Setup through the API: the coach books "E2E 684 Come Back" (one place) with E2E Student on it, and
+# the student says "Não vou" (`cancel_attendance`). Teardown (scripts/pad684-teardown.js, run by
+# onFlowComplete) removes the class through the coach's API (R-040). Ids only.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001.
+# Flow number 302 is from la-2110-SessionD's wave-16 block 301–305 (unconfirmed).
+#
+# Mirrors: apps/web/e2e/attendance/pad684-come-back.spec.ts (first test)
+appId: com.padellevelup.app
+onFlowComplete:
+  - runScript: ../scripts/pad684-teardown.js
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 5 * 86400000))}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.roster = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.playerId = (function (r) { var rows = Array.isArray(r) ? r : (r.items || []); for (var i = 0; i < rows.length; i++) { if (rows[i].name === 'E2E Student') { return rows[i].playerId; } } return null; })(output.roster)}"
+- assertTrue: "${output.playerId != null}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: 'E2E 684 Come Back', classType: 'academy', maxPlayers: 1, date: output.day, startTime: '19:00', endTime: '20:00', isRecurring: false, notificationsEnabled: false, playerIds: [output.playerId] }) }).ok}"
+- assertTrue: "${output.added == true}"
+- evalScript: "${output.event = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (e) { return e.type === 'class' && e.title === 'E2E 684 Come Back'; })[0]}"
+- assertTrue: "${output.event != null}"
+# The student's "Não vou", through the API.
+- evalScript: "${output.declined = http.post(output.api + '/api/app/notify/cancel_attendance', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ model: output.event.model, originalId: String(output.event.originalId), date: output.day }) }).ok}"
+- assertTrue: "${output.declined == true}"
+
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-today"
+    timeout: 10000
+- tapOn:
+    id: "calendar-today"
+- waitForAnimationToEnd
+- tapOn:
+    id: "calendar-view-day"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "calendar-day-${output.day}"
+    commands:
+      - tapOn:
+          id: "calendar-next-week"
+      - waitForAnimationToEnd
+- tapOn:
+    id: "calendar-day-${output.day}"
+- extendedWaitUntil:
+    visible:
+      text: "E2E 684 Come Back"
+    timeout: 15000
+- tapOn: "E2E 684 Come Back"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "attendance-state-not_coming"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "attendance-come-back"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible:
+    id: "class-declined-hint"
+- tapOn:
+    id: "attendance-come-back"
+- extendedWaitUntil:
+    visible:
+      id: "attendance-state-coming"
+    timeout: 20000
+- assertNotVisible:
+    id: "attendance-come-back"

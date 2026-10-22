@@ -18,6 +18,7 @@ import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
 import { launchMark } from "@/lib/launch-timeline";
 import { getPushRegistrar } from "@/lib/push";
+import { clearSessionCache } from "./session-cache";
 import { endSessionState, signOut } from "./sign-out";
 
 export type AuthUser = authApi.MeResponse;
@@ -136,6 +137,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (token: string) => {
+    // auth.logout rule 6 (PAD-716): the new account starts from an empty cache.
+    clearSessionCache();
     await secureTokenStorage.setToken(token);
     try {
       const me = await authApi.getMe();

@@ -1,0 +1,14 @@
+{
+  "_comment": "PAD-710 (delivery.android-nightly-lane): where the nightly Android suite is cut into parallel shards. Shard k runs from starts[k] up to the flow before starts[k+1], in config.yaml's flowsOrder. Shards after the first begin with the warm-up flow. A chain is a run of flows that relies on an earlier flow's data; it must stay inside one shard, in this order. Check: scripts/maestro-shards.mjs, pinned by src/lib/maestro-shards.test.ts.",
+  "warmup": "01-login",
+  "starts": [
+    "01-login",
+    "52-dialog-overlay-rate",
+    "66-academy-class-waitlist",
+    "121-class-request-ends-after-n-classes"
+  ],
+  "chains": [
+    ["01-login", "02-coach-dashboard", "03-class-management", "04-attendance", "05-class-deletion"],
+    ["04-attendance", "14-student-calendar", "22-student-attendance-history"]
+  ]
+}

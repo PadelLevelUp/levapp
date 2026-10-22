@@ -7,6 +7,9 @@
 #
 # Env (set by the workflow):
 #   MAESTRO_FLOWS      space-separated flow paths relative to apps/mobile/.maestro
+#   MAESTRO_SHARD      a shard number of the whole suite (PAD-710), "changed" for the PR's changed
+#                      flows in MAESTRO_CHANGED_FLOWS (rule 1b), or "all" to run MAESTRO_FLOWS
+#   FLOW_LIMIT_MIN / SHARD_BUDGET_MIN   the watchdog's limits (default 12 / 75)
 #   MAESTRO_COACH_NOCLUB_USERNAME / _PASSWORD   flow 45's approved no-club coach;
 #                      default the E2E seed's e2e-coach-noclub (PAD-306, no secret)
 #   RUNNER_TEMP        where the artefact was downloaded ($RUNNER_TEMP/apk/app-release.apk)
@@ -47,15 +50,83 @@ mkdir -p "$HOME/.maestro/tests"
 adb logcat -c || true
 adb logcat -v threadtime > "$HOME/.maestro/tests/full-logcat.txt" 2>&1 &
 LOGCAT_PID=$!
+# PAD-710 (delivery.android-nightly-lane): MAESTRO_SHARD=<k> runs shard k of the whole suite
+# through a generated workspace config (scripts/maestro-shards.mjs; the planner refuses a
+# shard file that drops, doubles or splits a chain); "all" (or unset) runs MAESTRO_FLOWS.
+SHARD="${MAESTRO_SHARD:-all}"
+MOBILE="$ROOT/frontend/apps/mobile"
+if [ "$SHARD" = all ]; then
+  # shellcheck disable=SC2206  # FLOWS is a space-separated list on purpose
+  TARGET=($FLOWS)
+  CONFIG=()
+else
+  SHARD_CONFIG="$MOBILE/.maestro/shard-$SHARD.config.yaml"
+  node "$MOBILE/scripts/maestro-shards.mjs" config "$SHARD" "$SHARD_CONFIG"
+  TARGET=(.)
+  CONFIG=(--config "$SHARD_CONFIG")
+fi
+# Rule 4: a watchdog stops Maestro when one flow runs past FLOW_LIMIT_MIN or the shard past
+# SHARD_BUDGET_MIN (below the job's 90-min cap), and names the flow that was running, so a
+# slow flow is a red with a name and never a run "cancelled" at the cap (PAD-710: 2026-10-08..21).
+FLOW_LIMIT_MIN="${FLOW_LIMIT_MIN:-12}"
+SHARD_BUDGET_MIN="${SHARD_BUDGET_MIN:-75}"
+STOP_FILE="$HOME/.maestro/tests/watchdog-stop.txt"
+OUT_LOG="$HOME/.maestro/tests/maestro-stdout.txt"
+rm -f "$STOP_FILE"
 set +e
-# shellcheck disable=SC2086  # FLOWS is a space-separated list on purpose
 maestro test --format junit --output "$ROOT/maestro-report.xml" \
   --exclude-tags ios-only,open-defect-probe \
   -e "MAESTRO_COACH_NOCLUB_USERNAME=$NOCLUB_USER" -e "MAESTRO_COACH_NOCLUB_PASSWORD=$NOCLUB_PASS" \
-  $FLOWS
+  "${CONFIG[@]}" "${TARGET[@]}" > "$OUT_LOG" 2>&1 &
+MAESTRO_PID=$!
+# The job log follows Maestro live; `tail --pid` ends when Maestro does, so the summary below
+# reads a complete file (~/.maestro/bin/maestro execs java, so this pid is the JVM itself).
+tail -n +1 -f --pid="$MAESTRO_PID" "$OUT_LOG" &
+TAIL_PID=$!
+node "$MOBILE/scripts/maestro-shards.mjs" watch "$MAESTRO_PID" "$HOME/.maestro/tests" "$STOP_FILE" "$FLOW_LIMIT_MIN" "$SHARD_BUDGET_MIN" &
+WATCH_PID=$!
+wait "$MAESTRO_PID"
 RC=$?
+wait "$TAIL_PID"
+kill "$WATCH_PID" 2>/dev/null || true
 set -e
 sleep 2
 kill "$LOGCAT_PID" 2>/dev/null || true
 echo "full-logcat.txt: $(wc -l < "$HOME/.maestro/tests/full-logcat.txt") lines"
+# Rule 5: this shard's results, by flow name, in the job summary.
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  {
+    echo "### Maestro shard $SHARD"
+    echo ""
+    if grep -qE '\[(Passed|Failed)\]' "$OUT_LOG"; then
+      grep -E '\[(Passed|Failed)\]' "$OUT_LOG" | sed 's/^/- /'
+    else
+      echo "- no flow finished"
+    fi
+    if [ -f "$STOP_FILE" ]; then
+      sed 's/^::error title=\([^:]*\)::/- **\1:** /' "$STOP_FILE"
+    fi
+  } >> "$GITHUB_STEP_SUMMARY"
+fi
+# Rule 7 (PAD-720): the lane-result job reads this verdict from the artifact and posts the
+# Android lane check (neutral while the lane is experimental).
+EXPECTED=""
+[ "$SHARD" != all ] && EXPECTED=$(grep -c '^    - ' "$SHARD_CONFIG")
+FINISHED=$(grep -cE '\[(Passed|Failed)\]' "$OUT_LOG" || true)
+STOP_LINE=""
+if [ -f "$STOP_FILE" ]; then STOP_LINE=$(head -1 "$STOP_FILE"); fi
+printf 'shard=%s\nrc=%s\nexpected=%s\nfinished=%s\nstop=%s\n' "$SHARD" "$RC" "$EXPECTED" "$FINISHED" "$STOP_LINE" \
+  > "$HOME/.maestro/tests/shard-verdict.txt"
+if [ -f "$STOP_FILE" ]; then
+  cat "$STOP_FILE"
+  exit 1
+fi
+# A shard that finished without a stop must have reported every flow its config lists: a
+# --config that resolved to fewer (or more) flows would otherwise pass quietly.
+if [ "$SHARD" != all ]; then
+  if [ "$FINISHED" != "$EXPECTED" ]; then
+    echo "::error title=Maestro shard ran the wrong flows::shard $SHARD reported $FINISHED flows; its config lists $EXPECTED"
+    exit 1
+  fi
+fi
 exit "$RC"

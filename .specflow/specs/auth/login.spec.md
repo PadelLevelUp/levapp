@@ -31,7 +31,8 @@ Allow users to authenticate with username/email and password, receiving a JWT to
    log. `infra/nginx/check-log-redaction.sh` proves it in Docker, and CI runs it.
 5. Token contains user identity (user_id)
 6. The login screen (web `/auth` and the iOS login screen) carries a **Forgot your password?** link under the sign-in button that opens `auth.password-recovery` (its rule 7).
-7. **Per-IP throttle (PAD-228).** `POST /api/auth/login` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_LOGIN` (`"count/seconds"`, default `20/60`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. Account lockout after repeated failures (B-002) stays out of scope.
+7. **Per-IP throttle (PAD-228).** `POST /api/auth/login` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_LOGIN` (`"count/seconds"`, default `20/60`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is `X-Real-IP`, which the host nginx sets from the connecting address (resolved from Cloudflare's `CF-Connecting-IP`); `X-Forwarded-For` is never read (PAD-554), and without a valid `X-Real-IP` the socket peer is the key. **The store (PAD-693)** is chosen by `AUTH_RATE_LIMIT_STORE`: `memory` (default; one store per process, a restart empties it) or `database` (the `auth_rate_limit_hits` table, shared by every process, so N processes still allow one budget in total). The database check runs on its own short transaction, so a hit counts even when the request later fails, and holds a per-key advisory lock across count-and-insert, so two processes can never both take the last slot. Hit times are wall-clock seconds passed in by the limiter's clock, never the database's `now()`. Rows older than the longest window (3,600 s) are pruned on about 1 check in 100. On a database that is not Postgres, `database` falls back to `memory` with one WARNING. If the store cannot be reached within 2 s the request is **served** and `auth rate limit store unavailable` is logged as a WARNING: a database hiccup never locks everyone out of signing in. Account lockout after repeated failures (B-002) stays out of scope.
+7a. **(PAD-693; rule number unconfirmed) Auth is JWT-only; there is no server-side session.** Web, iOS and the admin console authenticate with bearer JWTs; nothing reads or writes Flask's `session`, and Flask-Session is not installed. Flask's default signed-cookie session interface remains and stays unused: no session cookie is set by any route.
 8. **The launch animation plays only on success (PAD-186).** On web, the mark-forming overlay
    (`LaunchOverlayProvider` / `launch-loader`) is started only after `POST /api/auth/login` has
    answered 200 — never before the request goes out — so a wrong password, a throttled attempt or
@@ -159,6 +160,22 @@ Allow users to authenticate with username/email and password, receiving a JWT to
   shows again; "Agora não" hides it on that device for 30 days
 - **And** `PATCH /api/auth/me {country: "br"}` stores `BR`; `"Brazil"` is 400 and changes nothing
 - **And** a user whose country is set never sees the prompt
+
+#### Two processes share one login budget (rule 7, PAD-693)
+- **Given** two app processes on one Postgres, both `AUTH_RATE_LIMIT_STORE=database`, and `AUTH_RATE_LIMIT_LOGIN` = `4/60`
+- **When** one IP sends 6 login requests alternating between the two processes
+- **Then** exactly 4 are processed and 2 answer 429 `RATE_LIMITED`
+- **And** with `memory` on both, all 6 are processed (each process keeps its own budget)
+
+#### The database store slides like the memory store (rule 7)
+- **Given** `AUTH_RATE_LIMIT_STORE=database`, `AUTH_RATE_LIMIT_LOGIN` = `3/60`, the limiter clock at 1000
+- **When** an IP sends 3 requests, then a 4th
+- **Then** the 4th is 429 with `0 < retryAfterSeconds <= 60`, and at clock 1061 the IP is served again
+
+#### No login sets a session cookie (rule 7a)
+- **Given** an active user
+- **When** they sign in through `POST /api/auth/login` (and an admin through `POST /admin/api/auth/google`)
+- **Then** no response carries a `Set-Cookie` header named `session`
 
 ### Notes
 - Rate limiting: rule 7 (PAD-228, closes B-001).

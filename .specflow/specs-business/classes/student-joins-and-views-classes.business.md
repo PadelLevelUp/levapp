@@ -31,7 +31,8 @@ Students/players looking at a class from the outside, and the coach who decides 
    "Pedidos de Aula" list, where academy requests now sit beside private ones (PAD-460), or
    straight from the request message in their chat with the student (PAD-461).
 4. If accepted, the student is enrolled in that occurrence just as if the coach had added them
-   directly.
+   directly. The message they get leads with the outcome ("Está marcado! Estás inscrito/a em …"), so
+   nobody mistakes a place in the class for a place on the waiting list (PAD-678).
 5. If someone else fills the spot first — through an invitation, the waiting list, or another
    request — the student's request is automatically closed, and depending on the coach's
    notification setting, they may be told automatically.

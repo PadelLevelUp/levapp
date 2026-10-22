@@ -19,7 +19,24 @@ WORKFLOW = BACKEND.parent / ".github" / "workflows" / "deploy-staging.yaml"
 DOCKER_STUB = r"""#!/usr/bin/env bash
 echo "docker $*" >> "$STUB_HOME/calls.log"
 case "$1" in
-  inspect|stop|start) exit 0 ;;
+  image)
+    # the image's own ENV (PAD-691: left out of the migrate env-file)
+    echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on"]'; exit 0 ;;
+  inspect)
+    case "$*" in
+      # PAD-695: the worker container exists only when the test says so
+      *_worker) [ -n "${STUB_WORKER:-}" ] || exit 1 ;;
+      *Config.Image*) echo "repo/levelup_backend:staging" ;;
+      *HostConfig.NetworkMode*) echo "levelup_net" ;;
+      *"json .Config.Env"*) echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on", "POSTGRES_DB=padel_app_staging", "VAPID_PRIVATE_KEY=-----BEGIN KEY-----\nabc\n-----END KEY-----", "MAIL_PASSWORD=a=b c"]' ;;
+    esac
+    exit 0 ;;
+  stop|start) exit 0 ;;
+  rm) exit 0 ;;
+  run)
+    # PAD-691: the one-shot migrate container; keep a copy of the env-file it was given
+    prev=""; for a in "$@"; do [ "$prev" = "--env-file" ] && { cp "$a" "$STUB_HOME/migrate.env"; ls -l "$a" | cut -c1-10 > "$STUB_HOME/migrate.env.mode"; echo "$a" > "$STUB_HOME/migrate.env.path"; }; prev="$a"; done
+    exit "${STUB_MIGRATE_EXIT:-0}" ;;
 esac
 case " $* " in
   *" pg_dump "*) printf 'PGDMP-live-%s' "${@: -1}" ;;
@@ -107,6 +124,37 @@ def state(sandbox):
 def restored(sandbox):
     p = sandbox["home"] / "restored.dump"
     return p.read_bytes() if p.exists() else None
+
+
+def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
+    """PAD-691 (zero-downtime-deploy rule 9): the app no longer migrates itself, so the sync runs
+    the migrate step in a one-shot container of the app's own image, env and network first."""
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    result, calls = run(sandbox)
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = calls.splitlines()
+    migrate = next(i for i, c in enumerate(lines) if c.startswith("docker run --rm --name padelapp_staging_migrate"))
+    started = lines.index("docker start padelapp_staging")
+    restored_at = next(i for i, c in enumerate(lines) if "pg_restore" in c)
+    assert restored_at < migrate < started
+    call = lines[migrate]
+    assert "--network levelup_net" in call
+    assert call.endswith("repo/levelup_backend:staging /app/scripts/migrate.sh")
+    assert " -e " not in call, "secrets never go on the command line"
+    home = sandbox["home"]
+    # the image's own ENV is left out, a multi-line value is left out and named, '=' and spaces pass
+    assert (home / "migrate.env").read_text() == "POSTGRES_DB=padel_app_staging\nMAIL_PASSWORD=a=b c\n"
+    assert "not passed to the migrate step (multi-line): VAPID_PRIVATE_KEY" in result.stdout
+    assert (home / "migrate.env.mode").read_text().startswith("-rw-------")
+    assert not Path((home / "migrate.env.path").read_text().strip()).exists(), "the env-file is removed"
+
+
+def test_a_failed_migrate_step_still_starts_the_app(sandbox):
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    result, calls = run(sandbox, STUB_MIGRATE_EXIT="1")
+    assert result.returncode == 0, "best-effort: the sync never fails the deploy"
+    assert "the migrate step exited 1" in result.stdout
+    assert "docker start padelapp_staging" in calls
 
 
 def test_a_push_after_the_dump_was_restored_leaves_staging_alone(sandbox):
@@ -203,3 +251,20 @@ def test_the_workflow_passes_the_mode_and_offers_three():
     assert re.search(r"options:\s*\[\s*auto,\s*reload,\s*live\s*\]", block.group(1))
     job = text.split("\n  sync-db:\n", 1)[1].split("\n  frontend:\n", 1)[0]
     assert "${{ inputs.sync_db || 'auto' }}" in job
+
+
+def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
+    """PAD-695 (delivery.worker-role): a worker holds connections to the target and would run jobs
+    on a half-restored database."""
+    result, calls = run(sandbox, "reload", STUB_WORKER="1")
+    lines = calls.splitlines()
+    assert lines.index("docker stop padelapp_staging") < lines.index("docker stop -t 60 padelapp_staging_worker")
+    stopped_worker = lines.index("docker stop -t 60 padelapp_staging_worker")
+    restore = next(i for i, c in enumerate(lines) if "pg_restore" in c or " sh -c " in c)
+    assert stopped_worker < restore
+    assert lines.index("docker start padelapp_staging") < lines.index("docker start padelapp_staging_worker")
+
+
+def test_without_a_worker_the_sync_touches_none(sandbox):
+    result, calls = run(sandbox, "reload")
+    assert "padelapp_staging_worker" not in calls.replace("docker inspect padelapp_staging_worker", "")
