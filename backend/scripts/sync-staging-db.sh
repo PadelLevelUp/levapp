@@ -18,11 +18,18 @@
 #   reload (by hand)     the newest nightly dump, even if already restored.
 #   live   (by hand)     the PAD-200 path: pg_dump of live prod. Records no state.
 #
-# Contract (PAD-200, still true):
-#   * no anonymisation — prod data is copied as-is (staging has no push / mail
-#     / AI credentials, so copied students can never be contacted from it);
-#   * BEST-EFFORT: nothing here may fail the deploy. Every failure path logs
-#     and exits 0, and the staging app is always started again (EXIT trap).
+# Contract:
+#   * every personal column is scrubbed after a restore (PAD-606, staging-scrub.sql), and
+#     staging has no push / AI credentials, so copied students can never be contacted from it;
+#   * BEST-EFFORT for the copy: a skipped or failed restore logs and exits 0, and the staging
+#     app is started again (EXIT trap). The scrub is the exception (PAD-606 rule 9), because a
+#     green job must mean nothing personal is on staging:
+#       exit 3  restored, the scrub failed (or its file is missing), staging was wiped and
+#               comes up empty;
+#       exit 4  the scrub failed AND the wipe failed: staging may hold unscrubbed data, so the
+#               app is left stopped.
+#     The deploy's sync-db job fails on either; it stays continue-on-error, so the deploy
+#     does not (rule 6).
 #
 # Safety:
 #   * the target must be exactly `padel_app_staging` (read from .env.staging),
@@ -62,6 +69,9 @@ STALE_HOURS="${SYNC_STALE_HOURS:-48}"
 
 log() { echo "[sync-staging-db] $*"; }
 skip() { log "SKIPPED: $*"; exit 0; }
+EXIT_SCRUB_FAILED=3
+EXIT_SCRUB_FAILED_NOT_WIPED=4
+unsafe=0   # set when the target may hold unscrubbed data: the EXIT trap then leaves staging stopped
 
 # ── 1. Read the staging DB identity from .env.staging (KEY=VALUE lines only) ──
 case "$MODE" in auto|reload|live) ;; *) skip "unknown mode '$MODE' (auto, reload or live)" ;; esac
@@ -172,6 +182,10 @@ migrate_restored() {
 }
 
 restart_app() {
+  if [ "$unsafe" = 1 ]; then
+    log "NOT starting $APP_CONTAINER: $TARGET_DB may hold unscrubbed data (wipe or reload by hand)"
+    return 0
+  fi
   migrate_restored || true
   log "starting $APP_CONTAINER"
   docker start "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $APP_CONTAINER"
@@ -269,11 +283,17 @@ fi
 # staging comes up empty (its migrations recreate the tables) rather than serving production data,
 # and the dump is not recorded, so the next push restores and scrubs again.
 SCRUB_SQL="$(dirname "$0")/staging-scrub.sql"
-if [ ! -f "$SCRUB_SQL" ]; then
-  log "ERROR: $SCRUB_SQL missing; wiping $TARGET_DB rather than serving unscrubbed data"
-  pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/dev/null || true
-  exit 0
-fi
+fail_closed() {
+  log "ERROR: $1; wiping $TARGET_DB rather than serving unscrubbed data"
+  if pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/dev/null; then
+    log "ERROR: scrub failed; $TARGET_DB wiped, staging comes up empty (exit $EXIT_SCRUB_FAILED)"
+    exit "$EXIT_SCRUB_FAILED"
+  fi
+  unsafe=1
+  log "ERROR: scrub failed and the wipe failed; $TARGET_DB may hold unscrubbed data (exit $EXIT_SCRUB_FAILED_NOT_WIPED)"
+  exit "$EXIT_SCRUB_FAILED_NOT_WIPED"
+}
+[ -f "$SCRUB_SQL" ] || fail_closed "$SCRUB_SQL missing"
 log "scrubbing personal data on $TARGET_DB"
 if docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$TARGET_DB" -q -1 -v ON_ERROR_STOP=1 \
      -v pwhash="$PWHASH" -f - < "$SCRUB_SQL" >/dev/null; then
@@ -282,9 +302,7 @@ if docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$TARGET_DB" -q -1 -v ON
   fi
   log "scrub done: $(pg "$TARGET_DB" "select count(*) from users where email not like '%@staging.invalid';" 2>/dev/null || echo '?') real emails, $(pg "$TARGET_DB" 'select count(*) from device_tokens;' 2>/dev/null || echo '?') device tokens, $(pg "$TARGET_DB" 'select count(*) from push_subscriptions;' 2>/dev/null || echo '?') push subscriptions left"
 else
-  log "ERROR: the scrub failed; wiping $TARGET_DB rather than serving unscrubbed data"
-  pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/dev/null || true
-  exit 0
+  fail_closed "the scrub failed"
 fi
 # ── 6. Seed placeholder objects so staging images resolve ────────────────────
 # The database is a copy of prod, so every images.object_key names a file that

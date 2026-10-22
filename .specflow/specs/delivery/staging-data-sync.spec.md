@@ -58,7 +58,8 @@ reload and a live copy stay available through `workflow_dispatch`.
    guard; the staging app stopped before and always restarted after (EXIT trap); the target
    schema wiped before the restore; the scrub (push subscriptions, device tokens, every email
    rewritten with the recovery and verification codes cleared); placeholder images in the staging
-   bucket only; every failure path exits 0 and the deploy job keeps `continue-on-error`.
+   bucket only; every failure path of the copy exits 0 and the deploy job keeps
+   `continue-on-error`. The scrub's failures are the exception (rule 9a).
 7. **A missing source skips.** No `BACKUP_BUCKET`, no `gsutil`, or no dump under the prefix: log
    `SKIPPED: …` and exit 0 without stopping staging.
 8. **A stale backup is reported.** When the newest dump's stamp is more than 48 h old the script
@@ -93,6 +94,14 @@ reload and a live copy stay available through `workflow_dispatch`.
    Kept on purpose: clubs, courts, exercises and notification templates (business and training
    content), `admin_roles` and the audit log's actor emails (staff, who sign in to the console with
    Google), ids, timestamps and statuses.
+9a. **(PAD-606) A failed scrub is never a green job.** The script fails closed and says so in its
+   exit code: 0 when it skipped or restored and scrubbed; **3** when the scrub failed after a
+   restore (or its file is missing) and the staging schema was wiped, so staging comes up empty;
+   **4** when the wipe failed too, so staging may hold unscrubbed data: the app is then left
+   stopped. The deploy's `sync-db` job no longer swallows the exit. It writes the sync's restore and
+   scrub lines to the job summary and fails on 3 or 4 (or on no exit line at all). It stays
+   `continue-on-error`, so the deploy itself does not fail (business rule 6). A scrub's proof is
+   the job's log lines plus read-only counts on staging, never a green deploy alone.
 10. **One shared password, never in the repo.** The deploy passes the staging secret
    `STAGING_TEST_PASSWORD` to the staging container; the sync script hashes it inside that
    container (werkzeug, as the app does) before stopping it and hands the hash to the scrub. With
@@ -155,7 +164,16 @@ reload and a live copy stay available through `workflow_dispatch`.
 - **Given** a successful restore in any mode
 - **When** the sync script continues
 - **Then** it runs the scrub file in the staging database before the EXIT trap starts the app, and
-  a scrub failure is logged without leaving the app stopped
+  a scrub failure wipes the staging schema first (the app then starts on an empty database)
+
+#### A failed scrub fails the sync job (rule 9a)
+- **Given** a restore whose scrub fails
+- **When** the sync script ends
+- **Then** it exits 3 when the wipe succeeded and 4 when it did not, and on 4 it does not start the
+  app again; an already-restored dump in `auto` mode still exits 0
+- **And** the workflow's `sync-db` job runs the script without `|| true`, captures its output,
+  writes the scrub's lines to the job summary and fails on 3 or 4, while keeping
+  `continue-on-error`
 
 #### A new personal column cannot slip through (rule 12)
 - **Given** the models on the branch

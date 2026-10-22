@@ -55,6 +55,7 @@ case " $* " in
     sql="${@: -1}"
     case "$sql" in
       *"count(*) from users"*) printf '%s\n' "${STUB_USERS:-185}" ;;
+      *"drop schema"*) [ -n "${STUB_WIPE_FAILS:-}" ] && exit 1; : ;;
       *"count(*)"*) printf '0\n' ;;
       *) : ;;
     esac ;;
@@ -266,11 +267,44 @@ def test_a_failed_scrub_wipes_staging_and_records_nothing(sandbox):
     dump is not recorded, so the next push restores and scrubs again."""
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
     result, calls = run(sandbox, STUB_SCRUB_FAILS="1")
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 3, "a failed scrub fails the sync-db job (rule 9): " + result.stdout + result.stderr
     assert "the scrub failed; wiping padel_app_staging" in result.stdout
     assert calls.rfind("drop schema if exists public cascade") > calls.find("ON_ERROR_STOP=1")
     assert "docker start padelapp_staging" in calls, "the app still comes back (empty)"
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
+
+
+def test_a_failed_scrub_whose_wipe_fails_leaves_staging_stopped(sandbox):
+    """PAD-606 rule 9: if staging cannot be wiped either, it may hold unscrubbed data. The app is not
+    started again, and the exit code (4) tells the deploy apart from a wiped, empty staging (3)."""
+    result, calls = run(sandbox, STUB_SCRUB_FAILS="1", STUB_WIPE_FAILS="1")
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "may hold unscrubbed data" in result.stdout
+    after_scrub = calls[calls.find("ON_ERROR_STOP=1"):]
+    assert "docker start padelapp_staging" not in after_scrub, "never serve what could not be scrubbed"
+
+
+def test_an_already_restored_dump_is_skipped_with_exit_zero(sandbox):
+    """The exit code separates "nothing new, skipped" (0) from a failed scrub (3, 4)."""
+    first, _ = run(sandbox)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (sandbox["home"] / "calls.log").unlink()
+    result, calls = run(sandbox, STUB_SCRUB_FAILS="1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "SKIPPED" in result.stdout and "ON_ERROR_STOP=1" not in calls
+
+
+def test_the_workflow_fails_the_sync_job_on_a_failed_scrub():
+    """PAD-606 rule 9: the sync-db job no longer swallows the script's exit, and puts the scrub's
+    lines in the job summary; the job stays continue-on-error, so the deploy does not fail (rule 6)."""
+    job = WORKFLOW.read_text().split("\n  sync-db:\n", 1)[1].split("\n  frontend:\n", 1)[0]
+    assert "continue-on-error: true" in job
+    sync_line = next(line for line in job.splitlines() if "sync-staging-db.sh /home/" in line)
+    assert "|| true" not in sync_line
+    assert 'echo "SYNC_EXIT=$?"' in job and "capture_stdout: true" in job
+    verdict = job.split("name: Scrub verdict", 1)[1]
+    assert "if: always()" in verdict and "GITHUB_STEP_SUMMARY" in verdict
+    assert re.search(r"3\)[^\n]*exit 3", verdict) and re.search(r"4\)[^\n]*exit 4", verdict)
 
 
 def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
