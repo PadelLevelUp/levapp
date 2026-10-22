@@ -5,7 +5,11 @@ import { renderNative } from "@/test/render-native";
 /** PAD-660 (players.nickname rule 6): the edit form carries the nickname field, its warning and the
  * "use as main name" switch; the create form does not. `name` keeps editing the real name. */
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "pt" } }) }));
-vi.mock("@levelup/hooks", () => ({ useFieldAvailability: () => ({ checking: false, error: null, conflict: null }) }));
+// Real useFieldAvailability since PAD-406 (stubbed before); its one api call finds no conflict.
+vi.mock("@levelup/api/src/resources/fields", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkFieldConflict: async () => null,
+}));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("@/components/ui/switch", async () => {
   const { Switch } = await import("react-native");

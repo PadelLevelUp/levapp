@@ -8,6 +8,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactTestInstance } from "react-test-renderer";
 import type { NotificationRestrictions } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
@@ -30,11 +31,11 @@ vi.mock("@/components/ui/time-picker-input", async () => {
   };
 });
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
-// PAD-660: the coach's display-name resolver is a react-query hook the harness cannot mount.
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (id: string | number | null | undefined, real: string | null | undefined) =>
-    String(id) === "77" ? "Jorge chato" : (real ?? ""),
+// PAD-660: the coach's display-name resolver is the REAL @levelup/hooks since PAD-406; its roster
+// call is the players api module, answered here with one nicknamed student.
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachPlayers: async () => [{ playerId: "77", name: "Jorge Silva", displayName: "Jorge chato" }],
 }));
 vi.mock("@/components/ui/input", async () => {
   const { TextInput } = await import("react-native");
@@ -63,19 +64,29 @@ const BASE: NotificationRestrictions = {
   cancellationDeadlineHours: 24,
 };
 
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
+
 const text = (n: ReactTestInstance): string =>
   n.children.map((c) => (typeof c === "string" ? c : text(c))).join("");
 
 async function mount(over: Partial<NotificationRestrictions> = {}, names: Record<string, string> = {}, disabled = false) {
   const onChange = vi.fn();
   const n = await renderNative(
-    createElement(RestrictionsSection, {
-      restrictions: { ...BASE, ...over },
-      excludedPlayerNames: names,
-      onChange,
-      disabled,
-    })
+    createElement(
+      QueryClientProvider,
+      { client },
+      createElement(RestrictionsSection, {
+        restrictions: { ...BASE, ...over },
+        excludedPlayerNames: names,
+        onChange,
+        disabled,
+      })
+    )
   );
+  await n.flush(); // the roster query lands
   return { n, onChange };
 }
 
