@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import * as SelectPrimitive from "@rn-primitives/select";
 import * as React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { resolveFontClass } from "@/lib/font-class";
 import { useAndroidBack } from "@/lib/android-back";
@@ -61,6 +62,35 @@ type SelectContentProps = SelectPrimitive.ContentProps & {
  */
 const SELECT_LIST_MAX_HEIGHT = 384 - 8 - 2;
 
+/** Space kept between the list and a system bar on Android (PAD-727). */
+const SELECT_EDGE_GAP = 8;
+
+/**
+ * PAD-727 (B-605, rule 9b): where the list may go. The app draws edge to edge on Android, so the
+ * window runs under the status and navigation bars. @rn-primitives' popper already moves a list
+ * that would run off the bottom up until it fits (`avoidCollisions`), but it measures against
+ * the window and sees no bars, so on Android the last options landed under the navigation bar
+ * and could not be reached (Maestro flow 280). Android passes the safe-area insets plus a gap to
+ * the popper and caps the list to the height between them, so the whole list is on screen,
+ * moved up over the trigger when there is no room below. iOS keeps the values it had.
+ */
+export function selectListLayout(
+  os: string,
+  insets: { top: number; bottom: number; left: number; right: number },
+  windowHeight: number
+): { insets?: { top: number; bottom: number; left: number; right: number }; maxHeight: number } {
+  if (os !== "android") return { maxHeight: SELECT_LIST_MAX_HEIGHT };
+  const edges = {
+    top: insets.top + SELECT_EDGE_GAP,
+    bottom: insets.bottom + SELECT_EDGE_GAP,
+    left: insets.left,
+    right: insets.right,
+  };
+  // the room between the bars, less the viewport's padding and border (as above)
+  const room = windowHeight - edges.top - edges.bottom - 8 - 2;
+  return { insets: edges, maxHeight: Math.max(0, Math.min(SELECT_LIST_MAX_HEIGHT, room)) };
+}
+
 /**
  * Renders through @rn-primitives/portal — the root layout already mounts a
  * <PortalHost />, so no extra setup is needed by consumers.
@@ -75,6 +105,9 @@ function SelectContent({
   const { open, onOpenChange } = SelectPrimitive.useRootContext();
   // Android back closes the list (mobile.android-runtime rule 3).
   useAndroidBack(open, () => onOpenChange(false));
+  const safeArea = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const layout = selectListLayout(Platform.OS, safeArea, windowHeight);
 
   return (
     <SelectPrimitive.Portal hostName={portalHost}>
@@ -104,11 +137,12 @@ function SelectContent({
               className
             )}
             position={position}
+            insets={layout.insets}
             {...props}
           >
             <SelectPrimitive.Viewport className="p-1">
               <ScrollView
-                style={{ maxHeight: SELECT_LIST_MAX_HEIGHT }}
+                style={{ maxHeight: layout.maxHeight }}
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled
               >
