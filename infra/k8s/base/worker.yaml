@@ -13,6 +13,9 @@ spec:
     matchLabels: {app.kubernetes.io/name: worker}
   template:
     metadata:
+      # PAD-702: the deploy workflow sets the hash write-config.sh prints, so a changed Secret
+      # rolls the pods (the Secret keeps one stable name).
+      annotations: {levapp.app/secrets-sha256: SECRETS_SHA256}
       labels: {app.kubernetes.io/name: worker}
     spec:
       serviceAccountName: levapp-backend
@@ -26,6 +29,8 @@ spec:
             - {name: ROLE, value: worker}
             - {name: WORKER_SPLIT, value: "on"}
             - {name: SSE_BROKER, value: postgres}
+            # PAD-702: one shared rate budget across pods (auth.login rule 7, PAD-693).
+            - {name: AUTH_RATE_LIMIT_STORE, value: database}
             - {name: WORKER_LIVEZ_PORT, value: "8081"}
           envFrom:
             - configMapRef: {name: levapp-config}

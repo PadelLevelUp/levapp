@@ -49,6 +49,8 @@ APP_CONTAINER="${APP_CONTAINER:-padelapp_staging}"
 # stopped with the API (it holds connections to the target and would run jobs mid-restore) and
 # started again after it.
 WORKER_CONTAINER="${WORKER_CONTAINER:-${APP_CONTAINER}_worker}"
+# PAD-704: the second API copy holds connections too; stopped and started with the API.
+SECOND_COPY="${SECOND_COPY:-${APP_CONTAINER}_b}"
 PG_CONTAINER="${PG_CONTAINER:-postgres}"
 SOURCE_DB="${SOURCE_DB:-padel_app}"
 EXPECTED_TARGET_DB="${EXPECTED_TARGET_DB:-padel_app_staging}"
@@ -173,6 +175,10 @@ restart_app() {
   migrate_restored || true
   log "starting $APP_CONTAINER"
   docker start "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $APP_CONTAINER"
+  if [ "$copy_stopped" = 1 ]; then
+    log "starting $SECOND_COPY"
+    docker start "$SECOND_COPY" >/dev/null 2>&1 || log "WARNING: could not start $SECOND_COPY"
+  fi
   if [ "$worker_stopped" = 1 ]; then
     log "starting $WORKER_CONTAINER"
     docker start "$WORKER_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $WORKER_CONTAINER"
@@ -193,9 +199,14 @@ restart_app() {
   log "WARNING: staging did not report healthy within 90s"
 }
 worker_stopped=0
+copy_stopped=0
 trap restart_app EXIT
 
 docker stop "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $APP_CONTAINER"
+if docker inspect "$SECOND_COPY" >/dev/null 2>&1; then
+  copy_stopped=1
+  docker stop "$SECOND_COPY" >/dev/null 2>&1 || log "WARNING: could not stop $SECOND_COPY"
+fi
 if docker inspect "$WORKER_CONTAINER" >/dev/null 2>&1; then
   worker_stopped=1
   docker stop -t 60 "$WORKER_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not stop $WORKER_CONTAINER"

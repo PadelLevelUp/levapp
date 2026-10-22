@@ -17,8 +17,10 @@ Jobs
 - ``reminder_{instance_id}``                   — DateTrigger — fires send_class_reminders() (legacy, for already-materialized instances)
 - ``invite_start_{instance_id}``               — DateTrigger — fires trigger_invitations()
 - ``process_batches``                          — IntervalTrigger (2 min) — fires process_invitation_batches()
-- ``extend_schedule_window``                   — IntervalTrigger (1 day) — extends 60-day reminder horizon
+- ``extend_schedule_window``                   — CronTrigger (daily 02:47 UTC) — extends 60-day reminder horizon
                                                  and re-derives any missing lesson reminder jobs
+- ``prune_delivery_incidents`` / ``retention_sweep`` — CronTrigger (daily 03:07 / 03:17 UTC)
+- ``<daily id>_catchup``                       — DateTrigger — one late run of a daily job a boot found missed (B-667)
 
 Public API (no ``app`` argument needed)
 ---------------------------------------
@@ -786,7 +788,6 @@ def init_scheduler(app, test_config=None) -> None:
 
     from apscheduler.events import EVENT_JOB_MISSED
     from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 
     if test_mode:
@@ -838,36 +839,6 @@ def init_scheduler(app, test_config=None) -> None:
         misfire_grace_time=60,
     )
 
-    sched.add_job(
-        func=_run_extend_schedule_window,
-        trigger=IntervalTrigger(days=1),
-        id="extend_schedule_window",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
-
-    # admin.engine-health (PAD-534): incidents are kept 30 days (R-010: fixed id).
-    sched.add_job(
-        func=_run_prune_delivery_incidents,
-        trigger=IntervalTrigger(days=1),
-        id="prune_delivery_incidents",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
-
-    # admin.data-retention (PAD-638): one daily sweep, every item OFF until the owner decides.
-    sched.add_job(
-        func=_run_retention_sweep,
-        # A fixed hour, not IntervalTrigger(days=1): replace_existing on every boot would push an
-        # interval's next run a day ahead each deploy, so with daily deploys it might never fire.
-        trigger=CronTrigger(hour=3, minute=17),
-        id="retention_sweep",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
     sched.add_listener(_on_job_missed, EVENT_JOB_MISSED)
 
     # PAD-610: Playwright boots this backend BEFORE global-setup drops and recreates
@@ -885,6 +856,8 @@ def init_scheduler(app, test_config=None) -> None:
     sched.start(paused=held or lead)
     _scheduler = sched
     app.extensions["scheduler"] = sched
+    # B-667: registered on the started scheduler, so the run each one missed is still readable.
+    _register_daily_jobs(sched, app.logger)
 
     # Graceful shutdown when the process exits; the worker shuts down first itself (PAD-695)
     atexit.register(_shutdown_quietly, sched)
@@ -902,6 +875,60 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+
+
+#: delivery.worker-role rule 4 (B-667): (id, UTC hour, minute). A fixed minute, never
+#: IntervalTrigger(days=1): replace_existing re-registers every job on every boot, which moved an
+#: interval's next run to boot + 24 h, so with a deploy a day it never fired. The minutes are spread
+#: so the three passes never share the leader's pool.
+DAILY_JOBS = (
+    ("extend_schedule_window", 2, 47),
+    ("prune_delivery_incidents", 3, 7),
+    ("retention_sweep", 3, 17),
+)
+#: A daily run missed while the leader was paused (a deploy's lock handover) still runs late.
+DAILY_MISFIRE_GRACE_SECONDS = 6 * 3600
+
+
+def _daily_job_funcs():
+    return {
+        "extend_schedule_window": _run_extend_schedule_window,
+        "prune_delivery_incidents": _run_prune_delivery_incidents,
+        "retention_sweep": _run_retention_sweep,
+    }
+
+
+def _register_daily_jobs(sched, logger) -> None:
+    """Register the daily jobs at their fixed minute; a boot whose store shows a missed run (its
+    stored next run is in the past: no leader was running then) adds one ``<id>_catchup`` run now.
+    Each job is idempotent, so a catch-up racing the outgoing leader's own run costs one extra pass."""
+    from apscheduler.triggers.cron import CronTrigger
+
+    funcs = _daily_job_funcs()
+    now = datetime.now(timezone.utc)
+    for job_id, hour, minute in DAILY_JOBS:
+        stored = sched.get_job(job_id)
+        missed = stored is not None and stored.next_run_time is not None and stored.next_run_time < now
+        sched.add_job(
+            func=funcs[job_id],
+            trigger=CronTrigger(hour=hour, minute=minute, timezone="UTC"),
+            id=job_id,
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+            misfire_grace_time=DAILY_MISFIRE_GRACE_SECONDS,
+        )
+        if missed:
+            logger.warning("%s missed its run at %s: one catch-up run now (B-667)", job_id,
+                           stored.next_run_time.isoformat())
+            sched.add_job(
+                func=funcs[job_id],
+                trigger="date",
+                run_date=now,
+                id=f"{job_id}_catchup",
+                replace_existing=True,
+                misfire_grace_time=DAILY_MISFIRE_GRACE_SECONDS,
+            )
 
 
 MODE_COMPETE = "compete"
