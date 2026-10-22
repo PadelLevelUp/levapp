@@ -179,6 +179,7 @@ def get_config_dict(coach_id: int) -> dict:
     return {
         "autoNotifyEnabled": config.auto_notify_enabled,
         "invitationMode": config.get_invitation_mode(),
+        "autoAcceptJoinRequests": bool(config.auto_accept_join_requests),  # PAD-672 (rule 3a)
         "priorityCriteria": config.get_priority_criteria(),
         "restrictions": restrictions,
         # PAD-433 / B-168 (rule 14a): read-only names for the excluded-player chips.
@@ -277,6 +278,17 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
             from flask import abort
             abort(400, "invitationMode must be 'automatic' or 'semi_automatic'")
         config.invitation_mode = mode
+    # PAD-672 (rule 3a): automatic acceptance never runs with semi-automatic approval. Turning it on
+    # in that mode is refused; switching to that mode turns it off and says so.
+    if "autoAcceptJoinRequests" in data:
+        wanted = bool(data["autoAcceptJoinRequests"])
+        if wanted and config.get_invitation_mode() == "semi_automatic":
+            from flask import abort
+            abort(400, "autoAcceptJoinRequests cannot be on in semi_automatic mode")
+        config.auto_accept_join_requests = wanted
+    elif config.auto_accept_join_requests and config.get_invitation_mode() == "semi_automatic":
+        config.auto_accept_join_requests = False
+        config.auto_accept_turned_off = True
     if "priorityCriteria" in data:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
