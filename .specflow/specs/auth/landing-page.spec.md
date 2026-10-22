@@ -401,6 +401,11 @@ stored record — the visitor's cookie choice, in localStorage key `levapp.cooki
 
   Not built: the demo's 5-beat intro overlay. The real-device matrix of the ticket is the owner's
   check after promotion; Lighthouse mobile and the width sweep are run on the switched build.
+  Lighthouse result (2026-10-22, coordinator's decision): the ticket's "≥ 90" is **not met on
+  performance, with no regression against the live page**. Medians, against the old landing measured
+  the same way: coaches 77 vs 69, players 84 vs 69, Outros 81 vs 80. Accessibility is 96/100/100 and
+  best practices and SEO are 100. Client rendering holds FCP at ~3.2 s; the prerender of `/` that
+  would reach 90 is PAD-726, an owner decision.
 - Second iteration, 2026-09-06: ported from the Lovable project "Padellevelup Playground"
   (`src/routes/index.tsx`), replacing the first hand-built page. Lovable's TanStack route, hard-coded
   Portuguese and custom utilities were translated to react-router, i18n and the app's tokens.
