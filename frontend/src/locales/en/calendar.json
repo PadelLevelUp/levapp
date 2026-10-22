@@ -535,6 +535,7 @@
       "rejected": "The coach did not accept your request",
       "superseded": "This spot was taken before the coach decided",
       "accepted": "You're booked! You're enrolled in this class.",
+      "acceptedNow": "You're in! You're enrolled in this class.",
       "failed": "Could not send the request",
       "refusal": {
         "already_enrolled": "You are already in this class",
@@ -606,6 +607,7 @@
     },
     "side": {
       "label": "Side in this class",
+      "yours": "Your side in this class",
       "usual": "Usual",
       "left": "Left",
       "right": "Right",
@@ -629,11 +631,15 @@
       },
       "sideShort": {
         "both": "Both",
+        "both_left": "Both → Left",
+        "both_right": "Both → Right",
         "right": "Right",
         "left": "Left"
       },
       "sideLong": {
         "both": "Both sides",
+        "both_left": "Both → left",
+        "both_right": "Both → right",
         "right": "Right side",
         "left": "Left side"
       },
