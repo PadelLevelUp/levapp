@@ -644,6 +644,55 @@
       "close": "Fechar",
       "openProfile": "Ver perfil de {{name}}",
       "popupLabel": "Perfil do jogador"
+    },
+    "sidePick": {
+      "title": "Em que lado queres jogar nesta aula?",
+      "sub": "Só és chamado se houver vaga do lado que escolheres. Se mudares, vale só para esta aula.",
+      "waitingSub": "Só és chamado se abrir vaga do lado que escolheres. Se mudares, vale só para esta aula.",
+      "hint": {
+        "right": "Só para vagas do lado direito",
+        "left": "Só para vagas do lado esquerdo",
+        "both": "Para qualquer vaga, direita ou esquerda"
+      },
+      "waitingHint": {
+        "right": "Só quando abrir vaga do lado direito",
+        "left": "Só quando abrir vaga do lado esquerdo",
+        "both": "Quando abrir qualquer vaga, direita ou esquerda"
+      },
+      "word": {
+        "right": "direita",
+        "left": "esquerda",
+        "both": "ambos"
+      },
+      "usual": "Habitual",
+      "moreChances": "Mais hipóteses",
+      "cancel": "Cancelar",
+      "send": "Enviar pedido",
+      "sentTitle": "Pedido enviado",
+      "sentLine": "Lado: {{side}} · aguarda o {{coach}}",
+      "sentLineNoCoach": "Lado: {{side}} · aguarda o treinador",
+      "sentBadge": "Em espera",
+      "cancelRequest": "Cancelar pedido",
+      "waitingTitle": "Estás na lista de espera",
+      "waitingLine": "Lado: {{side}} · avisamos-te na app",
+      "waitingBadge": "Em espera",
+      "leaveWaiting": "Sair da lista de espera",
+      "fullTitle": "Não há vaga na {{requested}}",
+      "fullBody": "Há vaga na {{open}}. Podes jogar em ambos os lados, ou esperar por uma vaga na {{requested}}.",
+      "fullOpenJoiner": " e na ",
+      "playBoth": "Estou disposto a jogar em ambos",
+      "stayWaiting": "Ficar na lista de espera da {{requested}}",
+      "failed": "Não foi possível enviar o pedido",
+      "coach": {
+        "requested": "Lado pedido: {{side}}",
+        "useInProfile": "Usar {{side}} no perfil",
+        "profileSaved": "Lado guardado no perfil",
+        "profileFailed": "Não foi possível guardar o lado"
+      },
+      "standing": {
+        "label": "Lado",
+        "none": "Sem preferência"
+      }
     }
   }
 }

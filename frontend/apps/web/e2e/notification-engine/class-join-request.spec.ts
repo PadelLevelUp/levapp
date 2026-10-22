@@ -65,6 +65,9 @@ test("PAD-131: a student asks for an open spot and the coach's accept enrols the
     await page.locator('[data-open-spot="true"]', { hasText: CLASS }).first().click();
     const studentSheet = page.getByRole("dialog");
     await studentSheet.getByTestId("class-join-request-button").click();
+    // PAD-672: the ask opens the side sheet (a nested dialog: located by test id on the page).
+    await page.getByTestId("class-side-left").click();
+    await page.getByTestId("class-side-send").click();
     await expect(studentSheet.getByTestId("class-join-withdraw")).toBeVisible({ timeout: 15_000 });
 
     // Rule 15: the coach's class payload now carries the pending request.

@@ -46,6 +46,12 @@ describe("web shell capabilities", () => {
     expect(declared).toContain("adult-roster-confirmation");
   });
 
+  // PAD-672 (classes.join-requests rule 20): the side picker exists (ClassSideChoice), so the server
+  // may answer a join request with 409 side_full.
+  it("declares join-side", () => {
+    expect(declared).toContain("join-side");
+  });
+
   it("is what the client actually sends", () => {
     expect(source).toContain("capabilities: WEB_CAPABILITIES");
   });

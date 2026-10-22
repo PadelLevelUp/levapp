@@ -1,4 +1,5 @@
 import type {
+  PlayerSide,
   ApprovalAction,
   ApprovalSuggestionState,
   ApprovalVacancyResult,
@@ -351,8 +352,15 @@ export async function addToStandingWaitingList(
   playerId: number,
   credits: number,
   expiresOn: string,
+  side?: PlayerSide | null,
 ): Promise<StandingWaitingListEntry> {
-  const res = await getApi().post("/app/notify/standing_waiting_list", { playerId, credits, expiresOn });
+  // PAD-672 (waiting-list rule 4d, Q4): the side the entry is asked for; omitted when none.
+  const res = await getApi().post("/app/notify/standing_waiting_list", {
+    playerId,
+    credits,
+    expiresOn,
+    ...(side ? { side } : {}),
+  });
   return res.data;
 }
 

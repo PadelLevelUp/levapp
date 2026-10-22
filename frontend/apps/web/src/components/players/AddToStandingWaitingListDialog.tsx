@@ -7,13 +7,17 @@ import {
   isStandingEndAllowed,
   standingEndBounds,
   standingEndFor,
+  SIDE_CHOICE_ORDER,
+  standingDefaultSide,
   standingPresetOf,
+  sideLabelKey,
 } from "@levelup/config";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { addToStandingWaitingList, renewStandingWaitingListEntry } from "@/api/notificationEngine";
+import type { PlayerSide } from "@levelup/types";
 import type { StandingWaitingListEntry } from "@/types";
 
 interface Props {
@@ -24,6 +28,8 @@ interface Props {
   onAdded?: (entry: StandingWaitingListEntry) => void;
   /** PAD-507: renew this entry — only its end date changes; credits stay. */
   renewing?: StandingWaitingListEntry | null;
+  /** PAD-672 (waiting-list rule 4d, Q4): the student's profile side — the side picked by default. */
+  profileSide?: PlayerSide | null;
 }
 
 /**
@@ -31,20 +37,23 @@ interface Props {
  * end date — a preset fills it, or any date today through 12 months ahead — and, when adding, the
  * number of classes to fill. Renewing moves the end date only.
  */
-export function AddToStandingWaitingListDialog({ open, onClose, playerId, playerName, onAdded, renewing }: Props) {
+export function AddToStandingWaitingListDialog({ open, onClose, playerId, playerName, onAdded, renewing, profileSide }: Props) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [today, setToday] = useState(() => new Date());
   const [expiresOn, setExpiresOn] = useState(() => standingEndFor(DEFAULT_STANDING_PRESET, new Date()));
   const [credits, setCredits] = useState(3);
   const [loading, setLoading] = useState(false);
+  // Q4: the side is chosen per entry, defaulting to the profile side; none chosen sends none.
+  const [side, setSide] = useState<PlayerSide | null>(standingDefaultSide(profileSide));
 
   useEffect(() => {
     if (!open) return;
+    setSide(standingDefaultSide(profileSide));
     const now = new Date();
     setToday(now);
     setExpiresOn(standingEndFor(DEFAULT_STANDING_PRESET, now));
-  }, [open]);
+  }, [open, profileSide]);
 
   const { min, max } = standingEndBounds(today);
   const valid = isStandingEndAllowed(expiresOn, today);
@@ -56,7 +65,7 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
     try {
       const entry = renewing
         ? await renewStandingWaitingListEntry(renewing.id, expiresOn)
-        : await addToStandingWaitingList(playerId, credits, expiresOn);
+        : await addToStandingWaitingList(playerId, credits, expiresOn, side);
       onAdded?.(entry);
       onClose();
     } catch {
@@ -124,6 +133,30 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
               {valid ? t("players.endDateHint") : t("players.endDateInvalid")}
             </p>
           </div>
+
+          {/* PAD-672 (rule 4d, Q4): the side the entry is asked for (adding only). */}
+          {!renewing && (
+            <div className="space-y-2" data-testid="standing-wl-side">
+              <p className="text-sm font-medium">{t("calendar.sidePick.standing.label")}</p>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("calendar.sidePick.standing.label")}>
+                {SIDE_CHOICE_ORDER.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="radio"
+                    aria-checked={side === opt}
+                    data-testid={`standing-wl-side-${opt}`}
+                    onClick={() => setSide(side === opt ? null : opt)}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                      side === opt ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    {t(sideLabelKey(opt))}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Credits (adding only: a renewal keeps them) */}
           {!renewing && (
