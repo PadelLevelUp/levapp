@@ -219,6 +219,14 @@ Send browser push notifications when a new message arrives and the recipient isn
    normal login flow runs (default decision, 2026-09-22; changing it means changing this
    rule). A warm tap (app running) is unchanged.
 
+14. **A system message's push is titled in the student's language (PAD-713; numbering
+    unconfirmed).** The push pair that announces a notification-engine message to a student
+    (`notification_service._push_message`, the one writer, R-029: invitations, reminders, "Está
+    marcado!", waiting-list offers, the pending nudge) is titled by the RECIPIENT's `users.language`:
+    `pt` "Nova mensagem", `en` "New message" (anything not English reads Portuguese, the app's
+    default). Web and iOS carry the same title. The body is unchanged: the message text (rule 12).
+    Before PAD-713 it was "New message" for everyone. A direct message keeps its sender-name title.
+
 ### Acceptance Criteria
 
 #### Tapping a message notification opens the thread (PAD-240)

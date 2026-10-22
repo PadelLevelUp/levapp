@@ -41,8 +41,9 @@ gunicorn's boot path into the leadership thread.
 
 ### Rules
 
-1. **One scheduler leader per database.** Outside TEST_MODE and the PAD-610 E2E hold, every API
-   process starts APScheduler **paused** and runs a leadership thread. The thread takes
+1. **One scheduler leader per database.** (With `WORKER_SPLIT` on, only worker processes compete
+   and the API is a job-store client: `delivery.worker-role`.) Outside TEST_MODE and the PAD-610
+   E2E hold, every API process starts APScheduler **paused** and runs a leadership thread. The thread takes
    `pg_try_advisory_lock(SCHEDULER_LOCK_KEY)` on a dedicated, unpooled connection; the holder runs
    the startup reschedule, then resumes its scheduler. `SCHEDULER_LEADERSHIP=off` disables it
    (single-process escape hatch).
@@ -58,7 +59,12 @@ gunicorn's boot path into the leadership thread.
    deploy there, before any API container is touched. It then starts the new container as
    `<name>_next` on the idle loopback port of the pair (prod 5000/5002, staging 5100/5102), polls
    `http://127.0.0.1:<port>/api/app/healthz` until 200 (timeout 120 s; on timeout the new one is
-   removed and the old one keeps serving), then stops the old container with `docker stop -t 10`,
+   removed and the old one keeps serving). It keeps the old container serving for the idle port's
+   nginx `fail_timeout` + 1 s more, read from the upstream conf (nginx's default 10 s when absent),
+   counted from "healthy": a request nginx sent to the booting port may have marked it down, and
+   stopping the old one inside that window leaves no live upstream (B-664). With `--probe-host`
+   (both deploys pass their vhost) one request through nginx must then answer below 500, or the new
+   one is removed and the old keeps serving. Only then it stops the old container with `docker stop -t 10`,
    removes it and renames `<name>_next` to `<name>`. Container names stay stable for every other
    script (sync, runbooks, `rollback_to`).
 5. **nginx tries both ports.** `/api` (and the events and register locations) proxy to `upstream
@@ -130,6 +136,21 @@ gunicorn's boot path into the leadership thread.
    reading it; anything else ships with `rollout: stop-first`. A warn-only CI guard is PAD-711.
    Because the migrate step now runs while the old container serves, schema changes take a short
    `lock_timeout` and data backfills run in batches outside the schema transaction: PAD-718.
+13. **The worker follows the API.** (PAD-695, `delivery.worker-role`.) The deploys pass
+   `--worker` when their env file sets `WORKER_SPLIT` on. After the API swap succeeds (both
+   modes), `rollout.sh` starts `<name>_worker_next` from the same arguments plus
+   `--memory 256m -e ROLE=worker` and the command `python -m padel_app.worker`, with no published
+   port; waits up to 60 s for its `/livez` (through `docker exec`: the image has no curl), failing
+   early on a restart; stops the old `<name>_worker` with a 60 s grace (running jobs finish);
+   renames the new one; and requires `/livez` to say `"leader": true` within 30 s. With the flag on
+   the API never competes, so a worker that never leads means no job runs anywhere. An unanswering
+   new worker is removed and the old one keeps leading (exit 1); one that does not lead is left
+   running, since it may still take over (exit 1). Without `--worker` a leftover `<name>_worker` is
+   stopped and removed: the flag went off and the API competes again. The deploy workflow itself also
+   removes a leftover `<name>_worker` whenever it passes no `--worker`, or the checked-out
+   `rollout.sh` has no `--worker` case (a `rollback_to` from before the worker role, whose script
+   can neither swap nor remove one). Jobs never run twice in any mix: every scheduler gates on the
+   same advisory lock.
 
 ### Acceptance Criteria
 
@@ -211,6 +232,20 @@ gunicorn's boot path into the leadership thread.
 - **Given** a new container that never answers, or restarts
 - **When** `rollout.sh` runs **Then** it is removed, the old container was never stopped, and the
   deploy fails with the new container's log
+
+#### The old port outlives the new port's fail_timeout (rule 4, B-664)
+- **Given** the upstream conf gives the idle port `fail_timeout=7s` and the new container is healthy
+- **When** `rollout.sh --probe-host levapp.app` runs **Then** it waits 8 s, sends one request to
+  `https://levapp.app/api/app/healthz` through nginx, and only then stops the old container; a 5xx
+  there removes the new container and leaves the old one serving; a 4xx counts as live
+
+#### The worker swaps after the API and must lead (rule 13)
+- **Given** a live API and `padelapp_worker` **When** `rollout.sh --worker` runs **Then** after the
+  API rename it starts `padelapp_worker_next` (`--memory 256m -e ROLE=worker`, no `-p`, command
+  `python -m padel_app.worker`), stops the old worker with `-t 60` once the new one answers, and
+  succeeds only when the renamed worker reports `leader: true`; an unanswering new worker is removed
+  and the old one kept; a new worker that never leads leaves the run red with the worker running;
+  without `--worker` a leftover worker is removed
 
 #### A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it

@@ -94,6 +94,8 @@ jobs:
           --health-retries 10
     env:
       LEVAPP_TEST_DB: postgres
+      # PAD-692: the two-process harness (marker `two_process`, deselected by default) runs here.
+      LEVAPP_TWO_PROCESS: "1"
       POSTGRES_HOST: localhost
       POSTGRES_PORT: "5432"
       POSTGRES_USER: padel_app_user
@@ -148,6 +150,8 @@ jobs:
     timeout-minutes: 10
     env:
       LEVAPP_TEST_DB: postgres
+      # Same selection as the shards (PAD-692), or the two_process tests look missing from them.
+      LEVAPP_TWO_PROCESS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

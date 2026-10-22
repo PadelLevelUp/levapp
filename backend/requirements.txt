@@ -149,9 +149,6 @@ babel==2.18.0 ; python_version >= "3.10" and python_version < "4" \
 blinker==1.9.0 ; python_version >= "3.10" and python_version < "4" \
     --hash=sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf \
     --hash=sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc
-cachelib==0.13.0 ; python_version >= "3.10" and python_version < "4" \
-    --hash=sha256:209d8996e3c57595bee274ff97116d1d73c4980b2fd9a34c7846cd07fd2e1a48 \
-    --hash=sha256:8c8019e53b6302967d4e8329a504acf75e7bc46130291d30188a6e4e58162516
 cachetools==5.5.2 ; python_version >= "3.10" and python_version < "4" \
     --hash=sha256:1a661caa9175d26759571b2e19580f9d6393969e5dfca11fdb1f947a23e640d4 \
     --hash=sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a
@@ -409,9 +406,6 @@ flask-mail==0.9.1 ; python_version >= "3.10" and python_version < "4" \
 flask-migrate==4.0.7 ; python_version >= "3.10" and python_version < "4" \
     --hash=sha256:5c532be17e7b43a223b7500d620edae33795df27c75811ddf32560f7d48ec617 \
     --hash=sha256:dff7dd25113c210b069af280ea713b883f3840c1e3455274745d7355778c8622
-flask-session==0.6.0 ; python_version >= "3.10" and python_version < "4" \
-    --hash=sha256:b1ed06cf4c5a211305579a132e81307d242cec6fe2714a276405730ffd22a034 \
-    --hash=sha256:dd77b6c5916021a540a8c188731c529596ad9ea382c07a24f9654355fa40c9ad
 flask-sqlalchemy==2.5.1 ; python_version >= "3.10" and python_version < "4" \
     --hash=sha256:2bda44b43e7cacb15d4e05ff3cc1f8bc97936cc464623424102bfc2c35e95912 \
     --hash=sha256:f12c3d4cc5cc7fdcc148b9527ea05671718c3ea45d50c7e732cceb33f574b390

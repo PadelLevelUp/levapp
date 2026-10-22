@@ -22,7 +22,7 @@ const RESTRICTIONS = {
   quietHours: { enabled: true },
   excludedPlayers: { enabled: true, playerIds: ["42", "43"] },
   excludeUnpaidSubscription: { enabled: false },
-  noSameDayClass: { enabled: false },
+  noSameDayClass: { enabled: true },
   cancellationDeadlineHours: 24,
 } as NotificationRestrictions;
 

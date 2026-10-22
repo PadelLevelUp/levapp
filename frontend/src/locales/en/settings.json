@@ -520,7 +520,9 @@
       "excludeUnpaid": "Exclude inactive accounts",
       "excludeUnpaidDescription": "Don't invite students whose account is not active yet (they have not finished setting up their login). This is account status, not payment.",
       "noSameDayClass": "Skip students who already have a class that day",
-      "noSameDayClassDescription": "Don't automatically invite a student who already holds a place in another class on the same day (any coach). Classes they declined or were marked absent from do not count. Your own manual invitations are not affected.",
+      "noSameDayClassDescription": "Don't automatically invite a student who already holds a place in another class on the same day (any coach). Classes they declined or were marked absent from do not count. Your own manual invitations are not affected. It comes on by default, and you can switch it off here.",
+      "noSameDayClassDefaultNote": "New: this restriction now comes on by default. You can switch it off here.",
+      "noSameDayClassDefaultNoteDismiss": "Got it",
       "hours": "hours",
       "cancellationDeadline": "Cancellation deadline",
       "cancellationDeadlineDescription": "Cancellations within this many hours before class start are flagged as late"
@@ -609,8 +611,8 @@
           "date": "The class's date as day/month",
           "type": "The kind of class: academy or private",
           "court": "The class's court (empty when it has none)",
-          "class": "The class's title (\"added to class\" messages only)",
-          "when": "The class's date, weekday and time (\"added to class\" messages only)",
+          "class": "The class's title",
+          "when": "The class's date, weekday and time",
           "side": "The side of the open spot (waiting-list invitation only)"
         }
       }

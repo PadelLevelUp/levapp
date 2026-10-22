@@ -216,10 +216,13 @@ def test_two_spots_declined_the_sibling_spot_never_asks_them(app, monkeypatch):
         assert {p for v, p, _ in _events(instance_id) if v == second_spot} & {asked[0], asked[1]} == set()
 
 
-def test_two_spots_a_student_whose_offer_was_retired_is_asked_for_the_other_spot(app, monkeypatch):
-    """The starvation cell (PAD-494). Two spots; the only other student holds an offer for the first
-    spot, so the second waits. Someone else takes the first spot, which retires that offer without a
-    "no": the second spot asks them on the next pass. OLD: they already held both offers."""
+def test_two_spots_a_student_whose_spot_is_taken_keeps_their_invitation_for_the_other_spot(app, monkeypatch):
+    """The starvation cell (PAD-494), rewritten for PAD-679 (rule 18a). Two spots; the only other
+    student holds an offer for the first spot, so the second waits. Someone else takes the first
+    spot. Before PAD-679 that offer was retired ("Vaga preenchida") and the second spot asked them
+    again on the next pass; now the same invitation moves to the second spot: no new invitation,
+    no retirement. OLD (before PAD-497): they already held both offers."""
+    from padel_app.models.notification_event import NotificationEvent
     from padel_app.services.notification_service import trigger_invitations
     from padel_app.tests.helpers import pin_clock
 
@@ -231,9 +234,12 @@ def test_two_spots_a_student_whose_offer_was_retired_is_asked_for_the_other_spot
         # Both students were asked for the first spot; the second has nobody free to ask.
         assert {p for v, p in _live_events(instance_id) if v == second_spot} == set()
         winner, other = [p for v, p in _live_events(instance_id) if v == first_spot]
+        held = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=other).one().id
         _answer(instance_id, winner, "yes", NOW + timedelta(minutes=1))
         _tick(monkeypatch, 3)
         assert [(v, p) for v, p in _live_events(instance_id)] == [(second_spot, other)]
+        moved = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=other).one()
+        assert moved.id == held and moved.vacancy_id == second_spot
 
 
 # ── what the coach sees ──────────────────────────────────────────────────────────────────────
@@ -273,7 +279,11 @@ def test_a_started_spot_waiting_on_a_sibling_offer_is_asked_again_on_the_next_ti
     asks A, the second asks B. B and then C decline the second spot, whose only remaining
     candidate, A, holds the first spot's offer: it waits with nothing of its own out. The first
     spot is then taken by someone else, retiring A's offer. The second spot must ask A on the next
-    tick: not after maxInactiveTime, and not never (with it off)."""
+    tick: not after maxInactiveTime, and not never (with it off).
+
+    PAD-679 (rule 18a): A is not retired and re-asked any more — the second spot was waiting only on
+    A's offer and its round would ask A, so A's invitation moves to it the moment the first spot
+    closes, with or without maxInactiveTime."""
     from padel_app.services.notification_service import trigger_invitations
     from padel_app.tests.helpers import pin_clock
 
@@ -297,9 +307,13 @@ def test_a_started_spot_waiting_on_a_sibling_offer_is_asked_again_on_the_next_ti
         from padel_app.services.notification_service import _close_vacancy
         from padel_app.models.vacancy import Vacancy
 
+        from padel_app.models.notification_event import NotificationEvent
+
+        held = NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=a).one().id
         _close_vacancy(db.session.get(Vacancy, first), None)
         db.session.commit()
-        assert _live_events(instance_id) == []
+        assert _live_events(instance_id) == [(second, a)]
+        assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=a).one().id == held
 
         _tick(monkeypatch, 4)
         assert _live_events(instance_id) == [(second, a)]

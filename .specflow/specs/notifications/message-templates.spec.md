@@ -38,6 +38,21 @@ Customize the text of notification messages sent to players.
     `both` or empty side it renders as nothing. The default texts put it right after the time, so a
     spot without a side reads as an ordinary sentence. In any other template `{side}` renders as
     nothing.
+3a. **Every placeholder in every template (PAD-670; numbering unconfirmed).** Every template key
+   of rule 2, plus `waiting_list_confirm`, `added_to_class`, `added_to_class_coming` and
+   `class_cancelled`, is about one student and one class, and each is rendered through
+   `_format_template` with the same set of values: `{name}`, `{level}`, `{weekday}`, `{time}`,
+   `{day}`, `{type}`, `{date}`, `{court}`, `{class}` and `{when}`. One helper builds that set for
+   a student and a class (`template_variables`), so a placeholder the coach types into ANY field
+   is replaced when the message is sent — before PAD-670, `confirm`, `decline`, `spot_filled`,
+   `reminder_confirmed`, `reminder_declined`, `waiting_list_offer` and `waiting_list_confirm`
+   were sent raw and a `{day}` typed there reached the student as `{day}`. `{side}` stays filled
+   only in `waiting_list_invite` (rule 16) and renders as nothing elsewhere. The web editor
+   offers the insert-placeholder badges and the live preview (rule 19) under every field it
+   edits. Rules 5, 7 and 14 (no raw token, empty phrases disappear with their connector) apply to
+   every template. A send site whose class is unknown (none today) would pass empty values, which
+   rule 7 already renders cleanly. iOS has no template editor (Notes): the rendering is server
+   side and reaches every recipient.
 17. **The class-when suffix names the day (PAD-519; numbering unconfirmed).** One formatter
     (`_format_when`) writes the " on <day> at <time>" phrase that the system's own, non-editable
     notices append to a class title — the coach's "entrou na lista de espera de …" notice
@@ -89,6 +104,19 @@ Customize the text of notification messages sent to players.
     only; `{day}` itself renders server-side and reaches every recipient.
 
 ### Acceptance Criteria
+
+#### A placeholder works in any template (rule 3a, PAD-670)
+- **Given** a pt coach whose `reminder_confirmed` text is "Obrigado {name}, até {day} às {time} no {court}!"
+  and a class tomorrow at 18:00 on court "Campo 2"
+- **When** student Ana answers "Vou" to the reminder
+- **Then** the confirmation she receives reads "Obrigado Ana, até amanhã às 18:00 no Campo 2!"
+- **And** the same holds for `confirm`, `decline`, `spot_filled`, `reminder_declined`,
+  `waiting_list_offer` and `waiting_list_confirm`: none sends a raw `{…}` token
+
+#### The editor offers every placeholder in every field (rule 3a)
+- **Given** a coach on Settings → Message templates (web)
+- **When** they open the `reminder_declined` field
+- **Then** the placeholder badges are there and inserting `{day}` shows a preview reading "amanhã"
 
 #### `{day}` reads like a person would (rule 18)
 - **Given** a Wednesday, 10:00 on the club clock

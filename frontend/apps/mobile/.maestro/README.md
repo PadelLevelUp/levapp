@@ -228,9 +228,15 @@ API 34 `pixel_6`, the APK from `expo prebuild` + Gradle, flows from `MAESTRO_FLO
 
 **Flow policy.** A pull request runs the smoke list only (`01-login`, `31-week-view`,
 `32-month-view`, `36-android-evidence` — about 6 minutes after the APK). The whole suite
-(config.yaml's order, continue-on-failure, ~60 minutes of emulator time) runs nightly at
+(config.yaml's order, continue-on-failure, ~200 minutes of emulator time) runs nightly at
 03:00 UTC and on demand: Actions → "Android build" → Run workflow with `flows` = `.` (the
-default). Read failures in the `maestro-results` artefact.
+default). Since PAD-710 it runs as four parallel shards (`android-shards.json` names where
+each starts; `delivery.android-nightly-lane`), each with its own emulator and database, and a
+watchdog stops a flow past 12 min or a shard past 75 min with an error naming the flow. A PR
+that changes the lane itself runs the shards too. A PR that adds or changes `flows/*.yaml` also runs exactly
+those flows in a `changed` job (led by `01-login`, fresh emulator and database), so every flow
+edit is proven on Android on its own PR. Read failures in the `maestro-results-<shard>`
+artefacts (`maestro-results-all` for the smoke list).
 
 The nightly only starts once this workflow reaches `main`: GitHub runs a `schedule:` trigger
 from the default branch's copy of the file and from nowhere else, so there is no nightly while
@@ -293,4 +299,4 @@ Deltas against the iOS suite — `mobile.android-runtime` rule 8:
   flow 47 is tagged `ios-only` and the lane excludes it (PAD-306).
 - `36-android-evidence.yaml` is Android-only and not in `config.yaml`: it takes the
   screenshots the build Mac cannot produce (login keyboard, week sheet depth, raised month
-  sheet + back, the date dialog); read them in the lane's `maestro-results` artefact.
+  sheet + back, the date dialog); read them in the lane's `maestro-results-*` artefact.
