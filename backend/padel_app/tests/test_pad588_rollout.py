@@ -356,8 +356,10 @@ def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upst
     assert 'source: "backend/scripts/rollout.sh"' in text
     # PAD-691: the deploys migrate through the script's one-shot container, inside a 30-min ssh step.
     # B-664: the request through nginx goes to the environment's own vhost.
+    # PAD-695: --worker when the env file turns WORKER_SPLIT on (delivery.worker-role).
     assert (f"rollout.sh --name {name} --ports {ports} --upstream {upstream} --probe-host {host} "
-            "--migrate $ROLLOUT_MODE --") in text
+            "--migrate $ROLLOUT_MODE $WORKER_OPT --") in text
+    assert "then WORKER_OPT=\"--worker\"; fi" in text
     deploy_step = text.split("bash /home/${{ secrets.GCE_USER }}/rollout.sh", 1)[0].rsplit("uses: appleboy/ssh-action", 1)[1]
     assert "command_timeout: 30m" in deploy_step
     assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"
