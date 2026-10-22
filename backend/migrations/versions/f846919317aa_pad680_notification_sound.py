@@ -6,13 +6,13 @@ absent (prod and staging drift: migrations must be idempotent). No data is writt
 defaults fill existing rows.
 
 Revision ID: f846919317aa
-Revises: 741b857a286c
+Revises: c6203aa9b167
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "f846919317aa"
-down_revision = "741b857a286c"
+down_revision = "c6203aa9b167"
 branch_labels = None
 depends_on = None
 
