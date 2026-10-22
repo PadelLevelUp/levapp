@@ -107,6 +107,10 @@ jobs:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           WORK_GITHUB_REPO: ${{ github.repository }}
           WORK_GITHUB_TOKEN: ${{ secrets.WORK_GITHUB_TOKEN }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: bash infra/k8s/write-config.sh staging "$RUNNER_TEMP/secrets" | tee "$RUNNER_TEMP/write-config.out"
 
       - name: Secrets and variables (prod)
@@ -131,6 +135,10 @@ jobs:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           WORK_GITHUB_REPO: ${{ github.repository }}
           WORK_GITHUB_TOKEN: ${{ secrets.WORK_GITHUB_TOKEN }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: bash infra/k8s/write-config.sh prod "$RUNNER_TEMP/secrets" | tee "$RUNNER_TEMP/write-config.out"
 
       - name: App Secret
