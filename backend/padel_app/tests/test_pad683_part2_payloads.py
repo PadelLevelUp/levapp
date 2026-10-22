@@ -109,16 +109,15 @@ def test_a_needs_you_reply_from_a_student_is_named_with_the_coachs_nickname(app,
     assert "displayName" not in plain_items[0]
 
 
-def test_the_messageable_list_gives_a_coach_the_player_id_and_never_a_nickname(app, client, world):
+def test_the_messageable_list_keeps_its_public_shape_and_never_carries_a_nickname(app, client, world):
+    """messaging.conversations rule 15 pins the picker's public shape (audit H3): the coach's
+    picker resolves the nickname from its own roster by user id, so nothing is added here."""
     _nick_on(app, world)
     res = client.get("/api/app/messageable-users", headers=_headers(app, world["coach_user_id"]))
     assert res.status_code == 200, res.get_data(as_text=True)
     row = next(r for r in res.get_json() if r["id"] == world["student_user_id"])
-    assert row["playerId"] == world["student_id"]
-    assert NICK not in str(res.get_json()) and "displayName" not in row
-    # the student's own picker is unchanged
-    res_s = client.get("/api/app/messageable-users", headers=_headers(app, world["student_user_id"]))
-    assert all("playerId" not in r for r in res_s.get_json())
+    assert "playerId" not in row and "displayName" not in row
+    assert NICK not in str(res.get_json())
 
 
 # --- claim candidates and the duplicate hint -----------------------------------------------------

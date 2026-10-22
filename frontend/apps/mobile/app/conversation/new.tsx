@@ -1,6 +1,6 @@
 import { messagesApi } from "@levelup/api";
 import { lightTheme, rosterNicknameOf, searchPeopleByName } from "@levelup/config";
-import { useCoachDisplayName, useConversations } from "@levelup/hooks";
+import { useCoachDisplayNameByUser, useConversations } from "@levelup/hooks";
 import type { User } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, Stack } from "expo-router";
@@ -94,10 +94,11 @@ export default function NewConversationScreen() {
   const offersConnect = !(me?.roles?.includes("coach") ?? false);
 
   // PAD-683 (players.nickname rule 9b): the list is shared with students, so a COACH names a
-  // student through their own roster (by the row's player id); a student's view never asks.
-  const displayName = useCoachDisplayName({ enabled: !offersConnect });
+  // student through their own roster, by the row's USER id (rule 15 pins this payload's public
+  // shape, so it carries no player id); a student's view never asks.
+  const displayName = useCoachDisplayNameByUser({ enabled: !offersConnect });
   const labelOf = React.useCallback(
-    (u: User) => (offersConnect ? u.name : displayName(u.playerId, u.name)),
+    (u: User) => (offersConnect ? u.name : displayName(u.id, u.name)),
     [offersConnect, displayName]
   );
 

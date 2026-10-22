@@ -80,11 +80,6 @@ export interface User {
   avatarUrl?: string;
   abbreviation: string;
   isActive?: boolean;
-  /**
-   * PAD-683 (players.nickname rule 9b): only on a COACH viewer's rows of the messageable list, for
-   * a student on their roster, so the picker names them through `useCoachDisplayName`. Never a nickname.
-   */
-  playerId?: number;
 }
 
 /** Entry in the blocked-users list (GET /app/blocked-users). */

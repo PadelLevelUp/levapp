@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { rosterNicknameOf, searchPeopleByName } from '@levelup/config';
-import { useCoachDisplayName } from '@levelup/hooks';
+import { useCoachDisplayNameByUser } from '@levelup/hooks';
 import { PlayerSearchFeedback } from '@/components/players/PlayerSearchFeedback';
 import { getMessageableUsers } from '@/api/users';
 
@@ -139,9 +139,10 @@ export function NewConversationDialog({
   }, [open, existingParticipantIds]);
 
   // PAD-683 (players.nickname rule 9b): the list is shared with students, so a COACH names a student
-  // through their own roster (by the row's player id); a student's view never asks.
-  const displayName = useCoachDisplayName({ enabled: isCoach });
-  const labelOf = (user: User) => (isCoach ? displayName(user.playerId, user.name) : user.name);
+  // through their own roster, by the row's USER id (rule 15 pins this payload's public shape, so it
+  // carries no player id); a student's view never asks.
+  const displayName = useCoachDisplayNameByUser({ enabled: isCoach });
+  const labelOf = (user: User) => (isCoach ? displayName(user.id, user.name) : user.name);
 
   const filteredUsers = searchPeopleByName(users, searchQuery, (user) => user.name, {
     coach: isCoach,

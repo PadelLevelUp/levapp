@@ -152,7 +152,6 @@ from padel_app.services.messaging_service import (
     unblock_user_service,
     get_blocked_users_service,
     get_messageable_users_service,
-    roster_player_ids_for_coach,
     report_message_service,
 )
 from padel_app.services.calendar_service import (
@@ -924,16 +923,7 @@ def get_messageable_users():
     user = current_user()
     users = get_messageable_users_service(user)
     # messaging.conversations rule 15 (PAD-227): public shape, never contact details.
-    # PAD-683 (players.nickname rule 9b): a COACH viewer's rows also carry `playerId`, so the
-    # picker can name a student through its own roster; a student's rows are unchanged.
-    player_ids = roster_player_ids_for_coach(user, users)
-    rows = []
-    for u in users:
-        row = serialize_user_public(u)
-        if u.id in player_ids:
-            row["playerId"] = player_ids[u.id]
-        rows.append(row)
-    return jsonify(rows)
+    return jsonify([serialize_user_public(u) for u in users])
 
 
 @bp.post("/users/<int:user_id>/block")

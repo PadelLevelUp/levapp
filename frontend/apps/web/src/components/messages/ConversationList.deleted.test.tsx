@@ -12,6 +12,7 @@ import { ConversationList } from "./ConversationList";
 vi.mock("@levelup/hooks", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useCoachDisplayName: () => (_id: unknown, fallback: string | null | undefined) => fallback ?? "",
+  useCoachDisplayNameByUser: () => (_id: unknown, fallback: string | null | undefined) => fallback ?? "",
 }));
 
 vi.mock("react-i18next", () => ({
