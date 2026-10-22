@@ -7188,21 +7188,22 @@ def _deactivate_standing_entry(entry: StandingWaitingListEntry) -> None:
         wle.save()
 
 
-def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
-    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
-    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
+def standing_target_instances(coach_id: int, lesson_id: int | None, expires_at: datetime) -> list:
+    """The classes a standing entry reaches: the coach's upcoming occurrences that start before it
+    ends (B-293, rule 2), only its series' when scoped to one (PAD-547, rule 19). One reading, used
+    by the fan-out and by the coach's eligibility pre-check (PAD-724)."""
     now = utcnow_naive()
-    if entry.expires_at <= now:
-        return
-    end_wall = utc_to_wall_naive(entry.expires_at)
+    if expires_at <= now:
+        return []
+    end_wall = utc_to_wall_naive(expires_at)
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
-    coach_instance_ids = _coach_instances(entry.coach_id)  # PAD-275 rule 4
-    for instance_id in coach_instance_ids:
+    out = []
+    for instance_id in _coach_instances(coach_id):  # PAD-275 rule 4
         instance = LessonInstance.query.get(instance_id)
         if not instance:
             continue
-        if entry.lesson_id is not None and instance.lesson_id != entry.lesson_id:
+        if lesson_id is not None and instance.lesson_id != lesson_id:
             continue  # PAD-547 (rule 19): a series entry reaches only its series
         if instance.start_datetime <= utc_to_wall_naive(now):  # PAD-256: on the club's clock
             continue
@@ -7210,6 +7211,35 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
             continue
         if instance.start_datetime >= end_wall:  # B-293: not past the entry's end
             continue
+        out.append(instance)
+    return out
+
+
+def standing_eligibility_failures(coach_id: int, player_id: int, expires_at: datetime,
+                                  lesson_id: int | None = None) -> list:
+    """PAD-724 (PAD-669 R5; standing part decided 2026-10-21 under the owner's mandate): the classes
+    a standing entry would reach whose eligibility bar the student fails, each with the PAD-133
+    reasons, in start order — so the coach is warned before adding, and confirms or not."""
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    out = []
+    for instance in sorted(standing_target_instances(coach_id, lesson_id, expires_at),
+                           key=lambda i: i.start_datetime):
+        failing = eligibility_failures_for_players(instance, coach_id, [player_id], config)
+        if failing:
+            out.append({
+                "lessonInstanceId": instance.id,
+                "title": instance.title,
+                "startDatetime": instance.start_datetime.isoformat(),
+                "ineligible": failing,
+            })
+    return out
+
+
+def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
+    """Create per-class WaitingListEntry rows for all upcoming instances for this coach
+    that start before the entry ends (B-293, notifications.waiting-list rule 2)."""
+    for instance in standing_target_instances(entry.coach_id, entry.lesson_id, entry.expires_at):
+        instance_id = instance.id
         # PAD-109: match on the (lesson_instance_id, player_id) pair the
         # uq_waiting_session_player constraint covers — NOT on is_active, which
         # is not part of it. Removing a standing entry only flips its per-class

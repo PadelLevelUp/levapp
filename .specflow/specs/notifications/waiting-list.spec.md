@@ -78,6 +78,21 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
      rows this entry queued there; classes it now covers gain one (rule 10).
    - **Bounded fan-out (B-293):** an entry queues the player only for classes that start before its
      end, and an expired entry queues nothing more, at add, renew and materialisation (rules 3, 10).
+2a. **The coach is warned before adding a student who fails the bar (PAD-724, PAD-669 R5; standing
+    part decided 2026-10-21 under the owner's mandate; numbering unconfirmed).** Adding never blocks:
+    the bar is a warning the coach confirms, as PAD-133's manual add (eligibility.enforcement rules
+    6–7), and old clients that do not ask are not refused.
+    - **A class's list (this class, the series, a period):** the add dialog already marks the
+      students who fail the class's bar (`/eligibility_check`, rule 20); choosing one and pressing
+      add shows the reasons inside the dialog and turns the button into "Adicionar mesmo assim" /
+      "Add anyway"; the second press adds. A student who passes is added on the first press.
+    - **The standing list (no single class):** `POST /api/app/notify/standing_waiting_list/eligibility_check`
+      `{playerId, expiresOn | durationDays}` → `{classes: [{lessonInstanceId, title, startDatetime,
+      ineligible}]}`: the classes the entry would reach (the fan-out's own selection,
+      `standing_target_instances`) whose bar the student fails, in start order. The dialog asks it on
+      the submit path; a non-empty answer names them ("Sábado 18h · 24/10 18:00") and the button turns
+      into "Adicionar mesmo assim"; an empty one adds at once. Read-only, like `/eligibility_check`.
+    Web and iOS alike, inline in the dialog (no nested modal).
 3. When a new instance is materialized, `_sync_standing_entries_for_new_instance()` auto-creates waiting list entries for standing members whose entry has not expired and ends after the class starts (rule 2)
 3a. **Fan-out is not a promise of a place.** A standing entry fans out to every upcoming class of
    the coach, and matching happens when a spot opens (rule 4a), not at fan-out time — a student's
