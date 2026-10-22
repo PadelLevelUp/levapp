@@ -167,6 +167,13 @@ gunicorn's boot path into the leadership thread.
      free that port, so the workflow removes `<name>_b` itself before calling it.
    - The staging sync stops `<name>_b` with the API and starts it after.
    - Rollback for the week is `API_COPIES` back to 1, or `docker stop <name>_b`.
+
+15. **(PAD-697) A deploy of the events process drops every stream once.**
+    gunicorn's graceful timeout cannot drain a stream, and `STOP_GRACE` is 10 s, so every client
+    reconnects within its jittered back-off (≤ 30 s) and resyncs (messaging.sse-realtime rule 19,
+    PAD-616). Each reconnect costs one JWT blocklist query on the handshake. The staging check counts
+    that storm and the events container's RSS with 300 streams (delivery.events-role).
+
 ### Acceptance Criteria
 
 #### Only the lock holder runs the scheduler (rules 1, 2)

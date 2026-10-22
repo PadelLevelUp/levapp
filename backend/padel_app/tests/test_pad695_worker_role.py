@@ -28,7 +28,8 @@ from padel_app.tests.test_pad588_rollout import sb  # noqa: F401 — the stub-do
 @pytest.mark.parametrize("role,split,mode", [
     ("api", False, "compete"),
     ("api", True, "client"),
-    ("events", True, "client"),
+    ("events", True, "off"),  # B-677: an events process holds streams, never the scheduler
+    ("events", False, "off"),
     ("worker", True, "compete"),
     ("worker", False, "off"),
 ])

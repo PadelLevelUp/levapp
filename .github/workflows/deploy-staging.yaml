@@ -268,6 +268,42 @@ jobs:
               docker rm padelapp_staging_worker >/dev/null 2>&1 || true
             fi
           fi
+          # PAD-697 (delivery.events-role): with EVENTS_ROLE on in the env file, the live-update streams
+          # run in padelapp_staging_events (ROLE=events: gevent, scripts/serve.sh) on their own loopback
+          # pair 5104,5106 behind upstream levapp_events_staging, swapped by the same rollout.sh (no new
+          # option). No --migrate (the API's call migrated), no --worker, no --probe-host (a probe
+          # through nginx to /api/app/healthz reaches the API, so it would prove nothing here).
+          # NGINX_UPSTREAM_CONF points B-664's fail_timeout read at the events upstream. Only the
+          # secrets this process uses: the database, the Flask and JWT keys (it validates stream tokens).
+          # --memory 300m: the staging API idles at ~142 MiB (PAD-692 window, 2026-10-22) and a gevent
+          # stream costs far less than a thread; the staging done-when (300 streams) measures it before
+          # the cap (1000 by default for this role) is trusted. The coordinator owns the VM fit check.
+          if grep -qiE '^EVENTS_ROLE=(on|1|true|yes)[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.staging; then
+            NGINX_UPSTREAM_CONF=/etc/nginx/conf.d/levapp-events-upstream.conf \
+            bash "$RO" --name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging $ROLLOUT_MODE -- \
+              --log-opt max-size=10m --log-opt max-file=3 \
+              --restart unless-stopped \
+              --network levelup_net \
+              --memory 300m \
+              --env-file /home/${{ secrets.GCE_USER }}/.env.staging \
+              -e ROLE=events \
+              -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
+              -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
+              -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+          elif docker inspect padelapp_staging_events >/dev/null 2>&1; then
+            # EVENTS_ROLE went off, or a rollback's env file predates it. Removing the container while
+            # the host still routes /api/app/events to levapp_events_staging would 502 every stream, so
+            # remove it only when no enabled vhost proxies there (rollout.sh rule 6's detector: a glob
+            # over sites-enabled, B-662); otherwise keep it serving and name the host step (R3 reverse).
+            if grep -qsE 'proxy_pass[[:space:]]+http://levapp_events_staging[;/]' /etc/nginx/sites-enabled/*; then
+              echo "::warning::EVENTS_ROLE is off but nginx still routes /api/app/events to levapp_events_staging: keeping padelapp_staging_events. Route the path back to levapp_api_staging on the host first (docs/handoffs/2026-10-22-pad-697-staging-events-apply.sh, rollback), then deploy again."
+            else
+              echo "[deploy] removing padelapp_staging_events (EVENTS_ROLE off, nothing routes to it)"
+              docker stop -t 10 padelapp_staging_events >/dev/null 2>&1 || true
+              docker rm padelapp_staging_events >/dev/null 2>&1 || true
+            fi
+          fi
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
