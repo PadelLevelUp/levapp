@@ -35,12 +35,24 @@ def rollout_lines(workflow):
     return helper, call[: -len("-- \\")]
 
 
+#: rollout.sh as it was at 0ee4e837d, kept verbatim: CI's checkout is shallow, so the commit itself
+#: is not there to `git show` (the first CI run failed on exactly that).
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "rollout_0ee4e837d.sh"
+
+
 def old_rollout(tmp_path):
-    body = subprocess.run(["git", "show", f"{BEFORE_BOTH}:backend/scripts/rollout.sh"], cwd=REPO,
-                          capture_output=True, text=True, check=True, env=git_env()).stdout
     path = tmp_path / "rollout-0ee4e837d.sh"
-    path.write_text(body)
+    path.write_text(FIXTURE.read_text())
     return path
+
+
+def test_the_fixture_is_the_script_at_0ee4e837d():
+    """Where the history is present (a full clone), the fixture must equal the commit's file."""
+    shown = subprocess.run(["git", "show", f"{BEFORE_BOTH}:backend/scripts/rollout.sh"], cwd=REPO,
+                           capture_output=True, text=True, env=git_env())
+    if shown.returncode != 0:
+        pytest.skip(f"{BEFORE_BOTH} is not in this clone (CI checks out one commit)")
+    assert FIXTURE.read_text() == shown.stdout
 
 
 def run_workflow_lines(sb, workflow, script):  # noqa: F811
