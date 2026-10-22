@@ -7,7 +7,7 @@ import {
   messagesApi,
   notificationEngineApi,
 } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
+import { groupByDay, lightTheme, messageDayLabel } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
@@ -181,7 +181,7 @@ function Composer({
 }
 
 export default function ConversationScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Pushed route (no tab bar): the composer must clear the home indicator —
   // but only while the keyboard is down. An open keyboard already covers that
   // area, so keeping the inset leaves a visible band above it (PAD-145). The
@@ -1266,6 +1266,16 @@ export default function ConversationScreen() {
     for (const m of conversation?.messages ?? []) map.set(String(m.id), m);
     return map;
   }, [conversation?.messages]);
+  // PAD-676 (messaging.conversation-detail rule 4a): the day separator above the first message of
+  // each club date, grouped and labelled as web does (`@levelup/config` message-day). Same dep as
+  // `messagesById`, which renderItem already depends on.
+  const dayStarts = React.useMemo(() => {
+    const starts = new Map<string, string>();
+    for (const group of groupByDay(conversation?.messages ?? [], (m) => m.timestamp)) {
+      starts.set(String(group.items[0].id), group.day);
+    }
+    return starts;
+  }, [conversation?.messages]);
   const messagesByIdRef = React.useRef(messagesById);
   messagesByIdRef.current = messagesById;
   const stableOnLongPressMenu = React.useCallback(
@@ -1330,8 +1340,26 @@ export default function ConversationScreen() {
       // this visit only — gone on re-open once everything is read (`firstUnreadMessageId` is
       // `null` then).
       const isFirstUnread = isFirstUnreadMessage(item.id, firstUnreadMessageId);
+      const dayStart = dayStarts.get(String(item.id));
       return (
         <>
+          {dayStart ? (
+            <View className="items-center py-1">
+              <View className="rounded-full bg-muted px-3 py-1">
+                <Text
+                  testID="message-day-separator"
+                  accessibilityValue={{ text: dayStart }}
+                  className="text-xs text-muted-foreground"
+                >
+                  {messageDayLabel(dayStart, {
+                    language: i18n.language,
+                    todayLabel: t("messages.today"),
+                    yesterdayLabel: t("messages.yesterday"),
+                  })}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {isFirstUnread ? (
             <View testID="unread-divider" className="flex-row items-center gap-2 py-2">
               <View className="h-px flex-1 bg-border" />
@@ -1373,7 +1401,9 @@ export default function ConversationScreen() {
       messagesById,
       rowHandlersFor,
       firstUnreadMessageId,
+      dayStarts,
       t,
+      i18n.language,
       participantName,
       highlightedId,
       stableOnLongPressMenu,

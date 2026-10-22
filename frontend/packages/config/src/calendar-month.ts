@@ -1,7 +1,7 @@
 /**
  * The Mês grid — calendar.mobile-views rules 15–16 (PAD-248).
  *
- * Every day of every week that touches the month, Monday first, so the grid
+ * Every day of every week that touches the month, week-start first (`WEEK_STARTS_ON`, calendar.view rule 5a), so the grid
  * is always whole weeks (four to six rows). Shared by web and iOS, and by
  * `useCalendar`, whose `monthRange` is what both shells fetch.
  */
@@ -16,6 +16,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import type { Locale } from "date-fns";
+import { WEEK_STARTS_ON } from "./week-start";
 
 type WeekStart = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -30,7 +31,7 @@ export interface MonthGrid {
   days: Date[];
 }
 
-export function buildMonthGrid(anchor: Date, weekStartsOn: WeekStart = 1): MonthGrid {
+export function buildMonthGrid(anchor: Date, weekStartsOn: WeekStart = WEEK_STARTS_ON): MonthGrid {
   const monthStart = startOfMonth(anchor);
   const start = startOfWeek(monthStart, { weekStartsOn });
   const end = startOfDay(endOfWeek(endOfMonth(monthStart), { weekStartsOn }));

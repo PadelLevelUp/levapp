@@ -128,3 +128,52 @@ describe("a session lost to a 401", () => {
   });
 });
 
+
+// PAD-716 (auth.logout rule 6, B-601): the next account on the device must not read the previous
+// account's cached answers. The query cache is cleared on sign-out (after the token is gone), on a
+// session lost to a 401, and on sign-in.
+describe("a session's cached data ends with it", () => {
+  it("signOut empties the query cache, including an answer that lands while signing out", async () => {
+    const { QueryClient } = await import("@tanstack/react-query");
+    const { bindSessionCache } = await import("./session-cache");
+    const qc = new QueryClient();
+    bindSessionCache(qc);
+    qc.setQueryData(["auth-me"], { id: 1, role: "player" });
+    qc.setQueryData(["conversations"], [{ id: 9 }]);
+    await signOut({
+      unregisterPush: async () => undefined,
+      revokeSession: async () => {
+        // A read that was in flight with the old session lands now.
+        qc.setQueryData(["auth-me"], { id: 1, role: "player" });
+      },
+      clearToken: async () => undefined,
+    });
+    expect(qc.getQueryData(["auth-me"])).toBeUndefined();
+    expect(qc.getQueryData(["conversations"])).toBeUndefined();
+  });
+
+  it("a session lost to a 401 empties it too", async () => {
+    const { QueryClient } = await import("@tanstack/react-query");
+    const { bindSessionCache } = await import("./session-cache");
+    const qc = new QueryClient();
+    bindSessionCache(qc);
+    qc.setQueryData(["auth-me"], { id: 1 });
+    endSessionState();
+    expect(qc.getQueryData(["auth-me"])).toBeUndefined();
+  });
+
+  it("signing in empties it before reading the new account", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(path.resolve(__dirname, "AuthContext.tsx"), "utf8");
+    const at = src.indexOf("const login = useCallback(");
+    expect(src.slice(at, at + 400)).toMatch(/clearSessionCache\(\);[\s\S]*authApi\.getMe\(\)/);
+  });
+
+  it("the root layout binds the app's query client", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(path.resolve(__dirname, "../../app/_layout.tsx"), "utf8");
+    expect(src).toMatch(/bindSessionCache\(queryClient\)/);
+  });
+});

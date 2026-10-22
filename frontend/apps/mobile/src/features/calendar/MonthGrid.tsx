@@ -12,7 +12,7 @@ import { useCalendarViewer } from "./viewer-context";
 
 const SURFACES = nativeCalendarSurfaces("light");
 
-/** The grid's weeks, seven days each (monthDays is whole Monday-start weeks). */
+/** The grid's weeks, seven days each (monthDays is whole week-start weeks (WEEK_STARTS_ON)). */
 export function monthWeeks(monthDays: Date[]): Date[][] {
   const weeks: Date[][] = [];
   for (let i = 0; i < monthDays.length; i += 7) weeks.push(monthDays.slice(i, i + 7));
@@ -21,7 +21,7 @@ export function monthWeeks(monthDays: Date[]): Date[][] {
 
 /**
  * The Mês grid — calendar.mobile-views rule 16. React Native port of
- * apps/web's `MonthGrid`: a weekday header row, then Monday-start cells for
+ * apps/web's `MonthGrid`: a weekday header row, then week-start cells (Sunday, PAD-682) for
  * every week touching the month. In-month cells carry the Dia strip's circle
  * states and dot row; the neighbouring months' days render at 32% opacity and
  * cannot be pressed.

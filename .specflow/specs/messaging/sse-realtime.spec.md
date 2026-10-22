@@ -14,7 +14,10 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 
 ### Rules
 1. `GET /api/app/events` (JWT via query string) opens an SSE stream
-2. In-memory pub/sub: `subscribe(user_id)`, `unsubscribe(user_id, q)`, `publish(event, user_ids)`
+2. Pub/sub: `subscribe(user_id)`, `unsubscribe(user_id, q)`, `publish(event, user_ids)`. The
+   registry of open streams is per-process and in memory; what carries an event between
+   processes is the broker chosen by `SSE_BROKER` (rule 20): `memory` (one process only) or
+   `postgres` (LISTEN/NOTIFY, any number of processes)
 3. Events published: `message_created`, `message_edited`, `message_deleted`, `message_reaction`,
    plus the notification-engine events `notification_responded` and `notify_sent`
 4. Each event is JSON with `{type, payload}`
@@ -31,13 +34,13 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
    `publish()` — calling `publish(event)` raises `TypeError` rather than falling back
    to a broadcast (B-004)
 9. A client never receives an event for a conversation it is not a participant of.
-10. **Single worker until a broker exists (PAD-237, audit M19).** The registry in
-    `padel_app/realtime.py` is per-process and in-memory, so production runs **one** gunicorn
-    worker (`backend/Dockerfile`, `--workers 1 --threads 64`); a second worker would hold its
-    own registry and never see the first's connections, and events would reach only the
-    clients that happen to be attached to the publishing process. Scaling out means a shared
-    broker (Redis pub/sub) first. Compass rule R-027 guards the Dockerfile and the deploy
-    workflows; the decision is recorded in the atlas.
+10. **More than one process needs the Postgres broker (PAD-692; was PAD-237's "single worker
+    until a broker exists").** Each process keeps its own registry, so with `SSE_BROKER=memory`
+    an event reaches only the clients attached to the publishing process; production therefore
+    runs **one** gunicorn worker (`backend/Dockerfile`, `--workers 1`) for as long as any
+    environment runs `memory`. With `SSE_BROKER=postgres` every stream-holding process receives
+    every event (rules 20-24). `--workers 1` stays until PAD-704 proves two copies; APScheduler's
+    one-process constraint is separate (PAD-695). Compass rule R-027 guards this.
    Client-side filtering by conversation id is a rendering convenience, never the
    privacy boundary
 11. **Server-wide stream cap** (PAD-277, audit M19). Production runs one gunicorn worker with
@@ -117,6 +120,56 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     reacted) replaced, older pages and pending sends kept; never an invalidation of the thread's
     entry, which would drop the loaded older pages — and, when someone else's message was missed,
     marks the thread read and flags "new below" as an arrival would.
+
+20. **(PAD-692; rule number unconfirmed) Broker switch.** `SSE_BROKER` is `memory` (default) or
+    `postgres`; anything else is `memory`. On a database that is not Postgres (the SQLite unit lane)
+    `postgres` falls back to `memory` with one WARNING at startup. `publish()` keeps its signature,
+    its required `user_ids` (rule 8) and its view-as suppression in both modes.
+21. **(PAD-692; unconfirmed) A publish reaches the broker only after the publisher's data is
+    committed.** Publishers call `publish()` after their own commit (or from `on_commit`). With
+    `postgres`, `publish()` writes on its **own** short transaction, never on the request's session
+    (a NOTIFY there would be rolled back by the request teardown): one `realtime_events` row
+    (`user_ids`, and `body` = the event exactly as the stream writes it) and
+    `pg_notify('levapp_events', '<row id>')`, both committed together. Inside a `unit_of_work`
+    block, where `create()`/`save()` only flush, `publish()` defers itself to `on_commit`. The
+    publish uses its own small connection pool with a 2 s checkout timeout; a publish that cannot
+    get a connection, or fails, is logged and dropped. A live event never fails or stalls the request.
+22. **(PAD-692; unconfirmed) The NOTIFY carries an id, never a body.** NOTIFY payloads are limited
+    to 8,000 bytes and a message body has no length limit, so the body lives in the row and the
+    listener reads it. What a client receives is byte-for-byte what `memory` delivers: the client
+    contract (rules 4, 18, 19) is the same in both modes.
+23. **(PAD-692; unconfirmed) One listener per process.** The first stream a process accepts starts
+    one listener thread on a **dedicated** database connection outside the SQLAlchemy pool
+    (`application_name=levapp-realtime-listener`), which runs `LISTEN levapp_events`. It must never
+    go through a transaction-mode connection pooler (PgBouncer transaction mode breaks LISTEN).
+    Notified ids are kept in arrival order, which is commit order. The rows are read in one query
+    and delivered to the local registry in that order, with the same scoping as rule 8. The
+    process's own publishes come back the same way. Processes that never accept a stream (CLI,
+    migrations, a worker) never start a listener.
+24. **(PAD-692; unconfirmed) NOTIFY is not durable; a gap ends in a resync.** If the listener's
+    connection drops, the listener reconnects with back-off (1 s doubling to 30 s, jittered), runs
+    `LISTEN` again, and then puts `{"type": "resync"}` into **every** open local stream. The
+    same holds for the **first** LISTEN of a process: the stream that started the listener was
+    open before LISTEN returned, so it gets a resync too. A failing prune is logged and never
+    treated as a lost connection. Clients
+    answer it exactly as they answer their own re-open (rule 19, PAD-616), so a stream that stayed
+    open across the server's gap still catches up. Nothing is replayed from the table. A process
+    that was down holds no streams; its clients reconnect and resync by rule 19. The listener also
+    deletes `realtime_events` rows older than `REALTIME_EVENTS_RETENTION_MINUTES` (default 10) once
+    a minute. `realtime.broker_status()` reports `{broker, listening, since}`; it is not part of
+    readiness while the API and the streams share a process (a LISTEN outage degrades live updates,
+    it does not make the API unready).
+
+25. **(PAD-689; rule number unconfirmed) The cap is observable.** Every process that holds streams
+    logs one INFO line every 60 s, in both broker modes:
+    `SSE streams: open=<n> max_per_user=<n> cap=<n> push_queue=<depth>/<max> pushes_dropped=<n>`
+    (`realtime.stats_line()`; the first stream starts the logger, like the listener). The texts an
+    alert matches are frozen: `SSE stream refused: scope=%s user=%s open_streams=%s` (rule 13) and
+    the push sender's `push sender: queue full (%d), dropping oldest: %s` and `push sender: provider
+    unresponsive, dropping %s until the pause ends`. gunicorn's thread count is `GUNICORN_THREADS`
+    (default 64), so the stream cap (rule 11) and the threads are raised together by an env change.
+    An alert on these lines needs the container logs in Cloud Logging (a logging driver or agent);
+    the VM's json-file logs alone reach no alert.
 
 ### Acceptance Criteria
 
@@ -226,8 +279,77 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** a student sends them a message while the stream is down, and the stream re-opens
 - **Then** the unread badge shows 1 without navigation or a reload
 
+#### An event published in one process reaches a stream held by another (rules 21-23, PAD-692)
+- **Given** two app processes A and B on one Postgres, both `SSE_BROKER=postgres`, and user U with an open stream on B whose listener reports LISTEN ready
+- **When** process A publishes `{"type": "message_created", ...}` to `[U]`
+- **Then** U's stream on B receives it within 1 s, byte-identical to what A would have written to a local stream
+- **And** with `SSE_BROKER=memory` on both, U's stream on B receives nothing (the 2×2 arm)
+
+#### A body over 8 KB crosses processes (rule 22)
+- **Given** the two processes of the previous criterion
+- **When** A publishes a `message_created` whose `content` is 20,000 characters
+- **Then** U's stream on B receives the whole body
+
+#### Cross-process delivery keeps recipient scoping (rules 8, 23)
+- **Given** users U and V each with an open stream on B
+- **When** A publishes an event to `[U]`
+- **Then** U's stream receives it and V's stream receives nothing
+
+#### A listener drop ends in a resync (rule 24)
+- **Given** U's stream open on B and B's listener connected
+- **When** B's listener connection is terminated (`pg_terminate_backend`)
+- **Then** U's still-open stream receives `{"type": "resync"}` after the listener reconnects
+- **And** an event published on A after that reconnect reaches U's stream
+
+#### A publish inside a unit of work waits for the commit (rule 21)
+- **Given** `SSE_BROKER=postgres` and an open `unit_of_work` block
+- **When** a service creates a message and publishes inside the block
+- **Then** no `realtime_events` row and no notify exist before the block commits, and both exist after it
+- **And** a block that rolls back publishes nothing
+
+#### A publish never stalls the request (rule 21)
+- **Given** the publish pool is exhausted
+- **When** a request publishes
+- **Then** `publish()` returns within 2 s, logs the drop, and the request answers normally
+
+#### Old event rows are pruned (rule 24)
+- **Given** `realtime_events` rows 11 and 5 minutes old and `REALTIME_EVENTS_RETENTION_MINUTES=10`
+- **When** the listener's prune runs
+- **Then** only the 5-minute-old row remains
+
+#### Without Postgres the broker falls back to memory (rule 20)
+- **Given** `SSE_BROKER=postgres` on the SQLite test database
+- **When** the app starts and an event is published to a local stream
+- **Then** one WARNING names the fallback and the local stream receives the event as with `memory`
+
+#### A stream open before the first LISTEN is told to resync (rule 24)
+- **Given** `SSE_BROKER=postgres` and a process with no listener yet
+- **When** a user's stream starts the listener, and an event is published before its LISTEN returns
+- **Then** that stream receives `{"type": "resync"}` once the listener is listening
+
+#### A failing prune is not a lost connection (rule 24)
+- **Given** a listening listener whose prune statement fails
+- **When** the prune runs
+- **Then** a WARNING is logged, the listener stays listening, and no stream receives a resync
+
+#### The stats line names streams, the busiest user, the cap and the push queue (rule 25)
+- **Given** `SSE_MAX_STREAMS = 40` and three open streams, two of them user 1's
+- **When** the stats line is built
+- **Then** it reads `SSE streams: open=3 max_per_user=2 cap=40 push_queue=0/<PUSH_QUEUE_MAX> pushes_dropped=<n>`
+
+#### The stats line is logged every interval in either broker mode (rule 25)
+- **Given** `SSE_BROKER=memory` and an open stream
+- **When** two intervals pass
+- **Then** two `SSE streams: ` lines are logged, and one monitor thread runs per process
+
+#### gunicorn takes its threads from the environment (rule 25)
+- **Given** the image's CMD
+- **When** `GUNICORN_THREADS` is unset, and when it is `160`
+- **Then** gunicorn starts with `--workers 1` and `--threads 64`, and `--threads 160`
+
 ### Notes
-- In-memory only — does not persist across server restarts
+- The registry is in memory and nothing persists across restarts; with `postgres`, event rows live
+  only `REALTIME_EVENTS_RETENTION_MINUTES` and are never replayed (rule 24)
 - **gevent was evaluated and rejected** (PAD-277, 2026-09-10). An async worker would lift the
   thread ceiling but monkey-patches the whole process. APScheduler's `BackgroundScheduler` would
   have to become a `GeventScheduler`; psycopg2 blocks every greenlet unless psycogreen is added;
@@ -236,8 +358,8 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
   the way production would run it. The way out of the thread ceiling is still the one the
   2026-08-25 single-VM decision names: Redis pub/sub or a dedicated async SSE service, when a
   second worker or VM is needed. Do not reopen gevent without that context
-- Single-server architecture (no Redis pub/sub for horizontal scaling). The registry is
-  a per-process `dict[int, list[Queue]]`, which is why production runs one gunicorn
-  worker: a second worker would hold its own registry and miss the fan-out
+- The broker is Postgres LISTEN/NOTIFY, not Redis (owner decision 2026-10-21, supersedes the
+  2026-09-09 Redis choice; PAD-692). The registry is still a per-process `dict[int, list[Queue]]`;
+  rule 10 says when one process is required
 - Passing `user_ids=[]` delivers to nobody; that is a legitimate outcome (e.g. a
   conversation whose only participant was deleted), not a reason to broadcast

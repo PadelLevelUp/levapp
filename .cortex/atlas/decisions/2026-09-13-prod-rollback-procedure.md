@@ -56,6 +56,15 @@ workstation; it touches nothing.
 
 ## What it honestly does not cover
 
+> **Updated by PAD-691 (2026-10-21; `delivery.zero-downtime-deploy` rules 9-10).** The image no
+> longer migrates at boot: the deploy's migrate step finds a database *ahead* of the image and does
+> nothing, and the old image boots on the newer schema with a warning. In a rolling deploy the
+> current container also keeps serving until the old image answers `/healthz`. Limitation 1 below
+> is therefore gone for a migration that followed expand/contract (rule 12); for one that did not
+> (a dropped or renamed column the old code reads), the old image now *boots* but its queries
+> fail, and restore-then-redeploy (case 3) is still the way back. Limitation 1 as written describes
+> releases built before PAD-691.
+
 1. **A migration that has applied.** The old image runs `flask db upgrade` when it starts
    (`backend/scripts/entrypoint.sh`, `set -e`). Alembic then meets an `alembic_version` it has
    no script for and fails with *Can't locate revision identified by …*; the container exits,
