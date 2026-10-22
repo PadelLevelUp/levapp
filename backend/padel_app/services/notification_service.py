@@ -2280,10 +2280,16 @@ def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
     Native: PAD-240 — a MESSAGE notification (messaging.push-notifications rule 7); the tap opens the
     conversation, where the Yes/No and the reply live (routing to class/[id] dead-ended: a push never
     carries the route params that screen rebuilds its event from). The instance id rides along as
-    context only. PAD-147: the badge is the recipient's real unread total (rule 5)."""
+    context only. PAD-147: the badge is the recipient's real unread total (rule 5).
+    PAD-713 (rule 14): titled in the student's own language, web and iOS alike."""
+    from padel_app.models.users import User
+
+    student = db.session.get(User, player_user_id)
+    language = getattr(student, "language", None) or "pt"
+    title = "New message" if str(language).startswith("en") else "Nova mensagem"
     send_push_notification(
         user_id=player_user_id,
-        title="New message",
+        title=title,
         body=(msg.text or "")[:100],
         url=f"/messages/{msg.conversation_id}?message={msg.id}",
     )
@@ -2294,7 +2300,7 @@ def _push_message(msg, player_user_id: int, instance_id: int | None) -> None:
     from padel_app.utils.expo_push import send_expo_push_to_user
     send_expo_push_to_user(
         player_user_id,
-        title="New message",
+        title=title,
         body=(msg.text or "")[:100],
         data=push_data,
         badge=get_unread_count(player_user_id),
