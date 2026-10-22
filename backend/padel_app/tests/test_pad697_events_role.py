@@ -164,3 +164,45 @@ def test_the_gevent_config_patches_psycopg_after_fork(monkeypatch):
     monkeypatch.setattr(psycogreen.gevent, "patch_psycopg", lambda: calls.append(1))
     gunicorn_events.post_fork(None, None)
     assert calls == [1]
+
+
+# --- deploy shape (R2, R3) ------------------------------------------------------------------------
+
+REPO = BACKEND.parent
+
+
+def _events_block():
+    wf = (REPO / ".github" / "workflows" / "deploy-staging.yaml").read_text()
+    start = wf.index("grep -qiE '^EVENTS_ROLE=")
+    return wf[start:wf.index("docker image prune", start)]
+
+
+def test_the_staging_deploy_rolls_the_events_container_on_its_own_pair_and_upstream():
+    block = _events_block()
+    assert "--name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging" in block
+    assert "NGINX_UPSTREAM_CONF=/etc/nginx/conf.d/levapp-events-upstream.conf" in block
+    assert "-e ROLE=events" in block
+    for absent in ("--migrate", "--worker", "--probe-host", "HUBSPOT", "LINEAR_API_KEY", "WORK_GITHUB_TOKEN"):
+        assert absent not in block.split("elif")[0], absent
+
+
+def test_no_events_container_outlives_the_flag():
+    block = _events_block()
+    assert "docker rm padelapp_staging_events" in block.split("elif")[1]
+
+
+def test_the_events_upstream_has_two_loopback_ports_with_a_fail_timeout():
+    conf = (REPO / "infra" / "nginx" / "conf.d" / "levapp-events-upstream.conf").read_text()
+    assert "upstream levapp_events_staging {" in conf
+    for port in (5104, 5106):
+        assert f"server 127.0.0.1:{port} max_fails=1 fail_timeout=5s;" in conf
+
+
+@pytest.mark.parametrize("vhost", ["levapp-staging", "levapp-api-staging"])
+def test_both_staging_hosts_route_the_stream_to_the_events_upstream(vhost):
+    text = (REPO / "infra" / "nginx" / "sites-available" / vhost).read_text()
+    loc = text[text.index("location /api/app/events {"):]
+    loc = loc[:loc.index("}")]
+    assert "proxy_pass http://levapp_events_staging;" in loc
+    assert "error_log /var/log/nginx/error.log crit;" in loc  # B-182: no token at level error
+    assert "proxy_buffering off;" in loc

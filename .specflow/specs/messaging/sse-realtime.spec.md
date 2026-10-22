@@ -350,7 +350,10 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 ### Notes
 - The registry is in memory and nothing persists across restarts; with `postgres`, event rows live
   only `REALTIME_EVENTS_RETENTION_MINUTES` and are never replayed (rule 24)
-- **gevent was evaluated and rejected** (PAD-277, 2026-09-10). An async worker would lift the
+- **gevent was evaluated and rejected for the API process** (PAD-277, 2026-09-10); since PAD-697
+  (2026-10-22) the separate events process runs under it (`delivery.events-role`), where none of the
+  reasons below apply: no scheduler, no push sender, psycogreen for psycopg2, and wheels now exist. The
+  original reasoning, for the API: an async worker would lift the
   thread ceiling but monkey-patches the whole process. APScheduler's `BackgroundScheduler` would
   have to become a `GeventScheduler`; psycopg2 blocks every greenlet unless psycogreen is added;
   the synchronous Expo push and `requests` calls block the loop; pandas and openai under gevent

@@ -630,11 +630,7 @@ SSE_CLIENT_RETRY_MS = 10_000
 @bp.route("/events")
 @jwt_required(locations=["query_string"])
 def events():
-    from padel_app.config import (
-        DEFAULT_SSE_KEEPALIVE_SECONDS,
-        DEFAULT_SSE_MAX_STREAMS,
-        DEFAULT_SSE_MAX_STREAMS_PER_USER,
-    )
+    from padel_app.config import DEFAULT_SSE_KEEPALIVE_SECONDS, sse_stream_limits
 
     # Read the identity HERE, in the request context — not inside the generator.
     # The generator body runs after this request context has popped, so
@@ -649,12 +645,12 @@ def events():
     # request behind the streams that already hold every thread. Past the
     # per-user cap the user's oldest stream is evicted instead (PAD-277, rules
     # 11-13; baseline in the 2026-08-25 single-VM decision).
+    # PAD-697 R6: the fallback is role-aware too (1000 in the events role), not the API's 40.
+    default_total, default_per_user = sse_stream_limits()
     q, refused = try_subscribe(
         subscriber_id,
-        max_total=current_app.config.get("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
-        max_per_user=current_app.config.get(
-            "SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER
-        ),
+        max_total=current_app.config.get("SSE_MAX_STREAMS", default_total),
+        max_per_user=current_app.config.get("SSE_MAX_STREAMS_PER_USER", default_per_user),
     )
     keepalive = current_app.config.get("SSE_KEEPALIVE_SECONDS", DEFAULT_SSE_KEEPALIVE_SECONDS)
     if q is None:

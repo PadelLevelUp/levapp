@@ -253,6 +253,33 @@ jobs:
               docker rm padelapp_staging_worker >/dev/null 2>&1 || true
             fi
           fi
+          # PAD-697 (delivery.events-role): with EVENTS_ROLE on in the env file, the live-update streams
+          # run in padelapp_staging_events (ROLE=events: gevent, scripts/serve.sh) on their own loopback
+          # pair 5104,5106 behind upstream levapp_events_staging, swapped by the same rollout.sh (no new
+          # option). No --migrate (the API's call migrated), no --worker, no --probe-host (a probe
+          # through nginx to /api/app/healthz reaches the API, so it would prove nothing here).
+          # NGINX_UPSTREAM_CONF points B-664's fail_timeout read at the events upstream. Only the
+          # secrets this process uses: the database, the Flask and JWT keys (it validates stream tokens).
+          if grep -qiE '^EVENTS_ROLE=(on|1|true|yes)[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.staging; then
+            NGINX_UPSTREAM_CONF=/etc/nginx/conf.d/levapp-events-upstream.conf \
+            bash "$RO" --name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging $ROLLOUT_MODE -- \
+              --log-opt max-size=10m --log-opt max-file=3 \
+              --restart unless-stopped \
+              --network levelup_net \
+              --memory 300m \
+              --env-file /home/${{ secrets.GCE_USER }}/.env.staging \
+              -e ROLE=events \
+              -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
+              -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
+              -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+          elif docker inspect padelapp_staging_events >/dev/null 2>&1; then
+            # EVENTS_ROLE went off, or a rollback's env file predates it: no events container outlives
+            # the flag. The host must already route /api/app/events back to levapp_api_staging (R3).
+            echo "[deploy] removing padelapp_staging_events (EVENTS_ROLE off in this deploy)"
+            docker stop -t 10 padelapp_staging_events >/dev/null 2>&1 || true
+            docker rm padelapp_staging_events >/dev/null 2>&1 || true
+          fi
           # Reclaim disk: the previous image is dangling after the pull; the
           # 9.7G VM disk has filled up twice.
           docker image prune -f || true
