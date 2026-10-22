@@ -75,8 +75,8 @@ reload and a live copy stay available through `workflow_dispatch`.
      `notif_block_reason`, `generated_code` → NULL; `birth_date` → 1 January of the same year (age
      rules keep working); `country` kept; every set `password` → the shared staging password hash
      (rule 10); recovery and verification codes cleared;
-   - **guardians** (`guardian_consents`): email rewritten, name, snapshot and IP cleared;
-     `coach_invitations.email` rewritten;
+   - **invitations**: `coach_invitations.email` rewritten (the guardian-consent table went with
+     PAD-644, so there are no guardian contacts to scrub);
    - **free text** → a neutral `<kind> <id>` text: messages, coach notes (both tables),
      evaluation comments and notes, class and class-join request notes, message report reasons,
      calendar block titles and descriptions, lesson titles, descriptions and occurrence notes and
@@ -142,7 +142,7 @@ reload and a live copy stay available through `workflow_dispatch`.
 
 #### Nothing personal survives a restore (rules 9–11, PAD-606)
 - **Given** a staging database with real-looking names, usernames, emails, phones, birth dates,
-  messages, notes, evaluations, guardian contacts, push subscriptions and device tokens
+  messages, notes, evaluations, push subscriptions and device tokens
 - **When** `staging-scrub.sql` runs with a password hash
 - **Then** no user keeps a real-looking name, username, email, phone or non-1-January birth date;
   every free-text column listed in rule 9 holds the neutral text; push subscriptions, device tokens

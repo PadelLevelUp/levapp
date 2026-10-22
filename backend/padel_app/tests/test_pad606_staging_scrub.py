@@ -56,8 +56,6 @@ NON_PERSONAL = {
     "exercise_groups.name", "exercise_groups.description",  # coach training content
     "exercises.name", "exercises.description", "exercises.type", "exercises.custom_type",
     "exercises.level_ids", "exercises.diagram", "exercises.notes",
-    "guardian_consents.relationship", "guardian_consents.terms_version",
-    "guardian_consents.consent_token_hash", "guardian_consents.revoke_token_hash",
     "imageables.type",
     "images.content_type",
     "lesson_instances.eligibility_rules", "lesson_instances.status",
@@ -86,10 +84,15 @@ NON_PERSONAL = {
     "replacement_approval_prompts.bundle_id", "replacement_approval_prompts.status",
     "seasons_legacy.name",
     "token_blocklist.jti",
-    "users.status", "users.language", "users.country", "users.guardian_consent_status",
+    "users.status", "users.language", "users.country",
     "users.terms_version", "users.privacy_version",
     "vacancies.side", "vacancies.status", "vacancies.approval_status",
     "waiting_list_entries.added_by",
+    # Added on staging after the scrub was written (merge of 2026-10-21): states and the staff email
+    # that closed a report (staff emails stay, as in admin_audit_log), a court side, a provider name.
+    "message_reports.status", "message_reports.outcome", "message_reports.closed_by",
+    "presences.side",
+    "user_identities.provider",
 }
 
 

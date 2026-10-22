@@ -51,9 +51,6 @@ WHERE id = (SELECT p.user_id FROM players p JOIN coach_in_player cp ON cp.player
             WHERE cp.coach_id = (SELECT coach_id FROM coach) AND p.user_id IS NOT NULL
             ORDER BY p.id LIMIT 1);
 
--- scrubbed: guardian_consents.guardian_email guardian_consents.guardian_name guardian_consents.minor_snapshot guardian_consents.consent_ip
-UPDATE guardian_consents SET guardian_email = 'guardian' || id || '@staging.invalid',
-    guardian_name = NULL, minor_snapshot = NULL, consent_ip = NULL;
 -- scrubbed: coach_invitations.email
 UPDATE coach_invitations SET email = 'invite' || id || '@staging.invalid' WHERE email IS NOT NULL;
 
@@ -105,6 +102,20 @@ WHERE jsonb_typeof(card::jsonb) = 'object';
 UPDATE replacement_approval_prompts SET queue_snapshot = NULL WHERE queue_snapshot IS NOT NULL;
 -- Raw SQL on purpose: the ORM refuses changes to the audit log; staff actor emails stay.
 UPDATE admin_audit_log SET before = NULL, after = NULL;
+
+-- scrubbed: coach_in_player.nickname
+-- PAD-660: the coach's private nickname for a student is as personal as the name.
+UPDATE coach_in_player SET nickname = 'Alcunha ' || id WHERE nickname IS NOT NULL;
+
+-- scrubbed: message_reports.message_text
+-- PAD-639: the reported text is a copy of a message; the report's status, outcome and the staff
+-- email that closed it stay (staff emails stay, as in the audit log).
+UPDATE message_reports SET message_text = 'Mensagem removida' WHERE message_text IS NOT NULL;
+
+-- scrubbed: user_identities.email user_identities.subject
+-- A social sign-in link names a real Google/Apple account; staging signs in by password only.
+UPDATE user_identities SET email = CASE WHEN email IS NULL THEN NULL ELSE 'identity' || id || '@staging.invalid' END,
+    subject = 'scrubbed-' || id;
 
 -- scrubbed: images.object_key
 -- Upload keys embed the original file name. The placeholder step seeds these keys afterwards.
