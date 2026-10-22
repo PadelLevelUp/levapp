@@ -305,12 +305,210 @@
     },
     "players": {
       "hero": {
-        "title": "Play more. Wait less."
+        "badge": "For students and players",
+        "title": "Play more.",
+        "titleBlue": "Wait less.",
+        "lead": "Last-minute spots at your academy, classes that match your level and confirmations in one tap. No endless WhatsApp groups.",
+        "signup": "Create a free account",
+        "invite": "I got an invitation",
+        "inviteTitle": "Open your coach's link or scan their QR code",
+        "inviteBody": "You go straight to creating your account, already linked to your coach. No invitation yet?",
+        "inviteSignup": "Create the account anyway",
+        "inviteAfter": "and link to your coach later.",
+        "checks": [
+          "Last-minute spots",
+          "Classes at your level",
+          "Confirm in one tap",
+          "Free for students"
+        ]
+      },
+      "benefits": {
+        "eyebrow": "What you get",
+        "title": "More play, fewer messages.",
+        "cards": [
+          {
+            "title": "Last-minute spots",
+            "body": "Someone dropped out? You get the spot on your phone and accept in one tap, before it goes to someone else.",
+            "checks": [
+              "Real-time notices",
+              "Accept in one tap",
+              "Extra classes when you want"
+            ]
+          },
+          {
+            "title": "Connect with more players",
+            "body": "Play with people at your level inside and outside the academy. More partners, more games.",
+            "checks": [
+              "Players at your level",
+              "Classes that suit you",
+              "The academy's community"
+            ]
+          },
+          {
+            "title": "Simple confirmations",
+            "body": "Yes or no, one button. No WhatsApp groups, no asking twice.",
+            "checks": [
+              "Answer Yes or No in one tap",
+              "Reminders before every class",
+              "Confirmed on the spot"
+            ]
+          },
+          {
+            "title": "More competitive classes",
+            "body": "You get classes at your level and see your real progress, class after class.",
+            "checks": [
+              "Classes at your level",
+              "Coach evaluations",
+              "Progress class by class"
+            ]
+          }
+        ],
+        "chatLabel": "A coach's invitation in the LevApp chat",
+        "tabs": [
+          "Dashboard",
+          "Calendar",
+          "Availability",
+          "Messages"
+        ],
+        "composer": "Write a message..."
+      },
+      "availability": {
+        "eyebrow": "Availability",
+        "title": "You only get invitations when you can go.",
+        "body": "Block the hours when you can't play, like your working hours. While a block is on, you get no invitations or reminders for those hours. Every invitation that arrives is for a class you can actually go to.",
+        "checks": [
+          "One-off or recurring blocks",
+          "No invitations in blocked hours",
+          "Edit or delete them whenever you like"
+        ],
+        "label": "A recurring work block in LevApp",
+        "formTitle": "New block",
+        "formSub": "A single date or a weekly pattern.",
+        "once": "One-off",
+        "recurring": "Recurring",
+        "days": "Days of the week",
+        "dayLetters": [
+          "M",
+          "T",
+          "W",
+          "T",
+          "F",
+          "S",
+          "S"
+        ],
+        "start": "Start time",
+        "end": "End time",
+        "reason": "Reason (optional)",
+        "reasonValue": "Work",
+        "save": "Save",
+        "blockTitle": "Work · Recurring",
+        "blockState": "Unavailable",
+        "blockWhen": "Every Mon, Wed, Fri · 09:00–18:00",
+        "blockNote": "You get no automatic invitations during this period.",
+        "rowYes": "Spot · Thu · 18:00",
+        "rowYesState": "Invitation received",
+        "rowYesNote": "Outside your blocks",
+        "rowNo": "Spot · Mon · 10:30",
+        "rowNoState": "Not sent to you",
+        "rowNoNote": "Blocked · Work"
+      },
+      "how": {
+        "eyebrow": "How it works",
+        "title": "Start training in 3 steps",
+        "lead": "You join with your academy's invitation and have everything on your phone: classes, spots and your progress.",
+        "steps": [
+          {
+            "title": "Create your account",
+            "body": "Sign up in seconds with your email."
+          },
+          {
+            "title": "Connect with your coaches",
+            "body": "Use your coach's link or look them up by username and see the classes open to you."
+          },
+          {
+            "title": "Start training",
+            "body": "Confirm in one tap, catch last-minute spots and follow your progress."
+          }
+        ],
+        "talk": "Talk to us",
+        "alt": "The student app's dashboard"
+      },
+      "results": {
+        "eyebrow": "Results",
+        "title": "Less waiting. More play.",
+        "stats": [
+          {
+            "value": "1 click",
+            "label": "to confirm you're coming"
+          },
+          {
+            "value": "< 5 min",
+            "label": "for a spot to reach you"
+          },
+          {
+            "value": "100%",
+            "label": "of your progress visible"
+          }
+        ],
+        "body": "When someone drops out, you get the invitation right away, automatically. You don't wait for the coach to leave the court to read and forward messages.",
+        "quote": "“Now I can go to several classes as a guest, at a much more affordable price.”",
+        "quoteName": "Pedro P.",
+        "quoteRole": "Padel student, Porto",
+        "alt": "Attendance in the student app"
+      },
+      "free": {
+        "title": "Free for students.",
+        "lead": "Create your account, link to your coach and start getting spots. It's already on the App Store and coming soon to Google Play.",
+        "points": [
+          "€0 for students",
+          "iOS available",
+          "Android coming soon"
+        ]
+      },
+      "cta": {
+        "title": "Ready to play more?",
+        "body": "Create your free account, link to your coach and start getting spots at your level.",
+        "signup": "Create a free account",
+        "coach": "I'm a coach"
+      },
+      "alt": {
+        "hero": "LevApp on a watch and a phone"
       }
     },
     "others": {
       "hero": {
-        "title": "News on the way. Talk to us."
+        "badge": "For clubs, academies and partners",
+        "title": "News on the way.",
+        "titleBlue": "Talk to us.",
+        "lead": "If buying a house in Portugal is what it is, imagine building software from scratch. We'd love to hear your ideas:",
+        "idea": "Send an idea",
+        "coaches": "See for coaches",
+        "checks": [
+          "Tailored integrations",
+          "White-label",
+          "API available"
+        ],
+        "cardTitle": "Under construction",
+        "cardBody": "We're designing something tailored to you. Meanwhile, tell us what you need.",
+        "mailSubject": "An idea for LevApp"
+      },
+      "ideas": {
+        "eyebrow": "Others",
+        "title": "We're still preparing a few surprises for you.",
+        "lead": "Tell us what would make a difference at your academy or club. The next features grow out of these conversations:",
+        "listTitle": "Ideas we're excited about",
+        "list": [
+          "Integration with your current booking software",
+          "White-label for your academy or club",
+          "An API to connect other tools",
+          "Custom reports and dashboards",
+          "Automations specific to your workflow"
+        ]
+      },
+      "contact": {
+        "title": "Got an idea?",
+        "body": "Write to us at",
+        "bodyAfter": "We answer every message."
       }
     },
     "contact": {

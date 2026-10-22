@@ -20,6 +20,10 @@ describe("landing page static guards", () => {
     "src/components/landing/DemoRequestDialog.tsx",
     "src/components/landing/DemoRequestForm.tsx",
     "src/site/pages/ContactPage.tsx",
+    // PAD-656: the audience pages leave for /auth, /signup, /privacy and /terms only through ExitLink.
+    "src/site/pages/CoachesPage.tsx",
+    "src/site/pages/PlayersPage.tsx",
+    "src/site/pages/OthersPage.tsx",
   ])("%s leaves the page only through ExitLink (rule 5)", (file) => {
     const src = read(file);
     // An exit written with react-router's Link could skip the new document.
