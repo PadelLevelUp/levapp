@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { UserPlus, Users } from "lucide-react";
 import { cn } from "@/lib/utils";

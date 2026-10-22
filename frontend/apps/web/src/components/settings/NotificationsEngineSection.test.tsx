@@ -260,7 +260,9 @@ describe("the message templates are their own part of the Save", () => {
 
     save();
     await waitFor(() => expect(failed()).toBe("messageTemplates"));
-    expect(unsavedIds()).toBe("messageTemplates");
+    // React 19 (PAD-406) can commit the tab's "failed" before the engine's stored value lands; the
+    // engine's unsaved flag clears on that next render, so wait for it like the other cases do.
+    await waitFor(() => expect(unsavedIds()).toBe("messageTemplates"));
     expect(screen.getByTestId("stub-templates-value")).toHaveTextContent("Olá {name}");
     expect(toggle()).toHaveAttribute("data-state", "unchecked");
   });
