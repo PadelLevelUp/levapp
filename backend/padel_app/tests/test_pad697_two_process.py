@@ -41,7 +41,7 @@ class EventsProc:
         }
         gunicorn = pathlib.Path(sys.executable).with_name("gunicorn")
         self.proc = subprocess.Popen(
-            [str(gunicorn), "--config", "python:padel_app.gunicorn_events", "--bind", f"127.0.0.1:{self.port}",
+            [str(gunicorn), "--config", str(BACKEND / "gunicorn_events.conf.py"), "--bind", f"127.0.0.1:{self.port}",
              "--workers", "1", "--worker-class", "gevent", "--worker-connections", "1200", "--timeout", "60",
              "padel_app.tests.two_process_app:build_app()"],
             cwd=BACKEND, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,

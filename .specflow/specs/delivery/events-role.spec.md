@@ -31,10 +31,12 @@ live fallback (architecture review, 2026-10-22).
    - No access log with the request line or query (`%(r)s`, `%(q)s`): the stream's token rides in
      the query string (PAD-435).
    - The API role never imports gevent.
-3. **psycopg2 is cooperative under gevent.** `padel_app/gunicorn_events.py`'s `post_fork` calls
+3. **psycopg2 is cooperative under gevent.** `backend/gunicorn_events.conf.py`'s `post_fork` calls
    `psycogreen.gevent.patch_psycopg()` in the new worker before the app loads. The listener's
    queries and each stream handshake's JWT blocklist lookup then yield to the hub instead of
-   blocking every stream.
+   blocking every stream. The config is loaded as a plain file, never as `python:padel_app.…`:
+   importing the package there would load the app's network stack (ssl, urllib3, jwt) in the
+   arbiter before gevent patches.
 4. **The events role needs the Postgres broker (R1).** Under `SSE_BROKER=memory` an events process
    receives nothing the API publishes. At start it logs an ERROR, and `/api/app/healthz` answers 503
    `{"status": "events_needs_postgres_broker"}` forever. The rollout never routes to it and the old
@@ -94,7 +96,7 @@ live fallback (architecture review, 2026-10-22).
 #### One serve script picks the worker class (rule 2)
 - **Given** the image's `CMD` and `scripts/serve.sh`
 - **When** the script runs for the api role, the events role, and the events role with `EVENTS_WORKER_CLASS=gthread`
-- **Then** it execs gunicorn with `--workers 1 --threads 64`, with `--worker-class gevent --config python:padel_app.gunicorn_events`, and with threads; neither file uses `--preload`, `%(r)s` or `%(q)s`; the api role never has gevent in `sys.modules`
+- **Then** it execs gunicorn with `--workers 1 --threads 64`, with `--worker-class gevent --config /app/gunicorn_events.conf.py`, and with threads; neither file uses `--preload`, `%(r)s` or `%(q)s`; the api role never has gevent in `sys.modules`
 
 #### An API publish reaches a stream held by the gevent events process (rules 2–5)
 - **Given** an API process and an events process under `gunicorn -k gevent` with psycogreen, on one Postgres

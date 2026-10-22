@@ -128,7 +128,8 @@ def test_the_api_role_runs_threads(tmp_path):
 def test_the_events_role_runs_gevent_and_can_fall_back_to_threads(tmp_path):
     out = _serve({"ROLE": "events"}, tmp_path)
     assert "--worker-class gevent" in out and "--workers 1" in out
-    assert "--config python:padel_app.gunicorn_events" in out
+    assert "--config /app/gunicorn_events.conf.py" in out
+    assert "python:padel_app" not in out, "a package config imports the app before gevent patches"
     fallback = _serve({"ROLE": "events", "EVENTS_WORKER_CLASS": "gthread"}, tmp_path)
     assert "gevent" not in fallback and "--threads" in fallback
 
@@ -155,10 +156,16 @@ def test_the_api_role_never_imports_gevent():
     assert out.stdout.strip().splitlines()[-1] == "False", out.stderr[-500:]
 
 
-def test_the_gevent_config_patches_psycopg_after_fork(monkeypatch):
+def test_the_gevent_config_patches_psycopg_after_fork_and_imports_nothing(monkeypatch):
+    import importlib.util
+
     import psycogreen.gevent
 
-    from padel_app import gunicorn_events
+    spec = importlib.util.spec_from_file_location("gunicorn_events_conf", BACKEND / "gunicorn_events.conf.py")
+    before = set(sys.modules)
+    gunicorn_events = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gunicorn_events)
+    assert not [m for m in set(sys.modules) - before if m.startswith(("padel_app", "ssl", "urllib3", "jwt", "flask"))]
 
     calls = []
     monkeypatch.setattr(psycogreen.gevent, "patch_psycopg", lambda: calls.append(1))
