@@ -94,7 +94,7 @@ it does not exist.
    - it renders both overlays and both migrate kustomizations;
    - it validates them with `kubeconform -strict` against Kubernetes 1.30 and the CRD catalog
      pinned to a commit (Gateway API, `networking.gke.io`); a resource with no schema fails;
-   - it runs `test_pad698_k8s_manifests.py`.
+   - it runs `infra/k8s/tests` (outside the backend package: pytest and PyYAML are all it needs).
 
    The server-side dry-run needs a GKE cluster (`kind` lacks the GKE CRDs): PAD-705.
 

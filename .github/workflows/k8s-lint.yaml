@@ -6,8 +6,8 @@ name: k8s manifests
 #   2. kubeconform -strict validates every rendered resource: Kubernetes' own schemas, plus the
 #      Gateway API and GKE (networking.gke.io) CRD schemas from the CRDs catalog, pinned to a
 #      commit. A resource with no schema is an error, never a skip;
-#   3. test_pad698_k8s_manifests.py checks what a schema cannot (roles, probes, routes, timeouts,
-#      logging, no project identifiers). --noconftest: it needs no app, database or Poetry install.
+#   3. infra/k8s/tests checks what a schema cannot (roles, probes, routes, timeouts, logging, no
+#      project identifiers). It sits outside the backend package, so it needs only pytest and PyYAML.
 # The server-side dry-run needs a GKE cluster and waits for PAD-705.
 #
 # No workflow-level `paths:` filter: a required check that is skipped blocks the PR forever (see
@@ -52,7 +52,6 @@ jobs:
         with:
           python-version: "3.10"
       - name: Spec checks on the rendered manifests
-        working-directory: backend
         run: |
           pip install --quiet pytest pyyaml
-          python -m pytest --noconftest -p no:cacheprovider -q padel_app/tests/test_pad698_k8s_manifests.py
+          python -m pytest -p no:cacheprovider -q infra/k8s/tests

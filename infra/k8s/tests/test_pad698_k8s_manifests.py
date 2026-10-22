@@ -4,7 +4,9 @@ Reads the output of ``kubectl kustomize`` for both overlays and both migrate kus
 same renders the ``k8s-lint`` workflow validates with kubeconform) and checks the rules a schema
 cannot: roles and commands, the probe matrix, every host's routes, the backend timeouts, load
 balancer logging, the migrate Job's shape, and that no project identifier is tracked (R-036).
-Skipped when kubectl is absent; the CI job installs it.
+Skipped when kubectl is absent. It lives beside the manifests, outside the backend package, so the
+lint job runs it with only pytest and PyYAML (importing anything under backend/padel_app would
+import Flask). Run it with `python -m pytest infra/k8s/tests`.
 """
 import os
 import re
@@ -15,7 +17,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-K8S = Path(__file__).resolve().parents[3] / "infra" / "k8s"
+K8S = Path(__file__).resolve().parents[1]
+REPO = K8S.parents[1]
 
 pytestmark = pytest.mark.skipif(shutil.which("kubectl") is None, reason="kubectl renders the kustomizations")
 
@@ -281,11 +284,11 @@ def test_no_project_identifier_is_tracked(path):
 # --- rule 7: the CI job ------------------------------------------------------------------------
 
 def test_the_lint_workflow_validates_every_kustomization_with_schemas():
-    wf = (K8S.parents[1] / ".github" / "workflows" / "k8s-lint.yaml").read_text()
+    wf = (REPO / ".github" / "workflows" / "k8s-lint.yaml").read_text()
     yaml.safe_load(wf)
     for path in ("overlays/staging", "overlays/prod", "overlays/staging/migrate", "overlays/prod/migrate"):
         assert path in wf
     assert "kubeconform" in wf and "-strict" in wf
     assert "-ignore-missing-schemas" not in wf, "a resource with no schema must fail, not pass"
     assert re.search(r"CRDs-catalog/[0-9a-f]{40}/", wf), "the CRD catalog is pinned to a commit"
-    assert "test_pad698_k8s_manifests.py" in wf
+    assert "infra/k8s/tests" in wf
