@@ -170,6 +170,20 @@ def _accepted_text(instance: LessonInstance, locale: str) -> str:
     return f"You're booked! You're enrolled {where}{when}. See you there!"
 
 
+def _declined_text(instance: LessonInstance, locale: str) -> str:
+    """PAD-678 (rule 19a): the student's message for a refused request, in the same shape as the
+    accepted one: the outcome first ("Não ficaste inscrito/a"), then the class and its day. Text
+    approved by the coordinator on the owner's behalf (2026-10-22); owner to confirm."""
+    from padel_app.services.notification_service import _format_when
+
+    when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
+    if locale == "pt":
+        where = f"em {instance.title}" if instance.title else "nesta aula"
+        return f"Não ficaste inscrito/a {where}{when}: o treinador não aceitou o pedido desta vez."
+    where = f"in {instance.title}" if instance.title else "in this class"
+    return f"You're not enrolled {where}{when}: the coach didn't accept the request this time."
+
+
 # ---------------------------------------------------------------------------
 # Student side
 # ---------------------------------------------------------------------------
@@ -316,11 +330,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         if coach_user_id and player_user_id:
             _send_system_message(
                 coach_user_id, player_user_id,
-                _localized(
-                    coach.user,
-                    f"O teu pedido para entrar em {_class_label(instance, 'pt')} não foi aceite.",
-                    f"Your request to join {_class_label(instance, 'en')} was not accepted.",
-                ),
+                _declined_text(instance, locale),
                 msg_metadata={"joinRequest": {"id": row.id, "status": "rejected"}},
                 class_instance_id=instance.id,
             )
