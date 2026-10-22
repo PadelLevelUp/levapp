@@ -334,10 +334,10 @@ export function DemoRequestDialog({
             {single("lembretes", LEMBRETES_VALUES)}
             {single("tempo", TEMPO_VALUES)}
             {/* Honeypot: a person never sees or reaches it (inert: out of the tab order and the
-                accessibility tree); a bot that fills every input fills it. `inert: ""` is React
-                18's spelling; React 19 reads "" as false and needs `inert` (true) instead. */}
+                accessibility tree); a bot that fills every input fills it. React 19 (PAD-406) takes
+                `inert` as a boolean; React 18's `inert=""` spelling now reads as false. */}
             <div
-              {...{ inert: "" }}
+              inert
               style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}
             >
               <input
