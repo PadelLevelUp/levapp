@@ -71,7 +71,7 @@ export default function PlayersPage() {
 
 
   // Debounce search input (players.search rule 10: 200 ms) — reset page to 1 on new search
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
     clearTimeout(debounceRef.current);
