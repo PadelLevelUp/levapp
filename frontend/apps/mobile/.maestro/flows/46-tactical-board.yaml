@@ -168,6 +168,15 @@ appId: com.padellevelup.app
     file: ../subflows/board-show-court.yaml
     env:
       TARGET: "board-auto"
+# PAD-710 (Android lane): at 1x the playback ball lives ~1.6 s (2 steps x 800 ms), shorter than
+# one emulator hierarchy dump plus the court check below (#803, run 39729251137). Slow 0.5x
+# doubles the window; the speed row sits under AUTO, so it is already on screen.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "board-speed-slow"
 - tapOn:
     id: "board-auto"
 # PAD-710 (Android lane): the playback ball is drawn on the court; bring the court on screen before it disappears (it may still be missed on a slow emulator).
