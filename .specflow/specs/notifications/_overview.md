@@ -19,6 +19,8 @@ The notifications domain.
 - `notifications.message-templates` — implemented
 - `notifications.student-block-preferences` — implemented
 - `notifications.request-alerts` — implemented (PAD-232): push + email for club join, claim and coach-approval requests, per-user opt-out
+- `notifications.notification-sound` — implementing (PAD-680): a sound for a new message or system
+  notification while the app is open, web and iOS, with one per-user switch
 - `notifications.invite-simulation` — implemented — read-only dry run of the engine for a hypothetical
   vacancy, stage-tagged so it can explain who is invited and why; feeds `settings.tutorials`
 

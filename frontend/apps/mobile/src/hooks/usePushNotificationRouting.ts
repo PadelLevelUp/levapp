@@ -2,21 +2,17 @@ import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import { Linking } from "react-native";
 
+import { foregroundPresentation } from "@/lib/push/foreground-sound";
 import { externalUrlForPushData, routeForPushData } from "@/lib/push-routing";
 import { offerPushTap } from "@/lib/push-tap-queue";
 
 /**
- * Foreground notifications show a banner + list entry but play no sound and do
- * not touch the badge (the badge is driven from the unread count, PAD-147).
- * Registered once, on first import (from `app/_layout.tsx`).
+ * Foreground notifications show a banner + list entry, play the system sound when the user's
+ * notification sound is on (PAD-680), and do not touch the badge (the badge is driven from the
+ * unread count, PAD-147). Registered once, on first import (from `app/_layout.tsx`).
  */
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async () => foregroundPresentation(),
 });
 
 const openedExternal = new Set<string>();
