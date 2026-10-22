@@ -3495,6 +3495,13 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
         if _log:
             _log.info("send_class_reminders: instance %s status=%s — skipping", instance_id, instance.status)
         return _no_send
+    # PAD-736 (toggle-class rule 3, owner 2026-10-22): notifications off means no reminders, from
+    # the scheduler, the past-due "send now" and the coach's own "Enviar lembretes" alike. Only a
+    # manual invitation goes out on an off class (rule 3b).
+    if not instance.notifications_enabled:
+        if _log:
+            _log.info("send_class_reminders: instance %s notifications off — skipping", instance_id)
+        return _no_send
     # PAD-256 (notifications.reminders rule 15): the class time is wall-clock.
     if instance.start_datetime <= utc_to_wall_naive(_now):
         if _log:
