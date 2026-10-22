@@ -34,6 +34,8 @@ export type MeResponse = {
   notificationBlockReason?: string;
   /** PAD-232: request alerts opt-out (notifications.request-alerts rule 6). */
   requestAlerts?: boolean;
+  /** PAD-680: the notification sound (notifications.notification-sound rule 1). */
+  notificationSound?: boolean;
   /**
    * auth.coach-approval: a self-registered coach is `pending` until a LevApp
    * admin approves them; `null` for students. Existing coaches were backfilled
@@ -126,6 +128,8 @@ export type UpdateMePayload = {
   notificationBlockReason?: string;
   /** PAD-232: request alerts opt-out (notifications.request-alerts rule 6). */
   requestAlerts?: boolean;
+  /** PAD-680: the notification sound (notifications.notification-sound rule 1). */
+  notificationSound?: boolean;
 };
 
 export async function getMe(): Promise<MeResponse> {

@@ -380,6 +380,8 @@ export interface CoachPlayer {
   notificationBlockReason?: string;
   /** PAD-232: push + email for requests that need you / decisions on yours. */
   requestAlerts?: boolean;
+  /** PAD-680: a sound for a new message or notification (notifications.notification-sound). */
+  notificationSound?: boolean;
 }
 
 export interface RecurrenceRule {
