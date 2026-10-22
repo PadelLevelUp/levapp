@@ -57,16 +57,35 @@ onFlowComplete:
 # B-295: the date picker opens ON TOP of this dialog, reachable (its own dialog, Cancel/Done).
 - tapOn:
     id: "waiting-list-end-date"
-- extendedWaitUntil:
-    visible:
-      id: "waiting-list-end-date-confirm"
-    timeout: 10000
-- tapOn:
-    id: "waiting-list-end-date-cancel"
-- extendedWaitUntil:
-    notVisible:
-      id: "waiting-list-end-date-confirm"
-    timeout: 10000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "waiting-list-end-date-confirm"
+          timeout: 10000
+      - tapOn:
+          id: "waiting-list-end-date-cancel"
+      - extendedWaitUntil:
+          notVisible:
+            id: "waiting-list-end-date-confirm"
+          timeout: 10000
+# PAD-710 (Android lane): the field opens the native Android date dialog (no testIDs, date-picker-input.tsx); Cancel (button2) mirrors the iOS Cancel and leaves the default one-month date.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "android:id/button2"
+          timeout: 10000
+      - tapOn:
+          id: "android:id/button2"
+      - extendedWaitUntil:
+          notVisible:
+            id: "android:id/button2"
+          timeout: 10000
 - tapOn:
     id: "waiting-list-save"
 - extendedWaitUntil:

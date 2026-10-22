@@ -39,16 +39,39 @@ appId: com.padellevelup.app
       id: "join-request-bubble-actions-${output.req.id}"
     direction: DOWN
     timeout: 30000
-- assertVisible:
-    id: "join-request-bubble-accept"
-    text: "Accept|Aceitar"
-    width: 146
-    tolerance: 100
-- assertVisible:
-    id: "join-request-bubble-decline"
-    text: "Reject|Recusar"
-    width: 146
-    tolerance: 100
+# PAD-710 (Android lane): Maestro reads iOS bounds in points but Android bounds in physical
+# pixels. On the lane's pixel_6 emulator (420 dpi, 2.625 px per dp) the same ~146 dp button is
+# ~383 px (run 39691332376: 146 ± 100 failed on a button that measured ~390 px and read fine),
+# so the Android branch scales width and tolerance by 2.625. The collapsed 21 pt failure
+# (~55 px) is still far outside 383 ± 262 (121–645 px).
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: "join-request-bubble-accept"
+          text: "Accept|Aceitar"
+          width: 146
+          tolerance: 100
+      - assertVisible:
+          id: "join-request-bubble-decline"
+          text: "Reject|Recusar"
+          width: 146
+          tolerance: 100
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: "join-request-bubble-accept"
+          text: "Accept|Aceitar"
+          width: 383
+          tolerance: 262
+      - assertVisible:
+          id: "join-request-bubble-decline"
+          text: "Reject|Recusar"
+          width: 383
+          tolerance: 262
 - assertVisible:
     id: "join-request-bubble-decline"
     rightOf:

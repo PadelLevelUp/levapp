@@ -575,6 +575,11 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     values = form.set_values(fake_request)
 
     lesson_instance.update_with_dict(values)
+    # PAD-729 (B-617): the form layer drops a False boolean, so a class created with notifications off
+    # materialised its occurrences with the column default (on) and the engine invited for it.
+    # The lesson's (or the caller's) value is set here, after the form.
+    if instance_data.get('notifications_enabled') is not None:
+        lesson_instance.notifications_enabled = bool(instance_data['notifications_enabled'])
     # clubs.courts rule 9 (PAD-513): the court is an override only when it
     # differs from the lesson's; NULL inherits.
     lesson_instance.court_id = _court_override(instance_data, parent_lesson)

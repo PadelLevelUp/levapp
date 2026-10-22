@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   INVITATION_OUTCOME_KEY,
   inviteeActionsFor,
+  inviteeNotes,
   outcomeAfterCoachAction,
   outcomeAfterResponse,
   statusForOutcome,
@@ -46,5 +47,22 @@ describe("PAD-548 invitee outcomes (calendar.event-detail rules 16–18)", () =>
     expect(statusForOutcome("accepted")).toBe("confirmed");
     expect(statusForOutcome("pending")).toBe("sent");
     expect(statusForOutcome("withdrawn")).toBe("expired");
+  });
+});
+
+describe("PAD-719 invitee notes (calendar.event-detail rule 16)", () => {
+  it("names a moved invitation, and only a moved one", () => {
+    expect(inviteeNotes({ answeredBy: null, movedAt: "2026-10-22T03:00:00" })).toEqual([
+      { id: "moved-from-spot", key: "calendar.detail.movedFromPreviousSpot" },
+    ]);
+    expect(inviteeNotes({ answeredBy: null, movedAt: null })).toEqual([]);
+    expect(inviteeNotes({ answeredBy: "student" })).toEqual([]);
+  });
+
+  it("keeps the coach's note first when both apply", () => {
+    expect(inviteeNotes({ answeredBy: "coach", movedAt: "2026-10-22T03:00:00" }).map((n) => n.id)).toEqual([
+      "recorded-by-coach",
+      "moved-from-spot",
+    ]);
   });
 });
