@@ -72,6 +72,25 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(within(screen.getByTestId("participant-row-3")).queryByTestId("participant-side")).toBeNull();
   });
 
+  it("a both player of a full class reads Ambos → esquerda (PAD-672 slice 3); without one, today's label", () => {
+    const withAssigned = presences.map((p) => (p.playerId === "2" ? { ...p, assignedSide: "left" } : p));
+    render(
+      <ParticipantGroups
+        participants={participants as never}
+        presences={withAssigned as never}
+        roster={roster as never}
+        onOpen={vi.fn()}
+      />
+    );
+    const chip = within(screen.getByTestId("participant-row-2")).getByTestId("participant-side");
+    expect(chip.textContent).toBe("calendar.participants.sideShort.both_left");
+    expect(chip.getAttribute("title")).toBe("calendar.participants.sideLong.both_left");
+    expect(chip.getAttribute("data-side-assigned")).toBe("left");
+    // A left player carrying an assignedSide is not a both player: the label stays today's.
+    const left = within(screen.getByTestId("participant-row-1")).getByTestId("participant-side");
+    expect(left.textContent).toBe("calendar.participants.sideShort.left");
+  });
+
   it("opens the pop-up from the name or avatar button, not from the chip", () => {
     const onOpen = renderList();
     fireEvent.click(within(screen.getByTestId("participant-row-1")).getByTestId("participant-side"));

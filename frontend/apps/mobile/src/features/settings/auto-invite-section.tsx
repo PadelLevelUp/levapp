@@ -15,6 +15,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
@@ -46,6 +47,7 @@ import type { EligibilityImpactEntry } from "@levelup/types";
 const ENGINE_FIELDS = [
   "autoNotifyEnabled",
   "invitationMode",
+  "autoAcceptJoinRequests",
   "eligibilityRules",
   "openSpotsVisible",
   "restrictions",
@@ -120,6 +122,9 @@ export function AutoInviteSection() {
       setStored((prev) => (prev ? { ...prev, ...patch, ...confirmed } : prev));
       setConfig((prev) => (prev ? { ...prev, ...confirmed } : prev));
       if ("eligibilityRules" in patch) setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
+      // notifications.config rule 3a (PAD-672): the save switched the mode to semi-automatic, which
+      // turned automatic acceptance off in the same save; say so rather than leave it silent.
+      if (saved.notice === "auto_accept_off") toast.warning(t("settings.engine.autoAcceptJoinRequests.turnedOff"));
     },
   });
 
@@ -136,6 +141,8 @@ export function AutoInviteSection() {
   if (!config) return null;
 
   const mode = config.invitationMode ?? "automatic";
+  // Rule 3a: automatic acceptance does not work in semi-automatic mode, whether or not the engine is on.
+  const autoAcceptBlocked = mode === "semi_automatic";
 
   return (
     <Card testID="settings-auto-invite">
@@ -218,6 +225,33 @@ export function AutoInviteSection() {
             </View>
           </View>
         ) : null}
+
+        {/* PAD-672 slice 2 (notifications.config rule 3a): accept eligible join requests at once.
+            Held like every other control until the screen's Save; unavailable in semi-automatic mode. */}
+        <View className="gap-1" testID="settings-auto-accept">
+          <View className="flex-row items-start justify-between gap-3">
+            <View className="flex-1">
+              <Text className="text-sm font-medium">
+                {t("settings.engine.autoAcceptJoinRequests.label")}
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("settings.engine.autoAcceptJoinRequests.help")}
+              </Text>
+            </View>
+            <Switch
+              testID="settings-auto-accept-join-requests"
+              accessibilityLabel={t("settings.engine.autoAcceptJoinRequests.label")}
+              checked={!autoAcceptBlocked && (config.autoAcceptJoinRequests ?? false)}
+              disabled={autoAcceptBlocked}
+              onCheckedChange={(autoAcceptJoinRequests: boolean) => save({ autoAcceptJoinRequests })}
+            />
+          </View>
+          {autoAcceptBlocked ? (
+            <Text className="text-xs text-muted-foreground" testID="settings-auto-accept-disabled-reason">
+              {t("settings.engine.autoAcceptJoinRequests.disabledReason")}
+            </Text>
+          ) : null}
+        </View>
 
         {/* Eligibility — PAD-128, ported to iOS by PAD-161. The minimum bar to
             join a class AT ALL, so unlike the invitation mode above it is NOT

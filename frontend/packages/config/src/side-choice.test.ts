@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SIDE_CHOICE_ORDER,
+  joinRequestAcceptedAtOnce,
   canSendSide,
   firstAndLastName,
   openSideWordKeys,
@@ -77,5 +78,14 @@ describe("coach side", () => {
     expect(suggestedProfileSideOf("left")).toBe("left");
     expect(suggestedProfileSideOf("both")).toBeNull();
     expect(suggestedProfileSideOf(null)).toBeNull();
+  });
+});
+
+describe("joinRequestAcceptedAtOnce (PAD-672 slice 2, join-requests rule 21)", () => {
+  it("is true only for a 201 request already accepted", () => {
+    expect(joinRequestAcceptedAtOnce({ id: 1, status: "accepted" })).toBe(true);
+    expect(joinRequestAcceptedAtOnce({ id: 1, status: "pending" })).toBe(false);
+    expect(joinRequestAcceptedAtOnce(null)).toBe(false);
+    expect(joinRequestAcceptedAtOnce(undefined)).toBe(false);
   });
 });

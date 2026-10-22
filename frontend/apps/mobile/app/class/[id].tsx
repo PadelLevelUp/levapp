@@ -29,6 +29,9 @@ import {
   lightTheme,
   firstAndLastName,
   sideWordKey,
+  assignedSideOf,
+  joinRequestAcceptedAtOnce,
+  sideLongKeyOf,
   shouldReportSent,
   splitBlockedByCause,
   hasRecordedAttendance,
@@ -104,7 +107,7 @@ import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confir
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { messagesApi, presencesApi } from "@levelup/api";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
-import type { EligibilityCheckEntry, PlayerSide } from "@levelup/types";
+import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import { ClassEligibilityBlock } from "@/features/calendar/class-eligibility-block";
 import { commitClassEdit, hasClassEditChanges } from "@/features/calendar/class-save-flow";
 import {
@@ -993,8 +996,15 @@ export default function ClassDetailScreen() {
   };
   // PAD-672: "Pedir para entrar" and the waiting-list join both ask for the side first
   // (ClassSideSheet); the sheet sends and reports back through these callbacks.
-  const handleSideRequestSent = async () => {
-    toast.success(t("calendar.joinRequest.sentTitle"));
+  const handleSideRequestSent = async (request?: ClassJoinRequest) => {
+    // PAD-672 slice 2 (join-requests rule 21): the coach's automatic acceptance took it at once, so
+    // the student is enrolled already — say that, not "the coach was told", and re-read the class.
+    if (joinRequestAcceptedAtOnce(request)) {
+      toast.success(t("calendar.joinRequest.acceptedNow"));
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    } else {
+      toast.success(t("calendar.joinRequest.sentTitle"));
+    }
     await refreshInstance();
   };
   const handleSideWaitingJoined = (side: PlayerSide) => {
@@ -2055,6 +2065,14 @@ export default function ClassDetailScreen() {
                   </Badge>
                 </View>
 
+                {/* PAD-672 slice 3 (rule 13a): the student's own row — "Ambos → esquerda" once the
+                    class is full and they play both sides. */}
+                {myPresence?.side === "both" && assignedSideOf("both", myPresence.assignedSide) ? (
+                  <Text className="text-sm" testID="class-own-assigned-side">
+                    {t("calendar.side.yours")}: {t(sideLongKeyOf("both", myPresence.assignedSide))}
+                  </Text>
+                ) : null}
+
                 {/* PAD-313 rule 25: the "not attending / justified absence"
                     panel and the separate early-decline button that used to sit
                     here are gone — the badge above is the state, and the one
@@ -2382,7 +2400,7 @@ export default function ClassDetailScreen() {
           mode={sideSheet ?? "request"}
           event={event}
           profileSide={instance?.profileSide ?? event.profileSide ?? null}
-          onRequestSent={() => void handleSideRequestSent()}
+          onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
         />

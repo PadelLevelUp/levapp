@@ -46,7 +46,7 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, sideWordKey } from "@levelup/config";
+import { assignedSideOf, classEvaluationsAction, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, joinRequestAcceptedAtOnce, sideLongKeyOf, sideWordKey } from "@levelup/config";
 import { useClassEvaluations } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
@@ -125,7 +125,7 @@ import { LevelLabel } from "@/components/LevelLabel";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { checkEligibility } from "@/api/notificationEngine";
-import type { EligibilityCheckEntry, PlayerSide } from "@levelup/types";
+import type { ClassJoinRequest, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import { ClassEligibilityBlock } from "./ClassEligibilityBlock";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
@@ -617,8 +617,15 @@ export function ClassDetailSheet({
   };
   // PAD-672: "Pedir para entrar" and the waiting-list join both ask for the side first
   // (ClassSideChoice); the sheet sends and reports back through these callbacks.
-  const handleSideRequestSent = async () => {
-    toast({ title: t("calendar.joinRequest.sentTitle"), description: t("calendar.joinRequest.sentBody") });
+  const handleSideRequestSent = async (request?: ClassJoinRequest) => {
+    // PAD-672 slice 2 (join-requests rule 21): the coach's automatic acceptance took it at once, so
+    // the student is enrolled already — say that, not "the coach was told", and re-read the class.
+    if (joinRequestAcceptedAtOnce(request)) {
+      toast({ title: t("calendar.joinRequest.acceptedNow") });
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    } else {
+      toast({ title: t("calendar.joinRequest.sentTitle"), description: t("calendar.joinRequest.sentBody") });
+    }
     await refreshInstance();
   };
   const handleSideWaitingJoined = (side: PlayerSide) => {
@@ -2207,6 +2214,14 @@ export function ClassDetailSheet({
                       presence, no new column required. */}
                   {/* PAD-570 (attendance.confirm rule 27): "Vou" only once asked — the
                       server's `pendingConfirmation`, never a date computed here. */}
+                  {/* PAD-672 slice 3 (rule 13a): the student's own row — "Ambos → esquerda" once the
+                      class is full and they play both sides. */}
+                  {ownPresence?.side === "both" && assignedSideOf("both", ownPresence.assignedSide) && (
+                    <p className="text-sm" data-testid="class-own-assigned-side">
+                      <span className="text-muted-foreground">{t("calendar.side.yours")}: </span>
+                      <span className="font-medium">{t(sideLongKeyOf("both", ownPresence.assignedSide))}</span>
+                    </p>
+                  )}
                   {canConfirm && (
                     <Button
                       data-testid="class-confirm-attendance"
@@ -2316,7 +2331,7 @@ export function ClassDetailSheet({
           mode={sideSheet ?? "request"}
           event={event}
           profileSide={active?.profileSide ?? event.profileSide ?? null}
-          onRequestSent={() => void handleSideRequestSent()}
+          onRequestSent={(request) => void handleSideRequestSent(request)}
           onWaitingListJoined={handleSideWaitingJoined}
           onFailed={(err, mode) => void handleSideFailed(err, mode)}
         />

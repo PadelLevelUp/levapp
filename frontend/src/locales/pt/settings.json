@@ -387,6 +387,12 @@
       "invitationModeDescription": "Enviar convites de substituição automaticamente ou pedir primeiro a tua aprovação",
       "automatic": "Automático",
       "semiAutomatic": "Semiautomático",
+      "autoAcceptJoinRequests": {
+        "label": "Aceitar automaticamente pedidos de inscrição de alunos elegíveis em aulas com vaga",
+        "help": "O pedido é aceite de imediato, com as mesmas verificações que farias tu (nível, lado, restrições, vaga). A nota do aluno chega-te como mensagem.",
+        "disabledReason": "Não disponível no modo semi-automático",
+        "turnedOff": "Aceitar pedidos automaticamente foi desligado: não funciona no modo semi-automático."
+      },
       "reminders": "Lembretes",
       "remindersHint": "Lembrar automaticamente os alunos antes da aula e pedir-lhes que confirmem a presença.",
       "rescheduleFailed": "O horário foi guardado, mas os lembretes das aulas já agendadas podem ainda seguir o horário anterior. São atualizados automaticamente uma vez por dia. Para tentar já, altera o horário outra vez.",

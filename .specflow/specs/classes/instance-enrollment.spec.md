@@ -144,6 +144,9 @@ three separate fields on it. Decision record:
     the engine's tick (`notifications.invitations`, the 2-minute pass) writes it to
     `presences.assigned_side` once, and from then on that stored value is served (history). No
     notification at any point; the coach does not pick it by hand.
+    - Clients (PAD-672 S2/S3 UI; numbering unconfirmed): web and iOS participant rows, the
+      participant pop-up/sheet and the student's own row read "Ambos → esquerda" / "Ambos → direita"
+      for a `both` player with an `assignedSide`; null keeps today's label.
 
 ### Acceptance Criteria
 
