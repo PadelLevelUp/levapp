@@ -47,7 +47,11 @@ type Extras = Record<number, PendingValidationPlayer[]>;
 
 export interface RosterOption {
   id: number;
+  /** The real name: the walk-in row it becomes keeps it; the picker prints the display name. */
   name: string;
+  /** PAD-683: the coach's nickname keys, so the picker searches both names. */
+  nickname?: string | null;
+  displayName?: string;
 }
 
 /**
@@ -743,7 +747,7 @@ function ClassCard({
       </div>
 
       <ul className="mt-3 space-y-1.5">
-        {sortPlayers(klass.players, edits).map((player) => {
+        {sortPlayers(klass.players, edits, displayName).map((player) => {
           // PAD-443 (rule 24): the same "needs a decision" flag as the class detail, on the list's
           // inline rows (own ids, keyed by class AND player: a student in two queued classes appears twice).
           const undecided = effectiveMark(player, edits[player.playerId]) === null;
@@ -885,7 +889,7 @@ function ClassDetail({
       </p>
 
       <ul className="space-y-2">
-        {sortPlayers(klass.players, edits).map((player) => {
+        {sortPlayers(klass.players, edits, displayName).map((player) => {
           // PAD-443 (rule 24): a player with no mark yet (rule 5's undecided) stands out — an alert
           // icon, a yellow left edge and a spoken label — until a mark is set. The state buttons
           // keep their own colours; only the row's edge and icon carry the alert.
@@ -963,12 +967,14 @@ function ClassDetail({
 /** Undecided players first — the coach should see what's blocking them. */
 function sortPlayers(
   players: PendingValidationPlayer[],
-  edits: Record<number, PresenceMark | null>
+  edits: Record<number, PresenceMark | null>,
+  nameOf: (playerId: number, fallback: string) => string
 ) {
   return [...players].sort((a, b) => {
     const aDone = effectiveMark(a, edits[a.playerId]) !== null;
     const bDone = effectiveMark(b, edits[b.playerId]) !== null;
     if (aDone !== bDone) return aDone ? 1 : -1;
-    return a.name.localeCompare(b.name);
+    // PAD-683: ordered by the name the coach reads (their nickname when it is the main name).
+    return nameOf(a.playerId, a.name).localeCompare(nameOf(b.playerId, b.name));
   });
 }

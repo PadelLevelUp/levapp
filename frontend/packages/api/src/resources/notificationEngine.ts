@@ -19,7 +19,9 @@ import type {
 } from "@levelup/types";
 import { getApi } from "../client";
 
-export async function searchPlayers(query: string): Promise<{ players: { id: string; name: string }[] }> {
+export async function searchPlayers(query: string): Promise<{
+  players: { id: string; name: string; nickname?: string | null; nicknameAsName?: boolean; displayName?: string }[];
+}> {
   const res = await getApi().get("/app/notify/player_search", { params: { q: query } });
   return res.data;
 }

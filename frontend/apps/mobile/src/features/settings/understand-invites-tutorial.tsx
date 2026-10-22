@@ -23,6 +23,7 @@ import { useDebouncedText } from "@/lib/useDebouncedText";
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { classDayParts, clubTodayISO } from "@levelup/config";
+import { useCoachDisplayName } from "@levelup/hooks";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
@@ -64,12 +65,14 @@ function isPickableClass(event: CalendarEvent): boolean {
   );
 }
 
-function playerName(player: Player): string {
-  return player.user?.name ?? `#${player.id}`;
+/** PAD-683: the class's participants are a shared payload, so the coach's name for each is resolved here. */
+function playerLabel(player: Player, displayName: (id: string | number, fallback: string) => string): string {
+  return displayName(player.id, player.user?.name ?? `#${player.id}`);
 }
 
 export function UnderstandInvitesTutorial() {
   const { t, i18n } = useTranslation();
+  const displayName = useCoachDisplayName(); // PAD-683 rule 9b: the coach's name for each participant
   const [selectedClass, setSelectedClass] = React.useState<CalendarEvent | null>(null);
   const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(null);
 
@@ -193,7 +196,7 @@ export function UnderstandInvitesTutorial() {
                     <Pressable
                       key={player.id}
                       testID={`tutorial-player-${player.id}`}
-                      accessibilityLabel={playerName(player)}
+                      accessibilityLabel={playerLabel(player, displayName)}
                       accessibilityState={{ selected }}
                       role="button"
                       onPress={() => setSelectedPlayer(player)}
@@ -202,7 +205,7 @@ export function UnderstandInvitesTutorial() {
                         selected ? "border-primary bg-primary/10" : "border-border",
                       )}
                     >
-                      <Text className="text-sm">{playerName(player)}</Text>
+                      <Text className="text-sm">{playerLabel(player, displayName)}</Text>
                     </Pressable>
                   );
                 })}
@@ -301,7 +304,7 @@ function SimulationResults({
           <Text className="text-sm">{t("tutorials.understandInvites.waitingList")}</Text>
           {waitingListAskedFirst(simulation).map((entry, index) => (
             <Text key={entry.playerId} className="text-sm" testID={`tutorial-waiting-list-${entry.playerId}`}>
-              {`${index + 1}. ${entry.name ?? ""}`}
+              {`${index + 1}. ${entry.displayName ?? entry.name ?? ""}`}
               {entry.standing ? ` ${t("tutorials.understandInvites.waitingListStanding")}` : ""}
             </Text>
           ))}
@@ -364,7 +367,7 @@ function CandidateRow({ candidate }: { candidate: InviteSimulationCandidate }) {
           {t("tutorials.understandInvites.rank", { rank: candidate.rank })}
         </Text>
         <Text className="flex-1 text-sm font-medium" numberOfLines={1}>
-          {candidate.name}
+          {candidate.displayName ?? candidate.name}
         </Text>
         {candidate.levelCode && (
           <Badge variant="outline">
@@ -397,7 +400,7 @@ function CandidateRow({ candidate }: { candidate: InviteSimulationCandidate }) {
 function Lookup({ request }: { request: InviteSimulationRequest }) {
   const { t } = useTranslation();
   const [query, setQuery] = React.useState("");
-  const [results, setResults] = React.useState<{ id: string; name: string }[] | null>(null);
+  const [results, setResults] = React.useState<{ id: string; name: string; displayName?: string }[] | null>(null);
   const [verdict, setVerdict] = React.useState<InviteExplain | null>(null);
   // The name of the result the coach picked: refilling the input with it must
   // not re-run the search and reopen the list over the verdict.
@@ -436,10 +439,11 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
     setVerdict(null);
   }, [request.originalId, request.date, request.departingPlayerId]);
 
-  const explain = (player: { id: string; name: string }) => {
+  const explain = (player: { id: string; name: string; displayName?: string }) => {
+    const shown = player.displayName ?? player.name;
     setResults(null);
-    setSelectedName(player.name);
-    setQuery(player.name);
+    setSelectedName(shown);
+    setQuery(shown);
     notificationEngineApi
       .explainInviteCandidate({ ...request, playerId: player.id })
       .then(setVerdict)
@@ -475,12 +479,12 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
               <Pressable
                 key={player.id}
                 testID={`tutorial-lookup-result-${player.id}`}
-                accessibilityLabel={player.name}
+                accessibilityLabel={player.displayName ?? player.name}
                 role="button"
                 onPress={() => explain(player)}
                 className="px-3 py-2 active:bg-accent"
               >
-                <Text className="text-sm">{player.name}</Text>
+                <Text className="text-sm">{player.displayName ?? player.name}</Text>
               </Pressable>
           ))}
         </View>
@@ -490,7 +494,7 @@ function Lookup({ request }: { request: InviteSimulationRequest }) {
         <View className="rounded-lg border border-border p-3" testID="tutorial-verdict">
           <Text className="text-sm">
             <Text className="font-medium">
-              {t("tutorials.understandInvites.notInvited", { name: verdict.name ?? "" })}
+              {t("tutorials.understandInvites.notInvited", { name: verdict.displayName ?? verdict.name ?? "" })}
             </Text>{" "}
             <Text testID={`tutorial-verdict-stage-${verdict.stage}`}>
               {resolveText(t, text.headline)}
