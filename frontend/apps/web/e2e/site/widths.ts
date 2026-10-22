@@ -14,7 +14,9 @@ export const SITE_WIDTHS = [320, 360, 390, 414, 768, 992, 1024, 1100, 1280, 1440
  * (`overflow-x-clip`), so the document never reports a horizontal scroll however far a child
  * sticks out. That check would pass while content is cut off. Playwright's `toBeVisible()`
  * also counts a clipped element as visible. This asserts every rendered element's box instead
- * (the e2e/availability/mobile-layout.spec.ts lesson, applied to the site).
+ * (the e2e/availability/mobile-layout.spec.ts lesson, applied to the site). Elements inside an
+ * `inert` subtree are skipped: the contact form's honeypot is parked off-screen on purpose
+ * (first CI run, #782: it was the only "offender" at 390 and 1280).
  */
 export async function expectFitsViewport(page: Page, label: string) {
   const offenders = await page.evaluate(() => {
@@ -31,6 +33,9 @@ export async function expectFitsViewport(page: Page, label: string) {
     for (const el of Array.from(root.querySelectorAll("*"))) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
+      // Deliberately unreachable content (the contact form's honeypot sits at -10000px inside an
+      // `inert` box) is not layout a visitor can see.
+      if (el.closest("[inert]")) continue;
       const style = getComputedStyle(el);
       if (style.visibility === "hidden" || style.display === "none" || style.position === "fixed") continue;
       if (r.right <= vw + 1 && r.left >= -1) continue;
