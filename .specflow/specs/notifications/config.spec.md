@@ -74,8 +74,15 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    ends (the window's `end`, 07:00 club-local by default).
 6e. **Do not invite a student who already has a class that day (PAD-523; coordinator, 2026-10-07;
    numbering unconfirmed).** `noSameDayClass` is `{enabled}`, stored in
-   `no_same_day_class_enabled`, **off** for every coach until they switch it on (no backfill: a new
-   marker's default is off). When on, `evaluate_candidates` drops a roster student who holds a spot
+   `no_same_day_class_enabled`, **on by default (PAD-685, owner decision 2026-10-20: "a restrição
+   deve vir ligada por defeito")**. This supersedes, for this setting only, the habit "a new
+   marker's default must be off" that PAD-523 followed, and the owner's decision is the reason. A
+   new coach's row starts on (model and server default `true`); migration PAD-685 switched every
+   existing row on, because the stored `false` cannot tell a coach who never touched it from one
+   who switched it off (NOT NULL, no backfill, and the row's `updated_at` moves with any save of the
+   section). The coach can still switch it off; an off switch is kept. Both clients show, once, a
+   dismissible note above the toggle saying it now comes on by default and can be switched off
+   (dismissal remembered on the device; no message is sent). When on, `evaluate_candidates` drops a roster student who holds a spot
    in ANOTHER class on the same club-local day as the class being filled, with stage
    `has_class_same_day` (after `inactive_account`, `invite-simulation` rule 4). "Holds a spot" is
    the engine's meaning (PAD-259): a presence row not marked absent and not declined (a "no", a
@@ -311,10 +318,18 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Then** Busy's verdict is `has_class_same_day` and only Free is invited; the explain path and
   the waiting-list wave give Busy the same verdict
 
-#### Off by default (rule 6e)
+#### On by default (rule 6e, PAD-685)
 - **Given** a coach who never saved the setting
 - **When** `GET /api/app/notify/config` runs, and the same batch is evaluated
-- **Then** `restrictions.noSameDayClass` is `{enabled: false}` and Busy is invited
+- **Then** `restrictions.noSameDayClass` is `{enabled: true}` and Busy is not invited
+- **And** after the coach saves `{enabled: false}`, Busy is invited, and a later save of the
+  section without the key keeps it off
+
+#### Existing coaches are switched on once (rule 6e, PAD-685)
+- **Given** two existing rows with `no_same_day_class_enabled = false` before migration PAD-685
+- **When** the migration runs, and runs again
+- **Then** both rows read `true`, the column's server default is `true`, and the second run
+  changes nothing
 
 #### What does not count as a class that day (rule 6e)
 - **Given** `noSameDayClass` on and Busy's other class at 00:30 the next day, or 23:30 the day
