@@ -17,15 +17,15 @@ Toggle notification engine on/off for a specific class.
 2. Updates `notifications_enabled` on the Lesson or LessonInstance
 4. **Owner only (PAD-258).** The caller must own the Lesson/LessonInstance (`coach_owns_lesson` /
    `coach_owns_instance`, PAD-92) — 403 otherwise, flag untouched.
-3. When disabled, no reminders or auto-invitations fire for that class. **No reminder of any kind
-   (PAD-736, B-620; owner, 2026-10-22: "off means off").** `send_class_reminders` sends nothing for an
-   occurrence whose `notifications_enabled` is off, whoever runs the pass: the scheduler's jobs, the
-   past-due "send now" (`notifications.config` rule 10f), and the coach's own "Enviar lembretes"
-   (`POST /api/app/notify/send_reminders`, which answers `sent: 0`). The pass reports nothing more
-   due, so no follow-up is armed. The past-due listing does not offer such a class, materialised or
-   not (the lesson's own switch is read for a class with no occurrence row yet). Before PAD-736 the
-   pass never read the switch, and an off class still asked its students. Manual invitations are
-   rule 3b's.
+3. When disabled, no automatic reminders or auto-invitations fire for that class. **Automatic
+   reminders are off; manual sends follow 3b (PAD-736, B-620; owner, 2026-10-22: "off means off").**
+   A scheduled `send_class_reminders` pass (the scheduler's jobs, and the past-due "send now",
+   `notifications.config` rule 10f) sends nothing for an occurrence whose `notifications_enabled` is
+   off and reports nothing more due, so no follow-up is armed. The past-due listing does not offer
+   such a class, materialised or not (the lesson's own switch is read for a class with no occurrence
+   row yet). The coach's own "Enviar lembretes" (`POST /api/app/notify/send_reminders`) is an
+   explicit send, like a manual invitation, and still goes out. Before PAD-736 the pass never read
+   the switch, and an off class still asked its students automatically.
 3b. **A manual invitation always goes out (PAD-732, B-618; owner, 2026-10-22).** `notifications_enabled`
    governs only the engine's automatic sends. A coach's manual invitation
    (`send_manual_notifications`, `POST /api/app/notify/manual`) on a class with notifications off
@@ -107,20 +107,18 @@ Toggle notification engine on/off for a specific class.
 - **Then** the invitation is sent: one `manual` NotificationEvent, live, with its chat message
 - **And** `trigger_invitations` on the same class still sends nothing
 
-#### A class with notifications off sends no reminder (PAD-736)
+#### A class with notifications off sends no automatic reminder (PAD-736)
 - **Given** an academy class with an enrolled student who has not been reminded, and `notifications_enabled` off on the occurrence
-- **When** a scheduled reminder pass runs, or the coach presses "Enviar lembretes"
+- **When** a scheduled reminder pass runs
 - **Then** nothing is sent, no reminder attempt is recorded, and the pass reports nothing more due
 - **And** the same class with notifications on reminds its student
+- **And** the coach's own "Enviar lembretes" on the off class reminds the student
 - **And** a manual invitation on the off class is still sent (rule 3b)
 - **And** a past-due listing does not offer the off class, nor an off lesson that has no occurrence row yet
 
 ### Notes
 - Settled (PAD-736): the OPEN question from PAD-429, whether rule 3's "no reminders" or the code
   that ignored it was right, went to the owner: the rule stands and the code now reads the switch.
-- Not changed here: switching a series (`Lesson`) off does not reach occurrences already
-  materialised, which keep their own `notifications_enabled`. The invitation guards read the
-  occurrence the same way.
 - Secondary outcome: this switch is read by both the reminder scheduler and the invitation engine —
   see `notifications.student-gets-class-reminders` and
   `notifications.coach-fills-vacancies-automatically`.

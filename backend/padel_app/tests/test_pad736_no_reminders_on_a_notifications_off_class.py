@@ -2,9 +2,9 @@
 
 notifications.toggle-class rule 3 (owner, 2026-10-22: "off means off"): `send_class_reminders`
 never read `notifications_enabled`, so a class the coach had switched off still asked its students
-"are you coming?". The pass now sends nothing for it, whoever runs it: the scheduler, the past-due
-"send now", or the coach's own "Enviar lembretes". The past-due listing no longer offers it either.
-A manual invitation on the same class still goes out (rule 3b, PAD-732).
+"are you coming?". The automatic passes (the scheduler's, and the past-due "send now") now send
+nothing for it, and the past-due listing no longer offers it. The coach's own "Enviar lembretes" and
+a manual invitation are explicit sends and still go out (rule 3b, PAD-732).
 
     pytest padel_app/tests/test_pad736_no_reminders_on_a_notifications_off_class.py -v
 """
@@ -43,15 +43,22 @@ def _attempts(app, ids):
         return ReminderAttempt.query.filter_by(lesson_instance_id=ids["instance_id"]).count()
 
 
-@pytest.mark.parametrize("scheduled", [True, False], ids=["scheduled-pass", "coach-send"])
-def test_an_off_class_gets_no_reminder(app, scheduled):
-    ids = _a_class(app, f"pad736-off-{scheduled}", on=False)
+def test_an_off_class_gets_no_automatic_reminder(app):
+    ids = _a_class(app, "pad736-off", on=False)
 
-    result = _remind(app, ids, scheduled=scheduled)
+    result = _remind(app, ids, scheduled=True)
 
     assert result["sent"] == 0
     assert result["more_due"] is False, "the chain is not re-armed"
     assert _attempts(app, ids) == 0
+
+
+def test_the_coachs_own_send_on_an_off_class_goes_out(app):
+    """Rule 3 (coordinator for the owner, 2026-10-22): "Enviar lembretes" is an explicit send."""
+    ids = _a_class(app, "pad736-coach-send", on=False)
+
+    assert _remind(app, ids, scheduled=False)["sent"] == 1
+    assert _attempts(app, ids) == 1
 
 
 def test_an_on_class_still_gets_its_reminder(app):
@@ -69,7 +76,7 @@ def test_a_manual_invitation_on_the_off_class_still_goes_out(app):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         sent = send_manual_notifications(ids["instance_id"], [ids["candidate_id"]], ids["coach_id"])
         assert len(sent) == 1
-    assert _remind(app, ids, scheduled=False)["sent"] == 0
+    assert _remind(app, ids, scheduled=True)["sent"] == 0
 
 
 # ── the past-due listing (notifications.config rule 10f) ────────────────────

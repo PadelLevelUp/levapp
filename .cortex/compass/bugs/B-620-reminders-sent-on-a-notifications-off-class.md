@@ -9,7 +9,7 @@ affects:
   - backend/padel_app/services/notification_service.py
   - backend/padel_app/services/past_due_service.py
   - .specflow/specs/notifications/toggle-class.spec.md
-proposed_fix: "send_class_reminders returns nothing sent for an occurrence whose notifications_enabled is off, and the past-due listing skips such classes (toggle-class rule 3)."
+proposed_fix: "A scheduled send_class_reminders pass returns nothing sent for an occurrence whose notifications_enabled is off, and the past-due listing skips such classes; the coach's own send still goes out (toggle-class rule 3)."
 opened: 2026-10-22T09:00:00Z
 ---
 
@@ -24,12 +24,14 @@ the switch off at the time.
 lembretes" all asked the students of a class the coach had switched off. The past-due listing also
 offered those classes.
 
-**Decision (owner, 2026-10-22):** off means off. No reminders on an off class, from any path.
-Manual invitations still go out (rule 3b, B-618).
+**Decision (owner, 2026-10-22):** off means off for the automatic reminders: the scheduler's passes
+and the past-due "send now". The coach's own "Enviar lembretes" is an explicit send and still goes
+out, like a manual invitation (rule 3b, B-618).
 
-**Evidence:** `test_pad736_no_reminders_on_a_notifications_off_class.py`, 6 tests. Five are red on
-staging 6e1cd8e1c: three because the off class was reminded (scheduled pass, coach send, and after a
-manual invitation), two because the past-due listing offered the off class. The on-class control is green both ways.
+**Evidence:** `test_pad736_no_reminders_on_a_notifications_off_class.py`, 6 tests. Four are red on
+staging 6e1cd8e1c: two because a scheduled pass reminded the off class (alone, and after a manual
+invitation), two because the past-due listing offered the off class. The on-class and coach-send
+controls are green both ways.
 
 **Not covered here:** switching a series off does not reach occurrences already materialised; they
-keep their own value, as the invitation guards already assume.
+keep their own value. Noted on PAD-736 as a follow-up for the owner.
