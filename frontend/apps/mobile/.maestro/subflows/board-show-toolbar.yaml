@@ -5,21 +5,32 @@
 # elements. `scrollUntilVisible` swipes from the screen centre, which is the court, and the
 # court consumes the gesture (piece dragging), so the page never scrolls (run 39691332376).
 # This swipes on the page's left margin instead, outside the board card, until ${TARGET} is
-# visible; a no-op when it already is. Call it only under `runFlow: when: platform: Android`.
+# visible — first in its main direction, then the other way (short swipes, so it does not
+# overshoot a target that sits on the far side); a no-op when it already is. Call it only under `runFlow: when: platform: Android`.
 #
 # Usage: runFlow: { file: board-show-toolbar.yaml, env: { TARGET: "board-tool-ball" } }
 appId: com.padellevelup.app
 ---
 - repeat:
-    times: 6
+    times: 4
     while:
       notVisible:
         id: "${TARGET}"
     commands:
-      # A vertical swipe on the page's left margin (x 4%), outside the board card and its court:
-      # the court takes any gesture that starts on it (piece dragging), and an element anchor can
-      # itself be off screen. Finger down: the page scrolls up, towards the tabs and toolbar.
+      # Finger down on the page's left margin (outside the board card, so the court cannot take the gesture): the page scrolls up.
       - swipe:
-          start: "4%, 35%"
-          end: "4%, 75%"
-          duration: 600
+          start: "4%, 45%"
+          end: "4%, 65%"
+          duration: 500
+# Not found that way (the page was already past it): search the other way.
+- repeat:
+    times: 8
+    while:
+      notVisible:
+        id: "${TARGET}"
+    commands:
+      # Finger up on the page's left margin: the page scrolls down.
+      - swipe:
+          start: "4%, 65%"
+          end: "4%, 45%"
+          duration: 500

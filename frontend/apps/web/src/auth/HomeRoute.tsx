@@ -1,10 +1,10 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginLanding } from "@/auth/postLoginPath";
-import { DashboardPage, LandingPage } from "@/routes/lazyPages";
+import { DashboardPage, SitePage } from "@/routes/lazyPages";
 
 /**
- * `/` serves two different pages: the public landing page to a visitor, the
+ * `/` serves two different pages: the public site (PAD-656) to a visitor, the
  * dashboard to a signed-in user — unless that user is a coach who is still
  * waiting for approval or has no club yet, in which case `/` sends them to
  * the screen that explains what happens next (auth.register rule 11).
@@ -22,7 +22,8 @@ export function HomeRoute() {
   }
 
   if (!isAuthenticated) {
-    return <LandingPage />;
+    // PAD-656: the new public site (auth.landing-page).
+    return <SitePage />;
   }
 
   const target = postLoginLanding(user);

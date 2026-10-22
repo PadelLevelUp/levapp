@@ -359,6 +359,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                         "outcome": invitation_outcome(ev),
                         "answer": ev.answer,
                         "answeredBy": ev.answered_by,
+                        # PAD-719 (calendar.event-detail rule 16): set when the engine moved this
+                        # invitation from another spot of the class (invitations rule 18a).
+                        "movedAt": ev.moved_at.isoformat() if ev.moved_at else None,
                     }
                     for ev in notification_events
                 ],
@@ -421,6 +424,11 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         if is_student:
             mine = latest_request_for_player(obj.id, viewer_player_id)
             data["myJoinRequest"] = serialize_join_request(mine) if mine else None
+            # PAD-672 (rule 20, Q1): the student's profile side with this class's coach — the side
+            # picker's default (none: the question is mandatory).
+            from padel_app.services.class_join_request_service import profile_side_for
+
+            data["profileSide"] = profile_side_for(obj, viewer_player_id)
         else:
             data["joinRequests"] = [
                 serialize_join_request(r) for r in pending_requests_for_instance(obj.id)

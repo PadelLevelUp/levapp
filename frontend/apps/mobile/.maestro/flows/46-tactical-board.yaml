@@ -152,7 +152,8 @@ appId: com.padellevelup.app
     env:
       TARGET: "board-step-indicator"
 - assertVisible:
-    text: ".*2 de 2.*"
+    # PAD-710 (Android lane): the lane renders English ("Step 2 of 2"); match either locale.
+    text: ".*2 (de|of) 2.*"
 - runFlow:
     when:
       platform: Android
@@ -191,7 +192,7 @@ appId: com.padellevelup.app
 - tapOn:
     id: "board-delete-step"
 - assertVisible:
-    text: ".*1 de 1.*"
+    text: ".*1 (de|of) 1.*"
 
 # ── Wave 3: Magnético — pen stroke by swiping the court, then back to game ──
 # (the fresh game board has no content after the undo, so no prompt appears)

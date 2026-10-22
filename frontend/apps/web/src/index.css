@@ -18,6 +18,31 @@
 
 @layer base {
   :root {
+
+    /* PAD-656: the public site (light-only). faint and red are darker than the design's
+       #7E8BA0 / #C0392F so small text passes 4.5:1 (Lighthouse pass). */
+    --site-primary: 225 68% 49%; /* #2854D4 */
+    --site-primary-hover: 225 71% 42%; /* #1F45B8 */
+    --site-ink: 216 52% 13%; /* #101E33 */
+    --site-muted: 219 18% 41%; /* #55627A */
+    --site-faint: 219 16% 44%; /* #5F6B82 */
+    --site-wash: 217 100% 95%; /* #E8F1FF */
+    --site-wash-hover: 219 100% 93%; /* #DCE8FF */
+    --site-surface: 217 40% 96%; /* #F1F4F9 */
+    --site-grey: 213 33% 95%; /* #EDF1F6 */
+    --site-border: 217 32% 92%; /* #E4E9F1 */
+    --site-border-strong: 215 28% 86%; /* #D3DBE6 */
+    --site-green: 161 78% 33%; /* #12946B */
+    --site-green-text: 162 80% 24%; /* #0C6E50 */
+    --site-green-bg: 154 41% 93%; /* #E7F5EF */
+    --site-amber: 33 81% 33%; /* #9A5B10 */
+    --site-amber-bg: 34 88% 94%; /* #FDF1E1 */
+    --site-red: 4 61% 43%; /* #B0342B */
+    --site-red-bg: 5 67% 93%; /* #F9E3E1 */
+    --site-navy: 218 54% 19%; /* #16294A */
+    --site-navy-deep: 216 53% 9%; /* #0B1524 */
+    --site-on-navy: 216 63% 97%; /* #F2F6FC */
+    --site-on-navy-muted: 215 35% 75%; /* #A9BCD6 */
     --background: 216 29% 93%;
     --foreground: 216 52% 13%;
 

@@ -18,6 +18,12 @@ Toggle notification engine on/off for a specific class.
 4. **Owner only (PAD-258).** The caller must own the Lesson/LessonInstance (`coach_owns_lesson` /
    `coach_owns_instance`, PAD-92) — 403 otherwise, flag untouched.
 3. When disabled, no reminders or auto-invitations fire for that class
+3b. **A manual invitation always goes out (PAD-732, B-618; owner, 2026-10-22).** `notifications_enabled`
+   governs only the engine's automatic sends. A coach's manual invitation
+   (`send_manual_notifications`, `POST /api/app/notify/manual`) on a class with notifications off
+   is sent and recorded like on any other class: a `manual` NotificationEvent with its chat
+   message, counted in the route's `sent`. Before PAD-732 it returned nothing and the route
+   answered `sent: 0` with 200, so the coach believed the student was invited.
 3a. **The lesson's value reaches every occurrence it materialises (PAD-729, B-617; numbering
    unconfirmed).** A one-off class or a series created with notifications off has no occurrence row
    until something materialises it (a join request, a cancellation, a side set): the new
@@ -87,10 +93,17 @@ Toggle notification engine on/off for a specific class.
 - **When** the coach sends a manual invitation to a student
 - **Then** the invitation is sent
 
+#### A manual invitation on a class with notifications off is sent (PAD-732)
+- **Given** an academy class with `notifications_enabled` off and a student on the coach's roster who is not enrolled
+- **When** the coach sends that student a manual invitation
+- **Then** the invitation is sent: one `manual` NotificationEvent, live, with its chat message
+- **And** `trigger_invitations` on the same class still sends nothing
+
 ### Notes
 - OPEN (found in PAD-429, not changed here): rule 3 says a class with notifications off gets no
   reminders, but the reminder path (`send_class_reminders`) never reads `notifications_enabled`.
-  Either the rule or the code is wrong; it needs its own ticket.
+  Either the rule or the code is wrong; it needs its own ticket. Still open after PAD-732, which settled only the
+  manual case (rule 3b); the reminder question is ticketed separately for the owner.
 - Secondary outcome: this switch is read by both the reminder scheduler and the invitation engine —
   see `notifications.student-gets-class-reminders` and
   `notifications.coach-fills-vacancies-automatically`.

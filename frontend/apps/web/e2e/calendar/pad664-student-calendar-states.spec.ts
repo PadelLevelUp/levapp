@@ -38,10 +38,13 @@ async function addClass(
   request: APIRequestContext,
   coachAuth: Record<string, string>,
   body: { name: string; date: string; startTime: string; endTime: string; maxPlayers: number; playerIds: number[] },
+  // A manual invitation needs the class's notifications on (send_manual_notifications); until
+  // PAD-729 (B-617) the occurrence ignored `false` and took on. Automatic invitations stay off.
+  notify: { notificationsEnabled: boolean; autoInvites?: boolean } = { notificationsEnabled: false },
 ) {
   const res = await request.post(`${API_ROOT}/app/add_class`, {
     headers: coachAuth,
-    data: { ...body, classType: "academy", isRecurring: false, notificationsEnabled: false },
+    data: { ...body, classType: "academy", isRecurring: false, ...notify },
   });
   expect(res.ok(), `add_class ${body.name}: ${res.status()} ${await res.text()}`).toBeTruthy();
 }
@@ -88,7 +91,7 @@ test("US-PAD-664: three states with a second signal, a remembered filter that ke
     await addClass(request, coachAuth, { name: ENROLLED, date: day, startTime: "08:00", endTime: "09:00", maxPlayers: 4, playerIds: [student!.playerId] });
     await addClass(request, coachAuth, { name: OPEN, date: day, startTime: "10:00", endTime: "11:00", maxPlayers: 4, playerIds: [] });
     await addClass(request, coachAuth, { name: FULL, date: day, startTime: "12:00", endTime: "13:00", maxPlayers: 1, playerIds: [filler!.playerId] });
-    await addClass(request, coachAuth, { name: INVITED, date: day, startTime: "14:00", endTime: "15:00", maxPlayers: 4, playerIds: [] });
+    await addClass(request, coachAuth, { name: INVITED, date: day, startTime: "14:00", endTime: "15:00", maxPlayers: 4, playerIds: [] }, { notificationsEnabled: true, autoInvites: false });
 
     // The invitation: the coach invites the student to INVITED through the manual-notify path.
     const coachDay = await request.get(`${API_ROOT}/app/calendar`, {
@@ -142,9 +145,12 @@ test("US-PAD-664: three states with a second signal, a remembered filter that ke
     const joinBlock = page.getByTestId("class-waiting-list-student");
     await expect(joinBlock).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("class-join-request-button")).toHaveCount(0);
+    // PAD-672: the join asks for the side first (the sheet is a nested dialog: located by test id).
+    await page.getByTestId("class-waiting-list-join").click();
+    await page.getByTestId("class-side-left").click();
     const [joined] = await Promise.all([
       page.waitForResponse((r) => r.url().endsWith("/api/app/class-waiting-list") && r.request().method() === "POST"),
-      page.getByTestId("class-waiting-list-join").click(),
+      page.getByTestId("class-side-send").click(),
     ]);
     expect(joined.status(), await joined.text()).toBe(201);
     await expect(page.getByTestId("class-waiting-list-on")).toBeVisible();

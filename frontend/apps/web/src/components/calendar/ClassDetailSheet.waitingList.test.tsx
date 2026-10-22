@@ -93,8 +93,16 @@ describe("a full class (PAD-664)", () => {
     expect(screen.getByTestId("class-waiting-list-student")).toBeTruthy();
     expect(screen.queryByTestId("class-join-request-button")).toBeNull();
     fireEvent.click(join);
-    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith(ev));
+    // PAD-672: the join asks for the side first; a student with no profile side must choose one.
+    expect((await screen.findByTestId("class-side-choice")).getAttribute("data-mode")).toBe("waiting");
+    expect((screen.getByTestId("class-side-send") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId("class-side-left"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith(ev, "left"));
     expect(await screen.findByTestId("class-waiting-list-on")).toBeTruthy();
+    expect(screen.getByTestId("class-waiting-list-side-line").textContent).toBe(
+      "Lado: esquerda · avisamos-te na app",
+    );
     expect(screen.queryByTestId("class-waiting-list-join")).toBeNull();
     expect(toast).toHaveBeenCalledWith({ title: tr("calendar.waitingList.joined") });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["calendar-events"] });
@@ -104,6 +112,8 @@ describe("a full class (PAD-664)", () => {
     api.joinClassWaitingList.mockRejectedValueOnce(new Error("nope"));
     renderSheet(event());
     fireEvent.click(await screen.findByTestId("class-waiting-list-join"));
+    fireEvent.click(await screen.findByTestId("class-side-right"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith({ title: tr("calendar.waitingList.failed"), variant: "destructive" })
     );
