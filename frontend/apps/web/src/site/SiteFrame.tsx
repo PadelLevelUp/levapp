@@ -4,10 +4,11 @@
  * useSiteConsent) and the one contact dialog (SiteDemoProvider). `children` receive the demo
  * opener, so a page needs no wiring of its own.
  */
-import type { ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 
 import { CookieBanner } from "@/components/landing/CookieBanner";
 import type { DemoPedido } from "@/lib/demoRequest";
+import { forceTheme } from "@/lib/forcedTheme";
 
 import type { Audience } from "./audience";
 import { SiteDemoProvider, useSiteDemo } from "./SiteDemo";
@@ -53,6 +54,12 @@ export function SiteFrame(props: {
   onAudienceChange: (next: Audience) => void;
   children: (openDemo: OpenDemo) => ReactNode;
 }) {
+  // The site is light-only: a dark system theme must not reach its token-styled pieces
+  // (banner, dialog, form). Layout effect, so the first paint is already light.
+  useLayoutEffect(() => {
+    forceTheme("light");
+    return () => forceTheme(undefined);
+  }, []);
   return (
     <SiteDemoProvider>
       <Framed {...props} />
