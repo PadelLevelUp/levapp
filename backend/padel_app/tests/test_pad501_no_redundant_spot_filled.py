@@ -132,9 +132,9 @@ def test_a_join_request_accept_retires_the_invitations_without_a_message(app):
 
 
 def test_a_yes_after_a_cancellation_sends_nobody_a_message(app):
-    """PAD-570 (attendance.confirm rule 28) kept PAD-501's promise: the refusal is the
-    screen's to show. A yes after "Não vou" answers `already_declined` and sends no
-    message — not to the student, and (unlike the PAD-315 come-back) not to the coach."""
+    """PAD-501's promise stands under PAD-684 (attendance.confirm rule 28): nobody gets a
+    `spot_filled` apology. A yes after "Não vou" with the spot still free re-seats the student
+    (`confirmed`); the only new message is the coach's "afinal vai"."""
     from padel_app.models import Message
     from padel_app.services.notification_service import cancel_attendance, respond_to_reminder
     from padel_app.tests.test_notification_reminder_flow import PATCHES as REMINDER_PATCHES
@@ -150,6 +150,6 @@ def test_a_yes_after_a_cancellation_sends_nobody_a_message(app):
             result = respond_to_reminder(iid, "yes", ids["student_user_id"])
 
         db.session.expire_all()
-        assert result["action"] == "already_declined"
-        assert _sorry_messages() == [], "the refused yes was messaged"
-        assert Message.query.count() == before, "nobody is told; the screen shows the refusal"
+        assert result["action"] == "confirmed"
+        assert _sorry_messages() == [], "nobody is sent a spot_filled apology"
+        assert Message.query.count() == before + 1, "only the coach's 'afinal vai' notice"

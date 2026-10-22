@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { addToStandingWaitingList, renewStandingWaitingListEntry } from "@/api/notificationEngine";
+import { addToStandingWaitingList, checkStandingEligibility, renewStandingWaitingListEntry } from "@/api/notificationEngine";
+import type { StandingEligibilityClass } from "@/api/notificationEngine";
 import type { PlayerSide } from "@levelup/types";
 import type { StandingWaitingListEntry } from "@/types";
 
@@ -28,7 +29,7 @@ interface Props {
   onAdded?: (entry: StandingWaitingListEntry) => void;
   /** PAD-507: renew this entry — only its end date changes; credits stay. */
   renewing?: StandingWaitingListEntry | null;
-  /** PAD-672 (waiting-list rule 4d, Q4): the student's profile side — the side picked by default. */
+  /** PAD-672 (waiting-list rule 4e, Q4): the student's profile side — the side picked by default. */
   profileSide?: PlayerSide | null;
 }
 
@@ -46,6 +47,10 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
   const [loading, setLoading] = useState(false);
   // Q4: the side is chosen per entry, defaulting to the profile side; none chosen sends none.
   const [side, setSide] = useState<PlayerSide | null>(standingDefaultSide(profileSide));
+  // PAD-724 (PAD-669 R5, waiting-list rule 2a): the classes in reach whose bar the student fails,
+  // shown before the add; null until checked. Asked on the submit path only (D's side group, PAD-672,
+  // sits in the form body above it).
+  const [warnClasses, setWarnClasses] = useState<StandingEligibilityClass[] | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -54,6 +59,7 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
     setToday(now);
     setExpiresOn(standingEndFor(DEFAULT_STANDING_PRESET, now));
   }, [open, profileSide]);
+  useEffect(() => setWarnClasses(null), [open, expiresOn]);
 
   const { min, max } = standingEndBounds(today);
   const valid = isStandingEndAllowed(expiresOn, today);
@@ -62,6 +68,14 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
   const handleConfirm = async () => {
     if (!valid) return;
     setLoading(true);
+    if (!renewing && warnClasses === null) {
+      const { classes } = await checkStandingEligibility(playerId, expiresOn).catch(() => ({ classes: [] }));
+      if (classes.length > 0) {
+        setWarnClasses(classes);
+        setLoading(false);
+        return;
+      }
+    }
     try {
       const entry = renewing
         ? await renewStandingWaitingListEntry(renewing.id, expiresOn)
@@ -134,7 +148,7 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
             </p>
           </div>
 
-          {/* PAD-672 (rule 4d, Q4): the side the entry is asked for (adding only). */}
+          {/* PAD-672 (rule 4e, Q4): the side the entry is asked for (adding only). */}
           {!renewing && (
             <div className="space-y-2" data-testid="standing-wl-side">
               <p className="text-sm font-medium">{t("calendar.sidePick.standing.label")}</p>
@@ -186,11 +200,29 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
           )}
         </div>
 
+        {warnClasses && warnClasses.length > 0 ? (
+          <div data-testid="standing-wl-eligibility-warning" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+            <p className="font-medium">{t("calendar.eligibilityConfirm.waitingListTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.standingClasses")}</p>
+            <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+              {warnClasses.map((c) => (
+                <li key={c.lessonInstanceId}>
+                  {c.title ?? ""} · {c.startDatetime.slice(8, 10)}/{c.startDatetime.slice(5, 7)} {c.startDatetime.slice(11, 16)}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.waitingListBody")}</p>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={loading}>{t("common.cancel")}</Button>
           <Button onClick={handleConfirm} disabled={loading || !valid} data-testid="standing-wl-confirm">
             {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-            {renewing ? t("players.renewWaitingList") : t("players.addToWaitingList")}
+            {renewing
+              ? t("players.renewWaitingList")
+              : warnClasses && warnClasses.length > 0
+                ? t("calendar.eligibilityConfirm.confirm")
+                : t("players.addToWaitingList")}
           </Button>
         </DialogFooter>
       </DialogContent>

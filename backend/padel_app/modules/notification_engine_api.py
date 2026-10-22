@@ -689,6 +689,30 @@ def standing_waiting_list_add():
     return jsonify(added), 201
 
 
+@bp.post("/standing_waiting_list/eligibility_check")
+@jwt_required()
+def standing_waiting_list_eligibility_check():
+    """PAD-724 (notifications.waiting-list rule 2a): before adding a student to the standing list,
+    the classes it would reach whose bar they fail, with PAD-133's reasons. Read-only, like
+    `/eligibility_check`: the coach is warned and decides; the add itself never blocks."""
+    from padel_app.services.notification_service import standing_eligibility_failures
+
+    coach = _current_coach()
+    data = request.get_json() or {}
+    try:
+        player_id = int(data.get("playerId"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "playerId must be an integer"}), 400
+    try:
+        if "expiresOn" in data:
+            expires_at = standing_end_from_date(data.get("expiresOn"))
+        else:
+            expires_at = standing_end_from_days(data.get("durationDays", 30))
+    except InvalidStandingEndError as exc:
+        return jsonify({"error": "invalid_fields", "fields": [exc.field]}), 400
+    return jsonify({"classes": standing_eligibility_failures(coach.id, player_id, expires_at)})
+
+
 @bp.patch("/standing_waiting_list/<int:entry_id>")
 @jwt_required()
 def standing_waiting_list_renew(entry_id: int):

@@ -33,7 +33,7 @@ import { findClassOnCalendar } from "../helpers/calendar-navigation";
 import { API_ROOT } from "../helpers/api";
 import { deleteClassJoinRequests, removeClassesOnDay } from "../helpers/cleanup";
 
-const TITLE = "E2E Side Class";
+const TITLE = `E2E Side Class ${Date.now().toString(36)}`; // unique per run: a timed-out run cannot clean up
 
 /** A one-hour slot starting about `hours` from now on the machine's (club) clock, never past 22:00. */
 function slotHoursAhead(hours: number): { day: string; startTime: string; endTime: string } {
@@ -89,11 +89,15 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
   const roster = (await rosterRes.json()) as Array<{ playerId: number; name: string; side?: string | null }>;
   const student = roster.find((p) => p.name === "E2E Student");
   const student2 = roster.find((p) => p.name === "E2E Student Two");
+  // Session C (rule 2c): the freed spot's side follows the players who stay, so the one staying must
+  // be LEFT for Student Two's (right) spot to count to the right. Every seed "Filler Player" is right,
+  // so the spec switches one filler to left for its run and restores it after.
   const filler = roster.find((p) => p.name.startsWith("Filler Player"));
   expect(student && student2 && filler, "the seeded students and a filler are on the roster").toBeTruthy();
   const savedSides = new Map<number, string | null>([
     [student!.playerId, student!.side ?? null],
     [student2!.playerId, student2!.side ?? null],
+    [filler!.playerId, filler!.side ?? null],
   ]);
 
   const configRes = await request.get(`${API_ROOT}/app/notify/config`, { headers: coachAuth });
@@ -104,6 +108,7 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
   try {
     await setSide(request, coachAuth, coach!.id, student!.playerId, "left");
     await setSide(request, coachAuth, coach!.id, student2!.playerId, "right");
+    await setSide(request, coachAuth, coach!.id, filler!.playerId, "left");
     const configured = await request.post(`${API_ROOT}/app/notify/config`, {
       headers: coachAuth,
       data: {
@@ -123,9 +128,10 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
         startTime,
         endTime,
         isRecurring: false,
-        // Session C: with notifications off nobody is invited, but the leaver's vacancy is still
-        // created on the decline (its side by rule 2c), so the only open spot is on the right.
-        notificationsEnabled: false,
+        // Notifications on: the right spot's round 1 asks only right players at the class's level,
+        // so E2E Student (left) gets no invitation. (Off is not honoured for a one-off class's
+        // materialised occurrence — Session C's engine bug, reported separately.)
+        notificationsEnabled: true,
         maxPlayers: 2,
         playerIds: [student2!.playerId, filler!.playerId],
       },
@@ -149,8 +155,8 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
     });
     expect(declined.ok(), `cancel_attendance: ${declined.status()} ${await declined.text()}`).toBeTruthy();
 
-    // Preconditions, read as the coach so a red explains itself: the filler still holds a place,
-    // Student Two does not, and nobody holds an invitation (so the student sees "Pedir para entrar").
+    // Preconditions, read as the coach so a red explains itself: the left filler still holds a
+    // place, Student Two does not, and E2E Student holds no invitation (so they see "Pedir para entrar").
     const coachView = await request.post(
       `${API_ROOT}/app/class_instance?model=${event!.model}&id=${event!.originalId}&date=${event!.date}`,
       { headers: coachAuth, data: {} }
@@ -164,13 +170,30 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
     expect(presenceOf(filler!.playerId), `the filler holds a place: ${JSON.stringify(detail.presences)}`).toBeTruthy();
     expect(presenceOf(filler!.playerId)?.status, "the filler is not absent").not.toBe("absent");
     expect(presenceOf(student2!.playerId)?.status, "Student Two stepped out").toBe("absent");
-    expect(detail.invitations ?? [], "notifications off: nobody is invited").toEqual([]);
+    expect(
+      (detail.invitations ?? []).filter((i) => String(i.playerId) === String(student!.playerId)),
+      `E2E Student is not invited to a right spot: ${JSON.stringify(detail.invitations)}`
+    ).toEqual([]);
+
+    // The student's calendar must offer the class as an open spot (the join action needs it).
+    // As the web shell asks (client-capabilities: open-spot events go only to a client that declares them).
+    const studentDay = await request.get(`${API_ROOT}/app/calendar`, {
+      headers: { ...studentAuth, "X-LevApp-Capabilities": "open-spots, join-side" },
+      params: { from: `${day}T00:00:00`, to: `${day}T23:59:59` },
+    });
+    const studentEvent = ((await studentDay.json()) as Array<Record<string, unknown>>).find((e) => e.title === TITLE);
+    expect(
+      studentEvent?.openSpot,
+      `the student's event offers an open spot: ${JSON.stringify(studentEvent)}`
+    ).toBe(true);
 
     // The student: open the class, ask to join; the sheet pre-selects Esquerda (the profile side).
     await loginAsStudent(page);
     await openCalendar(page);
     expect(await findClassOnCalendar(page, TITLE), "the class is on the student's calendar").toBe(true);
-    await page.getByTestId("calendar-event-card").filter({ hasText: TITLE }).first().click();
+    const sideCard = page.getByTestId("calendar-event-card").filter({ hasText: TITLE }).first();
+    await sideCard.click();
+    await expect(page.getByTestId("class-join-request"), "the open-spot join block").toBeVisible({ timeout: 15_000 });
     await page.getByTestId("class-join-request-button").click();
     const sheet = page.getByTestId("class-side-choice");
     await expect(sheet).toBeVisible();
@@ -187,7 +210,9 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
     expect(refusal.code).toBe("side_full");
     expect(refusal.sides).toEqual(["right"]);
     expect(refusal.requestedSide).toBe("left");
-    await expect(page.getByTestId("class-side-full-title")).toHaveText("Não há vaga na esquerda");
+    // Located by test id, never by copy (PAD-320; the account may render pt or en): the 409 body above
+    // already pinned sides ["right"] and requestedSide "left".
+    await expect(page.getByTestId("class-side-full-title")).toBeVisible();
     await expect(page.getByTestId("class-side-stay-waiting")).toBeVisible();
 
     // "Estou disposto a jogar em ambos": the same request again, with side both.

@@ -250,7 +250,7 @@ export function StandingWaitingListSection() {
           open
           onClose={() => setRenewing(null)}
           playerId={renewing.playerId}
-          playerName={renewing.playerName}
+          playerName={displayName(renewing.playerId, renewing.playerName)}
           renewing={renewing}
           onAdded={handleAdded}
         />

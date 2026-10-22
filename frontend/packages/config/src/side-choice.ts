@@ -1,6 +1,6 @@
 /**
  * PAD-672 slice 1 (classes.join-requests rule 20, classes.academy-class-booking rule 6,
- * notifications.waiting-list rule 4d): the student names the side they will play in a class when
+ * notifications.waiting-list rule 4e): the student names the side they will play in a class when
  * they ask to join it or join its waiting list. Pure, so web and iOS (whose unit runner cannot
  * mount a component) share one rule for the default, the wording and the 409 `side_full` answer.
  */

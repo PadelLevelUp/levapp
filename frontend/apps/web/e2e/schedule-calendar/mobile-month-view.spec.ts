@@ -1,3 +1,4 @@
+import { WEEK_STARTS_ON } from "../../../../packages/config/src/week-start";
 import { test, expect, type Page } from "@playwright/test";
 import {
   addDays,
@@ -32,8 +33,8 @@ const D10 = k(addDays(MONTH, 9));
 const D15 = k(addDays(MONTH, 14));
 
 function gridOf(month: Date) {
-  const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-  const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+  const start = startOfWeek(startOfMonth(month), { weekStartsOn: WEEK_STARTS_ON });
+  const end = endOfWeek(endOfMonth(month), { weekStartsOn: WEEK_STARTS_ON });
   const days: Date[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
   return { start, end, days };

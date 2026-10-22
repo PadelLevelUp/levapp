@@ -75,7 +75,7 @@ export function useInviteWaitingList({ metadata, received, api, notify }: UseInv
     if (busy) return;
     setBusy(true);
     try {
-      // PAD-672 (waiting-list rule 4d): this student was asked for a spot that may have been of
+      // PAD-672 (waiting-list rule 4e): this student was asked for a spot that may have been of
       // the other side in a widened round, so their join names `both`; storing their profile side
       // would hide them from spots they have just shown they would take.
       await api.join({ model: "LessonInstance", originalId: instanceId }, "both");

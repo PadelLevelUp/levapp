@@ -273,6 +273,9 @@
       "notYetAsked": "You can't confirm yet: wait for your coach's reminder. If you can't make it, say so now.",
       "alreadyMarked": "Your coach has already recorded your attendance for this class.",
       "declinedFinalHint": "You said you're not coming. If you change your mind, talk to your coach.",
+      "comeBack": "I can come after all",
+      "spotTaken": "Your spot has been taken",
+      "onWaitingList": "You're on the waiting list",
       "declinedFinalChat": "Talk to the coach"
     },
     "planning": {
@@ -461,6 +464,9 @@
       }
     },
     "eligibilityConfirm": {
+      "waitingListTitle": "Put a student who doesn't meet the bar on the waiting list?",
+      "waitingListBody": "It's your call — this only tells you what the bar says.",
+      "standingClasses": "Doesn't meet the bar for these classes:",
       "title": "Add students who don't meet the bar?",
       "body": "Enrolment is your call — this only tells you what the bar says.",
       "confirm": "Add anyway",
@@ -527,7 +533,7 @@
       "withdrawn": "Request withdrawn",
       "rejected": "The coach did not accept your request",
       "superseded": "This spot was taken before the coach decided",
-      "accepted": "Your request was accepted",
+      "accepted": "You're booked! You're enrolled in this class.",
       "acceptedNow": "You're in! You're enrolled in this class.",
       "failed": "Could not send the request",
       "refusal": {

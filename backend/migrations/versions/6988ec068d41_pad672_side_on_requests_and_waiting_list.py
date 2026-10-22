@@ -1,11 +1,11 @@
 """a side on join requests and waiting-list entries (PAD-672 slice 1)
 
 Revision ID: 6988ec068d41
-Revises: 741b857a286c
+Revises: f846919317aa
 Create Date: 2026-10-21 22:30:00.000000
 
 classes.join-requests rule 20, classes.academy-class-booking rule 6, notifications.waiting-list
-rule 4d: `side` (`left` | `right` | `both`, NULL = no side named) on `class_join_requests`,
+rule 4e: `side` (`left` | `right` | `both`, NULL = no side named) on `class_join_requests`,
 `waiting_list_entries` and `standing_waiting_list_entries`. Data-free: every existing row stays
 NULL, which the engine reads as today's "any spot". Guarded, so a second run changes nothing.
 """
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '6988ec068d41'
-down_revision = '741b857a286c'  # PAD-660
+down_revision = 'f846919317aa'  # #760 for now; onto c3e9a1f0d719 (PAD-719, #789) once it lands
 branch_labels = None
 depends_on = None
 

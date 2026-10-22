@@ -51,7 +51,10 @@ describe("the class screen", () => {
     expect(SCREEN).toContain('onPress={() => setSideSheet("request")}');
     expect(SCREEN).toContain('onPress={() => setSideSheet("waiting")}');
     expect(SCREEN).not.toContain("handleJoinRequest");
-    expect(SCREEN).not.toContain("joinClassWaitingList(event)");
+    // The waiting-list JOIN button opens the sheet; the only direct join left is PAD-684's
+    // "Afinal vou" come-back (the student's own place was taken), which keeps the profile side.
+    expect(SCREEN.match(/joinClassWaitingList\(event\)/g) ?? []).toHaveLength(1);
+    expect(SCREEN).toContain("handleComeBackWaitingList");
     expect(SCREEN).toMatch(/profileSide=\{instance\?\.profileSide \?\? event\.profileSide \?\? null\}/);
   });
 
