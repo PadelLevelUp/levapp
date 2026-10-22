@@ -48,6 +48,7 @@ import {
   useStandingWaitingList,
 } from "@/features/players/hooks";
 import { LevelLabel } from "@/features/players/LevelLabel";
+import { PlayerContactRows } from "@/features/players/player-contact-rows";
 import { summarizeNotificationBlock } from "@/features/players/notification-block";
 import {
   PlayerForm,
@@ -694,14 +695,7 @@ export default function PlayerDetailScreen() {
               <CardTitle>{t("players.info")}</CardTitle>
             </CardHeader>
             <CardContent className="gap-3">
-              <View className="gap-1">
-                <Text className="text-sm text-muted-foreground">
-                  Email: {player.email || "—"}
-                </Text>
-                <Text className="text-sm text-muted-foreground">
-                  Phone: {player.phone || "—"}
-                </Text>
-              </View>
+              <PlayerContactRows email={player.email} phone={player.phone} />
                 {notificationBlock.blocked ? (
                   <View
                     className="gap-1 rounded-lg border border-dashed border-warning bg-warning/5 p-3"
