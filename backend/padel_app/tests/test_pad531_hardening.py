@@ -221,6 +221,27 @@ def test_the_console_sends_its_security_headers_on_every_location():
     assert "FROM node:22-alpine" in dockerfile
 
 
+URL_TOKEN_REFUSALS = [
+    'if ($arg_token != "") { return 404; }',
+    'if ($arg_t != "") { return 404; }',
+    'if ($arg_access_token != "") { return 404; }',
+]
+
+
+@pytest.mark.parametrize("conf", [
+    "infra/nginx/sites-available/levapp-admin",
+    "infra/nginx/sites-available/levapp-admin-staging",
+    "frontend/apps/admin/nginx.conf",
+])
+def test_every_nginx_in_front_of_the_console_refuses_a_url_token(conf):
+    """auth.login rule 4a: the host vhost on the VM, the image's own nginx on GKE (PAD-698)."""
+    text = (ROOT / conf).read_text()
+    for line in URL_TOKEN_REFUSALS:
+        assert line in text, (conf, line)
+    # At server level, ahead of every location: nginx runs server-level rewrite directives first.
+    assert text.index(URL_TOKEN_REFUSALS[0]) < text.index("location ")
+
+
 def test_a_non_staff_owner_row_never_counts_as_the_last_owner(app, client):
     """A staging database whose prod sync failed may keep an old seeded owner row for a
     non-@levapp.app email. It can never sign in, so it must not let the last real owner go."""

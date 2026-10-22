@@ -1,0 +1,91 @@
+# Backend settings (delivery.k8s-manifests rules 3-4).
+# - Load-balancer request logging is off on every backend: it records the full URL, and tokens
+#   travel in query strings (?token= on the SSE stream and the activation lookup). Request logs come
+#   from the images (gunicorn's path-only access log, the web/admin nginx redacted format); the
+#   load balancer's own 5xx and unmatched 404s exist only as metrics.
+# - events: 3600 s, the longest a stream may stay open (the default 30 s would cut every stream).
+# - api: 60 s, the VM nginx's read timeout.
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: events
+spec:
+  targetRef: {group: "", kind: Service, name: events}
+  default:
+    timeoutSec: 3600
+    connectionDraining: {drainingTimeoutSec: 60}
+    logging: {enabled: false}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: api
+spec:
+  targetRef: {group: "", kind: Service, name: api}
+  default:
+    timeoutSec: 60
+    connectionDraining: {drainingTimeoutSec: 30}
+    logging: {enabled: false}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: web
+spec:
+  targetRef: {group: "", kind: Service, name: web}
+  default:
+    logging: {enabled: false}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: admin
+spec:
+  targetRef: {group: "", kind: Service, name: admin}
+  default:
+    logging: {enabled: false}
+---
+# The load balancer's own health checks: readiness for the API and events, the page for web/admin.
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: api
+spec:
+  targetRef: {group: "", kind: Service, name: api}
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck: {requestPath: /api/app/healthz, port: 80}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: events
+spec:
+  targetRef: {group: "", kind: Service, name: events}
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck: {requestPath: /api/app/healthz, port: 80}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: web
+spec:
+  targetRef: {group: "", kind: Service, name: web}
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck: {requestPath: /, port: 80}
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: admin
+spec:
+  targetRef: {group: "", kind: Service, name: admin}
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck: {requestPath: /, port: 80}

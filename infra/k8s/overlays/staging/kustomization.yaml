@@ -1,0 +1,30 @@
+# PAD-698: the staging environment. Image names and tags, and the Workload Identity annotation, are
+# placeholders the deploy workflow sets (PAD-703); no project identifier is tracked (R-036).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: staging-levapp
+resources:
+  - namespace.yaml
+  - ../../base
+
+images:
+  - {name: levapp-backend, newName: REGISTRY/levelup_backend, newTag: staging}
+  - {name: levapp-web, newName: REGISTRY/levelup_frontend, newTag: staging}
+  - {name: levapp-admin, newName: REGISTRY/levelup_admin, newTag: staging}
+patches:
+  - target: {kind: Gateway, name: levapp}
+    patch: |-
+      - {op: replace, path: /metadata/annotations/networking.gke.io~1certmap, value: levapp-staging}
+      - {op: replace, path: /spec/addresses/0/value, value: levapp-staging-gateway}
+  - target: {kind: HTTPRoute, name: app}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [staging.levapp.app]}
+  - target: {kind: HTTPRoute, name: api-host}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [api.staging.levapp.app]}
+  - target: {kind: HTTPRoute, name: admin}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [admin.staging.levapp.app]}
+  - target: {kind: HTTPRoute, name: http-redirect}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [staging.levapp.app, api.staging.levapp.app, admin.staging.levapp.app]}

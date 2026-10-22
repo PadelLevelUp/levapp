@@ -1,0 +1,63 @@
+# The API (delivery.k8s-manifests rules 1-2). `args`, never `command`: the image's ENTRYPOINT
+# (scripts/entrypoint.sh) runs the schema boot gate before exec'ing these args
+# (zero-downtime-deploy rule 10). The access log is path-only (%(U)s): the load balancer's own log
+# is off because it would record ?token= query strings (rule 4).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels: {app.kubernetes.io/name: api}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app.kubernetes.io/name: api}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: api}
+    spec:
+      serviceAccountName: levapp-backend
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: api
+          image: levapp-backend
+          args: ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "1", "--threads", "64",
+                 "--timeout", "3600", "--access-logfile", "-",
+                 "--access-logformat", "%(m)s %(U)s %(s)s %(L)s \"%(a)s\"", "app:run_app"]
+          ports: [{name: http, containerPort: 80}]
+          env:
+            - {name: ROLE, value: api}
+            - {name: WORKER_SPLIT, value: "on"}
+            - {name: SSE_BROKER, value: postgres}
+          envFrom:
+            - configMapRef: {name: levapp-config}
+            - secretRef: {name: levapp-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+          startupProbe:
+            httpGet: {path: /api/app/healthz, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /api/app/healthz, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /api/app/livez, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            # The load balancer takes the endpoint out before the process stops listening
+            # (B-663/B-664: a request must never meet a port that accepts and then resets).
+            preStop: {exec: {command: ["sleep", "10"]}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels: {app.kubernetes.io/name: api}
+spec:
+  selector: {app.kubernetes.io/name: api}
+  ports: [{name: http, port: 80, targetPort: http}]

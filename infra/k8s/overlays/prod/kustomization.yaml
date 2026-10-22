@@ -1,0 +1,30 @@
+# PAD-698: the prod environment. Image names and tags, and the Workload Identity annotation, are
+# placeholders the deploy workflow sets (PAD-703); no project identifier is tracked (R-036).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: levapp
+resources:
+  - namespace.yaml
+  - ../../base
+  - legacy-domain.yaml
+images:
+  - {name: levapp-backend, newName: REGISTRY/levelup_backend, newTag: latest}
+  - {name: levapp-web, newName: REGISTRY/levelup_frontend, newTag: latest}
+  - {name: levapp-admin, newName: REGISTRY/levelup_admin, newTag: latest}
+patches:
+  - target: {kind: Gateway, name: levapp}
+    patch: |-
+      - {op: replace, path: /metadata/annotations/networking.gke.io~1certmap, value: levapp-prod}
+      - {op: replace, path: /spec/addresses/0/value, value: levapp-prod-gateway}
+  - target: {kind: HTTPRoute, name: app}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [levapp.app, www.levapp.app]}
+  - target: {kind: HTTPRoute, name: api-host}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [api.levapp.app]}
+  - target: {kind: HTTPRoute, name: admin}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [admin.levapp.app]}
+  - target: {kind: HTTPRoute, name: http-redirect}
+    patch: |-
+      - {op: replace, path: /spec/hostnames, value: [levapp.app, www.levapp.app, api.levapp.app, admin.levapp.app, padellevelup.com, www.padellevelup.com]}
