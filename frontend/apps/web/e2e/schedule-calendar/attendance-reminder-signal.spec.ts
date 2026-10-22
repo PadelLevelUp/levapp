@@ -46,7 +46,8 @@ test("PAD-199: the attendance badge follows reminderSentAt, never invited", asyn
   const payload = (await (await detail).json()) as { presences?: PresenceRow[] };
 
   // PAD-659: the coach's read view is the grouped list (`participant-row-<id>`), not `attendance-row`.
-  const row = page.getByTestId(/^participant-row-/).filter({ hasText: "E2E Student" }).first();
+  // Exact name: "E2E Student Two" also contains "E2E Student", and other specs invite that student.
+  const row = page.getByTestId(/^participant-row-/).filter({ has: page.getByText("E2E Student", { exact: true }) }).first();
   await expect(row).toBeVisible({ timeout: 10_000 });
   const playerId = Number((await row.getAttribute("data-testid"))!.replace("participant-row-", ""));
   const presence = (payload.presences ?? []).find((p) => p.playerId === playerId);
