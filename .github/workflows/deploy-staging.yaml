@@ -164,7 +164,11 @@ jobs:
       with:
         context: backend
         push: true
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+        # PAD-703: also the commit's own tag, so the GKE deploy and its rollback name an image that
+        # never moves (the VM keeps pulling :staging).
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+          ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:${{ github.sha }}
         platforms: linux/amd64
         # PAD-534 (admin.engine-health rule 4): the image knows its commit.
         build-args: |
@@ -316,7 +320,11 @@ jobs:
         with:
           context: frontend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:staging
+          # PAD-703: also the commit's own tag, so the GKE deploy and its rollback name an image that
+          # never moves (the VM keeps pulling :staging).
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:staging
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_frontend:${{ github.sha }}
           platforms: linux/amd64
           # PAD-469: the HubSpot demo form on the landing page. A repository
           # *variable* (the ID is public). Its own name, so staging can stay on
@@ -375,7 +383,11 @@ jobs:
           context: frontend
           file: frontend/Dockerfile.admin
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:staging
+          # PAD-703: also the commit's own tag, so the GKE deploy and its rollback name an image that
+          # never moves (the VM keeps pulling :staging).
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:staging
+            ${{ secrets.DOCKERHUB_USERNAME }}/levelup_admin:${{ github.sha }}
           platforms: linux/amd64
       - name: Deploy on GCE
         uses: appleboy/ssh-action@v1.2.5

@@ -10,7 +10,7 @@ governed_by: [R-027, R-036]
 
 # delivery.k8s-manifests
 
-> Linear: PAD-698 (C1 of PAD-686); rules 8–10 PAD-702 (C4). Drafted 2026-10-22 by la-2110-SessionF (wave 17). Design
+> Linear: PAD-698 (C1 of PAD-686); rules 8–10 PAD-702 (C4); rule 11 PAD-703 (C5). Drafted 2026-10-22 by la-2110-SessionF (wave 17). Design
 > reviewed by the architecture session 2026-10-22 (`docs/plans/2026-10-22-pad-698-design.md`,
 > local; the review's appendix is on PAD-698). Nothing here is applied anywhere: the first apply is
 > PAD-705's staging cluster, through PAD-703's workflow.
@@ -25,6 +25,9 @@ it does not exist.
   `infra/k8s/jobs/` (the migrate Job), `infra/k8s/overlays/{staging,prod}/` (+ `migrate/`).
 - Config and secrets (PAD-702): `infra/k8s/overlays/<env>/config/` (a Component),
   `overlays/<env>/sources.txt`, `infra/k8s/unset-keys.txt`, `infra/k8s/write-config.sh`.
+- The deploy (PAD-703): `.github/workflows/deploy-gke.yaml` (dispatch) and `_deploy-gke.yaml`
+  (reusable), `infra/k8s/render.sh`, `migrate-job.sh`, `smoke.sh`; `deploy-staging.yaml` also
+  pushes `:<sha>`.
 - `.github/workflows/k8s-lint.yaml`; `frontend/apps/admin/nginx.conf` (URL-token refusal, rule 3).
 - Web, mobile: no change.
 
@@ -151,6 +154,39 @@ it does not exist.
 
    Every `unset-keys.txt` line is a key the code reads (or, for `template-unread`, one it
    doesn't), so no stale entries.
+11. **The deploy workflow.** (PAD-703.) `deploy-gke.yaml` is dispatched by hand, with `environment`
+   and `image_tag` (default: the commit). Pushes to staging join in PAD-705 and main in PAD-708.
+   It calls `_deploy-gke.yaml`, which runs as the GitHub Environment of the same name with
+   Workload Identity Federation (no key file). Every identifier comes from a GitHub variable.
+   Concurrency per environment, never cancelled in progress. In order:
+   1. `image_tag` must be on the environment's branch (`main` for prod, `staging` for staging),
+      or the run stops: once staging pushes `:<sha>`, an unmerged commit's image exists too;
+   2. the three images must exist at that tag, checked after a Docker Hub login; nothing is
+      built here;
+   3. the namespace and the pull Secret `levapp-registry` (from the Docker Hub secrets) are
+      applied. Every ServiceAccount (`levapp-backend`, `levapp-web`) lists it in
+      `imagePullSecrets`, whether the repositories are private or public (the anonymous cap);
+   4. `write-config.sh`, in **one step per environment**, each with a plain `env:` block equal
+      to that environment's `sources.txt`. There is never an `a && b || c` fall-through: an
+      empty prod secret must fail by name, not take staging's. Then the Secret, and the
+      checksum;
+   5. `render.sh` fills the placeholders (registry, tag, GSA, checksum), refuses an empty or
+      malformed value, and fails if any placeholder is left;
+   6. `migrate-job.sh` waits for a running Job (never deleting it while active), deletes and
+      applies, and polls for `Complete` **or `Failed`** (fails fast; `kubectl wait` would sit
+      until its timeout on a failed Job). It always prints the Job's log. Nothing else is applied
+      unless it completed;
+   7. apply, then `rollout status` for the five Deployments. On a failed rollout the old pods
+      keep serving (`maxUnavailable 0`);
+   8. `smoke.sh` through the public hostnames. Always: healthz, livez, the web root, the AASA
+      content type, HTTP→HTTPS. On staging, with the smoke user (owner-made, staging-only, no
+      real data): sign-in, `/api/auth/me`, the calendar, its signed avatar URL, and SSE held
+      60 s. The load balancer's 5xx come from Cloud Monitoring, not logs (rule 4).
+
+   A rollback is the same workflow with the previous tag: the database is then ahead of the
+   image, the migrate Job does nothing, and readiness answers `schema_ahead` (zero-downtime-deploy
+   rules 9–11). There is no `flask db check` refusal; the drift gate stays in CI. `dry_run`
+   renders, checks and diffs only.
 
 ### Acceptance Criteria
 
@@ -231,6 +267,27 @@ it does not exist.
   Deployment's `env` or `unset-keys.txt`, for each environment
 - **Given** a mutant `os.getenv("PAD702_MUTANT_KEY")` in config.py **Then** the guard fails for
   both environments
+
+#### The deploy's guards (rule 11)
+- **Given** `_deploy-gke.yaml` **Then** after checkout the first step checks the tag is on the
+  environment's branch; the Docker Hub login comes before the image check; migrate comes before
+  apply, and apply before smoke. Each environment's write-config `env:` equals its `sources.txt`,
+  with no `||` or `&&`, and no `run:` contains `${{ secrets.`
+
+#### Every pod pulls with credentials (rule 11)
+- **Given** either environment's renders **Then** every Deployment's and the Job's
+  ServiceAccount lists `levapp-registry` in `imagePullSecrets`
+
+#### The migrate Job's outcome (rule 11)
+- **Given** a stub cluster **When** the Job completes **Then** exit 0 with its log; **when** it
+  fails **Then** exit 1 at the first poll, with its log; **when** an earlier Job is still active
+  **Then** it is waited for, and deleted only once inactive, or left alone and exit 1 after the
+  bound
+
+#### render.sh fills or refuses (rule 11)
+- **Given** registry, tag, GSA and checksum **Then** every image, the Workload Identity annotation
+  and the checksum annotation carry them; **given** one missing or with a `|` in it **Then**
+  exit 1, nothing printed
 
 ### Notes
 - Autopilot rounds requests to its minimums and CPU:memory ratio; the tests read the rendered

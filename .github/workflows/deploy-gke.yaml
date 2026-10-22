@@ -1,0 +1,38 @@
+name: Deploy to GKE
+
+# PAD-703 (delivery.k8s-manifests rule 11). Manual only until PAD-705 has a cluster: then a push to
+# staging joins, and main after the prod cutover (PAD-708). Nothing is built here: image_tag must
+# name a commit on the environment's branch whose images deploy-<env>.yaml already pushed, so the
+# main-source guard and the drift gate stay in the path. A rollback is this workflow with an older
+# image_tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Where to deploy"
+        type: choice
+        options: [ staging, prod ]
+        required: true
+      image_tag:
+        description: "Commit SHA whose images to deploy (default: this run's commit)"
+        type: string
+        required: false
+      dry_run:
+        description: "Render, check and diff only; apply nothing"
+        type: boolean
+        default: false
+
+# Never cancel a deploy mid-migrate; a second run for the same environment waits.
+concurrency:
+  group: deploy-gke-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy-gke.yaml
+    with:
+      environment: ${{ inputs.environment }}
+      image_tag: ${{ inputs.image_tag || github.sha }}
+      dry_run: ${{ inputs.dry_run }}
+    secrets: inherit
