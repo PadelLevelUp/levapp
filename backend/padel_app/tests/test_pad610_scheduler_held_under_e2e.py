@@ -24,6 +24,9 @@ class _FakeScheduler:
     def add_job(self, *args, **kwargs):
         pass
 
+    def get_job(self, job_id):
+        return None  # B-667: an empty store, as on a first boot
+
     def add_listener(self, *args, **kwargs):
         pass
 

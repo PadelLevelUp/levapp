@@ -27,4 +27,6 @@ export const COACH_NAME_LIST: readonly CoachNameListEntry[] = [
   { file: "src/pages/PlayerDetailPage.tsx", max: 2, kind: "allowed", reason: "the profile edit draft saves the real name (rule 2)" },
   { file: "src/pages/PlayerInvitePage.tsx", max: 1, kind: "allowed", reason: "the invited student's own name on their invite page" },
   { file: "src/pages/PresencesPage.tsx", max: 1, kind: "allowed", reason: "walk-in roster option fallback; the dialog resolves it with displayName(" },
+  { file: "src/site/mockups/CalendarMockup.tsx", max: 1, kind: "allowed", reason: "PAD-656 marketing mock-up: the design's fictitious academy and people, not a coach's student" },
+  { file: "src/site/mockups/coachMockups.tsx", max: 4, kind: "allowed", reason: "PAD-656 marketing mock-up: the design's fictitious names (Marta Silva, Ana Matos…), not a coach's student" },
 ] as const;

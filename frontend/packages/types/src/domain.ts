@@ -467,6 +467,13 @@ export interface ClassJoinRequest {
   decidedAt: string | null;
   /** PAD-358: the student's optional note to the coach. */
   note?: string | null;
+  /** PAD-672 (join-requests rule 20): the side asked for; null on a request from before. */
+  side?: PlayerSide | null;
+  /**
+   * PAD-672 (rule 20, Q6): the request's side when it is left/right and the student has no
+   * profile side with this coach, else null — the coach may adopt it for the profile.
+   */
+  suggestedProfileSide?: 'left' | 'right' | null;
 }
 
 /**
@@ -515,6 +522,8 @@ export interface ClassInvitation {
   answer: 'yes' | 'no' | null;
   /** Who recorded `answer` (invitations rule 9); `coach` adds "recorded by the coach" under the label. */
   answeredBy: 'student' | 'coach' | null;
+  /** PAD-719 (invitations rule 18a): when the engine moved it from another spot of the class; null if never. */
+  movedAt?: string | null;
 }
 
 export interface ClassInstance {
@@ -580,6 +589,11 @@ export interface ClassInstance {
   joinRequests?: ClassJoinRequest[];
   /** PAD-131: student only — their latest join request for this class, or null. */
   myJoinRequest?: ClassJoinRequest | null;
+  /**
+   * PAD-672 (join-requests rule 20, Q1): the student's profile side with this class's coach —
+   * the side picker's default; null/absent means the question is mandatory. Student payloads only.
+   */
+  profileSide?: PlayerSide | null;
   plannedExerciseIds?: string[];
   // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so
   // the student view can render deadline-aware cancel UX.
@@ -736,6 +750,11 @@ export interface CalendarEvent {
    * Absent on the student's own classes and on every coach event.
    */
   openSpot?: boolean;
+  /**
+   * PAD-672 (join-requests rule 20, Q1): on an open-spot event, the student's profile side with the
+   * class's coach — the side picker's default. null/absent: mandatory question.
+   */
+  profileSide?: PlayerSide | null;
   coachName?: string | null;
   /**
    * PAD-611 (calendar.view rule 22): what this class is to the student viewing it. Absent on a
@@ -769,7 +788,7 @@ export type StudentRelation =
 export interface AcademyClass extends CalendarEvent {
   state: "open" | "full";
   spotsLeft: number;
-  myJoinRequest: { id: number; status: ClassJoinRequest["status"] } | null;
+  myJoinRequest: { id: number; status: ClassJoinRequest["status"]; side?: PlayerSide | null } | null;
   onWaitingList: boolean;
 }
 
@@ -778,6 +797,8 @@ export interface AcademyClassesResponse {
   to: string;
   /** The coach's open-spots toggle: false explains an empty list (rule 2). */
   openSpotsVisible: boolean;
+  /** PAD-672 (join-requests rule 20, Q1): the student's profile side with this coach. */
+  profileSide?: PlayerSide | null;
   classes: AcademyClass[];
 }
 
@@ -1685,6 +1706,8 @@ export interface StandingWaitingListEntry {
   /** PAD-547 (waiting-list rule 19): set when the entry is scoped to one series. */
   lessonId?: number | null;
   lessonTitle?: string | null;
+  /** PAD-672 (waiting-list rule 4e, Q4): the side the entry is asked for; null/absent: any. */
+  side?: PlayerSide | null;
 }
 
 /** PAD-547 (waiting-list rule 20): where a class's waiting-list row came from. */

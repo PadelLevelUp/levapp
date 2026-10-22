@@ -246,6 +246,10 @@ jobs:
             -e LINEAR_API_KEY="${{ secrets.LINEAR_API_KEY }}" \
             -e WORK_GITHUB_REPO="${{ github.repository }}" \
             -e WORK_GITHUB_TOKEN="${{ secrets.WORK_GITHUB_TOKEN }}" \
+            -e ASC_KEY_ID="${{ vars.ASC_KEY_ID }}" \
+            -e ASC_ISSUER_ID="${{ vars.ASC_ISSUER_ID }}" \
+            -e ASC_PRIVATE_KEY="${{ secrets.ASC_PRIVATE_KEY }}" \
+            -e ASC_APP_ID="${{ vars.ASC_APP_ID }}" \
             ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
           # PAD-695: no worker outlives a deploy that did not pass --worker: WORKER_SPLIT is off, or a
           # rollback checked out a rollout.sh from before the worker role (it can neither swap nor remove

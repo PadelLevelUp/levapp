@@ -11,7 +11,12 @@ import { CONTACT_EMAIL } from "@levelup/config";
 const WEB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const LOCALES = path.resolve(WEB, "..", "..", "src", "locales");
 const FILES = [
-  "src/pages/LandingPage.tsx",
+  // PAD-656: the new site replaced LandingPage; its chrome and copy render the address.
+  "src/site/SiteLayout.tsx",
+  "src/site/SiteDemo.tsx",
+  "src/site/pages/ContactPage.tsx",
+  path.join(LOCALES, "pt", "site.json"),
+  path.join(LOCALES, "en", "site.json"),
   "src/pages/SupportPage.tsx",
   "public/support.html",
   path.join(LOCALES, "pt", "landing.json"),

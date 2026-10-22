@@ -51,6 +51,8 @@ export default defineConfig({
       "react-native": path.resolve(__dirname, "src/test/mocks/react-native.ts"),
       // reaches TurboModuleRegistry at load; animations are the simulator's job (PAD-393)
       "react-native-reanimated": path.resolve(__dirname, "src/test/mocks/react-native-reanimated.ts"),
+      // its entry pulls react-native's Flow sources; SelectContent reads the insets (PAD-727)
+      "react-native-safe-area-context": path.resolve(__dirname, "src/test/mocks/react-native-safe-area-context.ts"),
       "@": path.resolve(__dirname, "src"),
     },
   },

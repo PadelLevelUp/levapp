@@ -142,6 +142,18 @@ export async function editPlayer(player: CoachPlayer, updates: any) {
   return res.data;
 }
 
+/**
+ * PAD-672 (join-requests rule 20, Q6): save the side a join request suggested as the student's
+ * profile side — the same `edit_player` call the player form uses, with only `side` in `updates`.
+ */
+export async function setPlayerProfileSide(
+  coachId: string | number,
+  playerId: string | number,
+  side: "left" | "right",
+) {
+  return editPlayer({ coachId, playerId } as unknown as CoachPlayer, { side });
+}
+
 export async function getPlayerProfile(playerId: string): Promise<PlayerProfile | null> {
   const res = await getApi().get(`/app/player_profile/${playerId}`);
   return res.data;
