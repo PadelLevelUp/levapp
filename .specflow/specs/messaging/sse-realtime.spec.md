@@ -351,7 +351,9 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **Given** an app built by `create_app`, with no logging level set by the caller or the test
 - **When** the realtime logger's INFO level is checked, and again after the process runs Alembic's
   `fileConfig(alembic.ini, disable_existing_loggers=False)` as `migrations/env.py` does
-- **Then** `padel_app.realtime` has INFO enabled and is not disabled, both times. (Before B-676 the
+- **Then** `padel_app.realtime` has INFO enabled and is not disabled, both times; so do the `padel_app`
+  package logger (which is `app.logger`) and a sibling module such as `padel_app.scheduler`, while the
+  root logger stays at WARNING. (Before B-676 the
   effective level was the root's WARNING, so the stats line and "LISTEN ready" never reached the
   container logs.)
 

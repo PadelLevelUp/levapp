@@ -8,7 +8,7 @@ affects:
   - messaging.sse-realtime
   - backend/padel_app/realtime.py
   - backend/padel_app/tests/test_pad689_stream_observability.py
-proposed_fix: "realtime.init_app sets the padel_app.realtime logger to INFO (that logger only); cells built without caplog assert INFO is enabled, including after an in-process Alembic run."
+proposed_fix: "create_app sets the padel_app package logger to INFO (root stays WARNING), widened from padel_app.realtime only on the architecture review; cells built without caplog assert INFO for the package, realtime and a sibling module, and after an in-process Alembic run."
 opened: 2026-10-22T01:35:00Z
 ---
 
@@ -59,4 +59,7 @@ Alembic upgrade, which runs `fileConfig`; memory note alembic-fileconfig-disable
 
 - Spec changes: sse-realtime rule 25 criterion (this PR)
 - Tests: `test_pad689_stream_observability.py` (two cells without caplog)
-- Code: `realtime.init_app` sets the logger level
+- Code: `create_app` sets `padel_app` (the package logger, which IS `app.logger`) to INFO; root stays
+  WARNING. Widened from `padel_app.realtime` only (architecture review, coordinator go, 2026-10-22):
+  32 `logger.info` sites in 10 non-test files, none per request, docker rotation 10m×3. The two
+  existing `setLevel` calls (`helpers/llm.py`, `realtime.init_app`) are kept as they are.
