@@ -183,7 +183,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
           className="space-y-2 rounded-md border border-warning/40 bg-warning/5 p-3 text-sm"
           data-testid="player-duplicate-hint"
         >
-          <p>{t("players.claim.possibleDuplicateHint", { name: duplicate.name })}</p>
+          <p>{t("players.claim.possibleDuplicateHint", { name: duplicate.displayName ?? duplicate.name })}</p>
           <Button
             type="button"
             variant="default"
@@ -192,7 +192,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
             data-testid="player-claim-merge-into"
           >
             <GitMerge className="mr-2 h-4 w-4" />
-            {t("players.claim.mergeInto", { name: duplicate.name })}
+            {t("players.claim.mergeInto", { name: duplicate.displayName ?? duplicate.name })}
           </Button>
         </div>
       )}
@@ -263,7 +263,7 @@ export function ClaimLinkAction({ player }: { player: CoachPlayer }) {
                           }`}
                         >
                           <span>
-                            <span className="font-medium">{c.name}</span>
+                            <span className="font-medium">{c.displayName ?? c.name}</span>
                             {c.levelLabel && <span className="ml-2 text-muted-foreground">{c.levelLabel}</span>}
                           </span>
                           {c.sameName && (

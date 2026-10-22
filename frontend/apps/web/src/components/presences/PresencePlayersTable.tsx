@@ -59,6 +59,11 @@ const DEFAULT_VISIBLE: ColumnKey[] = [
  * Rows link into the existing per-player attendance history page rather than
  * duplicating it here.
  */
+/** A cell's value: the `name` column prints the coach's display name (PAD-683, rule 9a). */
+function cellOf(row: PresencePlayerStats, key: ColumnKey): string | number {
+  return key === "name" ? (row.displayName ?? row.name) : row[key];
+}
+
 export function PresencePlayersTable({
   players,
   loading,
@@ -105,7 +110,8 @@ export function PresencePlayersTable({
     // PAD-665: while a name is typed and the coach has not chosen a sort, best match first.
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
-      if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
+      // PAD-683 (rule 9a): sorted by the name the coach reads, the server's displayName.
+      if (sortKey === "name") return (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name) * dir;
       return ((a[sortKey] as number) - (b[sortKey] as number)) * dir;
     });
   }, [filtered, query, sortKey, sortDir]);
@@ -125,6 +131,7 @@ export function PresencePlayersTable({
       `"${String(value).replace(/"/g, '""')}"`;
     const header = shown.map((c) => escape(t(`presences.column.${c.key}`)));
     const body = rows.map((row) =>
+      // The CSV is a file the coach may send on: it keeps the real name (players.nickname rule 7).
       shown.map((c) => escape(row[c.key])).join(",")
     );
     const csv = [header.join(","), ...body].join("\n");
@@ -317,7 +324,7 @@ export function PresencePlayersTable({
                           : "font-medium"
                       )}
                     >
-                      {row[column.key]}
+                      {cellOf(row, column.key)}
                     </td>
                   ))}
                 </tr>

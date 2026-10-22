@@ -9,7 +9,7 @@ import { MAX_DAY_DOTS, dateCircleClass, dotColor } from "./DayStrip";
 
 /**
  * The Mês grid — calendar.mobile-views rule 16: a weekday header row, then
- * Monday-start cells for every week that touches the month. In-month cells
+ * week-start cells (Sunday, PAD-682) for every week that touches the month. In-month cells
  * carry the Dia strip's date-circle states and dot row; the leading and
  * trailing days of the neighbouring months render at 32% opacity and cannot
  * be tapped.

@@ -325,6 +325,7 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             proactive_decline_deadline,
             proactive_decline_window_is_open,
             student_may_confirm,
+            student_come_back,
         )
 
         proactive_config = None
@@ -358,6 +359,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                         "outcome": invitation_outcome(ev),
                         "answer": ev.answer,
                         "answeredBy": ev.answered_by,
+                        # PAD-719 (calendar.event-detail rule 16): set when the engine moved this
+                        # invitation from another spot of the class (invitations rule 18a).
+                        "movedAt": ev.moved_at.isoformat() if ev.moved_at else None,
                     }
                     for ev in notification_events
                 ],
@@ -389,6 +393,21 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                     if is_student
                     else False
                 ),
+                # PAD-684 (attendance.confirm rule 28): what a not_coming student's screen
+                # offers - "rejoin" | "waiting_list" | "on_waiting_list" | None. A coach
+                # viewer gets None.
+                "comeBack": (
+                    student_come_back(
+                        next(
+                            (p for p in getattr(obj, "presences", []) if p.player_id == viewer_player_id),
+                            None,
+                        ),
+                        obj,
+                        player_id=viewer_player_id,
+                    )
+                    if is_student
+                    else None
+                ),
             }
         )
         # PAD-275: the occurrence's own level when set, else the lesson's.
@@ -405,6 +424,11 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         if is_student:
             mine = latest_request_for_player(obj.id, viewer_player_id)
             data["myJoinRequest"] = serialize_join_request(mine) if mine else None
+            # PAD-672 (rule 20, Q1): the student's profile side with this class's coach — the side
+            # picker's default (none: the question is mandatory).
+            from padel_app.services.class_join_request_service import profile_side_for
+
+            data["profileSide"] = profile_side_for(obj, viewer_player_id)
         else:
             data["joinRequests"] = [
                 serialize_join_request(r) for r in pending_requests_for_instance(obj.id)
@@ -462,4 +486,5 @@ def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
         "canDeclineProactively": proactive_decline_window_is_open(stand_in, config),
         # PAD-570: no row yet means `planned`; the time-based ask alone can open it.
         "pendingConfirmation": student_may_confirm(None, stand_in, config),
+        "comeBack": None,  # PAD-684: a projected occurrence has no row, so nothing to come back to
     }

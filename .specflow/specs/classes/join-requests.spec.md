@@ -33,7 +33,15 @@ by a student's request — and whichever lands first wins.
    the coach's alone; nothing about a request is automatic.
 6. **On accept**, the student is enrolled exactly as any other enrolment: enrolment association plus
    presence, through the same path the invitation engine uses (`_add_player_to_instance`). Any
-   vacancy for that spot is marked filled and attributed to the requesting student.
+   vacancy for that spot is marked filled and attributed to the requesting student. **Which spot
+   (PAD-715, D7 of PAD-672; owner 2026-10-21, Q7):** a left or right student takes an open spot of
+   their own side (else a side-less one, else the oldest); a `both` or side-less student takes the
+   spot whose closing leaves the class most balanced — the going players' sides plus the sides of the
+   spots still open — the oldest on a tie (`vacancy_for_joiner`). Before PAD-715 it was always the
+   oldest open spot, so in a class of 10 with 4 left and 4 right going a right student could close
+   the left spot and the class end 4 / 6. The accept then re-counts the class's other open spots
+   with the student counted as going (`notifications.invitations` rule 2d), and the closed spot's
+   live invitations move or end by rule 18a, exactly as after a "yes".
 7. **Eligibility is re-checked at accept time.** Between request and decision the student's level or
    absence record may have changed. A student who no longer passes the bar is not silently enrolled:
    the coach gets the same named-reason warning as a manual add (`eligibility.enforcement` rule 7)
@@ -153,6 +161,88 @@ by a student's request — and whichever lands first wins.
       instead of the actions.
     - The student's own copy of the message never offers actions.
     - There's no "propose another time" for academy requests (coordinator, 2026-09-26).
+19. **An accepted request tells the student they have a place, never that a request "was accepted"
+    (PAD-678; numbering unconfirmed).** Two students read the old "Estás dentro: o teu pedido … foi
+    aceite" as a place on the waiting list. The decision message (rule 15) leads with the outcome and
+    never says "pedido" or "aceite", because "aceite" is what a waiting-list place sounds like. pt
+    (text approved by the coach, 2026-10-15): "Está marcado! Estás inscrito/a em {title} {when}.
+    Contamos contigo!". en: "You're booked! You're enrolled in {title} {when}. See you there!".
+    `{when}` is the weekday-first form of `notifications.message-templates` rule 17: pt
+    `na sexta-feira, 16/10, às 09:00` (`no` for sábado/domingo), en `on Friday, 16/10, at 09:00`.
+    "inscrito/a" is literal, so it serves students of any gender without reading a profile. A class
+    with no title reads "nesta aula" / "in this class". The conversation-list preview and the push body
+    are this text (`messaging.push-notifications`), so their first words are the outcome. The
+    student's class view says the same once the request is accepted: pt "Está marcado! Estás
+    inscrito/a nesta aula.", en "You're booked! You're enrolled in this class." (key
+    `calendar.joinRequest.accepted`, web and iOS).
+19a. **A refused request says the student is not in the class, in the same shape (PAD-678;
+    numbering unconfirmed).** pt: "Não ficaste inscrito/a em {title} {when}: o treinador não aceitou
+    o pedido desta vez."; en: "You're not enrolled in {title} {when}: the coach didn't accept the
+    request this time." Same `{when}`, the same "nesta aula" / "in this class" for an untitled class,
+    and the same language rule as rule 19. Texts approved by the coordinator on the owner's behalf
+    (2026-10-22); owner to confirm.
+
+20. **A request names the side the student will play in that class (PAD-672 slice 1; owner's answers
+    Q1, Q2, Q6, 2026-10-21; numbering unconfirmed).** The profile side (`Association_CoachPlayer.side`)
+    stays the default and is never changed by a request.
+    - **Wire.** `POST /api/app/class-join-requests` takes `side`: `"left"`, `"right"` or `"both"`.
+      The request stores it (`class_join_requests.side`, nullable). Both request lists and the
+      coach's class payload return `side` on each row, and `suggestedProfileSide` (the request's
+      side when it is `left`/`right` and the student has no profile side, else `null`) so the coach
+      can adopt it for the profile (Q6). The student's own class payload, each open-spot calendar
+      event and the academy-classes step carry `profileSide` (`left`|`right`|`both`|null, the student's
+      side with that class's coach) for the picker. The clients pre-select it and ask everyone,
+      `both` students included (Q1); for a student with no profile side the answer is mandatory.
+    - **Old clients keep today's behaviour (coordinator, binding).** The side round trip below exists
+      only for a client that declares the `join-side` capability (`X-LevApp-Capabilities`,
+      `client-capabilities` convention). A request without `side` from a client that does not
+      declare it — every App Store build up to 33 — is created exactly as before: no side check, no
+      409, `side` stored as the profile side (`null` when there is none). The token retires when
+      no client older than the first build that declares it can still be used (the App Store
+      minimum version moves past it).
+    - **A spot of that side** is an open vacancy of the class whose side is the requested one,
+      `both`, or none; for `side: "both"` any open vacancy. A class with free places but no open
+      vacancy yet (before its invitation window) has no side to refuse on: the request is taken.
+    - **No spot of that side, but one of another (capable clients only):** `409 side_full` with
+      `sides`, the sides of the open spots (`["right"]`), and `requestedSide`, and no request is
+      written. The client
+      shows two choices: play either side — the same request again with `side: "both"` — or join
+      the waiting list of that side (`classes.academy-class-booking` rule 6, with `side`).
+    - **Accepting** enrols the student with the request's side written on their presence for that
+      occurrence (`presences.side`, PAD-551's per-occurrence side) unless it is `both` or empty, and
+      closes a spot of that side (rule 6, `vacancy_for_joiner`, which reads that side).
+    - **A pending request whose side lost its last spot** (an invitation's "yes" or another accepted
+      request filled it — rule 10's fill paths — while the coach had not answered) is **moved to that
+      side's waiting list**
+      (Q2): it becomes `superseded` and an active waiting-list entry with its side is created (or an
+      existing one reactivated), in the same commit as the fill, and the student is told in their
+      conversation: pt "A vaga da {lado} em {aula} {quando} foi ocupada. Ficaste em lista de espera
+      da {lado}: avisamos-te se abrir uma vaga.", en "The {side} spot in {class} {when} was taken.
+      You're on the {side} waiting list: we'll let you know if a spot opens." A `both` request moves
+      only when the class has no open spot at all (rule 11's superseding, unchanged otherwise).
+    - Manual enrolment (Q8) sets the side through PAD-551's per-occurrence side
+      (`classes.instance-enrollment` rule 13); no new endpoint.
+    - **Clients (PAD-672 S1 UI; numbering unconfirmed).** Web and iOS ask the side in a sheet
+      ("Em que lado queres jogar nesta aula?": Direita, Esquerda, Ambos) before "Pedir para entrar"
+      and before a full class's waiting-list join (same sheet, waiting-list theme). The card of the
+      profile side is pre-selected and tagged "Habitual" (a `both` student is asked too); with no
+      profile side nothing is pre-selected and sending stays disabled. On `409 side_full` the sheet
+      offers two choices: "Estou disposto a jogar em ambos" (the same request again with `both`) and
+      the waiting list of the side asked for. A coach's join-request row shows the side as a chip and,
+      when `suggestedProfileSide` is set, "Usar <lado> no perfil", which saves it through
+      `edit_player`; the standing waiting-list add offers the same side choice, defaulting to the
+      profile side. Both shells declare `join-side` in the same change that ships the sheet.
+
+21. **A coach can let eligible requests in automatically (PAD-672 slice 2, D6; numbering
+    unconfirmed).** With `notifications.config` rule 3a on, a new request is accepted at creation
+    through the coach's own accept path (rule 6–9, rule 20's side) when: the class is open and not
+    full, the student is not in it, a spot of the request's side is open (rule 20) — or the class has
+    room and no vacancy yet —, the student passes the eligibility bar **without** the coach's
+    override (rule 7's confirmation is never given automatically), and the student is not on the
+    coach's excluded list (`excludedPlayers`). A request that fails any of these waits for the
+    coach, exactly as with the setting off. The request's own message (with its note, rule 15) is
+    still mirrored into the conversation, so the coach reads the note as information; it shows as
+    decided. The student is told as for any accept (rule 19).
 
 ### Acceptance Criteria
 
@@ -168,6 +258,13 @@ by a student's request — and whichever lands first wins.
 - **Then** the student is enrolled with an association and a presence
 - **And** any vacancy for that spot is marked filled and attributed to that student
 - **And** the request status becomes `accepted`
+
+#### The accepted student reads that they are in the class, not waiting (rule 19, PAD-678)
+- **Given** Carla's pending request for "PEAK PERFORMANCE" on Friday 16/10 at 09:00, and a Portuguese coach
+- **When** the coach accepts it
+- **Then** Carla's message reads "Está marcado! Estás inscrito/a em PEAK PERFORMANCE na sexta-feira, 16/10, às 09:00. Contamos contigo!"
+- **And** it contains neither "pedido" nor "aceite"
+- **And** with an English coach it reads "You're booked! You're enrolled in PEAK PERFORMANCE on Friday, 16/10, at 09:00. See you there!"
 
 #### Coach rejects
 - **Given** a pending request
@@ -260,6 +357,19 @@ by a student's request — and whichever lands first wins.
 - **When** Ana opens her conversation with Carla
 - **Then** the request message shows it was declined and offers no actions
 - **And** Carla's own copy of her request message never offers actions
+
+#### The sheet pre-selects the habitual side (PAD-672 S1 UI)
+- **Given** Carla's profile side with Ana is left, and Ana's class has an open spot
+- **When** Carla taps "Pedir para entrar"
+- **Then** the side sheet opens with Esquerda selected and tagged "Habitual", and sending is enabled
+- **And** sending posts the request with `side: "left"`
+
+#### No spot on the asked side offers both sides (PAD-672 S1 UI)
+- **Given** Carla's profile side is left and the class's only open spot is on the right
+- **When** Carla sends her request and the server answers `409 side_full`
+- **Then** the sheet shows "Não há vaga na esquerda" with "Estou disposto a jogar em ambos"
+- **When** she taps it
+- **Then** the request is sent again with `side: "both"` and is `pending`
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the

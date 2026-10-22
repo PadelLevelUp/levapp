@@ -1,0 +1,47 @@
+# The scheduler's jobs (delivery.worker-role). One replica, Recreate: one leader by the Postgres
+# lock, and the lock covers the gap. No Service: nothing calls it; /livez on 8081 is for the probe.
+# Grace 90 s: SIGTERM lets running jobs finish (the VM's stop grace is 60 s).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels: {app.kubernetes.io/name: worker}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: worker}
+  template:
+    metadata:
+      # PAD-702: the deploy workflow sets the hash write-config.sh prints, so a changed Secret
+      # rolls the pods (the Secret keeps one stable name).
+      annotations: {levapp.app/secrets-sha256: SECRETS_SHA256}
+      labels: {app.kubernetes.io/name: worker}
+    spec:
+      serviceAccountName: levapp-backend
+      terminationGracePeriodSeconds: 90
+      containers:
+        - name: worker
+          image: levapp-backend
+          args: ["python", "-m", "padel_app.worker"]
+          ports: [{name: livez, containerPort: 8081}]
+          env:
+            - {name: ROLE, value: worker}
+            - {name: WORKER_SPLIT, value: "on"}
+            - {name: SSE_BROKER, value: postgres}
+            # PAD-702: one shared rate budget across pods (auth.login rule 7, PAD-693).
+            - {name: AUTH_RATE_LIMIT_STORE, value: database}
+            - {name: WORKER_LIVEZ_PORT, value: "8081"}
+          envFrom:
+            - configMapRef: {name: levapp-config}
+            - secretRef: {name: levapp-secrets}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+          startupProbe:
+            httpGet: {path: /livez, port: livez}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /livez, port: livez}
+            periodSeconds: 20
+            failureThreshold: 3

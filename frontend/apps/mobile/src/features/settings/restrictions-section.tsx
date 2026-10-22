@@ -5,6 +5,7 @@ import {
   isValidQuietWindow,
   lightTheme,
   quietWindowOf,
+  sameDayDefaultNoteShown,
   stepRestriction,
   type QuietWindow,
   type SteppedRestrictionKey,
@@ -21,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { dismissSameDayDefaultNote, loadSameDayDefaultNoteDismissed } from "@/lib/same-day-default-note-storage";
 
 /**
  * The notification engine's restrictions on iOS — notifications.config rule 14 (PAD-433),
@@ -271,7 +273,7 @@ function ExcludedPlayers({
                   }}
                   className="border-b border-border px-3 py-2.5"
                 >
-                  <Text className="text-sm">{p.name}</Text>
+                  <Text className="text-sm">{displayName(p.id, p.name)}</Text>
                 </Pressable>
               ))}
             </View>
@@ -299,6 +301,43 @@ function ExcludedPlayers({
           ) : null}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * PAD-685 (rule 6e): the one-time note that the same-day restriction now comes on by default.
+ * Hidden until the device's stored mark is read, so a dismissed note never flashes.
+ */
+function SameDayDefaultNote() {
+  const { t } = useTranslation();
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    void loadSameDayDefaultNoteDismissed().then((stored) => {
+      if (alive) setShown(sameDayDefaultNoteShown(stored));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!shown) return null;
+  return (
+    <View testID="restriction-same-day-default-note" className="gap-2 rounded-md border border-border bg-muted p-3">
+      <Text className="text-xs">{t("settings.restrictions.noSameDayClassDefaultNote")}</Text>
+      <Pressable
+        testID="restriction-same-day-default-note-dismiss"
+        accessibilityRole="button"
+        onPress={() => {
+          setShown(false);
+          dismissSameDayDefaultNote();
+        }}
+        className="self-start py-1"
+      >
+        <Text className="text-xs font-medium text-primary">
+          {t("settings.restrictions.noSameDayClassDefaultNoteDismiss")}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -400,6 +439,7 @@ export function RestrictionsSection({
         }
       />
       {toggleRow("excludeUnpaidSubscription", t(`${r}.excludeUnpaid`), t(`${r}.excludeUnpaidDescription`))}
+      <SameDayDefaultNote />
       {toggleRow("noSameDayClass", t(`${r}.noSameDayClass`), t(`${r}.noSameDayClassDescription`))}
       <View testID="restriction-row-cancellationDeadlineHours" className="gap-2">
         <RowText label={t(`${r}.cancellationDeadline`)} description={t(`${r}.cancellationDeadlineDescription`)} />

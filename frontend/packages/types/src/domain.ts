@@ -342,7 +342,7 @@ export interface CoachPlayer {
    * same normalised name — the account this record is probably a duplicate of. `null` or
    * absent otherwise; never on a non-claimable row.
    */
-  possibleDuplicateOf?: { playerId: string | number; name: string } | null,
+  possibleDuplicateOf?: { playerId: string | number; name: string; displayName?: string } | null,
   /**
    * PAD-105: internal only. Coaches neither set nor see this — a coach-created
    * player carries a generated `pending-…` placeholder until the player picks
@@ -380,6 +380,8 @@ export interface CoachPlayer {
   notificationBlockReason?: string;
   /** PAD-232: push + email for requests that need you / decisions on yours. */
   requestAlerts?: boolean;
+  /** PAD-680: a sound for a new message or notification (notifications.notification-sound). */
+  notificationSound?: boolean;
 }
 
 export interface RecurrenceRule {
@@ -465,6 +467,13 @@ export interface ClassJoinRequest {
   decidedAt: string | null;
   /** PAD-358: the student's optional note to the coach. */
   note?: string | null;
+  /** PAD-672 (join-requests rule 20): the side asked for; null on a request from before. */
+  side?: PlayerSide | null;
+  /**
+   * PAD-672 (rule 20, Q6): the request's side when it is left/right and the student has no
+   * profile side with this coach, else null — the coach may adopt it for the profile.
+   */
+  suggestedProfileSide?: 'left' | 'right' | null;
 }
 
 /**
@@ -513,6 +522,8 @@ export interface ClassInvitation {
   answer: 'yes' | 'no' | null;
   /** Who recorded `answer` (invitations rule 9); `coach` adds "recorded by the coach" under the label. */
   answeredBy: 'student' | 'coach' | null;
+  /** PAD-719 (invitations rule 18a): when the engine moved it from another spot of the class; null if never. */
+  movedAt?: string | null;
 }
 
 export interface ClassInstance {
@@ -578,6 +589,11 @@ export interface ClassInstance {
   joinRequests?: ClassJoinRequest[];
   /** PAD-131: student only — their latest join request for this class, or null. */
   myJoinRequest?: ClassJoinRequest | null;
+  /**
+   * PAD-672 (join-requests rule 20, Q1): the student's profile side with this class's coach —
+   * the side picker's default; null/absent means the question is mandatory. Student payloads only.
+   */
+  profileSide?: PlayerSide | null;
   plannedExerciseIds?: string[];
   // PAD-43/PAD-46: coach's effective cancellation deadline for this instance so
   // the student view can render deadline-aware cancel UX.
@@ -597,6 +613,8 @@ export interface ClassInstance {
    * started), the same one the dashboard serves. `false` for a coach viewer.
    */
   pendingConfirmation?: boolean;
+  /** PAD-684 (attendance.confirm rule 28): "Afinal vou" state; absent on an older server. */
+  comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
   /** PAD-570 rule 28: the user behind `coachId`, for the chat shortcut after "Não vou". */
   coachUserId?: string | null;
 }
@@ -732,6 +750,11 @@ export interface CalendarEvent {
    * Absent on the student's own classes and on every coach event.
    */
   openSpot?: boolean;
+  /**
+   * PAD-672 (join-requests rule 20, Q1): on an open-spot event, the student's profile side with the
+   * class's coach — the side picker's default. null/absent: mandatory question.
+   */
+  profileSide?: PlayerSide | null;
   coachName?: string | null;
   /**
    * PAD-611 (calendar.view rule 22): what this class is to the student viewing it. Absent on a
@@ -765,7 +788,7 @@ export type StudentRelation =
 export interface AcademyClass extends CalendarEvent {
   state: "open" | "full";
   spotsLeft: number;
-  myJoinRequest: { id: number; status: ClassJoinRequest["status"] } | null;
+  myJoinRequest: { id: number; status: ClassJoinRequest["status"]; side?: PlayerSide | null } | null;
   onWaitingList: boolean;
 }
 
@@ -774,6 +797,8 @@ export interface AcademyClassesResponse {
   to: string;
   /** The coach's open-spots toggle: false explains an empty list (rule 2). */
   openSpotsVisible: boolean;
+  /** PAD-672 (join-requests rule 20, Q1): the student's profile side with this coach. */
+  profileSide?: PlayerSide | null;
   classes: AcademyClass[];
 }
 
@@ -991,7 +1016,15 @@ export interface DashboardNextClassBlock {
     filled: number;
     capacity: number;
     /** Signed-up players for the avatar stack, already capped by the server. */
-    players: Array<{ id: number; name: string; initials: string }>;
+    players: Array<{
+      id: number;
+      name: string;
+      initials: string;
+      /** PAD-683 (rule 9a): coach dashboard only; `initials` is then of the display name. */
+      nickname?: string | null;
+      nicknameAsName?: boolean;
+      displayName?: string;
+    }>;
     href: string;
     /**
      * PAD-202 (student only): the materialised instance behind the class, or
@@ -1000,6 +1033,8 @@ export interface DashboardNextClassBlock {
      */
     lessonInstanceId?: number | null;
     pendingConfirmation?: boolean;
+    /** PAD-684: see `ClassInstance.comeBack`. */
+    comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
     /** PAD-570: the student's one state word (`planned` for a projected occurrence). */
     attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
     /** PAD-570: how to decline a projected occurrence (`cancel_attendance` target). */
@@ -1025,6 +1060,11 @@ export interface DashboardNeedsYouReply {
   kind: "reply";
   id: string;
   personName: string;
+  /** PAD-683 (rule 9a): the coach's name for a sender who is their student (coach dashboard only). */
+  playerId?: number;
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   initials: string;
   preview: string;
   href: string;
@@ -1144,6 +1184,8 @@ export interface DashboardSchedule7dBlock {
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
       lessonInstanceId?: number | null;
       pendingConfirmation?: boolean;
+      /** PAD-684: see `ClassInstance.comeBack`. */
+      comeBack?: "rejoin" | "waiting_list" | "on_waiting_list" | null;
       /** PAD-570 — see `DashboardNextClassBlock`. */
       attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
       declineTarget?: { model: string; originalId: string | number; date: string } | null;
@@ -1284,7 +1326,7 @@ export interface NotificationRestrictions {
   /** PAD-132: reads `users.status` (account activation), never payment — labelled "Exclude inactive accounts"; id kept. */
   excludeUnpaidSubscription: { enabled: boolean };
   /** PAD-523 (notifications.config rule 6e): skip a student who already holds a spot in another class that
-   * club-local day. Off by default. Both settings sections fill it in when a server from before PAD-523 omits it. */
+   * club-local day. On by default (PAD-685, rule 6e). Both settings sections fill it in (on) when a server from before PAD-523 omits it. */
   noSameDayClass: { enabled: boolean };
   // Plain scalar (hours before class start). Cancellations after this window are
   // still allowed but flagged as "late cancellations". Backend key:
@@ -1305,6 +1347,10 @@ export interface StudentGroupPlayer {
   levelId: string | null;
   /** PAD-497: said "no" to an invitation for this class; the coach may still invite them. Absent from older servers. */
   declinedThisClass?: boolean;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
 }
 
 export interface StudentGroup {
@@ -1415,6 +1461,10 @@ export interface EligibilityFailure {
 export interface EligibilityCheckEntry {
   playerId: number;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   failures: EligibilityFailure[];
 }
 
@@ -1430,6 +1480,10 @@ export interface EligibilityCheckResult {
 export interface EligibilityImpactEntry {
   playerId: number;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; absent from older servers. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   instanceId: number;
   classTitle: string | null;
   /** Naive-UTC ISO start of the class. */
@@ -1493,6 +1547,10 @@ export type InviteSimulationPriority =
 export interface InviteSimulationCandidate {
   playerId: string;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   levelCode: string | null;
   levelId: string | null;
   side: PlayerSide | null;
@@ -1522,6 +1580,10 @@ export interface InviteSimulationRound {
 export interface InviteSimulationWaitingListEntry {
   playerId: string;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   standing: boolean;
   /** naive-UTC ISO instant the student joined the list (a standing entry's creation time) */
   joinedAt: string | null;
@@ -1561,6 +1623,10 @@ export type InviteExplainStage =
 export interface InviteExplain {
   playerId: string;
   name: string | null;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   stage: InviteExplainStage;
   details: {
     roundNumber?: number;
@@ -1640,6 +1706,8 @@ export interface StandingWaitingListEntry {
   /** PAD-547 (waiting-list rule 19): set when the entry is scoped to one series. */
   lessonId?: number | null;
   lessonTitle?: string | null;
+  /** PAD-672 (waiting-list rule 4e, Q4): the side the entry is asked for; null/absent: any. */
+  side?: PlayerSide | null;
 }
 
 /** PAD-547 (waiting-list rule 20): where a class's waiting-list row came from. */
@@ -1787,6 +1855,10 @@ export interface AbsenceHistory extends Omit<AttendanceHistory, "sessions"> {
 export interface PresencePlayerStats {
   playerId: number;
   name: string;
+  /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   /** Classes attended (`status === "present"`). Equals private + academy. */
   total: number;
   private: number;
@@ -1837,6 +1909,10 @@ export interface PendingValidationPlayer {
   presenceId: number;
   playerId: number;
   name: string;
+  /** PAD-683 (rule 9a): the asking coach's nickname keys; `name` stays real. */
+  nickname?: string | null;
+  nicknameAsName?: boolean;
+  displayName?: string;
   /**
    * PAD-313 (`attendance.validation` rule 20): the ONE state this row is in,
    * the same field and the same computation the class-detail presence carries,
@@ -1973,7 +2049,16 @@ export interface DashboardIncompletePlayersBlock {
     count: number;
     missingLevel: number;
     missingSide: number;
-    players: { playerId: number; name: string; missing: ProfileMissing[]; href: string }[];
+    players: {
+      playerId: number;
+      name: string;
+      /** PAD-683 (rule 9a): the coach's own nickname keys; `name` stays real. */
+      nickname?: string | null;
+      nicknameAsName?: boolean;
+      displayName?: string;
+      missing: ProfileMissing[];
+      href: string;
+    }[];
     seeAllHref: string;
   };
 }

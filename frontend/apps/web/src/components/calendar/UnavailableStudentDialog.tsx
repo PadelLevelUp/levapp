@@ -1,4 +1,6 @@
 import { useTranslation } from "react-i18next";
+import { blockedNames } from "@levelup/config";
+import { useCoachDisplayName } from "@levelup/hooks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +35,9 @@ export function UnavailableStudentDialog({
   onConfirm,
 }: UnavailableStudentDialogProps) {
   const { t } = useTranslation();
-  const names = students.map((s) => s.name).filter(Boolean).join(", ");
+  // PAD-683 (players.nickname rule 9b): a coach-only dialog; the rows carry only the real name.
+  const displayName = useCoachDisplayName();
+  const names = blockedNames(students, displayName);
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => !o && onCancel()}>

@@ -3,12 +3,15 @@ import {
   DEFAULT_STANDING_PRESET,
   STANDING_PRESETS,
   isStandingEndAllowed,
+  SIDE_CHOICE_ORDER,
   lightTheme,
+  sideLabelKey,
+  standingDefaultSide,
   standingEndFor,
   standingPresetOf,
 } from "@levelup/config";
 import { useCoachDisplayName } from "@levelup/hooks";
-import type { StandingWaitingListEntry } from "@levelup/types";
+import type { PlayerSide, StandingWaitingListEntry } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -24,6 +27,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
+import type { StandingEligibilityClass } from "@levelup/api/src/resources/notificationEngine";
 import { useAddToStandingWaitingList, useRenewStandingWaitingList } from "./hooks";
 
 const DEFAULT_CREDITS = 3;
@@ -40,6 +45,8 @@ interface WaitingListDialogProps {
   playerName: string | null;
   /** PAD-507: renew this entry — only its end date changes; credits stay. */
   renewing?: StandingWaitingListEntry | null;
+  /** PAD-672 (waiting-list rule 4e, Q4): the student's profile side — the side picked by default. */
+  profileSide?: PlayerSide | null;
 }
 
 /** Mobile port of web's AddToStandingWaitingListDialog.tsx (notifications.waiting-list rule 2,
@@ -52,6 +59,7 @@ export function WaitingListDialog({
   playerId,
   playerName,
   renewing,
+  profileSide,
 }: WaitingListDialogProps) {
   const { t } = useTranslation();
   // PAD-660: the coach reads the student under the nickname they gave them.
@@ -61,9 +69,15 @@ export function WaitingListDialog({
     standingEndFor(DEFAULT_STANDING_PRESET, new Date())
   );
   const [credits, setCredits] = React.useState(DEFAULT_CREDITS);
+  // Q4: the side is chosen per entry, defaulting to the profile side; none chosen sends none.
+  const [side, setSide] = React.useState<PlayerSide | null>(standingDefaultSide(profileSide));
   const addToWaitingList = useAddToStandingWaitingList();
   const renew = useRenewStandingWaitingList();
-  const pending = addToWaitingList.isPending || renew.isPending;
+  // PAD-724 (PAD-669 R5, waiting-list rule 2a): the classes in reach whose bar the student fails,
+  // shown before the add (submit path only); null until checked.
+  const [warnClasses, setWarnClasses] = React.useState<StandingEligibilityClass[] | null>(null);
+  const [checking, setChecking] = React.useState(false);
+  const pending = addToWaitingList.isPending || renew.isPending || checking;
 
   React.useEffect(() => {
     if (!open) return;
@@ -71,7 +85,9 @@ export function WaitingListDialog({
     setToday(now);
     setExpiresOn(standingEndFor(DEFAULT_STANDING_PRESET, now));
     setCredits(DEFAULT_CREDITS);
-  }, [open]);
+    setSide(standingDefaultSide(profileSide));
+  }, [open, profileSide]);
+  React.useEffect(() => setWarnClasses(null), [open, expiresOn]);
 
   const valid = isStandingEndAllowed(expiresOn, today);
   const preset = standingPresetOf(expiresOn, today);
@@ -86,12 +102,23 @@ export function WaitingListDialog({
 
   const handleConfirm = async () => {
     if (!valid) return;
+    if (!renewing && warnClasses === null) {
+      setChecking(true);
+      const { classes } = await notificationEngineApi
+        .checkStandingEligibility(playerId, expiresOn)
+        .catch(() => ({ classes: [] as StandingEligibilityClass[] }));
+      setChecking(false);
+      if (classes.length > 0) {
+        setWarnClasses(classes);
+        return;
+      }
+    }
     try {
       if (renewing) {
         await renew.mutateAsync({ entryId: renewing.id, expiresOn });
         toast.success(t("players.waitingListRenewed", { name }));
       } else {
-        await addToWaitingList.mutateAsync({ playerId, credits, expiresOn });
+        await addToWaitingList.mutateAsync({ playerId, credits, expiresOn, side });
         toast.success(t("players.addedToWaitingList", { name }));
       }
       onClose();
@@ -171,6 +198,38 @@ export function WaitingListDialog({
           </View>
 
           {renewing ? null : (
+            <View className="gap-2" testID="waiting-list-side">
+              <Text className="text-sm font-medium">{t("calendar.sidePick.standing.label")}</Text>
+              <View className="flex-row flex-wrap gap-2" accessibilityRole="radiogroup">
+                {SIDE_CHOICE_ORDER.map((opt) => {
+                  const chosen = side === opt;
+                  return (
+                    <Pressable
+                      key={opt}
+                      testID={`waiting-list-side-${opt}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: chosen }}
+                      onPress={() => setSide(chosen ? null : opt)}
+                      className="rounded-md border px-3 py-1.5"
+                      style={{
+                        backgroundColor: chosen ? lightTheme.primary : "transparent",
+                        borderColor: chosen ? lightTheme.primary : lightTheme.border,
+                      }}
+                    >
+                      <Text
+                        className="text-sm"
+                        style={{ color: chosen ? lightTheme.primaryForeground : lightTheme.foreground }}
+                      >
+                        {t(sideLabelKey(opt))}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {renewing ? null : (
             <View className="gap-2">
               <Text className="text-sm font-medium">
                 {t("players.maxClassesToFill")}
@@ -218,6 +277,18 @@ export function WaitingListDialog({
           )}
         </View>
 
+        {warnClasses && warnClasses.length > 0 ? (
+          <View testID="standing-wl-eligibility-warning" className="rounded-md border border-warning/40 bg-warning/10 p-3">
+            <Text className="text-sm font-medium">{t("calendar.eligibilityConfirm.waitingListTitle")}</Text>
+            <Text className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.standingClasses")}</Text>
+            {warnClasses.map((c) => (
+              <Text key={c.lessonInstanceId} className="mt-1 text-xs text-muted-foreground">
+                • {c.title ?? ""} · {c.startDatetime.slice(8, 10)}/{c.startDatetime.slice(5, 7)} {c.startDatetime.slice(11, 16)}
+              </Text>
+            ))}
+            <Text className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.waitingListBody")}</Text>
+          </View>
+        ) : null}
         <DialogFooter className="flex-row gap-2">
           <Button
             variant="outline"
@@ -238,7 +309,13 @@ export function WaitingListDialog({
             {pending ? (
               <Spinner size="small" color={lightTheme.primaryForeground} />
             ) : null}
-            <Text>{renewing ? t("players.renewWaitingList") : t("players.addToWaitingList")}</Text>
+            <Text>
+              {renewing
+                ? t("players.renewWaitingList")
+                : warnClasses && warnClasses.length > 0
+                  ? t("calendar.eligibilityConfirm.confirm")
+                  : t("players.addToWaitingList")}
+            </Text>
           </Button>
         </DialogFooter>
       </DialogContent>

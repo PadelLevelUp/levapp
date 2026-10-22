@@ -1,0 +1,6 @@
+# Fails the capture if any seeded test text is on screen: a screenshot with "E2E ..." in it must
+# never be produced. Called before every takeScreenshot by capture.yaml.
+appId: com.padellevelup.app
+---
+- assertNotVisible:
+    text: ".*(E2E|e2e|Filler|Maestro|Test City).*"

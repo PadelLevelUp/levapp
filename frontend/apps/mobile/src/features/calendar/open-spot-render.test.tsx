@@ -7,12 +7,23 @@
  * screenshot. The week grid applies the same treatment, so the grid and the panel agree.
  */
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { nativeCalendarSurfaces, readableInkNative } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
 import { EventCard } from "./EventCard";
 import { TimeGrid } from "./TimeGrid";
+
+// The class is "upcoming" only while the clock is before it: pin the clock, derive every fixture date from DAY.
+const DAY = "2026-10-19";
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-18T10:00:00Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -25,10 +36,10 @@ const openSpot = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
   ({
     model: "ClassInstance",
     originalId: 7,
-    id: "class-7-2026-10-19",
+    id: `class-7-${DAY}`,
     type: "class",
     title: "PEAK PERFORMANCE",
-    date: "2026-10-19",
+    date: DAY,
     startTime: "09:00",
     endTime: "10:30",
     color: BLUE,
@@ -66,11 +77,11 @@ describe("an open-spot block on the week grid (rules 11, 13)", () => {
         weekDays={[day]}
         selectedDay={day}
         onSelectDay={() => undefined}
-        eventsByDay={{ "2026-10-19": [openSpot()] }}
+        eventsByDay={{ [DAY]: [openSpot()] }}
         hourRange={{ startHour: 8, endHour: 12 }}
       />
     );
-    const block = n.byTestId("calendar-grid-block-class-7-2026-10-19");
+    const block = n.byTestId(`calendar-grid-block-class-7-${DAY}`);
     const style = Array.isArray(block.props.style) ? Object.assign({}, ...block.props.style.flat()) : block.props.style;
     expect(style.backgroundColor).toBe(SURFACES.card);
     expect(style.borderStyle).toBe("dashed");

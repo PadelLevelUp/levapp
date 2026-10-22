@@ -140,7 +140,20 @@ export interface WorkAnswer {
     merged: WorkMergedPr[]; open: WorkOpenPr[]; deploys: { staging: WorkDeploy[]; production: WorkDeploy[] };
     truncated?: { merged: boolean; open: boolean };
   }>;
+  // PAD-646 (rules 9–11).
+  testflight: WorkSource<{ builds: WorkBuild[] }>;
+  bugs: WorkSource<{ open: WorkBug[]; counts: { open: Record<string, number>; resolved: number }; unparsed: number }>;
+  ci: WorkSource<{ workflows: WorkCiWorkflow[] }>;
 }
+export interface WorkBuild {
+  build: string | null; version: string | null; uploadedAt: string | null; processingState: string | null;
+  expired: boolean; internalState: string | null; externalState: string | null; whatToTest: string;
+}
+export interface WorkBug { id: string; title: string; type: string; severity: string; status: string; url: string }
+export interface WorkCiLane {
+  name: string; latestMinutes: number; medianMinutes: number; longestMinutes: number; timeoutMinutes: number; nearLimit: boolean;
+}
+export interface WorkCiWorkflow { workflow: string; runs: number; failureRate: number | null; lanes: WorkCiLane[] }
 
 export const adminApi = {
   authConfig: () => api<AuthConfig>("/auth/config", { auth: false }),

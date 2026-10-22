@@ -14,6 +14,7 @@ import { Text } from "@/components/ui/text";
 import { useHeaderGreeting } from "@/features/dashboard/CoachDashboard";
 import { useAppBadgeSync } from "@/hooks/useAppBadgeSync";
 import { useAppEvents } from "@/lib/sse";
+import { setForegroundSound } from "@/lib/push/foreground-sound";
 
 /** Greeting over date, stacked, in the navy app bar. */
 function DashboardGreeting({ name }: { name: string }) {
@@ -61,6 +62,10 @@ function AccountAvatar() {
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { user, loading, isAuthenticated } = useAuth();
+  // notifications.notification-sound rule 4 (PAD-680): foreground pushes follow the user's switch.
+  React.useEffect(() => {
+    setForegroundSound(user?.notificationSound !== false);
+  }, [user?.notificationSound]);
 
   // Unread messages badge on the Messages tab, refreshed live over SSE.
   const queryClient = useQueryClient();

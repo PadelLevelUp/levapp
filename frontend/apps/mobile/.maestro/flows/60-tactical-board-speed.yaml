@@ -8,6 +8,8 @@
 # AUTO ends), although AUTO plays on schedule (ledger B-114).
 #
 # Mirrors: apps/web/e2e/exercise-management/tactical-board-speed.spec.ts
+# PAD-710 batch 4: its Android scrolls go through subflows/board-show-*.yaml, which search both ways
+# (listed here so a change to them re-runs this flow in the PR's changed job).
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
@@ -42,31 +44,85 @@ appId: com.padellevelup.app
       id: "tactical-board"
     timeout: 15000
 # Basket mode: a feed is one tap on a player (flow 41), so the step has a ball path.
+# PAD-710 (Android lane): the board's toolbar and its court do not fit on the phone together and Android exposes only on-screen elements; scrollUntilVisible swipes from the centre (the court) and the court eats the gesture, so the Android steps scroll by swiping the page margin (subflows/board-show-*.yaml).
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-basket"
 - tapOn:
     id: "board-tab-basket"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
 - scrollUntilVisible:
     element:
       id: "piece-feeder"
     direction: DOWN
     timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
 - tapOn:
     id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
 # Three feeds make the step 2400 ms at Normal (4800 ms Lento, 1200 ms Rápido),
 # long enough for Maestro to observe; a single 800 ms path at 2x is over before
 # an assertion can run.
 - tapOn:
     id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a2"
 - tapOn:
     id: "piece-a2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
 - tapOn:
     id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-2-flat"
 - assertVisible:
     id: "ball-path-2-flat"
-- scrollUntilVisible:
-    element:
-      id: "board-speed-fast"
-    direction: DOWN
-    timeout: 15000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "board-speed-fast"
+          direction: DOWN
+          timeout: 15000
+# PAD-710 (Android lane): the speed row sits just above the court; coming from the court, scroll up (towards the toolbar side) until it is on screen.
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-speed-fast"
 - assertVisible:
     id: "board-speed-slow"
 - assertVisible:

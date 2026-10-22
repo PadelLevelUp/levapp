@@ -45,68 +45,203 @@ appId: com.padellevelup.app
       id: "tactical-board"
     timeout: 15000
 # A fresh board switches to basket mode without a prompt (rule 3).
+# PAD-710 (Android lane): the board's toolbar and its court do not fit on the phone together and Android exposes only on-screen elements; scrollUntilVisible swipes from the centre (the court) and the court eats the gesture, so the Android steps scroll by swiping the page margin (subflows/board-show-*.yaml).
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tab-basket"
 - tapOn:
     id: "board-tab-basket"
 # After the tab switch the court sits below the fold on a phone (F's run, 2026-09-11).
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
 - scrollUntilVisible:
     element:
       id: "piece-feeder"
     direction: DOWN
     timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-feeder"
 - assertVisible:
     id: "piece-feeder"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
 - tapOn:
     id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
 - assertVisible:
     id: "board-hint-ball"
 
 # ── First feed: feeder → A1 ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
 - tapOn:
     id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-flat"
 - assertVisible:
     id: "ball-path-flat"
 - assertNotVisible:
     id: "ball-number-0"
 
 # ── Second feed is appended: feeder → A2; both are numbered ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a2"
 - tapOn:
     id: "piece-a2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-1-flat"
 - assertVisible:
     id: "ball-path-1-flat"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-number-0"
 - assertVisible:
     id: "ball-number-0"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-number-1"
 - assertVisible:
     id: "ball-number-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-ball-1"
 - assertVisible:
     id: "board-ball-1"
 
 # ── Toggle only the second path, then move it up ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-style-handle-1"
+# PAD-728: the handle is drawn at absolute coordinates, so its reported bounds are where it sits on
+# both platforms (it used to be a translated <G x y>, ~35 dp off on Android). This tap is the guard.
 - tapOn:
     id: "ball-style-handle-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-1-lob"
 - assertVisible:
     id: "ball-path-1-lob"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-flat"
 - assertVisible:
     id: "ball-path-flat"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-ball-1-up"
 - tapOn:
     id: "board-ball-1-up"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-lob"
 - assertVisible:
     id: "ball-path-lob"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-1-flat"
 - assertVisible:
     id: "ball-path-1-flat"
 
 # ── Remove path 2; undo brings it back ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-ball-1-remove"
 - tapOn:
     id: "board-ball-1-remove"
 - assertNotVisible:
     id: "ball-path-1-flat"
 - assertNotVisible:
     id: "ball-number-0"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
 - tapOn:
     id: "board-undo"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-1-flat"
 - assertVisible:
     id: "ball-path-1-flat"
 
 # ── Save; the card's thumbnail shows the second path too (rule 13) ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "exercise-save"
 - scrollUntilVisible:
     element:
       id: "exercise-save"

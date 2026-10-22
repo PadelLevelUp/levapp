@@ -42,7 +42,7 @@ export function IncompletePlayersBlock({ block }: { block: DashboardIncompletePl
             onPress={() => go(p.href)}
             className="min-h-11 flex-row items-center justify-between gap-3 border-b border-border py-2"
           >
-            <Text className="flex-1 text-sm font-medium" numberOfLines={1}>{p.name}</Text>
+            <Text className="flex-1 text-sm font-medium" numberOfLines={1}>{p.displayName ?? p.name}</Text>
             <View className="flex-row gap-1.5">
               {p.missing.map((m) => (
                 <View key={m} className="rounded-full bg-warning/15 px-2 py-0.5">

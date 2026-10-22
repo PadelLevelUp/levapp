@@ -43,4 +43,9 @@ yarn-error.*
 # Raw Maestro takeScreenshot output (flows) and the control-run copies a 2x2 sitting makes;
 # curated composites go in .maestro/evidence/ instead.
 screenshots/
+# PAD-608: the Play screenshot capture sources (flow, script, SQL) are tracked; only generated output is ignored.
+!store/android/screenshots/
 screenshots-control/
+
+# PAD-710: the per-shard workspace config ci-android-maestro.sh generates (scripts/maestro-shards.mjs).
+.maestro/shard-*.config.yaml

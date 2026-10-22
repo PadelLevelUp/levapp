@@ -482,7 +482,7 @@ function PlayerRow({
     <Pressable
       testID="presences-player-row"
       accessibilityRole="button"
-      accessibilityLabel={player.name}
+      accessibilityLabel={player.displayName ?? player.name}
       accessibilityValue={{ text: String(player.total) }}
       onPress={onPress}
       className="flex-row items-center gap-3 rounded-xl border border-border bg-card px-3 py-3"
@@ -494,7 +494,7 @@ function PlayerRow({
       ) : null}
       <View className="flex-1">
         <Text className="text-sm font-sans-bold" numberOfLines={1}>
-          {player.name}
+          {player.displayName ?? player.name}
         </Text>
         <View className="mt-1 flex-row flex-wrap gap-x-3 gap-y-0.5">
           {chips

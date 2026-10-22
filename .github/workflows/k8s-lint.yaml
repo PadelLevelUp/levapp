@@ -1,0 +1,60 @@
+name: k8s manifests
+
+# PAD-698 (delivery.k8s-manifests rule 7). The GKE manifests in infra/k8s are applied by a workflow
+# (PAD-703), never by hand, so they are checked on every PR:
+#   1. `kubectl kustomize` renders both overlays and both migrate kustomizations;
+#   2. kubeconform -strict validates every rendered resource: Kubernetes' own schemas, plus the
+#      Gateway API and GKE (networking.gke.io) CRD schemas from the CRDs catalog, pinned to a
+#      commit. A resource with no schema is an error, never a skip;
+#   3. infra/k8s/tests checks what a schema cannot (roles, probes, routes, timeouts, logging, no
+#      project identifiers). It sits outside the backend package, so it needs only pytest and PyYAML.
+# The server-side dry-run needs a GKE cluster and waits for PAD-705.
+#
+# No workflow-level `paths:` filter: a required check that is skipped blocks the PR forever (see
+# deploy-staging.yaml). It runs in well under a minute.
+
+on:
+  pull_request:
+    branches: [ staging, main ]
+  push:
+    branches: [ staging, main ]
+
+concurrency:
+  group: k8s-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: k8s manifests render and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KUBECONFORM_VERSION: v0.6.7
+      CRDS_CATALOG: https://raw.githubusercontent.com/datreeio/CRDs-catalog/501527ab9c40c827144c8f45945b25a023e344ce/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz -C /usr/local/bin kubeconform
+          kubeconform -v
+          kubectl version --client
+      - name: Render and validate
+        working-directory: infra/k8s
+        run: |
+          set -euo pipefail
+          # PAD-702: the deploy writes vars.env from GitHub variables; here it is empty. The config
+          # Component reads backend/.env.<env> (one source), outside the kustomization root.
+          touch overlays/staging/config/vars.env overlays/prod/config/vars.env
+          for k in overlays/staging overlays/prod overlays/staging/migrate overlays/prod/migrate; do
+            echo "== $k"
+            kubectl kustomize --load-restrictor LoadRestrictionsNone "$k" | kubeconform -strict -summary -kubernetes-version 1.30.0 \
+              -schema-location default -schema-location "$CRDS_CATALOG" -
+          done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Spec checks on the rendered manifests
+        run: |
+          pip install --quiet pytest pyyaml
+          python -m pytest -p no:cacheprovider -q infra/k8s/tests

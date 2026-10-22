@@ -206,6 +206,7 @@
       "outcomeSpotFilled": "Spot filled",
       "outcomeExpired": "Expired",
       "recordedByCoach": "recorded by the coach",
+      "movedFromPreviousSpot": "moved from the previous spot",
       "inviteeActions": "Invitee actions",
       "markAccepted": "Mark as accepted",
       "markDeclined": "Mark as declined",
@@ -273,6 +274,9 @@
       "notYetAsked": "You can't confirm yet: wait for your coach's reminder. If you can't make it, say so now.",
       "alreadyMarked": "Your coach has already recorded your attendance for this class.",
       "declinedFinalHint": "You said you're not coming. If you change your mind, talk to your coach.",
+      "comeBack": "I can come after all",
+      "spotTaken": "Your spot has been taken",
+      "onWaitingList": "You're on the waiting list",
       "declinedFinalChat": "Talk to the coach"
     },
     "planning": {
@@ -461,6 +465,9 @@
       }
     },
     "eligibilityConfirm": {
+      "waitingListTitle": "Put a student who doesn't meet the bar on the waiting list?",
+      "waitingListBody": "It's your call — this only tells you what the bar says.",
+      "standingClasses": "Doesn't meet the bar for these classes:",
       "title": "Add students who don't meet the bar?",
       "body": "Enrolment is your call — this only tells you what the bar says.",
       "confirm": "Add anyway",
@@ -527,7 +534,7 @@
       "withdrawn": "Request withdrawn",
       "rejected": "The coach did not accept your request",
       "superseded": "This spot was taken before the coach decided",
-      "accepted": "Your request was accepted",
+      "accepted": "You're booked! You're enrolled in this class.",
       "failed": "Could not send the request",
       "refusal": {
         "already_enrolled": "You are already in this class",
@@ -644,6 +651,55 @@
       "close": "Close",
       "openProfile": "View {{name}}'s profile",
       "popupLabel": "Player profile"
+    },
+    "sidePick": {
+      "title": "Which side do you want to play in this class?",
+      "sub": "You are only called if there is a spot on the side you choose. If you change, it applies to this class only.",
+      "waitingSub": "You are only called if a spot opens on the side you choose. If you change, it applies to this class only.",
+      "hint": {
+        "right": "Only for right-side spots",
+        "left": "Only for left-side spots",
+        "both": "For any spot, right or left"
+      },
+      "waitingHint": {
+        "right": "Only when a right-side spot opens",
+        "left": "Only when a left-side spot opens",
+        "both": "When any spot opens, right or left"
+      },
+      "word": {
+        "right": "right",
+        "left": "left",
+        "both": "both"
+      },
+      "usual": "Usual",
+      "moreChances": "Better chances",
+      "cancel": "Cancel",
+      "send": "Send request",
+      "sentTitle": "Request sent",
+      "sentLine": "Side: {{side}} · waiting for {{coach}}",
+      "sentLineNoCoach": "Side: {{side}} · waiting for the coach",
+      "sentBadge": "Waiting",
+      "cancelRequest": "Cancel request",
+      "waitingTitle": "You are on the waiting list",
+      "waitingLine": "Side: {{side}} · we will tell you in the app",
+      "waitingBadge": "Waiting",
+      "leaveWaiting": "Leave the waiting list",
+      "fullTitle": "No spot on the {{requested}}",
+      "fullBody": "There is a spot on the {{open}}. You can play on both sides, or wait for a spot on the {{requested}}.",
+      "fullOpenJoiner": " and on the ",
+      "playBoth": "I am willing to play both sides",
+      "stayWaiting": "Stay on the {{requested}} waiting list",
+      "failed": "The request could not be sent",
+      "coach": {
+        "requested": "Side asked: {{side}}",
+        "useInProfile": "Use {{side}} in profile",
+        "profileSaved": "Side saved on the profile",
+        "profileFailed": "The side could not be saved"
+      },
+      "standing": {
+        "label": "Side",
+        "none": "No preference"
+      }
     }
   }
 }

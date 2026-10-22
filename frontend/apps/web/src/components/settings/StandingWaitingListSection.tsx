@@ -19,13 +19,13 @@ export function StandingWaitingListSection() {
   const [entries, setEntries] = useState<StandingWaitingListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState<{ id: number; name: string } | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<{ id: number; name: string; side?: "left" | "right" | "both" | null } | null>(null);
   // PAD-507: the entry being renewed (its end date moves; credits stay).
   const [renewing, setRenewing] = useState<StandingWaitingListEntry | null>(null);
 
   // Player search state
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ id: string; name: string }[]>([]);
+  const [results, setResults] = useState<{ id: string; name: string; side?: "left" | "right" | "both" | null }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   // players.search rule 10: ask after 200 ms of quiet; "searching" until the results for that text land.
   const { debounced, settling } = useDebouncedText(query);
@@ -61,8 +61,8 @@ export function StandingWaitingListSection() {
     };
   }, [debounced]);
 
-  const handleSelectPlayer = (p: { id: string; name: string }) => {
-    setSelectedPlayer({ id: Number(p.id), name: displayName(p.id, p.name) });
+  const handleSelectPlayer = (p: { id: string; name: string; side?: "left" | "right" | "both" | null }) => {
+    setSelectedPlayer({ id: Number(p.id), name: displayName(p.id, p.name), side: p.side ?? null });
     setQuery("");
     setResults([]);
     setSearchOpen(false);
@@ -241,6 +241,7 @@ export function StandingWaitingListSection() {
           onClose={() => { setDialogOpen(false); setSelectedPlayer(null); }}
           playerId={selectedPlayer.id}
           playerName={selectedPlayer.name}
+          profileSide={selectedPlayer.side ?? null}
           onAdded={handleAdded}
         />
       )}
@@ -249,7 +250,7 @@ export function StandingWaitingListSection() {
           open
           onClose={() => setRenewing(null)}
           playerId={renewing.playerId}
-          playerName={renewing.playerName}
+          playerName={displayName(renewing.playerId, renewing.playerName)}
           renewing={renewing}
           onAdded={handleAdded}
         />

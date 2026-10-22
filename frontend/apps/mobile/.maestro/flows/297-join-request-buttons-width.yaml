@@ -1,0 +1,88 @@
+# PAD-677 — classes.join-requests rule 18 on iOS: the coach's Accept / Decline on a join-request
+# bubble are readable buttons, not two empty pills.
+#
+# Why a width assertion: on staging 4ba53e151 the two buttons collapsed to 21 pt each (hierarchy
+# [14..35] and [42..63]) while still carrying their labels as accessibility text, so flow 112 —
+# which taps by id — stayed green on a screen nobody could read. Fixed, each is ~146 pt on an
+# iPhone 17 Pro. Maestro selectors match `width` within `tolerance`, so 146 ± 100 accepts any
+# sensible bubble (46–246 pt) and rejects the collapsed 21 pt (flat 21 pt vs >= 46 pt). The label
+# is asserted too, though it alone passed on the broken screen. Flow 112 stays the tap test.
+#
+# Setup and teardown are flow 112's (API only, class removed and openSpotsVisible restored).
+# Flow number 297 is from Session C's wave-16 range (296–300).
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'E2E Join Buttons Width'}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.studentUserId = String(json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).id)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.wasVisible = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).openSpotsVisible === true}"
+- evalScript: "${output.toggled = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: true }) }).ok}"
+- assertTrue: "${output.toggled == true}"
+- evalScript: "${output.added = http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 4, playerIds: [], isRecurring: false, notificationsEnabled: false }) }).ok}"
+- assertTrue: "${output.added == true}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.cls = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0]}"
+- assertTrue: "${output.cls != null}"
+- evalScript: "${output.req = json(http.post(output.api + '/api/app/class-join-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ model: output.cls.model, originalId: output.cls.originalId, date: output.cls.date }) }).body)}"
+- assertTrue: "${output.req.status === 'pending'}"
+- evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).conversations.filter(function (c) { return String(c.participantId) === output.studentUserId; })[0].id)}"
+
+# ── The coach opens the conversation; both buttons are wide and labelled ──
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://conversation/${output.convId}"
+- scrollUntilVisible:
+    element:
+      id: "join-request-bubble-actions-${output.req.id}"
+    direction: DOWN
+    timeout: 30000
+# PAD-710 (Android lane): Maestro reads iOS bounds in points but Android bounds in physical
+# pixels. On the lane's pixel_6 emulator (420 dpi, 2.625 px per dp) the same ~146 dp button is
+# ~383 px (run 39691332376: 146 ± 100 failed on a button that measured ~390 px and read fine),
+# so the Android branch scales width and tolerance by 2.625. The collapsed 21 pt failure
+# (~55 px) is still far outside 383 ± 262 (121–645 px).
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: "join-request-bubble-accept"
+          text: "Accept|Aceitar"
+          width: 146
+          tolerance: 100
+      - assertVisible:
+          id: "join-request-bubble-decline"
+          text: "Reject|Recusar"
+          width: 146
+          tolerance: 100
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: "join-request-bubble-accept"
+          text: "Accept|Aceitar"
+          width: 383
+          tolerance: 262
+      - assertVisible:
+          id: "join-request-bubble-decline"
+          text: "Reject|Recusar"
+          width: 383
+          tolerance: 262
+- assertVisible:
+    id: "join-request-bubble-decline"
+    rightOf:
+      id: "join-request-bubble-accept"
+- takeScreenshot: pad677-join-request-buttons
+
+# ── Leave, then clean up ──
+- openLink: "levelup://players"
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"
+- evalScript: "${output.restored = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ openSpotsVisible: output.wasVisible }) }).ok}"
+- assertTrue: "${output.restored == true}"

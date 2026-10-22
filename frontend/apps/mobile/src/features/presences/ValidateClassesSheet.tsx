@@ -528,6 +528,8 @@ function WalkInPicker({
   onPick: (option: RosterOption) => void;
 }) {
   const { t } = useTranslation();
+  // PAD-683 rule 8: the attendance inbox is the coach's — their name for each student.
+  const displayName = useCoachDisplayName();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
 
@@ -573,7 +575,7 @@ function WalkInPicker({
           <Pressable
             key={option.id}
             accessibilityRole="button"
-            accessibilityLabel={option.name}
+            accessibilityLabel={displayName(option.id, option.name)}
             testID={`${testIDPrefix}-player-option-${option.id}`}
             onPress={() => {
               onPick(option);
@@ -582,7 +584,7 @@ function WalkInPicker({
             }}
             className="border-b border-border/50 px-2 py-2.5"
           >
-            <Text className="text-sm">{option.name}</Text>
+            <Text className="text-sm">{displayName(option.id, option.name)}</Text>
           </Pressable>
         ))}
       </View>
@@ -729,7 +731,7 @@ function ClassCard({
 
       {expanded && (
         <View className="mt-3 gap-2">
-          {sortPlayers(klass.players, edits).map((player) => (
+          {sortPlayers(klass.players, edits, displayName).map((player) => (
             // Name ABOVE the toggles, not beside them. Side by side, three
             // buttons leave ~90pt for the name on a 390pt screen, which
             // truncated real names to "Bernar…" — unusable with two players
@@ -892,7 +894,7 @@ function ClassDetail({
         keyboardShouldPersistTaps="handled"
       >
         <View className="gap-2">
-          {sortPlayers(klass.players, edits).map((player) => {
+          {sortPlayers(klass.players, edits, displayName).map((player) => {
             const undecided = effectiveMark(player, edits[player.playerId]) === null;
             return (
             <View

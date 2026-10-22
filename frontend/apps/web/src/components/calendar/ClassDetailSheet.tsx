@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { dateFnsLocale } from "@/lib/dateLocale";
+import { joinClassWaitingList } from "@/api/academyClasses";
 import {
   Users,
   Clock,
@@ -25,7 +26,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createConversation } from "@/api/messages";
-import { joinClassWaitingList } from "@/api/academyClasses";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
@@ -47,15 +47,14 @@ import type {
 } from "@/types";
 
 
-import { classEvaluationsAction, endsAfterStart, errorStatusOf, isHhMm } from "@levelup/config";
-import { useClassEvaluations } from "@levelup/hooks";
+import { blockedNames, classEvaluationsAction, endsAfterStart, errorStatusOf, firstAndLastName, isHhMm, sideWordKey } from "@levelup/config";
+import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
-  createClassJoinRequest,
   joinRequestRefusal,
   rejectClassJoinRequest,
   withdrawClassJoinRequest,
@@ -69,7 +68,7 @@ import {
   getApprovalSuggestions,
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
-import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
+import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -78,7 +77,10 @@ import { ParticipantPopup } from "./ParticipantPopup";
 import { useAuth } from "@/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ManualNotificationModal } from "./ManualNotificationModal";
+import { Badge } from "@/components/ui/badge";
 import { ClassWaitingListSection } from "./ClassWaitingListSection";
+import { ClassSideChoice } from "./ClassSideChoice";
+import { JoinRequestSide } from "./JoinRequestSide";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
 
 import { Button } from "@/components/ui/button";
@@ -124,7 +126,7 @@ import { LevelLabel } from "@/components/LevelLabel";
 import { OverlapConfirmDialog } from "./OverlapConfirmDialog";
 import { EligibilityConfirmDialog } from "./EligibilityConfirmDialog";
 import { checkEligibility } from "@/api/notificationEngine";
-import type { EligibilityCheckEntry } from "@levelup/types";
+import type { EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import { ClassEligibilityBlock } from "./ClassEligibilityBlock";
 
 // PAD-246: one shared palette for every picker — calendar.mobile-views rule 6.
@@ -178,6 +180,10 @@ export function ClassDetailSheet({
   const queryClient = useQueryClient();
   const { token } = useAuth();
   const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
+  // PAD-683 (players.nickname rules 8, 9b): the class detail is a shared payload, so the invitee
+  // list, join requests and their toasts resolve the coach's display name here; a student's view
+  // asks nothing and keeps the real name.
+  const displayName = useCoachDisplayName({ enabled: canManage });
 
   const [classInstance, setClassInstance] = useState<ClassInstance | null>(null);
 
@@ -223,6 +229,9 @@ export function ClassDetailSheet({
   const [joinBusy, setJoinBusy] = useState(false);
   // PAD-664: the class (by event id) whose waiting list the student just joined.
   const [joinedWaitingFor, setJoinedWaitingFor] = useState<string | null>(null);
+  // PAD-672 (join-requests rule 20): the side sheet, and the side of the place just joined.
+  const [sideSheet, setSideSheet] = useState<"request" | "waiting" | null>(null);
+  const [joinedWaitingSide, setJoinedWaitingSide] = useState<PlayerSide | null>(null);
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
@@ -331,6 +340,8 @@ export function ClassDetailSheet({
   // PAD-46: student cancels attendance from the class-detail view.
   const [cancelAttendanceOpen, setCancelAttendanceOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // PAD-684: the server's own answer, shown until the refetch lands (never invented).
+  const [comeBackShown, setComeBackShown] = useState<ReturnType<typeof comeBackAction>>(null);
   const [openingChat, setOpeningChat] = useState(false);
   const navigate = useNavigate();
   const [cancellingAttendance, setCancellingAttendance] = useState(false);
@@ -611,38 +622,32 @@ export function ClassDetailSheet({
       /* keep what we have */
     }
   };
-  const handleJoinRequest = async () => {
-    if (!event) return;
-    setJoinBusy(true);
-    try {
-      await createClassJoinRequest({ model: event.model, originalId: event.originalId, date: event.date });
-      toast({ title: t("calendar.joinRequest.sentTitle"), description: t("calendar.joinRequest.sentBody") });
-    } catch (err) {
-      const refusal = joinRequestRefusal(err);
-      toast({
-        title: t("calendar.joinRequest.failed"),
-        description: refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : undefined,
-        variant: "destructive",
-      });
-    } finally {
-      await refreshInstance();
-      setJoinBusy(false);
-    }
+  // PAD-672: "Pedir para entrar" and the waiting-list join both ask for the side first
+  // (ClassSideChoice); the sheet sends and reports back through these callbacks.
+  const handleSideRequestSent = async () => {
+    toast({ title: t("calendar.joinRequest.sentTitle"), description: t("calendar.joinRequest.sentBody") });
+    await refreshInstance();
   };
-  // PAD-664 (calendar.view rule 23): a full class offers its waiting list.
-  const handleJoinWaitingList = async () => {
+  const handleSideWaitingJoined = (side: PlayerSide) => {
     if (!event) return;
-    setJoinBusy(true);
-    try {
-      await joinClassWaitingList(event);
-      setJoinedWaitingFor(String(event.id));
-      toast({ title: t("calendar.waitingList.joined") });
-      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
-    } catch {
+    setJoinedWaitingFor(String(event.id));
+    setJoinedWaitingSide(side);
+    toast({ title: t("calendar.waitingList.joined") });
+    void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+    void refreshInstance();
+  };
+  const handleSideFailed = async (err: unknown, mode: "request" | "waiting") => {
+    if (mode === "waiting") {
       toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
-    } finally {
-      setJoinBusy(false);
+      return;
     }
+    const refusal = joinRequestRefusal(err);
+    toast({
+      title: t("calendar.joinRequest.failed"),
+      description: refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : undefined,
+      variant: "destructive",
+    });
+    await refreshInstance();
   };
   const handleWithdrawJoinRequest = async (id: number) => {
     setJoinBusy(true);
@@ -664,7 +669,7 @@ export function ClassDetailSheet({
       else await rejectClassJoinRequest(id);
       toast({
         title: t(accept ? "calendar.joinRequest.acceptedToast" : "calendar.joinRequest.rejectedToast", {
-          name: req?.playerName ?? "",
+          name: req ? displayName(req.playerId, req.playerName) : "",
         }),
       });
     } catch (err) {
@@ -1114,12 +1119,17 @@ export function ClassDetailSheet({
       classStarted,
     });
   const ownInstanceId = Number(ownPresence?.lessonInstanceId);
+  // PAD-684 (attendance.confirm rule 28): "Afinal vou" - the SERVER's `comeBack` decides.
+  const comeBackKind = comeBackShown ?? comeBackAction(classInstance?.comeBack, ownState);
 
   const handleConfirmMyAttendance = async () => {
     if (!Number.isFinite(ownInstanceId) || confirming) return;
     setConfirming(true);
     try {
-      const outcome = reminderAnswerOutcome(await respondToReminder(ownInstanceId, "yes"));
+      const answer = await respondToReminder(ownInstanceId, "yes");
+      const outcome = reminderAnswerOutcome(answer);
+      const shown = comeBackFromAnswer(answer);
+      if (shown) setComeBackShown(shown);
       if (outcome.record === "confirmed") {
         toast({ title: t("calendar.detail.confirmAttendanceDone") });
       } else if (outcome.messageKey) {
@@ -1130,10 +1140,29 @@ export function ClassDetailSheet({
       }
       // Either way the server is the truth: re-read rather than paint.
       await refreshInstance();
+      setComeBackShown(null);
     } catch {
       toast({ variant: "destructive", title: t("messages.somethingWentWrong") });
     } finally {
       setConfirming(false);
+    }
+  };
+
+  // PAD-684 rule 28: no spot left - the PAD-547 / PAD-577 join for THIS occurrence.
+  const handleComeBackWaitingList = async () => {
+    if (!event || joinBusy) return;
+    setJoinBusy(true);
+    try {
+      const place = await joinClassWaitingList(event);
+      if ((place as { onWaitingList?: boolean } | null)?.onWaitingList) setComeBackShown("on_waiting_list");
+      toast({ title: t("calendar.waitingList.joined") });
+      void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      await refreshInstance();
+      setComeBackShown(null);
+    } catch {
+      toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
+    } finally {
+      setJoinBusy(false);
     }
   };
 
@@ -1706,16 +1735,41 @@ export function ClassDetailSheet({
               >
                 {active.myJoinRequest?.status === "pending" ? (
                   <>
-                    <p className="text-sm font-medium">{t("calendar.joinRequest.pending")}</p>
+                    {active.myJoinRequest.side ? (
+                      <div className="space-y-1" data-testid="class-join-request-sent">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">{t("calendar.sidePick.sentTitle")}</p>
+                          <Badge
+                            variant="outline"
+                            className="border-warning/40 bg-warning/10 text-warning-strong"
+                            data-testid="class-join-request-sent-badge"
+                          >
+                            {t("calendar.sidePick.sentBadge")}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground" data-testid="class-join-request-sent-line">
+                          {event.coachName
+                            ? t("calendar.sidePick.sentLine", {
+                                side: t(sideWordKey(active.myJoinRequest.side)),
+                                coach: firstAndLastName(event.coachName),
+                              })
+                            : t("calendar.sidePick.sentLineNoCoach", {
+                                side: t(sideWordKey(active.myJoinRequest.side)),
+                              })}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium">{t("calendar.joinRequest.pending")}</p>
+                    )}
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       className="w-full"
                       disabled={joinBusy}
                       onClick={() => handleWithdrawJoinRequest(active.myJoinRequest!.id)}
                       data-testid="class-join-withdraw"
                     >
-                      {t("calendar.joinRequest.withdraw")}
+                      {t("calendar.sidePick.cancelRequest")}
                     </Button>
                   </>
                 ) : (
@@ -1731,7 +1785,7 @@ export function ClassDetailSheet({
                           size="sm"
                           className="w-full"
                           disabled={joinBusy}
-                          onClick={handleJoinRequest}
+                          onClick={() => setSideSheet("request")}
                           data-testid="class-join-request-button"
                         >
                           {t("calendar.joinRequest.request")}
@@ -1760,10 +1814,28 @@ export function ClassDetailSheet({
                 className="space-y-1 rounded-md border border-border bg-muted/30 px-3 py-2"
                 data-testid="class-waiting-list-student"
               >
-                <p className="text-sm font-medium" data-testid="class-waiting-list-on">
-                  {t("calendar.waitingList.on")}
-                </p>
-                <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
+                {joinedWaitingSide ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium" data-testid="class-waiting-list-on">
+                        {t("calendar.sidePick.waitingTitle")}
+                      </p>
+                      <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning-strong">
+                        {t("calendar.sidePick.waitingBadge")}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground" data-testid="class-waiting-list-side-line">
+                      {t("calendar.sidePick.waitingLine", { side: t(sideWordKey(joinedWaitingSide)) })}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium" data-testid="class-waiting-list-on">
+                      {t("calendar.waitingList.on")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{t("calendar.waitingList.onHint")}</p>
+                  </>
+                )}
               </div>
             ) : event.studentRelation === "full" ? (
               <div
@@ -1775,7 +1847,7 @@ export function ClassDetailSheet({
                   size="sm"
                   className="w-full"
                   disabled={joinBusy}
-                  onClick={handleJoinWaitingList}
+                  onClick={() => setSideSheet("waiting")}
                   data-testid="class-waiting-list-join"
                 >
                   {t("calendar.waitingList.join")}
@@ -1798,7 +1870,7 @@ export function ClassDetailSheet({
                     data-testid="class-join-request-row"
                   >
                     <div className="min-w-0">
-                      <span className="text-sm truncate block">{req.playerName}</span>
+                      <span className="text-sm truncate block">{displayName(req.playerId, req.playerName)}</span>
                       {/* PAD-358 (classes.academy-class-booking rule 5): the student's note. */}
                       {req.note && (
                         <p
@@ -1808,6 +1880,8 @@ export function ClassDetailSheet({
                           {req.note}
                         </p>
                       )}
+                      {/* PAD-672 (rule 20): the side asked for + "Usar … no perfil". */}
+                      <JoinRequestSide request={req} />
                     </div>
                     <div className="flex shrink-0 gap-1.5">
                       <Button
@@ -1923,7 +1997,7 @@ export function ClassDetailSheet({
                           data-outcome={inv.outcome}
                           className="flex items-center justify-between gap-2 py-1.5"
                         >
-                          <span className="text-sm">{inv.playerName}</span>
+                          <span className="text-sm">{displayName(inv.playerId, inv.playerName)}</span>
                           <div className="flex items-center gap-1.5">
                             <div className="flex flex-col items-end">
                               <span
@@ -1934,14 +2008,15 @@ export function ClassDetailSheet({
                                 {inv.outcome === "declined" ? <X className="w-3 h-3" /> : null}
                                 {t(INVITATION_OUTCOME_KEY[inv.outcome])}
                               </span>
-                              {inv.answeredBy === "coach" ? (
+                              {inviteeNotes(inv).map((note) => (
                                 <span
-                                  data-testid={`invitee-recorded-by-coach-${inv.playerId}`}
+                                  key={note.id}
+                                  data-testid={`invitee-${note.id}-${inv.playerId}`}
                                   className="text-[10px] text-muted-foreground"
                                 >
-                                  {t("calendar.detail.recordedByCoach")}
+                                  {t(note.key)}
                                 </span>
-                              ) : null}
+                              ))}
                             </div>
                             {actions.length > 0 ? (
                               <DropdownMenu>
@@ -2077,6 +2152,7 @@ export function ClassDetailSheet({
                       <Button
                         variant="outline"
                         className="flex-1"
+                        data-testid="class-notify-open"
                         onClick={() => setShowNotifyModal(true)}
                         disabled={isValidating || sendingReminders}
                       >
@@ -2111,7 +2187,7 @@ export function ClassDetailSheet({
                                 title: t("calendar.unavailable.title"),
                                 description: t("calendar.unavailable.blocked", {
                                   count: unavailable.length,
-                                  names: unavailable.map((b) => b.name).filter(Boolean).join(", "),
+                                  names: blockedNames(unavailable, displayName),
                                 }),
                               });
                             }
@@ -2121,7 +2197,7 @@ export function ClassDetailSheet({
                             if (optedOut.length > 0) {
                               toast({
                                 title: t("calendar.notify.blockedByPreference", {
-                                  names: optedOut.map((b) => b.name).filter(Boolean).join(", "),
+                                  names: blockedNames(optedOut, displayName),
                                 }),
                               });
                             }
@@ -2181,7 +2257,44 @@ export function ClassDetailSheet({
                   )}
                   {/* PAD-570 rule 28: "Não vou" is final — no way back (the PAD-315
                       come-back lived here); the hint points to the coach's chat. */}
-                  {hasDeclined && (
+                  {comeBackKind === "rejoin" && (
+                    <Button
+                      data-testid="attendance-come-back"
+                      className="w-full"
+                      onClick={handleConfirmMyAttendance}
+                      disabled={confirming}
+                    >
+                      {confirming ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
+                      {t("calendar.detail.comeBack")}
+                    </Button>
+                  )}
+                  {comeBackKind === "waiting_list" && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground" data-testid="attendance-come-back-spot-taken">
+                        {t("calendar.detail.spotTaken")}
+                      </p>
+                      <Button
+                        data-testid="attendance-come-back-waiting-list"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleComeBackWaitingList}
+                        disabled={joinBusy}
+                      >
+                        {t("calendar.waitingList.join")}
+                      </Button>
+                    </div>
+                  )}
+                  {comeBackKind === "on_waiting_list" && (
+                    <p className="text-xs text-muted-foreground" data-testid="attendance-come-back-on-waiting-list">
+                      {t("calendar.detail.onWaitingList")}
+                    </p>
+                  )}
+                  {(hasDeclined || comeBackKind === "final_hint") &&
+                    (comeBackKind === null || comeBackKind === "final_hint") && (
                     <div className="space-y-2" data-testid="class-declined-hint">
                       <p className="text-xs text-muted-foreground">
                         {t("calendar.detail.declinedFinalHint")}
@@ -2263,6 +2376,21 @@ export function ClassDetailSheet({
       </SheetContent>
 
       {/* PAD-548 (calendar.event-detail rule 18): the warning before a withdrawal. */}
+      {/* PAD-672 (join-requests rule 20): which side the student wants, before the ask is sent. */}
+      {event && !canManage && (
+        <ClassSideChoice
+          open={sideSheet !== null}
+          onOpenChange={(o) => {
+            if (!o) setSideSheet(null);
+          }}
+          mode={sideSheet ?? "request"}
+          event={event}
+          profileSide={active?.profileSide ?? event.profileSide ?? null}
+          onRequestSent={() => void handleSideRequestSent()}
+          onWaitingListJoined={handleSideWaitingJoined}
+          onFailed={(err, mode) => void handleSideFailed(err, mode)}
+        />
+      )}
       <AlertDialog open={inviteeToDelete !== null} onOpenChange={(open) => { if (!open) setInviteeToDelete(null); }}>
         <AlertDialogContent data-testid="invitee-delete-dialog">
           <AlertDialogHeader>
