@@ -50,6 +50,9 @@ export async function updateNotificationConfig(
     pastDue?: PastDue;
     /** The timing is saved, but the server could not make that check. */
     pastDueUnknown?: boolean;
+    /** PAD-672 (rule 3a): `auto_accept_off` — this save switched the mode to semi-automatic, which
+     *  turned automatic acceptance of join requests off in the same save. */
+    notice?: "auto_accept_off";
   }
 > {
   const res = await getApi().post("/app/notify/config", data);

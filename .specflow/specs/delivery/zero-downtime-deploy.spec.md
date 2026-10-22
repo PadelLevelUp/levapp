@@ -153,7 +153,8 @@ gunicorn's boot path into the leadership thread.
    same advisory lock.
 
 14. **A second API copy (PAD-704, B8 on staging).** `--copies 2` (the workflows pass it when the
-   env file says `API_COPIES=2`; staging does, prod does not) starts `<name>_b` of the same image
+   env file says `API_COPIES=2`; prod never does, and staging is back at 1 since 2026-10-22: the
+   2 GB host paged out 11–17 MB at each two-copy deploy, so two copies wait for the memory budget) starts `<name>_b` of the same image
    and arguments after the swap and the worker, on the port the old copy freed, and waits for its
    health, so both ports of the upstream serve. No third port, no upstream edit, no host step.
    - Every deploy first stops and removes the last deploy's `<name>_b` (after the migrate step,

@@ -14,6 +14,9 @@ import type { NotificationConfig } from "@/types";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
+const toastSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: toastSpy }) }));
+
 const api = vi.hoisted(() => ({ getNotificationConfig: vi.fn(), updateNotificationConfig: vi.fn() }));
 vi.mock("@/api/notificationEngine", () => api);
 
@@ -85,6 +88,7 @@ async function openSection(labelKey: string) {
 
 beforeEach(() => {
   restrictionClicks.n = 0;
+  toastSpy.mockReset();
   api.getNotificationConfig.mockReset().mockResolvedValue(CONFIG);
   api.updateNotificationConfig.mockReset().mockImplementation(async (patch: object) => ({ ...CONFIG, ...patch }));
 });
@@ -256,8 +260,56 @@ describe("the message templates are their own part of the Save", () => {
 
     save();
     await waitFor(() => expect(failed()).toBe("messageTemplates"));
-    expect(unsavedIds()).toBe("messageTemplates");
+    // React 19 (PAD-406) can commit the tab's "failed" before the engine's stored value lands; the
+    // engine's unsaved flag clears on that next render, so wait for it like the other cases do.
+    await waitFor(() => expect(unsavedIds()).toBe("messageTemplates"));
     expect(screen.getByTestId("stub-templates-value")).toHaveTextContent("Olá {name}");
     expect(toggle()).toHaveAttribute("data-state", "unchecked");
+  });
+});
+
+describe("accept join requests automatically (PAD-672 slice 2, notifications.config rule 3a)", () => {
+  const autoAccept = () => screen.getByTestId("settings-auto-accept-join-requests");
+
+  it("is held until Save, then sent once with the rest of the engine's part", async () => {
+    await mount();
+    expect(autoAccept()).toHaveAttribute("data-state", "unchecked");
+    expect(screen.queryByTestId("settings-auto-accept-disabled-reason")).toBeNull();
+    fireEvent.click(autoAccept());
+    await settle();
+    expect(api.updateNotificationConfig).not.toHaveBeenCalled();
+    expect(autoAccept()).toHaveAttribute("data-state", "checked");
+    save();
+    await waitFor(() => expect(api.updateNotificationConfig).toHaveBeenCalledWith({ autoAcceptJoinRequests: true }));
+  });
+
+  it("is disabled, with its one-line reason, while the mode is semi-automatic", async () => {
+    api.getNotificationConfig.mockResolvedValue({ ...CONFIG, invitationMode: "semi_automatic", autoAcceptJoinRequests: false });
+    await mount();
+    expect(autoAccept()).toBeDisabled();
+    expect(screen.getByTestId("settings-auto-accept-disabled-reason")).toHaveTextContent(
+      "settings.engine.autoAcceptJoinRequests.disabledReason",
+    );
+  });
+
+  it("toasts when the save answers notice auto_accept_off", async () => {
+    api.getNotificationConfig.mockResolvedValue({ ...CONFIG, autoAcceptJoinRequests: true });
+    api.updateNotificationConfig.mockImplementation(async (patch: object) => ({
+      ...CONFIG,
+      ...patch,
+      autoAcceptJoinRequests: false,
+      notice: "auto_accept_off",
+    }));
+    await mount();
+    fireEvent.click(await screen.findByLabelText("settings.engine.semiAutomatic"));
+    save();
+    await waitFor(() =>
+      expect(api.updateNotificationConfig).toHaveBeenCalledWith({ invitationMode: "semi_automatic" }),
+    );
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith({ title: "settings.engine.autoAcceptJoinRequests.turnedOff" }),
+    );
+    expect(autoAccept()).toHaveAttribute("data-state", "unchecked");
+    expect(autoAccept()).toBeDisabled();
   });
 });

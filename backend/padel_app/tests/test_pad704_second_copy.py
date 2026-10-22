@@ -89,9 +89,10 @@ def test_dry_run_prints_the_second_copy(csb):
     assert "dry-run: docker run -d --name padelapp_b -p 127.0.0.1:5000:80" in r.stderr
 
 
-def test_staging_runs_two_copies_and_prod_one():
+def test_staging_runs_one_copy_until_the_memory_budget_and_prod_none():
+    # Rolled back 2026-10-22 (deploy-time page-outs on the 2 GB host); 2 again once that is settled.
     backend = Path(__file__).resolve().parents[2]
-    assert "\nAPI_COPIES=2\n" in (backend / ".env.staging").read_text()
+    assert "\nAPI_COPIES=1\n" in (backend / ".env.staging").read_text()
     assert "API_COPIES" not in (backend / ".env.prod").read_text(), "prod stays at one copy"
 
 

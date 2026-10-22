@@ -130,6 +130,24 @@ three separate fields on it. Decision record:
     - It is one occurrence only: the series roster, the other occurrences and the coach–player link
       are untouched.
 
+13a. **A "both" player's side is worked out when the class is full, and kept from its start
+    (PAD-672 slice 3, D8; owner Q5, 2026-10-21; numbering unconfirmed).** A player whose side in the
+    occurrence is `both` — on the profile, or chosen for this class through a join request
+    (`classes.join-requests` rule 20 writes `both` on the presence; the coach's own side endpoint
+    above still takes only `left`/`right`/null) — stays `both` and counts on neither side while the
+    class has a place. **When the class is full**, each one is given the side with fewer players,
+    in enrolment order (presence creation order), a tie — the odd one — going **left**: 4 left +
+    4 right + 2 `both` gives one each, the first left. The result is **computed, never stored**
+    while the class is open, so a cancellation puts them back in the open (`assignedSide` null again)
+    and the saved `both` is never overwritten. Each presence row serializes it as `assignedSide`
+    (`left`|`right`|null, null for anyone not `both` or a class not full). **From the class's start**
+    the engine's tick (`notifications.invitations`, the 2-minute pass) writes it to
+    `presences.assigned_side` once, and from then on that stored value is served (history). No
+    notification at any point; the coach does not pick it by hand.
+    - Clients (PAD-672 S2/S3 UI; numbering unconfirmed): web and iOS participant rows, the
+      participant pop-up/sheet and the student's own row read "Ambos → esquerda" / "Ambos → direita"
+      for a `both` player with an `assignedSide`; null keeps today's label.
+
 ### Acceptance Criteria
 
 #### The roster keeps one order across a save (D163)

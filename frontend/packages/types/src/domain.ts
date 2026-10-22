@@ -476,6 +476,9 @@ export interface ClassJoinRequest {
   suggestedProfileSide?: 'left' | 'right' | null;
 }
 
+/** The notice a config save can carry (notifications.config rule 3a). */
+export type NotificationConfigNotice = "auto_accept_off";
+
 /**
  * classes.join-requests rule 17 (PAD-460): a row of `GET /app/class-join-requests` —
  * the request plus the class it is for, so the coach's "Pedidos de Aula" and the
@@ -675,6 +678,11 @@ export interface Presence {
   side?: 'left' | 'right' | 'both' | null;
   sideOverride?: boolean;
   sideEditable?: boolean;
+  /**
+   * PAD-672 slice 3 (`classes.instance-enrollment` rule 13a): the side a `both` player is given
+   * once the class is full (frozen from its start); null for anyone else or a class not full.
+   */
+  assignedSide?: 'left' | 'right' | null;
 
   player?: Player;
 }
@@ -1386,6 +1394,11 @@ export type InvitationMode = "automatic" | "semi_automatic";
 export interface NotificationConfig {
   autoNotifyEnabled: boolean;
   invitationMode?: InvitationMode;
+  /**
+   * PAD-672 slice 2 (notifications.config rule 3a): accept an eligible student's join request the
+   * moment it is made. Off by default; the server refuses it (400) in `semi_automatic` mode.
+   */
+  autoAcceptJoinRequests?: boolean;
   reminderTiming: ReminderConfig;
   invitationGroups: InvitationGroup[];
   tiebreakers: Tiebreaker[];

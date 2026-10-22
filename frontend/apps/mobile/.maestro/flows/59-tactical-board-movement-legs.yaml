@@ -10,6 +10,8 @@
 # Mirrors: apps/web/e2e/exercise-management/tactical-board-movement-legs.spec.ts
 # PAD-710 batch 4: its Android scrolls go through subflows/board-show-*.yaml, which search both ways
 # (listed here so a change to them re-runs this flow in the PR's changed job).
+# PAD-728: tapping piece-a2 is the guard for pieces drawn at absolute coordinates; as a translated
+# <G x y> its reported bounds were ~67 px right of the drawn token on the lane, and the tap missed.
 appId: com.padellevelup.app
 ---
 - runFlow: ../subflows/login-coach.yaml
