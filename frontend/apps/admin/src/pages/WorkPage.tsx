@@ -1,7 +1,8 @@
 /**
  * admin.work-dashboard (PAD-555): what is left to do, what was done and what shipped, from Linear and
  * GitHub through the backend (the tokens never reach the browser). Read-only. Each source shows its
- * own state (rule 1); the page asks the server to refresh only when told (rule 7).
+ * own state (rule 1); the page asks the server to refresh only when told (rule 7). v2 (PAD-646): TestFlight
+ * builds, open bugs from the ledger and CI lanes against their time limit (rules 9–11).
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -35,13 +36,13 @@ function Truncated({ show }: { show: boolean | undefined }) {
 }
 
 /** Rule 1: a source that is not configured or unreachable says so, in place of its sections. */
-function SourceState<T>({ name, source, children }: { name: "linear" | "github"; source: WorkSource<T>; children: (ok: T) => ReactNode }) {
+function SourceState<T>({ name, source, children }: { name: "linear" | "github" | "testflight" | "bugs" | "ci"; source: WorkSource<T>; children: (ok: T) => ReactNode }) {
   const { t } = useTranslation();
   const when = useWhen();
   if (source.status === "ok") return <>{children(source as unknown as T)}</>;
   return (
     <Card data-testid={`admin-work-${name}-status`}>
-      <h2 className="mb-1 font-semibold">{t(`admin.work.${name}`)}</h2>
+      <h2 className="mb-1 font-semibold">{t(name === "linear" || name === "github" ? `admin.work.${name}` : `admin.work.sources.${name}`)}</h2>
       {source.status === "not_configured" ? (
         <p className="text-sm text-muted-foreground">{t("admin.work.notConfigured", { setting: source.missing })}</p>
       ) : (
@@ -172,6 +173,89 @@ function GitHub({ github }: { github: Extract<WorkAnswer["github"], { status: "o
   );
 }
 
+/** Rule 9: the app's latest TestFlight builds; "What to Test" is what changed. */
+function TestFlight({ testflight }: { testflight: Extract<WorkAnswer["testflight"], { status: "ok" }> }) {
+  const { t } = useTranslation();
+  const when = useWhen();
+  return (
+    <Section title={t("admin.work.testflight.title")} testId="admin-work-testflight" empty={testflight.builds.length ? null : t("admin.work.testflight.empty")}>
+      {testflight.builds.map((b) => (
+        <li key={`${b.version}-${b.build}`} data-testid={`admin-work-build-${b.build}`} className="flex min-w-0 flex-col gap-1 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">{t("admin.work.testflight.build", { version: b.version ?? "—", build: b.build ?? "—" })}</span>
+            <Badge tone={b.expired ? "muted" : b.processingState === "VALID" ? "success" : b.processingState === "FAILED" || b.processingState === "INVALID" ? "destructive" : "warning"}>
+              {b.expired ? t("admin.work.testflight.expired") : (b.processingState ?? "—")}
+            </Badge>
+            {b.internalState ? <Badge>{t("admin.work.testflight.internal", { state: b.internalState })}</Badge> : null}
+            {b.externalState ? <Badge>{t("admin.work.testflight.external", { state: b.externalState })}</Badge> : null}
+            <span className="text-xs text-muted-foreground">{when(b.uploadedAt)}</span>
+          </div>
+          <p className="break-words text-muted-foreground">{b.whatToTest || t("admin.work.testflight.noNotes")}</p>
+        </li>
+      ))}
+    </Section>
+  );
+}
+
+const SEVERITY_TONE: Record<string, "destructive" | "warning" | "primary" | "muted"> = {
+  critical: "destructive", high: "destructive", medium: "warning", low: "muted",
+};
+
+/** Rule 10: open entries of the bug ledger, most severe first. */
+function Bugs({ bugs }: { bugs: Extract<WorkAnswer["bugs"], { status: "ok" }> }) {
+  const { t } = useTranslation();
+  const counts = Object.entries(bugs.counts.open).map(([sev, n]) => `${t(`admin.work.bugs.severity.${sev}`, { defaultValue: sev })} ${n}`).join(" · ");
+  return (
+    <Section title={t("admin.work.bugs.title")} testId="admin-work-bugs" empty={bugs.open.length ? null : t("admin.work.bugs.empty")}>
+      <li className="text-xs text-muted-foreground" data-testid="admin-work-bugs-counts">
+        {counts ? `${counts} · ` : ""}{t("admin.work.bugs.resolved", { count: bugs.counts.resolved })}
+        {bugs.unparsed ? ` · ${t("admin.work.bugs.unparsed", { count: bugs.unparsed })}` : ""}
+      </li>
+      {bugs.open.map((b) => (
+        <li key={b.id} data-testid={`admin-work-bug-${b.id}`} className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+          <Badge tone={SEVERITY_TONE[b.severity] ?? "muted"}>{t(`admin.work.bugs.severity.${b.severity}`, { defaultValue: b.severity })}</Badge>
+          <ExternalLink href={b.url} label={`${b.id} ${b.title}`}><span className="font-mono text-xs">{b.id}</span></ExternalLink>
+          <span className="break-words">{b.title}</span>
+          <span className="text-xs text-muted-foreground">{b.status}</span>
+        </li>
+      ))}
+    </Section>
+  );
+}
+
+/** Rule 11: each CI lane's recent minutes against its limit; the lanes nearest it first. */
+function Ci({ ci }: { ci: Extract<WorkAnswer["ci"], { status: "ok" }> }) {
+  const { t } = useTranslation();
+  return (
+    <Card data-testid="admin-work-ci">
+      <h2 className="mb-3 font-semibold">{t("admin.work.ci.title")}</h2>
+      <div className="flex flex-col gap-4">
+        {ci.workflows.map((w) => (
+          <div key={w.workflow} data-testid={`admin-work-ci-${w.workflow}`} className="min-w-0">
+            <h3 className="mb-1 text-sm font-medium">
+              <span className="font-mono">{w.workflow}</span>{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                {w.failureRate === null ? t("admin.work.ci.noRuns") : t("admin.work.ci.failureRate", { percent: Math.round(w.failureRate * 100), runs: w.runs })}
+              </span>
+            </h3>
+            <ul className="flex flex-col gap-1 text-sm">
+              {w.lanes.map((lane) => (
+                <li key={lane.name} className="flex min-w-0 flex-wrap items-center gap-2">
+                  {lane.nearLimit ? <Badge tone="warning">{t("admin.work.ci.nearLimit")}</Badge> : null}
+                  <span className="break-words">{lane.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("admin.work.ci.minutes", { latest: lane.latestMinutes, median: lane.medianMinutes, longest: lane.longestMinutes, limit: lane.timeoutMinutes })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function WorkPage() {
   const { t } = useTranslation();
   const when = useWhen();
@@ -217,6 +301,21 @@ export function WorkPage() {
           <SourceState name="github" source={query.data.github}>
             {(github) => <GitHub github={github as Extract<WorkAnswer["github"], { status: "ok" }>} />}
           </SourceState>
+          {query.data.testflight ? (
+            <SourceState name="testflight" source={query.data.testflight}>
+              {(tf) => <TestFlight testflight={tf as Extract<WorkAnswer["testflight"], { status: "ok" }>} />}
+            </SourceState>
+          ) : null}
+          {query.data.bugs ? (
+            <SourceState name="bugs" source={query.data.bugs}>
+              {(bugs) => <Bugs bugs={bugs as Extract<WorkAnswer["bugs"], { status: "ok" }>} />}
+            </SourceState>
+          ) : null}
+          {query.data.ci ? (
+            <SourceState name="ci" source={query.data.ci}>
+              {(ci) => <Ci ci={ci as Extract<WorkAnswer["ci"], { status: "ok" }>} />}
+            </SourceState>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -24,5 +24,16 @@ appId: com.padellevelup.app
       id: "settings-build-info"
     direction: DOWN
     timeout: 30000
+# PAD-710 (Android lane): the build-info row is only 19 px visible under the nav bar, so the scroll above stops there; scroll to the test-server child and centre it. Android only: on iOS centerElement times out on the last element of the content (README).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "settings-build-info-test-server"
+          direction: DOWN
+          timeout: 30000
+          centerElement: true
 - assertVisible:
     id: "settings-build-info-test-server"

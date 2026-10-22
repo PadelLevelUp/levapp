@@ -42,6 +42,12 @@ appId: com.padellevelup.app
     visible:
       id: "tactical-board"
     timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-b2"
 - scrollUntilVisible:
     element:
       id: "piece-b2"
@@ -49,54 +55,97 @@ appId: com.padellevelup.app
     timeout: 15000
 
 # ── A cone at the centre is the first leg's target ──
-# PAD-710 (Android lane): the toolbar scrolls off the top once the flow has scrolled down to the court pieces, and Android exposes only on-screen elements.
-- scrollUntilVisible:
-    element:
-      id: "board-tool-cone"
-    direction: UP
-    timeout: 15000
+# PAD-710 (Android lane): the board's toolbar and its court do not fit on the phone together and Android exposes only on-screen elements; scrollUntilVisible swipes from the centre (the court) and the court eats the gesture, so the Android steps scroll by swiping the page margin (subflows/board-show-*.yaml).
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-cone"
 - tapOn:
     id: "board-tool-cone"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "court-surface"
 - tapOn:
     id: "court-surface"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
 - assertVisible:
     id: "piece-cone-1"
 
 # ── A1: first leg to the cone, second leg to another point; both drawn ──
-# PAD-710 (Android lane): the toolbar scrolls off the top once the flow has scrolled down to the court pieces, and Android exposes only on-screen elements.
-- scrollUntilVisible:
-    element:
-      id: "board-tool-movement"
-    direction: UP
-    timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-movement"
 - tapOn:
     id: "board-tool-movement"
-# PAD-710 (Android lane): bring the court pieces back on screen after scrolling up to the toolbar.
-- scrollUntilVisible:
-    element:
-      id: "piece-a1"
-    direction: DOWN
-    timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
 - tapOn:
     id: "piece-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
 - tapOn:
     id: "piece-cone-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-a1"
 - assertVisible:
     id: "movement-a1"
 - assertNotVisible:
     id: "movement-a1-1"
 - tapOn:
     point: "40%, 45%"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-a1-1"
 - assertVisible:
     id: "movement-a1-1"
 - assertVisible:
     id: "movement-a1"
 
 # ── Undo removes only the last leg ──
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-undo"
 - tapOn:
     id: "board-undo"
 - assertNotVisible:
     id: "movement-a1-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-a1"
 - assertVisible:
     id: "movement-a1"
 
@@ -106,21 +155,69 @@ appId: com.padellevelup.app
 # below the fold behind the tab bar at this scroll position). Playback itself is
 # not asserted: Maestro cannot observe the board mid-playback on iOS (B-114);
 # the shared timeline tests in @levelup/config prove the order.
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
 - tapOn:
     id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
 - tapOn:
     id: "piece-cone-1"
 - tapOn:
     point: "40%, 45%"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-number-0"
 - assertVisible:
     id: "ball-number-0"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-order-a1"
 - assertVisible:
     id: "movement-order-a1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-movement"
 - tapOn:
     id: "board-tool-movement"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a2"
 - tapOn:
     id: "piece-a2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-cone-1"
 - tapOn:
     id: "piece-cone-1"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "movement-order-a2"
 - assertVisible:
     id: "movement-order-a2"

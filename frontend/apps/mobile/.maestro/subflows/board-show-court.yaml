@@ -1,0 +1,21 @@
+# PAD-710 (Android lane): bring a court-side element of the tactical board (or anything below
+# it, e.g. exercise-save) on screen. The reverse of board-show-toolbar.yaml: swipe on the page's
+# left margin, finger up, until ${TARGET} is visible; a no-op when it already is. Call it only
+# under `runFlow: when: platform: Android`.
+#
+# Usage: runFlow: { file: board-show-court.yaml, env: { TARGET: "piece-a1" } }
+appId: com.padellevelup.app
+---
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        id: "${TARGET}"
+    commands:
+      # A vertical swipe on the page's left margin (x 4%), outside the board card and its court:
+      # the court takes any gesture that starts on it (piece dragging), and an element anchor can
+      # itself be off screen. Finger up: the page scrolls down, towards the court and what is below it.
+      - swipe:
+          start: "4%, 75%"
+          end: "4%, 35%"
+          duration: 600
