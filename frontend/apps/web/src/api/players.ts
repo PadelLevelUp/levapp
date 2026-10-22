@@ -12,7 +12,7 @@ export type {
 } from "@levelup/api/src/resources/players";
 import type { CoachPlayersPageResponse } from "@levelup/api/src/resources/players";
 
-export { invalidateCoachPlayersCache } from "@levelup/api/src/resources/players";
+export { invalidateCoachPlayersCache, setPlayerProfileSide } from "@levelup/api/src/resources/players";
 
 export async function getPlayers(): Promise<Player[]> {
   if (USE_MOCK_DATA) {
