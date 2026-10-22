@@ -104,6 +104,7 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
   const config = await configRes.json();
   const savedVisible = Boolean(config.openSpotsVisible);
   const savedTiming = config.reminderTiming ?? null;
+  const savedRestrictions = config.restrictions ?? null;
 
   try {
     await setSide(request, coachAuth, coach!.id, student!.playerId, "left");
@@ -114,9 +115,23 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
       data: {
         openSpotsVisible: true,
         reminderTiming: { ...(savedTiming ?? {}), firstReminder: { type: "hours_before", value: 1 } },
+        // E2E Student must see "Pedir para entrar", so the engine must never invite them to this spot.
+        // The waves alone do not promise that: CI run 39743309691's trace shows E2E Student invited a
+        // moment after the check below had read no invitations (the engine runs after the decline
+        // returns), so the UI met an invited student. Excluded from invitations for the run, restored after.
+        restrictions: {
+          ...(savedRestrictions ?? {}),
+          excludedPlayers: {
+            enabled: true,
+            playerIds: [
+              ...(savedRestrictions?.excludedPlayers?.enabled ? savedRestrictions.excludedPlayers.playerIds ?? [] : []),
+              String(student!.playerId),
+            ],
+          },
+        },
       },
     });
-    expect(configured.ok()).toBeTruthy();
+    expect(configured.ok(), await configured.text()).toBeTruthy();
 
     // A two-player class (student 2 on the right, a filler); student 2 steps out -> one right spot.
     const added = await request.post(`${API_ROOT}/app/add_class`, {
@@ -128,9 +143,7 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
         startTime,
         endTime,
         isRecurring: false,
-        // Notifications on: the right spot's round 1 asks only right players at the class's level,
-        // so E2E Student (left) gets no invitation. (Off is not honoured for a one-off class's
-        // materialised occurrence — Session C's engine bug, reported separately.)
+        // Notifications on: the vacancy (and so the right-only spot) exists only when the engine runs.
         notificationsEnabled: true,
         maxPlayers: 2,
         playerIds: [student2!.playerId, filler!.playerId],
@@ -241,7 +254,11 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
     }
     await request.post(`${API_ROOT}/app/notify/config`, {
       headers: coachAuth,
-      data: { openSpotsVisible: savedVisible, reminderTiming: savedTiming },
+      data: {
+        openSpotsVisible: savedVisible,
+        reminderTiming: savedTiming,
+        ...(savedRestrictions ? { restrictions: savedRestrictions } : {}),
+      },
     });
   }
 });
