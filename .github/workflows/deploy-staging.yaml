@@ -214,7 +214,12 @@ jobs:
           # migrate step finds the database ahead of the image and does nothing.
           ROLLOUT_MODE=""
           if [ "${{ inputs.rollout }}" = "stop-first" ]; then ROLLOUT_MODE="--stop-first"; fi
-          bash /home/${{ secrets.GCE_USER }}/rollout.sh --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging --probe-host staging.levapp.app --migrate $ROLLOUT_MODE -- \
+          # B-666: a rollback (deploy-prod's rollback_to) checks out an older rollout.sh, which exits 2
+          # on an option it does not know (--probe-host came with #769, --migrate with #753). Pass an
+          # option only when the checked-out script accepts it, and say so when one is dropped.
+          RO=/home/${{ secrets.GCE_USER }}/rollout.sh
+          opt() { if grep -qF -- "    $1)" "$RO"; then printf '%s ' "$@"; else echo "[deploy] this rollout.sh has no $1: not passing it" >&2; fi; }
+          bash "$RO" --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $(opt --probe-host staging.levapp.app) $(opt --migrate) $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \
