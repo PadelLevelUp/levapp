@@ -133,6 +133,12 @@ def sse_broker(value) -> str:
     return name if name in ("memory", "postgres") else "memory"
 
 
+def auth_rate_limit_store(value) -> str:
+    """``AUTH_RATE_LIMIT_STORE`` (auth.login rule 7, PAD-693): ``database`` or, for anything else, ``memory``."""
+    name = str(value or "").strip().lower()
+    return name if name in ("memory", "database") else "memory"
+
+
 def realtime_retention_minutes(value) -> int:
     """``REALTIME_EVENTS_RETENTION_MINUTES`` (rule 24): a positive int, else the default 10."""
     try:
@@ -255,6 +261,8 @@ class Config:
     AUTH_RATE_LIMIT_ENABLED = os.getenv("AUTH_RATE_LIMIT_ENABLED", "1").strip().lower() not in (
         "0", "false", "no", "off", ""
     )
+    # auth.login rule 7 (PAD-693): `memory` (one budget per process) or `database` (one shared budget).
+    AUTH_RATE_LIMIT_STORE = auth_rate_limit_store(os.getenv("AUTH_RATE_LIMIT_STORE"))
     AUTH_RATE_LIMIT_LOGIN = os.getenv("AUTH_RATE_LIMIT_LOGIN", "20/60")
     AUTH_RATE_LIMIT_REGISTER = os.getenv("AUTH_RATE_LIMIT_REGISTER", "5/600")
     AUTH_RATE_LIMIT_RECOVERY = os.getenv("AUTH_RATE_LIMIT_RECOVERY", "5/600")
@@ -325,9 +333,8 @@ class Config:
     # Rule 3 (owner decision 2026-10-07): 12 hours, no silent refresh.
     ADMIN_TOKEN_EXPIRES = ADMIN_TOKEN_EXPIRES_DEFAULT
 
-    # Sessions
-    SESSION_PERMANENT = False
-    SESSION_TYPE = "filesystem"
+    # No server-side sessions (auth.login rule 7a, PAD-693): every client authenticates with a bearer
+    # JWT and nothing reads Flask's `session`, so Flask-Session and its per-process temp dir are gone.
 
     # i18n / localization (default + fallback locale is Portuguese)
     BABEL_DEFAULT_LOCALE = "pt"

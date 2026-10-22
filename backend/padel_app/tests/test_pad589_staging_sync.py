@@ -24,6 +24,8 @@ case "$1" in
     echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on"]'; exit 0 ;;
   inspect)
     case "$*" in
+      # PAD-695: the worker container exists only when the test says so
+      *_worker) [ -n "${STUB_WORKER:-}" ] || exit 1 ;;
       *Config.Image*) echo "repo/levelup_backend:staging" ;;
       *HostConfig.NetworkMode*) echo "levelup_net" ;;
       *"json .Config.Env"*) echo '["PATH=/usr/local/bin:/usr/bin", "SCHEMA_GATE=on", "POSTGRES_DB=padel_app_staging", "VAPID_PRIVATE_KEY=-----BEGIN KEY-----\nabc\n-----END KEY-----", "MAIL_PASSWORD=a=b c"]' ;;
@@ -249,3 +251,20 @@ def test_the_workflow_passes_the_mode_and_offers_three():
     assert re.search(r"options:\s*\[\s*auto,\s*reload,\s*live\s*\]", block.group(1))
     job = text.split("\n  sync-db:\n", 1)[1].split("\n  frontend:\n", 1)[0]
     assert "${{ inputs.sync_db || 'auto' }}" in job
+
+
+def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
+    """PAD-695 (delivery.worker-role): a worker holds connections to the target and would run jobs
+    on a half-restored database."""
+    result, calls = run(sandbox, "reload", STUB_WORKER="1")
+    lines = calls.splitlines()
+    assert lines.index("docker stop padelapp_staging") < lines.index("docker stop -t 60 padelapp_staging_worker")
+    stopped_worker = lines.index("docker stop -t 60 padelapp_staging_worker")
+    restore = next(i for i, c in enumerate(lines) if "pg_restore" in c or " sh -c " in c)
+    assert stopped_worker < restore
+    assert lines.index("docker start padelapp_staging") < lines.index("docker start padelapp_staging_worker")
+
+
+def test_without_a_worker_the_sync_touches_none(sandbox):
+    result, calls = run(sandbox, "reload")
+    assert "padelapp_staging_worker" not in calls.replace("docker inspect padelapp_staging_worker", "")

@@ -106,12 +106,12 @@ def reminder_configs(instances: Iterable[LessonInstance]) -> Dict[int, Any]:
 
 
 def ask_state(player_id: int, instance_ids: Iterable[int], now_wall: datetime) -> Dict[int, dict]:
-    """``{instance_id: {"pendingConfirmation": bool, "attendanceState": str}}``.
+    """``{instance_id: {"pendingConfirmation": bool, "attendanceState": str, "comeBack": str | None}}``.
 
     ``now_wall`` is the club's clock, as every dashboard builder receives it; the
     predicate takes the UTC instant.
     """
-    from padel_app.services.notification_service import student_may_confirm
+    from padel_app.services.notification_service import student_come_back, student_may_confirm
 
     ids = [i for i in instance_ids if i is not None]
     if not ids:
@@ -129,6 +129,8 @@ def ask_state(player_id: int, instance_ids: Iterable[int], now_wall: datetime) -
                 row, instance, configs[int(instance.id)], now=now_utc, was_asked=int(instance.id) in asked
             ),
             "attendanceState": row.attendance_state if row is not None else "planned",
+            # PAD-684 (attendance.confirm rule 28): what a not_coming student's row offers.
+            "comeBack": student_come_back(row, instance, player_id=player_id, now=now_utc),
         }
     return out
 

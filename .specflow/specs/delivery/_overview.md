@@ -14,6 +14,9 @@ they have behaviour worth specifying.
   dump, at most once per dump, never from live prod on push; `reload` / `live` by hand)
 - `delivery.production-activity-reset` — implementing (PAD-632: one transaction, dry run by default,
   clears production activity before real use; accounts, classes, enrolments and levels stay)
+- `delivery.worker-role` — implementing (PAD-695): the scheduler's jobs run in a `worker`
+  process of the API image behind `WORKER_SPLIT` (on for staging, off for prod until B8); the API
+  becomes a paused job-store client.
 - `delivery.zero-downtime-deploy` — implementing (PAD-588: one scheduler leader by advisory lock,
   reschedule off the boot path; start-before-stop rollout behind a two-port nginx upstream)
 
