@@ -19,10 +19,10 @@ import {
   CoachInvitePage,
   CoachPendingPage,
   ConnectWithCoachPage,
+  ContactPage,
   DashboardPage,
   ForgotPasswordPage,
   JoinCoachPage,
-  LandingPage,
   LegalPage,
   MessagesPage,
   NotFound,
@@ -93,6 +93,8 @@ const App = () => (
               <Route path="/privacy" element={<LegalPage document="privacy" />} />
               <Route path="/terms" element={<LegalPage document="terms" />} />
               <Route path="/support" element={<SupportPage />} />
+              {/* PAD-656: the site's contact page (the dialog's form on a page of its own). */}
+              <Route path="/contacto" element={<ContactPage />} />
               {/* auth.delete-account-page (PAD-603): Google Play's web deletion URL. */}
               <Route path="/delete-account" element={<DeleteAccountPage />} />
 

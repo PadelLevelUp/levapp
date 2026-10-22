@@ -15,7 +15,6 @@ const read = (p: string) => readFileSync(resolve(web, p), "utf8");
 
 describe("landing page static guards", () => {
   it.each([
-    "src/pages/LandingPage.tsx",
     "src/components/landing/CookieBanner.tsx",
     "src/components/landing/DemoRequestDialog.tsx",
     "src/components/landing/DemoRequestForm.tsx",

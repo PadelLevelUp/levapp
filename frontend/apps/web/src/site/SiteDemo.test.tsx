@@ -6,9 +6,10 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }),
 }));
 let formId: string | null = "form-1";
+let marketing = false;
 vi.mock("@/lib/hubspot", () => ({
   demoFormId: () => formId,
-  hasMarketingSubscription: () => false,
+  hasMarketingSubscription: () => marketing,
 }));
 vi.stubGlobal(
   "ResizeObserver",
@@ -51,6 +52,20 @@ describe("SiteDemoProvider", () => {
     expect(screen.queryByTestId("demo-dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("open"));
     expect(screen.getByTestId("demo-dialog")).toBeTruthy();
+  });
+
+  it("shows the marketing box only when the build has a subscription id (PAD-650)", () => {
+    formId = "form-1";
+    marketing = false;
+    const { unmount } = renderSite();
+    fireEvent.click(screen.getByTestId("open"));
+    expect(screen.queryByTestId("demo-marketing")).toBeNull();
+    unmount();
+    marketing = true;
+    renderSite();
+    fireEvent.click(screen.getByTestId("open"));
+    expect(screen.getByTestId("demo-marketing")).toBeTruthy();
+    marketing = false;
   });
 
   it("falls back to the mailto link when the build has no form id", () => {

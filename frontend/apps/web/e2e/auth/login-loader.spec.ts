@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
+import { COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { ui } from "../helpers/i18n";
 
 /**
- * The public landing page at `/`, and the animated loader that covers the
- * handoff from the login form to the app.
+ * The animated loader that covers the handoff from the login form to the app. Moved here from
+ * e2e/landing/landing-page.spec.ts (PAD-656) unchanged: it reaches the form at `/auth`, which is
+ * also where the public site's Entrar button lands (home.spec.ts covers that hop).
  *
  * The whole suite runs under `reducedMotion: "reduce"` (playwright.config.ts),
  * so the mark skips straight to its finished frame. The overlay still mounts,
@@ -14,144 +15,6 @@ import { ui } from "../helpers/i18n";
  * Pre-auth pages render in the default locale (pt), so the logged-out
  * assertions below use pt copy and stable ids, never English.
  */
-
-test.describe("landing page", () => {
-  test("a visitor with no session gets the landing page at /", async ({
-    page,
-  }) => {
-    await page.goto("/");
-
-    await expect(
-      page.getByRole("heading", { name: /enche as aulas/i }),
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/$/);
-    // The public page must never leak the app shell.
-    await expect(page.getByRole("link", { name: ui("nav.calendar") })).toHaveCount(0);
-  });
-
-  test("the landing page's Entrar button goes to the login form", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await page.getByRole("link", { name: ui("landing.nav.login") }).first().click();
-
-    await page.waitForURL("**/auth");
-    await expect(page.locator("#username")).toBeVisible();
-  });
-
-  test("a signed-in user gets the dashboard at /, not the landing page", async ({
-    page,
-  }) => {
-    await loginAsCoach(page);
-    await page.goto("/");
-
-    await expect(
-      page.getByRole("heading", { name: /enche as aulas/i }),
-    ).toHaveCount(0);
-    await expect(
-      page
-        .getByRole("navigation")
-        .getByRole("link", { name: ui("nav.calendar") }),
-    ).toBeVisible({ timeout: 15_000 });
-  });
-
-  test("the footer links reach the legal pages", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("link", { name: ui("landing.footer.privacy") }).click();
-    await page.waitForURL("**/privacy");
-
-    await page.goto("/");
-    await page.getByRole("link", { name: ui("landing.footer.terms") }).click();
-    await page.waitForURL("**/terms");
-  });
-
-  test("PAD-582: the header dropdown swaps the whole page, writes ?para= and keeps the scroll", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    const select = page.getByTestId("landing-audience");
-    await expect(select).toHaveAttribute("data-audience", "coaches");
-    // The audience is chosen in the header only: no tablist anywhere (rule 3).
-    await expect(page.getByRole("tablist")).toHaveCount(0);
-
-    // A document-level sentinel: it survives an in-place change and dies with a reload.
-    await page.evaluate(() => {
-      (window as unknown as { __pad582: boolean }).__pad582 = true;
-    });
-    await page.locator("#como-funciona").scrollIntoViewIfNeeded();
-    const before = await page.evaluate(() => window.scrollY);
-    expect(before).toBeGreaterThan(600); // the subject was found: we are well down the page
-    await select.click();
-    await page.getByTestId("landing-audience-players").click();
-    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
-    await expect(page.getByTestId("landing-hero")).not.toHaveAttribute("data-audience", "coaches");
-    await expect(select).toHaveAttribute("data-audience", "players");
-    await expect(page).toHaveURL(/\/\?para=jogadores$/);
-    // In place: no reload (the sentinel survived), and no jump to the top — the sections swap to
-    // ones of other heights, so the offset may settle a little, never back to zero.
-    expect(await page.evaluate(() => (window as unknown as { __pad582?: boolean }).__pad582)).toBe(true);
-    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(before / 2);
-
-    await select.click();
-    await page.getByTestId("landing-audience-others").click();
-    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "others");
-    await expect(page.getByRole("heading", { name: ui("landing.others.ideasTitle") })).toBeVisible();
-    // "Others" has no benefits / how / results sections.
-    await expect(page.locator("#como-funciona")).toHaveCount(0);
-    await expect(page.locator("#resultados")).toHaveCount(0);
-    await expect(page).toHaveURL(/\/\?para=outros$/);
-  });
-
-  test("PAD-582: choosing drops the older ?audience= and keeps unrelated parameters", async ({ page }) => {
-    await page.goto("/?utm_source=campaign&audience=alunos");
-    await expect(page.getByTestId("landing-audience")).toHaveAttribute("data-audience", "players");
-    await page.getByTestId("landing-audience").click();
-    await page.getByTestId("landing-audience-coaches").click();
-    await expect(page).toHaveURL(/\/\?utm_source=campaign&para=treinadores$/);
-  });
-
-  test("PAD-582: at phone width the audience control is in the header and on screen", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/");
-    const select = page.getByTestId("landing-audience");
-    await expect(select).toBeVisible();
-    await expect(select).toBeInViewport();
-    await expect(select).toHaveAttribute("data-audience", "coaches");
-    const box = await select.boundingBox();
-    expect(box && box.x + box.width).toBeLessThanOrEqual(375);
-  });
-
-  test("PAD-582: ?para= and the older ?audience= open the page on that audience", async ({ page }) => {
-    await page.goto("/?para=jogadores");
-    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
-    await expect(page.getByTestId("landing-audience")).toHaveAttribute("data-audience", "players");
-
-    await page.goto("/?audience=alunos");
-    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
-
-    await page.goto("/?audience=players");
-    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "players");
-
-    // Anything unknown falls back to coaches.
-    await page.goto("/?audience=nope");
-    await expect(page.getByTestId("landing-hero")).toHaveAttribute("data-audience", "coaches");
-  });
-
-  test("the final CTA rotates through the audiences", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: ui("landing.cta.coaches.switch") }).click();
-    await expect(page.getByRole("heading", { name: /joga mais/i })).toBeVisible();
-
-    await page.getByRole("button", { name: ui("landing.cta.players.switch") }).click();
-    await expect(page.getByRole("heading", { name: /enche as aulas/i })).toBeVisible();
-  });
-
-  test("the player audience sends a lost invite to support", async ({ page }) => {
-    await page.goto("/?audience=alunos");
-    await page.getByRole("link", { name: ui("landing.hero.players.secondary") }).click();
-    await page.waitForURL("**/support");
-  });
-});
 
 test.describe("login loader", () => {
   test("the loader covers the login and hands off to the dashboard", async ({
