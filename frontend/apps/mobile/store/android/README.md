@@ -225,3 +225,27 @@ Console (PAD-608):
 - **Parity check on a real Android device** — the same code paths as iOS 1.1.x (account deletion,
   report and block in messages, pt/en). Run the Maestro suite on an emulator and the weekly QA
   sweep on Android before the first production release.
+
+## Android screenshots
+
+The Play phone screenshots come from the real app on an emulator, made by the workflow
+`.github/workflows/android-store-screenshots.yaml` (PAD-608 item 5). Nothing is uploaded to Play.
+
+- **Run it:** Actions → "Android store screenshots" → Run workflow (once the file is on `main`), or
+  open a pull request into `staging` that touches the workflow or `store/android/screenshots/**`;
+  the PR that adds the workflow produces the artefact itself.
+- **Result:** the artefact **`play-store-screenshots`** on the run (seven PNGs, `01-dashboard` to
+  `07-student-dashboard`). On a failure, **`store-screenshots-debug`** holds Maestro's screenshots
+  and logs and the Flask log.
+- **How:** a throwaway Postgres (`levelup_store_shots`) gets the E2E seed, then
+  `screenshots/fictional.sql`; Flask on :5001; a `pixel_2` emulator (1080 × 1920, ratio 1.78, inside
+  Play's 2× limit; the lane's pixel_6 is 2.22) with a clean status bar (09:41, full battery);
+  `screenshots/capture.yaml` logs in as the seeded coach and student and shoots dashboard, calendar
+  (Semana), players, a player with evaluations, messages, an open conversation, and the student's
+  dashboard.
+- **Fictional-data rule:** public screenshots never show real people or the seed's "E2E" and
+  "Filler" names. `fictional.sql` renames every person, the academy ("ACADEMIA NORTE"), the class
+  titles and the chat text, and the flow fails if "E2E", "Filler" or "Maestro" is on screen when a
+  shot is taken. Only ever run it on that throwaway database, never on a shared or production one.
+- **The owner picks 2–8** of the seven (add or drop screens in `capture.yaml`; Play takes 2 to 8
+  phone screenshots) and uploads them in Play Console.
