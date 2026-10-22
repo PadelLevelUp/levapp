@@ -6964,11 +6964,39 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
                 # PAD-560 (rules 19, 19a): no credit limit (NULL) never closes the entry.
                 if standing.credits_total is not None and standing.credits_used >= standing.credits_total:
                     standing.is_active = False
+                    closed_classes = []
                     for other in WaitingListEntry.query.filter_by(
                         standing_entry_id=standing.id, is_active=True
                     ).all():
                         other.is_active = False
+                        closed_classes.append(other.lesson_instance_id)
+                    # PAD-725 (rule 15b): the last credit is spent, so the student's other live
+                    # group-0 offers from this entry go too — else they could take a second class
+                    # with nothing left. Not a "no"; the bubble says why; published after the commit.
+                    _publish_retired(_withdraw_spent_offers(event.player_id, closed_classes))
     db.session.flush()
+
+
+CREDITS_SPENT = "credits_spent"
+
+
+def _withdraw_spent_offers(player_id: int, instance_ids: list) -> list:
+    """PAD-725: retire the student's live group-0 invitations for ``instance_ids`` (the classes the
+    exhausted standing entry had reached). Flushed only; the caller's commit carries it."""
+    if not instance_ids:
+        return []
+    events = NotificationEvent.query.filter(
+        NotificationEvent.player_id == player_id,
+        NotificationEvent.lesson_instance_id.in_(instance_ids),
+        NotificationEvent.round_number == 0,
+        NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+    ).all()
+    for event in events:
+        event.status = "expired"
+        event.retired_reason = CREDITS_SPENT
+        _retire_invite_message(event, defer=True, response=CREDITS_SPENT)
+    db.session.flush()
+    return events
 # ---------------------------------------------------------------------------
 # Notification groups (manual notify modal)
 # ---------------------------------------------------------------------------
