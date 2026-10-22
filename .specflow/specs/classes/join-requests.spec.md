@@ -216,6 +216,16 @@ by a student's request — and whichever lands first wins.
       only when the class has no open spot at all (rule 11's superseding, unchanged otherwise).
     - Manual enrolment (Q8) sets the side through PAD-551's per-occurrence side
       (`classes.instance-enrollment` rule 13); no new endpoint.
+    - **Clients (PAD-672 S1 UI; numbering unconfirmed).** Web and iOS ask the side in a sheet
+      ("Em que lado queres jogar nesta aula?": Direita, Esquerda, Ambos) before "Pedir para entrar"
+      and before a full class's waiting-list join (same sheet, waiting-list theme). The card of the
+      profile side is pre-selected and tagged "Habitual" (a `both` student is asked too); with no
+      profile side nothing is pre-selected and sending stays disabled. On `409 side_full` the sheet
+      offers two choices: "Estou disposto a jogar em ambos" (the same request again with `both`) and
+      the waiting list of the side asked for. A coach's join-request row shows the side as a chip and,
+      when `suggestedProfileSide` is set, "Usar <lado> no perfil", which saves it through
+      `edit_player`; the standing waiting-list add offers the same side choice, defaulting to the
+      profile side. Both shells declare `join-side` in the same change that ships the sheet.
 
 21. **A coach can let eligible requests in automatically (PAD-672 slice 2, D6; numbering
     unconfirmed).** With `notifications.config` rule 3a on, a new request is accepted at creation
@@ -341,6 +351,19 @@ by a student's request — and whichever lands first wins.
 - **When** Ana opens her conversation with Carla
 - **Then** the request message shows it was declined and offers no actions
 - **And** Carla's own copy of her request message never offers actions
+
+#### The sheet pre-selects the habitual side (PAD-672 S1 UI)
+- **Given** Carla's profile side with Ana is left, and Ana's class has an open spot
+- **When** Carla taps "Pedir para entrar"
+- **Then** the side sheet opens with Esquerda selected and tagged "Habitual", and sending is enabled
+- **And** sending posts the request with `side: "left"`
+
+#### No spot on the asked side offers both sides (PAD-672 S1 UI)
+- **Given** Carla's profile side is left and the class's only open spot is on the right
+- **When** Carla sends her request and the server answers `409 side_full`
+- **Then** the sheet shows "Não há vaga na esquerda" with "Estou disposto a jogar em ambos"
+- **When** she taps it
+- **Then** the request is sent again with `side: "both"` and is `pending`
 
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the

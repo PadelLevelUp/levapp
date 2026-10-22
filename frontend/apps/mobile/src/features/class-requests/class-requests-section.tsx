@@ -25,6 +25,7 @@ import {
 import { queryKeys, refreshAfterRequestChange, useCoachDisplayName } from "@levelup/hooks";
 import type { ClassJoinRequestListRow, ClassRequest, ClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
+import { JoinRequestSide } from "@/features/calendar/join-request-side";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
 import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
 import { Badge } from "@/components/ui/badge";
@@ -195,6 +196,8 @@ export function ClassRequestsSection({
             </Text>
             <Text className="text-sm text-muted-foreground">{who}</Text>
             {r.note ? <Text className="text-sm italic text-muted-foreground">“{r.note}”</Text> : null}
+            {/* PAD-672 (join-requests rule 20): the side asked for + "Usar … no perfil". */}
+            {role === "coach" ? <JoinRequestSide request={r} /> : null}
           </View>
           <Badge variant={statusVariant(r.status)}>
             <Text>{t(statusKey)}</Text>

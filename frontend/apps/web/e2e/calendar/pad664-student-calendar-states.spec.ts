@@ -142,9 +142,12 @@ test("US-PAD-664: three states with a second signal, a remembered filter that ke
     const joinBlock = page.getByTestId("class-waiting-list-student");
     await expect(joinBlock).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("class-join-request-button")).toHaveCount(0);
+    // PAD-672: the join asks for the side first (the sheet is a nested dialog: located by test id).
+    await page.getByTestId("class-waiting-list-join").click();
+    await page.getByTestId("class-side-left").click();
     const [joined] = await Promise.all([
       page.waitForResponse((r) => r.url().endsWith("/api/app/class-waiting-list") && r.request().method() === "POST"),
-      page.getByTestId("class-waiting-list-join").click(),
+      page.getByTestId("class-side-send").click(),
     ]);
     expect(joined.status(), await joined.text()).toBe(201);
     await expect(page.getByTestId("class-waiting-list-on")).toBeVisible();

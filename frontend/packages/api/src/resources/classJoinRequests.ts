@@ -1,4 +1,4 @@
-import type { ClassJoinRequest, ClassJoinRequestListRow, EligibilityCheckEntry } from "@levelup/types";
+import type { PlayerSide, ClassJoinRequest, ClassJoinRequestListRow, EligibilityCheckEntry } from "@levelup/types";
 import { getApi } from "../client";
 
 /**
@@ -10,13 +10,15 @@ export async function createClassJoinRequest(event: {
   model: string;
   originalId: number | string;
   date?: string | null;
-}, note?: string): Promise<ClassJoinRequest> {
+}, note?: string, side?: PlayerSide): Promise<ClassJoinRequest> {
   const res = await getApi().post("/app/class-join-requests", {
     model: event.model,
     originalId: event.originalId,
     date: event.date ?? null,
     // PAD-358: optional note to the coach; omitted when blank.
     ...(note && note.trim() ? { note: note.trim() } : {}),
+    // PAD-672 (join-requests rule 20): the side the student will play; omitted by old callers.
+    ...(side ? { side } : {}),
   });
   return res.data;
 }
@@ -56,13 +58,17 @@ export type JoinRequestRefusalCode =
   | "not_visible"
   | "spot_filled"
   | "ineligible"
-  | "not_pending";
+  | "not_pending"
+  | "side_full";
 
 export interface JoinRequestRefusal {
   code: JoinRequestRefusalCode;
   message?: string;
   ineligible?: EligibilityCheckEntry[];
   request?: ClassJoinRequest;
+  /** `side_full` (PAD-672): the sides of the open spots and the side that was asked for. */
+  sides?: PlayerSide[];
+  requestedSide?: PlayerSide;
 }
 
 /** The `409 {code, …}` body of a refused request/decision, or null. */

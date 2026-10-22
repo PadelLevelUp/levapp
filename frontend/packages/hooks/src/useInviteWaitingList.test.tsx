@@ -36,7 +36,7 @@ describe("useInviteWaitingList", () => {
     expect(result.current.offersJoin).toBe(false); // lists not loaded yet: no flash of a button
     await waitFor(() => expect(result.current.offersJoin).toBe(true));
     await act(() => result.current.join());
-    expect(api.join).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 });
+    expect(api.join).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }, "both");
     expect(result.current.onWaitingList).toBe(true);
     expect(result.current.offersJoin).toBe(false);
     await act(() => result.current.leave());
