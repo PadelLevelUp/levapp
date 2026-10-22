@@ -40,3 +40,6 @@ docs/
 # Local iOS build output and watchman cookies: never commit (swept into #195 by mistake).
 /build/
 .watchman-cookie-*
+
+# PAD-702: written by the GKE deploy workflow from GitHub variables, never committed
+infra/k8s/overlays/*/config/vars.env

@@ -4,5 +4,7 @@ kind: Kustomization
 namespace: staging-levapp
 resources:
   - ../../../jobs
+components:
+  - ../config
 images:
   - {name: levapp-backend, newName: REGISTRY/levelup_backend, newTag: staging}
