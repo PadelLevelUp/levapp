@@ -76,6 +76,14 @@ export function sideFullOf(error: unknown): SideFull | null {
   return sideFullCopy(data.sides, data.requestedSide);
 }
 
+/**
+ * PAD-672 slice 2 (classes.join-requests rule 21): a join request the coach's automatic acceptance
+ * took at once answers 201 with `status: "accepted"`; the student is enrolled already.
+ */
+export function joinRequestAcceptedAtOnce(request: unknown): boolean {
+  return (request as { status?: unknown } | null | undefined)?.status === "accepted";
+}
+
 /** The i18n keys of the open sides, in the display order (right, left). */
 export function openSideWordKeys(full: SideFull): string[] {
   return full.openSides.map((s) => sideWordKey(s));

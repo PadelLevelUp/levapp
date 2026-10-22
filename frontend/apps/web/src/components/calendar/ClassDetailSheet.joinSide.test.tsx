@@ -123,6 +123,56 @@ describe("Pedir para entrar (PAD-672)", () => {
   });
 });
 
+describe("accepted at once (PAD-672 slice 2, join-requests rule 21)", () => {
+  it("a 201 accepted answer says the student is in, and re-reads the class", async () => {
+    api.createClassJoinRequest.mockResolvedValue({ id: 1, status: "accepted", side: "right" });
+    renderSheet(event());
+    fireEvent.click(await screen.findByTestId("class-join-request-button"));
+    await screen.findByTestId("class-side-right");
+    const reads = api.getClassInstance.mock.calls.length;
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith({ title: "Está marcado! Estás inscrito/a nesta aula." }),
+    );
+    await waitFor(() => expect(api.getClassInstance.mock.calls.length).toBeGreaterThan(reads));
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Pedido enviado" }));
+  });
+
+  it("a pending answer keeps today's \"request sent\" toast", async () => {
+    renderSheet(event());
+    fireEvent.click(await screen.findByTestId("class-join-request-button"));
+    await screen.findByTestId("class-side-right");
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Pedido enviado" })));
+  });
+});
+
+describe("the student's own side once the class is full (PAD-672 slice 3, rule 13a)", () => {
+  const own = (assignedSide: "left" | "right" | null) =>
+    instance({
+      openSpot: false,
+      presences: [
+        { id: "9", lessonInstanceId: "7", playerId: "1", invited: true, confirmed: true, validated: false, side: "both", assignedSide },
+      ],
+    });
+
+  it("reads Ambos → esquerda for a both player with an assigned side", async () => {
+    api.getClassInstance.mockResolvedValue(own("left"));
+    renderSheet(event({ openSpot: false, studentRelation: "enrolled" } as Partial<CalendarEvent>));
+    expect((await screen.findByTestId("class-own-assigned-side")).textContent).toBe(
+      "O teu lado nesta aula: Ambos → esquerda",
+    );
+  });
+
+  it("shows nothing while the class has a place (no assigned side)", async () => {
+    api.getClassInstance.mockResolvedValue(own(null));
+    renderSheet(event({ openSpot: false, studentRelation: "enrolled" } as Partial<CalendarEvent>));
+    await screen.findByTestId("attendance-state").catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("class-own-assigned-side")).toBeNull();
+  });
+});
+
 describe("the coach's join-request row (PAD-672)", () => {
   it("shows the requested side and saves the suggested profile side", async () => {
     auth.roles = ["coach"];

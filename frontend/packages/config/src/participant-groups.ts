@@ -46,6 +46,28 @@ export const SIDE_LONG_KEYS: Record<Side, string> = {
   left: "calendar.participants.sideLong.left",
 };
 
+/**
+ * PAD-672 slice 3 (`classes.instance-enrollment` rule 13a): the side a `both` player was given once
+ * the class is full ("Ambos → esquerda"). Only a `both` player has one; anything else is null so
+ * the label stays today's.
+ */
+export function assignedSideOf(side: Side | null | undefined, assigned: unknown): "left" | "right" | null {
+  if (side !== "both") return null;
+  return assigned === "left" || assigned === "right" ? assigned : null;
+}
+
+/** i18n key of the chip text: "Amb → Esq" for a `both` player with an assigned side, else today's. */
+export function sideShortKeyOf(side: Side, assigned?: unknown): string {
+  const a = assignedSideOf(side, assigned);
+  return a ? `calendar.participants.sideShort.both_${a}` : SIDE_SHORT_KEYS[side];
+}
+
+/** i18n key of the tooltip / long label: "Ambos → esquerda", else today's. */
+export function sideLongKeyOf(side: Side, assigned?: unknown): string {
+  const a = assignedSideOf(side, assigned);
+  return a ? `calendar.participants.sideLong.both_${a}` : SIDE_LONG_KEYS[side];
+}
+
 /** Group titles ("Vão · 4") and the pop-up's "Nesta aula" word ("Vai"). */
 export const PARTICIPANT_GROUP_TITLE_KEYS: Record<ParticipantGroupKey, string> = {
   going: "calendar.participants.group.going",
@@ -64,6 +86,8 @@ type PresenceLike = NonNullable<Parameters<typeof attendanceStateOf>[0]> & {
   /** PAD-551: the player's side in this occurrence, and whether the coach set it here. */
   side?: Side | null;
   sideOverride?: boolean;
+  /** PAD-672 slice 3: a `both` player's side once the class is full. */
+  assignedSide?: "left" | "right" | null;
 };
 type RosterLike = {
   playerId?: string | number | null;
@@ -81,6 +105,8 @@ export type ParticipantRowModel<P extends ParticipantLike, Pr extends PresenceLi
   /** The student's real name, for the pop-up's line under a nickname. */
   realName: string;
   side: Side | null;
+  /** PAD-672 slice 3: set only while `side` is `both` and the class is full. */
+  assignedSide: "left" | "right" | null;
   level: R["level"] | null;
   /** `attendance.presence` rule 9's stored value, kept for `data-state`. */
   state: AttendanceState;
@@ -146,12 +172,14 @@ export function groupParticipants<P extends ParticipantLike, Pr extends Presence
     const roster = rosterBy.get(playerId) ?? null;
     const state = attendanceStateOf(presence);
     const realName = player.user?.name ?? roster?.name ?? "";
+    const side: Side | null = (presence?.sideOverride && presence.side ? presence.side : roster?.side) ?? null;
     buckets[groupOfState(state)].push({
       playerId,
       // PAD-660 (players.nickname rule 3): this coach's roster is the only source of a nickname.
       name: roster?.displayName || realName,
       realName,
-      side: (presence?.sideOverride && presence.side ? presence.side : roster?.side) ?? null,
+      side,
+      assignedSide: assignedSideOf(side, presence?.assignedSide),
       level: roster?.level ?? null,
       state,
       player,

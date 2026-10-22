@@ -28,6 +28,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    (or becomes) `semi_automatic` answers `400` and stores nothing; a save that switches the mode to
    `semi_automatic` while it is on turns it off in the same save and the response carries
    `notice: "auto_accept_off"` for the client to tell the coach.
+   - Clients (PAD-672 S2/S3 UI; numbering unconfirmed): web and iOS Settings carry the toggle
+     (`settings-auto-accept-join-requests`), held until the section's Save; it is disabled with the
+     line "Não disponível no modo semi-automático" while the mode is `semi_automatic`; a save
+     answering `notice: "auto_accept_off"` toasts "Aceitar pedidos automaticamente foi desligado: não
+     funciona no modo semi-automático."; a student whose request answers 201 `accepted` sees "Está
+     marcado! Estás inscrito/a nesta aula." on the class and the academy-classes step at once.
 4. First reminder timing (`reminder_type`, `reminder_value`, `reminder_time`; on the wire `reminderTiming.firstReminder`): `{type: "hours_before", value: N}` or `{type: "days_before", days: N, time: "HH:MM"}`. `hours_before` counts real hours before the class's start, and `time` is the club's wall clock on the class's own date (`notifications.reminders` rule 15, PAD-256)
 5. Invitation window (`invitation_start_type`, `invitation_start_value`, `invitation_start_time`; on the wire `reminderTiming.invitationStart`): when to start sending invitations after a vacancy. One home only — the duplicate `invitation_start_timing` column and its precedence dance are gone (PAD-279)
 6. Restrictions (typed columns, composed on the wire as the `restrictions` object): maxSimultaneous, maxTotal, maxInactiveTime, minTimeBeforeClass, maxInvitesPerStudentPerDay, quietHours, excludedPlayers, excludeUnpaidSubscription (labelled "Exclude inactive accounts" — rule 7c), noSameDayClass (rule 6e)
