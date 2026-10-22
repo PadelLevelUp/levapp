@@ -80,7 +80,7 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
   const rosterRes = await request.get(`${API_ROOT}/app/coach_players`, { headers: coachAuth });
   const roster = (await rosterRes.json()) as Array<{ playerId: number; name: string; side?: string | null }>;
   const student = roster.find((p) => p.name === "E2E Student");
-  const student2 = roster.find((p) => p.name === "E2E Student 2");
+  const student2 = roster.find((p) => p.name === "E2E Student Two");
   const filler = roster.find((p) => p.name.startsWith("Filler Player"));
   expect(student && student2 && filler, "the seeded students and a filler are on the roster").toBeTruthy();
   const savedSides = new Map<number, string | null>([
