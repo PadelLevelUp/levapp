@@ -35,6 +35,10 @@ const loaders = {
   SettingsPage: () => import("@/pages/SettingsPage"),
   SignUpPage: () => import("@/pages/SignUpPage"),
   SitePage: () => import("@/site/SitePage"),
+  // PAD-656: each audience page of the site is its own chunk (SitePage renders the URL's one).
+  SiteCoachesPage: () => import("@/site/pages/CoachesPage").then((m) => ({ default: m.CoachesPage })),
+  SitePlayersPage: () => import("@/site/pages/PlayersPage").then((m) => ({ default: m.PlayersPage })),
+  SiteOthersPage: () => import("@/site/pages/OthersPage").then((m) => ({ default: m.OthersPage })),
   SocialSignUpCompletePage: () => import("@/pages/SocialSignUpCompletePage"),
   StudentEvaluations: () => import("@/pages/StudentEvaluations"),
   SupportPage: () => import("@/pages/SupportPage"),
@@ -76,6 +80,9 @@ export const ForgotPasswordPage = lazyWithReload(loaders.ForgotPasswordPage);
 export const JoinCoachPage = lazyWithReload(loaders.JoinCoachPage);
 export const ContactPage = lazyWithReload(loaders.ContactPage);
 export const SitePage = lazyWithReload(loaders.SitePage);
+export const SiteCoachesPage = lazyWithReload(loaders.SiteCoachesPage);
+export const SitePlayersPage = lazyWithReload(loaders.SitePlayersPage);
+export const SiteOthersPage = lazyWithReload(loaders.SiteOthersPage);
 export const LegalPage = lazyWithReload(loaders.LegalPage);
 export const MessagesPage = lazyWithReload(loaders.MessagesPage);
 export const NotFound = lazyWithReload(loaders.NotFound);

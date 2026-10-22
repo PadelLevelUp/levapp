@@ -1,17 +1,16 @@
 /**
  * The public site at `/` (PAD-656): the site chrome around the page of the chosen audience.
- * Each audience page is its own lazy chunk (a visitor on "Outros" never downloads the coaches
- * page's calendar, demo and board); the build preloads the URL's audience with the site chunks
- * (vite.config.ts `sitePreload`), so the split costs no extra round trip.
+ * Each audience page is its own lazy chunk, loaded from `routes/lazyPages` like every page (a
+ * visitor on "Outros" never downloads the coaches page's calendar, demo and board); the build
+ * preloads the URL's audience with the site chunks (vite.config.ts `sitePreload`), so the split
+ * costs no extra round trip.
  */
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+
+import { SiteCoachesPage as CoachesPage, SiteOthersPage as OthersPage, SitePlayersPage as PlayersPage } from "@/routes/lazyPages";
 
 import { useAudience } from "./audience";
 import { SiteFrame } from "./SiteFrame";
-
-const CoachesPage = lazy(() => import("./pages/CoachesPage").then((m) => ({ default: m.CoachesPage })));
-const PlayersPage = lazy(() => import("./pages/PlayersPage").then((m) => ({ default: m.PlayersPage })));
-const OthersPage = lazy(() => import("./pages/OthersPage").then((m) => ({ default: m.OthersPage })));
 
 export default function SitePage() {
   const [audience, setAudience] = useAudience();
