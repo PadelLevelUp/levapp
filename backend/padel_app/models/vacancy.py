@@ -85,7 +85,9 @@ class Vacancy(db.Model, model.Model):
     original_player = relationship("Player", foreign_keys=[original_player_id])
     filled_by_player = relationship("Player", foreign_keys=[filled_by_player_id])
     level = relationship("CoachLevel")
-    notification_events = relationship("NotificationEvent", back_populates="vacancy")
+    notification_events = relationship(
+        "NotificationEvent", back_populates="vacancy", foreign_keys="NotificationEvent.vacancy_id"
+    )
 
     @property
     def name(self):
