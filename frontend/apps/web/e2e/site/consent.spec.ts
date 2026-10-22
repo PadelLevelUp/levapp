@@ -1,7 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { HUBSPOT_TRACKING_SCRIPT_URL as TRACKING_SCRIPT } from "../../src/lib/hubspotConfig";
 import { loginAsCoach } from "../helpers/auth";
-import { ui } from "../helpers/i18n";
 import {
   captureRelay,
   expectSiteUp,
@@ -246,18 +245,52 @@ test.describe("public site — every exit loads a new document (PAD-469, rule 5)
     });
   }
 
-  test.fixme(
-    "PAD-656: re-pin when the coaches page sections land (E) — its content exits (hero, how-it-works, closing CTA) join the walk above, which finds them from the DOM; add a count floor then",
-    async () => {},
-  );
-  test.fixme(
-    "PAD-656: re-pin when the players page sections land (E) — Entrar (/auth) and Recebi um convite (/support) are exits only that page has",
-    async () => {},
-  );
-  test.fixme(
-    "PAD-656: re-pin when the others page sections land (E) — its content exits join the walk above",
-    async () => {},
-  );
+  // Rule 5, named: the page author's ids, per audience, each asserted on its own so a renamed or
+  // dropped exit is a red test and not a shorter walk. The DOM walk above still finds the rest.
+  const leavesTheSite = async (page: Page, click: () => Promise<void>, label: string) => {
+    await plantSentinel(page);
+    await click();
+    await page.waitForLoadState("load");
+    await expect.poll(() => sentinel(page), { message: `${label} kept the site document` }).toBeUndefined();
+  };
+
+  for (const [audience, path, exits] of [
+    ["coaches", "/", [["site-login", "**/auth"]]],
+    [
+      "players",
+      "/?para=jogadores",
+      [
+        ["site-login", "**/auth"],
+        ["site-players-signup", "**/signup"],
+        ["site-players-cta-signup", "**/signup"],
+      ],
+    ],
+    ["others", "/?para=outros", [["site-login", "**/auth"]]],
+  ] as const) {
+    for (const [id, url] of exits) {
+      test(`PAD-656 rule 5: ${id} on the ${audience} page is a new document`, async ({ page }) => {
+        await stubHubSpot(page);
+        await page.goto(path);
+        await expectSiteUp(page);
+        await leavesTheSite(page, () => page.getByTestId(id).click(), id);
+        await page.waitForURL(url);
+      });
+    }
+  }
+
+  test("PAD-656 rule 5: the others page's Enviar ideia is a mailto: link, not a navigation", async ({ page }) => {
+    await page.goto("/?para=outros");
+    await expect(page.getByTestId("site-others-hero-idea")).toHaveAttribute("href", /^mailto:/);
+  });
+
+  test("PAD-656 rule 5: the menu's Entrar (phone width) is a new document", async ({ page }) => {
+    await stubHubSpot(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await page.getByTestId("site-burger").click();
+    await leavesTheSite(page, () => page.getByTestId("site-menu-login").click(), "site-menu-login");
+    await page.waitForURL("**/auth");
+  });
 
   test("US-469: the dialog's privacy link is a new document", async ({ page }) => {
     await stubHubSpot(page);
@@ -338,20 +371,58 @@ test.describe("public site — contact dialog (PAD-469, PAD-617, PAD-650)", () =
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
     await page.getByTestId("site-burger").click();
-    await page
-      .getByTestId("site-menu")
-      .getByRole("button", { name: ui("site.layout.demo") })
-      .click();
+    await page.getByTestId("site-menu-demo").click();
     await expect(page.getByTestId("demo-dialog")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("demo-dialog")).toHaveCount(0);
     expect(bodies).toEqual([]);
   });
 
-  test.fixme(
-    "PAD-656: re-pin when the audience pages land (E) — the hero, how-it-works and closing demo buttons each open the dialog (the old test walked every landing-demo-cta, at least four)",
-    async () => {},
-  );
+  test("PAD-656 rule 10: every coaches demo button opens the one contact dialog", async ({ page }) => {
+    const bodies = await captureRelay(page);
+    await page.goto("/");
+    await expect(page.getByTestId("cookie-banner")).toBeVisible();
+    for (const id of ["site-coaches-hero-demo", "site-coaches-cta-demo", "site-demo"]) {
+      await page.getByTestId(id).click();
+      await expect(page.getByTestId("demo-dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("demo-dialog")).toHaveCount(0);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("site-burger").click();
+    await page.getByTestId("site-menu-demo").click();
+    await expect(page.getByTestId("demo-dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("demo-dialog")).toHaveCount(0);
+    expect(bodies).toEqual([]);
+  });
+
+  test("PAD-656 rule 10: a demo button on the page sends pedido=demonstracao", async ({ page }) => {
+    const bodies = await captureRelay(page);
+    await page.goto("/");
+    await page.getByTestId("site-coaches-hero-demo").click();
+    const dialog = await fillDemoForm(page.getByTestId("demo-dialog"));
+    await dialog.getByTestId("demo-submit").click();
+    await expect(dialog.getByTestId("demo-sent")).toBeVisible();
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({ pedido: "demonstracao" });
+  });
+
+  test("PAD-656 rule 10: Falar connosco opens the dialog and sends no pedido", async ({ page }) => {
+    const bodies = await captureRelay(page);
+    for (const [path, id] of [
+      ["/", "site-coaches-talk"],
+      ["/?para=jogadores", "site-players-talk"],
+    ] as const) {
+      await page.goto(path);
+      await page.getByTestId(id).click();
+      const dialog = await fillDemoForm(page.getByTestId("demo-dialog"));
+      await dialog.getByTestId("demo-submit").click();
+      await expect(dialog.getByTestId("demo-sent")).toBeVisible();
+    }
+    expect(bodies).toHaveLength(2);
+    for (const body of bodies) expect(body).not.toHaveProperty("pedido");
+  });
 
   test("PAD-650: the form posts the ticket's fields to LevApp's API, never to HubSpot", async ({ page }) => {
     const requests = await stubHubSpot(page);
@@ -395,6 +466,7 @@ test.describe("public site — contact dialog (PAD-469, PAD-617, PAD-650)", () =
     expect(await trackerRuns(page)).toBeUndefined();
   });
 
+  // Rules 17 and 18: the page and the dialog share one form; the page sends no pedido.
   test("PAD-650: the /contacto form sends no pedido (the old \"Falar connosco\")", async ({ page }) => {
     const bodies = await captureRelay(page);
     await page.goto("/contacto");

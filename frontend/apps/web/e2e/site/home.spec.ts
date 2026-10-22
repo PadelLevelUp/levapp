@@ -7,8 +7,8 @@ import { expectFitsViewport } from "./widths";
 /**
  * The public site at `/` (PAD-656, auth.landing-page rules 1, 3, 4, 8, 9): the layout level —
  * header, audience switch, footer. Ported from the old e2e/landing/landing-page.spec.ts.
- * What lives in the audience pages' content (the final CTA's rotation, the players' lost-invite
- * link, the scroll the switch must keep) waits as test.fixme until those pages land.
+ * The audience pages' content (sections, App Store placements, the invite panel, the closing CTA's
+ * rotation, the scroll the switch keeps) is covered by e2e/site/pages.spec.ts.
  *
  * Pre-auth pages render in the default locale (pt); the assertions use ids and `ui()` keys.
  * Desktop width unless a test sets another: the header's buttons are in the ☰ menu at 992px and
@@ -55,6 +55,7 @@ test.describe("public site", () => {
     await page.waitForURL("**/terms");
   });
 
+  // Rule 17: the footer's Contacto is the way in to the contact page.
   test("PAD-656: the footer's contact link reaches the contact page", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("site-footer-contact").click();
@@ -75,8 +76,8 @@ test.describe("public site", () => {
     await page.getByTestId("site-burger").click();
     const menu = page.getByTestId("site-menu");
     await expect(menu).toBeVisible();
-    await expect(menu.locator('a[href="/auth"]')).toBeVisible();
-    await expect(menu.getByRole("button", { name: ui("site.layout.demo") })).toBeVisible();
+    await expect(menu.getByTestId("site-menu-login")).toBeVisible();
+    await expect(menu.getByTestId("site-menu-demo")).toBeVisible();
     await expectFitsViewport(page, "/ at 390 with the menu open");
   });
 });
@@ -111,11 +112,6 @@ test.describe("public site — the audience switch (PAD-582, PAD-656)", () => {
     await expect(page.getByTestId("site-nav").getByRole("link")).toHaveCount(0);
     expect(await sentinel(page)).toBe(true);
   });
-
-  test.fixme(
-    "PAD-656: re-pin when the audience pages land (E) — the switch keeps the scroll position (old PAD-582 case: scroll to #como-funciona, switch, stay well down the page) and the others page drops #como-funciona / #resultados and shows its ideas section",
-    async () => {},
-  );
 
   test("PAD-582: choosing drops the older ?audience= and keeps unrelated parameters", async ({ page }) => {
     await page.goto("/?utm_source=campaign&audience=alunos");
@@ -158,14 +154,4 @@ test.describe("public site — the audience switch (PAD-582, PAD-656)", () => {
     await page.goto("/?para=outros&audience=alunos");
     await expect(page.getByTestId("site-audience")).toHaveAttribute("data-audience", "others");
   });
-
-  test.fixme(
-    "PAD-656: re-pin when the coaches and players pages land (E) — the final CTA rotates through the audiences (old landing.cta.*.switch buttons)",
-    async () => {},
-  );
-
-  test.fixme(
-    "PAD-656: re-pin when the players page lands (E) — the player audience sends a lost invite to /support (old landing.hero.players.secondary link)",
-    async () => {},
-  );
 });

@@ -9,10 +9,13 @@ import { captureRelay, fillDemoForm, settle, stubHubSpot, trackerRuns, trackingC
  * route-stubbed, like the consent spec's; the real E2E backend has no form id and would answer 503.
  */
 
+// Rules 17 (the page and its form), 18 (the one shared form), 19 (consent on every site page) and
+// 20 (widths) are pinned below; each test's comment names the rule.
 for (const width of [390, 1280]) {
   test.describe(`/contacto at ${width}px`, () => {
     test.use({ viewport: { width, height: width < 700 ? 844 : 800 } });
 
+    // Rules 17, 18 and 20: the frame, the form on the page (not in a dialog), and the width.
     test(`PAD-656: shows the site frame and the form, and nothing sticks out (${width})`, async ({ page }) => {
       await page.goto("/contacto");
       await expect(page.getByTestId("site")).toBeVisible();
@@ -25,6 +28,7 @@ for (const width of [390, 1280]) {
       await expectFitsViewport(page, `/contacto at ${width}`);
     });
 
+    // Rule 17: no pedido, pageUri ends /contacto, success replaces the form with the way home.
     test(`PAD-656: a complete form posts with no pedido and this page's address, then offers the way home (${width})`, async ({
       page,
     }) => {
@@ -59,6 +63,7 @@ test.describe("/contacto", () => {
     await expect(page.getByTestId("contact-page")).toHaveCount(0);
   });
 
+  // Rule 17: demo-failed with the mailto fallback, typed values kept.
   test("PAD-656: a failing API shows the failure and keeps what the visitor typed", async ({ page }) => {
     await page.route("**/api/public/demo-request", (route) =>
       route.fulfill({ status: 503, contentType: "application/json", body: '{"ok":false}' }),
@@ -76,6 +81,7 @@ test.describe("/contacto", () => {
     await expect(contact.getByTestId("demo-clube")).toHaveValue("Academia Norte");
   });
 
+  // Rule 19: the footer reopens the banner on /contacto too.
   test("PAD-656: the footer's cookie preferences reopen the banner", async ({ page }) => {
     await page.goto("/contacto");
     await page.getByTestId("cookie-decline").click();
@@ -85,6 +91,7 @@ test.describe("/contacto", () => {
     await expect(page.getByTestId("cookie-banner")).toBeVisible();
   });
 
+  // Rule 19: consent gates HubSpot on /contacto exactly as on the other site pages.
   test("PAD-656: nothing reaches HubSpot before the visitor accepts cookies", async ({ page }) => {
     const requests = await stubHubSpot(page);
     const foreign = watchForeign(page);
