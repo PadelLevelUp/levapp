@@ -11,13 +11,13 @@
 import { Check, ChevronDown, Menu, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { ExitLink } from "@/components/landing/ExitLink";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-import { AUDIENCES, type Audience } from "./audience";
+import { AUDIENCE_SLUG, AUDIENCES, type Audience } from "./audience";
 
 /** The section anchors the header links point at; every audience page uses the same ids. */
 export const SITE_SECTIONS = { benefits: "vantagens", how: "como-funciona", results: "resultados" } as const;
@@ -41,8 +41,11 @@ export function SiteWordmark({ className }: { className?: string }) {
 
 function Lockup({ size, wordClass, hideWordOnPhone }: { size: number; wordClass: string; hideWordOnPhone?: boolean }) {
   const { t } = useTranslation();
+  // On the audience page the logo goes back to the top; on /contacto it goes home (keeping ?para=).
+  const { pathname, search } = useLocation();
+  const href = pathname === "/" ? "#topo" : `/${search}`;
   return (
-    <a href="#topo" className="flex shrink-0 items-center gap-2.5" aria-label={hideWordOnPhone ? t("site.layout.home") : undefined}>
+    <a href={href} className="flex shrink-0 items-center gap-2.5" aria-label={hideWordOnPhone ? t("site.layout.home") : undefined}>
       <img src="/brand/levapp-icon.svg" alt="" aria-hidden="true" width={size} height={size} className="rounded-[23%]" style={{ width: size, height: size }} />
       <SiteWordmark className={cn(wordClass, hideWordOnPhone && "max-[640px]:hidden")} />
     </a>
@@ -87,6 +90,9 @@ function AudienceSwitch({ value, onChange }: { value: Audience; onChange: (next:
 function Header({ audience, onAudienceChange, onDemo }: { audience: Audience; onAudienceChange: (next: Audience) => void; onDemo: () => void }) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Off the audience page (/contacto), a section link goes to that section of the home page.
+  const onHome = useLocation().pathname === "/";
+  const sectionHref = (id: string) => (onHome ? `#${id}` : `/?para=${AUDIENCE_SLUG[audience]}#${id}`);
   // The design hides the section links on "Outros" (it has none of those sections).
   const links =
     audience === "others"
@@ -109,7 +115,7 @@ function Header({ audience, onAudienceChange, onDemo }: { audience: Audience; on
           {links.map((link) => (
             <a
               key={link.id}
-              href={`#${link.id}`}
+              href={sectionHref(link.id)}
               className="rounded-[10px] px-3 py-2.5 text-[17px] text-site-muted transition-colors hover:bg-site-surface hover:text-site-ink min-[993px]:max-[1100px]:px-2"
             >
               {link.label}
@@ -140,7 +146,7 @@ function Header({ audience, onAudienceChange, onDemo }: { audience: Audience; on
       {menuOpen && (
         <nav id="site-menu" aria-label={t("site.layout.nav.label")} data-testid="site-menu" className="border-t border-site-border bg-white px-6 pb-4 pt-2 min-[993px]:hidden">
           {links.map((link) => (
-            <a key={link.id} href={`#${link.id}`} onClick={() => setMenuOpen(false)} className="flex min-h-[44px] items-center px-3 text-[16px] font-semibold text-site-ink">
+            <a key={link.id} href={sectionHref(link.id)} onClick={() => setMenuOpen(false)} className="flex min-h-[44px] items-center px-3 text-[16px] font-semibold text-site-ink">
               {link.label}
             </a>
           ))}
