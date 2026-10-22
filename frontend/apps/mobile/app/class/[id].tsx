@@ -20,6 +20,7 @@ import {
   INVITATION_OUTCOME_KEY,
   INVITATION_OUTCOME_TONE,
   inviteeActionsFor,
+  inviteeNotes,
   outcomeAfterCoachAction,
   outcomeAfterResponse,
   statusForOutcome,
@@ -1839,14 +1840,15 @@ export default function ClassDetailScreen() {
                               {t(INVITATION_OUTCOME_KEY[inv.outcome])}
                             </Text>
                           </Badge>
-                          {inv.answeredBy === "coach" ? (
+                          {inviteeNotes(inv).map((note) => (
                             <Text
-                              testID={`invitee-recorded-by-coach-${inv.playerId}`}
+                              key={note.id}
+                              testID={`invitee-${note.id}-${inv.playerId}`}
                               className="text-[10px] text-muted-foreground"
                             >
-                              {t("calendar.detail.recordedByCoach")}
+                              {t(note.key)}
                             </Text>
-                          ) : null}
+                          ))}
                         </View>
                         {inviteeActionsFor(inv.outcome).length > 0 ? (
                           <Pressable

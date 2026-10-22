@@ -1,10 +1,18 @@
 # PAD-511: changed-file glob -> spec under e2e/, for what the test-id grep cannot see
 # (a page no spec reaches by test id). Add a line when a miss is found.
-frontend/apps/web/src/pages/LegalPage.tsx  landing/landing-page.spec.ts
-frontend/apps/web/src/pages/LegalPage.tsx  landing/hubspot-consent.spec.ts
+frontend/apps/web/src/pages/LegalPage.tsx  site/home.spec.ts
+frontend/apps/web/src/pages/LegalPage.tsx  site/consent.spec.ts
 frontend/apps/web/src/pages/LegalPage.tsx  legal/legal-pages.spec.ts
 frontend/apps/web/src/pages/DeleteAccountPage.tsx  legal/delete-account.spec.ts
 frontend/src/locales/*/legal.json  legal/delete-account.spec.ts
-frontend/apps/web/src/content/legal/**  landing/landing-page.spec.ts
-frontend/apps/web/src/content/legal/**  landing/hubspot-consent.spec.ts
+frontend/apps/web/src/content/legal/**  site/home.spec.ts
+frontend/apps/web/src/content/legal/**  site/consent.spec.ts
 frontend/apps/web/src/content/legal/**  legal/legal-pages.spec.ts
+frontend/apps/web/src/site/**  site/home.spec.ts
+frontend/apps/web/src/site/**  site/consent.spec.ts
+frontend/apps/web/src/site/**  site/contact.spec.ts
+frontend/apps/web/src/components/landing/**  site/home.spec.ts
+frontend/apps/web/src/components/landing/**  site/consent.spec.ts
+frontend/apps/web/src/components/landing/**  site/contact.spec.ts
+frontend/apps/web/src/components/brand/launch-loader.tsx  auth/login-loader.spec.ts
+frontend/apps/web/src/pages/AuthPage.tsx  auth/login-loader.spec.ts

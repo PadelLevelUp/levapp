@@ -28,6 +28,25 @@ const WORK: WorkAnswer = {
       production: [{ status: "completed", conclusion: "cancelled", sha: "c4nc3l1", createdAt: null, url: null }],
     },
   },
+  // PAD-646 (rules 9–11).
+  testflight: {
+    status: "ok",
+    builds: [{ build: "34", version: "1.3.2", uploadedAt: "2026-10-20T17:00:00Z", processingState: "VALID", expired: false,
+               internalState: "IN_BETA_TESTING", externalState: null, whatToTest: "Som das notificações" }],
+  },
+  bugs: {
+    status: "ok",
+    open: [{ id: "B-1", title: "the login loops", type: "incomplete-rule", severity: "high", status: "open",
+             url: "https://github.com/PadelLevelUp/levapp/blob/staging/.cortex/compass/bugs/B-1-x.md" }],
+    counts: { open: { high: 1 }, resolved: 3 },
+    unparsed: 0,
+  },
+  ci: {
+    status: "ok",
+    workflows: [{ workflow: "backend-tests.yaml", runs: 8, failureRate: 0.25, lanes: [
+      { name: "pytest (sqlite, FK on)", latestMinutes: 30, medianMinutes: 40, longestMinutes: 50, timeoutMinutes: 60, nearLimit: true },
+    ] }],
+  },
 };
 
 function signIn(role: AdminRoleName) {
@@ -72,6 +91,32 @@ describe("Work page (PAD-555)", () => {
     // A run cancelled by a later push is not a failure.
     expect(screen.getByTestId("admin-work-deploys-production")).toHaveTextContent(/Cancelled|Cancelado/);
     expect(screen.getByTestId("admin-work-deploys-production")).not.toHaveTextContent(/Failed|Falhou/);
+  });
+
+  it("shows TestFlight builds, open bugs by severity and CI lanes near their limit (PAD-646)", async () => {
+    signIn("operator");
+    window.history.pushState({}, "", "/work");
+    mockFetch();
+    render(<App />);
+    const build = await screen.findByTestId("admin-work-build-34");
+    expect(build).toHaveTextContent("1.3.2 (34)");
+    expect(build).toHaveTextContent("Som das notificações");
+    expect(screen.getByTestId("admin-work-bug-B-1")).toHaveTextContent(/High|Alto/);
+    expect(screen.getByTestId("admin-work-bugs-counts")).toHaveTextContent(/3 resolv/);
+    const ci = screen.getByTestId("admin-work-ci-backend-tests.yaml");
+    expect(ci).toHaveTextContent("25 %");
+    expect(ci).toHaveTextContent(/Near the limit|Perto do limite/);
+    expect(ci).toHaveTextContent(/50 \/ (limit|limite) 60/);
+  });
+
+  it("TestFlight without the key says which setting is missing", async () => {
+    signIn("owner");
+    window.history.pushState({}, "", "/work");
+    mockFetch({ ...WORK, testflight: { status: "not_configured", missing: "ASC_KEY_ID" } });
+    render(<App />);
+    const card = await screen.findByTestId("admin-work-testflight-status");
+    expect(card).toHaveTextContent("ASC_KEY_ID");
+    expect(card).toHaveTextContent("TestFlight");
   });
 
   it("a source not configured or unavailable says so, and the other still shows", async () => {

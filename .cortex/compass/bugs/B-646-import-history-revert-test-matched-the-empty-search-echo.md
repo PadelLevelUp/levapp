@@ -1,7 +1,7 @@
 ---
 id: B-646
 title: "The import-history revert E2E matched the player's name inside the empty-search message, so it failed while the app was right"
-type: wrong-test
+type: test-defect
 severity: medium
 status: resolved
 affects:

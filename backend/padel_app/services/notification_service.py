@@ -5365,6 +5365,7 @@ def _move_to_open_sibling(
             if not lock(b):
                 continue
             event.vacancy_id = b.id
+            event.moved_from_vacancy_id, event.moved_at = source.id, now  # PAD-719
             if event.round_number != 0:
                 event.round_number = max(b.current_round_number, 1)
             msg = Message.query.get(event.message_id) if event.message_id else None
@@ -6277,8 +6278,8 @@ def send_manual_notifications(
     from padel_app.models import Coach, Player
 
     instance = LessonInstance.query.get_or_404(instance_id)
-    if not instance.notifications_enabled:
-        return []
+    # PAD-732 (toggle-class rule 3b, owner 2026-10-22): no `notifications_enabled` check here. That
+    # switch governs the engine's automatic sends; a coach's manual invitation always goes out.
     config = get_or_create_config(coach_id)
 
     coach = Coach.query.get(coach_id)
