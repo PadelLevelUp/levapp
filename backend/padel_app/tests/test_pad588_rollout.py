@@ -58,9 +58,18 @@ esac
 """
 
 CURL_STUB = r"""#!/usr/bin/env bash
-url="${@: -1}"; port="$(printf '%s' "$url" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')"
+url="${@: -1}"
+# B-664: the request through nginx (--resolve host:443:127.0.0.1) prints STUB_NGINX_CODE (200).
+case " $* " in *" --resolve "*)
+  echo "curl nginx $url" >> "$STUB_HOME/calls.log"; printf '%s' "${STUB_NGINX_CODE:-200}"; exit 0 ;;
+esac; port="$(printf '%s' "$url" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')"
 echo "curl $port" >> "$STUB_HOME/calls.log"
 grep -qx "$port" "$STUB_HOME/healthy" 2>/dev/null
+"""
+
+# B-664: the fake clock. Every sleep is logged and returns at once.
+SLEEP_STUB = r"""#!/usr/bin/env bash
+echo "sleep $*" >> "$STUB_HOME/calls.log"
 """
 
 RUN_ARGS = ["--", "--restart", "unless-stopped", "--network", "levelup_net", "repo/levelup_backend:abc123"]
@@ -70,7 +79,7 @@ RUN_ARGS = ["--", "--restart", "unless-stopped", "--network", "levelup_net", "re
 def sb(tmp_path):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for name, body in (("docker", DOCKER_STUB), ("curl", CURL_STUB)):
+    for name, body in (("docker", DOCKER_STUB), ("curl", CURL_STUB), ("sleep", SLEEP_STUB)):
         p = bin_dir / name
         p.write_text(body)
         p.chmod(p.stat().st_mode | stat.S_IEXEC)
@@ -332,13 +341,13 @@ WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
 
 @pytest.mark.parametrize(
-    "workflow,name,ports,upstream",
+    "workflow,name,ports,upstream,host",
     [
-        ("deploy-prod.yaml", "padelapp", "5000,5002", "levapp_api"),
-        ("deploy-staging.yaml", "padelapp_staging", "5100,5102", "levapp_api_staging"),
+        ("deploy-prod.yaml", "padelapp", "5000,5002", "levapp_api", "levapp.app"),
+        ("deploy-staging.yaml", "padelapp_staging", "5100,5102", "levapp_api_staging", "staging.levapp.app"),
     ],
 )
-def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upstream):
+def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upstream, host):
     """Rule 4 wiring: the backend job copies rollout.sh and calls it; it no longer stops the API itself."""
     import yaml
 
@@ -346,7 +355,9 @@ def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upst
     yaml.safe_load(text)  # still valid YAML
     assert 'source: "backend/scripts/rollout.sh"' in text
     # PAD-691: the deploys migrate through the script's one-shot container, inside a 30-min ssh step.
-    assert f"rollout.sh --name {name} --ports {ports} --upstream {upstream} --migrate $ROLLOUT_MODE --" in text
+    # B-664: the request through nginx goes to the environment's own vhost.
+    assert (f"rollout.sh --name {name} --ports {ports} --upstream {upstream} --probe-host {host} "
+            "--migrate $ROLLOUT_MODE --") in text
     deploy_step = text.split("bash /home/${{ secrets.GCE_USER }}/rollout.sh", 1)[0].rsplit("uses: appleboy/ssh-action", 1)[1]
     assert "command_timeout: 30m" in deploy_step
     assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"
@@ -361,3 +372,43 @@ def test_the_staging_sync_finds_the_port_the_api_is_on():
     script = (SCRIPT.parent / "sync-staging-db.sh").read_text()
     assert "127.0.0.1:5100/api/app/healthz}" not in script
     assert 'docker port "$APP_CONTAINER" 80' in script
+
+
+# --- B-664: nginx's fail_timeout window after "healthy" -----------------------------------------
+
+def test_the_old_container_serves_for_fail_timeout_plus_one_after_the_new_is_healthy(sb):
+    sb["upstream"].write_text("upstream levapp_api {\n    server 127.0.0.1:5000 max_fails=1 fail_timeout=5s;\n"
+                              "    server 127.0.0.1:5002 max_fails=1 fail_timeout=7s;\n}\n")
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--probe-host", "levapp.app")
+    assert r.returncode == 0, r.stdout + r.stderr
+    healthy = index(calls, "curl 5002")
+    settle = calls.index("sleep 8")  # the idle port's (5002) fail_timeout, 7 s, plus one
+    through = index(calls, "curl nginx https://levapp.app/api/app/healthz")
+    stopped = index(calls, "docker stop -t 10 padelapp")
+    assert healthy < settle < through < stopped
+
+
+def test_fail_timeout_defaults_to_nginx_s_ten_seconds(sb):
+    live(sb, "padelapp", 5000)  # the fixture's upstream lines carry no fail_timeout
+    r, calls = run(sb)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert calls.index("sleep 11") < index(calls, "docker stop -t 10 padelapp")
+    assert "skipping the request through nginx" in r.stdout
+
+
+def test_a_5xx_through_nginx_keeps_the_old_container_and_removes_the_new(sb):
+    live(sb, "padelapp", 5000)
+    r, calls = run(sb, "--probe-host", "levapp.app", STUB_NGINX_CODE="502", PROBE_TRIES="3")
+    assert r.returncode == 1
+    assert len([c for c in calls if c.startswith("curl nginx")]) == 3
+    assert not any(c.startswith("docker stop") for c in calls)
+    assert containers(sb) == {"padelapp": "5000"}
+    assert "padelapp keeps serving" in r.stdout
+
+
+def test_a_4xx_through_nginx_counts_as_live(sb):
+    live(sb, "padelapp", 5000)
+    r, _ = run(sb, "--probe-host", "levapp.app", STUB_NGINX_CODE="404")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert containers(sb) == {"padelapp": "5002"}

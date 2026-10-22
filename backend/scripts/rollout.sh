@@ -8,7 +8,7 @@
 #
 #   bash rollout.sh --name padelapp --ports 5000,5002 --upstream levapp_api \
 #        [--container-port 80] [--health-path /api/app/healthz] [--stop-first] [--migrate] \
-#        [--dry-run] -- --restart unless-stopped --network levelup_net ... image:tag
+#        [--probe-host staging.levapp.app] [--dry-run] -- --restart unless-stopped ... image:tag
 #
 # --migrate (PAD-691, rules 4, 7, 9): run /app/scripts/migrate.sh in a one-shot container
 # <name>_migrate of the same image and arguments minus --restart (Docker refuses --rm with a
@@ -23,6 +23,13 @@
 #   3. poll http://127.0.0.1:<idle>/<health-path> until 200 (HEALTH_TIMEOUT s);
 #      on timeout or a restart, print its log, remove it, exit 1 — the old
 #      container never stopped, so nothing went down;
+#   3b. (B-664) keep the old one serving for the idle port's nginx fail_timeout + 1 s, read from
+#      the upstream conf (nginx's default 10 s when absent): a request nginx proxied to the idle
+#      port while it booted failed and marked it down for fail_timeout, and stopping the old one
+#      inside that window leaves nginx no live upstream (502 for every method). The wait counts
+#      from "healthy", the last moment such a failure can happen. Then, with --probe-host, one
+#      request through nginx (https://<host><health-path>, resolved to 127.0.0.1) must answer
+#      below 500 within PROBE_TRIES tries, or the new one is removed and the old keeps serving;
 #   4. stop the old one (docker stop -t STOP_GRACE), remove it, rename
 #      <name>_next to <name> so every other script keeps the stable name.
 # Stop-first (--stop-first, or no upstream on the host yet, rule 6): stop the old container
@@ -33,11 +40,11 @@
 #
 # Env: NGINX_UPSTREAM_CONF (default /etc/nginx/conf.d/levapp-api-upstream.conf),
 #      NGINX_SITES_DIR (default /etc/nginx/sites-enabled: a vhost must proxy to the upstream),
-#      HEALTH_TIMEOUT (120), STOP_GRACE (10), POLL_SECONDS (1)
+#      HEALTH_TIMEOUT (120), STOP_GRACE (10), POLL_SECONDS (1), PROBE_TRIES (10)
 # =============================================================================
 set -uo pipefail
 
-NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0
+NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) NAME="$2"; shift 2 ;;
@@ -48,6 +55,7 @@ while [ $# -gt 0 ]; do
     --stop-first) STOP_FIRST=1; shift ;;
     --migrate) MIGRATE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --probe-host) PROBE_HOST="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "[rollout] unknown option $1" >&2; exit 2 ;;
   esac
@@ -58,6 +66,7 @@ NGINX_SITES_DIR="${NGINX_SITES_DIR:-/etc/nginx/sites-enabled}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
 STOP_GRACE="${STOP_GRACE:-10}"
 POLL_SECONDS="${POLL_SECONDS:-1}"
+PROBE_TRIES="${PROBE_TRIES:-10}"
 
 log() { echo "[rollout] $*"; }
 die() { echo "::error::[rollout] $*"; exit 1; }
@@ -118,6 +127,29 @@ wait_healthy() {
   done
   log "$container did not answer $HEALTH_PATH within ${HEALTH_TIMEOUT}s"
   return 1
+}
+
+# B-664: the port's fail_timeout in whole seconds, from its `server 127.0.0.1:<port> ...` line in
+# the upstream conf; nginx's default (10 s) when the line or the parameter is missing.
+fail_timeout() {
+  local v
+  v=$(grep -E "^[[:space:]]*server[[:space:]]+127\.0\.0\.1:$1[[:space:];]" "$UPSTREAM_CONF" 2>/dev/null \
+      | sed -nE 's/.*fail_timeout=([0-9]+(ms|s|m)?).*/\1/p' | head -1)
+  case "$v" in
+    "") echo 10 ;;
+    *ms) echo 1 ;;
+    *m) echo $(( ${v%m} * 60 )) ;;
+    *s) echo "${v%s}" ;;
+    *) echo "$v" ;;
+  esac
+}
+
+# B-664: one request through nginx to the vhost; true when it answers below 500.
+through_nginx() {
+  local code
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -m 5 --resolve "${PROBE_HOST}:443:127.0.0.1" \
+    "https://${PROBE_HOST}${HEALTH_PATH}" 2>/dev/null)
+  [ -n "$code" ] && [ "$code" != 000 ] && [ "$code" -lt 500 ] 2>/dev/null
 }
 
 rolling=1
@@ -201,6 +233,24 @@ if ! wait_healthy "${NAME}_next" "$IDLE"; then
   docker logs --tail 60 "${NAME}_next" 2>&1 || true
   docker rm -f "${NAME}_next" >/dev/null 2>&1 || true
   die "${NAME}_next is not healthy; $NAME keeps serving on ${LIVE:-nothing}"
+fi
+
+settle=$(( $(fail_timeout "$IDLE") + 1 ))
+log "keeping $NAME serving ${settle}s more: nginx may have marked $IDLE down while it booted (fail_timeout + 1 s, B-664)"
+sleep "$settle"
+if [ -n "$PROBE_HOST" ]; then
+  tries=0
+  until through_nginx; do
+    tries=$((tries + 1))
+    if [ "$tries" -ge "$PROBE_TRIES" ]; then
+      docker rm -f "${NAME}_next" >/dev/null 2>&1 || true
+      die "https://${PROBE_HOST}${HEALTH_PATH} through nginx did not answer below 500 in $tries tries; ${NAME}_next removed, $NAME keeps serving"
+    fi
+    sleep "$POLL_SECONDS"
+  done
+  log "through nginx: https://${PROBE_HOST}${HEALTH_PATH} answers"
+else
+  log "no --probe-host: skipping the request through nginx"
 fi
 
 if [ -n "$LIVE" ] || docker inspect "$NAME" >/dev/null 2>&1; then
