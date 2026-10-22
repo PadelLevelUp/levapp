@@ -1,6 +1,6 @@
 /**
  * PAD-570 (`attendance.confirm` rules 27-28): a student may say "Vou" only once
- * asked, and "Não vou" is final.
+ * asked, and "Não vou" gives the place up until the student comes back with "Afinal vou" (PAD-684).
  *
  * Replaces pad315-come-back.spec.ts (rule 26 is reversed by this ticket). The
  * class is booked eight to fourteen days out, so under the seeded coach's 48 h
@@ -64,7 +64,7 @@ async function studentRows(request: APIRequestContext, headers: Record<string, s
   return blocks.find((b) => b.type === "schedule_7d")?.data.items ?? [];
 }
 
-test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page, request }) => {
+test("US-PAD-570: 'Vou' only once asked; after 'Não vou' the free spot offers 'Afinal vou' (PAD-684)", async ({ page, request }) => {
   test.setTimeout(240_000);
   const coachAuth = { Authorization: `Bearer ${await token(request, COACH_USERNAME, COACH_PASSWORD)}` };
   const studentAuth = { Authorization: `Bearer ${await token(request, STUDENT_USERNAME, STUDENT_PASSWORD)}` };
@@ -160,7 +160,7 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     expect(asked!.pendingConfirmation, "answered: the row offers no Yes / No").toBe(false);
     expect(asked!.attendanceState).toBe("coming");
 
-    // ── Rule 28: "Não vou" is final ──
+    // ── Rule 28 (PAD-684): after "Não vou", "Afinal vou" while the spot is free ──
     await page.getByTestId("class-cancel-attendance").click();
     await expect(page.locator('[role="alertdialog"]')).toBeVisible({ timeout: 5000 });
     await Promise.all([
@@ -189,7 +189,7 @@ test("US-PAD-570: 'Vou' only once asked, and 'Não vou' is final", async ({ page
     await expect(declinedRow.getByTestId("dashboard-decline-open")).toHaveCount(0);
     await expect(declinedRow.getByTestId("dashboard-confirm-yes")).toHaveCount(0);
 
-    // Still final after a reload, from server data.
+    // The same after a reload, from server data.
     await openClassDetail(page, 3);
     await expect(page.getByTestId("attendance-state").first()).toHaveAttribute("data-state", "not_coming", {
       timeout: 10_000,

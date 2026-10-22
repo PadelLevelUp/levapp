@@ -173,7 +173,7 @@ appId: com.padellevelup.app
 - assertNotVisible:
     id: "class-confirm-attendance"
 
-# ── Rule 28: "Não vou" is final ──
+# ── Rule 28 (PAD-684): after "Não vou", "Afinal vou" while the spot is free ──
 - scrollUntilVisible:
     element:
       id: "class-cancel-attendance"
