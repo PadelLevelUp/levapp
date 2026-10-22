@@ -160,21 +160,10 @@ appId: com.padellevelup.app
     file: ../subflows/board-show-court.yaml
     env:
       TARGET: "ball-style-handle-1"
-# PAD-728 (Android lane): react-native-svg reports the handle's <G x y> bounds ~35 dp from where it
-# is drawn, so a tap on its id misses the 22 pt hit circle and adds a ball. The straight path's
-# bounds centre is its midpoint, where the handle and its hit circle sit: tap that on Android.
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn:
-          id: "ball-style-handle-1"
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - tapOn:
-          id: "ball-path-1-flat"
+# PAD-728: the handle is drawn at absolute coordinates, so its reported bounds are where it sits on
+# both platforms (it used to be a translated <G x y>, ~35 dp off on Android). This tap is the guard.
+- tapOn:
+    id: "ball-style-handle-1"
 - runFlow:
     when:
       platform: Android

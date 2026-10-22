@@ -156,9 +156,9 @@ export function CourtSurface({
           <G key={`mv-${m.pieceId}${suffix}`} testID={tid(`movement-${m.pieceId}${suffix}`)}>
             {/* PAD-311: the leg's moment number when the step plays in order (rule 26) */}
             {order !== null && order !== undefined && !compact ? (
-              <G testID={`movement-order-${m.pieceId}${suffix}`} x={mid.x + 12} y={mid.y}>
-                <Circle r={8} fill={COURT_COLORS.movement} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
-                <SvgText textAnchor="middle" y={3.5} fontSize={9} fontWeight="700" fill={COURT_COLORS.frame}>
+              <G testID={`movement-order-${m.pieceId}${suffix}`}>
+                <Circle cx={mid.x + 12} cy={mid.y} r={8} fill={COURT_COLORS.movement} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
+                <SvgText textAnchor="middle" x={mid.x + 12} y={mid.y + 3.5} fontSize={9} fontWeight="700" fill={COURT_COLORS.frame}>
                   {order}
                 </SvgText>
               </G>
@@ -192,9 +192,9 @@ export function CourtSurface({
             <BallDot at={path.from} />
             {actionNumbers.balls[index] != null && !compact ? (
               // Offset per index: several paths may start at one point (basket feeds), so the badges fan out.
-              <G testID={`ball-number-${index}`} x={startV.x + 13 + index * 18} y={startV.y - 24}>
-                <Circle r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
-                <SvgText textAnchor="middle" y={3.5} fontSize={9} fontWeight="700" fill="#fff">
+              <G testID={`ball-number-${index}`}>
+                <Circle cx={startV.x + 13 + index * 18} cy={startV.y - 24} r={8} fill={COURT_COLORS.ballPath} stroke={COURT_COLORS.frame} strokeWidth={1.5} />
+                <SvgText textAnchor="middle" x={startV.x + 13 + index * 18} y={startV.y - 24 + 3.5} fontSize={9} fontWeight="700" fill="#fff">
                   {actionNumbers.balls[index]}
                 </SvgText>
               </G>
@@ -229,9 +229,12 @@ export function CourtSurface({
         if (!pos) return null;
         const v = toView(pos);
         return (
-          <G key={piece.id} testID={tid(`piece-${piece.id}`)} x={v.x} y={v.y}>
-            {selectedId === piece.id ? <Circle r={PLAYER_RADIUS + 5} fill="none" stroke={COURT_COLORS.selection} strokeWidth={2} /> : null}
-            <PieceShape piece={piece} compact={compact} />
+          // PAD-728: drawn at absolute coordinates, not inside a translated <G x y>: on Android
+          // react-native-svg reports such a group's accessibility rect off from where it is drawn
+          // (more so the further right), so anything aiming at the rect missed the piece.
+          <G key={piece.id} testID={tid(`piece-${piece.id}`)}>
+            {selectedId === piece.id ? <Circle cx={v.x} cy={v.y} r={PLAYER_RADIUS + 5} fill="none" stroke={COURT_COLORS.selection} strokeWidth={2} /> : null}
+            <PieceShape piece={piece} compact={compact} at={v} />
           </G>
         );
       })}
@@ -239,15 +242,15 @@ export function CourtSurface({
   );
 }
 
-function PieceShape({ piece, compact }: { piece: Piece; compact: boolean }) {
+function PieceShape({ piece, compact, at }: { piece: Piece; compact: boolean; at: Point }) {
   switch (piece.kind) {
     case "player": {
       const fill = piece.team === "A" ? COURT_COLORS.teamA : COURT_COLORS.teamB;
       const text = piece.team === "A" ? COURT_COLORS.teamAText : COURT_COLORS.teamBText;
       return (
         <>
-          <Circle r={PLAYER_RADIUS} fill={fill} />
-          <SvgText textAnchor="middle" y={compact ? 3.5 : 4} fontSize={compact ? 10 : 11} fontFamily={LABEL_FONT} fill={text}>
+          <Circle cx={at.x} cy={at.y} r={PLAYER_RADIUS} fill={fill} />
+          <SvgText textAnchor="middle" x={at.x} y={at.y + (compact ? 3.5 : 4)} fontSize={compact ? 10 : 11} fontFamily={LABEL_FONT} fill={text}>
             {piece.label}
           </SvgText>
         </>
@@ -256,19 +259,19 @@ function PieceShape({ piece, compact }: { piece: Piece; compact: boolean }) {
     case "feeder":
       return (
         <>
-          <Rect x={-14} y={-14} width={28} height={28} rx={8} fill={COURT_COLORS.amber} />
-          <Path d="M-6,-3 h12 l-1.5,9 h-9 z M-3,-3 v-1.5 a3,3 0 0 1 6,0 v1.5" fill="none" stroke="#fff" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+          <Rect x={at.x - 14} y={at.y - 14} width={28} height={28} rx={8} fill={COURT_COLORS.amber} />
+          <Path d={`M${at.x - 6},${at.y - 3} h12 l-1.5,9 h-9 z M${at.x - 3},${at.y - 3} v-1.5 a3,3 0 0 1 6,0 v1.5`} fill="none" stroke="#fff" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           {!compact ? (
-            <SvgText y={26} textAnchor="middle" fontSize={8} fontFamily={CAPTION_FONT} letterSpacing={0.5} fill="rgba(255,255,255,0.7)">
+            <SvgText x={at.x} y={at.y + 26} textAnchor="middle" fontSize={8} fontFamily={CAPTION_FONT} letterSpacing={0.5} fill="rgba(255,255,255,0.7)">
               ALIMENTADOR
             </SvgText>
           ) : null}
         </>
       );
     case "cone":
-      return <Polygon points="0,-10 8,8 -8,8" fill={piece.color ? swatch(piece.color) : COURT_COLORS.amber} stroke="rgba(0,0,0,0.25)" strokeWidth={1} />;
+      return <Polygon points={`${at.x},${at.y - 10} ${at.x + 8},${at.y + 8} ${at.x - 8},${at.y + 8}`} fill={piece.color ? swatch(piece.color) : COURT_COLORS.amber} stroke="rgba(0,0,0,0.25)" strokeWidth={1} />;
     case "ball":
-      return <Circle r={6.5} fill={piece.color ? swatch(piece.color) : COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} />;
+      return <Circle cx={at.x} cy={at.y} r={6.5} fill={piece.color ? swatch(piece.color) : COURT_COLORS.amber} stroke={COURT_COLORS.frame} strokeWidth={2} />;
     default:
       return null;
   }
@@ -287,9 +290,9 @@ function BallDot({ at }: { at: Point }) {
 function BallHandle({ at, lob, testID = "ball-style-handle" }: { at: Point; lob: boolean; testID?: string }) {
   const v = toView(at);
   return (
-    <G x={v.x} y={v.y} testID={testID}>
-      <Circle r={lob ? 12 : 10} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={lob ? 3 : 1} />
-      <Circle r={9} fill="#fff" stroke={COURT_COLORS.frame} strokeWidth={2} />
+    <G testID={testID}>
+      <Circle cx={v.x} cy={v.y} r={lob ? 12 : 10} fill="none" stroke={COURT_COLORS.ballPath} strokeWidth={lob ? 3 : 1} />
+      <Circle cx={v.x} cy={v.y} r={9} fill="#fff" stroke={COURT_COLORS.frame} strokeWidth={2} />
     </G>
   );
 }
