@@ -24,7 +24,7 @@ def _sides_for(presences) -> dict:
 
 
 def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, late_cancellation: Optional[bool] = None,
-                       side=_UNSET):
+                       side=_UNSET, assigned_side=_UNSET):
     """One presence row.
 
     ``reminderSentAt`` (PAD-199, B-017) is the messaging layer's own record of a
@@ -73,24 +73,29 @@ def serialize_presence(presence, *, reminder_sent_at: Optional[object] = None, l
         "side": _sides_for([presence]).get(presence.player_id) if side is _UNSET else side,
         "sideOverride": presence.side is not None,
         # PAD-672 (instance-enrollment rule 13a): a "both" player's side once the class is full.
-        "assignedSide": _assigned_side(presence),
+        "assignedSide": _assigned_sides_for([presence]).get(presence.player_id) if assigned_side is _UNSET else assigned_side,
         # The server's answer to "may the coach still change it" (rule 13: until the occurrence
         # ends), so no client compares a date with its own clock.
         "sideEditable": _side_editable(presence),
     }
 
 
-def _assigned_side(presence):
+def _assigned_sides_for(presences) -> dict:
+    """PAD-672 (rule 13a): ``{player_id: "left"|"right"}`` for one occurrence's rows: the stored
+    value first, else `notification_service.assigned_sides`, computed once for the lot so the
+    roster costs the same statements however long it is (PAD-591)."""
     from padel_app.services.lesson_service import primary_coach
     from padel_app.services.notification_service import assigned_sides
 
-    instance = presence.lesson_instance
-    if instance is None:
-        return None
-    if presence.assigned_side:
-        return presence.assigned_side
+    rows = list(presences)
+    if not rows or rows[0].lesson_instance is None:
+        return {}
+    stored = {p.player_id: p.assigned_side for p in rows if p.assigned_side}
+    if len(stored) == len(rows):
+        return stored
+    instance = rows[0].lesson_instance
     coach = primary_coach(instance)
-    return assigned_sides(instance, coach.id if coach else None).get(presence.player_id)
+    return {**assigned_sides(instance, coach.id if coach else None), **stored}
 
 
 def _side_editable(presence) -> bool:
@@ -137,8 +142,9 @@ def serialize_presences(presences: Iterable) -> List[dict]:
     sent_at = reminder_sent_at_by_presence(rows)
     late = _late_cancellation_for(rows)
     sides = _sides_for(rows)
+    assigned = _assigned_sides_for(rows)
     return [
         serialize_presence(p, reminder_sent_at=sent_at.get(p.id), late_cancellation=late.get(p.id, False),
-                           side=sides.get(p.player_id))
+                           side=sides.get(p.player_id), assigned_side=assigned.get(p.player_id))
         for p in rows
     ]
