@@ -1,7 +1,7 @@
 """a side on join requests and waiting-list entries (PAD-672 slice 1)
 
 Revision ID: 6988ec068d41
-Revises: f846919317aa
+Revises: c3e9a1f0d719
 Create Date: 2026-10-21 22:30:00.000000
 
 classes.join-requests rule 20, classes.academy-class-booking rule 6, notifications.waiting-list
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '6988ec068d41'
-down_revision = 'f846919317aa'  # #760 for now; onto c3e9a1f0d719 (PAD-719, #789) once it lands
+down_revision = 'c3e9a1f0d719'  # PAD-719 (#789)
 branch_labels = None
 depends_on = None
 
