@@ -49,8 +49,20 @@ appId: com.padellevelup.app
       id: "piece-feeder"
     direction: DOWN
     timeout: 15000
+# PAD-710 (Android lane): the toolbar scrolls off the top once the flow has scrolled down to the court pieces, and Android exposes only on-screen elements.
+- scrollUntilVisible:
+    element:
+      id: "board-tool-ball"
+    direction: UP
+    timeout: 15000
 - tapOn:
     id: "board-tool-ball"
+# PAD-710 (Android lane): bring the court pieces back on screen after scrolling up to the toolbar.
+- scrollUntilVisible:
+    element:
+      id: "piece-a1"
+    direction: DOWN
+    timeout: 15000
 # Three feeds make the step 2400 ms at Normal (4800 ms Lento, 1200 ms Rápido),
 # long enough for Maestro to observe; a single 800 ms path at 2x is over before
 # an assertion can run.

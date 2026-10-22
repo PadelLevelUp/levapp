@@ -136,7 +136,7 @@ Players confirm or decline their attendance in response to a reminder notificati
      with clearly lesser weight than the state word — a quiet fact beside one status, never a
      second status. The student's own row never shows it: they know they cancelled.
 
-26. **Superseded by rule 28 (PAD-570, owner decision 2026-10-09): "Não vou" is final for the student; there is no way back and no `canComeBack` gate.** The text below is kept as the record of PAD-315. ~~A student who said "I am not coming" can say they can come after all (PAD-315; number
+26. **Superseded by rule 28: PAD-570 (2026-10-09) made "Não vou" final; PAD-684 (owner, 2026-10-21) restored this negotiation as rule 28's "Afinal vou", with the screen now showing the spot state (`comeBack`) first.** The text below is kept as the record of PAD-315. ~~A student who said "I am not coming" can say they can come after all (PAD-315; number
    self-assigned, unconfirmed). The client offers it; the SERVER decides it.~~ The negotiation
    already exists: `POST /api/app/notify/respond_reminder` with `{lessonInstanceId, action: "yes"}`
    and `respond_to_reminder`'s retaking branch. When the row is `status=absent` and not validated,
@@ -197,7 +197,7 @@ Players confirm or decline their attendance in response to a reminder notificati
      the coach sent by hand still counts as asked. When no instant is computable (rule 10's
      `None`), the time-based opener stays closed — fail closed, never open;
    - the student's `attendanceState` is `planned` (rule 25): `coming` has answered, `not_coming`
-     is final (rule 28), `attended` / `missed` is the coach's record (rule 29);
+     comes back only through rule 28, `attended` / `missed` is the coach's record (rule 29);
    - the class has not started (`_instance_is_over` is false; the club's clock).
    `invited` is deliberately NOT part of the predicate: `enrol()` writes `invited=True` at
    enrolment, which is why the dashboard offered "Vou" from day one (ledger B-441). The
@@ -224,26 +224,66 @@ Players confirm or decline their attendance in response to a reminder notificati
    instance — so "Vou" appears without a re-open or the stale window. The event is recognised
    by ONE shared predicate (`reminderArrivedFor` in `@levelup/config`), never by each shell's own
    string match; an event for another occurrence or of another message type refetches nothing.
-28. **"Não vou" is final for the student (owner decision, the ticket's words: *"depois de o aluno
-   dizer 'Não vou', não pode voltar a dizer 'Vou', porque o treinador pode já ter arranjado
-   substituto"*).** Rule 26's way back is gone from both shells and from the server: a `yes`
-   from a student whose `attendanceState` is `not_coming` answers `{"action":
-   "already_declined"}` and records nothing (no lock, no capacity check, no coach message —
-   `_notify_coach_of_refused_return` and the retaking branch are retired). After "Não vou" the
-   response buttons disappear everywhere — class detail, dashboard (hero, rows, queue) and the
-   chat bubble, which already settles on the recorded answer — and in their place the class
-   detail and the dashboard row show one short line, the ticket's suggestion verbatim:
-   *"Respondeste que não vais. Se mudares de ideias, fala com o teu treinador."*
-   (`calendar.detail.declinedFinalHint`), with a shortcut that opens the coach's conversation
-   (web `/messages/<id>`, iOS `/conversation/<id>`, created through `POST /app/conversation`
-   when none exists). The coach manages the situation by hand: re-adding the student, or
-   clearing the absence (PAD-567). Rule 24's "no undo" was always the record; rule 26 was the
-   exception and is now closed.
+28. **"Afinal vou": a student who said "Não vou" may come back while there is a spot; otherwise
+   they may join that occurrence's waiting list (PAD-684, owner decision, supersedes PAD-570's
+   "Não vou is final"; numbering unconfirmed).** The ticket's words: *"Se ainda houver vaga nessa
+   aula, o aluno pode voltar a inscrever-se sozinho ('Afinal vou'). Se já não houver vaga … não
+   volta a entrar. Fica de fora, ou pode juntar-se à lista de espera dessa aula (só esta
+   ocorrência)."* The PAD-315 negotiation (rule 26) is the mechanism, restored:
+   - **Who:** a student whose display state for the occurrence is `not_coming` (their own "Não
+     vou", a reminder "no", a proactive decline, or the coach's "Não vai" mark, rule 29) on a
+     class that has not started (club clock). Not on a started, ended or cancelled class.
+   - **One server predicate, served:** `comeBack` on the student's own class-detail payload and on
+     every dashboard surface that serves `pendingConfirmation` — `"rejoin"` (a spot is free now),
+     `"waiting_list"` (no spot; the student is not on this occurrence's waiting list),
+     `"on_waiting_list"` (no spot; already on it), or `null` (not offered). It is a hint for what
+     to SHOW; the decision is taken at the tap (below). Additive: App Store builds that do not read
+     it keep the PAD-570 hint.
+   - **What each surface shows** — class detail, dashboard (hero, schedule rows, "Precisa de ti")
+     and the reminder bubble in the chat, web and iOS: `rejoin` → the button **"Afinal vou"**
+     (`attendance-come-back`); `waiting_list` → the line **"A tua vaga já foi ocupada"** and the
+     button **"Juntar-me à lista de espera"** (`attendance-come-back-waiting-list`, the PAD-547 /
+     PAD-577 join, `POST /class-waiting-list` for this occurrence); `on_waiting_list` → **"Estás na
+     lista de espera"**. The chat bubble has no class payload: after a recorded "no" on a class
+     that has not started it offers "Afinal vou" and renders the server's answer.
+   - **The tap:** `POST respond_reminder` with `yes` (no reminder needs to have been sent). Under
+     the rule-10 lock order — the student's own open vacancy, then the class — the server re-checks
+     capacity (`effective_filled_spots` against `effective_max_players`) BEFORE recording anything.
+     With a spot: the presence returns to `coming` (status, justification and `validated` cleared,
+     the answer recorded as a "yes"), their own vacancy closes through `_close_vacancy`, which
+     expires every open invitation for it as `spot_filled`, and the answer is
+     `{"action": "confirmed"}`. Without: nothing is recorded and the answer is
+     `{"action": "spot_filled"}`; the screen then shows the waiting-list line and button. A repeat
+     tap answers `{"action": "confirmed", "duplicate": true}`. Two students racing for the last
+     spot: one is seated, the other gets `spot_filled`.
+   - **Coming back lands on `coming`** ("volta a Vai"), also before the first reminder instant:
+     the student has just said they are coming, so rule 27's ask has been answered and no
+     reminder is sent to them for this occurrence.
+   - **The coach is told:** a message from the student in their shared conversation, "<name>
+     afinal vai a <class><when>." / "<name> is coming to <class><when> after all." (real name,
+     `players.nickname` rule 4), and a push to the coach whose body names the student by the
+     coach's display name (`players.nickname` rule 9c). The class detail's participant list moves
+     them to "Vão" through `presence_changed` (`calendar.event-detail` rule 24).
+     The `reminder_confirmed` template is not sent on a come-back: the screen that tapped shows the
+     answer, and one tap gives the conversation one message (the coach's notice above).
+   - **Semi-automatic mode:** a pending approval prompt for the closed vacancy is marked `stale`
+     when the vacancy closes, so its card stops offering the suggestion instead of failing on tap.
+   - **Only this occurrence.** The standing enrolment in later occurrences is unchanged.
+   - **The waiting list accepts them:** a student whose own presence on the occurrence is
+     `not_coming` does not count as enrolled for `join_class_waiting_list_service` (they hold no
+     spot), and the class they were enrolled in is visible to them
+     (`notifications.waiting-list`).
+   The PAD-570 hint ("Respondeste que não vais…", `calendar.detail.declinedFinalHint`) stays only
+   for App Store builds that do not read `comeBack`; the server never answers `already_declined`
+   to a come-back on a class that has not started.
 29. **The coach's own mark stands (orchestrator relaying the owner, 2026-10-09).** When the coach
    marked the student present or absent before the reminder (`validated`, `attendance.presence`
    rule 7; such a student gets no reminder, `notifications.reminders` rule 23), the student is
    never asked: `pendingConfirmation` is `false`, a `yes` answers `{"action": "already_marked"}`,
-   and the student still only has "Não vou". What that "Não vou" does on a validated row is
+   and the student still only has "Não vou". **Exception (PAD-684, owner):** a coach's "Não vai"
+   (`missed` before the class) is a `not_coming` display state, so rule 28's "Afinal vou" applies
+   to it before the class starts, with the same spot check; seating the student clears the mark.
+   After the class ends the coach's record stands. What that "Não vou" does on a validated row is
    unchanged by this ticket: `cancel_attendance` runs the ordinary decline path (rule 5), which
    records the student's answer and overwrites the mark with `absent`; refusing it instead is a
    PAD-567-adjacent decision not taken here.
@@ -427,7 +467,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **When** the presence is serialized
 - **Then** `cancelledByStudent` is false and `cancelledAt` is null
 
-#### Coming back after saying no (PAD-315, rule 26)
+#### Coming back after saying no (PAD-315, rule 26; superseded in its client half by rule 28 — the screen now shows the spot state first)
 - **Given** a student whose `attendanceState` is `not_coming` on a class that has not started
 - **When** they open the class detail on either shell
 - **Then** an action offering to come after all is shown in their own attendance block, and it is
@@ -478,11 +518,33 @@ Players confirm or decline their attendance in response to a reminder notificati
   offers "Vou" from the fresh payload
 - **And** a `message_created` for another occurrence, or of another message type, refetches nothing
 
-#### "Não vou" is final (PAD-570, rule 28)
-- **Given** a student whose `attendanceState` is `not_coming` on a class that has not started, after the reminder instant
-- **When** they POST `respond_reminder` with `yes`
-- **Then** the answer is `{"action": "already_declined"}`, the row stays `not_coming`, no vacancy is touched and no coach message is sent
-- **And** both shells show no response button and the hint "Respondeste que não vais. Se mudares de ideias, fala com o teu treinador." with the chat shortcut
+#### "Afinal vou" with a spot (PAD-684, rule 28)
+- **Given** a fixed student Ana who said "Não vou" to Thursday 18:00 (4 places, 3 holding), an
+  open vacancy for her place and an open invitation to Bruno for it
+- **When** Ana's class detail loads, and she taps "Afinal vou"
+- **Then** `comeBack` is `"rejoin"`; the answer is `{"action": "confirmed"}`; her row reads
+  `coming`; the vacancy is `filled`; Bruno's invitation reads "Vaga preenchida" (`spot_filled`);
+  the coach's conversation with Ana gains "Ana Silva afinal vai a Quinta 18h …" and the coach is
+  pushed; her next Thursday is untouched
+
+#### No spot: the waiting list (PAD-684, rule 28)
+- **Given** the same class, Ana "Não vou", and Bruno has taken her place (4 holding)
+- **When** her class detail loads, she taps "Juntar-me à lista de espera", and loads it again
+- **Then** `comeBack` is `"waiting_list"` and the screen reads "A tua vaga já foi ocupada"; the join
+  answers `onWaitingList: true`; then `comeBack` is `"on_waiting_list"` ("Estás na lista de espera")
+- **And** a `yes` sent anyway answers `{"action": "spot_filled"}` and records nothing
+
+#### Two students, one spot (PAD-684, rule 28)
+- **Given** two students who both said "Não vou" to a class that then has one free spot
+- **When** both POST `yes` at the same moment (Postgres, both held at the lock)
+- **Then** exactly one answer is `confirmed` and the other `spot_filled`; the class is never over
+  capacity
+
+#### The coach's "Não vai" can be undone by the student (PAD-684, rule 29)
+- **Given** the coach marked Ana "Não vai" (`missed`) before the class, with a spot free
+- **When** Ana taps "Afinal vou"
+- **Then** her row reads `coming` and the mark is cleared; after the class ends the same tap is
+  not offered (`comeBack: null`)
 
 #### The coach's mark stands (PAD-570, rule 29)
 - **Given** a student the coach validated present before the reminder instant

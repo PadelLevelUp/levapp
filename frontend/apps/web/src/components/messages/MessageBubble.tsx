@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
-import { lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
+import { comeBackFromAnswer, lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
 import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest } from '@/api/classJoinRequests';
@@ -218,6 +218,41 @@ export function MessageBubble({
       }
     } catch {
       toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  // PAD-684 (attendance.confirm rule 28): after a recorded "no" on a class that has not started the
+  // bubble offers "Afinal vou" and renders the SERVER's answer (it has no comeBack payload).
+  const [comeBackShown, setComeBackShown] = useState<'waiting_list' | 'on_waiting_list' | null>(null);
+  const handleComeBack = async () => {
+    const instanceId = message.metadata?.lessonInstanceId;
+    if (!instanceId || responding) return;
+    setResponding(true);
+    try {
+      const result = await respondToReminder(instanceId, "yes");
+      const outcome = reminderAnswerOutcome(result.action);
+      if (outcome.toastKey) toast.error(t(outcome.toastKey));
+      if (outcome.local !== null) setLocalResponse(outcome.local);
+      if (comeBackFromAnswer(result) === "waiting_list") setComeBackShown("waiting_list");
+    } catch {
+      toast.error(t("messages.somethingWentWrong"));
+    } finally {
+      setResponding(false);
+    }
+  };
+  const handleComeBackWaitingList = async () => {
+    const instanceId = message.metadata?.lessonInstanceId;
+    if (!instanceId || responding) return;
+    setResponding(true);
+    try {
+      // The reminder names the materialised instance, so the occurrence ref is (LessonInstance, id).
+      await joinClassWaitingList({ model: "LessonInstance", originalId: instanceId });
+      setComeBackShown("on_waiting_list");
+      toast.success(t("calendar.waitingList.joined"));
+    } catch {
+      toast.error(t("calendar.waitingList.failed"));
     } finally {
       setResponding(false);
     }
@@ -524,6 +559,8 @@ export function MessageBubble({
             localResponse
           );
           const startsAt = message.metadata?.startsAt;
+          // PAD-684: only a "no" the student gave (not an unrecognised value that fails safe to absent).
+          const recordedNo = localResponse === "declined" || message.metadata?.response === "no";
           // Offer cancellation only while the class is still in the future.
           const classInFuture = !startsAt || wallClockISOMs(startsAt) > lisbonNowMs();
           // PAD-49: a newer reminder for the same class supersedes this one → its
@@ -600,10 +637,43 @@ export function MessageBubble({
                   {t("messages.reminderNotEnrolled")}
                 </span>
               ) : declined ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
-                  <X className="w-3.5 h-3.5" />
-                  {t("messages.absent")}
-                </span>
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+                    <X className="w-3.5 h-3.5" />
+                    {t("messages.absent")}
+                  </span>
+                  {/* PAD-684: a recorded "no" on a class that has not started may come back. */}
+                  {classInFuture && recordedNo && !comeBackShown && (
+                    <button
+                      data-testid="bubble-come-back"
+                      onClick={handleComeBack}
+                      disabled={responding}
+                      className="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-full bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+                    >
+                      {responding ? "…" : t("calendar.detail.comeBack")}
+                    </button>
+                  )}
+                  {comeBackShown === "waiting_list" && (
+                    <div className="flex flex-col gap-1.5 w-full">
+                      <span data-testid="bubble-come-back-spot-taken" className="text-xs text-muted-foreground">
+                        {t("calendar.detail.spotTaken")}
+                      </span>
+                      <button
+                        data-testid="bubble-come-back-waiting-list"
+                        onClick={handleComeBackWaitingList}
+                        disabled={responding}
+                        className="inline-flex items-center self-start text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-foreground disabled:opacity-50 transition-colors"
+                      >
+                        {t("calendar.waitingList.join")}
+                      </button>
+                    </div>
+                  )}
+                  {comeBackShown === "on_waiting_list" && (
+                    <span data-testid="bubble-come-back-on-waiting-list" className="text-xs text-muted-foreground">
+                      {t("calendar.detail.onWaitingList")}
+                    </span>
+                  )}
+                </>
               ) : superseded ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-muted text-muted-foreground opacity-70">
                   <Clock className="w-3.5 h-3.5" />
