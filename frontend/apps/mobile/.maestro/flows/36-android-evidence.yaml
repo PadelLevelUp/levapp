@@ -1,6 +1,6 @@
 # PAD-298 — mobile.android-runtime: evidence flow for the CI emulator lane
 # (PAD-297). Not in config.yaml's order: it is Android-only and asserts little —
-# its job is the screenshots the lane uploads in `maestro-results`, one per
+# its job is the screenshots the lane uploads in `maestro-results-*`, one per
 # question the build Mac cannot answer without an emulator:
 # - android-login-keyboard: the login form with the keyboard up (rule 2 —
 #   is the submit button still reachable under edge-to-edge?)

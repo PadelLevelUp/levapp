@@ -82,6 +82,32 @@ export function studentRowAction(input: {
   return "decline";
 }
 
+/** What the "Afinal vou" slot shows (`attendance.confirm` rule 28, PAD-684). */
+export type ComeBackAction = "rejoin" | "waiting_list" | "on_waiting_list" | "final_hint";
+
+/**
+ * Which "Afinal vou" branch a student's attendance block renders. The SERVER's
+ * `comeBack` decides (`rejoin` / `waiting_list` / `on_waiting_list`); `null` means
+ * "not offered" and renders nothing. Only an older server that does not send the
+ * field at all (`undefined`) on a `not_coming` row keeps the PAD-570 hint.
+ */
+export function comeBackAction(
+  comeBack: "rejoin" | "waiting_list" | "on_waiting_list" | null | undefined,
+  attendanceState: AttendanceState | null | undefined
+): ComeBackAction | null {
+  if (comeBack === "rejoin" || comeBack === "waiting_list" || comeBack === "on_waiting_list") return comeBack;
+  if (comeBack === undefined && attendanceState === "not_coming") return "final_hint";
+  return null;
+}
+
+/**
+ * A `yes` the server refused with `spot_filled` (the seat went): until the refetch lands,
+ * show the waiting-list branch - the server's own answer, nothing invented.
+ */
+export function comeBackFromAnswer(answer: ReminderServerAnswer | null | undefined): ComeBackAction | null {
+  return answer?.action === "spot_filled" ? "waiting_list" : null;
+}
+
 /**
  * Map the server's answer onto what to record and what to say.
  *

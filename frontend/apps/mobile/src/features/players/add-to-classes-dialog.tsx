@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { canStepBackPickerWeek, lightTheme, upcomingPickerClasses } from "@levelup/config";
+import { canStepBackPickerWeek, lightTheme, upcomingPickerClasses, WEEK_STARTS_ON } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -79,7 +79,7 @@ export function AddToClassesDialog({
   const [pendingTargets, setPendingTargets] = React.useState<typeof classes | null>(null);
 
   const [weekStart, setWeekStart] = React.useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 })
+    startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON })
   );
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
     new Set()
@@ -87,7 +87,7 @@ export function AddToClassesDialog({
   const [saving, setSaving] = React.useState(false);
 
   const weekEnd = React.useMemo(
-    () => endOfWeek(weekStart, { weekStartsOn: 1 }),
+    () => endOfWeek(weekStart, { weekStartsOn: WEEK_STARTS_ON }),
     [weekStart]
   );
   const from = format(weekStart, "yyyy-MM-dd");
@@ -100,7 +100,7 @@ export function AddToClassesDialog({
 
   React.useEffect(() => {
     if (!open) return;
-    setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    setWeekStart(startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON }));
     setSelectedIds(new Set());
     // PAD-159: a fresh dialog session re-checks availability, so a previous
     // "proceed anyway" never silently carries over to a different selection.

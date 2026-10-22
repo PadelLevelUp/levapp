@@ -325,6 +325,7 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             proactive_decline_deadline,
             proactive_decline_window_is_open,
             student_may_confirm,
+            student_come_back,
         )
 
         proactive_config = None
@@ -388,6 +389,21 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                     )
                     if is_student
                     else False
+                ),
+                # PAD-684 (attendance.confirm rule 28): what a not_coming student's screen
+                # offers - "rejoin" | "waiting_list" | "on_waiting_list" | None. A coach
+                # viewer gets None.
+                "comeBack": (
+                    student_come_back(
+                        next(
+                            (p for p in getattr(obj, "presences", []) if p.player_id == viewer_player_id),
+                            None,
+                        ),
+                        obj,
+                        player_id=viewer_player_id,
+                    )
+                    if is_student
+                    else None
                 ),
             }
         )
@@ -467,4 +483,5 @@ def _virtual_occurrence_windows(lesson, coach_id, occurrence_date) -> dict:
         "canDeclineProactively": proactive_decline_window_is_open(stand_in, config),
         # PAD-570: no row yet means `planned`; the time-based ask alone can open it.
         "pendingConfirmation": student_may_confirm(None, stand_in, config),
+        "comeBack": None,  # PAD-684: a projected occurrence has no row, so nothing to come back to
     }

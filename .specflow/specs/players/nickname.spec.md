@@ -67,7 +67,47 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
    invitees print the name through `useCoachDisplayName` (`@levelup/hooks`): one roster query,
    asked by the row's player id; a student's view never asks. Pickers list the display name, and
    their search matches either name (`rosterNicknameOf` into the shared rule, rule 5). Both parts are promoted
-   together; PAD-660 closes after part 2.
+   together; PAD-660 closes after part 2. The web class detail's invitee list ("Convidados") and
+   join-request rows resolve the same way as iOS/Android's (PAD-683, B-631).
+9. **Every coach view, by construction (PAD-683, B-631; owner: "a alcunha aparece em todas as
+   visões do treinador, sem exceção"; numbering unconfirmed).** Rules 3 and 8 listed views; this
+   rule states the one way a coach view names a student, so a new view inherits it:
+   - **(a) A coach-private payload carries it from the server.** Any payload that only the
+     requesting coach can receive and that names a student of theirs — the invite picker's groups
+     (`GET notify/groups`, `_serialize_cp_for_group`, also the semi-automatic queue), the coach's
+     search (`notify/player_search`), the claim candidates, the `ineligible` list of an invite or
+     an add, presence statistics, the coach dashboard's rows and the invite tutorial's
+     simulation — adds `nickname`, `nicknameAsName` and `displayName` from the REQUESTING coach's
+     relation row (`nickname_payload`), beside `name`, which stays the real name (rule 2). The
+     fields are additive: an App Store build that does not read them keeps showing `name`.
+   - **(b) A shared payload is resolved on the client**, never on the server (rule 3's reason: a
+     club colleague reads the same class detail): the view asks `useCoachDisplayName` with the
+     row's player id and the payload's real name. So does a view of a private row that carries
+     only `playerId` and `name` (the `blocked` lists an invite or a reminder answers with).
+   - **(c) Text sent only to the coach names the nickname; text the student can read names the
+     real name.** Push titles and bodies to a coach (the cancellation notice, a chat message from
+     the student, join requests, class requests, the waiting-list join, the profile-completeness
+     reminder, a claim request) and messages in the coach's own Assistant conversation (the
+     semi-automatic approval prompt) name the student through one server helper,
+     `coach_display_name(coach_id, player, real_name)`. The same notice's text stored in the
+     SHARED coach–student conversation keeps `User.name` (rule 4), because the student reads it.
+     A new coach-bound send site uses the helper; a shared one never does.
+   - **(d) A guard keeps it.** One source guard per app (web, iOS/Android) scans non-test source
+     for the player-name accessors (`playerName`, `personName`, `user.name` / `user?.name`,
+     `declinedPlayerName`, `waitingListPlayerName`, and `name` on a roster or group row) and fails
+     on a hit outside `displayName(` / `coachDisplayName(` / a `displayName` field that is not on
+     its allowlist. Each allowlist entry names its file, its count, its kind and its reason:
+     `allowed` (an edit form, the user's own account, a student-only screen, a component gated on
+     the viewer, a `.name` that is not a student) or `backlog` (a coach view still to convert);
+     counts are ratcheted both ways.
+   **Delivery (PAD-683, two parts promoted together, like PAD-660).** Part 1: (a) for the invite
+   picker's groups, the coach's search and the `ineligible` rows; (b) for the web class detail,
+   the invite toasts and the unavailable-student dialogs; (c) for every coach-bound send named
+   above; (d) both guards. Part 2 burns the `backlog` entries to zero: presence statistics, the
+   dashboard rows, the claim candidates, the invite tutorial's simulation, the new-conversation
+   picker and the iOS profile's dialogs; after it no coach-only file holds a `backlog` entry.
+   Switching the nickname off shows the real name on every one of these, since `displayName` then
+   is the real name.
 
 ### Acceptance Criteria
 
@@ -92,6 +132,31 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
 - **Given** A on Jorge's profile edit form, on web and on iOS
 - **When** A types a nickname
 - **Then** the warning is shown; saving 61 characters is refused; saving blank clears it
+
+#### Inviting to a class shows the nickname (rule 9a, PAD-683)
+- **Given** coach A has nickname "Jorge chato" with the switch on for "Jorge Silva", and coach B
+  also coaches Jorge
+- **When** A opens "Convidar" on a class, on web and on iOS, and searches "silva"
+- **Then** Jorge's group row and search row read "Jorge chato"; `GET notify/groups` gives A
+  `name: "Jorge Silva"`, `displayName: "Jorge chato"`, and gives B `nickname: null`,
+  `displayName: "Jorge Silva"`
+- **And** with the switch off, both rows read "Jorge Silva"
+
+#### The web class detail's invitees use it (rules 8, 9b)
+- **Given** that nickname and an invitation to Jorge for A's class
+- **When** A opens the class detail on web
+- **Then** the "Convidados" row reads "Jorge chato"; coach B opening the same class reads "Jorge Silva"
+
+#### A coach push names the nickname, the shared chat the real name (rule 9c)
+- **Given** that nickname
+- **When** Jorge cancels his place in A's class
+- **Then** the push to A reads "Jorge chato …", and the notice stored in the A–Jorge conversation
+  reads "Jorge Silva …"
+
+#### The guard catches a bypass (rule 9d)
+- **Given** a coach-only web view that prints `{inv.playerName}` with no allowlist entry
+- **When** the guard test runs
+- **Then** it fails naming the file and the line
 
 #### Export and deletion (rule 7)
 - **Given** that nickname

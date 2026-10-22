@@ -233,28 +233,25 @@ def test_a_coach_viewer_never_sees_the_flag_raised(app, world, monkeypatch):
 # ── rule 28: "Não vou" is final ─────────────────────────────────────────────────────────
 
 
-def test_nao_vou_is_final_a_later_yes_is_refused_and_touches_nothing(app, world, monkeypatch):
+def test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back(app, world, monkeypatch):
+    """PAD-684 (rule 28) superseded PAD-570's "Não vou is final": on a class that has not
+    started, a yes after a no answers `confirmed` while there is room (never `already_declined`)."""
     ids, iid = world
     now = pin_clock(monkeypatch, _fire() + timedelta(minutes=1))
-    from padel_app.models import LessonInstance, Message, Vacancy
+    from padel_app.models import LessonInstance
     from padel_app.services.notification_service import cancel_attendance, respond_to_reminder
 
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         cancel_attendance(ids["student_user_id"], lesson_instance_id=iid, now=now)
         assert _state(app, iid, ids["student_id"]) == "not_coming"
         assert _payload(app, iid, ids["student_id"])["pendingConfirmation"] is False
-        vacancies = Vacancy.query.filter_by(lesson_instance_id=iid).count()
-        messages = Message.query.count()
 
-        assert respond_to_reminder(iid, "yes", ids["student_user_id"], now=now) == {"action": "already_declined"}
+        assert respond_to_reminder(iid, "yes", ids["student_user_id"], now=now) == {"action": "confirmed"}
 
-        assert _state(app, iid, ids["student_id"]) == "not_coming"
-        assert Vacancy.query.filter_by(lesson_instance_id=iid).count() == vacancies
-        assert Message.query.count() == messages, "no coach message, no student message"
-        assert db.session.get(LessonInstance, iid).effective_filled_spots == 0
+        assert _state(app, iid, ids["student_id"]) == "coming"
+        assert db.session.get(LessonInstance, iid).effective_filled_spots == 1
     hero, row, invites, tile = _dashboard(app, ids, now)
-    assert row["attendanceState"] == "not_coming" and row["pendingConfirmation"] is False
-    assert invites == [] and tile == 0
+    assert row["attendanceState"] == "coming" and row["comeBack"] is None
 
 
 # ── rule 29: the coach's mark stands ────────────────────────────────────────────────────

@@ -23,7 +23,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Eyebrow, FillBar, FillCount, StatusBadge } from "./primitives";
-import { AnswerButtons, DeclineButton, DeclinedHint } from "./AnswerButtons";
+import { AnswerButtons, DeclineButton } from "./AnswerButtons";
+import { ComeBackSlot } from "./ComeBackSlot";
 import { useAnswerReminder } from "./useAnswerReminder";
 import { useDeclineFromDashboard } from "./useDeclineFromDashboard";
 import { studentRowAction, weekdayShort } from "@levelup/config";
@@ -160,7 +161,7 @@ export function Schedule7Days({
                 )}
                 {action === "declined" && (
                   <div className="shrink-0 max-w-[12rem]">
-                    <DeclinedHint />
+                    <ComeBackSlot item={row} onAnswered={onAnswered} />
                   </div>
                 )}
 

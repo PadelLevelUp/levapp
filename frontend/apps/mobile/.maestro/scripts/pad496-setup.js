@@ -1,5 +1,5 @@
-// PAD-496 (flow 145): a busy week. Fourteen classes next week, two a day, so the picker's list is
-// several screens long on any phone. The last one (Sunday 22:00) is the class the flow must reach.
+// PAD-496 (flow 145): a busy week. Fourteen classes next week (it starts on Sunday, PAD-682), two a day, so the picker's list is
+// several screens long on any phone. The last one (Saturday 22:00) is the class the flow must reach.
 // Exposes: output.pad496Last — the id the picker gives that class (its row is
 // `add-to-classes-class-<id>`).
 var api = typeof API_BASE === "undefined" ? "http://localhost:5001" : API_BASE;
@@ -14,9 +14,9 @@ function fmt(d) {
   return d.getFullYear() + "-" + (m < 10 ? "0" + m : "" + m) + "-" + (dd < 10 ? "0" + dd : "" + dd);
 }
 var now = new Date();
-// JS getDay(): 0=Sun..6=Sat → Monday-based weekday 0..6; next Monday is strictly after today.
-var weekday = (now.getDay() + 6) % 7;
-var untilMonday = (7 - weekday) % 7;
+// JS getDay(): 0=Sun..6=Sat. Weeks start on Sunday (WEEK_STARTS_ON = 0, calendar.view rule 5a,
+// PAD-682); next week's first day is strictly after today.
+var untilMonday = (7 - now.getDay()) % 7;
 if (untilMonday === 0) untilMonday = 7;
 function nextWeekDay(n) {
   return fmt(new Date(now.getFullYear(), now.getMonth(), now.getDate() + untilMonday + n));

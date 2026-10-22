@@ -5,7 +5,7 @@ Revises: 741b857a286c
 Create Date: 2026-10-21 22:30:00.000000
 
 classes.join-requests rule 20, classes.academy-class-booking rule 6, notifications.waiting-list
-rule 4d: `side` (`left` | `right` | `both`, NULL = no side named) on `class_join_requests`,
+rule 4e: `side` (`left` | `right` | `both`, NULL = no side named) on `class_join_requests`,
 `waiting_list_entries` and `standing_waiting_list_entries`. Data-free: every existing row stays
 NULL, which the engine reads as today's "any spot". Guarded, so a second run changes nothing.
 """

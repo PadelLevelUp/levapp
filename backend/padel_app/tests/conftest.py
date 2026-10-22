@@ -186,6 +186,23 @@ def pytest_sessionfinish(session, exitstatus):
         session.exitstatus = 1
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "two_process: runs two app processes against one Postgres (PAD-692); "
+        "deselected unless LEVAPP_TWO_PROCESS=1",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """PAD-692: the two-process harness is off by default; the Postgres CI lane turns it on."""
+    if os.getenv("LEVAPP_TWO_PROCESS") == "1":
+        return
+    off = [item for item in items if item.get_closest_marker("two_process")]
+    if off:
+        items[:] = [item for item in items if not item.get_closest_marker("two_process")]
+        config.hook.pytest_deselected(items=off)
+
+
 def pytest_deselected(items):
     if items:
         config = items[0].config

@@ -208,6 +208,9 @@ function ClassWaitingListDialog({
   const setExpiresOn = (next: string) => setPeriod((p) => ({ ...p, expiresOn: next }));
   const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  // PAD-724 (PAD-669 R5, waiting-list rule 18): adding a student who fails the bar asks first — the
+  // warning shows in the dialog and the button turns into "Adicionar mesmo assim" (no nested modal).
+  const [warned, setWarned] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -243,8 +246,15 @@ function ClassWaitingListDialog({
   const offered = useMemo(() => waitingListPickerOptions(candidates, search, playerId || null), [candidates, search, playerId]);
   const matchCount = useMemo(() => waitingListPickerOptions(candidates, search, null).length, [candidates, search]);
 
+  const chosenIneligible = !editing && !!playerId && reasonsById.has(String(playerId));
+  useEffect(() => setWarned(false), [playerId, open]);
+
   const confirm = async () => {
     if (!playerId || !periodValid) return;
+    if (chosenIneligible && !warned) {
+      setWarned(true);
+      return;
+    }
     setSaving(true);
     const req = waitingListScopeRequest(scope, periodMode, classes, expiresOn);
     try {
@@ -413,11 +423,20 @@ function ClassWaitingListDialog({
             </div>
           ) : null}
         </div>
+        {warned && chosenIneligible ? (
+          <div data-testid="class-waiting-list-eligibility-warning" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+            <p className="font-medium">{t("calendar.eligibilityConfirm.waitingListTitle")}</p>
+            <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+              {(reasonsById.get(String(playerId)) ?? []).map((r) => <li key={r}>{r}</li>)}
+            </ul>
+            <p className="mt-1 text-xs text-muted-foreground">{t("calendar.eligibilityConfirm.waitingListBody")}</p>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
           <Button onClick={confirm} disabled={saving || !playerId || !periodValid} data-testid="class-waiting-list-confirm">
             {saving && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-            {t(editing ? "common.save" : "calendar.detail.waitingListAdd")}
+            {t(editing ? "common.save" : warned && chosenIneligible ? "calendar.eligibilityConfirm.confirm" : "calendar.detail.waitingListAdd")}
           </Button>
         </DialogFooter>
       </DialogContent>
