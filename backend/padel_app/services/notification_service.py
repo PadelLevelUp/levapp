@@ -5365,6 +5365,7 @@ def _move_to_open_sibling(
             if not lock(b):
                 continue
             event.vacancy_id = b.id
+            event.moved_from_vacancy_id, event.moved_at = source.id, now  # PAD-719
             if event.round_number != 0:
                 event.round_number = max(b.current_round_number, 1)
             msg = Message.query.get(event.message_id) if event.message_id else None

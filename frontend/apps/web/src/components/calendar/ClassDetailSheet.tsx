@@ -69,7 +69,7 @@ import {
   getApprovalSuggestions,
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
-import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
+import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -1964,14 +1964,15 @@ export function ClassDetailSheet({
                                 {inv.outcome === "declined" ? <X className="w-3 h-3" /> : null}
                                 {t(INVITATION_OUTCOME_KEY[inv.outcome])}
                               </span>
-                              {inv.answeredBy === "coach" ? (
+                              {inviteeNotes(inv).map((note) => (
                                 <span
-                                  data-testid={`invitee-recorded-by-coach-${inv.playerId}`}
+                                  key={note.id}
+                                  data-testid={`invitee-${note.id}-${inv.playerId}`}
                                   className="text-[10px] text-muted-foreground"
                                 >
-                                  {t("calendar.detail.recordedByCoach")}
+                                  {t(note.key)}
                                 </span>
-                              ) : null}
+                              ))}
                             </div>
                             {actions.length > 0 ? (
                               <DropdownMenu>

@@ -513,6 +513,8 @@ export interface ClassInvitation {
   answer: 'yes' | 'no' | null;
   /** Who recorded `answer` (invitations rule 9); `coach` adds "recorded by the coach" under the label. */
   answeredBy: 'student' | 'coach' | null;
+  /** PAD-719 (invitations rule 18a): when the engine moved it from another spot of the class; null if never. */
+  movedAt?: string | null;
 }
 
 export interface ClassInstance {

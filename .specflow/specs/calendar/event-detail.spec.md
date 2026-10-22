@@ -122,6 +122,12 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     left. When `answeredBy` is `coach`, the row adds the secondary text "registado pelo treinador" /
     "recorded by the coach" under the label. Rule 8's tie-break is unchanged; the surviving record's
     own `outcome` is shown.
+    **PAD-719:** each entry also carries `movedAt` (ISO, or `null`): set when the engine moved the
+    invitation from another spot of the class (`notifications.invitations` rule 18a). Such a row adds
+    "transferido da vaga anterior" / "moved from the previous spot" under the label, after the
+    coach's note when both apply. Both shells take the notes from one shared helper
+    (`inviteeNotes`, `@levelup/config`) and render each as `invitee-<id>-<playerId>`. The field is
+    new and optional, so older builds ignore it; no capability gate.
 17. **The coach answers for an invitee (PAD-548).** A `pending` row offers "Marcar como aceitou",
     "Marcar como recusou" and "Eliminar convite" (rule 18); a `declined` row offers "Marcar como
     aceitou" only (the coach deciding is not the engine inviting, `notifications.invitations` rule
