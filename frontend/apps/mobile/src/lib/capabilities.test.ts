@@ -34,4 +34,10 @@ describe("mobile shell capabilities", () => {
   it("declares terms-acceptance", () => {
     expect(declared).toContain("terms-acceptance");
   });
+
+  // join-side: classes.join-requests rule 20 (PAD-672). The class sheet and the academy step show the
+  // side picker (ClassSideSheet), so the server may answer a join request with 409 side_full.
+  it("declares join-side", () => {
+    expect(declared).toContain("join-side");
+  });
 });

@@ -177,7 +177,7 @@ Customize the text of notification messages sent to players.
 #### A join request and its decision name the day the same way (rule 17)
 - **Given** the same class and a pending join request from Carla
 - **When** Ana refuses it
-- **Then** Carla's message reads "O teu pedido para entrar em Sábado 18h no dia 10/04 (sábado) às 18:00 não foi aceite."
+- **Then** Carla's message reads "Não ficaste inscrito/a em Sábado 18h no sábado, 10/04, às 18:00: o treinador não aceitou o pedido desta vez." (PAD-678: the weekday-first form, `classes.join-requests` rule 19a)
 
 #### Adding a student to a whole series stays undated (rule 17)
 - **Given** a `pt` coach whose `added_to_class` template is the default, and a weekly series "Segunda 10h" starting Monday 2027-04-12 10:00

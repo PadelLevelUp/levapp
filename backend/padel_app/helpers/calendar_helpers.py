@@ -370,6 +370,7 @@ def load_open_spot_events_for_player(player_id, range_start, range_end, *, now=N
             # PAD-611 (calendar.view rule 22); PAD-664 (rule 23): a full one is `full`.
             event["studentRelation"] = "full" if full else "open_spot"
             event["coachName"] = cp.coach.user.name if cp.coach and cp.coach.user else None
+            event["profileSide"] = cp.side  # PAD-672 (join-requests rule 20): the side picker's default
             if include_full:
                 event["state"] = "full" if full else "open"
                 event["spotsLeft"] = max(obj.effective_max_players - filled, 0)

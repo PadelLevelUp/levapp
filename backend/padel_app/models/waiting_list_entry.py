@@ -35,6 +35,8 @@ class WaitingListEntry(db.Model, model.Model):
     # PAD-547 (notifications.waiting-list rule 20): who put a non-standing row here — 'student'
     # (their own offer answer or wizard join) | 'coach'. NULL on older rows, read as 'student'.
     added_by = Column(String(8), nullable=True)
+    # PAD-672 (waiting-list rule 4e): the side this entry waits for; NULL = any spot.
+    side = Column(String(5), nullable=True)
     joined_at = Column(DateTime, default=lambda: utcnow_naive())
 
     lesson_instance = relationship("LessonInstance")

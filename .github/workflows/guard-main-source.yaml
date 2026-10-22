@@ -14,8 +14,12 @@ jobs:
     steps:
       - name: Only `staging` may open pull requests into main
         if: github.head_ref != 'staging'
+        # B-665: the branch name is text anyone opening a PR chooses; it reaches the script as an
+        # environment variable, never spliced into it by `${{ }}`.
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          echo "::error::main only accepts pull requests from 'staging' (this PR is from '${{ github.head_ref }}'). Merge your work into staging first, then promote staging into main."
+          echo "::error::main only accepts pull requests from 'staging' (this PR is from '${HEAD_REF}'). Merge your work into staging first, then promote staging into main."
           exit 1
       - name: Source branch OK
         run: echo "PR is from staging — allowed."
