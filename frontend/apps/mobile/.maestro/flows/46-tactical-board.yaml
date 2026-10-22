@@ -174,17 +174,20 @@ appId: com.padellevelup.app
 - runFlow:
     when:
       platform: Android
-    file: ../subflows/board-show-court.yaml
+    file: ../subflows/board-show-toolbar.yaml
     env:
-      TARGET: "piece-a1"
-- tapOn:
-    id: "piece-a1"
+      TARGET: "board-hint-ball"
+- assertVisible:
+    id: "board-hint-ball"
 - runFlow:
     when:
       platform: Android
     file: ../subflows/board-show-court.yaml
     env:
-      TARGET: "piece-a2"
+      TARGET: "piece-a1"
+# A1 and A2 share a row: no scroll between the two taps of one path.
+- tapOn:
+    id: "piece-a1"
 - tapOn:
     id: "piece-a2"
 - runFlow:
