@@ -230,8 +230,18 @@ jobs:
           # on an option it does not know (--probe-host came with #769, --migrate with #753). Pass an
           # option only when the checked-out script accepts it, and say so when one is dropped.
           RO=/home/${{ secrets.GCE_USER }}/rollout.sh
+          # PAD-704 (rule 14): API_COPIES=2 in the env file runs a second API copy, padelapp_b, on the
+          # port the swap freed. An older checked-out rollout.sh (a rollback) has no --copies and cannot
+          # free that port itself, so a leftover second copy goes here first.
+          API_COPIES=1
+          if grep -qE '^API_COPIES=2[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.prod; then API_COPIES=2; fi
+          if ! grep -qF -- "    --copies)" "$RO" && docker inspect padelapp_b >/dev/null 2>&1; then
+            echo "[deploy] this rollout.sh predates --copies: removing padelapp_b before it runs"
+            docker stop -t 10 padelapp_b >/dev/null 2>&1 || true
+            docker rm padelapp_b >/dev/null 2>&1 || true
+          fi
           opt() { if grep -qF -- "    $1)" "$RO"; then printf '%s ' "$@"; else echo "[deploy] this rollout.sh has no $1: not passing it" >&2; fi; }
-          bash "$RO" --name padelapp --ports 5000,5002 --upstream levapp_api $(opt --probe-host levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $ROLLOUT_MODE -- \
+          bash "$RO" --name padelapp --ports 5000,5002 --upstream levapp_api $(opt --probe-host levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $([ "$API_COPIES" != 2 ] || opt --copies 2) $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --memory 512m --memory-swap 768m \
