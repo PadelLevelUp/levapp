@@ -21,6 +21,11 @@ vi.stubGlobal(
 );
 
 import SitePage from "./SitePage";
+// The audience pages are lazy chunks; loading them with the test file keeps the first import out
+// of each test (on a loaded machine it alone can outlast the 5 s test timeout).
+import "./pages/CoachesPage";
+import "./pages/PlayersPage";
+import "./pages/OthersPage";
 
 function Search() {
   return <span data-testid="search">{useLocation().search}</span>;
@@ -40,12 +45,17 @@ async function choose(audience: string) {
   fireEvent.click(await screen.findByTestId(`site-audience-${audience}`));
 }
 
-describe("the site layout (PAD-656)", () => {
+// Rendering an audience page (its mock-ups) takes seconds on a loaded machine; the pages are lazy, so
+// the tests wait for them instead of finding them synchronously.
+const PAGE_WAIT = { timeout: 10_000 };
+
+describe("the site layout (PAD-656)", { timeout: 20_000 }, () => {
   it("opens on coaches and writes ?para= when the audience changes, without a reload", async () => {
     renderSite("/?utm_source=x");
-    expect(screen.getByTestId("site-page-coaches")).toBeInTheDocument();
+    // The audience pages are lazy chunks: wait for the one chosen.
+    expect(await screen.findByTestId("site-page-coaches", {}, PAGE_WAIT)).toBeInTheDocument();
     await choose("players");
-    expect(screen.getByTestId("site-page-players")).toBeInTheDocument();
+    expect(await screen.findByTestId("site-page-players", {}, PAGE_WAIT)).toBeInTheDocument();
     expect(screen.getByTestId("search").textContent).toBe("?utm_source=x&para=jogadores");
   });
 
@@ -60,7 +70,7 @@ describe("the site layout (PAD-656)", () => {
     expect(within(nav).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["#vantagens", "#como-funciona", "#resultados"]);
     await choose("others");
     expect(within(screen.getByTestId("site-nav")).queryAllByRole("link")).toHaveLength(0);
-    expect(screen.getByTestId("site-page-others")).toBeInTheDocument();
+    expect(await screen.findByTestId("site-page-others", {}, PAGE_WAIT)).toBeInTheDocument();
   });
 
   it("the ☰ menu carries the links and both buttons, and closes after a link", () => {
