@@ -68,6 +68,8 @@
     "preferences": {
       "requestAlerts": "Alertas de pedidos",
       "requestAlertsDescription": "Push e email quando um pedido precisa de ti (entrada no clube, ligação de conta, aprovação de treinador) e quando o teu é decidido. Os avisos dentro da app continuam sempre.",
+      "notificationSound": "Som das notificações",
+      "notificationSoundDescription": "Um som curto quando chega uma mensagem ou notificação com a app aberta, e som nas notificações do telemóvel. No navegador, só toca depois de clicares ou escreveres na página.",
       "title": "Preferências",
       "description": "Como queres que a aplicação se comporte.",
       "theme": "Tema",
@@ -518,7 +520,9 @@
       "excludeUnpaid": "Excluir contas inativas",
       "excludeUnpaidDescription": "Não convidar alunos cuja conta ainda não está ativa (não terminaram de criar o acesso). É o estado da conta, não o pagamento.",
       "noSameDayClass": "Não convidar quem já tem aula nesse dia",
-      "noSameDayClassDescription": "Não convidar automaticamente um aluno que já tem lugar noutra aula no mesmo dia (de qualquer treinador). Aulas que recusou ou em que foi marcado como ausente não contam. Os convites manuais não são afetados.",
+      "noSameDayClassDescription": "Não convidar automaticamente um aluno que já tem lugar noutra aula no mesmo dia (de qualquer treinador). Aulas que recusou ou em que foi marcado como ausente não contam. Os convites manuais não são afetados. Vem ligada por defeito e podes desligá-la aqui.",
+      "noSameDayClassDefaultNote": "Novidade: esta restrição passou a vir ligada por defeito. Podes desligá-la aqui.",
+      "noSameDayClassDefaultNoteDismiss": "Percebi",
       "hours": "horas",
       "cancellationDeadline": "Prazo de cancelamento",
       "cancellationDeadlineDescription": "Cancelamentos dentro deste número de horas antes do início da aula são marcados como tardios"

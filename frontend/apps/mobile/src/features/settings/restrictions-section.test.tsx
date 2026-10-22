@@ -42,6 +42,13 @@ vi.mock("@/components/ui/input", async () => {
   return { Input: (p: Record<string, unknown>) => createElement(TextInput, p) };
 });
 
+const loadDismissed = vi.fn();
+const dismissNote = vi.fn();
+vi.mock("@/lib/same-day-default-note-storage", () => ({
+  loadSameDayDefaultNoteDismissed: () => loadDismissed(),
+  dismissSameDayDefaultNote: () => dismissNote(),
+}));
+
 import { RestrictionsSection } from "./restrictions-section";
 
 const BASE: NotificationRestrictions = {
@@ -53,7 +60,7 @@ const BASE: NotificationRestrictions = {
   quietHours: { enabled: true },
   excludedPlayers: { enabled: true, playerIds: ["42"] },
   excludeUnpaidSubscription: { enabled: false },
-  noSameDayClass: { enabled: false },
+  noSameDayClass: { enabled: true },
   cancellationDeadlineHours: 24,
 };
 
@@ -85,6 +92,8 @@ async function mount(over: Partial<NotificationRestrictions> = {}, names: Record
 
 beforeEach(() => {
   searchPlayers.mockReset().mockResolvedValue({ players: [] });
+  loadDismissed.mockReset().mockResolvedValue("1");
+  dismissNote.mockReset();
 });
 
 const ROWS = [
@@ -146,11 +155,26 @@ describe("edits report the whole restrictions object (PAD-433)", () => {
     expect(onChange).toHaveBeenCalledWith({ ...BASE, quietHours: { enabled: false } });
   });
 
-  it("the same-day switch is off and flips only its own flag (PAD-523, rule 6e)", async () => {
+  it("the same-day switch is on by default and flips only its own flag (PAD-523, PAD-685, rule 6e)", async () => {
     const { n, onChange } = await mount();
-    expect(n.byTestId("restriction-noSameDayClass-toggle").props["aria-checked"]).toBe(false);
+    expect(n.byTestId("restriction-noSameDayClass-toggle").props["aria-checked"]).toBe(true);
     await n.toggle("restriction-noSameDayClass-toggle");
-    expect(onChange).toHaveBeenCalledWith({ ...BASE, noSameDayClass: { enabled: true } });
+    expect(onChange).toHaveBeenCalledWith({ ...BASE, noSameDayClass: { enabled: false } });
+  });
+
+  it("shows the one-time default note until it is dismissed, and dismissing calls the store (PAD-685)", async () => {
+    loadDismissed.mockResolvedValue(null);
+    const { n } = await mount();
+    expect(n.byTestId("restriction-same-day-default-note")).toBeTruthy();
+    await n.press("restriction-same-day-default-note-dismiss");
+    expect(dismissNote).toHaveBeenCalledTimes(1);
+    expect(n.queryByTestId("restriction-same-day-default-note")).toBeNull();
+  });
+
+  it("does not show the note once the device remembers the dismissal (PAD-685)", async () => {
+    loadDismissed.mockResolvedValue("1");
+    const { n } = await mount();
+    expect(n.queryByTestId("restriction-same-day-default-note")).toBeNull();
   });
 
   it("the cancellation deadline is a plain scalar", async () => {

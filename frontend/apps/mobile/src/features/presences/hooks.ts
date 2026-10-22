@@ -90,6 +90,8 @@ export function useCoachRoster(): RosterOption[] {
   return (query.data ?? []).map((player) => ({
     id: Number(player.playerId),
     name: player.name || t("presences.unknownPlayer"),
+    nickname: player.nickname,
+    displayName: player.displayName,
   }));
 }
 

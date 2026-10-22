@@ -77,3 +77,19 @@ export function statusForOutcome(outcome: InvitationOutcome): "sent" | "confirme
   if (outcome === "pending") return "sent";
   return "expired";
 }
+
+/**
+ * The small notes under an invitee's outcome label, in order (calendar.event-detail rule 16):
+ * "recorded by the coach" (invitations rule 9) and, PAD-719, "moved from the previous spot" for an
+ * invitation the engine moved to this class's other spot (invitations rule 18a). `id` is the
+ * testID stem both shells render as `invitee-<id>-<playerId>`.
+ */
+export function inviteeNotes(inv: { answeredBy: "student" | "coach" | null; movedAt?: string | null }): Array<{
+  id: "recorded-by-coach" | "moved-from-spot";
+  key: string;
+}> {
+  const notes: Array<{ id: "recorded-by-coach" | "moved-from-spot"; key: string }> = [];
+  if (inv.answeredBy === "coach") notes.push({ id: "recorded-by-coach", key: "calendar.detail.recordedByCoach" });
+  if (inv.movedAt) notes.push({ id: "moved-from-spot", key: "calendar.detail.movedFromPreviousSpot" });
+  return notes;
+}

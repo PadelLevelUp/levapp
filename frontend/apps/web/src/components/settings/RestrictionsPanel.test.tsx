@@ -6,7 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { NotificationRestrictions } from "@/types";
 
@@ -37,7 +37,7 @@ const RESTRICTIONS: NotificationRestrictions = {
   quietHours: { enabled: true },
   excludedPlayers: { enabled: true, playerIds: ["42"] },
   excludeUnpaidSubscription: { enabled: false },
-  noSameDayClass: { enabled: false },
+  noSameDayClass: { enabled: true },
   cancellationDeadlineHours: 24,
 };
 
@@ -108,15 +108,42 @@ describe("RestrictionsPanel — the coach's quiet window (PAD-451, notifications
 });
 
 
-describe("RestrictionsPanel — no class the same day (PAD-523, notifications.config rule 6e)", () => {
-  it("shows the toggle off and flips only its own flag", () => {
+describe("RestrictionsPanel — no class the same day (PAD-523, PAD-685, notifications.config rule 6e)", () => {
+  it("shows the toggle on by default and flips only its own flag", () => {
     const onChange = vi.fn();
     render(<RestrictionsPanel restrictions={RESTRICTIONS} onChange={onChange} />);
     const row = screen.getByTestId("restriction-row-no-same-day-class");
     expect(row.textContent).toContain("settings.restrictions.noSameDayClass");
     const toggle = within(row).getByRole("switch");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
     fireEvent.click(toggle);
-    expect(onChange).toHaveBeenCalledWith({ ...RESTRICTIONS, noSameDayClass: { enabled: true } });
+    expect(onChange).toHaveBeenCalledWith({ ...RESTRICTIONS, noSameDayClass: { enabled: false } });
+  });
+});
+
+describe("RestrictionsPanel — the one-time default note (PAD-685, rule 6e)", () => {
+  const KEY = "levapp.sameDayDefaultNote.dismissed";
+  beforeEach(() => localStorage.removeItem(KEY));
+
+  it("shows the note, and dismissing hides it and remembers it on the device", () => {
+    const { unmount } = render(<RestrictionsPanel restrictions={RESTRICTIONS} onChange={() => undefined} />);
+    expect(screen.getByTestId("restriction-same-day-default-note").textContent).toContain(
+      "settings.restrictions.noSameDayClassDefaultNote");
+    fireEvent.click(screen.getByTestId("restriction-same-day-default-note-dismiss"));
+    expect(screen.queryByTestId("restriction-same-day-default-note")).toBeNull();
+    expect(localStorage.getItem(KEY)).toBe("1");
+    unmount();
+    render(<RestrictionsPanel restrictions={RESTRICTIONS} onChange={() => undefined} />);
+    expect(screen.queryByTestId("restriction-same-day-default-note")).toBeNull();
+  });
+
+  it("does not break when storage throws", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    render(<RestrictionsPanel restrictions={RESTRICTIONS} onChange={() => undefined} />);
+    fireEvent.click(screen.getByTestId("restriction-same-day-default-note-dismiss"));
+    expect(screen.queryByTestId("restriction-same-day-default-note")).toBeNull();
+    get.mockRestore();
+    set.mockRestore();
   });
 });

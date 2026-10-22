@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coachDisplayName, nicknameShown, rosterNicknameOf } from "./coach-display-name";
+import { coachDisplayName, coachDisplayNameByUserId, nicknameShown, rosterNicknameOf } from "./coach-display-name";
 import { searchRoster } from "./player-search";
 
 /**
@@ -72,5 +72,15 @@ describe("waitingListPickerOptions finds a candidate by the coach's nickname too
       { playerId: 8, name: "Ana Pinto" },
     ];
     expect(waitingListPickerOptions(candidates, "chato", null).map((c) => c.playerId)).toEqual([7]);
+  });
+});
+
+describe("coachDisplayNameByUserId (PAD-683 rule 9b)", () => {
+  it("finds the coach's row by user id; the fallback otherwise", () => {
+    const roster = [{ playerId: 7, userId: 17, displayName: "Jorge chato" }];
+    expect(coachDisplayNameByUserId(roster, 17, "Jorge Silva")).toBe("Jorge chato");
+    expect(coachDisplayNameByUserId(roster, "17", "Jorge Silva")).toBe("Jorge chato");
+    expect(coachDisplayNameByUserId(roster, 99, "Ana")).toBe("Ana");
+    expect(coachDisplayNameByUserId(undefined, 17, "Jorge Silva")).toBe("Jorge Silva");
   });
 });

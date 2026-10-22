@@ -48,6 +48,7 @@ import {
   useStandingWaitingList,
 } from "@/features/players/hooks";
 import { LevelLabel } from "@/features/players/LevelLabel";
+import { PlayerContactRows } from "@/features/players/player-contact-rows";
 import { summarizeNotificationBlock } from "@/features/players/notification-block";
 import {
   PlayerForm,
@@ -83,7 +84,7 @@ export default function PlayerDetailScreen() {
   // evaluations.history rule 2: the card's date is the server's `lastEvaluatedOn`.
   const { data: evaluationHistory } = usePlayerEvaluations(playerId);
   const openEvaluations = () =>
-    router.push({ pathname: "/player-evaluations/[playerId]", params: { playerId: String(playerId), name: player?.name ?? "" } });
+    router.push({ pathname: "/player-evaluations/[playerId]", params: { playerId: String(playerId), name: player?.displayName ?? player?.name ?? "" } });
   const { data: standingList } = useStandingWaitingList();
 
   const editPlayer = useEditPlayer();
@@ -169,7 +170,7 @@ export default function PlayerDetailScreen() {
     try {
       await removeFromWaitingList.mutateAsync(standingEntry.id);
       toast.success(
-        t("players.removedFromWaitingList", { name: player.name })
+        t("players.removedFromWaitingList", { name: player.displayName ?? player.name })
       );
     } catch {
       toast.error(t("players.removeFromWaitingListFailed"));
@@ -232,7 +233,7 @@ export default function PlayerDetailScreen() {
 
   const handleRemove = async () => {
     if (!player || !user?.coachId) return;
-    const name = player.name || t("players.defaultPlayerName");
+    const name = (player.displayName ?? player.name) || t("players.defaultPlayerName");
     setError(null);
     try {
       await removePlayer.mutateAsync({
@@ -524,12 +525,12 @@ export default function PlayerDetailScreen() {
               <View className="flex-row items-start justify-between gap-3">
                 <View className="min-w-0 flex-1 flex-row items-center gap-3">
                   <Avatar
-                    alt={player.name || t("players.defaultPlayerName")}
+                    alt={(player.displayName ?? player.name) || t("players.defaultPlayerName")}
                     className="h-14 w-14"
                   >
                     <AvatarFallback>
                       <Text className="text-lg text-primary">
-                        {getInitials(player.name || "")}
+                        {getInitials((player.displayName ?? player.name) || "")}
                       </Text>
                     </AvatarFallback>
                   </Avatar>
@@ -694,14 +695,7 @@ export default function PlayerDetailScreen() {
               <CardTitle>{t("players.info")}</CardTitle>
             </CardHeader>
             <CardContent className="gap-3">
-              <View className="gap-1">
-                <Text className="text-sm text-muted-foreground">
-                  Email: {player.email || "—"}
-                </Text>
-                <Text className="text-sm text-muted-foreground">
-                  Phone: {player.phone || "—"}
-                </Text>
-              </View>
+              <PlayerContactRows email={player.email} phone={player.phone} />
                 {notificationBlock.blocked ? (
                   <View
                     className="gap-1 rounded-lg border border-dashed border-warning bg-warning/5 p-3"
@@ -755,10 +749,10 @@ export default function PlayerDetailScreen() {
             <AlertDialogDescription>
               {removalAction === "delete"
                 ? t("players.deletePlaceholderConfirmDescription", {
-                    name: player.name || t("players.deleteConfirmDefaultName"),
+                    name: (player.displayName ?? player.name) || t("players.deleteConfirmDefaultName"),
                   })
                 : t("players.disconnectConfirmDescription", {
-                    name: player.name || t("players.deleteConfirmDefaultName"),
+                    name: (player.displayName ?? player.name) || t("players.deleteConfirmDefaultName"),
                   })}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -830,14 +824,15 @@ export default function PlayerDetailScreen() {
         open={isWaitingListOpen}
         onClose={() => setIsWaitingListOpen(false)}
         playerId={Number(player.playerId)}
-        playerName={player.name ?? null}
+        playerName={player.displayName ?? player.name ?? null}
+        profileSide={player.side ?? null}
       />
       {standingEntry ? (
         <WaitingListDialog
           open={isWaitingListRenewOpen}
           onClose={() => setIsWaitingListRenewOpen(false)}
           playerId={Number(player.playerId)}
-          playerName={player.name ?? null}
+          playerName={player.displayName ?? player.name ?? null}
           renewing={standingEntry}
         />
       ) : null}
@@ -846,7 +841,7 @@ export default function PlayerDetailScreen() {
         open={isClassesOpen}
         onClose={() => setIsClassesOpen(false)}
         playerId={String(player.playerId)}
-        playerName={player.name ?? null}
+        playerName={player.displayName ?? player.name ?? null}
       />
     </Screen>
   );

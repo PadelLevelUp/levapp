@@ -3,7 +3,7 @@ import type {
   PresenceStatsTotals,
 } from "@levelup/types";
 
-import { searchPlayers } from "@levelup/config";
+import { rosterSearchFields, searchPlayers } from "@levelup/config";
 
 import type { ChartPoint } from "@/components/charts/chart-geometry";
 
@@ -115,10 +115,8 @@ export function filterPlayers(
 
   // PAD-665 (players.search): the name goes through the shared rule, best match first; a blank
   // query keeps the order given. The bounds are unchanged.
-  return searchPlayers(players, filters.query, (player) => ({
-    name: player.name,
-    id: player.playerId,
-  })).filter((player) => player.total >= min && player.unjustified <= max);
+  // PAD-683 (players.nickname rule 5): `rosterSearchFields` matches the real name AND the coach's nickname.
+  return searchPlayers(players, filters.query, rosterSearchFields).filter((player) => player.total >= min && player.unjustified <= max);
 }
 
 /**
@@ -152,7 +150,8 @@ export function sortPlayerStats(
 ): PresencePlayerStats[] {
   const dir = sort.direction === "asc" ? 1 : -1;
   return [...players].sort((a, b) => {
-    if (sort.key === "name") return a.name.localeCompare(b.name) * dir;
+    // PAD-683 (rule 9a): ordered by the name the coach reads (the server's displayName).
+    if (sort.key === "name") return (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name) * dir;
     return ((a[sort.key] as number) - (b[sort.key] as number)) * dir;
   });
 }
@@ -272,8 +271,8 @@ export function topPlayerPoints(
     .sort((a, b) => b.total - a.total)
     .slice(0, limit)
     .map((player) => ({
-      label: abbreviateName(player.name),
-      fullLabel: player.name,
+      label: abbreviateName(player.displayName ?? player.name), // PAD-683 rule 9a
+      fullLabel: player.displayName ?? player.name,
       value: player.total,
     }));
 }

@@ -470,7 +470,42 @@
       "linear": "Linear",
       "github": "GitHub",
       "newTab": "abre num separador novo",
-      "truncated": "Lista incompleta: há mais do que o limite desta página."
+      "truncated": "Lista incompleta: há mais do que o limite desta página.",
+      "testflight": {
+        "title": "Builds no TestFlight",
+        "empty": "Sem builds.",
+        "build": "{{version}} ({{build}})",
+        "expired": "Expirado",
+        "internal": "Interno: {{state}}",
+        "external": "Externo: {{state}}",
+        "noNotes": "Sem notas \"O que testar\"."
+      },
+      "bugs": {
+        "title": "Bugs em aberto",
+        "empty": "Nenhum bug em aberto.",
+        "resolved_one": "{{count}} resolvido",
+        "resolved_other": "{{count}} resolvidos",
+        "unparsed_one": "{{count}} linha do índice não lida",
+        "unparsed_other": "{{count}} linhas do índice não lidas",
+        "severity": {
+          "critical": "Crítico",
+          "high": "Alto",
+          "medium": "Médio",
+          "low": "Baixo"
+        }
+      },
+      "ci": {
+        "title": "Pistas de CI",
+        "noRuns": "sem execuções recentes",
+        "failureRate": "{{percent}} % de falhas em {{runs}} execuções",
+        "nearLimit": "Perto do limite",
+        "minutes": "último {{latest}} min · mediana {{median}} · máximo {{longest}} / limite {{limit}}"
+      },
+      "sources": {
+        "testflight": "TestFlight",
+        "bugs": "Registo de bugs",
+        "ci": "CI"
+      }
     }
   }
 }

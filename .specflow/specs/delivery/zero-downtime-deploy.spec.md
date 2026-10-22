@@ -152,6 +152,21 @@ gunicorn's boot path into the leadership thread.
    can neither swap nor remove one). Jobs never run twice in any mix: every scheduler gates on the
    same advisory lock.
 
+14. **A second API copy (PAD-704, B8 on staging).** `--copies 2` (the workflows pass it when the
+   env file says `API_COPIES=2`; prod never does, and staging is back at 1 since 2026-10-22: the
+   2 GB host paged out 11–17 MB at each two-copy deploy, so two copies wait for the memory budget) starts `<name>_b` of the same image
+   and arguments after the swap and the worker, on the port the old copy freed, and waits for its
+   health, so both ports of the upstream serve. No third port, no upstream edit, no host step.
+   - Every deploy first stops and removes the last deploy's `<name>_b` (after the migrate step,
+     so both copies serve through it): it holds the idle port. Each deploy therefore has a
+     one-copy moment, today's steady state.
+   - `--copies 1` (the default) removes a leftover `<name>_b`. Stop-first never runs a second
+     copy.
+   - A second copy that doesn't answer is removed and the run is red; the first copy serves.
+   - `--copies` goes through B-666's filter. An older checked-out `rollout.sh` (a rollback) can't
+     free that port, so the workflow removes `<name>_b` itself before calling it.
+   - The staging sync stops `<name>_b` with the API and starts it after.
+   - Rollback for the week is `API_COPIES` back to 1, or `docker stop <name>_b`.
 ### Acceptance Criteria
 
 #### Only the lock holder runs the scheduler (rules 1, 2)
@@ -246,6 +261,14 @@ gunicorn's boot path into the leadership thread.
   succeeds only when the renamed worker reports `leader: true`; an unanswering new worker is removed
   and the old one kept; a new worker that never leads leaves the run red with the worker running;
   without `--worker` a leftover worker is removed
+
+#### A second copy on the freed port (rule 14)
+- **Given** a live `padelapp` on 5000 **When** `rollout.sh --copies 2` runs **Then** `padelapp` serves
+  on 5002 and `padelapp_b` on 5000, started after the rename
+- **Given** `padelapp` and `padelapp_b` from the last deploy **Then** `padelapp_b` stops after the
+  migrate step and before `padelapp_next` starts, and comes back on the freed port
+- **Given** `--copies 1` or `--stop-first` **Then** no `padelapp_b` is left; a second copy that never
+  answers is removed and the run exits 1 with `padelapp` serving
 
 #### A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it

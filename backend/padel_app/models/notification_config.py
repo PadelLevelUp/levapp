@@ -25,8 +25,9 @@ DEFAULT_RESTRICTIONS = {
     "excludedPlayers": {"enabled": False, "playerIds": []},
     # PAD-132: "exclude inactive accounts" — reads users.status, never payment.
     "excludeUnpaidSubscription": {"enabled": False},
-    # PAD-523 (rule 6e): "do not invite a student who already has a class that day". Off.
-    "noSameDayClass": {"enabled": False},
+    # PAD-523 (rule 6e): "do not invite a student who already has a class that day".
+    # PAD-685 (rule 6e): ON by default (owner decision 2026-10-20), still switchable off.
+    "noSameDayClass": {"enabled": True},
     # Hours before class start after which a student cancellation is flagged
     # as a late cancellation (spot is still freed). Plain scalar (hours).
     "cancellationDeadlineHours": 24,
@@ -49,7 +50,9 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "reminder_confirmed": "Great, see you then! 🎾",
     "reminder_declined": "Got it, thanks for letting us know!",
     "waiting_list_offer": "This spot was just taken, but we can put you on the waiting list and notify you if another opens up. Interested?",
-    "waiting_list_confirm": "You're on the waiting list! We'll let you know if a spot opens.",
+    # PAD-678 (#4): leads with the outcome, so a "yes" that left the student on the list never
+    # reads as a place. A coach who saved the template editor keeps their stored text.
+    "waiting_list_confirm": "You're on the waiting list. You don't have a place yet; we'll let you know if a spot opens.",
     # PAD-446: the waiting list is asked first (group 0); `{side}` names the spot's side only when it has one.
     "waiting_list_invite": "Hey {name}, you're on the waiting list for the {level} class on {weekday} at {time}{side}, and a spot just opened. You're asked first: do you want it?",
     # PAD-330: the coach put this student in a class. `{when}` already carries
@@ -72,7 +75,7 @@ DEFAULT_MESSAGE_TEMPLATES_PT = {
     "reminder_confirmed": "Boa, até já! 🎾",
     "reminder_declined": "Entendido, obrigado por avisares!",
     "waiting_list_offer": "Esta vaga acabou de ser ocupada, mas podemos pôr-te na lista de espera e avisar-te se abrir outra. Interessa?",
-    "waiting_list_confirm": "Estás na lista de espera! Avisamos-te se abrir uma vaga.",
+    "waiting_list_confirm": "Ficaste em lista de espera. Ainda não tens lugar; avisamos-te se abrir uma vaga.",
     "waiting_list_invite": "Olá {name}, estás na lista de espera da aula de {level} na {weekday} às {time}{side} e abriu uma vaga. És o primeiro a ser perguntado: queres vir?",
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
@@ -264,8 +267,9 @@ class NotificationConfig(db.Model, model.Model):
     min_time_before_class_value = Column(Integer, nullable=False, default=30, server_default="30")
     max_invites_per_student_per_day_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     max_invites_per_student_per_day_value = Column(Integer, nullable=False, default=3, server_default="3")
-    # PAD-523 (notifications.config rule 6e): off for every coach until they switch it on.
-    no_same_day_class_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # PAD-523 / PAD-685 (notifications.config rule 6e): ON by default (owner decision 2026-10-20);
+    # migration PAD-685 switched every existing row on. The coach can still switch it off.
+    no_same_day_class_enabled = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     quiet_hours_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     # PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local.
     # NULL reads as the default 22:00 / 07:00.
@@ -353,7 +357,7 @@ class NotificationConfig(db.Model, model.Model):
         out["excludeUnpaidSubscription"] = {
             "enabled": bool(self._col(self.exclude_inactive_accounts, False))
         }
-        out["noSameDayClass"] = {"enabled": bool(self._col(self.no_same_day_class_enabled, False))}
+        out["noSameDayClass"] = {"enabled": bool(self._col(self.no_same_day_class_enabled, True))}
         out["cancellationDeadlineHours"] = self.get_cancellation_deadline_hours()
         return out
 

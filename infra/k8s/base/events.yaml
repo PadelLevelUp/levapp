@@ -1,0 +1,71 @@
+# /api/app/events (delivery.k8s-manifests rule 1). Until PAD-697 gives it its own server it is the
+# API code with ROLE=events; only the events path is routed here, with a 3600 s backend timeout.
+# The Postgres broker is what carries events published by the api and worker pods to its streams.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: events
+  labels: {app.kubernetes.io/name: events}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app.kubernetes.io/name: events}
+  template:
+    metadata:
+      # PAD-702: the deploy workflow sets the hash write-config.sh prints, so a changed Secret
+      # rolls the pods (the Secret keeps one stable name).
+      annotations: {levapp.app/secrets-sha256: SECRETS_SHA256}
+      labels: {app.kubernetes.io/name: events}
+    spec:
+      serviceAccountName: levapp-backend
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: events
+          image: levapp-backend
+          # The thread count follows GUNICORN_THREADS from the ConfigMap (PAD-689; default 64), as the
+          # Dockerfile's CMD does, so the stream cap and its threads stay in step (PAD-702).
+          args:
+            - sh
+            - -c
+            - >-
+              exec gunicorn --bind 0.0.0.0:80 --workers 1 --threads "${GUNICORN_THREADS:-64}"
+              --timeout 3600 --access-logfile -
+              --access-logformat '%(m)s %(U)s %(s)s %(L)s "%(a)s"' app:run_app
+          ports: [{name: http, containerPort: 80}]
+          env:
+            - {name: ROLE, value: events}
+            - {name: WORKER_SPLIT, value: "on"}
+            - {name: SSE_BROKER, value: postgres}
+            # PAD-702: one shared rate budget across pods (auth.login rule 7, PAD-693).
+            - {name: AUTH_RATE_LIMIT_STORE, value: database}
+          envFrom:
+            - configMapRef: {name: levapp-config}
+            - secretRef: {name: levapp-secrets}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+          startupProbe:
+            httpGet: {path: /api/app/healthz, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /api/app/healthz, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /api/app/livez, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop: {exec: {command: ["sleep", "10"]}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: events
+  labels: {app.kubernetes.io/name: events}
+spec:
+  selector: {app.kubernetes.io/name: events}
+  ports: [{name: http, port: 80, targetPort: http}]
