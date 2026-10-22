@@ -4,5 +4,7 @@ kind: Kustomization
 namespace: levapp
 resources:
   - ../../../jobs
+components:
+  - ../config
 images:
   - {name: levapp-backend, newName: REGISTRY/levelup_backend, newTag: latest}

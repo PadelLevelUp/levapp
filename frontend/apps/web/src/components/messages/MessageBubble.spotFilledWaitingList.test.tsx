@@ -51,7 +51,7 @@ describe("PAD-577 a lost spot offers that class's waiting list", () => {
     renderBubble(invite({}));
     const join = await screen.findByTestId("invite-join-waiting-list");
     fireEvent.click(join);
-    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }, "both"));
     await screen.findByTestId("invite-on-waiting-list");
     expect(screen.queryByTestId("invite-join-waiting-list")).toBeNull();
     fireEvent.click(screen.getByTestId("invite-leave-waiting-list"));
@@ -82,7 +82,7 @@ describe("PAD-577 a lost spot offers that class's waiting list", () => {
     expect(await screen.findByText("messages.noLongerNeededOnSide")).toBeInTheDocument();
     expect(screen.queryByText("messages.spotFilled")).toBeNull();
     fireEvent.click(await screen.findByTestId("invite-join-waiting-list"));
-    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith({ model: "LessonInstance", originalId: 7 }, "both"));
   });
 
   it("reads the student's own lists: already on this class's list shows the on-list state, not the button", async () => {

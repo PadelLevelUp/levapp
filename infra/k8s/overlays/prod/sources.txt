@@ -1,0 +1,29 @@
+# PAD-702 (delivery.k8s-manifests rule 9): where each prod key that is not in backend/.env.prod
+# comes from. One line per env key: KEY class source. class: secret (a GitHub secret, into the
+# Secret levapp-secrets), var (a GitHub variable, into vars.env and the ConfigMap), context (a
+# workflow expression). The source names are the GitHub names, which differ from the env keys on
+# staging. A test keeps this equal to deploy-prod.yaml's `-e` lines, except POSTGRES_PW: the
+# cluster's Postgres gets its own password per environment (GKE_PROD_POSTGRES_PW, created
+# once by the owner). Prod reads the same JWT_SECRET_KEY and FLASK_SECRET_KEY as the VM, or every
+# user would be signed out at the cutover.
+POSTGRES_PW secret GKE_PROD_POSTGRES_PW
+FLASK_SECRET_KEY secret FLASK_SECRET_KEY
+JWT_SECRET_KEY secret JWT_SECRET_KEY
+MAIL_PASSWORD secret MAIL_PASSWORD
+# GCS_UPLOADS_BUCKET is a GitHub secret in prod but a plain key in .env.staging: today's
+# asymmetry, kept as is (do not move it into .env.prod here).
+GCS_UPLOADS_BUCKET secret GCS_UPLOADS_BUCKET
+OPENROUTER_API_KEY secret OPENROUTER_API_KEY
+VAPID_PUBLIC_KEY secret VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY secret VAPID_PRIVATE_KEY
+VAPID_CLAIMS_EMAIL secret VAPID_CLAIMS_EMAIL
+EXPO_ACCESS_TOKEN secret EXPO_ACCESS_TOKEN
+HUBSPOT_PRIVATE_APP_TOKEN secret HUBSPOT_PRIVATE_APP_TOKEN
+GOOGLE_WEB_CLIENT_ID var GOOGLE_WEB_CLIENT_ID
+GOOGLE_IOS_CLIENT_ID var GOOGLE_IOS_CLIENT_ID
+APPLE_CLIENT_IDS var APPLE_CLIENT_IDS
+HUBSPOT_DEMO_FORM_ID var HUBSPOT_DEMO_FORM_ID
+HUBSPOT_MARKETING_SUBSCRIPTION_ID var HUBSPOT_MARKETING_SUBSCRIPTION_ID
+LINEAR_API_KEY secret LINEAR_API_KEY
+WORK_GITHUB_REPO context github.repository
+WORK_GITHUB_TOKEN secret WORK_GITHUB_TOKEN

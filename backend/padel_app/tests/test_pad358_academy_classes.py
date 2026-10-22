@@ -359,7 +359,7 @@ def test_routes_follow_the_wire_contract(app, client):
     res = client.get(f"/api/app/academy-classes?coachId={ids['coach_id']}", headers=student)
     assert res.status_code == 200
     body = res.get_json()
-    assert set(body) == {"from", "to", "openSpotsVisible", "classes"}
+    assert set(body) == {"from", "to", "openSpotsVisible", "classes", "profileSide"}  # PAD-672
     row = _by_title(body)["Open Tomorrow"]
     for key in ("id", "model", "originalId", "date", "startTime", "endTime", "title", "maxPlayers",
                 "participantCount", "coachName", "state", "spotsLeft", "myJoinRequest", "onWaitingList"):
@@ -377,7 +377,7 @@ def test_routes_follow_the_wire_contract(app, client):
     target = {"model": "LessonInstance", "originalId": full["instance_id"]}
     first = client.post("/api/app/class-waiting-list", headers=student, json=target)
     assert first.status_code == 201
-    assert first.get_json() == {"lessonInstanceId": full["instance_id"], "onWaitingList": True}
+    assert first.get_json() == {"lessonInstanceId": full["instance_id"], "onWaitingList": True, "side": None}  # PAD-672: the stored side
     assert client.post("/api/app/class-waiting-list", headers=student, json=target).status_code == 200
     has_spots = client.post("/api/app/class-waiting-list", headers=student,
                             json={"model": "LessonInstance", "originalId": open_class["instance_id"]})

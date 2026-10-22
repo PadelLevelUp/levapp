@@ -69,6 +69,11 @@ TERMS_ON_COMPLETION = "terms-on-completion"
 # coach's `confirmsAdults: true`. A client that declares this and does not send it is refused (400
 # ADULTS_CONFIRMATION_REQUIRED); one that does not creates as before. Retire like the others.
 ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"
+# PAD-672 slice 1 (classes.join-requests rule 20): a join request or a waiting-list join names the
+# side the student will play. A client that declares this gets the side round trip (409 side_full
+# when no spot of that side is open; `has_spots` per side); one that does not (App Store builds up
+# to 33) is taken as before, its side recorded as the profile side. Retire like the others.
+JOIN_SIDE = "join-side"
 
 
 # PAD-680 (notifications.notification-sound rule 5): the build has the "Notification sound" switch
@@ -93,6 +98,7 @@ CAPABILITIES = {
     COUNTRY_ON_COMPLETION: "compat",
     TERMS_ON_COMPLETION: "compat",
     ADULT_ROSTER_CONFIRMATION: "compat",
+    JOIN_SIDE: "compat",
 }
 
 # Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.

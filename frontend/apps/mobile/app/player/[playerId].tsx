@@ -825,6 +825,7 @@ export default function PlayerDetailScreen() {
         onClose={() => setIsWaitingListOpen(false)}
         playerId={Number(player.playerId)}
         playerName={player.displayName ?? player.name ?? null}
+        profileSide={player.side ?? null}
       />
       {standingEntry ? (
         <WaitingListDialog
