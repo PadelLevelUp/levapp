@@ -148,12 +148,11 @@ def _seat(app, iid, player_id):
         return inst.effective_filled_spots, open_vacancies, row.attendance_state
 
 
-def test_confirm_then_cancel_is_final_the_seat_and_the_badge_stay_given_up(app):
-    """B-073's other direction, end to end — and PAD-570 (attendance.confirm rule 28):
-    "Não vou" is final. A yes after a cancellation used to re-seat the student when
-    the spot was still free (PAD-315); now it is refused with `already_declined`, records
-    nothing, and the seat and the badge stay in step: 0 counted, `not_coming`, the
-    vacancy still open for somebody else.
+def test_confirm_then_cancel_then_yes_takes_the_seat_back_while_there_is_room(app):
+    """B-073's other direction, end to end. PAD-570 made "Não vou" final; PAD-684
+    (attendance.confirm rule 28) restored the way back: a yes after a cancellation re-seats
+    the student when the class still has room, and the seat and the badge stay in step: 1
+    counted, `coming`, their own vacancy closed.
     """
     from unittest.mock import patch
 
@@ -171,8 +170,7 @@ def test_confirm_then_cancel_is_final_the_seat_and_the_badge_stay_given_up(app):
             assert (filled, state) == (0, "not_coming")
             assert vacancies == 1, "the cancelled spot is offered to someone else"
 
-            # PAD-570: there is no way back; the server refuses and touches nothing.
-            assert respond_to_reminder(iid, "yes", ids["student_user_id"]) == {"action": "already_declined"}
-            assert _seat(app, iid, ids["student_id"]) == (0, 1, "not_coming"), (
-                "a refused student is not counted, not shown as coming, and their vacancy stays open"
+            assert respond_to_reminder(iid, "yes", ids["student_user_id"]) == {"action": "confirmed"}
+            assert _seat(app, iid, ids["student_id"]) == (1, 0, "coming"), (
+                "re-seated: counted, shown as coming, and their own vacancy closed"
             )

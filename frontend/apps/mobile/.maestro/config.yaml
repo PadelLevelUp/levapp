@@ -362,12 +362,19 @@ executionOrder:
     # 301 (PAD-683, players.nickname rule 9): sets Filler Player 02's nickname through the API, reads
     # the invite picker and the invitee row, clears it and removes its class in teardown.
     - 301-invite-picker-nickname
+    # 302 (PAD-684, attendance.confirm rule 28): books a one-place class, the student says "Não vou"
+    # through the API, then taps "Afinal vou"; teardown removes its own class, so its position is not
+    # load bearing.
+    - 302-afinal-vou
     # 289 (PAD-648, messaging.conversations rule 17): reads every e2e-coach conversation, posts
     # one student message in conversation 1 and deletes it after, so its position is not load bearing.
     - 289-unread-filter
     # 290 (PAD-551, classes.instance-enrollment rule 13): books, sets and clears a side, and removes
     # its own class through the API, so its position is not load bearing.
     - 290-side-per-occurrence
+    # 296 (PAD-676, messaging.conversation-detail rule 4a): sends one coach message into the
+    # E2E Student Three thread and deletes it in teardown, so its position is not load bearing.
+    - 296-chat-day-separators
     # 297 (PAD-677, classes.join-requests rule 18): adds and removes its own class through the API,
     # as flow 112 does, so its position is not load bearing.
     - 297-join-request-buttons-width

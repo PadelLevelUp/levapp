@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canConfirmAttendance, reminderAnswerOutcome, reminderArrivedFor, studentRowAction } from "./reminder-answer";
+import { canConfirmAttendance, comeBackAction, comeBackFromAnswer, reminderAnswerOutcome, reminderArrivedFor, studentRowAction } from "./reminder-answer";
 
 /**
  * PAD-315 (`attendance.confirm` rule 26) and B-074.
@@ -171,5 +171,28 @@ describe("reminderArrivedFor — the live event that means 'you were just asked'
     expect(reminderArrivedFor({ type: "message_created", payload: { messageType: "notification_reminder" } }, 42)).toBe(false);
     expect(reminderArrivedFor(reminder(42), null)).toBe(false);
     expect(reminderArrivedFor(null, 42)).toBe(false);
+  });
+});
+
+describe("comeBackAction - 'Afinal vou' (rule 28, PAD-684): the server's comeBack decides", () => {
+  it("passes the three served values through", () => {
+    for (const v of ["rejoin", "waiting_list", "on_waiting_list"] as const) {
+      expect(comeBackAction(v, "not_coming")).toBe(v);
+    }
+  });
+  it("null means not offered, even on not_coming", () => {
+    expect(comeBackAction(null, "not_coming")).toBeNull();
+    expect(comeBackAction(null, "coming")).toBeNull();
+  });
+  it("an older server (field absent) on not_coming keeps the PAD-570 hint", () => {
+    expect(comeBackAction(undefined, "not_coming")).toBe("final_hint");
+    expect(comeBackAction(undefined, "coming")).toBeNull();
+    expect(comeBackAction(undefined, undefined)).toBeNull();
+  });
+  it("spot_filled shows the waiting-list branch; other answers invent nothing", () => {
+    expect(comeBackFromAnswer({ action: "spot_filled" })).toBe("waiting_list");
+    expect(comeBackFromAnswer({ action: "confirmed" })).toBeNull();
+    expect(comeBackFromAnswer(null)).toBeNull();
+    expect(reminderAnswerOutcome({ action: "spot_filled" }).messageKey).toBe("calendar.detail.spotFilled");
   });
 });

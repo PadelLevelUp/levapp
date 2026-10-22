@@ -103,6 +103,7 @@ def _decorate_with_confirmation(
             iid is None and _virtual_ask_open(event, now, lessons=lessons, configs=configs)
         )
         item["attendanceState"] = own["attendanceState"] if own else "planned"
+        item["comeBack"] = own["comeBack"] if own else None  # PAD-684 (attendance.confirm rule 28)
         item["declineTarget"] = (
             {"model": event.get("model"), "originalId": event.get("originalId"), "date": event.get("date")}
             if event.get("model") and event.get("originalId") is not None
