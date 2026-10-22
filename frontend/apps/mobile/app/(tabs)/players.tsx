@@ -167,10 +167,10 @@ export default function PlayersScreen() {
       className="mb-3 rounded-lg border border-border bg-card p-4 active:bg-accent"
     >
       <View className="flex-row items-center gap-3">
-        <Avatar alt={item.name || t("players.defaultPlayerName")} className="h-12 w-12">
+        <Avatar alt={item.displayName ?? (item.name || t("players.defaultPlayerName"))} className="h-12 w-12">
           <AvatarFallback>
             <Text className="text-primary">
-              {getInitials(item.name || "")}
+              {getInitials(item.displayName ?? (item.name || ""))}
             </Text>
           </AvatarFallback>
         </Avatar>
@@ -199,7 +199,7 @@ export default function PlayersScreen() {
         {/* players.claim rule 4c (PAD-528): the server's duplicate flag on a claimable row; nothing re-sorts. */}
         {item.possibleDuplicateOf ? (
           <Badge variant="outline" className="border-warning/40" testID={`player-duplicate-${item.playerId}`}
-            accessibilityLabel={t("players.claim.possibleDuplicateHint", { name: item.possibleDuplicateOf.name })}>
+            accessibilityLabel={t("players.claim.possibleDuplicateHint", { name: item.possibleDuplicateOf.displayName ?? item.possibleDuplicateOf.name })}>
             <Text className="text-warning">{t("players.claim.possibleDuplicate")}</Text>
           </Badge>
         ) : null}

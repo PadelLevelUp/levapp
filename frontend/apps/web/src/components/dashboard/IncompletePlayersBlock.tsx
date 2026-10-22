@@ -37,7 +37,7 @@ export function IncompletePlayersBlock({ block }: { block: DashboardIncompletePl
                 onClick={() => navigate(p.href)}
                 className="flex w-full min-h-11 items-center justify-between gap-3 py-2 text-left hover:bg-accent/40 rounded-lg px-1"
               >
-                <span className="truncate text-sm font-medium">{p.name}</span>
+                <span className="truncate text-sm font-medium">{p.displayName ?? p.name}</span>
                 <span className="flex shrink-0 gap-1.5">
                   {p.missing.map((m) => (
                     <span

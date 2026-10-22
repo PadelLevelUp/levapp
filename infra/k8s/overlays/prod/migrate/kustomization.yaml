@@ -1,0 +1,8 @@
+# PAD-698 rule 5: the prod migrate Job, applied on its own by the deploy workflow.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: levapp
+resources:
+  - ../../../jobs
+images:
+  - {name: levapp-backend, newName: REGISTRY/levelup_backend, newTag: latest}

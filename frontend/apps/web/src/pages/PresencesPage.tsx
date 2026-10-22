@@ -158,6 +158,8 @@ export default function PresencesPage() {
       (rosterQuery.data ?? []).map((p) => ({
         id: Number(p.playerId),
         name: p.name || t("presences.unknownPlayer"),
+        nickname: p.nickname,
+        displayName: p.displayName,
       })),
     [rosterQuery.data, t]
   );

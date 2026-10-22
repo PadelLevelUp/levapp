@@ -159,7 +159,7 @@ def possible_duplicates_for(coach, relations):
     # The picker's exclusions (rule 4b): an active student account, not a coach, not
     # claimable — so a flag never points at someone the merge would refuse.
     rows = (
-        db.session.query(Player.id, User)
+        db.session.query(Player.id, User, Association_CoachPlayer)
         .join(Association_CoachPlayer, Association_CoachPlayer.player_id == Player.id)
         .join(User, Player.user_id == User.id)
         .outerjoin(Coach, Coach.user_id == User.id)
@@ -167,12 +167,17 @@ def possible_duplicates_for(coach, relations):
         .all()
     )
     by_name = {}
-    for player_id, user in rows:
+    for player_id, user, rel_row in rows:
         if _is_claimable_user(user):      # rule 1's one definition, not a second copy
             continue
         key = normalise_name(user.name)
         if key and (key not in by_name or player_id < by_name[key]["playerId"]):
-            by_name[key] = {"playerId": player_id, "name": user.name}
+            # PAD-683 (rule 9a): the other student as THIS coach names them (coach-private payload).
+            by_name[key] = {
+                "playerId": player_id,
+                "name": user.name,
+                "displayName": nickname_payload(rel_row, user.name)["displayName"],
+            }
     out = {}
     for rel in claimable:
         key = normalise_name(rel.player.user.name)
@@ -196,6 +201,30 @@ def nickname_payload(rel, real_name):
         "nicknameAsName": as_name,
         "displayName": nickname if (as_name and nickname) else real_name,
     }
+
+
+def relations_by_player(coach_id, player_ids=None):
+    """PAD-683 (rule 9a): ``{player_id: relation row}`` for ONE coach, in a single query, so a
+    coach-private payload with many student rows reads each nickname without a query per row."""
+    if not coach_id:
+        return {}
+    q = Association_CoachPlayer.query.filter(Association_CoachPlayer.coach_id == coach_id)
+    if player_ids is not None:
+        ids = list(player_ids)
+        if not ids:
+            return {}
+        q = q.filter(Association_CoachPlayer.player_id.in_(ids))
+    return {rel.player_id: rel for rel in q.all()}
+
+
+def coach_relation_payloads(coach_id, rows, real_name_of):
+    """PAD-683 (rule 9a): add the requesting coach's ``nickname`` / ``nicknameAsName`` /
+    ``displayName`` to every dict in ``rows`` that has a ``playerId`` (in place; returns ``rows``).
+    ``real_name_of(row)`` gives the row's real name. ``name`` is left untouched (rule 2)."""
+    rels = relations_by_player(coach_id, {r.get("playerId") for r in rows if r.get("playerId")})
+    for row in rows:
+        row.update(nickname_payload(rels.get(row.get("playerId")), real_name_of(row)))
+    return rows
 
 
 def coach_display_name(coach_user_id, player_id, real_name):

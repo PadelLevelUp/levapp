@@ -1,0 +1,22 @@
+# The external HTTPS load balancer (delivery.k8s-manifests rule 3). Certificates come from
+# Certificate Manager through the certmap annotation (the Gateway controller does not read
+# ManagedCertificate); the map, its certificates and the static address are created by Terraform
+# in PAD-706. Overlays set both names.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: levapp
+  annotations:
+    networking.gke.io/certmap: CERTMAP
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  addresses:
+    - type: NamedAddress
+      value: GATEWAY_ADDRESS
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+    - name: http
+      protocol: HTTP
+      port: 80
