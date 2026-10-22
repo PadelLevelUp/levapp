@@ -133,7 +133,7 @@ def test_has_spots_still_refuses_where_it_did(app, client, headers, body):
 
 # ── the accept and the coach's rows ──────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("side,written", [("left", "left"), ("both", None)])
+@pytest.mark.parametrize("side,written", [("left", "left"), ("both", "both")])  # slice 3: both is written
 def test_the_accept_writes_the_side_on_the_presence(app, client, side, written):
     from padel_app.models import Coach
     from padel_app.models.class_join_request import ClassJoinRequest

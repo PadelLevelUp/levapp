@@ -178,6 +178,7 @@ def get_config_dict(coach_id: int) -> dict:
     return {
         "autoNotifyEnabled": config.auto_notify_enabled,
         "invitationMode": config.get_invitation_mode(),
+        "autoAcceptJoinRequests": bool(config.auto_accept_join_requests),  # PAD-672 (rule 3a)
         "priorityCriteria": config.get_priority_criteria(),
         "restrictions": restrictions,
         # PAD-433 / B-168 (rule 14a): read-only names for the excluded-player chips.
@@ -276,6 +277,17 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
             from flask import abort
             abort(400, "invitationMode must be 'automatic' or 'semi_automatic'")
         config.invitation_mode = mode
+    # PAD-672 (rule 3a): automatic acceptance never runs with semi-automatic approval. Turning it on
+    # in that mode is refused; switching to that mode turns it off and says so.
+    if "autoAcceptJoinRequests" in data:
+        wanted = bool(data["autoAcceptJoinRequests"])
+        if wanted and config.get_invitation_mode() == "semi_automatic":
+            from flask import abort
+            abort(400, "autoAcceptJoinRequests cannot be on in semi_automatic mode")
+        config.auto_accept_join_requests = wanted
+    elif config.auto_accept_join_requests and config.get_invitation_mode() == "semi_automatic":
+        config.auto_accept_join_requests = False
+        config.auto_accept_turned_off = True
     if "priorityCriteria" in data:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
@@ -2972,6 +2984,59 @@ def sides_in_occurrence(instance: LessonInstance, coach_id: int, player_ids) -> 
     return {pid: overrides.get(pid, usual.get(pid)) for pid in ids}
 
 
+def assigned_sides(instance: LessonInstance, coach_id: int | None) -> dict:
+    """PAD-672 (classes.instance-enrollment rule 13a, D8, owner Q5): ``{player_id: "left"|"right"}``
+    for the players whose side in the occurrence is `both`. From the class's start, the values the
+    tick stored; before it, computed only while the class is full: in enrolment order (presence
+    id), each to the side with fewer players going, a tie to the LEFT. Nothing is stored here."""
+    holding = sorted(instance.holding_presences, key=lambda p: p.id)
+    stored = {p.player_id: p.assigned_side for p in holding if p.assigned_side}
+    if stored:
+        return stored
+    if coach_id is None or len(holding) < instance.effective_max_players:
+        return {}
+    sides = sides_in_occurrence(instance, coach_id, [p.player_id for p in holding])
+    counts = {"left": 0, "right": 0}
+    for side in sides.values():
+        if side in counts:
+            counts[side] += 1
+    assigned = {}
+    for presence in holding:
+        if sides.get(presence.player_id) != "both":
+            continue
+        side = "left" if counts["left"] <= counts["right"] else "right"
+        counts[side] += 1
+        assigned[presence.player_id] = side
+    return assigned
+
+
+def freeze_assigned_sides(*, now: datetime | None = None) -> int:
+    """PAD-672 (rule 13a): from a class's start, store its "both" players' sides once, so history
+    keeps where they played. Classes that started in the last day and stored nothing yet. Sends
+    nothing. Returns the rows written."""
+    from padel_app.models.presences import Presence
+    from padel_app.services.lesson_service import primary_coach
+
+    wall_now = utc_to_wall_naive(now or utcnow_naive())
+    started = LessonInstance.query.filter(
+        LessonInstance.start_datetime <= wall_now,
+        LessonInstance.start_datetime > wall_now - timedelta(days=1),
+    ).all()
+    written = 0
+    for instance in started:
+        if any(p.assigned_side for p in instance.presences):
+            continue
+        coach = primary_coach(instance)
+        for player_id, side in assigned_sides(instance, coach.id if coach else None).items():
+            presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+            if presence is not None:
+                presence.assigned_side = side
+                written += 1
+    if written:
+        db.session.commit()
+    return written
+
+
 def _side_counts(
     instance: LessonInstance,
     coach_id: int,
@@ -5496,6 +5561,17 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     _now = now or utcnow_naive()
     expire_stale_invitations(now=_now)
+    # PAD-672 (instance-enrollment rule 13a): a started class keeps its "both" players' sides. Its own
+    # try, like the scan below: a failure is logged and the next tick retries. Only with an app
+    # context (the schedule tests drive this tick with mocked rows and none).
+    from flask import current_app, has_app_context
+
+    if has_app_context():
+        try:
+            freeze_assigned_sides(now=_now)
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            current_app.logger.exception("freeze_assigned_sides failed")
     # PAD-540 / B-301 (rule 1c): a class with a never-filled place and no vacancy of any status
     # whose window is open is started here, since no absence and no one-shot job will do it.
     # Its own try (#558 review): a scan that raises (its candidate query included) is logged and

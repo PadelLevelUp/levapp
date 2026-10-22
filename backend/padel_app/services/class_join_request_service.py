@@ -285,7 +285,32 @@ def create_join_request_service(player, model, original_id, date_str, *, note=No
     db.session.add(row)
     db.session.commit()
     _notify_coach_of_request(row, instance)
+    if config is not None and config.auto_accept_join_requests:
+        row = _accept_automatically(row, instance, config, now=now)
     return row, True
+
+
+def _accept_automatically(row, instance, config, *, now):
+    """PAD-672 (rule 21): with the coach's automatic acceptance on, a request every coach check
+    passes is accepted through the coach's own path at once; anything else waits for the coach.
+    Eligibility was checked at creation (rule 3); rule 7's override is never given here."""
+    from werkzeug.exceptions import HTTPException
+
+    if config.get_invitation_mode() == "semi_automatic":
+        return row
+    if config.excluded_players_enabled and str(row.player_id) in {str(p) for p in (config.excluded_player_ids or [])}:
+        return row
+    if not side_has_spot(row.side or "both", open_spot_sides(instance)):
+        return row  # no spot its side can take (rule 20): the coach decides
+    from padel_app.models import Coach
+
+    coach = Coach.query.get(row.coach_id)
+    try:
+        return decide_join_request_service(row.id, coach, accept=True, confirm=False, now=now)
+    except HTTPException:
+        # A coach check refused it under the lock (full, closed, ineligible): it waits for the coach.
+        db.session.rollback()
+        return ClassJoinRequest.query.get(row.id)
 
 
 def withdraw_join_request_service(request_id, player, *, now=None):
@@ -438,7 +463,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
             vacancy.approval_status = "approved"
     _publish_retired(retired)  # PAD-499: queued now, sent by the enrolment's commit
     _add_player_to_instance(row.player_id, instance)
-    if row.side in ("left", "right"):
+    if row.side in SIDES:  # PAD-672 slice 3: `both` too (instance-enrollment rule 13a)
         _side_for_enrolment(row, instance)
     if vacancy is not None:
         vacancy.save()

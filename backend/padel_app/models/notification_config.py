@@ -301,6 +301,9 @@ class NotificationConfig(db.Model, model.Model):
     # PAD-130: the coach's standard "make empty spots for future classes visible
     # to eligible students" toggle. NULL/False = off (today's behaviour).
     open_spots_visible = Column(Boolean, nullable=True)
+    # PAD-672 (rule 3a, owner Q3): accept eligible join requests at creation; off by default, never
+    # with semi_automatic.
+    auto_accept_join_requests = Column(Boolean, nullable=False, default=False, server_default=text("false"))
 
     coach = relationship("Coach")
 

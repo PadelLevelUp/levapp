@@ -189,7 +189,8 @@ by a student's request — and whichever lands first wins.
       shows two choices: play either side — the same request again with `side: "both"` — or join
       the waiting list of that side (`classes.academy-class-booking` rule 6, with `side`).
     - **Accepting** enrols the student with the request's side written on their presence for that
-      occurrence (`presences.side`, PAD-551's per-occurrence side) unless it is `both` or empty, and
+      occurrence (`presences.side`, PAD-551's per-occurrence side; `both` too since slice 3,
+      `classes.instance-enrollment` rule 13a) unless it is empty, and
       closes a spot of that side (rule 6, `vacancy_for_joiner`, which reads that side).
     - **A pending request whose side lost its last spot** (an invitation's "yes" or another accepted
       request filled it — rule 10's fill paths — while the coach had not answered) is **moved to that
@@ -212,6 +213,17 @@ by a student's request — and whichever lands first wins.
       when `suggestedProfileSide` is set, "Usar <lado> no perfil", which saves it through
       `edit_player`; the standing waiting-list add offers the same side choice, defaulting to the
       profile side. Both shells declare `join-side` in the same change that ships the sheet.
+
+21. **A coach can let eligible requests in automatically (PAD-672 slice 2, D6; numbering
+    unconfirmed).** With `notifications.config` rule 3a on, a new request is accepted at creation
+    through the coach's own accept path (rule 6–9, rule 20's side) when: the class is open and not
+    full, the student is not in it, a spot of the request's side is open (rule 20) — or the class has
+    room and no vacancy yet —, the student passes the eligibility bar **without** the coach's
+    override (rule 7's confirmation is never given automatically), and the student is not on the
+    coach's excluded list (`excludedPlayers`). A request that fails any of these waits for the
+    coach, exactly as with the setting off. The request's own message (with its note, rule 15) is
+    still mirrored into the conversation, so the coach reads the note as information; it shows as
+    decided. The student is told as for any accept (rule 19).
 
 ### Acceptance Criteria
 
