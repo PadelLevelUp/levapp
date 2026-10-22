@@ -7,7 +7,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "573da995cdbd"
-down_revision = "6988ec068d41"  # PAD-672 S1 (chain settled by the coordinator 2026-10-22)
+down_revision = "e532fea8c4d4"  # PAD-672 S3: the set-3 chain S1 → S2 → S3 → this (coordinator, 2026-10-22)
 branch_labels = None
 depends_on = None
 

@@ -203,19 +203,36 @@ def stats_fragment() -> str:
 
 # --- sending one row ----------------------------------------------------------------------------
 
+def combine(outcomes) -> tuple[str, str | None]:
+    """One row sent in groups (silent and with sound): sent if any group was, else retry if any
+    group should be, else skip."""
+    for wanted in (SENT, RETRY):
+        for outcome, detail in outcomes:
+            if outcome == wanted:
+                return outcome, detail
+    return outcomes[0] if outcomes else (SKIP, "no device")
+
+
 def send_row(row: dict) -> tuple[str, str | None]:
     """Look the destination up now and send. Runs inside an app context."""
     payload = row["payload"] or {}
     user_id = row["user_id"]
     if row["channel"] == "expo":
         from padel_app.models import DeviceToken
-        from padel_app.utils.expo_push import expo_push_disabled, send_expo_push_outcome
+        from padel_app.utils.expo_push import expo_push_disabled, send_expo_push_outcome, sound_groups
 
         if expo_push_disabled():
             return SKIP, "expo disabled"
-        tokens = [t.token for t in DeviceToken.query.filter_by(user_id=user_id).all()]
-        return send_expo_push_outcome(tokens, payload.get("title"), payload.get("body"),
-                                      payload.get("data"), badge=payload.get("badge"))
+        rows = DeviceToken.query.filter_by(user_id=user_id).all()
+        if not rows:
+            return SKIP, "no device"
+        # PAD-680's per-token sound decision, made now, as the in-memory path makes it at enqueue.
+        outcomes = [
+            send_expo_push_outcome(tokens, payload.get("title"), payload.get("body"), payload.get("data"),
+                                   badge=payload.get("badge"), sound=sound)
+            for sound, tokens in sound_groups(user_id, rows).items() if tokens
+        ]
+        return combine(outcomes)
     if row["channel"] == "webpush":
         from padel_app.models import PushSubscription
         from padel_app.utils.push_notifications import _deliver_web_push_outcome

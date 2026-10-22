@@ -367,3 +367,55 @@ def test_a_drainer_whose_lease_was_taken_over_cannot_overwrite_the_row(outbox_ap
         db.session.remove()
         row = _rows()[0]
         assert row["status"] == "sending" and row["claimed_by"] == "new-holder"
+
+
+def test_the_drainer_makes_pad680s_sound_decision_when_it_sends(outbox_app, monkeypatch):
+    """#760 (PAD-680): a sound-capable device of a user whose switch is on gets `sound`; a device
+    without the capability stays silent. The outbox row carries no sound; the drainer decides."""
+    from padel_app.models import DeviceToken
+    from padel_app.utils import expo_push
+
+    monkeypatch.delenv("EXPO_PUSH_DISABLED", raising=False)
+    with outbox_app.app_context():
+        uid = _user()
+        db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[capable]", platform="ios", sound_capable=True))
+        db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[old-build]", platform="ios", sound_capable=False))
+        db.session.commit()
+        assert expo_push.send_expo_push_to_user(uid, "Hello", "World")
+        row = _rows()[0]
+        assert "sound" not in str(row["payload"])
+    sent = []
+
+    def post(url, json, headers, timeout):
+        sent.extend(json)
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"data": [{"status": "ok"} for _ in json]})
+
+    with patch.object(expo_push.requests, "post", side_effect=post):
+        po.Drainer(outbox_app).drain_once()
+    by_token = {m["to"]: m for m in sent}
+    assert by_token["ExponentPushToken[capable]"]["sound"] == "default"
+    assert "sound" not in by_token["ExponentPushToken[old-build]"]
+    with outbox_app.app_context():
+        assert _rows()[0]["status"] == "sent"
+
+
+def test_a_user_who_switched_sound_off_gets_silent_pushes(outbox_app, monkeypatch):
+    from padel_app.models import DeviceToken, User
+    from padel_app.utils import expo_push
+
+    monkeypatch.delenv("EXPO_PUSH_DISABLED", raising=False)
+    with outbox_app.app_context():
+        uid = _user("p699quiet")
+        db.session.get(User, uid).notif_sound = False
+        db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[capable2]", platform="ios", sound_capable=True))
+        db.session.commit()
+        expo_push.send_expo_push_to_user(uid, "Hello", "World")
+    sent = []
+
+    def post(url, json, headers, timeout):
+        sent.extend(json)
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"data": [{"status": "ok"} for _ in json]})
+
+    with patch.object(expo_push.requests, "post", side_effect=post):
+        po.Drainer(outbox_app).drain_once()
+    assert sent and all("sound" not in m for m in sent)

@@ -90,6 +90,10 @@ def init_app(app) -> None:
     ``memory``; ``postgres`` on a database that is not Postgres falls back to ``memory``."""
     from padel_app.config import realtime_retention_minutes, sse_broker
 
+    # B-676: nothing sets a level below the root logger (WARNING), so this module's INFO lines —
+    # rule 25's per-minute stats line, "LISTEN ready" — were dropped before any handler saw them.
+    # This logger only: no other module's log volume changes.
+    logger.setLevel(logging.INFO)
     name = sse_broker(app.config.get("SSE_BROKER"))
     uri = str(app.config.get("SQLALCHEMY_DATABASE_URI") or "")
     if name == "postgres" and not uri.startswith("postgresql"):

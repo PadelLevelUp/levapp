@@ -193,6 +193,8 @@ OWN_PROFILE_FIELDS = (
     "notificationBlockReason",
     # PAD-232: opt-out for request alerts (notifications.request-alerts rule 6).
     "requestAlerts",
+    # PAD-680: the notification sound (notifications.notification-sound rule 1).
+    "notificationSound",
     # PAD-630 (auth.login rule 13): the country, asked once of accounts that have none.
     "country",
     # PAD-640 (settings.profile rule 10): the date of birth, corrected in Perfil.
@@ -328,6 +330,8 @@ def update_own_profile_service(user_id, data):
     # PAD-232: same membership-checked boolean handling as the block toggles.
     if "requestAlerts" in data:
         user.notif_request_alerts = _coerce_bool(data.get("requestAlerts"), "requestAlerts")
+    if "notificationSound" in data:
+        user.notif_sound = _coerce_bool(data.get("notificationSound"), "notificationSound")
 
     if "notificationBlockReason" in data:
         reason = (data.get("notificationBlockReason") or "").strip()

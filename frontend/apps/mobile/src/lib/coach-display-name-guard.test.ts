@@ -76,6 +76,12 @@ describe("coach display-name guard (PAD-683)", () => {
     expect(wrong, "more: resolve the new hit; fewer: lower max (or delete the entry)").toEqual([]);
   });
 
+  it("no file is left on the backlog (PAD-683 part 2, players.nickname rule 9)", () => {
+    // Part 2 converted every coach view; an `allowed` entry is the only kind that may remain.
+    // A new coach view that prints a real name is converted, not listed as `backlog`.
+    expect(COACH_NAME_LIST.filter((e) => e.kind === "backlog").map((e) => e.file)).toEqual([]);
+  });
+
   it("every listed file has a reviewed reason", () => {
     expect(COACH_NAME_LIST.filter((e) => e.reason.startsWith("UNREVIEWED")).map((e) => e.file)).toEqual([]);
   });

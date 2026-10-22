@@ -13,7 +13,7 @@ import os
 
 import requests
 
-from padel_app.models import DeviceToken
+from padel_app.models import DeviceToken, User
 from padel_app.sql_db import db
 
 
@@ -61,7 +61,8 @@ def _chunks(items, size):
 
 
 def send_expo_push(
-    tokens: list[str], title, body, data: dict | None = None, badge: int | None = None
+    tokens: list[str], title, body, data: dict | None = None, badge: int | None = None,
+    sound: str | None = None,
 ) -> bool:
     """Best-effort Expo push send to one or more Expo push tokens.
 
@@ -74,8 +75,11 @@ def send_expo_push(
     untouched — so callers that do not own a count must not pass 0 to "mean"
     unknown. Pass the recipient's real unread total; 0 clears the badge
     (PAD-153).
+
+    `sound` ("default") makes iOS play the system sound for the push; omitted when None, so the
+    push is silent (notifications.notification-sound rule 5).
     """
-    return send_expo_push_outcome(tokens, title, body, data, badge=badge)[0] == SENT
+    return send_expo_push_outcome(tokens, title, body, data, badge=badge, sound=sound)[0] == SENT
 
 
 #: The three outcomes a push outbox row can take from one send (PAD-699, architecture review R2).
@@ -83,7 +87,8 @@ SENT, RETRY, SKIP = "sent", "retry", "skip"
 
 
 def send_expo_push_outcome(
-    tokens: list[str], title, body, data: dict | None = None, badge: int | None = None
+    tokens: list[str], title, body, data: dict | None = None, badge: int | None = None,
+    sound: str | None = None,
 ) -> tuple[str, str | None]:
     """`send_expo_push`, answering `(outcome, detail)` for the push outbox. `sent` as soon as any token
     accepted (a retry never re-sends to a token that accepted); `skip` when there is nothing to send
@@ -113,6 +118,8 @@ def send_expo_push_outcome(
                 "data": data,
                 # Only sent when the caller knows the count; see the docstring.
                 **({"badge": badge} if badge is not None else {}),
+                # PAD-680: only for a recipient whose notification sound is on.
+                **({"sound": sound} if sound is not None else {}),
                 # PAD-307 (rule 11a): Android delivery — the client's channel and a
                 # heads-up priority. iOS ignores both; Expo passes them to FCM.
                 "channelId": ANDROID_CHANNEL_ID,
@@ -197,6 +204,23 @@ def _record_expo_failure(token, error_type) -> None:
         logger.warning("expo push incident could not be recorded: %s", type(exc).__name__)
 
 
+def sound_groups(user_id, rows) -> dict:
+    """notifications.notification-sound rule 5 (PAD-680), read on a thread with a session: `sound` only
+    for a token whose build declared the capability, while the recipient's switch is on and the
+    capability is not switched off; every other token stays silent. `{"default": [...], None: [...]}`.
+    The push outbox's drainer makes the same decision when it sends (PAD-699)."""
+    from padel_app.utils.client_capabilities import NOTIFICATION_SOUND, switched_off
+
+    user = db.session.get(User, user_id)
+    sound_on = (user is None or user.notif_sound is not False) and not (
+        switched_off().get(NOTIFICATION_SOUND) or {}
+    ).get("off")
+    return {
+        "default": [r.token for r in rows if sound_on and r.sound_capable],
+        None: [r.token for r in rows if not (sound_on and r.sound_capable)],
+    }
+
+
 def send_expo_push_to_user(
     user_id, title, body, data: dict | None = None, badge: int | None = None
 ) -> bool:
@@ -214,19 +238,22 @@ def send_expo_push_to_user(
         return False
     if not user_id:
         return False
-    tokens = [
-        row.token
-        for row in DeviceToken.query.filter_by(user_id=user_id).all()
-    ]
-    if not tokens:
+    rows = DeviceToken.query.filter_by(user_id=user_id).all()
+    if not rows:
         return False
     from padel_app.utils import push_outbox
 
-    # PAD-699 (rule 10a): a row in the outbox; the drainer looks the tokens up again when it sends.
+    # PAD-699 (rule 10a): a row in the outbox. The drainer looks the tokens up again when it sends
+    # and makes the sound decision below there, so a switch or a device changed meanwhile counts.
     if push_outbox.enabled():
         return push_outbox.enqueue("expo", user_id, {"title": title, "body": body, "data": data or {},
                                                      "badge": badge})
     from padel_app.utils.push_sender import submit
 
-    return submit(send_expo_push, tokens, title, body, data, badge=badge,
-                  label=f"expo push for user {user_id}")
+    groups = sound_groups(user_id, rows)
+    sent = False
+    for sound, tokens in groups.items():
+        if tokens:
+            sent = submit(send_expo_push, tokens, title, body, data, badge=badge, sound=sound,
+                          label=f"expo push for user {user_id}") or sent
+    return sent

@@ -1,0 +1,31 @@
+# The migrate step (zero-downtime-deploy rule 9; delivery.k8s-manifests rule 5). Its own
+# kustomization, never part of an overlay's main one: a Job's pod template is immutable, so
+# `apply -k` would fail at the next image tag. The deploy workflow (PAD-703) waits for a running
+# one to finish, deletes it, applies this, waits for condition=complete, and only then applies the
+# overlay. `args`, not `command`: the entrypoint lets /app/scripts/migrate.sh through its gate.
+# activeDeadlineSeconds 1800 = MIGRATE_LOCK_TIMEOUT (1500) + 300: it covers the lock wait plus the
+# migration itself.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  labels: {app.kubernetes.io/name: migrate}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: migrate}
+    spec:
+      serviceAccountName: levapp-backend
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: levapp-backend
+          args: ["/app/scripts/migrate.sh"]
+          envFrom:
+            - configMapRef: {name: levapp-config}
+            - secretRef: {name: levapp-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
