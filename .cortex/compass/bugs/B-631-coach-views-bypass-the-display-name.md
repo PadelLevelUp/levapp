@@ -61,4 +61,21 @@ its allowlisted backlog; PR2: the backlog to zero) → regression on players, no
 
 ### Resolution
 
-(filled in when the PRs merge)
+Delivered in two PRs (PAD-683), as planned.
+
+- **Part 1:** `nickname_payload` on the invite picker's groups, the coach's search and the
+  `ineligible` rows; `coach_display_name` / `coach_facing_text` on every coach-bound push and on
+  the coach's Assistant conversation; the web class detail's invitees, join requests and toasts;
+  both ratcheted guards with their backlog.
+- **Part 2:** the backlog burned to zero. Coach-private payloads gained the requesting coach's
+  `displayName` (presence statistics and the validation list, the dashboard's avatar stack, reply
+  card and incomplete-players block, the claim candidates and the duplicate hint, the invite
+  simulation); the claim search also matches the nickname; `GET messageable-users` gives a coach
+  viewer `playerId` on roster students (never a nickname: the list is shared with students) and
+  the new-conversation picker resolves through `useCoachDisplayName`, web and iOS; the iOS profile,
+  Players tab, restrictions search and parked academy-accept dialog print the display name. Both
+  guard tests now also fail on any `backlog` entry. Server evidence:
+  `backend/padel_app/tests/test_pad683_part2_payloads.py` (coach B's copy carries no nickname; the
+  student's dashboard builders carry no nickname key).
+- Left on the real name by design (`allowed` in the guards): the profile edit draft and the real
+  name under the nickname, the walk-in row's stored `name`, and the presences CSV export.

@@ -347,6 +347,16 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** `GUNICORN_THREADS` is unset, and when it is `160`
 - **Then** gunicorn starts with `--workers 1` and `--threads 64`, and `--threads 160`
 
+#### The stats line is visible under the process's default logging (rule 25, B-676)
+- **Given** an app built by `create_app`, with no logging level set by the caller or the test
+- **When** the realtime logger's INFO level is checked, and again after the process runs Alembic's
+  `fileConfig(alembic.ini, disable_existing_loggers=False)` as `migrations/env.py` does
+- **Then** `padel_app.realtime` has INFO enabled and is not disabled, both times; so do the `padel_app`
+  package logger (which is `app.logger`) and a sibling module such as `padel_app.scheduler`, while the
+  root logger stays at WARNING. (Before B-676 the
+  effective level was the root's WARNING, so the stats line and "LISTEN ready" never reached the
+  container logs.)
+
 ### Notes
 - The registry is in memory and nothing persists across restarts; with `postgres`, event rows live
   only `REALTIME_EVENTS_RETENTION_MINUTES` and are never replayed (rule 24)

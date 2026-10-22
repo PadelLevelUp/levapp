@@ -103,7 +103,7 @@ export function AvatarStack({
   total,
   onNavy = false,
 }: {
-  people: Array<{ id: number; initials: string; name: string }>;
+  people: Array<{ id: number; initials: string; name: string; displayName?: string }>;
   total: number;
   onNavy?: boolean;
 }) {
@@ -115,7 +115,7 @@ export function AvatarStack({
       {people.map((p, i) => (
         <span
           key={p.id}
-          title={p.name}
+          title={p.displayName ?? p.name}
           className={cn(
             "grid h-7 w-7 place-items-center rounded-full text-[10px] font-bold ring-2",
             ring,
