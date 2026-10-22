@@ -25,10 +25,11 @@ TARGET = datetime(2027, 7, 12, 18, 0)   # the class being filled, Monday 18:00 L
 H = timedelta(hours=1)
 
 
-def _seed(*, restriction_on: bool, other_start=None, other_status="scheduled",
+def _seed(*, restriction_on: "bool | None", other_start=None, other_status="scheduled",
           presence_status=None, presence_response="none", tag="a"):
     """Coach, two roster students (`busy` and `free`), the target class with one open vacancy, and
-    (when `other_start` is given) another class, of another coach, that `busy` is enrolled on."""
+    (when `other_start` is given) another class, of another coach, that `busy` is enrolled on.
+    `restriction_on=None` leaves the column unset, so the model default (on, PAD-685) applies."""
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.clubs import Club
@@ -85,9 +86,10 @@ def _seed(*, restriction_on: bool, other_start=None, other_status="scheduled",
         db.session.add(Presence(player_id=ids["busy"], lesson_instance_id=other.id, invited=True,
                                 enrolment_source="roster", status=presence_status,
                                 response=presence_response))
+    flag = {} if restriction_on is None else {"no_same_day_class_enabled": restriction_on}
     db.session.add(NotificationConfig(
         coach_id=coach.id, auto_notify_enabled=True, invitation_groups=[{"id": "1", "rules": []}],
-        no_same_day_class_enabled=restriction_on,
+        **flag,
         restrictions={"maxSimultaneous": {"enabled": True, "value": 5},
                       "maxTotal": {"enabled": False, "value": 10}},
     ))
@@ -123,7 +125,14 @@ def test_on_a_student_with_another_class_that_day_is_not_invited(app):
         assert [int(s["id"]) for s in sent] == [ids["free"]]
 
 
-def test_off_by_default_nothing_changes(app):
+def test_on_by_default_a_fresh_coach_does_not_invite_the_same_day_student(app):
+    """PAD-685: a config row created without touching the column reads the restriction on."""
+    with app.app_context():
+        ids = _seed(restriction_on=None, other_start=TARGET.replace(hour=10))
+        assert _verdicts(ids) == {ids["busy"]: "has_class_same_day", ids["free"]: "invited"}
+
+
+def test_switched_off_the_same_day_student_is_invited_again(app):
     with app.app_context():
         ids = _seed(restriction_on=False, other_start=TARGET.replace(hour=10))
         assert _verdicts(ids) == {ids["busy"]: "invited", ids["free"]: "invited"}
@@ -162,14 +171,17 @@ def test_the_simulation_and_the_waiting_list_wave_read_the_same_stage(app):
 def test_the_setting_round_trips_and_an_older_client_cannot_switch_it_off(app, client):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     with app.app_context():
-        ids = _seed(restriction_on=False)
+        ids = _seed(restriction_on=None)
         token = create_access_token(identity=str(ids["coach_user"]))
     auth = {"Authorization": f"Bearer {token}"}
 
     cfg = client.get("/api/app/notify/config", headers=auth).get_json()
-    assert cfg["restrictions"]["noSameDayClass"] == {"enabled": False}
+    assert cfg["restrictions"]["noSameDayClass"] == {"enabled": True}  # on by default (PAD-685)
 
-    restrictions = {**cfg["restrictions"], "noSameDayClass": {"enabled": True}}
+    restrictions = {**cfg["restrictions"], "noSameDayClass": {"enabled": False}}
+    assert client.post("/api/app/notify/config", json={"restrictions": restrictions}, headers=auth).status_code == 200
+    assert client.get("/api/app/notify/config", headers=auth).get_json()["restrictions"]["noSameDayClass"] == {"enabled": False}
+    restrictions["noSameDayClass"] = {"enabled": True}
     assert client.post("/api/app/notify/config", json={"restrictions": restrictions}, headers=auth).status_code == 200
     assert client.get("/api/app/notify/config", headers=auth).get_json()["restrictions"]["noSameDayClass"] == {"enabled": True}
 
