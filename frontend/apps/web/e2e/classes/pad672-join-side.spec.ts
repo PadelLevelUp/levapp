@@ -123,7 +123,9 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
         startTime,
         endTime,
         isRecurring: false,
-        notificationsEnabled: true,
+        // Session C: with notifications off nobody is invited, but the leaver's vacancy is still
+        // created on the decline (its side by rule 2c), so the only open spot is on the right.
+        notificationsEnabled: false,
         maxPlayers: 2,
         playerIds: [student2!.playerId, filler!.playerId],
       },
@@ -146,6 +148,23 @@ test("US-PAD-672: a left player asking for a right-only spot is offered 'both si
       data: { model: event!.model, originalId: String(event!.originalId), date: event!.date },
     });
     expect(declined.ok(), `cancel_attendance: ${declined.status()} ${await declined.text()}`).toBeTruthy();
+
+    // Preconditions, read as the coach so a red explains itself: the filler still holds a place,
+    // Student Two does not, and nobody holds an invitation (so the student sees "Pedir para entrar").
+    const coachView = await request.post(
+      `${API_ROOT}/app/class_instance?model=${event!.model}&id=${event!.originalId}&date=${event!.date}`,
+      { headers: coachAuth, data: {} }
+    );
+    expect(coachView.ok(), await coachView.text()).toBeTruthy();
+    const detail = (await coachView.json()) as {
+      presences?: Array<{ playerId: string | number; status: string | null }>;
+      invitations?: Array<{ playerId: string; status: string }>;
+    };
+    const presenceOf = (id: string | number) => (detail.presences ?? []).find((p) => String(p.playerId) === String(id));
+    expect(presenceOf(filler!.playerId), `the filler holds a place: ${JSON.stringify(detail.presences)}`).toBeTruthy();
+    expect(presenceOf(filler!.playerId)?.status, "the filler is not absent").not.toBe("absent");
+    expect(presenceOf(student2!.playerId)?.status, "Student Two stepped out").toBe("absent");
+    expect(detail.invitations ?? [], "notifications off: nobody is invited").toEqual([]);
 
     // The student: open the class, ask to join; the sheet pre-selects Esquerda (the profile side).
     await loginAsStudent(page);
