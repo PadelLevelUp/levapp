@@ -18,6 +18,13 @@ Toggle notification engine on/off for a specific class.
 4. **Owner only (PAD-258).** The caller must own the Lesson/LessonInstance (`coach_owns_lesson` /
    `coach_owns_instance`, PAD-92) — 403 otherwise, flag untouched.
 3. When disabled, no reminders or auto-invitations fire for that class
+3a. **The lesson's value reaches every occurrence it materialises (PAD-729, B-617; numbering
+   unconfirmed).** A one-off class or a series created with notifications off has no occurrence row
+   until something materialises it (a join request, a cancellation, a side set): the new
+   LessonInstance carries the lesson's `notifications_enabled`, never the column default. Before
+   PAD-729 the form layer dropped the `False` and the engine invited for a class the coach had
+   switched off. (`auto_invites` and `open_spots_visible` are not copied: they resolve instance →
+   lesson → type/coach at read time, so a new occurrence inherits them by construction.)
 5. **Automatic invitations are a separate per-class tri-state, `auto_invites` (PAD-429, owner,
    2026-09-24).** It lives on `Lesson` and `LessonInstance` (`NULL` = inherit, `true`/`false` =
    override). `effective_auto_invites()` resolves it instance → lesson → the lesson's `type`:
