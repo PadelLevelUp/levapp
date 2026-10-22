@@ -113,9 +113,16 @@ def test_rule2_another_class_that_day_excludes_when_the_restriction_is_on(app):
         assert _waiting_list_stage(ids, ids["busy"]) == "has_class_same_day"
 
 
-def test_rule2_the_restriction_is_opt_in_off_by_default_the_student_is_invited(app):
-    """Finding for the owner: rule 2 holds only when Settings › Restrictions › "no same-day class"
-    is on (PAD-523, config rule 6e). Off — the default — the engine invites them."""
+def test_rule2_the_restriction_is_on_by_default_the_student_is_not_invited(app):
+    """Rule 2 holds by default (PAD-685, config rule 6e): a coach who never touched Settings ›
+    Restrictions › "no same-day class" does not invite a student who has another class that day."""
+    with app.app_context():
+        ids = _seed(restriction_on=None, other_start=TARGET + 3 * H, tag="r2on")
+        assert _verdicts(ids)[ids["busy"]] == "has_class_same_day"
+        assert ids["busy"] not in _semi_auto_queue_ids(ids)
+
+
+def test_rule2_switched_off_explicitly_the_student_is_invited(app):
     with app.app_context():
         ids = _seed(restriction_on=False, other_start=TARGET + 3 * H, tag="r2off")
         assert _verdicts(ids)[ids["busy"]] == "invited"

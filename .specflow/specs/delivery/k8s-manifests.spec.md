@@ -3,6 +3,7 @@ id: delivery.k8s-manifests
 status: implementing
 depends_on:
   - delivery.zero-downtime-deploy
+  - delivery.worker-role
 implements: ../../specs-business/delivery/a-release-never-drops-a-request.business.md
 governed_by: [R-027, R-036]
 ---
@@ -156,8 +157,6 @@ it does not exist.
   a field unknown to a schema, or a kind with no schema, fails the job
 
 ### Notes
-- `delivery.worker-role` (PAD-695, PR not yet merged when this was written) is the worker's spec;
-  add it to `depends_on` once both are on staging.
 - Autopilot rounds requests to its minimums and CPU:memory ratio; the tests read the rendered
   values, not what Autopilot will bill.
 - The legacy domain can become a Cloudflare redirect once its API count is zero for some weeks

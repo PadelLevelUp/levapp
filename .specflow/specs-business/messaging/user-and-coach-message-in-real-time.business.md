@@ -66,6 +66,9 @@ the mechanism itself is generic 1:1 (and group) messaging.
 - The conversation list shows the other person's profile photo when they have one, and their
   initials otherwise, on web and iOS. The server hands out the same photo address for up to 50
   minutes, so the phone or browser can reuse what it already loaded (PAD-593).
+- Inside a conversation, every day starts under a small separator ("Hoje", "Ontem", the weekday,
+  or a date such as "12 out"), the same on web and iOS. A message is never left without a day, so
+  a repeated invitation can be told apart from yesterday's (PAD-676).
 - Multiple people can react to the same message with the same emoji; the same person can react to
   one message with several different emoji.
 - Message timestamps always render in the viewer's own local time, regardless of what timezone the

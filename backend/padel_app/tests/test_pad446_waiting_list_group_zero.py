@@ -81,8 +81,11 @@ def _user_of(player_id):
     return Player.query.get(player_id).user_id
 
 
-def test_the_waiting_list_is_asked_first_in_join_order_and_paced_like_a_group(app, monkeypatch):
-    """AC "The waiting list is asked first, in join order": three on the list, maxSimultaneous 1."""
+def test_the_waiting_list_is_asked_first_and_paced_like_a_group(app, monkeypatch):
+    """AC "The waiting list is asked first": three on the list, maxSimultaneous 1. PAD-723 (PAD-669
+    R4): with equal priority stats the rows' own join times decide (10:00, 11:00, 12:00); Bea's
+    standing entry, created at 09:00, no longer puts her first — the origin gives no priority (it did
+    before PAD-723)."""
     from padel_app.services.notification_service import process_invitation_batches
     from padel_app.tests.helpers import pin_clock
 
@@ -96,13 +99,13 @@ def test_the_waiting_list_is_asked_first_in_join_order_and_paced_like_a_group(ap
         _entry(instance_id, coach_id, caio, NOW - timedelta(hours=2))                 # 12:00, own
 
         _trigger(instance_id, coach_id)
-        assert _invites(instance_id) == [(bea, 0)]
+        assert _invites(instance_id) == [(ana, 0)]
         assert not _enrolled(instance_id) & {ana, bea, caio}
 
         process_invitation_batches(now=NOW + timedelta(minutes=121))
-        assert _invites(instance_id) == [(bea, 0), (ana, 0)]
+        assert _invites(instance_id) == [(ana, 0), (bea, 0)]
         process_invitation_batches(now=NOW + timedelta(minutes=242))
-        assert _invites(instance_id) == [(bea, 0), (ana, 0), (caio, 0)]
+        assert _invites(instance_id) == [(ana, 0), (bea, 0), (caio, 0)]
 
         process_invitation_batches(now=NOW + timedelta(minutes=363))
         fourth = _invites(instance_id)[3]

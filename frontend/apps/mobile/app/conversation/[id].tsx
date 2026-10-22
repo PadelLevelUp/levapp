@@ -7,7 +7,7 @@ import {
   messagesApi,
   notificationEngineApi,
 } from "@levelup/api";
-import { lightTheme } from "@levelup/config";
+import { groupByDay, lightTheme, messageDayLabel } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
@@ -120,7 +120,7 @@ function ChatSkeleton() {
 /** PAD-592: the per-row callbacks a memoised bubble receives; one stable object per message id. */
 type RowHandlers = {
   onReaction: (emoji: string) => void;
-  onRespondReminder: (action: "yes" | "no") => void;
+  onRespondReminder: (action: "yes" | "no") => void | Promise<string | null>;
   onCancelAttendance: () => void;
   onRespondWaitingList: (action: "yes" | "no") => void;
   onRespondInvite: (action: "yes" | "no") => void;
@@ -181,7 +181,7 @@ function Composer({
 }
 
 export default function ConversationScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Pushed route (no tab bar): the composer must clear the home indicator —
   // but only while the keyboard is down. An open keyboard already covers that
   // area, so keeping the inset leaves a visible band above it (PAD-145). The
@@ -980,9 +980,9 @@ export default function ConversationScreen() {
   const handleRespondToReminder = async (
     message: Message,
     action: "yes" | "no"
-  ) => {
+  ): Promise<string | null> => {
     const instanceId = lessonInstanceIdOf(message);
-    if (!instanceId || respondingReminderId !== null) return;
+    if (!instanceId || respondingReminderId !== null) return null;
     setRespondingReminderId(message.id);
     try {
       const result = await notificationEngineApi.respondToReminder(
@@ -994,7 +994,7 @@ export default function ConversationScreen() {
       // state that was never recorded. PAD-68's "expired" writes nothing.
       const outcome = reminderResponseOutcome(result?.action);
       if (outcome.toastKey) toast.error(t(outcome.toastKey));
-      if (outcome.write === null) return;
+      if (outcome.write === null) return result?.action ?? null;
       const response = outcome.write;
       updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
         ...m,
@@ -1004,8 +1004,10 @@ export default function ConversationScreen() {
           response,
         },
       }));
+      return result?.action ?? null;
     } catch {
       toast.error(t("messages.somethingWentWrong"));
+      return null;
     } finally {
       setRespondingReminderId(null);
     }
@@ -1266,6 +1268,16 @@ export default function ConversationScreen() {
     for (const m of conversation?.messages ?? []) map.set(String(m.id), m);
     return map;
   }, [conversation?.messages]);
+  // PAD-676 (messaging.conversation-detail rule 4a): the day separator above the first message of
+  // each club date, grouped and labelled as web does (`@levelup/config` message-day). Same dep as
+  // `messagesById`, which renderItem already depends on.
+  const dayStarts = React.useMemo(() => {
+    const starts = new Map<string, string>();
+    for (const group of groupByDay(conversation?.messages ?? [], (m) => m.timestamp)) {
+      starts.set(String(group.items[0].id), group.day);
+    }
+    return starts;
+  }, [conversation?.messages]);
   const messagesByIdRef = React.useRef(messagesById);
   messagesByIdRef.current = messagesById;
   const stableOnLongPressMenu = React.useCallback(
@@ -1288,7 +1300,7 @@ export default function ConversationScreen() {
       onReaction: (emoji) => latestRef.current.handleToggleReaction(id, emoji),
       onRespondReminder: (action) => {
         const m = message();
-        if (m) void latestRef.current.handleRespondToReminder(m, action);
+        return m ? latestRef.current.handleRespondToReminder(m, action) : Promise.resolve(null);
       },
       onCancelAttendance: () => {
         const m = message();
@@ -1330,8 +1342,26 @@ export default function ConversationScreen() {
       // this visit only — gone on re-open once everything is read (`firstUnreadMessageId` is
       // `null` then).
       const isFirstUnread = isFirstUnreadMessage(item.id, firstUnreadMessageId);
+      const dayStart = dayStarts.get(String(item.id));
       return (
         <>
+          {dayStart ? (
+            <View className="items-center py-1">
+              <View className="rounded-full bg-muted px-3 py-1">
+                <Text
+                  testID="message-day-separator"
+                  accessibilityValue={{ text: dayStart }}
+                  className="text-xs text-muted-foreground"
+                >
+                  {messageDayLabel(dayStart, {
+                    language: i18n.language,
+                    todayLabel: t("messages.today"),
+                    yesterdayLabel: t("messages.yesterday"),
+                  })}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {isFirstUnread ? (
             <View testID="unread-divider" className="flex-row items-center gap-2 py-2">
               <View className="h-px flex-1 bg-border" />
@@ -1373,7 +1403,9 @@ export default function ConversationScreen() {
       messagesById,
       rowHandlersFor,
       firstUnreadMessageId,
+      dayStarts,
       t,
+      i18n.language,
       participantName,
       highlightedId,
       stableOnLongPressMenu,

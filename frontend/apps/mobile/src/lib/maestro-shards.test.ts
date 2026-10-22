@@ -1,7 +1,12 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  changedFlows,
   checkShards,
+  laneVerdict,
+  readShardResults,
   currentFlow,
   parseFlowsOrder,
   planShards,
@@ -9,6 +14,7 @@ import {
   runnableSuite,
   shardConfig,
   shardFlows,
+  shardMatrix,
   watchdogStep,
 } from "../../scripts/maestro-shards.mjs";
 
@@ -133,5 +139,87 @@ describe("the watchdog (rule 4)", () => {
     for (let t = 5; t <= 70; t += 5) s = watchdogStep(s.state, `flow-${t}`, t * MIN, limits);
     s = watchdogStep(s.state, "flow-70", 75 * MIN + 1, limits);
     expect(s.stop).toMatch(/^::error title=Maestro shard over its budget::flow-70 /);
+  });
+});
+
+describe("a pull request's changed flows (rule 1b)", () => {
+  const { shardFile, suite } = readWorkspace(MAESTRO_DIR);
+  const F = "frontend/apps/mobile/.maestro/flows/";
+
+  it("keeps the runnable ones, in suite order, and drops tagged, deleted and subflow paths", () => {
+    const names = changedFlows(suite, [
+      `${F}47-push-tap-routing.yaml`,
+      `${F}99-gone.yaml`,
+      `${F}27-unknown-sender-block.yaml`,
+      `${F}03-class-management.yaml`,
+      "frontend/apps/mobile/.maestro/subflows/login.yaml",
+    ]);
+    expect(names).toEqual(["03-class-management", "27-unknown-sender-block"]);
+  });
+
+  it("runs them led by the warm-up, like a shard", () => {
+    expect(shardFlows(suite, shardFile, "changed", ["27-unknown-sender-block"])).toEqual(["01-login", "27-unknown-sender-block"]);
+    expect(shardFlows(suite, shardFile, "changed", ["01-login", "27-unknown-sender-block"])).toEqual(["01-login", "27-unknown-sender-block"]);
+  });
+
+  it("adds the changed job to whichever matrix the run has", () => {
+    expect(shardMatrix(shardFile, { full: false, changed: true })).toEqual(["all", "changed"]);
+    expect(shardMatrix(shardFile, { full: true, changed: true })).toEqual(["1", "2", "3", "4", "changed"]);
+    expect(shardMatrix(shardFile, { full: false, changed: false })).toEqual(["all"]);
+  });
+});
+
+describe("the Android lane check (rule 7, PAD-720)", () => {
+  const green = { shard: "1", missing: false, rc: 0, expected: 36, finished: 36, stop: "", failed: [] };
+  const red = {
+    shard: "2",
+    missing: false,
+    rc: 1,
+    expected: 32,
+    finished: 32,
+    stop: "",
+    failed: [{ flow: "27-unknown-sender-block", reason: "Element not found: chat-back" }],
+  };
+  const gone = { shard: "3", missing: true, rc: null, expected: null, finished: null, stop: "", failed: [] };
+
+  it("is neutral while experimental, naming the red flows and the silent shard", () => {
+    const v = laneVerdict([green, red, gone], { experimental: true, recentGreens: 0 });
+    expect(v.conclusion).toBe("neutral");
+    expect(v.summary).toContain("27-unknown-sender-block");
+    expect(v.summary).toContain("Element not found: chat-back");
+    expect(v.summary).toContain("shard 3 reported nothing");
+  });
+
+  it("fails once strict: flag removed, or two scheduled greens on main", () => {
+    expect(laneVerdict([green, red], { experimental: false, recentGreens: 0 }).conclusion).toBe("failure");
+    expect(laneVerdict([green, red], { experimental: true, recentGreens: 2 }).conclusion).toBe("failure");
+  });
+
+  it("is a success when every flow passed, whatever the flag", () => {
+    expect(laneVerdict([green], { experimental: true, recentGreens: 0 }).conclusion).toBe("success");
+  });
+
+  it("counts a watchdog stop and a short count as red", () => {
+    const stopped = { ...green, rc: 1, finished: 20, stop: "::error title=Maestro flow over its limit::61-x ran longer than 12 min" };
+    const v = laneVerdict([stopped], { experimental: true, recentGreens: 0 });
+    expect(v.conclusion).toBe("neutral");
+    expect(v.summary).toContain("61-x ran longer than 12 min");
+    expect(v.summary).toContain("reported 20 of 36 flows");
+  });
+
+  it("reads each shard's artifact, and marks an expected shard with no artifact as missing", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lane-"));
+    const tests = path.join(dir, "maestro-results-2", "tests");
+    fs.mkdirSync(tests, { recursive: true });
+    fs.writeFileSync(path.join(tests, "shard-verdict.txt"), "shard=2\nrc=1\nexpected=2\nfinished=2\nstop=\n");
+    fs.writeFileSync(
+      path.join(tests, "maestro-stdout.txt"),
+      "[Passed] 01-login (1m 43s)\n[Failed] 27-unknown-sender-block (1m 36s) (Element not found: chat-back)\n"
+    );
+    const results = readShardResults(dir, ["2", "3"]);
+    expect(results.map((r) => [r.shard, r.missing, r.rc, r.failed])).toEqual([
+      ["2", false, 1, [{ flow: "27-unknown-sender-block", reason: "Element not found: chat-back" }]],
+      ["3", true, null, []],
+    ]);
   });
 });

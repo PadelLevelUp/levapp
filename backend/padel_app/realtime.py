@@ -62,6 +62,8 @@ LISTEN_POLL_SECONDS = 5
 PRUNE_EVERY_SECONDS = 60
 RECONNECT_MIN_SECONDS = 1
 RECONNECT_MAX_SECONDS = 30
+#: How often a stream-holding process logs its stats line (rule 25, PAD-689).
+MONITOR_SECONDS = 60
 
 # user id -> the queues that user currently has open
 _subscribers: dict[int, list[queue.Queue]] = {}
@@ -76,6 +78,9 @@ _broker = {"name": "memory", "uri": None, "retention_minutes": DEFAULT_RETENTION
 _broker_lock = threading.Lock()
 _engine = None
 _listener = None
+_monitor = None
+#: The server-wide stream cap this process enforces, for the stats line (set by `init_app`).
+_cap = None
 
 
 # --- configuration (rule 20) --------------------------------------------------------------------
@@ -91,6 +96,8 @@ def init_app(app) -> None:
         logger.warning("SSE_BROKER=postgres falls back to memory: the database is not Postgres")
         name = "memory"
     retention = realtime_retention_minutes(app.config.get("REALTIME_EVENTS_RETENTION_MINUTES"))
+    global _cap
+    _cap = app.config.get("SSE_MAX_STREAMS")
     with _broker_lock:
         stale = _detach_locked() if (name, uri) != (_broker["name"], _broker["uri"]) else (None, None)
         _broker.update(name=name, uri=uri if name == "postgres" else None, retention_minutes=retention)
@@ -116,17 +123,18 @@ def shutdown() -> None:
 
 
 def _detach_locked():
-    """Take the listener and the pool out of service under the lock; `_close` them after it, so a
-    listener's up-to-5 s join never holds up a publish waiting for `_publish_engine`."""
-    global _engine, _listener
-    stale = (_listener, _engine)
-    _listener = _engine = None
+    """Take the listener, the monitor and the pool out of service under the lock; `_close` them
+    after it, so a listener's up-to-5 s join never holds up a publish waiting for `_publish_engine`."""
+    global _engine, _listener, _monitor
+    stale = (_listener, _engine, _monitor)
+    _listener = _engine = _monitor = None
     return stale
 
 
-def _close(listener, engine) -> None:
-    if listener is not None:
-        listener.stop()
+def _close(listener, engine, monitor=None) -> None:
+    for thread in (listener, monitor):
+        if thread is not None:
+            thread.stop()
     if engine is not None:
         engine.dispose()
 
@@ -156,6 +164,7 @@ def subscribe(user_id: int) -> queue.Queue:
     with _lock:
         _subscribers.setdefault(user_id, []).append(q)
     ensure_listener()
+    ensure_monitor()
     return q
 
 
@@ -193,8 +202,9 @@ def try_subscribe(user_id: int, *, max_total: int, max_per_user: int):
     _put_all(evicted, STOP)
     if evicted:
         logger.info("SSE stream evicted: user=%s evicted=%s", user_id, len(evicted))
-    # Rule 23: the first stream a process accepts starts its listener.
+    # Rule 23: the first stream a process accepts starts its listener; rule 25: and its monitor.
     ensure_listener()
+    ensure_monitor()
     return q, None
 
 
@@ -304,6 +314,52 @@ def prune_events(retention_minutes: int) -> None:
 
 def _prune(cursor, retention_minutes: int) -> None:
     cursor.execute(_PRUNE_SQL, {"m": int(retention_minutes)})
+
+
+# --- observability (rule 25, PAD-689) -----------------------------------------------------------
+
+def stats_line() -> str:
+    """One line for the logs: open streams, the busiest user's count, the cap, the push queue.
+    The text is what the log-based dashboards and alerts parse; keep its shape."""
+    from padel_app.utils import push_sender
+
+    with _lock:
+        counts = [len(queues) for queues in _subscribers.values()]
+    push = push_sender.stats()
+    return (
+        f"SSE streams: open={sum(counts)} max_per_user={max(counts, default=0)} cap={_cap} "
+        f"push_queue={push_sender.pending()}/{push_sender.QUEUE_MAX} pushes_dropped={push['dropped']}"
+    )
+
+
+def ensure_monitor() -> None:
+    """Start this process's stats logger if none is running; both broker modes have one."""
+    global _monitor
+    with _broker_lock:
+        if _monitor is not None and _monitor.is_alive():
+            return
+        _monitor = _Monitor()
+        _monitor.start()
+
+
+class _Monitor(threading.Thread):
+    """Logs `stats_line()` every `MONITOR_SECONDS` in the process that holds the streams (not an
+    APScheduler job: the scheduler is leaving the API process, PAD-695)."""
+
+    def __init__(self):
+        super().__init__(name="realtime-monitor", daemon=True)
+        self._stopping = threading.Event()
+
+    def stop(self) -> None:
+        self._stopping.set()
+        self.join(timeout=5)
+
+    def run(self) -> None:
+        while not self._stopping.wait(MONITOR_SECONDS):
+            try:
+                logger.info(stats_line())
+            except Exception:  # noqa: BLE001 — a stats line never kills its thread
+                logger.warning("realtime monitor: stats line failed", exc_info=True)
 
 
 # --- the listener (rules 23, 24) ----------------------------------------------------------------

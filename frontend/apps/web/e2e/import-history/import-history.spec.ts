@@ -223,8 +223,10 @@ test("PAD-21: revert only removes items from that specific upload", async ({ pag
   for (const name of secondNames) {
     await searchInput.clear();
     await searchInput.fill(name);
-    // Give the debounced search time to complete, then assert absence
-    await page.waitForTimeout(500);
-    await expect(page.getByText(name)).not.toBeVisible({ timeout: 5000 });
+    // B-646: since PAD-665's search feedback, an empty search answers "No player found for “<name>”",
+    // so getByText(name) matched that message and the absence was never provable. Wait for the
+    // empty state itself (it also proves the debounced search ran), and check no row carries the name.
+    await expect(page.getByTestId("player-search-empty")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
   }
 });
