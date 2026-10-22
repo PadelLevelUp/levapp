@@ -29,7 +29,278 @@
     },
     "coaches": {
       "hero": {
-        "title": "Fuller classes. Fewer hours on WhatsApp."
+        "badge": "For padel coaches",
+        "title": "Fuller classes.",
+        "titleBlue": "Fewer hours on WhatsApp.",
+        "lead": "When someone drops out, LevApp invites whoever is free and fills the spot for you. Reminders, attendance and invitations handled on their own. You handle the training.",
+        "demo": "Request a demo",
+        "how": "See how it works",
+        "checks": [
+          "No manual messages",
+          "Spots filled on their own",
+          "Classes by level",
+          "Free during the pilot"
+        ]
+      },
+      "benefits": {
+        "eyebrow": "Benefits",
+        "title": "Less paperwork.",
+        "titleBlue": "More training.",
+        "wide": {
+          "title": "Fewer hours on the phone, every day",
+          "body": "LevApp knows who is free at each time and invites only them. No more messages to people who can't come and answers that never arrive.",
+          "checks": [
+            "Invitations only to who is free",
+            "Automatic re-sends and reminders",
+            "You step in only when needed"
+          ]
+        },
+        "full": {
+          "title": "Fuller classes",
+          "body": "It knows who will miss a class and fills every spot automatically. And it finds students looking for classes.",
+          "checks": [
+            "Absences caught early",
+            "Spots filled on their own",
+            "New students near you"
+          ]
+        },
+        "level": {
+          "title": "More competitive classes",
+          "body": "LevApp finds the right student for the right spot: same level, same side of the court — or whatever rule you set.",
+          "checks": [
+            "Matched by level",
+            "Left / right side",
+            "Rules your way"
+          ]
+        },
+        "attendance": {
+          "label": "A class's participants and invitees in LevApp",
+          "participants": "Participants (4/4)",
+          "edit": "Edit attendance",
+          "goes": "Going",
+          "missed": "Missed",
+          "invited": "Invited (3)",
+          "onlyFree": "Only people with no block at this time",
+          "declined": "Declined",
+          "accepted": "Accepted"
+        }
+      },
+      "notices": {
+        "eyebrow": "Notices",
+        "title": "Notices arrive through the app, not WhatsApp.",
+        "body": "Every invitation arrives as a notification and stays in the chat with the coach. The student answers Yes or No and gets the confirmation at once. No more groups where everything gets lost.",
+        "checks": [
+          "Notifications on the phone",
+          "Automatic confirmation for the student",
+          "Yes or No, in one tap"
+        ],
+        "label": "A LevApp invitation on the lock screen and in the chat with the coach"
+      },
+      "newStudents": {
+        "eyebrow": "New students",
+        "title": "New students, from people already on LevApp.",
+        "body": "Players with a LevApp account can ask to join your academy's training or book private lessons with you. You decide who you accept.",
+        "checks": [
+          "Private lesson requests",
+          "Joining academy training",
+          "You approve every request"
+        ],
+        "label": "Student requests in LevApp",
+        "accept": "Accept",
+        "decline": "Decline",
+        "accepted": "Accepted"
+      },
+      "bookings": {
+        "eyebrow": "Bookings",
+        "title": "You keep booking courts as always.",
+        "body": "LevApp is not a booking system and doesn't replace what your academy already uses. It handles the classes: who comes, who misses and who takes the spot.",
+        "checks": [
+          "No change of booking system",
+          "Classes, attendance and invitations in LevApp"
+        ],
+        "label": "The academy's booking system next to the classes in LevApp",
+        "system": "COURT BOOKING",
+        "systemSub": "The system you already use",
+        "court": "Court",
+        "plus": "+ your classes, in LevApp"
+      },
+      "how": {
+        "eyebrow": "How it works",
+        "title": "LevApp adapts to your academy",
+        "lead": "You don't need to be technical or change everything you have. LevApp fits your workflow.",
+        "steps": [
+          {
+            "title": "Set-up done by our team",
+            "body": "A LevApp team does the set-up for you. Just ask."
+          },
+          {
+            "title": "It understands your calendar and students",
+            "body": "An app that understands your calendar and students if you send it the usual spreadsheets you work with."
+          },
+          {
+            "title": "Simple or advanced, your way",
+            "body": "A system as simple as you want, as complex as you need."
+          }
+        ],
+        "talk": "Talk to us"
+      },
+      "import": {
+        "eyebrow": "Getting started",
+        "title": "Ready to use with the sheet you already have.",
+        "body": "Upload the file you already use, in Excel, CSV or PDF, and LevApp's AI extracts players, levels, classes and evaluations. If you prefer, our team does the set-up for you.",
+        "checks": [
+          "Excel, CSV, PDF or another document",
+          "No typing students in by hand",
+          "You can revert an import"
+        ],
+        "label": "Importing data in LevApp",
+        "window": "Settings · Import data",
+        "cardTitle": "Import data",
+        "cardBody": "Upload a file and let the AI extract your levels, players, classes, evaluations and more.",
+        "drop": "Drop a file to import data",
+        "dropSub": "Supports CSV, Excel, PDF or any structured document",
+        "browse": "Browse files",
+        "history": "Import history",
+        "active": "Active",
+        "players": "163 players",
+        "revert": "Revert"
+      },
+      "results": {
+        "eyebrow": "Results",
+        "title": "Time goes back to the court.",
+        "stats": [
+          {
+            "value": "+6h",
+            "label": "saved per week on messages"
+          },
+          {
+            "value": "3×",
+            "label": "fewer no-shows"
+          },
+          {
+            "value": "+30%",
+            "label": "class occupancy"
+          }
+        ],
+        "note": "Results seen in our first pilot project. They may not hold for every coach.",
+        "quote": "“I used to spend the evening sending messages to fill the next day's classes. Now I open the app, see what's missing and it's sorted.”",
+        "quoteName": "Bernardo T.",
+        "quoteRole": "Padel coach, Porto"
+      },
+      "cta": {
+        "title": "Ready for fuller classes?",
+        "body": "We show you LevApp with your academy's real timetable. 20 minutes, no commitment. During the pilot you pay nothing.",
+        "demo": "Request a demo",
+        "player": "I'm a student"
+      },
+      "alt": {
+        "hero": "LevApp on a laptop, a phone and a watch",
+        "benefits": "LevApp messages on a laptop and a phone",
+        "how": "Attendance in LevApp on a laptop and a phone"
+      },
+      "board": {
+        "label": "LevApp tactical board: game situation, step 2 of 3, with team A, team B and the ball",
+        "title": "BOARD",
+        "tab": {
+          "free": "Magnetic",
+          "freeSub": "FREE BOARD",
+          "tactics": "Game situations",
+          "tacticsSub": "TACTICS · ONE BALL",
+          "basket": "Basket drills",
+          "basketSub": "FEEDING"
+        },
+        "chip": {
+          "select": "SELECT",
+          "ball": "BALL",
+          "move": "MOVEMENT",
+          "cone": "CONE"
+        },
+        "step": "Step 2 of 3",
+        "auto": "▶ AUTO",
+        "teamA": "TEAM A",
+        "teamB": "TEAM B",
+        "caption": "Tactical board in the app. Draw drills, save them in the Training tab and show the plays on the tablet during class. Goodbye magnetic board."
+      },
+      "demo": {
+        "eyebrow": "One spot, start to finish",
+        "title1": "One absence. One spot.",
+        "title2": "The class stays full.",
+        "caption": "You handle the training. LevApp handles the spot.",
+        "pause": "Pause",
+        "play": "Play",
+        "replay": "Replay the animation",
+        "coachPhone": "COACH'S PHONE",
+        "studentPhone": "STUDENT'S PHONE",
+        "steps": {
+          "0": "01 · Absence",
+          "1": "02 · Spot",
+          "2": "03 · Invitation",
+          "3": "04 · Acceptance",
+          "4": "05 · Confirmation"
+        },
+        "scenes": {
+          "0": {
+            "who": "Pedro · student",
+            "title": "I can't make it today.",
+            "body": "Pedro opens today's class in LevApp and taps \"Not going\". The coach knows right away."
+          },
+          "1": {
+            "who": "Bernardo · coach",
+            "title": "A spot opened up.",
+            "body": "Pedro becomes \"Missed\" and the spot is free. LevApp finds who has the right level and is free at 18:00, and sends the invitations by itself."
+          },
+          "2": {
+            "who": "Ana · student",
+            "title": "An invitation arrives.",
+            "body": "Ana was still waiting for an answer from the club. She gets the LevApp notification and taps to open it."
+          },
+          "3": {
+            "who": "Ana · student",
+            "title": "Yes, I'm in!",
+            "body": "She answers Yes in the chat. The first to accept gets the spot."
+          },
+          "4": {
+            "who": "Bernardo · coach",
+            "title": "Class full.",
+            "body": "Ana joins the list as \"Going\" and the class is 4/4, without the coach sending a single message."
+          }
+        }
+      },
+      "calendar": {
+        "label": "Example of the LevApp calendar, showing the week's classes from 12 to 16 October",
+        "title": "Calendar",
+        "today": "Today",
+        "addEvent": "Add event",
+        "addClass": "+ Add class",
+        "running": "IN PROGRESS",
+        "next": "NEXT",
+        "weekdays": {
+          "mon": "MON",
+          "tue": "TUE",
+          "wed": "WED",
+          "thu": "THU",
+          "fri": "FRI"
+        },
+        "nav": {
+          "dashboard": "Dashboard",
+          "calendar": "Calendar",
+          "players": "Players",
+          "training": "Training",
+          "attendance": "Attendance",
+          "requests": "Class requests",
+          "messages": "Messages",
+          "settings": "Settings"
+        },
+        "legend": {
+          "next": "Next class",
+          "upcoming": "Upcoming",
+          "fullRunning": "Full / in progress",
+          "done": "Completed",
+          "event": "Event / not a class",
+          "bar": "Confirmed / waiting / free",
+          "pack": "Pack (private class)",
+          "levels": "Levels 2–5"
+        }
       }
     },
     "players": {
@@ -47,6 +318,13 @@
       "intro": "Tell us what you are looking for and we will get back to you by phone or email.",
       "backHome": "Back to the home page",
       "mailSubject": "Contact from the LevApp website"
+    },
+    "store": {
+      "appStoreEyebrow": "Download on the",
+      "appStore": "App Store",
+      "newTab": "(opens in a new tab)",
+      "soonEyebrow": "Coming soon to",
+      "googlePlay": "Google Play"
     }
   }
 }
