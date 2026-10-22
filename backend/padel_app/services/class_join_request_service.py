@@ -18,7 +18,6 @@ from padel_app.models import (
     Lesson,
     LessonInstance,
     NotificationConfig,
-    Vacancy,
     StandingWaitingListEntry,
 )
 from padel_app.sql_db import db
@@ -295,6 +294,7 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         _user_id_for_coach,
         _user_id_for_player,
         eligibility_failures_for_players,
+        vacancy_for_joiner,
     )
 
     now = now or utcnow_naive()
@@ -331,12 +331,8 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     # the re-read class, so a yes on another spot cannot slip in before this enrolment commits. If
     # the picked spot was closed meanwhile, the student is enrolled without one (locking another
     # vacancy after the class would break the order) and capacity still decides.
-    vacancy = (
-        Vacancy.query
-        .filter_by(lesson_instance_id=instance.id, status="open")
-        .order_by(Vacancy.id.asc())
-        .first()
-    )
+    # PAD-715 (rule 6): the spot of the student's side, not the oldest (`vacancy_for_joiner`).
+    vacancy = vacancy_for_joiner(instance, row.coach_id, row.player_id)
     vacancy, instance = _lock_vacancy_and_instance(vacancy, instance)
     if vacancy is not None and vacancy.status != "open":
         vacancy = None
@@ -374,7 +370,11 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         # invitations still offering this spot. Rule 10's broadcast below then
         # tells those candidates, working from the list rather than re-querying
         # rows this has just expired.
-        retired = _close_vacancy(vacancy, row.player_id, now=now)
+        # PAD-715: and the class's other spots are re-counted with this student going, as after a
+        # "yes" (invitations rule 2d), before PAD-679's moves.
+        retired = _close_vacancy(
+            vacancy, row.player_id, now=now, rebalance=(row.coach_id, row.player_id)
+        )
         # Rule 13: the request IS the coach's decision — a pending approval
         # prompt for this vacancy has nothing left to guard.
         if vacancy.approval_status == "pending":

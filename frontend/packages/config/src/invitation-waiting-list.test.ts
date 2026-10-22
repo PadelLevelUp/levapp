@@ -48,3 +48,14 @@ describe("PAD-581 a balance withdrawal offers the waiting list too (invitations 
     }
   });
 });
+
+describe("PAD-725 — a standing list's last credit spent elsewhere", () => {
+  it("labels the withdrawn offer and offers no waiting-list join", () => {
+    const spent = { responded: true, response: "credits_spent", lessonInstanceId: 7 };
+    expect(retiredInviteLabelKey(spent)).toBe("messages.waitingListCreditsSpent");
+    expect(invitationLostToAnother(spent)).toBe(false);
+    // The control: a spot taken by someone else still reads "Vaga preenchida".
+    expect(retiredInviteLabelKey({ responded: true, response: "spot_filled" })).toBe("messages.spotFilled");
+  });
+});
+
