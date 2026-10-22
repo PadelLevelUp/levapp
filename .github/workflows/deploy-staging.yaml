@@ -260,6 +260,9 @@ jobs:
           # through nginx to /api/app/healthz reaches the API, so it would prove nothing here).
           # NGINX_UPSTREAM_CONF points B-664's fail_timeout read at the events upstream. Only the
           # secrets this process uses: the database, the Flask and JWT keys (it validates stream tokens).
+          # --memory 300m: the staging API idles at ~142 MiB (PAD-692 window, 2026-10-22) and a gevent
+          # stream costs far less than a thread; the staging done-when (300 streams) measures it before
+          # the cap (1000 by default for this role) is trusted. The coordinator owns the VM fit check.
           if grep -qiE '^EVENTS_ROLE=(on|1|true|yes)[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.staging; then
             NGINX_UPSTREAM_CONF=/etc/nginx/conf.d/levapp-events-upstream.conf \
             bash "$RO" --name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging $ROLLOUT_MODE -- \
