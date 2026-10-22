@@ -41,6 +41,17 @@ appId: com.padellevelup.app
       id: "dashboard-kpi-attended"
     direction: DOWN
     timeout: 20000
+# PAD-710 (Android lane): the second KPI row sits below the fold and Android exposes only on-screen elements; centre the last tile so both row-2 tiles are on screen. Android only: on iOS centerElement times out on the last element of the content (README).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "dashboard-kpi-invites"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
 - assertVisible:
     id: "dashboard-kpi-missed"
 - assertVisible:

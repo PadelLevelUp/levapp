@@ -206,6 +206,7 @@
       "outcomeSpotFilled": "Spot filled",
       "outcomeExpired": "Expired",
       "recordedByCoach": "recorded by the coach",
+      "movedFromPreviousSpot": "moved from the previous spot",
       "inviteeActions": "Invitee actions",
       "markAccepted": "Mark as accepted",
       "markDeclined": "Mark as declined",

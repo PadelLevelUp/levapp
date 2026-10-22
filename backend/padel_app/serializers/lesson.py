@@ -359,6 +359,9 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                         "outcome": invitation_outcome(ev),
                         "answer": ev.answer,
                         "answeredBy": ev.answered_by,
+                        # PAD-719 (calendar.event-detail rule 16): set when the engine moved this
+                        # invitation from another spot of the class (invitations rule 18a).
+                        "movedAt": ev.moved_at.isoformat() if ev.moved_at else None,
                     }
                     for ev in notification_events
                 ],
