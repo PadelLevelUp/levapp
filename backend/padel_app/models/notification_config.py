@@ -25,8 +25,9 @@ DEFAULT_RESTRICTIONS = {
     "excludedPlayers": {"enabled": False, "playerIds": []},
     # PAD-132: "exclude inactive accounts" — reads users.status, never payment.
     "excludeUnpaidSubscription": {"enabled": False},
-    # PAD-523 (rule 6e): "do not invite a student who already has a class that day". Off.
-    "noSameDayClass": {"enabled": False},
+    # PAD-523 (rule 6e): "do not invite a student who already has a class that day".
+    # PAD-685 (rule 6e): ON by default (owner decision 2026-10-20), still switchable off.
+    "noSameDayClass": {"enabled": True},
     # Hours before class start after which a student cancellation is flagged
     # as a late cancellation (spot is still freed). Plain scalar (hours).
     "cancellationDeadlineHours": 24,
@@ -264,8 +265,9 @@ class NotificationConfig(db.Model, model.Model):
     min_time_before_class_value = Column(Integer, nullable=False, default=30, server_default="30")
     max_invites_per_student_per_day_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     max_invites_per_student_per_day_value = Column(Integer, nullable=False, default=3, server_default="3")
-    # PAD-523 (notifications.config rule 6e): off for every coach until they switch it on.
-    no_same_day_class_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # PAD-523 / PAD-685 (notifications.config rule 6e): ON by default (owner decision 2026-10-20);
+    # migration PAD-685 switched every existing row on. The coach can still switch it off.
+    no_same_day_class_enabled = Column(Boolean, nullable=False, default=True, server_default=text("true"))
     quiet_hours_enabled = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     # PAD-451 (notifications.config rule 6a): the coach's window, "HH:00"/"HH:30", club-local.
     # NULL reads as the default 22:00 / 07:00.
@@ -356,7 +358,7 @@ class NotificationConfig(db.Model, model.Model):
         out["excludeUnpaidSubscription"] = {
             "enabled": bool(self._col(self.exclude_inactive_accounts, False))
         }
-        out["noSameDayClass"] = {"enabled": bool(self._col(self.no_same_day_class_enabled, False))}
+        out["noSameDayClass"] = {"enabled": bool(self._col(self.no_same_day_class_enabled, True))}
         out["cancellationDeadlineHours"] = self.get_cancellation_deadline_hours()
         return out
 
