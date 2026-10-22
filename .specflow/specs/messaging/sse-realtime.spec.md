@@ -160,6 +160,17 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     readiness while the API and the streams share a process (a LISTEN outage degrades live updates,
     it does not make the API unready).
 
+25. **(PAD-689; rule number unconfirmed) The cap is observable.** Every process that holds streams
+    logs one INFO line every 60 s, in both broker modes:
+    `SSE streams: open=<n> max_per_user=<n> cap=<n> push_queue=<depth>/<max> pushes_dropped=<n>`
+    (`realtime.stats_line()`; the first stream starts the logger, like the listener). The texts an
+    alert matches are frozen: `SSE stream refused: scope=%s user=%s open_streams=%s` (rule 13) and
+    the push sender's `push sender: queue full (%d), dropping oldest: %s` and `push sender: provider
+    unresponsive, dropping %s until the pause ends`. gunicorn's thread count is `GUNICORN_THREADS`
+    (default 64), so the stream cap (rule 11) and the threads are raised together by an env change.
+    An alert on these lines needs the container logs in Cloud Logging (a logging driver or agent);
+    the VM's json-file logs alone reach no alert.
+
 ### Acceptance Criteria
 
 #### An event reaches only its named recipients
@@ -320,6 +331,21 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **Given** a listening listener whose prune statement fails
 - **When** the prune runs
 - **Then** a WARNING is logged, the listener stays listening, and no stream receives a resync
+
+#### The stats line names streams, the busiest user, the cap and the push queue (rule 25)
+- **Given** `SSE_MAX_STREAMS = 40` and three open streams, two of them user 1's
+- **When** the stats line is built
+- **Then** it reads `SSE streams: open=3 max_per_user=2 cap=40 push_queue=0/<PUSH_QUEUE_MAX> pushes_dropped=<n>`
+
+#### The stats line is logged every interval in either broker mode (rule 25)
+- **Given** `SSE_BROKER=memory` and an open stream
+- **When** two intervals pass
+- **Then** two `SSE streams: ` lines are logged, and one monitor thread runs per process
+
+#### gunicorn takes its threads from the environment (rule 25)
+- **Given** the image's CMD
+- **When** `GUNICORN_THREADS` is unset, and when it is `160`
+- **Then** gunicorn starts with `--workers 1` and `--threads 64`, and `--threads 160`
 
 ### Notes
 - The registry is in memory and nothing persists across restarts; with `postgres`, event rows live

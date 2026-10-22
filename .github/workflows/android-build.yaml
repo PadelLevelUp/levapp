@@ -62,6 +62,12 @@ concurrency:
 
 env:
   NODE_VERSION: "24.15.0"
+  # PAD-720 (delivery.android-nightly-lane rule 7): while the lane is being brought up (PAD-710), a
+  # red shard does not fail the run, so GitHub sends no failure email; the `lane-result` job posts
+  # the "Android lane" check as neutral with the red flows named. It turns strict by itself on a
+  # scheduled run on main after two consecutive scheduled greens; delete this line to make it
+  # strict now.
+  ANDROID_LANE_EXPERIMENTAL: "true"
   # The PR smoke list; `.` (nightly / dispatch) is the whole suite — see the flow policy above.
   MAESTRO_FLOWS_SMOKE: "flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml"
   # The runner as seen from inside the emulator.
@@ -76,6 +82,7 @@ jobs:
     outputs:
       built: ${{ steps.filter.outputs.mobile }}
       shards: ${{ steps.plan.outputs.shards }}
+      changed_flows: ${{ steps.plan.outputs.changed_flows }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +92,8 @@ jobs:
         # always builds (their steps gate on the event name instead).
         if: github.event_name == 'pull_request'
         with:
+          # PAD-710 rule 1b: the `flows` filter's file list feeds the changed-flows job.
+          list-files: json
           filters: |
             mobile:
               - 'frontend/apps/mobile/**'
@@ -97,6 +106,8 @@ jobs:
               - 'frontend/apps/mobile/scripts/ci-android-maestro.sh'
               - 'frontend/apps/mobile/scripts/maestro-shards.mjs'
               - 'frontend/apps/mobile/.maestro/android-shards.json'
+            flows:
+              - 'frontend/apps/mobile/.maestro/flows/*.yaml'
 
       # PAD-710 (delivery.android-nightly-lane rule 1): the whole suite runs as parallel shards
       # (the schedule, a dispatch of `.`, a PR that changes the lane itself); anything else is one
@@ -107,16 +118,22 @@ jobs:
         env:
           FLOWS_INPUT: ${{ github.event.inputs.flows }}
           LANE_CHANGED: ${{ steps.filter.outputs.lane }}
+          # Rule 1b: the flow files this PR adds or changes, as a JSON list (never eval'd).
+          FLOW_FILES: ${{ steps.filter.outputs.flows_files }}
         run: |
           set -euo pipefail
+          PLANNER=frontend/apps/mobile/scripts/maestro-shards.mjs
+          args=()
           if [ "$GITHUB_EVENT_NAME" = schedule ] || { [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "${FLOWS_INPUT:-.}" = . ]; } || [ "$LANE_CHANGED" = true ]; then
-            node frontend/apps/mobile/scripts/maestro-shards.mjs check
-            shards=$(node frontend/apps/mobile/scripts/maestro-shards.mjs matrix)
-          else
-            shards='["all"]'
+            node "$PLANNER" check
+            args+=(--full)
           fi
+          changed=$(node "$PLANNER" changed --json "${FLOW_FILES:-[]}")
+          [ -n "$changed" ] && args+=(--changed)
+          shards=$(node "$PLANNER" matrix "${args[@]}")
           echo "shards=$shards" >> "$GITHUB_OUTPUT"
-          echo "Maestro shards: $shards"
+          echo "changed_flows=$changed" >> "$GITHUB_OUTPUT"
+          echo "Maestro jobs: $shards; changed flows: ${changed:-none}"
 
       - uses: actions/setup-node@v4
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || steps.filter.outputs.mobile == 'true'
@@ -255,6 +272,8 @@ jobs:
       MAESTRO_FLOWS: ${{ github.event.inputs.flows || (github.event_name == 'schedule' && '.') || 'flows/01-login.yaml flows/31-week-view.yaml flows/32-month-view.yaml flows/36-android-evidence.yaml' }}
       # A shard number runs that shard of the whole suite (scripts/maestro-shards.mjs); "all" runs MAESTRO_FLOWS.
       MAESTRO_SHARD: ${{ matrix.shard }}
+      # Rule 1b: the "changed" job runs these flow names (scripts/maestro-shards.mjs config changed).
+      MAESTRO_CHANGED_FLOWS: ${{ needs.apk.outputs.changed_flows }}
     steps:
       - uses: actions/checkout@v4
 
@@ -353,6 +372,8 @@ jobs:
           script: echo "AVD snapshot generated for the cache"
 
       - name: Install the APK and run Maestro
+        # Rule 7: an experimental lane's red is reported by `lane-result`, not by failing the run.
+        continue-on-error: ${{ env.ANDROID_LANE_EXPERIMENTAL == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -381,3 +402,67 @@ jobs:
           path: maestro-results
           if-no-files-found: warn
           retention-days: 14
+
+  # PAD-720 (delivery.android-nightly-lane rule 7): one "Android lane" check for the whole matrix,
+  # read from every shard's artifact: success when every flow passed; neutral while the lane is
+  # experimental and something is red (the summary names each red flow); failure once strict, and
+  # then this job fails the run.
+  lane-result:
+    name: Android lane result
+    needs: [apk, maestro]
+    if: always() && needs.apk.result == 'success' && needs.maestro.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      checks: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # A shard with no artifact is reported as "reported nothing", so a missing download is not fatal.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: maestro-results-*
+          path: ${{ runner.temp }}/lane
+
+      # Strict after two consecutive scheduled greens on main: read the Android lane check that the
+      # two previous scheduled runs posted. Pull requests and dispatches stay neutral while flagged.
+      - name: Count the recent scheduled greens on main
+        id: greens
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          n=0
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            for sha in $(gh run list -R "$GITHUB_REPOSITORY" --workflow android-build.yaml --event schedule --branch main \
+                --status completed -L 3 --json headSha,databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .headSha" | head -2); do
+              c=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?check_name=Android%20lane" --jq '.check_runs[0].conclusion // ""')
+              [ "$c" = success ] && n=$((n + 1))
+            done
+          fi
+          echo "greens=$n" >> "$GITHUB_OUTPUT"
+          echo "recent scheduled greens on main: $n/2"
+
+      - name: Post the Android lane check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LANE_SHARDS: ${{ needs.apk.outputs.shards }}
+          LANE_EXPERIMENTAL: ${{ env.ANDROID_LANE_EXPERIMENTAL }}
+          LANE_RECENT_GREENS: ${{ steps.greens.outputs.greens }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          verdict=$(node frontend/apps/mobile/scripts/maestro-shards.mjs report "$RUNNER_TEMP/lane")
+          conclusion=$(node -p 'JSON.parse(process.argv[1]).conclusion' "$verdict")
+          node -e '
+            const v = JSON.parse(process.argv[1]);
+            process.stdout.write(JSON.stringify({ name: "Android lane", head_sha: process.env.HEAD_SHA, status: "completed",
+              conclusion: v.conclusion, output: { title: v.title, summary: v.summary } }));
+          ' "$verdict" > "$RUNNER_TEMP/check.json"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" --input "$RUNNER_TEMP/check.json" --jq '.html_url'
+          node -p 'JSON.parse(process.argv[1]).summary' "$verdict" >> "$GITHUB_STEP_SUMMARY"
+          echo "Android lane: $conclusion"
+          [ "$conclusion" != failure ]

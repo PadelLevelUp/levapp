@@ -12,6 +12,7 @@ import { MessageList } from "./MessageList";
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: "en" },
   }),
 }));
 
@@ -158,5 +159,36 @@ describe("MessageList — opening target (rule 9a)", () => {
       expect(screen.getByTestId("unread-divider")).toBeInTheDocument();
     });
     expect(container.querySelector('[data-highlighted="true"]')).toBeNull();
+  });
+});
+
+describe("MessageList — day separators (rule 4a, PAD-676)", () => {
+  it("puts one separator above each Lisbon day, with the shared labels", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T19:00:00Z")); // a Wednesday evening in Lisbon
+    try {
+      const messages = [
+        message(1, { timestamp: "2026-10-07T10:00:00Z" }),
+        message(2, { timestamp: "2026-10-20T10:00:00Z" }),
+        message(3, { timestamp: "2026-10-20T23:30:00Z" }), // 00:30 Lisbon on the 21st
+        message(4, { timestamp: "2026-10-21T18:00:00Z" }),
+      ];
+      render(
+        <MessageList
+          messages={messages}
+          userId={1}
+          participantName="Ana"
+          onReply={noop}
+          onEdit={noop}
+          onDelete={noop}
+          onReaction={noop}
+        />
+      );
+      const separators = screen.getAllByTestId("message-day-separator");
+      expect(separators.map((s) => s.getAttribute("data-day"))).toEqual(["2026-10-07", "2026-10-20", "2026-10-21"]);
+      expect(separators.map((s) => s.textContent)).toEqual(["Oct 7", "messages.yesterday", "messages.today"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

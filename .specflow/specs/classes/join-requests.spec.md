@@ -33,7 +33,15 @@ by a student's request — and whichever lands first wins.
    the coach's alone; nothing about a request is automatic.
 6. **On accept**, the student is enrolled exactly as any other enrolment: enrolment association plus
    presence, through the same path the invitation engine uses (`_add_player_to_instance`). Any
-   vacancy for that spot is marked filled and attributed to the requesting student.
+   vacancy for that spot is marked filled and attributed to the requesting student. **Which spot
+   (PAD-715, D7 of PAD-672; owner 2026-10-21, Q7):** a left or right student takes an open spot of
+   their own side (else a side-less one, else the oldest); a `both` or side-less student takes the
+   spot whose closing leaves the class most balanced — the going players' sides plus the sides of the
+   spots still open — the oldest on a tie (`vacancy_for_joiner`). Before PAD-715 it was always the
+   oldest open spot, so in a class of 10 with 4 left and 4 right going a right student could close
+   the left spot and the class end 4 / 6. The accept then re-counts the class's other open spots
+   with the student counted as going (`notifications.invitations` rule 2d), and the closed spot's
+   live invitations move or end by rule 18a, exactly as after a "yes".
 7. **Eligibility is re-checked at accept time.** Between request and decision the student's level or
    absence record may have changed. A student who no longer passes the bar is not silently enrolled:
    the coach gets the same named-reason warning as a manual add (`eligibility.enforcement` rule 7)

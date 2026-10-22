@@ -1,5 +1,7 @@
 # PAD-570 — attendance.confirm rules 27-28: a student may say "Vou" only once
-# asked (the coach's first reminder, or one sent by hand), and "Não vou" is final.
+# asked (the coach's first reminder, or one sent by hand). PAD-684 (rule 28) reversed
+# "Não vou is final": with a spot free, a yes after "Não vou" is `confirmed` ("Afinal
+# vou"), and the detail offers `attendance-come-back` instead of the old hint.
 #
 # Replaces 50-come-back (rule 26 is reversed by this ticket). The class is booked
 # eight to fourteen days out, so under the seeded coach's 48 h first reminder the
@@ -129,7 +131,9 @@ appId: com.padellevelup.app
 - evalScript: "${output.sent = json(http.post(output.api + '/api/app/notify/send_reminders', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ model: output.event.model, originalId: String(output.event.originalId), date: output.day }) }).body).sent}"
 - assertTrue: "${output.sent >= 1}"
 # Leave and re-enter the class so the screen re-reads the payload. The class query keeps
-# its data for 30 s (staleTime, app/_layout.tsx); re-entering inside that window renders the
+# its data for 60 s (QUERY_STALE_TIME_MS, packages/hooks/src/queryDefaults.ts; it was 30 s until
+# PAD-586, and the 31 s wait below served the cached payload on the Android lane, PAD-710);
+# re-entering inside that window renders the
 # cached pre-ask payload (A's run at ccd74bb7d), so wait out the window first — the web spec's
 # `page.reload()` equivalent. The reminder's live event does not refetch the open class
 # detail; that is noted in the PR, not this flow's business.
@@ -142,7 +146,7 @@ appId: com.padellevelup.app
 - extendedWaitUntil:
     visible:
       id: "pad570-stale-window-elapsed"
-    timeout: 31000
+    timeout: 61000
     optional: true
 - tapOn:
     id: "calendar-day-${output.day}"
@@ -189,11 +193,11 @@ appId: com.padellevelup.app
     timeout: 20000
 - scrollUntilVisible:
     element:
-      id: "class-declined-hint"
+      id: "attendance-come-back"
     direction: DOWN
     timeout: 30000
-- assertVisible:
-    id: "class-chat-coach"
+- assertNotVisible:
+    id: "class-declined-hint"
 - assertNotVisible:
     id: "class-confirm-attendance"
 - assertNotVisible:
@@ -214,7 +218,7 @@ appId: com.padellevelup.app
     timeout: 20000
 - scrollUntilVisible:
     element:
-      id: "dashboard-declined-hint"
+      id: "dashboard-come-back"
     direction: DOWN
     timeout: 30000
 
@@ -225,6 +229,6 @@ appId: com.padellevelup.app
 - evalScript: "${output.presences = json(http.get(output.api + '/api/app/lesson_instance/' + output.instance.originalId + '/presences', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
 - assertTrue: "${output.presences.length === 1 && output.presences[0].attendanceState === 'not_coming'}"
 - evalScript: "${output.lateYes = json(http.post(output.api + '/api/app/notify/respond_reminder', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ lessonInstanceId: output.instance.originalId, action: 'yes' }) }).body).action}"
-- assertTrue: "${output.lateYes === 'already_declined'}"
+- assertTrue: "${output.lateYes === 'confirmed'}"
 - evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === 'E2E Student') { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
 - assertTrue: "${output.removed >= 1}"

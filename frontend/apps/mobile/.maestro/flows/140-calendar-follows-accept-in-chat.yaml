@@ -1,7 +1,7 @@
 # PAD-488 / classes.class-requests rule 19 (B-264) on iOS: the reporter's case. The coach's
 # calendar tab is open on a day holding a student's request. The coach accepts it in the chat,
 # then goes back to the still-mounted tab with the in-app back button. The hold must be gone
-# within 15 s, under the 30 s staleTime. The flow returns with `chat-back`, never with openLink,
+# within 15 s, under the 60 s staleTime (QUERY_STALE_TIME_MS; it was 30 s before PAD-586). The flow returns with `chat-back`, never with openLink,
 # so no app resume can refetch the calendar for it. Before the fix the chat's accept refreshed
 # the request lists only.
 #
