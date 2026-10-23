@@ -59,7 +59,7 @@ export function NeedsYouQueue({
           {t("dashboard.needsYou.empty")}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2">
           {items.map((item) => (
             <QueueItem key={item.id} item={item} onAnswered={onAnswered} />
           ))}

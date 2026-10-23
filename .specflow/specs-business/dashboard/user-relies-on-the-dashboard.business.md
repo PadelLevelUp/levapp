@@ -54,6 +54,10 @@ Every coach and every student, as the first screen they see on opening the app.
   place: answering on the dashboard settles the chat message and vice versa.
 - A number on the dashboard agrees with the list next to it: a student's "upcoming lessons" is
   how many classes are on their schedule, whether or not they have answered the reminder yet.
+- The coach's "Needs you" queue offers only this week's classes that still have room,
+  Sunday to Saturday. A class next week waits for its own week, and the calendar already shows
+  it, so a busy coach's queue stays short. A message waiting for a reply always shows as a
+  compact card, whatever card sits beside it.
 - A coach can push a "class still has room" card back with "Later": it leaves their queue for a
   day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless

@@ -70,7 +70,10 @@ gunicorn's boot path into the leadership thread.
 5. **nginx tries both ports.** `/api` (and the events and register locations) proxy to `upstream
    levapp_api { server 127.0.0.1:5000; server 127.0.0.1:5002; }` with `proxy_next_upstream error
    timeout`. A refused connection is retried on the other port; nginx retries even a POST in that
-   case because no byte of the request reached the dead port.
+   case because no byte of the request reached the dead port. A port with nothing bound refuses
+   (harmless, the steady-state idle port). A published port whose container is booting or stopping
+   does not refuse: docker-proxy accepts, takes the request, then resets it, which nginx retries
+   only for an idempotent method (B-663). Rule 16 keeps requests off such a port.
 6. **The rollout gates itself on the host.** When the host nginx has no `levapp_api` upstream, or
    no enabled vhost proxies to it (the owner has not applied rule 5 yet), the deploy falls back to
    today's stop-then-start on the first port, so merging the workflow can never break a deploy.
@@ -173,6 +176,28 @@ gunicorn's boot path into the leadership thread.
     reconnects within its jittered back-off (≤ 30 s) and resyncs (messaging.sse-realtime rule 19,
     PAD-616). Each reconnect costs one JWT blocklist query on the handshake. The staging check counts
     that storm and the events container's RSS with 300 streams (delivery.events-role).
+16. **(PAD-714, B-663) The drain: no container boots or stops on a port nginx sends to.**
+    `rollout.sh --drain` (staging passes it; prod does not until staging has measured it) edits the
+    upstream through `NGINX_DRAIN_CMD`, by default `sudo -n /usr/local/sbin/levapp-upstream-port`.
+    That root-owned helper (`infra/nginx/levapp-upstream-port`) sets `down` on named
+    `server 127.0.0.1:<port>` lines of one upstream block in a `/etc/nginx/conf.d/levapp-*-upstream.conf`,
+    runs `nginx -t`, reloads, and restores the file if either fails. In rolling mode, with a live
+    container:
+    - after the migrate step: idle port down and live port up, in one reload (this also clears a
+      `down` that a killed run left);
+    - then the second copy (if any) stops on the idle port, and `<name>_next` boots and turns healthy
+      on it;
+    - idle port up; B-664's fail_timeout wait is skipped (no boot-time request could reach the port,
+      and a reload starts fresh peer state); the probe through nginx runs with both ports up, so a
+      failed probe leaves the old port serving;
+    - live port down, then `docker stop` of the old container;
+    - the freed port goes back up, at once with one copy, or once `<name>_b` is healthy on it.
+    Each reload is followed by `RELOAD_SETTLE` (2 s), because `nginx -s reload` returns before the new
+    workers serve. No port is left down when the script exits, on any path, including HUP, INT and
+    TERM, so a rollback's older `rollout.sh` meets the upstream it knows. When the helper's `--check`
+    fails (the owner's host step not done), the run logs one line and swaps exactly as without
+    `--drain`. A failed edit before the swap does the same; a failed "idle up" removes the new
+    container, and the old one keeps serving.
 
 ### Acceptance Criteria
 
@@ -291,6 +316,39 @@ gunicorn's boot path into the leadership thread.
 - **When** a staging deploy runs while a probe curls `/api/app/healthz` every 0.5 s
 - **Then** no probe answers non-200
 
+#### Each edge happens on a port nginx does not send to (rule 16)
+- **Given** a live `padelapp` on 5000 and the helper available
+- **When** `rollout.sh --drain --probe-host levapp.app` runs **Then** in order: reload with 5002 down;
+  `padelapp_next` runs on 5002 and answers; reload with nothing down; the request through nginx;
+  reload with 5000 down; `docker stop padelapp`; reload with nothing down. Each reload is followed
+  by `sleep 2`, there is no fail_timeout wait, and the upstream ends with no `down`
+
+#### Without the host step, the swap is as before (rule 16)
+- **Given** the helper's `--check` fails **When** `rollout.sh --drain` runs **Then** it logs "swapping
+  without the drain, as before (B-663)" once, reloads nothing, and waits the fail_timeout as B-664
+
+#### A failed swap leaves no port down (rule 16)
+- **Given** `--drain` **When** the new container never answers, or the request through nginx answers
+  5xx **Then** the old container was never stopped, its port never went down, and the upstream ends
+  with no `down`
+
+#### A second copy stops and boots out of rotation (rules 14, 16)
+- **Given** `padelapp` on 5000 and `padelapp_b` on 5002 **When** `rollout.sh --drain --copies 2` runs
+  **Then** 5002 goes down before `padelapp_b` stops, and 5000 stays down from before `padelapp`
+  stops until `padelapp_b` answers on it
+
+#### The helper edits one block of one allowed file (rule 16)
+- **Given** a conf with the `levapp_api` and `levapp_api_staging` blocks **When** the helper marks
+  5102 down in `levapp_api_staging` **Then** only that line changes, and running it again changes
+  nothing; a file outside `conf.d/levapp-*-upstream.conf`, a bad upstream name or state exits 2 and
+  changes nothing; when `nginx -t` refuses, the file is restored and the exit is 1
+
+#### No POST meets a reset across a real deploy (rule 16; owner host step, then staging-measured)
+- **Given** the owner's host step done on the VM
+- **When** a staging deploy runs while a probe POSTs to an unrouted `/api/` path every 0.2 s
+- **Then** no probe answers 5xx, and nginx's error.log for the window has no `reset by peer` and no
+  `prematurely closed` against 5100 or 5102
+
 ### Notes
 - Image-level proof of rules 9-11 is manual: `backend/scripts/smoke_image_schema_gate.sh <image>`
   (Docker + a local Postgres; not CI). Run it after any change to the Dockerfile, the entrypoint
@@ -304,5 +362,14 @@ gunicorn's boot path into the leadership thread.
   (within the `client.query-cache` stale window, or on navigation). A follow-up: on a re-open after
   the first, the hub emits a local `resync` event that both apps' handlers answer by invalidating
   their live queries (web and iOS together, R-024). Out of PAD-588's scope: PAD-616.
+- PAD-714: the drain makes four nginx reloads per API deploy (five with two copies); deploys made
+  none before. nginx.conf sets no `worker_shutdown_timeout`, and the SSE locations keep connections
+  for up to 86400 s, so each reload leaves a generation of old workers alive while their streams
+  last. On staging that's a handful of streams; on prod it's every open app. Before prod takes
+  `--drain`, the owner decides on `worker_shutdown_timeout` (it cuts SSE streams once per reload, and
+  the clients reconnect and resync, as rule 15 already accepts for an events deploy).
+- PAD-714 alternatives: Docker's `userland-proxy: false` covers only the boot edge, bounces every
+  container, and needs `route_localnet` for loopback DNAT. `proxy_next_upstream non_idempotent` is
+  rejected: in the stop edge a POST may already have run.
 - R-027 is unchanged: its rule is `--workers 1`; the overlap and the lock are recorded in the atlas
   decision `2026-10-10-deploy-overlap-and-scheduler-leader.md`.
