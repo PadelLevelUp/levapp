@@ -9,12 +9,17 @@
 # every notification change, so it can only run before the flow. Not in config.yaml's flowsOrder
 # for that reason, like 47.
 #
+# PAD-752 / B-680: the wrapper first runs subflows/push-grant-prep.yaml (a clearState launch that
+# waits for the login screen), then denies. So this flow always starts warm and signed out, and
+# login-student never reaches login.yaml's clearState relaunch, which would re-grant notifications.
+# Expected: 44 COMPLETED / 0 FAILED / 4 SKIPPED / 3 WARNED for this flow, cold or warm.
+#
 # What Maestro cannot see: a simulator holds no push token, so the registrar ends the grant at
 # `unsupported` and posts nothing (rule 15's last bullet). The registration attempt on the return is
-# the registrar's Metro line "[push] skipping registration: not a physical device" after the
-# restore's "[push] notification permission not granted", with no "[launch]" lines between them;
-# the code before PAD-744 wrote nothing on a return. The banner assertions alone pass on the old code
-# too, since the banner re-reads the permission on return.
+# the registrar's Metro line "[push] skipping registration: not a physical device" after the last
+# "[push] notification permission not granted", with no new "fonts-ready" / "first-screen-ready"
+# launch lines between them; the code before PAD-744 wrote nothing on a return. The banner
+# assertions alone pass on the old code too, since the banner re-reads the permission on return.
 #
 # Not modelled: the never-asked banner and its system dialog. Any launch with the permission
 # undetermined runs the restore registration, which prompts first (rule 9), so that banner is never

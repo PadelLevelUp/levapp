@@ -1,0 +1,16 @@
+# PAD-752 / B-680 — run by scripts/push-grant-flow.sh BEFORE it denies the notification permission,
+# never by a flow. Launches with clearState and waits (long) for the login screen, which builds the
+# bundle and leaves the app signed out. Flow 307 then always takes login.yaml's signed-out path:
+# a warm launch reaches `login-username` well inside its wait, so login.yaml never falls through to
+# its own clearState relaunch, which would re-grant notifications after the deny. The step count no
+# longer depends on whether a previous flow left someone signed in.
+#
+# clearState leaves notifications authorized, so this must run before the deny, never after it.
+appId: com.padellevelup.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "login-username"
+    timeout: 180000
