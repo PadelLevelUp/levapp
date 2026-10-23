@@ -118,7 +118,7 @@ def send_expo_push_outcome(
                 "data": data,
                 # Only sent when the caller knows the count; see the docstring.
                 **({"badge": badge} if badge is not None else {}),
-                # PAD-680: only for a recipient whose notification sound is on.
+                # PAD-680, PAD-743: only for a recipient whose notification sound is on.
                 **({"sound": sound} if sound is not None else {}),
                 # PAD-307 (rule 11a): Android delivery — the client's channel and a
                 # heads-up priority. iOS ignores both; Expo passes them to FCM.
@@ -205,19 +205,25 @@ def _record_expo_failure(token, error_type) -> None:
 
 
 def sound_groups(user_id, rows) -> dict:
-    """notifications.notification-sound rule 5 (PAD-680), read on a thread with a session: `sound` only
-    for a token whose build declared the capability, while the recipient's switch is on and the
-    capability is not switched off; every other token stays silent. `{"default": [...], None: [...]}`.
-    The push outbox's drainer makes the same decision when it sends (PAD-699)."""
+    """notifications.notification-sound rule 5 (PAD-680, PAD-743), read on a thread with a session:
+    while the recipient's switch is on and the capability is not switched off, `sound` for every iOS
+    token (a token with no recorded platform counts as iOS) and for any other platform's token only if
+    its build declared the capability; every other token stays silent.
+    `{"default": [...], None: [...]}`. The push outbox's drainer makes the same decision when it sends
+    (PAD-699)."""
     from padel_app.utils.client_capabilities import NOTIFICATION_SOUND, switched_off
 
     user = db.session.get(User, user_id)
     sound_on = (user is None or user.notif_sound is not False) and not (
         switched_off().get(NOTIFICATION_SOUND) or {}
     ).get("off")
+
+    def sounds(row) -> bool:
+        return sound_on and ((row.platform or "ios").lower() == "ios" or bool(row.sound_capable))
+
     return {
-        "default": [r.token for r in rows if sound_on and r.sound_capable],
-        None: [r.token for r in rows if not (sound_on and r.sound_capable)],
+        "default": [r.token for r in rows if sounds(r)],
+        None: [r.token for r in rows if not sounds(r)],
     }
 
 

@@ -370,8 +370,9 @@ def test_a_drainer_whose_lease_was_taken_over_cannot_overwrite_the_row(outbox_ap
 
 
 def test_the_drainer_makes_pad680s_sound_decision_when_it_sends(outbox_app, monkeypatch):
-    """#760 (PAD-680): a sound-capable device of a user whose switch is on gets `sound`; a device
-    without the capability stays silent. The outbox row carries no sound; the drainer decides."""
+    """#760 (PAD-680, PAD-743): with the user's switch on, every iOS device gets `sound`, an older
+    build's too; an Android device without the capability stays silent. The outbox row carries no
+    sound; the drainer decides."""
     from padel_app.models import DeviceToken
     from padel_app.utils import expo_push
 
@@ -380,6 +381,7 @@ def test_the_drainer_makes_pad680s_sound_decision_when_it_sends(outbox_app, monk
         uid = _user()
         db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[capable]", platform="ios", sound_capable=True))
         db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[old-build]", platform="ios", sound_capable=False))
+        db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[android]", platform="android", sound_capable=False))
         db.session.commit()
         assert expo_push.send_expo_push_to_user(uid, "Hello", "World")
         row = _rows()[0]
@@ -394,7 +396,8 @@ def test_the_drainer_makes_pad680s_sound_decision_when_it_sends(outbox_app, monk
         po.Drainer(outbox_app).drain_once()
     by_token = {m["to"]: m for m in sent}
     assert by_token["ExponentPushToken[capable]"]["sound"] == "default"
-    assert "sound" not in by_token["ExponentPushToken[old-build]"]
+    assert by_token["ExponentPushToken[old-build]"]["sound"] == "default"
+    assert "sound" not in by_token["ExponentPushToken[android]"]
     with outbox_app.app_context():
         assert _rows()[0]["status"] == "sent"
 
@@ -408,6 +411,7 @@ def test_a_user_who_switched_sound_off_gets_silent_pushes(outbox_app, monkeypatc
         uid = _user("p699quiet")
         db.session.get(User, uid).notif_sound = False
         db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[capable2]", platform="ios", sound_capable=True))
+        db.session.add(DeviceToken(user_id=uid, token="ExponentPushToken[old2]", platform="ios", sound_capable=False))
         db.session.commit()
         expo_push.send_expo_push_to_user(uid, "Hello", "World")
     sent = []
@@ -418,4 +422,4 @@ def test_a_user_who_switched_sound_off_gets_silent_pushes(outbox_app, monkeypatc
 
     with patch.object(expo_push.requests, "post", side_effect=post):
         po.Drainer(outbox_app).drain_once()
-    assert sent and all("sound" not in m for m in sent)
+    assert len(sent) == 2 and all("sound" not in m for m in sent)
