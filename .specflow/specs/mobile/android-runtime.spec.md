@@ -116,7 +116,8 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    commit that navigated away. Native tags named the moved views: cell 0's digit Text, its cell,
    and the row's Pressable (B-089 face C, PAD-314). A screen that navigates away on success
    therefore leaves its busy state as it is, and resets it only on failure, where it stays on
-   screen.
+   screen. The password-recovery screen draws the same six cells and broke the same way after a
+   successful recovery (B-602, PAD-717); it follows this rule too.
 
 #### Verification
 8. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
@@ -209,6 +210,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
   class-detail flow
 - **When** it runs on this branch
 - **Then** all three flows pass
+
+#### A successful password recovery lands on a drawn dashboard (rule 10, PAD-717)
+- **Given** the Android app on the recovery code step, with a valid code and a new password typed
+- **When** the coach taps recovery-submit and the server accepts the code
+- **Then** the dashboard is drawn (`screen-dashboard` visible) and logcat has no
+  `addViewAt … View already has a parent`; `submitting` stays set on success and is reset only on
+  a failure. Maestro flow 28 on the Android lane is the guard
 
 ### Notes
 - Web n/a: this leaf changes nothing on web (R-024's parity is between the shells that exist;
