@@ -162,14 +162,26 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 
 25. **(PAD-689; rule number unconfirmed) The cap is observable.** Every process that holds streams
     logs one INFO line every 60 s, in both broker modes:
-    `SSE streams: open=<n> max_per_user=<n> cap=<n> push_queue=<depth>/<max> pushes_dropped=<n>`
+    `SSE streams: open=<n> max_per_user=<n> cap=<n> refused=<n> push_queue=<depth>/<max> pushes_dropped=<n>`
     (`realtime.stats_line()`; the first stream starts the logger, like the listener). The texts an
     alert matches are frozen: `SSE stream refused: scope=%s user=%s open_streams=%s` (rule 13) and
     the push sender's `push sender: queue full (%d), dropping oldest: %s` and `push sender: provider
-    unresponsive, dropping %s until the pause ends`. gunicorn's thread count is `GUNICORN_THREADS`
+    unresponsive, dropping %s until the pause ends`, and, under `PUSH_QUEUE=outbox`, the outbox's
+    `push outbox depth %d over %d (oldest due %ds ago)`. `refused` counts the streams this process
+    refused at the server-wide cap (rule 13) since it started. gunicorn's thread count is `GUNICORN_THREADS`
     (default 64), so the stream cap (rule 11) and the threads are raised together by an env change.
     An alert on these lines needs the container logs in Cloud Logging (a logging driver or agent);
-    the VM's json-file logs alone reach no alert.
+    the VM's json-file logs alone reach no alert. Staging runs `PUSH_QUEUE=outbox`, so the
+    sender's two drop texts cannot occur there: only a forced refusal (`SSE_MAX_STREAMS=1`) can
+    verify an alert on staging.
+25a. **(PAD-689) Refusals and drops reach the admin console without Cloud Logging.** After each
+    stats line the same monitor compares `refused` and the in-process sender's `pushes_dropped` with
+    the previous minute's, and for each that moved records ONE `delivery_incidents` row
+    (`admin.engine-health`): kind `stream_refused`, channel `sse`, or kind `push_dropped`, channel
+    `push`, the minute's count and the cap in `detail`. A process stuck at the cap writes one row
+    a minute, never one per refusal; a quiet minute writes nothing. The engine-health page counts
+    these rows, so its figure is minutes with refusals, not refusals. It is a page, not a
+    notification: an email to the owner still needs Cloud Logging and the alert policies.
 
 ### Acceptance Criteria
 
@@ -335,7 +347,20 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 #### The stats line names streams, the busiest user, the cap and the push queue (rule 25)
 - **Given** `SSE_MAX_STREAMS = 40` and three open streams, two of them user 1's
 - **When** the stats line is built
-- **Then** it reads `SSE streams: open=3 max_per_user=2 cap=40 push_queue=0/<PUSH_QUEUE_MAX> pushes_dropped=<n>`
+- **Then** it reads `SSE streams: open=3 max_per_user=2 cap=40 refused=0 push_queue=0/<PUSH_QUEUE_MAX> pushes_dropped=<n>`
+
+#### A refused stream logs the frozen warning and is counted (rules 13, 25)
+- **Given** `SSE_MAX_STREAMS = 1` and user 901's stream open
+- **When** user 902 opens a stream
+- **Then** it gets 503, the WARNING `SSE stream refused: scope=total user=902 open_streams=1` is
+  logged, and the stats line reads `refused=1`
+
+#### A minute with refusals and drops records one row per kind (rule 25a)
+- **Given** a cap of 40, and in one minute 37 refused streams and 5 dropped pushes
+- **When** the monitor closes the minute
+- **Then** exactly two `delivery_incidents` rows exist: `stream_refused`/`sse` "37 live-update
+  stream(s) refused at the cap (40) in 60 s" and `push_dropped`/`push` "5 push(es) dropped by the
+  in-process sender in 60 s"; the next quiet minute adds none
 
 #### The stats line is logged every interval in either broker mode (rule 25)
 - **Given** `SSE_BROKER=memory` and an open stream
