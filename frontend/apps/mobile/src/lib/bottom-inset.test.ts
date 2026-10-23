@@ -1,9 +1,11 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 
-import { rootContentBottomPadding, screenBottomInset, tabBarBottom } from "./bottom-inset";
+import { KEYBOARD_SCREENS, rootContentBottomPadding, screenBottomInset, tabBarBottom } from "./bottom-inset";
 
 describe("PAD-730: content stays out from under the Android navigation bar", () => {
   it("the tab bar takes Android's 3-button bar (48 dp) under its labels", () => {
@@ -25,13 +27,28 @@ describe("PAD-730: content stays out from under the Android navigation bar", () 
     expect(rootContentBottomPadding("ios", 34)).toBe(0);
   });
 
-  it("the root padding collapses while the keyboard is up, so a form lifts by the full overlap", () => {
-    expect(rootContentBottomPadding("android", 48, true)).toBe(0);
-    expect(rootContentBottomPadding("android", 48, false)).toBe(48);
-  });
-
   it("a screen that adds the inset itself adds none on Android (no double padding)", () => {
     expect(screenBottomInset("android", 48)).toBe(0);
     expect(screenBottomInset("ios", 34)).toBe(34);
+  });
+
+  it("every root-Stack screen with a KeyboardAvoidingView is left out of the root padding", () => {
+    const app = join(__dirname, "../../app");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (!entry.name.startsWith("(")) walk(path); // (tabs) sits under the tab bar, not the root padding
+        } else if (/\.tsx$/.test(entry.name) && !entry.name.startsWith("_")) files.push(path);
+      }
+    };
+    walk(app);
+    const keyboardRoutes = files
+      .filter((f) => readFileSync(f, "utf8").includes("<KeyboardAvoidingView"))
+      .map((f) => relative(app, f).replace(/\.tsx$/, ""))
+      .sort();
+    expect(keyboardRoutes.length).toBeGreaterThan(0);
+    expect(keyboardRoutes).toEqual([...KEYBOARD_SCREENS].sort());
   });
 });

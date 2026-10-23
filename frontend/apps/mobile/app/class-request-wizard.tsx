@@ -16,7 +16,7 @@ import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from "react-native";
-import { useScreenBottomInset } from "@/lib/bottom-inset";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { queryKeys } from "@levelup/hooks";
 import * as classRequestsApi from "@levelup/api/src/resources/classRequests";
 import { Text } from "@/components/ui/text";
@@ -32,8 +32,7 @@ type Step = "coach" | "kind" | "private" | "academy";
 
 export default function ClassRequestWizardScreen() {
   const { t } = useTranslation();
-  // PAD-730: on Android the root Stack already ends the content above the navigation bar.
-  const bottomInset = useScreenBottomInset();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = React.useState<Step>("coach");
   const [coachId, setCoachId] = React.useState<string | null>(null);
   const [kind, setKind] = React.useState<ClassRequestKind | null>(null);
@@ -89,7 +88,7 @@ export default function ClassRequestWizardScreen() {
         testID={`class-request-wizard-${step}`}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 40, gap: 20 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40, gap: 20 }}
       >
         <View className="flex-row items-center gap-2" testID="class-request-wizard">
           {canGoBack ? (
