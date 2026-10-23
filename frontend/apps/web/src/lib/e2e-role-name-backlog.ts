@@ -73,5 +73,4 @@ export const ROLE_BACKLOG: readonly RoleBacklogEntry[] = [
   { file: "pw:schedule-calendar/guest-list-dedupe.spec.ts", max: 1, reason: "1 en role name, e.g. 'invited (\\d+)'" },
   { file: "pw:schedule-calendar/mobile-weekly-order.spec.ts", max: 1, reason: "1 en role name, e.g. 'next week'" },
   { file: "pw:schedule-calendar/recurring-occurrence-delete.spec.ts", max: 1, reason: "1 en role name, e.g. 'delete class'" },
-  { file: "pw:schedule-calendar/slot-drag-select.spec.ts", max: 1, reason: "1 en role name, e.g. 'next week'" },
 ] as const;

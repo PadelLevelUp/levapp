@@ -61,9 +61,9 @@ main too.
   week (Sunday to Saturday), because other specs add classes there.
   - The helper is renamed `slotForTuesday`: columns run Sunday to Saturday since PAD-682.
 
-**Tried and reverted:** making the shared `goToNextWeek` wait for the grid's first
-`data-day-column` to move forward 7 days. On the first try, slot-drag-select read a slot of the
-CURRENT week after the helper had seen the next week, and recurring-occurrence-delete landed 2
-weeks ahead. The grid's week can move more than once while the first load is in flight, and that
-isn't understood yet. The shared helper is unchanged here. Its remaining race (returning on a
-response for the week already open) is still open for its other callers.
+**Shared helper: fixed by #846, PAD-755.** A first attempt in #844 made `goToNextWeek` wait for
+the grid's first `data-day-column` to move forward 7 days. It fell back to the response wait while
+the grid was not mounted yet (right after `openCalendar`), so slot-drag-select read a slot of the
+current week and recurring-occurrence-delete landed 2 weeks ahead. It was reverted there.
+#846 (PAD-755) changes what the helper promises: N is read from the mounted grid, all seven
+columns must equal N+1's dates, and the N+1 request, if one was issued, must have its response.
