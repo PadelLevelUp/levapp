@@ -25,6 +25,8 @@ export async function confirmClassPresences(
 ): Promise<{
   presences: Presence[];
   notifiedPlayers: { id: string; name: string }[];
+  /** PAD-733: the invitations go out from the scheduler within seconds (notifiedPlayers is empty). */
+  invitationsQueued?: boolean;
   /** PAD-567: the player ids this call cleared. */
   cleared?: number[];
   /** Present in semi-automatic mode when absences created vacancies awaiting approval */
