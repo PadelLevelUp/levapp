@@ -5,7 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { tabBarBottom } from "@/lib/bottom-inset";
 import { useAuth } from "@/auth/AuthContext";
 import { postLoginRoute } from "@/auth/postLoginRoute";
 import { LevAppMark } from "@/components/brand/LevAppMark";
@@ -61,6 +63,7 @@ function AccountAvatar() {
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const tabBar = tabBarBottom(Platform.OS, useSafeAreaInsets().bottom); // PAD-730
   const { user, loading, isAuthenticated } = useAuth();
   // notifications.notification-sound rule 4 (PAD-680): foreground pushes follow the user's switch.
   React.useEffect(() => {
@@ -180,13 +183,14 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: lightTheme.mutedForeground,
         // The bar carried no bottom inset, so its labels sat flush against
         // the home indicator. paddingBottom + height give it the safe area
-        // back; paddingTop keeps the icon off the top edge.
+        // back; paddingTop keeps the icon off the top edge. PAD-730: on
+        // Android they come from the real inset (the 3-button bar is 48 dp
+        // and was drawn over the labels); iOS keeps its 24/84.
         tabBarStyle: {
           backgroundColor: lightTheme.card,
           borderTopColor: lightTheme.border,
           paddingTop: 6,
-          paddingBottom: 24,
-          height: 84,
+          ...tabBar,
         },
         // Six destinations across a 390pt bar for a coach (Dashboard,
         // Calendar, Players, Presences, Messages, Training — Settings left
