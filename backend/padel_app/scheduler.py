@@ -40,6 +40,8 @@ Convenience hooks for lesson_service (safe no-ops when scheduler is absent)
 
 from __future__ import annotations
 
+from padel_app.roles import ROLES, flag_enabled, process_role  # noqa: F401 — re-exported (delivery.worker-role rule 1)
+
 import atexit
 import contextvars
 import os
@@ -781,7 +783,10 @@ def init_scheduler(app, test_config=None) -> None:
     # there is nothing to split: every process runs as before.
     mode = MODE_COMPETE if test_mode else scheduler_mode(process_role(), worker_split_enabled())
     if mode == MODE_OFF:
-        app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
+        if process_role() == "events":
+            app.logger.info("APScheduler not started: ROLE=events holds streams only (B-677).")
+        else:
+            app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
         return
 
     _app = app
@@ -934,25 +939,19 @@ def _register_daily_jobs(sched, logger) -> None:
 MODE_COMPETE = "compete"
 MODE_CLIENT = "client"
 MODE_OFF = "off"
-ROLES = ("api", "worker", "events")
-
-
-def process_role(environ=None) -> str:
-    """delivery.worker-role rule 1 (PAD-695): ``ROLE`` = api | worker | events, default api.
-    ``events`` is PAD-697's and behaves as ``api`` until then; anything else is ``api``."""
-    environ = os.environ if environ is None else environ
-    role = environ.get("ROLE", "api").strip().lower()
-    return role if role in ROLES else "api"
 
 
 def worker_split_enabled(environ=None) -> bool:
     """``WORKER_SPLIT``: the worker runs the jobs and the API only writes the job store. Default off."""
-    environ = os.environ if environ is None else environ
-    return environ.get("WORKER_SPLIT", "off").strip().lower() in ("1", "true", "yes", "on")
+    return flag_enabled("WORKER_SPLIT", environ)
 
 
 def scheduler_mode(role: str, split: bool) -> str:
     """``compete`` (run jobs as the lock holder), ``client`` (write the job store only) or ``off``."""
+    if role == "events":
+        # B-677: an events process holds the live-update streams and nothing else; it neither
+        # competes for the leader lock nor writes the job store, whatever WORKER_SPLIT says.
+        return MODE_OFF
     if role == "worker":
         return MODE_COMPETE if split else MODE_OFF
     return MODE_CLIENT if split else MODE_COMPETE

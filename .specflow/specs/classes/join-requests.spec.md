@@ -209,7 +209,8 @@ by a student's request — and whichever lands first wins.
       shows two choices: play either side — the same request again with `side: "both"` — or join
       the waiting list of that side (`classes.academy-class-booking` rule 6, with `side`).
     - **Accepting** enrols the student with the request's side written on their presence for that
-      occurrence (`presences.side`, PAD-551's per-occurrence side) unless it is `both` or empty, and
+      occurrence (`presences.side`, PAD-551's per-occurrence side; `both` too since slice 3,
+      `classes.instance-enrollment` rule 13a) unless it is empty, and
       closes a spot of that side (rule 6, `vacancy_for_joiner`, which reads that side).
     - **A pending request whose side lost its last spot** (an invitation's "yes" or another accepted
       request filled it — rule 10's fill paths — while the coach had not answered) is **moved to that

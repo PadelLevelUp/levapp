@@ -68,10 +68,12 @@ def test_a_foreign_origin_gets_no_cors_grant(cors_app):
 
 
 @pytest.mark.parametrize(
-    "name,host,upstream",
-    [("levapp-api", "api.levapp.app", "levapp_api"), ("levapp-api-staging", "api.staging.levapp.app", "levapp_api_staging")],
+    "name,host,upstream,events_upstream",
+    [("levapp-api", "api.levapp.app", "levapp_api", "levapp_api"),
+     # PAD-697: staging's stream goes to the events process (prod after PAD-704).
+     ("levapp-api-staging", "api.staging.levapp.app", "levapp_api_staging", "levapp_events_staging")],
 )
-def test_the_api_host_serves_only_the_api_with_the_log_protections(name, host, upstream):
+def test_the_api_host_serves_only_the_api_with_the_log_protections(name, host, upstream, events_upstream):
     https = (NGINX / name).read_text()
     assert f"server_name {host};" in https
     assert "access_log /var/log/nginx/access.log redacted;" in https  # B-182
@@ -80,7 +82,8 @@ def test_the_api_host_serves_only_the_api_with_the_log_protections(name, host, u
     locations = dict(re.findall(r"location ([^{]+?) \{(.*?)\n    \}", https, re.S))
     assert set(locations) == {"/api/app/events", "/api/app/register/", "/api/", "/"}
     for path in ("/api/app/events", "/api/app/register/", "/api/"):
-        assert f"proxy_pass http://{upstream};" in locations[path], path
+        want = events_upstream if path == "/api/app/events" else upstream
+        assert f"proxy_pass http://{want};" in locations[path], path
         assert "proxy_set_header X-Real-IP $remote_addr;" in locations[path], path  # PAD-554
     for path in ("/api/app/events", "/api/app/register/"):
         assert "error_log /var/log/nginx/error.log crit;" in locations[path], path  # B-182 / B-183

@@ -3,7 +3,8 @@
  * occurrence from the participant row; a row whose side is set here says so. The twin of web's
  * AttendanceRow.side.test.tsx.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import type { Player } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
@@ -13,11 +14,16 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
-// PAD-660: the display-name resolver is a react-query hook the harness cannot mount.
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+// PAD-660: the display-name resolver is the REAL @levelup/hooks since PAD-406; its roster has no nicknames.
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachPlayers: async () => [],
 }));
+
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
 
 import { ParticipantRow } from "./ParticipantRow";
 
@@ -26,12 +32,16 @@ const player = { id: 7, user: { name: "Ana Lopes" } } as unknown as Player;
 async function row(side?: Partial<NonNullable<Parameters<typeof ParticipantRow>[0]["side"]>>) {
   const onChange = vi.fn();
   const n = await renderNative(
-    createElement(ParticipantRow, {
-      player,
-      attendance: { status: null },
-      canMark: false,
-      side: side ? { current: "left", override: false, editable: true, onChange, ...side } : undefined,
-    })
+    createElement(
+      QueryClientProvider,
+      { client },
+      createElement(ParticipantRow, {
+        player,
+        attendance: { status: null },
+        canMark: false,
+        side: side ? { current: "left", override: false, editable: true, onChange, ...side } : undefined,
+      })
+    )
   );
   return { n, onChange };
 }

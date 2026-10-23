@@ -3,7 +3,8 @@
  * class's bar asks first — the warning shows inside the dialog and the button turns into "Adicionar
  * mesmo assim"; a second press adds. A student who passes is added on the first press (the control).
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -36,23 +37,31 @@ const api = vi.hoisted(() => ({
   ] })),
 }));
 vi.mock("@levelup/api/src/resources/notificationEngine", () => api);
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (id: string | number | null | undefined, real: string | null | undefined) =>
-    real ?? "",
+// Real @levelup/hooks since PAD-406: the name resolver reads a roster with no nicknames, so every
+// student prints under the real name.
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachPlayers: async () => [],
 }));
 
 import { ClassWaitingListSection } from "./class-waiting-list-section";
 
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
+
 const mount = () =>
   renderNative(
-    <ClassWaitingListSection
-      event={{ model: "LessonInstance", originalId: 7, date: "2026-10-20" }}
-      isRecurring={false}
-      rows={[]}
-      enrolledIds={[]}
-      onChanged={() => undefined}
-    />
+    <QueryClientProvider client={client}>
+      <ClassWaitingListSection
+        event={{ model: "LessonInstance", originalId: 7, date: "2026-10-20" }}
+        isRecurring={false}
+        rows={[]}
+        enrolledIds={[]}
+        onChanged={() => undefined}
+      />
+    </QueryClientProvider>
   );
 
 async function openAdd() {

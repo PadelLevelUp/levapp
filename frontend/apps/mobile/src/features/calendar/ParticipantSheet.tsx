@@ -4,8 +4,8 @@ import * as attendanceApi from "@levelup/api/src/resources/attendance";
 import {
   participantInitials,
   PARTICIPANT_GROUP_WORD_KEYS,
-  SIDE_LONG_KEYS,
   cancellationDetail,
+  sideLongKeyOf,
   groupOfState,
   reminderHint,
 } from "@levelup/config";
@@ -132,7 +132,7 @@ export function ParticipantSheet({ row, onClose, side }: ParticipantSheetProps) 
                   {/* PAD-551: the side the screen reads now (a change re-reads the class), else the row's. */}
                   {(side?.current ?? row.side) ? (
                     <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 6, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.15)" }}>
-                      <Text className="font-semibold" style={{ fontSize: 11, color: "#9CC6FF" }}>{t(SIDE_LONG_KEYS[(side?.current ?? row.side)!])}</Text>
+                      <Text className="font-semibold" style={{ fontSize: 11, color: "#9CC6FF" }}>{t(sideLongKeyOf((side?.current ?? row.side)!, row.assignedSide))}</Text>
                     </View>
                   ) : null}
                   {row.level?.label ? (

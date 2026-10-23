@@ -5,11 +5,11 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import {
   PARTICIPANT_GROUP_WORD_KEYS,
-  SIDE_LONG_KEYS,
   cancellationDetail,
   groupOfState,
   participantInitials,
   reminderHint,
+  sideLongKeyOf,
 } from "@levelup/config";
 import { getAttendanceHistory } from "@/api/attendance";
 import { getAbsenceHistory } from "@/api/absences";
@@ -114,7 +114,7 @@ export function ParticipantPopup({ row, onClose, returnFocusTo, side }: Particip
                     {/* PAD-551: the side the sheet reads now (a change re-reads the class), else the row's. */}
                     {(side?.current ?? row.side) ? (
                       <span className="flex h-[22px] items-center rounded-md bg-white/15 px-2 text-[11px] font-semibold text-[#9CC6FF]">
-                        {t(SIDE_LONG_KEYS[(side?.current ?? row.side)!])}
+                        {t(sideLongKeyOf((side?.current ?? row.side)!, row.assignedSide))}
                       </span>
                     ) : null}
                     {row.level?.label ? (

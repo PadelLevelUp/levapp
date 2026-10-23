@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AcademyClass } from "@levelup/types";
-import { NOTE_MAX_LENGTH, academyClassAction, groupAcademyClassesByDay } from "@levelup/config";
+import { NOTE_MAX_LENGTH, academyClassAction, groupAcademyClassesByDay, joinRequestAcceptedAtOnce } from "@levelup/config";
 import { academyClassesApi, classJoinRequestsApi } from "@levelup/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -247,8 +247,15 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
           event={sideFor.c}
           profileSide={sideFor.c.profileSide ?? query.data.profileSide ?? null}
           note={sideFor.mode === "request" ? note : undefined}
-          onRequestSent={() => {
-            toast.success(t("classRequests.academy.requestSent"));
+          onRequestSent={(request) => {
+            // PAD-672 slice 2: accepted at once by the coach's automatic acceptance (201 "accepted").
+            toast.success(
+              t(
+                joinRequestAcceptedAtOnce(request)
+                  ? "classRequests.academy.acceptedNow"
+                  : "classRequests.academy.requestSent",
+              ),
+            );
             setNoteFor(null);
             setNote("");
             void refresh();

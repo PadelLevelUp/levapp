@@ -246,6 +246,7 @@ jobs:
             -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
             -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
             -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+            -e STAGING_TEST_PASSWORD="${{ secrets.STAGING_TEST_PASSWORD }}" \
             -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
             -e HUBSPOT_PRIVATE_APP_TOKEN="${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}" \
             -e GOOGLE_WEB_CLIENT_ID="${{ vars.GOOGLE_WEB_CLIENT_ID_STAGING }}" \
@@ -269,6 +270,42 @@ jobs:
               echo "[deploy] removing padelapp_staging_worker (no worker in this deploy)"
               docker stop -t 60 padelapp_staging_worker >/dev/null 2>&1 || true
               docker rm padelapp_staging_worker >/dev/null 2>&1 || true
+            fi
+          fi
+          # PAD-697 (delivery.events-role): with EVENTS_ROLE on in the env file, the live-update streams
+          # run in padelapp_staging_events (ROLE=events: gevent, scripts/serve.sh) on their own loopback
+          # pair 5104,5106 behind upstream levapp_events_staging, swapped by the same rollout.sh (no new
+          # option). No --migrate (the API's call migrated), no --worker, no --probe-host (a probe
+          # through nginx to /api/app/healthz reaches the API, so it would prove nothing here).
+          # NGINX_UPSTREAM_CONF points B-664's fail_timeout read at the events upstream. Only the
+          # secrets this process uses: the database, the Flask and JWT keys (it validates stream tokens).
+          # --memory 300m: the staging API idles at ~142 MiB (PAD-692 window, 2026-10-22) and a gevent
+          # stream costs far less than a thread; the staging done-when (300 streams) measures it before
+          # the cap (1000 by default for this role) is trusted. The coordinator owns the VM fit check.
+          if grep -qiE '^EVENTS_ROLE=(on|1|true|yes)[[:space:]]*$' /home/${{ secrets.GCE_USER }}/.env.staging; then
+            NGINX_UPSTREAM_CONF=/etc/nginx/conf.d/levapp-events-upstream.conf \
+            bash "$RO" --name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging $ROLLOUT_MODE -- \
+              --log-opt max-size=10m --log-opt max-file=3 \
+              --restart unless-stopped \
+              --network levelup_net \
+              --memory 300m \
+              --env-file /home/${{ secrets.GCE_USER }}/.env.staging \
+              -e ROLE=events \
+              -e POSTGRES_PW="${{ secrets.POSTGRES_PW }}" \
+              -e FLASK_SECRET_KEY="${{ secrets.STAGING_FLASK_SECRET_KEY }}" \
+              -e JWT_SECRET_KEY="${{ secrets.STAGING_JWT_SECRET_KEY }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/levelup_backend:staging
+          elif docker inspect padelapp_staging_events >/dev/null 2>&1; then
+            # EVENTS_ROLE went off, or a rollback's env file predates it. Removing the container while
+            # the host still routes /api/app/events to levapp_events_staging would 502 every stream, so
+            # remove it only when no enabled vhost proxies there (rollout.sh rule 6's detector: a glob
+            # over sites-enabled, B-662); otherwise keep it serving and name the host step (R3 reverse).
+            if grep -qsE 'proxy_pass[[:space:]]+http://levapp_events_staging[;/]' /etc/nginx/sites-enabled/*; then
+              echo "::warning::EVENTS_ROLE is off but nginx still routes /api/app/events to levapp_events_staging: keeping padelapp_staging_events. Route the path back to levapp_api_staging on the host first (docs/handoffs/2026-10-22-pad-697-staging-events-apply.sh, rollback), then deploy again."
+            else
+              echo "[deploy] removing padelapp_staging_events (EVENTS_ROLE off, nothing routes to it)"
+              docker stop -t 10 padelapp_staging_events >/dev/null 2>&1 || true
+              docker rm padelapp_staging_events >/dev/null 2>&1 || true
             fi
           fi
           # Reclaim disk: the previous image is dangling after the pull; the
@@ -299,18 +336,44 @@ jobs:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
-        source: "backend/scripts/sync-staging-db.sh"
+        source: "backend/scripts/sync-staging-db.sh,backend/scripts/staging-scrub.sql"
         target: "/home/${{ secrets.GCE_USER }}/"
         strip_components: 2
         overwrite: true
+    # PAD-606 rule 9: the script exits 0 when it skipped or copied and scrubbed, 3 when a restore's
+    # scrub failed (staging wiped, empty) and 4 when the wipe failed too (staging left stopped). The
+    # remote command always ends 0 and prints SYNC_EXIT=<code>, so the log is captured either way;
+    # the next step puts the scrub's lines in the summary and fails this job on a non-zero code.
+    # The job stays continue-on-error, so the deploy itself never fails (rule 6).
     - name: Sync staging DB from prod
+      id: sync
       uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.GCE_HOST }}
         username: ${{ secrets.GCE_USER }}
         key: ${{ secrets.GCE_SSH_PRIVATE_KEY }}
+        capture_stdout: true
         script: |
-          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging "${{ inputs.sync_db || 'auto' }}" || true
+          bash /home/${{ secrets.GCE_USER }}/sync-staging-db.sh /home/${{ secrets.GCE_USER }}/.env.staging "${{ inputs.sync_db || 'auto' }}"
+          echo "SYNC_EXIT=$?"
+    - name: Scrub verdict
+      if: always()
+      env:
+        SYNC_LOG: ${{ steps.sync.outputs.stdout }}
+      run: |
+        code=$(printf '%s\n' "$SYNC_LOG" | sed -n 's/.*SYNC_EXIT=\([0-9]*\).*/\1/p' | tail -1)
+        {
+          echo "### Staging DB sync: exit ${code:-unknown}"
+          echo '```'
+          printf '%s\n' "$SYNC_LOG" | grep -E 'SKIPPED|restor|scrub|wip|NOT starting|ERROR' || echo "(no sync lines captured)"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        case "$code" in
+          0) echo "sync ok (skipped, or restored and scrubbed)" ;;
+          3) echo "::error::the scrub failed after a restore; staging was wiped and comes up empty"; exit 3 ;;
+          4) echo "::error::the scrub and the wipe failed; staging may hold unscrubbed data and was left stopped"; exit 4 ;;
+          *) echo "::error::no SYNC_EXIT line from the sync (ssh or script failure); check the log"; exit 1 ;;
+        esac
 
   frontend:
     needs: [ changes, backend ]

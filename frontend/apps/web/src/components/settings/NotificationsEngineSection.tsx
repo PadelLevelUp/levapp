@@ -31,6 +31,7 @@ import { useTabSave } from "@/context/SettingsUnsavedContext";
 const ENGINE_FIELDS = [
   "autoNotifyEnabled",
   "invitationMode",
+  "autoAcceptJoinRequests",
   "reminderTiming",
   "eligibilityRules",
   "openSpotsVisible",
@@ -130,6 +131,11 @@ export function NotificationsEngineSection() {
       if ("eligibilityRules" in patch) {
         setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
       }
+      // notifications.config rule 3a (PAD-672): the save switched the mode to semi-automatic, which
+      // turned automatic acceptance off in the same save; say so rather than leave it silent.
+      if (saved.notice === "auto_accept_off") {
+        toast({ title: t("settings.engine.autoAcceptJoinRequests.turnedOff") });
+      }
     },
   });
 
@@ -207,6 +213,8 @@ export function NotificationsEngineSection() {
   if (!config) return null;
 
   const disabled = !config.autoNotifyEnabled;
+  // Rule 3a: automatic acceptance does not work in semi-automatic mode, whether or not the engine is on.
+  const autoAcceptBlocked = config.invitationMode === "semi_automatic";
 
   function SectionHeader({ sectionKey, icon: Icon, label }: { sectionKey: SectionKey; icon: React.ElementType; label: string }) {
     const isDisabled = disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates";
@@ -309,6 +317,29 @@ export function NotificationsEngineSection() {
             </RadioGroup>
           </div>
         )}
+
+        {/* PAD-672 slice 2 (notifications.config rule 3a): accept eligible join requests at once.
+            Held like every other control until the tab's Save; unavailable in semi-automatic mode. */}
+        <div className="space-y-1" data-testid="notification-engine-auto-accept">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">{t("settings.engine.autoAcceptJoinRequests.label")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.engine.autoAcceptJoinRequests.help")}</p>
+            </div>
+            <Switch
+              checked={!autoAcceptBlocked && (config.autoAcceptJoinRequests ?? false)}
+              onCheckedChange={(autoAcceptJoinRequests) => save({ autoAcceptJoinRequests })}
+              disabled={autoAcceptBlocked}
+              aria-label={t("settings.engine.autoAcceptJoinRequests.label")}
+              data-testid="settings-auto-accept-join-requests"
+            />
+          </div>
+          {autoAcceptBlocked && (
+            <p className="text-xs text-muted-foreground" data-testid="settings-auto-accept-disabled-reason">
+              {t("settings.engine.autoAcceptJoinRequests.disabledReason")}
+            </p>
+          )}
+        </div>
 
         <Separator />
 
