@@ -10,7 +10,12 @@ import { openDashboard } from "../helpers/navigation";
 test("PAD-424: 'Mais tarde' stays inside its empty-seats card at every desktop width, sidebar open", async ({ page }) => {
   await loginAsCoach(page);
   await openDashboard(page);
-  const card = page.locator('[data-testid^="needs-you-empty-seats-"]').first();
+  await expect(page.getByTestId("dashboard-needs-you")).toBeVisible({ timeout: 15_000 });
+  const cards = page.locator('[data-testid^="needs-you-empty-seats-"]');
+  // PAD-740 (rule 3): the queue covers this week only, and on a Saturday the seed has no
+  // under-capacity class left in it.
+  test.skip((await cards.count()) === 0, "no under-capacity class left this week (rule 3, PAD-740)");
+  const card = cards.first();
   await expect(card).toBeVisible({ timeout: 15_000 });
 
   const overflows: string[] = [];
