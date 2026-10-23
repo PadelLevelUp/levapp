@@ -299,7 +299,9 @@
           "email_failed": "Email failed",
           "push_failed": "Push failed",
           "reminder_skipped_past_due": "Reminder skipped (past due)",
-          "push_registration_failed": "Push registration failed"
+          "push_registration_failed": "Push registration failed",
+          "stream_refused": "Live updates refused (stream cap)",
+          "push_dropped": "Push dropped (queue full or provider paused)"
         }
       },
       "receipts": {

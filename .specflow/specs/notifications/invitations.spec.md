@@ -58,6 +58,21 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    but only as many as the absences free (places minus filled spots minus open vacancies): an
    absence on an over-full roster creates none (rule 13); never-filled places get theirs, as before, when the class has no
    open vacancy.
+   **A write that opens a spot asks for the start; it does not send (PAD-733).** A student's
+   cancellation or reminder "no" (`_free_spot_for_declining_player`), a coach's attendance sheet
+   (`POST /class_instance/presences/confirm`) and a student's "no" to an invitation
+   (`POST /notify/respond`) commit their own change, arm a one-shot scheduler job that runs now
+   (`invite_now_<instance>` â†’ `trigger_invitations`; `decline_next_<vacancy>_<event>` â†’ the
+   decline's follow-up, `_send_next_on_decline`) and answer. The job runs on whichever process
+   runs the jobs: with `WORKER_SPLIT` off (production today) the API's own scheduler thread, with
+   it on the worker, which reads the shared store within `WORKER_WAKE_SECONDS`
+   (`delivery.worker-role`). One id per target, so a repeated ask replaces the armed job instead of
+   adding one. This rule's claim makes the job one more caller like the sweep and `invite_start`:
+   the same students, once. With no scheduler in the process (the CLI, the test suite outside the
+   scheduler fixtures) the request sends inline as before. Consequence on a "no": the coach's
+   decline message is now written before the next student's invitation instead of after it; no
+   rule orders the two, and this is intended, not a regression. Semi-automatic mode is unchanged:
+   its approval prompt is one coach message per vacancy and stays in the request.
 1c. **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
    An absence opens its vacancy the moment it is recorded, and the tick (rule 5) starts it once
    the window is open. A place nobody ever filled has no such moment, and before this rule it was
@@ -343,7 +358,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    `_attendance_stats`), which delegate to the batched ones. Measured and reproducible with
    `backend/scripts/notification_cost_probe.py`; the send path (~30 statements and 6
    commits per invitation sent) and the blocking push calls are recorded in the
-   2026-09-11 notification-engine-cost decision, not changed here.
+   2026-09-11 notification-engine-cost decision, not changed here. Since PAD-733 that cost is
+   paid by the scheduler job (rule 1b), not by the request that opened the spot.
 
 13. **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
    2026-09-11, unconfirmed).** A `Vacancy` is a promise that a spot is open; capacity
@@ -1140,3 +1156,25 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Given** a full class of 2 left and 2 right, or of 3 left and 1 right
 - **When** a left-side player leaves
 - **Then** the first asks `left` (1 / 2) and the second asks `right` (2 / 1)
+
+#### A write that opens a spot answers before the first invitation (rule 1b, PAD-733)
+- **Given** a class tomorrow 09:00 with the invitation window open, one enrolled student, three
+  eligible others, `maxSimultaneous` 3, and a scheduler running in the process
+- **When** the student cancels (`POST /notify/cancel_attendance`), or the coach marks them absent
+  (`POST /class_instance/presences/confirm`)
+- **Then** the request answers with no invitation written and one job `invite_now_<instance>`
+  armed; running the job invites the three; running it again invites nobody more; the sheet's reply
+  carries `notifiedPlayers: []` and `invitationsQueued: true`
+
+#### A student's "no" answers before the next invitation (rule 1b, PAD-733)
+- **Given** one spot, `maxSimultaneous` 1, three candidates, the first invited, a scheduler running
+- **When** the first student answers "no"
+- **Then** the answer is `declined` with nobody else invited, one job
+  `decline_next_<vacancy>_<event>` is armed, running it invites the second student, and a repeated
+  "no" arms nothing and invites nobody
+
+#### With no scheduler in the process the write still invites inline (rule 1b, PAD-733)
+- **Given** the sheet of the first criterion and no scheduler (the CLI, the plain test suite)
+- **When** the coach marks the student absent
+- **Then** the three are invited inside the request and the reply lists them in `notifiedPlayers`
+  with `invitationsQueued: false`

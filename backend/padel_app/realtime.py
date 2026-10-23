@@ -81,6 +81,10 @@ _listener = None
 _monitor = None
 #: The server-wide stream cap this process enforces, for the stats line (set by `init_app`).
 _cap = None
+#: Streams this process refused at the server-wide cap since it started (rule 25, PAD-689).
+_refused = 0
+#: The app the monitor records incidents through (set by `init_app`; the monitor has no request).
+_app = None
 
 
 # --- configuration (rule 20) --------------------------------------------------------------------
@@ -100,8 +104,9 @@ def init_app(app) -> None:
         logger.warning("SSE_BROKER=postgres falls back to memory: the database is not Postgres")
         name = "memory"
     retention = realtime_retention_minutes(app.config.get("REALTIME_EVENTS_RETENTION_MINUTES"))
-    global _cap
+    global _cap, _app
     _cap = app.config.get("SSE_MAX_STREAMS")
+    _app = app
     with _broker_lock:
         stale = _detach_locked() if (name, uri) != (_broker["name"], _broker["uri"]) else (None, None)
         _broker.update(name=name, uri=uri if name == "postgres" else None, retention_minutes=retention)
@@ -191,12 +196,14 @@ def try_subscribe(user_id: int, *, max_total: int, max_per_user: int):
     never evicts anyone. Check, eviction and registration share one lock
     acquisition, so two requests can never both take the last slot.
     """
+    global _refused
     user_id = int(user_id)
     with _lock:
         queues = _subscribers.get(user_id, [])
         to_evict = max(0, len(queues) - max_per_user + 1)
         total = sum(len(qs) for qs in _subscribers.values())
         if total - to_evict >= max_total:
+            _refused += 1
             return None, "total"
         evicted = queues[:to_evict]
         q: queue.Queue = queue.Queue()
@@ -332,7 +339,7 @@ def stats_line() -> str:
     push = push_sender.stats()
     return (
         f"SSE streams: open={sum(counts)} max_per_user={max(counts, default=0)} cap={_cap} "
-        f"push_queue={push_sender.pending()}/{push_sender.QUEUE_MAX} pushes_dropped={push['dropped']}"
+        f"refused={_refused} push_queue={push_sender.pending()}/{push_sender.QUEUE_MAX} pushes_dropped={push['dropped']}"
         f"{push_outbox.stats_fragment()}"
     )
 
@@ -360,11 +367,43 @@ class _Monitor(threading.Thread):
         self.join(timeout=5)
 
     def run(self) -> None:
+        seen = _counters()
         while not self._stopping.wait(MONITOR_SECONDS):
             try:
                 logger.info(stats_line())
             except Exception:  # noqa: BLE001 — a stats line never kills its thread
                 logger.warning("realtime monitor: stats line failed", exc_info=True)
+            seen = record_window(seen)
+
+
+def _counters() -> tuple[int, int]:
+    from padel_app.utils import push_sender
+
+    return _refused, push_sender.stats()["dropped"]
+
+
+def record_window(seen: tuple[int, int]) -> tuple[int, int]:
+    """Rule 25a (PAD-689): one `delivery_incidents` row per kind for a window in which streams
+    were refused or pushes dropped, the window's count in its detail — never a row per refusal, so
+    a process stuck at the cap writes one row a minute, not thousands. The admin engine-health page
+    shows them; the email alert still waits on Cloud Logging. Returns the counters now seen."""
+    now = _counters()
+    refused, dropped = now[0] - seen[0], now[1] - seen[1]
+    if (refused > 0 or dropped > 0) and _app is not None:
+        from padel_app.services import delivery_incidents
+
+        with _app.app_context():
+            if refused > 0:
+                delivery_incidents.record(
+                    "stream_refused", "sse",
+                    detail=f"{refused} live-update stream(s) refused at the cap ({_cap}) in {MONITOR_SECONDS} s",
+                )
+            if dropped > 0:
+                delivery_incidents.record(
+                    "push_dropped", "push",
+                    detail=f"{dropped} push(es) dropped by the in-process sender in {MONITOR_SECONDS} s",
+                )
+    return now
 
 
 # --- the listener (rules 23, 24) ----------------------------------------------------------------

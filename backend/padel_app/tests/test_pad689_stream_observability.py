@@ -21,6 +21,7 @@ BACKEND = pathlib.Path(__file__).resolve().parents[2]
 @pytest.fixture(autouse=True)
 def _clean_realtime():
     realtime._subscribers.clear()
+    realtime._refused = 0
     yield
     realtime.shutdown()
     realtime._subscribers.clear()
@@ -34,7 +35,7 @@ def test_the_stats_line_names_streams_busiest_user_cap_and_push_queue(app_with_c
         realtime.subscribe(user_id)
     dropped = push_sender.stats()["dropped"]
     assert realtime.stats_line() == (
-        f"SSE streams: open=3 max_per_user=2 cap=40 "
+        f"SSE streams: open=3 max_per_user=2 cap=40 refused=0 "
         f"push_queue=0/{push_sender.QUEUE_MAX} pushes_dropped={dropped}"
     )
 
@@ -70,6 +71,8 @@ def test_only_one_monitor_runs_per_process(app_with_config, monkeypatch):
     ("padel_app/modules/frontend_api.py", '"SSE stream refused: scope=%s user=%s open_streams=%s"'),
     ("padel_app/utils/push_sender.py", '"push sender: queue full (%d), dropping oldest: %s"'),
     ("padel_app/utils/push_sender.py", '"push sender: provider unresponsive, dropping %s until the pause ends"'),
+    # PUSH_QUEUE=outbox (staging): the outbox backing up is its drop-equivalent signal.
+    ("padel_app/utils/push_outbox.py", '"push outbox depth %d over %d (oldest due %ds ago)"'),
 ])
 def test_the_alert_strings_are_frozen(path, text):
     """The Cloud Logging alert (docs/infra) matches these texts; rewording one silences it."""
@@ -152,3 +155,62 @@ def test_a_sibling_module_needs_no_level_of_its_own(default_logging):
     _fresh_app()
     assert logging.getLogger("padel_app.scheduler").isEnabledFor(logging.INFO)
     assert not logging.getLogger().isEnabledFor(logging.INFO), "root stays at WARNING"
+
+
+# --- refusals and drops are counted and recorded (rule 25a) ---------------------------------------
+
+def test_a_refused_stream_logs_the_frozen_warning_and_counts_in_the_stats_line(app, client, caplog):
+    """The alert keys on the emitted line, not on the source text: drive a real refusal."""
+    from flask_jwt_extended import create_access_token
+
+    app.config.update(JWT_SECRET_KEY="test-jwt-secret", JWT_QUERY_STRING_NAME="token",
+                      SSE_MAX_STREAMS=1, SSE_MAX_STREAMS_PER_USER=4)
+    with app.app_context():
+        first, second = (create_access_token(identity=str(u)) for u in (901, 902))
+    held = client.get(f"/api/app/events?token={first}")
+    try:
+        with caplog.at_level(logging.WARNING):
+            refused = client.get(f"/api/app/events?token={second}")
+        assert refused.status_code == 503
+        lines = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert "SSE stream refused: scope=total user=902 open_streams=1" in lines
+        assert " refused=1 " in realtime.stats_line()
+    finally:
+        held.close()
+
+
+def _incidents(app):
+    from padel_app.models.delivery_incident import DeliveryIncident
+
+    with app.app_context():
+        return [(i.kind, i.channel, i.detail) for i in DeliveryIncident.query.order_by(DeliveryIncident.id)]
+
+
+def test_a_window_with_refusals_and_drops_writes_one_row_per_kind(app_with_config, monkeypatch):
+    from padel_app.utils import push_sender
+
+    app = app_with_config({"SSE_MAX_STREAMS": 40})
+    seen = realtime._counters()
+    realtime._refused += 37
+    monkeypatch.setitem(push_sender._stats, "dropped", push_sender._stats["dropped"] + 5)
+
+    seen = realtime.record_window(seen)
+    assert _incidents(app) == [
+        ("stream_refused", "sse", "37 live-update stream(s) refused at the cap (40) in 60 s"),
+        ("push_dropped", "push", "5 push(es) dropped by the in-process sender in 60 s"),
+    ]
+
+    realtime.record_window(seen)  # a quiet window writes nothing
+    assert len(_incidents(app)) == 2
+
+
+def test_a_quiet_process_writes_no_incident(app_with_config):
+    app = app_with_config({})
+    realtime.record_window(realtime._counters())
+    assert _incidents(app) == []
+
+
+def test_the_engine_health_page_counts_the_new_kinds(app_with_config):
+    from padel_app.models.delivery_incident import KINDS
+
+    assert {"stream_refused", "push_dropped"} <= set(KINDS)

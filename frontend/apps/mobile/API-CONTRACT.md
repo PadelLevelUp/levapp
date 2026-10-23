@@ -51,7 +51,7 @@ Lessons / classes:
 | POST | `/api/app/add_class` | JWT | `{title, type, date, start_time, end_time, max_players, color, ...}` | serialize_calendar_event |
 | POST | `/api/app/edit_class` | None | `{id, model, date, ...}` | varies |
 | POST | `/api/app/remove_class` | None | `{id, model, occDate?, scope?}` | varies |
-| POST | `/api/app/class_instance/presences/confirm` | JWT | `{classInstance: id, presences: [...]}` | `{presences, notifiedPlayers, approvalBundle}` |
+| POST | `/api/app/class_instance/presences/confirm` | JWT | `{classInstance: id, presences: [...]}` | `{presences, notifiedPlayers, invitationsQueued, approvalBundle}` (PAD-733: with `invitationsQueued` the invitations go out from the scheduler and `notifiedPlayers` is empty) |
 | POST | `/api/app/class_instance/training/confirm` | JWT | `{classInstance: id, exerciseIds: string[]}` | `{plannedExerciseIds}` |
 
 Calendar blocks / events:

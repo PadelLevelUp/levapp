@@ -7,8 +7,10 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
 
-KINDS = ("email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed")
-CHANNELS = ("email", "webpush", "apns", "fcm", "expo", "scheduler")
+KINDS = ("email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed",
+         # PAD-689 (sse-realtime rule 25a): one row per minute in which they happened, counts in detail.
+         "stream_refused", "push_dropped")
+CHANNELS = ("email", "webpush", "apns", "fcm", "expo", "scheduler", "sse", "push")
 
 
 class DeliveryIncident(db.Model):

@@ -136,9 +136,45 @@ gunicorn's boot path into the leadership thread.
 12. **Expand, then contract.** Because the previous release runs on the new schema during every
    rolling deploy (and after a `rollback_to`): a new column is nullable or has a server default;
    a column or table is dropped or renamed only in a release after the one whose code stopped
-   reading it; anything else ships with `rollout: stop-first`. A warn-only CI guard is PAD-711.
+   reading it; anything else ships with `rollout: stop-first`.
+   - **The guard (PAD-711).** It is warn-only: `migration-heads.yaml`'s `expand/contract (warn only)`
+     job, on PRs into `staging`, with `continue-on-error`, so it is never a red or required check.
+   - **What it reads.** It runs `backend/scripts/check_expand_contract.py` on the revision files the
+     PR adds: the diff of the PR's merge commit against its first parent (`--diff-filter=A`). It
+     reads only each file's `upgrade()`, so the existing chain and every `downgrade()` stay out.
+   - **What it flags**, as `::warning` annotations and job-summary lines that say to use
+     `rollout: stop-first` or split the change across two releases:
+     - `drop_column`, `drop_table`;
+     - a rename (`alter_column(new_column_name=)`, `rename_table`);
+     - `alter_column(type_=)` or `(nullable=False)`;
+     - `add_column` of a `nullable=False` column without `server_default`;
+     - the same as raw SQL in `op.execute`.
+     Calls on a `batch_alter_table` handle count too.
    Because the migrate step now runs while the old container serves, schema changes take a short
    `lock_timeout` and data backfills run in batches outside the schema transaction: PAD-718.
+   - **The session timeouts (PAD-718).** `padel_app.migrate` runs `flask db upgrade` with
+     `LEVAPP_MIGRATE_STEP=1`. Only then, and only on Postgres, `migrations/env.py` sets
+     `lock_timeout` (`MIGRATE_DDL_LOCK_TIMEOUT`, 3 s) and `statement_timeout`
+     (`MIGRATE_STATEMENT_TIMEOUT`, 300 s), inside the upgrade's transaction. A plain
+     `flask db upgrade` (CI, tests, a laptop) sets neither.
+     - Why: while an ALTER waits for its lock, every later query on that table queues behind it,
+       so the lock timeout bounds the API's stall per attempt.
+     - A lock timeout (SQLSTATE 55P03) rolls the whole upgrade back, and env.py exits 75. That is
+       the only code retried: `MIGRATE_ATTEMPTS` (4) attempts in all, 5/10/20 s apart, so traffic
+       flows in the gaps.
+     - Any other failure, a statement timeout included, is final. A final failure fails the
+       migrate step: `rollout.sh` stops before `<name>_next`, and the old container keeps serving
+       (rule 4; in stop-first it is restarted, rule 7).
+     - The step logs the timeouts once at its start, and each wait as it happens.
+   - **The schema transaction holds only DDL.** A data backfill runs in batches outside it,
+     idempotent and re-runnable: the DDL in one revision, the backfill as a batched step or a job.
+     It never becomes one long transaction holding its locks while the old release serves
+     (promotion 11's 13-minute migration).
+   - **Caveat: a revision that commits part-way** (`op.execute("COMMIT")`, `autocommit_block()`,
+     as b3f1c2a7d9e4 and b1c2d3e4f5a6 do for enum `ADD VALUE`) ends the one transaction early. A
+     later timeout then leaves the database at the last committed revision: a complete revision
+     with its `alembic_version` row, never a half-applied one. The next migrate step continues from
+     there. Prefer not to write such revisions.
 13. **The worker follows the API.** (PAD-695, `delivery.worker-role`.) The deploys pass
    `--worker` when their env file sets `WORKER_SPLIT` on. After the API swap succeeds (both
    modes), `rollout.sh` starts `<name>_worker_next` from the same arguments plus
@@ -255,6 +291,22 @@ gunicorn's boot path into the leadership thread.
 - **Given** an upgrade subprocess that exits 0 but leaves the schema behind
 - **When** the migrate step re-reads the schema **Then** it exits 1
 
+#### A blocked lock fails the migrate step and leaves the previous head (rule 12, PAD-718)
+- **Given** a database at revision r1, and another session holding ACCESS SHARE on the table that
+  r2 ALTERs
+- **When** the migrate step runs with a 1 s lock timeout and 2 attempts
+- **Then** each attempt logs `lock_timeout:` and rolls back; the step exits 75 within the bound,
+  logging "giving up; the schema is where it was"; the database is still at r1 without the column
+
+#### A lock released between attempts lets the retry reach head (rule 12, PAD-718)
+- **Given** the same blocked lock, released before the second attempt
+- **When** the migrate step runs **Then** the first attempt times out and the second reaches r2
+
+#### Only the migrate step sets the timeouts (rule 12, PAD-718)
+- **Given** the same blocked lock **When** a plain `flask db upgrade` runs, without
+  `LEVAPP_MIGRATE_STEP` **Then** it waits (no lock_timeout); exit codes other than 75 are never
+  retried; the migrate step logs its timeouts once at its start
+
 #### A stale image never binds a port (rule 10)
 - **Given** a database at an ancestor of the image's head (or empty) and `SCHEMA_GATE=on`
 - **When** `python -m padel_app.schema_state --require not_behind` runs
@@ -301,6 +353,19 @@ gunicorn's boot path into the leadership thread.
   migrate step and before `padelapp_next` starts, and comes back on the freed port
 - **Given** `--copies 1` or `--stop-first` **Then** no `padelapp_b` is left; a second copy that never
   answers is removed and the run exits 1 with `padelapp` serving
+
+#### A contract step in an added migration warns, never fails (rule 12, PAD-711)
+- **Given** a PR into `staging` that adds a revision whose `upgrade()` drops a column, drops a table,
+  renames a column or table, changes a type, sets NOT NULL, adds a NOT NULL column without a
+  server default, or does any of those in raw SQL
+- **When** the `expand/contract (warn only)` job runs **Then** each one is a `::warning` on its line
+  and a job-summary line naming `rollout: stop-first` or a two-release split, and the job exit is 0
+
+#### An expand-only migration is silent (rule 12, PAD-711)
+- **Given** an added revision whose `upgrade()` only adds nullable or server-defaulted columns,
+  tables and indexes, and whose `downgrade()` drops them
+- **When** the job runs **Then** it warns nothing, and the summary says the added migrations are
+  expand-only; revisions the PR did not add are never read
 
 #### A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it
