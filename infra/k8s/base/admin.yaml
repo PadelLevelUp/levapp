@@ -16,6 +16,7 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: admin}
     spec:
+      serviceAccountName: levapp-web
       terminationGracePeriodSeconds: 30
       containers:
         - name: admin
