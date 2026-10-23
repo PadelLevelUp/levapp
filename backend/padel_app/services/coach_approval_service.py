@@ -168,16 +168,12 @@ def reapply_coach_service(username, password):
 # ── notifications (best-effort) ────────────────────────────────────────────
 
 def _send(subject, recipients, body, html=None):
-    from padel_app.tools.email_tools import send_email
+    from padel_app.tools.mail_dispatch import send_later
 
-    try:
-        send_email(subject, recipients, body=body, html=html)
-    except Exception as exc:  # noqa: BLE001 — never fail the caller on mail
-        # B-254: how many recipients and the exception class, never the addresses or the
-        # exception text (an SMTP refusal names the recipient).
-        current_app.logger.warning(
-            "coach-approval mail to %d recipient(s) failed: %s", len(recipients), type(exc).__name__
-        )
+    # PAD-734: off the request thread; never fails the caller. B-254: the label is a count, never
+    # the addresses, and send_later logs only the exception class (an SMTP refusal names the recipient).
+    send_later(subject, recipients, body=body, html=html,
+               label=f"coach-approval mail to {len(recipients)} recipient(s)")
 
 
 def notify_admin_of_pending_coach(coach):

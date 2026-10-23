@@ -56,3 +56,4 @@ EXPO_PUSH_DISABLED                prod    default  unset: push on in prod (stagi
 MAIL_ALLOWED_RECIPIENTS           prod    default  unset: mail goes to everyone in prod (staging's template filters it)
 MAIL_SERVER                       all     template-unread  config.py fixes it
 MAIL_PORT                         all     template-unread  config.py fixes it
+MAIL_TIMEOUT                      all     default  "10" (seconds): the SMTP connect/read/write bound, PAD-734
