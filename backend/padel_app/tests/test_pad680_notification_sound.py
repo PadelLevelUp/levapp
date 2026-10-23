@@ -1,5 +1,6 @@
 """PAD-680 — notifications.notification-sound: the per-user switch (rule 1) and the `sound` on Expo
-pushes (rule 5). The web chime and the iOS handler are covered by their own unit tests.
+pushes (rule 5; PAD-743: every iOS token, Android only from a declaring build). The web chime and the
+iOS handler are covered by their own unit tests.
 
     pytest padel_app/tests/test_pad680_notification_sound.py -v
 """
@@ -44,15 +45,18 @@ def test_a_non_boolean_switch_is_refused(client, app):
     assert client.patch("/api/auth/me", json={"notificationSound": "no"}, headers=headers).status_code == 400
 
 
-def _send_dm(app, slug, *, switch=True, capable=True, kill=False):
-    """A DM to a recipient whose one iOS token is (or is not) sound-capable; answers the Expo body."""
+def _send_dm(app, slug, *, switch=True, capable=True, kill=False, platform="ios"):
+    """A DM to a recipient whose one token (iOS unless `platform` says otherwise) is (or is not)
+    sound-capable; answers the Expo body."""
     from padel_app.models import DeviceToken, User
     from padel_app.services.messaging_service import create_message_service
 
     with app.app_context():
         sender, recipient, conversation = _dm_fixture("Ana Coach", "Bruno Player", slug)
         db.session.get(User, recipient.id).notif_sound = switch
-        DeviceToken.query.filter_by(user_id=recipient.id).one().sound_capable = capable
+        token = DeviceToken.query.filter_by(user_id=recipient.id).one()
+        token.sound_capable = capable
+        token.platform = platform
         db.session.commit()
         if kill:
             from padel_app.services.app_settings_service import set_capability_switch
@@ -74,17 +78,31 @@ def _send_dm(app, slug, *, switch=True, capable=True, kill=False):
     return message
 
 
-def test_a_capable_token_with_the_switch_on_carries_the_sound(app):
-    assert _send_dm(app, "pad680on")["sound"] == "default"
+@pytest.mark.parametrize("kwargs", [
+    {},                                   # a build that declared `notification-sound`
+    {"capable": False},                   # PAD-743: an older build (1.3.1 and before) sounds too
+    {"capable": False, "platform": None},  # PAD-743: a token from before PAD-307 recorded platforms
+], ids=["ios-capable", "ios-old-build", "no-platform"])
+def test_an_ios_token_with_the_switch_on_carries_the_sound(app, kwargs):
+    assert _send_dm(app, f"pad743on-{'-'.join(map(str, kwargs.values()))}", **kwargs)["sound"] == "default"
 
 
 @pytest.mark.parametrize("kwargs", [
-    {"switch": False},                # the user switched it off (rule 1)
-    {"capable": False},               # an older build (1.3.1 and before) registered the token (rule 5)
-    {"kill": True},                   # the capability is switched off server-side (PAD-533)
-], ids=["switch-off", "old-build", "kill-switch"])
-def test_otherwise_the_push_is_silent(app, kwargs):
-    assert "sound" not in _send_dm(app, f"pad680-{'-'.join(kwargs)}", **kwargs)
+    {"switch": False},                    # the user switched it off (rule 1)
+    {"switch": False, "capable": False},  # also on an older build's token (PAD-743)
+    {"kill": True},                       # the capability is switched off server-side (PAD-533)
+    {"kill": True, "capable": False},
+], ids=["switch-off", "switch-off-old-build", "kill-switch", "kill-switch-old-build"])
+def test_otherwise_an_ios_push_is_silent(app, kwargs):
+    assert "sound" not in _send_dm(app, f"pad680-{'-'.join(map(str, kwargs.values()))}", **kwargs)
+
+
+@pytest.mark.parametrize("capable, sounds", [(True, True), (False, False)], ids=["declaring", "not-declaring"])
+def test_android_keeps_the_capability_gate(app, capable, sounds):
+    """PAD-743 changes iOS only: an Android token sounds only if its build declared the capability."""
+    message = _send_dm(app, f"pad743-android-{capable}", capable=capable, platform="android")
+    assert (message.get("sound") == "default") is sounds
+    assert sounds or "sound" not in message
 
 
 @pytest.mark.parametrize("header, expected", [("notification-sound", True), ("open-spots", False), (None, False)])

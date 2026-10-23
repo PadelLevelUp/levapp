@@ -5,9 +5,10 @@ layers of proof:
 - the guard (every backend): each String/Text/JSON column declared in the models is either named on
   a ``-- scrubbed:`` line of the SQL file or on NON_PERSONAL below, so a new personal column cannot
   be added without deciding how staging treats it;
-- the wiring (every backend): sync-staging-db.sh runs the file before the app starts again;
+- the wiring (every backend): sync-staging-db.sh migrates the copy to the image's head, then runs
+  the file, before the app starts again;
 - the behaviour (Postgres only, CI's Postgres lane): seed real-looking people, run the file, count
-  what survives.
+  what survives; and the same from a restore whose schema is prod's older head (rule 9b).
 """
 import os
 import re
@@ -95,6 +96,14 @@ NON_PERSONAL = {
     "presences.assigned_side",  # PAD-672 slice 3: the side a "both" player was kept to
     "auth_rate_limit_hits.scope",
     "user_identities.provider",
+    # PAD-742 finance: business costs and staff (owner) emails, kept on purpose (owner-only section).
+    "finance_costs.category", "finance_costs.currency", "finance_costs.recurrence", "finance_costs.vendor",
+    "finance_costs.description", "finance_costs.notes", "finance_costs.created_by_email",
+    "finance_costs.updated_by_email", "finance_costs.deleted_by_email",
+    "finance_cost_revisions.action", "finance_cost_revisions.actor_email", "finance_cost_revisions.snapshot",
+    "finance_import_runs.trigger", "finance_import_runs.outcome", "finance_import_runs.months",
+    "finance_import_runs.error_code", "finance_import_runs.error_message", "finance_import_runs.actor_email",
+    "finance_gcp_costs.currency", "finance_gcp_costs.project_id", "finance_gcp_costs.service",
 }
 
 
@@ -133,7 +142,8 @@ def test_every_text_column_is_scrubbed_or_declared_non_personal():
 
 
 # Tables the scrub empties instead of rewriting: their scrubbed columns are covered by the DELETE.
-EMPTIED_TABLES = ("push_subscriptions", "device_tokens", "auth_rate_limit_hits", "realtime_events")
+EMPTIED_TABLES = ("push_subscriptions", "device_tokens", "auth_rate_limit_hits", "realtime_events",
+                  "push_outbox", "push_receipt")
 
 
 def test_every_listed_column_is_actually_written_by_the_sql():
@@ -159,6 +169,10 @@ def test_the_sync_runs_the_scrub_before_staging_starts_again():
     assert "staging-scrub.sql" in script
     run = script.index("staging-scrub.sql\"")
     assert "trap restart_app EXIT" in script[:run], "the app restarts only after the scrub (EXIT trap)"
+    # Rule 9b: the dump is prod's schema, behind the image's head; the scrub is written for the head.
+    scrub = script.index('-v pwhash="$PWHASH" -f - < "$SCRUB_SQL"')
+    migrate = script.index('migrate_restored || fail_closed "the migrate step failed before the scrub"')
+    assert migrate < scrub, "the copy is migrated to the image's head before the scrub"
     assert "-v ON_ERROR_STOP=1" in script and " -1 " in script, "one transaction, stop on error"
     assert "STAGING_TEST_PASSWORD" in script, "the hash comes from the staging secret"
     assert "update users set email" not in script.lower(), "the email rewrite lives in the SQL file now"
@@ -248,3 +262,74 @@ def test_only_the_staging_deploy_carries_the_shared_password():
     assert '-e STAGING_TEST_PASSWORD="${{ secrets.STAGING_TEST_PASSWORD }}"' in staging
     assert 'source: "backend/scripts/sync-staging-db.sh,backend/scripts/staging-scrub.sql"' in staging
     assert "STAGING_TEST_PASSWORD" not in (workflows / "deploy-prod.yaml").read_text()
+
+
+# The head production ran on 2026-10-23, when the scrub first met a real dump and failed on
+# push_outbox (a table staging's head had and prod's did not). Any revision behind head shows the
+# same; this one is the real case. Revisions never change, so the constant does not go stale.
+PROD_HEAD = "e532fea8c4d4"
+MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "migrations")
+
+
+@pytest.mark.skipif(
+    os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+    reason="walks the real Alembic revisions; Postgres backend only",
+)
+def test_on_postgres_a_restore_behind_head_is_scrubbed_after_the_migrate_step(app):
+    """Rule 9b: a dump at prod's older head cannot be scrubbed as it is, and is scrubbed fully once
+    the migrate step has brought it to the image's head (the order sync-staging-db.sh now runs)."""
+    from flask_migrate import downgrade, upgrade
+    from sqlalchemy import text
+
+    from padel_app.sql_db import db
+
+    sql = SCRUB_SQL.read_text().replace(":'pwhash'", "'pbkdf2:sha256:600000$shared$hash'")
+
+    def release():
+        db.session.commit()
+        db.session.remove()
+
+    def scrub():
+        raw = db.session.connection().connection.dbapi_connection.cursor()
+        raw.execute(sql)
+
+    with app.app_context():
+        from padel_app.models import DeviceToken, User
+
+        try:
+            # Seeded at head through the ORM (every default the app's own); the walk down leaves
+            # these tables alone, so this is what a restore of prod's dump looks like.
+            ana = User(name="Ana Ferreira", username="ana.ferreira@gmail.com",
+                       email="ana.ferreira@gmail.com", phone="+351912345678",
+                       birth_date=date(1988, 6, 14), password="pbkdf2:sha256:1$a$b")
+            db.session.add(ana)
+            db.session.flush()
+            db.session.add(DeviceToken(user_id=ana.id, token="ExponentPushToken[abc]", platform="ios"))
+            release()
+            downgrade(directory=MIGRATIONS_DIR, revision=PROD_HEAD)
+            release()
+
+            # The 2026-10-23 failure: scrubbing prod's schema as restored
+            with pytest.raises(Exception, match="does not exist"):
+                scrub()
+            db.session.rollback()
+            db.session.remove()
+            assert db.session.execute(text("SELECT email FROM users")).scalar() == "ana.ferreira@gmail.com"
+            release()
+
+            # The fixed order: the migrate step, then the scrub
+            upgrade(directory=MIGRATIONS_DIR)
+            release()
+            scrub()
+            release()
+            row = db.session.execute(text("SELECT name, email, phone, password FROM users")).one()
+            assert re.match(r"^(Coach|Player) \d+$", row.name), row.name
+            assert row.email is None or row.email.endswith("@staging.invalid")
+            assert row.phone is None
+            assert row.password == "pbkdf2:sha256:600000$shared$hash"
+            for table in ("device_tokens", "push_outbox"):
+                assert db.session.execute(text(f"SELECT count(*) FROM {table}")).scalar() == 0, table
+        finally:
+            db.session.rollback()
+            db.session.remove()
+            upgrade(directory=MIGRATIONS_DIR)

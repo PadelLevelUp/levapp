@@ -47,6 +47,10 @@ arrives, and needs to know something's waiting for them.
   — a notification is never the only thing capable of clearing a stale badge.
 - Push notifications only reach a device that's registered one — a user who's never granted
   notification permission simply doesn't get them, with no error surfaced to the sender.
+- Turning notifications on takes effect without restarting the app or signing in again, on the
+  phone (from the app's banner or the phone's Settings) and in the browser. When alerts are not
+  reaching this phone or browser for any other reason, the Messages screen says so and offers a
+  tap that turns them on again; it is never only a line in a log (PAD-744).
 - A new message or system notification makes a short sound while the app is open, and push
   notifications sound on the phone; one setting, on by default, turns both off (PAD-680). A browser
   only allows the sound once the person has clicked or typed on the page.

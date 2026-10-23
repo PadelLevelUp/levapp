@@ -9,6 +9,7 @@ governed_by: []
 # notifications.notification-sound
 
 > Linear: PAD-680 (reported by a coach via Discord). Shape approved by the coordinator, 2026-10-21.
+> PAD-743 (2026-10-23): rule 5 sounds every iOS push, not only a declaring build's.
 
 ### Intent
 A short sound tells the user that a message or a system notification (an invitation, a reminder, a
@@ -42,16 +43,18 @@ turns it off.
    silent when it is off (older builds' handler never plays one). The app keeps no audio dependency: a message that arrives over SSE
    without a push makes no sound (an in-app sound would need a native audio module and a new
    binary; out of scope).
-5. **iOS, background (the payload), gated by capability.** A build that has the switch declares
-   `notification-sound` (`X-LevApp-Capabilities`, PAD-352) when it registers its push token
-   (`POST /api/notifications/device`, on every app start), and the server keeps that on the token
-   (`device_tokens.sound_capable`). An Expo push carries `sound: "default"` only to a token whose
-   build declared it, while the recipient's switch is on and the capability is not switched off
-   (PAD-533); every other token gets no `sound` and stays silent. So App Store 1.3.1 (33) and older
-   keep the silent pushes they always had (they have no switch to turn sound off), and the sound
-   arrives with the first iOS build that carries the switch. Web shows the switch from this release;
-   it also governs the new build's sound. **Retire** the gate with the capability, once no App Store
-   build older than the first declaring one is in use.
+5. **iOS, background (the payload): every iOS token while the switch is on** (PAD-743, owner
+   decision 2026-10-23, amending PAD-680's capability gate). An Expo push to a token registered
+   with `platform: "ios"` carries `sound: "default"` while the recipient's switch is on and the
+   capability is not switched off (PAD-533, the operator's off-switch for the payload sound), whatever
+   build registered the token. So App Store 1.3.1 (33) and older sound too: those builds asked iOS
+   for the sound permission (`requestPermissionsAsync()` with no options requests alert, badge and
+   sound), and their users switch it off from web Settings → Preferences, which governs every device,
+   or per app in iOS Settings. A token with no recorded platform (registered before PAD-307, when only
+   the iOS app sent pushes) counts as iOS. Every other platform (Android) keeps PAD-680's gate:
+   `sound` only to a token whose build declared `notification-sound` (`X-LevApp-Capabilities`,
+   PAD-352) when it registered (`POST /api/notifications/device`, on every app start); the server
+   keeps that on the token (`device_tokens.sound_capable`) for every platform.
 
 ### Acceptance Criteria
 
@@ -71,10 +74,13 @@ turns it off.
 - **Given** the signed-in user's switch is on **Then** the handler answers `shouldPlaySound: true`;
   off → false
 
-#### The Expo payload carries the sound only to a build that declared it (rule 5)
-- **Given** a recipient with the switch on whose token was registered declaring `notification-sound`
-  **Then** the Expo message has `sound: "default"`
-- **Given** the switch off, or a token registered without the capability (1.3.1), or the capability
-  switched off **Then** the message has no `sound` key
+#### Every iOS push carries the sound while the switch is on (rule 5)
+- **Given** a recipient with the switch on and an iOS token, registered with or without
+  `notification-sound` (1.3.1), or with no recorded platform **Then** the Expo message has
+  `sound: "default"`
+- **Given** the switch off, or the capability switched off **Then** an iOS token's message has no
+  `sound` key
+- **Given** the switch on and an Android token **Then** the message has `sound: "default"` only if
+  that token was registered declaring `notification-sound`
 - **Given** a registration with the header **Then** the token is sound-capable; re-registering the
   same token from a declaring build turns it on

@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
 import { ScrollTable } from "@/components/ScrollTable";
-import { adminApi, type DeployIdentity, type EngineHealth, type IncidentKind } from "@/lib/api";
+import { adminApi, type DeployIdentity, type EngineHealth, type IncidentKind, type PushReceiptStatus } from "@/lib/api";
 
-const KINDS: IncidentKind[] = ["email_failed", "push_failed", "reminder_skipped_past_due"];
+const KINDS: IncidentKind[] = ["email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed"];
+const RECEIPT_STATUSES: PushReceiptStatus[] = ["ok", "error", "expired", "pending"];
 
 function Stat({ label, value, testId }: { label: string; value: string | number; testId?: string }) {
   return (
@@ -113,6 +114,21 @@ function Summary({ data }: { data: EngineHealth }) {
           {Object.entries(data.accounts.coaches).map(([k, n]) => `${k} ${n}`).join(" · ")}
         </p>
       </Card>
+      {data.push && (
+        <Card className="md:col-span-2" data-testid="admin-eh-push">
+          <h2 className="mb-3 font-semibold">{t("admin.engineHealth.push.title")}</h2>
+          <div className="flex flex-wrap gap-6">
+            <Stat label={t("admin.engineHealth.push.active")} value={data.push.activeStudents7d.total} testId="admin-eh-push-active" />
+            <Stat label={t("admin.engineHealth.push.noChannel")} value={data.push.activeStudents7d.noChannel} testId="admin-eh-push-no-channel" />
+            <Stat label={t("admin.engineHealth.push.webPushOnly")} value={data.push.activeStudents7d.webPushOnly} testId="admin-eh-push-web-only" />
+            <Stat label={t("admin.engineHealth.push.native")} value={data.push.activeStudents7d.nativeOnly + data.push.activeStudents7d.nativeAndWebPush} testId="admin-eh-push-native" />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground" data-testid="admin-eh-push-failures">
+            {t("admin.engineHealth.push.failures7d")}:{" "}
+            {(["ios", "android", "web"] as const).map((p) => `${p} ${data.push!.registrationFailures7d[p]}`).join(" · ")}
+          </p>
+        </Card>
+      )}
       <Card className="md:col-span-2" data-testid="admin-eh-incidents">
         <h2 className="mb-3 font-semibold">{t("admin.engineHealth.incidents.title")}</h2>
         <ScrollTable testId="admin-eh-incidents-table">
@@ -144,6 +160,31 @@ function Summary({ data }: { data: EngineHealth }) {
           </ul>
         )}
       </Card>
+      {data.pushReceipts && (
+        <Card className="md:col-span-2" data-testid="admin-eh-receipts">
+          <h2 className="mb-1 font-semibold">{t("admin.engineHealth.receipts.title")}</h2>
+          <p className="mb-3 text-xs text-muted-foreground">{t("admin.engineHealth.receipts.hint")}</p>
+          <ScrollTable testId="admin-eh-receipts-table">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr><th className="py-1 pr-4" /><th className="py-1 pr-4">{t("admin.engineHealth.incidents.last24h")}</th><th className="py-1">{t("admin.engineHealth.incidents.last7d")}</th></tr>
+            </thead>
+            <tbody>
+              {RECEIPT_STATUSES.map((st) => (
+                <tr key={st} className="border-t">
+                  <td className="py-1 pr-4">{t(`admin.engineHealth.receipts.status.${st}`)}</td>
+                  <td className="py-1 pr-4" data-testid={`admin-eh-receipts-24h-${st}`}>{data.pushReceipts!.last24h[st]}</td>
+                  <td className="py-1">{data.pushReceipts!.last7d[st]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </ScrollTable>
+          {Object.keys(data.pushReceipts.last7d.errorsByCode).length > 0 && (
+            <p className="mt-2 break-words font-mono text-xs" data-testid="admin-eh-receipts-codes">
+              {Object.entries(data.pushReceipts.last7d.errorsByCode).map(([code, n]) => `${code} ${n}`).join(" · ")}
+            </p>
+          )}
+        </Card>
+      )}
       <Card className="md:col-span-2" data-testid="admin-eh-deploy">
         <h2 className="mb-3 font-semibold">{t("admin.engineHealth.deploy.title")}</h2>
         <div className="grid gap-6 sm:grid-cols-2">

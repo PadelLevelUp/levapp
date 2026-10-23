@@ -35,8 +35,9 @@ class DeviceToken(db.Model, model.Model):
     token = Column(String(255), nullable=False)
     platform = Column(String(32), nullable=True)
     #: notifications.notification-sound rule 5 (PAD-680): the registering build declared
-    #: `notification-sound` (it has the switch), so its pushes may carry `sound`. Refreshed on every
-    #: registration (each app start); a row from an older build stays False: silent pushes.
+    #: `notification-sound` (it has the switch). Refreshed on every registration (each app start).
+    #: Since PAD-743 it gates `sound` only for a non-iOS token: every iOS token sounds while the
+    #: recipient's switch is on.
     sound_capable = Column(Boolean, nullable=False, default=False, server_default=false())
 
     user = relationship("User")

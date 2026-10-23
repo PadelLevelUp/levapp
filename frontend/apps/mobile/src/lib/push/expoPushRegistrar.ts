@@ -3,7 +3,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { api } from "@/lib/api";
-import type { PushRegistrar } from "./types";
+import type { PushFailure, PushFailurePhase, PushRegistrar, PushStatus } from "./types";
 
 /**
  * Native device-token registration endpoint. The same path is used for both
@@ -24,6 +24,28 @@ export const PUSH_TOKEN_ENDPOINT: string = "/notifications/device";
 export const ANDROID_CHANNEL_ID = "default";
 
 /**
+ * messaging.push-notifications rule 15 (PAD-744): the waits before each retry of a failed
+ * registration. After the last one the status is `failed` and the next foreground tries again.
+ */
+export const RETRY_DELAYS_MS: readonly number[] = [2_000, 10_000, 30_000];
+
+/** A failed POST, tagged so the failure hook can tell it from a failure before it. */
+class PostFailed extends Error {
+  constructor(readonly inner: unknown) {
+    super("push token POST failed");
+    this.name = "PostFailed";
+  }
+}
+
+/** `http_<status>` for an HTTP error, else the error's name; never its message (PAD-746). */
+export function errorClassOf(error: unknown): string {
+  const e = error instanceof PostFailed ? error.inner : error;
+  const status = (e as { response?: { status?: unknown } } | null)?.response?.status;
+  const name = typeof status === "number" ? `http_${status}` : e instanceof Error ? e.name : typeof e;
+  return name.slice(0, 60);
+}
+
+/**
  * expo-notifications implementation. Every step is best-effort: missing
  * permissions, simulators, or network failures all resolve silently —
  * callers can fire-and-forget.
@@ -31,6 +53,12 @@ export const ANDROID_CHANNEL_ID = "default";
 export class ExpoPushRegistrar implements PushRegistrar {
   /** Cached so unregister() can send the same token without re-prompting. */
   private currentToken: string | null = null;
+  private state: PushStatus = "unknown";
+  private readonly listeners = new Set<(status: PushStatus) => void>();
+  private readonly failureListeners = new Set<(failure: PushFailure) => void>();
+  /** Bumped by unregister(): a retry or a rotation from an earlier session sees a stale value and stops. */
+  private generation = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Fetches the Expo push token for this device, or null if unavailable. */
   private async getDeviceToken(): Promise<string | null> {
@@ -45,7 +73,39 @@ export class ExpoPushRegistrar implements PushRegistrar {
     return token;
   }
 
-  async register(): Promise<void> {
+  private setStatus(next: PushStatus): void {
+    if (next === this.state) return;
+    this.state = next;
+    for (const listener of this.listeners) listener(next);
+  }
+
+  private reportFailure(error: unknown): void {
+    const phase: PushFailurePhase = error instanceof PostFailed ? "post" : "token";
+    const failure: PushFailure = { phase, errorClass: errorClassOf(error) };
+    for (const listener of this.failureListeners) {
+      try {
+        listener(failure);
+      } catch {
+        // A reporter must never break registration.
+      }
+    }
+  }
+
+  private clearRetry(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+  }
+
+  register(): Promise<void> {
+    return this.attempt({ prompt: true });
+  }
+
+  registerIfPermitted(): Promise<void> {
+    return this.attempt({ prompt: false });
+  }
+
+  private async attempt({ prompt }: { prompt: boolean }, retry = 0, generation = this.generation): Promise<void> {
+    if (retry === 0) this.clearRetry();
     try {
       if (Platform.OS === "android") {
         // PAD-307 (messaging.push-notifications rule 11d): the channel the
@@ -66,13 +126,14 @@ export class ExpoPushRegistrar implements PushRegistrar {
       // On Android 13+ this is the runtime POST_NOTIFICATIONS prompt (the
       // manifest permission comes from expo-notifications' plugin); below 13,
       // and on a device that already answered, it resolves without UI. iOS:
-      // the usual alert/badge/sound prompt.
+      // the usual alert/badge/sound prompt. Rule 15: only `register()` prompts.
       let { status } = await Notifications.getPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== "granted" && prompt) {
         status = (await Notifications.requestPermissionsAsync()).status;
       }
       if (status !== "granted") {
         console.log("[push] notification permission not granted");
+        this.setStatus("no-permission");
         return;
       }
 
@@ -83,20 +144,91 @@ export class ExpoPushRegistrar implements PushRegistrar {
       // only the token fetch and the registration are device-only.
       if (!Device.isDevice) {
         console.log("[push] skipping registration: not a physical device");
+        this.setStatus("unsupported");
         return;
       }
 
       const token = await this.getDeviceToken();
-      if (!token) return;
-      this.currentToken = token;
+      if (!token) {
+        this.setStatus("unsupported");
+        return;
+      }
+      await this.send(token, generation);
+    } catch (error) {
+      console.warn("[push] register failed", error);
+      this.reportFailure(error);
+      this.scheduleRetry(() => this.attempt({ prompt: false }, retry + 1, generation), retry, generation);
+    }
+  }
 
+  /** Caches the token and posts it; throws on a failed POST so the caller can retry. */
+  private async send(token: string, generation: number): Promise<void> {
+    if (generation !== this.generation) return;
+    this.currentToken = token;
+    try {
       await api.post(PUSH_TOKEN_ENDPOINT, {
         token,
         platform: Platform.OS,
       });
     } catch (error) {
-      console.warn("[push] register failed", error);
+      throw new PostFailed(error);
     }
+    if (generation !== this.generation) return;
+    this.clearRetry();
+    this.setStatus("registered");
+  }
+
+  /** Rule 15: retry with growing waits, never across a logout; `failed` once they are spent. */
+  private scheduleRetry(run: () => Promise<void>, retry: number, generation: number): void {
+    if (generation !== this.generation) return;
+    const delay = RETRY_DELAYS_MS[retry];
+    if (delay === undefined) {
+      this.setStatus("failed");
+      return;
+    }
+    this.clearRetry();
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void run();
+    }, delay);
+  }
+
+  watchTokenRotation(): () => void {
+    try {
+      const subscription = Notifications.addPushTokenListener(({ data }) => {
+        if (typeof data !== "string" || !data || data === this.currentToken) return;
+        const generation = this.generation;
+        const sendRotated = (retry: number): Promise<void> =>
+          this.send(data, generation).catch((error) => {
+            console.warn("[push] rotated token register failed", error);
+            this.reportFailure(error);
+            this.scheduleRetry(() => sendRotated(retry + 1), retry, generation);
+          });
+        void sendRotated(0);
+      });
+      return () => subscription.remove();
+    } catch {
+      // No native module (tests, Expo Go without push): nothing to listen to.
+      return () => undefined;
+    }
+  }
+
+  status(): PushStatus {
+    return this.state;
+  }
+
+  onStatusChange(listener: (status: PushStatus) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  onRegistrationFailure(listener: (failure: PushFailure) => void): () => void {
+    this.failureListeners.add(listener);
+    return () => {
+      this.failureListeners.delete(listener);
+    };
   }
 
   cachedToken(): string | null {
@@ -104,6 +236,10 @@ export class ExpoPushRegistrar implements PushRegistrar {
   }
 
   async unregister(): Promise<void> {
+    // Rule 15: a logout ends every retry and rotation of this session.
+    this.generation += 1;
+    this.clearRetry();
+    this.setStatus("unknown");
     try {
       let token = this.currentToken;
 

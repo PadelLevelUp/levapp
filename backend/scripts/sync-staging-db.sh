@@ -24,8 +24,8 @@
 #   * BEST-EFFORT for the copy: a skipped or failed restore logs and exits 0, and the staging
 #     app is started again (EXIT trap). The scrub is the exception (PAD-606 rule 9), because a
 #     green job must mean nothing personal is on staging:
-#       exit 3  restored, the scrub failed (or its file is missing), staging was wiped and
-#               comes up empty;
+#       exit 3  restored, then the migrate step or the scrub failed (or the scrub file is
+#               missing), staging was wiped and comes up empty;
 #       exit 4  the scrub failed AND the wipe failed: staging may hold unscrubbed data, so the
 #               app is left stopped.
 #     The deploy's sync-db job fails on either; it stays continue-on-error, so the deploy
@@ -75,6 +75,7 @@ skip() { log "SKIPPED: $*"; exit 0; }
 EXIT_SCRUB_FAILED=3
 EXIT_SCRUB_FAILED_NOT_WIPED=4
 unsafe=0   # set when the target may hold unscrubbed data: the EXIT trap then leaves staging stopped
+migrated=0 # set once the copy is at the image's head (step 4b): the EXIT trap does not migrate twice
 
 # ── 1. Read the staging DB identity from .env.staging (KEY=VALUE lines only) ──
 case "$MODE" in auto|reload|live) ;; *) skip "unknown mode '$MODE' (auto, reload or live)" ;; esac
@@ -181,6 +182,7 @@ migrate_restored() {
   rc=$?
   rm -f "$envfile"
   [ "$rc" = 0 ] || log "WARNING: the migrate step exited $rc: $APP_CONTAINER will refuse to start behind head"
+  [ "$rc" = 0 ] && migrated=1
   return "$rc"
 }
 
@@ -189,7 +191,7 @@ restart_app() {
     log "NOT starting $APP_CONTAINER: $TARGET_DB may hold unscrubbed data (wipe or reload by hand)"
     return 0
   fi
-  migrate_restored || true
+  [ "$migrated" = 1 ] || migrate_restored || true
   log "starting $APP_CONTAINER"
   docker start "$APP_CONTAINER" >/dev/null 2>&1 || log "WARNING: could not start $APP_CONTAINER"
   if [ "$copy_stopped" = 1 ]; then
@@ -289,15 +291,23 @@ else
   fi
 fi
 
-# ── 5. Scrub — nothing on staging identifies a real person (PAD-606) ───────
+# ── 4b/5. Migrate, then scrub — nothing on staging identifies a real person (PAD-606) ─────────
 # staging-scrub.sql (next to this script) rewrites every personal column in ONE transaction, before
 # the EXIT trap starts the app. It fails closed: if it does not complete, the schema is wiped, so
 # staging comes up empty (its migrations recreate the tables) rather than serving production data,
 # and the dump is not recorded, so the next push restores and scrubs again.
+#
+# The scrub runs AFTER the migrate step (rule 9b): the dump carries prod's schema, which is behind
+# the staging image's head whenever staging has unpromoted migrations, and the scrub is written for
+# the image's head. Scrubbing first failed on a table prod did not have yet (push_outbox, the
+# 2026-10-23 deploy of #796). After the migrate step the scrub meets exactly the schema its guard
+# test checked, including columns an unpromoted migration added and rows it backfilled. A migrate
+# step that fails is a failed scrub: the copy cannot be scrubbed at a known schema, so it is wiped.
 SCRUB_SQL="$(dirname "$0")/staging-scrub.sql"
 fail_closed() {
   log "ERROR: $1; wiping $TARGET_DB rather than serving unscrubbed data"
   if pg "$TARGET_DB" "drop schema if exists public cascade; create schema public;" >/dev/null; then
+    migrated=0   # the EXIT trap migrates the empty schema, so staging comes up at its head
     log "ERROR: scrub failed; $TARGET_DB wiped, staging comes up empty (exit $EXIT_SCRUB_FAILED)"
     exit "$EXIT_SCRUB_FAILED"
   fi
@@ -306,6 +316,8 @@ fail_closed() {
   exit "$EXIT_SCRUB_FAILED_NOT_WIPED"
 }
 [ -f "$SCRUB_SQL" ] || fail_closed "$SCRUB_SQL missing"
+log "migrating the restored copy to the image's head before the scrub"
+migrate_restored || fail_closed "the migrate step failed before the scrub"
 log "scrubbing personal data on $TARGET_DB"
 if docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$TARGET_DB" -q -1 -v ON_ERROR_STOP=1 \
      -v pwhash="$PWHASH" -f - < "$SCRUB_SQL" >/dev/null; then
