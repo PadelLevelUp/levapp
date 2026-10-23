@@ -174,6 +174,15 @@ ADMIN_JWT_AUDIENCE_DEFAULT = "levapp-admin"
 ADMIN_TOKEN_EXPIRES_DEFAULT = timedelta(hours=12)
 
 
+def finance_max_bytes(raw):
+    """admin.finance rule 7: a positive integer, else 1 GiB."""
+    try:
+        value = int((raw or "").strip())
+    except ValueError:
+        return 1024 ** 3
+    return value if value > 0 else 1024 ** 3
+
+
 def parse_admin_hosts(raw):
     """``ADMIN_HOSTS`` as a tuple of lower-cased hostnames (rule 11); blanks dropped."""
     return tuple(item.strip().lower() for item in (raw or "").split(",") if item.strip())
@@ -316,6 +325,11 @@ class Config:
     # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
     # pending-coach mail and push. Empty = the bare path (local development).
     ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
+    # admin.finance rules 7 and 11 (PAD-742): the Google Cloud billing export table
+    # (project.dataset.table). Empty = the import is "not configured". Set from a deploy variable,
+    # never a tracked value (R-036). The byte cap bounds every query; invalid → the 1 GiB default.
+    FINANCE_GCP_BILLING_TABLE = (os.getenv("FINANCE_GCP_BILLING_TABLE") or "").strip()
+    FINANCE_GCP_MAX_BYTES = finance_max_bytes(os.getenv("FINANCE_GCP_MAX_BYTES"))
     # admin.work-dashboard rule 5 (PAD-555): server-side only, never sent to a client or logged.
     # Unset LINEAR_API_KEY → tickets "not configured"; unset WORK_GITHUB_REPO (the deploys set it to
     # the repository) → GitHub "not configured", so tests and local runs never call GitHub.

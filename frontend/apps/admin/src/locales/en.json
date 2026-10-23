@@ -14,7 +14,8 @@
         "engineHealth": "Engine health",
         "reports": "Reports",
         "deletionAudits": "Deletions",
-        "work": "Work"
+        "work": "Work",
+        "finance": "Finance"
       },
       "signOut": "Sign out",
       "role": {
@@ -505,6 +506,103 @@
         "testflight": "TestFlight",
         "bugs": "Bug ledger",
         "ci": "CI"
+      }
+    },
+    "finance": {
+      "title": "Finance",
+      "lead": "Every LevApp cost, by month and category.",
+      "notAllowed": "Only the owner role sees this page.",
+      "tabs": {
+        "summary": "Summary",
+        "costs": "Costs",
+        "gcp": "Google Cloud"
+      },
+      "categories": {
+        "infrastructure": "Infrastructure",
+        "ai_tools": "AI and tools",
+        "stores": "App stores",
+        "domains_dns": "Domains and DNS",
+        "email_crm": "Email and CRM",
+        "other": "Other"
+      },
+      "recurrences": {
+        "once": "One-off",
+        "monthly": "Monthly",
+        "annual": "Yearly"
+      },
+      "columns": {
+        "month": "Month",
+        "total": "Total",
+        "cumulative": "Running total",
+        "vendor": "Vendor",
+        "description": "Description",
+        "amount": "Amount",
+        "amountEur": "Amount (EUR)",
+        "currency": "Currency",
+        "recurrence": "Repeats",
+        "startsOn": "Starts",
+        "endsOn": "Ends",
+        "category": "Category",
+        "notes": "Notes",
+        "project": "Project",
+        "service": "Service",
+        "cost": "Cost",
+        "credits": "Credits",
+        "net": "Net",
+        "trigger": "Source",
+        "actor": "Who",
+        "started": "Started",
+        "outcome": "Outcome",
+        "rows": "Rows",
+        "error": "Error"
+      },
+      "summary": {
+        "empty": "No costs yet.",
+        "download": "Download CSV",
+        "chart": "Costs by month and category",
+        "superseded": "{{count}} Google Cloud invoice(s) entered by hand were replaced by the imported figures."
+      },
+      "banner": {
+        "error": "The Google Cloud import failed ({{code}}). Last good import: {{date}}.",
+        "stale": "The Google Cloud import has stopped. Last good import: {{date}}.",
+        "never": "never",
+        "notConfigured": "The Google Cloud import is not set up; Google Cloud months are entered by hand."
+      },
+      "costs": {
+        "add": "New cost",
+        "edit": "Edit",
+        "delete": "Delete",
+        "confirmDelete": "Delete this cost? It stops counting in the totals; its history stays.",
+        "showDeleted": "Show deleted",
+        "deleted": "Deleted",
+        "all": "All",
+        "empty": "No costs.",
+        "history": "History",
+        "save": "Save",
+        "gcpInvoice": "Google Cloud invoice (a month before the import)",
+        "revision": "Version {{n}}"
+      },
+      "errors": {
+        "INVALID_COST": "Check the field: {{field}}.",
+        "GCP_MONTH_IMPORTED": "That month already has the imported Google Cloud figures.",
+        "IMPORT_RUNNING": "An import is already running.",
+        "generic": "Could not save."
+      },
+      "gcp": {
+        "month": "Month",
+        "importNow": "Import now",
+        "runs": "Recent imports",
+        "empty": "No imported lines for this month.",
+        "trigger": {
+          "schedule": "Daily",
+          "manual": "Manual"
+        },
+        "outcome": {
+          "running": "Running",
+          "ok": "OK",
+          "error": "Error",
+          "not_configured": "Not set up"
+        }
       }
     }
   }

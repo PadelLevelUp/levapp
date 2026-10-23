@@ -692,6 +692,22 @@ def _run_retention_sweep() -> None:
             app.logger.error("retention_sweep failed: %s", exc)
 
 
+def _run_finance_gcp_import() -> None:
+    """admin.finance (PAD-742) rule 7: the daily read-only Google Cloud billing import. A failure is
+    recorded on its run row and logged by the import itself; a live run elsewhere is skipped."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services.admin import finance_gcp_import
+            finance_gcp_import.run_import("schedule")
+        except finance_gcp_import.ImportRunning:
+            app.logger.info("finance_gcp_import skipped: another run is live")
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("finance_gcp_import failed: %s", exc)
+
+
 def _run_extend_schedule_window() -> None:
     """Extend the rolling 60-day reminder horizon for all coaches.
 
@@ -888,11 +904,12 @@ def init_scheduler(app, test_config=None) -> None:
 #: delivery.worker-role rule 4 (B-667): (id, UTC hour, minute). A fixed minute, never
 #: IntervalTrigger(days=1): replace_existing re-registers every job on every boot, which moved an
 #: interval's next run to boot + 24 h, so with a deploy a day it never fired. The minutes are spread
-#: so the three passes never share the leader's pool.
+#: so the daily passes never share the leader's pool.
 DAILY_JOBS = (
     ("extend_schedule_window", 2, 47),
     ("prune_delivery_incidents", 3, 7),
     ("retention_sweep", 3, 17),
+    ("finance_gcp_import", 4, 7),
 )
 #: A daily run missed while the leader was paused (a deploy's lock handover) still runs late.
 DAILY_MISFIRE_GRACE_SECONDS = 6 * 3600
@@ -903,6 +920,7 @@ def _daily_job_funcs():
         "extend_schedule_window": _run_extend_schedule_window,
         "prune_delivery_incidents": _run_prune_delivery_incidents,
         "retention_sweep": _run_retention_sweep,
+        "finance_gcp_import": _run_finance_gcp_import,
     }
 
 

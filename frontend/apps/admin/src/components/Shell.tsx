@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Building2, ClipboardList, Flag, Home, ListChecks, LogOut, Settings, Shield, Trash2, ToggleLeft, UserCheck, Users } from "lucide-react";
+import { Activity, Building2, ClipboardList, Flag, Home, ListChecks, LogOut, Settings, Shield, Trash2, ToggleLeft, UserCheck, Users, Wallet } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { adminApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { FINANCE_ROLE } from "@/lib/finance";
 import { Button } from "./ui";
 import { useIsPhone } from "@/lib/useIsPhone";
 import { APPROVALS_KEY } from "@/pages/ApprovalsPage";
@@ -43,6 +44,8 @@ export function Shell() {
     { to: "/deletion-audits", icon: Trash2, label: t("admin.shell.nav.deletionAudits") },
     // admin.work-dashboard rule 6 (PAD-555): operator and owner only.
     ...(can("operator") ? [{ to: "/work", icon: ListChecks, label: t("admin.shell.nav.work") }] : []),
+    // admin.finance rule 1 (PAD-742): owner only.
+    ...(can(FINANCE_ROLE) ? [{ to: "/finance", icon: Wallet, label: t("admin.shell.nav.finance") }] : []),
   ];
   // admin.phone-console rule 2: one layout is rendered, never both hidden by CSS.
   if (phone) {
