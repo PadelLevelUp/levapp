@@ -720,18 +720,16 @@ def test_direct_message_push_fires_while_recipient_is_connected_over_sse(app):
         assert mock_post.call_args.kwargs["json"][0]["to"] == "ExponentPushToken[pad118sse]"
 
 
-def test_expo_ticket_response_is_not_a_delivery_receipt(app):
-    """PAD-118's blind spot, pinned.
+def test_an_ok_ticket_is_kept_and_its_receipt_redeemed_later(app):
+    """PAD-118's blind spot, closed by PAD-745 (rule 10b).
 
     `/push/send` returns *tickets*. APNs-level verdicts (BadDeviceToken from an
     aps-environment mismatch, InvalidCredentials from a missing Expo APNs key)
-    only appear later, via `/push/getReceipts` keyed by the ticket id. This
-    sender treats an `ok` ticket as success and drops the ticket id, so it can
-    never learn that a push it "sent" was never delivered.
-
-    When a receipt-fetching step is added, replace this with a test asserting
-    ticket ids are retained and redeemed.
+    only appear later, via `/push/getReceipts` keyed by the ticket id. The send
+    keeps the id; the scheduler leader redeems it (test_pad745_push_receipts).
     """
+    from padel_app.models.push_receipt import PushReceipt
+    from padel_app.services import push_receipts
     from padel_app.utils.expo_push import send_expo_push
 
     with app.app_context():
@@ -741,8 +739,15 @@ def test_expo_ticket_response_is_not_a_delivery_receipt(app):
             )
             result = send_expo_push(["ExponentPushToken[t]"], "T", "B", {})
 
-        # Reported as success purely on the strength of the ticket.
         assert result is True
-        # Only one HTTP call is ever made: the ticket id is never redeemed.
+        # The send itself makes one call; the ticket id is kept for the receipt.
         assert mock_post.call_count == 1
-        assert all("getReceipts" not in str(c) for c in mock_post.call_args_list)
+        row = PushReceipt.query.filter_by(ticket_id="XXXX-XXXX-XXXX-XXXX").one()
+        assert row.status == "pending"
+
+        with patch("requests.post") as receipts_post:
+            receipts_post.return_value = _mock_response(
+                {"data": {"XXXX-XXXX-XXXX-XXXX": {"status": "error", "details": {"error": "InvalidCredentials"}}}}
+            )
+            push_receipts.read(now=row.sent_at + timedelta(minutes=20))
+        assert (row.status, row.error_code) == ("error", "InvalidCredentials")

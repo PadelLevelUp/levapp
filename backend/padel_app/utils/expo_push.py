@@ -6,7 +6,7 @@
 #   directly to the raw Expo HTTP push API (https://exp.host/--/api/v2/push/send)
 #   using `requests` (already a transitive dependency, importable in this venv).
 # - Batches in groups of <=100 tokens per request (Expo's documented limit).
-# - Parses receipts for a `DeviceNotRegistered` error and deletes the stale
+# - Parses tickets for a `DeviceNotRegistered` error and deletes the stale
 #   DeviceToken row for that token (cleanup on the caller's behalf).
 import logging
 import os
@@ -62,7 +62,7 @@ def _chunks(items, size):
 
 def send_expo_push(
     tokens: list[str], title, body, data: dict | None = None, badge: int | None = None,
-    sound: str | None = None,
+    sound: str | None = None, user_id=None,
 ) -> bool:
     """Best-effort Expo push send to one or more Expo push tokens.
 
@@ -78,8 +78,11 @@ def send_expo_push(
 
     `sound` ("default") makes iOS play the system sound for the push; omitted when None, so the
     push is silent (notifications.notification-sound rule 5).
+
+    `user_id` names the recipient on the tickets kept for their receipts (rule 10b).
     """
-    return send_expo_push_outcome(tokens, title, body, data, badge=badge, sound=sound)[0] == SENT
+    return send_expo_push_outcome(tokens, title, body, data, badge=badge, sound=sound,
+                                  user_id=user_id)[0] == SENT
 
 
 #: The three outcomes a push outbox row can take from one send (PAD-699, architecture review R2).
@@ -88,13 +91,13 @@ SENT, RETRY, SKIP = "sent", "retry", "skip"
 
 def send_expo_push_outcome(
     tokens: list[str], title, body, data: dict | None = None, badge: int | None = None,
-    sound: str | None = None,
+    sound: str | None = None, user_id=None, outbox_id=None,
 ) -> tuple[str, str | None]:
     """`send_expo_push`, answering `(outcome, detail)` for the push outbox. `sent` as soon as any token
     accepted (a retry never re-sends to a token that accepted); `skip` when there is nothing to send
     to (no tokens, Expo disabled here, every token DeviceNotRegistered); `retry` otherwise (HTTP or
-    parse failure, rate limits, unknown receipt errors). `detail` names a class or code, never a
-    token."""
+    parse failure, rate limits, unknown ticket errors). `detail` names a class or code, never a
+    token. Each `ok` ticket is kept, with `user_id` and `outbox_id`, for its receipt (rule 10b)."""
     tokens = [t for t in (tokens or []) if t]
     if not tokens:
         return SKIP, "no device"
@@ -148,14 +151,16 @@ def send_expo_push_outcome(
             transient = type(exc).__name__
             continue
 
-        receipts = payload.get("data", [])
-        for token, receipt in zip(batch, receipts):
-            status = receipt.get("status") if isinstance(receipt, dict) else None
+        tickets = payload.get("data", [])
+        accepted = []
+        for token, ticket in zip(batch, tickets):
+            status = ticket.get("status") if isinstance(ticket, dict) else None
             if status == "ok":
                 any_success = True
+                accepted.append((token, ticket.get("id")))
                 continue
 
-            error_type = (receipt.get("details") or {}).get("error") if isinstance(receipt, dict) else None
+            error_type = (ticket.get("details") or {}).get("error") if isinstance(ticket, dict) else None
             # admin.engine-health rule 3 (PAD-534): Expo's error code, never the token.
             _record_expo_failure(token, error_type)
             if error_type == "DeviceNotRegistered":
@@ -174,11 +179,15 @@ def send_expo_push_outcome(
                 # B-254: the status and Expo's error code, not the receipt's message (it quotes
                 # the whole token).
                 logger.warning(
-                    "Expo push receipt error for token=%s: status=%s error=%s",
+                    "Expo push ticket error for token=%s: status=%s error=%s",
                     _token_tail(token),
-                    receipt.get("status") if isinstance(receipt, dict) else None,
+                    ticket.get("status") if isinstance(ticket, dict) else None,
                     error_type,
                 )
+        if accepted:
+            from padel_app.services import push_receipts
+
+            push_receipts.keep(accepted, user_id=user_id, outbox_id=outbox_id)
 
     if any_success:
         return SENT, None
@@ -255,5 +264,5 @@ def send_expo_push_to_user(
     for sound, tokens in groups.items():
         if tokens:
             sent = submit(send_expo_push, tokens, title, body, data, badge=badge, sound=sound,
-                          label=f"expo push for user {user_id}") or sent
+                          user_id=user_id, label=f"expo push for user {user_id}") or sent
     return sent

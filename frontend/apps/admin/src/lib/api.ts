@@ -314,6 +314,8 @@ export interface UserDetail extends UserRow {
 
 export type DeployIdentity = { gitSha: string; alembicHead: string | null };
 export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due";
+export type PushReceiptStatus = "pending" | "ok" | "error" | "expired";
+export type PushReceiptCounts = Record<PushReceiptStatus, number> & { errorsByCode: Record<string, number> };
 
 export interface EngineHealth {
   computedAt: string;
@@ -332,6 +334,8 @@ export interface EngineHealth {
     last7d: Record<IncidentKind, number>;
     recent: { id: number; createdAt: string; kind: IncidentKind; channel: string; userId: number | null; subjectType: string | null; subjectId: number | null; errorClass: string | null; detail: string | null }[];
   };
+  /** PAD-745: absent from a backend older than the receipts. */
+  pushReceipts?: { last24h: PushReceiptCounts; last7d: PushReceiptCounts };
   accounts: { users: Record<string, number>; coaches: Record<string, number>; players: number; createdLast7d: number };
   deploy: { this: DeployIdentity; other: DeployIdentity | string };
 }

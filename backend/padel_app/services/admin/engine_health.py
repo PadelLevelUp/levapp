@@ -18,7 +18,8 @@ from padel_app.utils.dates import to_utc_iso, utcnow_naive
 JOB_FAMILIES = (
     "reminder_lesson_", "invite_start_lesson_", "invite_start_", "pastdue_", "ask_", "reminder_",
 )
-SINGLETONS = ("process_batches", "extend_schedule_window", "prune_delivery_incidents", "retention_sweep")
+SINGLETONS = ("process_batches", "extend_schedule_window", "prune_delivery_incidents", "retention_sweep",
+              "read_push_receipts")
 OVERDUE_AFTER = timedelta(minutes=5)
 PEER_TIMEOUT_SECONDS = 2
 
@@ -115,6 +116,13 @@ def _incidents(now) -> dict:
             "recent": [r.to_dict() for r in recent]}
 
 
+def _push_receipts(now) -> dict:
+    """messaging.push-notifications rule 10b (PAD-745): what Apple and Google answered Expo."""
+    from padel_app.services import push_receipts
+
+    return push_receipts.summary(now)
+
+
 def _accounts(now) -> dict:
     from padel_app.models import Coach, Player, User
 
@@ -165,6 +173,7 @@ def summary(config, now=None) -> dict:
         "invitations": _invitations(),
         "scheduler": _scheduler(now),
         "incidents": _incidents(now),
+        "pushReceipts": _push_receipts(now),
         "accounts": _accounts(now),
         "deploy": {"this": this_identity(), "other": other_identity(config)},
     }

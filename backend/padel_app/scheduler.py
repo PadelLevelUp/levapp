@@ -17,6 +17,7 @@ Jobs
 - ``reminder_{instance_id}``                   — DateTrigger — fires send_class_reminders() (legacy, for already-materialized instances)
 - ``invite_start_{instance_id}``               — DateTrigger — fires trigger_invitations()
 - ``process_batches``                          — IntervalTrigger (2 min) — fires process_invitation_batches()
+- ``read_push_receipts``                       — IntervalTrigger (10 min) — redeems Expo tickets (PAD-745)
 - ``extend_schedule_window``                   — CronTrigger (daily 02:47 UTC) — extends 60-day reminder horizon
                                                  and re-derives any missing lesson reminder jobs
 - ``prune_delivery_incidents`` / ``retention_sweep`` — CronTrigger (daily 03:07 / 03:17 UTC)
@@ -676,6 +677,25 @@ def _run_prune_delivery_incidents() -> None:
             delivery_incidents.prune()
         except Exception as exc:  # noqa: BLE001
             app.logger.error("prune_delivery_incidents failed: %s", exc)
+        try:
+            # messaging.push-notifications rule 10b (PAD-745): receipts are kept as long as incidents.
+            from padel_app.services import push_receipts
+            push_receipts.prune()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("prune push receipts failed: %s", exc)
+
+
+def _run_read_push_receipts() -> None:
+    """messaging.push-notifications rule 10b (PAD-745): ask Expo for the receipts of the kept tickets."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services import push_receipts
+            push_receipts.read()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("read_push_receipts failed: %s", type(exc).__name__)
 
 
 def _run_retention_sweep() -> None:
@@ -842,6 +862,16 @@ def init_scheduler(app, test_config=None) -> None:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=60,
+    )
+    # PAD-745: under an hour, so a boot moving its next run (B-667) costs at most 10 minutes.
+    sched.add_job(
+        func=_run_read_push_receipts,
+        trigger=IntervalTrigger(minutes=10),
+        id="read_push_receipts",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=300,
     )
 
     sched.add_listener(_on_job_missed, EVENT_JOB_MISSED)

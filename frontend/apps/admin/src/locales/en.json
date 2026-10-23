@@ -300,6 +300,16 @@
           "reminder_skipped_past_due": "Reminder skipped (past due)"
         }
       },
+      "receipts": {
+        "title": "Push receipts (Apple and Google)",
+        "hint": "Whether Apple or Google took each push Expo accepted. Errors by code are for the last 7 days.",
+        "status": {
+          "ok": "Delivered to Apple or Google",
+          "error": "Refused",
+          "expired": "No answer in 24 h",
+          "pending": "Waiting"
+        }
+      },
       "accounts": {
         "title": "Accounts",
         "users": "Users",
