@@ -57,7 +57,7 @@ export default function MessagesPage() {
   const { user, token } = useAuth();
   // PAD-568: only a student is ever offered the connect-with-a-coach shortcut.
   const canConnectWithCoach = !(user?.roles?.includes("coach") ?? false);
-  const { isSupported, permission, isSubscribed, subscribe } = usePushNotifications(token);
+  const { isSupported, permission, isSubscribed, saveState, subscribe } = usePushNotifications(token);
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   // PAD-408 (messaging.push-notifications rule 12): a push names the message to
@@ -575,7 +575,20 @@ export default function MessagesPage() {
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {isSupported && !isSubscribed && permission !== "denied" && (
+        {/* auth.push-subscription rule 9 (PAD-744): permission granted but the save failed. Says
+            alerts are not active and retries, instead of the generic "enable" prompt. */}
+        {isSupported && permission === "granted" && saveState === "failed" && (
+          <div
+            data-testid="push-inactive-banner"
+            className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3"
+          >
+            <p className="text-sm text-muted-foreground">{t("messages.notificationsInactiveBrowser")}</p>
+            <Button size="sm" variant="outline" onClick={() => void subscribe()}>
+              {t("messages.enable")}
+            </Button>
+          </div>
+        )}
+        {isSupported && !isSubscribed && permission !== "denied" && saveState !== "failed" && (
           <div className="px-3 py-2 border-b border-border bg-muted/40 flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">{t("messages.enableNotificationsPrompt")}</p>
             <Button size="sm" variant="outline" onClick={() => void subscribe()}>

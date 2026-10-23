@@ -46,6 +46,18 @@ Register browser push notification subscriptions for authenticated users.
    a new one. Rule 7 still holds for any two clients that save at once, such as
    two tabs.
 
+9. **A browser with permission keeps its subscription saved, and says when it could not (PAD-744,
+   B-678).** Rule 4's sign-in save is not the only one. While signed in, when the page gains focus
+   or becomes visible, a browser whose permission is `granted` saves its subscription once per page
+   session, subscribing first if it has none. That covers a subscription the server dropped and one
+   the browser rotated. The service worker has no JWT, so it does not re-send a rotated
+   subscription itself; the next focus does. The save never prompts. A save that fails leaves the
+   Messages page in a "not active" state: "Browser alerts aren't active" with a button that tries
+   again (`data-testid` `push-inactive-banner`), instead of the generic "enable" prompt. The
+   enable prompt (permission not yet decided) and the PAD-195 blocked banner (`denied`) are
+   unchanged. `subscribe()` resolves `false` on a failed save and never rejects. Native's
+   counterpart is `messaging.push-notifications` rule 15.
+
 ### Acceptance Criteria
 
 #### Register push subscription
@@ -75,3 +87,15 @@ Register browser push notification subscriptions for authenticated users.
 - **Given** the web app with notification permission granted
 - **When** sign-in calls `requestAndSubscribe` twice with the same token before the first save has answered
 - **Then** exactly one POST to `/api/notifications/save-subscription` is sent
+
+#### Focus re-saves a granted browser's subscription once (PAD-744)
+- **Given** a signed-in coach whose browser permission is `granted` and whose subscription the
+  server does not hold
+- **When** the tab gains focus twice
+- **Then** one `POST /api/notifications/save-subscription` is sent, with no permission prompt
+
+#### A failed save shows the not-active banner with a retry (PAD-744)
+- **Given** a signed-in coach whose browser permission is `granted`
+- **When** the subscription save answers 500
+- **Then** the Messages page shows `push-inactive-banner` with "Browser alerts aren't active", and its
+  button saves again; no unhandled rejection is raised

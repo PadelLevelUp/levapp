@@ -17,7 +17,7 @@ import {
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
 import { launchMark } from "@/lib/launch-timeline";
-import { getPushRegistrar } from "@/lib/push";
+import { getPushRegistrar, startPushRecovery } from "@/lib/push";
 import { clearSessionCache } from "./session-cache";
 import { endSessionState, signOut } from "./sign-out";
 
@@ -115,6 +115,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // messaging.push-notifications rule 15 (PAD-744): while signed in, a foreground registers
+  // without a prompt if this session has not, and a rotated token is sent.
+  const signedIn = user !== null;
+  useEffect(() => {
+    if (!signedIn) return;
+    return startPushRecovery(getPushRegistrar());
+  }, [signedIn]);
 
   // 401 anywhere → drop session and land on the login screen.
   // Guard: only navigate when a user was actually signed in. Without it,
