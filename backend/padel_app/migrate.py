@@ -14,6 +14,13 @@ starts), by ``sync-staging-db.sh`` after a restore, and later by the GKE migrate
 2. Ahead of the image (a ``rollback_to``) or already at head: nothing to do, exit 0.
 3. Otherwise run the unchanged ``python -m flask --app app.py db upgrade`` in a subprocess, so
    ``is_migration_invocation`` keeps the scheduler off and the production guard on.
+   PAD-718 (rule 12): the previous release serves while this runs, so the subprocess gets
+   ``LEVAPP_MIGRATE_STEP=1`` and ``migrations/env.py`` sets ``lock_timeout`` (``MIGRATE_DDL_LOCK_TIMEOUT``,
+   3 s) and ``statement_timeout`` (``MIGRATE_STATEMENT_TIMEOUT``, 300 s) on its session: an ALTER
+   waiting behind a long query stalls the API's queries on that table for at most the lock
+   timeout. A lock timeout (SQLSTATE 55P03) rolls the one upgrade transaction back and exits
+   ``LOCK_BUSY_EXIT``; only that code is retried, ``MIGRATE_ATTEMPTS`` (4) times in all, with
+   ``RETRY_BACKOFF`` between attempts. A plain ``flask db upgrade`` (CI, tests, a laptop) sets nothing.
 4. Re-read the schema: anything but at head is exit 1.
 
 Not ``flask db check``: it stays the CI drift gate (rule 9).
@@ -32,11 +39,39 @@ from padel_app import schema_state as ss
 # "LVMG". The scheduler's leadership lock is 0x4C455641 ("LEVA"); they must never collide.
 MIGRATE_LOCK_KEY = 0x4C564D47
 LOCK_TIMEOUT_EXIT = 3
+#: migrations/env.py exits with this when the upgrade hit its lock_timeout (PAD-718); EX_TEMPFAIL.
+LOCK_BUSY_EXIT = 75
+#: Seconds between attempts after a lock timeout: the API's queries flow in the gaps.
+RETRY_BACKOFF = (5, 10, 20)
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 def log(message):
     print(f"[migrate] {message}", flush=True)
+
+
+def session_timeouts(environ):
+    """(ddl lock timeout s, statement timeout s, attempts) for the upgrade's session (PAD-718)."""
+    return (float(environ.get("MIGRATE_DDL_LOCK_TIMEOUT", "3")),
+            float(environ.get("MIGRATE_STATEMENT_TIMEOUT", "300")),
+            int(environ.get("MIGRATE_ATTEMPTS", "4")))
+
+
+def upgrade_with_retries(upgrade, *, attempts, backoff=RETRY_BACKOFF, sleep=time.sleep):
+    """Runs ``upgrade`` again after a lock timeout, up to ``attempts`` runs; any other code is final.
+    Each failed attempt rolled its whole transaction back, so a retry is a clean re-run."""
+    for attempt in range(1, attempts + 1):
+        code = upgrade()
+        if code != LOCK_BUSY_EXIT:
+            return code
+        if attempt == attempts:
+            log(f"lock_timeout on attempt {attempt}/{attempts}: giving up; the schema is where it was")
+            return code
+        wait = backoff[min(attempt - 1, len(backoff) - 1)]
+        log(f"lock_timeout on attempt {attempt}/{attempts}: a query holds a lock the migration needs; "
+            f"rolled back, retrying in {wait}s")
+        sleep(wait)
+    return LOCK_BUSY_EXIT
 
 
 def acquire_lock(connection, timeout, *, key=MIGRATE_LOCK_KEY, poll=1.0, report_every=30.0,
@@ -56,13 +91,21 @@ def acquire_lock(connection, timeout, *, key=MIGRATE_LOCK_KEY, poll=1.0, report_
         sleep(poll)
 
 
-def run_upgrade():
-    return subprocess.run(
-        [sys.executable, "-m", "flask", "--app", "app.py", "db", "upgrade"], cwd=BACKEND_DIR
-    ).returncode
+def run_upgrade(environ=None):
+    """One ``flask db upgrade`` with the migrate step's session timeouts (env.py reads them only
+    under LEVAPP_MIGRATE_STEP). MIGRATE_DIRECTORY points it at another migrations directory (tests)."""
+    environ = dict(os.environ if environ is None else environ)
+    lock_s, statement_s, _ = session_timeouts(environ)
+    environ.update({"LEVAPP_MIGRATE_STEP": "1",
+                    "MIGRATE_DDL_LOCK_TIMEOUT": f"{lock_s:g}", "MIGRATE_STATEMENT_TIMEOUT": f"{statement_s:g}"})
+    cmd = [sys.executable, "-m", "flask", "--app", "app.py", "db", "upgrade"]
+    if environ.get("MIGRATE_DIRECTORY"):
+        cmd += ["-d", environ["MIGRATE_DIRECTORY"]]
+    return subprocess.run(cmd, cwd=BACKEND_DIR, env=environ).returncode
 
 
-def migrate(engine, *, lock_timeout, upgrade=run_upgrade, acquire=acquire_lock):
+def migrate(engine, *, lock_timeout, upgrade=run_upgrade, acquire=acquire_lock, attempts=1,
+            backoff=RETRY_BACKOFF, sleep=time.sleep):
     t0 = time.monotonic()
     is_pg = engine.dialect.name == "postgresql"  # SQLite (tests) has no advisory locks
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock_conn:
@@ -83,7 +126,7 @@ def migrate(engine, *, lock_timeout, upgrade=run_upgrade, acquire=acquire_lock):
 
             t1 = time.monotonic()
             log("running flask db upgrade")
-            code = upgrade()
+            code = upgrade_with_retries(upgrade, attempts=attempts, backoff=backoff, sleep=sleep)
             log(f"flask db upgrade exited {code} after {time.monotonic() - t1:.1f}s")
             if code != 0:
                 return code
@@ -105,9 +148,13 @@ def migrate(engine, *, lock_timeout, upgrade=run_upgrade, acquire=acquire_lock):
 def main(environ=None):
     environ = os.environ if environ is None else environ
     timeout = float(environ.get("MIGRATE_LOCK_TIMEOUT", "1500"))
+    lock_s, statement_s, attempts = session_timeouts(environ)
+    log(f"session timeouts: lock_timeout {lock_s:g}s, statement_timeout {statement_s:g}s, "
+        f"{attempts} attempt(s), backoff {'/'.join(map(str, RETRY_BACKOFF))}s (PAD-718)")
     engine = create_engine(ss.database_uri(), poolclass=NullPool)
     try:
-        return migrate(engine, lock_timeout=timeout)
+        return migrate(engine, lock_timeout=timeout, upgrade=lambda: run_upgrade(environ),
+                       attempts=attempts, backoff=RETRY_BACKOFF)
     finally:
         engine.dispose()
 

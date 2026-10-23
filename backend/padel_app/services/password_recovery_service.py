@@ -92,11 +92,23 @@ def _find(email):
 
 
 def _deliver(user, code):
+    """Rule 3 (PAD-734): called after the commit; the mail goes out off the request thread. A mail
+    that fails clears this code again, in its own commit, unless a newer code has replaced it."""
     from padel_app.tools.email_templates import render_password_recovery_email
-    from padel_app.tools.email_tools import send_email
+    from padel_app.tools.mail_dispatch import send_later
 
     subject, text, html = render_password_recovery_email(user, code)
-    send_email(subject, [user.email], body=text, html=html)
+    user_id, code_hash = user.id, user.password_reset_code_hash
+
+    def clear():
+        fresh = db.session.get(User, user_id, populate_existing=True)  # the row as committed now
+        if fresh is not None and fresh.password_reset_code_hash == code_hash:
+            _clear(fresh)
+            db.session.commit()
+
+    # B-254: the label names the user id, never the address.
+    send_later(subject, [user.email], body=text, html=html,
+               label=f"recovery mail to user {user_id}", on_failure=clear)
 
 
 def request_recovery(email, now=None):
@@ -122,13 +134,8 @@ def request_recovery(email, now=None):
     user.password_reset_expires_at = now + CODE_TTL
     user.password_reset_sent_at = now
     user.password_reset_attempts = 0
-    try:
-        _deliver(user, code)
-    except Exception as exc:  # noqa: BLE001 — rule 3: log, clear, still 200
-        # B-254: the user id and the exception class, never the address or the exception text.
-        current_app.logger.warning("recovery mail to user %s failed: %s", user.id, type(exc).__name__)
-        _clear(user)
     db.session.commit()
+    _deliver(user, code)  # rule 3: after the commit, never awaited; a failure clears the code
     return standard_body()
 
 
