@@ -4,6 +4,7 @@
  * "Adicionar mesmo assim"; a second press adds. With nothing to name, the first press adds (control).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -25,9 +26,10 @@ vi.mock("./hooks", () => ({
   useAddToStandingWaitingList: () => ({ isPending: false, mutateAsync: add }),
   useRenewStandingWaitingList: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+// Real useCoachDisplayName since PAD-406; its roster carries no nicknames, so names print as given.
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachPlayers: async () => [],
 }));
 const api = vi.hoisted(() => ({ checkStandingEligibility: vi.fn() }));
 vi.mock("@levelup/api/src/resources/notificationEngine", () => api);
@@ -36,12 +38,23 @@ import { WaitingListDialog } from "./waiting-list-dialog";
 
 const failing = [{ lessonInstanceId: 9, title: "Sábado 18h", startDatetime: "2026-10-24T18:00:00", ineligible: [] }];
 
-beforeEach(() => add.mockClear());
+let client: QueryClient;
+const mount = () =>
+  renderNative(
+    <QueryClientProvider client={client}>
+      <WaitingListDialog open onClose={() => undefined} playerId={2} playerName="Ana Pinto" />
+    </QueryClientProvider>
+  );
+
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+  add.mockClear();
+});
 
 describe("PAD-724 the standing list warns before adding a student who fails some classes' bar", () => {
   it("names the classes on the first press, adds on the second", async () => {
     api.checkStandingEligibility.mockResolvedValue({ classes: failing });
-    const n = await renderNative(<WaitingListDialog open onClose={() => undefined} playerId={2} playerName="Ana Pinto" />);
+    const n = await mount();
     await n.press("waiting-list-save");
     await n.flush();
     expect(n.queryByTestId("standing-wl-eligibility-warning")).not.toBeNull();
@@ -54,7 +67,7 @@ describe("PAD-724 the standing list warns before adding a student who fails some
 
   it("with nothing to name, the first press adds", async () => {
     api.checkStandingEligibility.mockResolvedValue({ classes: [] });
-    const n = await renderNative(<WaitingListDialog open onClose={() => undefined} playerId={2} playerName="Ana Pinto" />);
+    const n = await mount();
     await n.press("waiting-list-save");
     await n.flush();
     expect(add).toHaveBeenCalledTimes(1);

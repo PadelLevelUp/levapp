@@ -8,7 +8,7 @@
  *
  * Mount: the leaf components the ticket names (`AddCustomCompetency`,
  * `DeleteCompetencyDialog`) plus the real `CompetencyRow` and the real
- * `useEvaluationCompetencies` hook, wired together by a small harness defined in this
+ * `useEvaluationCompetencies` hook (real since PAD-406; a shim before), wired together by a small harness defined in this
  * file that mirrors what `CompetencyManagerScreen` does in its body — a list of rows, the
  * add form, the delete dialog — WITHOUT the screen's chrome (`Screen`, `ErrorState`,
  * `Skeleton`, `KeyboardAvoidingView`, `expo-router`, `useAuth`'s coach gate). That chrome
@@ -22,24 +22,16 @@
  * — exactly the control a coach presses.
  *
  * vi.mock inventory:
- *  - "@levelup/hooks" — NOT `@levelup/api` (see below for why). Every `use*` export
- *    these three files import is replaced by a small homemade query/mutation shim built
- *    on plain `useState`/`useEffect`, backed by the `api` spies below; `evaluationApiErrorCode`
- *    is reimplemented verbatim (it is pure — no react-query, three lines) so
- *    `add-custom-competency.tsx`'s import still resolves. Why not mock `@levelup/api` and
- *    let the REAL hooks run, the way the template and the web `CompetencyManager.test.tsx`
- *    do: this workspace has two React copies — root `node_modules/react` is 18.3.1, this
- *    app's own is 19.1.0 — and `@tanstack/react-query` is hoisted to the root, so its
- *    `useQuery`/`useMutation` call the ROOT React's `useEffect` while `react-test-renderer`
- *    (mounted from `renderNative`) is the mobile app's own React 19 copy; two React
- *    instances in one render tree is exactly "Invalid hook call" (confirmed empirically —
- *    `Cannot read properties of null (reading 'useEffect')` from inside
- *    `QueryClientProvider`). Fixing that is a workspace dependency change, out of scope
- *    for a single test file; mocking the hooks module is the ticket's own named fallback.
- *    The shim keeps `useEvaluationCompetencies`' refetch semantics observable: its
- *    `refetch` is captured, at render time, into the file-scoped `listRefetch` below, so
- *    test 2 can force a second read the way a real `invalidateQueries()` would, without
- *    `@tanstack/react-query` in the tree at all.
+ *  - "@levelup/api/src/resources/evaluationRecords" — the seven competency calls, as the
+ *    `api` spies below; everything else in the module stays real. The hooks are the REAL
+ *    `@levelup/hooks` (react-query included), mounted inside a real `QueryClientProvider`
+ *    that `mount()` wraps around every render, a fresh client per test. Until PAD-406 the
+ *    workspace held two Reacts (root 18.3.1, this app's 19.1.0), react-query called the root
+ *    copy's hooks inside a React 19 tree, and `@levelup/hooks` had to be shimmed; with one
+ *    React 19.1.0 it mounts for real. A refetch is a real
+ *    `client.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies })`: one query,
+ *    refetched once for every row that reads it. Re-proven against a mutant on 2026-10-22: an
+ *    effect that clears the typed name whenever the list's data changes fails the refetch test.
  *  - "react-i18next" — `useTranslation` returns a reassignable `currentT`, whose
  *    identity `settleLanguage()` changes; the harness template's mechanism for the bug.
  *  - "@expo/vector-icons" — `CompetencyRow`'s rename/delete icons; no icon rendering
@@ -58,7 +50,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type {
   EvaluationCategoryImpact,
   EvaluationCompetencies,
@@ -79,91 +72,16 @@ const api = vi.hoisted(() => ({
   convertEvaluationCompetency: vi.fn(),
 }));
 
-// Exposed by the "@levelup/hooks" mock below; captures the list query's own `refetch`
-// so the test can force a second read (test 2) without a real QueryClient.
-// Every reader of the list registers here, as every observer of one react-query query would refetch
-// together (PAD-480: each row now reads the list too, for where it may move).
-const listReaders = new Set<() => void>();
-let listRefetch: (() => void) | null = null;
+// PAD-406: one React in the workspace, so the REAL @levelup/hooks run (react-query included) over
+// a mocked api module, inside a real QueryClientProvider made fresh per test.
+vi.mock("@levelup/api/src/resources/evaluationRecords", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  ...api,
+}));
 
-vi.mock("@levelup/hooks", async () => {
-  const React = await import("react");
-
-  function useFakeQuery<T>(fetcher: () => Promise<T>, key: unknown, enabled: boolean) {
-    const [state, setState] = React.useState<{ data?: T; isError: boolean }>({ isError: false });
-    const [tick, setTick] = React.useState(0);
-    const refetch = React.useCallback(() => setTick((t) => t + 1), []);
-    React.useEffect(() => {
-      if (!enabled) return;
-      let alive = true;
-      fetcher().then(
-        (data) => { if (alive) setState({ data, isError: false }); },
-        () => { if (alive) setState((s) => ({ ...s, isError: true })); },
-      );
-      return () => { alive = false; };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [enabled, tick, key]);
-    return { data: state.data, isError: state.isError, refetch };
-  }
-
-  function useFakeMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>) {
-    const [isPending, setIsPending] = React.useState(false);
-    return {
-      isPending,
-      mutateAsync: async (args: TArgs) => {
-        setIsPending(true);
-        try {
-          return await fn(args);
-        } finally {
-          setIsPending(false);
-        }
-      },
-    };
-  }
-
-  return {
-    useEvaluationCompetencies: (enabled = true) => {
-      const q = useFakeQuery(api.getEvaluationCompetencies, null, enabled);
-      listReaders.add(q.refetch);
-      listRefetch = () => listReaders.forEach((refetch) => refetch()); // a test-only escape hatch
-      return q;
-    },
-    useCreateCustomCompetency: () =>
-      useFakeMutation((input: string | { name: string; parentId: number }) =>
-        typeof input === "string" ? api.createCustomCompetency(input) : api.createCustomCompetency(input.name, input.parentId)),
-    useUpdateEvaluationCompetency: () =>
-      useFakeMutation((args: { id: number; patch: EvaluationCompetencyPatch }) =>
-        api.updateEvaluationCompetency(args.id, args.patch)),
-    useSwitchOnCatalogueCompetency: () => useFakeMutation((key: string) => api.switchOnCatalogueCompetency(key)),
-    useDeleteEvaluationCompetency: () => useFakeMutation((id: number) => api.deleteEvaluationCompetency(id)),
-    // Verbatim copy of packages/hooks/src/evaluations.ts's mutationFn (tested there, competencyConvert.test.tsx).
-    useConvertEvaluationCompetency: () =>
-      useFakeMutation(async ({ id, catalogueKey, moveIds }: { id: number; catalogueKey: string; moveIds: number[] }) => {
-        const competency = await api.convertEvaluationCompetency(id, catalogueKey);
-        const notMoved: number[] = [];
-        for (const moveId of moveIds) {
-          try {
-            await api.updateEvaluationCompetency(moveId, { parentId: competency.id });
-          } catch {
-            notMoved.push(moveId);
-          }
-        }
-        return { competency, notMoved };
-      }),
-    useEvaluationCompetencyImpact: (competencyId: number | null, enabled = true) =>
-      useFakeQuery<EvaluationCategoryImpact>(
-        () => api.getEvaluationCompetencyImpact(competencyId as number),
-        competencyId,
-        competencyId !== null && enabled,
-      ),
-    // Pure — verbatim copy of packages/hooks/src/evaluations.ts's implementation.
-    evaluationApiErrorCode: (error: unknown): string | null => {
-      const data = (error as { response?: { data?: unknown } } | null)?.response?.data;
-      const code = (data as { error?: unknown } | null)?.error;
-      return typeof data === "object" && typeof code === "string" ? code : null;
-    },
-  };
-});
+let client: QueryClient;
+const wrap = (el: ReactElement) => createElement(QueryClientProvider, { client }, el);
+const mount = (el: ReactElement) => renderNative(wrap(el));
 
 let currentT = (key: string) => key;
 const settleLanguage = () => {
@@ -198,7 +116,7 @@ import { CompetencyRow } from "./competency-row";
 import { DeleteCompetencyDialog } from "./delete-competency-dialog";
 import { ConvertCompetencyDialog } from "./convert-competency-dialog";
 import { CategorySectionView } from "./category-section";
-import { useEvaluationCompetencies } from "@levelup/hooks";
+import { queryKeys, useEvaluationCompetencies } from "@levelup/hooks";
 import { View } from "react-native";
 
 function competency(over: Partial<EvaluationCompetency>): EvaluationCompetency {
@@ -242,13 +160,12 @@ beforeEach(() => {
   api.getEvaluationCompetencies.mockResolvedValue(DATA_V1);
   api.getEvaluationCompetencyImpact.mockResolvedValue({ scores: 0, players: 0 });
   settleLanguage();
-  listRefetch = null;
-  listReaders.clear();
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
 });
 
 describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-392/B-155 family)", () => {
   it("keeps a typed custom-competency name when the language settles afterwards", async () => {
-    const n = await renderNative(createElement(Harness));
+    const n = await mount(createElement(Harness));
     await n.flush();
     expect(n.queryByTestId("competency-row-id-7")).not.toBeNull();
 
@@ -261,7 +178,7 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
     // (found empirically while proving the mutant kills this test — the "rerender" was a
     // silent no-op), exactly as the template's `rerender(<WorkingHoursSection />)` already
     // constructs fresh JSX each call.
-    await n.rerender(createElement(Harness));
+    await n.rerender(wrap(createElement(Harness)));
     await n.flush();
 
     expect(n.byTestId("competency-add-name").props.value).toBe("Maestro Cat");
@@ -270,7 +187,7 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
 
   it("keeps a typed name when the list is refetched", async () => {
     const el = createElement(Harness);
-    const n = await renderNative(el);
+    const n = await mount(el);
     await n.flush();
     expect(n.queryByTestId("competency-row-id-7")).not.toBeNull();
     expect(n.queryByTestId("competency-row-id-9")).toBeNull();
@@ -280,20 +197,20 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
     api.getEvaluationCompetencies.mockResolvedValue(DATA_V2);
     const readsBefore = api.getEvaluationCompetencies.mock.calls.length;
     await act(async () => {
-      listRefetch?.();
+      await client.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies });
     });
     await n.flush();
 
     expect(n.byTestId("competency-add-name").props.value).toBe("Maestro Cat");
     expect(n.queryByTestId("competency-row-id-9")).not.toBeNull();
-    // The list was read again (each reader of the shim reads for itself; PAD-480's rows read it too).
+    // The list was read again (one react-query query, refetched once for all its readers).
     expect(api.getEvaluationCompetencies.mock.calls.length).toBeGreaterThan(readsBefore);
   });
 
   it("a successful add DOES clear the field — by design (Session-C)", async () => {
     api.createCustomCompetency.mockResolvedValue(competency({ id: 20, name: "Maestro Cat", group: "custom" }));
     const el = createElement(Harness);
-    const n = await renderNative(el);
+    const n = await mount(el);
     await n.flush();
 
     await n.changeText("competency-add-name", "Maestro Cat");
@@ -306,7 +223,7 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
   });
 
   it("keeps a partly typed delete-confirmation name across a new t", async () => {
-    const n = await renderNative(createElement(Harness));
+    const n = await mount(createElement(Harness));
     await n.flush();
 
     await n.press("competency-delete-id-7");
@@ -318,7 +235,7 @@ describe("competency manager (iOS) — an unsaved edit never gets undone (PAD-39
 
     settleLanguage();
     // Fresh element per rerender — see the header comment above test 1.
-    await n.rerender(createElement(Harness));
+    await n.rerender(wrap(createElement(Harness)));
     await n.flush();
 
     expect(n.byTestId("competency-delete-name").props.value).toBe("Mae");
@@ -357,7 +274,7 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
   beforeEach(() => api.getEvaluationCompetencies.mockResolvedValue(TREE));
 
   it("each category heads its section, with its sub-categories and the defaults it lacks under it", async () => {
-    const n = await renderNative(createElement(TreeHarness));
+    const n = await mount(createElement(TreeHarness));
     await n.flush();
 
     expect(inside(n, "competency-section-key-technique", "competency-row-key-technique")).toBe(true);
@@ -367,7 +284,7 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
   });
 
   it("a default can be renamed and deleted (rules 8, 9)", async () => {
-    const n = await renderNative(createElement(TreeHarness));
+    const n = await mount(createElement(TreeHarness));
     await n.flush();
 
     expect(n.queryByTestId("competency-rename-key-bandeja")).not.toBeNull();
@@ -376,7 +293,7 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
 
   it("adds a sub-category under a held category by parentId; an offered default has no field", async () => {
     api.createCustomCompetency.mockResolvedValue(competency({ id: 30, name: "Recuperação", group: "custom", parentId: 1 }));
-    const n = await renderNative(createElement(TreeHarness));
+    const n = await mount(createElement(TreeHarness));
     await n.flush();
 
     await n.changeText("competency-add-sub-key-technique-name", " Recuperação ");
@@ -388,7 +305,7 @@ describe("categories and sub-categories on iOS (PAD-431)", () => {
   });
 
   it("deleting a category names the sub-categories that go with it", async () => {
-    const n = await renderNative(createElement(TreeHarness));
+    const n = await mount(createElement(TreeHarness));
     await n.flush();
 
     await n.press("competency-delete-key-technique");
@@ -415,7 +332,7 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
 
   it("a catalogue sub-category offers the other categories, never the top level; picking one sends parentId", async () => {
     api.updateEvaluationCompetency.mockResolvedValue({ ...BANDEJA, parentId: 13, sortOrder: null });
-    const n = await renderNative(rowOf(BANDEJA, "catalogue"));
+    const n = await mount(rowOf(BANDEJA, "catalogue"));
     await n.flush();
 
     await n.press("competency-move-key-bandeja");
@@ -433,7 +350,7 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
 
   it("a custom sub-category may go to the top level, which sends parentId null", async () => {
     api.updateEvaluationCompetency.mockResolvedValue({ ...LIFT, parentId: null, sortOrder: null });
-    const n = await renderNative(rowOf(LIFT, "custom"));
+    const n = await mount(rowOf(LIFT, "custom"));
     await n.flush();
 
     await n.press("competency-move-id-14");
@@ -444,17 +361,17 @@ describe("moving a row on iOS (rule 15 \"Moving\", PAD-480)", () => {
   });
 
   it("a legacy row and a default category offer no move", async () => {
-    const legacy = await renderNative(rowOf(FOREHAND, "legacy"));
+    const legacy = await mount(rowOf(FOREHAND, "legacy"));
     await legacy.flush();
     expect(legacy.queryByTestId("competency-move-id-7")).toBeNull();
-    const technique = await renderNative(rowOf(TECHNIQUE, "catalogue"));
+    const technique = await mount(rowOf(TECHNIQUE, "catalogue"));
     await technique.flush();
     expect(technique.queryByTestId("competency-move-key-technique")).toBeNull();
   });
 
   it("a refused move says so on the row", async () => {
     api.updateEvaluationCompetency.mockRejectedValue({ response: { status: 400, data: { error: "parent_invalid" } } });
-    const n = await renderNative(rowOf(BANDEJA, "catalogue"));
+    const n = await mount(rowOf(BANDEJA, "catalogue"));
     await n.flush();
 
     await n.press("competency-move-key-bandeja");
@@ -504,7 +421,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
   });
 
   it("a legacy row named like a default offers the conversion, and that default is not offered as an add", async () => {
-    const n = await renderNative(createElement(ConvertHarness));
+    const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
     expect(n.queryByTestId("competency-convert-id-5")).not.toBeNull();
@@ -516,7 +433,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
 
   it("the dialog says what happens, then converts and moves the checked strays under it", async () => {
     api.updateEvaluationCompetency.mockImplementation(async (id: number) => ({ ...BANDEJA_OFF, id, parentId: 5 }));
-    const n = await renderNative(createElement(ConvertHarness));
+    const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
     await n.press("competency-convert-id-5");
@@ -538,7 +455,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
       if (id === 9) throw { response: { status: 400, data: { error: "parent_invalid" } } };
       return { ...BANDEJA_OFF, parentId: 5 };
     });
-    const n = await renderNative(createElement(ConvertHarness));
+    const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
     await n.press("competency-convert-id-5");
@@ -552,13 +469,15 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
     expect(n.queryByTestId("competency-convert-dialog")).toBeNull();
     // The re-list reads the new state: Serviço stayed at the top level and still offers "Mover para…".
     api.getEvaluationCompetencies.mockResolvedValue(AFTER);
-    act(() => listRefetch?.());
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: queryKeys.evaluationCompetencies });
+    });
     await n.flush();
     expect(n.queryByTestId("competency-move-key-serve")).not.toBeNull();
   });
 
   it("unchecked, the strays are not moved", async () => {
-    const n = await renderNative(createElement(ConvertHarness));
+    const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
     await n.press("competency-convert-id-5");
@@ -573,7 +492,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
   });
 
   it("another target can be picked", async () => {
-    const n = await renderNative(createElement(ConvertHarness));
+    const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
     await n.press("competency-convert-id-5");
@@ -589,7 +508,7 @@ describe("converting a legacy category on iOS (rule 18, PAD-480)", () => {
 
   it("a refused conversion says why and moves nothing", async () => {
     api.convertEvaluationCompetency.mockRejectedValue({ response: { status: 409, data: { error: "default_held" } } });
-    const n = await renderNative(createElement(ConvertHarness));
+    const n = await mount(createElement(ConvertHarness));
     await n.flush();
 
     await n.press("competency-convert-id-6");

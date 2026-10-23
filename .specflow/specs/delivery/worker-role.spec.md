@@ -30,14 +30,15 @@ until B8 has proven it.
 
 ### Rules
 
-1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697's; it
-   behaves as `api` until then); anything else is `api`. `WORKER_SPLIT` (default off) decides
+1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697: the process
+   that holds the live-update streams); anything else is `api`. `WORKER_SPLIT` (default off) decides
    the scheduler's mode in each process:
 
    | | `WORKER_SPLIT` off | `WORKER_SPLIT` on |
    |---|---|---|
    | `api` (gunicorn) | competes for the scheduler-leader lock (zero-downtime-deploy rules 1–3) | **job-store client** |
    | `worker` | no scheduler (idles, see rule 2) | competes for the lock |
+   | `events` | **no scheduler** (B-677) | **no scheduler** |
 
    A job-store client starts its scheduler **paused** and never resumes it: request handlers
    still call `schedule_*`/`cancel_*`, which write the shared `apscheduler_jobs` table through
@@ -68,8 +69,10 @@ until B8 has proven it.
      `SSE_BROKER=postgres` (PAD-692): the publish is a `realtime_events` row and a NOTIFY that
      the API's listener fans out. A worker under the memory broker logs a WARNING at boot.
    - Pushes produced by jobs go out through the worker's own in-process sender. Pushes produced
-     by requests still go through the API's (lazy, started on the first `submit`) until the
-     PAD-699 outbox replaces both.
+     by requests still go through the API's (lazy, started on the first `submit`). With
+     `PUSH_QUEUE=outbox` (PAD-699, `messaging.push-notifications` rule 10a) both become outbox
+     rows, drained by the scheduler leader; the worker stops its drainer before releasing the
+     lock.
    - The staging sync stops the worker with the API before a restore (it holds connections to
      the target and would run jobs on a half-restored database) and starts it after the API.
 4. **A daily job fires whatever the deploy rhythm (B-667).** Every recurring job of a day or more
@@ -93,8 +96,9 @@ until B8 has proven it.
 
 #### The modes follow role and flag (rule 1)
 - **Given** each of api/events/worker with the flag on and off **When** the mode is computed
-  **Then** it is: api off → compete, api on → client, events on → client, worker on → compete,
-  worker off → off (no scheduler)
+  **Then** it is: api off → compete, api on → client, events off → off, events on → off (B-677:
+  an events process neither runs jobs nor writes the job store), worker on → compete, worker off →
+  off (no scheduler)
 
 #### The worker waits for the lock without exiting (rule 2)
 - **Given** another process holds the lock **When** the worker has waited 61 s **Then** it has

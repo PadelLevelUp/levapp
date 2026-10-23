@@ -4,6 +4,7 @@ status: draft
 implemented_by:
   - ../../specs/delivery/zero-downtime-deploy.spec.md
   - ../../specs/delivery/worker-role.spec.md
+  - ../../specs/delivery/events-role.spec.md
   - ../../specs/delivery/k8s-manifests.spec.md
 ---
 

@@ -3,8 +3,9 @@
  * grouped: a category heads the sub-categories offered under it, and a row scored directly has no
  * heading. `formGroups` is tested in packages/config and one group's view in
  * evaluation-categories-ui.test.tsx; this pins that `EvaluationForm` actually uses them
- * (evaluation-form.tsx, the `formGroups(rows, competencies)` render). The session hook, the inputs
- * and the toast are stubbed: the form's grouping is under test, not its saving.
+ * (evaluation-form.tsx, the `formGroups(rows, competencies)` render).
+ * The session hook is the real @levelup/hooks one since PAD-406 (it was stubbed; it is no
+ * react-query hook); the inputs and the toast are stubbed: the form's grouping is under test, not its saving.
  */
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -15,12 +16,6 @@ vi.mock("react-i18next", () => {
   const translation = { t: (key: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? key, i18n: { language: "pt" } };
   return { useTranslation: () => translation };
 });
-vi.mock("@levelup/hooks", () => ({
-  useEvaluationFormSession: () => ({
-    session: { rate: vi.fn(), step: vi.fn(), editNote: vi.fn(), flush: vi.fn(), retryNote: vi.fn() },
-    state: { scores: {}, note: "", noteUnsaved: false, failure: null },
-  }),
-}));
 vi.mock("@expo/vector-icons", async () => {
   const { View } = await import("react-native");
   return { Ionicons: () => createElement(View) };

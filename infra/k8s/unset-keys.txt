@@ -27,6 +27,8 @@ SSE_MAX_STREAMS                   prod    default  40 (staging's template raises
 SSE_MAX_STREAMS_PER_USER          all     default  4
 SSE_KEEPALIVE_SECONDS             all     default  5
 PUSH_QUEUE_MAX                    all     default  500
+PUSH_QUEUE                        prod    default  memory (staging's template sets outbox; prod after B8)
+PUSH_OUTBOX_POLL_SECONDS          all     default  1
 REALTIME_EVENTS_RETENTION_MINUTES all     default  10
 SCHEDULER_LEADERSHIP              all     default  on
 WORKER_WAKE_SECONDS               all     default  5 (delivery.worker-role rule 2)

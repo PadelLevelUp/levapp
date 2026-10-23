@@ -26,6 +26,10 @@ dependencies = [
     "SQLAlchemy==1.4.52",
     "Flask-SQLAlchemy==2.5.1",
     "psycopg2-binary==2.9.9",
+    # PAD-697: the events role serves streams under gunicorn's gevent worker; psycogreen makes
+    # psycopg2 cooperative there. Only ROLE=events imports them.
+    "gevent==25.5.1",
+    "psycogreen==1.0.2",
 
     # --- Migrations ---
     "Flask-Migrate==4.0.7",

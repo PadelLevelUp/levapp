@@ -40,6 +40,8 @@ Convenience hooks for lesson_service (safe no-ops when scheduler is absent)
 
 from __future__ import annotations
 
+from padel_app.roles import ROLES, flag_enabled, process_role  # noqa: F401 — re-exported (delivery.worker-role rule 1)
+
 import atexit
 import contextvars
 import os
@@ -797,7 +799,10 @@ def init_scheduler(app, test_config=None) -> None:
     # there is nothing to split: every process runs as before.
     mode = MODE_COMPETE if test_mode else scheduler_mode(process_role(), worker_split_enabled())
     if mode == MODE_OFF:
-        app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
+        if process_role() == "events":
+            app.logger.info("APScheduler not started: ROLE=events holds streams only (B-677).")
+        else:
+            app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
         return
 
     _app = app
@@ -891,6 +896,9 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+    # No leadership thread (SCHEDULER_LEADERSHIP off): this process runs the jobs, and the outbox.
+    _start_push_drainer(app)
+    atexit.register(stop_push_drainer, app)
 
 
 #: delivery.worker-role rule 4 (B-667): (id, UTC hour, minute). A fixed minute, never
@@ -952,28 +960,50 @@ def _register_daily_jobs(sched, logger) -> None:
 MODE_COMPETE = "compete"
 MODE_CLIENT = "client"
 MODE_OFF = "off"
-ROLES = ("api", "worker", "events")
-
-
-def process_role(environ=None) -> str:
-    """delivery.worker-role rule 1 (PAD-695): ``ROLE`` = api | worker | events, default api.
-    ``events`` is PAD-697's and behaves as ``api`` until then; anything else is ``api``."""
-    environ = os.environ if environ is None else environ
-    role = environ.get("ROLE", "api").strip().lower()
-    return role if role in ROLES else "api"
 
 
 def worker_split_enabled(environ=None) -> bool:
     """``WORKER_SPLIT``: the worker runs the jobs and the API only writes the job store. Default off."""
-    environ = os.environ if environ is None else environ
-    return environ.get("WORKER_SPLIT", "off").strip().lower() in ("1", "true", "yes", "on")
+    return flag_enabled("WORKER_SPLIT", environ)
 
 
 def scheduler_mode(role: str, split: bool) -> str:
     """``compete`` (run jobs as the lock holder), ``client`` (write the job store only) or ``off``."""
+    if role == "events":
+        # B-677: an events process holds the live-update streams and nothing else; it neither
+        # competes for the leader lock nor writes the job store, whatever WORKER_SPLIT says.
+        return MODE_OFF
     if role == "worker":
         return MODE_COMPETE if split else MODE_OFF
     return MODE_CLIENT if split else MODE_COMPETE
+
+
+def _push_drainer(app):
+    """PAD-699: this process's push outbox drainer, created on first use; None while PUSH_QUEUE is not
+    outbox (the in-memory sender then carries the pushes, as before)."""
+    from padel_app.utils import push_outbox
+
+    with app.app_context():
+        if not push_outbox.enabled():
+            return None
+    drainer = app.extensions.get("push_drainer")
+    if drainer is None:
+        drainer = push_outbox.Drainer(app)
+        app.extensions["push_drainer"] = drainer
+    return drainer
+
+
+def _start_push_drainer(app) -> None:
+    drainer = _push_drainer(app)
+    if drainer is not None:
+        drainer.start()
+
+
+def stop_push_drainer(app) -> None:
+    """Idempotent; the worker calls it before giving up the lock, atexit calls it again."""
+    drainer = app.extensions.get("push_drainer")
+    if drainer is not None:
+        drainer.stop()
 
 
 def _shutdown_quietly(sched) -> None:
@@ -1003,15 +1033,23 @@ def _start_scheduler_leadership(app, sched) -> None:
     def on_acquire() -> None:
         _startup_reschedule(app)
         sched.resume()
+        _start_push_drainer(app)  # PAD-699: the push outbox drains where the jobs run
+
+    def on_lose() -> None:
+        sched.pause()
+        stop_push_drainer(app)
 
     leadership = SchedulerLeadership(
         pg_lock_connector(app.config["SQLALCHEMY_DATABASE_URI"]),
         on_acquire=on_acquire,
-        on_lose=sched.pause,
+        on_lose=on_lose,
         logger=app.logger,
     )
     app.extensions["scheduler_leadership"] = leadership
     atexit.register(leadership.stop)
+    # Registered after leadership.stop, so it runs before it at exit (atexit is last-in, first-out):
+    # the drainer puts its claims back before the lock goes (PAD-699).
+    atexit.register(stop_push_drainer, app)
     leadership.start_thread()
 
 
@@ -1035,6 +1073,7 @@ def release_scheduler(app) -> dict:
         return {"released": False, "state": "running"}
     _startup_reschedule(app)
     _scheduler.resume()
+    _start_push_drainer(app)
     return {"released": True, "state": "running"}
 
 

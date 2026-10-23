@@ -375,18 +375,22 @@ def _race(app, targets):
     def wrap(fn):
         def run():
             try:
-                with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]), patch(PATCHES[2]):
+                with app.app_context():
                     fn()
                     db.session.remove()
             except BaseException as exc:  # noqa: BLE001 — surfaced below
                 errors.append(exc)
         return threading.Thread(target=run)
 
+    # B-669: patched once, here, on the main thread. Two threads each entering patch() on the same
+    # attributes and leaving out of order restored one thread's MagicMock as the "original", so the
+    # real senders stayed mocked for every later test in the process (PAD-699's on Postgres shard 2).
     threads = [wrap(fn) for fn in targets]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=60)
+    with patch(PATCHES[0]), patch(PATCHES[1]), patch(PATCHES[2]):
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
     assert not any(t.is_alive() for t in threads), "a caller never finished (lock never released?)"
     assert not errors, errors
 
