@@ -34,6 +34,10 @@ SCHEDULER_LEADERSHIP              all     default  on
 WORKER_WAKE_SECONDS               all     default  5 (delivery.worker-role rule 2)
 SCHEMA_GATE_DB_WAIT               all     default  30
 MIGRATE_LOCK_TIMEOUT              all     default  1500 (the migrate Job's activeDeadlineSeconds is 1800)
+MIGRATE_DDL_LOCK_TIMEOUT          all     default  3 s lock_timeout on the upgrade's session (PAD-718)
+MIGRATE_STATEMENT_TIMEOUT         all     default  300 s statement_timeout on the upgrade's session (PAD-718)
+MIGRATE_ATTEMPTS                  all     default  4 upgrade attempts after a lock timeout, 5/10/20 s apart (PAD-718)
+MIGRATE_DIRECTORY                 all     test     points the upgrade at a scratch migrations directory (PAD-718 tests)
 OPENROUTER_BASE_URL               all     default  https://openrouter.ai/api/v1
 OPENROUTER_MODEL                  all     default  inception/mercury-2
 OPENROUTER_REASONING_ENABLED      all     default  true
