@@ -3,7 +3,7 @@ id: B-678
 title: "Push registers only at launch and login: a later grant, a rotated token or a failed save leaves a student with no push channel, silently"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - messaging.push-notifications
   - auth.push-subscription
@@ -15,6 +15,7 @@ affects:
   - frontend/apps/web/src/utils/pushNotifications.ts
 proposed_fix: "Register without a prompt when permission becomes granted and on every foreground with no registration; send a rotated token; retry a failed save a bounded number of times; show a 'notifications not active, tap to enable' state on both clients instead of a console line."
 opened: 2026-10-22T19:30:00Z
+resolved: 2026-10-23T06:38:54Z
 ---
 
 # B-678 — Push registers only at launch and login
@@ -91,3 +92,5 @@ Executed on `feature/pad-744`. It is resolved when the PR merges and the Maestro
 - **Code:**
   - mobile: `registerIfPermitted()`, retries, a status the banner can read, and `watchTokenRotation()`, plus `startPushRecovery` mounted in AuthContext while signed in and the banner's grant and retry;
   - web: `savedThisSession()`, a focus/visibility re-save, `saveState`, a `subscribe()` that never rejects, and `push-inactive-banner`.
+
+**Resolved (2026-10-23):** #818 merged into staging at 6de507eaa. Maestro flow 307 `push-grant-without-restart` passed with 51 steps completed and 0 failed (evidence in #818's body).

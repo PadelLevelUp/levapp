@@ -221,8 +221,19 @@ bash apps/mobile/scripts/push-grant-flow.sh        # optional arg: simulator UDI
 ```
 
 The simulator cannot hold a push token, so the registration attempt on the return shows only in
-Metro's output: `[push] skipping registration: not a physical device` after the restore's
-`[push] notification permission not granted`, with no `[launch]` lines between them.
+Metro's output: `[push] skipping registration: not a physical device` after the last
+`[push] notification permission not granted`, with no new `fonts-ready` / `first-screen-ready`
+launch lines between them (the same JS session, no relaunch).
+
+**Fixed start state (PAD-752, B-680).** Before the deny, the wrapper runs
+`subflows/push-grant-prep.yaml`: a `clearState` launch that waits up to 180 s for the login screen.
+That builds the bundle and signs the app out, so 307 always takes `login.yaml`'s signed-out path,
+and a slow cold launch can no longer push `login.yaml` into its own `clearState` relaunch, which
+re-grants notifications after the deny. The order is prep → deny → check → 307. The wrapper then
+reads SpringBoard's stored `authorizationStatus` (1 denied, 2 authorized) and stops if the deny did
+not take. If 307 fails, it prints the status again, so a re-grant is named. Expected gate reading,
+cold or warm and whoever was signed in before: 307 itself **44 COMPLETED / 0 FAILED / 4 SKIPPED /
+3 WARNED**, plus 2 COMPLETED for the prep flow (46 in the run's output).
 
 **Android lane (PAD-306):** flow 47 is tagged `ios-only` and `scripts/ci-android-maestro.sh` runs
 Maestro with `--exclude-tags ios-only`, so it never runs on the emulator until Android push exists
