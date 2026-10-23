@@ -13,6 +13,7 @@ vi.mock("@/api/auth", () => ({ getMe: () => getMe() }));
 vi.mock("@/api/client", () => ({ api: { post: vi.fn(async () => undefined) } }));
 vi.mock("@/config", () => ({ USE_MOCK_DATA: false }));
 vi.mock("@/utils/pushNotifications", () => ({ requestAndSubscribe: vi.fn() }));
+vi.mock("@/utils/pushFailureReport", () => ({ startPushFailureReport: () => () => undefined }));
 vi.mock("@/i18n", () => ({ default: { changeLanguage: vi.fn(), language: "en" } }));
 
 import { AuthProvider, useAuth } from "./AuthContext";

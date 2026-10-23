@@ -11,6 +11,7 @@ vi.mock("@/api/auth", () => ({ getMe: vi.fn(async () => ({ id: 7, username: "e2e
 vi.mock("@/api/client", () => ({ api: { post: vi.fn(async () => undefined) } }));
 vi.mock("@/config", () => ({ USE_MOCK_DATA: false }));
 vi.mock("@/utils/pushNotifications", () => ({ requestAndSubscribe: vi.fn() }));
+vi.mock("@/utils/pushFailureReport", () => ({ startPushFailureReport: () => () => undefined }));
 vi.mock("@/i18n", () => ({ default: i18nMock }));
 
 import { AuthProvider, useAuth } from "./AuthContext";

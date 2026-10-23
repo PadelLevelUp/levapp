@@ -17,7 +17,7 @@ import {
 import i18n from "@/lib/i18n";
 import * as Notifications from "expo-notifications";
 import { launchMark } from "@/lib/launch-timeline";
-import { getPushRegistrar, startPushRecovery } from "@/lib/push";
+import { getPushRegistrar, startPushFailureReport, startPushRecovery } from "@/lib/push";
 import { clearSessionCache } from "./session-cache";
 import { endSessionState, signOut } from "./sign-out";
 
@@ -119,6 +119,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // messaging.push-notifications rule 15 (PAD-744): while signed in, a foreground registers
   // without a prompt if this session has not, and a rotated token is sent.
   const signedIn = user !== null;
+  // admin.engine-health rule 8d (PAD-746): a failed registration is reported to the server. Always
+  // on: registration runs only for a signed-in user, and login registers before `user` is set.
+  useEffect(() => startPushFailureReport(getPushRegistrar()), []);
   useEffect(() => {
     if (!signedIn) return;
     return startPushRecovery(getPushRegistrar());
