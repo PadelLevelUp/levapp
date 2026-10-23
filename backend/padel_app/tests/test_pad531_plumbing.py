@@ -87,6 +87,12 @@ def test_logout_ends_the_session(app, client):
 
 
 SESSION_ROUTES = {"admin_api.auth_google", "admin_api.auth_logout"}
+# The one deliberate exception: admin.finance rule 1 (owner's answer, PAD-742) lets every console
+# account, support included, write finance. Its own tests cover those routes.
+SUPPORT_WRITES = {
+    "admin_api.finance_create_cost", "admin_api.finance_update_cost", "admin_api.finance_delete_cost",
+    "admin_api.finance_import_costs", "admin_api.finance_import_now",
+}
 
 
 def _write_rules(app):
@@ -94,7 +100,7 @@ def _write_rules(app):
         if not rule.rule.startswith("/admin/api/"):
             continue
         methods = set(rule.methods) - {"GET", "HEAD", "OPTIONS"}
-        if methods and rule.endpoint not in SESSION_ROUTES:
+        if methods and rule.endpoint not in SESSION_ROUTES | SUPPORT_WRITES:
             yield rule, sorted(methods)
 
 
