@@ -55,6 +55,13 @@ on:
         description: "Maestro flows to run (space-separated, relative to apps/mobile/.maestro; `.` = the whole suite)"
         type: string
         default: "."
+      force_setup_failure:
+        # PAD-757: a regression lever for the lane check. True hands the emulator step an API level
+        # with no system image, so its SDK install fails before any flow runs; the Android lane check
+        # must then read "setup failed", neutral, never success.
+        description: "Make the emulator step's SDK install fail (proves a setup failure is never green)"
+        type: boolean
+        default: false
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -376,7 +383,8 @@ jobs:
         continue-on-error: ${{ env.ANDROID_LANE_EXPERIMENTAL == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          # PAD-757: the dispatch input force_setup_failure asks for API 99, which has no system image.
+          api-level: ${{ inputs.force_setup_failure && 99 || 34 }}
           arch: x86_64
           target: default
           profile: pixel_6
@@ -427,6 +435,29 @@ jobs:
           pattern: maestro-results-*
           path: ${{ runner.temp }}/lane
 
+      # PAD-757 (rule 7): a shard whose artifact has no junit report may never have reached Maestro
+      # (#847: the emulator's SDK install failed). Its job log's first error line is written next to
+      # the artifact as setup-error.txt, so the check names the setup error instead of "0 flows red".
+      - name: Name each shard's setup error
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LANE_SHARDS: ${{ needs.apk.outputs.shards }}
+        run: |
+          set -euo pipefail
+          jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" \
+            --jq '.jobs[] | "\(.id)\t\(.name)"')
+          for shard in $(node -p 'JSON.parse(process.env.LANE_SHARDS).join(" ")'); do
+            d="$RUNNER_TEMP/lane/maestro-results-$shard"
+            [ -f "$d/maestro-report.xml" ] && continue
+            mkdir -p "$d"
+            id=$(printf '%s\n' "$jobs" | awk -F'\t' -v n="Maestro on an Android emulator ($shard)" '$2 == n { print $1 }')
+            if [ -n "$id" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" 2>/dev/null \
+                | node frontend/apps/mobile/scripts/maestro-shards.mjs setup-error > "$d/setup-error.txt" || true
+            fi
+            echo "shard $shard has no junit report; setup error: $(cat "$d/setup-error.txt" 2>/dev/null || echo none)"
+          done
+
       # Strict after two consecutive scheduled greens on main: read the Android lane check that the
       # two previous scheduled runs posted. Pull requests and dispatches stay neutral while flagged.
       - name: Count the recent scheduled greens on main
@@ -457,11 +488,20 @@ jobs:
           set -euo pipefail
           verdict=$(node frontend/apps/mobile/scripts/maestro-shards.mjs report "$RUNNER_TEMP/lane")
           conclusion=$(node -p 'JSON.parse(process.argv[1]).conclusion' "$verdict")
+          # PAD-757: each setup failure is also an annotation, on the check (at the emulator step) and on the run.
+          step_line=$(grep -n -m1 'name: Install the APK and run Maestro' .github/workflows/android-build.yaml | cut -d: -f1)
           node -e '
             const v = JSON.parse(process.argv[1]);
+            const line = Number(process.argv[2]);
+            const annotations = v.setupFailures.map((f) => ({ path: ".github/workflows/android-build.yaml", start_line: line,
+              end_line: line, annotation_level: "warning", title: `Android lane setup failed (shard ${f.shard})`, message: f.error }));
             process.stdout.write(JSON.stringify({ name: "Android lane", head_sha: process.env.HEAD_SHA, status: "completed",
-              conclusion: v.conclusion, output: { title: v.title, summary: v.summary } }));
-          ' "$verdict" > "$RUNNER_TEMP/check.json"
+              conclusion: v.conclusion, output: { title: v.title, summary: v.summary, annotations } }));
+          ' "$verdict" "$step_line" > "$RUNNER_TEMP/check.json"
+          node -e '
+            for (const f of JSON.parse(process.argv[1]).setupFailures)
+              console.log(`::warning title=Android lane setup failed (shard ${f.shard})::${f.error.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")}`);
+          ' "$verdict"
           gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" --input "$RUNNER_TEMP/check.json" --jq '.html_url'
           node -p 'JSON.parse(process.argv[1]).summary' "$verdict" >> "$GITHUB_STEP_SUMMARY"
           echo "Android lane: $conclusion"

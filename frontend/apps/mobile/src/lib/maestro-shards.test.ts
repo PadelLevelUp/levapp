@@ -7,6 +7,7 @@ import {
   checkShards,
   laneVerdict,
   readShardResults,
+  setupError,
   currentFlow,
   parseFlowsOrder,
   planShards,
@@ -187,7 +188,8 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
     expect(v.conclusion).toBe("neutral");
     expect(v.summary).toContain("27-unknown-sender-block");
     expect(v.summary).toContain("Element not found: chat-back");
-    expect(v.summary).toContain("shard 3 reported nothing");
+    expect(v.summary).toContain("shard 3: setup failed, no flow ran");
+    expect(v.title).toBe("setup failed in 1 job(s), no flow ran; 1 flow(s) red — experimental lane, reported as neutral");
   });
 
   it("fails once strict: flag removed, or two scheduled greens on main", () => {
@@ -207,6 +209,45 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
     expect(v.summary).toContain("reported 20 of 36 flows");
   });
 
+  // PAD-757: run 40021910967 (#847) — the emulator's SDK install failed, no flow ran, the artifact held
+  // only flask.log, and the check read "0 flow(s) red".
+  it("reports a shard where no flow ran as a named setup failure: neutral even when strict, never success", () => {
+    const sdk = { ...gone, shard: "all", setup: "Warning: An error occurred while preparing SDK package Android Emulator" };
+    const empty = { ...green, shard: "all", rc: 1, expected: null, finished: 0 };
+    for (const opts of [
+      { experimental: true, recentGreens: 0 },
+      { experimental: false, recentGreens: 0 },
+    ]) {
+      const v = laneVerdict([sdk], opts);
+      expect(v.conclusion).toBe("neutral");
+      expect(v.title).toBe("setup failed in 1 job(s), no flow ran — reported as neutral");
+      expect(v.title).not.toContain("0 flow(s) red");
+      expect(v.summary).toContain("preparing SDK package Android Emulator");
+      expect(v.setupFailures).toEqual([{ shard: "all", error: sdk.setup }]);
+      expect(laneVerdict([empty], opts).conclusion).toBe("neutral");
+      expect(laneVerdict([empty], opts).summary).toContain("Maestro finished no flow");
+    }
+  });
+
+  it("keeps a strict flow failure a failure next to a setup failure", () => {
+    expect(laneVerdict([red, gone], { experimental: false, recentGreens: 0 }).conclusion).toBe("failure");
+  });
+
+  it("reads the emulator step's first error line from a job log", () => {
+    const log = [
+      "2026-10-23T21:01:34.8664752Z ##[error]Flask did not answer on :5001",
+      "2026-10-23T21:02:09.9253383Z ##[group]Run reactivecircus/android-emulator-runner@v2",
+      "2026-10-23T21:02:16.0849493Z [command]/usr/bin/sh -c \\sdkmanager --install emulator --channel=0 > /dev/null",
+      "2026-10-23T21:02:26.9391293Z Warning: An error occurred while preparing SDK package Android Emulator: Error on ZipFile unknown archive.",
+      "2026-10-23T21:02:27.7338766Z error: could not connect to TCP port 5554: Connection refused",
+    ].join("\n");
+    expect(setupError(log)).toBe(
+      "Warning: An error occurred while preparing SDK package Android Emulator: Error on ZipFile unknown archive."
+    );
+    expect(setupError("2026-10-23T21:01:34.8664752Z ##[error]Flask did not answer on :5001")).toBe("Flask did not answer on :5001");
+    expect(setupError("all fine\n")).toBe("");
+  });
+
   it("reads each shard's artifact, and marks an expected shard with no artifact as missing", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lane-"));
     const tests = path.join(dir, "maestro-results-2", "tests");
@@ -216,10 +257,12 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
       path.join(tests, "maestro-stdout.txt"),
       "[Passed] 01-login (1m 43s)\n[Failed] 27-unknown-sender-block (1m 36s) (Element not found: chat-back)\n"
     );
+    fs.mkdirSync(path.join(dir, "maestro-results-3"));
+    fs.writeFileSync(path.join(dir, "maestro-results-3", "setup-error.txt"), "adb: failed to install\n");
     const results = readShardResults(dir, ["2", "3"]);
-    expect(results.map((r) => [r.shard, r.missing, r.rc, r.failed])).toEqual([
-      ["2", false, 1, [{ flow: "27-unknown-sender-block", reason: "Element not found: chat-back" }]],
-      ["3", true, null, []],
+    expect(results.map((r) => [r.shard, r.missing, r.rc, r.failed, r.setup])).toEqual([
+      ["2", false, 1, [{ flow: "27-unknown-sender-block", reason: "Element not found: chat-back" }], ""],
+      ["3", true, null, [], "adb: failed to install"],
     ]);
   });
 });

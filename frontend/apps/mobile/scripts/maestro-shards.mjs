@@ -12,6 +12,7 @@
  *   node scripts/maestro-shards.mjs watch <pid> <testsDir> <stopFile> <flowLimitMin> <shardBudgetMin>
  *   node scripts/maestro-shards.mjs report <artifactsDir>  # rule 7: the Android lane check, as JSON
  *                                     (env LANE_SHARDS, LANE_EXPERIMENTAL, LANE_RECENT_GREENS)
+ *   node scripts/maestro-shards.mjs setup-error < job.log  # PAD-757: a Maestro job's first setup error line
  *                                                         # rule 4: stop Maestro, naming the flow
  *
  * No YAML library: config.yaml's flowsOrder is a flat list under `  flowsOrder:`,
@@ -211,9 +212,13 @@ function watch(pid, testsDir, stopFile, flowLimitMin, shardBudgetMin) {
  */
 export function readShardResults(dir, shards) {
   return shards.map((shard) => {
-    const tests = path.join(dir, `maestro-results-${shard}`, "tests");
+    const shardDir = path.join(dir, `maestro-results-${shard}`);
+    const tests = path.join(shardDir, "tests");
     const verdictFile = path.join(tests, "shard-verdict.txt");
-    if (!fs.existsSync(verdictFile)) return { shard, missing: true, rc: null, expected: null, finished: null, stop: "", failed: [] };
+    // PAD-757: lane-result writes setup-error.txt for a shard whose artifact has no junit report.
+    const setupFile = path.join(shardDir, "setup-error.txt");
+    const setup = fs.existsSync(setupFile) ? fs.readFileSync(setupFile, "utf8").trim() : "";
+    if (!fs.existsSync(verdictFile)) return { shard, missing: true, setup, rc: null, expected: null, finished: null, stop: "", failed: [] };
     const kv = Object.fromEntries(
       fs.readFileSync(verdictFile, "utf8").split("\n").filter(Boolean).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)])
     );
@@ -221,16 +226,43 @@ export function readShardResults(dir, shards) {
     const stdoutFile = path.join(tests, "maestro-stdout.txt");
     const stdout = fs.existsSync(stdoutFile) ? fs.readFileSync(stdoutFile, "utf8") : "";
     const failed = [...stdout.matchAll(/\[Failed\] (\S+) \([^)]*\)(?: \((.*)\))?\s*$/gm)].map((m) => ({ flow: m[1], reason: m[2] ?? "" }));
-    return { shard, missing: false, rc: num(kv.rc), expected: num(kv.expected), finished: num(kv.finished), stop: kv.stop ?? "", failed };
+    return { shard, missing: false, setup, rc: num(kv.rc), expected: num(kv.expected), finished: num(kv.finished), stop: kv.stop ?? "", failed };
   });
 }
 
-/** Rule 7: the Android lane check — success, neutral while experimental, failure once strict. */
+/**
+ * PAD-757: a shard where no flow ran — no verdict in its artifact, or zero flows finished. (A
+ * missing junit alone is not enough: a watchdog stop can leave none after flows did run.)
+ */
+export function noFlowRan(r) {
+  return r.missing || r.finished === 0;
+}
+
+/**
+ * PAD-757: the first error line of the emulator step in a Maestro job's log (the GitHub job-log
+ * text), or of the whole job when that step never started; "" when there is none.
+ */
+export function setupError(jobLog) {
+  const lines = jobLog.split("\n").map((l) => l.replace(/^\S*\d{4}-\d\d-\d\dT[\d:.]+Z /, "").trim());
+  const start = lines.findLastIndex((l) => /^##\[group\]Run reactivecircus\/android-emulator-runner/.test(l));
+  const hit = lines
+    .slice(start + 1)
+    .find((l) => l && !l.startsWith("[command]") && !l.startsWith("##[group]") && /\berror\b|\bfailed\b/i.test(l));
+  return (hit ?? "").replace(/^##\[error\]/, "").slice(0, 300);
+}
+
+/**
+ * Rule 7: the Android lane check — success, neutral while experimental, failure once strict.
+ * PAD-757: a shard where no flow ran is a setup failure: always neutral, never success.
+ */
 export function laneVerdict(results, { experimental, recentGreens }) {
   const lines = [];
+  const setupFailures = [];
   for (const r of results) {
-    if (r.missing) {
-      lines.push(`- **shard ${r.shard} reported nothing** (no verdict in its artifact: cancelled, or failed before Maestro)`);
+    if (noFlowRan(r)) {
+      const error = r.setup || (r.missing ? "no verdict in its artifact: cancelled, or failed before Maestro" : "Maestro finished no flow");
+      setupFailures.push({ shard: r.shard, error });
+      lines.push(`- **shard ${r.shard}: setup failed, no flow ran** — ${error}`);
       continue;
     }
     for (const f of r.failed) lines.push(`- shard ${r.shard}: **${f.flow}** — ${f.reason || "failed"}`);
@@ -242,17 +274,21 @@ export function laneVerdict(results, { experimental, recentGreens }) {
   }
   const strict = !experimental || recentGreens >= 2;
   const red = lines.length > 0;
-  const conclusion = !red ? "success" : strict ? "failure" : "neutral";
+  const flowRed = lines.length > setupFailures.length;
+  const conclusion = !red ? "success" : flowRed && strict ? "failure" : "neutral";
   const flows = results.reduce((n, r) => n + (r.failed?.length ?? 0), 0);
+  const parts = [];
+  if (setupFailures.length) parts.push(`setup failed in ${setupFailures.length} job(s), no flow ran`);
+  if (flowRed) parts.push(`${flows} flow(s) red`);
   const title = !red
     ? `All flows passed in ${results.length} job(s)`
-    : `${flows} flow(s) red${strict ? "" : " — experimental lane, reported as neutral"}`;
+    : `${parts.join("; ")}${conclusion === "neutral" ? (flowRed ? " — experimental lane, reported as neutral" : " — reported as neutral") : ""}`;
   const mode = strict
     ? experimental
       ? "Strict: the two previous scheduled runs on main were green."
       : "Strict: the lane is no longer experimental."
     : `Experimental (ANDROID_LANE_EXPERIMENTAL): a red is neutral until two consecutive scheduled greens on main (${recentGreens}/2).`;
-  return { conclusion, title, summary: [mode, "", ...(red ? lines : ["Every flow passed."])].join("\n"), strict };
+  return { conclusion, title, summary: [mode, "", ...(red ? lines : ["Every flow passed."])].join("\n"), strict, setupFailures };
 }
 
 /** Read the committed workspace: suite order, shard file and flow texts. */
@@ -275,6 +311,9 @@ function main(argv) {
       recentGreens: Number(process.env.LANE_RECENT_GREENS || 0),
     });
     return console.log(JSON.stringify(verdict));
+  }
+  if (cmd === "setup-error") {
+    return console.log(setupError(fs.readFileSync(0, "utf8")));
   }
   if (cmd === "watch") {
     const [, pid, testsDir, stopFile, flowLimit, shardBudget] = argv;
