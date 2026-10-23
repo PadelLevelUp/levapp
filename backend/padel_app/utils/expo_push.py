@@ -79,17 +79,35 @@ def send_expo_push(
     `sound` ("default") makes iOS play the system sound for the push; omitted when None, so the
     push is silent (notifications.notification-sound rule 5).
     """
+    return send_expo_push_outcome(tokens, title, body, data, badge=badge, sound=sound)[0] == SENT
+
+
+#: The three outcomes a push outbox row can take from one send (PAD-699, architecture review R2).
+SENT, RETRY, SKIP = "sent", "retry", "skip"
+
+
+def send_expo_push_outcome(
+    tokens: list[str], title, body, data: dict | None = None, badge: int | None = None,
+    sound: str | None = None,
+) -> tuple[str, str | None]:
+    """`send_expo_push`, answering `(outcome, detail)` for the push outbox. `sent` as soon as any token
+    accepted (a retry never re-sends to a token that accepted); `skip` when there is nothing to send
+    to (no tokens, Expo disabled here, every token DeviceNotRegistered); `retry` otherwise (HTTP or
+    parse failure, rate limits, unknown receipt errors). `detail` names a class or code, never a
+    token."""
     tokens = [t for t in (tokens or []) if t]
     if not tokens:
-        return False
+        return SKIP, "no device"
     if expo_push_disabled():
         # PAD-624: staging builds share production's Expo project, so a phone that ever ran the
         # staging app keeps its token in the production app. Staging must never reach it.
         logger.info("Expo push disabled in this environment (EXPO_PUSH_DISABLED); %d token(s) skipped", len(tokens))
-        return False
+        return SKIP, "expo disabled"
 
     data = data or {}
     any_success = False
+    transient = None
+    other_errors = []
 
     for batch in _chunks(tokens, _BATCH_SIZE):
         messages = [
@@ -119,12 +137,15 @@ def send_expo_push(
             response.raise_for_status()
         except Exception as exc:
             logger.warning("Failed to send Expo push notification batch: %s", exc)
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            transient = f"{type(exc).__name__}" + (f" status={status}" if status else "")
             continue
 
         try:
             payload = response.json()
         except Exception as exc:
             logger.warning("Failed to parse Expo push response: %s", exc)
+            transient = type(exc).__name__
             continue
 
         receipts = payload.get("data", [])
@@ -149,6 +170,7 @@ def send_expo_push(
                 if DeviceToken.query.filter_by(token=token).delete(synchronize_session=False):
                     db.session.commit()
             else:
+                other_errors.append(error_type or "unknown")
                 # B-254: the status and Expo's error code, not the receipt's message (it quotes
                 # the whole token).
                 logger.warning(
@@ -158,7 +180,13 @@ def send_expo_push(
                     error_type,
                 )
 
-    return any_success
+    if any_success:
+        return SENT, None
+    if transient:
+        return RETRY, transient[:120]
+    if other_errors:
+        return RETRY, f"error={other_errors[0]}"[:120]
+    return SKIP, "DeviceNotRegistered"
 
 
 def _record_expo_failure(token, error_type) -> None:
@@ -174,6 +202,23 @@ def _record_expo_failure(token, error_type) -> None:
                                   detail=f"error={error_type}")
     except Exception as exc:  # noqa: BLE001 — B-254: the class only
         logger.warning("expo push incident could not be recorded: %s", type(exc).__name__)
+
+
+def sound_groups(user_id, rows) -> dict:
+    """notifications.notification-sound rule 5 (PAD-680), read on a thread with a session: `sound` only
+    for a token whose build declared the capability, while the recipient's switch is on and the
+    capability is not switched off; every other token stays silent. `{"default": [...], None: [...]}`.
+    The push outbox's drainer makes the same decision when it sends (PAD-699)."""
+    from padel_app.utils.client_capabilities import NOTIFICATION_SOUND, switched_off
+
+    user = db.session.get(User, user_id)
+    sound_on = (user is None or user.notif_sound is not False) and not (
+        switched_off().get(NOTIFICATION_SOUND) or {}
+    ).get("off")
+    return {
+        "default": [r.token for r in rows if sound_on and r.sound_capable],
+        None: [r.token for r in rows if not (sound_on and r.sound_capable)],
+    }
 
 
 def send_expo_push_to_user(
@@ -196,20 +241,16 @@ def send_expo_push_to_user(
     rows = DeviceToken.query.filter_by(user_id=user_id).all()
     if not rows:
         return False
-    from padel_app.utils.client_capabilities import NOTIFICATION_SOUND, switched_off
+    from padel_app.utils import push_outbox
+
+    # PAD-699 (rule 10a): a row in the outbox. The drainer looks the tokens up again when it sends
+    # and makes the sound decision below there, so a switch or a device changed meanwhile counts.
+    if push_outbox.enabled():
+        return push_outbox.enqueue("expo", user_id, {"title": title, "body": body, "data": data or {},
+                                                     "badge": badge})
     from padel_app.utils.push_sender import submit
 
-    # notifications.notification-sound rule 5 (PAD-680), read here on the caller's thread (the sender
-    # runs without a session): `sound` only for a token whose build declared the capability, while the
-    # recipient's switch is on and the capability is not switched off; every other token stays silent.
-    user = db.session.get(User, user_id)
-    sound_on = (user is None or user.notif_sound is not False) and not (
-        switched_off().get(NOTIFICATION_SOUND) or {}
-    ).get("off")
-    groups = {
-        "default": [r.token for r in rows if sound_on and r.sound_capable],
-        None: [r.token for r in rows if not (sound_on and r.sound_capable)],
-    }
+    groups = sound_groups(user_id, rows)
     sent = False
     for sound, tokens in groups.items():
         if tokens:

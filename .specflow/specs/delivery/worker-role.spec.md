@@ -69,8 +69,10 @@ until B8 has proven it.
      `SSE_BROKER=postgres` (PAD-692): the publish is a `realtime_events` row and a NOTIFY that
      the API's listener fans out. A worker under the memory broker logs a WARNING at boot.
    - Pushes produced by jobs go out through the worker's own in-process sender. Pushes produced
-     by requests still go through the API's (lazy, started on the first `submit`) until the
-     PAD-699 outbox replaces both.
+     by requests still go through the API's (lazy, started on the first `submit`). With
+     `PUSH_QUEUE=outbox` (PAD-699, `messaging.push-notifications` rule 10a) both become outbox
+     rows, drained by the scheduler leader; the worker stops its drainer before releasing the
+     lock.
    - The staging sync stops the worker with the API before a restore (it holds connections to
      the target and would run jobs on a half-restored database) and starts it after the API.
 4. **A daily job fires whatever the deploy rhythm (B-667).** Every recurring job of a day or more
