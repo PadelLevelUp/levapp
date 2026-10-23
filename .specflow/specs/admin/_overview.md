@@ -31,7 +31,7 @@ hold a role, and every write is audited. Epic PAD-530, owner decisions 2026-10-0
   own container, 44 px tap targets, Playwright at phone viewport; still web-only, no staff app)
 - `admin.finance` — implementing (PAD-742: every cost LevApp has had, manual entries with audit plus a
   daily read-only import of Google Cloud's billing export from BigQuery, by month and category with
-  running totals; owner only; four owner questions open)
+  running totals, a dry-run list import; every console account; the owner's four answers recorded)
 
 ## Why it's grouped this way
 

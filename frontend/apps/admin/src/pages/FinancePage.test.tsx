@@ -1,5 +1,5 @@
-/** admin.finance (PAD-742): the owner sees the months, the banner and the costs; a lower role sees
- * neither the nav item nor the page (rules 1, 5, 9, 12). */
+/** admin.finance (PAD-742): every console account sees the months, the banner and the costs, and
+ * loads a list through the dry-run import (rules 1, 5, 5c, 9, 12). */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -73,14 +73,45 @@ describe("Finance page (PAD-742)", () => {
     expect(screen.getAllByRole("link", { name: /Financeiro|Finance/ }).length).toBeGreaterThan(0);
   });
 
-  it("is not there for an operator", async () => {
-    signIn("operator");
+  it("is there for every console role, support included", async () => {
+    signIn("support");
     window.history.pushState({}, "", "/finance");
-    const fetchSpy = mockFetch();
+    mockFetch();
     render(<App />);
-    expect(await screen.findByTestId("finance-not-allowed")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Financeiro|Finance/ })).not.toBeInTheDocument();
-    expect(fetchSpy.mock.calls.some(([u]) => String(u).includes("/finance/"))).toBe(false);
+    expect(await screen.findByTestId("finance-month-2026-10-total")).toHaveTextContent("184.37");
+    expect(screen.queryByTestId("finance-not-allowed")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Financeiro|Finance/ }).length).toBeGreaterThan(0);
+  });
+
+  it("checks a pasted list, shows the bad line, and creates the costs only once all are valid", async () => {
+    signIn("operator");
+    window.history.pushState({}, "", "/finance?tab=costs");
+    const bodies: { text: string; dryRun: boolean }[] = [];
+    const good = { line: 2, ok: true, cost: { ...COST, vendor: "Apple" } };
+    mockFetch((_url, body) => {
+      const b = body as { text: string; dryRun: boolean };
+      bodies.push(b);
+      if (!b.dryRun) return json({ dryRun: false, created: [8] }, 201);
+      return b.text.includes("-10")
+        ? json({ dryRun: true, invalid: 1, lines: [good, { line: 3, ok: false, error: "INVALID_COST", field: "amount" }] })
+        : json({ dryRun: true, invalid: 0, lines: [good] });
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId("finance-cost-import"));
+    const text = screen.getByTestId("finance-import-text");
+    fireEvent.change(text, { target: { value: "header\napple\ncloudflare,-10" } });
+    fireEvent.click(screen.getByTestId("finance-import-check"));
+    expect(await screen.findByTestId("finance-import-line-3")).toHaveTextContent("amount");
+    expect(screen.getByTestId("finance-import-line-2")).toHaveTextContent("Apple");
+    expect(screen.getByTestId("finance-import-confirm")).toBeDisabled();
+    fireEvent.change(text, { target: { value: "header\napple" } });
+    expect(screen.queryByTestId("finance-import-preview")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("finance-import-check"));
+    await waitFor(() => expect(screen.getByTestId("finance-import-confirm")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("finance-import-confirm"));
+    await waitFor(() => expect(screen.queryByTestId("finance-import")).not.toBeInTheDocument());
+    expect(bodies.map((b) => b.dryRun)).toEqual([true, true, false]);
+    expect(bodies[2].text).toBe("header\napple");
   });
 
   it("says when the import is not set up", async () => {

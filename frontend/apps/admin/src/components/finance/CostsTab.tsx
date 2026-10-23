@@ -6,6 +6,7 @@ import { ScrollTable } from "@/components/ScrollTable";
 import { Badge, Button, Card, Select } from "@/components/ui";
 import { FINANCE_CATEGORIES, adminApi, type FinanceCost } from "@/lib/api";
 import { CostForm } from "./CostForm";
+import { CostImport } from "./CostImport";
 
 function Revisions({ costId }: { costId: number }) {
   const { t, i18n } = useTranslation();
@@ -22,13 +23,14 @@ function Revisions({ costId }: { costId: number }) {
   );
 }
 
-// admin.finance rules 3, 5, 5b: the manual costs, their form, soft delete and history.
+// admin.finance rules 3, 5, 5b, 5c: the manual costs, their form, the bulk import, soft delete and history.
 export function CostsTab() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [category, setCategory] = useState("");
   const [showDeleted, setShowDeleted] = useState(false);
   const [editing, setEditing] = useState<FinanceCost | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const [confirming, setConfirming] = useState<number | null>(null);
   const [history, setHistory] = useState<number | null>(null);
   const query = useQuery({
@@ -56,10 +58,16 @@ export function CostsTab() {
           <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} data-testid="finance-costs-show-deleted" />
           {t("admin.finance.costs.showDeleted")}
         </label>
-        <Button className="ml-auto" onClick={() => setEditing("new")} data-testid="finance-cost-add">
-          {t("admin.finance.costs.add")}
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="secondary" onClick={() => setImporting(true)} data-testid="finance-cost-import">
+            {t("admin.finance.import.open")}
+          </Button>
+          <Button onClick={() => setEditing("new")} data-testid="finance-cost-add">
+            {t("admin.finance.costs.add")}
+          </Button>
+        </div>
       </div>
+      {importing ? <CostImport onDone={() => setImporting(false)} /> : null}
       {editing ? <CostForm key={editing === "new" ? "new" : editing.id} cost={editing === "new" ? undefined : editing} onDone={() => setEditing(null)} /> : null}
       {query.isError ? <p className="text-sm text-destructive">{t("admin.common.error")}</p> : null}
       {query.data && query.data.items.length === 0 ? <p className="text-sm text-muted-foreground">{t("admin.finance.costs.empty")}</p> : null}
