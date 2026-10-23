@@ -37,6 +37,12 @@
 # there is no upstream), wait for health, then remove the old one. If the migrate step or the new
 # container fails, the old one is started again and the deploy exits 1 (rule 7).
 # --dry-run: print the plan (mode, ports, migrate) and the docker commands, run nothing.
+# --copies 1|2 (PAD-704, rule 14): with 2, after the swap (and the worker), start <name>_b of the same
+# image and arguments on the port the old copy freed and wait for its health, so both loopback
+# ports of the upstream serve. A <name>_b from the last deploy holds the idle port, so it is
+# stopped and removed first (after the migrate step; each deploy has a one-copy moment). With 1 (the
+# default) a leftover <name>_b is removed and nothing replaces it. Stop-first never runs a second
+# copy. A second copy that does not answer is removed and the run is red; the first copy serves.
 # --worker (PAD-695, rule 13; delivery.worker-role): after the API swap, in both modes, start
 # <name>_worker_next from the same arguments with --memory WORKER_MEMORY, -e ROLE=worker (it
 # overrides --env-file whatever the order; ROLE is never in the env templates) and the command
@@ -56,7 +62,7 @@
 # =============================================================================
 set -uo pipefail
 
-NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST="" WORKER=0
+NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST="" WORKER=0 COPIES=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) NAME="$2"; shift 2 ;;
@@ -69,11 +75,13 @@ while [ $# -gt 0 ]; do
     --dry-run) DRY_RUN=1; shift ;;
     --probe-host) PROBE_HOST="$2"; shift 2 ;;
     --worker) WORKER=1; shift ;;
+    --copies) COPIES="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "[rollout] unknown option $1" >&2; exit 2 ;;
   esac
 done
 RUN_ARGS=("$@")
+case "$COPIES" in 1|2) ;; *) echo "[rollout] --copies must be 1 or 2, got '$COPIES'" >&2; exit 2 ;; esac
 UPSTREAM_CONF="${NGINX_UPSTREAM_CONF:-/etc/nginx/conf.d/levapp-api-upstream.conf}"
 NGINX_SITES_DIR="${NGINX_SITES_DIR:-/etc/nginx/sites-enabled}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
@@ -224,6 +232,30 @@ deploy_worker() {
   die "worker $w is not the scheduler leader after ${WORKER_LEAD_TIMEOUT}s: no job runs until it is (left running; it may still take over)"
 }
 
+# PAD-704: the second copy holds a port; it goes before the swap, and (with --copies 2) comes back after.
+remove_second_copy() {
+  if docker inspect "${NAME}_b" >/dev/null 2>&1; then
+    log "stopping ${NAME}_b (the second copy) to free its port"
+    dk stop -t "$STOP_GRACE" "${NAME}_b" >/dev/null 2>&1 || true
+    dk rm "${NAME}_b" >/dev/null 2>&1 || log "WARNING: could not remove ${NAME}_b"
+  fi
+}
+
+start_second_copy() {  # start_second_copy <port>
+  [ "$COPIES" = 2 ] || return 0
+  log "second copy: starting ${NAME}_b on 127.0.0.1:$1"
+  dk rm -f "${NAME}_b" >/dev/null 2>&1 || true
+  dk run -d --name "${NAME}_b" -p "127.0.0.1:$1:${CPORT}" "${RUN_ARGS[@]}" >/dev/null \
+    || die "docker run ${NAME}_b failed; $NAME serves alone on its port"
+  [ "$DRY_RUN" = 1 ] && return 0
+  if ! wait_healthy "${NAME}_b" "$1"; then
+    docker logs --tail 60 "${NAME}_b" 2>&1 || true
+    docker rm -f "${NAME}_b" >/dev/null 2>&1 || true
+    die "${NAME}_b is not healthy; removed, $NAME serves alone"
+  fi
+  log "second copy: ${NAME}_b serves on 127.0.0.1:$1"
+}
+
 rolling=1
 if [ "$STOP_FIRST" = 1 ]; then
   rolling=0; log "stop-first requested"
@@ -237,7 +269,7 @@ elif ! grep -qsE "proxy_pass[[:space:]]+http://${UPSTREAM}[;/]" "$NGINX_SITES_DI
   # only, so moving to the second would answer 502.
   rolling=0; log "no enabled vhost in $NGINX_SITES_DIR proxies to $UPSTREAM yet: stop-first (rule 6)"
 fi
-log "plan: $([ "$rolling" = 1 ] && echo rolling || echo stop-first), ports $PORT_A/$PORT_B, migrate $([ "$MIGRATE" = 1 ] && echo yes || echo no), worker $([ "$WORKER" = 1 ] && echo yes || echo no)"
+log "plan: $([ "$rolling" = 1 ] && echo rolling || echo stop-first), ports $PORT_A/$PORT_B, migrate $([ "$MIGRATE" = 1 ] && echo yes || echo no), worker $([ "$WORKER" = 1 ] && echo yes || echo no), copies $COPIES"
 
 # Stop-first keeps the old container as <name>_old until the new one is healthy (rule 7).
 had_old=0
@@ -250,6 +282,10 @@ restore_old() {
 }
 
 if [ "$rolling" = 0 ]; then
+  # A second copy needs the rolling upstream; stop-first never runs one, and never leaves one serving
+  # the old release.
+  [ "$COPIES" = 2 ] && log "stop-first: no second copy this run (it needs the rolling upstream)"
+  remove_second_copy
   dk rm -f "${NAME}_next" >/dev/null 2>&1 || true
   if docker inspect "$NAME" >/dev/null 2>&1; then
     had_old=1
@@ -293,6 +329,16 @@ if [ "$MIGRATE" = 1 ]; then
   log "old container ${NAME} serving on ${LIVE:-nothing} during the migrate step (the schema moves under it: rule 12)"
   run_migrate || die "migrate step failed; ${NAME}_next not started, $NAME keeps serving on ${LIVE:-nothing}"
 fi
+# PAD-704: both copies served through the migrate step; the second one now gives back its port.
+if docker inspect "${NAME}_b" >/dev/null 2>&1; then
+  remove_second_copy
+  LIVE=$(docker port "$NAME" "$CPORT" 2>/dev/null | head -1 | sed -E 's/.*:([0-9]+)$/\1/')
+  case "$LIVE" in
+    "$PORT_A") IDLE="$PORT_B" ;;
+    "$PORT_B") IDLE="$PORT_A" ;;
+    *) LIVE=""; IDLE="$PORT_A" ;;
+  esac
+fi
 log "live port ${LIVE:-none}; starting ${NAME}_next on $IDLE"
 
 dk rm -f "${NAME}_next" >/dev/null 2>&1 || true
@@ -300,7 +346,8 @@ dk run -d --name "${NAME}_next" -p "127.0.0.1:${IDLE}:${CPORT}" "${RUN_ARGS[@]}"
   || die "docker run ${NAME}_next failed; $NAME keeps serving"
 if [ "$DRY_RUN" = 1 ]; then
   dk stop -t "$STOP_GRACE" "$NAME"; dk rm "$NAME"; dk rename "${NAME}_next" "$NAME"
-  deploy_worker; log "dry-run: done"; exit 0
+  deploy_worker; start_second_copy "$([ "$IDLE" = "$PORT_A" ] && echo "$PORT_B" || echo "$PORT_A")"
+  log "dry-run: done"; exit 0
 fi
 if ! wait_healthy "${NAME}_next" "$IDLE"; then
   docker logs --tail 60 "${NAME}_next" 2>&1 || true
@@ -333,3 +380,4 @@ fi
 docker rename "${NAME}_next" "$NAME" || die "could not rename ${NAME}_next to $NAME"
 log "done: $NAME serves on 127.0.0.1:$IDLE"
 deploy_worker
+start_second_copy "$([ "$IDLE" = "$PORT_A" ] && echo "$PORT_B" || echo "$PORT_A")"

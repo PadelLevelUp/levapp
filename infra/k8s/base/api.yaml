@@ -16,6 +16,9 @@ spec:
     matchLabels: {app.kubernetes.io/name: api}
   template:
     metadata:
+      # PAD-702: the deploy workflow sets the hash write-config.sh prints, so a changed Secret
+      # rolls the pods (the Secret keeps one stable name).
+      annotations: {levapp.app/secrets-sha256: SECRETS_SHA256}
       labels: {app.kubernetes.io/name: api}
     spec:
       serviceAccountName: levapp-backend
@@ -23,14 +26,22 @@ spec:
       containers:
         - name: api
           image: levapp-backend
-          args: ["gunicorn", "--bind", "0.0.0.0:80", "--workers", "1", "--threads", "64",
-                 "--timeout", "3600", "--access-logfile", "-",
-                 "--access-logformat", "%(m)s %(U)s %(s)s %(L)s \"%(a)s\"", "app:run_app"]
+          # The thread count follows GUNICORN_THREADS from the ConfigMap (PAD-689; default 64), as the
+          # Dockerfile's CMD does, so the stream cap and its threads stay in step (PAD-702).
+          args:
+            - sh
+            - -c
+            - >-
+              exec gunicorn --bind 0.0.0.0:80 --workers 1 --threads "${GUNICORN_THREADS:-64}"
+              --timeout 3600 --access-logfile -
+              --access-logformat '%(m)s %(U)s %(s)s %(L)s "%(a)s"' app:run_app
           ports: [{name: http, containerPort: 80}]
           env:
             - {name: ROLE, value: api}
             - {name: WORKER_SPLIT, value: "on"}
             - {name: SSE_BROKER, value: postgres}
+            # PAD-702: one shared rate budget across pods (auth.login rule 7, PAD-693).
+            - {name: AUTH_RATE_LIMIT_STORE, value: database}
           envFrom:
             - configMapRef: {name: levapp-config}
             - secretRef: {name: levapp-secrets}

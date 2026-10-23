@@ -30,14 +30,15 @@ until B8 has proven it.
 
 ### Rules
 
-1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697's; it
-   behaves as `api` until then); anything else is `api`. `WORKER_SPLIT` (default off) decides
+1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697: the process
+   that holds the live-update streams); anything else is `api`. `WORKER_SPLIT` (default off) decides
    the scheduler's mode in each process:
 
    | | `WORKER_SPLIT` off | `WORKER_SPLIT` on |
    |---|---|---|
    | `api` (gunicorn) | competes for the scheduler-leader lock (zero-downtime-deploy rules 1–3) | **job-store client** |
    | `worker` | no scheduler (idles, see rule 2) | competes for the lock |
+   | `events` | **no scheduler** (B-677) | **no scheduler** |
 
    A job-store client starts its scheduler **paused** and never resumes it: request handlers
    still call `schedule_*`/`cancel_*`, which write the shared `apscheduler_jobs` table through
@@ -72,6 +73,16 @@ until B8 has proven it.
      PAD-699 outbox replaces both.
    - The staging sync stops the worker with the API before a restore (it holds connections to
      the target and would run jobs on a half-restored database) and starts it after the API.
+4. **A daily job fires whatever the deploy rhythm (B-667).** Every recurring job of a day or more
+   runs at a fixed UTC minute (`CronTrigger`), never `IntervalTrigger(days=…)`: the scheduler
+   re-registers its jobs with `replace_existing` on every boot, which put an interval's next run at
+   boot + 24 h, so with a deploy a day it never fired. The daily jobs are `extend_schedule_window`
+   02:47, `prune_delivery_incidents` 03:07 and `retention_sweep` 03:17, each with a 6 h misfire
+   grace (a run due while the leader is paused for a lock handover still runs). A boot whose job
+   store holds a daily job whose next run is already past (no leader was running at its minute)
+   adds one `<id>_catchup` run now. The jobs are idempotent, so a catch-up that races the outgoing
+   leader's own run costs one extra pass. Sub-hour intervals (`process_batches`, 2 min) stay
+   intervals: a boot delays them at most one interval.
 
 ### Acceptance Criteria
 
@@ -83,8 +94,9 @@ until B8 has proven it.
 
 #### The modes follow role and flag (rule 1)
 - **Given** each of api/events/worker with the flag on and off **When** the mode is computed
-  **Then** it is: api off → compete, api on → client, events on → client, worker on → compete,
-  worker off → off (no scheduler)
+  **Then** it is: api off → compete, api on → client, events off → off, events on → off (B-677:
+  an events process neither runs jobs nor writes the job store), worker on → compete, worker off →
+  off (no scheduler)
 
 #### The worker waits for the lock without exiting (rule 2)
 - **Given** another process holds the lock **When** the worker has waited 61 s **Then** it has
@@ -109,6 +121,18 @@ until B8 has proven it.
 - **Given** an API and a worker against one Postgres with the split on **When** the API arms a
   job 20 s ahead **Then** it fires once, in the worker, and its live event reaches a stream held
   by the API
+
+#### A boot never moves a daily job (rule 4)
+- **Given** a job store where a previous boot registered the daily jobs
+- **When** the process boots again
+- **Then** each daily job is a `CronTrigger` with the same next run as before, and no recurring job
+  of an hour or more is an `IntervalTrigger`
+
+#### A missed daily run is caught up once (rule 4)
+- **Given** a job store where `extend_schedule_window`'s next run is 2 h in the past
+- **When** the process boots
+- **Then** `extend_schedule_window_catchup` runs now, `extend_schedule_window` is back on its fixed
+  minute, and no catch-up is added for a daily job that was not missed (nor on a first boot)
 
 ### Notes
 - B8 (PAD-704) turns the flag on in prod after a week on staging; GKE runs the worker as its own

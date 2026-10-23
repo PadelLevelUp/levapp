@@ -57,6 +57,9 @@ class Presence(db.Model, model.Model):
     # the coach; NULL is "the usual side" on the coach–player link. Read through
     # `notification_service.sides_in_occurrence`, never on its own.
     side = Column(String(5), nullable=True)
+    # PAD-672 (rule 13a): a "both" player's side, written once by the engine's tick from the class's
+    # start; while the class is open it is computed (`notification_service.assigned_sides`), never stored.
+    assigned_side = Column(String(5), nullable=True)
     
     @property
     def attendance_state(self) -> str:
@@ -110,7 +113,7 @@ class Presence(db.Model, model.Model):
             "enrolment_source IN ('roster', 'coach', 'fill', 'walk_in', 'import', 'unknown')",
             name="ck_presences_enrolment_source",
         ),
-        CheckConstraint("side IS NULL OR side IN ('left', 'right')", name="ck_presences_side"),
+        CheckConstraint("side IS NULL OR side IN ('left', 'right', 'both')", name="ck_presences_side"),
         CheckConstraint(
             "response IN ('none', 'confirmed', 'declined', 'cancelled', 'proactive_decline')",
             name="ck_presences_response",

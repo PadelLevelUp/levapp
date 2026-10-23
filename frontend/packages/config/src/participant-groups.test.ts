@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  SIDE_LONG_KEYS,
+  SIDE_SHORT_KEYS,
+  assignedSideOf,
+  sideLongKeyOf,
+  sideShortKeyOf,
   displayStateOf,
   groupOfState,
   groupParticipants,
@@ -277,5 +282,43 @@ describe("groupParticipants — the side in this occurrence (PAD-551)", () => {
       roster: [rosterEntry(1, "Ana", "left")],
     });
     expect(groups[0].rows[0].side).toBe("left");
+  });
+});
+
+describe("a both player's assigned side (PAD-672 slice 3, instance-enrollment rule 13a)", () => {
+  const withAssigned = (side: Side | undefined, assignedSide: "left" | "right" | null | undefined, override = false) => {
+    const input = build([[1, "Ana", "coming", side]]);
+    input.presences = [
+      { ...input.presences[0], side: override ? "both" : undefined, sideOverride: override, assignedSide },
+    ] as typeof input.presences;
+    return groupParticipants(input)[0].rows[0];
+  };
+
+  it("carries assignedSide only for a both player", () => {
+    expect(withAssigned("both", "left").assignedSide).toBe("left");
+    expect(withAssigned("both", "right").assignedSide).toBe("right");
+    expect(withAssigned("left", "right").assignedSide).toBeNull();
+    expect(withAssigned("both", null).assignedSide).toBeNull();
+    expect(withAssigned("both", undefined).assignedSide).toBeNull();
+  });
+
+  it("a both chosen for this class (override) carries it too", () => {
+    expect(withAssigned("left", "right", true).assignedSide).toBe("right");
+  });
+
+  it("labels: Ambos -> esquerda / direita, else today's label", () => {
+    expect(sideLongKeyOf("both", "left")).toBe("calendar.participants.sideLong.both_left");
+    expect(sideLongKeyOf("both", "right")).toBe("calendar.participants.sideLong.both_right");
+    expect(sideShortKeyOf("both", "left")).toBe("calendar.participants.sideShort.both_left");
+    expect(sideLongKeyOf("both", null)).toBe(SIDE_LONG_KEYS.both);
+    expect(sideShortKeyOf("both")).toBe(SIDE_SHORT_KEYS.both);
+    expect(sideLongKeyOf("left", "right")).toBe(SIDE_LONG_KEYS.left);
+    expect(sideShortKeyOf("right", "left")).toBe(SIDE_SHORT_KEYS.right);
+  });
+
+  it("assignedSideOf rejects anything but left/right on a both player", () => {
+    expect(assignedSideOf("both", "both")).toBeNull();
+    expect(assignedSideOf(null, "left")).toBeNull();
+    expect(assignedSideOf("both", "left")).toBe("left");
   });
 });

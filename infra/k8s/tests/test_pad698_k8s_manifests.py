@@ -10,6 +10,7 @@ import Flask). Run it with `python -m pytest infra/k8s/tests`.
 """
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -41,15 +42,26 @@ ENVS = {
 
 
 def render(path):
+    """`kubectl kustomize` of one kustomization. LoadRestrictionsNone: the config Component reads
+    backend/.env.<env> (PAD-702, one source). A missing vars.env (the deploy writes it) is created
+    empty, as the lint job does."""
+    for env in ENVS:
+        (K8S / "overlays" / env / "config" / "vars.env").touch(exist_ok=True)
     # Rendering reads only files: no kubeconfig, no cluster (B-173: never the inherited environment).
     env = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "/tmp"), "KUBECONFIG": os.devnull}
-    out = subprocess.run(["kubectl", "kustomize", str(K8S / path)], capture_output=True, text=True,
-                         check=True, timeout=60, env=env).stdout
+    out = subprocess.run(["kubectl", "kustomize", "--load-restrictor", "LoadRestrictionsNone", str(K8S / path)],
+                         capture_output=True, text=True, check=True, timeout=60, env=env).stdout
     return [d for d in yaml.safe_load_all(out) if d], out
 
 
 def by_kind(docs, kind):
     return {d["metadata"]["name"]: d for d in docs if d["kind"] == kind}
+
+
+def the_configmap(docs):
+    names = [n for n in by_kind(docs, "ConfigMap") if n.startswith("levapp-config-")]
+    assert len(names) == 1, names
+    return names[0]
 
 
 def container(deploy):
@@ -89,10 +101,11 @@ def test_backend_roles_run_through_the_entrypoint(overlay):
         assert env["ROLE"] == role
         assert env["WORKER_SPLIT"] == "on" and env["SSE_BROKER"] == "postgres"
         assert c["image"].startswith("REGISTRY/levelup_backend:")
-        assert c["envFrom"][0]["configMapRef"]["name"] == "levapp-config"
+        assert c["envFrom"][0]["configMapRef"]["name"] == the_configmap(docs), "the generated, hashed name"
         assert c["envFrom"][1]["secretRef"]["name"] == "levapp-secrets"
     assert container(deps["worker"])["args"] == ["python", "-m", "padel_app.worker"]
-    assert container(deps["api"])["args"][0] == "gunicorn"
+    api_args = container(deps["api"])["args"]
+    assert api_args[:2] == ["sh", "-c"] and api_args[2].startswith("exec gunicorn "), "exec: gunicorn is PID 1's child, signals reach it"
 
 
 def test_rollouts_overlap_except_the_worker(overlay):
@@ -108,7 +121,7 @@ def test_rollouts_overlap_except_the_worker(overlay):
 def test_the_api_access_log_carries_no_query_string(overlay):
     _, docs, _ = overlay
     for name in ("api", "events"):
-        args = container(by_kind(docs, "Deployment")[name])["args"]
+        args = shlex.split(container(by_kind(docs, "Deployment")[name])["args"][2])
         fmt = args[args.index("--access-logformat") + 1]
         assert "%(U)s" in fmt
         for leak in ("%(q)s", "%(r)s", "%(f)s", "%(h)s"):  # query, request line, referer, address
@@ -249,8 +262,8 @@ def test_the_load_balancer_checks_readiness(overlay):
 @pytest.mark.parametrize("env", list(ENVS))
 def test_the_migrate_job_is_its_own_kustomization(env):
     docs, _ = render(f"overlays/{env}/migrate")
-    assert [d["kind"] for d in docs] == ["Job"]
-    job = docs[0]
+    assert sorted(d["kind"] for d in docs) == ["ConfigMap", "Job"], "the Job and its config Component (PAD-702)"
+    job = by_kind(docs, "Job")["migrate"]
     assert job["metadata"]["namespace"] == ENVS[env]["namespace"]
     spec = job["spec"]
     assert spec["backoffLimit"] == 0

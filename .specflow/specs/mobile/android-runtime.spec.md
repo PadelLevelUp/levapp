@@ -101,6 +101,12 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    nothing in the box could scroll: a list taller than the box ran past the bottom of the
    screen, and on iOS a coach with more than about nine levels could not choose the rest
    (Edit student → Nível).
+   **On Android the list stays between the system bars (PAD-727, B-605).** The app draws edge
+   to edge there, so the window runs under the status and navigation bars. `SelectContent`
+   gives the popper the safe-area insets plus an 8 pt gap, and caps the list to the height
+   between them. A list that has no room below its trigger moves up until it fits (the
+   popper's `avoidCollisions`), and its last option is never under the navigation bar. iOS
+   keeps the cap and the popper's own placement, unchanged.
 
 10. **A screen does not restyle itself in the commit that removes it.** On Android, Fabric can
    flatten a view whose style changes and reparent its children in one mount pass. If that commit
@@ -166,6 +172,14 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the last level comes into view, and tapping it chooses it and closes the list —
   Maestro flow `280-level-select-scrolls` (red on the code before the fix: six swipes and the
   last level never appeared)
+
+#### A long select near the bottom of a form is reachable on Android (rule 9b, PAD-727)
+- **Given** the coach has 16 levels and opens a student's edit form on the Android emulator
+  (3-button navigation)
+- **When** they open the level select and swipe the list up
+- **Then** the last level is above the navigation bar, and tapping it chooses it. Maestro flow
+  `280-level-select-scrolls` on the Android lane checks this: it was red before the fix, with
+  levels 13–14 under the navigation bar. `select.safe-area.test.ts` pins the sizing.
 
 #### A dialog's cancel closes the dialog on Android
 - **Given** the coach is on a player's detail screen on the emulator — a screen that mounts three

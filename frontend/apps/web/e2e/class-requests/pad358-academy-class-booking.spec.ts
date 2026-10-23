@@ -122,9 +122,12 @@ test("US-PAD-358: the academy step lists open and full classes; a request carrie
     // Open: request with a note.
     await openRow.getByTestId("academy-class-request").click();
     await openRow.getByTestId("academy-class-note").fill(NOTE);
+    // PAD-672: the send opens the side sheet; a student with no profile side must choose one.
+    await openRow.getByTestId("academy-class-send").click();
+    await page.getByTestId("class-side-left").click();
     const [created] = await Promise.all([
       page.waitForResponse((r) => r.url().endsWith("/api/app/class-join-requests") && r.request().method() === "POST"),
-      openRow.getByTestId("academy-class-send").click(),
+      page.getByTestId("class-side-send").click(),
     ]);
     expect(created.status(), await created.text()).toBe(201);
     const createdBody = await created.json();
@@ -135,9 +138,12 @@ test("US-PAD-358: the academy step lists open and full classes; a request carrie
     });
 
     // Full: join the waiting list.
+    // PAD-672: the join opens the side sheet in the waiting-list theme.
+    await fullRow.getByTestId("academy-class-join-waitlist").click();
+    await page.getByTestId("class-side-left").click();
     const [joined] = await Promise.all([
       page.waitForResponse((r) => r.url().endsWith("/api/app/class-waiting-list") && r.request().method() === "POST"),
-      fullRow.getByTestId("academy-class-join-waitlist").click(),
+      page.getByTestId("class-side-send").click(),
     ]);
     expect(joined.status(), await joined.text()).toBe(201);
     await expect(fullRow.getByTestId("academy-class-status")).toHaveAttribute("data-status", "on_waiting_list", {

@@ -324,6 +324,16 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Then** the board renders the same mode, pieces and steps, and each criterion above passes
   through the Maestro flow for that wave
 
+#### A piece is where its accessibility rect says it is, on Android too (PAD-728, B-606)
+- **Given** the native board in Situações de jogo on the Android emulator
+- **When** something aims at a piece, a badge or a ball-style handle by its accessibility rect
+  (TalkBack, or Maestro's `tapOn: id`), for example A2 on the right half of the court
+- **Then** the tap lands on the drawn shape and acts on it. The native board draws its shapes at
+  absolute coordinates (`cx`/`cy`, text `x`/`y`), never inside a translated `<G x y>`, whose rect
+  react-native-svg reports off by an error that grows with x. Maestro flows 41 (the handle) and
+  59 (A2) guard this on the Android lane; `court-surface.geometry.test.ts` keeps a translated
+  group from returning.
+
 ### Status (2026-09-08, PAD-242..245)
 `implemented`: all four waves are built and verified on web and iOS — board shell, the three
 modes (Situações de jogo, Exercícios de cesto, Magnético), v2 model, legacy migration,

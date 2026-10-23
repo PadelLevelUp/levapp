@@ -361,7 +361,8 @@ def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upst
     assert "RO=/home/${{ secrets.GCE_USER }}/rollout.sh" in text
     assert "then WORKER_OPT=\"--worker\"; fi" in text
     assert (f'bash "$RO" --name {name} --ports {ports} --upstream {upstream} $(opt --probe-host {host}) '
-            '$(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $ROLLOUT_MODE --') in text
+            '$(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $([ "$API_COPIES" != 2 ] || opt --copies 2) '
+            '$ROLLOUT_MODE --') in text
     deploy_step = text.split("RO=/home/${{ secrets.GCE_USER }}/rollout.sh", 1)[0].rsplit("uses: appleboy/ssh-action", 1)[1]
     assert "command_timeout: 30m" in deploy_step
     assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"

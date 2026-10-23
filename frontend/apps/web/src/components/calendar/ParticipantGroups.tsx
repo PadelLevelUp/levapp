@@ -2,10 +2,10 @@ import { useTranslation } from "react-i18next";
 import {
   PARTICIPANT_GROUP_DOT,
   PARTICIPANT_GROUP_TITLE_KEYS,
-  SIDE_LONG_KEYS,
-  SIDE_SHORT_KEYS,
   groupParticipants,
   participantInitials,
+  sideLongKeyOf,
+  sideShortKeyOf,
   type ParticipantRowModel,
 } from "@levelup/config";
 import type { CoachPlayer, Player, Presence } from "@/types";
@@ -70,10 +70,12 @@ export function ParticipantGroups({ participants, presences, roster, onOpen }: P
                     // PAD-551: the side in this occurrence; `data-side-override` says the coach set it here.
                     data-side={row.side}
                     data-side-override={row.presence?.sideOverride ? "true" : "false"}
-                    title={t(SIDE_LONG_KEYS[row.side])}
-                    className="flex h-[22px] w-[38px] shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"
+                    // PAD-672 slice 3: a `both` player of a full class reads "Ambos → esquerda".
+                    data-side-assigned={row.assignedSide ?? undefined}
+                    title={t(sideLongKeyOf(row.side, row.assignedSide))}
+                    className="flex h-[22px] min-w-[38px] shrink-0 px-1.5 items-center justify-center rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"
                   >
-                    {t(SIDE_SHORT_KEYS[row.side])}
+                    {t(sideShortKeyOf(row.side, row.assignedSide))}
                   </span>
                 ) : null}
               </li>

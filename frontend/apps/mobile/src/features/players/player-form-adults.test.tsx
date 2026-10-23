@@ -5,7 +5,11 @@ import { renderNative } from "@/test/render-native";
 /** PAD-642 (players.create rule 10; owner: "forbid under-18"): on the create screen the coach ticks
  * "I confirm this student is 18 or older" before either save. The edit screen has no box. */
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k, i18n: { language: "pt" } }) }));
-vi.mock("@levelup/hooks", () => ({ useFieldAvailability: () => ({ checking: false, error: null, conflict: null }) }));
+// Real useFieldAvailability since PAD-406 (stubbed before); its one api call finds no conflict.
+vi.mock("@levelup/api/src/resources/fields", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkFieldConflict: async () => null,
+}));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 
 import { PlayerForm } from "./PlayerForm";

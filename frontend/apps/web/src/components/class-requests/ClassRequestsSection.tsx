@@ -26,6 +26,7 @@ import {
   type MergedClassRequestRow,
 } from "@levelup/config";
 import { Button } from "@/components/ui/button";
+import { JoinRequestSide } from "@/components/calendar/JoinRequestSide";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -253,6 +254,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
             </p>
             <p className="text-sm text-muted-foreground">{who}</p>
             {r.note && <p className="text-sm text-muted-foreground italic">“{r.note}”</p>}
+            {/* PAD-672 (join-requests rule 20): the side asked for, and "Usar … no perfil". */}
+            {role === "coach" && <JoinRequestSide request={r} />}
           </div>
           <Badge variant={statusVariant(r.status)}>{t(statusKey)}</Badge>
         </div>

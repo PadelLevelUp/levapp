@@ -13,6 +13,9 @@ import { UnsavedRegistryProvider, useUnsavedRegistry } from "./unsaved-registry"
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
+const toastApi = vi.hoisted(() => ({ warning: vi.fn(), success: vi.fn(), error: vi.fn() }));
+vi.mock("@/components/ui/toast", () => ({ toast: toastApi }));
+
 const api = vi.hoisted(() => ({ getNotificationConfig: vi.fn(), updateNotificationConfig: vi.fn() }));
 vi.mock("@levelup/api", () => ({ notificationEngineApi: api }));
 
@@ -55,6 +58,7 @@ const restrictionsShown = (n: N) => n.byTestId("stub-restrictions-value").props.
 
 beforeEach(() => {
   clicks.n = 0;
+  toastApi.warning.mockReset();
   __resetReactNativeMock();
   api.getNotificationConfig.mockReset().mockResolvedValue(CONFIG);
   api.updateNotificationConfig.mockReset().mockImplementation(async (patch: object) => ({ ...CONFIG, ...patch }));
@@ -171,5 +175,41 @@ describe("iOS engine card waits for the one Save (settings.explicit-save)", () =
     await save(n);
     expect(restrictionsShown(n)).toContain('"cancellationDeadlineHours":7');
     expect(registry.hasUnsaved()).toBe(false);
+  });
+});
+
+describe("accept join requests automatically (PAD-672 slice 2, notifications.config rule 3a)", () => {
+  it("is held until Save, then sent in the one PATCH", async () => {
+    const n = await mount();
+    expect(on(n, "settings-auto-accept-join-requests")).toBe(false);
+    await n.toggle("settings-auto-accept-join-requests");
+    await n.flush();
+    expect(on(n, "settings-auto-accept-join-requests")).toBe(true);
+    expect(api.updateNotificationConfig).not.toHaveBeenCalled();
+    await save(n);
+    expect(api.updateNotificationConfig).toHaveBeenCalledWith({ autoAcceptJoinRequests: true });
+  });
+
+  it("is disabled, with its reason, while the mode is semi-automatic", async () => {
+    api.getNotificationConfig.mockResolvedValue({ ...CONFIG, invitationMode: "semi_automatic" });
+    const n = await mount();
+    expect(n.byTestId("settings-auto-accept-join-requests").props.disabled).toBe(true);
+    expect(n.byTestId("settings-auto-accept-disabled-reason")).toBeTruthy();
+  });
+
+  it("toasts when the save answers notice auto_accept_off", async () => {
+    api.getNotificationConfig.mockResolvedValue({ ...CONFIG, autoAcceptJoinRequests: true });
+    api.updateNotificationConfig.mockImplementation(async (patch: object) => ({
+      ...CONFIG,
+      ...patch,
+      autoAcceptJoinRequests: false,
+      notice: "auto_accept_off",
+    }));
+    const n = await mount();
+    await n.press("settings-invite-mode-semi");
+    await save(n);
+    expect(api.updateNotificationConfig).toHaveBeenCalledWith({ invitationMode: "semi_automatic" });
+    expect(toastApi.warning).toHaveBeenCalledWith("settings.engine.autoAcceptJoinRequests.turnedOff");
+    expect(on(n, "settings-auto-accept-join-requests")).toBe(false);
   });
 });
