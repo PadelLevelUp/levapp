@@ -10,10 +10,10 @@ proposed_fix: "Bisect the earlier push file that leaves the outbox unreadable, t
 opened: 2026-10-23T05:15:00Z
 ---
 
-# B-670: the PAD-689 stats line breaks when it runs after the push tests (unconfirmed)
+# B-670: the PAD-689 stats line breaks when it runs after the push tests
 
-**Source:** la-2110-SessionF, running PAD-745's touched set locally. Linear PAD-749. B-id
-self-numbered (ledger range B-661 to B-675); the type is unconfirmed until the cause is bisected.
+**Source:** la-2110-SessionF, running PAD-745's touched set locally. Linear PAD-749. The type is
+unconfirmed until the cause is bisected.
 
 **What happens:** `test_pad689_stream_observability.py::test_the_stats_line_names_streams_busiest_user_cap_and_push_queue`
 fails on SQLite when run after the push test files: the stats line ends
