@@ -225,7 +225,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 8. **(PAD-262, audit H9) One pipeline call per paint, scoped in SQL.** The coach home loads its
    classes ONCE — one calendar-pipeline call over the widest window any block needs (from a week
    before the current week to the hero's 90-day horizon) — and every block cuts its own window
-   from that set; the blocks' output is identical to loading each window separately. The
+   from that set; the blocks' output is identical to loading each window separately. **(PAD-754)**
+   "Identical" is a claim about the preloaded set, which is the only production path: the coach
+   and student assemblers (`helpers/dashboard/coach.py`, `player.py`) always pass it. A block
+   called without one (`events=None`, reached only from tests) loads just its own window through
+   the instance loader, which keeps classes that *start* inside the window. A class already
+   running at that window's start (for the hero and the next 7 days, a class running across `now`)
+   is therefore missing from a standalone call. The preloaded window opens a week before the current
+   week, so the dashboard keeps it by rule 9's overlap test. The
    instance loader filters by coach in SQL (the instance's own coach junction, or the lesson's
    when the instance has none) and eager-loads the lesson, its coaches, the instance's coaches,
    enrolments and presences, so a window costs a fixed number of statements however many
@@ -514,3 +521,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** a coach with seeded classes in the next 7 days, some under capacity
 - **When** the dashboard renders at 1280×800
 - **Then** every schedule row's title fits its element (`scrollWidth <= clientWidth`) and under-capacity rows still show their invite action
+
+#### A class running across now stays on the coach home (rules 8 and 9, PAD-754)
+- **Given** a class from 10:45 to 11:45 and the club clock pinned at 11:15
+- **When** the coach home loads its preloaded set and builds the hero and the next 7 days from it
+- **Then** the hero is that class and it is the first row of the next 7 days
