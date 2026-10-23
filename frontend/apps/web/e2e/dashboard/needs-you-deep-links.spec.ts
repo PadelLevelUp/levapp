@@ -5,7 +5,7 @@
  * validation-count.spec.ts.)
  *
  * Seed: the coach has one unread message from e2e-student (Conversation 1) and
- * at least one under-capacity class in the next 7 days.
+ * at least one under-capacity class this week (Sunday to Saturday; none is left on a Saturday).
  */
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
@@ -34,7 +34,7 @@ test("PAD-285: Convidar opens the class with Notificar already open", async ({ p
   await openDashboard(page);
   const cards = page.getByTestId("dashboard-needs-you").locator('[data-testid^="needs-you-empty-seats-"]');
   const n = await cards.count();
-  test.skip(n === 0, "no under-capacity class in the next 7 days on this seed day");
+  test.skip(n === 0, "no under-capacity class left this week on this seed day (rule 3, PAD-740)");
   const deepLink = page.waitForURL(/\/calendar\?.*classId=.*notify=1/, { timeout: 15_000 });
   await cards.first().getByRole("button", { name: /convidar|invite/i }).click();
   await deepLink; // the calendar then strips the consumed params from the URL
