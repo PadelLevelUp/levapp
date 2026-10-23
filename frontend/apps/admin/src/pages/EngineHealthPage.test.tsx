@@ -48,6 +48,19 @@ describe("Engine health page (PAD-534)", () => {
     expect(screen.getByTestId("admin-eh-incidents-24h-email_failed")).toHaveTextContent("1");
     expect(screen.getByTestId("admin-eh-deploy-this")).toHaveTextContent("abc1234def");
     expect(screen.getByTestId("admin-eh-deploy")).toHaveTextContent(/Not configured|Não configurado/);
+    // PAD-745: a backend older than the receipts sends no `pushReceipts`, and the card stays away.
+    expect(screen.queryByTestId("admin-eh-receipts")).toBeNull();
+  });
+
+  it("shows the push receipts by status and the errors by code (PAD-745)", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    const counts = (ok: number) => ({ pending: 1, ok, error: 1, expired: 0, errorsByCode: { InvalidCredentials: 1 } });
+    mockFetch({ ...HEALTH, pushReceipts: { last24h: counts(2), last7d: counts(3) } });
+    render(<App />);
+    expect(await screen.findByTestId("admin-eh-receipts-24h-ok")).toHaveTextContent("2");
+    expect(screen.getByTestId("admin-eh-receipts-24h-error")).toHaveTextContent("1");
+    expect(screen.getByTestId("admin-eh-receipts-codes")).toHaveTextContent("InvalidCredentials 1");
   });
 
   it("refreshes only when asked", async () => {

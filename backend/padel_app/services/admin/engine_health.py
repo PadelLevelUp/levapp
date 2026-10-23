@@ -21,6 +21,7 @@ JOB_FAMILIES = (
 SINGLETONS = (
     "process_batches", "extend_schedule_window", "prune_delivery_incidents", "retention_sweep",
     "finance_gcp_import",  # admin.finance rule 9 (PAD-742)
+    "read_push_receipts",  # messaging.push-notifications rule 10b (PAD-745)
 )
 OVERDUE_AFTER = timedelta(minutes=5)
 PEER_TIMEOUT_SECONDS = 2
@@ -116,6 +117,13 @@ def _incidents(now) -> dict:
                                              DeliveryIncident.id.desc()).limit(20).all()
     return {"last24h": counts(now - timedelta(hours=24)), "last7d": counts(now - timedelta(days=7)),
             "recent": [r.to_dict() for r in recent]}
+
+
+def _push_receipts(now) -> dict:
+    """messaging.push-notifications rule 10b (PAD-745): what Apple and Google answered Expo."""
+    from padel_app.services import push_receipts
+
+    return push_receipts.summary(now)
 
 
 def _accounts(now) -> dict:
@@ -219,6 +227,7 @@ def summary(config, now=None) -> dict:
         "invitations": _invitations(),
         "scheduler": _scheduler(now),
         "incidents": _incidents(now),
+        "pushReceipts": _push_receipts(now),
         "accounts": _accounts(now),
         "push": _push(now),
         "deploy": {"this": this_identity(), "other": other_identity(config)},

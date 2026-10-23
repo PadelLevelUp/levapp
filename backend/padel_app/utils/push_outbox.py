@@ -229,7 +229,8 @@ def send_row(row: dict) -> tuple[str, str | None]:
         # PAD-680's per-token sound decision (PAD-743: every iOS token), made now, as the in-memory path makes it at enqueue.
         outcomes = [
             send_expo_push_outcome(tokens, payload.get("title"), payload.get("body"), payload.get("data"),
-                                   badge=payload.get("badge"), sound=sound)
+                                   badge=payload.get("badge"), sound=sound, user_id=user_id,
+                                   outbox_id=row.get("id"))
             for sound, tokens in sound_groups(user_id, rows).items() if tokens
         ]
         return combine(outcomes)

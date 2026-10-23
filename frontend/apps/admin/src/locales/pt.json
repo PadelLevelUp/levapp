@@ -302,6 +302,16 @@
           "push_registration_failed": "Registo de push falhado"
         }
       },
+      "receipts": {
+        "title": "Recibos de notificações (Apple e Google)",
+        "hint": "Se a Apple ou a Google aceitou cada notificação que a Expo aceitou. Erros por código: últimos 7 dias.",
+        "status": {
+          "ok": "Entregue à Apple ou à Google",
+          "error": "Recusada",
+          "expired": "Sem resposta em 24 h",
+          "pending": "À espera"
+        }
+      },
       "push": {
         "title": "Alcance do push (alunos ativos em 7 dias)",
         "active": "Alunos ativos",
