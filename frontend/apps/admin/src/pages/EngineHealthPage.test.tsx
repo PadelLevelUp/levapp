@@ -79,6 +79,36 @@ describe("Engine health page (PAD-534)", () => {
     await waitFor(() => expect(calls()).toBe(before + 1));
   });
 
+  it("shows the push reach of active students and the failed registrations (rule 8, PAD-746)", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    mockFetch({
+      ...HEALTH,
+      incidents: { ...HEALTH.incidents, last24h: { ...HEALTH.incidents.last24h, push_registration_failed: 2 } },
+      push: {
+        activeStudents7d: { total: 167, noChannel: 33, webPushOnly: 19, nativeOnly: 112, nativeAndWebPush: 3 },
+        registrationFailures7d: { ios: 4, android: 0, web: 1 },
+      },
+    });
+    render(<App />);
+    // The app's query cache is shared across tests: wait for THIS answer, not the cached one.
+    await waitFor(() => expect(screen.getByTestId("admin-eh-push-no-channel")).toHaveTextContent("33"));
+    expect(screen.getByTestId("admin-eh-push-active")).toHaveTextContent("167");
+    expect(screen.getByTestId("admin-eh-push-web-only")).toHaveTextContent("19");
+    expect(screen.getByTestId("admin-eh-push-native")).toHaveTextContent("115");
+    expect(screen.getByTestId("admin-eh-push-failures")).toHaveTextContent("ios 4 · android 0 · web 1");
+    expect(screen.getByTestId("admin-eh-incidents-24h-push_registration_failed")).toHaveTextContent("2");
+  });
+
+  it("an API without the push block shows the page without it", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    mockFetch({ ...HEALTH, vacancies: { ...HEALTH.vacancies, open: 9 } });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("admin-eh-vacancies-open")).toHaveTextContent("9"));
+    expect(screen.queryByTestId("admin-eh-push")).toBeNull();
+  });
+
   it.each([
     ["unreachable", "unreachable", /Unreachable|Inacessível/],
     ["a null identity", null, /Unreachable|Inacessível/],

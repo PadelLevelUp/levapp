@@ -294,6 +294,29 @@ Send browser push notifications when a new message arrives and the recipient isn
     default). Web and iOS carry the same title. The body is unchanged: the message text (rule 12).
     Before PAD-713 it was "New message" for everyone. A direct message keeps its sender-name title.
 
+15. **A granted permission registers without a restart, and a phone that is not registered says so
+    (PAD-744, B-678).** Rule 9's launch and login registrations are not the only ones. On iOS and
+    Android:
+    - **Only login, sign-up and the banner's tap ever prompt.** Every other registration first
+      reads the permission and stops, silently, unless it is granted.
+    - **The app registers without a prompt** when it returns to the foreground signed in and has
+      not registered this session, and right after the Messages banner's tap grants permission.
+      Granting in the system Settings is therefore enough: the next return to the app registers.
+    - **A rotated token is sent.** The app listens for push-token changes while signed in; a new
+      token becomes the cached token (so logout's revoke sends the live one, rule 9 and
+      `auth.logout` rule 4) and is posted to `POST /api/notifications/device`. The old row needs
+      no delete: Expo's `DeviceNotRegistered` receipt prunes it (rule 9).
+    - **A failed registration is retried**, a bounded number of times with growing waits (3
+      retries, 2 s, 10 s, 30 s), never after a denial, and never after logout. After the last
+      try the next foreground tries again.
+    - **The registrar exposes its state** (`unknown`, `registered`, `no-permission`, `failed`,
+      `unsupported`), and the Messages banner gains a third case. Permission granted but the
+      registration failed shows "Notifications aren't active on this phone" with a tap that
+      registers again (`testID` `notifications-banner-retry`), instead of only a console line. The
+      two existing cases (never asked, blocked) are unchanged. A simulator, which cannot hold a
+      token, is `unsupported` and shows no third case.
+    - Web's counterpart is `auth.push-subscription` rule 9.
+
 ### Acceptance Criteria
 
 #### The outbox is at least once (rule 10a)
@@ -337,6 +360,32 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Given** `/push/getReceipts` answers 503 **When** it runs **Then** every row is unchanged
 - **Given** receipt rows 31 and 29 days old **When** the daily prune runs **Then** only the 31-day
   row is deleted
+
+#### Granting permission from the banner registers the phone (PAD-744)
+- **Given** a signed-in student on a physical iPhone whose notification permission was never asked,
+  so the Messages banner shows "enable"
+- **When** they tap the banner's button and allow notifications
+- **Then** the device token is posted to `POST /api/notifications/device` with no second prompt, and
+  the banner disappears
+
+#### A permission granted in Settings registers on the next return to the app (PAD-744)
+- **Given** a signed-in student whose permission was denied, so the app registered nothing
+- **When** they allow notifications in iOS Settings and return to the app
+- **Then** the token is posted once, without a prompt, and a later return with the token already
+  registered posts nothing
+
+#### A rotated token replaces the cached one and is sent (PAD-744)
+- **Given** a signed-in student registered with `ExponentPushToken[old]`
+- **When** the push-token listener reports `ExponentPushToken[new]`
+- **Then** `ExponentPushToken[new]` is posted, and a logout afterwards sends `ExponentPushToken[new]`
+  in its revoke
+
+#### A failed registration is retried and then shown (PAD-744)
+- **Given** a signed-in student with permission granted whose registration POST fails
+- **When** the retries (2 s, 10 s, 30 s) also fail
+- **Then** four POSTs were sent in all, the registrar's state is `failed`, and the Messages banner
+  shows "Notifications aren't active on this phone" with a retry button whose tap posts again
+- **And** a logout during the waits cancels the remaining retries
 
 #### Tapping a message notification opens the thread (PAD-240)
 - **Given** a student with a registered iOS device token who receives a class invitation, a reminder, or a direct message

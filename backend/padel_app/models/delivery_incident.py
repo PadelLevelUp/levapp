@@ -7,7 +7,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
 
-KINDS = ("email_failed", "push_failed", "reminder_skipped_past_due")
+KINDS = ("email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed")
 CHANNELS = ("email", "webpush", "apns", "fcm", "expo", "scheduler")
 
 

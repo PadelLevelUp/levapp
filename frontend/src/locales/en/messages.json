@@ -4,6 +4,8 @@
     "enable": "Enable",
     "notificationsBlocked": "Browser alerts are blocked. Messages and the unread badge still arrive here in the app; to get alerts while the app is closed, enable notifications in your browser settings.",
     "notificationsBlockedDevice": "Device alerts are off. Messages and the badge still arrive in the app; to get alerts while the app is closed, turn notifications on in Settings.",
+    "notificationsInactiveDevice": "Notifications aren't active on this phone. Tap Enable to turn them on.",
+    "notificationsInactiveBrowser": "Browser alerts aren't active. Tap Enable to turn them on.",
     "messageCopied": "Message copied",
     "selectConversation": "Select a conversation",
     "selectConversationHint": "Choose a chat from the list to see messages.",

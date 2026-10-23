@@ -673,8 +673,9 @@ def test_direct_message_posts_expo_push_body_to_exp_host(app):
                     "messageId": message.id,
                 },
                 "badge": 1,
-                # PAD-680: no `sound` — this fixture's token was not registered by a build declaring
-                # `notification-sound` (notifications.notification-sound rule 5).
+                # PAD-743 (notifications.notification-sound rule 5): an iOS token sounds while the
+                # recipient's switch is on (the default), whatever build registered it.
+                "sound": "default",
                 # PAD-307 (rule 11a): Android channel and priority ride on every message.
                 "channelId": "default",
                 "priority": "high",

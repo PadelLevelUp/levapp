@@ -45,8 +45,9 @@ describe("Maestro flow numbering (PAD-300)", () => {
 
   /** Flows that must NOT be in the order, with the reason: 47 runs only from
    *  scripts/push-tap-flow.sh (README "Push-tap"); 36 is the Android-only evidence
-   *  flow for the CI emulator lane (PAD-298, README "36-android-evidence"). */
-  const RUN_BY_SCRIPT_ONLY = ["47-push-tap-routing", "36-android-evidence"];
+   *  flow for the CI emulator lane (PAD-298, README "36-android-evidence"); 307 runs only from
+   *  scripts/push-grant-flow.sh, which denies the notification permission first (PAD-744). */
+  const RUN_BY_SCRIPT_ONLY = ["47-push-tap-routing", "36-android-evidence", "307-push-grant-without-restart"];
 
   it("lists every flow in config.yaml's execution order, and every listed flow exists", () => {
     const files = flowFiles();

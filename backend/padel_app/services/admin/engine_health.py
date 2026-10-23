@@ -139,6 +139,57 @@ def _accounts(now) -> dict:
     }
 
 
+#: Rule 8: who counts as an active student (PAD-741's baseline definition, kept as is).
+ACTIVE_STUDENT_WINDOW = timedelta(days=7)
+
+
+def _push(now) -> dict:
+    """Rule 8 (PAD-746): the push reach of active students, and the clients' failed registrations.
+
+    An active student is a user with a `players` row who has a conversation marked read in the
+    last 7 days (`conversation_participants.last_read_at`), whatever their status and even if they
+    also coach: PAD-741's definition, so the count compares with its 2026-10-22 baseline. One
+    aggregate query; counts only, no ids.
+    """
+    from padel_app.models import ConversationParticipant, DeviceToken, Player, PushSubscription
+    from padel_app.models.delivery_incident import DeliveryIncident
+
+    since = now - ACTIVE_STUDENT_WINDOW
+    active = (
+        db.session.query(Player.user_id.label("user_id"))
+        .join(ConversationParticipant, ConversationParticipant.user_id == Player.user_id)
+        .filter(ConversationParticipant.last_read_at > since)
+        .distinct()
+        .subquery()
+    )
+    has_token = db.session.query(DeviceToken.id).filter(DeviceToken.user_id == active.c.user_id).exists()
+    has_webpush = (db.session.query(PushSubscription.id)
+                   .filter(PushSubscription.user_id == active.c.user_id).exists())
+    cells = db.session.query(has_token, has_webpush, func.count()).select_from(active).group_by(
+        has_token, has_webpush).all()
+    found = {(bool(t), bool(w)): n for t, w, n in cells}
+
+    failures = dict(
+        db.session.query(DeliveryIncident.channel, func.count())
+        .filter(DeliveryIncident.kind == "push_registration_failed",
+                DeliveryIncident.created_at >= now - timedelta(days=7))
+        .group_by(DeliveryIncident.channel)
+        .all()
+    )
+    return {
+        "activeStudents7d": {
+            "total": sum(found.values()),
+            "noChannel": found.get((False, False), 0),
+            "webPushOnly": found.get((False, True), 0),
+            "nativeOnly": found.get((True, False), 0),
+            "nativeAndWebPush": found.get((True, True), 0),
+        },
+        "registrationFailures7d": {platform: failures.get(channel, 0)
+                                   for platform, channel in (("ios", "apns"), ("android", "fcm"),
+                                                             ("web", "webpush"))},
+    }
+
+
 def this_identity() -> dict:
     try:
         with db.engine.connect() as conn:  # its own connection: a missing table aborts nothing
@@ -178,6 +229,7 @@ def summary(config, now=None) -> dict:
         "incidents": _incidents(now),
         "pushReceipts": _push_receipts(now),
         "accounts": _accounts(now),
+        "push": _push(now),
         "deploy": {"this": this_identity(), "other": other_identity(config)},
     }
 

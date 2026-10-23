@@ -447,7 +447,7 @@ export interface UserDetail extends UserRow {
 }
 
 export type DeployIdentity = { gitSha: string; alembicHead: string | null };
-export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due";
+export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due" | "push_registration_failed";
 export type PushReceiptStatus = "pending" | "ok" | "error" | "expired";
 export type PushReceiptCounts = Record<PushReceiptStatus, number> & { errorsByCode: Record<string, number> };
 
@@ -471,6 +471,11 @@ export interface EngineHealth {
   /** PAD-745: absent from a backend older than the receipts. */
   pushReceipts?: { last24h: PushReceiptCounts; last7d: PushReceiptCounts };
   accounts: { users: Record<string, number>; coaches: Record<string, number>; players: number; createdLast7d: number };
+  /** Rule 8 (PAD-746): absent from an API that predates it. */
+  push?: {
+    activeStudents7d: { total: number; noChannel: number; webPushOnly: number; nativeOnly: number; nativeAndWebPush: number };
+    registrationFailures7d: Record<"ios" | "android" | "web", number>;
+  };
   deploy: { this: DeployIdentity; other: DeployIdentity | string };
 }
 
