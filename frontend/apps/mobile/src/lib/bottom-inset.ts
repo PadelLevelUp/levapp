@@ -24,9 +24,13 @@ export function tabBarBottom(os: OS, insetBottom: number): { paddingBottom: numb
   return { paddingBottom, height: 6 + 54 + paddingBottom };
 }
 
-/** The padding the root Stack puts under a screen's content (Android only). */
-export function rootContentBottomPadding(os: OS, insetBottom: number): number {
-  return os === "android" ? insetBottom : 0;
+/** The padding the root Stack puts under a screen's content (Android only), none while the
+ * keyboard is up: the keyboard covers the navigation bar then, and a screen's
+ * KeyboardAvoidingView lifts its form by the keyboard's overlap with ITS frame. With the padding
+ * kept, that frame ends 48 dp higher, the lift is 48 dp smaller, and the login's password field
+ * stayed under the keyboard (Play screenshot job, runs 40009341283 and 40015219350). */
+export function rootContentBottomPadding(os: OS, insetBottom: number, keyboardVisible = false): number {
+  return os === "android" && !keyboardVisible ? insetBottom : 0;
 }
 
 /** The bottom inset a screen adds itself: none on Android, where the root Stack already did. */

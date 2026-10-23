@@ -124,7 +124,10 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
      (`(tabs)/_layout.tsx`, `tabBarBottom`), so the labels sit above the buttons;
    - the root Stack pads every other screen's content by the inset (`contentStyle`), so a scroll
      ends above the bar and nothing is drawn under it. The tab navigator is excluded, because its
-     bar already takes the inset;
+     bar already takes the inset. While the keyboard is up the padding is 0: the keyboard covers
+     the bar then, and a `KeyboardAvoidingView` lifts its form by the keyboard's overlap with its
+     own frame, so a padded frame lifted 48 dp too little and left the login's password field
+     under the keyboard (Play screenshot job, runs 40009341283 and 40015219350);
    - a screen that added the inset itself (settings, the class-request wizard, a conversation's
      composer) adds none on Android (`useScreenBottomInset`), so nothing is padded twice.
    iOS is unchanged: its tab bar keeps 24/84 for the home indicator, and its screens keep their

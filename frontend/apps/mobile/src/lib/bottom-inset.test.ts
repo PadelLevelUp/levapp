@@ -25,6 +25,11 @@ describe("PAD-730: content stays out from under the Android navigation bar", () 
     expect(rootContentBottomPadding("ios", 34)).toBe(0);
   });
 
+  it("the root padding collapses while the keyboard is up, so a form lifts by the full overlap", () => {
+    expect(rootContentBottomPadding("android", 48, true)).toBe(0);
+    expect(rootContentBottomPadding("android", 48, false)).toBe(48);
+  });
+
   it("a screen that adds the inset itself adds none on Android (no double padding)", () => {
     expect(screenBottomInset("android", 48)).toBe(0);
     expect(screenBottomInset("ios", 34)).toBe(34);

@@ -24,6 +24,7 @@ import { StatusBar } from "expo-status-bar";
 import { LogBox, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { rootContentBottomPadding } from "@/lib/bottom-inset";
+import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, startSessionRestore } from "@/auth/AuthContext";
 import { LaunchAnimation } from "@/components/brand/LaunchAnimation";
@@ -93,7 +94,8 @@ export default function RootLayout() {
   const fontsReady = !!(fontsLoaded || fontError);
   // PAD-730: on Android (edge-to-edge) every screen's content ends above the navigation bar; the
   // tab navigator is excluded below, its bar takes the inset itself.
-  const contentBottom = rootContentBottomPadding(Platform.OS, useSafeAreaInsets().bottom);
+  const keyboardVisible = useKeyboardVisible();
+  const contentBottom = rootContentBottomPadding(Platform.OS, useSafeAreaInsets().bottom, keyboardVisible);
   const firstScreenReady = useFirstScreenReady();
   React.useEffect(() => {
     if (firstScreenReady) launchMark("first-screen-ready");
