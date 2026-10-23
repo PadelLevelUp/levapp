@@ -451,10 +451,17 @@ jobs:
             [ -f "$d/maestro-report.xml" ] && continue
             mkdir -p "$d"
             id=$(printf '%s\n' "$jobs" | awk -F'\t' -v n="Maestro on an Android emulator ($shard)" '$2 == n { print $1 }')
-            if [ -n "$id" ]; then
-              gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" 2>/dev/null \
-                | node frontend/apps/mobile/scripts/maestro-shards.mjs setup-error > "$d/setup-error.txt" || true
-            fi
+            # A finished job's log can take a few seconds to be archived (run 40027868297 read it
+            # empty 12 s after the job ended), so try for up to a minute.
+            for attempt in 1 2 3 4 5 6; do
+              [ -n "$id" ] || break
+              if gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" > "$RUNNER_TEMP/job-$shard.log" && [ -s "$RUNNER_TEMP/job-$shard.log" ]; then
+                node frontend/apps/mobile/scripts/maestro-shards.mjs setup-error < "$RUNNER_TEMP/job-$shard.log" > "$d/setup-error.txt"
+                break
+              fi
+              echo "job $id's log not readable yet (attempt $attempt)"
+              sleep 10
+            done
             echo "shard $shard has no junit report; setup error: $(cat "$d/setup-error.txt" 2>/dev/null || echo none)"
           done
 
