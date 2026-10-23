@@ -246,6 +246,9 @@ describe("the Android lane check (rule 7, PAD-720)", () => {
     );
     expect(setupError("2026-10-23T21:01:34.8664752Z ##[error]Flask did not answer on :5001")).toBe("Flask did not answer on :5001");
     expect(setupError("all fine\n")).toBe("");
+    expect(setupError("2026-10-23T21:51:40.3878955Z \x1b[33mWarning: Failed to find package 'platforms;android-99'\x1b[0m")).toBe(
+      "Warning: Failed to find package 'platforms;android-99'"
+    );
   });
 
   it("reads each shard's artifact, and marks an expected shard with no artifact as missing", () => {

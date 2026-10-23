@@ -243,7 +243,10 @@ export function noFlowRan(r) {
  * text), or of the whole job when that step never started; "" when there is none.
  */
 export function setupError(jobLog) {
-  const lines = jobLog.split("\n").map((l) => l.replace(/^\S*\d{4}-\d\d-\d\dT[\d:.]+Z /, "").trim());
+  const lines = jobLog
+    .split("\n")
+    // eslint-disable-next-line no-control-regex
+    .map((l) => l.replace(/\x1b\[[0-9;]*m/g, "").replace(/^\S*\d{4}-\d\d-\d\dT[\d:.]+Z /, "").trim());
   const start = lines.findLastIndex((l) => /^##\[group\]Run reactivecircus\/android-emulator-runner/.test(l));
   const hit = lines
     .slice(start + 1)

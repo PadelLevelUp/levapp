@@ -451,11 +451,12 @@ jobs:
             [ -f "$d/maestro-report.xml" ] && continue
             mkdir -p "$d"
             id=$(printf '%s\n' "$jobs" | awk -F'\t' -v n="Maestro on an Android emulator ($shard)" '$2 == n { print $1 }')
-            # A finished job's log can take a few seconds to be archived (run 40027868297 read it
-            # empty 12 s after the job ended), so try for up to a minute.
-            for attempt in 1 2 3 4 5 6; do
+            # curl, not `gh api`: the runner's gh refuses a response with terminal escape sequences,
+            # which every job log has (run 40029953880). The retry covers a log not yet archived.
+            for attempt in 1 2 3; do
               [ -n "$id" ] || break
-              if gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" > "$RUNNER_TEMP/job-$shard.log" && [ -s "$RUNNER_TEMP/job-$shard.log" ]; then
+              if curl -sfL -H "Authorization: Bearer $GH_TOKEN" -o "$RUNNER_TEMP/job-$shard.log" \
+                  "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" && [ -s "$RUNNER_TEMP/job-$shard.log" ]; then
                 node frontend/apps/mobile/scripts/maestro-shards.mjs setup-error < "$RUNNER_TEMP/job-$shard.log" > "$d/setup-error.txt"
                 break
               fi
