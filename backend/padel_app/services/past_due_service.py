@@ -158,6 +158,9 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
 
         if instance.status in ("canceled", "completed") or instance.start_datetime is None:
             continue
+        # PAD-736 (toggle-class rule 3): the pass would send nothing for a class with notifications off.
+        if not instance.notifications_enabled:
+            continue
         if instance.start_datetime <= wall_now:
             continue
         if own_primary.get(instance.id, lesson_primary.get(instance.lesson_id)) != coach_id:
@@ -188,7 +191,9 @@ def _candidates(coach_id: int, now: datetime) -> list[dict]:
     # write. Past due when the lesson's primary coach is this coach, the time is past, and
     # there is a roster to remind.
     my_lessons = [lid for lid in lesson_ids if lesson_primary.get(lid) == coach_id]
-    lessons = Lesson.query.filter(Lesson.id.in_(my_lessons), Lesson.status == "active").all() if my_lessons else []
+    lessons = Lesson.query.filter(
+        Lesson.id.in_(my_lessons), Lesson.status == "active", Lesson.notifications_enabled.is_(True),
+    ).all() if my_lessons else []
     for lesson in lessons:
         roster = None
         for occ in lesson.occurrences_between(wall_now, window_end):

@@ -243,6 +243,14 @@ def healthz():
         if state == _ss.AHEAD:
             return jsonify({"status": "schema_ahead"})
 
+    # delivery.events-role (PAD-697): an events process is ready only on the Postgres broker with
+    # its listener LISTENing. The API has no such condition (a LISTEN outage must not unready it).
+    from padel_app.events_role import readiness_problem
+
+    problem = readiness_problem()
+    if problem:
+        return jsonify({"status": problem}), 503
+
     return jsonify({"status": "ok"})
 
 
@@ -622,11 +630,7 @@ SSE_CLIENT_RETRY_MS = 10_000
 @bp.route("/events")
 @jwt_required(locations=["query_string"])
 def events():
-    from padel_app.config import (
-        DEFAULT_SSE_KEEPALIVE_SECONDS,
-        DEFAULT_SSE_MAX_STREAMS,
-        DEFAULT_SSE_MAX_STREAMS_PER_USER,
-    )
+    from padel_app.config import DEFAULT_SSE_KEEPALIVE_SECONDS, sse_stream_limits
 
     # Read the identity HERE, in the request context — not inside the generator.
     # The generator body runs after this request context has popped, so
@@ -641,12 +645,12 @@ def events():
     # request behind the streams that already hold every thread. Past the
     # per-user cap the user's oldest stream is evicted instead (PAD-277, rules
     # 11-13; baseline in the 2026-08-25 single-VM decision).
+    # PAD-697 R6: the fallback is role-aware too (1000 in the events role), not the API's 40.
+    default_total, default_per_user = sse_stream_limits()
     q, refused = try_subscribe(
         subscriber_id,
-        max_total=current_app.config.get("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
-        max_per_user=current_app.config.get(
-            "SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER
-        ),
+        max_total=current_app.config.get("SSE_MAX_STREAMS", default_total),
+        max_per_user=current_app.config.get("SSE_MAX_STREAMS_PER_USER", default_per_user),
     )
     keepalive = current_app.config.get("SSE_KEEPALIVE_SECONDS", DEFAULT_SSE_KEEPALIVE_SECONDS)
     if q is None:
@@ -2264,7 +2268,8 @@ def create_class_join_request():
         abort(403, "Only a student can ask to join a class")
     data = request.get_json() or {}
     row, created = create_join_request_service(
-        player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note")
+        player, data.get("model"), data.get("originalId"), data.get("date"), note=data.get("note"),
+        side=data.get("side"),
     )
     return jsonify(serialize_join_request(row)), (201 if created else 200)
 
@@ -2293,9 +2298,10 @@ def join_class_waiting_list_route():
         abort(403, "Only a student can join a waiting list")
     data = request.get_json() or {}
     entry, created = join_class_waiting_list_service(
-        player, data.get("model"), data.get("originalId"), data.get("date")
+        player, data.get("model"), data.get("originalId"), data.get("date"), side=data.get("side")
     )
-    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True}), (201 if created else 200)
+    return jsonify({"lessonInstanceId": entry.lesson_instance_id, "onWaitingList": True,
+                    "side": entry.side}), (201 if created else 200)  # PAD-672: the side stored
 
 
 @bp.get("/class-waiting-list")

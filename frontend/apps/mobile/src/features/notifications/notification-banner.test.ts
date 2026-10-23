@@ -42,4 +42,13 @@ describe("notificationBanner", () => {
       notificationBanner({ status: "undetermined", canAskAgain: false })
     ).toBe("blocked");
   });
+
+  // messaging.push-notifications rule 15 (PAD-744)
+  it("calls a granted phone whose registration failed inactive, and only then", () => {
+    expect(notificationBanner({ status: "granted" }, "failed")).toBe("inactive");
+    expect(notificationBanner({ status: "granted" }, "registered")).toBe("none");
+    expect(notificationBanner({ status: "granted" }, "unsupported")).toBe("none");
+    expect(notificationBanner({ status: "denied", canAskAgain: false }, "failed")).toBe("blocked");
+    expect(notificationBanner(null, "failed")).toBe("none");
+  });
 });

@@ -389,6 +389,12 @@
       "invitationModeDescription": "Send replacement invitations automatically, or ask for your approval first",
       "automatic": "Automatic",
       "semiAutomatic": "Semi-automatic",
+      "autoAcceptJoinRequests": {
+        "label": "Automatically accept eligible students' requests to join classes with a spot",
+        "help": "The request is accepted at once, with the same checks you would make (level, side, restrictions, spot). The student's note reaches you as a message.",
+        "disabledReason": "Not available in semi-automatic mode",
+        "turnedOff": "Automatic acceptance was switched off: it doesn't work in semi-automatic mode."
+      },
       "reminders": "Reminders",
       "remindersHint": "Automatically remind students before class and ask them to confirm attendance.",
       "rescheduleFailed": "The timing is saved, but the reminders of classes already scheduled may still follow the previous timing. They are brought up to date automatically once a day. To retry now, change the timing again.",

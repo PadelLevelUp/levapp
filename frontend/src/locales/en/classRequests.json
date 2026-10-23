@@ -104,6 +104,7 @@
       "requested": "Waiting for the coach",
       "onWaitlist": "You are on the waiting list",
       "requestSent": "Request sent to the coach.",
+      "acceptedNow": "You're in! You're enrolled in this class.",
       "joinedWaitlist": "You joined the waiting list.",
       "leftWaitlist": "You left the waiting list.",
       "nowFull": "This class just filled up — you can join its waiting list.",

@@ -17,6 +17,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderNative } from "@/test/render-native";
 import {
   UnsavedRegistryProvider,
@@ -37,30 +38,14 @@ vi.mock("@levelup/api", () => ({
   },
 }));
 
+// Real @levelup/hooks since PAD-406: `useCoachLevels` runs over this api spy, in a real QueryClientProvider.
 const getCoachLevels = vi.fn();
-vi.mock("@levelup/hooks", async () => {
-  const React = await import("react");
-  return {
-    queryKeys: { coachLevels: ["coach-levels"] },
-    useCoachLevels: () => {
-      const [data, setData] = React.useState<unknown>(undefined);
-      React.useEffect(() => {
-        let alive = true;
-        getCoachLevels().then((d: unknown) => {
-          if (alive) setData(d);
-        });
-        return () => {
-          alive = false;
-        };
-      }, []);
-      return { data, isLoading: data === undefined };
-    },
-  };
-});
-
-vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+vi.mock("@levelup/api/src/resources/coachLevel", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachLevels: (...a: unknown[]) => getCoachLevels(...a),
 }));
+
+let client: QueryClient;
 
 vi.mock("@/components/ui/input", async () => {
   const { TextInput } = await import("react-native");
@@ -75,6 +60,7 @@ const LOADED = [
 ];
 
 beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
   getCoachLevels.mockReset().mockResolvedValue(LOADED);
   addCoachLevel.mockReset();
   deleteCoachLevel.mockReset();
@@ -130,10 +116,14 @@ describe("CoachLevelsSection registers its unsaved state (PAD-394)", () => {
     }
     const n = await renderNative(
       createElement(
-        UnsavedRegistryProvider,
-        null,
-        createElement(Capture),
-        createElement(CoachLevelsSection)
+        QueryClientProvider,
+        { client },
+        createElement(
+          UnsavedRegistryProvider,
+          null,
+          createElement(Capture),
+          createElement(CoachLevelsSection)
+        )
       )
     );
     await n.flush();

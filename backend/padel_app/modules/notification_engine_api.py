@@ -9,7 +9,7 @@ from padel_app.modules.frontend_api import (
     coach_owns_lesson,
     require_superadmin,
 )
-from padel_app.utils.dates import club_now_naive, utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
     withdraw_invitation,
@@ -68,6 +68,20 @@ def _resolve_instance(model: str, original_id: int, date_str: str | None) -> Les
     return get_or_materialize_instance(lesson, date)
 
 
+def _resolve_owned_instance(coach, model: str, original_id: int, date_str: str | None, *,
+                            refusal: int = 403) -> LessonInstance:
+    """`_resolve_instance` for a class the caller must own, checked BEFORE anything is written
+    (B-619): a Lesson ref is checked on the lesson, so another coach's virtual occurrence is never
+    materialised; the resolved occurrence is then checked too (its own coaches, PAD-275 rule 4).
+    `refusal` otherwise: 403, or 404 where the route's contract hides the class."""
+    if model.lower() != "lessoninstance" and not coach_owns_lesson(coach, Lesson.query.get_or_404(original_id)):
+        abort(refusal, "Not your class")
+    instance = _resolve_instance(model, original_id, date_str)
+    if not coach_owns_instance(coach, instance):
+        abort(refusal, "Not your class")
+    return instance
+
+
 @bp.post("/template_preview")
 @jwt_required()
 def template_preview():
@@ -122,6 +136,9 @@ def save_config():
     config = update_config(coach.id, data)
 
     payload = get_config_dict(coach.id)
+    # PAD-672 (rule 3a): the switch to semi-automatic turned automatic acceptance off.
+    if getattr(config, "auto_accept_turned_off", False):
+        payload["notice"] = "auto_accept_off"
     # PAD-478 (notifications.config rule 10c): saved, but the jobs were not re-armed.
     if getattr(config, "reschedule_failed", False):
         payload["rescheduleFailed"] = True
@@ -174,7 +191,8 @@ def eligibility_check():
     """
     coach = _current_coach()
     data = request.get_json() or {}
-    instance = _resolve_instance(
+    instance = _resolve_owned_instance(  # B-619
+        coach,
         data.get("model", "LessonInstance"),
         int(data.get("originalId")),
         data.get("date"),
@@ -205,15 +223,14 @@ def _simulation_inputs(coach):
     data = request.get_json() or {}
     if data.get("originalId") in (None, ""):
         abort(400, "originalId is required")
-    instance = _resolve_instance(
+    # PAD-275 rule 4; B-619: checked before a virtual occurrence is materialised.
+    instance = _resolve_owned_instance(
+        coach,
         data.get("model", "LessonInstance"),
         int(data.get("originalId")),
         data.get("date"),
+        refusal=404,
     )
-    from padel_app.services.lesson_service import coaches_for
-
-    if not any(c.id == coach.id for c in coaches_for(instance)):  # PAD-275 rule 4
-        abort(404)
     try:
         departing_player_id = int(data.get("departingPlayerId"))
     except (TypeError, ValueError):
@@ -290,12 +307,10 @@ def manual_notify():
     player_ids = [int(pid) for pid in data.get("playerIds", [])]
     if not player_ids:
         return jsonify({"error": "No player IDs provided"}), 400
-    instance = _resolve_instance(model, original_id, date_str)
     # PAD-258 — notifications.manual rule 7: the class must be the caller's
     # and every player must be on the caller's roster; otherwise no event, no
-    # message.
-    if not coach_owns_instance(coach, instance):
-        abort(403, "Not authorized to notify for this class")
+    # message. B-619: checked before a virtual occurrence is materialised.
+    instance = _resolve_owned_instance(coach, model, original_id, date_str)
     for pid in player_ids:
         if Association_CoachPlayer.query.filter_by(coach_id=coach.id, player_id=pid).first() is None:
             abort(403, "Player is not on your roster")
@@ -344,12 +359,13 @@ def send_past_due_reminders():
 @jwt_required()
 def send_reminders():
     """Send reminder messages to all enrolled players for a class instance."""
-    _current_coach()
+    coach = _current_coach()
     data = request.get_json() or {}
     model = data.get("model", "LessonInstance")
     original_id = int(data.get("originalId"))
     date_str = data.get("date")
-    instance = _resolve_instance(model, original_id, date_str)
+    # B-619 (class-reminders-manual rule 4): only the class's coach sends its reminders.
+    instance = _resolve_owned_instance(coach, model, original_id, date_str)
     result = send_class_reminders(instance.id)
     # PAD-107 + PAD-112: report what the service actually sent. This used to
     # return ``len(instance.players_relations)`` — the enrolment count — which
@@ -519,9 +535,7 @@ def class_waiting_list_add():
         player_id = int(data.get("playerId"))
     except (TypeError, ValueError):
         return jsonify({"error": "originalId and playerId must be integers"}), 400
-    instance = _resolve_instance(str(data.get("model", "")), original_id, data.get("date"))
-    if not coach_owns_instance(coach, instance):
-        return jsonify({"error": "Not your class"}), 403
+    instance = _resolve_owned_instance(coach, str(data.get("model", "")), original_id, data.get("date"))  # B-619
     scope, classes, expires_at = _parse_scope_body(data)
     # `credits` from old builds is accepted and ignored (rule 19); it is not validated.
     result = add_to_class_waiting_list(
@@ -678,7 +692,9 @@ def standing_waiting_list_add():
             expires_at = standing_end_from_days(data.get("durationDays", 30))
     except InvalidStandingEndError as exc:
         return jsonify({"error": "invalid_fields", "fields": [exc.field]}), 400
-    entry = add_standing_waiting_list_entry(coach.id, player_id, credits_total, expires_at=expires_at)
+    entry = add_standing_waiting_list_entry(
+        coach.id, player_id, credits_total, expires_at=expires_at, side=data.get("side")  # PAD-672
+    )
     entries = get_standing_waiting_list(coach.id)
     added = next((e for e in entries if e["id"] == entry.id), None)
     return jsonify(added), 201
@@ -891,9 +907,13 @@ def debug_schedule_reminder_test():
     if not coach or not student1 or not student2 or not club:
         abort(500, "Seed data incomplete")
 
-    # PAD-256: a class time is Lisbon wall-clock (R-023), so build it on the
-    # club's clock; the 48 h reminder then fires `seconds_until_fire` from now.
-    class_start = club_now_naive() + timedelta(hours=48, seconds=seconds_until_fire)
+    # PAD-256: a class time is Lisbon wall-clock (R-023). The engine counts the
+    # 48 h back in real hours (scheduler._fire_time_utc), so add them to the real
+    # clock and store the result on the club's clock: the reminder then fires
+    # `seconds_until_fire` from now even when the 48 h cross a daylight-saving
+    # change. Adding them to the wall clock fired it an hour late or early (PAD-750).
+    class_start = utc_to_wall_naive(
+        utcnow_naive() + timedelta(hours=48, seconds=seconds_until_fire))
     class_end = class_start + timedelta(hours=1)
 
     lesson = Lesson(

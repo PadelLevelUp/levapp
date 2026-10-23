@@ -3,6 +3,8 @@ import os
 import sys
 from datetime import timedelta
 
+from padel_app.roles import process_role
+
 logger = logging.getLogger(__name__)
 
 # Hosts that are known to hold real (remote) data. Used to fail closed: a
@@ -103,6 +105,10 @@ def assert_safe_migration_target(host, port=None, env=None):
 #: once each tab/app shares one connection (past it, the user's OLDEST stream
 #: is evicted). The keep-alive is how a vanished client is noticed.
 DEFAULT_SSE_MAX_STREAMS = 40
+#: PAD-697 (R6): the events role's streams are greenlets, not API threads, so its cap is
+#: memory-bound; a role-aware default, never an env override, keeps PAD-702's "default is the
+#: deployed value" class intact.
+DEFAULT_SSE_MAX_STREAMS_EVENTS = 1000
 DEFAULT_SSE_MAX_STREAMS_PER_USER = 4
 DEFAULT_SSE_KEEPALIVE_SECONDS = 5
 
@@ -121,8 +127,9 @@ def sse_stream_limits(environ=None):
             return default
         return value if value > 0 else default
 
+    total_default = DEFAULT_SSE_MAX_STREAMS_EVENTS if process_role(environ) == "events" else DEFAULT_SSE_MAX_STREAMS
     return (
-        read("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
+        read("SSE_MAX_STREAMS", total_default),
         read("SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER),
     )
 
@@ -165,6 +172,15 @@ def sse_keepalive_seconds(environ=None):
 ADMIN_STAFF_DOMAIN_DEFAULT = "levapp.app"
 ADMIN_JWT_AUDIENCE_DEFAULT = "levapp-admin"
 ADMIN_TOKEN_EXPIRES_DEFAULT = timedelta(hours=12)
+
+
+def finance_max_bytes(raw):
+    """admin.finance rule 7: a positive integer, else 1 GiB."""
+    try:
+        value = int((raw or "").strip())
+    except ValueError:
+        return 1024 ** 3
+    return value if value > 0 else 1024 ** 3
 
 
 def parse_admin_hosts(raw):
@@ -309,6 +325,11 @@ class Config:
     # admin.approvals-and-users rules 3 and 10 (PAD-532): where the staff console lives, for the
     # pending-coach mail and push. Empty = the bare path (local development).
     ADMIN_CONSOLE_URL = (os.getenv("ADMIN_CONSOLE_URL") or "").strip()
+    # admin.finance rules 7 and 11 (PAD-742): the Google Cloud billing export table
+    # (project.dataset.table). Empty = the import is "not configured". Set from a deploy variable,
+    # never a tracked value (R-036). The byte cap bounds every query; invalid → the 1 GiB default.
+    FINANCE_GCP_BILLING_TABLE = (os.getenv("FINANCE_GCP_BILLING_TABLE") or "").strip()
+    FINANCE_GCP_MAX_BYTES = finance_max_bytes(os.getenv("FINANCE_GCP_MAX_BYTES"))
     # admin.work-dashboard rule 5 (PAD-555): server-side only, never sent to a client or logged.
     # Unset LINEAR_API_KEY → tickets "not configured"; unset WORK_GITHUB_REPO (the deploys set it to
     # the repository) → GitHub "not configured", so tests and local runs never call GitHub.

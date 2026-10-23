@@ -78,8 +78,9 @@ budget holds the gain.
    review). The same holds for the staff console (`admin.foundation` rule 12a).
 8. **A budget holds the gain.** `vite build` writes a manifest; `scripts/check-entry-budget.mjs`
    sums the gzip size of the entry chunk and its static imports (JS and CSS) and fails above
-   **300 kB**, and fails if any single JS chunk exceeds 500 kB raw. CI runs build + check on every
-   PR that touches `frontend/`.
+   **320 kB**, and fails if any single JS chunk exceeds 500 kB raw. CI runs build + check on every
+   PR that touches `frontend/`. (300 kB until PAD-406: React 19 added ~15 kB to an entry the
+   PAD-656 site had brought to ~288 kB; the owner raised the budget rather than trim the entry.)
 
 ### Acceptance Criteria
 
@@ -116,7 +117,7 @@ budget holds the gain.
 #### The first download is within budget (rule 8)
 - **Given** `npm run build --workspace apps/web`
 - **When** `node apps/web/scripts/check-entry-budget.mjs` runs
-- **Then** it prints the entry gzip total ≤ 300 kB and exits 0, and no JS chunk exceeds 500 kB raw
+- **Then** it prints the entry gzip total ≤ 320 kB and exits 0, and no JS chunk exceeds 500 kB raw
 
 #### The session waits for the user's language (rule 6)
 - **Given** a stored session whose user's language is English, with the English chunk slow

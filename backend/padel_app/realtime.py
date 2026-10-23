@@ -325,7 +325,7 @@ def _prune(cursor, retention_minutes: int) -> None:
 def stats_line() -> str:
     """One line for the logs: open streams, the busiest user's count, the cap, the push queue.
     The text is what the log-based dashboards and alerts parse; keep its shape."""
-    from padel_app.utils import push_sender
+    from padel_app.utils import push_outbox, push_sender
 
     with _lock:
         counts = [len(queues) for queues in _subscribers.values()]
@@ -333,6 +333,7 @@ def stats_line() -> str:
     return (
         f"SSE streams: open={sum(counts)} max_per_user={max(counts, default=0)} cap={_cap} "
         f"push_queue={push_sender.pending()}/{push_sender.QUEUE_MAX} pushes_dropped={push['dropped']}"
+        f"{push_outbox.stats_fragment()}"
     )
 
 

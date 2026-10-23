@@ -19,6 +19,8 @@ export class ApiError extends Error {
   status: number;
   code: string;
   retryAfterSeconds?: number;
+  /** admin.finance rule 5: the field a 400 INVALID_COST names. */
+  field?: string;
   constructor(status: number, code: string) {
     super(code);
     this.status = status;
@@ -102,6 +104,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     }
     const err = new ApiError(response.status, code);
     if (typeof data.retryAfterSeconds === "number") err.retryAfterSeconds = data.retryAfterSeconds;
+    if (typeof data.field === "string") err.field = data.field;
     throw err;
   }
   return data as T;
@@ -227,7 +230,153 @@ export const adminApi = {
     api<{ items: DeletionAuditRow[]; total: number; hasMore: boolean; page: number }>(
       `/deletion-audits?${new URLSearchParams({ entity, page: String(page) }).toString()}`,
     ),
+  // ── finance (PAD-742, admin.finance rules 1, 5, 5c, 8, 10): every console account ──
+  financeSummary: (from?: string, to?: string) => {
+    const query = new URLSearchParams(Object.entries({ from: from ?? "", to: to ?? "" }).filter(([, v]) => v !== "")).toString();
+    return api<FinanceSummary>(`/finance/summary${query ? `?${query}` : ""}`);
+  },
+  financeCosts: (params: { category?: string; vendor?: string; includeDeleted?: boolean } = {}) => {
+    const query = new URLSearchParams(
+      Object.entries({
+        category: params.category ?? "",
+        vendor: params.vendor ?? "",
+        includeDeleted: params.includeDeleted ? "true" : "",
+      }).filter(([, v]) => v !== ""),
+    ).toString();
+    return api<{ items: FinanceCost[] }>(`/finance/costs${query ? `?${query}` : ""}`);
+  },
+  createFinanceCost: (body: FinanceCostInput) => api<FinanceCost>("/finance/costs", { method: "POST", body }),
+  updateFinanceCost: (id: number, body: Partial<FinanceCostInput>) =>
+    api<FinanceCost>(`/finance/costs/${id}`, { method: "PUT", body }),
+  deleteFinanceCost: (id: number) => api<FinanceCost>(`/finance/costs/${id}`, { method: "DELETE" }),
+  previewFinanceImport: (text: string) =>
+    api<FinanceImportPreview>("/finance/costs/import", { method: "POST", body: { text, dryRun: true } }),
+  importFinanceCosts: (text: string) =>
+    api<{ dryRun: false; created: number[] }>("/finance/costs/import", { method: "POST", body: { text, dryRun: false } }),
+  financeCostRevisions: (id: number) => api<{ items: FinanceCostRevision[] }>(`/finance/costs/${id}/revisions`),
+  financeGcpMonth: (month: string) =>
+    api<{ month: string; items: FinanceGcpLine[] }>(`/finance/gcp?month=${encodeURIComponent(month)}`),
+  financeImportRuns: () => api<{ items: FinanceImportRun[] }>("/finance/import-runs"),
+  financeImportNow: () => api<FinanceImportRun>("/finance/gcp/import", { method: "POST", body: {} }),
 };
+
+// ── finance (PAD-742) ──
+export const FINANCE_CATEGORIES = ["infrastructure", "ai_tools", "stores", "domains_dns", "email_crm", "other"] as const;
+export type FinanceCategory = (typeof FINANCE_CATEGORIES)[number];
+export const FINANCE_RECURRENCES = ["once", "monthly", "annual"] as const;
+export type FinanceRecurrence = (typeof FINANCE_RECURRENCES)[number];
+
+export interface FinanceImportStatus {
+  configured: boolean;
+  lastRun: { outcome: string; startedAt: string; finishedAt: string | null; errorCode: string | null } | null;
+  lastOkAt: string | null;
+  stale: boolean;
+}
+
+export interface FinanceSummaryMonth {
+  month: string;
+  byCategory: Partial<Record<FinanceCategory, string>>;
+  total: string;
+  cumulative: string;
+}
+
+export interface FinanceSummary {
+  categories: FinanceCategory[];
+  start: string | null;
+  months: FinanceSummaryMonth[];
+  superseded: { costId: number; month: string }[];
+  importStatus: FinanceImportStatus;
+}
+
+export interface FinanceCostInput {
+  category: FinanceCategory;
+  vendor: string;
+  description: string;
+  currency: string;
+  amount: string;
+  amountEur?: string | null;
+  recurrence: FinanceRecurrence;
+  startsOn: string;
+  endsOn?: string | null;
+  gcpInvoice?: boolean;
+  notes?: string | null;
+}
+
+export interface FinanceCost extends Required<Omit<FinanceCostInput, "amountEur" | "endsOn" | "notes">> {
+  id: number;
+  amountEur: string;
+  endsOn: string | null;
+  notes: string | null;
+  createdByEmail: string;
+  updatedByEmail: string;
+  deletedAt: string | null;
+  deletedByEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** admin.finance rule 5c: one line of a dry run, with its cost or the error the form would show. */
+export type FinanceImportLine =
+  | { line: number; ok: true; cost: FinanceCostInput & { amountEur: string } }
+  | { line: number; ok: false; error: string; field: string | null };
+
+export interface FinanceImportPreview {
+  dryRun: true;
+  lines: FinanceImportLine[];
+  invalid: number;
+}
+
+export interface FinanceCostRevision {
+  id: number;
+  costId: number;
+  revision: number;
+  action: "create" | "update" | "delete";
+  snapshot: FinanceCost;
+  actorEmail: string;
+  createdAt: string;
+}
+
+export interface FinanceGcpLine {
+  projectId: string;
+  service: string;
+  currency: string;
+  cost: string;
+  credits: string;
+  net: string;
+}
+
+export interface FinanceImportRun {
+  id: number;
+  trigger: "schedule" | "manual";
+  actorEmail: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  outcome: "running" | "ok" | "error" | "not_configured";
+  months: string[];
+  rows: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+/** admin.finance rule 10: the CSV needs the bearer token, so it is fetched and saved as a Blob. */
+export async function downloadFinanceCsv(from?: string, to?: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  const query = new URLSearchParams(Object.entries({ from: from ?? "", to: to ?? "" }).filter(([, v]) => v !== "")).toString();
+  const token = getToken();
+  const response = await fetchImpl(`/admin/api/finance/export.csv${query ? `?${query}` : ""}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) throw new ApiError(response.status, `HTTP_${response.status}`);
+  const blob = await response.blob();
+  const match = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = match?.[1] ?? "levapp-custos.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 export type ReportStatus = "open" | "closed";
 export type ReportAction = "dismiss" | "delete-message" | "disable-author";
@@ -313,7 +462,9 @@ export interface UserDetail extends UserRow {
 }
 
 export type DeployIdentity = { gitSha: string; alembicHead: string | null };
-export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due";
+export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due" | "push_registration_failed";
+export type PushReceiptStatus = "pending" | "ok" | "error" | "expired";
+export type PushReceiptCounts = Record<PushReceiptStatus, number> & { errorsByCode: Record<string, number> };
 
 export interface EngineHealth {
   computedAt: string;
@@ -332,7 +483,14 @@ export interface EngineHealth {
     last7d: Record<IncidentKind, number>;
     recent: { id: number; createdAt: string; kind: IncidentKind; channel: string; userId: number | null; subjectType: string | null; subjectId: number | null; errorClass: string | null; detail: string | null }[];
   };
+  /** PAD-745: absent from a backend older than the receipts. */
+  pushReceipts?: { last24h: PushReceiptCounts; last7d: PushReceiptCounts };
   accounts: { users: Record<string, number>; coaches: Record<string, number>; players: number; createdLast7d: number };
+  /** Rule 8 (PAD-746): absent from an API that predates it. */
+  push?: {
+    activeStudents7d: { total: number; noChannel: number; webPushOnly: number; nativeOnly: number; nativeAndWebPush: number };
+    registrationFailures7d: Record<"ios" | "android" | "web", number>;
+  };
   deploy: { this: DeployIdentity; other: DeployIdentity | string };
 }
 

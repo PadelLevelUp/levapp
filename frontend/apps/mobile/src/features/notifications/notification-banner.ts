@@ -31,13 +31,19 @@ export type NotificationBanner =
   /** Never asked, and the OS will still ask — offer an in-app prompt. */
   | "prompt"
   /** Refused, and only Settings can undo it — offer a deep link there. */
-  | "blocked";
+  | "blocked"
+  /**
+   * messaging.push-notifications rule 15 (PAD-744): granted, but registering the phone failed even
+   * after the retries — offer a tap that registers again.
+   */
+  | "inactive";
 
 export function notificationBanner(
-  snapshot: NotificationPermissionSnapshot | null | undefined
+  snapshot: NotificationPermissionSnapshot | null | undefined,
+  pushStatus?: string
 ): NotificationBanner {
   if (!snapshot || !snapshot.status) return "none";
-  if (snapshot.status === "granted") return "none";
+  if (snapshot.status === "granted") return pushStatus === "failed" ? "inactive" : "none";
   // `denied`, or an `undetermined` the OS refuses to ask about again (iOS
   // reports exactly that once the system dialog has been dismissed): the only
   // route back is the Settings app, so say so instead of showing a button that

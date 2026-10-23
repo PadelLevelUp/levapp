@@ -613,3 +613,187 @@ def deletion_audits():
     from padel_app.services.admin import moderation_service
 
     return jsonify(moderation_service.list_deletion_audits(request.args.get("entity"), request.args.get("page")))
+
+
+# ── finance (admin.finance, PAD-742) ──────────────────────────────────────────
+# Rule 1: every route needs FINANCE_ROLE (every console account). Rule 5a: the audit row holds only
+# the changed field names, never an amount; the values live in finance_cost_revisions.
+from padel_app.services.admin.finance_service import FINANCE_ROLE  # noqa: E402
+
+
+def _finance_error(exc):
+    return jsonify(exc.payload()), exc.status
+
+
+def _finance_months():
+    from padel_app.services.admin import finance_service
+
+    start = request.args.get("from")
+    end = request.args.get("to")
+    return (
+        finance_service.parse_month(start, "from") if start else None,
+        finance_service.parse_month(end, "to") if end else None,
+    )
+
+
+@bp.get("/finance/summary")
+@require_role(FINANCE_ROLE)
+def finance_summary():
+    from padel_app.services.admin import finance_service
+
+    try:
+        start, end = _finance_months()
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+    return jsonify(finance_service.summary(start, end))
+
+
+@bp.get("/finance/costs")
+@require_role(FINANCE_ROLE)
+def finance_costs():
+    from padel_app.services.admin import finance_service
+
+    include_deleted = request.args.get("includeDeleted") in ("true", "1")
+    return jsonify(
+        {
+            "items": finance_service.list_costs(
+                request.args.get("category") or None, request.args.get("vendor") or None, include_deleted
+            )
+        }
+    )
+
+
+@bp.get("/finance/costs/<int:cost_id>/revisions")
+@require_role(FINANCE_ROLE)
+def finance_cost_revisions(cost_id):
+    from padel_app.services.admin import finance_service
+
+    try:
+        return jsonify({"items": finance_service.list_revisions(cost_id)})
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+
+
+def _finance_write(action, cost_id=None):
+    from padel_app.services.admin import finance_service
+
+    body = request.get_json(silent=True) or {}
+    try:
+        if action == "create":
+            cost, changed = finance_service.create_cost(body, g.admin.email)
+        elif action == "update":
+            cost, changed = finance_service.update_cost(cost_id, body, g.admin.email)
+        else:
+            cost, changed = finance_service.delete_cost(cost_id, g.admin.email)
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+    g.audit.target("finance_cost", cost.id)
+    g.audit.before = None
+    g.audit.after = {"changedFields": changed}
+    return jsonify(cost.to_dict()), 201 if action == "create" else 200
+
+
+@bp.post("/finance/costs")
+@audited("finance.cost.create")
+@require_role(FINANCE_ROLE)
+def finance_create_cost():
+    return _finance_write("create")
+
+
+@bp.put("/finance/costs/<int:cost_id>")
+@audited("finance.cost.update")
+@require_role(FINANCE_ROLE)
+def finance_update_cost(cost_id):
+    return _finance_write("update", cost_id)
+
+
+@bp.delete("/finance/costs/<int:cost_id>")
+@audited("finance.cost.delete")
+@require_role(FINANCE_ROLE)
+def finance_delete_cost(cost_id):
+    return _finance_write("delete", cost_id)
+
+
+@bp.post("/finance/costs/import")
+@audited("finance.cost.import")
+@require_role(FINANCE_ROLE)
+def finance_import_costs():
+    """Rule 5c: a dry run previews every line; a real run creates all of them or none, with one
+    `finance.cost.create` audit row per line besides this request's own row."""
+    from padel_app.services.admin import audit_service, finance_service
+    from padel_app.utils.admin_auth import AuditContext
+
+    body = request.get_json(silent=True) or {}
+    try:
+        entries = finance_service.parse_import(body.get("text"))
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+    lines = [finance_service.import_preview(entry) for entry in entries]
+    invalid = sum(1 for line in lines if not line["ok"])
+    g.audit.before = None
+    g.audit.after = {"changedFields": []}
+    if body.get("dryRun", True) is not False:
+        return jsonify({"dryRun": True, "lines": lines, "invalid": invalid})
+    if invalid:
+        return jsonify({"error": "IMPORT_INVALID", "lines": lines, "invalid": invalid}), 400
+    created = finance_service.import_costs(entries, g.admin.email)
+    for cost, changed in created:
+        row = AuditContext("finance.cost.create")
+        row.target("finance_cost", cost.id)
+        row.after = {"changedFields": changed}
+        row.resolve_actor()
+        audit_service.record(row, "ok", g.get("request_id"))
+    return jsonify({"dryRun": False, "created": [cost.id for cost, _ in created]}), 201
+
+
+@bp.get("/finance/gcp")
+@require_role(FINANCE_ROLE)
+def finance_gcp_month():
+    from padel_app.services.admin import finance_gcp_import, finance_service
+
+    try:
+        month = finance_service.parse_month(request.args.get("month"))
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+    return jsonify({"month": finance_service.month_key(month), "items": finance_gcp_import.month_lines(month)})
+
+
+@bp.get("/finance/import-runs")
+@require_role(FINANCE_ROLE)
+def finance_import_runs():
+    from padel_app.services.admin import finance_gcp_import
+
+    return jsonify({"items": finance_gcp_import.recent_runs()})
+
+
+@bp.post("/finance/gcp/import")
+@audited("finance.gcp.import")
+@require_role(FINANCE_ROLE)
+def finance_import_now():
+    from padel_app.services.admin import finance_gcp_import
+
+    try:
+        run = finance_gcp_import.run_import("manual", actor_email=g.admin.email)
+    except finance_gcp_import.ImportRunning:
+        return error("IMPORT_RUNNING", 409)
+    g.audit.target("finance_import_run", run.id)
+    g.audit.before = None
+    g.audit.after = {"changedFields": [], "runId": run.id}
+    return jsonify(run.to_dict())
+
+
+@bp.get("/finance/export.csv")
+@require_role(FINANCE_ROLE)
+def finance_export_csv():
+    from padel_app.services.admin import finance_service
+
+    try:
+        start, end = _finance_months()
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+    name = f"levapp-custos-{request.args.get('from') or 'inicio'}-{request.args.get('to') or 'hoje'}.csv"
+    return current_app.response_class(
+        finance_service.export_csv(start, end),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )

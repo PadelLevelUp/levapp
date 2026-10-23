@@ -17,8 +17,11 @@ Jobs
 - ``reminder_{instance_id}``                   — DateTrigger — fires send_class_reminders() (legacy, for already-materialized instances)
 - ``invite_start_{instance_id}``               — DateTrigger — fires trigger_invitations()
 - ``process_batches``                          — IntervalTrigger (2 min) — fires process_invitation_batches()
-- ``extend_schedule_window``                   — IntervalTrigger (1 day) — extends 60-day reminder horizon
+- ``read_push_receipts``                       — IntervalTrigger (10 min) — redeems Expo tickets (PAD-745)
+- ``extend_schedule_window``                   — CronTrigger (daily 02:47 UTC) — extends 60-day reminder horizon
                                                  and re-derives any missing lesson reminder jobs
+- ``prune_delivery_incidents`` / ``retention_sweep`` — CronTrigger (daily 03:07 / 03:17 UTC)
+- ``<daily id>_catchup``                       — DateTrigger — one late run of a daily job a boot found missed (B-667)
 
 Public API (no ``app`` argument needed)
 ---------------------------------------
@@ -37,6 +40,8 @@ Convenience hooks for lesson_service (safe no-ops when scheduler is absent)
 """
 
 from __future__ import annotations
+
+from padel_app.roles import ROLES, flag_enabled, process_role  # noqa: F401 — re-exported (delivery.worker-role rule 1)
 
 import atexit
 import contextvars
@@ -672,6 +677,25 @@ def _run_prune_delivery_incidents() -> None:
             delivery_incidents.prune()
         except Exception as exc:  # noqa: BLE001
             app.logger.error("prune_delivery_incidents failed: %s", exc)
+        try:
+            # messaging.push-notifications rule 10b (PAD-745): receipts are kept as long as incidents.
+            from padel_app.services import push_receipts
+            push_receipts.prune()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("prune push receipts failed: %s", exc)
+
+
+def _run_read_push_receipts() -> None:
+    """messaging.push-notifications rule 10b (PAD-745): ask Expo for the receipts of the kept tickets."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services import push_receipts
+            push_receipts.read()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("read_push_receipts failed: %s", type(exc).__name__)
 
 
 def _run_retention_sweep() -> None:
@@ -686,6 +710,22 @@ def _run_retention_sweep() -> None:
             run_retention()
         except Exception as exc:  # noqa: BLE001
             app.logger.error("retention_sweep failed: %s", exc)
+
+
+def _run_finance_gcp_import() -> None:
+    """admin.finance (PAD-742) rule 7: the daily read-only Google Cloud billing import. A failure is
+    recorded on its run row and logged by the import itself; a live run elsewhere is skipped."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        try:
+            from padel_app.services.admin import finance_gcp_import
+            finance_gcp_import.run_import("schedule")
+        except finance_gcp_import.ImportRunning:
+            app.logger.info("finance_gcp_import skipped: another run is live")
+        except Exception as exc:  # noqa: BLE001
+            app.logger.error("finance_gcp_import failed: %s", exc)
 
 
 def _run_extend_schedule_window() -> None:
@@ -779,14 +819,16 @@ def init_scheduler(app, test_config=None) -> None:
     # there is nothing to split: every process runs as before.
     mode = MODE_COMPETE if test_mode else scheduler_mode(process_role(), worker_split_enabled())
     if mode == MODE_OFF:
-        app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
+        if process_role() == "events":
+            app.logger.info("APScheduler not started: ROLE=events holds streams only (B-677).")
+        else:
+            app.logger.info("APScheduler not started: ROLE=worker with WORKER_SPLIT off (the API runs the jobs).")
         return
 
     _app = app
 
     from apscheduler.events import EVENT_JOB_MISSED
     from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.triggers.cron import CronTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 
     if test_mode:
@@ -837,37 +879,17 @@ def init_scheduler(app, test_config=None) -> None:
         max_instances=1,
         misfire_grace_time=60,
     )
-
+    # PAD-745: under an hour, so a boot moving its next run (B-667) costs at most 10 minutes.
     sched.add_job(
-        func=_run_extend_schedule_window,
-        trigger=IntervalTrigger(days=1),
-        id="extend_schedule_window",
+        func=_run_read_push_receipts,
+        trigger=IntervalTrigger(minutes=10),
+        id="read_push_receipts",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
+        misfire_grace_time=300,
     )
 
-    # admin.engine-health (PAD-534): incidents are kept 30 days (R-010: fixed id).
-    sched.add_job(
-        func=_run_prune_delivery_incidents,
-        trigger=IntervalTrigger(days=1),
-        id="prune_delivery_incidents",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
-
-    # admin.data-retention (PAD-638): one daily sweep, every item OFF until the owner decides.
-    sched.add_job(
-        func=_run_retention_sweep,
-        # A fixed hour, not IntervalTrigger(days=1): replace_existing on every boot would push an
-        # interval's next run a day ahead each deploy, so with daily deploys it might never fire.
-        trigger=CronTrigger(hour=3, minute=17),
-        id="retention_sweep",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
     sched.add_listener(_on_job_missed, EVENT_JOB_MISSED)
 
     # PAD-610: Playwright boots this backend BEFORE global-setup drops and recreates
@@ -885,6 +907,8 @@ def init_scheduler(app, test_config=None) -> None:
     sched.start(paused=held or lead)
     _scheduler = sched
     app.extensions["scheduler"] = sched
+    # B-667: registered on the started scheduler, so the run each one missed is still readable.
+    _register_daily_jobs(sched, app.logger)
 
     # Graceful shutdown when the process exits; the worker shuts down first itself (PAD-695)
     atexit.register(_shutdown_quietly, sched)
@@ -902,33 +926,114 @@ def init_scheduler(app, test_config=None) -> None:
 
     # Re-schedule all future jobs in case the server restarted and jobs were lost
     _startup_reschedule(app)
+    # No leadership thread (SCHEDULER_LEADERSHIP off): this process runs the jobs, and the outbox.
+    _start_push_drainer(app)
+    atexit.register(stop_push_drainer, app)
+
+
+#: delivery.worker-role rule 4 (B-667): (id, UTC hour, minute). A fixed minute, never
+#: IntervalTrigger(days=1): replace_existing re-registers every job on every boot, which moved an
+#: interval's next run to boot + 24 h, so with a deploy a day it never fired. The minutes are spread
+#: so the daily passes never share the leader's pool.
+DAILY_JOBS = (
+    ("extend_schedule_window", 2, 47),
+    ("prune_delivery_incidents", 3, 7),
+    ("retention_sweep", 3, 17),
+    ("finance_gcp_import", 4, 7),
+)
+#: A daily run missed while the leader was paused (a deploy's lock handover) still runs late.
+DAILY_MISFIRE_GRACE_SECONDS = 6 * 3600
+
+
+def _daily_job_funcs():
+    return {
+        "extend_schedule_window": _run_extend_schedule_window,
+        "prune_delivery_incidents": _run_prune_delivery_incidents,
+        "retention_sweep": _run_retention_sweep,
+        "finance_gcp_import": _run_finance_gcp_import,
+    }
+
+
+def _register_daily_jobs(sched, logger) -> None:
+    """Register the daily jobs at their fixed minute; a boot whose store shows a missed run (its
+    stored next run is in the past: no leader was running then) adds one ``<id>_catchup`` run now.
+    Each job is idempotent, so a catch-up racing the outgoing leader's own run costs one extra pass."""
+    from apscheduler.triggers.cron import CronTrigger
+
+    funcs = _daily_job_funcs()
+    now = datetime.now(timezone.utc)
+    for job_id, hour, minute in DAILY_JOBS:
+        stored = sched.get_job(job_id)
+        missed = stored is not None and stored.next_run_time is not None and stored.next_run_time < now
+        sched.add_job(
+            func=funcs[job_id],
+            trigger=CronTrigger(hour=hour, minute=minute, timezone="UTC"),
+            id=job_id,
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+            misfire_grace_time=DAILY_MISFIRE_GRACE_SECONDS,
+        )
+        if missed:
+            logger.warning("%s missed its run at %s: one catch-up run now (B-667)", job_id,
+                           stored.next_run_time.isoformat())
+            sched.add_job(
+                func=funcs[job_id],
+                trigger="date",
+                run_date=now,
+                id=f"{job_id}_catchup",
+                replace_existing=True,
+                misfire_grace_time=DAILY_MISFIRE_GRACE_SECONDS,
+            )
 
 
 MODE_COMPETE = "compete"
 MODE_CLIENT = "client"
 MODE_OFF = "off"
-ROLES = ("api", "worker", "events")
-
-
-def process_role(environ=None) -> str:
-    """delivery.worker-role rule 1 (PAD-695): ``ROLE`` = api | worker | events, default api.
-    ``events`` is PAD-697's and behaves as ``api`` until then; anything else is ``api``."""
-    environ = os.environ if environ is None else environ
-    role = environ.get("ROLE", "api").strip().lower()
-    return role if role in ROLES else "api"
 
 
 def worker_split_enabled(environ=None) -> bool:
     """``WORKER_SPLIT``: the worker runs the jobs and the API only writes the job store. Default off."""
-    environ = os.environ if environ is None else environ
-    return environ.get("WORKER_SPLIT", "off").strip().lower() in ("1", "true", "yes", "on")
+    return flag_enabled("WORKER_SPLIT", environ)
 
 
 def scheduler_mode(role: str, split: bool) -> str:
     """``compete`` (run jobs as the lock holder), ``client`` (write the job store only) or ``off``."""
+    if role == "events":
+        # B-677: an events process holds the live-update streams and nothing else; it neither
+        # competes for the leader lock nor writes the job store, whatever WORKER_SPLIT says.
+        return MODE_OFF
     if role == "worker":
         return MODE_COMPETE if split else MODE_OFF
     return MODE_CLIENT if split else MODE_COMPETE
+
+
+def _push_drainer(app):
+    """PAD-699: this process's push outbox drainer, created on first use; None while PUSH_QUEUE is not
+    outbox (the in-memory sender then carries the pushes, as before)."""
+    from padel_app.utils import push_outbox
+
+    with app.app_context():
+        if not push_outbox.enabled():
+            return None
+    drainer = app.extensions.get("push_drainer")
+    if drainer is None:
+        drainer = push_outbox.Drainer(app)
+        app.extensions["push_drainer"] = drainer
+    return drainer
+
+
+def _start_push_drainer(app) -> None:
+    drainer = _push_drainer(app)
+    if drainer is not None:
+        drainer.start()
+
+
+def stop_push_drainer(app) -> None:
+    """Idempotent; the worker calls it before giving up the lock, atexit calls it again."""
+    drainer = app.extensions.get("push_drainer")
+    if drainer is not None:
+        drainer.stop()
 
 
 def _shutdown_quietly(sched) -> None:
@@ -958,15 +1063,23 @@ def _start_scheduler_leadership(app, sched) -> None:
     def on_acquire() -> None:
         _startup_reschedule(app)
         sched.resume()
+        _start_push_drainer(app)  # PAD-699: the push outbox drains where the jobs run
+
+    def on_lose() -> None:
+        sched.pause()
+        stop_push_drainer(app)
 
     leadership = SchedulerLeadership(
         pg_lock_connector(app.config["SQLALCHEMY_DATABASE_URI"]),
         on_acquire=on_acquire,
-        on_lose=sched.pause,
+        on_lose=on_lose,
         logger=app.logger,
     )
     app.extensions["scheduler_leadership"] = leadership
     atexit.register(leadership.stop)
+    # Registered after leadership.stop, so it runs before it at exit (atexit is last-in, first-out):
+    # the drainer puts its claims back before the lock goes (PAD-699).
+    atexit.register(stop_push_drainer, app)
     leadership.start_thread()
 
 
@@ -990,6 +1103,7 @@ def release_scheduler(app) -> dict:
         return {"released": False, "state": "running"}
     _startup_reschedule(app)
     _scheduler.resume()
+    _start_push_drainer(app)
     return {"released": True, "state": "running"}
 
 

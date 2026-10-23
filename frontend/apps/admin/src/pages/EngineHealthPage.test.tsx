@@ -48,6 +48,19 @@ describe("Engine health page (PAD-534)", () => {
     expect(screen.getByTestId("admin-eh-incidents-24h-email_failed")).toHaveTextContent("1");
     expect(screen.getByTestId("admin-eh-deploy-this")).toHaveTextContent("abc1234def");
     expect(screen.getByTestId("admin-eh-deploy")).toHaveTextContent(/Not configured|Não configurado/);
+    // PAD-745: a backend older than the receipts sends no `pushReceipts`, and the card stays away.
+    expect(screen.queryByTestId("admin-eh-receipts")).toBeNull();
+  });
+
+  it("shows the push receipts by status and the errors by code (PAD-745)", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    const counts = (ok: number) => ({ pending: 1, ok, error: 1, expired: 0, errorsByCode: { InvalidCredentials: 1 } });
+    mockFetch({ ...HEALTH, pushReceipts: { last24h: counts(2), last7d: counts(3) } });
+    render(<App />);
+    expect(await screen.findByTestId("admin-eh-receipts-24h-ok")).toHaveTextContent("2");
+    expect(screen.getByTestId("admin-eh-receipts-24h-error")).toHaveTextContent("1");
+    expect(screen.getByTestId("admin-eh-receipts-codes")).toHaveTextContent("InvalidCredentials 1");
   });
 
   it("refreshes only when asked", async () => {
@@ -64,6 +77,36 @@ describe("Engine health page (PAD-534)", () => {
     expect(calls(), "no polling: nothing fetches by itself").toBe(before);
     fireEvent.click(button);
     await waitFor(() => expect(calls()).toBe(before + 1));
+  });
+
+  it("shows the push reach of active students and the failed registrations (rule 8, PAD-746)", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    mockFetch({
+      ...HEALTH,
+      incidents: { ...HEALTH.incidents, last24h: { ...HEALTH.incidents.last24h, push_registration_failed: 2 } },
+      push: {
+        activeStudents7d: { total: 167, noChannel: 33, webPushOnly: 19, nativeOnly: 112, nativeAndWebPush: 3 },
+        registrationFailures7d: { ios: 4, android: 0, web: 1 },
+      },
+    });
+    render(<App />);
+    // The app's query cache is shared across tests: wait for THIS answer, not the cached one.
+    await waitFor(() => expect(screen.getByTestId("admin-eh-push-no-channel")).toHaveTextContent("33"));
+    expect(screen.getByTestId("admin-eh-push-active")).toHaveTextContent("167");
+    expect(screen.getByTestId("admin-eh-push-web-only")).toHaveTextContent("19");
+    expect(screen.getByTestId("admin-eh-push-native")).toHaveTextContent("115");
+    expect(screen.getByTestId("admin-eh-push-failures")).toHaveTextContent("ios 4 · android 0 · web 1");
+    expect(screen.getByTestId("admin-eh-incidents-24h-push_registration_failed")).toHaveTextContent("2");
+  });
+
+  it("an API without the push block shows the page without it", async () => {
+    storeSession("tok", { email: "sup@levapp.app", role: "support", roleId: 3, expiresAt: new Date(Date.now() + 3600_000).toISOString() });
+    window.history.pushState({}, "", "/engine-health");
+    mockFetch({ ...HEALTH, vacancies: { ...HEALTH.vacancies, open: 9 } });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("admin-eh-vacancies-open")).toHaveTextContent("9"));
+    expect(screen.queryByTestId("admin-eh-push")).toBeNull();
   });
 
   it.each([

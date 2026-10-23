@@ -179,6 +179,7 @@ def get_config_dict(coach_id: int) -> dict:
     return {
         "autoNotifyEnabled": config.auto_notify_enabled,
         "invitationMode": config.get_invitation_mode(),
+        "autoAcceptJoinRequests": bool(config.auto_accept_join_requests),  # PAD-672 (rule 3a)
         "priorityCriteria": config.get_priority_criteria(),
         "restrictions": restrictions,
         # PAD-433 / B-168 (rule 14a): read-only names for the excluded-player chips.
@@ -277,6 +278,17 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
             from flask import abort
             abort(400, "invitationMode must be 'automatic' or 'semi_automatic'")
         config.invitation_mode = mode
+    # PAD-672 (rule 3a): automatic acceptance never runs with semi-automatic approval. Turning it on
+    # in that mode is refused; switching to that mode turns it off and says so.
+    if "autoAcceptJoinRequests" in data:
+        wanted = bool(data["autoAcceptJoinRequests"])
+        if wanted and config.get_invitation_mode() == "semi_automatic":
+            from flask import abort
+            abort(400, "autoAcceptJoinRequests cannot be on in semi_automatic mode")
+        config.auto_accept_join_requests = wanted
+    elif config.auto_accept_join_requests and config.get_invitation_mode() == "semi_automatic":
+        config.auto_accept_join_requests = False
+        config.auto_accept_turned_off = True
     if "priorityCriteria" in data:
         config.priority_criteria = data["priorityCriteria"]
     if "restrictions" in data:
@@ -2764,8 +2776,14 @@ def _add_player_to_instance(player_id: int, instance: LessonInstance) -> None:
     # PAD-131 (classes.join-requests rule 10): first fill wins. Every fill path
     # — invitation "yes" (a waiting-list one included), accepted request — converges
     # here, so this is where the other pending requests learn the spot is gone.
-    from padel_app.services.class_join_request_service import supersede_pending_requests
+    from padel_app.services.class_join_request_service import (
+        move_side_requests_to_waiting_list,
+        supersede_pending_requests,
+    )
     db.session.expire(instance, ["presences"])
+    # PAD-672 (join-requests rule 20, Q2): a request whose side just lost its last spot waits on
+    # that side's list instead; rule 11 then closes what is left once the class is full.
+    move_side_requests_to_waiting_list(instance, filled_by_player_id=player_id)
     supersede_pending_requests(instance, filled_by_player_id=player_id)
 
 
@@ -2992,6 +3010,59 @@ def sides_in_occurrence(instance: LessonInstance, coach_id: int, player_ids) -> 
     return {pid: overrides.get(pid, usual.get(pid)) for pid in ids}
 
 
+def assigned_sides(instance: LessonInstance, coach_id: int | None) -> dict:
+    """PAD-672 (classes.instance-enrollment rule 13a, D8, owner Q5): ``{player_id: "left"|"right"}``
+    for the players whose side in the occurrence is `both`. From the class's start, the values the
+    tick stored; before it, computed only while the class is full: in enrolment order (presence
+    id), each to the side with fewer players going, a tie to the LEFT. Nothing is stored here."""
+    holding = sorted(instance.holding_presences, key=lambda p: p.id)
+    stored = {p.player_id: p.assigned_side for p in holding if p.assigned_side}
+    if stored:
+        return stored
+    if coach_id is None or len(holding) < instance.effective_max_players:
+        return {}
+    sides = sides_in_occurrence(instance, coach_id, [p.player_id for p in holding])
+    counts = {"left": 0, "right": 0}
+    for side in sides.values():
+        if side in counts:
+            counts[side] += 1
+    assigned = {}
+    for presence in holding:
+        if sides.get(presence.player_id) != "both":
+            continue
+        side = "left" if counts["left"] <= counts["right"] else "right"
+        counts[side] += 1
+        assigned[presence.player_id] = side
+    return assigned
+
+
+def freeze_assigned_sides(*, now: datetime | None = None) -> int:
+    """PAD-672 (rule 13a): from a class's start, store its "both" players' sides once, so history
+    keeps where they played. Classes that started in the last day and stored nothing yet. Sends
+    nothing. Returns the rows written."""
+    from padel_app.models.presences import Presence
+    from padel_app.services.lesson_service import primary_coach
+
+    wall_now = utc_to_wall_naive(now or utcnow_naive())
+    started = LessonInstance.query.filter(
+        LessonInstance.start_datetime <= wall_now,
+        LessonInstance.start_datetime > wall_now - timedelta(days=1),
+    ).all()
+    written = 0
+    for instance in started:
+        if any(p.assigned_side for p in instance.presences):
+            continue
+        coach = primary_coach(instance)
+        for player_id, side in assigned_sides(instance, coach.id if coach else None).items():
+            presence = Presence.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+            if presence is not None:
+                presence.assigned_side = side
+                written += 1
+    if written:
+        db.session.commit()
+    return written
+
+
 def _side_counts(
     instance: LessonInstance,
     coach_id: int,
@@ -3124,29 +3195,37 @@ def _recount_spot(vacancy: Vacancy, instance: LessonInstance, coach_id: int, *, 
     return []
 
 
-def _rebalance_after_yes(instance: LessonInstance, coach_id: int, accepter_id: int) -> list:
+def _rebalance_after_yes(
+    instance: LessonInstance, coach_id: int, accepter_id: int, accepter_side: str | None = None
+) -> list:
     """PAD-581 (rule 2d): after a "yes" (under rule 10's locks, before its one commit), re-count the
     class's OTHER open spots with the accepter counted as going, one after another so each sees the
     ones before it. A spot another answer holds is passed over (SKIP LOCKED); its own next batch
-    re-counts it. Returns the invitations withdrawn for balance, for the caller to publish."""
-    accepter_side = sides_in_occurrence(instance, coach_id, [accepter_id]).get(accepter_id)
+    re-counts it. Returns the invitations withdrawn for balance, for the caller to publish.
+    ``accepter_side`` (PAD-672): the side a join request named, for a student not enrolled yet;
+    otherwise their side in the occurrence."""
+    if accepter_side is None:
+        accepter_side = sides_in_occurrence(instance, coach_id, [accepter_id]).get(accepter_id)
     return _recount_open_spots(instance, coach_id, extra_going=accepter_side)
 
 
-def vacancy_for_joiner(instance: LessonInstance, coach_id: int, player_id: int) -> "Vacancy | None":
+def vacancy_for_joiner(
+    instance: LessonInstance, coach_id: int, player_id: int, side: str | None = None
+) -> "Vacancy | None":
     """PAD-715 (classes.join-requests rule 6, D7 of PAD-672): the open spot a student the coach lets
     in (a join request accepted) takes. A left or right student takes a spot of their own side (else
     a side-less one, else the oldest); a "both" or side-less student takes the spot whose closing
     leaves the class most balanced — the going players' sides plus the sides of the spots still
     open — the oldest on a tie. Before PAD-715 it was always the oldest, so a right student could
     close the left spot and the class end 4 left / 6 right. Read unlocked: the caller locks it in
-    rule 10's order."""
+    rule 10's order. ``side`` (PAD-672): the side the join request named, else the student's own."""
     open_spots = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").order_by(Vacancy.id.asc()).all()
     )
     if not open_spots:
         return None
-    side = sides_in_occurrence(instance, coach_id, [player_id]).get(player_id)
+    if side is None:
+        side = sides_in_occurrence(instance, coach_id, [player_id]).get(player_id)
     if side in ("left", "right"):
         return (
             next((v for v in open_spots if v.side == side), None)
@@ -3480,6 +3559,13 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
     if instance.status in ("canceled", "completed"):
         if _log:
             _log.info("send_class_reminders: instance %s status=%s — skipping", instance_id, instance.status)
+        return _no_send
+    # PAD-736 (toggle-class rule 3, owner 2026-10-22): notifications off means no automatic
+    # reminders: no scheduled pass, no past-due "send now". The coach's own "Enviar lembretes" is
+    # an explicit send, like a manual invitation (rule 3b), and still goes out.
+    if scheduled and not instance.notifications_enabled:
+        if _log:
+            _log.info("send_class_reminders: instance %s notifications off — skipping", instance_id)
         return _no_send
     # PAD-256 (notifications.reminders rule 15): the class time is wall-clock.
     if instance.start_datetime <= utc_to_wall_naive(_now):
@@ -5413,7 +5499,7 @@ def _close_vacancy(
 
     PAD-679 (rule 18a): a live invitation that another open spot of the class would have asked for
     moves to that spot instead of ending (`_move_to_open_sibling`); only the rest are retired.
-    ``rebalance=(coach_id, accepter_id)`` is the "yes" paths' rule-2d re-count of the class's other
+    ``rebalance=(coach_id, accepter_id[, accepter_side])`` is the "yes" paths' rule-2d re-count of the class's other
     spots, run here after this spot is marked filled and BEFORE the moves, so a move sees the
     re-counted sides; its withdrawals are published here (queued for the caller's commit, as
     `_rebalance_and_publish` does) and kept out of the returned fill retirements, whose bubbles
@@ -5658,6 +5744,17 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     _now = now or utcnow_naive()
     expire_stale_invitations(now=_now)
+    # PAD-672 (instance-enrollment rule 13a): a started class keeps its "both" players' sides. Its own
+    # try, like the scan below: a failure is logged and the next tick retries. Only with an app
+    # context (the schedule tests drive this tick with mocked rows and none).
+    from flask import current_app, has_app_context
+
+    if has_app_context():
+        try:
+            freeze_assigned_sides(now=_now)
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            current_app.logger.exception("freeze_assigned_sides failed")
     # PAD-540 / B-301 (rule 1c): a class with a never-filled place and no vacancy of any status
     # whose window is open is started here, since no absence and no one-shot job will do it.
     # Its own try (#558 review): a scan that raises (its candidate query included) is logged and
@@ -6278,8 +6375,8 @@ def send_manual_notifications(
     from padel_app.models import Coach, Player
 
     instance = LessonInstance.query.get_or_404(instance_id)
-    if not instance.notifications_enabled:
-        return []
+    # PAD-732 (toggle-class rule 3b, owner 2026-10-22): no `notifications_enabled` check here. That
+    # switch governs the engine's automatic sends; a coach's manual invitation always goes out.
     config = get_or_create_config(coach_id)
 
     coach = Coach.query.get(coach_id)
@@ -6948,6 +7045,12 @@ def _waiting_list_candidates(
         ).all()
     }
     keyed = [(key, entry) for key, entry in keyed if entry.player_id not in asked_elsewhere]
+    # PAD-672 (waiting-list rule 4e): an entry that names a side waits only for a spot that side can
+    # take — one of its side, `both` or side-less; a `both` or side-less entry for any spot.
+    keyed = [
+        (key, entry) for key, entry in keyed
+        if entry.side in (None, "both") or vacancy.side in (None, "both") or entry.side == vacancy.side
+    ]
     # PAD-581 (invitations rule 2d): a member whose invitation was withdrawn for side balance is
     # asked only for a spot of their own side or one with no side, so the list never undoes the
     # balance. Their `both` or side-less self matches any spot.
@@ -7260,6 +7363,7 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
             existing.is_active = True
             existing.coach_id = entry.coach_id
             existing.standing_entry_id = entry.id
+            existing.side = entry.side  # PAD-672 (rule 4e): the standing entry's side, per entry (Q4)
             existing.save()
             continue
         WaitingListEntry(
@@ -7267,6 +7371,7 @@ def _fan_out_standing_entry(entry: StandingWaitingListEntry) -> None:
             player_id=entry.player_id,
             coach_id=entry.coach_id,
             standing_entry_id=entry.id,
+            side=entry.side,  # PAD-672
         ).create()
 
 
@@ -7328,6 +7433,7 @@ def standing_end_on(entry: StandingWaitingListEntry) -> str | None:
 def add_standing_waiting_list_entry(
     coach_id: int, player_id: int, credits_total: int | None, duration_days: int | None = None,
     *, expires_at: datetime | None = None, lesson_id: int | None = None, whole_series: bool = False,
+    side: str | None = None,
 ) -> StandingWaitingListEntry:
     """Add (or replace) a standing waiting list entry for a player, running to `expires_at`
     (or, for the legacy callers, `duration_days` from now). PAD-547 (rule 19): ``lesson_id``
@@ -7346,6 +7452,7 @@ def add_standing_waiting_list_entry(
         lesson_id=lesson_id,
         credits_total=credits_total,
         whole_series=whole_series,
+        side=side if side in ("left", "right", "both") else None,  # PAD-672 (rule 4e, Q4)
         credits_used=0,
         expires_at=expires_at if expires_at is not None else utcnow_naive() + timedelta(days=duration_days),
         is_active=True,
@@ -7402,6 +7509,7 @@ def get_standing_waiting_list(coach_id: int) -> list[dict]:
             "playerName": user.name if user else None,
             "creditsUsed": e.credits_used,
             "creditsTotal": e.credits_total,  # PAD-560: null is no credit limit
+            "side": e.side,  # PAD-672 (waiting-list rule 4e)
             "wholeSeries": bool(e.whole_series),
             "expiresAt": e.expires_at.isoformat() if e.expires_at else None,
             # PAD-507: the club date the entry runs to, inclusive.

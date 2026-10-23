@@ -58,12 +58,73 @@ reload and a live copy stay available through `workflow_dispatch`.
    guard; the staging app stopped before and always restarted after (EXIT trap); the target
    schema wiped before the restore; the scrub (push subscriptions, device tokens, every email
    rewritten with the recovery and verification codes cleared); placeholder images in the staging
-   bucket only; every failure path exits 0 and the deploy job keeps `continue-on-error`.
+   bucket only; every failure path of the copy exits 0 and the deploy job keeps
+   `continue-on-error`. The scrub's failures are the exception (rule 9a).
 7. **A missing source skips.** No `BACKUP_BUCKET`, no `gsutil`, or no dump under the prefix: log
    `SKIPPED: …` and exit 0 without stopping staging.
 8. **A stale backup is reported.** When the newest dump's stamp is more than 48 h old the script
    logs `WARNING: newest backup is from <stamp>`, and still restores it if it has not been
    restored (stale data beats no refresh; the backup alarm is `backup.sh`'s job).
+
+9. **(PAD-606) Nothing personal survives a restore.** After every restore, in `auto`, `reload`
+   or `live` mode and before staging starts again, `backend/scripts/staging-scrub.sql` runs in the
+   staging database in one transaction. It rewrites or clears every column that can hold personal
+   data, keeping row counts, ids, dates, statuses and uniqueness:
+   - **people** (`users`): `name` → `Coach <id>` / `Player <id>`; `username` → `user<id>`
+     (`pending-…` placeholders keep their prefix, which decides whether an account can be
+     claimed); `email` → `user<id>@staging.invalid`; `phone`, `abbreviation`,
+     `notif_block_reason`, `generated_code` → NULL; `birth_date` → 1 January of the same year (age
+     rules keep working); `country` kept; every set `password` → the shared staging password hash
+     (rule 10); recovery and verification codes cleared;
+   - **invitations**: `coach_invitations.email` rewritten (the guardian-consent table went with
+     PAD-644, so there are no guardian contacts to scrub);
+   - **free text** → a neutral `<kind> <id>` text: messages, coach notes (both tables),
+     evaluation comments and notes, class and class-join request notes, message report reasons,
+     calendar block titles and descriptions, lesson titles, descriptions and occurrence notes and
+     titles, coach rejection reasons, group-conversation names, deletion-audit labels,
+     delivery-incident details, bulk-import file names;
+   - **copies in JSON**: name keys dropped from `messages.msg_metadata`; `evaluation_shares.card`
+     loses its note and coach name; `replacement_approval_prompts.queue_snapshot`,
+     `admin_audit_log.before/after` → NULL (raw SQL: the ORM refuses changes to the audit log);
+   - **images**: `object_key` → `images/scrubbed/<id>` (unique; the placeholder step seeds these);
+   - **delivery channels**: `push_subscriptions` and `device_tokens` emptied (B's PAD-624 also
+     disables Expo sends on staging); `apscheduler_jobs` emptied (the scheduler re-arms on boot);
+   - **transient stores**: `auth_rate_limit_hits` (its key names the client) and `realtime_events`
+     (bodies copy what the stream sent) emptied;
+   Kept on purpose: clubs, courts, exercises and notification templates (business and training
+   content), `admin_roles` and the audit log's actor emails (staff, who sign in to the console with
+   Google), ids, timestamps and statuses.
+9a. **(PAD-606) A failed scrub is never a green job.** The script fails closed and says so in its
+   exit code: 0 when it skipped or restored and scrubbed; **3** when the migrate step (rule 9b) or
+   the scrub failed after a restore (or the scrub file is missing) and the staging schema was
+   wiped, so staging comes up empty;
+   **4** when the wipe failed too, so staging may hold unscrubbed data: the app is then left
+   stopped. The deploy's `sync-db` job no longer swallows the exit. It writes the sync's restore and
+   scrub lines to the job summary and fails on 3 or 4 (or on no exit line at all). It stays
+   `continue-on-error`, so the deploy itself does not fail (business rule 6). A scrub's proof is
+   the job's log lines plus read-only counts on staging, never a green deploy alone. A failed run
+   records nothing in the state file, so the next `auto` push restores the same dump again.
+9b. **(PAD-606) The scrub meets the image's head, never prod's schema.** The dump carries prod's
+   schema, which is behind staging's head whenever staging has migrations prod does not have yet.
+   The scrub is written, and guarded (rule 12), for the head. So the sync runs the migrate step
+   (PAD-691) on the restored copy **before** the scrub, and the scrub then also covers columns and
+   backfilled rows those migrations add. A migrate step that fails counts as a failed scrub (rule
+   9a: wipe, exit 3); the EXIT trap migrates the wiped schema so staging comes up empty at its
+   head, and a successful run does not migrate twice. (2026-10-23: the first real scrub ran before
+   the migrate step and failed on `push_outbox`, a table prod's head `e532fea8c4d4` did not have.)
+10. **One shared password, never in the repo.** The deploy passes the staging secret
+   `STAGING_TEST_PASSWORD` to the staging container; the sync script hashes it inside that
+   container (werkzeug, as the app does) before stopping it and hands the hash to the scrub. With
+   no secret the scrub still runs and sets every password to an unusable value, so a missing secret
+   never leaves real hashes behind.
+11. **Known tester logins.** The scrub names two accounts so people can sign in to staging:
+   `staging-coach` (the coach with the most students) and `staging-student` (that coach's student
+   with the lowest id). Both use the shared password. Every other account is reachable as
+   `user<id>`.
+12. **A guard keeps the scrub complete.** A test reads every `String`, `Text` and `JSON` column
+   declared in `backend/padel_app/models/` and fails unless it is named in `staging-scrub.sql` or
+   in the guard's short list of non-personal columns, so a new personal column cannot be added
+   without deciding how staging treats it.
 
 ### Acceptance Criteria
 
@@ -100,7 +161,61 @@ reload and a live copy stay available through `workflow_dispatch`.
 - **Then** the mode passed to the script is `${{ inputs.sync_db || 'auto' }}` and the
   `workflow_dispatch` input `sync_db` offers exactly `auto`, `reload`, `live`
 
+#### Nothing personal survives a restore (rules 9–11, PAD-606)
+- **Given** a staging database with real-looking names, usernames, emails, phones, birth dates,
+  messages, notes, evaluations, push subscriptions and device tokens
+- **When** `staging-scrub.sql` runs with a password hash
+- **Then** no user keeps a real-looking name, username, email, phone or non-1-January birth date;
+  every free-text column listed in rule 9 holds the neutral text; push subscriptions, device tokens
+  and scheduler jobs are empty; row counts per table are unchanged; `staging-coach` and
+  `staging-student` exist and every set password equals the given hash
+
+#### The scrub runs before staging starts (rule 9)
+- **Given** a successful restore in any mode
+- **When** the sync script continues
+- **Then** it runs the scrub file in the staging database before the EXIT trap starts the app, and
+  a scrub failure wipes the staging schema first (the app then starts on an empty database)
+
+#### The copy is migrated before it is scrubbed (rule 9b)
+- **Given** a restore
+- **When** the sync script continues
+- **Then** the migrate step runs once, after the restore and before the scrub, and the EXIT trap
+  does not run it again
+- **And given** a migrate step that exits 1, **then** the scrub does not run, the schema is wiped,
+  the script exits 3, the state file is unchanged, and the app starts again on the wiped schema
+
+#### A restore behind head is scrubbed after the migrate step (rule 9b)
+- **Given** a Postgres database with a real-looking user and a device token, walked down to
+  `e532fea8c4d4` (prod's head on 2026-10-23, without `push_outbox`)
+- **When** the scrub runs there, **then** it fails on a relation that does not exist and changes
+  nothing
+- **When** the migrate step then brings it to head and the scrub runs, **then** the user's name,
+  email, phone and password are scrubbed and `device_tokens` and `push_outbox` are empty
+
+#### A failed run is retried on the next push (rule 9a)
+- **Given** a state file naming an older dump and a run whose scrub failed (exit 3)
+- **When** the next `auto` push runs the sync
+- **Then** it is not skipped: it restores and scrubs the newer dump and records it
+
+#### A failed scrub fails the sync job (rule 9a)
+- **Given** a restore whose scrub fails
+- **When** the sync script ends
+- **Then** it exits 3 when the wipe succeeded and 4 when it did not, and on 4 it does not start the
+  app again; an already-restored dump in `auto` mode still exits 0
+- **And** the workflow's `sync-db` job runs the script without `|| true`, captures its output,
+  writes the scrub's lines to the job summary and fails on 3 or 4, while keeping
+  `continue-on-error`
+
+#### A new personal column cannot slip through (rule 12)
+- **Given** the models on the branch
+- **When** the guard runs
+- **Then** every String/Text/JSON column is either in the scrub file or in the guard's
+  non-personal list
+
 ### Notes
+- PAD-606 (2026-10-11, owner decision): everything personal is scrubbed, usernames included; the
+  login instructions (shared password in the staging secrets, `staging-coach`, `staging-student`,
+  `user<id>`) are on the ticket.
 - Freshness trade (stated on purpose): staging data is now up to about a day old instead of
   minutes; `reload`/`live` cover the cases where that matters.
 - The restore still runs in the Postgres container prod shares, but once per nightly dump instead

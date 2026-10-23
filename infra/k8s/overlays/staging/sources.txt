@@ -1,0 +1,27 @@
+# PAD-702 (delivery.k8s-manifests rule 9): where each staging key that is not in backend/.env.staging
+# comes from. One line per env key: KEY class source. class: secret (a GitHub secret, into the
+# Secret levapp-secrets), var (a GitHub variable, into vars.env and the ConfigMap), context (a
+# workflow expression). The source names are the GitHub names, which differ from the env keys on
+# staging. A test keeps this equal to deploy-staging.yaml's `-e` lines, except POSTGRES_PW: the
+# cluster's Postgres gets its own password per environment (GKE_STAGING_POSTGRES_PW, created
+# once by the owner). Prod reads the same JWT_SECRET_KEY and FLASK_SECRET_KEY as the VM, or every
+# user would be signed out at the cutover. STAGING_TEST_PASSWORD (PAD-606) is staging-only: the
+# staging sync hashes it inside the app container for the scrubbed accounts' shared password.
+POSTGRES_PW secret GKE_STAGING_POSTGRES_PW
+FLASK_SECRET_KEY secret STAGING_FLASK_SECRET_KEY
+JWT_SECRET_KEY secret STAGING_JWT_SECRET_KEY
+MAIL_PASSWORD secret MAIL_PASSWORD
+HUBSPOT_PRIVATE_APP_TOKEN secret STAGING_HUBSPOT_PRIVATE_APP_TOKEN
+STAGING_TEST_PASSWORD secret STAGING_TEST_PASSWORD
+GOOGLE_WEB_CLIENT_ID var GOOGLE_WEB_CLIENT_ID_STAGING
+GOOGLE_IOS_CLIENT_ID var GOOGLE_IOS_CLIENT_ID
+APPLE_CLIENT_IDS var APPLE_CLIENT_IDS
+HUBSPOT_DEMO_FORM_ID var HUBSPOT_DEMO_FORM_ID_STAGING
+HUBSPOT_MARKETING_SUBSCRIPTION_ID var HUBSPOT_MARKETING_SUBSCRIPTION_ID_STAGING
+LINEAR_API_KEY secret LINEAR_API_KEY
+WORK_GITHUB_REPO context github.repository
+WORK_GITHUB_TOKEN secret WORK_GITHUB_TOKEN
+ASC_KEY_ID var ASC_KEY_ID
+ASC_ISSUER_ID var ASC_ISSUER_ID
+ASC_APP_ID var ASC_APP_ID
+ASC_PRIVATE_KEY secret ASC_PRIVATE_KEY
