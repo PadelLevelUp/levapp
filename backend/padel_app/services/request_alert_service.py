@@ -96,7 +96,7 @@ def notify_request_event(kind: str, recipients, **ctx) -> int:
         raise ValueError(f"unknown request-alert kind {kind!r}")
     from padel_app.utils.push_notifications import send_push_notification
     from padel_app.utils.expo_push import send_expo_push_to_user
-    from padel_app.tools.email_tools import send_email
+    from padel_app.tools.mail_dispatch import send_later
     from padel_app.tools.email_templates import render_request_alert_email
 
     seen = set()
@@ -133,7 +133,9 @@ def notify_request_event(kind: str, recipients, **ctx) -> int:
         if user.email:
             try:
                 subject, text, html = render_request_alert_email(user, title, body, path)
-                send_email(subject, [user.email], body=text, html=html)
+                # PAD-734: off the request thread; send_later logs a failure the same way.
+                send_later(subject, [user.email], body=text, html=html,
+                           label=f"request-alert mail to user {user.id}")
             except Exception as exc:  # noqa: BLE001
                 # B-254: the user id and the exception class, never the address or the exception text.
                 current_app.logger.warning(

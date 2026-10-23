@@ -72,8 +72,10 @@ create one, or ask to join an existing one — happens right after approval (`cl
     (rule 13) and the CRM sync (`auth.coach-crm-sync`) run only after that transaction has
     committed, and never when it rolls back.
 13. Signup notifies the LevApp admin that a coach is waiting (`auth.coach-approval` rule 4).
-14. Signup marks the email as needing verification and sends the first 6-digit code inside the
-    same request, best-effort (`auth.email-verification` rules 1 and 6). The 201 body's `user`
+14. Signup marks the email as needing verification and sends the first 6-digit code best-effort
+    (`auth.email-verification` rules 1 and 6), **after the commit and off the request thread
+    (PAD-734)**: the 201 never waits for the mail server, and neither does the coach's admin notice
+    (rule 13). A mail that fails or times out leaves the account as it is. The 201 body's `user`
     carries `emailVerification: "pending"` (or `"verified"` when the gate is off), and the
     client shows the **Verify your email** screen before any of the destinations in rule 11.
 15. **Per-IP throttle (PAD-228).** `POST /api/auth/register` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_REGISTER` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. The limit exists so the route cannot be used to mass-create accounts or flood the admin approval queue.
@@ -214,6 +216,14 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **Then** the username input shows the length message under it before any request is sent
 - **And** after fixing it and submitting, the email input shows "already in use" under it
 - **And** a server rejection without a `field` shows the server's own message, not a generic one
+
+#### A hung mail server does not hold the signup (rule 14, PAD-734)
+- **Given** the mail server accepts the connection and never answers
+- **When** POST `/api/auth/register` for student `ana734`
+- **Then** the response is 201 within 2 seconds, the User exists, and the mail's send began only
+  after the registration committed
+- **And** when the send then times out (`MAIL_TIMEOUT`), the account is still there with no code
+  stored, and an `email_failed` incident names the user on engine health
 
 #### Taken username and taken email are 409 with the field named
 - **Given** an existing user with username `ana` and email `ana@example.com`
