@@ -230,7 +230,7 @@ export const adminApi = {
     api<{ items: DeletionAuditRow[]; total: number; hasMore: boolean; page: number }>(
       `/deletion-audits?${new URLSearchParams({ entity, page: String(page) }).toString()}`,
     ),
-  // ── finance (PAD-742, admin.finance rules 1, 5, 8, 10): owner only ──
+  // ── finance (PAD-742, admin.finance rules 1, 5, 5c, 8, 10): every console account ──
   financeSummary: (from?: string, to?: string) => {
     const query = new URLSearchParams(Object.entries({ from: from ?? "", to: to ?? "" }).filter(([, v]) => v !== "")).toString();
     return api<FinanceSummary>(`/finance/summary${query ? `?${query}` : ""}`);
@@ -249,6 +249,10 @@ export const adminApi = {
   updateFinanceCost: (id: number, body: Partial<FinanceCostInput>) =>
     api<FinanceCost>(`/finance/costs/${id}`, { method: "PUT", body }),
   deleteFinanceCost: (id: number) => api<FinanceCost>(`/finance/costs/${id}`, { method: "DELETE" }),
+  previewFinanceImport: (text: string) =>
+    api<FinanceImportPreview>("/finance/costs/import", { method: "POST", body: { text, dryRun: true } }),
+  importFinanceCosts: (text: string) =>
+    api<{ dryRun: false; created: number[] }>("/finance/costs/import", { method: "POST", body: { text, dryRun: false } }),
   financeCostRevisions: (id: number) => api<{ items: FinanceCostRevision[] }>(`/finance/costs/${id}/revisions`),
   financeGcpMonth: (month: string) =>
     api<{ month: string; items: FinanceGcpLine[] }>(`/finance/gcp?month=${encodeURIComponent(month)}`),
@@ -309,6 +313,17 @@ export interface FinanceCost extends Required<Omit<FinanceCostInput, "amountEur"
   deletedByEmail: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** admin.finance rule 5c: one line of a dry run, with its cost or the error the form would show. */
+export type FinanceImportLine =
+  | { line: number; ok: true; cost: FinanceCostInput & { amountEur: string } }
+  | { line: number; ok: false; error: string; field: string | null };
+
+export interface FinanceImportPreview {
+  dryRun: true;
+  lines: FinanceImportLine[];
+  invalid: number;
 }
 
 export interface FinanceCostRevision {

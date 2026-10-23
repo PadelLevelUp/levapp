@@ -96,6 +96,16 @@ onFlowComplete:
     timeout: 20000
 - tapOn:
     id: "academy-class-send"
+# PAD-672 slice 1 (join-requests rule 20, PAD-748): Send opens the side sheet in front of the
+# request. Pick the left side explicitly, so the step does not depend on the seeded profile side.
+- extendedWaitUntil:
+    visible:
+      id: "class-side-sheet"
+    timeout: 10000
+- tapOn:
+    id: "class-side-left"
+- tapOn:
+    id: "class-side-send"
 - scrollUntilVisible:
     element:
       id: "academy-class-status-requested"
@@ -107,3 +117,7 @@ onFlowComplete:
 - evalScript: "${output.cls = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0]}"
 - evalScript: "${output.jr = output.cls && output.cls.myJoinRequest ? output.cls.myJoinRequest.id : null}"
 - assertTrue: "${output.cls.myJoinRequest.status == 'pending'}"
+# The side picked on the sheet is stored on the request. The academy list's myJoinRequest carries
+# only id and status, so the side is read from the student's own request list (rule 17).
+- evalScript: "${output.jrSide = json(http.get(output.api + '/api/app/class-join-requests', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).filter(function (r) { return String(r.id) === String(output.jr); })[0].side}"
+- assertTrue: "${output.jrSide == 'left'}"

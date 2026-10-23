@@ -1,0 +1,189 @@
+name: deploy to GKE (reusable)
+
+# PAD-703 (delivery.k8s-manifests rule 11). Called by deploy-gke.yaml; one environment per call.
+# Runs as the GitHub Environment of the same name, so its protection rules and its own secrets
+# (GKE_<ENV>_POSTGRES_PW) apply. Every identifier comes from GitHub variables (R-036). Secrets reach
+# steps only through `env:`; no `${{ secrets.* }}` is written into a script.
+#
+#   1. the tag must be on the environment's branch (an unmerged commit's image exists once staging
+#      pushes :<sha>);
+#   2. the three images must exist at that tag (built by deploy-<env>.yaml; this workflow builds
+#      nothing);
+#   3. Workload Identity Federation (no key file) → cluster credentials;
+#   4. the registry pull Secret, then the app Secret from write-config.sh (one file per key) and
+#      vars.env;
+#   5. the migrate Job (migrate-job.sh: waits for a running one, fails fast on Failed, always
+#      prints its log); nothing else is applied unless it completes;
+#   6. apply the overlay, wait for the five rollouts;
+#   7. smoke through the public hostnames.
+# A rollout that fails leaves the old pods serving (maxUnavailable 0); a rollback is this workflow
+# with the previous image_tag (the migrate Job is then a no-op: the database is ahead).
+
+on:
+  workflow_call:
+    inputs:
+      environment: {required: true, type: string}
+      image_tag: {required: true, type: string}
+      dry_run: {required: false, type: boolean, default: false}
+
+jobs:
+  deploy:
+    name: deploy ${{ inputs.environment }} to GKE
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write   # Workload Identity Federation
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      IMAGE_TAG: ${{ inputs.image_tag }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: The tag is on the environment's branch
+        run: |
+          case "$ENVIRONMENT" in staging) branch=staging ;; prod) branch=main ;; *) echo "::error::unknown environment $ENVIRONMENT"; exit 1 ;; esac
+          git fetch --quiet origin "$branch"
+          sha=$(git rev-parse --verify --quiet "$IMAGE_TAG^{commit}") || { echo "::error::$IMAGE_TAG is not a commit"; exit 1; }
+          git merge-base --is-ancestor "$sha" "origin/$branch" || { echo "::error::$IMAGE_TAG is not on $branch"; exit 1; }
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: The images exist at the tag
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          for image in levelup_backend levelup_frontend levelup_admin; do
+            docker manifest inspect "docker.io/$DOCKERHUB_USERNAME/$image:$IMAGE_TAG" >/dev/null \
+              || { echo "::error::no $image:$IMAGE_TAG: deploy that commit through deploy-$ENVIRONMENT.yaml first"; exit 1; }
+          done
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GKE_WIF_PROVIDER }}
+          service_account: ${{ vars.GKE_DEPLOY_SA }}
+
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER }}
+          location: ${{ vars.GKE_LOCATION }}
+
+      - name: Namespace and registry pull Secret
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+          ns=$(awk '$1=="namespace:"{print $2; exit}' "infra/k8s/overlays/$ENVIRONMENT/kustomization.yaml")
+          echo "NAMESPACE=$ns" >> "$GITHUB_ENV"
+          [ "$DRY_RUN" = true ] && { echo "dry run: namespace $ns"; exit 0; }
+          kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n "$ns" create secret docker-registry levapp-registry --docker-server=https://index.docker.io/v1/ \
+            --docker-username="$DOCKERHUB_USERNAME" --docker-password="$DOCKERHUB_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # Two steps, one per environment, each with a plain env block (no `a && b || c`: an empty prod
+      # secret must fail by name, never fall through to staging's). test_pad703_deploy.py keeps each
+      # block equal to overlays/<env>/sources.txt.
+      - name: Secrets and variables (staging)
+        if: inputs.environment == 'staging'
+        env:
+          POSTGRES_PW: ${{ secrets.GKE_STAGING_POSTGRES_PW }}
+          FLASK_SECRET_KEY: ${{ secrets.STAGING_FLASK_SECRET_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.STAGING_JWT_SECRET_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          HUBSPOT_PRIVATE_APP_TOKEN: ${{ secrets.STAGING_HUBSPOT_PRIVATE_APP_TOKEN }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID_STAGING }}
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
+          APPLE_CLIENT_IDS: ${{ vars.APPLE_CLIENT_IDS }}
+          HUBSPOT_DEMO_FORM_ID: ${{ vars.HUBSPOT_DEMO_FORM_ID_STAGING }}
+          HUBSPOT_MARKETING_SUBSCRIPTION_ID: ${{ vars.HUBSPOT_MARKETING_SUBSCRIPTION_ID_STAGING }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          WORK_GITHUB_REPO: ${{ github.repository }}
+          WORK_GITHUB_TOKEN: ${{ secrets.WORK_GITHUB_TOKEN }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          STAGING_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+        run: bash infra/k8s/write-config.sh staging "$RUNNER_TEMP/secrets" | tee "$RUNNER_TEMP/write-config.out"
+
+      - name: Secrets and variables (prod)
+        if: inputs.environment == 'prod'
+        env:
+          POSTGRES_PW: ${{ secrets.GKE_PROD_POSTGRES_PW }}
+          FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          GCS_UPLOADS_BUCKET: ${{ secrets.GCS_UPLOADS_BUCKET }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_CLAIMS_EMAIL: ${{ secrets.VAPID_CLAIMS_EMAIL }}
+          EXPO_ACCESS_TOKEN: ${{ secrets.EXPO_ACCESS_TOKEN }}
+          HUBSPOT_PRIVATE_APP_TOKEN: ${{ secrets.HUBSPOT_PRIVATE_APP_TOKEN }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
+          APPLE_CLIENT_IDS: ${{ vars.APPLE_CLIENT_IDS }}
+          HUBSPOT_DEMO_FORM_ID: ${{ vars.HUBSPOT_DEMO_FORM_ID }}
+          HUBSPOT_MARKETING_SUBSCRIPTION_ID: ${{ vars.HUBSPOT_MARKETING_SUBSCRIPTION_ID }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          WORK_GITHUB_REPO: ${{ github.repository }}
+          WORK_GITHUB_TOKEN: ${{ secrets.WORK_GITHUB_TOKEN }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          FINANCE_GCP_BILLING_TABLE: ${{ vars.FINANCE_GCP_BILLING_TABLE }}
+        run: bash infra/k8s/write-config.sh prod "$RUNNER_TEMP/secrets" | tee "$RUNNER_TEMP/write-config.out"
+
+      - name: App Secret
+        run: |
+          sha=$(awk '$1=="secrets-sha256"{print $2}' "$RUNNER_TEMP/write-config.out")
+          [ -n "$sha" ] || { echo "::error::write-config.sh printed no checksum"; exit 1; }
+          echo "SECRETS_SHA256=$sha" >> "$GITHUB_ENV"
+          [ "$DRY_RUN" = true ] && { echo "dry run: Secret keys: $(find "$RUNNER_TEMP/secrets" -type f -printf '%f ')"; rm -rf "$RUNNER_TEMP/secrets"; exit 0; }
+          kubectl -n "$NAMESPACE" create secret generic levapp-secrets --from-file="$RUNNER_TEMP/secrets" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          rm -rf "$RUNNER_TEMP/secrets"
+
+      - name: Render
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          GSA_BACKEND: ${{ vars.GKE_BACKEND_GSA }}
+        run: |
+          export REGISTRY="docker.io/$DOCKERHUB_USERNAME"
+          bash infra/k8s/render.sh "$ENVIRONMENT" migrate > "$RUNNER_TEMP/migrate.yaml"
+          bash infra/k8s/render.sh "$ENVIRONMENT" app > "$RUNNER_TEMP/app.yaml"
+          if [ "$DRY_RUN" = true ]; then kubectl diff -f "$RUNNER_TEMP/app.yaml" || true; fi
+
+      - name: Migrate
+        if: inputs.dry_run != true
+        run: bash infra/k8s/migrate-job.sh "$NAMESPACE" "$RUNNER_TEMP/migrate.yaml"
+
+      - name: Apply and wait for the rollouts
+        if: inputs.dry_run != true
+        run: |
+          kubectl apply -f "$RUNNER_TEMP/app.yaml"
+          pids=()
+          for d in api events worker web admin; do
+            kubectl -n "$NAMESPACE" rollout status "deployment/$d" --timeout=10m & pids+=($!)
+          done
+          rc=0; for p in "${pids[@]}"; do wait "$p" || rc=1; done
+          [ "$rc" = 0 ] || echo "::error::a rollout did not finish; the old pods keep serving (maxUnavailable 0); roll back by rerunning with the previous image_tag"
+          exit "$rc"
+
+      - name: Smoke
+        if: inputs.dry_run != true
+        env:
+          GKE_SMOKE_USERNAME: ${{ inputs.environment == 'staging' && secrets.GKE_SMOKE_USERNAME || '' }}
+          GKE_SMOKE_PASSWORD: ${{ inputs.environment == 'staging' && secrets.GKE_SMOKE_PASSWORD || '' }}
+          WEB_URL: ${{ vars.GKE_WEB_URL }}
+          API_URL: ${{ vars.GKE_API_URL }}
+        run: bash infra/k8s/smoke.sh "$WEB_URL" "$API_URL"

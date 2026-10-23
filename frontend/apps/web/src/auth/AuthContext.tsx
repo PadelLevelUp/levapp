@@ -3,6 +3,7 @@ import { QueryClientContext } from "@tanstack/react-query";
 import { getMe, MeResponse } from "@/api/auth";
 import { api } from "@/api/client";
 import { USE_MOCK_DATA } from "@/config";
+import { startPushFailureReport } from "@/utils/pushFailureReport";
 import { requestAndSubscribe } from "@/utils/pushNotifications";
 import i18n from "@/i18n";
 import { emailPromptSession, legalCatchUpSession } from "@levelup/config";
@@ -51,6 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // through the context (not useQueryClient) so a provider-less test render still mounts.
   const queryClient = useContext(QueryClientContext);
   const [loading, setLoading] = useState(true);
+
+  // admin.engine-health rule 8d (PAD-746): a failed push save is reported to the server.
+  useEffect(() => (USE_MOCK_DATA ? undefined : startPushFailureReport()), []);
 
   useEffect(() => {
     if (!token) {
