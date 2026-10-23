@@ -3,12 +3,13 @@ id: B-679
 title: "The staging scrub ran on prod's schema before the migrate step and failed on a table only staging's head has (push_outbox): staging was wiped"
 type: incomplete-rule
 severity: high
-status: triaged
+status: resolved
 affects:
   - delivery.staging-data-sync
   - backend/scripts/sync-staging-db.sh
 proposed_fix: "Run the migrate step on the restored copy before the scrub (rule 9b); a failed migrate step fails closed like a failed scrub."
 opened: 2026-10-23T05:05:00Z
+resolved: 2026-10-23T05:52:47Z
 ---
 
 # B-679: the scrub ran before the migrate step
@@ -53,3 +54,5 @@ table, or for rows a migration backfills.
 
 Resolved when the fix PR merges and a staging deploy's `sync-db` job shows the migrate line, then
 "scrub done", with exit 0.
+
+**Resolved (2026-10-23):** #822 merged into staging at 24575c6d9. Staging deploy run 39907643307, job `sync-db`: `Running upgrade e532fea8c4d4 -> 573da995cdbd`, then `scrub done`, then `SYNC_EXIT=0`.
