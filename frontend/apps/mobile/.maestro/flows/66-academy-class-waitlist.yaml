@@ -74,6 +74,16 @@ onFlowComplete:
     id: "academy-class-join-waitlist"
     below:
       text: "${output.title}"
+# PAD-672 slice 1 (join-requests rule 20, PAD-748): the side sheet opens in front of the join.
+# Pick the left side explicitly, so the step does not depend on the seeded profile side.
+- extendedWaitUntil:
+    visible:
+      id: "class-side-sheet"
+    timeout: 10000
+- tapOn:
+    id: "class-side-left"
+- tapOn:
+    id: "class-side-send"
 - scrollUntilVisible:
     element:
       id: "academy-class-status-waitlist"
