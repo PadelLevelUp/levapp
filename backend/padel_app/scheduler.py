@@ -627,6 +627,65 @@ def _run_trigger_invitations(instance_id: int, coach_id: int) -> None:
             app.logger.error("trigger_invitations(%s) failed: %s", instance_id, exc)
 
 
+def invite_now_job_id(instance_id: int) -> str:
+    return f"invite_now_{instance_id}"
+
+
+def decline_next_job_id(vacancy_id: int, event_id: int) -> str:
+    return f"decline_next_{vacancy_id}_{event_id}"
+
+
+def _arm_now(func, args, job_id: str) -> bool:
+    """PAD-733: run ``func(*args)`` on the scheduler that runs the jobs, as soon as it wakes, not in
+    the request that asked. With ``WORKER_SPLIT`` off that is this process's own scheduler thread;
+    with it on, this process only writes the shared store and the worker picks the job up within
+    ``WORKER_WAKE_SECONDS``. Returns False when no scheduler exists here (tests, CLI): the caller
+    then sends inline, as before. One id per target, so a repeated ask replaces the armed job.
+    The run time is the real wall clock, not ``utcnow_naive``: it is the scheduler's clock that
+    decides when a job is due (a pinned test clock would make the job look hours late, missed)."""
+    if _scheduler is None:
+        return False
+    from apscheduler.triggers.date import DateTrigger
+
+    when = datetime.now(timezone.utc)
+    _scheduler.add_job(
+        func=func,
+        args=args,
+        trigger=DateTrigger(run_date=when, timezone="UTC"),
+        id=job_id,
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+    return True
+
+
+def arm_invitations_now(instance_id: int, coach_id: int) -> bool:
+    """PAD-733 (invitations rule 1b): a decline or an attendance sheet that opens a spot inside the
+    invitation window starts its invitations from here, after the request's commit, instead of
+    fanning out inside the request. ``trigger_invitations`` starts only a never-started vacancy,
+    under its claim lock, so this job, the 2-minute sweep and ``invite_start`` never double-send."""
+    return _arm_now(_run_trigger_invitations, [instance_id, coach_id], invite_now_job_id(instance_id))
+
+
+def arm_next_on_decline(vacancy_id: int, event_id: int) -> bool:
+    """PAD-733: a student's "no" invites the next student from here. The vacancy has started, so
+    ``trigger_invitations`` would not continue it (rule 1b); this runs the decline's own follow-up,
+    which decides under the vacancy lock and sends nothing on a spot no longer open."""
+    return _arm_now(_run_send_next_on_decline, [vacancy_id], decline_next_job_id(vacancy_id, event_id))
+
+
+def _run_send_next_on_decline(vacancy_id: int) -> None:
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        from padel_app.services.notification_service import send_next_on_decline_for
+        try:
+            send_next_on_decline_for(vacancy_id)
+        except Exception as exc:
+            app.logger.error("send_next_on_decline(%s) failed: %s", vacancy_id, exc)
+
+
 def _run_process_batches() -> None:
     app = _app
     if app is None:

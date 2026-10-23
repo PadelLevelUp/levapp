@@ -232,6 +232,7 @@
       "save": "Save",
       "attendanceSavedTitle": "Attendance saved",
       "approvalNeededDescription": "Approval needed to invite replacements",
+      "invitesQueuedDescription": "Invitations to replace them are being sent",
       "invitesSentDescription_one": "Sent an invite to {{count}} player",
       "invitesSentDescription_other": "Sent an invite to {{count}} players",
       "invitesSentDescription_zero": "Sent an invite to {{count}} players",

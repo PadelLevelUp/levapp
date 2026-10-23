@@ -2703,6 +2703,7 @@ def confirm_presences():
     presences = confirm_presences_service(data['classInstance'], data['presences'])
 
     notified_players = []
+    invitations_queued = False
     approval_bundle = None
     if cleared_an_absence and presences:
         instance = presences[0].lesson_instance
@@ -2746,15 +2747,24 @@ def confirm_presences():
                 # If not yet open, the invite_start scheduler job will call trigger_invitations
                 # at the configured time, which will find the absent presences and invite.
                 if invite_start_dt is None or utcnow_naive() >= invite_start_dt:
-                    try:
-                        notified_players = trigger_invitations(instance, coach.id) or []
-                    except Exception:
-                        from padel_app.sql_db import db
-                        db.session.rollback()
+                    # PAD-733: the sheet is committed; the invitations go out from the scheduler
+                    # within seconds (notifiedPlayers stays empty, invitationsQueued says so), or
+                    # inline when no scheduler runs in this process.
+                    from padel_app.scheduler import arm_invitations_now
+
+                    if arm_invitations_now(instance.id, coach.id):
+                        invitations_queued = True
+                    else:
+                        try:
+                            notified_players = trigger_invitations(instance, coach.id) or []
+                        except Exception:
+                            from padel_app.sql_db import db
+                            db.session.rollback()
 
     return jsonify({
         "presences": serialize_presences(presences),
         "notifiedPlayers": notified_players,
+        "invitationsQueued": invitations_queued,  # PAD-733
         "approvalBundle": approval_bundle,
         # PAD-567: the rows this call cleared back to "no answer".
         "cleared": clear_ids,
