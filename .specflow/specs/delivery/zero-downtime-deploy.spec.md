@@ -136,7 +136,20 @@ gunicorn's boot path into the leadership thread.
 12. **Expand, then contract.** Because the previous release runs on the new schema during every
    rolling deploy (and after a `rollback_to`): a new column is nullable or has a server default;
    a column or table is dropped or renamed only in a release after the one whose code stopped
-   reading it; anything else ships with `rollout: stop-first`. A warn-only CI guard is PAD-711.
+   reading it; anything else ships with `rollout: stop-first`.
+   - **The guard (PAD-711).** It is warn-only: `migration-heads.yaml`'s `expand/contract (warn only)`
+     job, on PRs into `staging`, with `continue-on-error`, so it is never a red or required check.
+   - **What it reads.** It runs `backend/scripts/check_expand_contract.py` on the revision files the
+     PR adds: the diff of the PR's merge commit against its first parent (`--diff-filter=A`). It
+     reads only each file's `upgrade()`, so the existing chain and every `downgrade()` stay out.
+   - **What it flags**, as `::warning` annotations and job-summary lines that say to use
+     `rollout: stop-first` or split the change across two releases:
+     - `drop_column`, `drop_table`;
+     - a rename (`alter_column(new_column_name=)`, `rename_table`);
+     - `alter_column(type_=)` or `(nullable=False)`;
+     - `add_column` of a `nullable=False` column without `server_default`;
+     - the same as raw SQL in `op.execute`.
+     Calls on a `batch_alter_table` handle count too.
    Because the migrate step now runs while the old container serves, schema changes take a short
    `lock_timeout` and data backfills run in batches outside the schema transaction: PAD-718.
 13. **The worker follows the API.** (PAD-695, `delivery.worker-role`.) The deploys pass
@@ -301,6 +314,19 @@ gunicorn's boot path into the leadership thread.
   migrate step and before `padelapp_next` starts, and comes back on the freed port
 - **Given** `--copies 1` or `--stop-first` **Then** no `padelapp_b` is left; a second copy that never
   answers is removed and the run exits 1 with `padelapp` serving
+
+#### A contract step in an added migration warns, never fails (rule 12, PAD-711)
+- **Given** a PR into `staging` that adds a revision whose `upgrade()` drops a column, drops a table,
+  renames a column or table, changes a type, sets NOT NULL, adds a NOT NULL column without a
+  server default, or does any of those in raw SQL
+- **When** the `expand/contract (warn only)` job runs **Then** each one is a `::warning` on its line
+  and a job-summary line naming `rollout: stop-first` or a two-release split, and the job exit is 0
+
+#### An expand-only migration is silent (rule 12, PAD-711)
+- **Given** an added revision whose `upgrade()` only adds nullable or server-defaulted columns,
+  tables and indexes, and whose `downgrade()` drops them
+- **When** the job runs **Then** it warns nothing, and the summary says the added migrations are
+  expand-only; revisions the PR did not add are never read
 
 #### A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it

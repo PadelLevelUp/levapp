@@ -1,0 +1,31 @@
+"""PAD-711 fixture: an expand-only revision; the guard is silent on it.
+
+Additive upgrade(): nullable columns, a NOT NULL column with a server default, a new table, an
+index, a nullable relaxation. Its downgrade() drops everything, as a downgrade does, and the guard
+never reads downgrade(). Read as text by test_pad711_expand_contract_guard.py, never applied.
+"""
+import sqlalchemy as sa
+from alembic import op
+
+revision = "pad711expand"
+down_revision = None
+
+
+def upgrade():
+    op.add_column("lesson", sa.Column("venue_id", sa.Integer(), nullable=True))
+    op.add_column("lesson", sa.Column("is_open", sa.Boolean(), nullable=False, server_default=sa.false()))
+    op.create_table(
+        "venue",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("name", sa.String(120), nullable=False),
+    )
+    op.create_index("ix_lesson_venue_id", "lesson", ["venue_id"])
+    op.alter_column("player", "phone", nullable=True)
+    op.execute("UPDATE lesson SET is_open = true WHERE starts_at > now()")
+
+
+def downgrade():
+    op.drop_index("ix_lesson_venue_id", table_name="lesson")
+    op.drop_table("venue")
+    op.drop_column("lesson", "is_open")
+    op.drop_column("lesson", "venue_id")
