@@ -117,6 +117,26 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    and the row's Pressable (B-089 face C, PAD-314). A screen that navigates away on success
    therefore leaves its busy state as it is, and resets it only on failure, where it stays on
    screen.
+11. **The navigation bar never covers the app (PAD-730).** Edge-to-edge draws the app under
+   Android's navigation bar (48 dp with 3-button navigation, about 24 dp with gestures), and
+   that bar is transparent. So on Android the bottom inset is taken once, where it belongs:
+   - the tab bar's bottom padding is the inset (at least 8 dp), and its height grows by it
+     (`(tabs)/_layout.tsx`, `tabBarBottom`), so the labels sit above the buttons;
+   - the root Stack pads every other screen's content by the inset (`contentStyle`), so a scroll
+     ends above the bar and nothing is drawn under it. Two kinds of screen are left out. The tab
+     navigator, because its bar already takes the inset. And the screens that manage the keyboard
+     with a `KeyboardAvoidingView` (`KEYBOARD_SCREENS`: login, signup, password recovery, email
+     verification, the class-request wizard, new class, new and edit event, new conversation, a
+     conversation), which keep their own bottom handling as before: with the padding, the
+     login's form was not lifted clear of the keyboard and its password field stayed under it.
+     That was seen 3 times on the Play screenshot job (runs 40009341283, 40015219350 and
+     40018771651), including once with the padding dropped while the keyboard was up. A unit test
+     fails when a screen with a `KeyboardAvoidingView` is missing from the list;
+   - settings, which added the inset itself, adds none on Android (`useScreenBottomInset`), so
+     nothing is padded twice.
+   iOS is unchanged: its tab bar keeps 24/84 for the home indicator, and its screens keep their
+   own insets. `bottom-inset.test.ts` pins the arithmetic; the Play screenshot job
+   (`android-store-screenshots.yaml`, pixel_2, 3-button navigation) shows it.
 
 #### Verification
 8. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
@@ -209,6 +229,24 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
   class-detail flow
 - **When** it runs on this branch
 - **Then** all three flows pass
+
+#### The tab labels sit above Android's navigation buttons (rule 11)
+- **Given** Android with 3-button navigation (a 48 dp bottom inset) and a signed-in coach
+- **When** any tabbed screen shows
+- **Then** the tab bar's bottom padding is 48 and its height 108, so the labels (Painel,
+  Calendário, …) are above the back/home/recent buttons; on iOS the bar stays 24/84
+
+#### A stack screen ends above the navigation bar, padded once (rule 11)
+- **Given** Android with a 48 dp bottom inset
+- **When** a player's screen is scrolled to its end, or settings is open
+- **Then** the last content (the player's "Pontos fortes e fracos", settings' logout row) is
+  above the navigation bar, and settings adds no second inset of its own
+
+#### A screen that manages the keyboard keeps its own bottom handling (rule 11)
+- **Given** Android, the login screen, and the keyboard open on the username field
+- **When** the user taps the password field
+- **Then** the field is above the keyboard (the screen gets no root padding), and every screen
+  with a `KeyboardAvoidingView` is in `KEYBOARD_SCREENS` (`bottom-inset.test.ts`)
 
 ### Notes
 - Web n/a: this leaf changes nothing on web (R-024's parity is between the shells that exist;
