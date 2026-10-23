@@ -237,7 +237,10 @@ jobs:
             docker rm padelapp_staging_b >/dev/null 2>&1 || true
           fi
           opt() { if grep -qF -- "    $1)" "$RO"; then printf '%s ' "$@"; else echo "[deploy] this rollout.sh has no $1: not passing it" >&2; fi; }
-          bash "$RO" --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $(opt --probe-host staging.levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $([ "$API_COPIES" != 2 ] || opt --copies 2) $ROLLOUT_MODE -- \
+          # PAD-714 (rule 16, B-663): --drain takes each port out of nginx's rotation before a container
+          # boots or stops on it, through the owner's root-owned helper; without that host step it logs
+          # one line and swaps as before. Staging only until it is measured here.
+          bash "$RO" --name padelapp_staging --ports 5100,5102 --upstream levapp_api_staging $(opt --probe-host staging.levapp.app) $(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $([ "$API_COPIES" != 2 ] || opt --copies 2) $(opt --drain) $ROLLOUT_MODE -- \
             --log-opt max-size=10m --log-opt max-file=3 \
             --restart unless-stopped \
             --network levelup_net \

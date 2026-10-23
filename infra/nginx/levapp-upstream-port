@@ -1,0 +1,62 @@
+#!/bin/sh
+# =============================================================================
+# levapp-upstream-port — mark loopback ports up or down in one nginx upstream block, then reload
+# (PAD-714, B-663; delivery.zero-downtime-deploy rule 16)
+#
+# Installed root-owned as /usr/local/sbin/levapp-upstream-port by the owner's host step, and run by
+# the deploy user through one sudoers line, so rollout.sh --drain can take a port out of nginx's
+# rotation before a container boots or stops on it. Narrower than letting the deploy user write the
+# upstream file: it edits only the `server 127.0.0.1:<port>` lines of the named block.
+#
+#   levapp-upstream-port --check
+#   levapp-upstream-port <conf> <upstream> <port>=up|down [<port>=up|down ...]
+#
+# <conf> must be /etc/nginx/conf.d/levapp-<x>-upstream.conf (a regular file, not a symlink). Each
+# named line loses any ` down`, and gains it for `down`. Then `nginx -t`; on failure, or a failed
+# `nginx -s reload`, the file is put back and the exit is 1. Idempotent.
+# LEVAPP_UPSTREAM_DIR replaces /etc/nginx/conf.d for the tests, and only when not run as root.
+# =============================================================================
+set -eu
+
+[ "${1:-}" = "--check" ] && exit 0
+[ $# -ge 3 ] || { echo "usage: $0 --check | <conf> <upstream> <port>=up|down ..." >&2; exit 2; }
+
+dir=/etc/nginx/conf.d
+[ "$(id -u)" != 0 ] && [ -n "${LEVAPP_UPSTREAM_DIR:-}" ] && dir="$LEVAPP_UPSTREAM_DIR"
+conf="$1" upstream="$2"; shift 2
+case "$conf" in "$dir"/levapp-*-upstream.conf) ;; *) echo "not an allowed upstream file: $conf" >&2; exit 2 ;; esac
+case "${conf#"$dir"/}" in */*|*..*) echo "not an allowed upstream file: $conf" >&2; exit 2 ;; esac
+[ -f "$conf" ] && [ ! -L "$conf" ] || { echo "not a regular file: $conf" >&2; exit 2; }
+printf '%s' "$upstream" | grep -Eq '^[a-z_]+$' || { echo "bad upstream name: $upstream" >&2; exit 2; }
+grep -Eq "^[[:space:]]*upstream[[:space:]]+${upstream}[[:space:]]*\{" "$conf" || { echo "no upstream $upstream in $conf" >&2; exit 2; }
+
+specs=""
+for s in "$@"; do
+  printf '%s' "$s" | grep -Eq '^[0-9]{2,5}=(up|down)$' || { echo "bad port state: $s" >&2; exit 2; }
+  specs="$specs $s"
+done
+
+backup="$(mktemp)"
+next="$(mktemp)"
+trap 'rm -f "$backup" "$next"' EXIT
+cp "$conf" "$backup"
+awk -v up="$upstream" -v specs="$specs" '
+  BEGIN { n = split(specs, a, " "); for (i = 1; i <= n; i++) { split(a[i], kv, "="); want[kv[1]] = kv[2] } }
+  $0 ~ "^[[:space:]]*upstream[[:space:]]+" up "[[:space:]]*\\{" { inblock = 1 }
+  inblock && match($0, /server[[:space:]]+127\.0\.0\.1:[0-9]+/) {
+    port = substr($0, RSTART, RLENGTH); sub(/.*:/, "", port)
+    if (port in want) {
+      sub(/[[:space:]]+down[[:space:]]*;/, ";")
+      if (want[port] == "down") sub(/;/, " down;")
+    }
+  }
+  inblock && /\}/ { inblock = 0 }
+  { print }
+' "$backup" > "$next"
+cat "$next" > "$conf"  # in place: keeps the owner, mode and inode nginx reads
+
+if ! nginx -t >/dev/null 2>&1 || ! nginx -s reload; then
+  cat "$backup" > "$conf"
+  echo "nginx refused the change; $conf restored" >&2
+  exit 1
+fi

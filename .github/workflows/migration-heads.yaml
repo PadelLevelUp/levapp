@@ -36,3 +36,27 @@ jobs:
           python-version: "3.10"
       - name: Check the migration history
         run: python backend/scripts/check_alembic_heads.py backend/migrations/versions
+
+  # PAD-711 (delivery.zero-downtime-deploy rule 12): warn-only, never a failing or required check.
+  # The deploy migrates while the previous release serves, so a migration this PR adds should be
+  # expand-only; a drop, rename, type change or NOT NULL without a default gets a warning annotation
+  # and a job-summary line, never a red X. A PR checkout is the merge commit: its first parent is
+  # the base, so the diff lists exactly the revision files the PR adds (the existing chain, and
+  # its downgrade() drops, are never read).
+  expand-contract:
+    name: expand/contract (warn only)
+    if: github.event_name == 'pull_request' && github.base_ref == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Warn on contract steps in added migrations
+        run: |
+          mapfile -t added < <(git diff --name-only --diff-filter=A HEAD^1 HEAD -- 'backend/migrations/versions/*.py')
+          python backend/scripts/check_expand_contract.py "${added[@]}" || true

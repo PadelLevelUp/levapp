@@ -344,7 +344,11 @@ def build_needs_you_block(
 def _empty_seat_items(
     *, coach_id: int, now: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
-    events = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
+    # PAD-740 (dashboard.blocks rule 3): only the current Sunday-to-Saturday week, up to next
+    # Sunday 00:00 — the same week the week pulse counts. It used to be a rolling 7 days, which
+    # reached into next week on every day but Sunday.
+    week_end = datetime.combine(week_start_of(now.date()), datetime.min.time()) + timedelta(days=7)
+    events = _window_events(events, coach_id=coach_id, start=now, end=week_end)
     # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
     # snooze lapses. It is still on the schedule — only the nag is paused.
     snoozed = snoozed_item_ids(coach_id=coach_id, now=wall_to_utc_naive(now))  # snoozed_until is UTC
