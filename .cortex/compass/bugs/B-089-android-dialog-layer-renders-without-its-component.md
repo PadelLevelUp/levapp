@@ -121,3 +121,7 @@ work around the defect today and must be simplified when it is fixed:
   walk the lane allowed (5/5 each) with zero exceptions. The limit was the register throttle
   (5/600), which the lane now turns off. The link "the style change is what made the cell
   flatten" is inferred; the views and the cure are measured.
+  **Second screen (B-602, PAD-717, 2026-10-23):** `forgot-password.tsx` had copied the same
+  drawn-cells input before this fix and kept the `finally` reset. It went blank the same way
+  after a successful recovery (lane run 39666441295). It now follows rule 10: flow 28 failed
+  1/1 before the fix and passed 3/3 after.

@@ -393,6 +393,10 @@ jobs:
           cp -r ~/.maestro/tests maestro-results/ 2>/dev/null || true
           cp maestro-report.xml maestro-results/ 2>/dev/null || true
           cp "$RUNNER_TEMP/flask.log" maestro-results/ 2>/dev/null || true
+          # PAD-717: a flow's named `takeScreenshot` lands in the directory Maestro runs from
+          # (.maestro/), not in ~/.maestro/tests, so it never reached the artefact.
+          mkdir -p maestro-results/screenshots
+          cp frontend/apps/mobile/.maestro/*.png maestro-results/screenshots/ 2>/dev/null || true
           ls -R maestro-results | head -50
 
       - uses: actions/upload-artifact@v4
