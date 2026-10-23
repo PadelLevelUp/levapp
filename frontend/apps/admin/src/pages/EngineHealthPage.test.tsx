@@ -84,7 +84,7 @@ describe("Engine health page (PAD-534)", () => {
     window.history.pushState({}, "", "/engine-health");
     mockFetch({
       ...HEALTH,
-      incidents: { ...HEALTH.incidents, last24h: { ...HEALTH.incidents.last24h, push_registration_failed: 2 } },
+      incidents: { ...HEALTH.incidents, last24h: { ...HEALTH.incidents.last24h, push_registration_failed: 2, stream_refused: 3, push_dropped: 1 } },
       push: {
         activeStudents7d: { total: 167, noChannel: 33, webPushOnly: 19, nativeOnly: 112, nativeAndWebPush: 3 },
         registrationFailures7d: { ios: 4, android: 0, web: 1 },
@@ -98,6 +98,9 @@ describe("Engine health page (PAD-534)", () => {
     expect(screen.getByTestId("admin-eh-push-native")).toHaveTextContent("115");
     expect(screen.getByTestId("admin-eh-push-failures")).toHaveTextContent("ios 4 · android 0 · web 1");
     expect(screen.getByTestId("admin-eh-incidents-24h-push_registration_failed")).toHaveTextContent("2");
+    // PAD-689: minutes with refused live-update streams and with dropped pushes.
+    expect(screen.getByTestId("admin-eh-incidents-24h-stream_refused")).toHaveTextContent("3");
+    expect(screen.getByTestId("admin-eh-incidents-24h-push_dropped")).toHaveTextContent("1");
   });
 
   it("an API without the push block shows the page without it", async () => {
