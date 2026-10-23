@@ -1046,6 +1046,7 @@ export function ClassDetailSheet({
       const {
         presences: updatedPresences,
         notifiedPlayers,
+        invitationsQueued,
         approvalBundle: bundle,
       } = await confirmClassPresences(classInstance, payload);
 
@@ -1072,6 +1073,12 @@ export function ClassDetailSheet({
         toast({
           title: t("calendar.detail.attendanceSavedTitle"),
           description: t("calendar.detail.invitesSentDescription", { count: n }),
+        });
+      } else if (invitationsQueued) {
+        // PAD-733: the server sends the invitations right after answering.
+        toast({
+          title: t("calendar.detail.attendanceSavedTitle"),
+          description: t("calendar.detail.invitesQueuedDescription"),
         });
       } else {
         toast({ title: t("calendar.detail.attendanceSavedTitle") });

@@ -232,6 +232,7 @@
       "save": "Guardar",
       "attendanceSavedTitle": "Presenças guardadas",
       "approvalNeededDescription": "É necessária aprovação para convidar substitutos",
+      "invitesQueuedDescription": "Os convites para os substituir estão a ser enviados",
       "invitesSentDescription_one": "Convite enviado a {{count}} jogador",
       "invitesSentDescription_zero": "Convite enviado a {{count}} jogadores",
       "invitesSentDescription_other": "Convite enviado a {{count}} jogadores",
