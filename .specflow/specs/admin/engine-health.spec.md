@@ -27,8 +27,8 @@ database query or a log search, and failed sends are only in the logs.
   PushSubscription
 - **CREATES:** `delivery_incidents` — `id`, `created_at`, `kind`
   (`email_failed`|`push_failed`|`reminder_skipped_past_due`|`push_registration_failed`, the last
-  since PAD-746, rule 8), `channel`
-  (`email`|`webpush`|`apns`|`fcm`|`expo`|`scheduler`; an Expo receipt maps the device's platform
+  since PAD-746, rule 8; `stream_refused`|`push_dropped` since PAD-689, rule 9), `channel`
+  (`email`|`webpush`|`apns`|`fcm`|`expo`|`scheduler`|`sse`|`push`; an Expo receipt maps the device's platform
   to `apns` (ios) or `fcm` (android) and is `expo` when the device row does not say), `user_id` (FK → users, SET NULL, nullable),
   `subject_type` / `subject_id` (nullable: the lesson instance, vacancy or notification the
   incident belongs to), `error_class` (String(120)), `detail` (String(500), truncated). No
@@ -130,6 +130,13 @@ database query or a log search, and failed sends are only in the logs.
      PAD-744): every failed attempt, retries included; a refused permission is not a failure
      and is never reported.
 
+9. **(PAD-689; numbering unconfirmed) Refused live-update streams and dropped pushes.** The
+   realtime monitor records one `stream_refused` row (channel `sse`) and one `push_dropped` row
+   (channel `push`: the in-process sender cannot tell web push from Expo) for each minute in which
+   any happened, the count in `detail` (`messaging.sse-realtime` rule 25a). The incident table
+   lists both kinds; their counts are minutes, not events. No migration: `kind` is a plain
+   `String(32)`.
+
 ### Acceptance Criteria
 
 #### The summary counts what the engine holds (rule 2)
@@ -226,6 +233,12 @@ database query or a log search, and failed sends are only in the logs.
 - Alerting (paging someone when a count crosses a threshold) — a later ticket if wanted.
 - Request logs and error tracking (nginx and container logs stay where they are).
 - Editing a coach's engine settings — the coach does that in the app (`notifications.config`).
+
+#### The incident table lists refused streams and dropped pushes (rule 9, PAD-689)
+- **Given** a summary whose last-24-hours counts carry `stream_refused: 3` and `push_dropped: 1`
+- **When** the engine-health page renders
+- **Then** the incident rows "Live updates refused (stream cap)" and "Push dropped (queue full or
+  provider paused)" show 3 and 1
 
 ### Notes
 - PAD-746 (rule 8): the reach definition and baseline are G's PAD-741 query (prod, read-only,

@@ -299,7 +299,9 @@
           "email_failed": "Email falhou",
           "push_failed": "Notificação falhou",
           "reminder_skipped_past_due": "Lembrete saltado (fora de horas)",
-          "push_registration_failed": "Registo de push falhado"
+          "push_registration_failed": "Registo de push falhado",
+          "stream_refused": "Atualizações em direto recusadas (limite de ligações)",
+          "push_dropped": "Push descartado (fila cheia ou fornecedor em pausa)"
         }
       },
       "receipts": {
