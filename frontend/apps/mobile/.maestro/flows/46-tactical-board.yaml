@@ -3,13 +3,15 @@
 # - a new exercise opens the Quadro Tático in Situações de jogo with the 2v2
 # - picking a tool swaps the hint; Cone + a tap on the court places a cone;
 #   undo removes it again
-# - wave 4: add a step, Passo, AUTO plays the ball, delete the step
+# - wave 4: add a step, draw one ball path (A1 then A2), Passo, AUTO plays the ball,
+#   delete the step
 # - wave 3: Magnético pen stroke by swipe (red), undo, back to game
 # - wave 2: switch to Exercícios de cesto, add A3/A4, one-tap feed from the feeder
 # - save → reopen → the saved basket board is still there
 #
-# Not observable from Maestro: ball-path drawing needs two taps at specific
-# court points and Maestro's `tapOn` has no element-relative point, so the
+# Not observable from Maestro: drawing a path between chosen court points needs
+# taps Maestro's `tapOn` cannot aim (it has no element-relative point; wave 4 only
+# needs some path, so it taps two pieces), so the
 # plana/lob toggle and tap-to-move are covered by the web E2E and the vitest
 # board tests only. Noted in the PR, not faked here.
 appId: com.padellevelup.app
@@ -154,6 +156,48 @@ appId: com.padellevelup.app
 - assertVisible:
     # PAD-710 (Android lane): the lane renders English ("Step 2 of 2"); match either locale.
     text: ".*2 (de|of) 2.*"
+# One ball path on step 2, so AUTO has a ball to play: the playback ball is drawn only for a step
+# with a ball path (court-diagram.ts interpolateStep), and a new step is empty. Without this the
+# assertion below could never pass on either platform (B-604). Bola in Situações de jogo takes
+# two court taps; tapping A1 then A2 gives two points far apart on one row (a tap on a piece passes
+# its point to the board, whatever the piece's reported bounds on Android). Not B1: on Android it sits
+# under the tab bar when A1 is on screen, a 16 px sliver that counts as visible, and the tap misses
+# the court (#805, run 39746942096). Deleting step 2 below removes the path.
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-tool-ball"
+- tapOn:
+    id: "board-tool-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-toolbar.yaml
+    env:
+      TARGET: "board-hint-ball"
+- assertVisible:
+    id: "board-hint-ball"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "piece-a1"
+# A1 and A2 share a row: no scroll between the two taps of one path.
+- tapOn:
+    id: "piece-a1"
+- tapOn:
+    id: "piece-a2"
+- runFlow:
+    when:
+      platform: Android
+    file: ../subflows/board-show-court.yaml
+    env:
+      TARGET: "ball-path-flat"
+- assertVisible:
+    id: "ball-path-flat"
 - runFlow:
     when:
       platform: Android
@@ -168,6 +212,15 @@ appId: com.padellevelup.app
     file: ../subflows/board-show-court.yaml
     env:
       TARGET: "board-auto"
+# PAD-710 (Android lane): at 1x the ball is on screen only for step 2's 800 ms, about one
+# emulator hierarchy dump. Slow 0.5x doubles that; the speed row sits under AUTO, so it is
+# already on screen.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: "board-speed-slow"
 - tapOn:
     id: "board-auto"
 # PAD-710 (Android lane): the playback ball is drawn on the court; bring the court on screen before it disappears (it may still be missed on a slow emulator).
@@ -177,8 +230,11 @@ appId: com.padellevelup.app
     file: ../subflows/board-show-court.yaml
     env:
       TARGET: "court-surface"
-- assertVisible:
-    id: "playback-ball"
+# The ball moves only during step 2 (step 1 is empty): wait for it rather than read once.
+- extendedWaitUntil:
+    visible:
+      id: "playback-ball"
+    timeout: 8000
 - extendedWaitUntil:
     notVisible:
       id: "playback-ball"

@@ -622,6 +622,28 @@
           "error": "Error",
           "not_configured": "Not set up"
         }
+      },
+      "import": {
+        "open": "Import list",
+        "lead": "Paste a table from a spreadsheet or pick a CSV. The first line names the columns (as below); amounts accept 12.34 or 12,34. Nothing is saved until you confirm.",
+        "placeholder": "Paste here, header line first",
+        "file": "Or pick a CSV file",
+        "check": "Check",
+        "confirm_one": "Create {{count}} cost",
+        "confirm_other": "Create {{count}} costs",
+        "confirmNone": "Create",
+        "summary": "{{ok}} ready, {{invalid}} with a problem. Fix the problem lines and check again; the costs are created all at once.",
+        "line": "Line",
+        "errors": {
+          "INVALID_COST": "Check the column: {{field}}.",
+          "GCP_MONTH_IMPORTED": "That month already has the imported Google Cloud figures.",
+          "DUPLICATE_COST": "Already entered (or repeated in this list).",
+          "IMPORT_EXTRA_CELLS": "More cells than columns.",
+          "IMPORT_BAD_HEADER": "The header line has an unknown or missing column: {{field}}.",
+          "IMPORT_EMPTY": "Nothing to import.",
+          "IMPORT_TOO_MANY_LINES": "At most 500 lines at a time.",
+          "IMPORT_INVALID": "Some lines changed meanwhile; check the list again."
+        }
       }
     }
   }

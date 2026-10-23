@@ -21,8 +21,8 @@ from padel_app.models.finance import (
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
 
-#: Rule 1 (assumption Q4): the lowest console role that reaches finance, reads included.
-FINANCE_ROLE = "owner"
+#: Rule 1 (owner's answer Q4, 2026-10-23): every console account reaches finance, reads and writes.
+FINANCE_ROLE = "support"
 
 CENT = Decimal("0.01")
 _MONTH = re.compile(r"^(\d{4})-(0[1-9]|1[0-2])$")
@@ -236,6 +236,10 @@ def create_cost(data, actor_email):
     """Returns ``(cost, changed_fields)``; the caller's transaction commits."""
     values = _clean(data or {})
     _refuse_imported_gcp_month(values)
+    return _insert(values, actor_email)
+
+
+def _insert(values, actor_email):
     cost = FinanceCost(**values, created_by_email=actor_email, updated_by_email=actor_email)
     db.session.add(cost)
     db.session.flush()
@@ -389,3 +393,101 @@ def export_csv(from_month=None, to_month=None, now=None):
     writer.writerow(CSV_HEADER)
     writer.writerows(rows)
     return out.getvalue()
+
+
+# ── bulk import (rule 5c) ─────────────────────────────────────────────────────
+
+IMPORT_MAX_LINES = 500
+_IMPORT_COLUMNS = {name.lower(): name for name, _ in FIELDS}
+_IMPORT_REQUIRED = ("category", "vendor", "description", "currency", "amount", "recurrence", "startsOn")
+_DECIMAL_COMMA = re.compile(r"^\d+,\d{1,2}$")
+_TRUE = {"true", "1", "yes", "sim"}
+_FALSE = {"", "false", "0", "no", "não", "nao"}
+
+
+def _import_value(name, raw):
+    value = (raw or "").strip()
+    if name in ("amount", "amountEur") and _DECIMAL_COMMA.match(value):
+        return value.replace(",", ".")
+    if name == "currency":
+        return value.upper()
+    if name == "gcpInvoice":
+        lowered = value.lower()
+        return True if lowered in _TRUE else False if lowered in _FALSE else value
+    return value or None
+
+
+def _duplicate_key(values):
+    return (
+        values["category"], values["vendor"].lower(), values["description"].lower(), values["currency"],
+        values["amount"], values["recurrence"], values["starts_on"],
+    )
+
+
+def parse_import(text):
+    """Rule 5c: one validated entry per data line of a CSV or a pasted table. Writes nothing.
+
+    The first line is the header: the form's field names in any case, separated by tabs (a paste
+    from a spreadsheet), semicolons (a pt-locale CSV) or commas. Each entry is
+    ``{"line", "values"}`` (the cleaned attributes) or ``{"line", "error", "field"}``.
+    """
+    lines = [line for line in (text or "").splitlines() if line.strip()]
+    if not lines:
+        raise FinanceError("IMPORT_EMPTY")
+    if len(lines) - 1 > IMPORT_MAX_LINES:
+        raise FinanceError("IMPORT_TOO_MANY_LINES")
+    header = lines[0].lstrip("﻿")
+    delimiter = "\t" if "\t" in header else ";" if ";" in header else ","
+    rows = list(csv.reader(lines, delimiter=delimiter))
+    columns = []
+    for cell in rows[0]:
+        name = _IMPORT_COLUMNS.get(cell.strip().lstrip("﻿").lower())
+        if name is None or name in columns:
+            raise FinanceError("IMPORT_BAD_HEADER", field=cell.strip())
+        columns.append(name)
+    missing = [name for name in _IMPORT_REQUIRED if name not in columns]
+    if missing:
+        raise FinanceError("IMPORT_BAD_HEADER", field=missing[0])
+    existing = {
+        _duplicate_key({attr: getattr(c, attr) for _, attr in FIELDS})
+        for c in FinanceCost.query.filter(FinanceCost.deleted_at.is_(None))
+    }
+    imported = _imported_months()
+    entries, seen = [], set()
+    for number, cells in enumerate(rows[1:], start=2):
+        if len(cells) > len(columns):
+            entries.append({"line": number, "error": "IMPORT_EXTRA_CELLS", "field": None})
+            continue
+        data = {name: _import_value(name, cells[i] if i < len(cells) else "") for i, name in enumerate(columns)}
+        try:
+            values = _clean(data)
+        except FinanceError as exc:
+            entries.append({"line": number, "error": exc.code, "field": exc.field})
+            continue
+        if values["gcp_invoice"] and month_of(values["starts_on"]) in imported:
+            entries.append({"line": number, "error": "GCP_MONTH_IMPORTED", "field": "startsOn"})
+            continue
+        key = _duplicate_key(values)
+        if key in existing or key in seen:
+            entries.append({"line": number, "error": "DUPLICATE_COST", "field": None})
+            continue
+        seen.add(key)
+        entries.append({"line": number, "values": values})
+    return entries
+
+
+def import_preview(entry):
+    """An entry as the page shows it: the line, and either its error or the cost's fields."""
+    if "error" in entry:
+        return {"line": entry["line"], "ok": False, "error": entry["error"], "field": entry["field"]}
+    values = entry["values"]
+    cost = {}
+    for name, attr in FIELDS:
+        value = values[attr]
+        cost[name] = f"{value:.2f}" if isinstance(value, Decimal) else value.isoformat() if isinstance(value, date) else value
+    return {"line": entry["line"], "ok": True, "cost": cost}
+
+
+def import_costs(entries, actor_email):
+    """Create every entry's cost (all valid: the caller checked). Returns ``[(cost, changed)]``."""
+    return [_insert(entry["values"], actor_email) for entry in entries]

@@ -29,6 +29,10 @@ card statements, invoices and the Google Cloud console.
    price and the month it started, and each one-off payment with its date. A subscription keeps
    counting every month (or every year) until the owner marks the month it stopped.
 3. For the months before the export was on, the owner enters Google Cloud's invoice totals by hand.
+3a. A whole list (the first load, or a year of statements) can be pasted from a spreadsheet or
+   picked as a CSV file: the page checks every line first, shows which ones have a problem and why,
+   and creates them all at once only when every line is right. The owner sends the initial list to
+   the coordinator, who prepares the table; whoever has a console account loads it.
 4. The page shows a table of months against categories, each month's total, the running total, a
    simple chart, and a CSV download for the accountant.
 5. If the daily Google Cloud import fails or stops, the page says so at the top, with the date of
@@ -37,15 +41,15 @@ card statements, invoices and the Google Cloud console.
 ## Business Rules
 
 - Every amount is shown in euros. A cost charged in another currency keeps what was charged, in
-  that currency, next to the euro amount the card was actually debited. *(Assumption pending the
-  owner's answer to question 1 on PAD-742.)*
+  that currency, next to the euro amount the card was actually debited. *(Owner's answer 1,
+  2026-10-23.)*
 - The history starts at the month of the first cost entered; nothing before it is shown.
-  *(Assumption pending question 2.)*
-- Only the owner sees and changes the finance page; other staff roles do not see it.
-  *(Assumption pending question 4.)*
+  *(Owner's answer 2.)*
+- Every staff console account sees and changes the finance page: the console's accounts are the
+  founders'. *(Owner's answer 4, 2026-10-23; it replaced the owner-only assumption.)*
 - Every change to a cost is recorded with who made it and when, and the old value is kept in the
-  finance history, which only the owner sees. The console's general activity log notes that a
-  cost changed and which fields, never the amounts, so other staff never see money.
+  finance history. The console's general activity log notes that a cost changed and which fields,
+  never the amounts.
 - Google Cloud figures are read, never changed: the console only reads the billing data.
 - Google Cloud costs are counted once: a month has either the owner's invoice total or the
   imported figures, never both.
@@ -68,6 +72,7 @@ card statements, invoices and the Google Cloud console.
 
 ## Notes
 
-- OPEN (PAD-742, four questions to the owner): currency, start date, the initial list of manual
-  costs with amounts and dates, and who enters and approves. The rules marked "assumption" change
-  with the answers.
+- The owner's answers on PAD-742 (2026-10-23): (1) euro totals, keeping the charged amount;
+  (2) the history starts at the earliest charge; (3) the owner sends the initial list to the
+  coordinator instead of typing it, and it is loaded through the list import; (4) every console
+  account sees and changes finance, and the audit records who did what.

@@ -622,6 +622,28 @@
           "error": "Erro",
           "not_configured": "Não configurada"
         }
+      },
+      "import": {
+        "open": "Importar lista",
+        "lead": "Cole uma tabela de uma folha de cálculo ou escolha um CSV. A primeira linha tem os nomes das colunas (como abaixo); os valores aceitam 12.34 ou 12,34. Nada é guardado até confirmar.",
+        "placeholder": "Cole aqui, com a linha de cabeçalho primeiro",
+        "file": "Ou escolha um ficheiro CSV",
+        "check": "Verificar",
+        "confirm_one": "Criar {{count}} custo",
+        "confirm_other": "Criar {{count}} custos",
+        "confirmNone": "Criar",
+        "summary": "{{ok}} prontos, {{invalid}} com problema. Corrija as linhas com problema e verifique de novo; os custos são criados todos de uma vez.",
+        "line": "Linha",
+        "errors": {
+          "INVALID_COST": "Verifique a coluna: {{field}}.",
+          "GCP_MONTH_IMPORTED": "Esse mês já tem os valores importados do Google Cloud.",
+          "DUPLICATE_COST": "Já introduzido (ou repetido nesta lista).",
+          "IMPORT_EXTRA_CELLS": "Mais células do que colunas.",
+          "IMPORT_BAD_HEADER": "A linha de cabeçalho tem uma coluna desconhecida ou em falta: {{field}}.",
+          "IMPORT_EMPTY": "Nada para importar.",
+          "IMPORT_TOO_MANY_LINES": "No máximo 500 linhas de cada vez.",
+          "IMPORT_INVALID": "Algumas linhas mudaram entretanto; verifique a lista de novo."
+        }
       }
     }
   }

@@ -616,8 +616,8 @@ def deletion_audits():
 
 
 # ── finance (admin.finance, PAD-742) ──────────────────────────────────────────
-# Rule 1: every route needs FINANCE_ROLE, reads included. Rule 5a: the audit row holds only the
-# changed field names, never an amount, so support (who reads the audit log) never sees money.
+# Rule 1: every route needs FINANCE_ROLE (every console account). Rule 5a: the audit row holds only
+# the changed field names, never an amount; the values live in finance_cost_revisions.
 from padel_app.services.admin.finance_service import FINANCE_ROLE  # noqa: E402
 
 
@@ -712,6 +712,38 @@ def finance_update_cost(cost_id):
 @require_role(FINANCE_ROLE)
 def finance_delete_cost(cost_id):
     return _finance_write("delete", cost_id)
+
+
+@bp.post("/finance/costs/import")
+@audited("finance.cost.import")
+@require_role(FINANCE_ROLE)
+def finance_import_costs():
+    """Rule 5c: a dry run previews every line; a real run creates all of them or none, with one
+    `finance.cost.create` audit row per line besides this request's own row."""
+    from padel_app.services.admin import audit_service, finance_service
+    from padel_app.utils.admin_auth import AuditContext
+
+    body = request.get_json(silent=True) or {}
+    try:
+        entries = finance_service.parse_import(body.get("text"))
+    except finance_service.FinanceError as exc:
+        return _finance_error(exc)
+    lines = [finance_service.import_preview(entry) for entry in entries]
+    invalid = sum(1 for line in lines if not line["ok"])
+    g.audit.before = None
+    g.audit.after = {"changedFields": []}
+    if body.get("dryRun", True) is not False:
+        return jsonify({"dryRun": True, "lines": lines, "invalid": invalid})
+    if invalid:
+        return jsonify({"error": "IMPORT_INVALID", "lines": lines, "invalid": invalid}), 400
+    created = finance_service.import_costs(entries, g.admin.email)
+    for cost, changed in created:
+        row = AuditContext("finance.cost.create")
+        row.target("finance_cost", cost.id)
+        row.after = {"changedFields": changed}
+        row.resolve_actor()
+        audit_service.record(row, "ok", g.get("request_id"))
+    return jsonify({"dryRun": False, "created": [cost.id for cost, _ in created]}), 201
 
 
 @bp.get("/finance/gcp")
