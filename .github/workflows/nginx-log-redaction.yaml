@@ -27,24 +27,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      NGINX_IMAGE: public.ecr.aws/docker/library/nginx:1.27
+      # PAD-739: our GHCR copy (mirror-ci-images.yaml), pulled with the run's GITHUB_TOKEN.
+      NGINX_IMAGE: ghcr.io/padellevelup/ci-nginx:1.27
+      NGINX_FALLBACK: public.ecr.aws/docker/library/nginx:1.27
     steps:
       - uses: actions/checkout@v4
       # PAD-598 follow-up: one image for both steps (one pull per job), and that image cached
       # between runs as a tarball keyed by its tag, so a runner with a warm cache pulls nothing.
       # Even AWS's public mirror throttles anonymous pulls per IP (`toomanyrequests: Rate
-      # exceeded` on 2026-10-09 when the two steps pulled two different tags seconds apart).
+      # exceeded` on 2026-10-09; `Data limit exceeded` on every cache miss of 2026-10-22).
       - uses: actions/cache@v4
         id: nginx-image
         with:
           path: /tmp/nginx-image.tar
           key: docker-image-${{ env.NGINX_IMAGE }}
+      - name: Log in to GHCR
+        if: steps.nginx-image.outputs.cache-hit != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The fallback covers the window before the mirror first publishes ci-nginx (the PR that adds
+      # it, and the staging push that runs both workflows at once); it is the old anonymous pull.
       - name: Load the cached nginx image, or pull it once
         run: |
           if [ -f /tmp/nginx-image.tar ]; then
             docker load -i /tmp/nginx-image.tar
           else
-            docker pull "$NGINX_IMAGE"
+            if ! docker pull "$NGINX_IMAGE"; then
+              echo "::warning::could not pull $NGINX_IMAGE; falling back to $NGINX_FALLBACK"
+              docker pull "$NGINX_FALLBACK"
+              docker tag "$NGINX_FALLBACK" "$NGINX_IMAGE"
+            fi
             docker save -o /tmp/nginx-image.tar "$NGINX_IMAGE"
           fi
       - name: Host nginx (infra/nginx)

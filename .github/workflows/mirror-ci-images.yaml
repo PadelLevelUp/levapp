@@ -11,6 +11,9 @@ name: Mirror CI images
 # first, then Docker Hub, three rounds apart. A run that cannot copy fails loudly and leaves the
 # last good image in place, so CI never notices.
 #
+# PAD-739: the nginx log-redaction lane's image too. Its tarball cache (PAD-598) only helps when it
+# hits; a miss pulled anonymously from ECR Public and failed on the same limit.
+#
 # Triggers: weekly; by hand; and on a push to staging that changes this file, so the merge that
 # adds or edits it publishes the package before any workflow points at it (the schedule only
 # runs from the default branch, main).
@@ -33,19 +36,28 @@ concurrency:
 
 jobs:
   mirror:
-    name: mirror postgres:15 to GHCR
+    name: mirror ${{ matrix.image }} to GHCR
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false  # one source's outage never stops the other image's copy
+      matrix:
+        include:
+          - image: postgres:15
+            dest: ghcr.io/padellevelup/ci-postgres:15
+          - image: nginx:1.27
+            dest: ghcr.io/padellevelup/ci-nginx:1.27
     env:
-      DEST: ghcr.io/padellevelup/ci-postgres:15
+      IMAGE: ${{ matrix.image }}
+      DEST: ${{ matrix.dest }}
     steps:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Copy postgres:15
+      - name: Copy the image
         run: |
           for round in 1 2 3; do
-            for src in public.ecr.aws/docker/library/postgres:15 docker.io/library/postgres:15; do
+            for src in "public.ecr.aws/docker/library/$IMAGE" "docker.io/library/$IMAGE"; do
               if docker buildx imagetools create --tag "$DEST" "$src"; then
                 echo "copied $src -> $DEST (round $round)"
                 exit 0
@@ -54,7 +66,7 @@ jobs:
             done
             [ "$round" -lt 3 ] && sleep $((round * 120))
           done
-          echo "::error::could not copy postgres:15 from ECR Public or Docker Hub; CI keeps the last good $DEST"
+          echo "::error::could not copy $IMAGE from ECR Public or Docker Hub; CI keeps the last good $DEST"
           exit 1
 
       - name: Show what CI will pull
