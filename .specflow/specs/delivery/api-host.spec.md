@@ -30,7 +30,9 @@ allows exactly the listed web origins cross-origin. `levapp.app/api` keeps answe
 ### Rules
 1. **The API host serves only the API.** `api.levapp.app` proxies `/api/app/events` (SSE settings),
    `/api/app/register/` and `/api/` to the `levapp_api` upstream (PAD-588's two ports); staging the
-   same to `levapp_api_staging`. Every other path answers 404.
+   same to `levapp_api_staging`, except `/api/app/events`, which goes to the events process's
+   `levapp_events_staging` (PAD-697, delivery.events-role; prod follows after PAD-704). Every other
+   path answers 404.
 2. **Same log protections.** The redacted access log (B-182), `error_log … crit` on the SSE and
    activation locations (B-182, B-183), `X-Real-IP` on every proxied location (PAD-554). A
    port-80 `-http` file answers the http-01 challenge and redirects the rest (B-383 shape).

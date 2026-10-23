@@ -26,6 +26,8 @@ case "$1" in
     case "$*" in
       # PAD-695: the worker container exists only when the test says so
       *_worker) [ -n "${STUB_WORKER:-}" ] || exit 1 ;;
+      # PAD-697: likewise the events container
+      *_events) [ -n "${STUB_EVENTS:-}" ] || exit 1 ;;
       # PAD-704: the second API copy, likewise
       *_b) [ -n "${STUB_SECOND:-}" ] || exit 1 ;;
       *Config.Image*) echo "repo/levelup_backend:staging" ;;
@@ -46,10 +48,16 @@ case " $* " in
     # PAD-200 live path: pg_dump | pg_restore inside one sh -c
     echo "live-copy" > "$STUB_HOME/restored.dump" ;;
   *" pg_restore "*) cat > "$STUB_HOME/restored.dump" ;;
+  *" psql "*" ON_ERROR_STOP=1 "*)
+    # PAD-606: the scrub file arrives on stdin
+    cat > "$STUB_HOME/scrub.sql"
+    [ -n "${STUB_SCRUB_FAILS:-}" ] && { echo "ERROR: scrub failed" >&2; exit 3; }
+    : ;;
   *" psql "*)
     sql="${@: -1}"
     case "$sql" in
       *"count(*) from users"*) printf '%s\n' "${STUB_USERS:-185}" ;;
+      *"drop schema"*) [ -n "${STUB_WIPE_FAILS:-}" ] && exit 1; : ;;
       *"count(*)"*) printf '0\n' ;;
       *) : ;;
     esac ;;
@@ -138,7 +146,11 @@ def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     migrate = next(i for i, c in enumerate(lines) if c.startswith("docker run --rm --name padelapp_staging_migrate"))
     started = lines.index("docker start padelapp_staging")
     restored_at = next(i for i, c in enumerate(lines) if "pg_restore" in c)
-    assert restored_at < migrate < started
+    scrubbed_at = next(i for i, c in enumerate(lines) if "ON_ERROR_STOP=1" in c)
+    # PAD-606 rule 9b: the scrub meets the image's head, never prod's older schema
+    assert restored_at < migrate < scrubbed_at < started
+    assert sum(c.startswith("docker run --rm --name padelapp_staging_migrate") for c in lines) == 1, \
+        "migrated once, before the scrub; the EXIT trap does not migrate again"
     call = lines[migrate]
     assert "--network levelup_net" in call
     assert call.endswith("repo/levelup_backend:staging /app/scripts/migrate.sh")
@@ -151,12 +163,19 @@ def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     assert not Path((home / "migrate.env.path").read_text().strip()).exists(), "the env-file is removed"
 
 
-def test_a_failed_migrate_step_still_starts_the_app(sandbox):
+def test_a_failed_migrate_step_wipes_staging_before_any_scrub(sandbox):
+    """PAD-606 rule 9b: a copy that cannot reach the image's head cannot be scrubbed at a known
+    schema, so it fails closed like a failed scrub: wiped, exit 3, nothing recorded, the app started
+    again on the empty schema (the deploy itself stays green: the sync-db job is continue-on-error)."""
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
     result, calls = run(sandbox, STUB_MIGRATE_EXIT="1")
-    assert result.returncode == 0, "best-effort: the sync never fails the deploy"
+    assert result.returncode == 3, result.stdout + result.stderr
     assert "the migrate step exited 1" in result.stdout
-    assert "docker start padelapp_staging" in calls
+    assert "the migrate step failed before the scrub; wiping padel_app_staging" in result.stdout
+    assert "ON_ERROR_STOP=1" not in calls, "never scrub a schema behind the image's head"
+    assert calls.rfind("drop schema if exists public cascade") > calls.find("padelapp_staging_migrate")
+    assert "docker start padelapp_staging" in calls, "the app still comes back (empty)"
+    assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
 
 
 def test_a_push_after_the_dump_was_restored_leaves_staging_alone(sandbox):
@@ -176,7 +195,8 @@ def test_a_new_nightly_dump_is_restored_from_gcs_not_from_prod(sandbox):
     assert f"gsutil cp gs://unit-test-bucket/padel_app/{NEW} -" in calls
     assert "pg_dump" not in calls, "routine syncs never read the live database"
     assert "docker stop padelapp_staging" in calls and "docker start padelapp_staging" in calls
-    assert re.search(r"update users set email", calls, re.I), "the scrub still runs"
+    assert "psql -U padel_app_user -d padel_app_staging -q -1 -v ON_ERROR_STOP=1" in calls, "the scrub runs (PAD-606)"
+    assert "UPDATE users" in (sandbox["home"] / "scrub.sql").read_text(), "it is fed staging-scrub.sql"
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{NEW}"
 
 
@@ -255,6 +275,67 @@ def test_the_workflow_passes_the_mode_and_offers_three():
     assert "${{ inputs.sync_db || 'auto' }}" in job
 
 
+def test_a_failed_scrub_wipes_staging_and_records_nothing(sandbox):
+    """PAD-606 rule 9: fail closed. Staging comes up empty rather than with unscrubbed data, and the
+    dump is not recorded, so the next push restores and scrubs again."""
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    result, calls = run(sandbox, STUB_SCRUB_FAILS="1")
+    assert result.returncode == 3, "a failed scrub fails the sync-db job (rule 9): " + result.stdout + result.stderr
+    assert "the scrub failed; wiping padel_app_staging" in result.stdout
+    assert calls.rfind("drop schema if exists public cascade") > calls.find("ON_ERROR_STOP=1")
+    assert "docker start padelapp_staging" in calls, "the app still comes back (empty)"
+    assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
+    wiped_at = calls.rfind("drop schema if exists public cascade")
+    assert "padelapp_staging_migrate" in calls[wiped_at:], "the wiped schema is migrated to head again"
+
+
+def test_after_a_failed_scrub_the_next_push_restores_the_same_dump_again(sandbox):
+    """PAD-606 rule 9: exit 3 records nothing, so the next auto push is not skipped (the
+    2026-10-23 failure: the state still names the older dump, and the fixed script re-restores)."""
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    failed, _ = run(sandbox, STUB_SCRUB_FAILS="1")
+    assert failed.returncode == 3, failed.stdout + failed.stderr
+    (sandbox["home"] / "calls.log").unlink()
+    result, calls = run(sandbox)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "SKIPPED" not in result.stdout
+    assert "pg_restore" in calls and "ON_ERROR_STOP=1" in calls
+    assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{NEW}"
+
+
+def test_a_failed_scrub_whose_wipe_fails_leaves_staging_stopped(sandbox):
+    """PAD-606 rule 9: if staging cannot be wiped either, it may hold unscrubbed data. The app is not
+    started again, and the exit code (4) tells the deploy apart from a wiped, empty staging (3)."""
+    result, calls = run(sandbox, STUB_SCRUB_FAILS="1", STUB_WIPE_FAILS="1")
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "may hold unscrubbed data" in result.stdout
+    after_scrub = calls[calls.find("ON_ERROR_STOP=1"):]
+    assert "docker start padelapp_staging" not in after_scrub, "never serve what could not be scrubbed"
+
+
+def test_an_already_restored_dump_is_skipped_with_exit_zero(sandbox):
+    """The exit code separates "nothing new, skipped" (0) from a failed scrub (3, 4)."""
+    first, _ = run(sandbox)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (sandbox["home"] / "calls.log").unlink()
+    result, calls = run(sandbox, STUB_SCRUB_FAILS="1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "SKIPPED" in result.stdout and "ON_ERROR_STOP=1" not in calls
+
+
+def test_the_workflow_fails_the_sync_job_on_a_failed_scrub():
+    """PAD-606 rule 9: the sync-db job no longer swallows the script's exit, and puts the scrub's
+    lines in the job summary; the job stays continue-on-error, so the deploy does not fail (rule 6)."""
+    job = WORKFLOW.read_text().split("\n  sync-db:\n", 1)[1].split("\n  frontend:\n", 1)[0]
+    assert "continue-on-error: true" in job
+    sync_line = next(line for line in job.splitlines() if "sync-staging-db.sh /home/" in line)
+    assert "|| true" not in sync_line
+    assert 'echo "SYNC_EXIT=$?"' in job and "capture_stdout: true" in job
+    verdict = job.split("name: Scrub verdict", 1)[1]
+    assert "if: always()" in verdict and "GITHUB_STEP_SUMMARY" in verdict
+    assert re.search(r"3\)[^\n]*exit 3", verdict) and re.search(r"4\)[^\n]*exit 4", verdict)
+
+
 def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
     """PAD-695 (delivery.worker-role): a worker holds connections to the target and would run jobs
     on a half-restored database."""
@@ -270,6 +351,22 @@ def test_the_worker_is_stopped_with_the_app_and_started_after_it(sandbox):
 def test_without_a_worker_the_sync_touches_none(sandbox):
     result, calls = run(sandbox, "reload")
     assert "padelapp_staging_worker" not in calls.replace("docker inspect padelapp_staging_worker", "")
+
+
+def test_the_events_container_is_stopped_with_the_app_and_started_after_it(sandbox):
+    """PAD-697 (delivery.events-role rule 10): its listener and stream handshakes would hit a wiped
+    schema mid-restore."""
+    result, calls = run(sandbox, "reload", STUB_EVENTS="1")
+    lines = calls.splitlines()
+    stopped = next(i for i, c in enumerate(lines) if c.startswith("docker stop") and c.endswith(" padelapp_staging_events"))
+    restore = next(i for i, c in enumerate(lines) if "pg_restore" in c or " sh -c " in c)
+    assert lines.index("docker stop padelapp_staging") < stopped < restore
+    assert lines.index("docker start padelapp_staging") < lines.index("docker start padelapp_staging_events")
+
+
+def test_without_an_events_container_the_sync_touches_none(sandbox):
+    result, calls = run(sandbox, "reload")
+    assert "padelapp_staging_events" not in calls.replace("docker inspect padelapp_staging_events", "")
 
 
 def test_the_second_copy_is_stopped_with_the_app_and_started_after_it(sandbox):

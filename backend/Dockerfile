@@ -67,4 +67,6 @@ ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 # (messaging.sse-realtime rules 11-14; numbers in the single-VM decision).
 # PAD-689: the thread count comes from GUNICORN_THREADS (default 64), so the SSE cap and the
 # threads rise together by an env change; `exec` keeps gunicorn as PID 1 for SIGTERM.
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:80 --workers 1 --threads \"${GUNICORN_THREADS:-64}\" --timeout 3600 app:run_app"]
+# PAD-697: scripts/serve.sh picks the worker class by ROLE (gevent for events, threads otherwise);
+# the GKE manifests run the same script, so the two cannot drift.
+CMD ["sh", "/app/scripts/serve.sh"]

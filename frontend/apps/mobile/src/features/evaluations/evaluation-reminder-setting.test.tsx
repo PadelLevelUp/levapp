@@ -2,10 +2,11 @@
  * evaluations.reminders rules 1, 8 on iOS. settings.explicit-save (PAD-506): the choice and a typed
  * "Personalizado" number are held until the screen's one Save (SectionSaveProbe), which refuses an
  * invalid number in place. (B-242's save-after-typing / on-leave flushes belonged to the save-on-change
- * model PAD-506 replaced.) The hooks are shimmed (the mobile harness cannot mount react-query).
+ * model PAD-506 replaced.) The hooks are the real @levelup/hooks since PAD-406 (shimmed before), over a stateful api spy.
  */
 import * as React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { __resetReactNativeMock } from "@/test/mocks/react-native";
 import { renderNative } from "@/test/render-native";
 import { SectionSaveProbe } from "@/test/section-save-probe";
@@ -19,10 +20,22 @@ const hooks = vi.hoisted(() => ({
   data: undefined as { reminder: string; everyN?: number } | undefined,
   mutateAsync: vi.fn(),
 }));
-vi.mock("@levelup/hooks", () => ({
-  useEvaluationSettings: () => ({ data: hooks.data, isLoading: false }),
-  useSaveEvaluationSettings: () => ({ mutateAsync: hooks.mutateAsync }),
+// `data` is the server's stored settings: a Save that succeeds replaces it, as the real server would,
+// so the refetch the mutation triggers reads back what was saved.
+vi.mock("@levelup/api/src/resources/evaluationSettings", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getEvaluationSettings: async () => hooks.data,
+  putEvaluationSettings: async (body: unknown) => {
+    const saved = await hooks.mutateAsync(body);
+    hooks.data = saved;
+    return saved;
+  },
 }));
+
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
 
 import { EvaluationReminderSetting } from "./evaluation-reminder-setting";
 
@@ -45,11 +58,13 @@ async function open(data: { reminder: string; everyN?: number }) {
   hooks.data = data;
   hooks.mutateAsync.mockImplementation(async (body: unknown) => body);
   const n = await renderNative(
-    <UnsavedRegistryProvider>
-      <Capture />
-      <EvaluationReminderSetting />
-      <SectionSaveProbe testID="save" />
-    </UnsavedRegistryProvider>,
+    <QueryClientProvider client={client}>
+      <UnsavedRegistryProvider>
+        <Capture />
+        <EvaluationReminderSetting />
+        <SectionSaveProbe testID="save" />
+      </UnsavedRegistryProvider>
+    </QueryClientProvider>,
   );
   await n.flush();
   return n;

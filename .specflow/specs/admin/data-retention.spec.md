@@ -86,6 +86,10 @@ of data, so the Privacy Policy (§11, "Retention and account deletion") states r
    The guard is the ORM's: a Core-table or raw SQL statement is outside it by design (the staging
    scrub, `delivery.staging-data-sync`, clears the copy's before/after that way); no app code path
    writes the table like that.
+5a. **The push outbox (PAD-699) is outside the owner's switches.** Operational, not an item of rule
+   4. A row's message (title, body, data) is nulled the moment the row is sent, skipped or dead.
+   Sent and skipped rows are deleted after 24 h and dead ones after 30 days, by the drainer once a
+   day (`messaging.push-notifications` rule 10a), whatever the `data_retention` setting says.
 6. **nginx logs** are rotated on the VM (14 generations, coordinator read 2026-10-12); not this job.
    The Privacy Policy states about 14 days.
 

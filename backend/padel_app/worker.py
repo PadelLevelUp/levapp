@@ -15,8 +15,9 @@ Spec: ``delivery.worker-role``. Started by the deploy as a second container of t
    only sleeps until the next run time it knows, and jobs the API adds are not ones it knows.
 4. ``/livez`` on ``WORKER_LIVEZ_PORT`` (default 8081), no database call:
    ``{"status": "alive", "leader": bool, "split": "on"|"off"}``. The deploy reads ``leader``.
-5. SIGTERM/SIGINT: shut the scheduler down waiting for running jobs, drain the push queue (5 s),
-   then give up the lock (closing its session), and exit 0.
+5. SIGTERM/SIGINT: shut the scheduler down waiting for running jobs, stop the push outbox drainer
+   (PAD-699: its row in flight finishes, its other claims go back), drain the push queue (5 s), then
+   give up the lock (closing its session), and exit 0.
 
 With ``WORKER_SPLIT`` off the API runs the jobs: the worker starts no scheduler and idles with
 ``/livez`` answering, rather than exiting into a restart loop (the deploy removes it).
@@ -48,12 +49,13 @@ class Worker:
     """The loop of a worker process, with its collaborators passed in so tests can fake them."""
 
     def __init__(self, *, scheduler, leadership, split, wake_seconds=DEFAULT_WAKE_SECONDS,
-                 drain=None, clock=time.monotonic, status_line=None):
+                 drain=None, stop_outbox=None, clock=time.monotonic, status_line=None):
         self.scheduler = scheduler
         self.leadership = leadership
         self.split = split
         self.wake_seconds = wake_seconds
         self._drain = drain or (lambda: None)
+        self._stop_outbox = stop_outbox or (lambda: None)
         self._clock = clock
         self._status_line = status_line
         self._stop = threading.Event()
@@ -114,6 +116,9 @@ class Worker:
                 self.scheduler.shutdown(wait=True)
             except Exception as exc:  # noqa: BLE001
                 log(f"scheduler shutdown: {exc}", logging.WARNING)
+        # PAD-699: the outbox drainer finishes its row in flight and puts its other claims back
+        # while this process still holds the lock.
+        self._stop_outbox()
         self._drain()
         if self.leadership is not None:
             self.leadership.stop()
@@ -143,7 +148,7 @@ def serve_livez(worker, port):
 
 
 def status_line(worker) -> str:
-    from padel_app.utils import push_sender
+    from padel_app.utils import push_outbox, push_sender
 
     jobs = "?"
     try:
@@ -152,7 +157,8 @@ def status_line(worker) -> str:
     except Exception:  # noqa: BLE001 — the job store may be unreachable for a moment
         pass
     return (f"worker: leader={worker.is_leader} split={'on' if worker.split else 'off'} jobs={jobs} "
-            f"push_queue={push_sender.pending()} push={push_sender.stats()}")
+            f"push_queue={push_sender.pending()} push={push_sender.stats()}"
+            f"{push_outbox.stats_fragment()}")
 
 
 def drain_pushes() -> None:
@@ -195,6 +201,7 @@ def main(environ=None) -> int:
         split=split,
         wake_seconds=float(environ.get("WORKER_WAKE_SECONDS", DEFAULT_WAKE_SECONDS)),
         drain=drain_pushes,
+        stop_outbox=lambda: sched_mod.stop_push_drainer(app),
         status_line=status_line,
     )
     port = int(environ.get("WORKER_LIVEZ_PORT", DEFAULT_LIVEZ_PORT))
