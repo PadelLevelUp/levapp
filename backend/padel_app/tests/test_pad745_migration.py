@@ -57,5 +57,4 @@ def test_downgrade_drops_it_and_is_idempotent():
 
 def test_it_revises_the_finance_migration():
     mod = _load()
-    # unconfirmed: re-chains on 459fc0208b0d when #817 lands (coordinator 2026-10-23)
-    assert (mod.revision, mod.down_revision) == ("7a294b4a5a9c", "573da995cdbd")
+    assert (mod.revision, mod.down_revision) == ("7a294b4a5a9c", "459fc0208b0d")

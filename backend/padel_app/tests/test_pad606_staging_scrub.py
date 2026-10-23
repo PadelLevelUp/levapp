@@ -96,6 +96,14 @@ NON_PERSONAL = {
     "presences.assigned_side",  # PAD-672 slice 3: the side a "both" player was kept to
     "auth_rate_limit_hits.scope",
     "user_identities.provider",
+    # PAD-742 finance: business costs and staff (owner) emails, kept on purpose (owner-only section).
+    "finance_costs.category", "finance_costs.currency", "finance_costs.recurrence", "finance_costs.vendor",
+    "finance_costs.description", "finance_costs.notes", "finance_costs.created_by_email",
+    "finance_costs.updated_by_email", "finance_costs.deleted_by_email",
+    "finance_cost_revisions.action", "finance_cost_revisions.actor_email", "finance_cost_revisions.snapshot",
+    "finance_import_runs.trigger", "finance_import_runs.outcome", "finance_import_runs.months",
+    "finance_import_runs.error_code", "finance_import_runs.error_message", "finance_import_runs.actor_email",
+    "finance_gcp_costs.currency", "finance_gcp_costs.project_id", "finance_gcp_costs.service",
 }
 
 

@@ -61,5 +61,7 @@ from .delivery_incident import DeliveryIncident
 from .push_outbox import PushOutbox
 from .push_receipt import PushReceipt
 from .admin_audit_log import AdminAuditLog
+# admin.finance (PAD-742): manual costs, their owner-only history, and the Google Cloud import.
+from .finance import FinanceCost, FinanceCostRevision, FinanceGcpCost, FinanceImportRun
 from .realtime_event import realtime_events
 from .auth_rate_limit_hit import auth_rate_limit_hits
