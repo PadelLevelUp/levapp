@@ -23,17 +23,19 @@ database query or a log search, and failed sends are only in the logs.
   `current_batch_number`), NotificationEvent (`notification_events`: `status`, `round_number`),
   ReminderAttempt (`reminder_attempts`), NotificationConfig (`notification_configs`), User, Coach,
   the APScheduler job store (`apscheduler_jobs`, `SQLAlchemyJobStore` on the app database),
-  `alembic_version`
+  `alembic_version`; for rule 8, Player, ConversationParticipant (`last_read_at`), DeviceToken,
+  PushSubscription
 - **CREATES:** `delivery_incidents` — `id`, `created_at`, `kind`
-  (`email_failed`|`push_failed`|`reminder_skipped_past_due`), `channel`
+  (`email_failed`|`push_failed`|`reminder_skipped_past_due`|`push_registration_failed`, the last
+  since PAD-746, rule 8), `channel`
   (`email`|`webpush`|`apns`|`fcm`|`expo`|`scheduler`; an Expo receipt maps the device's platform
   to `apns` (ios) or `fcm` (android) and is `expo` when the device row does not say), `user_id` (FK → users, SET NULL, nullable),
   `subject_type` / `subject_id` (nullable: the lesson instance, vacancy or notification the
   incident belongs to), `error_class` (String(120)), `detail` (String(500), truncated). No
   recipient address, message body, device token or push key is stored. Rows older than 30 days
   are deleted by a daily scheduler job `prune_delivery_incidents` at 03:07 UTC (R-010 naming: fixed id; a fixed minute, delivery.worker-role rule 4, B-667).
-- **WRITES:** `delivery_incidents` only, from the existing failure paths (rule 3). The page
-  itself writes nothing.
+- **WRITES:** `delivery_incidents` only, from the existing failure paths (rule 3) and from the
+  clients' registration-failure report (rule 8). The page itself writes nothing.
 
 ### Rules
 1. **Read-only, all of it.** Every route of this spec is a `GET` under
@@ -54,6 +56,7 @@ database query or a log search, and failed sends are only in the logs.
      7 days, with the 20 most recent rows.
    - `accounts`: users by `status` (`inactive`/`active`/`disabled`), coaches by
      `approval_status`, players, and accounts created in the last 7 days.
+   - `push`: the push reach of active students and the failed registrations (rule 8).
    - `deploy`: this environment's `gitSha` and `alembicHead` (rule 4), and the other
      environment's (rule 5).
 3. **Failed sends and skipped reminders are recorded.** The paths that today only log a failure
@@ -93,6 +96,36 @@ database query or a log search, and failed sends are only in the logs.
 7. **Cost.** Each count is one aggregate query; the summary answers in under 1 second on a
    database the size of production's at the time of writing. The console refreshes it only on
    demand (a "Refresh" button), never by polling.
+
+8. **Push reach and failed push registrations (PAD-746, B-678; follows PAD-744).**
+   - **(a) The reach.** The summary's `push.activeStudents7d` counts the active students by push
+     channel: `total`, `noChannel` (no `device_tokens` row and no `push_subscriptions` row),
+     `webPushOnly` (a subscription, no device token), `nativeOnly` and `nativeAndWebPush`. An
+     **active student** is a user with a `players` row and at least one
+     `conversation_participants` row whose `last_read_at` is within the last 7 days (a
+     conversation the client marked read; sending a message does not count), counted once,
+     whatever the user's status and even if they also coach. A device token of any platform is
+     a native channel. This is PAD-741's definition, kept as is so the count compares with its
+     production baseline of 2026-10-22: 33 with no channel, 19 web push only, 115 with a token
+     (112 + 3). Counts only, one aggregate query (rule 7); no id or name leaves.
+   - **(b) The report.** `POST /api/notifications/registration-failure` (a signed-in user; a
+     product route, not one of the console's, so rule 1 does not cover it) takes exactly
+     `platform` (`ios`|`android`|`web`), `phase` (`token`|`post` on iOS and Android, where
+     `token` is anything that fails before the POST; `subscribe`|`post` on the web),
+     `permission` (`granted`|`denied`|`undetermined`|`unknown`), `build` and `errorClass`
+     (each 1–60 characters of `[A-Za-z0-9_.-]`: an error's class or `http_<status>`, never
+     its message). Any other field or value is refused with 400 and nothing is stored: no
+     token, subscription or free text reaches the server. A valid report answers 204, logs one
+     WARNING line with the user id and those five fields, and records one `delivery_incidents`
+     row `push_registration_failed` (channel `apns`, `fcm` or `webpush` by platform; the error
+     class; `detail` = phase, permission and build). One user adds at most 20 rows per 24 hours;
+     past that the report answers 204 and is dropped.
+   - **(c) On the page.** The summary's `push.registrationFailures7d` counts the last 7 days'
+     rows by platform, and the incident counts (rule 2) carry the new kind.
+   - **(d) Who reports.** The iOS/Android and web clients report through their registration
+     failure hooks (`messaging.push-notifications` rule 15, `auth.push-subscription` rule 9,
+     PAD-744): every failed attempt, retries included; a refused permission is not a failure
+     and is never reported.
 
 ### Acceptance Criteria
 
@@ -141,6 +174,39 @@ database query or a log search, and failed sends are only in the logs.
 - **When** the operator GETs her engine settings, then sends `PUT` and `POST` to the same path
 - **Then** the GET answers her settings; the `PUT` and `POST` are 405, and her NotificationConfig is unchanged
 
+#### The push reach counts active students by channel (rule 8a)
+- **Given** students who marked a conversation read 2 days ago: one with no channel, one
+  `inactive` with no channel, one coach who also plays with no channel, one with web push only,
+  one with an iOS token only, one with both; one who read 8 days ago; a coach without a
+  `players` row who read yesterday
+- **When** support reads the summary
+- **Then** `push.activeStudents7d` is `{total: 6, noChannel: 3, webPushOnly: 1, nativeOnly: 1,
+  nativeAndWebPush: 1}`
+
+#### A student counts once (rule 8a)
+- **Given** a student who marked two conversations read in the last 7 days
+- **When** the summary is read
+- **Then** `push.activeStudents7d.total` is 1
+
+#### A failed registration is reported, logged, recorded and counted (rules 8b, 8c)
+- **Given** a signed-in student
+- **When** the iOS app posts `{platform: "ios", phase: "post", permission: "granted", build:
+  "33", errorClass: "http_503"}`
+- **Then** the answer is 204, one WARNING line names `platform=ios phase=post error=http_503`,
+  one `push_registration_failed` row has channel `apns` and `detail` `phase=post
+  permission=granted build=33`, and the summary reads `registrationFailures7d.ios = 1`
+
+#### Free text and extra fields are refused (rule 8b)
+- **Given** a report whose `errorClass` is `"Error: could not reach https://exp.host/--/api"`,
+  or one that adds a `token` field
+- **When** it is posted
+- **Then** the answer is 400 and no row is stored
+
+#### One user cannot flood the table (rule 8b)
+- **Given** a student who posts 25 valid reports in one hour
+- **When** the rows are counted
+- **Then** every answer is 204 and 20 rows exist
+
 #### No write route on the page (rule 1)
 - **Given** the URL map
 - **When** the guard test lists rules under `/admin/api/engine-health`
@@ -154,6 +220,9 @@ database query or a log search, and failed sends are only in the logs.
 - Editing a coach's engine settings — the coach does that in the app (`notifications.config`).
 
 ### Notes
+- PAD-746 (rule 8): the reach definition and baseline are G's PAD-741 query (prod, read-only,
+  2026-10-22 ~19:00Z). The client wiring (rule 8d) lands after PAD-744 (#818), which adds the
+  hooks.
 - Linear: PAD-534. Epic PAD-530. Depends on PAD-531.
 - Facts verified on staging's code on 2026-10-06: vacancies carry `current_round_number` and
   `current_batch_number`; the job store is `SQLAlchemyJobStore` outside tests; `pastdue_<id>` jobs

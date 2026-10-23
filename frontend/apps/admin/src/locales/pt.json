@@ -298,8 +298,17 @@
         "kind": {
           "email_failed": "Email falhou",
           "push_failed": "Notificação falhou",
-          "reminder_skipped_past_due": "Lembrete saltado (fora de horas)"
+          "reminder_skipped_past_due": "Lembrete saltado (fora de horas)",
+          "push_registration_failed": "Registo de push falhado"
         }
+      },
+      "push": {
+        "title": "Alcance do push (alunos ativos em 7 dias)",
+        "active": "Alunos ativos",
+        "noChannel": "Sem canal de push",
+        "webPushOnly": "Só web push",
+        "native": "Com token no telemóvel",
+        "failures7d": "Registos falhados, 7 dias"
       },
       "accounts": {
         "title": "Contas",

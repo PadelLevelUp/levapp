@@ -4,7 +4,9 @@
 # - DB access follows Flask-SQLAlchemy model querying and db.session commits.
 # - Environment configuration values are read via os.getenv from process env.
 import json
+import logging
 import os
+import re
 
 from flask import Blueprint, jsonify, request, abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -142,4 +144,67 @@ def unsubscribe_notifications():
     if record:
         db.session.delete(record)
         db.session.commit()
+    return "", 204
+
+
+# ---------------------------------------------------------------------------
+# admin.engine-health rule 8 (PAD-746, B-678): a client's failed push registration, reported so
+# the server sees it. Closed fields only: no token, no subscription, no message text.
+# ---------------------------------------------------------------------------
+
+#: The phases each platform reports (the clients' failure hooks, PAD-744).
+REGISTRATION_FAILURE_PHASES = {
+    "ios": frozenset({"token", "post"}),
+    "android": frozenset({"token", "post"}),
+    "web": frozenset({"subscribe", "post"}),
+}
+REGISTRATION_FAILURE_PERMISSIONS = frozenset({"granted", "denied", "undetermined", "unknown"})
+#: `delivery_incidents.channel` per platform (the rule 2 mapping: ios → apns, android → fcm).
+REGISTRATION_FAILURE_CHANNELS = {"ios": "apns", "android": "fcm", "web": "webpush"}
+#: A short identifier: an error class (`TypeError`, `http_503`) or a build (`33`, `1.3.1`).
+_IDENT = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
+#: Rows one user may add per 24 hours; past it the report is acknowledged and dropped.
+REGISTRATION_FAILURES_PER_DAY = 20
+
+logger = logging.getLogger(__name__)
+
+
+@bp.post("/registration-failure")
+@jwt_required()
+def report_registration_failure():
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        abort(400, "a JSON object is required")
+    platform = data.get("platform")
+    phase = data.get("phase")
+    permission = data.get("permission")
+    build = data.get("build")
+    error_class = data.get("errorClass")
+    if (platform not in REGISTRATION_FAILURE_PHASES
+            or phase not in REGISTRATION_FAILURE_PHASES[platform]
+            or permission not in REGISTRATION_FAILURE_PERMISSIONS
+            or not isinstance(build, str) or not _IDENT.match(build)
+            or not isinstance(error_class, str) or not _IDENT.match(error_class)
+            or set(data) - {"platform", "phase", "permission", "build", "errorClass"}):
+        abort(400, "platform, phase, permission, build and errorClass are required; nothing else")
+
+    from datetime import timedelta
+
+    from padel_app.models.delivery_incident import DeliveryIncident
+    from padel_app.services import delivery_incidents
+    from padel_app.utils.dates import utcnow_naive
+
+    recent = DeliveryIncident.query.filter(
+        DeliveryIncident.kind == "push_registration_failed",
+        DeliveryIncident.user_id == user_id,
+        DeliveryIncident.created_at >= utcnow_naive() - timedelta(hours=24),
+    ).count()
+    if recent >= REGISTRATION_FAILURES_PER_DAY:
+        return "", 204
+    logger.warning("push registration failed: user=%s platform=%s phase=%s permission=%s build=%s error=%s",
+                   user_id, platform, phase, permission, build, error_class)
+    delivery_incidents.record("push_registration_failed", REGISTRATION_FAILURE_CHANNELS[platform],
+                              user_id=user_id, error_class=error_class,
+                              detail=f"phase={phase} permission={permission} build={build}")
     return "", 204

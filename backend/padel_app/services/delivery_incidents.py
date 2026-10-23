@@ -27,7 +27,7 @@ def _scrub(text) -> str | None:
 
 
 def record(kind: str, channel: str, *, user_id=None, subject_type=None, subject_id=None,
-           error=None, detail=None) -> None:
+           error=None, detail=None, error_class=None) -> None:
     try:
         from padel_app.models.delivery_incident import DeliveryIncident
         from padel_app.sql_db import db
@@ -37,7 +37,10 @@ def record(kind: str, channel: str, *, user_id=None, subject_type=None, subject_
             conn.execute(DeliveryIncident.__table__.insert().values(
                 created_at=now, updated_at=now, kind=kind, channel=channel,
                 user_id=user_id, subject_type=subject_type, subject_id=subject_id,
-                error_class=(type(error).__name__ if error is not None else None),
+                # rule 8 (PAD-746): a client-reported failure has no exception object here, only
+                # the class the client named (validated by the endpoint).
+                error_class=(error_class if error_class is not None
+                             else type(error).__name__ if error is not None else None),
                 detail=_scrub(detail),
             ))
     except Exception as exc:  # noqa: BLE001 — rule 3: never into the send path

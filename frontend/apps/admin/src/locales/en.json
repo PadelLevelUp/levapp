@@ -298,8 +298,17 @@
         "kind": {
           "email_failed": "Email failed",
           "push_failed": "Push failed",
-          "reminder_skipped_past_due": "Reminder skipped (past due)"
+          "reminder_skipped_past_due": "Reminder skipped (past due)",
+          "push_registration_failed": "Push registration failed"
         }
+      },
+      "push": {
+        "title": "Push reach (students active in 7 days)",
+        "active": "Active students",
+        "noChannel": "No push channel",
+        "webPushOnly": "Web push only",
+        "native": "With a phone token",
+        "failures7d": "Failed registrations, 7 days"
       },
       "accounts": {
         "title": "Accounts",

@@ -44,7 +44,9 @@ need to look. Indirectly every coach and student, who get faster approvals and f
    everyone, or switches off the coach-approval gate, and switches it back on later.
 6. Every morning, or after a release, the staff member opens the engine health page and sees
    whether invitations are flowing, whether any reminders or messages failed, and which version
-   each environment runs.
+   each environment runs. It also shows how many active students no push notification can reach
+   (no phone and no browser registered, or only a browser), and how many phones and browsers
+   failed to register in the last week, so a fix to registration shows in that number.
 7. Later, once pricing is decided, the staff member puts a coach on a plan (a trial, a
    complimentary plan or a manual arrangement) and the coach's app shows what that plan includes.
 
