@@ -21,7 +21,9 @@ import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { LogBox } from "react-native";
+import { LogBox, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { rootContentBottomPadding } from "@/lib/bottom-inset";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, startSessionRestore } from "@/auth/AuthContext";
 import { LaunchAnimation } from "@/components/brand/LaunchAnimation";
@@ -89,6 +91,9 @@ export default function RootLayout() {
   // a short grace — never before the fonts (launch-overlay.ts). `release` tells the animation to
   // run its final fade now and to stop catching touches.
   const fontsReady = !!(fontsLoaded || fontError);
+  // PAD-730: on Android (edge-to-edge) every screen's content ends above the navigation bar; the
+  // tab navigator is excluded below, its bar takes the inset itself.
+  const contentBottom = rootContentBottomPadding(Platform.OS, useSafeAreaInsets().bottom);
   const firstScreenReady = useFirstScreenReady();
   React.useEffect(() => {
     if (firstScreenReady) launchMark("first-screen-ready");
@@ -106,10 +111,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { paddingBottom: contentBottom } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="login" />
-            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(tabs)" options={{ contentStyle: { paddingBottom: 0 } }} />
           </Stack>
           <PushTapRouter />
           <PortalHost />

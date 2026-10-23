@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   FlatList,
   KeyboardAvoidingView,
+  Platform,
   Pressable,
   View,
   type NativeScrollEvent,
@@ -72,6 +73,7 @@ import {
 } from "@/features/messages/anchor-state";
 import { isAtBottomOf } from "@/features/messages/scroll-position";
 import { composerBottomPadding } from "@/features/messages/composer-padding";
+import { screenBottomInset } from "@/lib/bottom-inset";
 import { isFirstUnreadMessage } from "@/features/messages/unread-divider";
 import { shouldFreezeFirstUnread, shouldMarkRead } from "@/features/messages/open-sequence";
 import { useThreadOpen } from "@/features/messages/use-thread-open";
@@ -188,9 +190,10 @@ export default function ConversationScreen() {
   // row's own 12pt padding is symmetric; this is only the extra inset under it.
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
+  // PAD-730: on Android the root Stack already ends the screen above the navigation bar.
   const composerPaddingBottom = composerBottomPadding(
     keyboardVisible,
-    insets.bottom
+    screenBottomInset(Platform.OS, insets.bottom)
   );
   const params = useLocalSearchParams<{ id: string; message?: string }>();
   const conversationId = String(params.id);

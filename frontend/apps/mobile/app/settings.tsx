@@ -8,7 +8,7 @@ import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useScreenBottomInset } from "@/lib/bottom-inset";
 import { useAuth } from "@/auth/AuthContext";
 import {
   AlertDialog,
@@ -123,7 +123,8 @@ function SettingsScreenBody() {
   // The list ends under the system bar on Android's edge-to-edge (the transparent
   // 3-button bar): pad by the bottom inset so the last row — logout — is tappable
   // and not behind the Home button (PAD-304; Maestro hit Home 1 run in 5).
-  const insets = useSafeAreaInsets();
+  // PAD-730: on Android the root Stack already ends the content above the navigation bar.
+  const bottomInset = useScreenBottomInset();
   const { user, logout } = useAuth();
   const unsavedRegistry = useUnsavedRegistry();
   // settings.unsaved-edits rule 4: the confirm shown before the back row leaves an
@@ -304,7 +305,7 @@ function SettingsScreenBody() {
        */}
       <ScrollView
         className="flex-1"
-        style={{ marginBottom: insets.bottom }}
+        style={{ marginBottom: bottomInset }}
         // PAD-506: with the number pad open, the first tap on "Guardar alterações" must save, not only
         // dismiss the keyboard (flow 128 found the Save tap swallowed).
         keyboardShouldPersistTaps="handled"
