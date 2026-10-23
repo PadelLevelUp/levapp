@@ -6,14 +6,14 @@ new table (ledger rule). No data: rows appear with the first push sent after the
 downgrade drops it; the receipts not yet read are lost, nothing else.
 
 Revision ID: 7a294b4a5a9c
-Revises: 459fc0208b0d
+Revises: 573da995cdbd (unconfirmed: re-chains on 459fc0208b0d when #817 lands)
 Create Date: 2026-10-23 02:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "7a294b4a5a9c"
-down_revision = "459fc0208b0d"  # PAD-742 finance (#817; unconfirmed until it merges, coordinator 2026-10-23)
+down_revision = "573da995cdbd"  # unconfirmed: re-chains on 459fc0208b0d when #817 lands (coordinator 2026-10-23)
 branch_labels = None
 depends_on = None
 
