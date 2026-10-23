@@ -8,10 +8,10 @@ governed_by: [R-005, R-010, R-022, R-023, R-024, R-036]
 
 # admin.finance
 
-> Linear: PAD-742 (owner request 2026-10-22). Backend and page implemented 2026-10-22 (PR #817); the phone e2e `frontend/apps/admin/e2e/finance.spec.ts` runs on the coordinator's grant. Four questions are open on the
-> ticket (currency, start date, the initial manual list, who enters); the rules marked
-> **(assumption Qn)** are this draft's answer until the owner's, and each is one constant or one
-> rule to change. Plan: `docs/plans/2026-10-22-pad-742-plan.md` (gitignored).
+> Linear: PAD-742 (owner request 2026-10-22). Backend and page implemented 2026-10-22 (PR #817);
+> the owner's answers (2026-10-23) kept Q1 and Q2, moved Q3 to the list import (rule 5c) and
+> flipped Q4 to every console account (rule 1), in a follow-up PR. Plan:
+> `docs/plans/2026-10-22-pad-742-plan.md` (gitignored).
 
 ### Intent
 A "Financeiro" page in the staff console listing every cost LevApp has had: manual entries for
@@ -29,7 +29,7 @@ and category, with month totals and the running total since the start.
   running), `gcp_invoice` (bool, default false: the row is a Google Cloud invoice total entered by
   hand), `notes` (Text, nullable), `created_by_email`, `updated_by_email`, `deleted_at`,
   `deleted_by_email` (nullable), `created_at`, `updated_at`.
-- **CREATES:** `finance_cost_revisions` — the owner-only history of each manual cost (rule 5b).
+- **CREATES:** `finance_cost_revisions` — the history of each manual cost (rule 5b).
 - **CREATES:** `finance_gcp_costs` — one imported line per invoice month, project and service.
   `id`, `invoice_month` (date, always the 1st), `project_id` (String(64)), `service`
   (String(120)), `currency` (3 letters), `cost` (`Numeric(16,6)`, before credits), `credits`
@@ -46,13 +46,13 @@ and category, with month totals and the running total since the start.
   `admin.commercial-groundwork` keeps out of the schema until PAD-536.
 
 ### Rules
-1. **Who.** Every finance route requires the role in one constant, `FINANCE_ROLE = "owner"`, for
-   reads as well as writes **(assumption Q4)**. This is a deliberate exception to
-   `admin.foundation` rule 5 (`support` reads every `GET`): cost data is the owner's. A lower role
-   gets 403 `ADMIN_ROLE_TOO_LOW` with a denied audit row, as everywhere. The nav item and the route
-   are hidden from lower roles. Finance writes appear in the console audit log without their
-   values (rule 5a), so `support`, who can read that log, never sees money.
-2. **Euros, with the original kept (assumption Q1).** Every total is in euros. A cost charged in
+1. **Who (owner's answer Q4, 2026-10-23).** Every finance route requires the role in one constant,
+   `FINANCE_ROLE = "support"`, the lowest console role: every console account (the founders') reads
+   **and writes** finance. This is a deliberate exception to `admin.foundation` rule 5, where
+   `support` only reads. A caller without a console session gets 401, as everywhere. Every write
+   names its actor in the audit log and in `finance_cost_revisions` (rules 5a, 5b). The first
+   draft's assumption was owner-only.
+2. **Euros, with the original kept (owner's answer Q1).** Every total is in euros. A cost charged in
    another currency stores the charged `amount` and `currency` and the euro `amount_eur` the owner
    was debited (from the card statement); there is no exchange-rate service. When `currency` is
    `EUR`, `amount_eur` must equal `amount` (an omitted `amountEur` is copied from `amount`).
@@ -64,7 +64,7 @@ and category, with month totals and the running total since the start.
    charges it in `starts_on`'s month and the same month of each later year, under the same end.
    No charge falls after the current UTC month. A price change is an end on the old row and a new
    row. A soft-deleted row (`deleted_at` set) charges nothing.
-4. **Start (assumption Q2).** The history starts at the month of the earliest charge, manual or
+4. **Start (owner's answer Q2).** The history starts at the month of the earliest charge, manual or
    imported. There is no configured start date.
 5. **Manual entries.** `POST /admin/api/finance/costs`, `PUT …/costs/<id>`,
    `DELETE …/costs/<id>`, each `@audited` (`finance.cost.create` / `.update` / `.delete`), redacted
@@ -82,12 +82,33 @@ and category, with month totals and the running total since the start.
    `["deletedAt"]`; for `finance.gcp.import`, `{"changedFields": [], "runId": <id>}`). No amount,
    currency, vendor, description or note is written to `admin_audit_log`. A guard test fails if a
    `finance.*` audit row's JSON holds any key other than `changedFields` and `runId`.
-5b. **History is kept in finance, owner-only.** `finance_cost_revisions` (`id`, `cost_id` FK →
+5b. **History is kept in finance.** `finance_cost_revisions` (`id`, `cost_id` FK →
    `finance_costs` CASCADE, `revision` (int, 1-based per cost), `action` (`create`|`update`|`delete`),
    `snapshot` (JSON: the row's camelCase state after the write), `actor_email`, `created_at`,
    `updated_at`; append-only like the audit log: the model refuses an update or delete) is written
    in the same transaction as the cost. `GET /admin/api/finance/costs/<id>/revisions`
    (`FINANCE_ROLE`) lists them newest first.
+5c. **List import (owner's answer Q3, 2026-10-23).** `POST /admin/api/finance/costs/import`
+   (`@audited("finance.cost.import")`, `FINANCE_ROLE`) takes `{text, dryRun}`. `text` is a CSV or a
+   table pasted from a spreadsheet: the first non-blank line is the header, the form's field names
+   in any case (required `category`, `vendor`, `description`, `currency`, `amount`, `recurrence`,
+   `startsOn`; optional `amountEur`, `endsOn`, `gcpInvoice`, `notes`), separated by tabs, else
+   semicolons, else commas; a leading BOM is ignored. Cells: an amount may use a decimal comma
+   (`12,34`); `currency` is upper-cased; `gcpInvoice` is `true`/`1`/`yes`/`sim` or empty/`false`/
+   `0`/`no`/`não`. An unknown, repeated or missing column is 400 `IMPORT_BAD_HEADER` with `field`;
+   no data is 400 `IMPORT_EMPTY`; more than 500 data lines is 400 `IMPORT_TOO_MANY_LINES`. Each
+   data line goes through the form's validation (rule 5) and rule 6, and is refused as
+   `DUPLICATE_COST` when it matches a live cost or an earlier line on `category`, `vendor` and
+   `description` (case-insensitive), `currency`, `amount`, `recurrence` and `startsOn`, so loading
+   the same list twice creates nothing. `dryRun` (the default) writes no cost and answers 200
+   `{dryRun: true, lines: [{line, ok: true, cost} | {line, ok: false, error, field}], invalid}`,
+   `line` being the 1-based line number in the text. `dryRun: false` creates every line or none:
+   with any invalid line it answers 400 `{error: "IMPORT_INVALID", lines, invalid}`; otherwise
+   201 `{dryRun: false, created: [ids]}`, one revision per cost, and **one
+   `finance.cost.create` audit row per created cost** (rule 5a's shape), besides the request's own
+   `finance.cost.import` row (`after` = `{"changedFields": []}`). The initial list (Claude Max ×2,
+   Apple, Google Play, domains, other tools) is loaded this way from the table the coordinator
+   prepares from the owner's list; no session writes to prod's database.
 6. **Google Cloud is counted once.** A month is *imported* when `finance_gcp_costs` holds any row
    for it. A manual `gcpInvoice` cost in an imported month is refused on create or update (409
    `GCP_MONTH_IMPORTED`). A manual `gcpInvoice` cost whose month became imported later charges
@@ -146,10 +167,12 @@ and category, with month totals and the running total since the start.
     that runs the query; no key file is stored. The query goes to BigQuery's REST `jobs.query`
     through `google-auth`'s authorised session (already a dependency); no BigQuery client library
     is added. The job runs in the project named by the table id.
-12. **The page.** Nav item "Financeiro" / "Finance" for `FINANCE_ROLE` only, route `/finance`, three
+12. **The page.** Nav item "Financeiro" / "Finance" for `FINANCE_ROLE`, route `/finance`, three
     tabs: **Resumo** (months × categories table, month totals, cumulative, a stacked bar chart drawn
     with inline SVG — no chart dependency — and the CSV download), **Custos** (the manual list with
-    create, edit and delete in a dialog), **Google Cloud** (a month picker, the month's lines, the
+    create, edit and delete in a dialog, and "Importar lista": a text box or a CSV file, "Verificar"
+    showing every line as it would be created or with its error, and "Criar N custos" enabled only
+    when every line is valid; editing the text clears the check), **Google Cloud** (a month picker, the month's lines, the
     latest runs and "Importar agora"). Strings in `pt` and `en` (`admin.foundation` rule 16).
     Usable at 375 px (`admin.phone-console`): tables scroll in their own container, the dialog fits
     the screen.
@@ -158,10 +181,40 @@ and category, with month totals and the running total since the start.
 
 ### Acceptance Criteria
 
-#### Only the owner reaches finance (rule 1)
-- **Given** active roles `ana@levapp.app` = `operator` and `owner@levapp.app` = `owner`
-- **When** each calls `GET /admin/api/finance/summary`
-- **Then** Ana gets 403 `ADMIN_ROLE_TOO_LOW` and a denied audit row exists, and the owner gets 200
+#### Every console account reaches finance (rule 1)
+- **Given** active roles `support@levapp.app` = `support`, `operator@levapp.app` = `operator` and `owner@levapp.app` = `owner`
+- **When** each reads the summary and posts a cost
+- **Then** each gets 200 and 201, each cost's `createdByEmail` and its `finance.cost.create` audit row name its own caller, and a call without a console session gets 401
+
+#### A list is checked before it is loaded (rule 5c)
+- **Given** a CSV with a header and three valid lines (Claude Max ×2 in USD with `amountEur`, Apple in EUR without it)
+- **When** a `support` account posts it with `dryRun: true`
+- **Then** the response is 200 with lines 2, 3 and 4 `ok` and their costs (Apple's `amountEur` = `99.00`), `invalid` = 0, no cost exists, and one `finance.cost.import` audit row has `after` = `{"changedFields": []}`
+
+#### A list is loaded all at once, one audit row per cost (rule 5c)
+- **Given** the same CSV
+- **When** an `operator` posts it with `dryRun: false`
+- **Then** the response is 201 with three ids, three costs and three `finance.cost.create` audit rows (one per id, actor the operator, `after` only `changedFields`, no amount), and March's `ai_tools` total is 368.74
+
+#### One bad line blocks the load and is named (rule 5c)
+- **Given** the CSV plus a line with `amount` = `-10` on line 5
+- **When** it is checked, then posted with `dryRun: false`
+- **Then** the check marks line 5 `{ok: false, error: "INVALID_COST", field: "amount"}` with `invalid` = 1, the post answers 400 `IMPORT_INVALID`, and no cost or `finance.cost.create` row exists
+
+#### Pasted tables, semicolons and decimal commas are read (rule 5c)
+- **Given** a tab-separated paste with capitalised headers, and a semicolon CSV with a BOM, `12,34` and `gcpInvoice` = `sim`
+- **When** each is checked
+- **Then** the paste's USD line without `amountEur` is refused on `amountEur`, and the semicolon line is ok with `amount` = `12.34` and `gcpInvoice` true
+
+#### Loading the same list twice creates nothing (rule 5c)
+- **Given** the CSV already loaded
+- **When** it is checked again, and a list repeating one new line is checked
+- **Then** all three lines are `DUPLICATE_COST`, and of the repeated pair the first is ok and the second refused
+
+#### A bad header is refused (rule 5c)
+- **Given** a header with `price`, a header without `startsOn`, and a blank text
+- **When** each is posted
+- **Then** the answers are 400 `IMPORT_BAD_HEADER` with `field` `price`, `IMPORT_BAD_HEADER` with `startsOn`, and `IMPORT_EMPTY`
 
 #### A manual cost is created and audited (rules 2, 5)
 - **Given** the owner
@@ -248,11 +301,16 @@ and category, with month totals and the running total since the start.
 #### The page shows the months and the banner (rules 9, 12)
 - **Given** the owner signed in, a summary with two months and `importStatus.lastRun.outcome = error`
 - **When** `/finance` renders
-- **Then** the table shows both months with their totals and cumulative, the red banner names the last good import's date, and the nav shows "Financeiro"; for an `operator` there is no nav item and `/finance` shows the not-allowed page
+- **Then** the table shows both months with their totals and cumulative, the red banner names the last good import's date, and the nav shows "Financeiro"; a `support` account sees the same page and nav item
+
+#### The page checks a list before creating it (rules 5c, 12)
+- **Given** an `operator` on the Custos tab
+- **When** they paste a list with one bad line and press "Verificar", fix the text, check again and press "Criar"
+- **Then** the bad line shows its field, "Criar" stays disabled until a check with no bad line, editing the text clears the preview, and the only non-dry-run post carries the checked text
 
 #### Usable from a phone (rule 12)
 - **Given** a 375 px viewport
-- **When** the owner opens each tab and the cost dialog
+- **When** the owner opens each tab, the cost dialog and the list import
 - **Then** the page has no horizontal scroll and the tables scroll in their own container
 
 #### No identifiers in tracked files (rule 11)
@@ -268,8 +326,10 @@ and category, with month totals and the running total since the start.
 - The export starts when it is enabled. A multi-region (EU) dataset also loads data from the 1st of
   the previous month (Google's documentation for the detailed export; to confirm on enabling for
   the standard export). Every earlier month is a manual `gcpInvoice` entry from the invoices.
-- OPEN Q3: the initial manual list (both Claude Max subscriptions, Apple Developer, Google Play,
-  domains, other tools) is entered by the owner through the page; no amount is seeded in a
-  migration.
+- The owner's answers (PAD-742, 2026-10-23): Q1 euro totals keeping the charged amount, yes;
+  Q2 from the earliest charge, yes; Q3 the owner sends the initial list to the coordinator instead
+  of typing it, so it is loaded through rule 5c (no amount is seeded in a migration, and no session
+  writes to prod's database); Q4 every console account (today one, later the three founders) sees
+  and uses finance, reads and writes, with the audit recording who did what.
 - Implementation also edits `delivery.worker-role` rule 4 and `admin.engine-health` rule 2 to list
   `finance_gcp_import`.

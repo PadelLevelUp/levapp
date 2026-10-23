@@ -46,7 +46,7 @@ async function fits(page: import("@playwright/test").Page, where: string) {
 }
 
 test.describe("finance on a phone", () => {
-  test("PAD-742: every tab and the cost form fit 375 px", async ({ page }) => {
+  test("PAD-742: every tab, the cost form and the import fit 375 px", async ({ page }) => {
     await page.goto("/finance");
     await expect(page.getByTestId("finance-summary-table")).toBeVisible();
     await expect(page.getByTestId("finance-import-banner")).toBeVisible();
@@ -60,6 +60,9 @@ test.describe("finance on a phone", () => {
     await page.getByTestId("finance-cost-add").click();
     await expect(page.getByTestId("finance-cost-form")).toBeVisible();
     await fits(page, "cost form");
+    await page.getByTestId("finance-cost-import").click();
+    await expect(page.getByTestId("finance-import-text")).toBeVisible();
+    await fits(page, "import");
 
     await page.getByTestId("finance-tab-gcp").click();
     await expect(page.getByTestId("finance-gcp-table")).toBeVisible();

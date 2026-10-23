@@ -27,15 +27,18 @@ def _create(client, headers, **overrides):
     return client.post("/admin/api/finance/costs", json={**CLAUDE_MAX, **overrides}, headers=headers)
 
 
-def test_only_the_owner_reaches_finance(app, client):
-    ana = bearer(admin_token(app, make_role(app, "ana@levapp.app", "operator")))
-    owner = _owner(app)
-    denied = client.get("/admin/api/finance/summary", headers=ana)
-    assert denied.status_code == 403
-    assert denied.get_json() == {"error": "ADMIN_ROLE_TOO_LOW"}
-    assert client.get("/admin/api/finance/summary", headers=owner).status_code == 200
-    assert client.post("/admin/api/finance/costs", json=CLAUDE_MAX, headers=ana).status_code == 403
-    assert [r["outcome"] for r in audit_rows(app, "finance.cost.create")] == ["denied"]
+def test_every_console_account_reaches_finance_and_nobody_else_does(app, client):
+    # Owner's answer Q4 (2026-10-23): every admin account reads and writes; the audit names who.
+    for n, role in enumerate(("support", "operator", "owner")):
+        headers = bearer(admin_token(app, make_role(app, f"{role}@levapp.app", role)))
+        assert client.get("/admin/api/finance/summary", headers=headers).status_code == 200
+        created = client.post("/admin/api/finance/costs", json={**CLAUDE_MAX, "startsOn": f"2026-07-0{n + 1}"}, headers=headers)
+        assert created.status_code == 201
+        assert created.get_json()["createdByEmail"] == f"{role}@levapp.app"
+    assert sorted(r["actorEmail"] for r in audit_rows(app, "finance.cost.create")) == [
+        "operator@levapp.app", "owner@levapp.app", "support@levapp.app"
+    ]
+    assert client.get("/admin/api/finance/summary").status_code == 401
 
 
 def test_a_manual_cost_is_created_audited_without_money_and_revised(app, client):
