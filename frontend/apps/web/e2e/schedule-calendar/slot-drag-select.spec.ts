@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
+import { goToNextWeek } from "../helpers/calendar-navigation";
 import { classTimes } from "../helpers/class-time";
 
 /**
@@ -57,9 +58,9 @@ test.describe("PAD-106: click-and-drag slot selection to create a class", () => 
   test.beforeEach(async ({ page }) => {
     await loginAsCoach(page);
     await openCalendar(page);
-    // Next week keeps the grid free of "today" styling ambiguity.
-    await page.getByRole("button", { name: /next week/i }).first().click();
-    await page.waitForTimeout(400);
+    // Next week keeps the grid free of "today" styling ambiguity. goToNextWeek returns once the
+    // grid shows it (PAD-755), where a fixed 400 ms could leave this week's slots on screen.
+    await goToNextWeek(page);
   });
 
   test("dragging down across slots prefills start and end time", async ({

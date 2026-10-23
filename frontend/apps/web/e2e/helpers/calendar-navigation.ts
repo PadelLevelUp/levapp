@@ -1,4 +1,4 @@
-import { expect, type Page, type Response } from "@playwright/test";
+import { expect, type Page, type Request, type Response } from "@playwright/test";
 
 /** Wait for the calendar week fetch that a toolbar navigation triggers. */
 function waitForWeekFetch(page: Page): Promise<Response> {
@@ -9,15 +9,67 @@ function waitForWeekFetch(page: Page): Promise<Response> {
   );
 }
 
+/** `yyyy-MM-dd` plus `days`, on calendar dates (no time zone involved). */
+function addDaysIso(day: string, days: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** The phone layout (use-mobile's 768px breakpoint) has no day columns. */
+const PHONE_MAX_WIDTH = 767;
+
 /**
- * Click "Next week" on the calendar toolbar and wait for the new week's
- * calendar API response before returning. This is deterministic — unlike
- * `page.waitForTimeout(N)`, it returns exactly when the new week's data
- * is loaded, regardless of how slow the backend is under cumulative load.
+ * Click "Next week" and return once week N+1 is on the desktop grid and stable (PAD-755).
+ *
+ * The promise:
+ * - the grid's seven `data-day-column`s are exactly N+1's dates, where N is read from the grid
+ *   itself before the click;
+ * - the `/calendar` request for N+1, if the click issued one, has its response. A week already
+ *   cached issues none (B-530), so its absence is not waited for.
+ *
+ * Why it is no longer "the first `/calendar?from=` response":
+ * - `openCalendar` returns on the URL, before the grid mounts, so that response could be the
+ *   initial load of week N.
+ * - client.query-cache rule 5 keeps N's columns and cards on screen until N+1 lands. A caller
+ *   could therefore read N's slots or click N's card: pad371 deleted the wrong Monday (B-686).
+ * - A click while N was still loading moved the grid to N+1 with no data, and the next call
+ *   then went to N+2.
+ *
+ * Phone widths keep the response wait: they have no day columns.
  */
 export async function goToNextWeek(page: Page): Promise<void> {
   const nextBtn = page.getByRole("button", { name: /next week|semana seguinte/i }).first();
-  await Promise.all([waitForWeekFetch(page), nextBtn.click()]);
+  if ((page.viewportSize()?.width ?? 1280) <= PHONE_MAX_WIDTH) {
+    await Promise.all([waitForWeekFetch(page), nextBtn.click()]);
+    return;
+  }
+
+  const columns = page.locator("[data-day-column]");
+  const daysOnScreen = () => columns.evaluateAll((els) => els.map((el) => el.getAttribute("data-day-column")));
+  await expect(columns).toHaveCount(7, { timeout: 15_000 });
+  const weekN = (await columns.first().getAttribute("data-day-column")) ?? "";
+  const weekN1 = Array.from({ length: 7 }, (_, i) => addDaysIso(weekN, 7 + i));
+
+  let request: Request | undefined;
+  const onRequest = (r: Request) => {
+    if (/\/api\/app\/calendar\?/.test(r.url()) && decodeURIComponent(r.url()).includes(`from=${weekN1[0]}T`)) {
+      request ??= r;
+    }
+  };
+  page.on("request", onRequest);
+  try {
+    await nextBtn.click();
+    await expect.poll(daysOnScreen, { timeout: 15_000 }).toEqual(weekN1);
+    if (request) {
+      const response = await request.response();
+      expect(response?.status(), `the week ${weekN1[0]} calendar request`).toBe(200);
+    }
+    // Still N+1 once its data is in: nothing moved the grid on.
+    expect(await daysOnScreen()).toEqual(weekN1);
+  } finally {
+    page.off("request", onRequest);
+  }
 }
 
 /**
@@ -65,8 +117,9 @@ async function titleVisible(
  * Navigate the calendar looking for an event with the given title. Returns true
  * if the title became visible at any week within `maxWeeks` forward.
  *
- * Two passes, on purpose. `goToNextWeek` waits for the week's API response, but
- * nothing awaits the React render that turns that payload into event cards —
+ * Two passes, on purpose. `goToNextWeek` waits until the grid shows the next week and its
+ * request has landed (PAD-755), but nothing awaits the React render that turns that payload
+ * into event cards —
  * and under cumulative suite load that render can outlast the fast pass's
  * per-week budget. When it did, the scan advanced *past* the correct week and
  * reported the class missing. That is how
