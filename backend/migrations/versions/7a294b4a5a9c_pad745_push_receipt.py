@@ -6,7 +6,7 @@ new table (ledger rule). No data: rows appear with the first push sent after the
 downgrade drops it; the receipts not yet read are lost, nothing else.
 
 Revision ID: 7a294b4a5a9c
-Revises: 573da995cdbd (unconfirmed: re-chains on 459fc0208b0d when #817 lands)
+Revises: 573da995cdbd
 Create Date: 2026-10-23 02:00:00.000000
 """
 from alembic import op

@@ -146,7 +146,11 @@ def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     migrate = next(i for i, c in enumerate(lines) if c.startswith("docker run --rm --name padelapp_staging_migrate"))
     started = lines.index("docker start padelapp_staging")
     restored_at = next(i for i, c in enumerate(lines) if "pg_restore" in c)
-    assert restored_at < migrate < started
+    scrubbed_at = next(i for i, c in enumerate(lines) if "ON_ERROR_STOP=1" in c)
+    # PAD-606 rule 9b: the scrub meets the image's head, never prod's older schema
+    assert restored_at < migrate < scrubbed_at < started
+    assert sum(c.startswith("docker run --rm --name padelapp_staging_migrate") for c in lines) == 1, \
+        "migrated once, before the scrub; the EXIT trap does not migrate again"
     call = lines[migrate]
     assert "--network levelup_net" in call
     assert call.endswith("repo/levelup_backend:staging /app/scripts/migrate.sh")
@@ -159,12 +163,19 @@ def test_the_restore_is_migrated_to_head_before_the_app_starts(sandbox):
     assert not Path((home / "migrate.env.path").read_text().strip()).exists(), "the env-file is removed"
 
 
-def test_a_failed_migrate_step_still_starts_the_app(sandbox):
+def test_a_failed_migrate_step_wipes_staging_before_any_scrub(sandbox):
+    """PAD-606 rule 9b: a copy that cannot reach the image's head cannot be scrubbed at a known
+    schema, so it fails closed like a failed scrub: wiped, exit 3, nothing recorded, the app started
+    again on the empty schema (the deploy itself stays green: the sync-db job is continue-on-error)."""
     (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
     result, calls = run(sandbox, STUB_MIGRATE_EXIT="1")
-    assert result.returncode == 0, "best-effort: the sync never fails the deploy"
+    assert result.returncode == 3, result.stdout + result.stderr
     assert "the migrate step exited 1" in result.stdout
-    assert "docker start padelapp_staging" in calls
+    assert "the migrate step failed before the scrub; wiping padel_app_staging" in result.stdout
+    assert "ON_ERROR_STOP=1" not in calls, "never scrub a schema behind the image's head"
+    assert calls.rfind("drop schema if exists public cascade") > calls.find("padelapp_staging_migrate")
+    assert "docker start padelapp_staging" in calls, "the app still comes back (empty)"
+    assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
 
 
 def test_a_push_after_the_dump_was_restored_leaves_staging_alone(sandbox):
@@ -274,6 +285,22 @@ def test_a_failed_scrub_wipes_staging_and_records_nothing(sandbox):
     assert calls.rfind("drop schema if exists public cascade") > calls.find("ON_ERROR_STOP=1")
     assert "docker start padelapp_staging" in calls, "the app still comes back (empty)"
     assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{OLD}"
+    wiped_at = calls.rfind("drop schema if exists public cascade")
+    assert "padelapp_staging_migrate" in calls[wiped_at:], "the wiped schema is migrated to head again"
+
+
+def test_after_a_failed_scrub_the_next_push_restores_the_same_dump_again(sandbox):
+    """PAD-606 rule 9: exit 3 records nothing, so the next auto push is not skipped (the
+    2026-10-23 failure: the state still names the older dump, and the fixed script re-restores)."""
+    (sandbox["home"] / "staging-sync.state").write_text(f"gs://unit-test-bucket/padel_app/{OLD}\n")
+    failed, _ = run(sandbox, STUB_SCRUB_FAILS="1")
+    assert failed.returncode == 3, failed.stdout + failed.stderr
+    (sandbox["home"] / "calls.log").unlink()
+    result, calls = run(sandbox)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "SKIPPED" not in result.stdout
+    assert "pg_restore" in calls and "ON_ERROR_STOP=1" in calls
+    assert state(sandbox) == f"gs://unit-test-bucket/padel_app/{NEW}"
 
 
 def test_a_failed_scrub_whose_wipe_fails_leaves_staging_stopped(sandbox):
