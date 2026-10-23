@@ -462,7 +462,9 @@ export interface UserDetail extends UserRow {
 }
 
 export type DeployIdentity = { gitSha: string; alembicHead: string | null };
-export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due" | "push_registration_failed";
+export type IncidentKind = "email_failed" | "push_failed" | "reminder_skipped_past_due" | "push_registration_failed"
+  // PAD-689: one row per minute in which live-update streams were refused or pushes dropped.
+  | "stream_refused" | "push_dropped";
 export type PushReceiptStatus = "pending" | "ok" | "error" | "expired";
 export type PushReceiptCounts = Record<PushReceiptStatus, number> & { errorsByCode: Record<string, number> };
 

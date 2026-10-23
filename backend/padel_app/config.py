@@ -240,6 +240,9 @@ class Config:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
     # From address; defaults to the login when unset (see tools/email_tools._sender).
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
+    # PAD-734: seconds an SMTP connect, read or write may take before the send fails (and is
+    # recorded on engine health). Flask-Mail itself has no timeout.
+    MAIL_TIMEOUT = float(os.getenv("MAIL_TIMEOUT", "10") or 10)
     # Recipient guard (auth.email-verification rule 12). Comma-separated exact
     # addresses and/or `@domain` suffixes; a message to anyone else is dropped
     # and logged. Empty (prod) allows everyone. Staging holds a copy of prod's

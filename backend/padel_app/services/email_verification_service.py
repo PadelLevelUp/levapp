@@ -101,6 +101,29 @@ def _deliver(user, code):
     send_email(subject, [user.email], body=text, html=html)
 
 
+def _deliver_later(user, code):
+    """Rule 6 (PAD-734): the signup's first code, after the caller's commit and off the request
+    thread. A mail that fails clears this code again, in its own commit, unless a newer one has
+    replaced it; "Send a new code" recovers."""
+    from padel_app.models import User
+    from padel_app.tools.email_templates import render_verification_code_email
+    from padel_app.tools.mail_dispatch import send_later
+
+    subject, text, html = render_verification_code_email(user, code)
+    user_id, code_hash = user.id, user.email_verification_code_hash
+
+    def clear():
+        fresh = db.session.get(User, user_id, populate_existing=True)  # the row as committed now
+        if fresh is not None and fresh.email_verification_code_hash == code_hash:
+            _clear_code(fresh)
+            fresh.email_verification_sent_at = None
+            db.session.commit()
+
+    # B-254: the label names the user id, never the address.
+    send_later(subject, [user.email], body=text, html=html,
+               label=f"first verification mail to user {user_id}", on_failure=clear)
+
+
 def send_code(user, now=None, *, commit=True, defer=None):
     """Rule 4: issue a fresh code and mail it. Commits. Returns the 200 body.
 
@@ -175,7 +198,7 @@ def forget_verification(user):
 
 def begin_verification(user, now=None):
     """Rules 1 and 6: mark the account as needing verification and send the
-    first code, best-effort. Used by self-signup and by a self-service email
+    first code, best-effort, after the commit and off the request thread (PAD-734). Used by self-signup and by a self-service email
     change. Commits. When the gate is off the user is verified on the spot."""
     now = now or utcnow_naive()
     if not user.email:
@@ -189,16 +212,8 @@ def begin_verification(user, now=None):
     user.email_verification_required = True
     user.email_verified_at = None
     code = _issue(user, now)
-    try:
-        _deliver(user, code)
-    except Exception as exc:  # noqa: BLE001 — the account still exists; "send a new code" recovers
-        # B-254: the user id and the exception class, never the address or the exception text.
-        current_app.logger.warning(
-            "first verification mail to user %s failed: %s", user.id, type(exc).__name__
-        )
-        _clear_code(user)
-        user.email_verification_sent_at = None
     db.session.commit()
+    _deliver_later(user, code)
 
 
 def confirm_code(user, code, now=None):

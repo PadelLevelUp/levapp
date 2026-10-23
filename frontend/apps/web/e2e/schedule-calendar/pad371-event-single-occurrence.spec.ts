@@ -71,7 +71,14 @@ test("PAD-371: deleting one occurrence of a weekly event keeps the later ones", 
     await loginAsCoach(page);
     await openCalendar(page);
     await goToNextWeek(page);
-    const card = page.getByTestId("calendar-event-card").filter({ hasText: TITLE }).first();
+    // PAD-747: the card in next Monday's own column. goToNextWeek returns on the first calendar
+    // response, but on the desktop grid client.query-cache rule 5 keeps the previous week's cards on
+    // screen until the next week lands. A bare `.first()` then clicked THIS Monday's occurrence
+    // and the delete went out for it (occDate one week early).
+    const card = page
+      .locator(`[data-day-column="${target}"]`)
+      .getByTestId("calendar-event-card")
+      .filter({ hasText: TITLE });
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.click();
     await page.getByTestId("event-detail-delete").click();

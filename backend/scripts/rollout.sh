@@ -8,7 +8,7 @@
 #
 #   bash rollout.sh --name padelapp --ports 5000,5002 --upstream levapp_api \
 #        [--container-port 80] [--health-path /api/app/healthz] [--stop-first] [--migrate] \
-#        [--probe-host staging.levapp.app] [--dry-run] -- --restart unless-stopped ... image:tag
+#        [--probe-host staging.levapp.app] [--drain] [--dry-run] -- --restart unless-stopped ... image:tag
 #
 # --migrate (PAD-691, rules 4, 7, 9): run /app/scripts/migrate.sh in a one-shot container
 # <name>_migrate of the same image and arguments minus --restart (Docker refuses --rm with a
@@ -32,6 +32,19 @@
 #      below 500 within PROBE_TRIES tries, or the new one is removed and the old keeps serving;
 #   4. stop the old one (docker stop -t STOP_GRACE), remove it, rename
 #      <name>_next to <name> so every other script keeps the stable name.
+# --drain (PAD-714, rule 16, B-663): docker-proxy accepts on a published port before gunicorn
+#   listens and after it stops listening, then resets the request; nginx retries that for a GET,
+#   never for a POST. With --drain, rolling mode takes a port out of nginx's rotation (`down` in the
+#   upstream, reload) before a container boots or stops on it: after the migrate step the idle port
+#   goes down (before the second copy stops on it and <name>_next boots on it); once healthy it goes
+#   up, and step 3b's wait is skipped (no boot-time request could mark it); after the probe through
+#   nginx, with both ports up, the old port goes down, then stops; it comes back up when nothing will
+#   boot on it (with --copies 2, once <name>_b is healthy there). Each reload is followed by
+#   RELOAD_SETTLE s: `nginx -s reload` returns before the new workers serve. No port is left down
+#   when the script exits, on any path (a rollback's older rollout.sh knows nothing of `down`).
+#   The edit goes through NGINX_DRAIN_CMD, the root-owned helper infra/nginx/levapp-upstream-port
+#   via `sudo -n`; when its --check fails (the owner's host step not done) the run logs one line and
+#   swaps exactly as without --drain.
 # Stop-first (--stop-first, or no upstream on the host yet, rule 6): stop the old container
 # (kept), migrate (--migrate), run the new one on the first port (the one nginx proxies to when
 # there is no upstream), wait for health, then remove the old one. If the migrate step or the new
@@ -58,11 +71,12 @@
 #      NGINX_SITES_DIR (default /etc/nginx/sites-enabled: a vhost must proxy to the upstream),
 #      HEALTH_TIMEOUT (120), STOP_GRACE (10), POLL_SECONDS (1), PROBE_TRIES (10), WORKER_MEMORY (256m),
 #      WORKER_HEALTH_TIMEOUT (60), WORKER_STOP_GRACE (60), WORKER_LEAD_TIMEOUT (30),
-#      WORKER_LIVEZ_PORT (8081)
+#      WORKER_LIVEZ_PORT (8081), NGINX_DRAIN_CMD (sudo -n /usr/local/sbin/levapp-upstream-port),
+#      RELOAD_SETTLE (2)
 # =============================================================================
 set -uo pipefail
 
-NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST="" WORKER=0 COPIES=1
+NAME="" PORTS="" UPSTREAM="" CPORT=80 HEALTH_PATH=/api/app/healthz STOP_FIRST=0 MIGRATE=0 DRY_RUN=0 PROBE_HOST="" WORKER=0 COPIES=1 DRAIN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) NAME="$2"; shift 2 ;;
@@ -76,6 +90,7 @@ while [ $# -gt 0 ]; do
     --probe-host) PROBE_HOST="$2"; shift 2 ;;
     --worker) WORKER=1; shift ;;
     --copies) COPIES="$2"; shift 2 ;;
+    --drain) DRAIN=1; shift ;;
     --) shift; break ;;
     *) echo "[rollout] unknown option $1" >&2; exit 2 ;;
   esac
@@ -93,6 +108,8 @@ WORKER_HEALTH_TIMEOUT="${WORKER_HEALTH_TIMEOUT:-60}"
 WORKER_STOP_GRACE="${WORKER_STOP_GRACE:-60}"
 WORKER_LEAD_TIMEOUT="${WORKER_LEAD_TIMEOUT:-30}"
 WORKER_LIVEZ_PORT="${WORKER_LIVEZ_PORT:-8081}"
+read -ra DRAIN_CMD <<< "${NGINX_DRAIN_CMD:-sudo -n /usr/local/sbin/levapp-upstream-port}"
+RELOAD_SETTLE="${RELOAD_SETTLE:-2}"
 
 log() { echo "[rollout] $*"; }
 die() { echo "::error::[rollout] $*"; exit 1; }
@@ -178,6 +195,30 @@ through_nginx() {
   [ -n "$code" ] && [ "$code" != 000 ] && [ "$code" -lt 500 ] 2>/dev/null
 }
 
+# PAD-714 (--drain): set ports up or down in $UPSTREAM and reload nginx; a no-op unless the drain is
+# on for this run. `downs` lists the ports this run left down, for restore_ports.
+drained=0 downs=" "
+ports_set() {  # ports_set <port>=up|down ...
+  [ "$drained" = 1 ] || return 0
+  if [ "$DRY_RUN" = 1 ]; then echo "[rollout] dry-run: ${DRAIN_CMD[*]} $UPSTREAM_CONF $UPSTREAM $*" >&3; return 0; fi
+  "${DRAIN_CMD[@]}" "$UPSTREAM_CONF" "$UPSTREAM" "$@" || return 1
+  local s p
+  for s in "$@"; do
+    p="${s%=*}"; downs="${downs// $p / }"
+    [ "${s#*=}" = down ] && downs="${downs}${p} "
+  done
+  log "nginx: $* in $UPSTREAM"
+  sleep "$RELOAD_SETTLE"
+}
+
+# On every exit, a port this run took down comes back up (rule 16).
+restore_ports() {
+  local p specs=()
+  for p in $downs; do specs+=("$p=up"); done
+  [ "${#specs[@]}" -gt 0 ] || return 0
+  ports_set "${specs[@]}" || echo "::error::[rollout] could not put ${specs[*]} back in $UPSTREAM; fix by hand: ${DRAIN_CMD[*]} $UPSTREAM_CONF $UPSTREAM ${specs[*]}"
+}
+
 # The worker's /livez as one word: leader, standby, or nothing when it does not answer.
 worker_state() {
   docker exec "$1" python -c "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:${WORKER_LIVEZ_PORT}/livez', timeout=3)); print('leader' if d.get('leader') else 'standby')" 2>/dev/null
@@ -247,12 +288,13 @@ start_second_copy() {  # start_second_copy <port>
   dk rm -f "${NAME}_b" >/dev/null 2>&1 || true
   dk run -d --name "${NAME}_b" -p "127.0.0.1:$1:${CPORT}" "${RUN_ARGS[@]}" >/dev/null \
     || die "docker run ${NAME}_b failed; $NAME serves alone on its port"
-  [ "$DRY_RUN" = 1 ] && return 0
+  [ "$DRY_RUN" = 1 ] && { ports_set "$1=up"; return 0; }
   if ! wait_healthy "${NAME}_b" "$1"; then
     docker logs --tail 60 "${NAME}_b" 2>&1 || true
     docker rm -f "${NAME}_b" >/dev/null 2>&1 || true
     die "${NAME}_b is not healthy; removed, $NAME serves alone"
   fi
+  ports_set "$1=up" || die "could not put $1 back in $UPSTREAM; $NAME serves alone"
   log "second copy: ${NAME}_b serves on 127.0.0.1:$1"
 }
 
@@ -329,6 +371,23 @@ if [ "$MIGRATE" = 1 ]; then
   log "old container ${NAME} serving on ${LIVE:-nothing} during the migrate step (the schema moves under it: rule 12)"
   run_migrate || die "migrate step failed; ${NAME}_next not started, $NAME keeps serving on ${LIVE:-nothing}"
 fi
+# PAD-714 (rule 16): from here the idle port leaves nginx's rotation before anything stops or boots
+# on it. Both ports are named, so a `down` a killed earlier run left behind is cleared too.
+if [ "$DRAIN" = 1 ]; then
+  if [ -z "$LIVE" ]; then
+    log "drain: no live container, nothing to drain"
+  elif "${DRAIN_CMD[@]}" --check >/dev/null 2>&1; then
+    drained=1
+    trap restore_ports EXIT
+    trap 'exit 1' HUP INT TERM
+    if ! ports_set "$IDLE=down" "$LIVE=up"; then
+      drained=0
+      log "drain: could not take $IDLE out of $UPSTREAM: swapping without the drain (B-663)"
+    fi
+  else
+    log "drain: ${DRAIN_CMD[*]} is not available to $(id -un): swapping without the drain, as before (B-663)"
+  fi
+fi
 # PAD-704: both copies served through the migrate step; the second one now gives back its port.
 if docker inspect "${NAME}_b" >/dev/null 2>&1; then
   remove_second_copy
@@ -345,7 +404,9 @@ dk rm -f "${NAME}_next" >/dev/null 2>&1 || true
 dk run -d --name "${NAME}_next" -p "127.0.0.1:${IDLE}:${CPORT}" "${RUN_ARGS[@]}" >/dev/null \
   || die "docker run ${NAME}_next failed; $NAME keeps serving"
 if [ "$DRY_RUN" = 1 ]; then
+  ports_set "$IDLE=up"; ports_set "$LIVE=down"
   dk stop -t "$STOP_GRACE" "$NAME"; dk rm "$NAME"; dk rename "${NAME}_next" "$NAME"
+  [ "$COPIES" = 2 ] || ports_set "$LIVE=up"
   deploy_worker; start_second_copy "$([ "$IDLE" = "$PORT_A" ] && echo "$PORT_B" || echo "$PORT_A")"
   log "dry-run: done"; exit 0
 fi
@@ -355,14 +416,23 @@ if ! wait_healthy "${NAME}_next" "$IDLE"; then
   die "${NAME}_next is not healthy; $NAME keeps serving on ${LIVE:-nothing}"
 fi
 
-settle=$(( $(fail_timeout "$IDLE") + 1 ))
-log "keeping $NAME serving ${settle}s more: nginx may have marked $IDLE down while it booted (fail_timeout + 1 s, B-664)"
-sleep "$settle"
+if [ "$drained" = 1 ]; then
+  if ! ports_set "$IDLE=up"; then
+    docker rm -f "${NAME}_next" >/dev/null 2>&1 || true
+    die "could not put $IDLE in $UPSTREAM; ${NAME}_next removed, $NAME keeps serving"
+  fi
+  log "drain: $IDLE took no request while it booted, so no fail_timeout wait (B-664)"
+else
+  settle=$(( $(fail_timeout "$IDLE") + 1 ))
+  log "keeping $NAME serving ${settle}s more: nginx may have marked $IDLE down while it booted (fail_timeout + 1 s, B-664)"
+  sleep "$settle"
+fi
 if [ -n "$PROBE_HOST" ]; then
   tries=0
   until through_nginx; do
     tries=$((tries + 1))
     if [ "$tries" -ge "$PROBE_TRIES" ]; then
+      ports_set "$IDLE=down" || true
       docker rm -f "${NAME}_next" >/dev/null 2>&1 || true
       die "https://${PROBE_HOST}${HEALTH_PATH} through nginx did not answer below 500 in $tries tries; ${NAME}_next removed, $NAME keeps serving"
     fi
@@ -374,10 +444,17 @@ else
 fi
 
 if [ -n "$LIVE" ] || docker inspect "$NAME" >/dev/null 2>&1; then
+  if [ "$drained" = 1 ] && ! ports_set "$LIVE=down"; then
+    log "WARNING: drain: could not take $LIVE out of $UPSTREAM: stopping it in rotation, as before (B-663)"
+  fi
   docker stop -t "$STOP_GRACE" "$NAME" >/dev/null 2>&1 || log "WARNING: could not stop $NAME"
   docker rm "$NAME" >/dev/null 2>&1 || log "WARNING: could not remove $NAME"
 fi
 docker rename "${NAME}_next" "$NAME" || die "could not rename ${NAME}_next to $NAME"
+# With --copies 2 the freed port stays down until <name>_b is healthy on it (start_second_copy).
+if [ "$drained" = 1 ] && [ "$COPIES" != 2 ]; then
+  ports_set "$LIVE=up" || log "WARNING: drain: could not put $LIVE back in $UPSTREAM"
+fi
 log "done: $NAME serves on 127.0.0.1:$IDLE"
 deploy_worker
 start_second_copy "$([ "$IDLE" = "$PORT_A" ] && echo "$PORT_B" || echo "$PORT_A")"

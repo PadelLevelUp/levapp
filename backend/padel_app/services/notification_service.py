@@ -4229,7 +4229,8 @@ def _free_spot_for_declining_player(
             invite_start_dt = _compute_invite_start_dt(instance, config.get_invitation_start_timing())
             _now = now or utcnow_naive()
             if invite_start_dt is None or _now >= invite_start_dt:
-                trigger_invitations(instance, coach.id)
+                # PAD-733: after this request's commit, on the scheduler (inline without one).
+                _start_or_arm_invitations(instance, coach.id)
             elif vacancy is not None:
                 # PAD-73: the vacancy opens IMMEDIATELY, but inviting other
                 # students must still wait for the coach's configured
@@ -5122,6 +5123,28 @@ def _send_next_on_decline(
     # on the vacancy row locked and re-read means the second waits for the first's invitation to
     # commit (with its message) and then sees it.
     _send_batch_locked(vacancy, instance, config, coach_id, max_sim_override=1)
+
+
+def send_next_on_decline_for(vacancy_id: int) -> None:
+    """PAD-733: the decline's follow-up as the scheduler job runs it (``arm_next_on_decline``),
+    reading the vacancy, its class and its coach's configuration afresh."""
+    vacancy = Vacancy.query.get(vacancy_id)
+    if vacancy is None or vacancy.lesson_instance is None:
+        return
+    _send_next_on_decline(
+        vacancy, vacancy.lesson_instance, vacancy.coach_id, get_or_create_config(vacancy.coach_id)
+    )
+
+
+def _start_or_arm_invitations(instance: LessonInstance, coach_id: int) -> list:
+    """PAD-733: start a spot's invitations off the request when a scheduler runs here (the job
+    sends them within seconds, after the request's commit), or inline when none does. Returns
+    the students invited inline, an empty list when the start was armed."""
+    from padel_app.scheduler import arm_invitations_now
+
+    if arm_invitations_now(instance.id, coach_id):
+        return []
+    return trigger_invitations(instance, coach_id) or []
 
 
 # ---------------------------------------------------------------------------
@@ -6020,8 +6043,11 @@ def respond_to_notification(
         if vacancy:
             vacancy.last_activity_at = utcnow_naive()
             vacancy.save()
-            # Immediately invite the next player without waiting for inactivity timer
-            _send_next_on_decline(vacancy, instance, event.coach_id, config)
+            # Invite the next player without waiting for the inactivity timer: from the scheduler,
+            # after this answer's commit (PAD-733), or inline when no scheduler runs here.
+            from padel_app.scheduler import arm_next_on_decline
+            if not arm_next_on_decline(vacancy.id, event.id):
+                _send_next_on_decline(vacancy, instance, event.coach_id, config)
 
         if coach_user_id:
             _send_system_message(
