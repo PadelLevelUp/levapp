@@ -208,6 +208,22 @@ the conversation opened:
 bash apps/mobile/scripts/push-tap-flow.sh          # optional arg: simulator UDID
 ```
 
+## Push grant without a restart (PAD-744)
+
+`flows/307-push-grant-without-restart.yaml` is not in `config.yaml`'s order either: it starts from
+a denied notification permission, which Maestro 2.6.1 cannot set (its `permissions:` maps skip
+notifications). The wrapper sets it with Maestro's bundled applesimutils, which restarts SpringBoard
+and so can only run before the flow. The flow then taps the blocked banner, allows notifications on
+the app's page in Settings, and asserts the banner is gone on the same open thread:
+
+```bash
+bash apps/mobile/scripts/push-grant-flow.sh        # optional arg: simulator UDID
+```
+
+The simulator cannot hold a push token, so the registration attempt on the return shows only in
+Metro's output: `[push] skipping registration: not a physical device` after the restore's
+`[push] notification permission not granted`, with no `[launch]` lines between them.
+
 **Android lane (PAD-306):** flow 47 is tagged `ios-only` and `scripts/ci-android-maestro.sh` runs
 Maestro with `--exclude-tags ios-only`, so it never runs on the emulator until Android push exists
 (PAD-290 wave C, FCM through the Expo push service). Tag any other simulator-only flow the same
