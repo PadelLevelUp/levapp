@@ -10,6 +10,11 @@
  * who was invited three times showed up three times in the coach's guest list.
  * The list must be keyed by STUDENT instead.
  *
+ * PAD-747: since PAD-620 (invitations rule 18) a student who still holds a LIVE invitation
+ * (`sent` / `queued`) gets no second one, so three manual invites in a row now make one record.
+ * The spec builds the records the way the product makes them today: invite, the student answers
+ * "no" (which is not live), invite again. Three records for one student, the last one live.
+ *
  * Run:
  *   npx playwright test e2e/schedule-calendar/guest-list-dedupe.spec.ts
  */
@@ -142,6 +147,31 @@ async function sendManualInvite(
   expect(json.sent, "manual notify must actually create an invite").toBe(1);
 }
 
+/**
+ * The student answers "no" to their live invitation for the dedupe class, so it is no longer live.
+ *
+ * The id comes from the student's own dashboard (a `vacancy_invite` queue item carries
+ * `notificationEventId`, dashboard.blocks / PAD-236), not from the coach's class detail: that
+ * list is the de-duplicated one, and a recorded answer outranks a pending invite there (PAD-72),
+ * so after the first "no" it never shows the newer live invitation.
+ */
+async function declineLiveInvite(request: APIRequestContext, studentToken: string): Promise<void> {
+  const res = await request.get(`${API_BASE}/dashboard`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+  });
+  expect(res.ok(), `student dashboard failed: ${res.status()}`).toBeTruthy();
+  type Block = { type?: string; data?: { items?: Array<Record<string, unknown>>; children?: Block[] } };
+  const flat = (blocks: Block[]): Block[] => blocks.flatMap((b) => [b, ...flat(b.data?.children ?? [])]);
+  const items = flat((await res.json()).blocks ?? []).find((b) => b.type === "needs_you")?.data?.items ?? [];
+  const live = items.find((i) => i.kind === "vacancy_invite" && i.classTitle === DEDUPE_CLASS_TITLE);
+  expect(live, `a live invitation on the student's queue: ${JSON.stringify(items)}`).toBeTruthy();
+  const answered = await request.post(`${API_BASE}/notify/respond`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+    data: { notificationEventId: live!.notificationEventId, action: "no" },
+  });
+  expect(answered.ok(), `respond "no" failed: ${answered.status()} ${await answered.text()}`).toBeTruthy();
+}
+
 /** Fetch the coach-facing class-detail payload. */
 async function fetchClassDetail(
   request: APIRequestContext,
@@ -212,10 +242,14 @@ test("PAD-72: a student invited three times appears once in the class guest list
     enrolled!.levelId
   );
 
-  // Three separate invitations to the SAME student → three NotificationEvent
-  // rows, exactly like the notification engine's multi-round matching produces.
+  // Three invitations to the SAME student → three NotificationEvent rows. Rule 18 (PAD-620) gives
+  // a second invitation only once the first is no longer live, so the student says "no" between
+  // them, as a re-invite after a decline does in the product.
+  const studentToken = await getToken(request, "e2e-student-2", "E2eStudent2123!");
   await sendManualInvite(request, coachToken, ref, invited!.playerId);
+  await declineLiveInvite(request, studentToken);
   await sendManualInvite(request, coachToken, ref, invited!.playerId);
+  await declineLiveInvite(request, studentToken);
   await sendManualInvite(request, coachToken, ref, invited!.playerId);
 
   // ── API level: the payload every surface consumes is already de-duplicated ──

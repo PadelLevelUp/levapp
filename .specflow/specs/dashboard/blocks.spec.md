@@ -24,6 +24,15 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
    - `needs_you`: an ordered queue of things the user can resolve, each item carrying its own
      `href`. `count` is `items.length`. Item kinds, in fixed server order:
      - coach: `empty_seats` (soonest first) → `reply` → `validation`
+     **(PAD-740, B-682) The coach's `empty_seats` cover the current week only:** the classes
+     that overlap `[now, next Sunday 00:00)` on the club's clock (rule 9's overlap). The week runs
+     Sunday to Saturday (`calendar.view` rule 5a), the same `week_start` the week pulse uses.
+     On Thursday 22 Oct the queue offers the classes up to Saturday 24 Oct and none from
+     Sunday 25 Oct. From Sunday 25 Oct it offers 25–31 Oct.
+     A class that has already ended is never offered. Before PAD-740 the window was a rolling
+     `[now, now + 7 days)`, so on every day but Sunday it reached into next week.
+     Later weeks stay on the calendar. `schedule_7d` ("Próximos 7 dias") keeps its rolling
+     7-day window, set in its own rule below.
      A `validation` item (PAD-190 / PAD-201, B-045; amended by PAD-539) carries `count` — the
      number of **classes** with at least one unvalidated presence, the coach's whole backlog as
      `attendance.validation` rule 18 defines it (`count_pending_validation_total`, no lower bound
@@ -65,6 +74,13 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      **(PAD-424, B-204)** The card's "Convidar x jogadores" / "Mais tarde" pair wraps onto a
      second line when the card is too narrow (desktop with the sidebar open); no button ever
      leaves the card.
+     **(PAD-740, B-682) Every card keeps its own height.** On web desktop the queue is a
+     two-column grid. Its cards align to the top of their row (`items-start`) instead of
+     CSS grid's default stretch, so a `reply` card next to an `empty_seats` card stays as
+     compact as its content and is not stretched to the class card's height.
+     iOS and Android stack the queue in a single column (mobile `blocks.tsx` `NeedsYouQueue`),
+     where no sibling sets a card's height, so the layout fix is web-only. The current-week
+     window above applies to every shell, because the server computes it.
      **(B-030) "Later" on an `empty_seats` card is a real action, not decoration.**
      `POST /api/app/dashboard/needs-you/<itemId>/snooze` (coach only, else 403; `itemId` must be a
      queue item id — `lessoninstance-<pk>` or `lesson-<pk>-<date>` — else 400) records a per-coach
@@ -209,7 +225,14 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 8. **(PAD-262, audit H9) One pipeline call per paint, scoped in SQL.** The coach home loads its
    classes ONCE — one calendar-pipeline call over the widest window any block needs (from a week
    before the current week to the hero's 90-day horizon) — and every block cuts its own window
-   from that set; the blocks' output is identical to loading each window separately. The
+   from that set; the blocks' output is identical to loading each window separately. **(PAD-754)**
+   "Identical" is a claim about the preloaded set, which is the only production path: the coach
+   and student assemblers (`helpers/dashboard/coach.py`, `player.py`) always pass it. A block
+   called without one (`events=None`, reached only from tests) loads just its own window through
+   the instance loader, which keeps classes that *start* inside the window. A class already
+   running at that window's start (for the hero and the next 7 days, a class running across `now`)
+   is therefore missing from a standalone call. The preloaded window opens a week before the current
+   week, so the dashboard keeps it by rule 9's overlap test. The
    instance loader filters by coach in SQL (the instance's own coach junction, or the lesson's
    when the instance has none) and eager-loads the lesson, its coaches, the instance's coaches,
    enrolments and presences, so a window costs a fixed number of statements however many
@@ -291,7 +314,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **When** they POST `/api/app/dashboard/needs-you/<itemId>/snooze`
 - **Then** the student gets 403 and the malformed id gets 400; nothing is stored
 
-- **Given** the seeded `e2e-coach` on the dashboard with an under-capacity class in the next 7 days
+- **Given** the seeded `e2e-coach` on the dashboard with an under-capacity class this week (Sunday to Saturday)
 - **When** they press **Later** on that card
 - **Then** the card is gone after the dashboard refetches and the "needs you" count drops by one
 
@@ -331,7 +354,7 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
   conversation screen, not the Messages tab
 
 #### "Convidar" opens the class on Notificar (PAD-285)
-- **Given** the seeded `e2e-coach` with an under-capacity class in the next 7 days
+- **Given** the seeded `e2e-coach` with an under-capacity class this week (Sunday to Saturday)
 - **When** they press **Convidar** on its card
 - **Then** the calendar opens that class with the "Notificar alunos" picker already up; the
   same card's hero link and schedule row open the class without it
@@ -473,7 +496,33 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the class is the coach's next-class hero, an empty-seats item on the needs-you queue and a row in the next 7 days
 - **And** it is the student's next-class hero and a row on their schedule
 
+#### Needs-you offers only this week's classes (PAD-740, B-682)
+- **Given** a coach with two classes with empty seats, on Saturday 24 Oct 2026 at 10:00 and Thursday 29 Oct 2026 at 08:00
+- **When** the queue is built on Thursday 22 Oct 2026 at 10:00
+- **Then** the Saturday 24 Oct class is an `empty_seats` item and the Thursday 29 Oct class is not
+- **And** the Thursday 29 Oct class is still a row in "Próximos 7 dias"
+
+#### The week ends at Saturday midnight (PAD-740, B-682)
+- **Given** a coach with classes with empty seats on Saturday 24 Oct 2026 at 23:00–23:59 and on Sunday 25 Oct 2026 at 00:30
+- **When** the queue is built on Saturday 24 Oct 2026 at 23:30, while the Saturday class is still running
+- **Then** the Saturday class is an `empty_seats` item and the Sunday 00:30 class is not
+
+#### On Sunday the queue moves to the new week (PAD-740, B-682)
+- **Given** a coach with classes with empty seats on Saturday 31 Oct 2026 at 10:00 and Sunday 1 Nov 2026 at 10:00
+- **When** the queue is built on Sunday 25 Oct 2026 at 00:00
+- **Then** the Saturday 31 Oct class is an `empty_seats` item and the Sunday 1 Nov class is not
+
+#### A reply card stays compact beside a class card (PAD-740, B-682)
+- **Given** the seeded `e2e-coach` on a 1440px-wide dashboard with an unread reply and an `empty_seats` card
+- **When** the needs-you queue renders in two columns
+- **Then** the reply card's height is its own content plus its padding, not its row's height
+
 #### A desktop schedule row shows the class title (PAD-336)
 - **Given** a coach with seeded classes in the next 7 days, some under capacity
 - **When** the dashboard renders at 1280×800
 - **Then** every schedule row's title fits its element (`scrollWidth <= clientWidth`) and under-capacity rows still show their invite action
+
+#### A class running across now stays on the coach home (rules 8 and 9, PAD-754)
+- **Given** a class from 10:45 to 11:45 and the club clock pinned at 11:15
+- **When** the coach home loads its preloaded set and builds the hero and the next 7 days from it
+- **Then** the hero is that class and it is the first row of the next 7 days

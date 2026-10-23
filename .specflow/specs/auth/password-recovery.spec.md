@@ -46,8 +46,10 @@ back at all.
    `padel_app/tools/email_templates.py`; pt-PT, *tu*, no emoji; "valid for 15 minutes",
    "if this wasn't you, ignore this email — your password has not changed". It is sent through
    `email_tools.send_email`, so the outbox capture (`auth.email-verification` rule 11) and the
-   recipient allowlist (rule 12) apply unchanged. A transport failure is logged and still
-   answers 200 (rule 2); the stored code is cleared so it cannot be guessed.
+   recipient allowlist (rule 12) apply unchanged. The code is committed first and the mail goes
+   out after the commit, off the request thread (PAD-734), so the 200 never waits for the mail
+   server. A transport failure or timeout is logged and recorded on engine health, the answer is
+   still 200 (rule 2), and the stored code is cleared, unless a newer code has replaced it.
 4. **Per-email cooldown.** A second request for the same email less than 60 seconds after a
    mail was sent issues nothing and sends nothing, but still answers 200 with the same body.
    The client shows the countdown from `resendAvailableInSeconds` on its own clock. A
@@ -191,6 +193,19 @@ back at all.
 - **Given** `send_email` raises
 - **When** `ana` POSTs `request`
 - **Then** the response is 200 with the standard body and `password_reset_code_hash` is null
+
+#### A hung mail server does not hold the recovery (rule 3, PAD-734)
+- **Given** `ana734` has an email and a password, and the mail server accepts and never answers
+- **When** POST `/api/auth/password-recovery/request` with her email
+- **Then** the response is the standard 200 within 2 seconds and her code hash is stored, committed
+  before the send began
+- **And** when the send then times out, she has no code stored and an `email_failed` incident
+  names her on engine health
+
+#### A failed mail does not clear a newer code (rule 3, PAD-734)
+- **Given** a recovery mail whose send fails after a newer code replaced the one it carried
+- **When** the failure's cleanup runs
+- **Then** the newer code is still stored
 
 #### Users without an email or disabled get nothing
 - **Given** a coach-created player with no email, and a `disabled` user with email `off@example.com`

@@ -341,13 +341,15 @@ WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
 
 @pytest.mark.parametrize(
-    "workflow,name,ports,upstream,host",
+    "workflow,name,ports,upstream,host,drain",
     [
-        ("deploy-prod.yaml", "padelapp", "5000,5002", "levapp_api", "levapp.app"),
-        ("deploy-staging.yaml", "padelapp_staging", "5100,5102", "levapp_api_staging", "staging.levapp.app"),
+        # PAD-714: the drain is staging's only until it is measured there (no prod change).
+        ("deploy-prod.yaml", "padelapp", "5000,5002", "levapp_api", "levapp.app", ""),
+        ("deploy-staging.yaml", "padelapp_staging", "5100,5102", "levapp_api_staging", "staging.levapp.app",
+         "$(opt --drain) "),
     ],
 )
-def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upstream, host):
+def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upstream, host, drain):
     """Rule 4 wiring: the backend job copies rollout.sh and calls it; it no longer stops the API itself."""
     import yaml
 
@@ -362,7 +364,9 @@ def test_the_deploys_roll_the_api_through_the_script(workflow, name, ports, upst
     assert "then WORKER_OPT=\"--worker\"; fi" in text
     assert (f'bash "$RO" --name {name} --ports {ports} --upstream {upstream} $(opt --probe-host {host}) '
             '$(opt --migrate) $([ -z "$WORKER_OPT" ] || opt --worker) $([ "$API_COPIES" != 2 ] || opt --copies 2) '
-            '$ROLLOUT_MODE --') in text
+            f'{drain}$ROLLOUT_MODE --') in text
+    if not drain:
+        assert "--drain" not in text
     deploy_step = text.split("RO=/home/${{ secrets.GCE_USER }}/rollout.sh", 1)[0].rsplit("uses: appleboy/ssh-action", 1)[1]
     assert "command_timeout: 30m" in deploy_step
     assert f"docker stop {name} ||" not in text, "the script stops the old container, after the new one answers"
@@ -417,3 +421,166 @@ def test_a_4xx_through_nginx_counts_as_live(sb):
     r, _ = run(sb, "--probe-host", "levapp.app", STUB_NGINX_CODE="404")
     assert r.returncode == 0, r.stdout + r.stderr
     assert containers(sb) == {"padelapp": "5002"}
+
+
+# --- PAD-714 (rule 16, B-663): --drain takes a port out of nginx's rotation around both edges -------
+
+HELPER = Path(__file__).resolve().parents[3] / "infra" / "nginx" / "levapp-upstream-port"
+
+# The stub nginx: `-t` passes unless STUB_NGINX_T_FAIL; each reload logs the ports then marked down.
+NGINX_STUB = r"""#!/usr/bin/env bash
+if [ "$1" = "-t" ]; then echo "nginx -t" >> "$STUB_HOME/calls.log"; [ -z "${STUB_NGINX_T_FAIL:-}" ]; exit; fi
+downs=$(grep -E 'down;' "$NGINX_UPSTREAM_CONF" | sed -E 's/.*:([0-9]+).*/\1/' | sort | paste -sd, -)
+echo "reload down=$downs" >> "$STUB_HOME/calls.log"
+"""
+
+
+@pytest.fixture
+def dsb(sb, tmp_path):
+    p = tmp_path / "bin" / "nginx"
+    p.write_text(NGINX_STUB)
+    p.chmod(p.stat().st_mode | stat.S_IEXEC)
+    sb["upstream"].write_text("upstream levapp_api {\n    server 127.0.0.1:5000 max_fails=1 fail_timeout=5s;\n"
+                              "    server 127.0.0.1:5002 max_fails=1 fail_timeout=5s;\n}\n")
+    sb["env"].update({"NGINX_DRAIN_CMD": str(HELPER), "LEVAPP_UPSTREAM_DIR": str(tmp_path)})
+    return sb
+
+
+def reloads(calls):
+    return [c for c in calls if c.startswith("reload ")]
+
+
+def test_each_edge_happens_on_a_port_nginx_does_not_send_to(dsb):
+    live(dsb, "padelapp", 5000)
+    r, calls = run(dsb, "--drain", "--probe-host", "levapp.app")
+    assert r.returncode == 0, r.stdout + r.stderr
+    idle_down = calls.index("reload down=5002")
+    boot = index(calls, "docker run -d --name padelapp_next")
+    healthy = index(calls, "curl 5002")
+    idle_up = calls.index("reload down=", idle_down + 1)
+    through = index(calls, "curl nginx")
+    live_down = calls.index("reload down=5000")
+    stop = index(calls, "docker stop -t 10 padelapp")
+    live_up = calls.index("reload down=", stop)
+    assert idle_down < boot < healthy < idle_up < through < live_down < stop < live_up
+    assert calls[idle_down + 1] == "sleep 2" and calls[live_down + 1] == "sleep 2", "reload returns before new workers serve"
+    assert reloads(calls) == ["reload down=5002", "reload down=", "reload down=5000", "reload down="]
+    assert "sleep 6" not in calls, "the boot port took no request, so no fail_timeout wait (B-664)"
+    assert " down" not in dsb["upstream"].read_text(), "no port is left down"
+    assert containers(dsb) == {"padelapp": "5002"}
+
+
+def test_without_the_host_step_the_swap_is_exactly_as_before(dsb, sb):
+    live(dsb, "padelapp", 5000)
+    r, calls = run(dsb, "--drain", "--probe-host", "levapp.app", NGINX_DRAIN_CMD="false")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.count("swapping without the drain, as before (B-663)") == 1
+    assert not reloads(calls) and "nginx -t" not in calls
+    assert calls.index("sleep 6") < index(calls, "docker stop -t 10 padelapp"), "B-664's wait is back"
+
+
+def test_a_failed_probe_through_nginx_leaves_both_ports_up_and_the_old_one_serving(dsb):
+    live(dsb, "padelapp", 5000)
+    r, calls = run(dsb, "--drain", "--probe-host", "levapp.app", STUB_NGINX_CODE="502", PROBE_TRIES="2")
+    assert r.returncode == 1
+    assert not any(c.startswith("docker stop") for c in calls)
+    assert "reload down=5000" not in calls, "the old port never left the rotation"
+    assert reloads(calls)[-1] == "reload down="
+    assert " down" not in dsb["upstream"].read_text()
+    assert containers(dsb) == {"padelapp": "5000"}
+
+
+def test_an_unhealthy_new_container_leaves_no_port_down(dsb):
+    live(dsb, "padelapp", 5000)
+    r, calls = run(dsb, "--drain", STUB_NEW_IS_HEALTHY="0")
+    assert r.returncode == 1
+    assert reloads(calls) == ["reload down=5002", "reload down="]
+    assert " down" not in dsb["upstream"].read_text()
+    assert containers(dsb) == {"padelapp": "5000"}
+
+
+def test_a_down_left_by_a_killed_run_is_cleared(dsb):
+    dsb["upstream"].write_text(dsb["upstream"].read_text().replace("5000 max_fails=1 fail_timeout=5s;",
+                                                                   "5000 max_fails=1 fail_timeout=5s down;"))
+    live(dsb, "padelapp", 5000)
+    r, calls = run(dsb, "--drain")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert reloads(calls)[0] == "reload down=5002", "the live port is put back up in the same reload"
+
+
+def test_with_two_copies_the_second_copy_stops_and_boots_out_of_rotation(dsb):
+    live(dsb, "padelapp", 5000)
+    live(dsb, "padelapp_b", 5002)
+    r, calls = run(dsb, "--drain", "--copies", "2")
+    assert r.returncode == 0, r.stdout + r.stderr
+    idle_down = calls.index("reload down=5002")
+    assert idle_down < index(calls, "docker stop -t 10 padelapp_b") < index(calls, "docker run -d --name padelapp_next")
+    stop_old = calls.index("docker stop -t 10 padelapp")
+    boot_b = index(calls, "docker run -d --name padelapp_b")
+    up_again = len(calls) - 1 - calls[::-1].index("reload down=")
+    assert calls.index("reload down=5000") < stop_old < boot_b < up_again
+    assert not any(c == "reload down=" for c in calls[stop_old:boot_b]), "the freed port stays down until _b answers"
+    assert " down" not in dsb["upstream"].read_text()
+    assert containers(dsb) == {"padelapp": "5002", "padelapp_b": "5000"}
+
+
+def test_a_drain_dry_run_prints_the_reloads_and_changes_nothing(dsb):
+    live(dsb, "padelapp", 5000)
+    r, calls = run(dsb, "--drain", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "levapp_api 5002=down 5000=up" in r.stderr and "levapp_api 5000=down" in r.stderr
+    assert not reloads(calls)
+
+
+# The helper on its own: only the named block's lines, only an allowed file, put back on refusal.
+
+SHARED = ("upstream levapp_api {\n    server 127.0.0.1:5000 max_fails=1 fail_timeout=5s;\n"
+          "    server 127.0.0.1:5002 max_fails=1 fail_timeout=5s;\n}\n\n"
+          "upstream levapp_api_staging {\n    server 127.0.0.1:5100 max_fails=1 fail_timeout=5s;\n"
+          "    server 127.0.0.1:5102 max_fails=1 fail_timeout=5s;\n}\n")
+
+
+def helper(dsb, *args, **env):
+    return subprocess.run([str(HELPER), *args], env={**dsb["env"], **env}, capture_output=True, text=True, timeout=30)
+
+
+def test_the_helper_edits_only_the_named_upstream(dsb):
+    dsb["upstream"].write_text(SHARED)
+    assert helper(dsb, str(dsb["upstream"]), "levapp_api_staging", "5102=down").returncode == 0
+    text = dsb["upstream"].read_text()
+    assert "server 127.0.0.1:5102 max_fails=1 fail_timeout=5s down;" in text
+    assert text.replace(" down;", ";") == SHARED, "nothing else changed, prod's block included"
+    assert helper(dsb, str(dsb["upstream"]), "levapp_api_staging", "5102=down").returncode == 0
+    assert dsb["upstream"].read_text().count(" down;") == 1, "idempotent"
+    assert helper(dsb, str(dsb["upstream"]), "levapp_api_staging", "5102=up", "5100=up").returncode == 0
+    assert dsb["upstream"].read_text() == SHARED
+
+
+def test_the_helper_puts_the_file_back_when_nginx_refuses_it(dsb):
+    dsb["upstream"].write_text(SHARED)
+    r = helper(dsb, str(dsb["upstream"]), "levapp_api", "5000=down", STUB_NGINX_T_FAIL="1")
+    assert r.returncode == 1 and "restored" in r.stderr
+    assert dsb["upstream"].read_text() == SHARED
+
+
+@pytest.mark.parametrize("args", [
+    ("/etc/passwd", "levapp_api", "5000=down"),
+    ("{dir}/../levapp-api-upstream.conf", "levapp_api", "5000=down"),
+    ("{dir}/other.conf", "levapp_api", "5000=down"),
+    ("{conf}", "levapp_api; evil", "5000=down"),
+    ("{conf}", "levapp_api", "5000=drop"),
+    ("{conf}", "nope", "5000=down"),
+])
+def test_the_helper_refuses_anything_else(dsb, tmp_path, args):
+    dsb["upstream"].write_text(SHARED)
+    (tmp_path / "other.conf").write_text(SHARED)
+    args = [a.format(dir=tmp_path, conf=dsb["upstream"]) for a in args]
+    r = helper(dsb, *args)
+    assert r.returncode == 2, r.stderr
+    assert dsb["upstream"].read_text() == SHARED
+
+
+def test_the_helper_ignores_the_test_directory_as_root():
+    text = HELPER.read_text()
+    assert '[ "$(id -u)" != 0 ] && [ -n "${LEVAPP_UPSTREAM_DIR:-}" ] && dir="$LEVAPP_UPSTREAM_DIR"' in text
+    assert "dir=/etc/nginx/conf.d" in text

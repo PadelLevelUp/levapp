@@ -3,10 +3,12 @@ id: B-663
 title: "A rolling swap has two seconds-wide windows where docker-proxy accepts and then resets a request; nginx retries a GET, a POST would be a 502"
 type: incomplete-rule
 severity: medium
-status: open
+status: triaged
 affects:
   - backend/scripts/rollout.sh
   - .specflow/specs/delivery/zero-downtime-deploy.spec.md
+  - infra/nginx/levapp-upstream-port
+  - .github/workflows/deploy-staging.yaml
 proposed_fix: "PAD-714: rollout.sh marks a port `down` in the upstream and reloads nginx around both edges (idle port until healthy, old port before `docker stop`); alternative for the boot edge only: Docker `userland-proxy: false`."
 opened: 2026-10-21T20:55:00Z
 ---
@@ -35,3 +37,21 @@ listens" with this caveat.
 tonight. A seconds-wide window for non-idempotent requests is strictly better than the full
 stop-first outage every deploy had before B-662; the promotion PR carries it as known small print.
 Rejected: `proxy_next_upstream ... non_idempotent` (in the stop window a POST may already have run).
+
+### Fix in the repo (PAD-714), waiting on the owner's host step
+- `rollout.sh --drain` (rule 16): the idle port goes down before the second copy stops or
+  `<name>_next` boots on it, and up once that container is healthy. The old port goes down before
+  `docker stop` and back up afterwards. Each reload is followed by 2 s, and no port is left down on
+  any exit. B-664's wait is skipped under the drain.
+- How the edits happen: the deploy user runs a root-owned helper, `infra/nginx/levapp-upstream-port`
+  (one `sudo -n` line). That's narrower than write access to the upstream file: the helper edits only
+  the named ports in one block of a `conf.d/levapp-*-upstream.conf`, and restores the file when nginx
+  refuses it.
+- Without the host step, `--check` fails, the run logs one line and swaps as before. Only
+  deploy-staging passes `--drain`, so there's no prod change.
+- Tests: `test_pad588_rollout.py`, with a stub nginx and the real helper.
+- B-664 covered only nginx's view of the new port. Nothing took the old port out of rotation before
+  `docker stop`, so the stop edge was open until this fix.
+- Still open: the owner's host step (in the PAD-714 handoff), then the staging POST probe
+  (criterion "No POST meets a reset across a real deploy"). Resolve this entry after that
+  measurement.

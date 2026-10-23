@@ -56,9 +56,9 @@ test("US-65: notification activity or recent activity section is visible", async
 });
 
 // B-030 / dashboard.blocks rule 3c: "Later" on an empty-seats card is a real
-// action. The seed's "E2E Academy Class" (1 of 6 seats) is under capacity, so
-// the coach's queue carries at least one such card whenever it falls inside
-// the 7-day window.
+// action. The queue covers this week only (PAD-740, rule 3): the seed's
+// under-capacity "E2E Pending Confirm Class" (tomorrow) keeps a card on it every
+// weekday but Saturday, when nothing is left in the week.
 test("B-030: Later removes an empty-seats card from the needs-you queue", async ({ page }) => {
   const queue = page.getByTestId("dashboard-needs-you");
   await expect(queue).toBeVisible({ timeout: 5000 });
@@ -66,7 +66,7 @@ test("B-030: Later removes an empty-seats card from the needs-you queue", async 
   const cards = queue.locator('[data-testid^="needs-you-empty-seats-"]');
   const before = await cards.count();
   if (before === 0) {
-    test.skip(true, "No under-capacity class in the next 7 days — nothing to snooze");
+    test.skip(true, "No under-capacity class left this week (rule 3, PAD-740) — nothing to snooze");
     return;
   }
 
