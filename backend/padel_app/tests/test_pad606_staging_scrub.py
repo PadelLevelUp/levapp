@@ -143,7 +143,7 @@ def test_every_text_column_is_scrubbed_or_declared_non_personal():
 
 # Tables the scrub empties instead of rewriting: their scrubbed columns are covered by the DELETE.
 EMPTIED_TABLES = ("push_subscriptions", "device_tokens", "auth_rate_limit_hits", "realtime_events",
-                  "push_outbox")
+                  "push_outbox", "push_receipt")
 
 
 def test_every_listed_column_is_actually_written_by_the_sql():

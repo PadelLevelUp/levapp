@@ -302,6 +302,16 @@
           "push_registration_failed": "Push registration failed"
         }
       },
+      "receipts": {
+        "title": "Push receipts (Apple and Google)",
+        "hint": "Whether Apple or Google took each push Expo accepted. Errors by code are for the last 7 days.",
+        "status": {
+          "ok": "Delivered to Apple or Google",
+          "error": "Refused",
+          "expired": "No answer in 24 h",
+          "pending": "Waiting"
+        }
+      },
       "push": {
         "title": "Push reach (students active in 7 days)",
         "active": "Active students",

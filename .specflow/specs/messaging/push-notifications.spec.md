@@ -195,6 +195,30 @@ Send browser push notifications when a new message arrives and the recipient isn
      no VAPID keys), so every staging row ends `skipped`. The staging week proves enqueue, claim,
      the status transitions, one send per row across drainers, and kill/restart. It does not prove
      a real provider send: prod's flip (after B8) is the first real one.
+10b. **Expo receipts are read (PAD-745; numbering unconfirmed).** `/push/send` answers a *ticket*
+   per message: `ok` only means Expo took it. Whether Apple or Google then took it is a *receipt*,
+   read later from `/push/getReceipts` by the ticket's id. Before PAD-745 the ids were dropped, so a
+   push Apple refused (`InvalidCredentials`, a wrong `aps-environment`) looked sent (PAD-118, PAD-741).
+   - **Kept at send, on both paths:** every `ok` ticket becomes one `push_receipt` row (ticket id,
+     token, user, outbox row when there is one, `pending`). It is written by the shared Expo send,
+     so the in-memory path (rule 10, prod until B8) and the outbox (rule 10a) both keep it. The
+     write is one insert per `/push/send` batch, on its own short transaction, never the caller's
+     session, and a failure to write it is logged by class and never fails the send.
+   - **Read by the scheduler leader every 10 minutes** (`read_push_receipts`), for `pending` rows
+     sent 15 minutes to 24 hours ago, at most 1000 ids per call, with rule 11c's headers:
+     - receipt `ok`: the row is `ok`;
+     - `DeviceNotRegistered`: the row is `error`, and every `device_tokens` row holding that token
+       is deleted (as rule 9 does at send);
+     - any other code: the row is `error` with the code, and one `push_failed` incident (channel
+       `expo`, detail `receipt error=<code>`) is recorded. A row is redeemed once, so one receipt
+       makes at most one incident;
+     - no receipt yet: the row stays `pending`; once it was sent more than 24 hours ago (Expo
+       keeps receipts 24 hours), it is `expired`.
+     - A failed call (HTTP, timeout, bad JSON) changes nothing; the next run asks again.
+   - **Logs:** at send, one INFO line `expo push sent user=<id> tickets=<n>`; per read, one INFO
+     line with the counts (`ok`, `error` by code, `expired`). Never a whole token, never the text.
+   - **Kept 30 days**, deleted by the daily `prune_delivery_incidents` job, as incidents are.
+   - Staging sends nothing (`EXPO_PUSH_DISABLED`), so it keeps no rows: prod is the first real run.
 11. **Android delivery is prepared on the Expo payload, without Firebase in the repo (PAD-307,
    Android wave C prep).** Expo push tokens are platform-neutral: the
    Expo push service delivers to Android over FCM once the project holds a `google-services.json`
@@ -313,7 +337,7 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Given** a send answering retry **Then** the row is pending again, due 5 s × 2^attempts later;
   after 6 attempts it is `dead`, with a `push_failed` incident "outbox dead after 6 attempts"
 - **Given** a terminal row **Then** its message is null
-- **Given** Expo receipts ok + MessageRateExceeded **Then** sent; DeviceNotRegistered only **Then**
+- **Given** Expo tickets ok + MessageRateExceeded **Then** sent; DeviceNotRegistered only **Then**
   skip; MessageRateExceeded only, or a connection error **Then** retry. Web push 404/410 **Then**
   skip; 429/5xx **Then** retry
 
@@ -321,6 +345,26 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Given** `PUSH_QUEUE=outbox` and an action in a unit of work that raises **Then** no row exists;
   committed, one row, holding no token
 - **Given** a stopping drainer with claimed, unsent rows **Then** they are back to pending, unclaimed
+
+#### Expo receipts are read (rule 10b)
+- **Given** a send whose ticket is `ok` with id `T1` for user 7 **Then** one `push_receipt` row
+  `T1`, user 7, `pending` exists, and still only one HTTP call was made by the send
+- **Given** an outbox row 42 sent with an `ok` ticket **Then** its receipt row names outbox row 42
+- **Given** a ticket `error` (DeviceNotRegistered) **Then** no receipt row is kept for it
+- **Given** writing the receipt row fails **Then** the send still answers `sent`
+- **Given** a `pending` row sent 20 minutes ago and a receipt `ok` **When** `read_push_receipts`
+  runs **Then** the row is `ok` and no incident is recorded
+- **Given** a receipt `DeviceNotRegistered` **When** it runs **Then** the row is `error` and every
+  device token row holding that token is gone
+- **Given** a receipt `InvalidCredentials` **When** it runs twice **Then** the row is `error` with
+  that code and exactly one `push_failed` incident (channel `expo`) exists
+- **Given** a row sent 5 minutes ago **When** it runs **Then** its id is not asked for
+- **Given** no receipt for a row sent 25 hours ago **When** it runs **Then** the row is `expired`;
+  sent 2 hours ago, it stays `pending`
+- **Given** 1500 pending rows **When** it runs **Then** it asks in two calls, of 1000 and 500 ids
+- **Given** `/push/getReceipts` answers 503 **When** it runs **Then** every row is unchanged
+- **Given** receipt rows 31 and 29 days old **When** the daily prune runs **Then** only the 31-day
+  row is deleted
 
 #### Granting permission from the banner registers the phone (PAD-744)
 - **Given** a signed-in student on a physical iPhone whose notification permission was never asked,

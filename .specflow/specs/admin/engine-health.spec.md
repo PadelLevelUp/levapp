@@ -50,10 +50,13 @@ database query or a log search, and failed sends are only in the logs.
      `roundNumber`.
    - `scheduler`: count of jobs in the job store by id family (`reminder_lesson_*`,
      `invite_start_*`, `pastdue_*`, the fixed singletons `process_batches`,
-     `extend_schedule_window`, `prune_delivery_incidents`, `retention_sweep` since PAD-638, `finance_gcp_import` since PAD-742), the count whose `next_run_time` is
+     `extend_schedule_window`, `prune_delivery_incidents`, `retention_sweep` since PAD-638, `finance_gcp_import` since PAD-742, `read_push_receipts` since PAD-745), the count whose `next_run_time` is
      more than 5 minutes in the past (overdue), and whether each fixed singleton exists.
    - `incidents`: counts of `delivery_incidents` by `kind` for the last 24 hours and the last
      7 days, with the 20 most recent rows.
+   - `pushReceipts` (PAD-745, `messaging.push-notifications` rule 10b): Expo tickets kept, for the
+     last 24 hours and 7 days, by status (`pending`, `ok`: Apple or Google took it, `error`,
+     `expired`) and the errors by Expo code.
    - `accounts`: users by `status` (`inactive`/`active`/`disabled`), coaches by
      `approval_status`, players, and accounts created in the last 7 days.
    - `push`: the push reach of active students and the failed registrations (rule 8).
@@ -163,6 +166,11 @@ database query or a log search, and failed sends are only in the logs.
 - **Given** incidents created 31 and 29 days ago (pinned clock)
 - **When** `prune_delivery_incidents` runs
 - **Then** only the 29-day-old row remains
+
+#### Push receipts are counted (rule 2)
+- **Given** receipt rows from the last hour: two `ok`, one `error` `InvalidCredentials`, one `pending`; and one `ok` from 3 days ago
+- **When** the summary is read
+- **Then** `pushReceipts.last24h` is `ok` 2, `error` 1, `pending` 1, `expired` 0, `errorsByCode` `{InvalidCredentials: 1}`, and `last7d.ok` is 3
 
 #### Deploy identity for both environments (rules 4, 5)
 - **Given** a backend started with `GIT_SHA=abc1234` and an other-environment `/admin/api/deploy-identity` stub answering `{gitSha: "def5678", alembicHead: "x1"}`, then a stub that times out

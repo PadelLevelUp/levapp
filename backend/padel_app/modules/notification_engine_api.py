@@ -9,7 +9,7 @@ from padel_app.modules.frontend_api import (
     coach_owns_lesson,
     require_superadmin,
 )
-from padel_app.utils.dates import club_now_naive, utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
 from padel_app.services.lesson_service import get_or_materialize_instance
 from padel_app.services.notification_service import (
     withdraw_invitation,
@@ -907,9 +907,13 @@ def debug_schedule_reminder_test():
     if not coach or not student1 or not student2 or not club:
         abort(500, "Seed data incomplete")
 
-    # PAD-256: a class time is Lisbon wall-clock (R-023), so build it on the
-    # club's clock; the 48 h reminder then fires `seconds_until_fire` from now.
-    class_start = club_now_naive() + timedelta(hours=48, seconds=seconds_until_fire)
+    # PAD-256: a class time is Lisbon wall-clock (R-023). The engine counts the
+    # 48 h back in real hours (scheduler._fire_time_utc), so add them to the real
+    # clock and store the result on the club's clock: the reminder then fires
+    # `seconds_until_fire` from now even when the 48 h cross a daylight-saving
+    # change. Adding them to the wall clock fired it an hour late or early (PAD-750).
+    class_start = utc_to_wall_naive(
+        utcnow_naive() + timedelta(hours=48, seconds=seconds_until_fire))
     class_end = class_start + timedelta(hours=1)
 
     lesson = Lesson(
