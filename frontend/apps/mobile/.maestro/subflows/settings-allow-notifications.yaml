@@ -1,0 +1,56 @@
+# In iOS Settings (opened by Linking.openSettings), switch LevApp's notifications on. Used by 307
+# (PAD-744). Settings is another app, so this subflow names its bundle id. On the pinned simulator
+# (iOS 26.5) openSettings lands on the Settings root, not on the app's page, so walk Apps → LevApp
+# when the app's page is not already open.
+appId: com.apple.Preferences
+---
+- extendedWaitUntil:
+    visible:
+      text: "Notifications|Apps|General"
+    timeout: 20000
+- runFlow:
+    when:
+      notVisible:
+        text: "Notifications"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Apps"
+          direction: DOWN
+          timeout: 20000
+      - tapOn:
+          text: "Apps"
+      # Centred: a row under the floating "Search Apps" bar counts as visible, and the tap lands on
+      # the bar.
+      - scrollUntilVisible:
+          element:
+            text: "LevApp"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
+      - tapOn:
+          text: "LevApp"
+      - extendedWaitUntil:
+          visible:
+            text: "Allow LevApp to Access"
+          timeout: 15000
+      # The app's page lists every privacy row first; Notifications sits below the fold.
+      - scrollUntilVisible:
+          element:
+            text: "Notifications"
+          direction: DOWN
+          timeout: 20000
+          centerElement: true
+- tapOn:
+    text: "Notifications"
+- extendedWaitUntil:
+    visible:
+      text: "Allow Notifications"
+    timeout: 15000
+- takeScreenshot: screenshots/pad744-2-settings-notifications
+# The row's text element is only the label (ALLOW_NOTIFICATIONS_ID, the left half); a tap there does
+# not flip the switch. Tap the switch at the row's right end.
+- tapOn:
+    point: "84%, 18%"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/pad744-2b-settings-allowed

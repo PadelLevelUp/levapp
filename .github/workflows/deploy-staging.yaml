@@ -365,12 +365,12 @@ jobs:
         {
           echo "### Staging DB sync: exit ${code:-unknown}"
           echo '```'
-          printf '%s\n' "$SYNC_LOG" | grep -E 'SKIPPED|restor|scrub|wip|NOT starting|ERROR' || echo "(no sync lines captured)"
+          printf '%s\n' "$SYNC_LOG" | grep -E 'SKIPPED|restor|migrat|scrub|wip|NOT starting|ERROR' || echo "(no sync lines captured)"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
         case "$code" in
           0) echo "sync ok (skipped, or restored and scrubbed)" ;;
-          3) echo "::error::the scrub failed after a restore; staging was wiped and comes up empty"; exit 3 ;;
+          3) echo "::error::the migrate step or the scrub failed after a restore; staging was wiped and comes up empty"; exit 3 ;;
           4) echo "::error::the scrub and the wipe failed; staging may hold unscrubbed data and was left stopped"; exit 4 ;;
           *) echo "::error::no SYNC_EXIT line from the sync (ssh or script failure); check the log"; exit 1 ;;
         esac

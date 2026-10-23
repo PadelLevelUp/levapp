@@ -14,7 +14,8 @@
         "engineHealth": "Saúde do motor",
         "reports": "Denúncias",
         "deletionAudits": "Eliminações",
-        "work": "Trabalho"
+        "work": "Trabalho",
+        "finance": "Financeiro"
       },
       "signOut": "Terminar sessão",
       "role": {
@@ -297,8 +298,17 @@
         "kind": {
           "email_failed": "Email falhou",
           "push_failed": "Notificação falhou",
-          "reminder_skipped_past_due": "Lembrete saltado (fora de horas)"
+          "reminder_skipped_past_due": "Lembrete saltado (fora de horas)",
+          "push_registration_failed": "Registo de push falhado"
         }
+      },
+      "push": {
+        "title": "Alcance do push (alunos ativos em 7 dias)",
+        "active": "Alunos ativos",
+        "noChannel": "Sem canal de push",
+        "webPushOnly": "Só web push",
+        "native": "Com token no telemóvel",
+        "failures7d": "Registos falhados, 7 dias"
       },
       "accounts": {
         "title": "Contas",
@@ -505,6 +515,103 @@
         "testflight": "TestFlight",
         "bugs": "Registo de bugs",
         "ci": "CI"
+      }
+    },
+    "finance": {
+      "title": "Financeiro",
+      "lead": "Todos os custos da LevApp, por mês e por categoria.",
+      "notAllowed": "Só o perfil owner vê esta página.",
+      "tabs": {
+        "summary": "Resumo",
+        "costs": "Custos",
+        "gcp": "Google Cloud"
+      },
+      "categories": {
+        "infrastructure": "Infraestrutura",
+        "ai_tools": "IA e ferramentas",
+        "stores": "Lojas",
+        "domains_dns": "Domínios e DNS",
+        "email_crm": "Email e CRM",
+        "other": "Outros"
+      },
+      "recurrences": {
+        "once": "Único",
+        "monthly": "Mensal",
+        "annual": "Anual"
+      },
+      "columns": {
+        "month": "Mês",
+        "total": "Total",
+        "cumulative": "Acumulado",
+        "vendor": "Fornecedor",
+        "description": "Descrição",
+        "amount": "Valor",
+        "amountEur": "Valor (EUR)",
+        "currency": "Moeda",
+        "recurrence": "Periodicidade",
+        "startsOn": "Início",
+        "endsOn": "Fim",
+        "category": "Categoria",
+        "notes": "Notas",
+        "project": "Projeto",
+        "service": "Serviço",
+        "cost": "Custo",
+        "credits": "Créditos",
+        "net": "Líquido",
+        "trigger": "Origem",
+        "actor": "Quem",
+        "started": "Início",
+        "outcome": "Resultado",
+        "rows": "Linhas",
+        "error": "Erro"
+      },
+      "summary": {
+        "empty": "Ainda não há custos.",
+        "download": "Descarregar CSV",
+        "chart": "Custos por mês e por categoria",
+        "superseded": "{{count}} fatura(s) do Google Cloud introduzidas à mão foram substituídas pelos valores importados."
+      },
+      "banner": {
+        "error": "A importação do Google Cloud falhou ({{code}}). Última importação boa: {{date}}.",
+        "stale": "A importação do Google Cloud está parada. Última importação boa: {{date}}.",
+        "never": "nunca",
+        "notConfigured": "A importação do Google Cloud não está configurada; os meses do Google Cloud entram à mão."
+      },
+      "costs": {
+        "add": "Novo custo",
+        "edit": "Editar",
+        "delete": "Apagar",
+        "confirmDelete": "Apagar este custo? Deixa de contar nos totais; o histórico fica.",
+        "showDeleted": "Mostrar apagados",
+        "deleted": "Apagado",
+        "all": "Todas",
+        "empty": "Sem custos.",
+        "history": "Histórico",
+        "save": "Guardar",
+        "gcpInvoice": "Fatura do Google Cloud (mês antes da importação)",
+        "revision": "Versão {{n}}"
+      },
+      "errors": {
+        "INVALID_COST": "Verifique o campo: {{field}}.",
+        "GCP_MONTH_IMPORTED": "Esse mês já tem os valores importados do Google Cloud.",
+        "IMPORT_RUNNING": "Já há uma importação a correr.",
+        "generic": "Não foi possível guardar."
+      },
+      "gcp": {
+        "month": "Mês",
+        "importNow": "Importar agora",
+        "runs": "Importações recentes",
+        "empty": "Sem linhas importadas para este mês.",
+        "trigger": {
+          "schedule": "Diária",
+          "manual": "Manual"
+        },
+        "outcome": {
+          "running": "A correr",
+          "ok": "OK",
+          "error": "Erro",
+          "not_configured": "Não configurada"
+        }
       }
     }
   }

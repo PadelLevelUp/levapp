@@ -27,6 +27,8 @@ SSE_MAX_STREAMS                   prod    default  40 (staging's template raises
 SSE_MAX_STREAMS_PER_USER          all     default  4
 SSE_KEEPALIVE_SECONDS             all     default  5
 PUSH_QUEUE_MAX                    all     default  500
+PUSH_QUEUE                        prod    default  memory (staging's template sets outbox; prod after B8)
+PUSH_OUTBOX_POLL_SECONDS          all     default  1
 REALTIME_EVENTS_RETENTION_MINUTES all     default  10
 SCHEDULER_LEADERSHIP              all     default  on
 WORKER_WAKE_SECONDS               all     default  5 (delivery.worker-role rule 2)
@@ -38,6 +40,8 @@ OPENROUTER_REASONING_ENABLED      all     default  true
 ADMIN_PEER_URL                    all     off      the staff console's peer link is unset in every deploy today
 ADMIN_PEER_TOKEN                  all     off      as ADMIN_PEER_URL
 ADMIN_PEER_INBOUND_TOKEN          all     off      as ADMIN_PEER_URL
+FINANCE_GCP_MAX_BYTES             all     default  1 GiB per query (admin.finance rule 7)
+FINANCE_GCP_BILLING_TABLE         staging off      the Google Cloud import runs on prod only; staging is "not configured" (admin.finance rule 7)
 OPENAI_API_KEY                    all     off      OpenRouter is the provider; this fallback is unset everywhere
 VAPID_PUBLIC_KEY                  staging off      no web push on staging, today on the VM and so on GKE staging
 VAPID_PRIVATE_KEY                 staging off      as VAPID_PUBLIC_KEY

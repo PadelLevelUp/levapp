@@ -110,6 +110,9 @@ DELETE FROM auth_rate_limit_hits;
 -- scrubbed: realtime_events.body realtime_events.user_ids
 -- PAD-692: an event body is a copy of what the stream sent, message text included.
 DELETE FROM realtime_events;
+-- scrubbed: push_outbox.channel push_outbox.claimed_by push_outbox.last_error push_outbox.payload push_outbox.status
+-- PAD-699: a payload is a push's title and body. A restored prod outbox must never drain from staging.
+DELETE FROM push_outbox;
 
 -- scrubbed: coach_in_player.nickname
 -- PAD-660: the coach's private nickname for a student is as personal as the name.

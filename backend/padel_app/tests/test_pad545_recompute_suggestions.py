@@ -292,9 +292,7 @@ def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monke
     def run(name, fn):
         def go():
             try:
-                with app.app_context(), _patched_io(), \
-                        _patch("padel_app.services.notification_service.publish"), \
-                        _patch("padel_app.services.notification_service.send_push_notification"):
+                with app.app_context():
                     out[name] = fn()
                     db.session.remove()
             except BaseException as exc:  # noqa: BLE001
@@ -305,10 +303,15 @@ def test_a_yes_on_the_old_bundle_racing_a_recompute_lands_on_one_side(app, monke
         run("yes", lambda: ras.respond_to_approval(old["bundleId"], "yes_now", coach_id)),
         run("recompute", lambda: ras.recompute_suggestions(instance_id, coach_id, now=now)),
     ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=60)
+    # B-669: patched once, on the main thread; per-thread patch() of the same attributes, left out of
+    # order, leaves one thread's MagicMock in place for the rest of the process.
+    with _patched_io(), \
+            _patch("padel_app.services.notification_service.publish"), \
+            _patch("padel_app.services.notification_service.send_push_notification"):
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
     assert not any(t.is_alive() for t in threads), "a caller never finished (deadlock?)"
     assert not errors, errors
 

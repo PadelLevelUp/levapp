@@ -33,6 +33,12 @@ def send_push_notification(user_id, title, body, url="/"):
     if not vapid_public_key or not vapid_private_key or not vapid_claims_email:
         logger.warning("VAPID env vars are not configured; skipping push notification")
         return False
+    from padel_app.utils import push_outbox
+
+    # PAD-699 (rule 10a): a row in the outbox; the drainer looks the subscription and VAPID up again
+    # when it sends, so neither the endpoint nor the key is stored.
+    if push_outbox.enabled():
+        return push_outbox.enqueue("webpush", user_id, {"title": title, "body": body, "url": url})
     payload = json.dumps({
         "title": title,
         "body": body,
@@ -61,6 +67,15 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
                       vapid_private_key, vapid_claims) -> bool:
     """The HTTP half, on the sender's worker (or inline): send, and on a
     404/410 delete the subscription by id under the worker's own session."""
+    return _deliver_web_push_outcome(user_id, subscription_id, subscription_json, payload,
+                                     vapid_private_key, vapid_claims)[0] == "sent"
+
+
+def _deliver_web_push_outcome(user_id, subscription_id, subscription_json, payload,
+                              vapid_private_key, vapid_claims) -> tuple[str, str | None]:
+    """`_deliver_web_push`, answering `(outcome, detail)` for the push outbox (PAD-699): `sent`; `skip`
+    when the subscription is gone (404/410, which also deletes it); `retry` for anything else (429,
+    5xx, a connection failure). `detail` is the class and status, never the endpoint (B-254)."""
     try:
         webpush(
             subscription_info=json.loads(subscription_json),
@@ -68,7 +83,7 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
             vapid_private_key=vapid_private_key,
             vapid_claims=vapid_claims,
         )
-        return True
+        return "sent", None
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
         # admin.engine-health rule 3 (PAD-534): the status, never the endpoint.
@@ -100,7 +115,9 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
                 "Failed to send push notification for user_id=%s: %s (status=%s)",
                 user_id, type(exc).__name__, status_code,
             )
-        return False
+        if status_code in (404, 410):
+            return "skip", f"status={status_code}"
+        return "retry", f"{type(exc).__name__} status={status_code}"
     except Exception as exc:
         # B-254: the class only; the text can carry the endpoint.
         logger.warning(
@@ -108,4 +125,4 @@ def _deliver_web_push(user_id, subscription_id, subscription_json, payload,
         )
         from padel_app.services import delivery_incidents
         delivery_incidents.record("push_failed", "webpush", user_id=user_id, error=exc)
-        return False
+        return "retry", type(exc).__name__
