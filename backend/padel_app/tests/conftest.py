@@ -288,6 +288,17 @@ def _fresh_signed_url_cache():
     model._reset_signed_url_cache()
 
 
+@pytest.fixture(autouse=True)
+def _no_leftover_drainer_app():
+    """PAD-749: a Drainer records its app in a module global that outlives the test; a later
+    stats line would read that test's deleted SQLite file (no such table: push_outbox)."""
+    from padel_app.utils import push_outbox
+
+    push_outbox._drainer_app = None
+    yield
+    push_outbox._drainer_app = None
+
+
 @pytest.fixture
 def app(postgres_test_database_uri, request):
     with _test_app(postgres_test_database_uri, nodeid=request.node.nodeid) as app:
