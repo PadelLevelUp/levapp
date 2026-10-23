@@ -6,7 +6,7 @@ import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
 import { ScrollTable } from "@/components/ScrollTable";
 import { adminApi, type DeployIdentity, type EngineHealth, type IncidentKind } from "@/lib/api";
 
-const KINDS: IncidentKind[] = ["email_failed", "push_failed", "reminder_skipped_past_due"];
+const KINDS: IncidentKind[] = ["email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed"];
 
 function Stat({ label, value, testId }: { label: string; value: string | number; testId?: string }) {
   return (
@@ -113,6 +113,21 @@ function Summary({ data }: { data: EngineHealth }) {
           {Object.entries(data.accounts.coaches).map(([k, n]) => `${k} ${n}`).join(" · ")}
         </p>
       </Card>
+      {data.push && (
+        <Card className="md:col-span-2" data-testid="admin-eh-push">
+          <h2 className="mb-3 font-semibold">{t("admin.engineHealth.push.title")}</h2>
+          <div className="flex flex-wrap gap-6">
+            <Stat label={t("admin.engineHealth.push.active")} value={data.push.activeStudents7d.total} testId="admin-eh-push-active" />
+            <Stat label={t("admin.engineHealth.push.noChannel")} value={data.push.activeStudents7d.noChannel} testId="admin-eh-push-no-channel" />
+            <Stat label={t("admin.engineHealth.push.webPushOnly")} value={data.push.activeStudents7d.webPushOnly} testId="admin-eh-push-web-only" />
+            <Stat label={t("admin.engineHealth.push.native")} value={data.push.activeStudents7d.nativeOnly + data.push.activeStudents7d.nativeAndWebPush} testId="admin-eh-push-native" />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground" data-testid="admin-eh-push-failures">
+            {t("admin.engineHealth.push.failures7d")}:{" "}
+            {(["ios", "android", "web"] as const).map((p) => `${p} ${data.push!.registrationFailures7d[p]}`).join(" · ")}
+          </p>
+        </Card>
+      )}
       <Card className="md:col-span-2" data-testid="admin-eh-incidents">
         <h2 className="mb-3 font-semibold">{t("admin.engineHealth.incidents.title")}</h2>
         <ScrollTable testId="admin-eh-incidents-table">

@@ -1,9 +1,10 @@
 /**
  * PAD-660 part 2 (players.nickname rule 8) on iOS: the class's waiting list (coach only) prints
  * the coach's display name for the student, in the row and in the edit dialog's header. The
- * resolver is a stand-in mapping one player id (the harness cannot mount react-query hooks).
+ * resolver is the real `useCoachDisplayName` since PAD-406 (a stand-in before), reading a one-student roster.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderNative } from "@/test/render-native";
 
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -25,10 +26,9 @@ vi.mock("@/components/ui/dialog", async () => {
   };
 });
 vi.mock("@/features/players/hooks", () => ({ useCoachPlayers: () => ({ data: [] }) }));
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (id: string | number | null | undefined, real: string | null | undefined) =>
-    String(id) === "5" ? "Jorge chato" : (real ?? ""),
+vi.mock("@levelup/api/src/resources/players", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCoachPlayers: async () => [{ playerId: "5", name: "Jorge Silva", displayName: "Jorge chato" }],
 }));
 
 import { ClassWaitingListSection } from "./class-waiting-list-section";
@@ -45,16 +45,26 @@ const row = {
   expiresOn: null,
 } as never;
 
-const mount = () =>
-  renderNative(
-    <ClassWaitingListSection
-      event={{ model: "ClassInstance", originalId: 1, date: "2026-10-20" }}
-      isRecurring={false}
-      rows={[row]}
-      enrolledIds={[]}
-      onChanged={() => undefined}
-    />
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
+
+const mount = async () => {
+  const n = await renderNative(
+    <QueryClientProvider client={client}>
+      <ClassWaitingListSection
+        event={{ model: "ClassInstance", originalId: 1, date: "2026-10-20" }}
+        isRecurring={false}
+        rows={[row]}
+        enrolledIds={[]}
+        onChanged={() => undefined}
+      />
+    </QueryClientProvider>
   );
+  await n.flush(); // the roster lands
+  return n;
+};
 
 describe("the class waiting list prints the coach's name (PAD-660 rule 8)", () => {
   it("the row shows the nickname, not the real name", async () => {

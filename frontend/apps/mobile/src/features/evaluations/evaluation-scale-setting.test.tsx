@@ -1,10 +1,11 @@
 /**
  * evaluations.scale rules 1 and 8 (PAD-423), iOS twin of the web setting test. settings.explicit-save
- * (PAD-506): a choice is held until the screen's one Save (SectionSaveProbe). The hooks are shimmed
- * (the mobile harness cannot mount react-query: two React copies).
+ * (PAD-506): a choice is held until the screen's one Save (SectionSaveProbe). The hooks are the
+ * real @levelup/hooks since PAD-406 (shimmed before), over a stateful api spy.
  */
 import * as React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderNative } from "@/test/render-native";
 import { SectionSaveProbe } from "@/test/section-save-probe";
 import { UnsavedRegistryProvider, useUnsavedRegistry } from "@/features/settings/unsaved-registry";
@@ -17,10 +18,22 @@ const hooks = vi.hoisted(() => ({
   data: undefined as { scaleMax: number } | undefined,
   mutateAsync: vi.fn(),
 }));
-vi.mock("@levelup/hooks", () => ({
-  useEvaluationScale: () => ({ data: hooks.data, isLoading: false }),
-  useSaveEvaluationScale: () => ({ mutateAsync: hooks.mutateAsync }),
+// `data` is the server's stored scale: a Save that succeeds replaces it, as the real server would,
+// so the refetch the mutation triggers reads back what was saved.
+vi.mock("@levelup/api/src/resources/evaluationScale", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getEvaluationScale: async () => hooks.data,
+  putEvaluationScale: async (body: unknown) => {
+    const saved = await hooks.mutateAsync(body);
+    hooks.data = saved;
+    return saved;
+  },
 }));
+
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+});
 
 import { EvaluationScaleSetting } from "./evaluation-scale-setting";
 
@@ -34,14 +47,19 @@ function Capture() {
   registry = useUnsavedRegistry();
   return null;
 }
-const mount = () =>
-  renderNative(
-    <UnsavedRegistryProvider>
-      <Capture />
-      <EvaluationScaleSetting />
-      <SectionSaveProbe testID="save" />
-    </UnsavedRegistryProvider>,
+const mount = async () => {
+  const n = await renderNative(
+    <QueryClientProvider client={client}>
+      <UnsavedRegistryProvider>
+        <Capture />
+        <EvaluationScaleSetting />
+        <SectionSaveProbe testID="save" />
+      </UnsavedRegistryProvider>
+    </QueryClientProvider>,
   );
+  await n.flush(); // the stored scale lands
+  return n;
+};
 
 describe("Escala de avaliações (iOS)", () => {
   it("shows the server's scale", async () => {

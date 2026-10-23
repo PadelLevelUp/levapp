@@ -3,6 +3,8 @@ import os
 import sys
 from datetime import timedelta
 
+from padel_app.roles import process_role
+
 logger = logging.getLogger(__name__)
 
 # Hosts that are known to hold real (remote) data. Used to fail closed: a
@@ -103,6 +105,10 @@ def assert_safe_migration_target(host, port=None, env=None):
 #: once each tab/app shares one connection (past it, the user's OLDEST stream
 #: is evicted). The keep-alive is how a vanished client is noticed.
 DEFAULT_SSE_MAX_STREAMS = 40
+#: PAD-697 (R6): the events role's streams are greenlets, not API threads, so its cap is
+#: memory-bound; a role-aware default, never an env override, keeps PAD-702's "default is the
+#: deployed value" class intact.
+DEFAULT_SSE_MAX_STREAMS_EVENTS = 1000
 DEFAULT_SSE_MAX_STREAMS_PER_USER = 4
 DEFAULT_SSE_KEEPALIVE_SECONDS = 5
 
@@ -121,8 +127,9 @@ def sse_stream_limits(environ=None):
             return default
         return value if value > 0 else default
 
+    total_default = DEFAULT_SSE_MAX_STREAMS_EVENTS if process_role(environ) == "events" else DEFAULT_SSE_MAX_STREAMS
     return (
-        read("SSE_MAX_STREAMS", DEFAULT_SSE_MAX_STREAMS),
+        read("SSE_MAX_STREAMS", total_default),
         read("SSE_MAX_STREAMS_PER_USER", DEFAULT_SSE_MAX_STREAMS_PER_USER),
     )
 

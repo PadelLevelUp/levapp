@@ -109,14 +109,16 @@ cleanup assertions mean something). Consequences:
   `@testing-library/react-native` is NOT installed. Screens, layout, motion and gestures stay
   Maestro's job. Hooks are driven with `react-test-renderer` as before (its deprecation notice
   is filtered in `src/test/setup.ts`).
-- **`@levelup/hooks` is shimmed, never mounted — the harness contract (PAD-400, owner
-  2026-09-22).** The workspace holds two Reacts (root 18.3.1, mobile 19.1.0) and
-  `@tanstack/react-query` resolves to the root copy, so the real hooks throw `reading
-  'useEffect'` inside `QueryClientProvider` under the harness. A section test `vi.mock`s
-  `@levelup/hooks` with a `useState`/`useEffect` query/mutation stand-in
-  (`src/features/evaluations/competency-manager/competency-manager.test.tsx` is the template).
-  It proves the component, not react-query's cache or invalidation — those stay the web
-  tests' and Maestro's. Unifying React is a post-MVP ticket, not a harness change.
+- **`@levelup/hooks` mounts for real (PAD-406).** The workspace holds one React, 19.1.0 (Expo 54's
+  pin), forced for every package by the root `package.json` `overrides`; `npm ls react` must show
+  no second copy. A section test mocks the API resource module its hooks call (e.g.
+  `vi.mock("@levelup/api/src/resources/evaluationRecords", …)` over `importOriginal`) and renders
+  inside a real `QueryClientProvider` with a fresh `QueryClient` per test (`retry: false`); a
+  refetch is a real `invalidateQueries`. Wrap `rerender`'s element in the provider too — it
+  replaces the root. `src/features/evaluations/competency-manager/competency-manager.test.tsx` is
+  the template, and `src/test/levelup-hooks-real.test.tsx` pins the one-React premise. Shimming
+  `@levelup/hooks` (PAD-400's contract, the two-React era) is no longer the rule; a remaining shim
+  is a conversion to make when the test is next touched, not a pattern to copy.
 - Keep component tests under `src/`, never `app/` — expo-router bundles `app/*.test.tsx` into
   the Metro bundle.
 - `format()` helpers render in **local** time; assert on timezone-less ISO strings

@@ -5,12 +5,14 @@
 # staging. A test keeps this equal to deploy-staging.yaml's `-e` lines, except POSTGRES_PW: the
 # cluster's Postgres gets its own password per environment (GKE_STAGING_POSTGRES_PW, created
 # once by the owner). Prod reads the same JWT_SECRET_KEY and FLASK_SECRET_KEY as the VM, or every
-# user would be signed out at the cutover.
+# user would be signed out at the cutover. STAGING_TEST_PASSWORD (PAD-606) is staging-only: the
+# staging sync hashes it inside the app container for the scrubbed accounts' shared password.
 POSTGRES_PW secret GKE_STAGING_POSTGRES_PW
 FLASK_SECRET_KEY secret STAGING_FLASK_SECRET_KEY
 JWT_SECRET_KEY secret STAGING_JWT_SECRET_KEY
 MAIL_PASSWORD secret MAIL_PASSWORD
 HUBSPOT_PRIVATE_APP_TOKEN secret STAGING_HUBSPOT_PRIVATE_APP_TOKEN
+STAGING_TEST_PASSWORD secret STAGING_TEST_PASSWORD
 GOOGLE_WEB_CLIENT_ID var GOOGLE_WEB_CLIENT_ID_STAGING
 GOOGLE_IOS_CLIENT_ID var GOOGLE_IOS_CLIENT_ID
 APPLE_CLIENT_IDS var APPLE_CLIENT_IDS

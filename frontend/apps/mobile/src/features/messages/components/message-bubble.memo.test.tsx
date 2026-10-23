@@ -5,6 +5,7 @@
  * counting the dev-only `[render] bubble` line the simulator measurement reads.
  */
 import * as React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Message } from "@levelup/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderNative } from "@/test/render-native";
@@ -41,19 +42,8 @@ vi.mock("react-native-reanimated", async () => {
   };
 });
 vi.mock("@/features/notifications/replacement-approval-card", () => ({ ReplacementApprovalCard: () => null }));
-// PAD-577's waiting-list hook reads react-query, which this harness cannot mount (it renders
-// against the app's React copy); the bubble only reads its result, so a static one is enough.
-vi.mock("@levelup/hooks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@levelup/hooks")>()),
-  useInviteWaitingList: () => ({
-    lostToAnother: false,
-    onWaitingList: false,
-    offersJoin: false,
-    busy: false,
-    join: () => undefined,
-    leave: () => undefined,
-  }),
-}));
+// PAD-577's waiting-list hook is the REAL @levelup/hooks since PAD-406: it reads react-query, so every
+// mount sits in a QueryClientProvider (the bubble here is not a lost invitation, so its query is off).
 
 import { MessageBubble } from "./message-bubble";
 
@@ -76,10 +66,15 @@ function Parent({ tick, onReply }: { tick: number; onReply: (m: Message) => void
   );
 }
 
+let client: QueryClient;
+const wrap = (el: React.ReactElement) => React.createElement(QueryClientProvider, { client }, el);
+const mount = (el: React.ReactElement) => renderNative(wrap(el));
+
 describe("MessageBubble is memoised (PAD-592)", () => {
   const g = globalThis as { __DEV__?: boolean };
   let log: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
     g.__DEV__ = true;
     log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
@@ -91,17 +86,17 @@ describe("MessageBubble is memoised (PAD-592)", () => {
 
   it("a parent re-render with the same props does not render the bubble again", async () => {
     const onReply = vi.fn();
-    const n = await renderNative(<Parent tick={1} onReply={onReply} />);
+    const n = await mount(<Parent tick={1} onReply={onReply} />);
     const before = renders();
     expect(before).toBeGreaterThan(0);
-    await n.rerender(<Parent tick={2} onReply={onReply} />);
+    await n.rerender(wrap(<Parent tick={2} onReply={onReply} />));
     expect(renders()).toBe(before);
   });
 
   it("a changed prop still renders it", async () => {
-    const n = await renderNative(<Parent tick={1} onReply={vi.fn()} />);
+    const n = await mount(<Parent tick={1} onReply={vi.fn()} />);
     const before = renders();
-    await n.rerender(<Parent tick={2} onReply={vi.fn()} />);
+    await n.rerender(wrap(<Parent tick={2} onReply={vi.fn()} />));
     expect(renders()).toBe(before + 1);
   });
 });
