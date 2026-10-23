@@ -50,7 +50,7 @@ database query or a log search, and failed sends are only in the logs.
      `roundNumber`.
    - `scheduler`: count of jobs in the job store by id family (`reminder_lesson_*`,
      `invite_start_*`, `pastdue_*`, the fixed singletons `process_batches`,
-     `extend_schedule_window`, `prune_delivery_incidents`, `retention_sweep` since PAD-638), the count whose `next_run_time` is
+     `extend_schedule_window`, `prune_delivery_incidents`, `retention_sweep` since PAD-638, `finance_gcp_import` since PAD-742), the count whose `next_run_time` is
      more than 5 minutes in the past (overdue), and whether each fixed singleton exists.
    - `incidents`: counts of `delivery_incidents` by `kind` for the last 24 hours and the last
      7 days, with the 20 most recent rows.

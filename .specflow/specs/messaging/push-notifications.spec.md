@@ -152,6 +152,49 @@ Send browser push notifications when a new message arrives and the recipient isn
    Under the test configuration the sender runs inline so existing tests stay deterministic;
    `PUSH_SENDER_INLINE` overrides either way. Verdicts, message rows, SSE events and idempotency
    are untouched: only *when* the HTTP call happens changes.
+10a. **The push outbox (PAD-699; `PUSH_QUEUE=outbox`, default `memory`).** Under the flag, rule
+   10's in-memory queue is not used. A push is a row in `push_outbox`.
+   - **What, not where:** the row holds the channel (`expo` | `webpush`), the user and the message
+     (title, body, data or url, badge). Tokens, the web-push subscription and the VAPID key are
+     looked up when it is sent: no endpoint or key is stored, and a device unregistered meanwhile
+     is not sent to.
+   - **Enqueue:** inside an active unit of work the row joins it, so a rolled-back action sends
+     nothing. Outside one, the row is written at once on its own short transaction, never by
+     committing the caller's session. The caller keeps its view-as suppression and its "no
+     device, nothing to send" check.
+   - **One drainer per process holding the scheduler leadership** (the worker with `WORKER_SPLIT`
+     on, the API otherwise), started and stopped with it (idempotently), and stopped before the
+     lock is released. Every second it:
+     1. claims up to 50 due rows in one short transaction (pending rows whose `due_at` has come,
+        and `sending` rows whose 60 s lease ran out), `FOR UPDATE SKIP LOCKED`, marked `sending`
+        with its own id;
+     2. sends each one;
+     3. commits that row's outcome at once, on its own short transaction, and only while it still
+        holds the row.
+   - **Outcomes:**
+     - `sent`: any token accepted; a retry never re-sends to a token that accepted, so a partial
+       failure is `sent`;
+     - `skipped` (terminal, no incident): no destination, channel disabled
+       (`EXPO_PUSH_DISABLED`) or unconfigured (no VAPID), or a dead token or subscription
+       (DeviceNotRegistered, 404/410, which still retire it);
+     - `retry`: 5xx, 429, a timeout or a connection error, backed off 5 s × 2^attempts. After 6
+       attempts the row is `dead`, with a `push_failed` incident whose detail says
+       "outbox dead after 6 attempts".
+   - **Data kept:** a terminal row loses its message.
+   - **At least once:** a row is sent twice only if the process dies between the provider's accept
+     and that row's commit.
+   - **Stop:** finish the row in flight, put the drainer's other claims back to pending, and only
+     then release the lock.
+   - Rule 10's circuit (three sends slower than 8 s pause sending for 60 s) applies to the drainer,
+     with rows waiting instead of being dropped.
+   - The drainer's thread keeps one database connection across its sends: the one exception to
+     rule 10's "no connection held across a push".
+   - **Logs:** the per-minute lines (the worker's, and `realtime.stats_line` in a draining API)
+     carry `outbox_depth` and `oldest_due_age`, with a WARNING over a depth of 200.
+   - **What staging proves:** staging runs the outbox, but it cannot send (`EXPO_PUSH_DISABLED=1`,
+     no VAPID keys), so every staging row ends `skipped`. The staging week proves enqueue, claim,
+     the status transitions, one send per row across drainers, and kill/restart. It does not prove
+     a real provider send: prod's flip (after B8) is the first real one.
 11. **Android delivery is prepared on the Expo payload, without Firebase in the repo (PAD-307,
    Android wave C prep).** Expo push tokens are platform-neutral: the
    Expo push service delivers to Android over FCM once the project holds a `google-services.json`
@@ -256,6 +299,28 @@ Send browser push notifications when a new message arrives and the recipient isn
     - Web's counterpart is `auth.push-subscription` rule 9.
 
 ### Acceptance Criteria
+
+#### The outbox is at least once (rule 10a)
+- **Given** an outbox row claimed by a drainer that then dies before sending **When** a new drainer
+  runs after the 60 s lease **Then** the push is sent once, and a third run sends nothing
+- **Given** a drainer that dies after the provider accepted, before the outcome committed **When** a
+  new drainer runs after the lease **Then** the push is sent once more and never again
+- **Given** a row whose lease another drainer took over **When** the first drainer finishes late
+  **Then** its outcome is not written
+
+#### Outcomes (rule 10a)
+- **Given** a send answering skip **Then** the row is `skipped`, with no retry and no incident
+- **Given** a send answering retry **Then** the row is pending again, due 5 s × 2^attempts later;
+  after 6 attempts it is `dead`, with a `push_failed` incident "outbox dead after 6 attempts"
+- **Given** a terminal row **Then** its message is null
+- **Given** Expo receipts ok + MessageRateExceeded **Then** sent; DeviceNotRegistered only **Then**
+  skip; MessageRateExceeded only, or a connection error **Then** retry. Web push 404/410 **Then**
+  skip; 429/5xx **Then** retry
+
+#### Enqueue (rule 10a)
+- **Given** `PUSH_QUEUE=outbox` and an action in a unit of work that raises **Then** no row exists;
+  committed, one row, holding no token
+- **Given** a stopping drainer with claimed, unsent rows **Then** they are back to pending, unclaimed
 
 #### Granting permission from the banner registers the phone (PAD-744)
 - **Given** a signed-in student on a physical iPhone whose notification permission was never asked,

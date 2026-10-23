@@ -69,15 +69,17 @@ until B8 has proven it.
      `SSE_BROKER=postgres` (PAD-692): the publish is a `realtime_events` row and a NOTIFY that
      the API's listener fans out. A worker under the memory broker logs a WARNING at boot.
    - Pushes produced by jobs go out through the worker's own in-process sender. Pushes produced
-     by requests still go through the API's (lazy, started on the first `submit`) until the
-     PAD-699 outbox replaces both.
+     by requests still go through the API's (lazy, started on the first `submit`). With
+     `PUSH_QUEUE=outbox` (PAD-699, `messaging.push-notifications` rule 10a) both become outbox
+     rows, drained by the scheduler leader; the worker stops its drainer before releasing the
+     lock.
    - The staging sync stops the worker with the API before a restore (it holds connections to
      the target and would run jobs on a half-restored database) and starts it after the API.
 4. **A daily job fires whatever the deploy rhythm (B-667).** Every recurring job of a day or more
    runs at a fixed UTC minute (`CronTrigger`), never `IntervalTrigger(days=…)`: the scheduler
    re-registers its jobs with `replace_existing` on every boot, which put an interval's next run at
    boot + 24 h, so with a deploy a day it never fired. The daily jobs are `extend_schedule_window`
-   02:47, `prune_delivery_incidents` 03:07 and `retention_sweep` 03:17, each with a 6 h misfire
+   02:47, `prune_delivery_incidents` 03:07, `retention_sweep` 03:17 and `finance_gcp_import` 04:07 (admin.finance, PAD-742), each with a 6 h misfire
    grace (a run due while the leader is paused for a lock handover still runs). A boot whose job
    store holds a daily job whose next run is already past (no leader was running at its minute)
    adds one `<id>_catchup` run now. The jobs are idempotent, so a catch-up that races the outgoing

@@ -14,7 +14,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from padel_app import scheduler as sched_mod
 from padel_app.tests.test_pad695_worker_role import boot  # noqa: F401 — the real-init_scheduler fixture
 
-DAILY = ("extend_schedule_window", "prune_delivery_incidents", "retention_sweep")
+DAILY = ("extend_schedule_window", "prune_delivery_incidents", "retention_sweep", "finance_gcp_import")
 
 
 def _next_runs(sched):

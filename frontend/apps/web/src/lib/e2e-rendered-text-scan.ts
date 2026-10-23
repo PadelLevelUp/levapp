@@ -40,6 +40,8 @@ export interface Locales {
 export const SUBJECT_ALLOWLIST: Record<string, string> = {
   "mz:flows/14-student-calendar.yaml":
     "asserts the student's own state word; en is correct because the seeded account is en",
+  "mz:subflows/settings-allow-notifications.yaml":
+    "drives Apple's Settings app (PAD-744): its rows have no testIDs and the copy is iOS's own, not LevApp's; en is the simulator's language",
 };
 
 const SUBJECT_RE = /i18n|language|locale/i;

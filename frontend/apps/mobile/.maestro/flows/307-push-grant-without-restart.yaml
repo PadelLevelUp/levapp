@@ -1,0 +1,61 @@
+# PAD-744 / B-678 — messaging.push-notifications rule 15, "A granted permission registers without a
+# restart". A student who refused notifications opens a thread, taps the blocked banner, allows
+# notifications on the app's page in iOS Settings and comes back: the banner is gone and the thread
+# is still open (a restart would land on the dashboard).
+#
+# Run it through scripts/push-grant-flow.sh, never alone: the wrapper sets the permission to denied
+# first. Maestro 2.6.1 cannot: it leaves notifications out of `all=allow` and does nothing for a
+# notifications-only `permissions:` map, and applesimutils restarts SpringBoard (killing the app) on
+# every notification change, so it can only run before the flow. Not in config.yaml's flowsOrder
+# for that reason, like 47.
+#
+# What Maestro cannot see: a simulator holds no push token, so the registrar ends the grant at
+# `unsupported` and posts nothing (rule 15's last bullet). The registration attempt on the return is
+# the registrar's Metro line "[push] skipping registration: not a physical device" after the
+# restore's "[push] notification permission not granted", with no "[launch]" lines between them;
+# the code before PAD-744 wrote nothing on a return. The banner assertions alone pass on the old code
+# too, since the banner re-reads the permission on return.
+#
+# Not modelled: the never-asked banner and its system dialog. Any launch with the permission
+# undetermined runs the restore registration, which prompts first (rule 9), so that banner is never
+# on screen on iOS; the unit tests cover its tap. Leaves notifications allowed and e2e-student signed
+# in. Flow number 307.
+appId: com.padellevelup.app
+tags:
+  - ios-only
+---
+- runFlow: ../subflows/login-student.yaml
+- tapOn:
+    id: "tab-messages"
+- extendedWaitUntil:
+    visible:
+      id: "conversation-item-1"
+    timeout: 20000
+- tapOn:
+    id: "conversation-item-1"
+- extendedWaitUntil:
+    visible:
+      id: "notifications-banner-enable"
+    timeout: 20000
+- assertVisible:
+    id: "message-input"
+- takeScreenshot: screenshots/pad744-1-denied-blocked-banner
+
+# The blocked banner's tap opens this app's page in Settings (Linking.openSettings).
+- tapOn:
+    id: "notifications-banner-enable"
+- runFlow: ../subflows/settings-allow-notifications.yaml
+
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "message-input"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: "notifications-banner"
+    timeout: 15000
+- assertNotVisible:
+    id: "screen-dashboard"
+- takeScreenshot: screenshots/pad744-3-allowed-no-banner-same-thread
