@@ -95,13 +95,23 @@ reload and a live copy stay available through `workflow_dispatch`.
    content), `admin_roles` and the audit log's actor emails (staff, who sign in to the console with
    Google), ids, timestamps and statuses.
 9a. **(PAD-606) A failed scrub is never a green job.** The script fails closed and says so in its
-   exit code: 0 when it skipped or restored and scrubbed; **3** when the scrub failed after a
-   restore (or its file is missing) and the staging schema was wiped, so staging comes up empty;
+   exit code: 0 when it skipped or restored and scrubbed; **3** when the migrate step (rule 9b) or
+   the scrub failed after a restore (or the scrub file is missing) and the staging schema was
+   wiped, so staging comes up empty;
    **4** when the wipe failed too, so staging may hold unscrubbed data: the app is then left
    stopped. The deploy's `sync-db` job no longer swallows the exit. It writes the sync's restore and
    scrub lines to the job summary and fails on 3 or 4 (or on no exit line at all). It stays
    `continue-on-error`, so the deploy itself does not fail (business rule 6). A scrub's proof is
-   the job's log lines plus read-only counts on staging, never a green deploy alone.
+   the job's log lines plus read-only counts on staging, never a green deploy alone. A failed run
+   records nothing in the state file, so the next `auto` push restores the same dump again.
+9b. **(PAD-606) The scrub meets the image's head, never prod's schema.** The dump carries prod's
+   schema, which is behind staging's head whenever staging has migrations prod does not have yet.
+   The scrub is written, and guarded (rule 12), for the head. So the sync runs the migrate step
+   (PAD-691) on the restored copy **before** the scrub, and the scrub then also covers columns and
+   backfilled rows those migrations add. A migrate step that fails counts as a failed scrub (rule
+   9a: wipe, exit 3); the EXIT trap migrates the wiped schema so staging comes up empty at its
+   head, and a successful run does not migrate twice. (2026-10-23: the first real scrub ran before
+   the migrate step and failed on `push_outbox`, a table prod's head `e532fea8c4d4` did not have.)
 10. **One shared password, never in the repo.** The deploy passes the staging secret
    `STAGING_TEST_PASSWORD` to the staging container; the sync script hashes it inside that
    container (werkzeug, as the app does) before stopping it and hands the hash to the scrub. With
@@ -165,6 +175,27 @@ reload and a live copy stay available through `workflow_dispatch`.
 - **When** the sync script continues
 - **Then** it runs the scrub file in the staging database before the EXIT trap starts the app, and
   a scrub failure wipes the staging schema first (the app then starts on an empty database)
+
+#### The copy is migrated before it is scrubbed (rule 9b)
+- **Given** a restore
+- **When** the sync script continues
+- **Then** the migrate step runs once, after the restore and before the scrub, and the EXIT trap
+  does not run it again
+- **And given** a migrate step that exits 1, **then** the scrub does not run, the schema is wiped,
+  the script exits 3, the state file is unchanged, and the app starts again on the wiped schema
+
+#### A restore behind head is scrubbed after the migrate step (rule 9b)
+- **Given** a Postgres database with a real-looking user and a device token, walked down to
+  `e532fea8c4d4` (prod's head on 2026-10-23, without `push_outbox`)
+- **When** the scrub runs there, **then** it fails on a relation that does not exist and changes
+  nothing
+- **When** the migrate step then brings it to head and the scrub runs, **then** the user's name,
+  email, phone and password are scrubbed and `device_tokens` and `push_outbox` are empty
+
+#### A failed run is retried on the next push (rule 9a)
+- **Given** a state file naming an older dump and a run whose scrub failed (exit 3)
+- **When** the next `auto` push runs the sync
+- **Then** it is not skipped: it restores and scrubs the newer dump and records it
 
 #### A failed scrub fails the sync job (rule 9a)
 - **Given** a restore whose scrub fails
