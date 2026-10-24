@@ -6,7 +6,10 @@ import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
 import { ScrollTable } from "@/components/ScrollTable";
 import { adminApi, type DeployIdentity, type EngineHealth, type IncidentKind, type PushReceiptStatus } from "@/lib/api";
 
-const KINDS: IncidentKind[] = ["email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed"];
+const KINDS: IncidentKind[] = [
+  "email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed",
+  "stream_refused", "push_dropped",
+];
 const RECEIPT_STATUSES: PushReceiptStatus[] = ["ok", "error", "expired", "pending"];
 
 function Stat({ label, value, testId }: { label: string; value: string | number; testId?: string }) {

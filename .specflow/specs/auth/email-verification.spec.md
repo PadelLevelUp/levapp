@@ -63,9 +63,13 @@ own email in Settings.
    is 410 `{"error": "CODE_EXPIRED"}` — the client offers "Send a new code". Whitespace around the
    code is ignored; anything that is not exactly 6 digits is `INVALID_CODE` without consuming an
    attempt.
-6. **Signup sends the first code.** `auth.register` (rule 14) issues and sends the code inside
-   the signup request, best-effort: a transport failure is logged, the account is still created,
-   and the verify screen's "Send a new code" is the recovery. Nothing about the code is returned
+6. **Signup sends the first code.** `auth.register` (rule 14) issues the code, commits it, and
+   sends it best-effort after the commit, off the request thread (PAD-734): a transport failure
+   is logged and recorded on engine health, the code is cleared again (only if it is still the
+   account's code), the account is still created, and the verify screen's "Send a new code" is
+   the recovery. Every SMTP connection carries a timeout, `MAIL_TIMEOUT` (default 10 s), so a
+   silent mail server fails the send instead of holding it. "Send a new code" (rule 4) stays
+   synchronous, because its 503 `MAIL_FAILED` must reach the caller; the timeout bounds it. Nothing about the code is returned
    by the register response.
 7. **The email.** Subject `O teu código LevApp: 123456` / `Your LevApp code: 123456`, in the
    user's `language`. Branded HTML (LevApp mark, the code in large tabular digits, "valid for 15
@@ -214,6 +218,12 @@ own email in Settings.
 - **Then** the response is still 201 and the user is `"pending"` with no code stored
 - **When** the user POSTs `send` while the transport still raises
 - **Then** the response is 503 `MAIL_FAILED`
+
+#### A silent mail server fails the send within the timeout (rule 6, PAD-734)
+- **Given** a mail server that accepts the connection and never sends its greeting, and
+  `MAIL_TIMEOUT` 0.5 s
+- **When** `send_email` is called
+- **Then** it raises within 3 seconds and one `email_failed` incident is recorded
 
 #### Coach-created players are not stopped
 - **Given** a coach creates a player with email `bruno@example.com` and Bruno activates the account

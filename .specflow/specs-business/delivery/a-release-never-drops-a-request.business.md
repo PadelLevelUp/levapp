@@ -44,6 +44,8 @@ the day without choosing a quiet minute.
 ## Success Metrics
 
 - No 502 responses during a staging release, sampled every half second.
+- No 502 for a request that saves something during a staging release, sampled every fifth of a
+  second (PAD-714).
 - No reminder sent twice across a release.
 
 ## Out of Scope

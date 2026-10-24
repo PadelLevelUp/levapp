@@ -140,7 +140,11 @@ export default function ForgotPasswordScreen() {
       } else {
         setCodeError(t("auth.login.networkError"));
       }
-    } finally {
+      // B-089 face C (PAD-717, as PAD-314 in verify-email.tsx): `submitting` is reset only on a
+      // failure. On success it stays true, so the commit that replaces this screen does not also
+      // restyle every code cell (`submitting && "opacity-50"`); on Android, Fabric then moved a
+      // cell's Text into the row while it was still in the cell ("View already has a parent")
+      // and the surface went blank.
       setSubmitting(false);
     }
   };

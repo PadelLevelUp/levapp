@@ -70,7 +70,10 @@ gunicorn's boot path into the leadership thread.
 5. **nginx tries both ports.** `/api` (and the events and register locations) proxy to `upstream
    levapp_api { server 127.0.0.1:5000; server 127.0.0.1:5002; }` with `proxy_next_upstream error
    timeout`. A refused connection is retried on the other port; nginx retries even a POST in that
-   case because no byte of the request reached the dead port.
+   case because no byte of the request reached the dead port. A port with nothing bound refuses
+   (harmless, the steady-state idle port). A published port whose container is booting or stopping
+   does not refuse: docker-proxy accepts, takes the request, then resets it, which nginx retries
+   only for an idempotent method (B-663). Rule 16 keeps requests off such a port.
 6. **The rollout gates itself on the host.** When the host nginx has no `levapp_api` upstream, or
    no enabled vhost proxies to it (the owner has not applied rule 5 yet), the deploy falls back to
    today's stop-then-start on the first port, so merging the workflow can never break a deploy.
@@ -133,9 +136,45 @@ gunicorn's boot path into the leadership thread.
 12. **Expand, then contract.** Because the previous release runs on the new schema during every
    rolling deploy (and after a `rollback_to`): a new column is nullable or has a server default;
    a column or table is dropped or renamed only in a release after the one whose code stopped
-   reading it; anything else ships with `rollout: stop-first`. A warn-only CI guard is PAD-711.
+   reading it; anything else ships with `rollout: stop-first`.
+   - **The guard (PAD-711).** It is warn-only: `migration-heads.yaml`'s `expand/contract (warn only)`
+     job, on PRs into `staging`, with `continue-on-error`, so it is never a red or required check.
+   - **What it reads.** It runs `backend/scripts/check_expand_contract.py` on the revision files the
+     PR adds: the diff of the PR's merge commit against its first parent (`--diff-filter=A`). It
+     reads only each file's `upgrade()`, so the existing chain and every `downgrade()` stay out.
+   - **What it flags**, as `::warning` annotations and job-summary lines that say to use
+     `rollout: stop-first` or split the change across two releases:
+     - `drop_column`, `drop_table`;
+     - a rename (`alter_column(new_column_name=)`, `rename_table`);
+     - `alter_column(type_=)` or `(nullable=False)`;
+     - `add_column` of a `nullable=False` column without `server_default`;
+     - the same as raw SQL in `op.execute`.
+     Calls on a `batch_alter_table` handle count too.
    Because the migrate step now runs while the old container serves, schema changes take a short
    `lock_timeout` and data backfills run in batches outside the schema transaction: PAD-718.
+   - **The session timeouts (PAD-718).** `padel_app.migrate` runs `flask db upgrade` with
+     `LEVAPP_MIGRATE_STEP=1`. Only then, and only on Postgres, `migrations/env.py` sets
+     `lock_timeout` (`MIGRATE_DDL_LOCK_TIMEOUT`, 3 s) and `statement_timeout`
+     (`MIGRATE_STATEMENT_TIMEOUT`, 300 s), inside the upgrade's transaction. A plain
+     `flask db upgrade` (CI, tests, a laptop) sets neither.
+     - Why: while an ALTER waits for its lock, every later query on that table queues behind it,
+       so the lock timeout bounds the API's stall per attempt.
+     - A lock timeout (SQLSTATE 55P03) rolls the whole upgrade back, and env.py exits 75. That is
+       the only code retried: `MIGRATE_ATTEMPTS` (4) attempts in all, 5/10/20 s apart, so traffic
+       flows in the gaps.
+     - Any other failure, a statement timeout included, is final. A final failure fails the
+       migrate step: `rollout.sh` stops before `<name>_next`, and the old container keeps serving
+       (rule 4; in stop-first it is restarted, rule 7).
+     - The step logs the timeouts once at its start, and each wait as it happens.
+   - **The schema transaction holds only DDL.** A data backfill runs in batches outside it,
+     idempotent and re-runnable: the DDL in one revision, the backfill as a batched step or a job.
+     It never becomes one long transaction holding its locks while the old release serves
+     (promotion 11's 13-minute migration).
+   - **Caveat: a revision that commits part-way** (`op.execute("COMMIT")`, `autocommit_block()`,
+     as b3f1c2a7d9e4 and b1c2d3e4f5a6 do for enum `ADD VALUE`) ends the one transaction early. A
+     later timeout then leaves the database at the last committed revision: a complete revision
+     with its `alembic_version` row, never a half-applied one. The next migrate step continues from
+     there. Prefer not to write such revisions.
 13. **The worker follows the API.** (PAD-695, `delivery.worker-role`.) The deploys pass
    `--worker` when their env file sets `WORKER_SPLIT` on. After the API swap succeeds (both
    modes), `rollout.sh` starts `<name>_worker_next` from the same arguments plus
@@ -173,6 +212,28 @@ gunicorn's boot path into the leadership thread.
     reconnects within its jittered back-off (≤ 30 s) and resyncs (messaging.sse-realtime rule 19,
     PAD-616). Each reconnect costs one JWT blocklist query on the handshake. The staging check counts
     that storm and the events container's RSS with 300 streams (delivery.events-role).
+16. **(PAD-714, B-663) The drain: no container boots or stops on a port nginx sends to.**
+    `rollout.sh --drain` (staging passes it; prod does not until staging has measured it) edits the
+    upstream through `NGINX_DRAIN_CMD`, by default `sudo -n /usr/local/sbin/levapp-upstream-port`.
+    That root-owned helper (`infra/nginx/levapp-upstream-port`) sets `down` on named
+    `server 127.0.0.1:<port>` lines of one upstream block in a `/etc/nginx/conf.d/levapp-*-upstream.conf`,
+    runs `nginx -t`, reloads, and restores the file if either fails. In rolling mode, with a live
+    container:
+    - after the migrate step: idle port down and live port up, in one reload (this also clears a
+      `down` that a killed run left);
+    - then the second copy (if any) stops on the idle port, and `<name>_next` boots and turns healthy
+      on it;
+    - idle port up; B-664's fail_timeout wait is skipped (no boot-time request could reach the port,
+      and a reload starts fresh peer state); the probe through nginx runs with both ports up, so a
+      failed probe leaves the old port serving;
+    - live port down, then `docker stop` of the old container;
+    - the freed port goes back up, at once with one copy, or once `<name>_b` is healthy on it.
+    Each reload is followed by `RELOAD_SETTLE` (2 s), because `nginx -s reload` returns before the new
+    workers serve. No port is left down when the script exits, on any path, including HUP, INT and
+    TERM, so a rollback's older `rollout.sh` meets the upstream it knows. When the helper's `--check`
+    fails (the owner's host step not done), the run logs one line and swaps exactly as without
+    `--drain`. A failed edit before the swap does the same; a failed "idle up" removes the new
+    container, and the old one keeps serving.
 
 ### Acceptance Criteria
 
@@ -230,6 +291,22 @@ gunicorn's boot path into the leadership thread.
 - **Given** an upgrade subprocess that exits 0 but leaves the schema behind
 - **When** the migrate step re-reads the schema **Then** it exits 1
 
+#### A blocked lock fails the migrate step and leaves the previous head (rule 12, PAD-718)
+- **Given** a database at revision r1, and another session holding ACCESS SHARE on the table that
+  r2 ALTERs
+- **When** the migrate step runs with a 1 s lock timeout and 2 attempts
+- **Then** each attempt logs `lock_timeout:` and rolls back; the step exits 75 within the bound,
+  logging "giving up; the schema is where it was"; the database is still at r1 without the column
+
+#### A lock released between attempts lets the retry reach head (rule 12, PAD-718)
+- **Given** the same blocked lock, released before the second attempt
+- **When** the migrate step runs **Then** the first attempt times out and the second reaches r2
+
+#### Only the migrate step sets the timeouts (rule 12, PAD-718)
+- **Given** the same blocked lock **When** a plain `flask db upgrade` runs, without
+  `LEVAPP_MIGRATE_STEP` **Then** it waits (no lock_timeout); exit codes other than 75 are never
+  retried; the migrate step logs its timeouts once at its start
+
 #### A stale image never binds a port (rule 10)
 - **Given** a database at an ancestor of the image's head (or empty) and `SCHEMA_GATE=on`
 - **When** `python -m padel_app.schema_state --require not_behind` runs
@@ -277,6 +354,19 @@ gunicorn's boot path into the leadership thread.
 - **Given** `--copies 1` or `--stop-first` **Then** no `padelapp_b` is left; a second copy that never
   answers is removed and the run exits 1 with `padelapp` serving
 
+#### A contract step in an added migration warns, never fails (rule 12, PAD-711)
+- **Given** a PR into `staging` that adds a revision whose `upgrade()` drops a column, drops a table,
+  renames a column or table, changes a type, sets NOT NULL, adds a NOT NULL column without a
+  server default, or does any of those in raw SQL
+- **When** the `expand/contract (warn only)` job runs **Then** each one is a `::warning` on its line
+  and a job-summary line naming `rollout: stop-first` or a two-release split, and the job exit is 0
+
+#### An expand-only migration is silent (rule 12, PAD-711)
+- **Given** an added revision whose `upgrade()` only adds nullable or server-defaulted columns,
+  tables and indexes, and whose `downgrade()` drops them
+- **When** the job runs **Then** it warns nothing, and the summary says the added migrations are
+  expand-only; revisions the PR did not add are never read
+
 #### A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it
 - **When** `rollout.sh` runs
@@ -291,6 +381,39 @@ gunicorn's boot path into the leadership thread.
 - **When** a staging deploy runs while a probe curls `/api/app/healthz` every 0.5 s
 - **Then** no probe answers non-200
 
+#### Each edge happens on a port nginx does not send to (rule 16)
+- **Given** a live `padelapp` on 5000 and the helper available
+- **When** `rollout.sh --drain --probe-host levapp.app` runs **Then** in order: reload with 5002 down;
+  `padelapp_next` runs on 5002 and answers; reload with nothing down; the request through nginx;
+  reload with 5000 down; `docker stop padelapp`; reload with nothing down. Each reload is followed
+  by `sleep 2`, there is no fail_timeout wait, and the upstream ends with no `down`
+
+#### Without the host step, the swap is as before (rule 16)
+- **Given** the helper's `--check` fails **When** `rollout.sh --drain` runs **Then** it logs "swapping
+  without the drain, as before (B-663)" once, reloads nothing, and waits the fail_timeout as B-664
+
+#### A failed swap leaves no port down (rule 16)
+- **Given** `--drain` **When** the new container never answers, or the request through nginx answers
+  5xx **Then** the old container was never stopped, its port never went down, and the upstream ends
+  with no `down`
+
+#### A second copy stops and boots out of rotation (rules 14, 16)
+- **Given** `padelapp` on 5000 and `padelapp_b` on 5002 **When** `rollout.sh --drain --copies 2` runs
+  **Then** 5002 goes down before `padelapp_b` stops, and 5000 stays down from before `padelapp`
+  stops until `padelapp_b` answers on it
+
+#### The helper edits one block of one allowed file (rule 16)
+- **Given** a conf with the `levapp_api` and `levapp_api_staging` blocks **When** the helper marks
+  5102 down in `levapp_api_staging` **Then** only that line changes, and running it again changes
+  nothing; a file outside `conf.d/levapp-*-upstream.conf`, a bad upstream name or state exits 2 and
+  changes nothing; when `nginx -t` refuses, the file is restored and the exit is 1
+
+#### No POST meets a reset across a real deploy (rule 16; owner host step, then staging-measured)
+- **Given** the owner's host step done on the VM
+- **When** a staging deploy runs while a probe POSTs to an unrouted `/api/` path every 0.2 s
+- **Then** no probe answers 5xx, and nginx's error.log for the window has no `reset by peer` and no
+  `prematurely closed` against 5100 or 5102
+
 ### Notes
 - Image-level proof of rules 9-11 is manual: `backend/scripts/smoke_image_schema_gate.sh <image>`
   (Docker + a local Postgres; not CI). Run it after any change to the Dockerfile, the entrypoint
@@ -304,5 +427,14 @@ gunicorn's boot path into the leadership thread.
   (within the `client.query-cache` stale window, or on navigation). A follow-up: on a re-open after
   the first, the hub emits a local `resync` event that both apps' handlers answer by invalidating
   their live queries (web and iOS together, R-024). Out of PAD-588's scope: PAD-616.
+- PAD-714: the drain makes four nginx reloads per API deploy (five with two copies); deploys made
+  none before. nginx.conf sets no `worker_shutdown_timeout`, and the SSE locations keep connections
+  for up to 86400 s, so each reload leaves a generation of old workers alive while their streams
+  last. On staging that's a handful of streams; on prod it's every open app. Before prod takes
+  `--drain`, the owner decides on `worker_shutdown_timeout` (it cuts SSE streams once per reload, and
+  the clients reconnect and resync, as rule 15 already accepts for an events deploy).
+- PAD-714 alternatives: Docker's `userland-proxy: false` covers only the boot edge, bounces every
+  container, and needs `route_localnet` for loopback DNAT. `proxy_next_upstream non_idempotent` is
+  rejected: in the stop edge a POST may already have run.
 - R-027 is unchanged: its rule is `--workers 1`; the overlap and the lock are recorded in the atlas
   decision `2026-10-10-deploy-overlap-and-scheduler-leader.md`.

@@ -1,7 +1,10 @@
 import logging
+import os
 from logging.config import fileConfig
 
 from flask import current_app
+from sqlalchemy import exc as sa_exc
+from sqlalchemy import text
 
 from alembic import context
 
@@ -63,6 +66,23 @@ target_db = current_app.extensions['migrate'].db
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+#: SQLSTATE lock_not_available, and the exit padel_app.migrate retries on (PAD-718).
+LOCK_NOT_AVAILABLE = "55P03"
+LOCK_BUSY_EXIT = 75
+
+
+def migrate_step_timeouts():
+    """(lock_timeout ms, statement_timeout ms) when padel_app.migrate runs this upgrade, else None.
+
+    PAD-718 (delivery.zero-downtime-deploy rule 12): the previous release serves during the migrate
+    step, so an ALTER must not queue behind a long query (and every later query behind it) for
+    longer than the lock timeout. A plain `flask db upgrade` sets nothing."""
+    if os.environ.get("LEVAPP_MIGRATE_STEP") != "1":
+        return None
+    return (int(float(os.environ.get("MIGRATE_DDL_LOCK_TIMEOUT", "3")) * 1000),
+            int(float(os.environ.get("MIGRATE_STATEMENT_TIMEOUT", "300")) * 1000))
 
 
 def get_metadata():
@@ -133,8 +153,24 @@ def run_migrations_online():
             **conf_args
         )
 
-        with context.begin_transaction():
-            context.run_migrations()
+        timeouts = migrate_step_timeouts()
+        try:
+            with context.begin_transaction():
+                # Inside the upgrade's own transaction (SQLAlchemy 1.4 would otherwise open one
+                # alembic then treats as external and never commits). A plain SET lasts for the
+                # session, so it still holds after a revision that commits part-way.
+                if timeouts and connection.dialect.name == "postgresql":
+                    lock_ms, statement_ms = timeouts
+                    connection.execute(text(f"SET lock_timeout = {lock_ms}"))
+                    connection.execute(text(f"SET statement_timeout = {statement_ms}"))
+                    logger.info("migrate step: lock_timeout %d ms, statement_timeout %d ms", lock_ms, statement_ms)
+                context.run_migrations()
+        except sa_exc.OperationalError as exc:
+            if timeouts and getattr(exc.orig, "pgcode", None) == LOCK_NOT_AVAILABLE:
+                logger.error("lock_timeout: %s; the upgrade transaction rolled back",
+                             str(exc.orig).strip().splitlines()[0])
+                raise SystemExit(LOCK_BUSY_EXIT)
+            raise
 
 
 if context.is_offline_mode():
