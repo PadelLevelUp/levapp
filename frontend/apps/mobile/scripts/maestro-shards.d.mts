@@ -34,6 +34,8 @@ export declare function watchdogStep(
 export interface ShardResult {
   shard: string;
   missing: boolean;
+  /** PAD-757: the setup error lane-result read from the job log, or "". */
+  setup?: string;
   rc: number | null;
   expected: number | null;
   finished: number | null;
@@ -41,7 +43,15 @@ export interface ShardResult {
   failed: { flow: string; reason: string }[];
 }
 export declare function readShardResults(dir: string, shards: string[]): ShardResult[];
+export declare function noFlowRan(r: ShardResult): boolean;
+export declare function setupError(jobLog: string): string;
 export declare function laneVerdict(
   results: ShardResult[],
   opts: { experimental: boolean; recentGreens: number }
-): { conclusion: "success" | "neutral" | "failure"; title: string; summary: string; strict: boolean };
+): {
+  conclusion: "success" | "neutral" | "failure";
+  title: string;
+  summary: string;
+  strict: boolean;
+  setupFailures: { shard: string; error: string }[];
+};
