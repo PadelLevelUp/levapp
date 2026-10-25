@@ -220,7 +220,10 @@ export default function ForgotPasswordScreen() {
                   {t("auth.recovery.neutral", { email: email.trim() })}
                 </Text>
 
+                {/* PAD-758: iOS leaves the near-invisible input out of the accessibility
+                    tree, so a test reaches it through the cells it covers. */}
                 <Pressable
+                  testID="recovery-code-cells"
                   accessibilityRole="none"
                   accessibilityLabel={t("auth.recovery.codeLabel")}
                   onPress={() => codeRef.current?.focus()}

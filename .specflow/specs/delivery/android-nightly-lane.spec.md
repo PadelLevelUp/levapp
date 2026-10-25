@@ -83,6 +83,19 @@ signal (PAD-710).
      - `failure` once the lane is strict. A failure also fails the run.
      - The check's summary names each red flow with its reason, each watchdog stop, and each shard
        that reported nothing.
+   - **A shard where no flow ran is a setup failure, never a success (PAD-757).**
+     - "No flow ran" means its artifact has no verdict, or its verdict finished 0 flows.
+     - For a shard with no junit report, `lane-result` reads the first error line of that job's
+       emulator step from the job log. If that step never started, it reads the job's first error.
+     - The check names that error in its summary, as a warning annotation at the emulator step, and
+       as a run annotation. Its title says "setup failed in N job(s), no flow ran" and never
+       "0 flow(s) red".
+     - A setup failure alone is `neutral` even when the lane is strict: it says nothing about the
+       app. A flow failure next to it keeps the rules above.
+     - Run 40021910967 (#847) is the case: the emulator's SDK install failed, and the check read
+       "0 flow(s) red".
+     - The dispatch input `force_setup_failure` (default off) gives the emulator step an API level
+       with no system image. It is kept as a regression lever.
    - The lane turns **strict** when the flag is removed, or automatically on a scheduled run on
      `main` whose two previous scheduled runs both posted a `success` Android lane (the PAD-710
      acceptance). Pull requests stay neutral while the flag is set.
@@ -122,9 +135,18 @@ signal (PAD-710).
   and shard 3 left no artifact
 - **When** the lane is experimental and has fewer than two recent greens
 - **Then** the Android lane check is `neutral`, and its summary names `27-unknown-sender-block`,
-  its reason, and "shard 3 reported nothing"
+  its reason, and "shard 3: setup failed, no flow ran"
 - **And** with the flag off, or after two scheduled greens on `main`, the same input is `failure`,
   and a run where every flow passed is `success`
+
+#### A shard where no flow ran is a named setup failure, never green (rule 7, PAD-757)
+- **Given** shard `all` left no verdict, and its job log's emulator step says "Warning: An error
+  occurred while preparing SDK package Android Emulator: Error on ZipFile unknown archive."
+- **When** `lane-result` posts the Android lane check
+- **Then** the check is `neutral`, experimental or strict, and is titled "setup failed in 1 job(s),
+  no flow ran — reported as neutral"
+- **And** its summary and a warning annotation name that error
+- **And** a shard whose verdict finished 0 flows is `neutral` the same way, never `success`
 
 #### A hung flow is named
 - **Given** `maestro.log`'s last `Running flow 61-availability-two-cards` line, older than
