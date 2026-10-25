@@ -21,12 +21,21 @@ test.describe("PAD-603: delete-account page", () => {
   });
 
   test("the language switch changes every string", async ({ page }) => {
+    // Only pt is bundled eagerly (client.route-loading rule 6): with ?lang=en the page renders the pt
+    // fallback until en's strings load, with lang="en" already set (PAD-759). So take the pt rendering
+    // first and wait for en to replace it before reading en.
+    await page.goto("/delete-account?lang=pt");
+    await expect(page.getByTestId("delete-account-in-app")).not.toBeEmpty();
+    const ptText = (await page.getByTestId("delete-account-in-app").textContent()) ?? "";
     await page.goto("/delete-account?lang=en");
-    const enText = await page.getByTestId("delete-account-in-app").textContent();
+    await expect(page.getByTestId("delete-account-in-app")).not.toHaveText(ptText);
+    const enText = (await page.getByTestId("delete-account-in-app").textContent()) ?? "";
+
     await page.getByTestId("delete-account-lang-pt").click();
     await expect(page).toHaveURL(/\/delete-account\?lang=pt$/);
     await expect(page.getByTestId("delete-account-page")).toHaveAttribute("lang", "pt");
     await expect(page.getByTestId("delete-account-lang-pt")).toHaveAttribute("aria-current", "page");
-    await expect(page.getByTestId("delete-account-in-app")).not.toHaveText(enText ?? "");
+    await expect(page.getByTestId("delete-account-in-app")).not.toHaveText(enText);
+    await expect(page.getByTestId("delete-account-in-app")).toHaveText(ptText);
   });
 });
