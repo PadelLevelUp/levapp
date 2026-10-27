@@ -9,6 +9,7 @@ import {
   approvalSideKey,
   approvalStaleLabel,
   lightTheme,
+  resolvedVacancyIds,
   staleCount,
 } from "@levelup/config";
 import type { ApprovalAction, ApprovalBundle } from "@levelup/types";
@@ -66,7 +67,10 @@ export function ReplacementApprovalCard({
   const [localResponse, setLocalResponse] = React.useState<ApprovalAction | null>(
     null
   );
-  const [staleVacancyIds, setStaleVacancyIds] = React.useState<number[]>([]);
+  const [respondedStaleIds, setStaleVacancyIds] = React.useState<number[]>([]);
+  // PAD-765 (rule 11): a spot the server marked filled or expired on the message is stale too,
+  // read on every render so a live edit of the message shows it.
+  const staleVacancyIds = [...new Set([...respondedStaleIds, ...resolvedVacancyIds(bundle)])];
   // PAD-574 (rule 7a): which blocks show their whole list; the preview is the first five.
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const groups = approvalDisplayGroups(bundle.vacancies);

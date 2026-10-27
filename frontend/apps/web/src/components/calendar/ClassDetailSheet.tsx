@@ -68,7 +68,7 @@ import {
   getApprovalSuggestions,
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
-import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome } from "@levelup/config";
+import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, suggestionBundles } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -286,7 +286,8 @@ export function ClassDetailSheet({
   // reset effect below must not fold the invited section the coach is working in.
   const keepInvitationsOpenRef = useRef(false);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
-  const [approvalBundle, setApprovalBundle] = useState<ApprovalBundle | null>(null);
+  // PAD-765 (semi-auto-approval rule 12): every pending bundle of the class, oldest spot first.
+  const [approvalBundles, setApprovalBundles] = useState<ApprovalBundle[]>([]);
   // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
   // a pending list survives a reload, and an ignored one offers "Suggest automatic invitations".
   const [suggestionsIgnored, setSuggestionsIgnored] = useState(false);
@@ -306,14 +307,16 @@ export function ClassDetailSheet({
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (s.state === "pending" && s.bundle) setApprovalBundle(s.bundle);
+        if (s.state === "pending") setApprovalBundles(suggestionBundles(s));
         setSuggestionsIgnored(s.state === "dismissed");
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [open, canManage, suggestionsInstanceId]);
+    // PAD-765: read again once the class loads — the class-id reset below clears the cards, and a
+    // class known from the event (its id in the event) could be read before it and lose them.
+  }, [open, canManage, suggestionsInstanceId, classInstance?.id]);
 
   const handleRecomputeSuggestions = async () => {
     if (suggestionsInstanceId == null || recomputing) return;
@@ -321,7 +324,7 @@ export function ClassDetailSheet({
     try {
       const s = await recomputeApprovalSuggestions(suggestionsInstanceId);
       if (s.state === "pending" && s.bundle) {
-        setApprovalBundle(s.bundle);
+        setApprovalBundles(suggestionBundles(s));
         setSuggestionsIgnored(false);
       } else {
         setSuggestionsIgnored(false);
@@ -470,7 +473,7 @@ export function ClassDetailSheet({
     setLocalInvitations(classInstance.invitations ?? []);
     setInvitationsOpen(keepInvitationsOpenRef.current);
     keepInvitationsOpenRef.current = false;
-    setApprovalBundle(null);
+    setApprovalBundles([]);
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
     setCancelAttendanceOpen(false);
@@ -1056,7 +1059,7 @@ export function ClassDetailSheet({
 
       if (bundle) {
         // Semi-automatic mode: invitations await coach approval
-        setApprovalBundle(bundle);
+        setApprovalBundles((prev) => [...prev.filter((b) => b.bundleId !== bundle.bundleId), bundle]);
         toast({
           title: t("calendar.detail.attendanceSavedTitle"),
           description: t("calendar.detail.approvalNeededDescription"),
@@ -1933,25 +1936,28 @@ export function ClassDetailSheet({
             </>
           )}
 
-          {canManage && !isEditing && approvalBundle && (
+          {canManage && !isEditing && approvalBundles.length > 0 && (
             <>
               <Separator />
-              <ReplacementApprovalCard
-                key={approvalBundle.bundleId}
-                bundle={approvalBundle}
-                allowDismiss
-                onResult={(action) => {
-                  // PAD-545: an ignored list leaves the class; the coach can ask for a fresh one.
-                  if (action === "dismiss") {
-                    setApprovalBundle(null);
-                    setSuggestionsIgnored(true);
-                  }
-                }}
-              />
+              {/* PAD-765 (rule 12): one card per pending bundle, oldest spot first. */}
+              {approvalBundles.map((approvalBundle) => (
+                <ReplacementApprovalCard
+                  key={approvalBundle.bundleId}
+                  bundle={approvalBundle}
+                  allowDismiss
+                  onResult={(action) => {
+                    // PAD-545: an ignored list leaves the class; the coach can ask for a fresh one.
+                    if (action === "dismiss") {
+                      setApprovalBundles((prev) => prev.filter((b) => b.bundleId !== approvalBundle.bundleId));
+                      setSuggestionsIgnored(true);
+                    }
+                  }}
+                />
+              ))}
             </>
           )}
 
-          {canManage && !isEditing && !approvalBundle && suggestionsIgnored && (
+          {canManage && !isEditing && approvalBundles.length === 0 && suggestionsIgnored && (
             <>
               <Separator />
               <Button

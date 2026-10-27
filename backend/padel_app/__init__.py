@@ -169,6 +169,9 @@ def create_app(test_config=None):
     from padel_app import events_role
     events_role.init_app(app)
 
+    # semi-auto-approval rule 11 (PAD-765): a spot leaving `open` resolves its prompt (the listener).
+    from padel_app.services import replacement_approval_service  # noqa: F401
+
     from .scheduler import init_scheduler
     init_scheduler(app, test_config=test_config)
 

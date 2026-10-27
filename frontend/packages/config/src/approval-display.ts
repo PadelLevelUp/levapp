@@ -9,7 +9,14 @@
  *   the side because the label names one side; identical lists on different sides stay apart.
  * - Every queue shows its first APPROVAL_QUEUE_PREVIEW players; "Ver mais" reveals the rest.
  */
-import type { ApprovalEmptyQueueReason, ApprovalQueuePlayer, ApprovalVacancyInfo, PlayerSide } from "@levelup/types";
+import type {
+  ApprovalBundle,
+  ApprovalEmptyQueueReason,
+  ApprovalQueuePlayer,
+  ApprovalSuggestionState,
+  ApprovalVacancyInfo,
+  PlayerSide,
+} from "@levelup/types";
 
 export const APPROVAL_QUEUE_PREVIEW = 5;
 
@@ -121,4 +128,16 @@ export function approvalQueuePreview<P>(queue: P[], expanded: boolean): { shown:
 /** How many of a group's vacancies are stale (filled or expired), for "N de M vagas já preenchidas". */
 export function staleCount(group: Pick<ApprovalDisplayGroup, "vacancyIds">, staleVacancyIds: number[]): number {
   return group.vacancyIds.filter((id) => staleVacancyIds.includes(id)).length;
+}
+
+/** PAD-765 (rule 12): the class's pending bundles in decline order; an older server's one `bundle`. */
+export function suggestionBundles(state: Pick<ApprovalSuggestionState, "state" | "bundle" | "bundles">): ApprovalBundle[] {
+  if (state.state !== "pending") return [];
+  if (state.bundles) return state.bundles;
+  return state.bundle ? [state.bundle] : [];
+}
+
+/** PAD-765 (rule 11): the spots the server marked filled or expired on the message, counted as stale. */
+export function resolvedVacancyIds(bundle: Pick<ApprovalBundle, "vacancies">): number[] {
+  return bundle.vacancies.filter((v) => v.resolved).map((v) => v.vacancyId);
 }

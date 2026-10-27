@@ -57,6 +57,10 @@ act unsupervised — particularly one running a smaller or more relationship-dri
   other tool (manual invitations, waiting list) available.
 - Waiting-list students are asked like everyone else in this mode: nothing goes out to them, or to
   anyone, before the coach approves.
+- Every spot still waiting for the coach's answer shows on the class, the oldest first, so a newer
+  question never hides an older one; the list shown there is the class as it is now (PAD-765).
+- A spot that fills another way (a student's request to join, the coach adding someone) or runs
+  out stops asking at once, and its question in the assistant conversation says so (PAD-765).
 
 ## Success Metrics
 
