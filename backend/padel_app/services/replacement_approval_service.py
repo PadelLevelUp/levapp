@@ -280,6 +280,26 @@ def create_approval_prompts(
     return _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts)
 
 
+def create_pending_approval_prompts(instance_id: int, coach_id: int) -> dict | None:
+    """PAD-733 (invitations rule 1b): the ``approval_now_<instance>`` job. Asks about the class's open
+    vacancies still pending approval; ``create_approval_prompts`` skips any that already has a
+    prompt, so a second run asks nothing and declines seconds apart share one bundle."""
+    from padel_app.models import LessonInstance, Vacancy
+    from padel_app.services.notification_service import get_or_create_config
+
+    instance = db.session.get(LessonInstance, instance_id)
+    if instance is None:
+        return None
+    pending = (
+        Vacancy.query.filter_by(lesson_instance_id=instance_id, status="open", approval_status="pending")
+        .order_by(Vacancy.id)
+        .all()
+    )
+    if not pending:
+        return None
+    return create_approval_prompts(pending, instance, coach_id, get_or_create_config(coach_id))
+
+
 def _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts) -> dict:
     """Persist ``vacancies_payload`` as ONE approval message in the coach's Assistant conversation
     (rule 6), point ``prompts`` at it, and commit: the prompts' writes and the message land in the

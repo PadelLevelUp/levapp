@@ -261,3 +261,69 @@ def test_with_the_worker_off_the_apis_own_scheduler_sends_the_invitations(app, c
             time.sleep(0.2)
     assert len(sent) == 3, f"the scheduler thread sent the first batch: {sent}"
     assert running_scheduler._scheduler.get_jobs() == [], "the one-shot job ran and is gone"
+
+
+# --- semi-automatic: the coach's approval prompt -------------------------------------------------
+
+def _approval_state(instance_id):
+    """The class's vacancies' approval status, its prompts and its approval messages."""
+    from padel_app.models import Message, Vacancy
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+
+    vacancies = Vacancy.query.filter_by(lesson_instance_id=instance_id).all()
+    prompts = ReplacementApprovalPrompt.query.filter(
+        ReplacementApprovalPrompt.vacancy_id.in_([v.id for v in vacancies])).all()
+    messages = [m for m in Message.query.filter_by(message_type="replacement_approval").all()
+                if (m.msg_metadata or {}).get("lessonInstanceId") == instance_id]
+    return [v.approval_status for v in vacancies], len(prompts), len(messages)
+
+
+def test_a_semi_automatic_cancellation_answers_before_the_coachs_approval_prompt(app, client, live_scheduler, monkeypatch):
+    from padel_app.services import replacement_approval_service as approvals
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context():
+        instance_id, _coach_id, (student_user,), _ = _seed(enrolled=1, candidates=3, max_players=1, semi=True)
+
+    queue_builds = []
+    real_queue = approvals.compute_full_invite_queue
+    monkeypatch.setattr(approvals, "compute_full_invite_queue",
+                        lambda *a, **k: queue_builds.append(1) or real_queue(*a, **k))
+    with _io():
+        res = client.post("/api/app/notify/cancel_attendance", json={"lessonInstanceId": instance_id},
+                          headers=_token(app, student_user))
+        assert res.status_code == 200, res.get_json()
+        assert res.get_json()["action"] == "declined"
+
+        assert queue_builds == [], "the request no longer ranks the roster for the prompt"
+        with app.app_context():
+            assert _approval_state(instance_id) == (["pending"], 0, 0)
+            assert _invited(instance_id) == []
+        (job,) = _armed(live_scheduler, "approval_now_")
+        assert job.id == f"approval_now_{instance_id}"
+
+        _run(app, job)
+        assert queue_builds == [1], "the job builds the queue"
+        with app.app_context():
+            assert _approval_state(instance_id) == (["pending"], 1, 1)
+
+        _run(app, job)  # a second run (a re-armed decline) asks nothing more
+        with app.app_context():
+            assert _approval_state(instance_id) == (["pending"], 1, 1)
+            assert _invited(instance_id) == [], "approval asked; nobody invited before the coach answers"
+
+
+def test_without_a_scheduler_the_semi_automatic_cancellation_still_asks_inline(app, client, monkeypatch):
+    from padel_app.tests.helpers import pin_clock
+
+    pin_clock(monkeypatch, NOW)
+    with app.app_context():
+        instance_id, _coach_id, (student_user,), _ = _seed(enrolled=1, candidates=3, max_players=1, semi=True)
+
+    with _io():
+        res = client.post("/api/app/notify/cancel_attendance", json={"lessonInstanceId": instance_id},
+                          headers=_token(app, student_user))
+        assert res.status_code == 200, res.get_json()
+        with app.app_context():
+            assert _approval_state(instance_id) == (["pending"], 1, 1)
