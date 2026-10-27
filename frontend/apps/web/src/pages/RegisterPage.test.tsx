@@ -74,6 +74,13 @@ describe("RegisterPage — adults only at activation (PAD-457)", () => {
     fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
     expect(await screen.findByTestId("register-birthDate-error")).toHaveTextContent("auth.register.birthDateUnderage");
   });
+
+  it("puts a server 409 on email on the email field, with what to do (PAD-761)", async () => {
+    activateAccount.mockRejectedValue({ response: { status: 409, data: { field: "email", code: "EMAIL_TAKEN", error: "…" } } });
+    await mountFilled(yearsAgo(30));
+    fireEvent.click(screen.getByRole("button", { name: "auth.register.activate" }));
+    expect(await screen.findByTestId("register-email-error")).toHaveTextContent("auth.register.emailHasAccount");
+  });
 });
 
 describe("RegisterPage — the country (PAD-604, auth.activate rule 13a)", () => {
