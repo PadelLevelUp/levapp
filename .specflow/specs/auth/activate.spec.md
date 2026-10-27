@@ -69,6 +69,14 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     screens already send every field, `""` when emptied (their own validation stops an empty name,
     username, e-mail or password before the request), so the one visible change is that an emptied
     phone box now removes the coach-typed phone instead of silently keeping it.
+11a. **An email another account holds is refused (PAD-761, B-687).** A non-empty `email` that
+    another account already holds, compared trimmed and ignoring case (as sign-up's
+    `assert_email_free`), is answered `409 {"error": "Email already registered", "field": "email",
+    "code": "EMAIL_TAKEN"}` before anything is written, so the account stays `inactive`. Unchecked,
+    the write hit `users_email_key` and answered 500 (prod, 2026-10-27). The usual holder is the
+    student's own account, so the web and iOS screens put `auth.register.emailHasAccount` on the
+    email field: sign in to that account and ask the coach to link it to this invitation
+    (`players.claim`). An emptied email clears (rule 11) and never collides.
 13. **Adults only, at activation too (PAD-457; owner, 2026-09-25).** A coach-created player gives no
     birth date anywhere before this form, so activation asks for it: `birthDate` (`YYYY-MM-DD`) is
     required in the POST. It is judged exactly as sign-up judges it (`auth.register` rule 18, same
@@ -206,6 +214,13 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Given** another account holds the username `taken-one`
 - **When** the student activates with `"username": "taken-one"`
 - **Then** the answer is 409 "Username already taken" and the account is still `inactive`
+
+#### An email another account holds is refused, in any case (rule 11a, PAD-761)
+- **Given** an active account holds `taken@example.com` and coach-created user 5 is `inactive`
+- **When** the student activates user 5 with `"email": "Taken@Example.COM"`
+- **Then** the answer is 409 with `field` `email` and `code` `EMAIL_TAKEN`, user 5 is still
+  `inactive` with no password and its old email, and the web and iOS screens show
+  `auth.register.emailHasAccount` under the email field
 
 #### Activation refuses someone under 18 and leaves the account inactive (PAD-457)
 - **Given** coach-created user 5 `inactive`, with its secret, and today 2026-09-25 (UTC)

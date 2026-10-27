@@ -171,6 +171,13 @@ describe("RegisterScreen — the country (PAD-604)", () => {
     await n.flush();
     expect(n.queryByTestId("register-country-error")).not.toBeNull();
   });
+  it("puts a server 409 on email on the email field, with what to do (PAD-761)", async () => {
+    api.activate.mockRejectedValue({ response: { status: 409, data: { field: "email", code: "EMAIL_TAKEN" } } });
+    const n = await mount();
+    await n.press("register-submit");
+    await n.flush();
+    expect(n.queryByTestId("register-email-error")).not.toBeNull();
+  });
   it("sends the country the person picks", async () => {
     api.activate.mockResolvedValue({ accessToken: "t", success: true });
     const n = await mount();

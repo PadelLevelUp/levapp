@@ -188,6 +188,11 @@ const RegisterPage = () => {
         setErrors((prev) => ({ ...prev, country: t("auth.register.countryRequired") }));
         return;
       }
+      // auth.activate rule 11a (PAD-761): the email already has an account; say what to do.
+      if (res?.status === 409 && res.data?.field === "email") {
+        setErrors((prev) => ({ ...prev, email: t("auth.register.emailHasAccount") }));
+        return;
+      }
       toast({
         variant: "destructive",
         title: t("auth.register.failedTitle"),

@@ -123,6 +123,7 @@ def activate_user_service(user_id, data, *, token):
     # RegistrationError (400 on birthDate) before anything is written.
     from padel_app.services.registration_service import (
         UPDATE_APP_TO_ACTIVATE,
+        RegistrationError,
         validate_adult_birth_date,
         validate_completion_country,
         validate_completion_terms,
@@ -140,6 +141,15 @@ def activate_user_service(user_id, data, *, token):
         taken = User.query.filter_by(username=sent["username"]).first()
         if taken is not None and taken.id != user.id:
             abort(409, "Username already taken")  # as invite-completion and self-signup answer
+    # auth.activate rule 11a (PAD-761): an email another account holds, in any case, is sign-up's
+    # 409 on `email` before anything is written. Unchecked, the UPDATE hit users_email_key: a 500.
+    email = sent.get("email")
+    if isinstance(email, str) and email.strip():
+        holder = User.query.filter(
+            db.func.lower(User.email) == email.strip().lower(), User.id != user.id
+        ).first()
+        if holder is not None:
+            raise RegistrationError("Email already registered", 409, "email", code="EMAIL_TAKEN")
 
     form = user.get_edit_form()
     fake_request = JsonRequestAdapter(sent, form, mode="present")
