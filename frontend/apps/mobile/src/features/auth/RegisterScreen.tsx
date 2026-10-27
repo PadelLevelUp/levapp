@@ -175,6 +175,11 @@ export function RegisterScreen({
         setErrors({ country: t("auth.register.countryRequired") });
         return;
       }
+      // auth.activate rule 11a (PAD-761): the email already has an account; say what to do.
+      if (data?.status === 409 && data?.data?.field === "email") {
+        setErrors({ email: t("auth.register.emailHasAccount") });
+        return;
+      }
       toast.error(
         t("auth.register.failedTitle"),
         t("auth.register.failedDescription")

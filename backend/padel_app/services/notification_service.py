@@ -4213,12 +4213,17 @@ def _free_spot_for_declining_player(
             # Semi-automatic: ask the coach for approval instead of sending.
             # No invitations are sent until the coach approves the prompt.
             if vacancy is not None and vacancy.approval_status == "pending":
-                from padel_app.services.replacement_approval_service import (
-                    create_approval_prompts,
-                )
-                create_approval_prompts(
-                    [vacancy], instance, coach.id, config, now=now
-                )
+                # PAD-733 (rule 1b): the prompt's queue ranks the whole roster once per wave; it is
+                # built on the scheduler within seconds, inline only when none runs here.
+                from padel_app.scheduler import arm_approval_now
+
+                if not arm_approval_now(instance.id, coach.id):
+                    from padel_app.services.replacement_approval_service import (
+                        create_approval_prompts,
+                    )
+                    create_approval_prompts(
+                        [vacancy], instance, coach.id, config, now=now
+                    )
         else:
             # PAD-94: if this exact spot already has invitations in flight, the
             # engine has nothing new to do — re-driving it would just re-send

@@ -635,6 +635,10 @@ def decline_next_job_id(vacancy_id: int, event_id: int) -> str:
     return f"decline_next_{vacancy_id}_{event_id}"
 
 
+def approval_now_job_id(instance_id: int) -> str:
+    return f"approval_now_{instance_id}"
+
+
 def _arm_now(func, args, job_id: str) -> bool:
     """PAD-733: run ``func(*args)`` on the scheduler that runs the jobs, as soon as it wakes, not in
     the request that asked. With ``WORKER_SPLIT`` off that is this process's own scheduler thread;
@@ -672,6 +676,25 @@ def arm_next_on_decline(vacancy_id: int, event_id: int) -> bool:
     ``trigger_invitations`` would not continue it (rule 1b); this runs the decline's own follow-up,
     which decides under the vacancy lock and sends nothing on a spot no longer open."""
     return _arm_now(_run_send_next_on_decline, [vacancy_id], decline_next_job_id(vacancy_id, event_id))
+
+
+def arm_approval_now(instance_id: int, coach_id: int) -> bool:
+    """PAD-733 (invitations rule 1b): in semi-automatic mode a student's decline asks for the coach's
+    approval prompt from here. Building its queue ranks the coach's whole roster once per wave, which is
+    seconds of work on a large roster; the student's answer does not wait on it."""
+    return _arm_now(_run_create_pending_approval_prompts, [instance_id, coach_id], approval_now_job_id(instance_id))
+
+
+def _run_create_pending_approval_prompts(instance_id: int, coach_id: int) -> None:
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        from padel_app.services.replacement_approval_service import create_pending_approval_prompts
+        try:
+            create_pending_approval_prompts(instance_id, coach_id)
+        except Exception as exc:
+            app.logger.error("create_pending_approval_prompts(%s) failed: %s", instance_id, exc)
 
 
 def _run_send_next_on_decline(vacancy_id: int) -> None:
