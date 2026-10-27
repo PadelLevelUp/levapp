@@ -39,6 +39,9 @@ act unsupervised — particularly one running a smaller or more relationship-dri
 
 - This only applies when the coach has both turned the engine on and chosen semi-automatic mode;
   fully automatic coaches never see a prompt and their invitations go out exactly as before.
+- A coach who goes back to fully automatic hands over the spots still waiting for their answer:
+  those spots start inviting within a couple of minutes and their old prompts stop deciding
+  anything. A spot the coach chose to ignore stays ignored.
 - Every prompt lives in the coach's assistant conversation as the permanent record, regardless of
   which screen first showed it to them.
 - The list of students shown in the prompt is exactly the list the engine may invite from — it can
