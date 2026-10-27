@@ -19,6 +19,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 
 ### Rules
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
+1a. **Leaving semi-automatic releases the spots awaiting approval (PAD-766, ledger B-688; coordinator 2026-10-27).** When a coach's `invitation_mode` changes from `semi_automatic` to `automatic`, every open vacancy of that coach whose class has not started and whose approval_status is `pending` becomes `not_required`, in the same commit as the mode, and its pending prompt becomes `stale` (with `decided_at`), so its message's buttons answer "stale" and decide nothing. The sweep (`process_invitation_batches`) then starts these spots on its next tick, under the same restrictions, claim and per-class automatic-invitations switch as any spot. A `dismissed` vacancy stays dismissed: the coach already said no to it. The sweep heals itself: it treats an open `pending` vacancy whose coach's mode is now `automatic` the same way (released, prompt stale, started on that tick), so spots stranded before this rule recover with no data repair. Switching `automatic` → `semi_automatic` changes nothing for spots already open: `not_required` spots keep inviting, and only spots opened afterwards wait for approval. The release keys on the mode alone: a semi-automatic coach who turns automatic notifications off keeps the spots pending, and they stay decidable when notifications come back on.
 2. In semi-automatic mode, every vacancy-creation path sets approval_status "pending" and creates a replacement approval prompt instead of sending invitations: player declines via reminder response, coach confirms presences marking players absent, and the `invite_start` scheduler job
 3. One prompt per vacancy (idempotent): re-triggering invitations for a vacancy that already has a prompt does not create a duplicate
 4. **The prompt says why each spot is open (PAD-574, B-522).** A spot a student freed reads "O
@@ -184,9 +185,24 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
   bundle B sends
 
 #### Batch processor skips unapproved vacancies
-- **Given** vacancies with approval_status "pending" and "dismissed"
+- **Given** vacancies with approval_status "pending" and "dismissed" of a coach still in semi_automatic
 - **When** `process_invitation_batches()` runs
 - **Then** no NotificationEvents or invitation messages are created for those vacancies
+
+#### Switching to automatic releases the spots awaiting approval (rule 1a, PAD-766)
+- **Given** a semi-automatic coach's class tomorrow with one open vacancy pending approval, its prompt pending and nobody invited
+- **When** the coach saves `invitationMode: "automatic"`
+- **Then** the vacancy is `not_required` and its prompt `stale` in the same commit as the mode, and the next `process_invitation_batches()` sends the spot's first batch (3 invitations at maxSimultaneous 3)
+
+#### The sweep starts a spot stranded by an earlier switch (rule 1a, PAD-766)
+- **Given** the same pending vacancy and prompt, and the coach's mode set to `automatic` with nothing else changed (a switch made before rule 1a)
+- **When** `process_invitation_batches()` runs
+- **Then** the vacancy is `not_required`, its prompt `stale`, and the spot's first batch is sent on that tick
+
+#### A dismissed spot stays dismissed (rule 1a, PAD-766)
+- **Given** the same vacancy dismissed by the coach (vacancy and prompt `dismissed`)
+- **When** the coach saves `invitationMode: "automatic"` and `process_invitation_batches()` runs
+- **Then** the vacancy and its prompt stay `dismissed` and nobody is invited
 
 #### One prompt per vacancy
 - **Given** a vacancy that already has a replacement approval prompt

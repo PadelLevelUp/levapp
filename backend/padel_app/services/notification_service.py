@@ -277,7 +277,12 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         if mode not in ("automatic", "semi_automatic"):
             from flask import abort
             abort(400, "invitationMode must be 'automatic' or 'semi_automatic'")
+        leaving_semi = config.get_invitation_mode() == "semi_automatic" and mode == "automatic"
         config.invitation_mode = mode
+        if leaving_semi:
+            # PAD-766 (semi-auto-approval rule 1a): the spots awaiting approval are released in
+            # the mode's own commit (config.save() below); the sweep starts them.
+            release_pending_approvals(coach_id)
     # PAD-672 (rule 3a): automatic acceptance never runs with semi-automatic approval. Turning it on
     # in that mode is refused; switching to that mode turns it off and says so.
     if "autoAcceptJoinRequests" in data:
@@ -357,6 +362,40 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
 def _is_semi_auto(config: NotificationConfig) -> bool:
     """True when the coach requires approval before invitations are sent."""
     return bool(config.auto_notify_enabled) and config.get_invitation_mode() == "semi_automatic"
+
+
+def _release_pending_approval(vacancy: Vacancy, at: datetime) -> None:
+    """PAD-766 (semi-auto-approval rule 1a): a spot awaiting approval of a coach who is now
+    automatic invites like any automatic spot; its pending prompt can no longer decide it."""
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+
+    vacancy.approval_status = "not_required"
+    for prompt in ReplacementApprovalPrompt.query.filter_by(vacancy_id=vacancy.id, status="pending").all():
+        prompt.status = "stale"
+        prompt.decided_at = at
+
+
+def release_pending_approvals(coach_id: int, *, now: datetime | None = None) -> list[int]:
+    """PAD-766 (semi-auto-approval rule 1a): leaving semi-automatic releases the coach's open spots
+    still awaiting approval on classes that have not started. Each is locked in ascending id (the
+    engine's lock order starts with the vacancy, as `respond_to_approval` takes it), so an approval
+    racing the switch is decided on one side of it. Flushed, not committed: the caller's commit
+    carries the mode and the release together. Dismissed spots are left alone. Returns their ids."""
+    _now = now or utcnow_naive()
+    vacancies = (
+        Vacancy.query.join(LessonInstance, Vacancy.lesson_instance_id == LessonInstance.id)
+        .filter(Vacancy.coach_id == coach_id, Vacancy.status == "open",
+                Vacancy.approval_status == "pending",
+                LessonInstance.start_datetime > utc_to_wall_naive(_now))  # PAD-256
+        .order_by(Vacancy.id.asc())
+        .with_for_update(of=Vacancy)
+        .populate_existing()
+        .all()
+    )
+    for vacancy in vacancies:
+        _release_pending_approval(vacancy, _now)
+    db.session.flush()
+    return [v.id for v in vacancies]
 
 
 # ---------------------------------------------------------------------------
@@ -5826,6 +5865,19 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
                 vacancy.save()
                 continue
 
+            # PAD-766 (semi-auto-approval rule 1a): a spot left awaiting approval by a coach who is
+            # now automatic is released here and started below, so a spot stranded by a switch
+            # made before the rule recovers with no data repair.
+            if (vacancy.approval_status == "pending"
+                    and get_or_create_config(vacancy.coach_id).get_invitation_mode() == "automatic"):
+                locked = (Vacancy.query.filter_by(id=vacancy.id, status="open", approval_status="pending")
+                          .with_for_update().populate_existing().first())
+                if locked is not None:
+                    _release_pending_approval(locked, _now)
+                db.session.commit()  # the release, and the end of the lock
+                db.session.refresh(vacancy)
+                if vacancy.status != "open":
+                    continue
             # Semi-automatic gating: never send (the waiting list included) for vacancies
             # awaiting coach approval or dismissed by the coach.
             if vacancy.approval_status in ("pending", "dismissed"):
