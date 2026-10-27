@@ -73,13 +73,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    decline message is now written before the next student's invitation instead of after it; no
    rule orders the two, and this is intended, not a regression. In semi-automatic mode a student's
    cancellation or reminder "no" asks for the coach's approval the same way: it commits the pending
-   vacancy, arms `approval_now_<instance>` (→ `create_approval_prompts` for the class's open
-   vacancies still pending approval and with no prompt yet) and answers. The coach's approval
-   prompt follows within seconds, and the student's answer never waits on it. Building the
+   vacancy, arms `approval_now_<instance>_<vacancy>` (→ `create_vacancy_approval_prompt` for that
+   vacancy, if it is still open, pending approval and without a prompt) and answers. The coach's
+   approval prompt follows within seconds, and the student's answer never waits on it. Building the
    prompt's queue ranks the coach's whole roster once per wave, which is seconds of work on a large
-   roster (PAD-733). One id per class, so declines seconds apart share one bundle; a vacancy that
-   already has a prompt is skipped, so a second run asks nothing. With no scheduler in the process
-   the prompt is built inline, as before. The coach's attendance sheet
+   roster (PAD-733). One job per vacancy (PAD-764): with one id per class, a decline that landed
+   while the class's job was running re-armed that id and the scheduler skipped the run (one running
+   instance per id), so the second spot never got a prompt. Each declined spot is now asked about by
+   its own job, and declines seconds apart get one bundle each, as on the inline path. A vacancy
+   that already has a prompt is skipped, so a second run asks nothing. With no scheduler in the
+   process the prompt is built inline, as before. The coach's attendance sheet
    (`POST /class_instance/presences/confirm`) still builds its prompt in the request: its reply
    carries `approvalBundle`, which web's class detail shows at once.
 1c. **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
@@ -1186,9 +1189,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** the first criterion's class with approval required and a scheduler running
 - **When** the student cancels
 - **Then** the request answers with the vacancy pending, no prompt and no approval message
-  written, and one job `approval_now_<instance>` armed; running the job writes one prompt and one
+  written, and one job `approval_now_<instance>_<vacancy>` armed; running the job writes one prompt and one
   `replacement_approval` message; running it again writes nothing more; without a scheduler the
   prompt is written inside the request
+
+#### A decline during a running approval job still gets its prompt (rule 1b, PAD-764)
+- **Given** a semi-automatic class with two enrolled students and the scheduler running, the first
+  student's approval job still building its queue
+- **When** the second student cancels
+- **Then** both vacancies end pending with one prompt and one approval message each, and nobody is
+  invited
 
 #### With no scheduler in the process the write still invites inline (rule 1b, PAD-733)
 - **Given** the sheet of the first criterion and no scheduler (the CLI, the plain test suite)
