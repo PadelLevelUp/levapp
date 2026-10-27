@@ -71,8 +71,17 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    the same students, once. With no scheduler in the process (the CLI, the test suite outside the
    scheduler fixtures) the request sends inline as before. Consequence on a "no": the coach's
    decline message is now written before the next student's invitation instead of after it; no
-   rule orders the two, and this is intended, not a regression. Semi-automatic mode is unchanged:
-   its approval prompt is one coach message per vacancy and stays in the request.
+   rule orders the two, and this is intended, not a regression. In semi-automatic mode a student's
+   cancellation or reminder "no" asks for the coach's approval the same way: it commits the pending
+   vacancy, arms `approval_now_<instance>` (â†’ `create_approval_prompts` for the class's open
+   vacancies still pending approval and with no prompt yet) and answers. The coach's approval
+   prompt follows within seconds, and the student's answer never waits on it. Building the
+   prompt's queue ranks the coach's whole roster once per wave, which is seconds of work on a large
+   roster (PAD-733). One id per class, so declines seconds apart share one bundle; a vacancy that
+   already has a prompt is skipped, so a second run asks nothing. With no scheduler in the process
+   the prompt is built inline, as before. The coach's attendance sheet
+   (`POST /class_instance/presences/confirm`) still builds its prompt in the request: its reply
+   carries `approvalBundle`, which web's class detail shows at once.
 1c. **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
    An absence opens its vacancy the moment it is recorded, and the tick (rule 5) starts it once
    the window is open. A place nobody ever filled has no such moment, and before this rule it was
@@ -1172,6 +1181,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Then** the answer is `declined` with nobody else invited, one job
   `decline_next_<vacancy>_<event>` is armed, running it invites the second student, and a repeated
   "no" arms nothing and invites nobody
+
+#### A semi-automatic cancellation answers before the coach's approval prompt (rule 1b, PAD-733)
+- **Given** the first criterion's class with approval required and a scheduler running
+- **When** the student cancels
+- **Then** the request answers with the vacancy pending, no prompt and no approval message
+  written, and one job `approval_now_<instance>` armed; running the job writes one prompt and one
+  `replacement_approval` message; running it again writes nothing more; without a scheduler the
+  prompt is written inside the request
 
 #### With no scheduler in the process the write still invites inline (rule 1b, PAD-733)
 - **Given** the sheet of the first criterion and no scheduler (the CLI, the plain test suite)
