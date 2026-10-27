@@ -300,8 +300,10 @@ def test_a_semi_automatic_cancellation_answers_before_the_coachs_approval_prompt
         with app.app_context():
             assert _approval_state(instance_id) == (["pending"], 0, 0)
             assert _invited(instance_id) == []
+            from padel_app.models import Vacancy
+            vacancy_id = Vacancy.query.filter_by(lesson_instance_id=instance_id).one().id
         (job,) = _armed(live_scheduler, "approval_now_")
-        assert job.id == f"approval_now_{instance_id}"
+        assert job.id == f"approval_now_{instance_id}_{vacancy_id}", "one job per vacancy (PAD-764)"
 
         _run(app, job)
         assert queue_builds == [1], "the job builds the queue"

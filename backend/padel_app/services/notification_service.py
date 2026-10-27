@@ -4256,7 +4256,7 @@ def _free_spot_for_declining_player(
                 # built on the scheduler within seconds, inline only when none runs here.
                 from padel_app.scheduler import arm_approval_now
 
-                if not arm_approval_now(instance.id, coach.id):
+                if not arm_approval_now(instance.id, coach.id, vacancy.id):
                     from padel_app.services.replacement_approval_service import (
                         create_approval_prompts,
                     )

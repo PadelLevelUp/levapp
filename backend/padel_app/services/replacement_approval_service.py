@@ -283,24 +283,20 @@ def create_approval_prompts(
     return _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts)
 
 
-def create_pending_approval_prompts(instance_id: int, coach_id: int) -> dict | None:
-    """PAD-733 (invitations rule 1b): the ``approval_now_<instance>`` job. Asks about the class's open
-    vacancies still pending approval; ``create_approval_prompts`` skips any that already has a
-    prompt, so a second run asks nothing and declines seconds apart share one bundle."""
-    from padel_app.models import LessonInstance, Vacancy
+def create_vacancy_approval_prompt(vacancy_id: int, coach_id: int) -> dict | None:
+    """PAD-733 / PAD-764 (invitations rule 1b): the ``approval_now_<instance>_<vacancy>`` job. Asks
+    about its own vacancy, if it is still open and pending approval; ``create_approval_prompts``
+    skips a vacancy that already has a prompt, so a second run asks nothing. One vacancy per job, so
+    two jobs running side by side never ask about the same spot."""
+    from padel_app.models import Vacancy
     from padel_app.services.notification_service import get_or_create_config
 
-    instance = db.session.get(LessonInstance, instance_id)
-    if instance is None:
+    vacancy = db.session.get(Vacancy, vacancy_id)
+    if vacancy is None or vacancy.status != "open" or vacancy.approval_status != "pending":
         return None
-    pending = (
-        Vacancy.query.filter_by(lesson_instance_id=instance_id, status="open", approval_status="pending")
-        .order_by(Vacancy.id)
-        .all()
+    return create_approval_prompts(
+        [vacancy], vacancy.lesson_instance, coach_id, get_or_create_config(coach_id)
     )
-    if not pending:
-        return None
-    return create_approval_prompts(pending, instance, coach_id, get_or_create_config(coach_id))
 
 
 def _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts) -> dict:
