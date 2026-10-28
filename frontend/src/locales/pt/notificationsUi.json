@@ -28,6 +28,8 @@
         "other": "{{count}} por outro motivo"
       },
       "inviteReplacements": "Convidar substitutos?",
+      "queueAsOf": "Fila às {{time}}",
+      "queueAsOfDay": "Fila de {{day}} às {{time}}",
       "yesRightNow": "Sim, agora mesmo",
       "yesAt": "Sim, às {{window}}",
       "approveAtWindowAria": "Aprovar convites na abertura da janela",

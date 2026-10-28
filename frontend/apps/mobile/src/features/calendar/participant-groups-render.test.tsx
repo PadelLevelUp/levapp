@@ -81,6 +81,10 @@ describe("wiring (source reads)", () => {
     expect(s).toContain("presenceChangedFor(");
     expect(s).toContain('testID="attendance-edit"');
     expect(s).toContain('testID="participants-enrolled"');
+    // PAD-771 (event-detail rule 5): the header counts filled spots and names the open ones.
+    expect(s).toContain("participantsHeader(filled, maxPlayers)");
+    expect(s).toContain("t(header.key, header.values)");
+    expect(s).not.toContain('"calendar.participants.enrolled"');
     expect(s).toContain("displayStateOf(");
     expect(s).toContain("classHasEnded(");
   });

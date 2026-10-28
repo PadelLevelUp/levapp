@@ -134,7 +134,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    eligibility offers no payments attribute.
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
-10. Updating timing configs reschedules all future scheduler jobs
+10. Updating timing configs reschedules all future scheduler jobs; the open spots of those classes follow a new invitation start too (`notifications.invitations` rule 11a, PAD-776)
 10a. **After a timing change, each job is the one the saved configuration implies (PAD-478, B-249).**
    For every future class of the coach, materialised or not, the reminder job and the
    invitation-start job are derived again from the saved configuration. One configuration

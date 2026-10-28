@@ -28,6 +28,8 @@
         "other": "{{count}} for another reason"
       },
       "inviteReplacements": "Invite replacements?",
+      "queueAsOf": "Queue as of {{time}}",
+      "queueAsOfDay": "Queue as of {{day}}, {{time}}",
       "yesRightNow": "Yes, right now",
       "yesAt": "Yes, at {{window}}",
       "approveAtWindowAria": "Approve invitations at window open",

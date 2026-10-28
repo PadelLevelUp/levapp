@@ -14,6 +14,8 @@ import {
   resolvedVacancyIds,
   staleCount,
   suggestionBundles,
+  mergeSuggestionBundles,
+  queueAsOfLabel,
 } from "./approval-display";
 
 const p = (id: number): ApprovalQueuePlayer => ({ id: String(id), name: `P${id}` });
@@ -132,5 +134,49 @@ describe("PAD-765 every pending prompt of the class (semi-auto-approval rules 11
     const filled = { ...open(1, "left", []), resolved: "filled" } as ApprovalVacancyInfo;
     const expired = { ...open(2, "left", []), resolved: "expired" } as ApprovalVacancyInfo;
     expect(resolvedVacancyIds(b("x", [filled, open(3, "left", []), expired]))).toEqual([1, 2]);
+  });
+});
+
+describe("mergeSuggestionBundles (PAD-770, rule 12b)", () => {
+  const b = (bundleId: string): ApprovalBundle =>
+    ({ bundleId, lessonInstanceId: 7, windowOpenAt: null, responded: false, vacancies: [] }) as ApprovalBundle;
+
+  it("takes the server's pending bundles, dropping one no longer pending", () => {
+    expect(mergeSuggestionBundles([b("a"), b("b")], [b("b")], new Set()).map((x) => x.bundleId)).toEqual(["b"]);
+  });
+
+  it("keeps a card the coach just answered until it is closed", () => {
+    expect(mergeSuggestionBundles([b("a"), b("b")], [b("b")], new Set(["a"])).map((x) => x.bundleId)).toEqual(["a", "b"]);
+  });
+
+  it("adds a bundle that became pending since", () => {
+    expect(mergeSuggestionBundles([b("a")], [b("a"), b("c")], new Set()).map((x) => x.bundleId)).toEqual(["a", "c"]);
+  });
+});
+
+describe("queueAsOfLabel (PAD-770, rule 12b)", () => {
+  // 27 Oct is after the clocks change: Lisbon is UTC+0, so 20:41Z reads 20:41.
+  const now = new Date("2026-10-27T22:00:00Z");
+
+  it("names the time the message was built, on the club's clock", () => {
+    expect(queueAsOfLabel("2026-10-27T20:41:00", now)).toEqual({
+      key: "notificationsUi.replacementApproval.queueAsOf",
+      values: { time: "20:41" },
+    });
+  });
+
+  it("adds the day when it is not today", () => {
+    expect(queueAsOfLabel("2026-10-26T09:05:00Z", now)).toEqual({
+      key: "notificationsUi.replacementApproval.queueAsOfDay",
+      values: { time: "09:05", day: "26/10" },
+    });
+  });
+
+  it("reads summer time on the club's clock", () => {
+    expect(queueAsOfLabel("2026-07-01T19:30:00Z", now)?.values.time).toBe("20:30");
+  });
+
+  it("is null without a time", () => {
+    expect(queueAsOfLabel(null, now)).toBeNull();
   });
 });

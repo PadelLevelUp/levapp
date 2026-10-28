@@ -548,7 +548,7 @@ export function MessageBubble({
         {/* Replacement approval prompt (semi-automatic mode) */}
         {approvalBundle?.bundleId && approvalBundle.vacancies?.length > 0 && (
           <div className="mt-1.5 ml-1">
-            <ReplacementApprovalCard bundle={approvalBundle} readOnly={isMine} />
+            <ReplacementApprovalCard bundle={approvalBundle} readOnly={isMine} queueAsOf={message.timestamp} />
           </div>
         )}
 
