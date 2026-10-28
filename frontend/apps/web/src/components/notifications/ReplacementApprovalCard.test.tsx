@@ -2,6 +2,8 @@
  * PAD-545 (semi-auto-approval rules 8 and 12): the conversation's card offers the send buttons only;
  * "Ignorar" exists on the class's card. A bundle a recompute replaced says so instead of deciding.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
@@ -151,5 +153,23 @@ describe("ReplacementApprovalCard — PAD-765 (rule 11)", () => {
     expect(screen.getByTestId("approve-invitations-now")).toBeTruthy();
     rerender(<ReplacementApprovalCard bundle={resolved("expired")} />);
     expect(screen.queryByTestId("approve-invitations-now")).toBeNull();
+  });
+});
+
+describe("PAD-770 (rule 12b): the message's queue says when it was built", () => {
+  it("shows the time when the conversation passes one", () => {
+    render(<ReplacementApprovalCard bundle={BUNDLE} queueAsOf="2026-10-27T20:41:00Z" />);
+    expect(screen.getByTestId("approval-queue-as-of")).toBeTruthy();
+  });
+
+  it("the class's card, live, shows none", () => {
+    render(<ReplacementApprovalCard bundle={BUNDLE} allowDismiss />);
+    expect(screen.queryByTestId("approval-queue-as-of")).toBeNull();
+  });
+
+  it("the conversation passes the message's time; the class's cards pass none", () => {
+    const read = (p: string) => readFileSync(join(__dirname, p), "utf8");
+    expect(read("../messages/MessageBubble.tsx")).toContain("queueAsOf={message.timestamp}");
+    expect(read("../calendar/ClassDetailSheet.tsx")).not.toContain("queueAsOf");
   });
 });

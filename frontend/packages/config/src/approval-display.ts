@@ -18,6 +18,8 @@ import type {
   PlayerSide,
 } from "@levelup/types";
 
+import { clubDateOfInstant, clubTimeOfInstant, clubTodayISO } from "./club-date";
+
 export const APPROVAL_QUEUE_PREVIEW = 5;
 
 type ApprovalGroupBase = {
@@ -135,6 +137,38 @@ export function suggestionBundles(state: Pick<ApprovalSuggestionState, "state" |
   if (state.state !== "pending") return [];
   if (state.bundles) return state.bundles;
   return state.bundle ? [state.bundle] : [];
+}
+
+/**
+ * PAD-770 (rule 12b): the cards after the class view reads its suggestions again. The server's
+ * pending bundles, in its order; a card the coach has just answered (`answeredIds`) stays, where it
+ * was, until it is closed, so its confirmation is not lost when the bundle stops being pending.
+ */
+export function mergeSuggestionBundles(
+  current: readonly ApprovalBundle[],
+  fresh: readonly ApprovalBundle[],
+  answeredIds: ReadonlySet<string>
+): ApprovalBundle[] {
+  const freshIds = new Set(fresh.map((b) => b.bundleId));
+  const kept = current.filter((b) => answeredIds.has(b.bundleId) && !freshIds.has(b.bundleId));
+  return [...kept, ...fresh];
+}
+
+/**
+ * PAD-770 (rule 12b): the Assistant message keeps its queue as it was built and says so — "Fila às
+ * 20:41", with the day when it is not today (both on the club's clock). Null without a time.
+ */
+export function queueAsOfLabel(
+  builtAt: string | null | undefined,
+  now: Date = new Date()
+): { key: string; values: Record<string, string> } | null {
+  if (!builtAt) return null;
+  const time = clubTimeOfInstant(builtAt);
+  if (!time) return null;
+  const day = clubDateOfInstant(builtAt);
+  if (day === clubTodayISO(now)) return { key: "notificationsUi.replacementApproval.queueAsOf", values: { time } };
+  const [, m, d] = day.split("-");
+  return { key: "notificationsUi.replacementApproval.queueAsOfDay", values: { time, day: `${d}/${m}` } };
 }
 
 /** PAD-765 (rule 11): the spots the server marked filled or expired on the message, counted as stale. */

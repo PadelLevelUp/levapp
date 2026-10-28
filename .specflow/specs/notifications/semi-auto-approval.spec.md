@@ -115,7 +115,14 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    wave that would ask the student if sent now — the same number the engine stamps on that round's
    invitations (`invitation_waves`' 1-based group number; 0 the waiting list). A later send can
    still reach a later round, because eligibility is re-read at each send. The Assistant message
-   keeps the list as it was asked: a record.
+   keeps the queue as it was built and says so: under its spots it reads 'Fila às HH:MM' / 'Queue
+   as of HH:MM' (the time the message was built, on the club's clock, with the day when it is not
+   today), while the class view shows the queue as it is now. A 'Sim' pressed on the message
+   invites only the students eligible when it is pressed (rule 5), so an older list never invites
+   an enrolled student, a student who declined, or more spots than are open (PAD-770). The class
+   view reads its suggestions again every time it reads the class again (a presence moved, a join
+   was accepted), so its cards follow the class without reopening it; a card the coach has just
+   answered stays until the class is closed (PAD-770, B-692).
 
 ### Acceptance Criteria
 
@@ -231,6 +238,23 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **When** the invitation tick runs
 - **Then** both prompts are stale and their messages mark the spots resolved filled/expired; a
   pending prompt on an open spot and a decided prompt on a closed spot are untouched
+
+#### A student who joined leaves the suggestions, live (rule 12b, PAD-770)
+- **Given** a class with two spots awaiting approval, and case 13 in the suggested queue
+- **When** the coach accepts case 13's request to join while the class is open on web or iOS
+- **Then** without reopening the class, the card of the spot case 13 took is gone, case 13 is in
+  no queue, and one spot is left
+
+#### A student who declined is not suggested again (rule 12b, PAD-770)
+- **Given** case 10 answered "no" to an invitation for this class
+- **When** the coach opens the class
+- **Then** case 10 is in no suggested queue
+
+#### An old list approved from the message invites only who is eligible now (rules 5, 12b, PAD-770)
+- **Given** the Assistant message's list, built at 20:41, still names case 13 (joined since) and
+  case 10 (declined since), and reads "Fila às 20:41"
+- **When** the coach presses "Sim, agora mesmo" on it
+- **Then** neither is invited, and only spots still open send; a closed one answers "stale"
 
 #### Batch processor skips unapproved vacancies
 - **Given** vacancies with approval_status "pending" and "dismissed" of a coach still in semi_automatic

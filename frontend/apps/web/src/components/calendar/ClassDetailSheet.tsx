@@ -68,7 +68,7 @@ import {
   getApprovalSuggestions,
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
-import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, suggestionBundles } from "@levelup/config";
+import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, mergeSuggestionBundles, suggestionBundles } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -288,6 +288,8 @@ export function ClassDetailSheet({
   const [invitationsOpen, setInvitationsOpen] = useState(false);
   // PAD-765 (semi-auto-approval rule 12): every pending bundle of the class, oldest spot first.
   const [approvalBundles, setApprovalBundles] = useState<ApprovalBundle[]>([]);
+  // PAD-770: the bundles the coach answered here; their card stays through a re-read until closed.
+  const answeredBundleIdsRef = useRef<Set<string>>(new Set());
   // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
   // a pending list survives a reload, and an ignored one offers "Suggest automatic invitations".
   const [suggestionsIgnored, setSuggestionsIgnored] = useState(false);
@@ -307,7 +309,8 @@ export function ClassDetailSheet({
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (s.state === "pending") setApprovalBundles(suggestionBundles(s));
+        // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
+        setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
       .catch(() => undefined);
@@ -316,7 +319,9 @@ export function ClassDetailSheet({
     };
     // PAD-765: read again once the class loads — the class-id reset below clears the cards, and a
     // class known from the event (its id in the event) could be read before it and lose them.
-  }, [open, canManage, suggestionsInstanceId, classInstance?.id]);
+    // PAD-770: and every time the class is read again (a presence moved, a join was accepted), so
+    // the cards follow the class without reopening it.
+  }, [open, canManage, suggestionsInstanceId, classInstance]);
 
   const handleRecomputeSuggestions = async () => {
     if (suggestionsInstanceId == null || recomputing) return;
@@ -474,6 +479,7 @@ export function ClassDetailSheet({
     setInvitationsOpen(keepInvitationsOpenRef.current);
     keepInvitationsOpenRef.current = false;
     setApprovalBundles([]);
+    answeredBundleIdsRef.current = new Set();
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
     setCancelAttendanceOpen(false);
@@ -1950,6 +1956,8 @@ export function ClassDetailSheet({
                     if (action === "dismiss") {
                       setApprovalBundles((prev) => prev.filter((b) => b.bundleId !== approvalBundle.bundleId));
                       setSuggestionsIgnored(true);
+                    } else {
+                      answeredBundleIdsRef.current.add(approvalBundle.bundleId);
                     }
                   }}
                 />
