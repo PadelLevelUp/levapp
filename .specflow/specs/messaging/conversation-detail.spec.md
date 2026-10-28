@@ -133,6 +133,40 @@ through the history without the thread ever moving under the reader.
     an iOS row's children are not nested under it for Maestro). Nothing else about the bubble changes: no icon, no background, no
     separate feed. A typed message never carries it. The field is additive: builds that ignore it
     (iOS 1.0–1.2.1) look exactly as before.
+17. **Back from a thread goes up to Mensagens (PAD-768; iOS and Android).** Back from a
+    conversation, whether the header arrow (`chat-back`), the iOS edge swipe or Android's back
+    button, lands on the Mensagens tab's list, never on the screen or thread that was open before
+    it, however the thread was reached: the list, a class or the participant sheet ("message the
+    student"), a dashboard link, a push tap warm or cold. Mechanism: `/conversation/[id]` sits on the
+    root stack above `(tabs)`, and every way into a thread goes through `openConversation`
+    (`src/features/messages/open-conversation.ts`): it pops the root stack to `(tabs)` with
+    Mensagens selected (`dismissTo`) and then pushes the thread, so the stack under a thread is
+    always [(tabs) on Mensagens, thread] and a native swipe needs no interception. The header arrow
+    is `upFromConversation` (the same `dismissTo`). `/conversation/new` replaces itself with its
+    thread, so it stays a plain push from the list. A push tap on the thread already on screen still
+    mounts a fresh instance (rule 12a): the old one is popped, the new one pushed. **Behaviour
+    change (the owner may veto):** "message the student" from a class now returns to Mensagens, not
+    to the class. **Web is untouched:** its chat is a page in the browser's own history, with the
+    list beside the thread on wide screens; the report and the defect are the native stack's.
+18. **The composer's text is centred in its box (PAD-767; iOS and Android).** In the conversation's
+    message field (`message-input`) and the edit field (`message-edit-input`), the placeholder, the
+    typed text and the caret sit on the vertical centre of the 48 px box, level with the send
+    button's centre. Longer messages grow the box line by line up to its cap and scroll inside it;
+    nothing is cut. Mechanism: a multiline TextInput draws from the top on iOS, so the box carries
+    equal top and bottom padding around one line and grows from a 48 px minimum
+    (`COMPOSER_INPUT_CLASS`), with `textAlignVertical: "center"` for Android. **Web is untouched:**
+    its composer is a textarea laid out by the browser, and the report is the native field's.
+19. **Choosing a message to reply to gives a light haptic (PAD-769; iOS and Android).** When a
+    swipe on a message crosses the reply threshold (the point where letting go sets the reply), the
+    phone plays one light impact at that moment, not at the end of the gesture, and only once per
+    gesture however the finger moves around the threshold. The long press opens the context menu and
+    plays nothing. The system's own haptics setting decides whether it is felt. Mechanism: the pan
+    gesture's `onUpdate` fires `lightImpact` (`src/lib/haptics.ts`) behind a per-gesture flag reset in
+    `onFinalize`. The native module comes with `expo-haptics`, but the JS reaches it only through
+    `requireOptionalNativeModule("ExpoHaptics")`: the app ships over the air on
+    `runtimeVersion: appVersion`, so on a binary built before the dependency (1.1.2) the call is a
+    silent no-op, and users feel it from the next store build. **Web is untouched:** browsers have no
+    haptics for a pointer swipe.
 
 ### Acceptance Criteria
 
@@ -281,3 +315,28 @@ through the history without the thread ever moving under the reader.
 - **Given** a conversation holding a class reminder and a message the coach typed
 - **When** the student opens it on web or on iOS
 - **Then** the reminder shows "Automatic LevApp message" under its text (`message-automatic-note`) and the typed message shows no such line
+
+#### Back from a thread lands on Mensagens however it was opened (rule 17, PAD-768)
+- **Given** thread A open on iOS, then a push tap opening thread B; or a class's "message the
+  student" opening a thread; or a cold start from a push tap
+- **When** the user taps the back arrow, swipes from the edge, or presses Android's back button
+- **Then** the Mensagens list is shown, and back never opens another thread or returns to the class
+- **And** every navigation into a thread in app/ and src/ goes through `openConversation` (wiring
+  test `open-conversation.test.ts` fails on a direct `router.push("/conversation/…")`)
+
+#### The message field's text sits on its vertical centre (rule 18, PAD-767)
+- **Given** an open conversation on iOS or Android with an empty message field
+- **When** the field shows its placeholder, and then one typed line
+- **Then** the placeholder, the text and the caret are centred in the 48 px box, level with the send
+  button's centre; the edit field looks the same
+- **And** a message of several lines grows the box up to its cap with no line cut off
+
+#### Choosing a message to reply to plays one light haptic (rule 19, PAD-769)
+- **Given** a conversation on an iPhone or Android phone built with `expo-haptics`
+- **When** the user swipes a message right past the reply threshold, drags back and forth across
+  it, and lets go
+- **Then** one light impact plays when the threshold is first crossed, none after, and the reply
+  preview opens when the finger lifts
+- **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
+  error
+

@@ -13,6 +13,7 @@ import { SideInOccurrenceControl, type SideInOccurrence } from "./SideInOccurren
 import { usePlayerProfile } from "@levelup/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
+import { openConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Pressable, ScrollView, View } from "react-native";
@@ -67,7 +68,7 @@ export function ParticipantSheet({ row, onClose, side }: ParticipantSheetProps) 
     onClose();
     try {
       const conversation = await messagesApi.createConversation({ otherParticipants: [String(userId)] });
-      router.push(`/conversation/${conversation.id}`);
+      openConversation(router, `/conversation/${conversation.id}`); // PAD-768: back goes to Mensagens
     } catch {
       toast.error(t("messages.somethingWentWrong"));
     }

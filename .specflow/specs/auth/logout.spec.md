@@ -38,6 +38,14 @@ Invalidate the current JWT token so it cannot be reused.
    calendar or players. On sign-out the cache is cleared after the stored token is gone, so no
    in-flight read refills it with the old session. Privacy defect B-601 (Android nightly lane): a
    coach's Settings showed the student's sections for up to 60 s after the student signed out.
+7. **(PAD-777, B-697) Signing out ends on the login screen alone (iOS and Android).** When the session
+   ends — the sign-out row, deleting the account, or a 401 — the app dismisses the root stack back to
+   its first route and replaces that with the login screen, so the login screen is the only route:
+   the tabs and anything pushed over them (Settings) are gone. After the
+   next sign-in the root stack holds exactly one `(tabs)` with nothing beneath it, so the native back
+   on a screen pushed over the tabs always returns to them. Web is unchanged: a browser renders one
+   route at a time and its history holds URLs, not mounted screens; sign-out navigates to `/auth`
+   and `ProtectedRoute` redirects a protected URL reached through Back.
 
 ### Acceptance Criteria
 
@@ -74,3 +82,10 @@ Invalidate the current JWT token so it cannot be reused.
 - **When** they sign out (or a 401 ends the session) and a coach signs in on the same device or tab
 - **Then** the query cache holds nothing of the student's, and the coach's Settings read their own
   `auth-me`
+
+#### Settings' back still works after signing out and in (rule 7, PAD-777)
+- **Given** a coach on Settings, opened from the avatar
+- **When** they sign out there, sign in again, then three times open Settings from the avatar and tap
+  back
+- **Then** each back returns to the tabs, and after the sign-in the root stack is `[(tabs)]`
+  (flow 308; wiring of `leaveToLogin` in `frontend/apps/mobile/src/auth/sign-out.test.ts`)

@@ -33,7 +33,9 @@ Handles reminders, vacancy-based invitations, waiting list, and manual notificat
 
 from __future__ import annotations
 
+import copy
 import re
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
@@ -264,12 +266,35 @@ def _level_operations_outside(rules, known) -> list:
     ]
 
 
+#: notifications.config rule 16 (PAD-771): the columns whose changes a save records — what decides who
+#: is invited and from when. Rules and timings only, never a student.
+RECORDED_CONFIG_KEYS = (
+    "invitation_groups", "eligibility_rules",
+    "invitation_start_type", "invitation_start_value", "invitation_start_time",
+)
+
+
+def _record_config_changes(config: NotificationConfig, before: dict, at: datetime) -> None:
+    """Rule 16: one `notification_config_changes` row per recorded key the save changed, added to the
+    save's own session so the save's commit carries them."""
+    from padel_app.models.notification_config_change import NotificationConfigChange
+
+    for key in RECORDED_CONFIG_KEYS:
+        after = getattr(config, key)
+        if after != before[key]:
+            db.session.add(NotificationConfigChange(
+                coach_id=config.coach_id, changed_at=at, key=key,
+                before=before[key], after=copy.deepcopy(after),
+            ))
+
+
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
     _forget_config(coach_id)
 
     timing_changed = False
     invitation_start_before = config.get_invitation_start_timing()
+    recorded_before = {key: copy.deepcopy(getattr(config, key)) for key in RECORDED_CONFIG_KEYS}
 
     if "autoNotifyEnabled" in data:
         config.auto_notify_enabled = bool(data["autoNotifyEnabled"])
@@ -339,6 +364,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         # PAD-776 (invitations rule 11a): set through `invitationStartTiming` or inside
         # `reminderTiming`; the open spots are re-timed in the timing's own commit.
         rederive_invite_windows(coach_id, config)
+    _record_config_changes(config, recorded_before, utcnow_naive())
 
     config.save()
 
@@ -371,10 +397,18 @@ def _is_semi_auto(config: NotificationConfig) -> bool:
 
 def _release_pending_approval(vacancy: Vacancy, at: datetime) -> None:
     """PAD-766 (semi-auto-approval rule 1a): a spot awaiting approval of a coach who is now
-    automatic invites like any automatic spot; its pending prompt can no longer decide it."""
+    automatic invites like any automatic spot; its pending prompt can no longer decide it.
+
+    PAD-776 part 2 (B-702): a pending spot carries no window, so the release stamps the one the
+    coach's current timing gives, as an automatic spot gets it on opening; a window already past
+    is not stored and the spot starts on the tick."""
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+    from padel_app.scheduler import _compute_invite_start_dt
 
     vacancy.approval_status = "not_required"
+    timing = get_or_create_config(vacancy.coach_id).get_invitation_start_timing()
+    opens_at = _compute_invite_start_dt(vacancy.lesson_instance, timing)
+    vacancy.invite_not_before = opens_at if opens_at is not None and at < opens_at else None
     for prompt in ReplacementApprovalPrompt.query.filter_by(vacancy_id=vacancy.id, status="pending").all():
         prompt.status = "stale"
         prompt.decided_at = at
@@ -3428,17 +3462,25 @@ def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> lis
     return sides
 
 
+def _never_filled_seats(instance: LessonInstance) -> int:
+    """PAD-763 (invitations rule 1d, B-701): the free seats no spot stands for yet. A free seat is
+    capacity minus the seats held (`effective_filled_spots`: going plus unanswered, the header's
+    "K vagas"). An open spot stands for one being offered; an expired one for one whose rounds ran
+    out, which stays closed (rule 1c) and must not come back as a never-filled spot. A filled spot's
+    seat is its filler's, already among the held ones, so it is not counted again."""
+    taken_care_of = Vacancy.query.filter(
+        Vacancy.lesson_instance_id == instance.id, Vacancy.status.in_(("open", "expired")),
+    ).count()
+    return max(0, (instance.effective_max_players or 0) - _effective_filled_spots(instance) - taken_care_of)
+
+
 def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> list[Vacancy]:
     """
     Create Vacancy records for spots that are open because the class was never
     fully enrolled (no 'departing' player to snapshot from).
     """
     def _spots_to_create() -> int:
-        existing_count = Vacancy.query.filter_by(
-            lesson_instance_id=instance.id,
-        ).filter(Vacancy.status.in_(["open", "filled"])).count()
-        open_spots = instance.effective_max_players - _effective_filled_spots(instance)
-        return max(0, open_spots - existing_count)
+        return _never_filled_seats(instance)  # PAD-763 (rule 1d, B-701)
 
     if _spots_to_create() == 0:
         return []
@@ -4952,6 +4994,14 @@ def _send_invitation_batch(
         # empty notified the eighth in the same call as the trigger — the
         # "everyone was notified immediately" of PAD-70. The next round goes
         # out on the next process_invitation_batches tick, one round per tick.
+        # PAD-771 (rule 3d): say why, before the round is deferred — stage names and counts only.
+        from flask import current_app, has_app_context
+        if has_app_context():
+            current_app.logger.info(
+                "empty round: vacancy %s round %s stages %s",
+                vacancy.id, vacancy.current_round_number,
+                dict(sorted(Counter(v.stage for v in verdicts).items())),
+            )
         _defer_next_round(vacancy, config, now=now)
         return []
 
@@ -5821,13 +5871,13 @@ def _open_never_filled_places(*, now: datetime) -> int:
     future time, so a class materialised inside its window (created late, opened by the coach), an
     invitation start earlier than the first reminder, reminders off, or a restart across the fire
     time left it silent. This scan is the missing event: for each future class (club clock), not
-    canceled or completed, notifications on, with NO vacancy of any status, automatic invitations on,
-    free capacity and a primary coach whose SAVED configuration has the engine on and whose
+    canceled or completed, notifications on, with no open vacancy, automatic invitations on,
+    a free seat no spot stands for (``_never_filled_seats``, PAD-763) and a primary coach whose SAVED configuration has the engine on and whose
     invitation window (rule 11) has opened, it calls ``trigger_invitations`` — so every existing
     gate applies (semi-automatic approval, restrictions and the quiet-hours hold, the start-once
     claim) and the places are created under the class lock (PAD-261), which is what makes a tick
-    racing a start job or an absence on the same class create them once. A class whose vacancies
-    are all filled or expired is not reopened; capacity changes are rule 13's. An invitation start
+    racing a start job or an absence on the same class create them once. An expired vacancy is
+    not reopened: its seat is counted as taken care of; capacity changes are rule 13's. An invitation start
     of type ``none`` opens nothing, as it arms no job. A coach with no saved configuration has the
     engine off (the column default) and is skipped without creating one.
 
@@ -5846,7 +5896,9 @@ def _open_never_filled_places(*, now: datetime) -> int:
             LessonInstance.start_datetime > wall_now,
             LessonInstance.status.notin_(("canceled", "completed")),
             LessonInstance.notifications_enabled.is_(True),
-            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id),
+            # PAD-763 (B-701): only an open spot stops the scan (that class is the sweep's); filled
+            # and expired spots are counted by `_never_filled_seats` below.
+            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id, Vacancy.status == "open"),
         )
         .order_by(LessonInstance.start_datetime.asc(), LessonInstance.id.asc())
         .all()
@@ -5859,7 +5911,7 @@ def _open_never_filled_places(*, now: datetime) -> int:
             # `if instance.id < NEVER_FILLED_WATERMARK_ID: continue`.
             if not effective_auto_invites(instance):
                 continue
-            if (instance.effective_max_players or 0) - _effective_filled_spots(instance) <= 0:
+            if _never_filled_seats(instance) <= 0:
                 continue
             coach = primary_coach(instance)
             if coach is None:
@@ -5986,7 +6038,19 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
             # awaiting coach approval or dismissed by the coach.
             if vacancy.approval_status in ("pending", "dismissed"):
                 continue
-            # Approved "at the invitation window": hold until the window opens.
+            # PAD-776 part 2 (invitations rule 11a, B-702): an automatic spot with no window (opened
+            # inside an earlier timing's window, or released before its release stamped one) takes
+            # the one the coach's current timing gives; a window already past stays unstored.
+            # "Yes, right now" (approved, no window) is not touched.
+            if vacancy.approval_status == "not_required" and vacancy.invite_not_before is None:
+                from padel_app.scheduler import _compute_invite_start_dt
+
+                timing = get_or_create_config(vacancy.coach_id).get_invitation_start_timing()
+                opens_at = _compute_invite_start_dt(instance, timing)
+                if opens_at is not None and _now < opens_at:
+                    vacancy.invite_not_before = opens_at
+                    vacancy.save()
+            # Approved "at the invitation window", or an automatic spot before its window: hold.
             if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
                 continue
             # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the

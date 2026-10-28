@@ -125,9 +125,14 @@ describe("a tap on the conversation already on screen is a new open", () => {
   it("PushTapRouter navigates with router.push, which always mounts a new thread instance", () => {
     // expo-router's stack reuses the focused route for NAVIGATE but never for PUSH (no
     // `singular`). A reused instance would not mount, so rule 12a's GET would not run.
+    // PAD-768: the tap goes through `pushRoute`; a thread is popped to Mensagens and then PUSHED,
+    // so the thread on screen is unmounted and the tapped one mounts fresh.
     const source = readFileSync(join(__dirname, "..", "..", "components", "PushTapRouter.tsx"), "utf8");
-    expect(source).toMatch(/router\.push\(target/);
+    expect(source).toMatch(/pushRoute\(router, target/);
     expect(source).not.toMatch(/router\.(navigate|replace)\(/);
+    const helper = readFileSync(join(__dirname, "open-conversation.ts"), "utf8");
+    expect(helper).toMatch(/router\.push\(target/);
+    expect(helper).not.toMatch(/router\.(navigate|replace)\(/);
   });
 });
 

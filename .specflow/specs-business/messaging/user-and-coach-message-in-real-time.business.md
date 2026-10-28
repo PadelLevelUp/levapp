@@ -55,6 +55,9 @@ the mechanism itself is generic 1:1 (and group) messaging.
 - A conversation between the same two people is found, not recreated, every time — starting a
   "new" conversation with someone you've already messaged reuses the existing thread.
 - Only the sender of a message can edit or delete it.
+- In the phone app, going back from a conversation always returns to the Messages list, however the
+  conversation was opened (the list, a class, a notification), never to another conversation or
+  to the screen before it (PAD-768).
 - Deleting a message erases what it said and any photo it carried; the thread keeps only a
   "Message deleted" placeholder, the conversation list never shows the old text, and nothing
   the person deleted stays readable on the server. A report is the exception: whoever reported

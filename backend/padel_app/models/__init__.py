@@ -60,6 +60,8 @@ from .admin_role import AdminRole
 from .delivery_incident import DeliveryIncident
 from .push_outbox import PushOutbox
 from .push_receipt import PushReceipt
+# notifications.config rule 16 (PAD-771): the history of the keys that decide who is invited.
+from .notification_config_change import NotificationConfigChange
 from .admin_audit_log import AdminAuditLog
 # admin.finance (PAD-742): manual costs, their owner-only history, and the Google Cloud import.
 from .finance import FinanceCost, FinanceCostRevision, FinanceGcpCost, FinanceImportRun

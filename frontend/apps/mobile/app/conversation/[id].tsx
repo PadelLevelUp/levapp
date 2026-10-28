@@ -23,6 +23,7 @@ import {
 import type { EligibilityCheckEntry, Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import { upFromConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
@@ -130,6 +131,18 @@ type RowHandlers = {
 };
 
 /**
+ * PAD-767 (messaging.conversation-detail rule 18): the composer's text, placeholder and caret sit
+ * on the vertical centre of the 48 px box, level with the send button's centre. A multiline
+ * TextInput draws its text from the top on iOS (Android's `textAlignVertical` is ignored there), and
+ * the shared Input is a fixed `h-12` with no vertical padding, so one line sat high in the box. The
+ * box grows instead: equal top and bottom padding of 14 px around one ~19 px line of 16 px text
+ * fills the 48 px minimum, and further lines add height up to `max-h-28` (the row is `items-end`, so
+ * the send button stays at the bottom). `textAlignVertical: "center"` is Android's half.
+ */
+const COMPOSER_INPUT_CLASS = "h-auto min-h-12 py-3.5";
+const COMPOSER_INPUT_STYLE = { textAlignVertical: "center" } as const;
+
+/**
  * PAD-592: the composer owns its draft. Before, the draft lived in the 1,700-line screen and
  * every keystroke re-rendered the whole thread — every mounted bubble included. Same test ids
  * and copy as before; the send clears the draft and hands the text up.
@@ -158,7 +171,8 @@ function Composer({
         testID="message-input"
         accessibilityLabel={t("messages.messageTextAria")}
         placeholder={t("messages.typePlaceholder")}
-        className="max-h-28 flex-1"
+        className={`${COMPOSER_INPUT_CLASS} max-h-28 flex-1`}
+        style={COMPOSER_INPUT_STYLE}
         value={draft}
         onChangeText={setDraft}
         multiline
@@ -1438,7 +1452,7 @@ export default function ConversationScreen() {
             accessibilityLabel={t("common.back")}
             role="button"
             hitSlop={10}
-            onPress={() => router.back()}
+            onPress={() => upFromConversation(router)} // PAD-768: up to Mensagens, not back in history
             className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
           >
             <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />
@@ -1714,7 +1728,8 @@ export default function ConversationScreen() {
             <Input
               testID="message-edit-input"
               accessibilityLabel={t("messages.editMessageTextAria")}
-              className="flex-1"
+              className={`${COMPOSER_INPUT_CLASS} max-h-28 flex-1`}
+              style={COMPOSER_INPUT_STYLE}
               value={editText}
               onChangeText={setEditText}
               multiline

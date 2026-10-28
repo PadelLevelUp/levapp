@@ -15,6 +15,8 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+// PAD-769: the reply haptic reaches a native module (expo-modules-core needs `__DEV__`).
+vi.mock("@/lib/haptics", () => ({ lightImpact: () => {} }));
 // The harness has no native gesture or animation runtime: a chainable gesture stub and plain
 // values are enough for the bubble to mount (the memo, not the swipe, is under test).
 vi.mock("react-native-gesture-handler", () => {
