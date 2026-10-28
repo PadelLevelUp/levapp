@@ -101,16 +101,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      an occurrence removes that job and leaves the instance's `invite_start_<instance>` as the
      occurrence's only start job (the reminders rule 20 shape), so the two never both fire;
    - **a materialised class** whose window is open, which is still ahead on the club's clock, has
-     free capacity, automatic invitations on (`toggle-class` rule 5), notifications on and **no
-     vacancy of any status** is opened by the next tick through `trigger_invitations`, so every
+     a free seat no spot stands for (rule 1d), automatic invitations on (`toggle-class` rule 5),
+     notifications on and **no open vacancy** is opened by the next tick through `trigger_invitations`, so every
      gate applies unchanged: the engine switch, semi-automatic approval (an approval prompt, not an
      invitation), the restrictions and quiet-hours hold (config rule 6d), the start-once claim
      (rule 1b), and the creation under the class lock (rule 10, PAD-261) — a tick and a start job
-     or an absence racing on one class create its places once and start them once. A class whose
-     vacancies are all filled or expired is not reopened by the tick; capacity changes are rule 13's.
-     Named limit of that filter: a class whose one absence vacancy was filled before the window
-     while another place was never filled is skipped by the tick (the filled row counts as "a
-     vacancy"); a start job or a hand trigger still opens the remaining place.
+     or an absence racing on one class create its places once and start them once. An expired
+     vacancy is not reopened: rule 1d counts its seat as taken care of, so the tick opens only the
+     class's other free seats; capacity changes are rule 13's. (Until PAD-763 any vacancy row
+     stopped the scan, and the start job counted a filled spot's seat twice, so a class whose freed
+     spot was filled or had expired never opened its other free seats: B-701, rule 1d.)
      An invitation start of type `none` opens nothing from the tick, as it arms no job;
    - **an occurrence not yet materialised whose window is already open when its jobs are derived
      (PAD-661, ledger B-501)**. Neither path above sees it: the derivation
@@ -131,6 +131,21 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    The tick opens every such class it can see, so a deploy or a save that lands inside open
    windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
    measured on staging before merge). A save still sends nothing itself (config rule 10).
+1d. **A free seat is a seat nobody holds (PAD-763, ledger B-701; numbering unconfirmed).** A
+   class's free seats are its capacity minus the seats held: the players going plus those who have
+   not answered (`effective_filled_spots`, the same count as the participants header's "K vagas",
+   `calendar.event-detail` rule 5). A filled spot is not counted again: the student who filled it
+   holds that seat and is already in the held count. An open spot stands for a free seat being
+   offered; an expired spot for a free seat whose rounds ran out, which stays closed and never
+   comes back as a never-filled spot (no loop re-asking the same pool). Never-filled spots are
+   opened for the free seats no open or expired spot stands for, under the class lock (rule 10), at
+   the invitation start (rule 1c's start job and `trigger_invitations`), on a coach's edit (rule
+   13a) and, for a class with no open spot, at the tick's scan (rule 1c): a seat that never had a
+   spot gets its own rounds, whatever happened to the class's other spots. Each is a
+   never-filled spot like any other: the waiting list is asked first (rule 8a), then the rounds, with
+   its balancing side (rule 2b); rule 18's "no is final for that class" and rule 18c's one live offer
+   per student per day apply unchanged, and the filler, being in the class, is never asked. A class that holds such a seat when this
+   rule ships is opened by the first tick after it, once its window is open; no data repair.
 2. Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side in that occurrence (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
    **A player's side, wherever rules 2–2d count or start from one, is their side in that
    occurrence (PAD-551):** the presence's override when the coach set one, else the coach–player
@@ -753,10 +768,35 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** the lesson-level job is gone and `invite_start_<instance>` is the occurrence's only
   start job; cancelling or moving the series' occurrence jobs removes or moves both families
 
-#### The tick does not reopen a class whose vacancy was filled or expired (rule 1c)
+#### The tick does not reopen an expired spot (rule 1c, rule 1d)
 - **Given** a future class inside its window with one free place and one `expired` vacancy
 - **When** `process_invitation_batches()` runs
 - **Then** no vacancy is created and nothing is sent
+
+#### The invitation start opens the free seat beside a filled spot (rule 1d, PAD-763)
+- **Given** a class of 4 inside its window with 3 enrolled, one of whom gave the place up and a candidate filled it (3 seats held, one `filled` vacancy)
+- **When** `trigger_invitations` runs
+- **Then** exactly one never-filled spot is open and its invitations go to candidates who are not in the class; the filler is not asked
+
+#### The tick reaches a class whose only spot is filled (rule 1d, PAD-763)
+- **Given** the same class
+- **When** `process_invitation_batches()` runs twice
+- **Then** one never-filled spot is open after the first tick with its first batch out, and the second tick opens no other
+
+#### The waiting list is offered the free seat first (rule 1d, PAD-763)
+- **Given** the same class with a candidate on its waiting list
+- **When** the tick opens the spot
+- **Then** the first invitation is that candidate's, at round 0
+
+#### An expired spot stays closed and the other free seats open (rule 1d, PAD-763)
+- **Given** a class of 4 inside its window with 2 enrolled, one of whom gave the place up, and that spot (side left) `expired` after its rounds ran out (1 seat held, 3 free)
+- **When** the tick runs
+- **Then** two never-filled spots open and the expired one stays expired; once those two expire as well, the next tick opens nothing
+
+#### A full class with a filled spot opens nothing (rule 1d, PAD-763)
+- **Given** the same class with capacity 3 (all seats held)
+- **When** the tick runs
+- **Then** no spot is opened and nothing is sent
 
 #### A tick and a start racing on one class open it once (rule 1c, Postgres)
 - **Given** a materialised class inside its window with one free place and no vacancy
