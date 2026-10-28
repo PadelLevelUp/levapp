@@ -33,6 +33,7 @@ import type {
   DashboardWeekPulseBlock,
 } from "@levelup/types";
 import { router } from "expo-router";
+import { pushRoute } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -82,8 +83,9 @@ export function go(href: string, hint?: { title?: string; timeLabel?: string }) 
   // dashboard.blocks rule 10: the mapping lives in routes.ts (pure, unit-tested).
   const route = nativeRouteForWebPath(href, hint);
   if (!route) return;
-  if ("params" in route) router.push({ pathname: route.pathname, params: route.params } as never);
-  else router.push(route.pathname as never);
+  // PAD-768: a thread opens on top of Mensagens (`pushRoute`), anything else is pushed as before.
+  if ("params" in route) pushRoute(router, { pathname: route.pathname, params: route.params });
+  else pushRoute(router, route.pathname);
 }
 
 /* ── primitives ──────────────────────────────────────────────────────────── */
