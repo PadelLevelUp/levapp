@@ -107,3 +107,36 @@ def test_a_full_class_with_a_filled_spot_opens_nothing(app, monkeypatch):
         process_invitation_batches(now=NOW)
         assert _spots(instance_id) == []
         assert _live_events(instance_id) == []
+
+
+def test_an_expired_spot_stays_closed_and_the_other_free_seats_open(app, monkeypatch):
+    """The coordinator's case (instance 532 on prod): a freed spot ran out of rounds and expired
+    while two seats had never been filled. Rule 1c keeps the expired spot closed; the class's other
+    seats still open. Once those expire too, nothing comes back: no spot reopened in a loop."""
+    from padel_app.models.presences import Presence
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.services.notification_service import process_invitation_batches
+    from padel_app.tests.helpers import pin_clock
+
+    with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
+        pin_clock(monkeypatch, NOW)
+        instance_id, coach_id, students, _others = _seed(enrolled=2, candidates=4, max_players=4)
+        leaver = students[0]
+        presence = Presence.query.filter_by(lesson_instance_id=instance_id, player_id=leaver).one()
+        presence.status = "absent"
+        presence.confirmed = True
+        db.session.add(Vacancy(lesson_instance_id=instance_id, coach_id=coach_id, original_player_id=leaver,
+                               side="left", status="expired", approval_status="not_required",
+                               current_round_number=2, current_batch_number=1))
+        db.session.commit()
+
+        process_invitation_batches(now=NOW)
+        opened = _spots(instance_id)
+        assert [v.original_player_id for v in opened] == [None, None], "the two never-filled seats"
+        assert len(_spots(instance_id, "expired")) == 1, "the expired spot is not reopened"
+
+        for v in opened:
+            v.status = "expired"
+        db.session.commit()
+        process_invitation_batches(now=NOW)
+        assert _spots(instance_id) == [], "every free seat already ran out: nothing reopens"

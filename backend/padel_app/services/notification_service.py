@@ -3428,20 +3428,25 @@ def _balancing_sides(instance: LessonInstance, coach_id: int, count: int) -> lis
     return sides
 
 
+def _never_filled_seats(instance: LessonInstance) -> int:
+    """PAD-763 (invitations rule 1d, B-701): the free seats no spot stands for yet. A free seat is
+    capacity minus the seats held (`effective_filled_spots`: going plus unanswered, the header's
+    "K vagas"). An open spot stands for one being offered; an expired one for one whose rounds ran
+    out, which stays closed (rule 1c) and must not come back as a never-filled spot. A filled spot's
+    seat is its filler's, already among the held ones, so it is not counted again."""
+    taken_care_of = Vacancy.query.filter(
+        Vacancy.lesson_instance_id == instance.id, Vacancy.status.in_(("open", "expired")),
+    ).count()
+    return max(0, (instance.effective_max_players or 0) - _effective_filled_spots(instance) - taken_care_of)
+
+
 def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> list[Vacancy]:
     """
     Create Vacancy records for spots that are open because the class was never
     fully enrolled (no 'departing' player to snapshot from).
     """
     def _spots_to_create() -> int:
-        # PAD-763 (rule 1d, B-701): only open spots stand for free seats already offered. A filled
-        # spot's seat is its filler's, already in `effective_filled_spots`; counting the row too
-        # hid a free seat.
-        existing_count = Vacancy.query.filter_by(
-            lesson_instance_id=instance.id, status="open",
-        ).count()
-        open_spots = instance.effective_max_players - _effective_filled_spots(instance)
-        return max(0, open_spots - existing_count)
+        return _never_filled_seats(instance)  # PAD-763 (rule 1d, B-701)
 
     if _spots_to_create() == 0:
         return []
@@ -5824,14 +5829,13 @@ def _open_never_filled_places(*, now: datetime) -> int:
     future time, so a class materialised inside its window (created late, opened by the coach), an
     invitation start earlier than the first reminder, reminders off, or a restart across the fire
     time left it silent. This scan is the missing event: for each future class (club clock), not
-    canceled or completed, notifications on, with no open or expired vacancy (a filled one holds its
-    filler's seat, PAD-763), automatic invitations on,
-    free capacity and a primary coach whose SAVED configuration has the engine on and whose
+    canceled or completed, notifications on, with no open vacancy, automatic invitations on,
+    a free seat no spot stands for (``_never_filled_seats``, PAD-763) and a primary coach whose SAVED configuration has the engine on and whose
     invitation window (rule 11) has opened, it calls ``trigger_invitations`` — so every existing
     gate applies (semi-automatic approval, restrictions and the quiet-hours hold, the start-once
     claim) and the places are created under the class lock (PAD-261), which is what makes a tick
-    racing a start job or an absence on the same class create them once. A class with an expired
-    vacancy is not reopened; capacity changes are rule 13's. An invitation start
+    racing a start job or an absence on the same class create them once. An expired vacancy is
+    not reopened: its seat is counted as taken care of; capacity changes are rule 13's. An invitation start
     of type ``none`` opens nothing, as it arms no job. A coach with no saved configuration has the
     engine off (the column default) and is skipped without creating one.
 
@@ -5850,9 +5854,9 @@ def _open_never_filled_places(*, now: datetime) -> int:
             LessonInstance.start_datetime > wall_now,
             LessonInstance.status.notin_(("canceled", "completed")),
             LessonInstance.notifications_enabled.is_(True),
-            # PAD-763 (B-701): a filled spot does not stop the scan; its filler holds that seat.
-            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id,
-                            Vacancy.status.in_(("open", "expired"))),
+            # PAD-763 (B-701): only an open spot stops the scan (that class is the sweep's); filled
+            # and expired spots are counted by `_never_filled_seats` below.
+            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id, Vacancy.status == "open"),
         )
         .order_by(LessonInstance.start_datetime.asc(), LessonInstance.id.asc())
         .all()
@@ -5865,7 +5869,7 @@ def _open_never_filled_places(*, now: datetime) -> int:
             # `if instance.id < NEVER_FILLED_WATERMARK_ID: continue`.
             if not effective_auto_invites(instance):
                 continue
-            if (instance.effective_max_players or 0) - _effective_filled_spots(instance) <= 0:
+            if _never_filled_seats(instance) <= 0:
                 continue
             coach = primary_coach(instance)
             if coach is None:

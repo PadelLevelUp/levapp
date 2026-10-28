@@ -7,7 +7,7 @@ status: resolved
 affects:
   - notifications.invitations
   - backend/padel_app/services/notification_service.py
-proposed_fix: "Invitations rule 1d: a free seat is capacity minus the seats held (the header's K vagas); never-filled spots open for the free seats no open spot stands for. _create_structural_vacancies counts open spots only, and the tick's scan reaches a class whose spots are all filled."
+proposed_fix: "Invitations rule 1d: a free seat is capacity minus the seats held (the header's K vagas); never-filled spots open for the free seats no open or expired spot stands for, at the start, on an edit and at the tick, whose scan skips a class only for an open spot."
 opened: 2026-10-28T18:00:00Z
 resolved: 2026-10-28T19:00:00Z
 ---
@@ -37,7 +37,13 @@ spot (`[] == [None]`), the tick opened none (`0 == 1`), and the waiting list was
 limit, but no rule said what a free seat is, so the engine's count drifted from the participants
 header's "K vagas" (capacity minus going and unanswered, PAD-771).
 
-**Fix:** invitations rule 1d. `_create_structural_vacancies` subtracts open spots only; the tick's
-scan skips a class only for an open or expired spot. Expired spots keep the tick away as before.
+**Fix:** invitations rule 1d. `_never_filled_seats` = capacity - seats held - open and expired spots
+(a filled spot's seat is its filler's, counted once; an expired spot's seat stays closed), used by
+`_create_structural_vacancies` and by the tick, whose scan now skips a class only for an open spot.
+The coordinator's review added the expired case: on prod instance 532 a left-side freed spot
+expired after empty rounds while 2 never-filled seats stayed free, and the old scan skipped the
+whole class. Test `test_an_expired_spot_stays_closed_and_the_other_free_seats_open`: the first
+commit (scan skips expired classes) opens none, counting open spots only opens 3 (the expired seat
+reopened, a loop); the fix opens 2 and nothing after they expire.
 Classes holding such a seat when this ships are opened by the first tick after deploy once their
 window is open; no data repair.
