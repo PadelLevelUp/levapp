@@ -155,8 +155,8 @@ test("US-PAD-659a: sixteen players fit at 1440×900, grouped Vão / Por responde
   await openClassDetail(page, title);
   await scrollToParticipants(page);
 
-  // Header: enrolled over capacity, by name.
-  await expect(page.getByTestId("participants-enrolled")).toContainText("16/16");
+  // Header (PAD-771): the filled spots over capacity, 4 not coming leave 4 open.
+  await expect(page.getByTestId("participants-enrolled")).toContainText("12/16");
 
   // Groups, in order, with their counts; the empty-group rule is covered by US-PAD-659c.
   const groups = page.getByTestId("participant-group");

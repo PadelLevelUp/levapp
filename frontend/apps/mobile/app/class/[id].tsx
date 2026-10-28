@@ -18,6 +18,7 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  participantsHeader,
   INVITATION_OUTCOME_KEY,
   INVITATION_OUTCOME_TONE,
   inviteeActionsFor,
@@ -625,6 +626,8 @@ export default function ClassDetailScreen() {
     isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
+  // PAD-771 (calendar.event-detail rule 5): the coach's participants header.
+  const header = participantsHeader(filled, maxPlayers);
 
   const dateLabel =
     formatDay(active?.date || event.date, locale) || (params.displayDate ?? "");
@@ -1579,13 +1582,13 @@ export default function ClassDetailScreen() {
           {/* Participants + attendance */}
           <View className="gap-2">
             {coachReadView ? (
-              // PAD-659 (rule 5's named exception): the coach's list header names its own
-              // quantity — the enrolled rows below over the capacity.
+              // PAD-771 (rule 5's named exception): the filled spots over the capacity and how
+              // many are open; a not-coming student frees their spot here too.
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-1 gap-0.5">
                   <Text className="text-sm font-semibold">{t("calendar.participants.title")}</Text>
                   <Text testID="participants-enrolled" className="text-[13px] text-muted-foreground">
-                    {t("calendar.participants.enrolled", { current: participants.length, max: maxPlayers || "—" })}
+                    {t(header.key, header.values)}
                   </Text>
                 </View>
                 {!isCanceled ? (
