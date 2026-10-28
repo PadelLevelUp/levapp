@@ -1,7 +1,7 @@
 # PAD-777 (auth.logout rule 7, B-697): signing out from Settings leaves the login screen alone on the
 # root stack, so after signing in again Settings' native back returns to the tabs on every visit.
-# Before the fix the signed-out tabs redirected by replacing the focused screen (Settings): a stale
-# `(tabs)` stayed underneath, the sign-in added a second one, and on iOS the second avatar → Settings
+# Before the fix sign-out ended with `router.replace("/login")`, which replaced only the focused screen
+# (Settings): a stale `(tabs)` stayed underneath, the sign-in added a second one, and on iOS the second avatar → Settings
 # visit had a dead back button (BackButton present and enabled, taps did nothing).
 #
 # Journey: coach login → avatar → Settings → sign out (`settings-logout`) → sign in again WITHOUT a

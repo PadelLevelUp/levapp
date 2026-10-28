@@ -7,7 +7,7 @@ status: resolved
 affects:
   - auth.logout
   - frontend/apps/mobile/app/(tabs)/_layout.tsx
-proposed_fix: "auth.logout rule 7: the signed-out tabs reset the root stack to the login screen alone, so a sign-in starts from exactly one (tabs)."
+proposed_fix: "auth.logout rule 7: a session that ends dismisses the root stack to its first route before replacing it with the login screen, so a sign-in starts from exactly one (tabs)."
 opened: 2026-10-28T17:30:00Z
 resolved: 2026-10-28T18:00:00Z
 ---
@@ -24,7 +24,8 @@ however many. Only after a sign-out in the same app session; a relaunch hides it
 **What should happen:** the back returns to the tabs on every visit.
 
 **Root cause:** auth.logout said nothing about where the app lands after a sign-out (incomplete
-rule). The signed-out tabs rendered `<Redirect href="/login">`, which replaces the FOCUSED route.
+rule). Sign-out (`AuthContext` `logout`, and the 401 handler) ended with `router.replace("/login")`,
+and the signed-out tabs with `<Redirect href="/login">`; both replace only the FOCUSED route.
 After a sign-out from Settings that was Settings, so the root stack went from `[(tabs), settings]` to
 `[(tabs), login]`, and the sign-in's `router.replace` made it `[(tabs), (tabs)]`. On iOS the second
 pop of Settings over the doubled stack was swallowed. Why react-native-screens drops that pop was
@@ -38,10 +39,13 @@ not traced; the doubled stack is the observed difference between pass and fail.
 - A root-stack log on each Settings render: `[(tabs) VcO62, (tabs) iGEQ5, settings]` after the
   sign-out and sign-in; `[(tabs), settings]` with the fix, and 3 of 3 rounds pass.
 
-**Fix:** `app/(tabs)/_layout.tsx`: the signed-out branch renders `SignedOutReset`, which calls
-`navigation.reset({ index: 0, routes: [{ name: "login" }] })` on the root stack. It covers any
-sign-out while a screen is pushed over the tabs (Settings, delete account, a 401). Web is untouched:
+**Fix:** `src/auth/AuthContext.tsx`: sign-out and the 401 handler leave through `leaveToLogin`, which
+dismisses the root stack to its first route (`router.dismissAll()`) before the existing
+`router.replace("/login")`. It covers any sign-out while a screen is pushed over the tabs (Settings,
+delete account, a 401). A first version reset the stack from the signed-out tabs instead; it raced
+AuthContext's own replace and logged "The action 'REPLACE' … was not handled by any navigator" in
+development, a red toast that covered Settings' footer Save, so it was replaced before merge. Web is untouched:
 a browser renders one route at a time and its history holds URLs, not mounted screens; sign-out
 navigates to `/auth` and `ProtectedRoute` redirects any protected URL reached through Back.
-Tests: flow `308-settings-back-after-sign-out.yaml`; wiring test in `src/auth/sign-out.test.ts`
-(red without the fix).
+Tests: flow `308-settings-back-after-sign-out.yaml` (passes with the fix, fails on staging's code, no
+REPLACE error in the Metro log); wiring tests in `src/auth/sign-out.test.ts` (red without the fix).

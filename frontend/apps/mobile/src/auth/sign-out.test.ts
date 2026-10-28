@@ -124,7 +124,7 @@ describe("a session lost to a 401", () => {
     const path = await import("node:path");
     const src = fs.readFileSync(path.resolve(__dirname, "AuthContext.tsx"), "utf8");
     const at = src.indexOf("setUnauthorizedHandler(");
-    expect(src.slice(at, at + 500)).toMatch(/endSessionState\(\);\s*setUser\(null\)/);
+    expect(src.slice(at, at + 500)).toMatch(/endSessionState\(\);\s*(leaveToLogin\(\(\) => )?setUser\(null\)/);
   });
 });
 
@@ -178,27 +178,30 @@ describe("a session's cached data ends with it", () => {
   });
 });
 
-// PAD-777 (auth.logout rule 7, B-697): signing out leaves the login screen alone on the root stack.
-// A `<Redirect href="/login">` from the signed-out tabs replaced only the focused screen (Settings),
-// so the tabs stayed underneath and the next sign-in stacked a second `(tabs)`; on iOS Settings'
-// native back then went dead. The behaviour is flow 308; this pins the wiring.
-describe("signing out resets the root stack to the login screen", () => {
-  it("the signed-out tabs reset the stack instead of redirecting", async () => {
+// PAD-777 (auth.logout rule 7, B-697): a session that ends leaves the login screen alone on the root
+// stack. `router.replace("/login")` alone swapped only the focused screen (Settings), so the tabs stayed
+// underneath and the next sign-in stacked a second `(tabs)`; on iOS Settings' native back then went
+// dead. The behaviour is flow 308; this pins the wiring.
+describe("a session that ends dismisses the stack before showing the login screen", () => {
+  async function authContext() {
     const fs = await import("node:fs");
     const path = await import("node:path");
-    const src = fs.readFileSync(path.resolve(__dirname, "../../app/(tabs)/_layout.tsx"), "utf8");
-    const at = src.indexOf("if (!isAuthenticated) {");
+    return fs.readFileSync(path.resolve(__dirname, "AuthContext.tsx"), "utf8");
+  }
+
+  it("leaveToLogin dismisses to the first route, then replaces it with the login screen", async () => {
+    const src = await authContext();
+    const at = src.indexOf("function leaveToLogin(");
     expect(at).toBeGreaterThan(-1);
-    expect(src.slice(at, at + 120)).toMatch(/return <SignedOutReset \/>;/);
-    expect(src).not.toMatch(/<Redirect href="\/login" \/>/);
+    expect(src.slice(at, at + 200)).toMatch(/router\.dismissAll\(\);[\s\S]*dropUser\(\);[\s\S]*router\.replace\("\/login"\)/);
   });
 
-  it("the reset leaves only the login route", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const src = fs.readFileSync(path.resolve(__dirname, "../../app/(tabs)/_layout.tsx"), "utf8");
-    const at = src.indexOf("function SignedOutReset()");
-    expect(at).toBeGreaterThan(-1);
-    expect(src.slice(at, at + 300)).toMatch(/navigation\.reset\(\{ index: 0, routes: \[\{ name: "login"/);
+  it("sign-out and a 401 both leave through it, and nothing else replaces to the login screen", async () => {
+    const src = await authContext();
+    const logout = src.indexOf("const logout = useCallback(");
+    expect(src.slice(logout, logout + 1600)).toMatch(/leaveToLogin\(\(\) => setUser\(null\)\)/);
+    const unauthorized = src.indexOf("setUnauthorizedHandler(");
+    expect(src.slice(unauthorized, unauthorized + 500)).toMatch(/leaveToLogin\(\(\) => setUser\(null\)\)/);
+    expect(src.match(/router\.replace\("\/login"\)/g)).toHaveLength(1);
   });
 });
