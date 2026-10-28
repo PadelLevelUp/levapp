@@ -35,7 +35,8 @@ def _seed(app, groups, suffix):
     pu = _create_user("Player", f"player-87-{suffix}")
     player = _create_player(pu)
     _create_coach_player(coach, player, level=other_level)
-    instance = _create_instance(coach, class_level, max_players=1)
+    # Inside the default 24 h window: the sweep holds a spot before its window (rule 11a, B-702).
+    instance = _create_instance(coach, class_level, max_players=1, start_offset_hours=12)
     cfg = NotificationConfig(coach_id=coach.id, auto_notify_enabled=True, invitation_groups=groups)
     db.session.add(cfg)
     db.session.commit()
