@@ -374,6 +374,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     differs from the one before, through `invitationStartTiming` or inside `reminderTiming`. A spot
     approved 'Yes, right now' is the approved spot with no `invite_not_before`: `respond_to_approval`
     writes one only for 'at the window'. Pending and dismissed spots are left alone.)
+    **A spot with no window takes the current one at the tick (PAD-776 part 2, ledger B-702).** An
+    open `not_required` spot with no `invite_not_before` (one opened inside an earlier timing's
+    window, or released from approval before semi-auto rule 1a stamped one) is given, by the sweep,
+    the window the coach's current invitation start gives the class: when that window is still
+    ahead the spot is held like a spot after a later save (invitations already sent stay live);
+    when it has passed nothing is stored and the spot goes on. Once per spot in effect, with no coach
+    action and no data repair. A spot with a stored window is not re-timed here: that stays the
+    save's job (above). 'Yes, right now' spots (approved, no window) are not touched.
 
 12. **A wave costs a bounded number of statements, whatever the roster size (PAD-276, audit M17).**
    `evaluate_candidates` reads the roster once (player and user eager-loaded), asks for the
@@ -800,6 +808,11 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **Then** the spot keeps no `invite_not_before` and the next sweep past the inactivity time invites
   the next batch
 - **And** a manual invitation by the coach to another student goes out
+
+#### The tick stamps a missing window still ahead and holds the spot (rule 11a, PAD-776 part 2)
+- **Given** an automatic spot of a class tomorrow 09:00 started under "24 hours before" with no `invite_not_before` and 3 invitations live, and the timing then saved as "6 hours before" without re-timing it
+- **When** the sweep runs at 16:00 UTC today
+- **Then** the spot's `invite_not_before` is 02:00 UTC tomorrow, no invitation is sent and the 3 live ones stay live; with the timing still "24 hours before" nothing is stored, and a spot approved 'Yes, right now' keeps no window
 
 #### A save by a coach who is not the primary coach leaves the class alone (rule 11a, PAD-776)
 - **Given** a started spot of a class whose second coach is not its primary coach

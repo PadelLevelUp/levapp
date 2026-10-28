@@ -371,10 +371,18 @@ def _is_semi_auto(config: NotificationConfig) -> bool:
 
 def _release_pending_approval(vacancy: Vacancy, at: datetime) -> None:
     """PAD-766 (semi-auto-approval rule 1a): a spot awaiting approval of a coach who is now
-    automatic invites like any automatic spot; its pending prompt can no longer decide it."""
+    automatic invites like any automatic spot; its pending prompt can no longer decide it.
+
+    PAD-776 part 2 (B-702): a pending spot carries no window, so the release stamps the one the
+    coach's current timing gives, as an automatic spot gets it on opening; a window already past
+    is not stored and the spot starts on the tick."""
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+    from padel_app.scheduler import _compute_invite_start_dt
 
     vacancy.approval_status = "not_required"
+    timing = get_or_create_config(vacancy.coach_id).get_invitation_start_timing()
+    opens_at = _compute_invite_start_dt(vacancy.lesson_instance, timing)
+    vacancy.invite_not_before = opens_at if opens_at is not None and at < opens_at else None
     for prompt in ReplacementApprovalPrompt.query.filter_by(vacancy_id=vacancy.id, status="pending").all():
         prompt.status = "stale"
         prompt.decided_at = at
@@ -5986,7 +5994,19 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
             # awaiting coach approval or dismissed by the coach.
             if vacancy.approval_status in ("pending", "dismissed"):
                 continue
-            # Approved "at the invitation window": hold until the window opens.
+            # PAD-776 part 2 (invitations rule 11a, B-702): an automatic spot with no window (opened
+            # inside an earlier timing's window, or released before its release stamped one) takes
+            # the one the coach's current timing gives; a window already past stays unstored.
+            # "Yes, right now" (approved, no window) is not touched.
+            if vacancy.approval_status == "not_required" and vacancy.invite_not_before is None:
+                from padel_app.scheduler import _compute_invite_start_dt
+
+                timing = get_or_create_config(vacancy.coach_id).get_invitation_start_timing()
+                opens_at = _compute_invite_start_dt(instance, timing)
+                if opens_at is not None and _now < opens_at:
+                    vacancy.invite_not_before = opens_at
+                    vacancy.save()
+            # Approved "at the invitation window", or an automatic spot before its window: hold.
             if vacancy.invite_not_before is not None and _now < vacancy.invite_not_before:
                 continue
             # PAD-429 (toggle-class rule 6): automatic invitations off for this class — hold the

@@ -472,6 +472,11 @@ def test_a_student_answers_one_waiting_list_offer_before_the_next_spot_asks_them
         db.session.add(Association_CoachLessonInstance(coach_id=coach_id, lesson_instance_id=b.id))
         db.session.commit()
         b_id = b.id
+        # B is two days out: open its window too, or the sweep holds it (rule 11a, B-702).
+        from padel_app.models.notification_config import NotificationConfig
+        NotificationConfig.query.filter_by(coach_id=coach_id).one().invitation_start_timing = {
+            "type": "hours_before", "value": 72}
+        db.session.commit()
         _entry(a_id, coach_id, bea, NOW - timedelta(hours=2))
         _entry(b_id, coach_id, bea, NOW - timedelta(hours=2))
 
