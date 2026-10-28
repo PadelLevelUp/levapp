@@ -41,3 +41,10 @@ class is now; a spot that fills or expires stops asking at once, and its message
 
 **Fix:** rules 11, 12 and 12b. Tests: `backend/padel_app/tests/test_pad765_approval_prompt_lifecycle.py`,
 `ClassDetailSheet.approvals.test.tsx`, and the card and helper tests.
+
+**Resolution addendum (PAD-780, 2026-10-28):** the listener only sees a status change flushed after
+it shipped, so prompts on spots closed before PAD-765 stayed `pending` until the coach tapped them
+(160 on prod, read by SessionH). The invitation tick now resolves every pending prompt whose spot is
+not `open`, through the same `resolve_prompts_for`, one commit per spot, and logs
+"orphaned approval prompts: resolved N" when N > 0 (rule 11's last sentence). Tests:
+`backend/padel_app/tests/test_pad780_orphaned_approval_prompts.py`.

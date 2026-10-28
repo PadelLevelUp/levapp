@@ -548,6 +548,35 @@ def _resolve_prompts_of_closed_spots(session, _flush_context, _instances) -> Non
             resolve_prompts_for(vacancy, session=session)
 
 
+def resolve_orphaned_prompts(now: datetime | None = None) -> int:
+    """Rule 11 (PAD-780): a pending prompt whose spot closed without the listener seeing it (rows
+    closed before PAD-765) is resolved by the invitation tick, the same way. Commits; returns how
+    many prompts it resolved. One commit per spot, like the tick's own loop (#526 review item 6): a
+    spot that fails rolls back alone, is logged, and the next tick tries it again."""
+    from flask import current_app
+
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+
+    counts = Counter(
+        vacancy_id for (vacancy_id,) in (
+            db.session.query(ReplacementApprovalPrompt.vacancy_id)
+            .join(Vacancy, ReplacementApprovalPrompt.vacancy_id == Vacancy.id)
+            .filter(ReplacementApprovalPrompt.status == "pending", Vacancy.status != "open")
+            .all()
+        )
+    )
+    resolved = 0
+    for vacancy_id in sorted(counts):
+        try:
+            resolve_prompts_for(db.session.get(Vacancy, vacancy_id), now=now)
+            db.session.commit()
+            resolved += counts[vacancy_id]
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            current_app.logger.exception("orphaned approval prompts: vacancy %s failed", vacancy_id)
+    return resolved
+
+
 # ---------------------------------------------------------------------------
 # PAD-545 / PAD-542: the class's suggestions, and recomputing them
 # ---------------------------------------------------------------------------
