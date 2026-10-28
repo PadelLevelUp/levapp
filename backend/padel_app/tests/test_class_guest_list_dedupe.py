@@ -66,19 +66,19 @@ def test_dedupe_preserves_first_appearance_order():
 @pytest.mark.parametrize(
     "statuses, expected",
     [
-        # An actual response beats a still-pending invite, whichever came first.
+        # An accepted invitation wins, whichever came first.
         (["sent", "confirmed"], "confirmed"),
         (["confirmed", "sent"], "confirmed"),
-        (["sent", "expired"], "expired"),
-        (["expired", "sent"], "expired"),
-        # A confirmation outranks a decline.
         (["expired", "confirmed"], "confirmed"),
-        # Delivered beats not-yet-delivered.
+        # PAD-773 (rule 8): otherwise the most recently created record, whatever its state —
+        # a student invited again after an expired invite shows the new one.
+        (["sent", "expired"], "expired"),
+        (["expired", "sent"], "sent"),
         (["queued", "sent"], "sent"),
-        (["sent", "queued"], "sent"),
+        (["sent", "queued"], "queued"),
     ],
 )
-def test_dedupe_prefers_the_most_meaningful_status(statuses, expected):
+def test_dedupe_prefers_an_accepted_invite_then_the_newest(statuses, expected):
     from padel_app.serializers.lesson import dedupe_invitation_events
 
     events = [
@@ -92,7 +92,7 @@ def test_dedupe_prefers_the_most_meaningful_status(statuses, expected):
     assert result[0].status == expected
 
 
-def test_dedupe_breaks_status_ties_with_the_most_recent_record():
+def test_dedupe_keeps_the_most_recently_created_record():
     from padel_app.serializers.lesson import dedupe_invitation_events
 
     events = [
@@ -104,8 +104,8 @@ def test_dedupe_breaks_status_ties_with_the_most_recent_record():
     result = dedupe_invitation_events(events)
 
     assert len(result) == 1
-    # Later round wins over a later row id.
-    assert result[0].id == 8
+    # PAD-773 (rule 8): the most recently created record, not the later round.
+    assert result[0].id == 9
 
 
 def test_dedupe_of_empty_and_single_lists():

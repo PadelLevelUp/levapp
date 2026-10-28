@@ -567,6 +567,8 @@ export function ClassDetailSheet({
           const { lessonInstanceId } = data.payload;
           const ev = eventRef.current;
           if (!ev) return;
+          // PAD-773: only this class's invitations; a batch sent for another class publishes too.
+          if (openId == null || Number(lessonInstanceId) !== openId) return;
           const fetchEvent = { ...ev, model: "LessonInstance", originalId: Number(lessonInstanceId) };
           getClassInstance(fetchEvent as typeof ev).then((updated) => {
             setLocalInvitations(updated.invitations ?? []);

@@ -2886,6 +2886,7 @@ def _broadcast_spot_filled(
         # Already expired when the list came from _close_vacancy; still this
         # function's job on the fallback path. Idempotent either way.
         other_event.status = "expired"
+        other_event.retired_reason = other_event.retired_reason or "spot_filled"  # PAD-773 (rule 16)
         other_event.save()
         publish(
             {
@@ -3789,6 +3790,10 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, res
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
 
+    # PAD-773 (calendar.event-detail rule 16): the record carries why it ended, so the class's list
+    # reads the bubble's word — a manual invitation has no vacancy whose status could say it.
+    if response == "spot_filled" and not event.retired_reason:
+        event.retired_reason = "spot_filled"
     if not event.message_id:
         return
     msg = Message.query.get(event.message_id)
@@ -5149,6 +5154,13 @@ def _send_batch_locked(
         locked, instance, config, coach_id, max_sim_override=max_sim_override, now=now
     )
     db.session.commit()  # the end of the lock when the batch sent (and so committed) nothing
+    if sent:
+        # PAD-773: a later round, the tick's next batch or a decline's follow-up is new to the
+        # coach's open class too; both clients re-read the class on this event.
+        publish(
+            {"type": "notify_sent", "payload": {"lessonInstanceId": instance.id, "count": len(sent), "type": "auto"}},
+            _coach_only(_user_id_for_coach(coach_id)),
+        )
     return sent
 
 
