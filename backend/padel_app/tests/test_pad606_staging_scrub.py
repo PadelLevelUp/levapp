@@ -104,6 +104,10 @@ NON_PERSONAL = {
     "finance_import_runs.trigger", "finance_import_runs.outcome", "finance_import_runs.months",
     "finance_import_runs.error_code", "finance_import_runs.error_message", "finance_import_runs.actor_email",
     "finance_gcp_costs.currency", "finance_gcp_costs.project_id", "finance_gcp_costs.service",
+    # PAD-771 (notifications.config rule 16): a key name and the invitation groups, eligibility rules or
+    # invitation start before and after — rules and timings, never a student (RECORDED_CONFIG_KEYS).
+    "notification_config_changes.key", "notification_config_changes.before",
+    "notification_config_changes.after",
 }
 
 

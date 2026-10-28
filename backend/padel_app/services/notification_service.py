@@ -33,7 +33,9 @@ Handles reminders, vacancy-based invitations, waiting list, and manual notificat
 
 from __future__ import annotations
 
+import copy
 import re
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
@@ -264,12 +266,35 @@ def _level_operations_outside(rules, known) -> list:
     ]
 
 
+#: notifications.config rule 16 (PAD-771): the columns whose changes a save records — what decides who
+#: is invited and from when. Rules and timings only, never a student.
+RECORDED_CONFIG_KEYS = (
+    "invitation_groups", "eligibility_rules",
+    "invitation_start_type", "invitation_start_value", "invitation_start_time",
+)
+
+
+def _record_config_changes(config: NotificationConfig, before: dict, at: datetime) -> None:
+    """Rule 16: one `notification_config_changes` row per recorded key the save changed, added to the
+    save's own session so the save's commit carries them."""
+    from padel_app.models.notification_config_change import NotificationConfigChange
+
+    for key in RECORDED_CONFIG_KEYS:
+        after = getattr(config, key)
+        if after != before[key]:
+            db.session.add(NotificationConfigChange(
+                coach_id=config.coach_id, changed_at=at, key=key,
+                before=before[key], after=copy.deepcopy(after),
+            ))
+
+
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
     _forget_config(coach_id)
 
     timing_changed = False
     invitation_start_before = config.get_invitation_start_timing()
+    recorded_before = {key: copy.deepcopy(getattr(config, key)) for key in RECORDED_CONFIG_KEYS}
 
     if "autoNotifyEnabled" in data:
         config.auto_notify_enabled = bool(data["autoNotifyEnabled"])
@@ -339,6 +364,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         # PAD-776 (invitations rule 11a): set through `invitationStartTiming` or inside
         # `reminderTiming`; the open spots are re-timed in the timing's own commit.
         rederive_invite_windows(coach_id, config)
+    _record_config_changes(config, recorded_before, utcnow_naive())
 
     config.save()
 
@@ -4960,6 +4986,14 @@ def _send_invitation_batch(
         # empty notified the eighth in the same call as the trigger — the
         # "everyone was notified immediately" of PAD-70. The next round goes
         # out on the next process_invitation_batches tick, one round per tick.
+        # PAD-771 (rule 3d): say why, before the round is deferred — stage names and counts only.
+        from flask import current_app, has_app_context
+        if has_app_context():
+            current_app.logger.info(
+                "empty round: vacancy %s round %s stages %s",
+                vacancy.id, vacancy.current_round_number,
+                dict(sorted(Counter(v.stage for v in verdicts).items())),
+            )
         _defer_next_round(vacancy, config, now=now)
         return []
 
