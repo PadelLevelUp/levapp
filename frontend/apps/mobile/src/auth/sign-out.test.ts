@@ -177,3 +177,28 @@ describe("a session's cached data ends with it", () => {
     expect(src).toMatch(/bindSessionCache\(queryClient\)/);
   });
 });
+
+// PAD-777 (auth.logout rule 7, B-697): signing out leaves the login screen alone on the root stack.
+// A `<Redirect href="/login">` from the signed-out tabs replaced only the focused screen (Settings),
+// so the tabs stayed underneath and the next sign-in stacked a second `(tabs)`; on iOS Settings'
+// native back then went dead. The behaviour is flow 308; this pins the wiring.
+describe("signing out resets the root stack to the login screen", () => {
+  it("the signed-out tabs reset the stack instead of redirecting", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(path.resolve(__dirname, "../../app/(tabs)/_layout.tsx"), "utf8");
+    const at = src.indexOf("if (!isAuthenticated) {");
+    expect(at).toBeGreaterThan(-1);
+    expect(src.slice(at, at + 120)).toMatch(/return <SignedOutReset \/>;/);
+    expect(src).not.toMatch(/<Redirect href="\/login" \/>/);
+  });
+
+  it("the reset leaves only the login route", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(path.resolve(__dirname, "../../app/(tabs)/_layout.tsx"), "utf8");
+    const at = src.indexOf("function SignedOutReset()");
+    expect(at).toBeGreaterThan(-1);
+    expect(src.slice(at, at + 300)).toMatch(/navigation\.reset\(\{ index: 0, routes: \[\{ name: "login"/);
+  });
+});
