@@ -156,6 +156,17 @@ through the history without the thread ever moving under the reader.
     equal top and bottom padding around one line and grows from a 48 px minimum
     (`COMPOSER_INPUT_CLASS`), with `textAlignVertical: "center"` for Android. **Web is untouched:**
     its composer is a textarea laid out by the browser, and the report is the native field's.
+19. **Choosing a message to reply to gives a light haptic (PAD-769; iOS and Android).** When a
+    swipe on a message crosses the reply threshold (the point where letting go sets the reply), the
+    phone plays one light impact at that moment, not at the end of the gesture, and only once per
+    gesture however the finger moves around the threshold. The long press opens the context menu and
+    plays nothing. The system's own haptics setting decides whether it is felt. Mechanism: the pan
+    gesture's `onUpdate` fires `lightImpact` (`src/lib/haptics.ts`) behind a per-gesture flag reset in
+    `onFinalize`. The native module comes with `expo-haptics`, but the JS reaches it only through
+    `requireOptionalNativeModule("ExpoHaptics")`: the app ships over the air on
+    `runtimeVersion: appVersion`, so on a binary built before the dependency (1.1.2) the call is a
+    silent no-op, and users feel it from the next store build. **Web is untouched:** browsers have no
+    haptics for a pointer swipe.
 
 ### Acceptance Criteria
 
@@ -319,3 +330,13 @@ through the history without the thread ever moving under the reader.
 - **Then** the placeholder, the text and the caret are centred in the 48 px box, level with the send
   button's centre; the edit field looks the same
 - **And** a message of several lines grows the box up to its cap with no line cut off
+
+#### Choosing a message to reply to plays one light haptic (rule 19, PAD-769)
+- **Given** a conversation on an iPhone or Android phone built with `expo-haptics`
+- **When** the user swipes a message right past the reply threshold, drags back and forth across
+  it, and lets go
+- **Then** one light impact plays when the threshold is first crossed, none after, and the reply
+  preview opens when the finger lifts
+- **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
+  error
+
