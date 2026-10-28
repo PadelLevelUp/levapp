@@ -1676,6 +1676,11 @@ export interface ApprovalVacancyInfo {
   emptyQueueReasons?: ApprovalEmptyQueueReason[];
   waitingListPlayerId?: number;
   waitingListPlayerName?: string;
+  /**
+   * PAD-765 (semi-auto-approval rule 11): set on the Assistant message when the spot filled or
+   * expired before the coach decided. The cards count it as stale; absent while it still asks.
+   */
+  resolved?: "filled" | "expired";
 }
 
 /** PAD-661: one line of "why nobody is suggested"; `stage` is a `CANDIDATE_STAGES` key. */
@@ -1687,7 +1692,13 @@ export interface ApprovalEmptyQueueReason {
 /** PAD-545 / PAD-542 (semi-auto-approval rule 12): a class's suggestion state for its coach. */
 export interface ApprovalSuggestionState {
   state: "pending" | "dismissed" | "none";
+  /** The first of `bundles`; older servers send only this one (the newest). */
   bundle?: ApprovalBundle;
+  /**
+   * PAD-765 (rule 12): every pending bundle of the class, oldest spot first, each listing only its
+   * spots still open and pending, with the queue computed when read. Read via `suggestionBundles`.
+   */
+  bundles?: ApprovalBundle[];
   /** The coach's engine is semi-automatic: the class view shows "preparing suggestions" then. */
   semiAutomatic?: boolean;
 }

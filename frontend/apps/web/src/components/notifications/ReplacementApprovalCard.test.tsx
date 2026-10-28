@@ -135,3 +135,21 @@ describe("PAD-661 an empty queue says why", () => {
     expect(screen.queryByTestId("approval-empty-reasons")).toBeNull();
   });
 });
+
+describe("ReplacementApprovalCard — PAD-765 (rule 11)", () => {
+  const resolved = (r: "filled" | "expired") =>
+    ({ ...BUNDLE, vacancies: BUNDLE.vacancies.map((v) => ({ ...v, resolved: r })) }) as ApprovalBundle;
+
+  it("a message whose spot filled another way offers no buttons and says it is no longer needed", () => {
+    render(<ReplacementApprovalCard bundle={resolved("filled")} />);
+    expect(screen.queryByTestId("approve-invitations-now")).toBeNull();
+    expect(screen.getByText("notificationsUi.replacementApproval.noLongerNeeded")).toBeTruthy();
+  });
+
+  it("a live edit of the message takes the buttons away", () => {
+    const { rerender } = render(<ReplacementApprovalCard bundle={BUNDLE} />);
+    expect(screen.getByTestId("approve-invitations-now")).toBeTruthy();
+    rerender(<ReplacementApprovalCard bundle={resolved("expired")} />);
+    expect(screen.queryByTestId("approve-invitations-now")).toBeNull();
+  });
+});

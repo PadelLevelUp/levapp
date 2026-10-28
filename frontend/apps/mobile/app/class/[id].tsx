@@ -39,6 +39,7 @@ import {
   shouldReportSent,
   splitBlockedByCause,
   hasRecordedAttendance,
+  suggestionBundles,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -302,8 +303,8 @@ export default function ClassDetailScreen() {
   };
   // PAD-168: semi-automatic mode returns the vacancies awaiting approval from
   // the presence-confirm call; it is only ever set by that response.
-  const [approvalBundle, setApprovalBundle] =
-    React.useState<ApprovalBundle | null>(null);
+  // PAD-765 (semi-auto-approval rule 12): every pending bundle of the class, oldest spot first.
+  const [approvalBundles, setApprovalBundles] = React.useState<ApprovalBundle[]>([]);
   // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
   // a pending list survives leaving the screen, and an ignored one offers a fresh computation.
   const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
@@ -324,7 +325,7 @@ export default function ClassDetailScreen() {
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (s.state === "pending" && s.bundle) setApprovalBundle(s.bundle);
+        if (s.state === "pending") setApprovalBundles(suggestionBundles(s));
         setSuggestionsIgnored(s.state === "dismissed");
       })
       .catch(() => undefined);
@@ -337,7 +338,7 @@ export default function ClassDetailScreen() {
     setRecomputing(true);
     try {
       const s = await notificationEngineApi.recomputeApprovalSuggestions(suggestionsInstanceId);
-      if (s.state === "pending" && s.bundle) setApprovalBundle(s.bundle);
+      if (s.state === "pending" && s.bundle) setApprovalBundles(suggestionBundles(s));
       setSuggestionsIgnored(false);
     } catch {
       toast.error(t("notificationsUi.replacementApproval.genericError"));
@@ -955,7 +956,9 @@ export default function ClassDetailScreen() {
       // wait on the coach's approval. Web surfaces the bundle here (see
       // ClassDetailSheet's handleSaveAttendance); iOS dropped it, so the
       // invitations sat unapproved with nothing on screen saying so.
-      setApprovalBundle(bundle ?? null);
+      if (bundle) {
+        setApprovalBundles((prev) => [...prev.filter((b) => b.bundleId !== bundle.bundleId), bundle]);
+      }
       setIsMarking(false);
       setFeedback(
         bundle
@@ -1714,25 +1717,28 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
-          {isCoach && !isEditing && approvalBundle ? (
+          {isCoach && !isEditing && approvalBundles.length > 0 ? (
             <>
               <Separator />
-              <ReplacementApprovalCard
-                key={approvalBundle.bundleId}
-                bundle={approvalBundle}
-                allowDismiss
-                onResult={(action) => {
-                  // PAD-545: an ignored list leaves the class; a fresh one can be asked for.
-                  if (action === "dismiss") {
-                    setApprovalBundle(null);
-                    setSuggestionsIgnored(true);
-                  }
-                }}
-              />
+              {/* PAD-765 (rule 12): one card per pending bundle, oldest spot first. */}
+              {approvalBundles.map((approvalBundle) => (
+                <ReplacementApprovalCard
+                  key={approvalBundle.bundleId}
+                  bundle={approvalBundle}
+                  allowDismiss
+                  onResult={(action) => {
+                    // PAD-545: an ignored list leaves the class; a fresh one can be asked for.
+                    if (action === "dismiss") {
+                      setApprovalBundles((prev) => prev.filter((b) => b.bundleId !== approvalBundle.bundleId));
+                      setSuggestionsIgnored(true);
+                    }
+                  }}
+                />
+              ))}
             </>
           ) : null}
 
-          {isCoach && !isEditing && !approvalBundle && suggestionsIgnored ? (
+          {isCoach && !isEditing && approvalBundles.length === 0 && suggestionsIgnored ? (
             <>
               <Separator />
               <Button
