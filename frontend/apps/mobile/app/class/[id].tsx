@@ -65,6 +65,7 @@ import type { Locale } from "date-fns";
 import { format, parseISO } from "date-fns";
 import { CommonActions, usePreventRemove, useNavigation } from "@react-navigation/native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
+import { openConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
@@ -1181,7 +1182,7 @@ export default function ClassDetailScreen() {
       const conversation = await messagesApi.createConversation({
         otherParticipants: [String(coachUserId)],
       });
-      router.push(`/conversation/${conversation.id}`);
+      openConversation(router, `/conversation/${conversation.id}`); // PAD-768: back goes to Mensagens
     } catch {
       toast.error(t("messages.somethingWentWrong"));
     } finally {

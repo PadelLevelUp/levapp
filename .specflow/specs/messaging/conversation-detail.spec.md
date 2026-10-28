@@ -133,6 +133,21 @@ through the history without the thread ever moving under the reader.
     an iOS row's children are not nested under it for Maestro). Nothing else about the bubble changes: no icon, no background, no
     separate feed. A typed message never carries it. The field is additive: builds that ignore it
     (iOS 1.0–1.2.1) look exactly as before.
+17. **Back from a thread goes up to Mensagens (PAD-768; iOS and Android).** Back from a
+    conversation, whether the header arrow (`chat-back`), the iOS edge swipe or Android's back
+    button, lands on the Mensagens tab's list, never on the screen or thread that was open before
+    it, however the thread was reached: the list, a class or the participant sheet ("message the
+    student"), a dashboard link, a push tap warm or cold. Mechanism: `/conversation/[id]` sits on the
+    root stack above `(tabs)`, and every way into a thread goes through `openConversation`
+    (`src/features/messages/open-conversation.ts`): it pops the root stack to `(tabs)` with
+    Mensagens selected (`dismissTo`) and then pushes the thread, so the stack under a thread is
+    always [(tabs) on Mensagens, thread] and a native swipe needs no interception. The header arrow
+    is `upFromConversation` (the same `dismissTo`). `/conversation/new` replaces itself with its
+    thread, so it stays a plain push from the list. A push tap on the thread already on screen still
+    mounts a fresh instance (rule 12a): the old one is popped, the new one pushed. **Behaviour
+    change (the owner may veto):** "message the student" from a class now returns to Mensagens, not
+    to the class. **Web is untouched:** its chat is a page in the browser's own history, with the
+    list beside the thread on wide screens; the report and the defect are the native stack's.
 18. **The composer's text is centred in its box (PAD-767; iOS and Android).** In the conversation's
     message field (`message-input`) and the edit field (`message-edit-input`), the placeholder, the
     typed text and the caret sit on the vertical centre of the 48 px box, level with the send
@@ -289,6 +304,14 @@ through the history without the thread ever moving under the reader.
 - **Given** a conversation holding a class reminder and a message the coach typed
 - **When** the student opens it on web or on iOS
 - **Then** the reminder shows "Automatic LevApp message" under its text (`message-automatic-note`) and the typed message shows no such line
+
+#### Back from a thread lands on Mensagens however it was opened (rule 17, PAD-768)
+- **Given** thread A open on iOS, then a push tap opening thread B; or a class's "message the
+  student" opening a thread; or a cold start from a push tap
+- **When** the user taps the back arrow, swipes from the edge, or presses Android's back button
+- **Then** the Mensagens list is shown, and back never opens another thread or returns to the class
+- **And** every navigation into a thread in app/ and src/ goes through `openConversation` (wiring
+  test `open-conversation.test.ts` fails on a direct `router.push("/conversation/…")`)
 
 #### The message field's text sits on its vertical centre (rule 18, PAD-767)
 - **Given** an open conversation on iOS or Android with an empty message field

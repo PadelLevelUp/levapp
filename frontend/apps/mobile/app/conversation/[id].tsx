@@ -23,6 +23,7 @@ import {
 import type { EligibilityCheckEntry, Message } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import { upFromConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
@@ -1451,7 +1452,7 @@ export default function ConversationScreen() {
             accessibilityLabel={t("common.back")}
             role="button"
             hitSlop={10}
-            onPress={() => router.back()}
+            onPress={() => upFromConversation(router)} // PAD-768: up to Mensagens, not back in history
             className="h-10 w-10 items-center justify-center rounded-full active:opacity-60"
           >
             <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />

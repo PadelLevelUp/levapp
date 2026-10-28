@@ -3,6 +3,7 @@ import * as React from "react";
 
 import { useAuth } from "@/auth/AuthContext";
 import { subscribePushTaps, takeReadyPushTap } from "@/lib/push-tap-queue";
+import { pushRoute, type RouteTarget } from "@/features/messages/open-conversation";
 
 /**
  * Navigates to a tapped push's destination once it is safe to (B-166,
@@ -33,7 +34,8 @@ export function PushTapRouter(): null {
     });
     if (!target) return;
     try {
-      router.push(target as never);
+      // PAD-768: a thread opens on top of Mensagens, so back from it goes to the list.
+      pushRoute(router, target as RouteTarget);
     } catch (error) {
       console.warn("[push] tap routing failed", error);
     }
