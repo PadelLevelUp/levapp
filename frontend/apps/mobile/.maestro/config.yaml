@@ -386,6 +386,9 @@ executionOrder:
     # then leaves Settings by the native back three times; it ends signed in on the dashboard, so its
     # position is not load bearing.
     - 308-settings-back-after-sign-out
+    # 309 (PAD-778, settings.explicit-save rule 5): saves an abbreviation through Perfil and restores it
+    # through the API in teardown, so its position is not load bearing.
+    - 309-settings-back-after-save-does-not-ask
     # 307-push-grant-without-restart is deliberately NOT listed: it starts from a denied notification
     # permission that scripts/push-grant-flow.sh sets first (see README).
     # 310 (PAD-776 part 3, notifications.config rule 10d): sets the invitation start from iOS and

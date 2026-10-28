@@ -270,25 +270,27 @@ function SettingsScreenBody() {
           headerTintColor: lightTheme.sidebarForeground,
           headerTitleStyle: { fontWeight: "700" },
           gestureEnabled: !hasUnsaved,
-          ...(hasUnsaved
-            ? {
-                headerLeft: () => (
-                  <Pressable
-                    testID="settings-header-back"
-                    accessibilityLabel={t("common.back")}
-                    role="button"
-                    hitSlop={12}
-                    onPress={() => {
-                      setPendingLeave(CommonActions.goBack());
-                      setConfirmDiscardOpen(true);
-                    }}
-                    className="active:opacity-70"
-                  >
-                    <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />
-                  </Pressable>
-                ),
-              }
-            : {}),
+          // PAD-778 (B-698): the key is passed on both branches. Screen options are merged into the
+          // ones already set, so leaving `headerLeft` out once nothing is held kept our back — which
+          // asks every time — and "Descartar alterações?" showed after a save. `undefined` brings the
+          // native back again.
+          headerLeft: hasUnsaved
+            ? () => (
+                <Pressable
+                  testID="settings-header-back"
+                  accessibilityLabel={t("common.back")}
+                  role="button"
+                  hitSlop={12}
+                  onPress={() => {
+                    setPendingLeave(CommonActions.goBack());
+                    setConfirmDiscardOpen(true);
+                  }}
+                  className="active:opacity-70"
+                >
+                  <Ionicons name="chevron-back" size={26} color={lightTheme.sidebarForeground} />
+                </Pressable>
+              )
+            : undefined,
         }}
       />
 

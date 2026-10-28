@@ -48,4 +48,13 @@ describe("explicit-save guard (settings.explicit-save, PAD-506)", () => {
     // Every section with a setting has the Save (rule 1): none is left saving on change.
     expect(screen).toMatch(/SAVE_SECTIONS: SettingsSectionId\[\] = \["profile", "preferences", "calendar", "notifications", "myNotifications"\]/);
   });
+
+  // PAD-778 (B-698): screen options are merged into the ones already set, so a headerLeft left out
+  // once nothing is held kept the asking back, and "Descartar alterações?" showed after a save.
+  it("the header back is passed on both branches, so the native back returns once nothing is held", () => {
+    const screen = readFileSync(join(ROOT, "app/settings.tsx"), "utf8");
+    expect(screen).toMatch(/headerLeft: hasUnsaved\s*\?\s*\(\) => \(/);
+    expect(screen).toMatch(/\)\s*:\s*undefined,\s*\}\}/);
+    expect(screen).not.toMatch(/\.\.\.\(hasUnsaved/);
+  });
 });

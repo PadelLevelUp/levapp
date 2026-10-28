@@ -1,0 +1,94 @@
+# PAD-778 (settings.explicit-save rule 5, B-698): once a held edit is saved, Settings' header back is
+# the native one again and leaving does not ask. Before the fix the asking back (`settings-header-back`)
+# stayed for the rest of the visit — screen options are merged, and the key was only left out — so
+# "Descartar alterações?" showed after the server had confirmed the save.
+#
+# Journey: coach login → avatar → Settings → Perfil → abbreviation edited (held) → keyboard closed →
+# Guardar → the server holds the new value (read through the API) → Secções, no question → the header
+# back is the native one (`BackButton` on iOS) → back → Settings is gone, no question.
+#
+# Teardown restores the abbreviation through the API. Backend: -e API_BASE=http://localhost:<port>,
+# else :5001. Flow number 309 granted by the coordinator 2026-10-28.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.restore = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ abbreviation: output.abbrBefore }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.abbrBefore = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).abbreviation}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-profile"
+- extendedWaitUntil:
+    visible:
+      id: "settings-profile-abbreviation"
+    timeout: 15000
+
+# ── A held edit, saved: the server confirms it ──
+- tapOn:
+    id: "settings-profile-abbreviation"
+- eraseText: 6
+- inputText: "ZQ"
+# Return closes a single-line field's keyboard (Maestro's hideKeyboard fails on iOS here).
+- pressKey: Enter
+- scrollUntilVisible:
+    element:
+      id: "settings-profile-save"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "settings-profile-save"
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b778-never-present"
+          timeout: 1500
+          optional: true
+      - assertTrue: "${json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).abbreviation === 'ZQ'}"
+
+# ── Secções: nothing is held, so no question ──
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "settings-back"
+- extendedWaitUntil:
+    visible:
+      id: "settings-section-list"
+    timeout: 10000
+- assertNotVisible:
+    id: "settings-unsaved-dialog"
+
+# ── The header back is the native one again, and leaving does not ask ──
+- assertNotVisible:
+    id: "settings-header-back"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: "BackButton"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- extendedWaitUntil:
+    notVisible:
+      id: "screen-settings"
+    timeout: 10000
+- assertNotVisible:
+    id: "settings-unsaved-dialog"
+- assertVisible:
+    id: "header-account"
