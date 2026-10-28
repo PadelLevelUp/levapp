@@ -3434,9 +3434,12 @@ def _create_structural_vacancies(instance: LessonInstance, coach_id: int) -> lis
     fully enrolled (no 'departing' player to snapshot from).
     """
     def _spots_to_create() -> int:
+        # PAD-763 (rule 1d, B-701): only open spots stand for free seats already offered. A filled
+        # spot's seat is its filler's, already in `effective_filled_spots`; counting the row too
+        # hid a free seat.
         existing_count = Vacancy.query.filter_by(
-            lesson_instance_id=instance.id,
-        ).filter(Vacancy.status.in_(["open", "filled"])).count()
+            lesson_instance_id=instance.id, status="open",
+        ).count()
         open_spots = instance.effective_max_players - _effective_filled_spots(instance)
         return max(0, open_spots - existing_count)
 
@@ -5821,13 +5824,14 @@ def _open_never_filled_places(*, now: datetime) -> int:
     future time, so a class materialised inside its window (created late, opened by the coach), an
     invitation start earlier than the first reminder, reminders off, or a restart across the fire
     time left it silent. This scan is the missing event: for each future class (club clock), not
-    canceled or completed, notifications on, with NO vacancy of any status, automatic invitations on,
+    canceled or completed, notifications on, with no open or expired vacancy (a filled one holds its
+    filler's seat, PAD-763), automatic invitations on,
     free capacity and a primary coach whose SAVED configuration has the engine on and whose
     invitation window (rule 11) has opened, it calls ``trigger_invitations`` — so every existing
     gate applies (semi-automatic approval, restrictions and the quiet-hours hold, the start-once
     claim) and the places are created under the class lock (PAD-261), which is what makes a tick
-    racing a start job or an absence on the same class create them once. A class whose vacancies
-    are all filled or expired is not reopened; capacity changes are rule 13's. An invitation start
+    racing a start job or an absence on the same class create them once. A class with an expired
+    vacancy is not reopened; capacity changes are rule 13's. An invitation start
     of type ``none`` opens nothing, as it arms no job. A coach with no saved configuration has the
     engine off (the column default) and is skipped without creating one.
 
@@ -5846,7 +5850,9 @@ def _open_never_filled_places(*, now: datetime) -> int:
             LessonInstance.start_datetime > wall_now,
             LessonInstance.status.notin_(("canceled", "completed")),
             LessonInstance.notifications_enabled.is_(True),
-            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id),
+            # PAD-763 (B-701): a filled spot does not stop the scan; its filler holds that seat.
+            ~exists().where(Vacancy.lesson_instance_id == LessonInstance.id,
+                            Vacancy.status.in_(("open", "expired"))),
         )
         .order_by(LessonInstance.start_datetime.asc(), LessonInstance.id.asc())
         .all()

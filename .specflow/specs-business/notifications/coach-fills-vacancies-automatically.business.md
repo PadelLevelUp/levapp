@@ -57,6 +57,10 @@ the waiting list.
 
 - Matching widens progressively: exact level-and-side match first, then level-only, then anyone
   still eligible — so the engine tries the closest replacement before it tries everyone.
+- Every free seat gets offered: a seat is free when nobody is going or still to answer for it,
+  the same count as the "K vagas" the coach sees on the class. Filling one freed spot never hides
+  another free seat of the class; it is offered from the invitation start, or within a couple of
+  minutes once the class has no other spot open, waiting list first (PAD-763).
 - When a class has spots that were never filled, the app aims to balance left- and right-side
   players: each open spot looks for the side the class is short of first, and falls back to any
   side, so no spot stays empty for lack of the "right" side.
