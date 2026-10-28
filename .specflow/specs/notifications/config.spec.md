@@ -87,6 +87,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    invitation-start trigger firing at night used to leave a never-filled spot with no vacancy at
    all, so nobody was ever invited. Those vacancies are invited by the first tick after the window
    ends (the window's `end`, 07:00 club-local by default).
+   Quiet hours gate automatic invitations and reminder asks only; a reply to a student's own join
+   request (accepted, refused or superseded, automatically or by the coach) goes out at once
+   (PAD-779). A request accepted for a class inside its reminder window waits for the end of quiet
+   hours before the attendance ask (`notifications.reminders` rule 18).
 6e. **Do not invite a student who already has a class that day (PAD-523; coordinator, 2026-10-07;
    numbering unconfirmed).** `noSameDayClass` is `{enabled}`, stored in
    `no_same_day_class_enabled`, **on by default (PAD-685, owner decision 2026-10-20: "a restrição
