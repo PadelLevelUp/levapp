@@ -1,0 +1,99 @@
+# PAD-776 part 3 / notifications.config rules 5, 10d, 10f — the invitation start set from iOS. A
+# coach opens Settings → Notifications → Reminders, sees the saved "7 days before at 19:30",
+# presses − five times on the days, presses the footer Save (`settings-notifications-save`),
+# answers "do not send" if the save asks about past-due reminders, leaves Settings and comes back:
+# 2 days at 19:30 is read back from the server, on screen and through the API.
+#
+# Setup (scripts/reminders-setup.js) turns the engine on and sets the starting timing; teardown
+# restores the coach's own config (R-040). Assertions are by testID and server values only, never
+# rendered copy (the account language). Backend: -e API_BASE=http://localhost:<port>, else :5001.
+# Flow number 310 was reserved for PAD-776 part 3 by the coordinator.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/reminders-setup.js
+onFlowComplete:
+  - runScript: ../scripts/reminders-teardown.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-notifications"
+- extendedWaitUntil:
+    visible:
+      id: "settings-reminders-header"
+    timeout: 15000
+- tapOn:
+    id: "settings-reminders-header"
+
+# ── The saved state, as the server holds it ──
+- scrollUntilVisible:
+    element:
+      id: "reminder-start-invitations-days-dec"
+    direction: DOWN
+- assertVisible:
+    id: "reminder-start-invitations-days-value"
+    text: "7"
+
+# ── Five presses of − ──
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "reminder-start-invitations-days-dec"
+- assertVisible:
+    id: "reminder-start-invitations-days-value"
+    text: "2"
+
+# ── PAD-506 (settings.explicit-save): held until the footer Save ──
+- scrollUntilVisible:
+    element:
+      id: "settings-notifications-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-notifications-save"
+# Rule 10f: the seeded classes may make a reminder past due; "do not send" sends nothing.
+- extendedWaitUntil:
+    visible:
+      id: "past-due-dialog"
+    timeout: 4000
+    optional: true
+- tapOn:
+    id: "past-due-decline"
+    optional: true
+
+# ── Leave Settings and come back ──
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+- tapOn:
+    id: "settings-back"
+- extendedWaitUntil:
+    visible:
+      id: "settings-nav-notifications"
+    timeout: 10000
+- tapOn:
+    id: "settings-nav-notifications"
+- extendedWaitUntil:
+    visible:
+      id: "settings-reminders-header"
+    timeout: 15000
+- tapOn:
+    id: "settings-reminders-header"
+- scrollUntilVisible:
+    element:
+      id: "reminder-start-invitations-days-value"
+    direction: DOWN
+- assertVisible:
+    id: "reminder-start-invitations-days-value"
+    text: "2"
+
+# ── And the server holds it ──
+- evalScript: "${output.start = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).reminderTiming.invitationStart}"
+- assertTrue: "${output.start.type == 'days_before_at_time' && output.start.days == 2 && output.start.time == '19:30'}"

@@ -64,6 +64,9 @@ students, and occasionally auditing what the engine has done.
   that boundary, every season of the year.
 - Changing timing settings immediately reschedules every future engine job — nothing waits for a
   restart.
+- The reminder and invitation-start timing can be set from the phone as well as the web, with
+  the same choices; a change from either reschedules the same way, and either asks the same
+  question before reminders that are now past due go out (PAD-776).
 - Notification groups are ordered: the engine works through them in sequence when matching
   candidates for an open spot, and the coach controls that order.
 - Every message template always resolves to real, non-blank text in the coach's own locale

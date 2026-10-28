@@ -28,6 +28,8 @@ vi.mock("./eligibility-section", async () => {
   };
 });
 vi.mock("./eligibility-impact-note", () => ({ EligibilityImpactNote: () => null }));
+// PAD-776 part 3: the Reminders panel's time field is the native picker, which vitest cannot parse.
+vi.mock("@/components/ui/time-picker-input", () => ({ TimePickerInput: () => null }));
 vi.mock("./restrictions-section", async () => {
   const { Pressable, Text, View } = await import("react-native");
   return {

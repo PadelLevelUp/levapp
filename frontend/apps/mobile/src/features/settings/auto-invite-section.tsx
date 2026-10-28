@@ -18,6 +18,8 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
+import { PastDueRemindersDialog, pastDueOutcome, sendPastDueInParts } from "./past-due-reminders-dialog";
+import { REMINDER_FALLBACKS, RemindersSection } from "./reminders-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
 import { useSectionSave } from "./unsaved-registry";
@@ -26,10 +28,10 @@ import type { EligibilityImpactEntry } from "@levelup/types";
 /**
  * Auto-Invite Engine basic controls, mirroring the top-level portion of
  * web's NotificationsEngineSection.tsx: the master on/off toggle and the
- * automatic/semi-automatic mode choice, plus Eligibility (PAD-161) and
- * Restrictions (PAD-433, notifications.config rule 14). The other sub-panels
- * (Reminders, Invitation Groups, Tiebreakers, Notify Groups, Message Templates,
- * Standing Waiting List) are deferred — see found_issues.md.
+ * automatic/semi-automatic mode choice, plus Reminders (PAD-776 part 3, rules 5 and 10c-10f),
+ * Eligibility (PAD-161) and Restrictions (PAD-433, notifications.config rule 14). The other
+ * sub-panels (Invitation Groups, Tiebreakers, Notify Groups, Message Templates, Standing Waiting
+ * List) are deferred — see found_issues.md.
  *
  * Simplification vs. web: web's master toggle special-cases turning the
  * engine on with zero invitationGroups configured (auto-seeds
@@ -51,6 +53,7 @@ const ENGINE_FIELDS = [
   "eligibilityRules",
   "openSpotsVisible",
   "restrictions",
+  "reminderTiming",
 ] as const satisfies readonly (keyof NotificationConfig)[];
 
 const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
@@ -62,7 +65,7 @@ const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
 };
 
 export function AutoInviteSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // settings.explicit-save (PAD-506), as web's card: every control changes `config` (what the screen
   // holds); `stored` is what the server last confirmed; the screen's one Save sends the difference.
@@ -95,6 +98,14 @@ export function AutoInviteSection() {
     React.useState<EligibilityImpactEntry[] | null>(null);
   // Closed by default, like web's collapsible sub-panels.
   const [restrictionsOpen, setRestrictionsOpen] = React.useState(false);
+  const [remindersOpen, setRemindersOpen] = React.useState(false);
+  // notifications.config rule 10c: the timing is saved, but the server could not re-arm the jobs.
+  const [rescheduleFailed, setRescheduleFailed] = React.useState(false);
+  // Rule 10f: what a timing save made past due, asked about once per class during the visit.
+  const [pastDue, setPastDue] = React.useState<notificationEngineApi.PastDue | null>(null);
+  const [pastDueUnknown, setPastDueUnknown] = React.useState(false);
+  const [pastDueSend, setPastDueSend] = React.useState<"idle" | "sending" | "failed">("idle");
+  const answeredPastDue = React.useRef(new Set<string>());
 
   // A control's change is held (settings.explicit-save rule 2).
   const save = (patch: Partial<NotificationConfig>) => {
@@ -122,11 +133,37 @@ export function AutoInviteSection() {
       setStored((prev) => (prev ? { ...prev, ...patch, ...confirmed } : prev));
       setConfig((prev) => (prev ? { ...prev, ...confirmed } : prev));
       if ("eligibilityRules" in patch) setEligibilityImpact(saved.eligibilityImpact?.affected ?? []);
+      // Rules 10c and 10f, as web: only a Save that carried the timing changes these.
+      if ("reminderTiming" in patch) {
+        setRescheduleFailed(saved.rescheduleFailed === true);
+        setPastDueUnknown(saved.pastDueUnknown === true);
+        setPastDueSend("idle");
+        setPastDue(saved.pastDue ?? null);
+      }
       // notifications.config rule 3a (PAD-672): the save switched the mode to semi-automatic, which
       // turned automatic acceptance off in the same save; say so rather than leave it silent.
       if (saved.notice === "auto_accept_off") toast.warning(t("settings.engine.autoAcceptJoinRequests.turnedOff"));
     },
   });
+
+  const pastDueToAsk = (pastDue?.reminders ?? []).filter((c) => !answeredPastDue.current.has(c.key));
+  const answerPastDue = () => {
+    for (const c of pastDueToAsk) answeredPastDue.current.add(c.key);
+    setPastDue(null);
+    setPastDueSend("idle");
+  };
+  const sendPastDue = async () => {
+    const keys = pastDueToAsk.map((c) => c.key);
+    setPastDueSend("sending");
+    try {
+      const result = await sendPastDueInParts(keys);
+      answerPastDue();
+      const outcome = pastDueOutcome(result, keys.length, i18n?.language ?? "pt");
+      toast.success(t(outcome.key, outcome.values));
+    } catch {
+      setPastDueSend("failed");
+    }
+  };
 
   if (loading) {
     return (
@@ -139,6 +176,7 @@ export function AutoInviteSection() {
   }
 
   if (!config) return null;
+  const engineOff = !config.autoNotifyEnabled;
 
   const mode = config.invitationMode ?? "automatic";
   // Rule 3a: automatic acceptance does not work in semi-automatic mode, whether or not the engine is on.
@@ -253,6 +291,54 @@ export function AutoInviteSection() {
           ) : null}
         </View>
 
+        {/* Reminders — PAD-776 part 3, the port of web's Reminders panel (rules 5, 10c-10f). Visible
+            whatever the engine state but disabled while it is off, as web's `disabled` does. */}
+        <View className="gap-3 border-t border-border pt-4">
+          <Pressable
+            testID="settings-reminders-header"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: remindersOpen }}
+            onPress={() => setRemindersOpen((open) => !open)}
+            className="flex-row items-center justify-between"
+          >
+            <Text className="text-sm font-medium">{t("settings.engine.reminders")}</Text>
+            <Ionicons
+              name={remindersOpen ? "chevron-up" : "chevron-down"}
+              size={16}
+              color={lightTheme.mutedForeground}
+            />
+          </Pressable>
+          {/* Outside the collapsible part: the answer can arrive after the coach closed it. */}
+          {rescheduleFailed ? (
+            <Text
+              accessibilityRole="alert"
+              testID="notification-engine-reschedule-failed"
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.rescheduleFailed")}
+            </Text>
+          ) : null}
+          {pastDueUnknown ? (
+            <Text
+              accessibilityRole="alert"
+              testID="notification-engine-past-due-unknown"
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+            >
+              {t("settings.engine.pastDueUnknown")}
+            </Text>
+          ) : null}
+          {remindersOpen ? (
+            <View className="gap-3">
+              <Text className="text-xs text-muted-foreground">{t("settings.engine.remindersHint")}</Text>
+              <RemindersSection
+                reminderTiming={{ ...REMINDER_FALLBACKS, ...config.reminderTiming }}
+                onChange={(reminderTiming) => save({ reminderTiming })}
+                disabled={engineOff}
+              />
+            </View>
+          ) : null}
+        </View>
+
         {/* Eligibility — PAD-128, ported to iOS by PAD-161. The minimum bar to
             join a class AT ALL, so unlike the invitation mode above it is NOT
             gated on autoNotifyEnabled: it governs who may join even when the
@@ -318,6 +404,18 @@ export function AutoInviteSection() {
           ) : null}
         </View>
       </CardContent>
+      {/* Rule 10f: the dialog belongs to the card, not the section, so it appears even when the
+          Save's answer arrives after the coach closed Reminders. */}
+      {pastDueToAsk.length > 0 ? (
+        <PastDueRemindersDialog
+          classes={pastDueToAsk}
+          quietUntil={pastDue?.quietUntil ?? null}
+          sending={pastDueSend === "sending"}
+          failed={pastDueSend === "failed"}
+          onSend={() => void sendPastDue()}
+          onDecline={answerPastDue}
+        />
+      ) : null}
     </Card>
   );
 }
