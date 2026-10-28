@@ -85,6 +85,11 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    decision on it stays a no-op (`stale`). One `before_flush` listener on the vacancy's status
    (`replacement_approval_service`) is the only place this happens, so no route can forget it; a
    prompt no longer `pending` (decided, or released by a mode switch) is left as it is.
+   The invitation tick (`process_invitation_batches`) also resolves, through the same
+   `resolve_prompts_for` and before it looks at any open spot, every pending prompt whose spot is no
+   longer `open`. This catches rows the listener never saw (spots closed before the listener
+   existed, or changed outside a session flush) and logs the count only when it resolved something
+   (PAD-780).
 12. **Recomputing the suggestions from the class (PAD-545, PAD-542; coordinator, 2026-10-07; numbering unconfirmed).**
    The class view reads the class's suggestion state (`GET /api/app/notify/approval/instance/<id>`,
    the class's coach only): `pending` with **every** pending prompt of the class as `bundles`
@@ -219,6 +224,13 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **Then** that prompt is `stale` in the same commit, its Assistant message marks the spot
   `resolved: "filled"` and shows no buttons, and the class shows only case 8's card
 - **And** the same holds when the spot fills by the coach adding a student, or expires
+
+#### The tick resolves prompts the listener never saw (rule 11, PAD-780)
+- **Given** a prompt still pending on a vacancy already filled and another on one already expired,
+  written without the listener firing
+- **When** the invitation tick runs
+- **Then** both prompts are stale and their messages mark the spots resolved filled/expired; a
+  pending prompt on an open spot and a decided prompt on a closed spot are untouched
 
 #### Batch processor skips unapproved vacancies
 - **Given** vacancies with approval_status "pending" and "dismissed" of a coach still in semi_automatic

@@ -5811,6 +5811,20 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     _now = now or utcnow_naive()
     expire_stale_invitations(now=_now)
+    from flask import current_app, has_app_context
+
+    # PAD-780 (semi-auto-approval rule 11): a prompt left pending on a spot that closed before the
+    # listener goes stale here. Its own try, like the scans below; the count is logged for prod.
+    if has_app_context():
+        try:
+            from padel_app.services.replacement_approval_service import resolve_orphaned_prompts
+
+            orphaned = resolve_orphaned_prompts(now=_now)
+            if orphaned:
+                current_app.logger.info("orphaned approval prompts: resolved %d", orphaned)
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            current_app.logger.exception("orphaned approval prompts: the scan failed")
     # PAD-672 (instance-enrollment rule 13a): a started class keeps its "both" players' sides. Its own
     # try, like the scan below: a failure is logged and the next tick retries. Only with an app
     # context (the schedule tests drive this tick with mocked rows and none).
