@@ -1628,6 +1628,7 @@ export type InviteExplainStage =
   | "excluded_by_coach"
   | "inactive_account"
   | "has_class_same_day"
+  | "pending_invite_same_day"
   | "unavailable"
   | "auto_invites_off"
   | "no_round_matched"

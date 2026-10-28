@@ -648,6 +648,29 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     second spot is locked by its own answer, so nothing moves into it, and its invitations end as
     before.
 
+18c. **One live offer per student per club day (PAD-775; owner, 2026-10-27).**
+    - **Automatic paths skip.** A student holding a live invitation (sent/queued, unanswered) for
+      another class on the same club-local day as this class (R-023 wall date, with any coach, the
+      same day as config rule 6e) is skipped by every automatic path: automatic rounds, the
+      semi-automatic queue and suggestions, and group 0 (the waiting list). The stage is
+      `pending_invite_same_day`, shown to the coach like every stage. A live invitation for a class
+      on another day never blocks.
+    - **Eligible again on resolution.** The student is eligible again as soon as that invitation is
+      answered, expires, or is retired. Spot filled counts as retired.
+    - **Manual invitations are not blocked.** The coach's own manual invitation to such a student
+      goes through; the suggestions list shows the `pending_invite_same_day` stage, so the coach can
+      see it before inviting.
+    - **Accepting closes the others.** When a student accepts one invitation, their other live
+      invitations for classes that same club day are retired with a new reason, `booked_same_day`
+      ("Já inscrito noutra aula"). They are not a 'no' (rule 18 does not apply).
+
+    It follows config rule 6e's switch (coordinator, 2026-10-28; the owner may reverse it): with
+    `noSameDayClass` off nothing is skipped, and a yes withdraws only the invitations of classes whose
+    coach keeps it on. (`evaluate_candidates` via `_same_day_live_offers`; the withdrawal is
+    `_withdraw_same_day_offers`, in the yes's one commit, on the student's and the coach-recorded
+    yes. `booked_same_day` fits `retired_reason`'s 16 characters; both shells label it through
+    `retiredInviteLabelKey`.)
+
 19. **A coach withdraws a live invitation (PAD-548).** `DELETE
     /api/app/notify/invitations/<event_id>` by the invitation's coach (403 for any other coach,
     404 for an unknown id).
@@ -1120,6 +1143,39 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Given** an automatic or manual invitation whose message fails to send, or is withheld by a backstop
 - **When** the send returns or raises
 - **Then** no live invitation without a message remains for that student
+
+#### A live invitation that day from another coach skips the student (rule 18c, PAD-775)
+- **Given** class A tomorrow 09:00 (coach A, rule 6e on) with one spot open and a student holding a
+  live manual invitation from coach B for B's class the same day at 12:00
+- **When** class A's first wave runs
+- **Then** the student is not invited and their stage is `pending_invite_same_day`; the others are invited
+
+#### A live invitation for another day does not block (rule 18c, PAD-775)
+- **Given** the same, B's class the day after
+- **When** class A's first wave runs
+- **Then** the student is invited
+
+#### The student is eligible again once that invitation ends (rule 18c, PAD-775)
+- **Given** the student skipped for B's live invitation
+- **When** that invitation expires
+- **Then** class A's next wave no longer gives them `pending_invite_same_day`
+
+#### A yes withdraws the same-day invitations, and that is not a 'no' (rule 18c, PAD-775)
+- **Given** the student invited to class A, then by hand to B's class the same day (B keeps rule 6e on)
+- **When** the student says yes to class A
+- **Then** B's invitation is `expired` with `retired_reason` `booked_same_day`, no `answer`, and its
+  bubble reads "Já inscrito noutra aula"
+
+#### Rule 6e off turns rule 18c off (rule 18c, PAD-775)
+- **Given** coach A with `noSameDayClass` off and the student holding B's live invitation that day
+- **When** class A's first wave runs
+- **Then** the student is invited
+- **And** a yes to class A leaves the invitation of a class whose coach has `noSameDayClass` off live
+
+#### A manual invitation is not blocked (rule 18c, PAD-775)
+- **Given** the student holding B's live invitation that day
+- **When** coach A invites them by hand to class A
+- **Then** the invitation goes out
 
 #### Only one open vacancy per departing player per occurrence (PAD-303)
 - **Given** an open vacancy on instance 10 for player 7

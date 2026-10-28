@@ -112,6 +112,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    invitations are untouched. A saved `restrictions` payload without the key keeps the stored value,
    so an app from before PAD-523 saving its Settings cannot switch it off. Both clients show it as a
    toggle under Restrictions, saved with the section's explicit Save (PAD-506).
+   The same switch governs `notifications.invitations` rule 18c (PAD-775): a live invitation for
+   another class that day skips the student (`pending_invite_same_day`), and a yes withdraws the
+   others that day (`booked_same_day`).
    Known limit (coordinator, 2026-10-07): the rule is read when the batch evaluates its
    candidates, not again under the sender's per-student locks (`_still_invitable`). A student who
    takes a place in another class that day between the two can still receive that one invitation.

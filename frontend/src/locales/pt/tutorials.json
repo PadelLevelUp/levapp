@@ -72,6 +72,7 @@
       "excluded_by_coach": "Excluíste este aluno dos convites automáticos (Definições › Notificações › Restrições).",
       "inactive_account": "A conta não está ativa e as contas inativas estão excluídas.",
       "has_class_same_day": "Já tem outra aula nesse dia e os alunos com aula nesse dia estão excluídos.",
+      "pending_invite_same_day": "Tem um convite por responder para outra aula nesse dia; volta a poder ser convidado quando responder ou o convite terminar.",
       "unavailable": "Marcou-se como indisponível à hora desta aula.",
       "auto_invites_off": "Desligou os convites automáticos.",
       "no_round_matched": "Não cumpre os critérios de nenhuma ronda:",
