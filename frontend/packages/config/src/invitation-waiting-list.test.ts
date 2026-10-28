@@ -59,3 +59,12 @@ describe("PAD-725 — a standing list's last credit spent elsewhere", () => {
   });
 });
 
+
+describe("PAD-775 an invitation withdrawn by a yes to another class that day (invitations rule 18c)", () => {
+  const booked = { ...lost, response: "booked_same_day" };
+  it("is labelled 'Já inscrito noutra aula' and offers no waiting list", () => {
+    expect(retiredInviteLabelKey(booked)).toBe("messages.bookedSameDay");
+    expect(invitationLostToAnother(booked)).toBe(false);
+    expect(offersWaitingListJoin(booked, { nowWallMs: NOW, onWaitingList: false })).toBe(false);
+  });
+});

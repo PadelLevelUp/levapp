@@ -40,6 +40,7 @@
     "noLongerNeededOnSide": "No longer needed on this side",
     "spotFilled": "Spot filled",
     "waitingListCreditsSpent": "Your waiting-list credits are used up",
+    "bookedSameDay": "Already booked in another class that day",
     "confirmed": "Confirmed",
     "cancelAttendance": "Cancel attendance",
     "absent": "Absent",
