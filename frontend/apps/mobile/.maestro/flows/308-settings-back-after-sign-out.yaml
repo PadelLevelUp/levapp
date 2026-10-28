@@ -1,0 +1,66 @@
+# PAD-777 (auth.logout rule 7, B-697): signing out from Settings leaves the login screen alone on the
+# root stack, so after signing in again Settings' native back returns to the tabs on every visit.
+# Before the fix sign-out ended with `router.replace("/login")`, which replaced only the focused screen
+# (Settings): a stale `(tabs)` stayed underneath, the sign-in added a second one, and on iOS the second avatar → Settings
+# visit had a dead back button (BackButton present and enabled, taps did nothing).
+#
+# Journey: coach login → avatar → Settings → sign out (`settings-logout`) → sign in again WITHOUT a
+# relaunch (a relaunch rebuilds the stack and hides the defect) → three times: avatar → Settings →
+# the native back (`BackButton`, the header's own id on iOS) → Settings is gone and the tabs show.
+#
+# Teardown: none; the coach ends signed in on the dashboard. Flow number 308 granted by the
+# coordinator 2026-10-28.
+appId: com.padellevelup.app
+---
+- runFlow: ../subflows/login-coach.yaml
+
+# ── Sign out from Settings, then sign in again in the same app session ──
+- runFlow: ../subflows/logout.yaml
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "login-username"
+      - eraseText: 40
+      - inputText: "e2e-coach"
+      - assertVisible: "e2e-coach"
+      - tapOn:
+          id: "login-password"
+      - eraseText: 40
+      - inputText: "E2eCoach123!"
+      - tapOn:
+          id: "login-submit"
+      - extendedWaitUntil:
+          visible:
+            id: "screen-dashboard"
+          timeout: 25000
+
+# ── Three visits: the native back leaves Settings every time ──
+- repeat:
+    times: 3
+    commands:
+      - tapOn:
+          id: "header-account"
+      - extendedWaitUntil:
+          visible:
+            id: "screen-settings"
+          timeout: 15000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                id: "BackButton"
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - back
+      - extendedWaitUntil:
+          notVisible:
+            id: "screen-settings"
+          timeout: 10000
+      - assertVisible:
+          id: "header-account"
