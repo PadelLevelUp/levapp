@@ -39,14 +39,7 @@ Clicking a calendar event opens a detail sheet showing full information and avai
    `planned` with no reminder shows the state word alone, and that absence is itself the signal
    the coach acts on. Decided by the coordinator, 2026-09-12.
 4. Actions available: Mark attendance, Edit, Delete, Notify, Training planning
-5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count. **(B-240)** While the coach edits the class, the counts are over the draft's students: a declined student the coach unticked is neither listed nor subtracted (`effectiveFilledSpotsOf`, `@levelup/config`). **(PAD-659,
-   2026-10-14) One named exception:** the coach's participants header reads "N/M inscritos" /
-   "N/M enrolled", N being the enrolled rows the list shows (`participants.length`, the draft's
-   while editing) and M `maxPlayers`. The old "Participantes (1/4)" counted only the coming
-   students above a list of every enrolled one, which is the confusion PAD-659 reports; the
-   header now names its own quantity, the capacity card keeps `effectiveFilledSpots`, and rule
-   22's group counts carry the breakdown, so the two numbers measure different things by name
-   and cannot be read as a contradiction
+5. The "capacity" field shows effective filled spots over `maxPlayers` — the same value as the calendar event card's `X/Y` (see calendar.view rules 8–9). Declined students are excluded from both. **(PAD-313)** That is the ONE meaning of a count anywhere on this sheet: the capacity header, the participants list header and the coach's attendance header all render `effectiveFilledSpots`, so they cannot contradict each other the way "Capacity 0/4 — 4 open" above "Participants (1/4)" did. A not-coming student stays IN the list, visibly not coming by their state word, and out of every count. **(B-240)** While the coach edits the class, the counts are over the draft's students: a declined student the coach unticked is neither listed nor subtracted (`effectiveFilledSpotsOf`, `@levelup/config`). **(PAD-771) One named exception:** the coach's participants header reads 'X/M · K vagas' / 'X/M · K open', X being `effectiveFilledSpots` (going plus not yet answered; while the coach edits, the draft's count), M `maxPlayers` and K = M − X. With no free spot it reads 'X/M · completa' / 'X/M · full'. Not-coming students stay in the list under 'Não vão' and out of X. This replaces PAD-659's 'N/M inscritos', which counted not-coming students and read as a full class with free spots.
 6. The class-detail "invited" (convidados) list is keyed by STUDENT, not by invite record. A student who received several `NotificationEvent` rows for the same instance (multiple rounds, a manual invite plus an automatic one, a re-invite after a decline — all legitimate per notifications.invitations) appears exactly ONCE. The `invitations` array returned by the class-detail payload therefore contains at most one entry per `playerId`
 7. De-duplication happens in the backend serializer (`serialize_class_instance`) so every surface — web detail sheet, mobile — sees the same one-row-per-student list. No client performs its own de-duplication
 8. Tie-break when a student has several invite records for the same instance: an accepted one (`confirmed`) wins; otherwise the most recently created record wins (highest `id`), whatever its state, so a student invited again after an earlier invite expired, was filled or was declined shows the new invite's state (PAD-773). The surviving entry keeps that record's own `id`, so coach response actions still target a real `NotificationEvent`. The row keeps the position of the student's first invite.
@@ -288,7 +281,13 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Then** all 16 rows are inside the viewport at once and the list has no scroll of its own
 - **And** the groups read "VÃO · 4", "POR RESPONDER · 8", "NÃO VÃO · 4" in that order, the Vão
   rows run Amb, Dir, Dir, Esq, and Álvaro is listed before Bruno
-- **And** no row shows a level or a state word, and the header reads "16/16 inscritos"
+- **And** no row shows a level or a state word, and the header reads "12/16 · 4 vagas" (PAD-771)
+
+#### Not-coming students free their spots in the header (rule 5, PAD-771)
+- **Given** a class of capacity 16 with 16 enrolled students, 4 of them not coming
+- **When** the coach opens it on web or iOS
+- **Then** the participants header reads "12/16 · 4 vagas", the 4 stay listed under "Não vão"
+- **And** with all 16 coming it reads "16/16 · completa"
 
 #### A student invited again shows the new invite (rules 8, 16, PAD-773)
 - **Given** case 11 was invited by hand to the class's last spot, and case 12's request to join

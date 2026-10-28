@@ -269,6 +269,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     _forget_config(coach_id)
 
     timing_changed = False
+    invitation_start_before = config.get_invitation_start_timing()
 
     if "autoNotifyEnabled" in data:
         config.auto_notify_enabled = bool(data["autoNotifyEnabled"])
@@ -334,6 +335,10 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.eligibility_rules = rules
     if "openSpotsVisible" in data:
         config.open_spots_visible = bool(data["openSpotsVisible"])
+    if config.get_invitation_start_timing() != invitation_start_before:
+        # PAD-776 (invitations rule 11a): set through `invitationStartTiming` or inside
+        # `reminderTiming`; the open spots are re-timed in the timing's own commit.
+        rederive_invite_windows(coach_id, config)
 
     config.save()
 
@@ -396,6 +401,47 @@ def release_pending_approvals(coach_id: int, *, now: datetime | None = None) -> 
         _release_pending_approval(vacancy, _now)
     db.session.flush()
     return [v.id for v in vacancies]
+
+
+def rederive_invite_windows(coach_id: int, config: NotificationConfig, *, now: datetime | None = None) -> list[int]:
+    """PAD-776 (invitations rule 11a): a saved invitation start re-times the open spots of the
+    classes this coach is primary coach of (config rule 10a's scope) that have not started. Each
+    gets the `invite_not_before` the saved timing implies, so a later window pauses a started spot
+    (its live invitations stay) and an earlier one lets a held spot start at the next tick. A spot
+    approved "Yes, right now" (approved with no window: `respond_to_approval` writes one only for
+    "at the window") keeps bypassing it; pending and dismissed spots send nothing either way.
+    Locked in ascending id like `release_pending_approvals`; flushed, not committed: the caller's
+    commit carries the timing and the re-timing together. Returns the ids re-timed."""
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.lesson_service import coach_instance_ids, primary_coach
+
+    _now = now or utcnow_naive()
+    instance_ids = coach_instance_ids(coach_id)
+    if not instance_ids:
+        return []
+    vacancies = (
+        Vacancy.query.join(LessonInstance, Vacancy.lesson_instance_id == LessonInstance.id)
+        .filter(Vacancy.lesson_instance_id.in_(list(instance_ids)), Vacancy.status == "open",
+                Vacancy.approval_status.notin_(("pending", "dismissed")),
+                LessonInstance.start_datetime > utc_to_wall_naive(_now))  # PAD-256
+        .order_by(Vacancy.id.asc())
+        .with_for_update(of=Vacancy)
+        .populate_existing()
+        .all()
+    )
+    timing = config.get_invitation_start_timing()
+    retimed = []
+    for vacancy in vacancies:
+        if vacancy.approval_status == "approved" and vacancy.invite_not_before is None:
+            continue
+        instance = vacancy.lesson_instance
+        primary = primary_coach(instance)
+        if primary is None or primary.id != coach_id:
+            continue
+        vacancy.invite_not_before = _compute_invite_start_dt(instance, timing)
+        retimed.append(vacancy.id)
+    db.session.flush()
+    return retimed
 
 
 # ---------------------------------------------------------------------------

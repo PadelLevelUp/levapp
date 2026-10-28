@@ -61,6 +61,10 @@ act unsupervised — particularly one running a smaller or more relationship-dri
   question never hides an older one; the list shown there is the class as it is now (PAD-765).
 - A spot that fills another way (a student's request to join, the coach adding someone) or runs
   out stops asking at once, and its question in the assistant conversation says so (PAD-765).
+- The class follows changes while the coach has it open: a student who joins or says they are not
+  coming changes the suggestions without reopening the class. The question in the assistant
+  conversation says what time its list is from, and answering it never invites a student who has
+  joined or declined since, or more students than there are free spots (PAD-770).
 
 ## Success Metrics
 

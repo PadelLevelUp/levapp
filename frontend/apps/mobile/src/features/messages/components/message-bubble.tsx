@@ -539,7 +539,7 @@ function MessageBubbleImpl({
             copy they sent has nothing to approve on it. */}
         {approvalBundle ? (
           <View className="mt-1.5 self-start">
-            <ReplacementApprovalCard bundle={approvalBundle} readOnly={own} />
+            <ReplacementApprovalCard bundle={approvalBundle} readOnly={own} queueAsOf={message.timestamp} />
           </View>
         ) : null}
 

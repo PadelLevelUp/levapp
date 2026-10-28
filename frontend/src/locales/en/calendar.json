@@ -645,7 +645,11 @@
         "left": "Left side"
       },
       "title": "Participants",
-      "enrolled": "{{current}}/{{max}} enrolled",
+      "open_zero": "{{current}}/{{max}} · full",
+      "open_one": "{{current}}/{{max}} · {{count}} open",
+      "open_other": "{{current}}/{{max}} · {{count}} open",
+      "full": "{{current}}/{{max}} · full",
+      "filledNoMax": "{{current}}/—",
       "inThisClass": "In this class",
       "attendance": "Attendance",
       "attendanceValue": "{{attended}} attended · {{missed}} missed",
