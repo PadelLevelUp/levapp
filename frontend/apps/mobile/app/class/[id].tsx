@@ -40,6 +40,7 @@ import {
   shouldReportSent,
   splitBlockedByCause,
   hasRecordedAttendance,
+  mergeSuggestionBundles,
   suggestionBundles,
 } from "@levelup/config";
 import {
@@ -207,6 +208,7 @@ export default function ClassDetailScreen() {
 
   const {
     data: instance,
+    dataUpdatedAt: instanceReadAt,
     isPending,
     isError,
     refetch,
@@ -306,6 +308,8 @@ export default function ClassDetailScreen() {
   // the presence-confirm call; it is only ever set by that response.
   // PAD-765 (semi-auto-approval rule 12): every pending bundle of the class, oldest spot first.
   const [approvalBundles, setApprovalBundles] = React.useState<ApprovalBundle[]>([]);
+  // PAD-770: the bundles the coach answered here; their card stays through a re-read until closed.
+  const answeredBundleIdsRef = React.useRef<Set<string>>(new Set());
   // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
   // a pending list survives leaving the screen, and an ignored one offers a fresh computation.
   const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
@@ -326,14 +330,17 @@ export default function ClassDetailScreen() {
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (s.state === "pending") setApprovalBundles(suggestionBundles(s));
+        // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
+        setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [isCoach, suggestionsInstanceId]);
+    // PAD-770: read again every time the class is read again (a presence moved, a join was
+    // accepted), so the cards follow the class without reopening it.
+  }, [isCoach, suggestionsInstanceId, instanceReadAt]);
   const recomputeSuggestions = async () => {
     if (suggestionsInstanceId == null || recomputing) return;
     setRecomputing(true);
@@ -1734,6 +1741,8 @@ export default function ClassDetailScreen() {
                     if (action === "dismiss") {
                       setApprovalBundles((prev) => prev.filter((b) => b.bundleId !== approvalBundle.bundleId));
                       setSuggestionsIgnored(true);
+                    } else {
+                      answeredBundleIdsRef.current.add(approvalBundle.bundleId);
                     }
                   }}
                 />
