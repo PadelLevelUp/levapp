@@ -27,6 +27,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { lightImpact } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
@@ -309,6 +310,9 @@ function MessageBubbleImpl({
     React.useState(false);
 
   const translateX = useSharedValue(0);
+  // PAD-769 (conversation-detail rule 19): one light haptic the moment the swipe crosses the reply
+  // threshold, not at the end; once per gesture (dragging back and forth over it does not repeat it).
+  const replyHapticPlayed = useSharedValue(false);
 
   const panGesture = Gesture.Pan()
     .enabled(!!onReply)
@@ -316,12 +320,19 @@ function MessageBubbleImpl({
     .failOffsetY([-15, 15])
     .onUpdate((e) => {
       translateX.value = Math.max(0, Math.min(e.translationX, REPLY_MAX_DRAG));
+      if (e.translationX > REPLY_TRIGGER_DISTANCE && !replyHapticPlayed.value) {
+        replyHapticPlayed.value = true;
+        runOnJS(lightImpact)();
+      }
     })
     .onEnd((e) => {
       if (e.translationX > REPLY_TRIGGER_DISTANCE && onReply) {
         runOnJS(onReply)(message);
       }
       translateX.value = withSpring(0, { damping: 16, stiffness: 180 });
+    })
+    .onFinalize(() => {
+      replyHapticPlayed.value = false;
     });
 
   const longPressGesture = Gesture.LongPress()
