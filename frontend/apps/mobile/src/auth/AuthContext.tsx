@@ -75,6 +75,18 @@ export function resetSessionRestore(): void {
   restorePromise = null;
 }
 
+/**
+ * auth.logout rule 7 (PAD-777, B-697): a session that ends leaves the login screen alone on the root
+ * stack. `router.replace` swaps only the focused route — after a sign-out from Settings, Settings — so
+ * the tabs stayed underneath, the next sign-in stacked a second `(tabs)`, and on iOS Settings' native
+ * back then went dead. Dismiss back to the stack's first route first, then replace it.
+ */
+function leaveToLogin(dropUser: () => void) {
+  if (router.canDismiss()) router.dismissAll();
+  dropUser();
+  router.replace("/login");
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,8 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userRef.current !== null) {
         // PAD-482 (#509 review): a session lost to a 401 ends its session-only state, as a sign-out does.
         endSessionState();
-        setUser(null);
-        router.replace("/login");
+        leaveToLogin(() => setUser(null));
       }
     });
   }, []);
@@ -213,8 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       clearToken: () => secureTokenStorage.removeToken(),
     });
-    setUser(null);
-    router.replace("/login");
+    leaveToLogin(() => setUser(null));
   }, []);
 
   return (
