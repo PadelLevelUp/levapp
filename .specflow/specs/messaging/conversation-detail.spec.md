@@ -133,6 +133,14 @@ through the history without the thread ever moving under the reader.
     an iOS row's children are not nested under it for Maestro). Nothing else about the bubble changes: no icon, no background, no
     separate feed. A typed message never carries it. The field is additive: builds that ignore it
     (iOS 1.0–1.2.1) look exactly as before.
+18. **The composer's text is centred in its box (PAD-767; iOS and Android).** In the conversation's
+    message field (`message-input`) and the edit field (`message-edit-input`), the placeholder, the
+    typed text and the caret sit on the vertical centre of the 48 px box, level with the send
+    button's centre. Longer messages grow the box line by line up to its cap and scroll inside it;
+    nothing is cut. Mechanism: a multiline TextInput draws from the top on iOS, so the box carries
+    equal top and bottom padding around one line and grows from a 48 px minimum
+    (`COMPOSER_INPUT_CLASS`), with `textAlignVertical: "center"` for Android. **Web is untouched:**
+    its composer is a textarea laid out by the browser, and the report is the native field's.
 
 ### Acceptance Criteria
 
@@ -281,3 +289,10 @@ through the history without the thread ever moving under the reader.
 - **Given** a conversation holding a class reminder and a message the coach typed
 - **When** the student opens it on web or on iOS
 - **Then** the reminder shows "Automatic LevApp message" under its text (`message-automatic-note`) and the typed message shows no such line
+
+#### The message field's text sits on its vertical centre (rule 18, PAD-767)
+- **Given** an open conversation on iOS or Android with an empty message field
+- **When** the field shows its placeholder, and then one typed line
+- **Then** the placeholder, the text and the caret are centred in the 48 px box, level with the send
+  button's centre; the edit field looks the same
+- **And** a message of several lines grows the box up to its cap with no line cut off
