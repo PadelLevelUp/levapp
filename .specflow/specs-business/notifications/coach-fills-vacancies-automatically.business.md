@@ -99,6 +99,10 @@ the waiting list.
   since that entry spans their other classes too (PAD-560). Adding someone is not a promise: they are asked
   first when a spot opens, if they still qualify then, and they hear nothing until that moment
   (PAD-547).
+- Changing when invitations start applies to spots already open, not only to new ones (PAD-776):
+  moved later, nothing more goes out for a class until the new time (invitations already sent can
+  still be answered); moved earlier, a spot that was waiting starts within minutes. A spot the coach
+  approved "Yes, right now" and the coach's own invitations are not held back.
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
   ask is authoritative, and the coach can select or deselect students with a single click on their
   row, name, or checkbox.
