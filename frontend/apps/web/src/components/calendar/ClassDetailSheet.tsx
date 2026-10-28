@@ -51,7 +51,7 @@ import { assignedSideOf, blockedNames, classEvaluationsAction, endsAfterStart, e
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -714,6 +714,8 @@ export function ClassDetailSheet({
 
   if (!event || !classInstance || !players || !levels) return null;
   if (!active) return null;
+  // PAD-771 (calendar.event-detail rule 5): the coach's participants header.
+  const header = participantsHeader(effectiveFilledSpotsOf(active.participants, active.presences), active.maxPlayers);
 
   const canApplyScope = event?.isRecurring === true
 
@@ -1632,15 +1634,15 @@ export function ClassDetailSheet({
           <div>
             <div className="flex items-center justify-between mb-2">
               {canManage && !isEditing && !isValidating ? (
-                // PAD-659 (rule 5's named exception): the coach's list header names its own
-                // quantity — the enrolled rows below over the capacity.
+                // PAD-771 (rule 5's named exception): the filled spots over the capacity and how
+                // many are open; a not-coming student frees their spot here too.
                 <div className="flex flex-col gap-0.5">
                   <h4 className="text-sm font-medium flex items-center gap-2">
                     <Users className="w-4 h-4" />
                     {t("calendar.participants.title")}
                   </h4>
                   <p data-testid="participants-enrolled" className="text-[13px] text-muted-foreground tabular-nums">
-                    {t("calendar.participants.enrolled", { current: active.participants.length, max: active.maxPlayers })}
+                    {t(header.key, header.values)}
                   </p>
                 </div>
               ) : (

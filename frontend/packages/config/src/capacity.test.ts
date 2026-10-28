@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveFilledSpots, effectiveFilledSpotsOf } from "./capacity";
+import { effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader } from "./capacity";
 
 describe("effectiveFilledSpots (PAD-71)", () => {
   it("subtracts declined students from the enrolment count", () => {
@@ -59,5 +59,24 @@ describe("effectiveFilledSpotsOf (calendar.event-detail rule 5, B-240)", () => {
 
   it("matches ids across number and string", () => {
     expect(effectiveFilledSpotsOf([{ id: 2 }], [{ playerId: "2", status: "absent" }])).toBe(0);
+  });
+});
+
+describe("participantsHeader (PAD-771, calendar.event-detail rule 5)", () => {
+  it("counts the filled spots and names the open ones: 16 enrolled, 4 not coming", () => {
+    expect(participantsHeader(12, 16)).toEqual({
+      key: "calendar.participants.open",
+      values: { current: 12, max: 16, count: 4 },
+    });
+  });
+
+  it("reads full when no spot is open", () => {
+    expect(participantsHeader(16, 16)).toEqual({ key: "calendar.participants.full", values: { current: 16, max: 16 } });
+    expect(participantsHeader(17, 16).key).toBe("calendar.participants.full");
+  });
+
+  it("shows the count alone without a capacity", () => {
+    expect(participantsHeader(3, 0)).toEqual({ key: "calendar.participants.filledNoMax", values: { current: 3 } });
+    expect(participantsHeader(3, null).key).toBe("calendar.participants.filledNoMax");
   });
 });
