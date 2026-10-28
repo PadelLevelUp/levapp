@@ -13,7 +13,7 @@
  * mobile screens are not unit-testable in this repo (see vitest.config.ts).
  */
 
-import { lisbonNowMs, wallClockISOMs } from "@levelup/config";
+import { lisbonNowMs, resolvedVacancyIds, wallClockISOMs } from "@levelup/config";
 import type {
   ApprovalAction,
   ApprovalBundle,
@@ -92,11 +92,11 @@ export function approvalCardState(
 
   // `allStale` is only meaningful once the server has told us something is
   // stale — an empty stale list must not make an empty-checked `every()` true.
+  // PAD-765 (rule 11): a spot the server marked filled or expired on the message counts as stale.
+  const stale = [...new Set([...staleVacancyIds, ...resolvedVacancyIds(bundle)])];
   const allStale =
-    staleVacancyIds.length > 0 &&
-    bundle.vacancies.every((vacancy) =>
-      staleVacancyIds.includes(vacancy.vacancyId)
-    );
+    stale.length > 0 &&
+    bundle.vacancies.every((vacancy) => stale.includes(vacancy.vacancyId));
 
   // `windowOpenAt` is a naive club wall-clock string; `now` is a real instant.
   // Club digits on both sides (PAD-295), like web's ReplacementApprovalCard.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ApprovalQueuePlayer, ApprovalVacancyInfo } from "@levelup/types";
+import type { ApprovalBundle, ApprovalQueuePlayer, ApprovalVacancyInfo } from "@levelup/types";
 
 import {
   APPROVAL_QUEUE_PREVIEW,
@@ -11,7 +11,9 @@ import {
   approvalSideKey,
   approvalStaleLabel,
   isOpenSpot,
+  resolvedVacancyIds,
   staleCount,
+  suggestionBundles,
 } from "./approval-display";
 
 const p = (id: number): ApprovalQueuePlayer => ({ id: String(id), name: `P${id}` });
@@ -109,5 +111,26 @@ describe("PAD-661 an empty queue says why (semi-auto-approval rule 4b)", () => {
   it("names a locale key per engine stage and falls back for a stage this build does not know", () => {
     expect(approvalEmptyReasonKey("excluded_by_coach")).toBe("notificationsUi.replacementApproval.emptyReason.excluded_by_coach");
     expect(approvalEmptyReasonKey("a_newer_stage")).toBe("notificationsUi.replacementApproval.emptyReason.other");
+  });
+});
+
+describe("PAD-765 every pending prompt of the class (semi-auto-approval rules 11, 12)", () => {
+  const b = (bundleId: string, vacancies: ApprovalVacancyInfo[]): ApprovalBundle =>
+    ({ bundleId, lessonInstanceId: 1, windowOpenAt: null, responded: false, vacancies });
+
+  it("reads every bundle in the server's order, an older server's one bundle, and nothing otherwise", () => {
+    const older = b("b-14", [declined(1, "Case 7", [])]);
+    const newer = b("b-21", [declined(2, "Case 8", [])]);
+    expect(suggestionBundles({ state: "pending", bundle: older, bundles: [older, newer] }).map((x) => x.bundleId))
+      .toEqual(["b-14", "b-21"]);
+    expect(suggestionBundles({ state: "pending", bundle: newer }).map((x) => x.bundleId)).toEqual(["b-21"]);
+    expect(suggestionBundles({ state: "dismissed" })).toEqual([]);
+    expect(suggestionBundles({ state: "pending" })).toEqual([]);
+  });
+
+  it("counts a spot the message marks filled or expired as stale", () => {
+    const filled = { ...open(1, "left", []), resolved: "filled" } as ApprovalVacancyInfo;
+    const expired = { ...open(2, "left", []), resolved: "expired" } as ApprovalVacancyInfo;
+    expect(resolvedVacancyIds(b("x", [filled, open(3, "left", []), expired]))).toEqual([1, 2]);
   });
 });

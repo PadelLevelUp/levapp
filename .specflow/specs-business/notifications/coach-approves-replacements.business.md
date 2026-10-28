@@ -39,6 +39,9 @@ act unsupervised — particularly one running a smaller or more relationship-dri
 
 - This only applies when the coach has both turned the engine on and chosen semi-automatic mode;
   fully automatic coaches never see a prompt and their invitations go out exactly as before.
+- A coach who goes back to fully automatic hands over the spots still waiting for their answer:
+  those spots start inviting within a couple of minutes and their old prompts stop deciding
+  anything. A spot the coach chose to ignore stays ignored.
 - Every prompt lives in the coach's assistant conversation as the permanent record, regardless of
   which screen first showed it to them.
 - The list of students shown in the prompt is exactly the list the engine may invite from — it can
@@ -54,6 +57,10 @@ act unsupervised — particularly one running a smaller or more relationship-dri
   other tool (manual invitations, waiting list) available.
 - Waiting-list students are asked like everyone else in this mode: nothing goes out to them, or to
   anyone, before the coach approves.
+- Every spot still waiting for the coach's answer shows on the class, the oldest first, so a newer
+  question never hides an older one; the list shown there is the class as it is now (PAD-765).
+- A spot that fills another way (a student's request to join, the coach adding someone) or runs
+  out stops asking at once, and its question in the assistant conversation says so (PAD-765).
 
 ## Success Metrics
 

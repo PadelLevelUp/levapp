@@ -635,8 +635,8 @@ def decline_next_job_id(vacancy_id: int, event_id: int) -> str:
     return f"decline_next_{vacancy_id}_{event_id}"
 
 
-def approval_now_job_id(instance_id: int) -> str:
-    return f"approval_now_{instance_id}"
+def approval_now_job_id(instance_id: int, vacancy_id: int) -> str:
+    return f"approval_now_{instance_id}_{vacancy_id}"
 
 
 def _arm_now(func, args, job_id: str) -> bool:
@@ -678,23 +678,27 @@ def arm_next_on_decline(vacancy_id: int, event_id: int) -> bool:
     return _arm_now(_run_send_next_on_decline, [vacancy_id], decline_next_job_id(vacancy_id, event_id))
 
 
-def arm_approval_now(instance_id: int, coach_id: int) -> bool:
+def arm_approval_now(instance_id: int, coach_id: int, vacancy_id: int) -> bool:
     """PAD-733 (invitations rule 1b): in semi-automatic mode a student's decline asks for the coach's
     approval prompt from here. Building its queue ranks the coach's whole roster once per wave, which is
-    seconds of work on a large roster; the student's answer does not wait on it."""
-    return _arm_now(_run_create_pending_approval_prompts, [instance_id, coach_id], approval_now_job_id(instance_id))
+    seconds of work on a large roster; the student's answer does not wait on it. PAD-764: one job per
+    vacancy, asking for that vacancy alone. With one id per class, a second decline while the first
+    job ran re-armed the same id and APScheduler skipped it (max_instances 1): no prompt, ever."""
+    return _arm_now(
+        _run_create_vacancy_approval_prompt, [vacancy_id, coach_id], approval_now_job_id(instance_id, vacancy_id)
+    )
 
 
-def _run_create_pending_approval_prompts(instance_id: int, coach_id: int) -> None:
+def _run_create_vacancy_approval_prompt(vacancy_id: int, coach_id: int) -> None:
     app = _app
     if app is None:
         return
     with app.app_context():
-        from padel_app.services.replacement_approval_service import create_pending_approval_prompts
+        from padel_app.services.replacement_approval_service import create_vacancy_approval_prompt
         try:
-            create_pending_approval_prompts(instance_id, coach_id)
+            create_vacancy_approval_prompt(vacancy_id, coach_id)
         except Exception as exc:
-            app.logger.error("create_pending_approval_prompts(%s) failed: %s", instance_id, exc)
+            app.logger.error("create_vacancy_approval_prompt(%s) failed: %s", vacancy_id, exc)
 
 
 def _run_send_next_on_decline(vacancy_id: int) -> None:

@@ -15,6 +15,7 @@ import {
   approvalStaleLabel,
   lisbonNowMs,
   queueBadgeLabel,
+  resolvedVacancyIds,
   staleCount,
   wallClockISOMs,
 } from "@levelup/config";
@@ -56,7 +57,10 @@ export function ReplacementApprovalCard({
   const [localResponse, setLocalResponse] = useState<ApprovalAction | null>(
     bundle.responded ? bundle.response ?? null : null
   );
-  const [staleVacancyIds, setStaleVacancyIds] = useState<number[]>([]);
+  const [respondedStaleIds, setStaleVacancyIds] = useState<number[]>([]);
+  // PAD-765 (rule 11): a spot the server marked filled or expired on the message is stale too,
+  // read on every render so a live edit of the message shows it.
+  const staleVacancyIds = [...new Set([...respondedStaleIds, ...resolvedVacancyIds(bundle)])];
   // PAD-574 (rule 7a): which blocks show their whole list; the preview is the first five.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const groups = approvalDisplayGroups(bundle.vacancies);
@@ -146,6 +150,7 @@ export function ReplacementApprovalCard({
   return (
     <div
       data-testid="replacement-approval-card"
+      data-bundle-id={bundle.bundleId}
       className="rounded-xl border bg-card shadow-sm p-3 space-y-3"
     >
       {groups.map((group) => {

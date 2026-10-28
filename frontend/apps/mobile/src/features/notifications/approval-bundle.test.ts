@@ -224,3 +224,26 @@ describe("approvalRespondOutcome — a recomputed bundle (PAD-545)", () => {
     expect(outcome.toastKey).toBe("notificationsUi.replacementApproval.superseded");
   });
 });
+
+describe("approvalCardState — PAD-765 (rule 11)", () => {
+  it("a message whose every spot filled or expired offers no buttons", () => {
+    const resolved = bundle({
+      vacancies: [{ vacancyId: 1, declinedPlayerId: 10, declinedPlayerName: "Case 7", queue: [], resolved: "filled" }],
+    });
+    const state = approvalCardState(resolved);
+    expect(state.allStale).toBe(true);
+    expect(state.showActions).toBe(false);
+  });
+
+  it("one spot of two filled keeps the buttons for the other", () => {
+    const half = bundle({
+      vacancies: [
+        { vacancyId: 1, declinedPlayerId: 10, declinedPlayerName: "Case 7", queue: [], resolved: "filled" },
+        { vacancyId: 2, declinedPlayerId: 11, declinedPlayerName: "Case 8", queue: [] },
+      ],
+    });
+    const state = approvalCardState(half);
+    expect(state.allStale).toBe(false);
+    expect(state.showActions).toBe(true);
+  });
+});

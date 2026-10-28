@@ -22,6 +22,9 @@ import uuid
 from collections import Counter
 from datetime import datetime
 
+from sqlalchemy import event, inspect
+from sqlalchemy.orm import Session
+
 from padel_app.models import Vacancy
 from padel_app.sql_db import db
 from padel_app.realtime import publish
@@ -280,24 +283,20 @@ def create_approval_prompts(
     return _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts)
 
 
-def create_pending_approval_prompts(instance_id: int, coach_id: int) -> dict | None:
-    """PAD-733 (invitations rule 1b): the ``approval_now_<instance>`` job. Asks about the class's open
-    vacancies still pending approval; ``create_approval_prompts`` skips any that already has a
-    prompt, so a second run asks nothing and declines seconds apart share one bundle."""
-    from padel_app.models import LessonInstance, Vacancy
+def create_vacancy_approval_prompt(vacancy_id: int, coach_id: int) -> dict | None:
+    """PAD-733 / PAD-764 (invitations rule 1b): the ``approval_now_<instance>_<vacancy>`` job. Asks
+    about its own vacancy, if it is still open and pending approval; ``create_approval_prompts``
+    skips a vacancy that already has a prompt, so a second run asks nothing. One vacancy per job, so
+    two jobs running side by side never ask about the same spot."""
+    from padel_app.models import Vacancy
     from padel_app.services.notification_service import get_or_create_config
 
-    instance = db.session.get(LessonInstance, instance_id)
-    if instance is None:
+    vacancy = db.session.get(Vacancy, vacancy_id)
+    if vacancy is None or vacancy.status != "open" or vacancy.approval_status != "pending":
         return None
-    pending = (
-        Vacancy.query.filter_by(lesson_instance_id=instance_id, status="open", approval_status="pending")
-        .order_by(Vacancy.id)
-        .all()
+    return create_approval_prompts(
+        [vacancy], vacancy.lesson_instance, coach_id, get_or_create_config(coach_id)
     )
-    if not pending:
-        return None
-    return create_approval_prompts(pending, instance, coach_id, get_or_create_config(coach_id))
 
 
 def _post_bundle(bundle_id, instance, coach_user_id, window_open_dt, vacancies_payload, prompts) -> dict:
@@ -492,6 +491,93 @@ def respond_to_approval(
 
 
 # ---------------------------------------------------------------------------
+# PAD-765 (rule 11): a spot that fills or expires resolves its prompt at once
+# ---------------------------------------------------------------------------
+
+def resolve_prompts_for(vacancy, *, session=None, now: datetime | None = None) -> None:
+    """Mark ``vacancy``'s pending prompt ``stale`` and its Assistant message's entry
+    ``resolved: <filled|expired>`` (rule 11). A prompt no longer pending (decided, or released by
+    a mode switch) is left as it is. The live edit of the message goes out after the commit."""
+    from padel_app.models import Message
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+    from padel_app.serializers.message import serialize_message
+    from padel_app.tools.after_commit import on_commit
+
+    session = session or db.session
+    prompts = (
+        session.query(ReplacementApprovalPrompt)
+        .filter_by(vacancy_id=vacancy.id, status="pending")
+        .all()
+    )
+    for prompt in prompts:
+        prompt.status = "stale"
+        prompt.decided_at = now or utcnow_naive()
+        msg = session.get(Message, prompt.message_id) if prompt.message_id else None
+        if msg is None or not msg.msg_metadata:
+            continue
+        msg.msg_metadata = {
+            **msg.msg_metadata,
+            "vacancies": [
+                {**v, "resolved": vacancy.status} if v.get("vacancyId") == vacancy.id else v
+                for v in msg.msg_metadata.get("vacancies", [])
+            ],
+        }
+        edited = {"type": "message_edited", "payload": serialize_message(msg, None)}
+        recipients = message_recipient_ids(msg)
+        on_commit(lambda edited=edited, recipients=recipients: publish(edited, recipients))
+
+
+@event.listens_for(Session, "before_flush")
+def _resolve_prompts_of_closed_spots(session, _flush_context, _instances) -> None:
+    """Rule 11 (PAD-765): the one place a prompt goes stale when its spot leaves ``open``. Every
+    route that fills or expires a vacancy flushes that status change, so this sees them all; the
+    old lazy marking in ``respond_to_approval`` stays for prompts older than this listener."""
+    closed = []
+    for obj in session.dirty:
+        if not isinstance(obj, Vacancy) or obj.status == "open":
+            continue
+        # Any change to a non-open status counts: on a row expired by an earlier commit the old
+        # value was never loaded, so the history cannot say it was "open". Only pending prompts
+        # are touched, so a spot that was already closed changes nothing.
+        if inspect(obj).attrs.status.history.has_changes():
+            closed.append(obj)
+    if not closed:
+        return
+    with session.no_autoflush:
+        for vacancy in closed:
+            resolve_prompts_for(vacancy, session=session)
+
+
+def resolve_orphaned_prompts(now: datetime | None = None) -> int:
+    """Rule 11 (PAD-780): a pending prompt whose spot closed without the listener seeing it (rows
+    closed before PAD-765) is resolved by the invitation tick, the same way. Commits; returns how
+    many prompts it resolved. One commit per spot, like the tick's own loop (#526 review item 6): a
+    spot that fails rolls back alone, is logged, and the next tick tries it again."""
+    from flask import current_app
+
+    from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
+
+    counts = Counter(
+        vacancy_id for (vacancy_id,) in (
+            db.session.query(ReplacementApprovalPrompt.vacancy_id)
+            .join(Vacancy, ReplacementApprovalPrompt.vacancy_id == Vacancy.id)
+            .filter(ReplacementApprovalPrompt.status == "pending", Vacancy.status != "open")
+            .all()
+        )
+    )
+    resolved = 0
+    for vacancy_id in sorted(counts):
+        try:
+            resolve_prompts_for(db.session.get(Vacancy, vacancy_id), now=now)
+            db.session.commit()
+            resolved += counts[vacancy_id]
+        except Exception:  # noqa: BLE001 — logged, the next tick retries
+            db.session.rollback()
+            current_app.logger.exception("orphaned approval prompts: vacancy %s failed", vacancy_id)
+    return resolved
+
+
+# ---------------------------------------------------------------------------
 # PAD-545 / PAD-542: the class's suggestions, and recomputing them
 # ---------------------------------------------------------------------------
 
@@ -526,7 +612,9 @@ def _coached_instance(instance_id: int, coach_id: int):
 def instance_suggestions(instance_id: int, coach_id: int) -> dict:
     """What the class view shows about semi-automatic suggestions (rule 12).
 
-    ``{"state": "pending", "bundle": {...}}`` — a decision is waiting (the newest pending bundle);
+    ``{"state": "pending", "bundles": [...], "bundle": bundles[0]}`` — decisions are waiting: every
+    pending bundle of the class, oldest spot first (PAD-765), each listing only its spots still
+    open and pending, with the queue computed now (rule 12b); ``bundle`` is for older builds;
     ``{"state": "dismissed"}`` — the coach ignored them and can recompute;
     ``{"state": "none"}`` — nothing to suggest (no open vacancy awaiting a decision).
     Each answer carries ``semiAutomatic`` (PAD-542: the class view's loader is for that mode).
@@ -537,22 +625,32 @@ def instance_suggestions(instance_id: int, coach_id: int) -> dict:
     from padel_app.services.notification_service import _is_semi_auto, get_or_create_config
 
     instance = _coached_instance(instance_id, coach_id)
+    config = get_or_create_config(coach_id)
     # PAD-542: the class view shows "preparing suggestions" only for a semi-automatic coach.
-    semi = _is_semi_auto(get_or_create_config(coach_id))
+    semi = _is_semi_auto(config)
     vacancies = Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").all()
-    pending = [v for v in vacancies if v.approval_status == "pending"]
+    pending = {v.id: v for v in vacancies if v.approval_status == "pending"}
     if pending:
         prompts = (
             ReplacementApprovalPrompt.query
-            .filter(ReplacementApprovalPrompt.vacancy_id.in_([v.id for v in pending]),
+            .filter(ReplacementApprovalPrompt.vacancy_id.in_(list(pending)),
                     ReplacementApprovalPrompt.status == "pending")
-            .order_by(ReplacementApprovalPrompt.id.desc())
+            .order_by(ReplacementApprovalPrompt.vacancy_id.asc())  # decline order
             .all()
         )
+        bundles: dict[str, dict] = {}
         for prompt in prompts:
             msg = Message.query.get(prompt.message_id) if prompt.message_id else None
-            if msg is not None and (msg.msg_metadata or {}).get("bundleId") == prompt.bundle_id:
-                return {"state": "pending", "bundle": msg.msg_metadata, "semiAutomatic": semi}
+            meta = msg.msg_metadata if msg is not None else None
+            if not meta or meta.get("bundleId") != prompt.bundle_id:
+                continue
+            bundle = bundles.setdefault(prompt.bundle_id, {**meta, "vacancies": []})
+            vacancy = pending[prompt.vacancy_id]
+            queue = compute_full_invite_queue(vacancy, instance, coach_id, config)
+            bundle["vacancies"].append(_vacancy_payload(vacancy, queue, None, instance, coach_id, config))
+        if bundles:
+            ordered = list(bundles.values())
+            return {"state": "pending", "bundles": ordered, "bundle": ordered[0], "semiAutomatic": semi}
     if any(v.approval_status == "dismissed" for v in vacancies):
         return {"state": "dismissed", "semiAutomatic": semi}
     return {"state": "none", "semiAutomatic": semi}

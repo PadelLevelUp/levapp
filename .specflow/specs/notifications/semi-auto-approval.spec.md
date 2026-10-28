@@ -19,6 +19,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 
 ### Rules
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
+1a. **Leaving semi-automatic releases the spots awaiting approval (PAD-766, ledger B-688; coordinator 2026-10-27).** When a coach's `invitation_mode` changes from `semi_automatic` to `automatic`, every open vacancy of that coach whose class has not started and whose approval_status is `pending` becomes `not_required`, in the same commit as the mode, and its pending prompt becomes `stale` (with `decided_at`), so its message's buttons answer "stale" and decide nothing. The sweep (`process_invitation_batches`) then starts these spots on its next tick, under the same restrictions, claim and per-class automatic-invitations switch as any spot. A `dismissed` vacancy stays dismissed: the coach already said no to it. The sweep heals itself: it treats an open `pending` vacancy whose coach's mode is now `automatic` the same way (released, prompt stale, started on that tick), so spots stranded before this rule recover with no data repair. Switching `automatic` → `semi_automatic` changes nothing for spots already open: `not_required` spots keep inviting, and only spots opened afterwards wait for approval. The release keys on the mode alone: a semi-automatic coach who turns automatic notifications off keeps the spots pending, and they stay decidable when notifications come back on.
 2. In semi-automatic mode, every vacancy-creation path sets approval_status "pending" and creates a replacement approval prompt instead of sending invitations: player declines via reminder response, coach confirms presences marking players absent, and the `invite_start` scheduler job
 3. One prompt per vacancy (idempotent): re-triggering invitations for a vacancy that already has a prompt does not create a duplicate
 4. **The prompt says why each spot is open (PAD-574, B-522).** A spot a student freed reads "O
@@ -75,11 +76,27 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    When the invitation window is already open, only **"Yes, right now"** is offered in the conversation (and "Ignorar" on the class card)
 9. Gating: `process_invitation_batches()` and the `invite_start` scheduler job skip vacancies with approval_status "pending" or "dismissed"; only "not_required" and "approved" vacancies are processed
 10. The waiting list waits for approval like everyone else: its group-0 invitations are invitations, so rule 9's gate holds them until the coach approves, and a dismissed vacancy never invites from the waiting list either
-11. If a vacancy is filled or expired before the coach decides (e.g. via the manual flow), the pending prompt becomes stale and any decision on it is a no-op
+11. **A spot that fills or expires resolves its prompt at once (PAD-765, B-689).** When a vacancy
+   leaves `open` by any route (an accepted invitation, an accepted join request, a coach adding a
+   student or editing the class, or expiry), its pending prompt becomes `stale` in the same commit,
+   and its Assistant message marks that spot `resolved: "filled" | "expired"` (a live
+   `message_edited`). Both clients count a resolved spot as stale (rule 7a's "N de M vagas já
+   preenchidas ou expiradas"), and a message whose spots are all resolved shows no buttons. A
+   decision on it stays a no-op (`stale`). One `before_flush` listener on the vacancy's status
+   (`replacement_approval_service`) is the only place this happens, so no route can forget it; a
+   prompt no longer `pending` (decided, or released by a mode switch) is left as it is.
+   The invitation tick (`process_invitation_batches`) also resolves, through the same
+   `resolve_prompts_for` and before it looks at any open spot, every pending prompt whose spot is no
+   longer `open`. This catches rows the listener never saw (spots closed before the listener
+   existed, or changed outside a session flush) and logs the count only when it resolved something
+   (PAD-780).
 12. **Recomputing the suggestions from the class (PAD-545, PAD-542; coordinator, 2026-10-07; numbering unconfirmed).**
    The class view reads the class's suggestion state (`GET /api/app/notify/approval/instance/<id>`,
-   the class's coach only): `pending` with the newest pending bundle, `dismissed` when the coach
-   ignored them, or `none`. With `dismissed` it shows a **"Sugestão de convites automáticos"** button
+   the class's coach only): `pending` with **every** pending prompt of the class as `bundles`
+   (PAD-765) — grouped by bundle, since the bundle stays the one decision, and ordered by their
+   oldest spot (decline order), each listing only its spots still open and pending; `bundle` carries
+   the first of them for older builds. Web `ClassDetailSheet` and the iOS class screen render one
+   card per bundle in that order. Otherwise `dismissed` when the coach ignored them, or `none`. With `dismissed` it shows a **"Sugestão de convites automáticos"** button
    instead of the names. Pressing it (`POST …/recompute`) computes the list **from scratch with the
    class as it is now** — never the old list — and asks again: every open vacancy of the class that
    is `pending` or `dismissed` is locked (the engine's lock order starts with the vacancy, ascending
@@ -92,6 +109,13 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    deciding, so a decision racing a recompute is decided on one side of it. While the suggestions are
    being computed (confirming presences, recomputing), both clients show "A preparar sugestões de
    convites…" (PAD-542).
+12b. **The class view's list is computed when shown (PAD-765).** Each pending spot's queue is
+   computed from the class as it is when the view loads (`compute_full_invite_queue`), not from the
+   snapshot stored at prompt time, so a student enrolled since is not offered. `roundNumber` is the
+   wave that would ask the student if sent now — the same number the engine stamps on that round's
+   invitations (`invitation_waves`' 1-based group number; 0 the waiting list). A later send can
+   still reach a later round, because eligibility is re-read at each send. The Assistant message
+   keeps the list as it was asked: a record.
 
 ### Acceptance Criteria
 
@@ -183,10 +207,50 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **Then** every vacancy answers "stale", nothing is sent, and the vacancy stays "pending"; a yes on
   bundle B sends
 
+#### The class shows every pending prompt, oldest spot first (rule 12, PAD-765)
+- **Given** semi-automatic mode and a class where case 7 declined on 14 Oct and case 8 on 21 Oct,
+  each prompt in its own bundle, neither answered
+- **When** the coach opens the class (web or iOS)
+- **Then** the class shows two approval cards, case 7's bundle first, then case 8's
+
+#### The list is the class as it is now (rule 12b, PAD-765)
+- **Given** a pending prompt whose stored queue lists case 9
+- **When** the coach adds case 9 to the class and opens it
+- **Then** case 9 is not in the queue the class view shows
+
+#### A spot filled by an accepted join request resolves its prompt (rule 11, PAD-765)
+- **Given** the two pending prompts above
+- **When** the coach accepts case 9's request to join and it fills case 7's spot
+- **Then** that prompt is `stale` in the same commit, its Assistant message marks the spot
+  `resolved: "filled"` and shows no buttons, and the class shows only case 8's card
+- **And** the same holds when the spot fills by the coach adding a student, or expires
+
+#### The tick resolves prompts the listener never saw (rule 11, PAD-780)
+- **Given** a prompt still pending on a vacancy already filled and another on one already expired,
+  written without the listener firing
+- **When** the invitation tick runs
+- **Then** both prompts are stale and their messages mark the spots resolved filled/expired; a
+  pending prompt on an open spot and a decided prompt on a closed spot are untouched
+
 #### Batch processor skips unapproved vacancies
-- **Given** vacancies with approval_status "pending" and "dismissed"
+- **Given** vacancies with approval_status "pending" and "dismissed" of a coach still in semi_automatic
 - **When** `process_invitation_batches()` runs
 - **Then** no NotificationEvents or invitation messages are created for those vacancies
+
+#### Switching to automatic releases the spots awaiting approval (rule 1a, PAD-766)
+- **Given** a semi-automatic coach's class tomorrow with one open vacancy pending approval, its prompt pending and nobody invited
+- **When** the coach saves `invitationMode: "automatic"`
+- **Then** the vacancy is `not_required` and its prompt `stale` in the same commit as the mode, and the next `process_invitation_batches()` sends the spot's first batch (3 invitations at maxSimultaneous 3)
+
+#### The sweep starts a spot stranded by an earlier switch (rule 1a, PAD-766)
+- **Given** the same pending vacancy and prompt, and the coach's mode set to `automatic` with nothing else changed (a switch made before rule 1a)
+- **When** `process_invitation_batches()` runs
+- **Then** the vacancy is `not_required`, its prompt `stale`, and the spot's first batch is sent on that tick
+
+#### A dismissed spot stays dismissed (rule 1a, PAD-766)
+- **Given** the same vacancy dismissed by the coach (vacancy and prompt `dismissed`)
+- **When** the coach saves `invitationMode: "automatic"` and `process_invitation_batches()` runs
+- **Then** the vacancy and its prompt stay `dismissed` and nobody is invited
 
 #### One prompt per vacancy
 - **Given** a vacancy that already has a replacement approval prompt
