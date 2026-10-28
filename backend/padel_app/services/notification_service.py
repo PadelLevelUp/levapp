@@ -1358,6 +1358,7 @@ CANDIDATE_STAGES = (
     "excluded_by_coach",
     "inactive_account",
     "has_class_same_day",  # PAD-523 (config rule 6e): holds a spot in another class that club-local day
+    "pending_invite_same_day",  # PAD-775 (rule 18c): holds a live invitation for another class that day
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
@@ -1430,6 +1431,28 @@ def _players_with_a_class_that_day(player_ids, instance: LessonInstance) -> set:
         .all()
     )
     return {pid for (pid,) in rows}
+
+
+def _same_day_live_offers(player_ids, instance: LessonInstance):
+    """PAD-775 (invitations rule 18c): the live invitations (sent or queued, so unanswered) of
+    ``player_ids`` for ANOTHER class on the same club-local day as ``instance``, with any coach, the
+    other class not cancelled. The day is rule 6e's: the wall date of ``instance.start_datetime``."""
+    if not player_ids or instance.start_datetime is None:
+        return NotificationEvent.query.filter(False)
+    day_start = datetime.combine(instance.start_datetime.date(), time.min)
+    day_end = day_start + timedelta(days=1)
+    return (
+        NotificationEvent.query
+        .join(LessonInstance, LessonInstance.id == NotificationEvent.lesson_instance_id)
+        .filter(
+            NotificationEvent.player_id.in_(list(player_ids)),
+            NotificationEvent.lesson_instance_id != instance.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            LessonInstance.status != "canceled",
+            LessonInstance.start_datetime >= day_start,
+            LessonInstance.start_datetime < day_end,
+        )
+    )
 
 
 def evaluate_candidates(
@@ -1558,6 +1581,12 @@ def evaluate_candidates(
         _players_with_a_class_that_day([cp.player_id for cp in roster], instance)
         if no_same_day_class else set()
     )
+    # PAD-775 (rule 18c): follows rule 6e's switch — a coach who allows two classes a day allows two
+    # offers a day.
+    offered_same_day_ids = (
+        {e.player_id for e in _same_day_live_offers([cp.player_id for cp in roster], instance)}
+        if no_same_day_class else set()
+    )
 
     verdicts: list[CandidateVerdict] = []
     for cp in roster:
@@ -1598,6 +1627,9 @@ def evaluate_candidates(
                 continue
         if pid in busy_same_day_ids:
             verdicts.append(CandidateVerdict(cp, "has_class_same_day"))
+            continue
+        if pid in offered_same_day_ids:
+            verdicts.append(CandidateVerdict(cp, "pending_invite_same_day"))
             continue
         user_id = cp.player.user_id if cp.player else None
         if user_id in blocked_user_ids:
@@ -6234,6 +6266,7 @@ def respond_to_notification(
         else:
             _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _publish_retired(_withdraw_same_day_offers(event.player_id, instance))  # PAD-775 (rule 18c)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         # PAD-596: no `save()` after it — `enrol()` committed the answer with the enrolment.
@@ -6357,6 +6390,7 @@ def coach_respond_to_notification(
         else:
             _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _publish_retired(_withdraw_same_day_offers(event.player_id, instance))  # PAD-775 (rule 18c)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
@@ -7220,6 +7254,33 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
                     # with nothing left. Not a "no"; the bubble says why; published after the commit.
                     _publish_retired(_withdraw_spent_offers(event.player_id, closed_classes))
     db.session.flush()
+
+
+BOOKED_SAME_DAY = "booked_same_day"  # fits notification_events.retired_reason (String(16))
+
+
+def _withdraw_same_day_offers(player_id: int, instance: LessonInstance) -> list:
+    """PAD-775 (invitations rule 18c): a student who said yes to ``instance`` loses their other live
+    invitations for classes that same club day ("Já inscrito noutra aula"). Not a "no": rule 18
+    reads `answer`, which stays NULL. Only where the other class's coach keeps rule 6e on, as that
+    is the switch that would leave the student out of it now. Flushed only; the caller's commit
+    carries it, as `_withdraw_spent_offers` does."""
+    events = _same_day_live_offers([player_id], instance).all()
+    same_day_on: dict[int, bool] = {}
+    withdrawn = []
+    for event in events:
+        if event.coach_id not in same_day_on:
+            config = NotificationConfig.query.filter_by(coach_id=event.coach_id).first()
+            restrictions = config.get_restrictions() if config is not None else DEFAULT_RESTRICTIONS
+            same_day_on[event.coach_id] = bool(restrictions.get("noSameDayClass", {}).get("enabled"))
+        if not same_day_on[event.coach_id]:
+            continue
+        event.status = "expired"
+        event.retired_reason = BOOKED_SAME_DAY
+        _retire_invite_message(event, defer=True, response=BOOKED_SAME_DAY)
+        withdrawn.append(event)
+    db.session.flush()
+    return withdrawn
 
 
 CREDITS_SPENT = "credits_spent"
