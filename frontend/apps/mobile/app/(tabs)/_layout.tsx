@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { lightTheme, validationTier } from "@levelup/config";
 import { answerResync, isRequestEvent, queryKeys, refreshAfterRequestChange, usePendingValidationBadge, useUnreadCount } from "@levelup/hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import { Redirect, Tabs, useNavigation, useRouter } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Platform, Pressable, View } from "react-native";
@@ -59,21 +59,6 @@ function AccountAvatar() {
       <Text className="text-xs font-sans-bold text-sidebar-accent-foreground">{initials}</Text>
     </Pressable>
   );
-}
-
-/**
- * auth.logout rule 7 (PAD-777, B-697): signing out leaves the login screen as the only route on the
- * root stack. A `<Redirect>` here replaced the FOCUSED route — after a sign-out from Settings, the
- * Settings screen pushed over these tabs — so the tabs stayed underneath, the next sign-in added a
- * second `(tabs)`, and on iOS the native back on Settings then went dead on the second visit. Reset
- * the root stack (the navigator this layout is a screen of) instead, whatever is pushed over the tabs.
- */
-function SignedOutReset() {
-  const navigation = useNavigation();
-  React.useEffect(() => {
-    navigation.reset({ index: 0, routes: [{ name: "login" as never }] });
-  }, [navigation]);
-  return null;
 }
 
 export default function TabsLayout() {
@@ -163,7 +148,7 @@ export default function TabsLayout() {
   }
 
   if (!isAuthenticated) {
-    return <SignedOutReset />;
+    return <Redirect href="/login" />;
   }
 
   // auth.coach-approval rule 6: the tabs are closed to a coach who is not
