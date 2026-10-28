@@ -103,6 +103,10 @@ the waiting list.
   moved later, nothing more goes out for a class until the new time (invitations already sent can
   still be answered); moved earlier, a spot that was waiting starts within minutes. A spot the coach
   approved "Yes, right now" and the coach's own invitations are not held back.
+- A student is offered one class a day at a time (PAD-775): while they have an unanswered
+  invitation for one class, the engine does not invite them to another class that same day (another
+  day is fine), and the coach sees why. Once they say yes to one, their other invitations that day
+  close as "Já inscrito noutra aula". It follows the coach's "no second class that day" setting.
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
   ask is authoritative, and the coach can select or deselect students with a single click on their
   row, name, or checkbox.
