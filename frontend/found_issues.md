@@ -42,6 +42,8 @@ Web player-list cards are not exposed as buttons or links in the accessibility t
 
 Phase 6 of the parity plan ports only the basic Auto-Invite Engine controls (on/off, automatic/semi-automatic mode) to mobile. The seven web sub-panels — Reminders, InvitationGroups, Tiebreakers, Restrictions, NotificationGroups, MessageTemplates, and StandingWaitingList — were explicitly deferred and not built.
 
+**Status (2026-10-28):** Restrictions shipped with PAD-433 and Reminders with PAD-776 part 3 (B-703). Still deferred: InvitationGroups, Tiebreakers, NotificationGroups, MessageTemplates and StandingWaitingList.
+
 **Suggested action:** Scope a dedicated follow-up plan/ticket set to port each of the seven sub-panels to mobile once basic engine controls have shipped and been validated.
 
 ## 8. Mobile push notifications are stubbed

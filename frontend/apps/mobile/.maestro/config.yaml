@@ -384,6 +384,9 @@ executionOrder:
     - 306-notification-sound-switch
     # 307-push-grant-without-restart is deliberately NOT listed: it starts from a denied notification
     # permission that scripts/push-grant-flow.sh sets first (see README).
+    # 310 (PAD-776 part 3, notifications.config rule 10d): sets the invitation start from iOS and
+    # restores the coach's timing in its teardown, so its position is not load bearing.
+    - 310-settings-invitation-start
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

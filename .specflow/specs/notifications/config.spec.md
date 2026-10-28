@@ -191,8 +191,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    for a reminder that went out before this rule. Only a settings
    change re-times; the startup and daily passes leave follow-ups where they are.
 10c. **A failed reschedule is reported, not swallowed (PAD-478).** The configuration is saved. The
-   failure is logged with the coach, and the response carries `rescheduleFailed: true`. The web
-   form then treats the save as saved, like any saved value (the tab is clean), and says on a line of its
+   failure is logged with the coach, and the response carries `rescheduleFailed: true`. The form,
+   on web and on iOS (PAD-776 part 3), then treats the save as saved, like any saved value (the tab is clean), and says on a line of its
    own that the reminders of classes already scheduled may still follow the previous timing; the
    line sits under the reminders heading and is visible with the section closed (the answer can
    arrive after the coach closed it), and goes when a later timing save re-arms them; a Save that
@@ -207,8 +207,17 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    timing goes in the engine's part of the tab's one Save, with any other engine field that
    changed. Closing the section keeps the held value, and leaving the tab with it unsaved asks.
    (Until PAD-506 the form sent the timing after a 600 ms pause through a serial save-on-change
-   saver; that model, and what a closing tab could lose under it, are gone.) iOS has no control
-   for these fields.
+   saver; that model, and what a closing tab could lose under it, are gone.) **iOS has the same
+   form (PAD-776 part 3, ledger B-703).** The engine card in iOS Settings carries the Reminders
+   panel, closed by default and disabled while the engine is off, with web's four controls,
+   bounds, defaults and labels: first reminder and invitation start (each "hours before the
+   class", 1-168, or "days before at a time", 1-30 days at a time on a 15-minute grid; switching
+   mode starts from 48 hours or 2 days at 17:00), reminders per student (1-5) and, from a second
+   reminder, hours between them (1-24). It holds the timing until the screen's Save, which sends
+   `reminderTiming` in the engine's one request like web's, so the server's re-arming (rule 10a),
+   rule 11a's re-timing of open spots and the notes and question of rules 10c and 10f follow an
+   iOS save exactly as a web one. (Until PAD-776 part 3 iOS had no control for these fields, with
+   no reason written for it: a coach could not set when invitations start from the phone.)
 10e. **Any sequence of saves gives the same jobs (PAD-478).** The jobs are determined by the last
    saved configuration alone, whatever sequence of saves led to it and in whatever order the
    requests arrived. Every derivation of a class's jobs, by a save, the startup re-arm or the
@@ -251,8 +260,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    timing save that makes the check removes it. The listing has no upper limit, and one send
    request names at most 200 classes (more is a 400): the form sends a longer list in several
    requests, one after the other, each key once; if one fails the dialog stays open and trying
-   again sends every key again, which the server's own check makes harmless. Web only, and deliberately: the question is asked from a timing save, and iOS has no
-   control that saves a reminder timing (rule 10d), so there is nothing to ship there. Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
+   again sends every key again, which the server's own check makes harmless. Web and iOS alike
+   (PAD-776 part 3): the iOS engine card asks the same question with the same copy, buttons, list
+   of five and count, from the answer of a Save that carried the timing, and closing it is "do not
+   send" there too. (Until then it was web only, because iOS had no control that saved a timing.)
+   Only an explicit yes sends, through `POST /api/app/notify/past_due/send`: the
    server checks every requested class again with the same predicate, for the calling coach only,
    and runs the ordinary reminder pass for each one it still finds past due, with all its guards
    (count, spacing, PAD-407's lock), then arms the follow-up as after any pass. A repeated or
@@ -465,6 +477,22 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** they press the tab's Save
 - **Then** one save is sent, with 29 and 09:30, and the tab is clean
 - **And** a response with `rescheduleFailed` also shows the line that says the timing is saved but scheduled reminders may still follow the previous one
+
+#### iOS Settings carries the Reminders panel (rule 10d, PAD-776 part 3)
+- **Given** a coach on iOS Settings with the engine on and the invitation start "7 days before at 19:30"
+- **When** they open Reminders
+- **Then** they see the first reminder, reminders per student and invitation start controls with the saved values, and hours between reminders once the count is above one
+- **When** they set the invitation start to 2 days at 19:00 and press the screen's Save
+- **Then** one request is sent with `reminderTiming.invitationStart` `{type: "days_before_at_time", days: 2, time: "19:00"}`, and reopening Settings shows 2 days at 19:00
+- **And** with the engine off the panel's controls are disabled
+
+#### iOS asks before anything past due is sent (rule 10f, PAD-776 part 3)
+- **Given** a coach on iOS whose timing Save answers `pastDue` with three classes
+- **When** the answer arrives
+- **Then** the dialog lists the three and asks; closing it sends nothing and the same classes are not asked about again during the visit
+- **When** instead they choose to send, with at most two classes per request
+- **Then** two requests carry the three keys, the dialog closes and the coach is told what was sent; a failed request keeps the dialog open with its error
+- **And** a Save that did not carry the timing never asks
 
 #### A reschedule that runs late arms what is saved (PAD-478)
 - **Given** save A then save B of one coach
