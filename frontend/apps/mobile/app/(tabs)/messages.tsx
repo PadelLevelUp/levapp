@@ -3,6 +3,7 @@ import { messagesApi } from "@levelup/api";
 import { useConversations } from "@levelup/hooks";
 import type { Conversation } from "@levelup/types";
 import { router } from "expo-router";
+import { openConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
@@ -201,7 +202,7 @@ export default function MessagesScreen() {
           renderItem={({ item }) => (
             <ConversationItem
               conversation={item}
-              onPress={() => router.push(`/conversation/${item.id}`)}
+              onPress={() => openConversation(router, `/conversation/${item.id}`)}
             />
           )}
           contentContainerStyle={{ paddingBottom: 96 }}
