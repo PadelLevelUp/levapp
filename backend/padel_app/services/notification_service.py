@@ -269,6 +269,7 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     _forget_config(coach_id)
 
     timing_changed = False
+    invitation_start_before = config.get_invitation_start_timing()
 
     if "autoNotifyEnabled" in data:
         config.auto_notify_enabled = bool(data["autoNotifyEnabled"])
@@ -334,6 +335,10 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
         config.eligibility_rules = rules
     if "openSpotsVisible" in data:
         config.open_spots_visible = bool(data["openSpotsVisible"])
+    if config.get_invitation_start_timing() != invitation_start_before:
+        # PAD-776 (invitations rule 11a): set through `invitationStartTiming` or inside
+        # `reminderTiming`; the open spots are re-timed in the timing's own commit.
+        rederive_invite_windows(coach_id, config)
 
     config.save()
 
@@ -396,6 +401,47 @@ def release_pending_approvals(coach_id: int, *, now: datetime | None = None) -> 
         _release_pending_approval(vacancy, _now)
     db.session.flush()
     return [v.id for v in vacancies]
+
+
+def rederive_invite_windows(coach_id: int, config: NotificationConfig, *, now: datetime | None = None) -> list[int]:
+    """PAD-776 (invitations rule 11a): a saved invitation start re-times the open spots of the
+    classes this coach is primary coach of (config rule 10a's scope) that have not started. Each
+    gets the `invite_not_before` the saved timing implies, so a later window pauses a started spot
+    (its live invitations stay) and an earlier one lets a held spot start at the next tick. A spot
+    approved "Yes, right now" (approved with no window: `respond_to_approval` writes one only for
+    "at the window") keeps bypassing it; pending and dismissed spots send nothing either way.
+    Locked in ascending id like `release_pending_approvals`; flushed, not committed: the caller's
+    commit carries the timing and the re-timing together. Returns the ids re-timed."""
+    from padel_app.scheduler import _compute_invite_start_dt
+    from padel_app.services.lesson_service import coach_instance_ids, primary_coach
+
+    _now = now or utcnow_naive()
+    instance_ids = coach_instance_ids(coach_id)
+    if not instance_ids:
+        return []
+    vacancies = (
+        Vacancy.query.join(LessonInstance, Vacancy.lesson_instance_id == LessonInstance.id)
+        .filter(Vacancy.lesson_instance_id.in_(list(instance_ids)), Vacancy.status == "open",
+                Vacancy.approval_status.notin_(("pending", "dismissed")),
+                LessonInstance.start_datetime > utc_to_wall_naive(_now))  # PAD-256
+        .order_by(Vacancy.id.asc())
+        .with_for_update(of=Vacancy)
+        .populate_existing()
+        .all()
+    )
+    timing = config.get_invitation_start_timing()
+    retimed = []
+    for vacancy in vacancies:
+        if vacancy.approval_status == "approved" and vacancy.invite_not_before is None:
+            continue
+        instance = vacancy.lesson_instance
+        primary = primary_coach(instance)
+        if primary is None or primary.id != coach_id:
+            continue
+        vacancy.invite_not_before = _compute_invite_start_dt(instance, timing)
+        retimed.append(vacancy.id)
+    db.session.flush()
+    return retimed
 
 
 # ---------------------------------------------------------------------------
@@ -1358,6 +1404,7 @@ CANDIDATE_STAGES = (
     "excluded_by_coach",
     "inactive_account",
     "has_class_same_day",  # PAD-523 (config rule 6e): holds a spot in another class that club-local day
+    "pending_invite_same_day",  # PAD-775 (rule 18c): holds a live invitation for another class that day
     "unavailable",
     "auto_invites_off",
     "no_round_matched",
@@ -1430,6 +1477,28 @@ def _players_with_a_class_that_day(player_ids, instance: LessonInstance) -> set:
         .all()
     )
     return {pid for (pid,) in rows}
+
+
+def _same_day_live_offers(player_ids, instance: LessonInstance):
+    """PAD-775 (invitations rule 18c): the live invitations (sent or queued, so unanswered) of
+    ``player_ids`` for ANOTHER class on the same club-local day as ``instance``, with any coach, the
+    other class not cancelled. The day is rule 6e's: the wall date of ``instance.start_datetime``."""
+    if not player_ids or instance.start_datetime is None:
+        return NotificationEvent.query.filter(False)
+    day_start = datetime.combine(instance.start_datetime.date(), time.min)
+    day_end = day_start + timedelta(days=1)
+    return (
+        NotificationEvent.query
+        .join(LessonInstance, LessonInstance.id == NotificationEvent.lesson_instance_id)
+        .filter(
+            NotificationEvent.player_id.in_(list(player_ids)),
+            NotificationEvent.lesson_instance_id != instance.id,
+            NotificationEvent.status.in_(LIVE_INVITATION_STATES),
+            LessonInstance.status != "canceled",
+            LessonInstance.start_datetime >= day_start,
+            LessonInstance.start_datetime < day_end,
+        )
+    )
 
 
 def evaluate_candidates(
@@ -1558,6 +1627,12 @@ def evaluate_candidates(
         _players_with_a_class_that_day([cp.player_id for cp in roster], instance)
         if no_same_day_class else set()
     )
+    # PAD-775 (rule 18c): follows rule 6e's switch — a coach who allows two classes a day allows two
+    # offers a day.
+    offered_same_day_ids = (
+        {e.player_id for e in _same_day_live_offers([cp.player_id for cp in roster], instance)}
+        if no_same_day_class else set()
+    )
 
     verdicts: list[CandidateVerdict] = []
     for cp in roster:
@@ -1598,6 +1673,9 @@ def evaluate_candidates(
                 continue
         if pid in busy_same_day_ids:
             verdicts.append(CandidateVerdict(cp, "has_class_same_day"))
+            continue
+        if pid in offered_same_day_ids:
+            verdicts.append(CandidateVerdict(cp, "pending_invite_same_day"))
             continue
         user_id = cp.player.user_id if cp.player else None
         if user_id in blocked_user_ids:
@@ -2886,6 +2964,7 @@ def _broadcast_spot_filled(
         # Already expired when the list came from _close_vacancy; still this
         # function's job on the fallback path. Idempotent either way.
         other_event.status = "expired"
+        other_event.retired_reason = other_event.retired_reason or "spot_filled"  # PAD-773 (rule 16)
         other_event.save()
         publish(
             {
@@ -3789,6 +3868,10 @@ def _retire_invite_message(event: NotificationEvent, *, defer: bool = False, res
     from padel_app.models import Message
     from padel_app.serializers.message import serialize_message
 
+    # PAD-773 (calendar.event-detail rule 16): the record carries why it ended, so the class's list
+    # reads the bubble's word — a manual invitation has no vacancy whose status could say it.
+    if response == "spot_filled" and not event.retired_reason:
+        event.retired_reason = "spot_filled"
     if not event.message_id:
         return
     msg = Message.query.get(event.message_id)
@@ -5149,6 +5232,13 @@ def _send_batch_locked(
         locked, instance, config, coach_id, max_sim_override=max_sim_override, now=now
     )
     db.session.commit()  # the end of the lock when the batch sent (and so committed) nothing
+    if sent:
+        # PAD-773: a later round, the tick's next batch or a decline's follow-up is new to the
+        # coach's open class too; both clients re-read the class on this event.
+        publish(
+            {"type": "notify_sent", "payload": {"lessonInstanceId": instance.id, "count": len(sent), "type": "auto"}},
+            _coach_only(_user_id_for_coach(coach_id)),
+        )
     return sent
 
 
@@ -6234,6 +6324,7 @@ def respond_to_notification(
         else:
             _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _publish_retired(_withdraw_same_day_offers(event.player_id, instance))  # PAD-775 (rule 18c)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         # PAD-596: no `save()` after it — `enrol()` committed the answer with the enrolment.
@@ -6357,6 +6448,7 @@ def coach_respond_to_notification(
         else:
             _rebalance_and_publish(instance, event.coach_id, event.player_id)  # PAD-581 (rule 2d)
         _publish_retired(retired)  # PAD-499: queued now, sent by the commit below
+        _publish_retired(_withdraw_same_day_offers(event.player_id, instance))  # PAD-775 (rule 18c)
         _settle_waiting_list_entry(event, "yes")  # PAD-446 (waiting-list rule 15): in the ONE commit
         _add_player_to_instance(event.player_id, instance)  # the ONE commit (PAD-499)
         # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
@@ -7220,6 +7312,33 @@ def _settle_waiting_list_entry(event: NotificationEvent, answer: str) -> None:
                     # with nothing left. Not a "no"; the bubble says why; published after the commit.
                     _publish_retired(_withdraw_spent_offers(event.player_id, closed_classes))
     db.session.flush()
+
+
+BOOKED_SAME_DAY = "booked_same_day"  # fits notification_events.retired_reason (String(16))
+
+
+def _withdraw_same_day_offers(player_id: int, instance: LessonInstance) -> list:
+    """PAD-775 (invitations rule 18c): a student who said yes to ``instance`` loses their other live
+    invitations for classes that same club day ("Já inscrito noutra aula"). Not a "no": rule 18
+    reads `answer`, which stays NULL. Only where the other class's coach keeps rule 6e on, as that
+    is the switch that would leave the student out of it now. Flushed only; the caller's commit
+    carries it, as `_withdraw_spent_offers` does."""
+    events = _same_day_live_offers([player_id], instance).all()
+    same_day_on: dict[int, bool] = {}
+    withdrawn = []
+    for event in events:
+        if event.coach_id not in same_day_on:
+            config = NotificationConfig.query.filter_by(coach_id=event.coach_id).first()
+            restrictions = config.get_restrictions() if config is not None else DEFAULT_RESTRICTIONS
+            same_day_on[event.coach_id] = bool(restrictions.get("noSameDayClass", {}).get("enabled"))
+        if not same_day_on[event.coach_id]:
+            continue
+        event.status = "expired"
+        event.retired_reason = BOOKED_SAME_DAY
+        _retire_invite_message(event, defer=True, response=BOOKED_SAME_DAY)
+        withdrawn.append(event)
+    db.session.flush()
+    return withdrawn
 
 
 CREDITS_SPENT = "credits_spent"

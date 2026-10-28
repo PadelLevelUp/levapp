@@ -14,6 +14,7 @@ import {
   approvalSideKey,
   approvalStaleLabel,
   lisbonNowMs,
+  queueAsOfLabel,
   queueBadgeLabel,
   resolvedVacancyIds,
   staleCount,
@@ -42,6 +43,9 @@ interface ReplacementApprovalCardProps {
   /** PAD-545 (semi-auto-approval rule 8): "Ignorar" exists only on the class's card; the
    * conversation offers the send buttons alone. */
   allowDismiss?: boolean;
+  /** PAD-770 (rule 12b): when the message's queue was built. The conversation passes it, so the
+   * card says the list is from then; the class's card shows the queue as it is now and omits it. */
+  queueAsOf?: string | null;
 }
 
 export function ReplacementApprovalCard({
@@ -49,6 +53,7 @@ export function ReplacementApprovalCard({
   onResult,
   readOnly = false,
   allowDismiss = false,
+  queueAsOf = null,
 }: ReplacementApprovalCardProps) {
   const { t } = useTranslation();
   // PAD-660 rule 8: the approval card is the coach's — queue names and the freed spot use the nickname.
@@ -64,6 +69,7 @@ export function ReplacementApprovalCard({
   // PAD-574 (rule 7a): which blocks show their whole list; the preview is the first five.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const groups = approvalDisplayGroups(bundle.vacancies);
+  const asOf = queueAsOfLabel(queueAsOf);
 
   // Window state computed at render time
   const windowOpenInFuture =
@@ -253,6 +259,12 @@ export function ReplacementApprovalCard({
           </div>
         );
       })}
+
+      {asOf ? (
+        <p data-testid="approval-queue-as-of" className="text-xs text-muted-foreground">
+          {t(asOf.key, asOf.values)}
+        </p>
+      ) : null}
 
       {localResponse || allStale ? (
         <div className="flex">{responseBadge()}</div>

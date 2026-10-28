@@ -20,6 +20,7 @@
         "excluded_by_coach": "{{count}} excluídos pelo treinador",
         "inactive_account": "{{count}} com subscrição inativa",
         "has_class_same_day": "{{count}} com aula no mesmo dia",
+        "pending_invite_same_day": "{{count}} com convite por responder no mesmo dia",
         "unavailable": "{{count}} indisponíveis a esta hora",
         "auto_invites_off": "{{count}} sem convites automáticos",
         "no_round_matched": "{{count}} fora dos critérios de todas as rondas",
@@ -27,6 +28,8 @@
         "other": "{{count}} por outro motivo"
       },
       "inviteReplacements": "Convidar substitutos?",
+      "queueAsOf": "Fila às {{time}}",
+      "queueAsOfDay": "Fila de {{day}} às {{time}}",
       "yesRightNow": "Sim, agora mesmo",
       "yesAt": "Sim, às {{window}}",
       "approveAtWindowAria": "Aprovar convites na abertura da janela",

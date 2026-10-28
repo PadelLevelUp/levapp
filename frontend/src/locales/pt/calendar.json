@@ -645,7 +645,11 @@
         "left": "Lado esquerdo"
       },
       "title": "Participantes",
-      "enrolled": "{{current}}/{{max}} inscritos",
+      "open_zero": "{{current}}/{{max}} · completa",
+      "open_one": "{{current}}/{{max}} · {{count}} vaga",
+      "open_other": "{{current}}/{{max}} · {{count}} vagas",
+      "full": "{{current}}/{{max}} · completa",
+      "filledNoMax": "{{current}}/—",
       "inThisClass": "Nesta aula",
       "attendance": "Assiduidade",
       "attendanceValue": "{{attended}} presenças · {{missed}} faltas",

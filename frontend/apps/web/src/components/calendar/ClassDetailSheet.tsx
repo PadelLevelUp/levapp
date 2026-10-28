@@ -51,7 +51,7 @@ import { assignedSideOf, blockedNames, classEvaluationsAction, endsAfterStart, e
 import { useClassEvaluations, useCoachDisplayName } from "@levelup/hooks";
 import { ClassEvaluationsAction } from "@/components/evaluations/ClassEvaluationsAction";
 import { ClassEvaluationsPanel } from "@/components/evaluations/ClassEvaluationsPanel";
-import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
+import { CLASS_COLOR_SWATCHES, attendanceStateOf, classHasEnded, liveInstanceIdOf, presenceChangedFor, canConfirmAttendance, clearsFor, comeBackAction, comeBackFromAnswer, effectiveFilledSpotsOf, findOverlappingEvent, participantsHeader, hasRecordedAttendance, lisbonNowMs, parseISODate, reminderAnswerOutcome, reminderArrivedFor, wallClockISOMs, wallClockMs } from "@levelup/config";
 import { getClassInstance } from "@/api/classes";
 import {
   acceptClassJoinRequest,
@@ -68,7 +68,7 @@ import {
   getApprovalSuggestions,
   recomputeApprovalSuggestions,
 } from "@/api/notificationEngine";
-import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, suggestionBundles } from "@levelup/config";
+import { INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, mergeSuggestionBundles, suggestionBundles } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -288,6 +288,8 @@ export function ClassDetailSheet({
   const [invitationsOpen, setInvitationsOpen] = useState(false);
   // PAD-765 (semi-auto-approval rule 12): every pending bundle of the class, oldest spot first.
   const [approvalBundles, setApprovalBundles] = useState<ApprovalBundle[]>([]);
+  // PAD-770: the bundles the coach answered here; their card stays through a re-read until closed.
+  const answeredBundleIdsRef = useRef<Set<string>>(new Set());
   // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
   // a pending list survives a reload, and an ignored one offers "Suggest automatic invitations".
   const [suggestionsIgnored, setSuggestionsIgnored] = useState(false);
@@ -307,7 +309,8 @@ export function ClassDetailSheet({
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (s.state === "pending") setApprovalBundles(suggestionBundles(s));
+        // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
+        setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
       .catch(() => undefined);
@@ -316,7 +319,9 @@ export function ClassDetailSheet({
     };
     // PAD-765: read again once the class loads — the class-id reset below clears the cards, and a
     // class known from the event (its id in the event) could be read before it and lose them.
-  }, [open, canManage, suggestionsInstanceId, classInstance?.id]);
+    // PAD-770: and every time the class is read again (a presence moved, a join was accepted), so
+    // the cards follow the class without reopening it.
+  }, [open, canManage, suggestionsInstanceId, classInstance]);
 
   const handleRecomputeSuggestions = async () => {
     if (suggestionsInstanceId == null || recomputing) return;
@@ -474,6 +479,7 @@ export function ClassDetailSheet({
     setInvitationsOpen(keepInvitationsOpenRef.current);
     keepInvitationsOpenRef.current = false;
     setApprovalBundles([]);
+    answeredBundleIdsRef.current = new Set();
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
     setCancelAttendanceOpen(false);
@@ -567,6 +573,8 @@ export function ClassDetailSheet({
           const { lessonInstanceId } = data.payload;
           const ev = eventRef.current;
           if (!ev) return;
+          // PAD-773: only this class's invitations; a batch sent for another class publishes too.
+          if (openId == null || Number(lessonInstanceId) !== openId) return;
           const fetchEvent = { ...ev, model: "LessonInstance", originalId: Number(lessonInstanceId) };
           getClassInstance(fetchEvent as typeof ev).then((updated) => {
             setLocalInvitations(updated.invitations ?? []);
@@ -714,6 +722,8 @@ export function ClassDetailSheet({
 
   if (!event || !classInstance || !players || !levels) return null;
   if (!active) return null;
+  // PAD-771 (calendar.event-detail rule 5): the coach's participants header.
+  const header = participantsHeader(effectiveFilledSpotsOf(active.participants, active.presences), active.maxPlayers);
 
   const canApplyScope = event?.isRecurring === true
 
@@ -1632,15 +1642,15 @@ export function ClassDetailSheet({
           <div>
             <div className="flex items-center justify-between mb-2">
               {canManage && !isEditing && !isValidating ? (
-                // PAD-659 (rule 5's named exception): the coach's list header names its own
-                // quantity — the enrolled rows below over the capacity.
+                // PAD-771 (rule 5's named exception): the filled spots over the capacity and how
+                // many are open; a not-coming student frees their spot here too.
                 <div className="flex flex-col gap-0.5">
                   <h4 className="text-sm font-medium flex items-center gap-2">
                     <Users className="w-4 h-4" />
                     {t("calendar.participants.title")}
                   </h4>
                   <p data-testid="participants-enrolled" className="text-[13px] text-muted-foreground tabular-nums">
-                    {t("calendar.participants.enrolled", { current: active.participants.length, max: active.maxPlayers })}
+                    {t(header.key, header.values)}
                   </p>
                 </div>
               ) : (
@@ -1950,6 +1960,8 @@ export function ClassDetailSheet({
                     if (action === "dismiss") {
                       setApprovalBundles((prev) => prev.filter((b) => b.bundleId !== approvalBundle.bundleId));
                       setSuggestionsIgnored(true);
+                    } else {
+                      answeredBundleIdsRef.current.add(approvalBundle.bundleId);
                     }
                   }}
                 />

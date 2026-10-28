@@ -9,6 +9,7 @@ import {
   approvalSideKey,
   approvalStaleLabel,
   lightTheme,
+  queueAsOfLabel,
   resolvedVacancyIds,
   staleCount,
 } from "@levelup/config";
@@ -41,6 +42,9 @@ type Props = {
   /** PAD-545 (semi-auto-approval rule 8): "Ignorar" exists only on the class's card; the
    * conversation offers the send buttons alone. */
   allowDismiss?: boolean;
+  /** PAD-770 (rule 12b): when the message's queue was built. The conversation passes it, so the
+   * card says the list is from then; the class's card shows the queue as it is now and omits it. */
+  queueAsOf?: string | null;
 };
 
 /**
@@ -58,8 +62,10 @@ export function ReplacementApprovalCard({
   readOnly = false,
   onResult,
   allowDismiss = false,
+  queueAsOf = null,
 }: Props) {
   const { t } = useTranslation();
+  const asOf = queueAsOfLabel(queueAsOf);
   // PAD-660: the card is the coach's; students show under the nickname the coach gave them.
   const displayName = useCoachDisplayName();
   const locale = useDateLocale();
@@ -282,6 +288,12 @@ export function ReplacementApprovalCard({
           </View>
         );
       })}
+
+      {asOf ? (
+        <Text testID="approval-queue-as-of" className="text-xs text-muted-foreground">
+          {t(asOf.key, asOf.values)}
+        </Text>
+      ) : null}
 
       {state.response || state.allStale ? (
         <View className="flex-row">{responseBadge()}</View>

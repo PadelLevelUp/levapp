@@ -57,3 +57,22 @@ export function effectiveFilledSpotsOf(
     (presences ?? []).filter((p) => p.playerId != null && listed.has(String(p.playerId)))
   );
 }
+
+/** An i18n key with its values, rendered by the caller's `t`. */
+export interface ParticipantsHeader {
+  key: string;
+  values: Record<string, number | string>;
+}
+
+/**
+ * The coach's participants header (calendar.event-detail rule 5's named exception, PAD-771):
+ * the class's filled spots over its capacity, then how many are open — "12/16 · 4 vagas", or
+ * "16/16 · completa" with none. `filled` is `effectiveFilledSpots` (going plus not yet answered),
+ * so a not-coming student frees their spot here too. No capacity: the count alone.
+ */
+export function participantsHeader(filled: number, max: number | null | undefined): ParticipantsHeader {
+  if (!max) return { key: "calendar.participants.filledNoMax", values: { current: filled } };
+  const open = Math.max(0, max - filled);
+  if (open === 0) return { key: "calendar.participants.full", values: { current: filled, max } };
+  return { key: "calendar.participants.open", values: { current: filled, max, count: open } };
+}

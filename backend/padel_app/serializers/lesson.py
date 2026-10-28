@@ -5,19 +5,9 @@ from padel_app.serializers.player import serialize_player
 from padel_app.serializers.presence import serialize_presences
 
 
-# How "meaningful" each invitation status is when a student ends up with more
-# than one NotificationEvent for the same class instance (PAD-72). An actual
-# response always beats a still-pending invite:
-#   confirmed  — the student said yes
-#   expired    — the student said no / the invite lapsed (rendered "declined")
-#   sent       — delivered, awaiting an answer
-#   queued     — not delivered yet (semi-automatic mode, batching)
-_INVITATION_STATUS_RANK = {
-    "confirmed": 3,
-    "expired": 2,
-    "sent": 1,
-    "queued": 0,
-}
+# calendar.event-detail rule 8 (PAD-773): an accepted invitation (`confirmed`) is the one shown;
+# otherwise the most recently created record, whatever its state, so a student invited again after
+# an earlier invite expired, was filled or was declined shows the new invite.
 
 
 def invitation_outcome(event) -> str:
@@ -35,22 +25,22 @@ def invitation_outcome(event) -> str:
     if event.status in ("sent", "queued"):
         return "pending"
     vacancy = getattr(event, "vacancy", None)
-    if event.answer == "yes" or (vacancy is not None and vacancy.status == "filled"):
+    if (
+        event.answer == "yes"
+        # PAD-773: the record says the spot or the class filled (a manual invitation has no vacancy).
+        or getattr(event, "retired_reason", None) == "spot_filled"
+        or (vacancy is not None and vacancy.status == "filled")
+    ):
         return "spot_filled"
     return "expired"
 
 
 def _invitation_precedence(event):
-    """Sort key for picking the surviving NotificationEvent of a student.
+    """Sort key for picking the surviving NotificationEvent of a student (rule 8, PAD-773).
 
-    Highest wins: most meaningful status first, then the most recent record
-    (later round, then later row).
+    Highest wins: an accepted invitation, then the most recently created record (highest id).
     """
-    return (
-        _INVITATION_STATUS_RANK.get(event.status, -1),
-        event.round_number or 0,
-        event.id or 0,
-    )
+    return (event.status == "confirmed", event.id or 0)
 
 
 def dedupe_invitation_events(events):

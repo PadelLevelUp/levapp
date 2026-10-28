@@ -18,6 +18,7 @@ import {
   reminderAnswerOutcome,
   classEvaluationsAction,
   effectiveFilledSpots,
+  participantsHeader,
   INVITATION_OUTCOME_KEY,
   INVITATION_OUTCOME_TONE,
   inviteeActionsFor,
@@ -39,6 +40,7 @@ import {
   shouldReportSent,
   splitBlockedByCause,
   hasRecordedAttendance,
+  mergeSuggestionBundles,
   suggestionBundles,
 } from "@levelup/config";
 import {
@@ -206,6 +208,7 @@ export default function ClassDetailScreen() {
 
   const {
     data: instance,
+    dataUpdatedAt: instanceReadAt,
     isPending,
     isError,
     refetch,
@@ -305,6 +308,8 @@ export default function ClassDetailScreen() {
   // the presence-confirm call; it is only ever set by that response.
   // PAD-765 (semi-auto-approval rule 12): every pending bundle of the class, oldest spot first.
   const [approvalBundles, setApprovalBundles] = React.useState<ApprovalBundle[]>([]);
+  // PAD-770: the bundles the coach answered here; their card stays through a re-read until closed.
+  const answeredBundleIdsRef = React.useRef<Set<string>>(new Set());
   // PAD-545 / PAD-542 (semi-auto-approval rule 12): the class's suggestion state, read on open so
   // a pending list survives leaving the screen, and an ignored one offers a fresh computation.
   const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
@@ -325,14 +330,17 @@ export default function ClassDetailScreen() {
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (s.state === "pending") setApprovalBundles(suggestionBundles(s));
+        // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
+        setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [isCoach, suggestionsInstanceId]);
+    // PAD-770: read again every time the class is read again (a presence moved, a join was
+    // accepted), so the cards follow the class without reopening it.
+  }, [isCoach, suggestionsInstanceId, instanceReadAt]);
   const recomputeSuggestions = async () => {
     if (suggestionsInstanceId == null || recomputing) return;
     setRecomputing(true);
@@ -625,6 +633,8 @@ export default function ClassDetailScreen() {
     isCoach ? presencesOfParticipants(instance?.presences, countedParticipants) : []
   );
   const maxPlayers = active?.maxPlayers ?? event.maxPlayers ?? 0;
+  // PAD-771 (calendar.event-detail rule 5): the coach's participants header.
+  const header = participantsHeader(filled, maxPlayers);
 
   const dateLabel =
     formatDay(active?.date || event.date, locale) || (params.displayDate ?? "");
@@ -1579,13 +1589,13 @@ export default function ClassDetailScreen() {
           {/* Participants + attendance */}
           <View className="gap-2">
             {coachReadView ? (
-              // PAD-659 (rule 5's named exception): the coach's list header names its own
-              // quantity — the enrolled rows below over the capacity.
+              // PAD-771 (rule 5's named exception): the filled spots over the capacity and how
+              // many are open; a not-coming student frees their spot here too.
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-1 gap-0.5">
                   <Text className="text-sm font-semibold">{t("calendar.participants.title")}</Text>
                   <Text testID="participants-enrolled" className="text-[13px] text-muted-foreground">
-                    {t("calendar.participants.enrolled", { current: participants.length, max: maxPlayers || "—" })}
+                    {t(header.key, header.values)}
                   </Text>
                 </View>
                 {!isCanceled ? (
@@ -1731,6 +1741,8 @@ export default function ClassDetailScreen() {
                     if (action === "dismiss") {
                       setApprovalBundles((prev) => prev.filter((b) => b.bundleId !== approvalBundle.bundleId));
                       setSuggestionsIgnored(true);
+                    } else {
+                      answeredBundleIdsRef.current.add(approvalBundle.bundleId);
                     }
                   }}
                 />

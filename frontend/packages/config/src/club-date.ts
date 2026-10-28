@@ -28,6 +28,18 @@ export function clubDateOfInstant(iso: string): string {
 }
 
 /**
+ * PAD-770: the club's wall-clock time (`HH:MM`) of a backend instant. Falls back to the UTC time
+ * when the runtime has no time-zone data, like `clubTodayISO`.
+ */
+export function clubTimeOfInstant(iso: string): string {
+  const date = new Date(iso.endsWith("Z") || /[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  if (Number.isNaN(date.getTime())) return "";
+  const p = lisbonParts(date);
+  if (p) return `${pad(p.h)}:${pad(p.mi)}`;
+  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
+/**
  * The club's date anchored at UTC midnight: a calendar container for `Date.UTC`
  * arithmetic that hands back bare dates through `toISOString().slice(0, 10)`.
  */

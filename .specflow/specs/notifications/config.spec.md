@@ -87,6 +87,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    invitation-start trigger firing at night used to leave a never-filled spot with no vacancy at
    all, so nobody was ever invited. Those vacancies are invited by the first tick after the window
    ends (the window's `end`, 07:00 club-local by default).
+   Quiet hours gate automatic invitations and reminder asks only; a reply to a student's own join
+   request (accepted, refused or superseded, automatically or by the coach) goes out at once
+   (PAD-779). A request accepted for a class inside its reminder window waits for the end of quiet
+   hours before the attendance ask (`notifications.reminders` rule 18).
 6e. **Do not invite a student who already has a class that day (PAD-523; coordinator, 2026-10-07;
    numbering unconfirmed).** `noSameDayClass` is `{enabled}`, stored in
    `no_same_day_class_enabled`, **on by default (PAD-685, owner decision 2026-10-20: "a restrição
@@ -108,6 +112,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    invitations are untouched. A saved `restrictions` payload without the key keeps the stored value,
    so an app from before PAD-523 saving its Settings cannot switch it off. Both clients show it as a
    toggle under Restrictions, saved with the section's explicit Save (PAD-506).
+   The same switch governs `notifications.invitations` rule 18c (PAD-775): a live invitation for
+   another class that day skips the student (`pending_invite_same_day`), and a yes withdraws the
+   others that day (`booked_same_day`).
    Known limit (coordinator, 2026-10-07): the rule is read when the batch evaluates its
    candidates, not again under the sender's per-student locks (`_still_invitable`). A student who
    takes a place in another class that day between the two can still receive that one invitation.
@@ -131,7 +138,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    eligibility offers no payments attribute.
 8. `tiebreakers`: ordered ranking criteria (level, attendance, side, account status)
 9. `message_templates`: customizable text for invite, confirm, decline, reminder, etc.
-10. Updating timing configs reschedules all future scheduler jobs
+10. Updating timing configs reschedules all future scheduler jobs; the open spots of those classes follow a new invitation start too (`notifications.invitations` rule 11a, PAD-776)
 10a. **After a timing change, each job is the one the saved configuration implies (PAD-478, B-249).**
    For every future class of the coach, materialised or not, the reminder job and the
    invitation-start job are derived again from the saved configuration. One configuration

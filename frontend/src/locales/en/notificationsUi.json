@@ -20,6 +20,7 @@
         "excluded_by_coach": "{{count}} excluded by the coach",
         "inactive_account": "{{count}} with an inactive subscription",
         "has_class_same_day": "{{count}} with a class the same day",
+        "pending_invite_same_day": "{{count}} with an unanswered invitation the same day",
         "unavailable": "{{count}} unavailable at this time",
         "auto_invites_off": "{{count}} with automatic invites off",
         "no_round_matched": "{{count}} outside every round's criteria",
@@ -27,6 +28,8 @@
         "other": "{{count}} for another reason"
       },
       "inviteReplacements": "Invite replacements?",
+      "queueAsOf": "Queue as of {{time}}",
+      "queueAsOfDay": "Queue as of {{day}}, {{time}}",
       "yesRightNow": "Yes, right now",
       "yesAt": "Yes, at {{window}}",
       "approveAtWindowAria": "Approve invitations at window open",
