@@ -148,6 +148,14 @@ through the history without the thread ever moving under the reader.
     change (the owner may veto):** "message the student" from a class now returns to Mensagens, not
     to the class. **Web is untouched:** its chat is a page in the browser's own history, with the
     list beside the thread on wide screens; the report and the defect are the native stack's.
+18. **The composer's text is centred in its box (PAD-767; iOS and Android).** In the conversation's
+    message field (`message-input`) and the edit field (`message-edit-input`), the placeholder, the
+    typed text and the caret sit on the vertical centre of the 48 px box, level with the send
+    button's centre. Longer messages grow the box line by line up to its cap and scroll inside it;
+    nothing is cut. Mechanism: a multiline TextInput draws from the top on iOS, so the box carries
+    equal top and bottom padding around one line and grows from a 48 px minimum
+    (`COMPOSER_INPUT_CLASS`), with `textAlignVertical: "center"` for Android. **Web is untouched:**
+    its composer is a textarea laid out by the browser, and the report is the native field's.
 
 ### Acceptance Criteria
 
@@ -304,3 +312,10 @@ through the history without the thread ever moving under the reader.
 - **Then** the Mensagens list is shown, and back never opens another thread or returns to the class
 - **And** every navigation into a thread in app/ and src/ goes through `openConversation` (wiring
   test `open-conversation.test.ts` fails on a direct `router.push("/conversation/…")`)
+
+#### The message field's text sits on its vertical centre (rule 18, PAD-767)
+- **Given** an open conversation on iOS or Android with an empty message field
+- **When** the field shows its placeholder, and then one typed line
+- **Then** the placeholder, the text and the caret are centred in the 48 px box, level with the send
+  button's centre; the edit field looks the same
+- **And** a message of several lines grows the box up to its cap with no line cut off
