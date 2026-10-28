@@ -112,6 +112,12 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 - **When** they tap the header's back button or the back row — again after Continuar a editar
 - **Then** "Descartar alterações?" appears and the screen stays; swiping back does nothing meanwhile
 
+#### After a save, leaving does not ask (iOS, PAD-778)
+- **Given** a coach edited Perfil and saved it, and the server confirmed it
+- **When** they return to the section list and tap the header's back button
+- **Then** Settings closes with no "Descartar alterações?", and the header back is the native one again
+  (rule 5: the app's own back only while something is held; flow 309)
+
 #### Changed and changed back is clean
 - **Given** a coach turned request alerts off and on again
 - **Then** Save is disabled and leaving asks nothing

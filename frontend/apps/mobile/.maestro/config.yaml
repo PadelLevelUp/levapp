@@ -382,6 +382,9 @@ executionOrder:
     # off and on again through Settings and leaves it on (the seed state), so its position is not load
     # bearing.
     - 306-notification-sound-switch
+    # 309 (PAD-778, settings.explicit-save rule 5): saves an abbreviation through Perfil and restores it
+    # through the API in teardown, so its position is not load bearing.
+    - 309-settings-back-after-save-does-not-ask
     # 307-push-grant-without-restart is deliberately NOT listed: it starts from a denied notification
     # permission that scripts/push-grant-flow.sh sets first (see README).
     # 28-password-recovery stays LAST (PAD-300 pins it in
