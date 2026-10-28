@@ -645,6 +645,7 @@
         "left": "Lado esquerdo"
       },
       "title": "Participantes",
+      "open_zero": "{{current}}/{{max}} · completa",
       "open_one": "{{current}}/{{max}} · {{count}} vaga",
       "open_other": "{{current}}/{{max}} · {{count}} vagas",
       "full": "{{current}}/{{max}} · completa",

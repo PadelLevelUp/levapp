@@ -645,6 +645,7 @@
         "left": "Left side"
       },
       "title": "Participants",
+      "open_zero": "{{current}}/{{max}} · full",
       "open_one": "{{current}}/{{max}} · {{count}} open",
       "open_other": "{{current}}/{{max}} · {{count}} open",
       "full": "{{current}}/{{max}} · full",
