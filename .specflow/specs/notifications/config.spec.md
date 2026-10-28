@@ -331,7 +331,27 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     again; nothing returns to an older value on its own. (Until PAD-506 each control saved on change
     with a sign and rolled back on a failure — PAD-473, B-243.) The reminders subsection included.
 
+16. **A save that changes how invitations are found is recorded (PAD-771).** Every configuration
+    save that changes `invitation_groups`, `eligibility_rules`, or the invitation start type, value
+    or time writes, in the save's own commit, one `notification_config_changes` row per changed key
+    with the coach, the time, and the key's value before and after. A save that changes none of them
+    writes nothing, and the rows are never edited. A table, not a log line: container logs do not
+    survive a redeploy (on 28/10 two rollouts erased the 26/10 engine logs), and a past round can only
+    be replayed against the configuration it ran under. `update_config` is the only writer of these
+    columns. The rows carry rules and timings, never a student id or name.
+
 ### Acceptance Criteria
+
+#### A save that changes the invitation start is recorded (rule 16)
+- **Given** a coach whose invitation start is 7 days before at 19:00
+- **When** they save 2 days before at 19:00 together with a new message template
+- **Then** exactly one `notification_config_changes` row is written: key `invitation_start_value`,
+  before `7`, after `2`, with the coach and the save time; the template change writes no row
+
+#### A save that changes nothing recorded writes nothing (rule 16)
+- **Given** a coach's saved invitation groups and eligibility rules
+- **When** they save the same groups and rules again
+- **Then** no `notification_config_changes` row is written
 
 #### A student with another class that day is not invited (rule 6e)
 - **Given** `noSameDayClass` on, a class Monday 18:00 Lisbon with one open vacancy, and roster

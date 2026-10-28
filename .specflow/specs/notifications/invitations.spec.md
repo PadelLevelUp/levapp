@@ -264,6 +264,12 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    group the vacancy expires, as before. Decision recorded in the PR: the engine tick is the
    spacing, because waiting the full inactivity timeout (120 min by default) per empty group
    could push a vacancy past the class start with nobody ever invited.
+3d. **An empty round says why (PAD-771).** Before the round is deferred, `_send_invitation_batch`
+   logs one INFO line `empty round: vacancy <id> round <n> stages {<stage>: <count>, â€¦}`. The counts
+   are `evaluate_candidates`' first-failing stage for every roster student in that wave. The line
+   carries stage names and counts only, never a student id or name. It is what explains a vacancy
+   that runs out of rounds with nobody invited. Like every container log it does not survive a
+   redeploy, so it is read before the next rollout.
 4. Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
 4a. Side eligibility with "both" (eligibility is symmetric and inclusive):
    - A `both` player is eligible for a vacancy of ANY side (`left`, `right`, or `both`).
@@ -732,6 +738,14 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
       withdrawal's locks dropped fails that cell.
 
 ### Acceptance Criteria
+
+#### An empty round logs its stage counts (rule 3d)
+- **Given** an open vacancy on round 1 whose invitation group admits nobody: one roster student
+  already enrolled in the class and one whose level the group's rule rejects
+- **When** the engine sends round 1 (`trigger_invitations`, or the tick)
+- **Then** the round counter moves to 2, no invitation is created, and one INFO line reads
+  `empty round: vacancy <id> round 1 stages {'already_enrolled': 1, 'no_round_matched': 1}`, with no
+  student id or name in it
 
 #### A window that opens before the first reminder still invites (rule 1c)
 - **Given** a one-off class Monday 18:00 Lisbon with `max_players=2`, one roster student enrolled and
