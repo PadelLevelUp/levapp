@@ -9,11 +9,11 @@
 # the stall is lifted → a second pull brings the rows back.
 #
 # Teardown lifts the stall. Backend: -e API_BASE=http://localhost:<port>, else :5001; it must run
-# with E2E_DEBUG_ENDPOINTS on, as the Maestro backends do. Flow number 311 granted by the
-# coordinator 2026-10-29.
+# with E2E_DEBUG_ENDPOINTS on, as the Maestro backends do. The switch takes the coach's token.
+# Flow number 311 granted by the coordinator 2026-10-29.
 appId: com.padellevelup.app
 onFlowComplete:
-  - evalScript: "${output.unstall = (typeof output.api === 'undefined') ? false : http.request(output.api + '/api/app/debug/stall', { method: 'DELETE' }).ok}"
+  - evalScript: "${output.unstall = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/app/debug/stall', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
@@ -28,7 +28,7 @@ onFlowComplete:
     timeout: 20000
 
 # Hold the list's request past the client timeout (60 s > 2 × 20 s + backoff).
-- evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/api/app/coach_players_paginated', seconds: 60 }) }).ok}"
+- evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ path: '/api/app/coach_players_paginated', seconds: 60 }) }).ok}"
 - assertTrue: "${output.stalled}"
 
 - swipe:
@@ -43,7 +43,7 @@ onFlowComplete:
     timeout: 50000
 
 # Lifted, a pull works again: the rows are back.
-- evalScript: "${output.unstalled = http.request(output.api + '/api/app/debug/stall', { method: 'DELETE' }).ok}"
+- evalScript: "${output.unstalled = http.request(output.api + '/api/app/debug/stall', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
 - assertTrue: "${output.unstalled}"
 - runFlow:
     when:

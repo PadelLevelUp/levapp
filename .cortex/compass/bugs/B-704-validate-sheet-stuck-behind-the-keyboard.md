@@ -72,7 +72,8 @@ spec).
   wiring, both `on-drag` scroll areas).
 - `packages/api/src/client-timeout.test.ts` (3 tests: the default, a real socket that never
   answers rejects with `ECONNABORTED`, only the import overrides it).
-- `backend/padel_app/tests/test_pad786_e2e_stall.py` (3 tests: the E2E stall switch).
+- `backend/padel_app/tests/test_pad786_e2e_stall.py` (4 tests: the E2E stall switch, which takes a
+  JWT like every debug route; `test_frontend_api_authz.py` lists its POST with the other debug routes).
 - Maestro flows 311 (Players, stalled) and 312 (the sheet: the keyboard goes on a drag; a stalled
   pull ends with the toast).
 

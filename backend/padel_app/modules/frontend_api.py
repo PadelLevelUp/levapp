@@ -1033,10 +1033,11 @@ def _e2e_stall_gate():
 
 
 @bp.post("/debug/stall")
+@jwt_required()
 def debug_stall_arm():
     """client.pull-to-refresh rule 6 (PAD-786): E2E only, 404 unless E2E_DEBUG_ENDPOINTS is on.
     `{"path": "/api/app/…", "seconds": n}` holds every request under `path` for `n` seconds
-    (at most 120) until `DELETE`. No token: the switch only exists on the flag-gated backend."""
+    (at most 120) until `DELETE`. Like every debug route it takes a JWT as well as the flag."""
     if not debug_endpoints_enabled():
         abort(404)
     from padel_app.utils import e2e_stall
@@ -1053,8 +1054,9 @@ def debug_stall_arm():
 
 
 @bp.delete("/debug/stall")
+@jwt_required()
 def debug_stall_disarm():
-    """Rule 6: lifts the stall. 404 unless E2E_DEBUG_ENDPOINTS is on."""
+    """Rule 6: lifts the stall. 404 unless E2E_DEBUG_ENDPOINTS is on; takes a JWT."""
     if not debug_endpoints_enabled():
         abort(404)
     from padel_app.utils import e2e_stall

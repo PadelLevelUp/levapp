@@ -11,11 +11,11 @@
 # with the sheet still open and the class still expanded.
 #
 # Writes nothing: no class is validated and the walk-in is cancelled. Teardown lifts the stall.
-# Backend: -e API_BASE=http://localhost:<port>, else :5001, with E2E_DEBUG_ENDPOINTS on. Flow
-# number 312 granted by the coordinator 2026-10-29.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001, with E2E_DEBUG_ENDPOINTS on. The switch
+# takes the coach's token. Flow number 312 granted by the coordinator 2026-10-29.
 appId: com.padellevelup.app
 onFlowComplete:
-  - evalScript: "${output.unstall = (typeof output.api === 'undefined') ? false : http.request(output.api + '/api/app/debug/stall', { method: 'DELETE' }).ok}"
+  - evalScript: "${output.unstall = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/app/debug/stall', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + output.coachTok } }).ok}"
 ---
 - evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
 - evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
@@ -75,7 +75,7 @@ onFlowComplete:
     id: "presences-card-player-search"
 
 # Rules 3 and 4: a pull on the sheet's list whose request never answers still ends, and says so.
-- evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/api/app/class_instances/pending_validation', seconds: 60 }) }).ok}"
+- evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ path: '/api/app/class_instances/pending_validation', seconds: 60 }) }).ok}"
 - assertTrue: "${output.stalled}"
 # A long pull from inside the list (an element-anchored swipe was too short to trigger it).
 - swipe:

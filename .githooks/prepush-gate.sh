@@ -15,6 +15,7 @@
 #   frontend/ changed   tsc web (tsconfig.app.json) + tsc mobile + tsc admin + `npm test` (web, packages, mobile, admin)
 #   backend/ or .cortex/compass/ changed  pytest (SQLite): the changed test files, the tests that import a changed
 #                       module, and every source-scanning guard (ratchets, heads, registries…);
+#                       a changed route module (padel_app/modules/) adds test_frontend_api_authz.py;
 #                       --full, or a change to models/migrations, runs the whole suite
 #   .cortex/ .specflow/ `cortex validate` names none of the changed files
 # Markdown files never trigger the frontend/backend checks, except .cortex/compass/ (B-240). Missing node_modules or backend/.venv
@@ -171,6 +172,9 @@ $(grep -lE 'rglob\(|os\.walk\(|ast\.parse\(|check_alembic|LEGACY_MAX|git ls-file
       leaf="${mod##*.}"; parent="${mod%.*}"
       IMP="$IMP $(grep -lE "$mod\b|from $parent import [^#]*\b$leaf\b" $T/test_*.py 2>/dev/null)"
     done
+    # d) a changed route module also runs the route-map authz guard, which takes the app and so
+    #    is not in a) — PAD-786's unauthenticated debug route reached CI past this gate.
+    printf '%s\n' "$CHANGED" | grep -qE '^backend/padel_app/modules/.*\.py$' && IMP="$IMP $T/test_frontend_api_authz.py"
     SEED=""; changed '^frontend/apps/web/e2e/scripts/' && SEED="../frontend/apps/web/e2e/scripts"
     SELECT="$(printf '%s\n' $GUARDS $CT $IMP | sort -u | sed 's#^backend/##' | tr '\n' ' ') $SEED"
     echo "(backend selection: $(printf '%s\n' $SELECT | grep -c .) test paths — guards + changed + importers)"

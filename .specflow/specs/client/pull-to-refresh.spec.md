@@ -70,8 +70,9 @@ puts the keyboard away, so the walk-in search can never trap the coach behind it
    still takes a pull.
 6. **The E2E stall switch.** Under `E2E_DEBUG_ENDPOINTS` only, `POST /api/app/debug/stall`
    `{ "path": "/api/app/…", "seconds": n }` makes every request whose path starts with `path`
-   wait `n` seconds (at most 120) before it is handled, until `DELETE /api/app/debug/stall`. With
-   the flag off both answer 404 and nothing waits. Flows 311 and 312 use it to hold a list's
+   wait `n` seconds (at most 120) before it is handled, until `DELETE /api/app/debug/stall`. Like
+   every debug route both take a JWT as well as the flag: without a token they answer 401, and
+   with the flag off 404; either way nothing waits. Flows 311 and 312 use it to hold a list's
    request past the client timeout.
 
 ### Acceptance Criteria
@@ -118,6 +119,8 @@ puts the keyboard away, so the walk-in search can never trap the coach behind it
 - **When** `POST /api/app/debug/stall` is called with the flag off, and then with it on
 - **Then** off: 404 and no request waits; on: a request under the path waits the given seconds,
   and after `DELETE` none does
+- **And** without a token both answer 401 and nothing waits (the route-map guard in
+  `test_frontend_api_authz.py` holds every `/api/app` write to a JWT)
 
 ### Notes
 - Web is untouched by this leaf (rule 1's surfaces are phone gestures); web's share of PAD-786 is
