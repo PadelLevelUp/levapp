@@ -1,0 +1,75 @@
+# PAD-787 (attendance.validation rule 8b, B-705): coach 2's "Nenhum jogador encontrado" for his own
+# student. The walk-in picker only offers roster players not yet in the class, so a student
+# already in it was "not found", with no word on why. Now the picker names them ("… já está nesta
+# aula") and "Ver" scrolls to their row.
+#
+# Journey: coach login → Presences → "Aulas por validar" → back through the weeks to a class still
+# to validate → expand it → copy the first player's name from their row → "Add player" → type that
+# name → "<name> is already in this class" → Show → the search closes and the row is on screen.
+#
+# Writes nothing (no walk-in is added, nothing is validated). Backend: -e
+# API_BASE=http://localhost:<port>, else :5001. Flow number 313 granted by the coordinator
+# 2026-10-29.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+# The seed leaves classes to validate in the backlog (flow 180 relies on it too).
+- evalScript: "${output.total = json(http.get(output.api + '/api/app/class_instances/pending_validation/count', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).pendingTotal}"
+- assertTrue: "${output.total > 0}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-presences"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-trigger"
+    timeout: 20000
+- tapOn:
+    id: "presences-validate-trigger"
+- extendedWaitUntil:
+    visible:
+      id: "presences-week-prev"
+    timeout: 15000
+- repeat:
+    while:
+      notVisible:
+        id: "presences-class-card"
+    times: 6
+    commands:
+      - tapOn:
+          id: "presences-week-prev"
+      - waitForAnimationToEnd:
+          timeout: 3000
+- tapOn:
+    id: "presences-class-card"
+    index: 0
+
+# A student who is already in this class, by the name the coach reads.
+- copyTextFrom:
+    id: "validate-list-name-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "presences-card-add-player"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "presences-card-add-player"
+- inputText: "${maestro.copiedText}"
+- extendedWaitUntil:
+    visible:
+      id: "presences-card-already-in-class"
+    timeout: 5000
+- assertVisible:
+    text: ".*(is already in this class|já está nesta aula).*"
+- assertNotVisible:
+    id: "presences-card-not-on-roster"
+
+# "Show": the search closes and the student's row is on screen.
+- tapOn:
+    id: "presences-card-show-in-class"
+- assertNotVisible:
+    id: "presences-card-player-search"
+- assertVisible:
+    id: "validate-list-name-.*"
