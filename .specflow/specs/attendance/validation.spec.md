@@ -71,6 +71,24 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `@levelup/config`. Before, web showed a plain dropdown in roster order with no way to type;
     iOS had a search that matched the typed text as one substring. Test ids
     `presences-walk-in-search`, `presences-walk-in-option-<playerId>` on web.
+8b. **(PAD-787, B-705) A search that offers nobody says why.** The picker offers only roster
+    players not yet in the class, so "Nenhum jogador encontrado para «…»" (players.search rule 10,
+    which stays) used to hide two different answers. Under that line, on web and iOS, both
+    pickers:
+    - when the typed name matches a player **already in this class** (same name rule, real name
+      or the coach's nickname): "«nome» já está nesta aula." (the name as the coach reads it,
+      PAD-683) with "Ver", which closes the search and brings that player's row into view,
+      tinted for 2 s;
+    - when it matches **nobody in the class either**: "Não está na tua lista de jogadores." with
+      "Abrir Jogadores" (web: a link to `/players`; iOS: closes the sheet and opens the Players
+      tab). The client cannot tell a student linked to another coach from a removed account
+      (`/coach_players` leaves both out), so one line covers both.
+    One helper decides it, `walkInEmptyReason(inClass, offeredCount, query)` in `@levelup/config`,
+    over the class's players with their roster nicknames (`inClassOptions`, a twin per shell).
+    Test ids: web `presences-walk-in-already`, `presences-walk-in-show`,
+    `presences-walk-in-not-on-roster`, `presences-walk-in-open-players`; iOS
+    `<prefix>-already-in-class`, `<prefix>-show-in-class`, `<prefix>-not-on-roster`,
+    `<prefix>-open-players` (prefix `presences-card` or `presences-detail`).
 9. **Validation does not lock the record.** A validated class can be reopened
    (`validated=False` on its rows) and re-validated. Status and justification
    survive a reopen — undo makes the record editable again, it does not erase it.
@@ -623,6 +641,21 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** the list reads ana silva, Bruno Silva Ramos, Zé Costa
 - **When** they type "silva ana"
 - **Then** only "ana silva" is listed
+
+#### A student already in the class is named, not "not found" (rule 8b, PAD-787)
+- **Given** a past class with "Gonçalo Simões" in it (the coach calls him "Gugu"), and a roster
+  that also has "Zé Costa"
+- **When** the coach types "goncalo simoes", or "Gugu", in that class's walk-in search
+- **Then** "Nenhum jogador encontrado para «…»" shows with "Gonçalo Simões já está nesta aula."
+  under it (web; on iOS the coach's name for him)
+- **When** they press "Ver"
+- **Then** the search closes and his row is brought into view (web, and iOS flow 313)
+
+#### A name nobody has is not on the roster (rule 8b, PAD-787)
+- **Given** the same class and roster
+- **When** the coach types "Xavier"
+- **Then** "Não está na tua lista de jogadores." shows with "Abrir Jogadores", which leads to the
+  players list; while the search lists someone, or is blank, neither line shows
 
 #### Pressing the selected mark clears it (PAD-567, rule 26)
 - **Given** a coach editing attendance on the class detail with Ana marked present
