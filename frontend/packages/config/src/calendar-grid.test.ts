@@ -6,6 +6,7 @@ import {
   SHEET_COLLAPSED_HEIGHT,
   SHEET_HANDLE_HEIGHT,
   clampSheetTop,
+  gridBottomInset,
   eventBlockGeometry,
   groupOverlappingEvents,
   desktopHourRange,
@@ -312,5 +313,30 @@ describe("the Mês sheet's maximum leaves the weekday header visible", () => {
   it("the collapsed height is the handle row plus the day header, declared once", () => {
     expect(SHEET_COLLAPSED_HEIGHT).toBe(SHEET_HANDLE_HEIGHT + DAY_HEADER_HEIGHT);
     expect(SHEET_HANDLE_HEIGHT).toBeGreaterThanOrEqual(28);
+  });
+});
+
+/**
+ * PAD-790 (B-710), rule 13: the day sheet floats over the week grid, so the grid's scroll content
+ * ends with padding as tall as the part the sheet covers, and never shorter than the floating
+ * buttons' clearance. Criterion "The last hour clears the sheet".
+ */
+describe("gridBottomInset (PAD-790)", () => {
+  it("is the part of the grid the sheet covers, at rest", () => {
+    // 700 tall, sheet resting at 60% (420): it covers 280.
+    expect(gridBottomInset(700, 420, 168)).toBe(280);
+  });
+
+  it("follows a raised sheet", () => {
+    expect(gridBottomInset(700, GRID_ROW_HEIGHT, 168)).toBe(700 - GRID_ROW_HEIGHT);
+  });
+
+  it("never drops below the floating buttons' clearance with the sheet lowered", () => {
+    expect(gridBottomInset(700, 700 - SHEET_COLLAPSED_HEIGHT, 168)).toBe(168);
+  });
+
+  it("is the clearance alone before the grid is measured", () => {
+    expect(gridBottomInset(0, null, 168)).toBe(168);
+    expect(gridBottomInset(700, null, 168)).toBe(168);
   });
 });

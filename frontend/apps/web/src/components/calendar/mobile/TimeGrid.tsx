@@ -31,6 +31,7 @@ export function TimeGrid({
   hourRange,
   nextEventId,
   onEventClick,
+  bottomInset,
   rowHeight = ROW_HEIGHT,
   className,
 }: {
@@ -42,6 +43,8 @@ export function TimeGrid({
   hourRange: HourRange;
   nextEventId?: string;
   onEventClick?: (event: CalendarEvent) => void;
+  /** PAD-790 (B-710, rule 13): padding after the last hour row, so it scrolls above the sheet. */
+  bottomInset?: number;
   rowHeight?: number;
   className?: string;
 }) {
@@ -200,6 +203,9 @@ export function TimeGrid({
         </div>
         {labels("right")}
       </div>
+      {bottomInset !== undefined && (
+        <div data-testid="calendar-grid-end-space" aria-hidden style={{ height: bottomInset }} />
+      )}
     </div>
   );
 }

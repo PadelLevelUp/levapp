@@ -28,7 +28,8 @@ classes — see `classes.student-joins-and-views-classes`.)
    is. On a phone (the web app on a phone, and the iOS app) the coach picks between a day, a
    week and a month view; whichever they pick, the day they have selected is always detailed
    below — its date, how many classes, and a card per class or block — and that detail slides
-   up over the week or month grid as a sheet.
+   up over the week or month grid as a sheet. The sheet never hides the end of the day: the week
+   grid scrolls far enough that the latest class sits above it and can be tapped.
 2. Clicking a class opens its full detail — participants, attendance, and actions like edit,
    delete, or notify.
 3. The coach drags a class or block to a new day/time and confirms whether the change applies to
