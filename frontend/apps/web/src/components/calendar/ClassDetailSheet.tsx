@@ -90,7 +90,6 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { TimeSelect, endAfterStartMove } from "@/components/ui/time-select";
 import { cn } from "@/lib/utils";
-import { useAutoInviteEnabled } from "@/hooks/useAutoInviteEnabled";
 
 import {
   Sheet,
@@ -179,7 +178,6 @@ export function ClassDetailSheet({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { token } = useAuth();
-  const autoInviteEnabled = useAutoInviteEnabled(open && canManage);
   // PAD-683 (players.nickname rules 8, 9b): the class detail is a shared payload, so the invitee
   // list, join requests and their toasts resolve the coach's display name here; a student's view
   // asks nothing and keeps the real name.
@@ -1493,7 +1491,8 @@ export function ClassDetailSheet({
           </div>
 
           {/* Auto notifications */}
-          {canManage && event?.type === "class" && autoInviteEnabled && (
+          {/* PAD-793 (classes.create rule 6b): shown whatever the coach's engine state. */}
+          {canManage && event?.type === "class" && (
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

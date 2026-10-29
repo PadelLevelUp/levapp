@@ -45,7 +45,6 @@ import {
 } from "@levelup/config";
 import {
   queryKeys,
-  useAutoInviteEnabled,
   useCalendarEvents,
   useClassEvaluations,
   useClassInstance,
@@ -234,7 +233,6 @@ export default function ClassDetailScreen() {
   });
 
   const { data: levels } = useCoachLevels();
-  const autoInviteEnabled = useAutoInviteEnabled(isCoach);
 
   // Attendance draft, initialised from server presences whenever they load.
   const [attendance, setAttendance] = React.useState<
@@ -1500,7 +1498,8 @@ export default function ClassDetailScreen() {
 
           {/* Auto-notifications toggle (coach only, gated by the coach's
               global auto-invite setting like web's ClassDetailSheet). */}
-          {isCoach && event.type === "class" && autoInviteEnabled ? (
+          {/* PAD-793 (classes.create rule 6b): shown whatever the coach's engine state. */}
+          {isCoach && event.type === "class" ? (
             <View className="rounded-lg border border-border bg-card p-3">
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-1 flex-row items-center gap-2">
