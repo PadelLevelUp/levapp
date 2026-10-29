@@ -20,7 +20,7 @@ export const COACH_NAME_LIST: readonly CoachNameListEntry[] = [
   { file: "src/components/class-requests/wizard/CoachStep.tsx", max: 1, kind: "allowed", reason: "a coach's name in the student's class-request wizard" },
   { file: "src/components/notifications/ReplacementApprovalCard.tsx", max: 1, kind: "allowed", reason: "the fallback argument of the displayName( call on the line above" },
   { file: "src/components/players/detail/PlayerHeader.tsx", max: 1, kind: "allowed", reason: "the real name shown under the nickname on the profile (rule 3)" },
-  { file: "src/components/presences/ValidateClassesDialog.tsx", max: 1, kind: "allowed", reason: "the walk-in row keeps the real name (`name` stays real, rule 2); every render resolves it through displayName(" },
+  { file: "src/components/presences/ValidateClassesDialog.tsx", max: 2, kind: "allowed", reason: "the walk-in row keeps the real name (`name` stays real, rule 2), and inClassOptions (PAD-787) keeps it as the search key beside the nickname; every render resolves it through displayName(" },
   { file: "src/components/settings/DataImportSection.tsx", max: 1, kind: "allowed", reason: "import duplicate detection compares real names" },
   { file: "src/components/settings/RestrictionsPanel.tsx", max: 2, kind: "allowed", reason: "stores the real name as the fallback the chips resolve through displayName(" },
   { file: "src/components/ui/chart.tsx", max: 5, kind: "allowed", reason: "chart series item names, not students" },
