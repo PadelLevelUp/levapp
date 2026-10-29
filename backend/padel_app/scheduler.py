@@ -576,8 +576,9 @@ def _run_send_reminders(instance_id: int) -> None:
                                           subject_type="lesson_instance", subject_id=instance_id,
                                           detail="the class had started when the pass ran")
                 return
-            run_reminder_pass(instance_id)
-            app.logger.info("Reminder sent for instance %s", instance_id)
+            result = run_reminder_pass(instance_id)
+            # B-709: a skipped pass (notifications off, nobody left to ask) sent nothing; say so.
+            app.logger.info("Reminder pass for instance %s: sent %s", instance_id, (result or {}).get("sent", 0))
         except Exception as exc:
             app.logger.error("send_class_reminders(%s) failed: %s", instance_id, exc)
 
