@@ -43,6 +43,20 @@ def register_device_token():
     if platform not in DEVICE_PLATFORMS:
         abort(400, "platform must be one of: " + ", ".join(sorted(DEVICE_PLATFORMS)))
 
+    # messaging.push-notifications rule 9b (PAD-741, B-706): only an Expo push token is stored. iOS
+    # build 34 also posts the raw device token its rotation listener receives; Expo would answer
+    # DeviceNotRegistered for it. 200, not 400: that build retries a refused registration and then
+    # shows the "not active" banner. A row the caller already held for it goes. The shape is
+    # logged, never the token.
+    from padel_app.utils.push_token_shape import is_expo_push_token, token_shape
+
+    if not is_expo_push_token(token):
+        DeviceToken.query.filter_by(user_id=user_id, token=token).delete(synchronize_session=False)
+        db.session.commit()
+        logger.info("push device registration ignored for user %s: not an Expo push token (shape %s)",
+                    user_id, token_shape(token))
+        return jsonify({"success": True, "stored": False}), 200
+
     # messaging.push-notifications rule 9 (D137, superseding PAD-269): the latest
     # login owns the phone. Every OTHER user's row for this token goes, so a phone
     # never keeps receiving a previous account's pushes (B-167: the owner's phone
@@ -88,10 +102,11 @@ def unregister_device_token():
 
     # Idempotent: deleting a token that doesn't exist (or isn't the caller's)
     # is still a 200, not an error.
+    # Rule 9b: a token that is not an Expo token also removes the caller's Expo rows (B-706).
     if token:
-        record = DeviceToken.query.filter_by(token=token, user_id=user_id).first()
-        if record:
-            db.session.delete(record)
+        from padel_app.utils.push_token_shape import revoke_device_token
+
+        if revoke_device_token(user_id, token):
             db.session.commit()
 
     return jsonify({"success": True}), 200

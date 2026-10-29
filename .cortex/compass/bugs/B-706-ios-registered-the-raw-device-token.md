@@ -3,7 +3,7 @@ id: B-706
 title: "iOS build 34 registered the raw APNs device token as a push token: daily DeviceNotRegistered churn, and a logout that left the account's Expo token on the phone"
 type: wrong-rule
 severity: high
-status: open
+status: resolved
 affects:
   - messaging.push-notifications
   - auth.logout
@@ -12,6 +12,7 @@ affects:
   - backend/padel_app/modules/api_auth.py
 proposed_fix: "The registrar treats a push-token event only as a signal and fetches its Expo token again; the server stores only Expo-shaped tokens (one shape check), and a logout or unregister that names a non-Expo token removes every Expo row the caller holds."
 opened: 2026-10-29T19:20:00Z
+resolved: 2026-10-29T19:30:00Z
 ---
 
 # B-706: iOS registered the raw device token
