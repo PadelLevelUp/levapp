@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
-import { effectiveMark, presentCount, validationGroup, type PresenceMark } from "@levelup/config";
+import { effectiveMark, presentCount, validationGroup, walkInEmptyReason, type PresenceMark } from "@levelup/config";
 import { useCoachDisplayName } from "@levelup/hooks";
 import type { PendingValidationClass } from "@levelup/types";
 
@@ -27,6 +27,7 @@ import {
   availableRoster,
   clearValidated,
   filterRoster,
+  inClassOptions,
   makeWalkIn,
   partitionSelection,
   readyClassIds,
@@ -39,6 +40,55 @@ import {
   type Extras,
   type RosterOption,
 } from "./validate-state";
+
+/**
+ * PAD-787 (attendance.validation rule 8b): "Ver" on "<name> já está nesta aula" scrolls the open
+ * scroll area (the class list, or a class's detail) to that player's row and tints it for 2 s.
+ * Rows register their views under a key; each scroll area provides its own.
+ */
+type RowFocus = {
+  register: (key: string, node: View | null) => void;
+  show: (key: string) => void;
+  highlighted: string | null;
+};
+const RowFocusContext = React.createContext<RowFocus | null>(null);
+const ROW_HIGHLIGHT = { backgroundColor: "rgba(37, 99, 235, 0.10)" };
+
+/** The scroll area passes `scrollRef` as its `ref` and `contentRef` as its `innerViewRef`. */
+function useRowFocus(
+  scrollRef: React.RefObject<ScrollView | null>,
+  contentRef: React.RefObject<View | null>
+): RowFocus {
+  const rows = React.useRef(new Map<string, View>());
+  const [highlighted, setHighlighted] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!highlighted) return;
+    const id = setTimeout(() => setHighlighted(null), 2000);
+    return () => clearTimeout(id);
+  }, [highlighted]);
+  return React.useMemo(
+    () => ({
+      register: (key, node) => {
+        if (node) rows.current.set(key, node);
+        else rows.current.delete(key);
+      },
+      show: (key) => {
+        setHighlighted(key);
+        const row = rows.current.get(key);
+        const scroll = scrollRef.current;
+        const content = contentRef.current;
+        if (!row || !scroll || !content) return;
+        row.measureLayout(
+          content,
+          (_x, y) => scroll.scrollTo({ y: Math.max(0, y - 16), animated: true }),
+          () => {}
+        );
+      },
+      highlighted,
+    }),
+    [highlighted, scrollRef, contentRef]
+  );
+}
 
 /**
  * PAD-140 — the coach's attendance inbox on iOS. PAD-185 gave it the depth.
@@ -72,6 +122,7 @@ export function ValidateClassesSheet({
   roster,
   onValidate,
   onUnvalidate,
+  onOpenPlayers,
   busy,
 }: {
   open: boolean;
@@ -91,6 +142,8 @@ export function ValidateClassesSheet({
   roster: RosterOption[];
   onValidate: (classes: ValidatePayload[]) => Promise<void>;
   onUnvalidate: (lessonInstanceId: number) => Promise<void>;
+  /** PAD-787 (rule 8b): "Abrir Jogadores" when the typed name is not on the roster. */
+  onOpenPlayers?: () => void;
   busy?: boolean;
 }) {
   const { t, i18n } = useTranslation();
@@ -101,6 +154,9 @@ export function ValidateClassesSheet({
   const [detailId, setDetailId] = React.useState<number | null>(null);
   const [selected, setSelected] = React.useState<number[]>([]);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const listScroll = React.useRef<ScrollView | null>(null);
+  const listContent = React.useRef<View | null>(null);
+  const listFocus = useRowFocus(listScroll, listContent);
 
   // Walk-ins are merged in once, here, so one behaves as an ordinary roster row
   // everywhere below — list, detail, readiness count and validate payload alike.
@@ -252,6 +308,8 @@ export function ValidateClassesSheet({
             remaining={remainingFor(detail)}
             edits={edits[detail.lessonInstanceId] ?? {}}
             roster={availableRoster(roster, detail)}
+            inClass={inClassOptions(detail, roster)}
+            onOpenPlayers={onOpenPlayers}
             busy={busy}
             maxHeight={height * 0.5}
             onMark={(playerId, mark) =>
@@ -381,7 +439,10 @@ export function ValidateClassesSheet({
               </View>
             )}
 
+            <RowFocusContext.Provider value={listFocus}>
             <ScrollView
+              ref={listScroll}
+              innerViewRef={listContent as React.RefObject<View>}
               style={{ maxHeight: height * 0.55 }}
               showsVerticalScrollIndicator
               // A short week (one class, or none) still takes the pull.
@@ -439,6 +500,8 @@ export function ValidateClassesSheet({
                             remaining={remainingFor(klass)}
                             edits={edits[klass.lessonInstanceId] ?? {}}
                             roster={availableRoster(roster, klass)}
+                            inClass={inClassOptions(klass, roster)}
+                            onOpenPlayers={onOpenPlayers}
                             expanded={expandedId === klass.lessonInstanceId}
                             selected={selected.includes(klass.lessonInstanceId)}
                             busy={busy}
@@ -519,6 +582,7 @@ export function ValidateClassesSheet({
                 </View>
               )}
             </ScrollView>
+            </RowFocusContext.Provider>
           </>
         )}
       </DialogContent>
@@ -541,15 +605,24 @@ export function ValidateClassesSheet({
  */
 function WalkInPicker({
   roster,
+  inClass,
+  rowKey,
   label,
   testIDPrefix,
   onPick,
+  onOpenPlayers,
 }: {
   roster: RosterOption[];
+  /** PAD-787 (rule 8b): the class's own players, to say "already in this class". */
+  inClass: RosterOption[];
+  /** The key the player's row registered under in this scroll area. */
+  rowKey: (playerId: number) => string;
   label: string;
   testIDPrefix: string;
   onPick: (option: RosterOption) => void;
+  onOpenPlayers?: () => void;
 }) {
+  const focus = React.useContext(RowFocusContext);
   const { t } = useTranslation();
   // PAD-683 rule 8: the attendance inbox is the coach's — their name for each student.
   const displayName = useCoachDisplayName();
@@ -578,6 +651,8 @@ function WalkInPicker({
   }
 
   const matches = filterRoster(roster, query);
+  const reason = walkInEmptyReason(inClass, matches.length, query);
+  const already = reason.kind === "inClass" ? inClass.find((o) => o.id === reason.playerId) : undefined;
 
   return (
     <View className="mt-2 gap-2 rounded-lg border border-border bg-muted/30 p-2">
@@ -594,6 +669,35 @@ function WalkInPicker({
           name past the fold. */}
       <View>
         <PlayerSearchFeedback query={query} count={matches.length} className="px-2 py-2.5 text-sm text-muted-foreground" />
+        {/* PAD-787 (rule 8b): why nobody is offered. */}
+        {already ? (
+          <View className="flex-row items-center gap-2 px-2 pb-2" testID={`${testIDPrefix}-already-in-class`}>
+            <Text className="flex-1 text-sm">
+              {t("presences.validate.alreadyInClass", { name: displayName(already.id, already.name) })}
+            </Text>
+            <Button
+              variant="outline"
+              size="sm"
+              testID={`${testIDPrefix}-show-in-class`}
+              onPress={() => {
+                setQuery("");
+                setOpen(false);
+                focus?.show(rowKey(already.id));
+              }}
+            >
+              <Text>{t("presences.validate.showInClass")}</Text>
+            </Button>
+          </View>
+        ) : reason.kind === "notOnRoster" ? (
+          <View className="flex-row items-center gap-2 px-2 pb-2" testID={`${testIDPrefix}-not-on-roster`}>
+            <Text className="flex-1 text-sm text-muted-foreground">{t("presences.validate.notOnRoster")}</Text>
+            {onOpenPlayers ? (
+              <Button variant="outline" size="sm" testID={`${testIDPrefix}-open-players`} onPress={onOpenPlayers}>
+                <Text>{t("presences.validate.openPlayers")}</Text>
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
         {matches.map((option) => (
           <Pressable
             key={option.id}
@@ -673,6 +777,8 @@ function ClassCard({
   remaining,
   edits,
   roster,
+  inClass,
+  onOpenPlayers,
   expanded,
   selected,
   busy,
@@ -687,6 +793,8 @@ function ClassCard({
   remaining: number;
   edits: Record<number, PresenceMark | null>;
   roster: RosterOption[];
+  inClass: RosterOption[];
+  onOpenPlayers?: () => void;
   expanded: boolean;
   selected: boolean;
   busy?: boolean;
@@ -700,6 +808,8 @@ function ClassCard({
   const { t, i18n } = useTranslation();
   // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
   const displayName = useCoachDisplayName();
+  const focus = React.useContext(RowFocusContext);
+  const rowKey = (playerId: number) => `list-${klass.lessonInstanceId}-${playerId}`;
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
     hour: "2-digit",
     minute: "2-digit",
@@ -761,6 +871,8 @@ function ClassCard({
             // who share a first name.
             <View
               key={player.playerId}
+              ref={(node) => focus?.register(rowKey(player.playerId), node)}
+              style={focus?.highlighted === rowKey(player.playerId) ? ROW_HIGHLIGHT : undefined}
               testID={`validate-list-row-${klass.lessonInstanceId}-${player.playerId}`}
               className={cn(
                 "gap-1.5",
@@ -771,7 +883,11 @@ function ClassCard({
                 {effectiveMark(player, edits[player.playerId]) === null && (
                   <UndecidedFlag playerId={player.playerId} testIDPrefix={`validate-list-undecided-icon-${klass.lessonInstanceId}`} />
                 )}
-                <Text className="flex-1 text-sm" numberOfLines={1}>
+                <Text
+                  className="flex-1 text-sm"
+                  numberOfLines={1}
+                  testID={`validate-list-name-${klass.lessonInstanceId}-${player.playerId}`}
+                >
                   {displayName(player.playerId, player.name)}
                 </Text>
                 {player.guest && (
@@ -790,9 +906,12 @@ function ClassCard({
 
           <WalkInPicker
             roster={roster}
+            inClass={inClass}
+            rowKey={rowKey}
             label={t("presences.validate.addPlayer")}
             testIDPrefix="presences-card"
             onPick={onAddWalkIn}
+            onOpenPlayers={onOpenPlayers}
           />
 
           <View className="mt-2 flex-row gap-2">
@@ -833,6 +952,8 @@ function ClassDetail({
   remaining,
   edits,
   roster,
+  inClass,
+  onOpenPlayers,
   busy,
   maxHeight,
   onMark,
@@ -846,6 +967,8 @@ function ClassDetail({
   remaining: number;
   edits: Record<number, PresenceMark | null>;
   roster: RosterOption[];
+  inClass: RosterOption[];
+  onOpenPlayers?: () => void;
   busy?: boolean;
   maxHeight: number;
   onMark: (playerId: number, mark: PresenceMark | null) => void;
@@ -857,6 +980,10 @@ function ClassDetail({
   const { t, i18n } = useTranslation();
   // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
   const displayName = useCoachDisplayName();
+  const detailScroll = React.useRef<ScrollView | null>(null);
+  const detailContent = React.useRef<View | null>(null);
+  const focus = useRowFocus(detailScroll, detailContent);
+  const rowKey = (playerId: number) => `detail-${playerId}`;
   // `startDatetime` is naive UTC; parse and format it as UTC so the rendered
   // time is the class's actual clock time (same rule as the list).
   const timeFmt = new Intl.DateTimeFormat(i18n.language, {
@@ -910,7 +1037,10 @@ function ClassDetail({
         </Text>
       </View>
 
+      <RowFocusContext.Provider value={focus}>
       <ScrollView
+        ref={detailScroll}
+        innerViewRef={detailContent as React.RefObject<View>}
         style={{ maxHeight }}
         showsVerticalScrollIndicator
         // As in the list: the last-minute picker's search field is inside.
@@ -924,6 +1054,8 @@ function ClassDetail({
             return (
             <View
               key={player.playerId}
+              ref={(node) => focus.register(rowKey(player.playerId), node)}
+              style={focus.highlighted === rowKey(player.playerId) ? ROW_HIGHLIGHT : undefined}
               testID={`validate-player-row-${player.playerId}`}
               className={cn(
                 "gap-1.5 rounded-lg border border-border px-3 py-2",
@@ -955,12 +1087,16 @@ function ClassDetail({
 
           <WalkInPicker
             roster={roster}
+            inClass={inClass}
+            rowKey={rowKey}
             label={t("presences.validate.lastMinute")}
             testIDPrefix="presences-detail"
             onPick={onAddWalkIn}
+            onOpenPlayers={onOpenPlayers}
           />
         </View>
       </ScrollView>
+      </RowFocusContext.Provider>
 
       <View className="mt-3 gap-2">
         <Button

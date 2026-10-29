@@ -400,6 +400,9 @@ executionOrder:
     # 312 (PAD-786, client.pull-to-refresh rule 5, B-704): the validation sheet's keyboard and pull;
     # it validates nothing, cancels its walk-in and lifts its stall, so its position is not load bearing.
     - 312-validate-sheet-keyboard-and-pull
+    # 313 (PAD-787, attendance.validation rule 8b): types the name of a student already in a class
+    # into its walk-in search; it adds and validates nothing, so its position is not load bearing.
+    - 313-walk-in-already-in-class
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

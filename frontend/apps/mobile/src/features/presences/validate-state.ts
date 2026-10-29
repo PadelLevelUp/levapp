@@ -107,6 +107,22 @@ export function availableRoster(
 }
 
 /**
+ * PAD-787 (attendance.validation rule 8b): the class's own players as picker options, with the
+ * coach's nickname from the roster, so "already in this class" is found by the same names the
+ * picker searches. Web's `inClassOptions` twin.
+ */
+export function inClassOptions(
+  klass: PendingValidationClass,
+  roster: RosterOption[]
+): RosterOption[] {
+  return klass.players.map((p) => ({
+    id: p.playerId,
+    name: p.name,
+    nickname: roster.find((r) => r.id === p.playerId)?.nickname ?? null,
+  }));
+}
+
+/**
  * Narrow a roster by a free-text query.
  *
  * Case- and accent-insensitive: a coach typing "goncalo" on an iOS keyboard must
