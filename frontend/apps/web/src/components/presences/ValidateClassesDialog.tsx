@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCoachDisplayName } from "@levelup/hooks";
 import {
@@ -35,6 +36,7 @@ import {
   effectiveMark,
   fromMark,
   undecidedCount,
+  walkInEmptyReason,
   walkInOptions,
   presentCount,
   validationGroup,
@@ -52,6 +54,27 @@ export interface RosterOption {
   /** PAD-683: the coach's nickname keys, so the picker searches both names. */
   nickname?: string | null;
   displayName?: string;
+}
+
+/**
+ * PAD-787 (rule 8b): the class's own players as picker options, with the coach's nickname from
+ * the roster, so "already in this class" is found by the same names the picker searches.
+ */
+function inClassOptions(klass: PendingValidationClass, roster: RosterOption[]): RosterOption[] {
+  return klass.players.map((p) => ({
+    id: p.playerId,
+    name: p.name,
+    nickname: roster.find((r) => r.id === p.playerId)?.nickname ?? null,
+  }));
+}
+
+/** PAD-787 (rule 8b): bring a row into view and flash it, so the coach sees who is already there. */
+function showRow(testId: string) {
+  const row = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+  row.dataset.highlight = "true";
+  window.setTimeout(() => delete row.dataset.highlight, 2000);
 }
 
 /**
@@ -603,11 +626,17 @@ function PresentCount({ players, edits }: { players: PendingValidationClass["pla
  */
 function WalkInSearch({
   available,
+  inClass,
+  rowTestId,
   placeholder,
   onPick,
   onCancel,
 }: {
   available: RosterOption[];
+  /** PAD-787 (rule 8b): the class's own players, to say "already in this class". */
+  inClass: RosterOption[];
+  /** The test id of a player's row in this view, to scroll to it. */
+  rowTestId: (playerId: number) => string;
   placeholder: string;
   onPick: (playerId: number) => void;
   onCancel?: () => void;
@@ -617,6 +646,8 @@ function WalkInSearch({
   const displayName = useCoachDisplayName();
   const [query, setQuery] = useState("");
   const options = walkInOptions(available, query);
+  const reason = walkInEmptyReason(inClass, options.length, query);
+  const already = reason.kind === "inClass" ? inClass.find((o) => o.id === reason.playerId) : undefined;
   return (
     <div className="space-y-1.5" data-testid="presences-walk-in">
       <div className="flex items-center gap-2">
@@ -637,7 +668,35 @@ function WalkInSearch({
       <ul className="max-h-44 overflow-y-auto overscroll-contain rounded-md border border-border" data-testid="presences-walk-in-list">
         {options.length === 0 ? (
           query.trim() ? (
-            <PlayerSearchFeedback as="li" query={query} count={0} className="px-3 py-2 text-xs text-muted-foreground" />
+            <>
+              <PlayerSearchFeedback as="li" query={query} count={0} className="px-3 py-2 text-xs text-muted-foreground" />
+              {/* PAD-787 (rule 8b): why nobody is offered. */}
+              {already ? (
+                <li className="flex items-center justify-between gap-2 px-3 pb-2 text-xs" data-testid="presences-walk-in-already">
+                  <span>{t("presences.validate.alreadyInClass", { name: displayName(already.id, already.name) })}</span>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    data-testid="presences-walk-in-show"
+                    onClick={() => {
+                      setQuery("");
+                      onCancel?.();
+                      showRow(rowTestId(already.id));
+                    }}
+                  >
+                    {t("presences.validate.showInClass")}
+                  </Button>
+                </li>
+              ) : reason.kind === "notOnRoster" ? (
+                <li className="flex items-center justify-between gap-2 px-3 pb-2 text-xs" data-testid="presences-walk-in-not-on-roster">
+                  <span>{t("presences.validate.notOnRoster")}</span>
+                  <Link to="/players" className="text-primary underline-offset-4 hover:underline" data-testid="presences-walk-in-open-players">
+                    {t("presences.validate.openPlayers")}
+                  </Link>
+                </li>
+              ) : null}
+            </>
           ) : (
             <li className="px-3 py-2 text-xs text-muted-foreground">{t("presences.validate.noPlayerMatches")}</li>
           )
@@ -756,7 +815,10 @@ function ClassCard({
             key={player.playerId}
             data-testid={`validate-list-row-${klass.lessonInstanceId}-${player.playerId}`}
             data-undecided={undecided ? "true" : "false"}
-            className={cn("flex items-center justify-between gap-3", undecided && "border-l-4 border-l-yellow-500 pl-2")}
+            className={cn(
+              "flex items-center justify-between gap-3 rounded-sm transition-colors data-[highlight=true]:bg-primary/10",
+              undecided && "border-l-4 border-l-yellow-500 pl-2"
+            )}
           >
             <span className="flex min-w-0 items-center gap-1.5 truncate text-sm">
               {undecided && (
@@ -788,6 +850,8 @@ function ClassCard({
         <div className="mt-3">
           <WalkInSearch
             available={available}
+            inClass={inClassOptions(klass, roster)}
+            rowTestId={(id) => `validate-list-row-${klass.lessonInstanceId}-${id}`}
             placeholder={t("presences.validate.choosePlayer")}
             onPick={(id) => { onAddWalkIn(id); setAdding(false); }}
             onCancel={() => setAdding(false)}
@@ -900,7 +964,7 @@ function ClassDetail({
             data-testid={`validate-player-row-${player.playerId}`}
             data-undecided={undecided ? "true" : "false"}
             className={cn(
-              "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2",
+              "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 transition-colors data-[highlight=true]:bg-primary/10",
               undecided && "border-l-4 border-l-yellow-500"
             )}
           >
@@ -939,6 +1003,8 @@ function ClassDetail({
       {available.length > 0 && (
         <WalkInSearch
           available={available}
+          inClass={inClassOptions(klass, roster)}
+          rowTestId={(id) => `validate-player-row-${id}`}
           placeholder={t("presences.validate.lastMinute")}
           onPick={(id) => onAddWalkIn(id)}
         />

@@ -49,6 +49,9 @@ Coaches finalizing attendance for classes that have already happened.
   the list with an explanation.
 - A walk-in added to a past class occupies a real seat in the class's capacity, not just an
   attendance note.
+- When the coach looks for a student to add to a past class and nobody comes up, the app says
+  why: the student is already in that class (and shows where), or is not on the coach's list of
+  players. It never just says "not found" (PAD-787).
 - Undoing a validation reopens the record for editing — it never erases what was already
   recorded.
 - The coach can take a mark back: pressing the selected state again returns the player to "no

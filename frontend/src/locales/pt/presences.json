@@ -87,7 +87,11 @@
       "triggerWeekShown_zero": "{{count}} na semana mostrada",
       "triggerWeekShown_other": "{{count}} na semana mostrada",
       "triggerWeekShownEmpty": "Nada na semana mostrada",
-      "noPlayerMatches": "Nenhum jogador corresponde à pesquisa."
+      "noPlayerMatches": "Nenhum jogador corresponde à pesquisa.",
+      "alreadyInClass": "{{name}} já está nesta aula.",
+      "showInClass": "Ver",
+      "notOnRoster": "Não está na tua lista de jogadores.",
+      "openPlayers": "Abrir Jogadores"
     },
     "column": {
       "name": "Jogador",
