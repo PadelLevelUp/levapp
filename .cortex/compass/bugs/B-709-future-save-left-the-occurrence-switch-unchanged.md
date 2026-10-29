@@ -3,7 +3,8 @@ id: B-709
 title: "A \"this and following\" save of a class's notifications switch changed the series only; the occurrence on screen kept its old value"
 type: incomplete-rule
 severity: high
-status: open
+status: resolved
+resolved: 2026-10-29T20:54:00Z
 affects:
   - backend/padel_app/services/lesson_service.py
   - backend/padel_app/scheduler.py
@@ -50,4 +51,9 @@ the switch came back off.
 - No data was changed; the backfill is the owner's decision.
 
 **Test:** `test_pad793_future_edit_reaches_occurrences.py`: 6 cells red on staging 3404796a9 (the
-occurrences unchanged), and 1 control green (an edit without the switch leaves them alone).
+occurrences unchanged), and 1 control green (an edit without the switch leaves them alone). All 7
+pass with the fix.
+
+**Fix:** `_edit_future_instances_for_lesson` takes `notifications_enabled` and sets it on each
+occurrence it walks, from both future paths. The scheduler logs what the pass sent, not
+"Reminder sent".
