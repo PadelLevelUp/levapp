@@ -66,7 +66,9 @@ appId: com.padellevelup.app
 - assertNotVisible:
     id: "presences-card-not-on-roster"
 
-# "Show": the search closes and the student's row is on screen.
+# "Show": the search closes and the student's row is on screen. Return closes the keyboard first:
+# Show sits below the search, behind the keyboard, which this branch's sheet does not move.
+- pressKey: Enter
 - tapOn:
     id: "presences-card-show-in-class"
 - assertNotVisible:
