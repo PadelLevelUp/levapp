@@ -80,3 +80,14 @@ describe("the screens' pull wiring (rules 1, 5)", () => {
     );
   });
 });
+
+describe("a failed pull's toast is seen over the attendance sheet (rule 4, B-704)", () => {
+  it("the toast layer stacks above the dialogs' z-50", () => {
+    const mobile = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const toast = readFileSync(resolve(mobile, "src/components/ui/toast.tsx"), "utf8");
+    const dialog = readFileSync(resolve(mobile, "src/components/ui/dialog.tsx"), "utf8");
+    expect(dialog).toContain("z-50");
+    expect(toast).toMatch(/const TOAST_LAYER = \{ zIndex: 100, elevation: 100 \}/);
+    expect(toast).toContain("style={TOAST_LAYER}");
+  });
+});

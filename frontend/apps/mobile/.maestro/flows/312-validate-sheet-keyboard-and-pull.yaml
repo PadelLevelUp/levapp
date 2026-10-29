@@ -77,14 +77,14 @@ onFlowComplete:
 # Rules 3 and 4: a pull on the sheet's list whose request never answers still ends, and says so.
 - evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/api/app/class_instances/pending_validation', seconds: 60 }) }).ok}"
 - assertTrue: "${output.stalled}"
+# A long pull from inside the list (an element-anchored swipe was too short to trigger it).
 - swipe:
-    from:
-      id: "presences-class-card"
-    direction: DOWN
-    duration: 600
+    start: "50%, 40%"
+    end: "50%, 85%"
+    duration: 800
 - extendedWaitUntil:
     visible:
-      text: "(Couldn't refresh|Não foi possível atualizar)"
+      text: ".*(Couldn't refresh|Não foi possível atualizar).*"
     timeout: 50000
 # The sheet is still open, on the same class, still expanded.
 - assertVisible:

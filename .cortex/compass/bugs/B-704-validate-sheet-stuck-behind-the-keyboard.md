@@ -63,6 +63,9 @@ spec).
 - `client.request-timeout`: 20 s in the shared client, for web and iOS; 120 s for an import's
   confirm and revert.
 - The Calendar's week and month grids are left out: `DaySheet` owns the vertical pan.
+- Toasts stack above dialogs. Flow 312 found that a toast raised inside the sheet drew behind it:
+  both share the root PortalHost, and the dialog's `z-50` won. That also hid the sheet's existing
+  validate and undo toasts.
 
 **Verification:**
 - `apps/mobile/src/lib/pull-refresh.test.ts` (9 tests: outcomes, the 45 s bound, each screen's

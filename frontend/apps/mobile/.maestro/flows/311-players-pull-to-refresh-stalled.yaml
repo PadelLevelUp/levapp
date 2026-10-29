@@ -39,7 +39,7 @@ onFlowComplete:
 # Rule 3: the spinner comes down; rule 4: the pull says it failed.
 - extendedWaitUntil:
     visible:
-      text: "(Couldn't refresh|Não foi possível atualizar)"
+      text: ".*(Couldn't refresh|Não foi possível atualizar).*"
     timeout: 50000
 
 # Lifted, a pull works again: the rows are back.

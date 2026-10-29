@@ -59,7 +59,9 @@ puts the keyboard away, so the walk-in search can never trap the coach behind it
    para baixo para tentar de novo." (`common.refreshFailed`, `common.refreshFailedBody`). The
    screen otherwise behaves as on any failed read: where it already shows `ErrorState` on a query
    error (Players, Messages, Calendar, the Presences tab's stats), that state and its retry
-   appear as before.
+   appear as before. The toast layer stacks above every dialog (`zIndex` 100 over the dialogs'
+   `z-50`, both in the root PortalHost): before, a toast raised inside the attendance sheet drew
+   behind it, unseen (found by flow 312).
 5. **A drag puts the sheet's keyboard away (B-704).** Both scroll areas of the validation sheet
    (the class list and a class's detail) use `keyboardDismissMode="on-drag"`. The sheet is a
    centred portal dialog that never moves above the keyboard (`dialog-size.ts`), so with the
