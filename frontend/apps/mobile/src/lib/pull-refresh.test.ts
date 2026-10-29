@@ -74,7 +74,8 @@ describe("the screens' pull wiring (rules 1, 5)", () => {
     expect(sheet).toContain('testID="presences-validate-refresh"');
     expect(sheet).toContain("alwaysBounceVertical");
     expect(sheet.match(/keyboardDismissMode="on-drag"/g)).toHaveLength(2);
-    expect(sheet.match(/<ScrollView\b/g)).toHaveLength(2);
+    // JSX openings only: `useRef<ScrollView | null>` (PAD-787's row focus) is a type, not a list.
+    expect(sheet.match(/^\s*<ScrollView\b/gm)).toHaveLength(2);
     expect(read("src/features/presences/PresencesScreen.tsx")).toMatch(
       /refreshing=\{sheetPull\.refreshing\}\s*onRefresh=\{sheetPull\.onRefresh\}/
     );
