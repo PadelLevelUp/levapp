@@ -78,6 +78,9 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
    **canceled** one is not touched, a presence the coach has **validated** is not removed (it is
    theirs to change on the attendance sheet), and an added student is enrolled as `roster` —
    told once by the series add (PAD-330), never once more per materialised occurrence.
+   **The notifications switch is one of the sent fields (PAD-793, B-709).** `notificationsEnabled`
+   reaches the walked occurrences like the rest (`notifications.toggle-class` rule 3c); before
+   PAD-793 it was written to the series only.
 
 10. **Leaving a class ends its edit; leaving with unsaved changes asks first (PAD-525, B-341; rule
    number unconfirmed).** Edit mode and its draft belong to ONE class on ONE opening of its
