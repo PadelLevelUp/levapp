@@ -1,0 +1,93 @@
+# PAD-786 (client.pull-to-refresh rules 1, 3, 4 and 5; B-704): coach 2's stuck "Aulas por validar"
+# sheet. The sheet is a centred dialog that never moves above the keyboard; with the walk-in
+# search focused, the keyboard covered the matches, Cancel and Validate, and a pull did nothing
+# (no keyboard dismissal, no refresh). Now a drag puts the keyboard away, and the sheet's list
+# takes a pull whose spinner ends even when the server never answers.
+#
+# Journey: coach login → Presences → "Aulas por validar" → back through the weeks to a class still
+# to validate → expand it → "Add player" (the search takes focus) → type → drag the list down →
+# Cancel is tapped (behind the keyboard it would not be) and the search closes → the E2E backend
+# holds `pending_validation` unanswered → pull the sheet's list → within 50 s "Couldn't refresh",
+# with the sheet still open and the class still expanded.
+#
+# Writes nothing: no class is validated and the walk-in is cancelled. Teardown lifts the stall.
+# Backend: -e API_BASE=http://localhost:<port>, else :5001, with E2E_DEBUG_ENDPOINTS on. Flow
+# number 312 granted by the coordinator 2026-10-29.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.unstall = (typeof output.api === 'undefined') ? false : http.request(output.api + '/api/app/debug/stall', { method: 'DELETE' }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+# The seed leaves classes to validate in the backlog (flow 180 relies on it too).
+- evalScript: "${output.total = json(http.get(output.api + '/api/app/class_instances/pending_validation/count', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).pendingTotal}"
+- assertTrue: "${output.total > 0}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-presences"
+- extendedWaitUntil:
+    visible:
+      id: "presences-validate-trigger"
+    timeout: 20000
+- tapOn:
+    id: "presences-validate-trigger"
+- extendedWaitUntil:
+    visible:
+      id: "presences-week-prev"
+    timeout: 15000
+
+# Back through the weeks until a class to validate is on screen.
+- repeat:
+    while:
+      notVisible:
+        id: "presences-class-card"
+    times: 6
+    commands:
+      - tapOn:
+          id: "presences-week-prev"
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertVisible:
+    id: "presences-class-card"
+
+- tapOn:
+    id: "presences-class-card"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "presences-card-add-player"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "presences-card-add-player"
+- inputText: "Zz"
+
+# Rule 5: the drag puts the keyboard away, so Cancel (which sat behind it) takes the tap.
+- swipe:
+    from:
+      id: "presences-card-player-search"
+    direction: DOWN
+    duration: 600
+- tapOn:
+    id: "presences-card-add-player-cancel"
+- assertNotVisible:
+    id: "presences-card-player-search"
+
+# Rules 3 and 4: a pull on the sheet's list whose request never answers still ends, and says so.
+- evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/api/app/class_instances/pending_validation', seconds: 60 }) }).ok}"
+- assertTrue: "${output.stalled}"
+- swipe:
+    from:
+      id: "presences-class-card"
+    direction: DOWN
+    duration: 600
+- extendedWaitUntil:
+    visible:
+      text: "(Couldn't refresh|Não foi possível atualizar)"
+    timeout: 50000
+# The sheet is still open, on the same class, still expanded.
+- assertVisible:
+    id: "presences-week-label"
+- assertVisible:
+    id: "presences-card-add-player"

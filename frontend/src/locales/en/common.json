@@ -34,6 +34,8 @@
     "somethingWentWrongTitle": "Something went wrong",
     "tryAgain": "Try again",
     "goBack": "Go back",
-    "done": "Done"
+    "done": "Done",
+    "refreshFailed": "Couldn't refresh",
+    "refreshFailedBody": "Check your connection and pull the list down to try again."
   }
 }

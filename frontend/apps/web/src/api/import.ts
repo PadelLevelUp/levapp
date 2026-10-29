@@ -1,5 +1,5 @@
 import { api, WEB_CAPABILITIES } from "@/api/client";
-import { CAPABILITIES_HEADER } from "@levelup/api/src/client";
+import { CAPABILITIES_HEADER, LONG_REQUEST_TIMEOUT_MS } from "@levelup/api/src/client";
 
 /* ---------- types ---------- */
 
@@ -139,7 +139,10 @@ export interface RevertResult {
 }
 
 export async function revertImport(importId: number): Promise<RevertResult> {
-  const { data } = await api.post<RevertResult>(`/app/import/${importId}/revert`);
+  const { data } = await api.post<RevertResult>(`/app/import/${importId}/revert`, undefined, {
+    // client.request-timeout rule 2: a revert deletes every imported row; it may run long.
+    timeout: LONG_REQUEST_TIMEOUT_MS,
+  });
   return data;
 }
 
@@ -166,7 +169,10 @@ export async function confirmImport(
     if (selected.length === 0) continue;
     payload[table.name] = selected.map((r) => r.cells);
   }
-  const { data } = await api.post<ConfirmResult>("/app/import/confirm", payload);
+  const { data } = await api.post<ConfirmResult>("/app/import/confirm", payload, {
+    // client.request-timeout rule 2: a large import is written in one request; it may run long.
+    timeout: LONG_REQUEST_TIMEOUT_MS,
+  });
   return data;
 }
 

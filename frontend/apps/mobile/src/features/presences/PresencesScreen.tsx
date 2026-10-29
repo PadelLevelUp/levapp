@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { chartScope, lightTheme, narrowedTotals } from "@levelup/config";
 import type { PresencePlayerStats } from "@levelup/types";
@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { refetchAll } from "@/lib/pull-refresh";
 import { PresenceReportCharts } from "./PresenceReportCharts";
 import {
   PresenceColumnsSheet,
@@ -36,6 +38,7 @@ import {
 } from "./report-state";
 import {
   useCoachRoster,
+  useRefreshCoachRoster,
   usePendingValidation,
   usePendingValidationCount,
   usePresenceStats,
@@ -104,6 +107,7 @@ export function PresencesScreen() {
   const queue = usePendingValidation(week);
   const pendingCountQuery = usePendingValidationCount(week);
   const roster = useCoachRoster();
+  const refreshRoster = useRefreshCoachRoster();
   const validate = useValidateClasses();
   const unvalidate = useUnvalidateClass();
 
@@ -130,6 +134,16 @@ export function PresencesScreen() {
     [players, filters, filterCount]
   );
   const trend = usePresenceTrend(filteredPlayers?.map((p) => p.playerId));
+
+  // PAD-786 (client.pull-to-refresh rule 1): the tab and the validation sheet each have a pull.
+  // Both reload everything the tab and the sheet show; each keeps its own spinner.
+  const refreshAll = () =>
+    Promise.all([
+      refetchAll(stats.refetch, trend.refetch, queue.refetch, pendingCountQuery.refetch),
+      refreshRoster(),
+    ]);
+  const pull = usePullToRefresh(refreshAll);
+  const sheetPull = usePullToRefresh(refreshAll);
 
   const handleExport = React.useCallback(async () => {
     setExporting(true);
@@ -165,7 +179,17 @@ export function PresencesScreen() {
   const pendingTotal = pendingCountQuery.data?.pendingTotal;
 
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerClassName="p-4 gap-4">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="p-4 gap-4"
+      refreshControl={
+        <RefreshControl
+          testID="presences-refresh"
+          refreshing={pull.refreshing}
+          onRefresh={pull.onRefresh}
+        />
+      }
+    >
       <Pressable
         testID="presences-validate-trigger"
         accessibilityRole="button"
@@ -340,6 +364,8 @@ export function PresencesScreen() {
         weekOffset={weekOffset}
         onWeekChange={setWeekOffset}
         loading={queue.isLoading}
+        refreshing={sheetPull.refreshing}
+        onRefresh={sheetPull.onRefresh}
         roster={roster}
         busy={validate.isPending || unvalidate.isPending}
         onValidate={async (classes) => {

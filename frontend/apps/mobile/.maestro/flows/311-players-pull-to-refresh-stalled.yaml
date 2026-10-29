@@ -1,0 +1,68 @@
+# PAD-786 (client.pull-to-refresh rules 1, 3 and 4; client.request-timeout rules 1 and 3; B-704):
+# the Players list takes a pull, and a pull whose request never answers still ends. Before PAD-786
+# the list had no pull at all, and the shared client had no timeout, so a request that never
+# answered kept a spinner up for good.
+#
+# Journey: coach login → Players (rows on screen) → the E2E backend holds
+# `coach_players_paginated` unanswered (the stall switch, rule 6) → pull the list down → within
+# 50 s the client's 20 s timeout and one retry have failed and "Couldn't refresh" is shown →
+# the stall is lifted → a second pull brings the rows back.
+#
+# Teardown lifts the stall. Backend: -e API_BASE=http://localhost:<port>, else :5001; it must run
+# with E2E_DEBUG_ENDPOINTS on, as the Maestro backends do. Flow number 311 granted by the
+# coordinator 2026-10-29.
+appId: com.padellevelup.app
+onFlowComplete:
+  - evalScript: "${output.unstall = (typeof output.api === 'undefined') ? false : http.request(output.api + '/api/app/debug/stall', { method: 'DELETE' }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.firstId = json(http.get(output.api + '/api/app/coach_players_paginated?page=1&per_page=25', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).items[0].playerId}"
+
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-players"
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.firstId}"
+    timeout: 20000
+
+# Hold the list's request past the client timeout (60 s > 2 × 20 s + backoff).
+- evalScript: "${output.stalled = http.post(output.api + '/api/app/debug/stall', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/api/app/coach_players_paginated', seconds: 60 }) }).ok}"
+- assertTrue: "${output.stalled}"
+
+- swipe:
+    from:
+      id: "player-card-${output.firstId}"
+    direction: DOWN
+    duration: 600
+# Rule 3: the spinner comes down; rule 4: the pull says it failed.
+- extendedWaitUntil:
+    visible:
+      text: "(Couldn't refresh|Não foi possível atualizar)"
+    timeout: 50000
+
+# Lifted, a pull works again: the rows are back.
+- evalScript: "${output.unstalled = http.request(output.api + '/api/app/debug/stall', { method: 'DELETE' }).ok}"
+- assertTrue: "${output.unstalled}"
+- runFlow:
+    when:
+      visible:
+        id: "error-state-retry"
+    commands:
+      - tapOn:
+          id: "error-state-retry"
+- runFlow:
+    when:
+      visible:
+        id: "player-card-${output.firstId}"
+    commands:
+      - swipe:
+          from:
+            id: "player-card-${output.firstId}"
+          direction: DOWN
+          duration: 600
+- extendedWaitUntil:
+    visible:
+      id: "player-card-${output.firstId}"
+    timeout: 20000

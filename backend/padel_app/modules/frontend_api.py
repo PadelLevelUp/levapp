@@ -1,4 +1,5 @@
 from flask import Blueprint, Response, abort, current_app, g, jsonify, request
+from padel_app.utils.debug_flags import debug_endpoints_enabled
 from padel_app.utils.rate_limit import rate_limited
 from werkzeug.exceptions import HTTPException
 from datetime import datetime, timezone
@@ -1019,6 +1020,37 @@ def coach_players():
     coach = require_coach()
     coach = Coach.query.get_or_404(coach.id)
     return jsonify(get_coach_players_list(coach))
+
+
+@bp.post("/debug/stall")
+def debug_stall_arm():
+    """client.pull-to-refresh rule 6 (PAD-786): E2E only, 404 unless E2E_DEBUG_ENDPOINTS is on.
+    `{"path": "/api/app/…", "seconds": n}` holds every request under `path` for `n` seconds
+    (at most 120) until `DELETE`. No token: the switch only exists on the flag-gated backend."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    from padel_app.utils import e2e_stall
+
+    data = request.get_json(silent=True) or {}
+    path = data.get("path")
+    if not isinstance(path, str) or not path.startswith("/api/"):
+        return jsonify({"error": "PATH_REQUIRED"}), 400
+    try:
+        seconds = float(data.get("seconds", 60))
+    except (TypeError, ValueError):
+        return jsonify({"error": "SECONDS_INVALID"}), 400
+    return jsonify(e2e_stall.arm(path, seconds)), 200
+
+
+@bp.delete("/debug/stall")
+def debug_stall_disarm():
+    """Rule 6: lifts the stall. 404 unless E2E_DEBUG_ENDPOINTS is on."""
+    if not debug_endpoints_enabled():
+        abort(404)
+    from padel_app.utils import e2e_stall
+
+    e2e_stall.disarm()
+    return jsonify({"stalled": None}), 200
 
 
 @bp.get("/coach_players_paginated")
