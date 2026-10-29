@@ -394,6 +394,9 @@ executionOrder:
     # 310 (PAD-776 part 3, notifications.config rule 10d): sets the invitation start from iOS and
     # restores the coach's timing in its teardown, so its position is not load bearing.
     - 310-settings-invitation-start
+    # 314 (PAD-793, classes.create rule 6b): creates a one-off class two years out with the
+    # notifications switch on and reads it back from the server; setup and teardown remove it.
+    - 314-new-class-notifications-switch
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.
