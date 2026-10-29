@@ -180,12 +180,6 @@ def create_app(test_config=None):
 
     app.before_request(_view_as.gate)
 
-    # client.pull-to-refresh rule 6 (PAD-786): the E2E stall switch; inert unless armed under
-    # E2E_DEBUG_ENDPOINTS.
-    from padel_app.utils import e2e_stall as _e2e_stall
-
-    app.before_request(_e2e_stall.gate)
-
     @app.teardown_request
     def _end_view_as(exception=None):
         _view_as.end(exception)

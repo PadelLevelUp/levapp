@@ -1022,6 +1022,16 @@ def coach_players():
     return jsonify(get_coach_players_list(coach))
 
 
+@bp.before_app_request
+def _e2e_stall_gate():
+    """client.pull-to-refresh rule 6 (PAD-786): the E2E stall switch, app-wide; inert unless armed
+    under E2E_DEBUG_ENDPOINTS. Registered here, beside the switch's endpoints, not in the app
+    factory."""
+    from padel_app.utils import e2e_stall
+
+    e2e_stall.gate()
+
+
 @bp.post("/debug/stall")
 def debug_stall_arm():
     """client.pull-to-refresh rule 6 (PAD-786): E2E only, 404 unless E2E_DEBUG_ENDPOINTS is on.
