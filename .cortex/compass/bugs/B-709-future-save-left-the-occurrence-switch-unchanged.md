@@ -29,6 +29,10 @@ the switch came back off.
    occurrences were on and reminded. The occurrence materialised on 23/10 copied the series'
    `false`, and the scheduled pass skipped it (toggle-class rule 3). PAD-729 is correct; it exposed
    the client default.
+   The switch's copy made it worse: its description said invitations only ("Os alunos serão
+   convidados automaticamente"), though it also gates reminders, so a coach who left it off, or
+   switched it off to avoid invitations on a private class, lost the reminders without being told.
+   The description now names both (classes.create rule 6b).
 2. *Why the save did not stick (this entry).* With scope `future`, `edit_class_service` wrote
    `notificationsEnabled` to the series only. `_edit_future_instances_for_lesson` carries
    `_EDIT_CLASS_FIELDS`, which does not hold the switch, so the materialised occurrences kept their
@@ -54,6 +58,7 @@ the switch came back off.
 occurrences unchanged), and 1 control green (an edit without the switch leaves them alone). All 7
 pass with the fix.
 
-**Fix:** `_edit_future_instances_for_lesson` takes `notifications_enabled` and sets it on each
+**Fix:** the switch is always shown, starting off, on web and iOS create and detail, with copy
+that names reminders and invitations (owner, 2026-10-29). `_edit_future_instances_for_lesson` takes `notifications_enabled` and sets it on each
 occurrence it walks, from both future paths. The scheduler logs what the pass sent, not
 "Reminder sent".

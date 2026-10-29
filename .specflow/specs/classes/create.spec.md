@@ -33,6 +33,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
    sent `false`, the web form showed it only with the engine on and started off on the first open
    but on after a save, so classes were created off without the coach seeing it; PAD-729 then
    made their new occurrences honour that `false` and their reminders stopped.
+   The switch's description names both things it gates: pt "Lembretes e convites automáticos para
+   esta aula", en "Automatic reminders and invitations for this class" (the create form and the
+   class detail, both shells). It used to say invitations only ("Os alunos serão convidados
+   automaticamente"), so a coach who did not want invitations for a class turned its reminders off too.
 7. **Court (PAD-194).** The payload may carry `courtId`; it must be one of the class's club's courts
    (`clubs.courts` rule 6), else 400 `court_not_in_club`. The court is optional and defaults to none.
 
