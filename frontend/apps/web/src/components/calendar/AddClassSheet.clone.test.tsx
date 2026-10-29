@@ -105,3 +105,29 @@ describe("a clone is the ordinary create, prefilled (PAD-524)", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 });
+
+describe("the notifications switch (classes.create rule 6b, PAD-793)", () => {
+  it("is shown with the coach's engine off, and a clone's save sends what the coach set", async () => {
+    conflicts.mockResolvedValue([]);
+    const onSave = vi.fn();
+    renderSheet(onSave);
+    const toggle = screen.getByTestId("class-new-auto-notify-switch");
+    expect(toggle).toHaveAttribute("aria-checked", "true"); // the clone's own value
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    pickStart("18:00");
+    await waitFor(() => expect(screen.getByTestId("add-class-create")).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId("add-class-create"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toMatchObject({ notificationsEnabled: false });
+  });
+
+  it("starts off on a new class", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AddClassSheet open onClose={() => {}} onSave={vi.fn()} players={[]} levels={[]} />
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId("class-new-auto-notify-switch")).toHaveAttribute("aria-checked", "false");
+  });
+});
