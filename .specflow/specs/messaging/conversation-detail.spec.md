@@ -141,7 +141,12 @@ through the history without the thread ever moving under the reader.
     root stack above `(tabs)`, and every way into a thread goes through `openConversation`
     (`src/features/messages/open-conversation.ts`): it pops the root stack to `(tabs)` with
     Mensagens selected (`dismissTo`) and then pushes the thread, so the stack under a thread is
-    always [(tabs) on Mensagens, thread] and a native swipe needs no interception. The header arrow
+    always [(tabs) on Mensagens, thread] and a native swipe needs no interception. The pop runs only
+    when the root stack holds something above `(tabs)` (`canDismiss()`); with `(tabs)` alone (the
+    Mensagens list itself, or a push tap or dashboard link on another tab) there is nothing to pop,
+    and the Mensagens tab is selected (`navigate`) instead. A POP_TO with nothing to pop reaches the
+    tab navigator, which cannot handle it: React Navigation logs it unhandled, Debug builds show a
+    LogBox toast over the composer, and the tab under the thread stays put (PAD-791, B-713). The header arrow
     is `upFromConversation` (the same `dismissTo`). `/conversation/new` replaces itself with its
     thread, so it stays a plain push from the list. A push tap on the thread already on screen still
     mounts a fresh instance (rule 12a): the old one is popped, the new one pushed. **Behaviour
@@ -323,6 +328,14 @@ through the history without the thread ever moving under the reader.
 - **Then** the Mensagens list is shown, and back never opens another thread or returns to the class
 - **And** every navigation into a thread in app/ and src/ goes through `openConversation` (wiring
   test `open-conversation.test.ts` fails on a direct `router.push("/conversation/…")`)
+
+#### Opening a thread with only the tabs on the stack pops nothing (rule 17, PAD-791)
+- **Given** the root stack holds only `(tabs)`: the coach is on the Mensagens list, or on another
+  tab when a push tap or a dashboard link opens a thread
+- **When** the thread opens
+- **Then** no POP_TO is dispatched (React Navigation logs no unhandled action, so Debug shows no
+  LogBox toast over the composer); the Mensagens tab is selected and the thread pushed on top
+- **And** back from the thread lands on the Mensagens list
 
 #### The message field's text sits on its vertical centre (rule 18, PAD-767)
 - **Given** an open conversation on iOS or Android with an empty message field
