@@ -248,38 +248,44 @@ def next_class_block(
     if not events:
         return None
 
-    event = events[0]
+    data = _hero_data(events[0], now=now, coach_id=coach_id)
+    # Rule 12c (PAD-797): with two or more classes running at once, the hero shows each. The first
+    # stays the block's own data, so a build that predates PAD-797 still shows it; `alsoRunning`
+    # carries the others in start order. The window holds only classes that end after `now`.
+    if data["inProgress"]:
+        also_running = [_hero_data(e, now=now, coach_id=coach_id) for e in events[1:] if has_started(e, now)]
+        if also_running:
+            data["alsoRunning"] = also_running
+
+    return {"id": "next_class", "type": "next_class", "data": data}
+
+
+def _hero_data(event: Dict[str, Any], *, now: datetime, coach_id: Optional[int] = None) -> Dict[str, Any]:
+    """One hero card's data: the class's times, its seats, its roster and its link."""
     start = _event_start(event)
     filled, capacity = fill(event)
     is_today = start.date() == now.date()
     minutes_until = int((start - now).total_seconds() // 60)
-    # Rule 12b: "A DECORRER · 19:30–21:00" instead of "A SEGUIR · 19:30". The window holds only
-    # classes that end after `now`, so a started one is running; with two running, the earliest
-    # start comes first (rule 12c, pending the owner's confirmation).
-    in_progress = has_started(event, now)
 
     return {
-        "id": "next_class",
-        "type": "next_class",
-        "data": {
-            "classId": str(event.get("id") or ""),
-            "title": event.get("title") or "",
-            "date": event.get("date"),
-            "startTime": event.get("startTime"),
-            "endTime": event.get("endTime"),
-            "isToday": is_today,
-            "inProgress": in_progress,
-            # Drives "UP NEXT · 18:00" vs "NEXT CLASS · Tuesday". The client
-            # localises the weekday from `date`; this is just the switch.
-            "weekday": start.strftime("%A"),
-            # Only set when the chip should show, so the client never has to
-            # re-derive the 2-hour rule.
-            "minutesUntil": minutes_until if is_today and 0 <= minutes_until <= HERO_SOON_MINUTES else None,
-            "filled": filled,
-            "capacity": capacity,
-            "players": _roster(event, limit=HERO_AVATAR_LIMIT, coach_id=coach_id),
-            "href": class_href(event),
-        },
+        "classId": str(event.get("id") or ""),
+        "title": event.get("title") or "",
+        "date": event.get("date"),
+        "startTime": event.get("startTime"),
+        "endTime": event.get("endTime"),
+        "isToday": is_today,
+        # Rule 12b: "A DECORRER · 19:30–21:00" instead of "A SEGUIR · 19:30".
+        "inProgress": has_started(event, now),
+        # Drives "UP NEXT · 18:00" vs "NEXT CLASS · Tuesday". The client
+        # localises the weekday from `date`; this is just the switch.
+        "weekday": start.strftime("%A"),
+        # Only set when the chip should show, so the client never has to
+        # re-derive the 2-hour rule.
+        "minutesUntil": minutes_until if is_today and 0 <= minutes_until <= HERO_SOON_MINUTES else None,
+        "filled": filled,
+        "capacity": capacity,
+        "players": _roster(event, limit=HERO_AVATAR_LIMIT, coach_id=coach_id),
+        "href": class_href(event),
     }
 
 

@@ -604,8 +604,31 @@ export function NextClassHero({
   /** PAD-570: only a student's hero carries attendance actions; the coach's never does. */
   student?: boolean;
 }) {
+  const hero = <HeroCard d={block.data} student={student} testID="dashboard-next-class" />;
+  const alsoRunning = block.data.alsoRunning ?? [];
+  if (alsoRunning.length === 0) return hero;
+
+  // PAD-797 (dashboard.blocks rule 12c): two or more classes running at once, one card each.
+  return (
+    <View className="gap-3">
+      {hero}
+      {alsoRunning.map((d) => (
+        <HeroCard key={d.classId} d={d} student={student} testID="dashboard-next-class-running" />
+      ))}
+    </View>
+  );
+}
+
+function HeroCard({
+  d,
+  student,
+  testID,
+}: {
+  d: DashboardNextClassBlock["data"];
+  student: boolean;
+  testID: string;
+}) {
   const { t, i18n } = useTranslation();
-  const d = block.data;
   // PAD-570: only a student's hero carries attendance actions (the coach's payload has
   // neither `attendanceState` nor `pendingConfirmation`, and never gets a button).
   const heroAction = student ? studentRowAction(d) : "none";
@@ -616,7 +639,7 @@ export function NextClassHero({
     // The hero keeps its navy surface in BOTH themes, so every colour here
     // comes from the `sidebar` family. Using card/foreground would invert in
     // dark mode and make the text unreadable.
-    <View className="rounded-2xl bg-sidebar p-5" testID="dashboard-next-class">
+    <View className="rounded-2xl bg-sidebar p-5" testID={testID}>
       <View className="flex-row items-center justify-between">
         <Text className="text-[11px] font-sans-semibold uppercase tracking-widest text-sidebar-foreground/70">
           {/* PAD-792 (dashboard.blocks rule 12b): a class that has started reads "A DECORRER · 19:30–21:00". */}

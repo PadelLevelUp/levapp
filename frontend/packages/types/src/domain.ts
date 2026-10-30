@@ -1052,6 +1052,11 @@ export interface DashboardNextClassBlock {
     attendanceState?: "planned" | "coming" | "not_coming" | "attended" | "missed";
     /** PAD-570: how to decline a projected occurrence (`cancel_attendance` target). */
     declineTarget?: { model: string; originalId: string | number; date: string } | null;
+    /**
+     * PAD-797 (dashboard.blocks rule 12c): set only while this class is `inProgress` and others run
+     * at the same time — the other running classes, in start order, one hero card each.
+     */
+    alsoRunning?: Array<Omit<DashboardNextClassBlock["data"], "alsoRunning">>;
   };
 }
 
