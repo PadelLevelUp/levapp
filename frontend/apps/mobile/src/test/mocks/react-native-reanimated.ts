@@ -8,6 +8,7 @@
  * hooks return their input, the timing helpers return it unchanged. Layout and motion are
  * the simulator's job, not this harness's.
  */
+import { useRef } from "react";
 import { Animated } from "./react-native";
 
 const identity = <T,>(v: T): T => v;
@@ -17,7 +18,8 @@ export default {
   Text: Animated.Text,
   createAnimatedComponent: <C,>(c: C): C => c,
 };
-export const useSharedValue = <T,>(v: T) => ({ value: v });
+// Stable across renders, like the real hook: a shared value passed as a prop must not defeat a memo (PAD-790).
+export const useSharedValue = <T,>(v: T) => useRef({ value: v }).current;
 export const useAnimatedStyle = (fn: () => object) => fn();
 export const useDerivedValue = <T,>(fn: () => T) => ({ value: fn() });
 export const withTiming = identity;

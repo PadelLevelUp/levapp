@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { format } from "date-fns";
-import { clampSheetTop, isSheetRaised, resolveHourRange, SHEET_COLLAPSED_HEIGHT, sheetTopBounds } from "@levelup/config";
+import { clampSheetTop, gridBottomInset, isSheetRaised, resolveHourRange, SHEET_COLLAPSED_HEIGHT, sheetTopBounds } from "@levelup/config";
 import type { CalendarEvent, CoachLevel } from "@/types";
 import { DaySheet } from "./DaySheet";
+import { FAB_CLEARANCE_PX } from "./layout";
 import { ROW_HEIGHT, TimeGrid } from "./TimeGrid";
 
 /**
@@ -125,6 +126,7 @@ export function GridWithSheet({
             hourRange={hourRange}
             nextEventId={nextEventId}
             onEventClick={onEventClick}
+            bottomInset={gridBottomInset(containerHeight, sheetTop, FAB_CLEARANCE_PX)}
           />
         )}
       </div>
