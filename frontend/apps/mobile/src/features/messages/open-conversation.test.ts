@@ -15,12 +15,15 @@ import {
   upFromConversation,
 } from "./open-conversation";
 
-function fakeRouter() {
+/** `aboveTabs`: the root stack holds a screen above `(tabs)` (a class, a thread), so it can be popped. */
+function fakeRouter({ aboveTabs = true } = {}) {
   const calls: [string, unknown][] = [];
   return {
     calls,
     router: {
+      canDismiss: vi.fn(() => aboveTabs),
       dismissTo: vi.fn((href: unknown) => calls.push(["dismissTo", href])),
+      navigate: vi.fn((href: unknown) => calls.push(["navigate", href])),
       push: vi.fn((href: unknown) => calls.push(["push", href])),
     },
   };
@@ -34,6 +37,25 @@ describe("a thread opens on top of Mensagens", () => {
       ["dismissTo", MESSAGES_TAB],
       ["push", "/conversation/42?message=7"],
     ]);
+  });
+
+  // PAD-791 (B-713): with only `(tabs)` on the root stack there is nothing to pop, and the POP_TO
+  // went to the tab navigator, which cannot handle it: React Navigation logged it as unhandled (a
+  // LogBox toast over the composer in Debug) and the tab under the thread stayed where it was.
+  it("from the Mensagens list, nothing above (tabs): selects Mensagens instead of popping", () => {
+    const { calls, router } = fakeRouter({ aboveTabs: false });
+    openConversation(router, "/conversation/1");
+    expect(calls).toEqual([
+      ["navigate", MESSAGES_TAB],
+      ["push", "/conversation/1"],
+    ]);
+  });
+
+  it("a push tap or dashboard link on another tab, nothing above (tabs): Mensagens is under the thread", () => {
+    const { calls, router } = fakeRouter({ aboveTabs: false });
+    pushRoute(router, { pathname: "/conversation/[id]", params: { id: "9" } });
+    expect(calls.map(([call]) => call)).toEqual(["navigate", "push"]);
+    expect(calls).not.toContainEqual(["dismissTo", MESSAGES_TAB]);
   });
 
   it("a destination decided at run time: a thread through openConversation, anything else pushed", () => {

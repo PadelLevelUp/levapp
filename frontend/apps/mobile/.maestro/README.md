@@ -103,6 +103,13 @@ order-dependent. `config.yaml`'s `executionOrder.flowsOrder` pins the order.
   "Present" (it also accepts "Invited" so it can run standalone).
 - Seeded ids on a fresh DB are deterministic: player `1` = E2E Student,
   conversation `1` = coach↔student.
+- **Message flows run before `310-settings-invitation-start`, or after a reseed
+  (PAD-791).** 310's save turns the notification engine on, and the engine messages
+  nine seeded players. Their new conversations push the seeded coach↔student thread
+  off `conversation-item-1`, so `19-message-reply` and `47-push-tap-routing`
+  (and any flow tapping the first conversation) fail after 310 without a reseed.
+  `config.yaml` already orders 09 and 19 before 310. Running 47 through its wrapper
+  or a hand-picked list after 310 needs a reseed first.
 - **`12-settings-language` changes the coach's language and changes it back.**
   The preference is stored on the user, so a failure between the two switches
   leaves every later coach flow running in Portuguese, and any flow asserting
