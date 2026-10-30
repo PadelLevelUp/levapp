@@ -6,6 +6,7 @@ waits for SMTP, and a slow or failing mail server can neither stall nor undo the
 - One daemon thread per mail, under the app context it was dispatched from, with its own session
   (removed afterwards). The volume is a handful of sign-up and recovery mails a day; a mail lost
   to a restart is recovered by the screen's "send a new code".
+- A sent mail is logged at INFO as ``"<label> sent"`` (PAD-781).
 - A failure is logged as ``"<label> failed: <exception class>"`` — the label names a user id or a
   count, never an address (B-254) — and then ``on_failure()`` runs in the same context, so it may
   read and commit. ``send_email`` has already recorded the failure on engine health.
@@ -34,6 +35,8 @@ def _job(subject, recipients, body, html, label, on_failure):
 
     try:
         email_tools.send_email(subject, recipients, body=body, html=html)
+        # PAD-781: a sent mail leaves a trace too, so "sent" and "never attempted" can be told apart.
+        current_app.logger.info("%s sent", label)
     except Exception as exc:  # noqa: BLE001 — a mail never fails the request it came from
         current_app.logger.warning("%s failed: %s", label, type(exc).__name__)
         if on_failure is not None:
