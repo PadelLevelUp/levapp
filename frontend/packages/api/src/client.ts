@@ -25,6 +25,19 @@ export interface ApiClientOptions {
 export const CAPABILITIES_HEADER = "X-LevApp-Capabilities";
 
 /**
+ * PAD-786 (client.request-timeout rule 1): every request gives up after this long. Without it a
+ * request that never settled (a half-open connection, a worker that never answers) kept a
+ * screen's spinner up forever. Twenty seconds is several times prod's slowest p95 (3–6 s).
+ */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * Rule 2: the writes that legitimately run long (an import's confirm and revert) pass this per
+ * request instead. Nothing else overrides the default.
+ */
+export const LONG_REQUEST_TIMEOUT_MS = 120_000;
+
+/**
  * Creates an axios instance replicating the app's auth behavior:
  * - request interceptor attaches `Authorization: Bearer <token>`, and the
  *   shell's declared capabilities, if any
@@ -35,7 +48,7 @@ export function createApiClient(options: ApiClientOptions): AxiosInstance {
   const { baseURL, storage, onUnauthorized, capabilities } = options;
   const declared = (capabilities ?? []).join(", ");
 
-  const api = axios.create({ baseURL });
+  const api = axios.create({ baseURL, timeout: REQUEST_TIMEOUT_MS });
 
   api.interceptors.request.use(async (config) => {
     const token = await storage.getToken();

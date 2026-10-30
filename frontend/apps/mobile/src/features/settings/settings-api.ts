@@ -1,4 +1,4 @@
-import { getApi } from "@levelup/api";
+import { getApi, LONG_REQUEST_TIMEOUT_MS } from "@levelup/api";
 
 /**
  * Data-import endpoints for the Settings screen.
@@ -33,5 +33,8 @@ export async function getImportHistory(): Promise<ImportHistoryEntry[]> {
 }
 
 export async function revertImport(importId: number): Promise<void> {
-  await getApi().post(`/app/import/${importId}/revert`);
+  await getApi().post(`/app/import/${importId}/revert`, undefined, {
+    // client.request-timeout rule 2: a revert deletes every imported row; it may run long.
+    timeout: LONG_REQUEST_TIMEOUT_MS,
+  });
 }

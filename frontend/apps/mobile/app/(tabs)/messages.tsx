@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { openConversation } from "@/features/messages/open-conversation";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from "react-native";
 import { lightTheme, searchPeopleByName } from "@levelup/config";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/empty-state";
@@ -17,6 +17,8 @@ import { Text } from "@/components/ui/text";
 import { ConversationItem } from "@/features/messages/components/conversation-item";
 import { normalizeId } from "@/features/messages/utils";
 import { cn } from "@/lib/utils";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { refetchAll } from "@/lib/pull-refresh";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 
 const PAGE_SIZE = 20;
@@ -110,6 +112,15 @@ export default function MessagesScreen() {
       setLoadingMore(false);
     }
   }, [loadingMore, hasMore, unreadOnly]);
+
+  // PAD-786 (client.pull-to-refresh rule 1): a pull reloads page 1 and, once it has arrived,
+  // drops the pages appended by scrolling, so the list starts again from the top.
+  const pull = usePullToRefresh(async () => {
+    await refetchAll(refetch);
+    setExtra([]);
+    setMoreAvailable(null);
+    pageRef.current = 1;
+  });
 
   // Switching the filter starts again from page 1 of the other list.
   const chooseFilter = (next: boolean) => {
@@ -206,6 +217,13 @@ export default function MessagesScreen() {
             />
           )}
           contentContainerStyle={{ paddingBottom: 96 }}
+          refreshControl={
+            <RefreshControl
+              testID="messages-refresh"
+              refreshing={pull.refreshing}
+              onRefresh={pull.onRefresh}
+            />
+          }
           onEndReachedThreshold={0.4}
           onEndReached={() => void loadMore()}
           ListFooterComponent={

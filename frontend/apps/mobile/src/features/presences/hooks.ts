@@ -95,6 +95,18 @@ export function useCoachRoster(): RosterOption[] {
   }));
 }
 
+/**
+ * PAD-786 (client.pull-to-refresh rule 1): a pull on the tab or the validation sheet refreshes
+ * the walk-in picker's roster too. Its module cache would answer from memory, so it goes first.
+ */
+export function useRefreshCoachRoster(): () => Promise<void> {
+  const queryClient = useQueryClient();
+  return () => {
+    playersApi.invalidateCoachPlayersCache();
+    return queryClient.refetchQueries({ queryKey: presenceKeys.roster });
+  };
+}
+
 /** Everything the tab shows is derived from presences, so any write refetches all three. */
 function useInvalidatePresences() {
   const queryClient = useQueryClient();

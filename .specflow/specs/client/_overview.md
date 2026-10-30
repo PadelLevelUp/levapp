@@ -13,6 +13,13 @@ what a user sees while that happens. One contract for both apps.
   from cache at once and refreshes in the background; freshness is event-driven over SSE, never
   polled; range and page changes keep the previous data on screen)
 
+- `client.request-timeout` — implementing (PAD-786, web and iOS: every request gives up after
+  20 s; an import's confirm and revert after 120 s)
+
+- `client.pull-to-refresh` — implementing (PAD-786, iOS: pull-to-refresh on Players, Messages,
+  the Calendar day list, Presences and its validation sheet; the spinner always ends; a drag puts
+  the sheet's keyboard away)
+
 - `client.route-loading` — implementing (PAD-585, web only: every page a lazy chunk, menu pages
   prefetched on idle, a missing chunk reloads once, English loaded on demand, a 320 kB gzip
   budget on the first download checked in CI)

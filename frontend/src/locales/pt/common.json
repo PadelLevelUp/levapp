@@ -34,6 +34,8 @@
     "somethingWentWrongTitle": "Algo correu mal",
     "tryAgain": "Tentar novamente",
     "goBack": "Voltar atrás",
-    "done": "Concluído"
+    "done": "Concluído",
+    "refreshFailed": "Não foi possível atualizar",
+    "refreshFailedBody": "Verifica a ligação e puxa a lista para baixo para tentar de novo."
   }
 }

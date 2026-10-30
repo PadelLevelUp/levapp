@@ -3,6 +3,8 @@ id: client.user-returns-to-a-screen-at-once
 status: draft
 implemented_by:
   - ../../specs/client/query-cache.spec.md
+  - ../../specs/client/request-timeout.spec.md
+  - ../../specs/client/pull-to-refresh.spec.md
 ---
 
 # A user returns to a screen and sees it at once
@@ -41,6 +43,10 @@ session. Students on their home, class and messages screens. Both apps.
 3. The web app and the phone app follow the same rule, so a coach using both sees the same
    freshness.
 4. Nothing new is sent to the server to keep screens fresh: no polling, no background timers.
+5. On the phone, a coach can pull a list down to reload it, and the spinner always comes down: a
+   reload that fails or never gets an answer says so instead of spinning forever (PAD-786).
+6. A request the server never answers ends as an error after a short wait, in both apps, instead
+   of leaving the screen loading (PAD-786).
 
 ## Success Metrics
 
