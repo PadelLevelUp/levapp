@@ -39,6 +39,15 @@ Toggle notification engine on/off for a specific class.
    PAD-729 the form layer dropped the `False` and the engine invited for a class the coach had
    switched off. (`auto_invites` and `open_spots_visible` are not copied: they resolve instance →
    lesson → type/coach at read time, so a new occurrence inherits them by construction.)
+3c. **A series save reaches the occurrences already materialised (PAD-793, B-709; numbering
+   unconfirmed).** The class editor's switch is `edit_class`'s `notificationsEnabled`, scoped like
+   every edit (`classes.edit` rule 3). `single` sets this occurrence. `future` sets the series (the
+   forked one when the edit starts mid-series) **and** every occurrence already materialised from
+   the boundary on that the series walk reaches (`classes.edit` rule 9: not ended, not canceled),
+   the current one first; occurrences before the boundary keep their value. The
+   occurrence's flag is NOT NULL and the engine reads it alone, so it never inherits from the
+   series: before PAD-793 a `future` save wrote the series only, answered success, and the
+   occurrence on screen kept its old value. Absent from `updates` = untouched.
 5. **Automatic invitations are a separate per-class tri-state, `auto_invites` (PAD-429, owner,
    2026-09-24).** It lives on `Lesson` and `LessonInstance` (`NULL` = inherit, `true`/`false` =
    override). `effective_auto_invites()` resolves it instance → lesson → the lesson's `type`:
@@ -115,6 +124,14 @@ Toggle notification engine on/off for a specific class.
 - **And** the coach's own "Enviar lembretes" on the off class reminds the student
 - **And** a manual invitation on the off class is still sent (rule 3b)
 - **And** a past-due listing does not offer the off class, nor an off lesson that has no occurrence row yet
+
+#### A "this and following" save of the switch reaches the occurrences already materialised (PAD-793)
+- **Given** a weekly series with notifications off and its first three occurrences materialised, all off
+- **When** the coach switches notifications on with scope `future` from the second occurrence (on the occurrence or on the lesson)
+- **Then** the series from that date is on, and the second and third occurrences are on
+- **And** the first occurrence stays off
+- **And** the same save from the first occurrence turns all three on, and switching off works the same way
+- **And** an edit that does not send `notificationsEnabled` leaves every occurrence as it was
 
 ### Notes
 - Settled (PAD-736): the OPEN question from PAD-429, whether rule 3's "no reminders" or the code

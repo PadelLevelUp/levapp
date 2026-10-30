@@ -20,3 +20,26 @@ export function walkInOptions<T extends { name: string; nickname?: string | null
     nickname: rosterNicknameOf(option),
   }));
 }
+
+/**
+ * PAD-787 (attendance.validation rule 8b): why the walk-in search lists nobody. The picker only
+ * offers roster players not yet in the class, so "no player found" hid two different answers:
+ * - `inClass`: the typed name is someone already in this class (maybe shown under the coach's
+ *   nickname, which is why the coach did not see them). `playerId` is the first such match,
+ *   by the same name rule as the picker;
+ * - `notOnRoster`: nobody in the class either. The client cannot tell a student linked to another
+ *   coach from a removed account (`/coach_players` leaves both out), so one answer covers both.
+ * `none` when the search is blank or lists someone: there is nothing to explain.
+ */
+export type WalkInEmptyReason =
+  | { kind: "none" }
+  | { kind: "inClass"; playerId: number }
+  | { kind: "notOnRoster" };
+
+export function walkInEmptyReason<
+  T extends { id: number; name: string; nickname?: string | null; displayName?: string | null },
+>(inClass: readonly T[], offeredCount: number, query: string): WalkInEmptyReason {
+  if (!query.trim() || offeredCount > 0) return { kind: "none" };
+  const match = walkInOptions(inClass, query)[0];
+  return match ? { kind: "inClass", playerId: match.id } : { kind: "notOnRoster" };
+}

@@ -25,7 +25,9 @@ Invalidate the current JWT token so it cannot be reused.
    pushes because a separate unregister lost the race with the revocation. Only the caller's
    (user, token) row is touched here; registration then gives the token to whoever signs in next (`messaging.push-notifications` rule 9, D137). **Backward
    compatible:** App Store 1.0/1.1.0 post no body and see no change; a missing, empty or non-string
-   `pushToken` is ignored. The mobile app still sends the separate unregister first, as a fallback.
+   `pushToken` is ignored. The mobile app still sends the separate unregister first, as a fallback. A `pushToken` that is not an Expo
+   push token (iOS builds 34 and 35 cache the raw device token, B-706) removes every Expo row the
+   caller holds, as `messaging.push-notifications` rule 9b states (PAD-741).
 
 5. **(PAD-591) The blocklist is read once per request.** Authenticating a request looks the token's
    `jti` up in `token_blocklist` once; a later step of the same request (the sliding refresh in

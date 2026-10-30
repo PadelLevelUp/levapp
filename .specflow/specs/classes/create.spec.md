@@ -24,6 +24,19 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 4. `max_players` caps enrollment
 5. Coach and enrolled players are linked via junction tables
 6. Creating a lesson with `notifications_enabled=true` schedules reminder jobs
+6b. **The coach always sees and chooses the notifications switch (PAD-793, B-709; owner,
+   2026-10-29).** The new-class form on web and in the mobile app shows "Notificações automáticas"
+   whatever the coach's engine state, and sends its value as `notificationsEnabled`. It starts
+   **off**, every time the form opens; a clone starts at the original's value. The class detail
+   shows the same switch whatever the engine state (`notifications.toggle-class` rule 3c), so a
+   class created off can always be switched on. Before PAD-793 the iOS form had no switch and always
+   sent `false`, the web form showed it only with the engine on and started off on the first open
+   but on after a save, so classes were created off without the coach seeing it; PAD-729 then
+   made their new occurrences honour that `false` and their reminders stopped.
+   The switch's description names both things it gates: pt "Lembretes e convites automáticos para
+   esta aula", en "Automatic reminders and invitations for this class" (the create form and the
+   class detail, both shells). It used to say invitations only ("Os alunos serão convidados
+   automaticamente"), so a coach who did not want invitations for a class turned its reminders off too.
 7. **Court (PAD-194).** The payload may carry `courtId`; it must be one of the class's club's courts
    (`clubs.courts` rule 6), else 400 `court_not_in_club`. The court is optional and defaults to none.
 
@@ -179,6 +192,14 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     editor (`classes.edit` rule 9), so both get it, on both shells.
 
 ### Acceptance Criteria
+
+#### The coach sees the notifications switch and it starts off (rule 6b, PAD-793)
+- **Given** a coach whose engine is off
+- **When** they open the new-class form on web or iOS
+- **Then** "Notificações automáticas" is shown, off
+- **When** they turn it on and create the class
+- **Then** the class is created with `notificationsEnabled` true and its occurrences are on
+- **And** a class created without touching it is sent `false`, also on the form's second open
 
 #### The picker shows every student's level, coloured by the class's level (PAD-527)
 - **Given** a class at level I1 and students Rui (I1), Sara (B2) and Tomé (no level)

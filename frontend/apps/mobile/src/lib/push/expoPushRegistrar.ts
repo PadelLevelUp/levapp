@@ -195,15 +195,22 @@ export class ExpoPushRegistrar implements PushRegistrar {
 
   watchTokenRotation(): () => void {
     try {
-      const subscription = Notifications.addPushTokenListener(({ data }) => {
-        if (typeof data !== "string" || !data || data === this.currentToken) return;
+      // PAD-741 (B-706, rule 15): the event carries the raw native device token (APNs/FCM), which
+      // Expo does not accept, so it is only a signal. The Expo token is fetched again and posted
+      // when it changed; the event's own token is never posted or cached.
+      const subscription = Notifications.addPushTokenListener(() => {
         const generation = this.generation;
-        const sendRotated = (retry: number): Promise<void> =>
-          this.send(data, generation).catch((error) => {
+        const sendRotated = async (retry: number): Promise<void> => {
+          try {
+            const token = await this.getDeviceToken();
+            if (!token || token === this.currentToken) return;
+            await this.send(token, generation);
+          } catch (error) {
             console.warn("[push] rotated token register failed", error);
             this.reportFailure(error);
             this.scheduleRetry(() => sendRotated(retry + 1), retry, generation);
-          });
+          }
+        };
         void sendRotated(0);
       });
       return () => subscription.remove();

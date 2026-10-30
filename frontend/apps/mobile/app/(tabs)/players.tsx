@@ -1,9 +1,10 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, Pressable, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme, PLAYER_SEARCH_DEBOUNCE_MS } from "@levelup/config";
 import { keepPreviousData } from "@tanstack/react-query";
+import { playersApi } from "@levelup/api";
 import { useCoachPlayersPaginated } from "@levelup/hooks";
 import { SIDE_LABEL_KEYS, type CoachPlayer } from "@levelup/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -26,6 +27,8 @@ import { AddByQrSheet } from "@/features/players/add-by-qr-sheet";
 import { PlayerSearchFeedback } from "@/features/players/player-search-feedback";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { refetchAll } from "@/lib/pull-refresh";
 
 const PAGE_SIZE = 25;
 
@@ -120,6 +123,12 @@ export default function PlayersScreen() {
     },
     { placeholderData: keepPreviousData }
   );
+  // PAD-786 (client.pull-to-refresh rule 1). The roster's module cache would answer a pull with
+  // the rows already on screen, so it is dropped first.
+  const pull = usePullToRefresh(() => {
+    playersApi.invalidateCoachPlayersCache();
+    return refetchAll(refetch);
+  });
 
   const players = data?.items ?? [];
   const totalPages = data?.pagination.pages || 1;
@@ -257,6 +266,13 @@ export default function PlayersScreen() {
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          refreshControl={
+            <RefreshControl
+              testID="players-refresh"
+              refreshing={pull.refreshing}
+              onRefresh={pull.onRefresh}
+            />
+          }
         />
       </View>
     );

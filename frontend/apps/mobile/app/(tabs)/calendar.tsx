@@ -12,7 +12,7 @@ import { addDays, format } from "date-fns";
 import { router } from "expo-router";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { CalendarViewerProvider } from "@/features/calendar/viewer-context";
 import { EmptyState } from "@/components/empty-state";
@@ -32,6 +32,8 @@ import { WeekView } from "@/features/calendar/WeekView";
 import { MonthView } from "@/features/calendar/MonthView";
 import { FAB_CLEARANCE } from "@/features/calendar/layout";
 import { cn } from "@/lib/utils";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { refetchAll } from "@/lib/pull-refresh";
 import { readViewMode, writeViewMode } from "@/lib/view-mode-store";
 
 /** Modes that have shipped: Dia (PAD-246), Semana (PAD-247), Mês (PAD-248). */
@@ -112,6 +114,9 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
     [fetchedEvents, isCoach, studentFilter]
   );
   const { data: levels } = useCoachLevels();
+  // PAD-786 (client.pull-to-refresh rule 1): the day list only. The week and month grids sit in
+  // GridWithSheet, whose bottom sheet owns the vertical drag (rule 2).
+  const pull = usePullToRefresh(() => refetchAll(refetch));
 
   // One pass over the week: the strip needs every day's events in start-time
   // order for its dots, and the detail list is just one of those buckets.
@@ -232,6 +237,13 @@ function CalendarBody({ initialViewMode }: { initialViewMode: CalendarViewMode }
           <ScrollView
             testID="calendar-day-list"
             className="flex-1"
+            refreshControl={
+              <RefreshControl
+                testID="calendar-refresh"
+                refreshing={pull.refreshing}
+                onRefresh={pull.onRefresh}
+              />
+            }
             // Rule 18: clear of the floating add buttons at the end of the list.
             contentContainerStyle={{ paddingBottom: FAB_CLEARANCE }}
           >

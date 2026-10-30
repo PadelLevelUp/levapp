@@ -32,7 +32,6 @@ import {
 import { cn } from '@/lib/utils';
 import { TimeSelect } from '@/components/ui/time-select';
 import { endFromUsualLength, usualClassMinutes, WEEKDAYS_FROM_WEEK_START, WEEK_STARTS_ON } from '@levelup/config';
-import { useAutoInviteEnabled } from '@/hooks/useAutoInviteEnabled';
 import { LevelLabel } from '@/components/LevelLabel';
 import {
   CLASS_COLOR_SWATCHES,
@@ -154,7 +153,6 @@ export function AddClassSheet({
   clone = null,
 }: AddClassSheetProps) {
   const { t, i18n } = useTranslation();
-  const autoInviteEnabled = useAutoInviteEnabled(open);
   // Locale-aware weekday initials (e.g. PT: S/T/Q/Q/S/S/D), derived from date-fns
   // rather than hardcoded — keeps the rendering order identical (Sunday first).
   const daysOfWeek = useMemo(() => {
@@ -200,6 +198,8 @@ export function AddClassSheet({
   const [endMode, setEndMode] = useState<RecurrenceEndMode>('date');
   const [endCountText, setEndCountText] = useState<string>('');
   const recursUntilSeasonEnd = endMode === 'season';
+  // classes.create rule 6b (PAD-793, B-709; owner, 2026-10-29): off unless the coach turns it on,
+  // and the switch is always shown so the coach chooses.
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   // PAD-99: confirm before scheduling over an existing class.
@@ -458,7 +458,7 @@ export function AddClassSheet({
     setEndMode('date');
     setEndCountText('');
     setSelectedCourt('');
-    setNotificationsEnabled(true);
+    setNotificationsEnabled(false);
     setErrors({});
     setRejection(null);
     onClose();
@@ -729,23 +729,23 @@ export function AddClassSheet({
           </div>
 
           {/* Auto notifications */}
-          {autoInviteEnabled && (
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-muted-foreground" />
-                  <div>
-                    <span className="text-sm font-medium">{t("calendar.addClass.autoNotifications")}</span>
-                    <p className="text-xs text-muted-foreground">{t("calendar.addClass.autoNotificationsDescription")}</p>
-                  </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <span className="text-sm font-medium">{t("calendar.addClass.autoNotifications")}</span>
+                  <p className="text-xs text-muted-foreground">{t("calendar.addClass.autoNotificationsDescription")}</p>
                 </div>
-                <Switch
-                  checked={notificationsEnabled}
-                  onCheckedChange={setNotificationsEnabled}
-                />
               </div>
+              <Switch
+                data-testid="class-new-auto-notify-switch"
+                aria-label={t("calendar.addClass.autoNotifications")}
+                checked={notificationsEnabled}
+                onCheckedChange={setNotificationsEnabled}
+              />
             </div>
-          )}
+          </div>
 
           {/* Color */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-2">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { walkInOptions } from "./walk-in-options";
+import { walkInEmptyReason, walkInOptions } from "./walk-in-options";
 
 const roster = [
   { id: 1, name: "Zé Costa" },
@@ -56,5 +56,28 @@ describe("walkInOptions: the nickname (PAD-683)", () => {
 
   it("lists them alphabetically by the name the coach reads", () => {
     expect(walkInOptions(people, "").map((o) => o.id)).toEqual([2, 1]); // Ana, Tigre
+  });
+});
+
+describe("walkInEmptyReason (PAD-787, attendance.validation rule 8b)", () => {
+  const inClass = [
+    { id: 7, name: "Gonçalo Simões", nickname: "Gugu" },
+    { id: 8, name: "Rui Pedro Basto" },
+  ];
+
+  it("names the student already in the class, by real name or nickname, accents ignored", () => {
+    expect(walkInEmptyReason(inClass, 0, "goncalo simoes")).toEqual({ kind: "inClass", playerId: 7 });
+    expect(walkInEmptyReason(inClass, 0, "Gugu")).toEqual({ kind: "inClass", playerId: 7 });
+    expect(walkInEmptyReason(inClass, 0, "rui basto")).toEqual({ kind: "inClass", playerId: 8 });
+  });
+
+  it("says the student is not on the roster when nobody in the class matches either", () => {
+    expect(walkInEmptyReason(inClass, 0, "Xavier")).toEqual({ kind: "notOnRoster" });
+    expect(walkInEmptyReason([], 0, "Xavier")).toEqual({ kind: "notOnRoster" });
+  });
+
+  it("explains nothing for a blank search or when the picker lists someone", () => {
+    expect(walkInEmptyReason(inClass, 0, "   ")).toEqual({ kind: "none" });
+    expect(walkInEmptyReason(inClass, 2, "goncalo")).toEqual({ kind: "none" });
   });
 });

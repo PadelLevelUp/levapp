@@ -14,7 +14,7 @@ governing leaf spec and its dependencies before touching code.
 - `auth/` — Authentication & User Management (13 leaves; `auth.account-profiles` added 2026-09-10, PAD-260; `auth.register` rewritten and `auth.coach-approval` added 2026-09-06, PAD-210; `auth.landing-page` and `auth.email-verification` added 2026-09-07; `auth.password-recovery` added 2026-09-09, PAD-139)
 - `calendar/` — Calendar View & Blocks (8 leaves; `calendar.mobile-views` added 2026-09-08, phone Dia/Semana/Mês restyle)
 - `classes/` — Lessons & Instances (13 leaves; `classes.clone` added 2026-10-07, PAD-524; `classes.class-requests` added 2026-09-10, PAD-104; `classes.availability` added 2026-09-17, PAD-357)
-- `client/` — Client Data Runtime (2 leaves; `client.query-cache` added 2026-10-10, PAD-586/PAD-592: one stale window and retry policy for both apps, cache-first returns, event-driven freshness; `client.route-loading` added 2026-10-10, PAD-585: web route code splitting with a first-download budget)
+- `client/` — Client Data Runtime (4 leaves; `client.request-timeout` and `client.pull-to-refresh` added 2026-10-29, PAD-786: a 20 s client timeout for both apps, iOS pull-to-refresh whose spinner always ends; `client.query-cache` added 2026-10-10, PAD-586/PAD-592: one stale window and retry policy for both apps, cache-first returns, event-driven freshness; `client.route-loading` added 2026-10-10, PAD-585: web route code splitting with a first-download budget)
 - `clubs/` — Club Management (4 leaves)
 - `dashboard/` — Dynamic Dashboard (2 leaves)
 - `delivery/` — How changes reach production safely (10 leaves; `delivery.events-role` added 2026-10-22, PAD-697: the streams in their own gevent process, staging only; `delivery.k8s-manifests` added 2026-10-22, PAD-698: the GKE target in Kustomize, kubeconform in CI; `delivery.worker-role` added 2026-10-22, PAD-695: the scheduler's jobs in a worker process behind WORKER_SPLIT; `delivery.android-nightly-lane` added 2026-10-21, PAD-710: the nightly Android suite in parallel shards with a flow-naming watchdog; `delivery.transport-security` added 2026-10-12, PAD-643; `delivery.repair-diagnostics` added 2026-10-12, PAD-641; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511; `delivery.staging-data-sync` added 2026-10-10, PAD-589: staging restored from the nightly dump once per dump; `delivery.zero-downtime-deploy` added 2026-10-10, PAD-588; `delivery.api-host` added 2026-10-11, PAD-614; `delivery.production-activity-reset` added 2026-10-11, PAD-632: the one-transaction script that clears production activity before real use)
@@ -112,7 +112,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | import | 1 | 4 | implemented |
 | dashboard | 1 | 2 | implemented |
 | settings | 2 | 4 | partial (settings.tutorials implemented; settings.language draft) |
-| client | 2 | 2 | implementing (client.query-cache, PAD-586 web / PAD-592 mobile; client.route-loading, PAD-585 web) |
+| client | 4 | 4 | implementing (client.query-cache, PAD-586 web / PAD-592 mobile; client.route-loading, PAD-585 web; client.request-timeout and client.pull-to-refresh, PAD-786) |
 
 
 ## Build Order

@@ -130,6 +130,24 @@ Send browser push notifications when a new message arrives and the recipient isn
    request wrote: the platform is last-write-wins and both answer 200. This is the same shape
    as `auth.push-subscription` rule 7.
 
+9b. **Only an Expo push token is registered, and a raw device token never orphans one (PAD-741,
+   B-706).** The token shape is decided in one place (`padel_app/utils/push_token_shape.py`):
+   `expo` is `ExponentPushToken[…]` or `ExpoPushToken[…]`; anything else is `apns_hex64` (64
+   hex characters, the raw APNs device token) or `other`.
+   - `POST /api/notifications/device` with a token that is not `expo` answers **200 and stores
+     nothing**. It also removes any row the caller already holds for that exact token (rows
+     written before this rule), and logs one INFO line naming the caller's user id and the
+     token's shape, never the token. It answers 200, not 400, because iOS build 34's registrar
+     retries a refused registration and then shows the "not active" banner (rule 15).
+   - `DELETE /api/notifications/device` and `/auth/logout`'s `pushToken` (`auth.logout`
+     rule 4) with a token that is not `expo` remove **every Expo row the caller holds**, plus
+     the caller's row for that exact token. The match is by account, not by device: a build
+     that sends its raw device token on logout (iOS builds 34 and 35) cannot name its Expo token,
+     and the server keeps nothing that ties a raw token to an Expo one. Removing all of the
+     caller's Expo rows is the superset that guarantees the signed-out phone stops receiving the
+     account's pushes (B-167). The cost: the same account's other phone stops receiving pushes
+     until it registers again (its next cold start or login, rule 9). With an `expo` token both
+     paths are unchanged: only the caller's row for that token goes.
 10. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
    PAD-276 decision 1).** Every push channel (web push, Expo) does its database work on the
    caller — the subscription or device-token lookup, the unread badge — then hands the HTTP call
@@ -302,10 +320,14 @@ Send browser push notifications when a new message arrives and the recipient isn
     - **The app registers without a prompt** when it returns to the foreground signed in and has
       not registered this session, and right after the Messages banner's tap grants permission.
       Granting in the system Settings is therefore enough: the next return to the app registers.
-    - **A rotated token is sent.** The app listens for push-token changes while signed in; a new
-      token becomes the cached token (so logout's revoke sends the live one, rule 9 and
-      `auth.logout` rule 4) and is posted to `POST /api/notifications/device`. The old row needs
-      no delete: Expo's `DeviceNotRegistered` receipt prunes it (rule 9).
+    - **A rotated token is sent.** The app listens for push-token changes while signed in. The
+      listener's event carries the raw native device token (APNs on iOS, FCM on Android), which
+      Expo does not accept, so the event is only a signal: the app fetches its **Expo** push token
+      again (`getExpoPushTokenAsync`) and, when that differs from the cached token, caches and
+      posts it to `POST /api/notifications/device`. The event's own token is never posted and
+      never cached (PAD-741, B-706), so logout's revoke always sends the Expo token (rule 9 and
+      `auth.logout` rule 4). The old row needs no delete: Expo's `DeviceNotRegistered` receipt
+      prunes it (rule 9).
     - **A failed registration is retried**, a bounded number of times with growing waits (3
       retries, 2 s, 10 s, 30 s), never after a denial, and never after logout. After the last
       try the next foreground tries again.
@@ -379,11 +401,32 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Then** the token is posted once, without a prompt, and a later return with the token already
   registered posts nothing
 
-#### A rotated token replaces the cached one and is sent (PAD-744)
+#### A rotated token replaces the cached one and is sent (PAD-744, PAD-741)
 - **Given** a signed-in student registered with `ExponentPushToken[old]`
-- **When** the push-token listener reports `ExponentPushToken[new]`
-- **Then** `ExponentPushToken[new]` is posted, and a logout afterwards sends `ExponentPushToken[new]`
-  in its revoke
+- **When** the push-token listener reports a raw device token (64 hex characters) and the Expo
+  token the app fetches again is now `ExponentPushToken[new]`
+- **Then** `ExponentPushToken[new]` is posted and the raw token is never posted
+- **And** a logout afterwards sends `ExponentPushToken[new]` in its revoke and in `/auth/logout`'s
+  `pushToken`
+- **And** when the fetched Expo token equals the cached one, nothing is posted
+
+#### A raw device token is not registered (PAD-741)
+- **Given** a signed-in student
+- **When** the app POSTs a 64-hex raw device token (or any token that is not `ExponentPushToken[…]`
+  / `ExpoPushToken[…]`) to `/api/notifications/device`
+- **Then** the answer is 200 and no `device_tokens` row exists for it
+- **And** a row the student already held for that exact token is removed
+- **And** one INFO line names the student's user id and the shape `apns_hex64`, and does not
+  contain the token
+- **And** an `ExponentPushToken[…]` POST is still stored as before
+
+#### A logout that names a raw device token still removes the Expo token (PAD-741, B-167)
+- **Given** a student holding `ExponentPushToken[abc]` and, from build 34, a cached raw device token
+- **When** the app sends `DELETE /api/notifications/device {token: <raw>}` or `/auth/logout
+  {pushToken: <raw>}`
+- **Then** every Expo row the student holds is removed, so the phone no longer receives their pushes
+- **And** another user's rows are untouched
+- **And** with an `ExponentPushToken[…]` token only the student's row for that token is removed
 
 #### A failed registration is retried and then shown (PAD-744)
 - **Given** a signed-in student with permission granted whose registration POST fails
