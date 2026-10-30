@@ -1013,6 +1013,11 @@ export interface DashboardNextClassBlock {
     startTime: string;
     endTime: string;
     isToday: boolean;
+    /**
+     * PAD-792 (dashboard.blocks rule 12b): the class has started and not ended. The eyebrow reads
+     * "A DECORRER · start–end" instead of "A SEGUIR · start".
+     */
+    inProgress: boolean;
     /** English weekday from the server; clients localise from `date`. */
     weekday: string;
     /**
@@ -1187,6 +1192,11 @@ export interface DashboardSchedule7dBlock {
       filled: number;
       capacity: number;
       href: string;
+      /**
+       * PAD-792 (rule 12b): the class has started. The row shows no seats badge and no Convidar,
+       * and the server sends no `inviteHref` for it.
+       */
+      inProgress: boolean;
       /** PAD-425: coach rows only, the class with Notificar/Convidar open (the empty-seats link). */
       inviteHref?: string;
       /** PAD-202 (student only) — see `DashboardNextClassBlock`. */
