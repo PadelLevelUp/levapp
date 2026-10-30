@@ -57,6 +57,7 @@ import {
   acceptClassJoinRequest,
   joinRequestRefusal,
   rejectClassJoinRequest,
+  sideGoneOf,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
 import {
@@ -233,6 +234,8 @@ export function ClassDetailSheet({
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
+    /** PAD-808 (rule 7a): the side asked for and the student, when no spot of it is open any more. */
+    sideGone: { side: "left" | "right"; name: string } | null;
   } | null>(null);
   const [pendingEdit, setPendingEdit] = useState<{
     changes: Record<string, unknown>;
@@ -692,7 +695,12 @@ export function ClassDetailSheet({
       const refusal = joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setJoinBusy(false);
-        setPendingAccept({ id, ineligible: refusal.ineligible ?? [] });
+        const side = sideGoneOf(refusal);
+        setPendingAccept({
+          id,
+          ineligible: refusal.ineligible ?? [],
+          sideGone: side ? { side, name: req ? displayName(req.playerId, req.playerName) : "" } : null,
+        });
         return;
       }
       toast({
@@ -2564,6 +2572,7 @@ export function ClassDetailSheet({
       <EligibilityConfirmDialog
         open={pendingAccept !== null}
         ineligible={pendingAccept?.ineligible ?? []}
+        sideGone={pendingAccept?.sideGone ?? null}
         onCancel={() => setPendingAccept(null)}
         onConfirm={() => {
           const parked = pendingAccept;

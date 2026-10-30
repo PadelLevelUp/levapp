@@ -3,7 +3,7 @@ id: B-719
 title: "A coach accepting a join request whose side had no open spot left was never warned: the student silently took a spot of the other side"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - classes.join-requests
   - backend/padel_app/services/class_join_request_service.py

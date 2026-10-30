@@ -53,6 +53,7 @@ import {
   joinRequestRefusal,
   listClassJoinRequests,
   rejectClassJoinRequest,
+  sideGoneOf,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
 import { leaveClassWaitingList, listClassWaitingList } from "@/api/academyClasses";
@@ -107,6 +108,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
     /** The parked row: confirming replays the accept, which resolves the name itself (PAD-683). */
     row: ClassJoinRequestListRow;
     ineligible: EligibilityCheckEntry[];
+    /** PAD-808 (rule 7a): the side asked for, when no spot of it is open any more. */
+    sideGone: "left" | "right" | null;
   } | null>(null);
   const [proposingId, setProposingId] = useState<number | null>(null);
   const [proposal, setProposal] = useState({ date: "", startTime: "10:00", endTime: "11:00" });
@@ -183,7 +186,7 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
       const refusal = joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setBusyJoinId(null);
-        setPendingAcademyAccept({ row, ineligible: refusal.ineligible ?? [] });
+        setPendingAcademyAccept({ row, ineligible: refusal.ineligible ?? [], sideGone: sideGoneOf(refusal) });
         return;
       }
       toast({
@@ -520,6 +523,11 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
       <EligibilityConfirmDialog
         open={pendingAcademyAccept !== null}
         ineligible={pendingAcademyAccept?.ineligible ?? []}
+        sideGone={
+          pendingAcademyAccept?.sideGone
+            ? { side: pendingAcademyAccept.sideGone, name: displayName(pendingAcademyAccept.row.playerId, pendingAcademyAccept.row.playerName) }
+            : null
+        }
         onCancel={() => setPendingAcademyAccept(null)}
         onConfirm={() => {
           const parked = pendingAcademyAccept;

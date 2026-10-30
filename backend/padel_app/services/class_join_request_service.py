@@ -383,6 +383,17 @@ def _side_for_enrolment(row: ClassJoinRequest, instance) -> None:
         db.session.commit()
 
 
+def _side_warning(row: ClassJoinRequest, instance) -> dict | None:
+    """PAD-808 (rule 7a): ``{requestedSide, openSides}`` when the request's side has no open spot
+    left, else None. A `both` request, or a class with no open spot yet, is never warned."""
+    if row.side not in ("left", "right"):
+        return None
+    sides = open_spot_sides(instance)
+    if side_has_spot(row.side, sides):
+        return None
+    return {"requestedSide": row.side, "openSides": sorted({s for s in sides if s})}
+
+
 def _publish_join_request_decided(row: ClassJoinRequest) -> None:
     from padel_app.realtime import publish
 
@@ -457,14 +468,18 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
 
     # Rule 7: accepting is a manual add — warn with named reasons, never block.
     config = NotificationConfig.query.filter_by(coach_id=row.coach_id).first()
+    # PAD-808 (rule 7a): the side too — both warnings in the one 409, under rule 7's code.
     if not confirm:
         failing = eligibility_failures_for_players(instance, row.coach_id, [row.player_id], config)
-        if failing:
+        side_gone = _side_warning(row, instance)
+        if failing or side_gone:
             _refuse(
                 "ineligible",
-                "This student no longer meets the bar",
+                "This student no longer meets the bar" if failing else "No spot of that side is open",
                 ineligible=failing,
+                reasons=(["eligibility"] if failing else []) + (["side"] if side_gone else []),
                 request=serialize_join_request(row),
+                **(side_gone or {}),
             )
 
     # Rule 6: enrol exactly as the engine does; attribute the vacancy. The

@@ -40,6 +40,7 @@ export function EligibilityConfirmDialog({
   onCancel,
   onConfirm,
   action = "add",
+  sideGone = null,
 }: {
   open: boolean;
   ineligible: EligibilityCheckEntry[];
@@ -48,12 +49,20 @@ export function EligibilityConfirmDialog({
   /** eligibility.enforcement rule 6a (PAD-562): the same dialog for a manual invite, with the
    *  invite verb — "Convidar alunos…?" / "Convidar mesmo assim". */
   action?: "add" | "invite";
+  /** classes.join-requests rule 7a (PAD-808): accepting a request whose side has no open spot
+   *  left — the side asked for and the student's name. Alone it is the dialog's whole message;
+   *  with failing students it is added below them, in the one confirmation. */
+  sideGone?: { side: "left" | "right"; name: string } | null;
 }) {
   const { t } = useTranslation();
   // One entry per verb (eligibility.enforcement rules 6 and 6a): the add dialog's copy, or the
   // invite dialog's — the same sentence with the verb swapped.
   const copy = COPY[action];
   const students = describeIneligible(ineligible);
+  const sideOnly = sideGone != null && students.length === 0;
+  const sideLine = sideGone
+    ? t(sideGone.side === "left" ? "calendar.eligibilityConfirm.sideGoneLeft" : "calendar.eligibilityConfirm.sideGoneRight", { name: sideGone.name })
+    : null;
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => (!next ? onCancel() : null)}>
@@ -61,9 +70,9 @@ export function EligibilityConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            {t(copy.title)}
+            {t(sideOnly ? "calendar.eligibilityConfirm.sideTitle" : copy.title)}
           </AlertDialogTitle>
-          <AlertDialogDescription>{t(copy.body)}</AlertDialogDescription>
+          <AlertDialogDescription>{sideOnly ? sideLine : t(copy.body)}</AlertDialogDescription>
         </AlertDialogHeader>
         <ul className="space-y-2 text-sm">
           {students.map((s) => (
@@ -79,6 +88,11 @@ export function EligibilityConfirmDialog({
             </li>
           ))}
         </ul>
+        {sideLine && !sideOnly ? (
+          <p className="text-sm" data-testid="eligibility-confirm-side">
+            {sideLine}
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel} data-testid="eligibility-confirm-cancel">
             {t("calendar.eligibilityConfirm.cancel")}
@@ -90,7 +104,7 @@ export function EligibilityConfirmDialog({
             }}
             data-testid="eligibility-confirm-proceed"
           >
-            {t(copy.confirm)}
+            {t(sideOnly ? "calendar.eligibilityConfirm.sideConfirm" : copy.confirm)}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

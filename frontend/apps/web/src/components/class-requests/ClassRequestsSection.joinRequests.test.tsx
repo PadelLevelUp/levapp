@@ -41,6 +41,8 @@ const joinRequestsApi = vi.hoisted(() => ({
   createClassJoinRequest: vi.fn(),
   joinRequestRefusal: (err: unknown) =>
     (err as { response?: { data?: unknown } })?.response?.data ?? null,
+  sideGoneOf: (r: { reasons?: string[]; requestedSide?: string } | null) =>
+    r?.reasons?.includes("side") ? r.requestedSide : null,
 }));
 vi.mock("@/api/classJoinRequests", () => joinRequestsApi);
 
@@ -158,6 +160,45 @@ describe("the coach's list merges academy rows with private ones (rule 17)", () 
 
     await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, true));
     expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledTimes(2);
+  });
+
+  // PAD-808 (rule 7a): the side part of the same 409.
+  it("a side-only 409 asks about the other side's spot, naming the student, and confirming accepts", async () => {
+    requestsApi.listClassRequests.mockResolvedValue([]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
+    joinRequestsApi.acceptClassJoinRequest
+      .mockRejectedValueOnce({ response: { data: { code: "ineligible", ineligible: [], reasons: ["side"], requestedSide: "left", openSides: ["right"] } } })
+      .mockResolvedValueOnce(academyRow({ id: 100, status: "accepted" }));
+
+    renderSection("coach");
+    fireEvent.click(await screen.findByTestId("class-join-list-accept"));
+
+    const dialog = await screen.findByTestId("eligibility-confirm");
+    expect(dialog.textContent).toContain("calendar.eligibilityConfirm.sideTitle");
+    expect(dialog.textContent).toContain("calendar.eligibilityConfirm.sideGoneLeft");
+    expect(screen.queryByTestId("eligibility-confirm-side")).toBeNull();
+    fireEvent.click(screen.getByTestId("eligibility-confirm-proceed"));
+
+    await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, true));
+  });
+
+  it("both parts come in one dialog: the bar's students and the side line", async () => {
+    requestsApi.listClassRequests.mockResolvedValue([]);
+    joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
+    joinRequestsApi.acceptClassJoinRequest.mockRejectedValueOnce({
+      response: { data: {
+        code: "ineligible", ineligible: [{ playerId: 1, name: "Carla", failures: [] }],
+        reasons: ["eligibility", "side"], requestedSide: "right", openSides: ["left"],
+      } },
+    });
+
+    renderSection("coach");
+    fireEvent.click(await screen.findByTestId("class-join-list-accept"));
+
+    const dialog = await screen.findByTestId("eligibility-confirm");
+    expect(dialog.textContent).toContain("calendar.eligibilityConfirm.title");
+    expect(screen.getAllByTestId("eligibility-confirm-student")).toHaveLength(1);
+    expect(screen.getByTestId("eligibility-confirm-side").textContent).toContain("calendar.eligibilityConfirm.sideGoneRight");
   });
 });
 

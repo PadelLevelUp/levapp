@@ -1173,6 +1173,8 @@ export default function ConversationScreen() {
   const [pendingJoinIneligible, setPendingJoinIneligible] = React.useState<{
     message: Message;
     ineligible: EligibilityCheckEntry[];
+    /** PAD-808 (rule 7a): the side asked for, when no spot of it is open any more. */
+    sideGone: "left" | "right" | null;
   } | null>(null);
   // The request lists, the class sheet and, rule 19 (PAD-488), the calendar and dashboard.
   const invalidateJoinRequestQueries = () => refreshAfterRequestChange(queryClient);
@@ -1195,7 +1197,7 @@ export default function ConversationScreen() {
     } catch (err) {
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
       if (accept && refusal?.code === "ineligible") {
-        setPendingJoinIneligible({ message, ineligible: refusal.ineligible ?? [] });
+        setPendingJoinIneligible({ message, ineligible: refusal.ineligible ?? [], sideGone: classJoinRequestsApi.sideGoneOf(refusal) });
       } else {
         toast.error(
           refusal?.code === "spot_filled"
@@ -1943,6 +1945,7 @@ export default function ConversationScreen() {
       <EligibilityConfirmDialog
         open={pendingJoinIneligible !== null}
         ineligible={pendingJoinIneligible?.ineligible ?? []}
+        sideGone={pendingJoinIneligible?.sideGone ? { side: pendingJoinIneligible.sideGone, name: participantName } : null}
         onCancel={() => setPendingJoinIneligible(null)}
         onConfirm={() => {
           const parked = pendingJoinIneligible;

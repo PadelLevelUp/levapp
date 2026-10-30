@@ -475,7 +475,11 @@
       "cancel": "Cancel",
       "inviteTitle": "Invite students who don't meet the bar?",
       "inviteBody": "Inviting is your call — this only tells you what the bar says.",
-      "inviteConfirm": "Invite anyway"
+      "inviteConfirm": "Invite anyway",
+      "sideTitle": "Accept into a spot on the other side?",
+      "sideGoneLeft": "There is no spot on the left any more in this class. If you accept, {{name}} takes a right spot and plays left. Confirm?",
+      "sideGoneRight": "There is no spot on the right any more in this class. If you accept, {{name}} takes a left spot and plays right. Confirm?",
+      "sideConfirm": "Accept anyway"
     },
     "eligibility": {
       "title": "Eligibility",
