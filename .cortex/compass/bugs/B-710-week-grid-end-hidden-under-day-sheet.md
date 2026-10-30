@@ -3,7 +3,8 @@ id: B-710
 title: "On the phone, the week grid could not scroll its last hours above the day sheet, so late classes were hidden and could not be tapped"
 type: missing-criterion
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-10-30T00:58:00Z
 affects:
   - calendar.mobile-views
   - frontend/apps/mobile/src/features/calendar/GridWithSheet.tsx
@@ -61,4 +62,13 @@ step 1.
 
 ### Resolution
 
-(pending)
+- Spec changes: `calendar.mobile-views` rule 13 (the grid's end clears the sheet) and the criterion "The
+  last hour clears the sheet"; one line in the coach-views-and-manages-schedule business spec.
+- Code: `gridBottomInset` in `packages/config/src/calendar-grid.ts`, shared by both apps. On iOS,
+  `GridWithSheet` holds the inset in a shared value that follows the sheet, and `TimeGrid` ends with an
+  animated spacer, so the grid does not re-render as the sheet moves (PAD-592). On web, `TimeGrid` ends
+  with a spacer of the same height.
+- Tests: unit tests in config, iOS and web, red on staging and green with the fix. Maestro flow 315
+  failed on staging (the tap landed on the sheet) and passed with the fix. A 390×844 web check put the
+  21:30 block under the sheet on staging and above it with the fix. PR #884.
+- Resolved: 2026-10-30.
