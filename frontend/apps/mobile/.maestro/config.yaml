@@ -392,7 +392,9 @@ executionOrder:
     # 307-push-grant-without-restart is deliberately NOT listed: it starts from a denied notification
     # permission that scripts/push-grant-flow.sh sets first (see README).
     # 310 (PAD-776 part 3, notifications.config rule 10d): sets the invitation start from iOS and
-    # restores the coach's timing in its teardown, so its position is not load bearing.
+    # restores the coach's timing in its teardown. Its position IS load bearing (PAD-791): the save
+    # makes the engine message nine seeded players, which pushes the seeded thread off
+    # conversation-item-1, so the message flows (09, 19, 47) run before it or after a reseed (README).
     - 310-settings-invitation-start
     # 311 (PAD-786, client.pull-to-refresh rules 3-4): stalls the players list through the E2E switch,
     # pulls, and lifts the stall in teardown; it writes nothing, so its position is not load bearing.
