@@ -70,6 +70,24 @@ back at all.
    address matches no recoverable user, or that falls inside the rule-4 cooldown, logs one INFO
    line `recovery request sent nothing: <reason>` with the reason class `no_user`, `no_password`,
    `disabled` or `cooldown`, never the address. The response stays the standard 200 (rule 2).
+   **5b. An account with no password is told what to do instead, in the mail only (PAD-782).**
+   Two kinds of account have an email and no password: one created through Google or Apple sign-in
+   (`auth.social-sign-in`), and a coach-created student who never finished the invite
+   (`players.invite-completion`, status `inactive`). A request for such an address still answers
+   the one standard 200 (rule 2) and issues no code, but one mail goes to the address:
+   - a Google/Apple account is told it signs in with that provider (named), and where to tap on the
+     sign-in screen; subject `A tua conta LevApp entra com o Google` / `Your LevApp account signs in
+     with Google`;
+   - an unfinished invite gets a fresh pending invitation (7 days, issued by the coach of the
+     student's latest invitation, else the coach whose roster holds them) and its link
+     `/invite/player/<token>`; subject `Termina a tua conta LevApp` / `Finish your LevApp account`.
+     Earlier invitations stay as they are.
+   The address is confirmed as known only inside its own inbox, so nothing leaks on screen, and the
+   web and iOS screens are unchanged. The per-email cooldown of rule 4 applies to this mail too
+   (`password_reset_sent_at`). A `disabled` account, and a passwordless account that is neither kind
+   (or a student no coach can invite), get nothing. A help mail that goes out logs
+   `recovery help mail to user <id> sent` (rule 3a); one that does not logs the rule-5a reason
+   (`disabled`, `cooldown`, or `no_password`).
 6. `POST /api/auth/password-recovery/confirm` `{"email": "…", "code": "123456",
    "newPassword": "…"}` (no JWT). Checks run in this order and the first failure answers:
    - `newPassword` shorter than 8 characters → 400 `{"error": "WEAK_PASSWORD"}` (the
@@ -248,6 +266,20 @@ back at all.
 - **Given** a coach creates a student with email ` End.To.End@Example.COM ` and the student accepts the invite
 - **When** POST `request` with `end.to.end@example.com`
 - **Then** the stored email is `end.to.end@example.com` and one mail is sent to it
+#### A Google or Apple account is told how it signs in (rule 5b, PAD-782)
+- **Given** an account with email `sofia@example.com`, no password and a Google identity, `language` `pt`
+- **When** POST `request` with `Sofia@Example.com`
+- **Then** the response is the standard 200, and one mail goes to `sofia@example.com` with subject
+  `A tua conta LevApp entra com o Google`, a link to `/auth`, and no 6-digit code
+- **And** POST `confirm` with any code for that address is 410 `CODE_EXPIRED`
+
+#### An unfinished invite gets a fresh invite link (rule 5b, PAD-782)
+- **Given** a coach-created student with email `ines@example.com`, no password, status `inactive`, whose invitation has expired
+- **When** POST `request` with that email
+- **Then** the response is the standard 200, and one mail with subject `Termina a tua conta LevApp`
+  carries `/invite/player/<token>` for a new pending invitation from the same coach, valid 7 days
+- **And** accepting that link with a username and password activates the account
+- **And** a second request 30 seconds later sends nothing and issues no other invitation
 
 #### Users without an email or disabled get nothing
 - **Given** a coach-created player with no email, and a `disabled` user with email `off@example.com`
@@ -303,5 +335,13 @@ back at all.
   matched nobody logged nothing, and a failed send cleared `password_reset_sent_at`, so after the
   15-minute window "never attempted", "sent" and "lost in flight" looked the same. Prod on 30/10:
   one stored address differed from its normalised form (case only), none padded, none colliding.
+- PAD-782 (B-708), rule 5b. Decision ASSUMED, not confirmed: the ticket offered (a) keep the silent
+  200 and send an explanatory mail, or (b) let a social account set a password through the code.
+  The owner had not answered by 2026-10-30; the coordinator chose (a), the ticket's recommendation,
+  because it costs no enumeration. Reverse it here if the owner picks (b).
+- Reach on prod, read 2026-10-30: 0 accounts. Every passwordless account on prod has no email,
+  there is no Google/Apple identity yet, and there is no pending invitation, so no request today
+  takes the 5b path. It becomes real when (1) Google/Apple sign-in reaches users, or (2) a coach
+  creates a student with an email who does not finish the invite.
 - OPEN: revoking other sessions on password change (JWTs are 30-day and there is no per-user
   blocklist) — not in v1.
