@@ -1,10 +1,12 @@
-import { clampSheetTop, isSheetRaised, resolveHourRange, SHEET_COLLAPSED_HEIGHT, sheetTopBounds } from "@levelup/config";
+import { clampSheetTop, gridBottomInset, isSheetRaised, resolveHourRange, SHEET_COLLAPSED_HEIGHT, sheetTopBounds } from "@levelup/config";
 import type { CalendarEvent } from "@levelup/types";
 import { format } from "date-fns";
 import * as React from "react";
 import { View, type LayoutChangeEvent } from "react-native";
+import { useSharedValue } from "react-native-reanimated";
 import { DaySheet } from "./DaySheet";
 import { useAndroidBack } from "@/lib/android-back";
+import { FAB_CLEARANCE } from "./layout";
 import { ROW_HEIGHT, TimeGrid } from "./TimeGrid";
 
 /**
@@ -65,6 +67,14 @@ export function GridWithSheet({
     setSheetTop((current) => (current === null ? bounds.initial : clampSheetTop(current, bounds)));
   }, [containerHeight, gridTop, hasAbove, bounds]);
 
+  // PAD-790 (B-710, rule 13): the grid ends with padding as tall as the sheet covers, so the last
+  // hour row scrolls above it. A shared value the grid's end spacer animates on: the committed
+  // position updates it without re-rendering the memoised grid (PAD-592).
+  const bottomInset = useSharedValue(FAB_CLEARANCE);
+  React.useEffect(() => {
+    bottomInset.value = gridBottomInset(containerHeight, sheetTop, FAB_CLEARANCE);
+  }, [bottomInset, containerHeight, sheetTop]);
+
   // Rule 18 (Mês): tell the screen whether the sheet sits above its resting
   // height so it can hide the floating add buttons; reset when unmounted.
   React.useEffect(() => {
@@ -102,6 +112,7 @@ export function GridWithSheet({
           hourRange={hourRange}
           nextEventId={nextEventId}
           onEventPress={onEventPress}
+          bottomInset={bottomInset}
         />
       )}
       {sheetTop !== null ? (

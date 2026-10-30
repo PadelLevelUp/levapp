@@ -154,6 +154,9 @@ function ToastItem({ record }: { record: ToastRecord }) {
  * Mount once near the app root; call `toast.success`/`toast.error`/`toast.warning`
  * from anywhere.
  */
+/** Above the dialogs' `z-50` (components/ui/dialog.tsx); `elevation` is Android's stacking. */
+const TOAST_LAYER = { zIndex: 100, elevation: 100 };
+
 function ToastHost() {
   const items = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -164,6 +167,10 @@ function ToastHost() {
       <View
         pointerEvents="box-none"
         className="absolute inset-x-0 bottom-24 items-center gap-2 px-4"
+        // PAD-786 (client.pull-to-refresh rule 4, B-704): above every dialog. The dialogs share the
+        // root PortalHost with `z-50`, so a toast raised from inside one (a failed pull or
+        // validation in the attendance sheet) drew behind it, unseen. A plain style, not a class.
+        style={TOAST_LAYER}
       >
         {items.map((item) => (
           <ToastItem key={item.id} record={item} />

@@ -112,6 +112,9 @@ the waiting list.
   invitation for one class, the engine does not invite them to another class that same day (another
   day is fine), and the coach sees why. Once they say yes to one, their other invitations that day
   close as "Já inscrito noutra aula". It follows the coach's "no second class that day" setting.
+- Opening many spots at once, such as a large class nobody has signed up for yet, does not slow
+  the app for coaches who are using it at that moment: the engine works out who matches each spot
+  without asking the database again for every student (PAD-788).
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
   ask is authoritative, and the coach can select or deselect students with a single click on their
   row, name, or checkbox.

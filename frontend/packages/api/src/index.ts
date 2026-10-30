@@ -1,5 +1,12 @@
 export type { TokenStorage } from "./storage";
-export { createApiClient, initApi, getApi, type ApiClientOptions } from "./client";
+export {
+  createApiClient,
+  initApi,
+  getApi,
+  REQUEST_TIMEOUT_MS,
+  LONG_REQUEST_TIMEOUT_MS,
+  type ApiClientOptions,
+} from "./client";
 export {
   buildEventsUrl,
   createSseHub,

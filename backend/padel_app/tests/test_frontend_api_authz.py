@@ -481,6 +481,9 @@ _DEBUG_ROUTES = [
         {"lessonInstanceId": 1, "username": "e2e-student"},
     ),
     ("/api/app/notify/debug/schedule_reminder_test/cleanup", {}),
+    # PAD-786: the E2E stall switch (client.pull-to-refresh rule 6); its DELETE is in
+    # test_pad786_e2e_stall.py.
+    ("/api/app/debug/stall", {"path": "/api/app/coach_players_paginated", "seconds": 1}),
 ]
 
 

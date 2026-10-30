@@ -132,7 +132,9 @@ describe("a tap on the conversation already on screen is a new open", () => {
     expect(source).not.toMatch(/router\.(navigate|replace)\(/);
     const helper = readFileSync(join(__dirname, "open-conversation.ts"), "utf8");
     expect(helper).toMatch(/router\.push\(target/);
-    expect(helper).not.toMatch(/router\.(navigate|replace)\(/);
+    // PAD-791: the helper may `navigate` to the Mensagens tab when nothing sits above (tabs), but the
+    // thread itself is always pushed.
+    expect(helper).not.toMatch(/router\.(navigate|replace)\(target/);
   });
 });
 

@@ -1,0 +1,51 @@
+# PAD-790 / B-710 (calendar.mobile-views rule 13, criterion "The last hour clears the sheet"): the
+# day sheet floats over the Semana grid, so the grid ends with padding as tall as the sheet covers.
+# A class at 21:30 on Thursday of next week must be reachable and tappable once the grid is
+# scrolled to its end, with the sheet at its resting height.
+#
+# Reaching is proved by tapping. Maestro counts a block that sits behind the sheet as visible, so the
+# flow taps the block and waits for class detail: a block left under the sheet puts the tap on the
+# sheet, and class detail never opens.
+#
+# The class is made by the setup script and removed again from onFlowComplete; the flow saves nothing.
+appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/pad790-clear.js
+  - runScript: ../scripts/pad790-setup.js
+onFlowComplete:
+  - runScript: ../scripts/pad790-clear.js
+---
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "tab-calendar"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 15000
+- tapOn:
+    id: "calendar-view-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-next-week"
+    timeout: 10000
+- tapOn:
+    id: "calendar-next-week"
+- extendedWaitUntil:
+    visible:
+      id: "calendar-time-grid"
+    timeout: 10000
+# Scroll the grid to its end with swipes in its top half, above the resting sheet.
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 18%"
+          duration: 300
+- waitForAnimationToEnd
+- tapOn: "Maestro PAD-790 late"
+- extendedWaitUntil:
+    visible:
+      id: "class-detail"
+    timeout: 15000
+- assertVisible: "Maestro PAD-790 late"

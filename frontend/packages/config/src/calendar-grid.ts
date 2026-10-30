@@ -298,6 +298,18 @@ export function sheetTopBounds(
   return { min, max, initial };
 }
 
+/**
+ * PAD-790 (B-710), calendar.mobile-views rule 13: the day sheet floats over the week grid, so the
+ * grid's scroll content ends with this much bottom padding — the part of the grid the sheet covers
+ * (`containerHeight − sheetTop`) and never less than the floating buttons' clearance — so the last
+ * hour row can be scrolled above the sheet wherever it sits. Before the grid is measured (no
+ * `sheetTop` yet) it is the clearance alone.
+ */
+export function gridBottomInset(containerHeight: number, sheetTop: number | null, fabClearance: number): number {
+  if (sheetTop === null || containerHeight <= 0) return fabClearance;
+  return Math.max(containerHeight - sheetTop, fabClearance);
+}
+
 export function clampSheetTop(top: number, { min, max }: { min: number; max: number }): number {
   if (max < min) return max;
   return Math.min(max, Math.max(min, top));

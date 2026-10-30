@@ -4,6 +4,7 @@ import { format, isSameDay } from "date-fns";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ function TimeGridImpl({
   hourRange,
   nextEventId,
   onEventPress,
+  bottomInset,
   rowHeight = ROW_HEIGHT,
 }: {
   weekDays: Date[];
@@ -47,6 +49,12 @@ function TimeGridImpl({
   hourRange: HourRange;
   nextEventId?: string;
   onEventPress?: (event: CalendarEvent) => void;
+  /**
+   * PAD-790 (B-710, rule 13): the padding after the last hour row, so it can be scrolled above the
+   * sheet floating over the grid. A shared value, so a committed sheet drag resizes the spacer
+   * without re-rendering this memoised grid (PAD-592).
+   */
+  bottomInset?: SharedValue<number>;
   rowHeight?: number;
 }) {
   countGridRender();
@@ -59,6 +67,7 @@ function TimeGridImpl({
     [startHour, endHour]
   );
   const innerHeight = (endHour - startHour) * rowHeight + 1;
+  const endSpace = useAnimatedStyle(() => ({ height: bottomInset?.value ?? 0 }));
 
   const labels = (side: "left" | "right") => (
     <View style={{ width: GUTTER_PT }}>
@@ -84,10 +93,9 @@ function TimeGridImpl({
     <ScrollView
       testID="calendar-time-grid"
       className="flex-1 bg-background"
-      contentContainerStyle={{ height: innerHeight }}
       showsVerticalScrollIndicator
     >
-      <View className="flex-1 flex-row">
+      <View style={{ height: innerHeight }} className="flex-row">
         {labels("left")}
         <View className="flex-1 flex-row">
           {weekDays.map((day) => {
@@ -201,6 +209,7 @@ function TimeGridImpl({
         </View>
         {labels("right")}
       </View>
+      {bottomInset ? <Animated.View testID="calendar-grid-end-space" pointerEvents="none" style={endSpace} /> : null}
     </ScrollView>
   );
 }

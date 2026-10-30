@@ -237,7 +237,9 @@ def validate_completion_country(data):
 def normalised_email(raw):
     """A valid address, lowercased, or a 400 on `email`. Shared by sign-up and the coach-invite
     accept (clubs.coach-invitation rule 9)."""
-    email = _clean(raw).lower()
+    from padel_app.utils.emails import normalise_email
+
+    email = normalise_email(raw) or ""  # auth.password-recovery rule 12
     if not EMAIL_RE.match(email):
         raise RegistrationError("a valid email is required", 400, "email")
     return email

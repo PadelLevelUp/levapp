@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "@levelup/config";
 import { effectiveMark, presentCount, validationGroup, walkInEmptyReason, type PresenceMark } from "@levelup/config";
@@ -117,6 +117,8 @@ export function ValidateClassesSheet({
   weekOffset,
   onWeekChange,
   loading,
+  refreshing = false,
+  onRefresh,
   roster,
   onValidate,
   onUnvalidate,
@@ -130,6 +132,12 @@ export function ValidateClassesSheet({
   weekOffset: number;
   onWeekChange: (next: number) => void;
   loading?: boolean;
+  /**
+   * PAD-786 (client.pull-to-refresh rule 1): the pull on the sheet's list. Owned by the screen,
+   * which owns the queries. Before it, a pull here only bounced (B-704).
+   */
+  refreshing?: boolean;
+  onRefresh?: () => void;
   /** The coach's players, for the walk-in picker. Empty simply hides it. */
   roster: RosterOption[];
   onValidate: (classes: ValidatePayload[]) => Promise<void>;
@@ -437,9 +445,24 @@ export function ValidateClassesSheet({
               innerViewRef={listContent as React.RefObject<View>}
               style={{ maxHeight: height * 0.55 }}
               showsVerticalScrollIndicator
+              // A short week (one class, or none) still takes the pull.
+              alwaysBounceVertical
+              refreshControl={
+                onRefresh ? (
+                  <RefreshControl
+                    testID="presences-validate-refresh"
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                  />
+                ) : undefined
+              }
               // The walk-in picker's search field lives in here. Without this,
               // the first tap on a name only dismisses the keyboard.
               keyboardShouldPersistTaps="handled"
+              // B-704: the sheet never moves above the keyboard, so with the search focused the
+              // keyboard covered the matches, Cancel and Validate, and a drag did nothing. A drag
+              // now puts the keyboard away.
+              keyboardDismissMode="on-drag"
             >
               {loading ? (
                 <View className="gap-2">
@@ -1022,6 +1045,8 @@ function ClassDetail({
         showsVerticalScrollIndicator
         // As in the list: the last-minute picker's search field is inside.
         keyboardShouldPersistTaps="handled"
+        // B-704: as on the list, a drag puts the walk-in search's keyboard away.
+        keyboardDismissMode="on-drag"
       >
         <View className="gap-2">
           {sortPlayers(klass.players, edits, displayName).map((player) => {

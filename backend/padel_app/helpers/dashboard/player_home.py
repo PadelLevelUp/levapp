@@ -433,7 +433,7 @@ def build_player_schedule_block(
     """
     now = now or club_now_naive()
     window = _upcoming_events(player_id, now, events)
-    block = schedule_block(window)
+    block = schedule_block(window, now=now)
     if decorate:
         _decorate_with_confirmation(player_id, window, block["data"]["items"], now=now)
     return block

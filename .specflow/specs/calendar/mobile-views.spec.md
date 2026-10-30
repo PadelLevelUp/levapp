@@ -142,7 +142,13 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     never cuts a class:** a class outside that window widens it to the class's whole hours, and a
     class ending at midnight ends at 24:00 (PAD-553), both for the range and for its block's
     height; a week with no events shows 08:00–20:00. Rows are equal height and the grid scrolls vertically when taller than the
-    space above the sheet. Each event is an absolutely positioned block: top and height from
+    space above the sheet. **(PAD-790, B-710) The day's end is never under the sheet:** the sheet
+    floats over the grid, so the grid's scroll content ends with bottom padding as tall as the part
+    of the grid the sheet covers (the grid's height minus the sheet's top) and never shorter than
+    the floating buttons' clearance (rule 18), on both shells. The padding follows the sheet's
+    committed position, at rest, raised or lowered, so the last hour row can always be scrolled
+    above the sheet's top edge and its blocks tapped. Dragging the sheet stays the sheet's own
+    gesture. Each event is an absolutely positioned block: top and height from
     its start and end minutes (minimum height 18px), 6px radius, surface per rule 5 (an
     open spot's dashed outline included), title clamped to two lines. Overlapping events in one column share the width side by side
     (reuse `calendar-overlap.ts`). **(B-543, PAD-625) A busy day stays readable:** the shared
@@ -336,6 +342,15 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **When** `Semana` renders
 - **Then** hour labels run 05 to 24, the early class is whole, and the late class's block is
   90 minutes tall, ending at the grid's bottom
+
+#### The last hour clears the sheet (rule 13, PAD-790, B-710)
+- **Given** a coach whose week has a class Thursday 21:30–22:30, at 390×844 on web and on iOS
+- **When** `Semana` renders with the sheet at its resting height and they scroll the grid to its end
+- **Then** the 21:30 block ends above the sheet's top edge and tapping it opens class detail
+- **And** after dragging the sheet up to its highest position and scrolling to the end again, the
+  last hour row still ends above the sheet's top edge
+- **And** with the sheet dragged down to its lowest position, the grid's bottom padding is still at
+  least the floating buttons' clearance
 
 #### Bottom sheet resizes within bounds
 - **Given** `Semana` with the sheet at its default position

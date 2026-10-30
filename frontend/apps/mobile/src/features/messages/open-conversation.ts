@@ -12,6 +12,13 @@
  * routing queue, in order. A swipe cannot be redirected on a native stack, which is why the shape
  * of the stack, not a back handler, is the fix.
  *
+ * PAD-791 (B-713): `dismissTo` only works when the root stack holds something above `(tabs)` (a
+ * class, a thread). With `(tabs)` alone, from the Mensagens list itself or from a push tap or a
+ * dashboard link on another tab, the POP_TO lands on the tab navigator, which cannot handle it:
+ * React Navigation logs it as unhandled (a LogBox toast over the composer in Debug) and the tab stays
+ * where it was. Then there is nothing to pop, so the Mensagens tab is selected (`navigate`) instead.
+ * The tabs hold no stacks of their own, so `canDismiss()` asks exactly whether the root stack can pop.
+ *
  * Every navigation into a thread goes through here (the wiring test fails on a stray
  * `router.push("/conversation/…")`). `/conversation/new` is not a thread: it is opened from the list
  * and replaces itself with the thread it starts.
@@ -23,7 +30,9 @@ export type RouteTarget = string | { pathname: string; params?: Record<string, s
 
 /** The router calls this module needs; expo-router's `router` and `useRouter()` both have them. */
 export type ConversationRouter = {
+  canDismiss: () => boolean;
   dismissTo: (href: never) => void;
+  navigate: (href: never) => void;
   push: (href: never) => void;
 };
 
@@ -36,7 +45,8 @@ export function isConversationTarget(target: RouteTarget): boolean {
 }
 
 export function openConversation(router: ConversationRouter, target: RouteTarget): void {
-  router.dismissTo(MESSAGES_TAB as never);
+  if (router.canDismiss()) router.dismissTo(MESSAGES_TAB as never);
+  else router.navigate(MESSAGES_TAB as never);
   router.push(target as never);
 }
 
