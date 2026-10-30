@@ -476,7 +476,11 @@
       "cancel": "Cancelar",
       "inviteTitle": "Convidar alunos que não cumprem a fasquia?",
       "inviteBody": "O convite é decisão tua — isto só te diz o que a fasquia diz.",
-      "inviteConfirm": "Convidar mesmo assim"
+      "inviteConfirm": "Convidar mesmo assim",
+      "sideTitle": "Aceitar numa vaga do outro lado?",
+      "sideGoneLeft": "Já não há vaga do lado esquerdo nesta aula. Se aceitares, {{name}} entra numa vaga de direita e joga à esquerda. Confirmas?",
+      "sideGoneRight": "Já não há vaga do lado direito nesta aula. Se aceitares, {{name}} entra numa vaga de esquerda e joga à direita. Confirmas?",
+      "sideConfirm": "Aceitar mesmo assim"
     },
     "eligibility": {
       "title": "Elegibilidade",

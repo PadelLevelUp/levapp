@@ -32,6 +32,8 @@ const classJoinRequestsApi = vi.hoisted(() => ({
   rejectClassJoinRequest: vi.fn(),
   joinRequestRefusal: (err: unknown) =>
     (err as { response?: { data?: unknown } })?.response?.data ?? null,
+  sideGoneOf: (r: { reasons?: string[]; requestedSide?: string } | null) =>
+    r?.reasons?.includes("side") ? r.requestedSide : null,
 }));
 vi.mock("@/api/classJoinRequests", () => classJoinRequestsApi);
 

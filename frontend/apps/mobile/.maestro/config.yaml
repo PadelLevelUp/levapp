@@ -411,6 +411,11 @@ executionOrder:
     # 315 (PAD-790, calendar.mobile-views rule 13): taps a 21:30 class at the end of next week's grid;
     # it makes and removes its own class, so its position is not load bearing.
     - 315-week-grid-end-clears-sheet
+    # 316 (PAD-808, classes.join-requests rule 7a): goes semi-automatic, opens one left spot by an
+    # absence and accepts a right-side request from the chat; it restores the config and removes its
+    # class. It adds join-request messages to the coach/e2e-student chat, so it stays after the
+    # message flows.
+    - 316-join-accept-side-gone
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -15,7 +15,7 @@ import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@lev
 import { comeBackFromAnswer, lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
 import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
-import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest } from '@/api/classJoinRequests';
+import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest, sideGoneOf } from '@/api/classJoinRequests';
 import { joinClassWaitingList, leaveClassWaitingList, listClassWaitingList } from '@/api/academyClasses';
 import { EligibilityConfirmDialog } from '@/components/calendar/EligibilityConfirmDialog';
 
@@ -167,7 +167,11 @@ export function MessageBubble({
   const joinRequestState = joinRequestBubbleState(joinRequestMeta, liveJoinRequest, { own: isMine });
   // Rule 7: accepting is a manual add — the same named-reason confirmation the
   // class sheet and "Pedidos de Aula" ask (ClassRequestsSection).
-  const [pendingJoinIneligible, setPendingJoinIneligible] = useState<EligibilityCheckEntry[] | null>(null);
+  // PAD-808 (rule 7a): with the side asked for when no spot of it is open any more.
+  const [pendingJoinIneligible, setPendingJoinIneligible] = useState<{
+    ineligible: EligibilityCheckEntry[];
+    sideGone: "left" | "right" | null;
+  } | null>(null);
 
   // The request lists, the class sheet and, rule 19 (PAD-488), the calendar and dashboard.
   const invalidateJoinRequestQueries = () => refreshAfterRequestChange(queryClient);
@@ -186,7 +190,7 @@ export function MessageBubble({
     } catch (err) {
       const refusal = joinRequestRefusal(err);
       if (accept && refusal?.code === "ineligible") {
-        setPendingJoinIneligible(refusal.ineligible ?? []);
+        setPendingJoinIneligible({ ineligible: refusal.ineligible ?? [], sideGone: sideGoneOf(refusal) });
       } else {
         toast.error(
           refusal?.code === "spot_filled"
@@ -916,7 +920,8 @@ export function MessageBubble({
             the class sheet and "Pedidos de Aula" (ClassRequestsSection). */}
         <EligibilityConfirmDialog
           open={pendingJoinIneligible !== null}
-          ineligible={pendingJoinIneligible ?? []}
+          ineligible={pendingJoinIneligible?.ineligible ?? []}
+          sideGone={pendingJoinIneligible?.sideGone ? { side: pendingJoinIneligible.sideGone, name: participantName } : null}
           onCancel={() => setPendingJoinIneligible(null)}
           onConfirm={() => {
             setPendingJoinIneligible(null);
