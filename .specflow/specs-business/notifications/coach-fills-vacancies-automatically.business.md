@@ -120,6 +120,11 @@ the waiting list.
   row, name, or checkbox.
 - Whichever path fills the spot, every other outstanding invitation for it is closed out — a
   student never gets a "sorry, taken" reply after having already said yes.
+- Once a class has started, nobody is invited to it, automatically or by hand (PAD-798, owner's
+  decision 2026-10-30). The engine stops at the start time; a coach who opens the class sees "Esta
+  aula já começou; já não é possível convidar." where the invite button was, and a send that was
+  already on its way is refused with the same words, on web and iOS. Invitations already out close
+  as before.
 
 ## Success Metrics
 

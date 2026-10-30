@@ -395,6 +395,7 @@
       "invitationSent_other": "Invitation sent to {{count}} students",
       "invitationSent_zero": "Invitation sent to {{count}} students",
       "failedSendInvitations": "Failed to send invitations",
+      "classStarted": "This class has already started; invitations are closed.",
       "alreadyInvited": "Already holding an open invitation for this class: {{names}}",
       "blockedByPreference": "Could not notify: {{names}} (notifications blocked)",
       "searchStudents": "Search students"
