@@ -26,7 +26,8 @@ vi.mock("@/components/ui/dialog", async () => {
   };
 });
 vi.mock("@/features/players/hooks", () => ({
-  useCoachPlayers: () => ({ data: [{ playerId: 1, name: "Álvaro Sousa" }, { playerId: 2, name: "Ana Pinto" }] }),
+  // PAD-803 (rule 18a): a profile side, so the side cards open on it and Add is enabled.
+  useCoachPlayers: () => ({ data: [{ playerId: 1, name: "Álvaro Sousa", side: "right" }, { playerId: 2, name: "Ana Pinto", side: "right" }] }),
 }));
 const api = vi.hoisted(() => ({
   addToClassWaitingList: vi.fn(() => Promise.resolve({ action: "added", entryId: 1 })),

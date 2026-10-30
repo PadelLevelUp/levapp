@@ -1765,6 +1765,8 @@ export interface CoachClassWaitingListRow {
   scope: WaitingListScope;
   /** The standing entry's end date (club day, inclusive, `YYYY-MM-DD`); null for `occurrence`. */
   expiresOn: string | null;
+  /** PAD-803 (rule 18a): the side the row waits for; null for one stored before it (any spot). */
+  side?: PlayerSide | null;
 }
 
 export type WaitingListScope = 'occurrence' | 'series' | 'period' | 'standing';

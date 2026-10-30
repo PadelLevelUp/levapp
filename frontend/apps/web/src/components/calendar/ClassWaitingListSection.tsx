@@ -9,14 +9,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Pencil, Plus, Search, X } from "lucide-react";
 import { useCoachDisplayName } from "@levelup/hooks";
-import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry } from "@levelup/types";
+import type { CoachClassWaitingListRow, CoachPlayer, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import {
+  SIDE_CHOICE_ORDER,
   WAITING_LIST_MAX_PERIOD_CLASSES,
   WAITING_LIST_SCOPE_KEYS,
   clubTodayISO,
   describeIneligible,
   formatShortDate,
+  preselectedSide,
+  requestedSideChipKey,
   resolveText,
+  sideLabelKey,
   standingEndBounds,
   waitingListCandidates,
   waitingListDraftFor,
@@ -32,6 +36,7 @@ import {
   type WaitingListPeriodMode,
 } from "@levelup/config";
 import { addToClassWaitingList, changeClassWaitingListScope, checkEligibility, removeFromClassWaitingList } from "@/api/notificationEngine";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
@@ -102,7 +107,15 @@ export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, row
                   className="flex items-center justify-between gap-2 py-1"
                 >
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm">{displayName(row.playerId, row.playerName)}</span>
+                    <span className="text-sm flex items-center gap-1.5">
+                      {displayName(row.playerId, row.playerName)}
+                      {/* PAD-803 (rule 18a): the side the row waits for; none on a row stored before it. */}
+                      {requestedSideChipKey(row.side) ? (
+                        <Badge variant="secondary" data-testid={`class-waiting-list-side-${row.playerId}`} data-side={row.side ?? undefined}>
+                          {t(requestedSideChipKey(row.side) as string)}
+                        </Badge>
+                      ) : null}
+                    </span>
                     <span className="text-[11px] text-muted-foreground">
                       {t(waitingListOriginKey(row))} · {t(scope.key, scope.params)}
                     </span>
@@ -208,6 +221,14 @@ function ClassWaitingListDialog({
   const setExpiresOn = (next: string) => setPeriod((p) => ({ ...p, expiresOn: next }));
   const [ineligible, setIneligible] = useState<EligibilityCheckEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  // PAD-803 (rule 18a): the side the student waits for — the profile side pre-selected ("Habitual"),
+  // mandatory when there is none. Adding only: a change of scope keeps the row's side.
+  const [side, setSide] = useState<PlayerSide | null>(null);
+  const habitual = useMemo(
+    () => preselectedSide(candidates.find((c) => String(c.playerId) === playerId)?.side),
+    [candidates, playerId],
+  );
+  useEffect(() => setSide(habitual), [habitual, open]);
   // PAD-724 (PAD-669 R5, waiting-list rule 18): adding a student who fails the bar asks first — the
   // warning shows in the dialog and the button turns into "Adicionar mesmo assim" (no nested modal).
   const [warned, setWarned] = useState(false);
@@ -250,7 +271,7 @@ function ClassWaitingListDialog({
   useEffect(() => setWarned(false), [playerId, open]);
 
   const confirm = async () => {
-    if (!playerId || !periodValid) return;
+    if (!playerId || !periodValid || (!editing && !side)) return;
     if (chosenIneligible && !warned) {
       setWarned(true);
       return;
@@ -266,6 +287,7 @@ function ClassWaitingListDialog({
           originalId: event.originalId,
           date: event.date,
           playerId: Number(playerId),
+          side,
           ...req,
         });
         if (result.action === "already_on_list") toast({ title: t("calendar.detail.waitingListAlready") });
@@ -344,6 +366,34 @@ function ClassWaitingListDialog({
               </div>
             </>
           )}
+          {!editing && playerId ? (
+            // PAD-803 (rule 18a): the same cards as the standing list (AddToStandingWaitingListDialog).
+            <div className="space-y-1" data-testid="class-waiting-list-side">
+              <span className="text-sm font-medium">{t("calendar.sidePick.standing.label")}</span>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("calendar.sidePick.standing.label")}>
+                {SIDE_CHOICE_ORDER.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="radio"
+                    aria-checked={side === opt}
+                    data-testid={`class-waiting-list-side-${opt}`}
+                    onClick={() => setSide(opt)}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
+                      side === opt ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    {t(sideLabelKey(opt))}
+                    {habitual === opt ? (
+                      <Badge variant="secondary" data-testid={`class-waiting-list-side-usual-${opt}`}>
+                        {t("calendar.sidePick.usual")}
+                      </Badge>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-1">
             <span className="text-sm font-medium">{t("calendar.detail.waitingListScope")}</span>
             <div className="flex flex-wrap gap-2">
@@ -434,7 +484,7 @@ function ClassWaitingListDialog({
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
-          <Button onClick={confirm} disabled={saving || !playerId || !periodValid} data-testid="class-waiting-list-confirm">
+          <Button onClick={confirm} disabled={saving || !playerId || !periodValid || (!editing && !side)} data-testid="class-waiting-list-confirm">
             {saving && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
             {t(editing ? "common.save" : warned && chosenIneligible ? "calendar.eligibilityConfirm.confirm" : "calendar.detail.waitingListAdd")}
           </Button>

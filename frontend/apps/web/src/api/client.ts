@@ -45,6 +45,7 @@ export const WEB_CAPABILITIES = [
   "student-relations",
   "full-classes",
   "join-side",
+  "waiting-list-side",
 ] as const;
 
 initApi({
@@ -62,6 +63,8 @@ initApi({
   // (`studentRelation: "full"`) so the student can join its waiting list; without it none is sent.
   // PAD-672 (join-requests rule 20): `join-side` — declared with the side picker (ClassSideChoice):
   // a request without a side is answered 409 `side_full` only to a client that can show the choice.
+  // PAD-803 (waiting-list rule 18a): `waiting-list-side` — declared with the side cards in the class's
+  // waiting-list add: the server then requires a side for a student with no profile side.
   capabilities: WEB_CAPABILITIES,
 });
 

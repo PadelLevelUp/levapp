@@ -3,7 +3,7 @@ id: B-714
 title: "A student the coach put on a class's waiting list had no side, so a right player could be the first asked for a left spot"
 type: incomplete-rule
 severity: medium
-status: triaged
+status: resolved
 affects:
   - notifications.waiting-list
   - backend/padel_app/services/notification_service.py

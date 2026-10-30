@@ -7061,6 +7061,7 @@ def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict
             "standingEntryId": standing.id if standing else None,
             "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
             "scope": _waiting_list_row_scope(standing),
+            "side": e.side,  # PAD-803 (rule 18a)
             "expiresOn": standing_end_on(standing) if standing is not None else None,
         }))
     return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
@@ -7155,13 +7156,34 @@ def _repoint_class_row(instance: LessonInstance, player_id: int, entry: Standing
         return row
     row.standing_entry_id = entry.id
     row.coach_id = entry.coach_id
+    row.side = entry.side  # PAD-803 (rule 18a): the row waits for its entry's side (rule 4e)
     db.session.commit()
     return row
+
+
+def waiting_list_side_for(side, cp) -> str | None:
+    """PAD-803 (notifications.waiting-list rule 18a): the side a coach's add stores. A side named is
+    kept (anything but left/right/both is a 400). None named: the profile side — ASSUMED, pending the
+    owner (PAD-803's "Proposta"); this line is the one to change if they decide otherwise. A client
+    that declares `waiting-list-side` must name one for a student with no profile side."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.utils.client_capabilities import WAITING_LIST_SIDE, client_declares
+
+    if side is not None and side not in ("left", "right", "both"):
+        abort(make_response(jsonify({"error": "invalid_fields", "fields": ["side"]}), 400))
+    if side is not None:
+        return side
+    profile = cp.side if cp is not None and cp.side in ("left", "right", "both") else None
+    if profile is None and client_declares(WAITING_LIST_SIDE):
+        abort(make_response(jsonify({"error": "side_required"}), 400))
+    return profile
 
 
 def add_to_class_waiting_list(
     coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
     credits: int | None = None, expires_at: datetime | None = None, classes: int | None = None,
+    side: str | None = None,
 ) -> dict:
     """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
     class's waiting list — this occurrence, the whole series (PAD-560: no credit limit, to the
@@ -7176,10 +7198,12 @@ def add_to_class_waiting_list(
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.services.academy_class_service import _publish_waiting_list_changed
 
-    if Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first() is None:
+    cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first()
+    if cp is None:
         abort(404, "Not on your roster")
     if player_id in set(instance.enrolled_player_ids):
         abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
+    side = waiting_list_side_for(side, cp)  # PAD-803 (rule 18a)
 
     if scope in ("series", "period"):
         lesson = instance.lesson
@@ -7189,6 +7213,7 @@ def add_to_class_waiting_list(
         end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         entry = add_standing_waiting_list_entry(
             coach_id, player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=scope == "series",
+            side=side,
         )
         row = _repoint_class_row(instance, player_id, entry)
         if row is not None:
@@ -7208,6 +7233,7 @@ def add_to_class_waiting_list(
     row.standing_entry_id = None
     row.added_by = "coach"
     row.joined_at = utcnow_naive()
+    row.side = side
     try:
         db.session.commit()
     except IntegrityError:
@@ -7221,6 +7247,7 @@ def add_to_class_waiting_list(
 
 def change_class_waiting_list_scope(
     entry_id: int, coach_id: int, *, scope: str, classes: int | None = None, expires_at: datetime | None = None,
+    side: str | None = None,
 ) -> dict:
     """PAD-560 (notifications.waiting-list rule 22): the class's coach moves one active row between
     this class only, the whole series and a period. A coach-wide standing row answers 409
@@ -7240,6 +7267,11 @@ def change_class_waiting_list_scope(
         abort(make_response(jsonify({"code": "coach_wide", "message": "Managed in Settings"}), 409))
     instance = row.lesson_instance
     lesson = instance.lesson if instance is not None else None
+    # PAD-803 (rule 18a): a side named here is validated and applies; none keeps the row's.
+    if side is not None:
+        side = waiting_list_side_for(side, None)
+        row.side = side
+    side = row.side
 
     if scope == "occurrence":
         if standing is not None:
@@ -7251,10 +7283,14 @@ def change_class_waiting_list_scope(
         whole = scope == "series"
         end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         if standing is not None:
+            standing.side = side
+            for other in WaitingListEntry.query.filter_by(standing_entry_id=standing.id, is_active=True).all():
+                other.side = side  # rule 4e: the entry's rows wait for its side
             _retarget_standing_entry(standing, end, whole_series=whole, keep_row_id=row.id)
         else:
             entry = add_standing_waiting_list_entry(
                 coach_id, row.player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=whole,
+                side=side,
             )
             _repoint_class_row(instance, row.player_id, entry)
         _publish_waiting_list_changed(row)
