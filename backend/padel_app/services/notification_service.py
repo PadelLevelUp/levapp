@@ -650,6 +650,8 @@ def passes_eligibility(
     instance,
     coach_id: int,
     rules,
+    *,
+    facts: "_RosterFacts | None" = None,
 ) -> bool:
     """Does ``cp`` clear the eligibility bar for this class? — PAD-128.
 
@@ -661,7 +663,7 @@ def passes_eligibility(
     """
     if not rules:
         return True
-    return _passes_group_rules(rules, cp, None, coach_id, instance)
+    return _passes_group_rules(rules, cp, None, coach_id, instance, facts=facts)
 
 
 def eligibility_failures(
@@ -669,6 +671,8 @@ def eligibility_failures(
     instance,
     coach_id: int,
     rules,
+    *,
+    facts: "_RosterFacts | None" = None,
 ) -> list:
     """EVERY eligibility rule ``cp`` fails, structured — PAD-133.
 
@@ -691,7 +695,7 @@ def eligibility_failures(
     if not rules:
         return []
     return _group_rule_failures(
-        rules, cp, None, coach_id, instance, short_circuit=False
+        rules, cp, None, coach_id, instance, short_circuit=False, facts=facts
     )
 
 
@@ -938,7 +942,7 @@ def _attendance_stats_for(player_ids, coach_id: int) -> dict[int, tuple[float, f
     }
 
 
-def makeups_owed_for(player_ids, coach_id: int) -> dict[int, int]:
+def makeups_owed_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[int, int]:
     """``{player_id: classes owed}`` for this coach, in two queries (PAD-505,
     attendance.stats rule 3): justified absences minus make-ups taken, never below 0.
 
@@ -954,7 +958,8 @@ def makeups_owed_for(player_ids, coach_id: int) -> dict[int, int]:
     balance: dict[int, int] = {pid: 0 for pid in ids}
     if not ids:
         return balance
-    instance_ids = _coach_instances(coach_id)
+    if instance_ids is None:
+        instance_ids = _coach_instances(coach_id)
     if instance_ids:
         for pid, n in (
             db.session.query(Presence.player_id, func.count(Presence.id))
@@ -1012,23 +1017,80 @@ def _build_sort_key(criteria: list[dict], player_stats: dict, vacancy: Vacancy =
     return key
 
 
-def _unjustified_absence_count(player_id: int, coach_id: int) -> int:
-    """Count unjustified absences for a player across all of this coach's class instances."""
+def _unjustified_absence_counts_for(player_ids, coach_id: int, *, instance_ids=None) -> dict[int, int]:
+    """``{player_id: unjustified absences}`` across all of this coach's class instances, in one
+    query (PAD-788, invitations rule 12)."""
+    from sqlalchemy import func
+
     from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
 
-    coach_instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
-    if not coach_instance_ids:
-        return 0
-    return Presence.query.filter(
-        Presence.player_id == player_id,
-        Presence.lesson_instance_id.in_(coach_instance_ids),
-        # PAD-381 (B-152): an absence is a row whose STATUS says so. Rows corrected
-        # from "absent" to "present" kept their justification until PAD-381, and
-        # counting by justification alone shut students out for absences the coach
-        # had corrected.
-        Presence.status == "absent",
-        Presence.justification == "unjustified",
-    ).count()
+    ids = [int(pid) for pid in player_ids]
+    counts: dict[int, int] = {pid: 0 for pid in ids}
+    if not ids:
+        return counts
+    if instance_ids is None:
+        instance_ids = _coach_instances(coach_id)  # PAD-275 rule 4
+    if not instance_ids:
+        return counts
+    for pid, n in (
+        db.session.query(Presence.player_id, func.count(Presence.id))
+        .filter(
+            Presence.player_id.in_(ids),
+            Presence.lesson_instance_id.in_(instance_ids),
+            # PAD-381 (B-152): an absence is a row whose STATUS says so. Rows corrected
+            # from "absent" to "present" kept their justification until PAD-381, and
+            # counting by justification alone shut students out for absences the coach
+            # had corrected.
+            Presence.status == "absent",
+            Presence.justification == "unjustified",
+        )
+        .group_by(Presence.player_id)
+    ):
+        counts[int(pid)] = n
+    return counts
+
+
+def _unjustified_absence_count(player_id: int, coach_id: int) -> int:
+    """Count unjustified absences for a player across all of this coach's class instances."""
+    return _unjustified_absence_counts_for([player_id], coach_id)[int(player_id)]
+
+
+class _RosterFacts:
+    """PAD-788 (B-712, invitations rule 12): the per-student facts the group rules and the
+    eligibility bar read, fetched once for the whole roster of one evaluation instead of once per
+    student. Each fact is read the first time a rule asks for it, so a rule set that never reads
+    it costs nothing. Scoped to one ``evaluate_candidates`` call, which writes nothing, so nothing
+    it holds can go stale."""
+
+    def __init__(self, coach_id: int, player_ids):
+        self.coach_id = coach_id
+        self.player_ids = [int(pid) for pid in player_ids]
+        self._instance_ids = None
+        self._ladder = None
+        self._unjustified = None
+        self._makeups = None
+
+    def instance_ids(self):
+        if self._instance_ids is None:
+            from padel_app.services.lesson_service import coach_instance_ids as _coach_instances
+            self._instance_ids = _coach_instances(self.coach_id)
+        return self._instance_ids
+
+    def ladder(self):
+        if self._ladder is None:
+            self._ladder = get_level_ladder(self.coach_id)
+        return self._ladder
+
+    def unjustified_absences(self, player_id) -> int:
+        if self._unjustified is None:
+            self._unjustified = _unjustified_absence_counts_for(
+                self.player_ids, self.coach_id, instance_ids=self.instance_ids())
+        return self._unjustified.get(int(player_id), 0)
+
+    def makeups_owed(self, player_id) -> int:
+        if self._makeups is None:
+            self._makeups = makeups_owed_for(self.player_ids, self.coach_id, instance_ids=self.instance_ids())
+        return self._makeups.get(int(player_id), 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1041,7 +1103,7 @@ def _has_makeups(player_id: int, coach_id: int) -> bool:
     return makeups_owed(player_id, coach_id) > 0
 
 
-def _level_ids_one_above(vacancy_level, coach_id: int) -> set:
+def _level_ids_one_above(vacancy_level, coach_id: int, *, ladder=None) -> set:
     """Level IDs sitting exactly one step ABOVE (stronger than) ``vacancy_level``.
 
     PAD-70: adjacency is a question about the coach's ladder POSITION, not about
@@ -1054,20 +1116,22 @@ def _level_ids_one_above(vacancy_level, coach_id: int) -> set:
     Returns an empty set when the vacancy sits at the top of the ladder, or when
     its level does not belong to this coach.
     """
-    ladder = get_level_ladder(coach_id)
+    if ladder is None:
+        ladder = get_level_ladder(coach_id)
     index = ladder_index(ladder, getattr(vacancy_level, "id", None))
     if index is None or index == 0:
         return set()
     return {ladder[index - 1].id}
 
 
-def _level_ids_one_below(vacancy_level, coach_id: int) -> set:
+def _level_ids_one_below(vacancy_level, coach_id: int, *, ladder=None) -> set:
     """Level IDs sitting exactly one step BELOW (weaker than) ``vacancy_level``.
 
     Positional, for the same reasons as :func:`_level_ids_one_above`. Empty when
     the vacancy sits at the bottom of the ladder.
     """
-    ladder = get_level_ladder(coach_id)
+    if ladder is None:
+        ladder = get_level_ladder(coach_id)
     index = ladder_index(ladder, getattr(vacancy_level, "id", None))
     if index is None or index >= len(ladder) - 1:
         return set()
@@ -1111,6 +1175,7 @@ def _group_rule_failures(
     instance: LessonInstance | None = None,
     *,
     short_circuit: bool = True,
+    facts: "_RosterFacts | None" = None,
 ) -> list:
     """Every rule in ``rules`` that ``cp`` fails, as structured records.
 
@@ -1164,6 +1229,10 @@ def _group_rule_failures(
     # effective level, so this one call serves both anchors.
     vacancy_level_id, vacancy_level = _vacancy_level(vacancy, instance)
 
+    # PAD-788 (rule 12): with a roster's facts the ladder and the counts come from one read each.
+    def _ladder():
+        return facts.ladder() if facts is not None else get_level_ladder(coach_id)
+
     for rule in rules:
         attr = rule.get("attribute")
         op = rule.get("operation")
@@ -1192,17 +1261,17 @@ def _group_rule_failures(
                     if fail(attr, op, actual=student_code, threshold=class_code):
                         return failures
             elif op == "one_above_vacancy":
-                if cp.level_id not in _level_ids_one_above(vacancy_level, coach_id):
+                if cp.level_id not in _level_ids_one_above(vacancy_level, coach_id, ladder=_ladder()):
                     if fail(attr, op, actual=student_code, threshold=class_code):
                         return failures
             elif op == "one_below_vacancy":
-                if cp.level_id not in _level_ids_one_below(vacancy_level, coach_id):
+                if cp.level_id not in _level_ids_one_below(vacancy_level, coach_id, ladder=_ladder()):
                     if fail(attr, op, actual=student_code, threshold=class_code):
                         return failures
             elif op in ("all_above_vacancy", "all_below_vacancy"):
                 # PAD-70: compare ladder POSITIONS (0 = strongest), never the raw
                 # display_order values — see level_ladder.py.
-                ladder = get_level_ladder(coach_id)
+                ladder = _ladder()
                 vd = ladder_index(ladder, vacancy_level_id)
                 cd = ladder_index(ladder, cp.level_id)
                 if vd is None or cd is None:
@@ -1225,7 +1294,7 @@ def _group_rule_failures(
             # positions as above; "above" means STRONGER, i.e. a LOWER index.
             elif op == "same_as_class":
                 if cp.level_id != vacancy_level_id:
-                    ladder = get_level_ladder(coach_id)
+                    ladder = _ladder()
                     vd = ladder_index(ladder, vacancy_level_id)
                     cd = ladder_index(ladder, cp.level_id)
                     if fail(
@@ -1241,7 +1310,7 @@ def _group_rule_failures(
                 "within_n_above_class",
                 "within_n_below_class",
             ):
-                ladder = get_level_ladder(coach_id)
+                ladder = _ladder()
                 vd = ladder_index(ladder, vacancy_level_id)
                 cd = ladder_index(ladder, cp.level_id)
                 if vd is None or cd is None:
@@ -1322,12 +1391,15 @@ def _group_rule_failures(
                     return failures
 
         elif attr == "has_makeups":
-            if op == "is_true" and not _has_makeups(cp.player_id, coach_id):
+            has = (facts.makeups_owed(cp.player_id) > 0 if facts is not None
+                   else _has_makeups(cp.player_id, coach_id))
+            if op == "is_true" and not has:
                 if fail(attr, op, actual=False, threshold=True):
                     return failures
 
         elif attr == "unjustified_absences":
-            count = _unjustified_absence_count(cp.player_id, coach_id)
+            count = (facts.unjustified_absences(cp.player_id) if facts is not None
+                     else _unjustified_absence_count(cp.player_id, coach_id))
             if not _compare(count, op, val):
                 # `actual` is the student's real count, not a bool — rule 7's
                 # "over the unjustified-absence limit (4, limit is 2)" cannot be
@@ -1364,6 +1436,8 @@ def _passes_group_rules(
     vacancy: Vacancy | None,
     coach_id: int,
     instance: LessonInstance | None = None,
+    *,
+    facts: "_RosterFacts | None" = None,
 ) -> bool:
     """Apply all rules in a rule set with AND logic.
 
@@ -1372,7 +1446,7 @@ def _passes_group_rules(
     PAD-133.
     """
     return not _group_rule_failures(
-        rules, cp, vacancy, coach_id, instance, short_circuit=True
+        rules, cp, vacancy, coach_id, instance, short_circuit=True, facts=facts
     )
 
 
@@ -1668,6 +1742,9 @@ def evaluate_candidates(
         if no_same_day_class else set()
     )
 
+    # PAD-788 (B-712, rule 12): the facts the bar and the group rules read, once for the roster.
+    facts = _RosterFacts(coach_id, [cp.player_id for cp in roster])
+
     verdicts: list[CandidateVerdict] = []
     for cp in roster:
         pid = cp.player_id
@@ -1684,11 +1761,11 @@ def evaluate_candidates(
             verdicts.append(CandidateVerdict(cp, "already_invited"))
             continue
         if explain:
-            failures = eligibility_failures(cp, instance, coach_id, eligibility_rules)
+            failures = eligibility_failures(cp, instance, coach_id, eligibility_rules, facts=facts)
             if failures:
                 verdicts.append(CandidateVerdict(cp, "eligibility", {"failures": failures}))
                 continue
-        elif not passes_eligibility(cp, instance, coach_id, eligibility_rules):
+        elif not passes_eligibility(cp, instance, coach_id, eligibility_rules, facts=facts):
             verdicts.append(CandidateVerdict(cp, "eligibility"))
             continue
         if str(pid) in excluded_player_ids:
@@ -1722,7 +1799,7 @@ def evaluate_candidates(
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": []}))
             continue
         failures = _group_rule_failures(
-            group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain
+            group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain, facts=facts
         )
         if failures:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
