@@ -87,7 +87,11 @@
       "triggerWeekShown_other": "{{count}} in the week shown",
       "triggerWeekShown_zero": "{{count}} in the week shown",
       "triggerWeekShownEmpty": "Nothing in the week shown",
-      "noPlayerMatches": "No player matches the search."
+      "noPlayerMatches": "No player matches the search.",
+      "alreadyInClass": "{{name}} is already in this class.",
+      "showInClass": "Show",
+      "notOnRoster": "Not on your players list.",
+      "openPlayers": "Open Players"
     },
     "column": {
       "name": "Player",

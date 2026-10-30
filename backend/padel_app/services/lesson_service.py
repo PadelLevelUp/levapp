@@ -1462,11 +1462,15 @@ def _apply_future_edit_to_lesson(*, lesson, event_date, new_date, payload):
     return lesson_to_edit, from_date
 
 
-def _edit_future_instances_for_lesson(*, lesson, from_date, payload):
+def _edit_future_instances_for_lesson(*, lesson, from_date, payload, notifications_enabled=None):
     """A "this and future" edit reaching the occurrences already materialised from the boundary
     (classes.edit rule 9; PAD-515). Occurrences that have ended or were canceled are left as they
     were: an ended one is a record (its attendance is the coach's), a canceled one has nobody to
-    seat. The rest are edited as part of the series (``series=True``)."""
+    seat. The rest are edited as part of the series (``series=True``).
+
+    PAD-793 (B-709, toggle-class rule 3c): ``notifications_enabled`` (None = not sent) is set on
+    each of them too. The occurrence's flag never inherits from the series, so a series-only write
+    left the occurrence on screen with its old value."""
     from padel_app.utils.dates import club_now_naive
 
     from_dt = datetime.combine(from_date, time.min)
@@ -1484,6 +1488,9 @@ def _edit_future_instances_for_lesson(*, lesson, from_date, payload):
         inst_payload = dict(payload)
         inst_payload["date"] = inst.start_datetime.date().strftime("%Y-%m-%d")
         edit_lesson_instance_helper(inst_payload, inst, series=True)
+        if notifications_enabled is not None:
+            inst.notifications_enabled = notifications_enabled
+            inst.save()
 
 
 def _clear_court_overrides(lesson, from_date):
@@ -1783,6 +1790,7 @@ def _edit_class_service(data):
                 lesson=lesson_to_edit,
                 from_date=from_date,
                 payload=payload,
+                notifications_enabled=notifications_enabled,
             )
             if notifications_enabled is not None:
                 lesson_to_edit.notifications_enabled = notifications_enabled
@@ -1903,6 +1911,7 @@ def _edit_class_service(data):
             lesson=lesson_to_edit,
             from_date=from_date,
             payload=payload,
+            notifications_enabled=notifications_enabled,
         )
         if "court" in payload:
             # clubs.courts rule 9 (PAD-513): the series' new court reaches every

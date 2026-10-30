@@ -288,14 +288,13 @@ def logout():
     # an unregister DELETE sent separately can lose the race with the revocation
     # below and leave the phone on this account's pushes. Optional: App Store
     # 1.0/1.1.0 send no body and see no change. Only the caller's row is touched
-    # (messaging.push-notifications rule 9).
+    # (messaging.push-notifications rule 9). A token that is not an Expo token (iOS builds 34 and
+    # 35 send the raw device token, B-706) removes every Expo row the caller holds (rule 9b).
     push_token = (request.get_json(silent=True) or {}).get("pushToken")
     if isinstance(push_token, str) and push_token:
-        from padel_app.models import DeviceToken
+        from padel_app.utils.push_token_shape import revoke_device_token
 
-        DeviceToken.query.filter_by(user_id=int(get_jwt_identity()), token=push_token).delete(
-            synchronize_session=False
-        )
+        revoke_device_token(int(get_jwt_identity()), push_token)
     db.session.add(TokenBlocklist(jti=jti))
     # auth.logout rule 3 (PAD-269): rows older than the token lifetime (plus a
     # day) belong to expired tokens and only slow the per-request lookup.

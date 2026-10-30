@@ -35,6 +35,9 @@ vi.mock("expo-notifications", () => ({
 
 import { ExpoPushRegistrar, PUSH_TOKEN_ENDPOINT, RETRY_DELAYS_MS, errorClassOf } from "./expoPushRegistrar";
 import { startPushRecovery } from "./recovery";
+
+/** iOS build 34 posted this shape: the raw 64-hex APNs device token (B-706). */
+const RAW_DEVICE_TOKEN = "a3f1".repeat(16);
 import { __emitAppState } from "@/test/mocks/react-native";
 
 const posted = () => post.mock.calls.filter(([path]) => path === PUSH_TOKEN_ENDPOINT).map(([, body]) => (body as { token: string }).token);
@@ -128,18 +131,32 @@ describe("ExpoPushRegistrar (rule 15)", () => {
     expect(registrar.status()).toBe("unsupported");
   });
 
-  it("a rotated token is cached and posted, and logout revokes the new one", async () => {
+  it("a rotation fetches the Expo token again, caches and posts it, and logout revokes it (PAD-741)", async () => {
     const registrar = new ExpoPushRegistrar();
     await registrar.register();
     const stop = registrar.watchTokenRotation();
-    notifications.tokenListener?.({ data: "ExponentPushToken[new]" });
+    // The listener's event carries the raw native device token (B-706), never an Expo token.
+    notifications.token = "ExponentPushToken[new]";
+    notifications.tokenListener?.({ type: "ios", data: RAW_DEVICE_TOKEN } as never);
     await vi.advanceTimersByTimeAsync(0);
     expect(posted()).toEqual(["ExponentPushToken[abc]", "ExponentPushToken[new]"]);
+    expect(posted()).not.toContain(RAW_DEVICE_TOKEN);
     expect(registrar.cachedToken()).toBe("ExponentPushToken[new]");
     await registrar.unregister();
     expect(del).toHaveBeenCalledWith(PUSH_TOKEN_ENDPOINT, { data: { token: "ExponentPushToken[new]" } });
     stop();
     expect(notifications.tokenListener).toBeNull();
+  });
+
+  it("a rotation whose Expo token did not change posts nothing and keeps the cached token (PAD-741)", async () => {
+    const registrar = new ExpoPushRegistrar();
+    await registrar.register();
+    const stop = registrar.watchTokenRotation();
+    notifications.tokenListener?.({ type: "ios", data: RAW_DEVICE_TOKEN } as never);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(posted()).toEqual(["ExponentPushToken[abc]"]);
+    expect(registrar.cachedToken()).toBe("ExponentPushToken[abc]");
+    stop();
   });
 
   it("tells its listeners when the status changes", async () => {

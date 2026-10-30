@@ -342,6 +342,11 @@ export function PresencesScreen() {
         loading={queue.isLoading}
         roster={roster}
         busy={validate.isPending || unvalidate.isPending}
+        // PAD-787 (attendance.validation rule 8b): a typed name not on the roster offers the list.
+        onOpenPlayers={() => {
+          setSheetOpen(false);
+          router.push("/(tabs)/players");
+        }}
         onValidate={async (classes) => {
           // Web (PresencesPage) toasts on both outcomes. Without this a
           // rejected write escaped onPress as an unhandled rejection and the

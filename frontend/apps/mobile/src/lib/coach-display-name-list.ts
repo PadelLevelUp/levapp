@@ -22,7 +22,7 @@ export const COACH_NAME_LIST: readonly CoachNameListEntry[] = [
   { file: "src/features/class-requests/wizard/CoachStep.tsx", max: 1, kind: "allowed", reason: "a coach's name in the student's class-request wizard" },
   { file: "src/features/notifications/replacement-approval-card.tsx", max: 1, kind: "allowed", reason: "the fallback argument of the displayName( call on the line above" },
   { file: "src/features/presences/hooks.ts", max: 1, kind: "allowed", reason: "walk-in roster source keeps the real name as the fallback; the picker resolves it through displayName(" },
-  { file: "src/features/presences/validate-state.ts", max: 1, kind: "allowed", reason: "makeWalkIn keeps the real name (`name` stays real, rule 2); every render resolves it through displayName(" },
+  { file: "src/features/presences/validate-state.ts", max: 2, kind: "allowed", reason: "makeWalkIn keeps the real name (`name` stays real, rule 2), and inClassOptions (PAD-787) keeps it as the search key beside the nickname; every render resolves it through displayName(" },
   { file: "src/features/settings/restrictions-section.tsx", max: 1, kind: "allowed", reason: "stores the real name as the fallback the chips resolve through displayName(" },
   { file: "src/features/training/exercises-tab.tsx", max: 2, kind: "allowed", reason: "an exercise name, not a student" },
 ] as const;

@@ -143,6 +143,9 @@ export default function NewClassScreen() {
     },
   });
   const [isRecurring, setIsRecurring] = React.useState(false);
+  // classes.create rule 6b (PAD-793, B-709; owner, 2026-10-29): off unless the coach turns it on,
+  // and the switch is always shown so the coach chooses, as on web.
+  const [notificationsEnabled, setNotificationsEnabled] = React.useState(false);
   const [selectedDays, setSelectedDays] = React.useState<number[]>([]);
   const [endDate, setEndDate] = React.useState("");
   // PAD-170 C7: "recurs until season end" replaces the manual end date with the
@@ -294,6 +297,7 @@ export default function NewClassScreen() {
     setSelectedPlayers(clone.playerIds);
     setIsRecurring(clone.isRecurring);
     setSelectedDays(clone.recurrenceRule?.daysOfWeek ?? []);
+    setNotificationsEnabled(clone.notificationsEnabled);
     setEndMode(clone.recursUntilSeasonEnd ? "season" : "date");
     setEndDate(clone.endDate ?? "");
   }, [clone]);
@@ -347,7 +351,7 @@ export default function NewClassScreen() {
         levelId: levelOption?.value || null,
         courtId: courtOption?.value ? Number(courtOption.value) : null,
         playerIds: selectedPlayers,
-        notificationsEnabled: clone ? clone.notificationsEnabled : false,
+        notificationsEnabled,
         // classes.clone rule 4 (PAD-524): the original series' own engine overrides travel with it.
         ...(clone
           ? { eligibilityRules: clone.eligibilityRules, openSpotsVisible: clone.openSpotsVisible, autoInvites: clone.autoInvites }
@@ -708,6 +712,32 @@ export default function NewClassScreen() {
                 ) : null}
               </>
             ) : null}
+          </View>
+
+          <View className="rounded-lg border border-border bg-card p-3">
+            <View className="flex-row items-center justify-between gap-2">
+              <View className="flex-1 flex-row items-center gap-2">
+                <Ionicons
+                  name="notifications-outline"
+                  size={16}
+                  color={lightTheme.mutedForeground}
+                />
+                <View className="flex-1">
+                  <Text className="text-sm font-medium">
+                    {t("calendar.addClass.autoNotifications")}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {t("calendar.addClass.autoNotificationsDescription")}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                testID="class-new-auto-notify-switch"
+                accessibilityLabel={t("calendar.addClass.autoNotifications")}
+                checked={notificationsEnabled}
+                onCheckedChange={setNotificationsEnabled}
+              />
+            </View>
           </View>
 
           {/* classes.create rule 10 (PAD-474): the class's students, as on web. */}
