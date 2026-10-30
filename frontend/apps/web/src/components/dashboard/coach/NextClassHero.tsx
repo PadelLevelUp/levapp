@@ -20,6 +20,8 @@ import { useAnswerReminder } from "./useAnswerReminder";
 import { useDeclineFromDashboard } from "./useDeclineFromDashboard";
 import { studentRowAction, weekdayLong } from "@levelup/config";
 
+type HeroData = DashboardNextClassBlock["data"];
+
 export function NextClassHero({
   block,
   onAnswered,
@@ -31,9 +33,34 @@ export function NextClassHero({
   /** PAD-570: only a student's hero carries attendance actions; the coach's never does. */
   student?: boolean;
 }) {
+  const hero = <HeroCard d={block.data} onAnswered={onAnswered} student={student} testId="dashboard-next-class" />;
+  const alsoRunning = block.data.alsoRunning ?? [];
+  if (alsoRunning.length === 0) return hero;
+
+  // PAD-797 (dashboard.blocks rule 12c): two or more classes running at once, one card each.
+  return (
+    <div className="flex flex-col gap-3">
+      {hero}
+      {alsoRunning.map((d) => (
+        <HeroCard key={d.classId} d={d} onAnswered={onAnswered} student={student} testId="dashboard-next-class-running" />
+      ))}
+    </div>
+  );
+}
+
+function HeroCard({
+  d,
+  onAnswered,
+  student,
+  testId,
+}: {
+  d: HeroData;
+  onAnswered?: () => void | Promise<void>;
+  student: boolean;
+  testId: string;
+}) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const d = block.data;
   const { answer, busyId } = useAnswerReminder(onAnswered);
   const { decline, busyKey } = useDeclineFromDashboard(onAnswered);
   // PAD-570 (dashboard.blocks rule 3a): the server's flag and state word decide —
@@ -53,7 +80,7 @@ export function NextClassHero({
     // `sidebar-accent` is the lighter navy and `sidebar` the deeper one — the
     // two stops of the brand gradient, both of which stay navy in dark mode.
     <section
-      data-testid="dashboard-next-class"
+      data-testid={testId}
       className="rounded-2xl bg-sidebar bg-gradient-to-br from-sidebar-accent to-sidebar p-5 text-sidebar-foreground"
     >
       <div className="flex items-center justify-between gap-3">

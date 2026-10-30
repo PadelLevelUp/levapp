@@ -62,7 +62,9 @@ Every coach and every student, as the first screen they see on opening the app.
   coach's own time zone, its "class still has room" card leaves "Needs you" and stops counting
   there. While it runs, the coach's next-class card says it is in progress ("A decorrer ·
   19:30–21:00") instead of "up next", and its row in the next 7 days shows no free-seats warning
-  and no invite button. When it ends, the card moves on to the next class.
+  and no invite button. When it ends, the card moves on to the next class. When two or more
+  classes run at the same time (two courts), the coach sees one "in progress" card for each, with
+  its own times and its own way into the class.
 - A coach can push a "class still has room" card back with "Later": it leaves their queue for a
   day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless
