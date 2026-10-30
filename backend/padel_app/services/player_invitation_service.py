@@ -18,6 +18,36 @@ from padel_app.tools.username_tools import unique_placeholder_username
 PLAYER_INVITATION_VALID_DAYS = 7
 
 
+def reissue_player_invitation(user, now=None):
+    """auth.password-recovery rule 5b (PAD-782): a fresh pending invitation for a coach-created
+    student who never finished the invite, issued by the coach of their latest invitation, else
+    the coach whose roster holds them. Returns the link token (only its hash is stored), or None
+    when the account is not an unfinished invite or no coach can invite them. Flushes; the
+    caller commits. Earlier invitations are left as they are."""
+    player = user.player
+    if user.status != "inactive" or user.password or player is None:
+        return None
+    latest = (PlayerInvitation.query.filter_by(player_id=player.id)
+              .order_by(PlayerInvitation.id.desc()).first())
+    coach_id = latest.invited_by_coach_id if latest is not None else None
+    if coach_id is None:
+        link = (Association_CoachPlayer.query.filter_by(player_id=player.id)
+                .order_by(Association_CoachPlayer.id).first())
+        coach_id = link.coach_id if link is not None else None
+    if coach_id is None:
+        return None
+    token = secrets.token_urlsafe(32)
+    db.session.add(PlayerInvitation(
+        player_id=player.id,
+        token=token,
+        invited_by_coach_id=coach_id,
+        status="pending",
+        expires_at=(now or datetime.utcnow()) + timedelta(days=PLAYER_INVITATION_VALID_DAYS),
+    ))
+    db.session.flush()
+    return token
+
+
 def create_incomplete_player_service(data, now=None):
     if not data.get("coachId"):
         abort(400, "coachId is required")

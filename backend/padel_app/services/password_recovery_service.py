@@ -111,6 +111,41 @@ def _deliver(user, code):
                label=f"recovery mail to user {user_id}", on_failure=clear)
 
 
+def _help_without_password(email, now):
+    """Rule 5b (PAD-782): an account with the address but no password (Google/Apple sign-in, or a
+    coach-created student who never finished the invite) gets one mail saying what to do instead:
+    which provider to sign in with, or a fresh invite link. Same per-email cooldown as a code
+    (rule 4, on `password_reset_sent_at`); a disabled account and any other passwordless account
+    get nothing. Never issues a recovery code."""
+    from padel_app.models import UserIdentity
+    from padel_app.services.player_invitation_service import reissue_player_invitation
+    from padel_app.tools.email_templates import (
+        render_finish_invitation_help_email,
+        render_social_sign_in_help_email,
+    )
+    from padel_app.tools.mail_dispatch import send_later
+
+    account = User.query.filter(db.func.lower(User.email) == email).first()
+    if account is None or account.password or account.status == "disabled":
+        return
+    sent_at = account.password_reset_sent_at
+    if sent_at is not None and now - sent_at < RESEND_COOLDOWN:
+        return
+    providers = sorted({i.provider for i in UserIdentity.query.filter_by(user_id=account.id)})
+    if providers:
+        subject, text, html = render_social_sign_in_help_email(account, providers)
+    else:
+        token = reissue_player_invitation(account, now=now)
+        if token is None:
+            return
+        subject, text, html = render_finish_invitation_help_email(account, token)
+    account.password_reset_sent_at = now
+    db.session.commit()
+    # B-254: the label names the user id, never the address.
+    send_later(subject, [account.email], body=text, html=html,
+               label=f"recovery help mail to user {account.id}")
+
+
 def request_recovery(email, now=None):
     """Rules 2-5. Commits. Always returns `standard_body()` unless the email
     is not even an email (400 INVALID_EMAIL)."""
@@ -121,6 +156,7 @@ def request_recovery(email, now=None):
 
     user = _find(email)
     if user is None:
+        _help_without_password(email, now)  # rule 5b: same answer, the help goes in the mail only
         return standard_body()
 
     sent_at = user.password_reset_sent_at
