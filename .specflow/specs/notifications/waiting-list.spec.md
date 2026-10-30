@@ -292,7 +292,10 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
     - **A client that does not declare it** (every build before the one that ships this dialog) sends no side and
       gets the profile side, or no side when the profile has none, as before. **ASSUMED, pending
       the owner (PAD-803's "Proposta"):** the profile side, not "no side". If the owner decides
-      otherwise, only `waiting_list_side_for` changes. The token retires with the other
+      otherwise, only `waiting_list_side_for` changes. **Why the 400 is gated on the capability
+      (coordinator, 2026-10-30):** a build already in the store cannot send a side, so refusing it
+      for a student with no profile side would break the add on every older phone; the refusal
+      applies only to a client that declares the picker. The token retires with the other
       capability tokens.
     - **Rows already stored with no side stay as they are:** no migration. Such a row is asked for
       any spot (rule 4e) until it ends.
