@@ -7,6 +7,7 @@ from padel_app.sql_db import db
 from padel_app.model import NotNullableFieldError
 from padel_app.tools.request_adapter import JsonRequestAdapter
 from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.emails import normalise_email
 
 
 #: PAD-93 — privilege flags that must never be settable from an app-facing
@@ -289,7 +290,7 @@ def update_own_profile_service(user_id, data):
         user.abbreviation = abbreviation[:ABBREVIATION_MAX_LENGTH] or None
 
     if "email" in data:
-        email = (data.get("email") or "").strip().lower()
+        email = normalise_email(data.get("email")) or ""  # auth.password-recovery rule 12
         if not email:
             # B-262 (settings.profile rule 9): with no email there is nothing verified any more.
             from padel_app.services.email_verification_service import forget_verification

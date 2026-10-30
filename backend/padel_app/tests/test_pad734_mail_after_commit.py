@@ -188,7 +188,9 @@ def test_a_timed_out_recovery_mail_still_answers_200_and_clears_the_code(client,
     assert res.status_code == 200 and res.get_json()["ok"] is True
     with app.app_context():
         user = _user()
-        assert user.password_reset_code_hash is None and user.password_reset_sent_at is None
+        assert user.password_reset_code_hash is None and user.password_reset_expires_at is None
+        # Rule 3a (PAD-781): the attempt's time stays, so the failure is still readable.
+        assert user.password_reset_sent_at is not None
         assert [i.user_id for i in _incidents()] == [ana]
 
 
