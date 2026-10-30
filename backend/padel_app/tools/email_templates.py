@@ -174,6 +174,88 @@ def render_password_recovery_email(user, code):
     return subject, text, html
 
 
+# ── auth.password-recovery rule 5b (PAD-782) ────────────────────────────────
+
+_PROVIDER_NAMES = {"google": "Google", "apple": "Apple"}
+
+_SOCIAL_HELP = {
+    "pt": {
+        "subject": "A tua conta LevApp entra com o {providers}",
+        "title": "A tua conta não tem palavra-passe",
+        "intro": "Olá {name}. Pediste para recuperar a palavra-passe, mas a tua conta LevApp entra com o {providers}, por isso não há palavra-passe para recuperar.",
+        "next": "No ecrã de entrada, toca em \"Continuar com {providers}\" e escolhe a conta com este email.",
+        "button": "Abrir a LevApp",
+        "ignore": "Se não foste tu, ignora este email — a tua conta não mudou.",
+        "footer": "Recebeste este email porque alguém pediu para recuperar o acesso à conta LevApp com este endereço.",
+        "join": " e ",
+    },
+    "en": {
+        "subject": "Your LevApp account signs in with {providers}",
+        "title": "Your account has no password",
+        "intro": "Hi {name}. You asked to recover your password, but your LevApp account signs in with {providers}, so there is no password to recover.",
+        "next": "On the sign-in screen, tap \"Continue with {providers}\" and pick the account with this email.",
+        "button": "Open LevApp",
+        "ignore": "If this wasn't you, ignore this email — nothing changed on your account.",
+        "footer": "You got this email because someone asked to recover access to the LevApp account with this address.",
+        "join": " and ",
+    },
+}
+
+_INVITE_HELP = {
+    "pt": {
+        "subject": "Termina a tua conta LevApp",
+        "title": "A tua conta ainda não está ativa",
+        "intro": "Olá {name}. Pediste para recuperar a palavra-passe, mas ainda não terminaste a conta que o teu treinador criou para ti, por isso ainda não tens palavra-passe.",
+        "next": "Abre este link para escolher o teu nome de utilizador e a tua palavra-passe. É válido durante 7 dias.",
+        "button": "Terminar a minha conta",
+        "ignore": "Se não foste tu, ignora este email — ninguém consegue ativar a conta sem este link.",
+        "footer": "Recebeste este email porque alguém pediu para recuperar o acesso à conta LevApp com este endereço.",
+    },
+    "en": {
+        "subject": "Finish your LevApp account",
+        "title": "Your account isn't active yet",
+        "intro": "Hi {name}. You asked to recover your password, but you haven't finished the account your coach created for you yet, so you don't have a password.",
+        "next": "Open this link to choose your username and password. It is valid for 7 days.",
+        "button": "Finish my account",
+        "ignore": "If this wasn't you, ignore this email — nobody can activate the account without this link.",
+        "footer": "You got this email because someone asked to recover access to the LevApp account with this address.",
+    },
+}
+
+
+def _first_name_intro(t, user, **extra):
+    name = (user.name or "").split()[0] if user.name else ""
+    return t["intro"].format(name=name, **extra).replace("Olá .", "Olá.").replace("Hi .", "Hi.")
+
+
+def render_social_sign_in_help_email(user, providers):
+    """Return (subject, text, html) for an account that signs in with Google/Apple and has no
+    password (rule 5b): which provider, and where to tap. No code: there is nothing to reset."""
+    t = _SOCIAL_HELP[_lang(user)]
+    named = t["join"].join(_PROVIDER_NAMES.get(p, p.capitalize()) for p in providers)
+    subject = t["subject"].format(providers=named)
+    intro = _first_name_intro(t, user, providers=named)
+    next_step = t["next"].format(providers=named)
+    href = f"{web_origin()}/auth"
+    text = "\n\n".join([t["title"], intro, next_step, f"{t['button']}: {href}", t["ignore"]])
+    html = _layout(subject, [_h1(t["title"]), _p(intro), _p(next_step), _button(t["button"], href),
+                             _p(t["ignore"], muted=True)], t["footer"])
+    return subject, text, html
+
+
+def render_finish_invitation_help_email(user, token):
+    """Return (subject, text, html) for a coach-created student who never finished the invite
+    (rule 5b): a fresh invite link (`/invite/player/<token>`, players.invite-completion)."""
+    t = _INVITE_HELP[_lang(user)]
+    subject = t["subject"]
+    intro = _first_name_intro(t, user)
+    href = f"{web_origin()}/invite/player/{token}"
+    text = "\n\n".join([t["title"], intro, t["next"], f"{t['button']}: {href}", t["ignore"]])
+    html = _layout(subject, [_h1(t["title"]), _p(intro), _p(t["next"]), _button(t["button"], href),
+                             _p(t["ignore"], muted=True)], t["footer"])
+    return subject, text, html
+
+
 # ── auth.coach-approval rule 5 ──────────────────────────────────────────────
 
 _APPROVED = {
