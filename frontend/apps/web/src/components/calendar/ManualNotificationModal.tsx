@@ -30,6 +30,8 @@ const getInitials = (name: string) =>
     .toUpperCase()
     .slice(0, 2);
 
+type ApiError = { response?: { status?: number; data?: { code?: string } } };
+
 interface PlayerToggleRowProps {
   playerId: string;
   name: string;
@@ -271,8 +273,14 @@ export function ManualNotificationModal({
       setSelected(new Set());
       setSearch("");
       onClose();
-    } catch {
-      toast.error(t("calendar.notify.failedSendInvitations"));
+    } catch (err) {
+      // PAD-798 (notifications.manual rule 10): the class started while the picker was open.
+      if ((err as ApiError).response?.data?.code === "CLASS_STARTED") {
+        toast.error(t("calendar.notify.classStarted"));
+        onClose();
+      } else {
+        toast.error(t("calendar.notify.failedSendInvitations"));
+      }
     } finally {
       setSending(false);
     }

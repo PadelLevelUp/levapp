@@ -395,6 +395,7 @@
       "invitationSent_zero": "Convite enviado a {{count}} alunos",
       "invitationSent_other": "Convite enviado a {{count}} alunos",
       "failedSendInvitations": "Falha ao enviar os convites",
+      "classStarted": "Esta aula já começou; já não é possível convidar.",
       "alreadyInvited": "Já têm um convite em aberto para esta aula: {{names}}",
       "blockedByPreference": "Não foi possível notificar: {{names}} (bloqueou notificações)",
       "searchStudents": "Pesquisar alunos"

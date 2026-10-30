@@ -412,16 +412,19 @@ export default function ClassDetailScreen() {
 
   // ── Notify / invited ──
   const [showNotify, setShowNotify] = React.useState(false);
+  // PAD-798 (notifications.manual rule 10): once the class has started nobody can be invited, so
+  // Notificar gives way to the warning and `notify=1` opens nothing (club clock, PAD-295).
+  const notifyClosed = hasClassStarted(active?.date ?? event?.date, active?.startTime ?? event?.startTime);
   // PAD-285 (dashboard.blocks rule 10): the dashboard's "Convidar" arrives with
   // `notify=1` — open Notificar as soon as the class is on screen, once.
   const notifyParam = Array.isArray(params.notify) ? params.notify[0] : params.notify;
   const autoNotifiedRef = React.useRef(false);
   React.useEffect(() => {
-    if (notifyParam === "1" && isCoach && !isPending && !autoNotifiedRef.current) {
+    if (notifyParam === "1" && isCoach && !isPending && !notifyClosed && !autoNotifiedRef.current) {
       autoNotifiedRef.current = true;
       setShowNotify(true);
     }
-  }, [notifyParam, isCoach, isPending]);
+  }, [notifyParam, isCoach, isPending, notifyClosed]);
   const [invitationsOpen, setInvitationsOpen] = React.useState(false);
 
   // ── Training planning ──
@@ -2305,20 +2308,29 @@ export default function ClassDetailScreen() {
                       <Ionicons name="copy-outline" size={16} color={lightTheme.foreground} />
                       <Text>{t("calendar.detail.clone")}</Text>
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      testID="class-notify"
-                      accessibilityLabel={t("classDetail.notifyStudentsAria")}
-                      onPress={() => setShowNotify(true)}
-                    >
-                      <Ionicons
-                        name="send-outline"
-                        size={16}
-                        color={lightTheme.foreground}
-                      />
-                      <Text>{t("calendar.detail.notify")}</Text>
-                    </Button>
+                    {notifyClosed ? (
+                      <Text
+                        className="flex-1 self-center text-sm text-muted-foreground"
+                        testID="class-notify-closed"
+                      >
+                        {t("calendar.notify.classStarted")}
+                      </Text>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        testID="class-notify"
+                        accessibilityLabel={t("classDetail.notifyStudentsAria")}
+                        onPress={() => setShowNotify(true)}
+                      >
+                        <Ionicons
+                          name="send-outline"
+                          size={16}
+                          color={lightTheme.foreground}
+                        />
+                        <Text>{t("calendar.detail.notify")}</Text>
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="flex-1"
