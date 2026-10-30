@@ -14,6 +14,7 @@ from padel_app.models import (
 )
 from padel_app.sql_db import db
 from padel_app.tools.username_tools import unique_placeholder_username
+from padel_app.utils.emails import normalise_email
 
 PLAYER_INVITATION_VALID_DAYS = 7
 
@@ -27,7 +28,7 @@ def create_incomplete_player_service(data, now=None):
     user = User(
         name=data["name"],
         username=unique_placeholder_username(),
-        email=data.get("email") or None,
+        email=normalise_email(data.get("email")),  # auth.password-recovery rule 12 (PAD-781)
         password=None,
         status="inactive",
     )
@@ -111,8 +112,8 @@ def accept_player_invitation_service(token, data=None, now=None):
     user = invitation.player.user
     user.username = username
     user.password = generate_password_hash(password)
-    if data.get("email"):
-        user.email = data["email"]
+    if normalise_email(data.get("email")):
+        user.email = normalise_email(data["email"])  # auth.password-recovery rule 12 (PAD-781)
     if data.get("phone"):
         user.phone = data["phone"]
     user.status = "active"
