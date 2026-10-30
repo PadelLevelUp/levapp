@@ -51,6 +51,7 @@
     "newClass": "New class",
     "hero": {
       "upNext": "UP NEXT · {{time}}",
+      "inProgress": "IN PROGRESS · {{start}}–{{end}}",
       "nextClass": "NEXT CLASS · {{weekday}}",
       "startsIn": "in {{minutes}} min",
       "open": "Open"

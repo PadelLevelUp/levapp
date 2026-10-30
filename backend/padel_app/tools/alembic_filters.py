@@ -7,7 +7,9 @@ Wired into ``migrations/env.py`` for both offline and online runs.
 #: ``apscheduler_jobs`` is APScheduler's SQLAlchemyJobStore table: the scheduler
 #: creates it at startup and no model declares it, so without this filter every
 #: ``flask db migrate`` proposed dropping it (revision 3ff75d01a5ee already did).
-EXTERNAL_TABLES = frozenset({"apscheduler_jobs"})
+#: ``pad781_email_originals`` holds the email values revision 13395db9fee4 normalised, so its
+#: downgrade can put them back; the migration creates and drops it, no model declares it.
+EXTERNAL_TABLES = frozenset({"apscheduler_jobs", "pad781_email_originals"})
 
 _TABLE_CHILDREN = ("index", "column", "unique_constraint", "foreign_key_constraint")
 

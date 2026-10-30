@@ -58,6 +58,11 @@ Every coach and every student, as the first screen they see on opening the app.
   Sunday to Saturday. A class next week waits for its own week, and the calendar already shows
   it, so a busy coach's queue stays short. A message waiting for a reply always shows as a
   compact card, whatever card sits beside it.
+- A class that has already started is no longer something to fill. At its start time, in the
+  coach's own time zone, its "class still has room" card leaves "Needs you" and stops counting
+  there. While it runs, the coach's next-class card says it is in progress ("A decorrer ·
+  19:30–21:00") instead of "up next", and its row in the next 7 days shows no free-seats warning
+  and no invite button. When it ends, the card moves on to the next class.
 - A coach can push a "class still has room" card back with "Later": it leaves their queue for a
   day, on every device they use, and comes back on its own. The class itself is untouched.
 - Every clickable card leads to a real, working destination — a card is never made clickable unless

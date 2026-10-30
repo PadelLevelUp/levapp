@@ -162,9 +162,9 @@ def _event_start(event: Dict[str, Any]) -> datetime:
 def _event_end(event: Dict[str, Any]) -> datetime:
     """The class's real end instant (B-058, dashboard.blocks rule 9).
 
-    ``date`` is the START date, and the strings are UTC. A class that crosses
-    UTC midnight (23:15-00:15 UTC) ends on the next date, so an end time
-    earlier than the start time rolls forward one day. Joining the start date
+    ``date`` is the START date, and the strings are the club's wall clock (R-023,
+    PAD-256). A class that crosses midnight (23:15-00:15) ends on the next date, so
+    an end time earlier than the start time rolls forward one day. Joining the start date
     to the end time used to put such a class's end before its start, and every
     block built on ``load_events`` dropped it.
     """
@@ -197,6 +197,15 @@ def class_href(event: Dict[str, Any]) -> str:
     return "/calendar?" + urlencode(
         {"classId": str(event.get("id") or ""), "date": str(event.get("date") or "")}
     )
+
+
+def has_started(event: Dict[str, Any], now: datetime) -> bool:
+    """PAD-792 (dashboard.blocks rule 12, B-711): the class's start instant is at or before ``now``.
+
+    Rule 9's overlap test keeps a running class in every window on purpose (PAD-754), so each block
+    that offers to fill a class asks this instead: a class that has started has no seats to fill.
+    Both are the club's wall clock (R-023)."""
+    return _event_start(event) <= now
 
 
 def fill(event: Dict[str, Any]) -> Tuple[int, int]:
@@ -244,6 +253,10 @@ def next_class_block(
     filled, capacity = fill(event)
     is_today = start.date() == now.date()
     minutes_until = int((start - now).total_seconds() // 60)
+    # Rule 12b: "A DECORRER · 19:30–21:00" instead of "A SEGUIR · 19:30". The window holds only
+    # classes that end after `now`, so a started one is running; with two running, the earliest
+    # start comes first (rule 12c, pending the owner's confirmation).
+    in_progress = has_started(event, now)
 
     return {
         "id": "next_class",
@@ -255,6 +268,7 @@ def next_class_block(
             "startTime": event.get("startTime"),
             "endTime": event.get("endTime"),
             "isToday": is_today,
+            "inProgress": in_progress,
             # Drives "UP NEXT · 18:00" vs "NEXT CLASS · Tuesday". The client
             # localises the weekday from `date`; this is just the switch.
             "weekday": start.strftime("%A"),
@@ -354,6 +368,9 @@ def _empty_seat_items(
     snoozed = snoozed_item_ids(coach_id=coach_id, now=wall_to_utc_naive(now))  # snoozed_until is UTC
     out: List[Dict[str, Any]] = []
     for event in events:
+        # Rule 12a: from its start time a class no longer needs the coach to fill it.
+        if has_started(event, now):
+            continue
         filled, capacity = fill(event)
         if not capacity or filled >= capacity:
             continue
@@ -529,21 +546,27 @@ def build_schedule_block(
     """The week ahead. Shows the first few rows and links out for the rest."""
     now = now or club_now_naive()
     window = _window_events(events, coach_id=coach_id, start=now, end=now + timedelta(days=SCHEDULE_DAYS))
-    return schedule_block(window, invite=True)
+    return schedule_block(window, invite=True, now=now)
 
 
-def schedule_block(events: Sequence[Dict[str, Any]], *, invite: bool = False) -> Dict[str, Any]:
+def schedule_block(
+    events: Sequence[Dict[str, Any]], *, invite: bool = False, now: Optional[datetime] = None
+) -> Dict[str, Any]:
     """The ``schedule_7d`` block for ``events`` already cut to the 7-day window.
 
     ``invite`` (the coach's schedule, PAD-425): each row also carries ``inviteHref``, the class
     with Notificar/Convidar already open, the same link as the empty-seats queue item. The row
     itself keeps the plain class link (dashboard.blocks rule 10). The student's schedule passes
     nothing: a student has no invite flow.
+
+    ``now`` (PAD-792, rule 12b): a row whose class has started is ``inProgress`` and carries no
+    ``inviteHref`` — the shells drop its seats badge and its Convidar. Without ``now`` no row is.
     """
     items = []
     for event in events[:SCHEDULE_ROWS]:
         start = _event_start(event)
         filled, capacity = fill(event)
+        in_progress = now is not None and has_started(event, now)
         items.append(
             {
                 "id": str(event.get("id") or ""),
@@ -556,7 +579,8 @@ def schedule_block(events: Sequence[Dict[str, Any]], *, invite: bool = False) ->
                 "filled": filled,
                 "capacity": capacity,
                 "href": class_href(event),
-                **({"inviteHref": invite_href(event)} if invite else {}),
+                "inProgress": in_progress,
+                **({"inviteHref": invite_href(event)} if invite and not in_progress else {}),
             }
         )
 

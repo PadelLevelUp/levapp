@@ -5,6 +5,7 @@ Before: `_find` skipped every account whose password is NULL, so a Google/Apple 
 coach-created student who never finished the invite saw "code sent" and received nothing. The
 response stays the one standard 200 (rule 2): the address is confirmed as known only inside the mail.
 """
+import logging
 import re
 from datetime import datetime, timedelta
 
@@ -219,3 +220,45 @@ def test_an_account_with_a_password_still_gets_the_code_mail(app, outbox):
     _request(app, "ana782@example.com")
 
     assert outbox[0]["subject"] == "Recuperar o acesso à tua conta LevApp"
+
+
+# --- The log says which way it went (rule 5b with rule 5a, after PAD-781) ---------------------
+
+def _lines(caplog, needle):
+    return [r.getMessage() for r in caplog.records if needle in r.getMessage()]
+
+
+def test_a_sent_help_mail_logs_sent_and_not_sent_nothing(app, outbox, caplog):
+    coach_id = _coach(app)
+    uid, _ = _invited_student(app, coach_id)
+
+    with caplog.at_level(logging.INFO):
+        _request(app, "invited782@example.com")
+
+    assert _lines(caplog, "recovery help mail") == [f"recovery help mail to user {uid} sent"]
+    assert _lines(caplog, "sent nothing") == []
+    assert not any("invited782@example.com" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("case, reason", [
+    ("disabled", "disabled"),
+    ("orphan", "no_password"),
+    ("cooldown", "cooldown"),
+])
+def test_a_help_mail_not_sent_logs_its_reason(app, outbox, caplog, case, reason):
+    from padel_app.models import User
+
+    if case == "disabled":
+        _social_user(app, status="disabled", email="help782@example.com")
+    else:
+        with app.app_context():
+            db.session.add(User(name="Orphan", username="orphan782", email="help782@example.com",
+                                password=None, status="inactive",
+                                password_reset_sent_at=T0 - timedelta(seconds=30) if case == "cooldown" else None))
+            db.session.commit()
+
+    with caplog.at_level(logging.INFO):
+        _request(app, "help782@example.com")
+
+    assert outbox == []
+    assert _lines(caplog, "sent nothing") == [f"recovery request sent nothing: {reason}"]

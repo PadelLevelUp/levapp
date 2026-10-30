@@ -26,6 +26,7 @@ from padel_app.models import User
 from padel_app.services.registration_service import EMAIL_RE, PASSWORD_MIN_LENGTH
 from padel_app.sql_db import db
 from padel_app.utils.dates import utcnow_naive
+from padel_app.utils.emails import normalise_email
 
 CODE_LENGTH = 6
 CODE_TTL = timedelta(minutes=15)
@@ -58,7 +59,7 @@ def standard_body():
 
 
 def _clean_email(value):
-    return (value or "").strip().lower() if isinstance(value, str) else ""
+    return normalise_email(value) or ""
 
 
 def _hash(code, address):
@@ -81,19 +82,33 @@ def _clear(user):
     user.password_reset_attempts = 0
 
 
+def _lookup(email):
+    """`(user, None)` for the recoverable user for `email`, else `(None, reason)` (rule 5a)."""
+    user = User.query.filter(db.func.lower(User.email) == email).first() if email else None
+    if user is None:
+        return None, "no_user"
+    if not user.password:
+        return None, "no_password"
+    if user.status == "disabled":
+        return None, "disabled"
+    return user, None
+
+
 def _find(email):
     """The recoverable user for `email`, or None (rule 5)."""
-    if not email:
-        return None
-    user = User.query.filter(db.func.lower(User.email) == email).first()
-    if user is None or not user.password or user.status == "disabled":
-        return None
-    return user
+    return _lookup(email)[0]
+
+
+def _sent_nothing(reason):
+    # Rule 5a (PAD-781): the reason class only, never the address (B-254).
+    current_app.logger.info("recovery request sent nothing: %s", reason)
+    return standard_body()
 
 
 def _deliver(user, code):
     """Rule 3 (PAD-734): called after the commit; the mail goes out off the request thread. A mail
-    that fails clears this code again, in its own commit, unless a newer code has replaced it."""
+    that fails clears this code again, in its own commit, unless a newer code has replaced it. The
+    attempt's time stays (PAD-781), so the failure is still readable once the code is gone."""
     from padel_app.tools.email_templates import render_password_recovery_email
     from padel_app.tools.mail_dispatch import send_later
 
@@ -103,7 +118,9 @@ def _deliver(user, code):
     def clear():
         fresh = db.session.get(User, user_id, populate_existing=True)  # the row as committed now
         if fresh is not None and fresh.password_reset_code_hash == code_hash:
+            attempted_at = fresh.password_reset_sent_at
             _clear(fresh)
+            fresh.password_reset_sent_at = attempted_at
             db.session.commit()
 
     # B-254: the label names the user id, never the address.
@@ -116,7 +133,8 @@ def _help_without_password(email, now):
     coach-created student who never finished the invite) gets one mail saying what to do instead:
     which provider to sign in with, or a fresh invite link. Same per-email cooldown as a code
     (rule 4, on `password_reset_sent_at`); a disabled account and any other passwordless account
-    get nothing. Never issues a recovery code."""
+    get nothing. Never issues a recovery code. Returns None when the mail is queued, else the
+    rule-5a reason it sent nothing."""
     from padel_app.models import UserIdentity
     from padel_app.services.player_invitation_service import reissue_player_invitation
     from padel_app.tools.email_templates import (
@@ -125,19 +143,19 @@ def _help_without_password(email, now):
     )
     from padel_app.tools.mail_dispatch import send_later
 
-    account = User.query.filter(db.func.lower(User.email) == email).first()
-    if account is None or account.password or account.status == "disabled":
-        return
+    account = User.query.filter(db.func.lower(User.email) == email).first()  # `_lookup` found it
+    if account.status == "disabled":
+        return "disabled"
     sent_at = account.password_reset_sent_at
     if sent_at is not None and now - sent_at < RESEND_COOLDOWN:
-        return
+        return "cooldown"
     providers = sorted({i.provider for i in UserIdentity.query.filter_by(user_id=account.id)})
     if providers:
         subject, text, html = render_social_sign_in_help_email(account, providers)
     else:
         token = reissue_player_invitation(account, now=now)
         if token is None:
-            return
+            return "no_password"
         subject, text, html = render_finish_invitation_help_email(account, token)
     account.password_reset_sent_at = now
     db.session.commit()
@@ -154,15 +172,16 @@ def request_recovery(email, now=None):
     if not EMAIL_RE.match(email):
         raise PasswordRecoveryError("INVALID_EMAIL", 400)
 
-    user = _find(email)
+    user, reason = _lookup(email)
     if user is None:
-        _help_without_password(email, now)  # rule 5b: same answer, the help goes in the mail only
-        return standard_body()
+        if reason == "no_password":
+            reason = _help_without_password(email, now)  # rule 5b: the help goes in the mail only
+        return _sent_nothing(reason) if reason else standard_body()
 
     sent_at = user.password_reset_sent_at
     if sent_at is not None and now - sent_at < RESEND_COOLDOWN:
         # Rule 4: nothing issued, nothing sent, same answer.
-        return standard_body()
+        return _sent_nothing("cooldown")
 
     code = _generate_code()
     # Bound to the address the mail goes to (`_deliver` sends to this same `user.email`).

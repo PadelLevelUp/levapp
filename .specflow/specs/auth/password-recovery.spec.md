@@ -50,6 +50,13 @@ back at all.
    out after the commit, off the request thread (PAD-734), so the 200 never waits for the mail
    server. A transport failure or timeout is logged and recorded on engine health, the answer is
    still 200 (rule 2), and the stored code is cleared, unless a newer code has replaced it.
+   **3a. Every send leaves a trace (PAD-781).** A sent mail logs one INFO line
+   `recovery mail to user <id> sent`; a failed one logs the WARNING `recovery mail to user <id>
+   failed: <ExceptionClass>`. Neither line carries the address (B-254). A failed send clears the
+   code and its expiry but keeps `password_reset_sent_at` as the time of the attempt, so the failure
+   is still readable after the code is gone; that time only holds the rule-4 cooldown, as a
+   successful send's would. A mail lost in flight (a restart before the thread ran) is the one case
+   with neither line: the attempt's time is stored and no `sent`/`failed` line follows it.
 4. **Per-email cooldown.** A second request for the same email less than 60 seconds after a
    mail was sent issues nothing and sends nothing, but still answers 200 with the same body.
    The client shows the countdown from `resendAvailableInSeconds` on its own clock. A
@@ -59,6 +66,10 @@ back at all.
    receiving the code proves possession of it exactly as the verification code does. A user
    with no email (some coach-created players) cannot recover on their own; their coach resets
    the password (`players.*`). A `disabled` user gets no mail.
+   **5a. A request that sends nothing says why, in the log only (PAD-781).** A request whose
+   address matches no recoverable user, or that falls inside the rule-4 cooldown, logs one INFO
+   line `recovery request sent nothing: <reason>` with the reason class `no_user`, `no_password`,
+   `disabled` or `cooldown`, never the address. The response stays the standard 200 (rule 2).
    **5b. An account with no password is told what to do instead, in the mail only (PAD-782).**
    Two kinds of account have an email and no password: one created through Google or Apple sign-in
    (`auth.social-sign-in`), and a coach-created student who never finished the invite
@@ -74,7 +85,9 @@ back at all.
    The address is confirmed as known only inside its own inbox, so nothing leaks on screen, and the
    web and iOS screens are unchanged. The per-email cooldown of rule 4 applies to this mail too
    (`password_reset_sent_at`). A `disabled` account, and a passwordless account that is neither kind
-   (or a student no coach can invite), get nothing.
+   (or a student no coach can invite), get nothing. A help mail that goes out logs
+   `recovery help mail to user <id> sent` (rule 3a); one that does not logs the rule-5a reason
+   (`disabled`, `cooldown`, or `no_password`).
 6. `POST /api/auth/password-recovery/confirm` `{"email": "…", "code": "123456",
    "newPassword": "…"}` (no JWT). Checks run in this order and the first failure answers:
    - `newPassword` shorter than 8 characters → 400 `{"error": "WEAK_PASSWORD"}` (the
@@ -127,6 +140,16 @@ back at all.
     a recovery code issued before this change no longer matches — its confirm answers 400
     `INVALID_CODE` and uses up an attempt (not 410); the person asks for a new code (the old one would
     have expired within 15 minutes anyway).
+12. **One stored form of an email (PAD-781).** Every lookup by email compares a trimmed, lower-cased
+    address with `lower(users.email)`, so a stored address with a space around it never matched:
+    recovery answered its 200 and sent nothing, and login by email failed the same way. Every writer
+    of `users.email` that takes the address from a person stores it trimmed and lower-cased through
+    one helper (`padel_app/utils/emails.normalise_email`): sign-up and the coach-invite accept
+    (`registration_service.normalised_email`), the profile edit, the coach-created student
+    (`create_incomplete_player_service`) and the student's invite accept. A blank address is no
+    address (null). Existing rows are rewritten once by a data migration that skips any row whose
+    normalised form another account already holds, keeps every original value it changes so the
+    downgrade restores them, and is a no-op on a second run.
 
 ### Acceptance Criteria
 
@@ -215,14 +238,34 @@ back at all.
 - **When** POST `/api/auth/password-recovery/request` with her email
 - **Then** the response is the standard 200 within 2 seconds and her code hash is stored, committed
   before the send began
-- **And** when the send then times out, she has no code stored and an `email_failed` incident
-  names her on engine health
+- **And** when the send then times out, she has no code stored, `password_reset_sent_at` still
+  holds the attempt's time (rule 3a), and an `email_failed` incident names her on engine health
 
 #### A failed mail does not clear a newer code (rule 3, PAD-734)
 - **Given** a recovery mail whose send fails after a newer code replaced the one it carried
 - **When** the failure's cleanup runs
 - **Then** the newer code is still stored
 
+#### A sent recovery mail leaves an INFO line (rule 3a, PAD-781)
+- **Given** `ana` with an email and a password
+- **When** she POSTs `request` and the mail is sent
+- **Then** the log has exactly one `recovery mail to user <her id> sent` line and no line carries her address
+
+#### A failed send keeps the attempt's time (rule 3a)
+- **Given** `send_email` raises
+- **When** `ana` POSTs `request` at 10:00
+- **Then** her code hash and expiry are null and `password_reset_sent_at` is 10:00
+- **And** a request at 10:01:01 issues and sends a new code
+
+#### A request that sends nothing logs the reason (rule 5a, PAD-781)
+- **Given** no account for `nobody@example.com`, a coach-created player with no password, a `disabled` user, and `ana` who requested 30 seconds ago
+- **When** each POSTs `request`
+- **Then** each response is the standard 200, no mail is sent, and the log has one `recovery request sent nothing: <reason>` line with `no_user`, `no_password`, `disabled` and `cooldown` respectively, never the address
+
+#### A padded, mixed-case address recovers (rule 12, PAD-781)
+- **Given** a coach creates a student with email ` End.To.End@Example.COM ` and the student accepts the invite
+- **When** POST `request` with `end.to.end@example.com`
+- **Then** the stored email is `end.to.end@example.com` and one mail is sent to it
 #### A Google or Apple account is told how it signs in (rule 5b, PAD-782)
 - **Given** an account with email `sofia@example.com`, no password and a Google identity, `language` `pt`
 - **When** POST `request` with `Sofia@Example.com`
@@ -288,6 +331,10 @@ back at all.
   already missing, nothing linked to them, and keeping two entry points is what the ticket asked
   not to do.
 - Per-IP throttling: rule 10 (PAD-228).
+- PAD-781 (B-707): rules 3a, 5a and 12. Before, a successful send logged nothing, a request that
+  matched nobody logged nothing, and a failed send cleared `password_reset_sent_at`, so after the
+  15-minute window "never attempted", "sent" and "lost in flight" looked the same. Prod on 30/10:
+  one stored address differed from its normalised form (case only), none padded, none colliding.
 - PAD-782 (B-708), rule 5b. Decision ASSUMED, not confirmed: the ticket offered (a) keep the silent
   200 and send an explanatory mail, or (b) let a social account set a password through the code.
   The owner had not answered by 2026-10-30; the coordinator chose (a), the ticket's recommendation,

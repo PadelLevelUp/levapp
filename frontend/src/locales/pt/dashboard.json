@@ -51,6 +51,7 @@
     "newClass": "Nova aula",
     "hero": {
       "upNext": "A SEGUIR · {{time}}",
+      "inProgress": "A DECORRER · {{start}}–{{end}}",
       "nextClass": "PRÓXIMA AULA · {{weekday}}",
       "startsIn": "daqui a {{minutes}} min",
       "open": "Abrir"
