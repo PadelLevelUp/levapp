@@ -417,6 +417,16 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    2026-09-11 notification-engine-cost decision, not changed here. Since PAD-733 that cost is
    paid by the scheduler job (rule 1b), not by the request that opened the spot.
 
+12a. **The facts a rule reads are read once per wave too (PAD-788, ledger B-712).** The eligibility
+   bar's absence count, `has_makeups` and the level-step operations need the coach's occurrence
+   set, the unjustified-absence and make-up counts, and the level ladder. Each is read at most once
+   per evaluation, for the whole roster (`_RosterFacts`), not once per student, and a fact no rule
+   of the wave reads is not read at all. The verdicts are those of the per-student evaluator, which
+   callers without the roster bundle (the manual-add warning, `_still_invitable`) keep using. A
+   class opening many never-filled spots runs one evaluation per spot and group in one tick, so the
+   per-student reads used to multiply by spots × groups × roster. Measured and reproducible with
+   `backend/scripts/opening_cost_probe.py`.
+
 13. **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
    2026-09-11, unconfirmed).** A `Vacancy` is a promise that a spot is open; capacity
    (`LessonInstance.effective_filled_spots`, `calendar.view` rule 9) is the truth it follows.
@@ -1092,6 +1102,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - When the widest wave is evaluated and ranked for each vacancy
 - Then the 60-student wave issues no more SQL statements than the 6-student wave plus two, and fewer than 60 in total
 - And every blocked student's verdict is `unavailable`, every other student is `invited`, and the batched attendance stats equal the per-player stats for every survivor (0.0/0.0 for a student with no history)
+
+#### A wave whose rules read per-student facts costs the same for a big roster (rule 12a, PAD-788)
+- **Given** two coaches with 20 and 40 roster students, attendance history with unjustified and justified absences, an eligibility bar of fewer than 2 unjustified absences, and invitation groups that use `level one_above_vacancy`, `side same_as_vacancy`, `has_makeups is_true`, `level same_as_vacancy` and `subscription_status equals active`
+- **When** every group is evaluated for one open vacancy of each coach
+- **Then** the 40-student evaluation issues no more SQL statements than the 20-student one plus two per group
+- **And** every student's stage is the one the per-student evaluator gives: `eligibility` exactly when the bar fails, otherwise `invited` exactly when the group's rules pass
 
 #### A filled vacancy stops inviting, whichever door filled it (PAD-317)
 - **Given** an open vacancy with one `sent` invitation and one `queued` invitation out for it
