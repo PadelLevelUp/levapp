@@ -34,7 +34,8 @@ type Row = DashboardSchedule7dBlock["data"]["items"][number];
 /** The badge is the whole point of the row's right edge — so it only shows
  * when it changes what the coach would do. */
 function badgeFor(row: Row, t: (k: string, o?: Record<string, unknown>) => string) {
-  if (!row.capacity) return null;
+  // PAD-792 (rule 12b): a class that has started has no seats left to fill.
+  if (!row.capacity || row.inProgress) return null;
   if (row.filled >= row.capacity) {
     return <StatusBadge tone="done">{t("dashboard.schedule.full")}</StatusBadge>;
   }
@@ -95,7 +96,8 @@ export function Schedule7Days({
       ) : (
         <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-border bg-border [container-type:inline-size]">
           {items.map((row) => {
-            const short = row.capacity > 0 && row.filled < row.capacity;
+            // PAD-792 (rule 12b): no Convidar once the class has started.
+            const short = row.capacity > 0 && row.filled < row.capacity && !row.inProgress;
             // PAD-570 (dashboard.blocks rule 3a): Yes / No only while the server says
             // asked; one "Avisar que não vou" before that or after a yes; a hint after a no.
             const action = student ? studentRowAction(row) : "none";

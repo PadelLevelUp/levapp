@@ -93,6 +93,8 @@ function buildMockDashboard(): DashboardDefinition {
             capacity: c.maxPlayers,
             // Deep link into that exact occurrence — see dashboard.navigation rule 8.
             href: `/calendar?classId=${encodeURIComponent(c.id)}&date=${c.date}`,
+            // Upcoming only, so never started (PAD-792 rule 12b).
+            inProgress: false,
           })),
           calendarHref: "/calendar",
         },
