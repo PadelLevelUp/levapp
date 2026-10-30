@@ -251,8 +251,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 9. **(B-058)** A class is in a dashboard window when it overlaps it: its **end instant** is
    after the window start and its start instant is before the window end. The end instant is
    the class's END datetime, never the start date joined to the end time-of-day. `date`,
-   `startTime` and `endTime` are UTC strings, so a class that crosses UTC midnight (23:15–00:15
-   UTC; in Lisbon summer, any class ending after 01:00 local) ends on the NEXT date. Joining the
+   `startTime` and `endTime` are the club's wall clock (R-023, PAD-256; B-058 was written when they
+   were UTC), so a class that crosses midnight (23:15–00:15) ends on the NEXT date. Joining the
    start date to `endTime` put its end before its start, and every block built on the shared
    window silently dropped it: the coach hero, needs-you empty seats, next 7 days and week
    pulse, and the student hero and schedule.
@@ -288,6 +288,27 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
     `attendance.validation` rule 23's tier (`validationTier(count)`: yellow for 1–5, red above 5)
     and reads "Tens N aulas por validar" (singular "Tens 1 aula por validar"), linking as rule 10.
     Its number is the one the Presences badge shows.
+12. **(PAD-792, B-711) A class that has started is no longer something to fill.** Rule 9 keeps a
+    running class in every coach window on purpose (PAD-754). Each block that offers to fill a class
+    asks instead whether it has started: its start instant at or before `now`, both on the club's
+    wall clock (`Europe/Lisbon`, R-023), so the cut is the class's start time in the coach's zone.
+    a. **Needs-you:** an `empty_seats` item only for a class that has not started. At its start
+       time the card goes, and with it its count in "X coisas precisam de ti".
+    b. **The hero and the next 7 days:** a class that has started and not ended is `inProgress`.
+       The hero reads "A DECORRER · 19:30–21:00" ("IN PROGRESS · …") instead of "A SEGUIR · 19:30",
+       with no "starts in" chip. Once the class ends the hero is the next class that has not started,
+       with "A SEGUIR". The running class stays the first row of the next 7 days (PAD-754), with no
+       `inviteHref`; both shells drop its seats badge (Vazia, N vagas) and its Convidar.
+    c. **Two classes running at once:** the hero is the one that started first (the window is
+       sorted by start). This is an ASSUMPTION pending the owner's confirmation; the ticket asks:
+       "Se houver duas aulas a decorrer ao mesmo tempo, confirmar com o Pedro qual mostrar
+       (proposta: a que começou primeiro)."
+    d. **The student home** loads its classes from `now` (the player instance loader keeps
+       `start_datetime >= start`), so a running class never reaches it: at its start time the
+       student's hero is already the next class, never `inProgress`. A student "A DECORRER" would
+       need that loader window changed (rule 8's statement counts, PAD-583); not in PAD-792.
+    e. **Not in this rule:** invites to a started class from other entry points (the calendar's
+       Notificar, vacancy invites). The invite engine is unchanged; the owner decides.
 
 ### Acceptance Criteria
 
@@ -503,9 +524,11 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **And** the Thursday 29 Oct class is still a row in "Próximos 7 dias"
 
 #### The week ends at Saturday midnight (PAD-740, B-682)
-- **Given** a coach with classes with empty seats on Saturday 24 Oct 2026 at 23:00–23:59 and on Sunday 25 Oct 2026 at 00:30
-- **When** the queue is built on Saturday 24 Oct 2026 at 23:30, while the Saturday class is still running
+- **Given** a coach with classes with empty seats on Saturday 24 Oct 2026 at 23:45–23:59 and on Sunday 25 Oct 2026 at 00:30
+- **When** the queue is built on Saturday 24 Oct 2026 at 23:30
 - **Then** the Saturday class is an `empty_seats` item and the Sunday 00:30 class is not
+- (PAD-792: this criterion used a Saturday class still running at 23:30; rule 12a takes a started
+  class off the queue, so the edge is now a class that has not started.)
 
 #### On Sunday the queue moves to the new week (PAD-740, B-682)
 - **Given** a coach with classes with empty seats on Saturday 31 Oct 2026 at 10:00 and Sunday 1 Nov 2026 at 10:00
@@ -526,3 +549,31 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** a class from 10:45 to 11:45 and the club clock pinned at 11:15
 - **When** the coach home loads its preloaded set and builds the hero and the next 7 days from it
 - **Then** the hero is that class and it is the first row of the next 7 days
+
+#### A class that has started leaves needs-you at its start time (rule 12a, PAD-792)
+- **Given** a class from 10:45 to 11:45 with 2 of 6 seats taken
+- **When** the coach home is built at 10:44, and again at 10:45
+- **Then** at 10:44 the class is an `empty_seats` item; at 10:45 it is not
+
+#### A running class is in progress on the coach's hero and schedule (rule 12b, PAD-792)
+- **Given** a class from 10:45 to 11:45 with 2 of 6 seats taken, a full class tomorrow, and the club clock pinned at 11:15
+- **When** the coach home is built
+- **Then** the hero is the running class with `inProgress` true and `minutesUntil` null
+- **And** it is the first row of the next 7 days with `inProgress` true and no `inviteHref`, and tomorrow's row has `inProgress` false and its `inviteHref`
+- **And** at 11:45 the hero is tomorrow's class with `inProgress` false
+
+#### The shells read the in-progress state (rule 12b, PAD-792)
+- **Given** a hero payload for "Treino A" 19:30–21:00 with `inProgress` true, and a schedule with that class (`inProgress` true) and another (`inProgress` false, 0 of 2)
+- **When** web and iOS render them
+- **Then** the hero's eyebrow is `dashboard.hero.inProgress` with 19:30 and 21:00, not `upNext`
+- **And** the running row shows no "Vazia" badge and (web) no Convidar, while the other row keeps both
+
+#### Two running classes: the one that started first (rule 12c, PAD-792; pending the owner)
+- **Given** classes 19:30–21:00 and 20:00–21:00 and the clock at 20:23
+- **When** the hero is built
+- **Then** it is the 19:30 class, `inProgress` true
+
+#### A student's hero moves on at the class's start time (rule 12d, PAD-792)
+- **Given** a student signed up for a class from 10:45 to 11:45 and a class tomorrow, and the club clock at 11:15
+- **When** the student home is built
+- **Then** the hero is tomorrow's class with `inProgress` false, and the running class is not on the student's schedule

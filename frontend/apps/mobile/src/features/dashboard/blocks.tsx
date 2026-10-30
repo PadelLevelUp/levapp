@@ -619,9 +619,12 @@ export function NextClassHero({
     <View className="rounded-2xl bg-sidebar p-5" testID="dashboard-next-class">
       <View className="flex-row items-center justify-between">
         <Text className="text-[11px] font-sans-semibold uppercase tracking-widest text-sidebar-foreground/70">
-          {d.isToday
-            ? t("dashboard.hero.upNext", { time: d.startTime })
-            : t("dashboard.hero.nextClass", { weekday: weekdayLong(d.date, i18n.language) })}
+          {/* PAD-792 (dashboard.blocks rule 12b): a class that has started reads "A DECORRER · 19:30–21:00". */}
+          {d.inProgress
+            ? t("dashboard.hero.inProgress", { start: d.startTime, end: d.endTime })
+            : d.isToday
+              ? t("dashboard.hero.upNext", { time: d.startTime })
+              : t("dashboard.hero.nextClass", { weekday: weekdayLong(d.date, i18n.language) })}
         </Text>
         {d.minutesUntil !== null && (
           <View className="rounded-full bg-sidebar-primary/20 px-2.5 py-1">
@@ -965,8 +968,10 @@ export function Schedule7Days({
                     </View>
                   )}
                 </View>
+                {/* PAD-792 (rule 12b): a class that has started has no seats left to fill. */}
                 {!student &&
                   row.capacity > 0 &&
+                  !row.inProgress &&
                   (full ? (
                     <StatusBadge tone="done" label={t("dashboard.schedule.full")} />
                   ) : row.filled === 0 ? (

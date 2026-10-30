@@ -102,17 +102,17 @@ def test_on_a_thursday_next_thursday_is_absent(app):
 
 
 def test_the_week_ends_at_saturday_midnight(app):
-    """The Saturday edge: a class still running at 23:30 is in, Sunday 00:30 is next week."""
+    """The Saturday edge: a class starting at 23:45 is in, Sunday 00:30 is next week.
+
+    PAD-792 (rule 12a): this used a class still running at 23:30; a class that has started is no
+    longer offered at all, so the edge is now a Saturday class that has not started yet."""
     now = datetime(2026, 10, 24, 23, 30)
     coach_id, user_id = _seed(app, {
-        "Sat 23:00": (datetime(2026, 10, 24, 23, 0), datetime(2026, 10, 24, 23, 59)),
+        "Sat 23:45": (datetime(2026, 10, 24, 23, 45), datetime(2026, 10, 24, 23, 59)),
         "Sun 00:30": _hour(datetime(2026, 10, 25, 0, 30)),
     })
 
-    # Preloaded path only: that is what the dashboard serves (helpers/dashboard/coach.py). The
-    # block's own load asks the instance loader for starts >= now, so a class already running
-    # never reaches it; that predates PAD-740.
-    assert _empty_seat_titles(app, coach_id, user_id, now, both_paths=False) == ["Sat 23:00"]
+    assert _empty_seat_titles(app, coach_id, user_id, now) == ["Sat 23:45"]
 
 
 def test_on_sunday_the_queue_moves_to_the_new_week(app):

@@ -42,9 +42,12 @@ export function NextClassHero({
   const pending = action === "answer" && typeof d.lessonInstanceId === "number";
   const declineTarget = typeof d.lessonInstanceId === "number" ? d.lessonInstanceId : d.declineTarget ?? null;
 
-  const eyebrow = d.isToday
-    ? t("dashboard.hero.upNext", { time: d.startTime })
-    : t("dashboard.hero.nextClass", { weekday: weekdayLong(d.date, i18n.language) });
+  // PAD-792 (dashboard.blocks rule 12b): a class that has started reads "A DECORRER · 19:30–21:00".
+  const eyebrow = d.inProgress
+    ? t("dashboard.hero.inProgress", { start: d.startTime, end: d.endTime })
+    : d.isToday
+      ? t("dashboard.hero.upNext", { time: d.startTime })
+      : t("dashboard.hero.nextClass", { weekday: weekdayLong(d.date, i18n.language) });
 
   return (
     // `sidebar-accent` is the lighter navy and `sidebar` the deeper one — the
