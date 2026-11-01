@@ -121,7 +121,9 @@
         }
       ],
       "./plugins/with-ci-cleartext",
-      "./plugins/with-pod-deployment-floor"
+      "./plugins/with-pod-deployment-floor",
+      "./plugins/with-release-signing",
+      "./plugins/with-google-services"
     ],
     "experiments": {
       "tsconfigPaths": false
