@@ -3,7 +3,8 @@ id: B-712
 title: "Opening a class's never-filled spots re-read every student's facts for every spot and group, so one engine tick cost minutes of processor time and starved the app"
 type: missing-criterion
 severity: high
-status: triaged
+status: resolved
+resolved: 2026-10-30T12:20:52Z
 affects:
   - notifications.invitations
   - backend/padel_app/services/notification_service.py
@@ -60,4 +61,15 @@ about 190 statements on a 166-student roster.
 
 ### Resolution
 
-(pending)
+- Spec changes: `notifications.invitations` rule 12a (the facts a rule reads are read once per wave)
+  and the criterion "A wave whose rules read per-student facts costs the same for a big roster";
+  one line in the coach-fills-vacancies-automatically business spec.
+- Code: `_RosterFacts` in `notification_service.py`, built once per `evaluate_candidates` call and
+  read lazily: the coach's occurrence ids, the level ladder, the roster's unjustified-absence counts
+  (`_unjustified_absence_counts_for`) and make-up counts. The per-student path stays for callers
+  without it; verdicts are unchanged.
+- Tests: `test_pad788_rule_facts_cost.py`, red on staging (322 vs 610 statements at roster 20 vs
+  40) and green with the fix, plus a check of every stage against the per-student evaluator.
+  `backend/scripts/opening_cost_probe.py` at the measured coach's shape: first tick 24,668 → 892
+  statements, all 7 ticks 26,622 → 1,522, the same 5 invitations to the same students. PR #887.
+- Resolved: 2026-10-30.

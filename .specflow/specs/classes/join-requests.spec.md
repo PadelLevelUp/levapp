@@ -46,6 +46,16 @@ by a student's request — and whichever lands first wins.
    absence record may have changed. A student who no longer passes the bar is not silently enrolled:
    the coach gets the same named-reason warning as a manual add (`eligibility.enforcement` rule 7)
    and may proceed anyway — accepting a request is a manual add.
+7a. **The side is re-checked at accept time too (PAD-808, B-719; numbering unconfirmed).** A request
+   names a side (rule 20). When the coach accepts by hand and no open spot of that side is left
+   (rule 20's "a spot of that side", `side_has_spot`), the coach is warned before anything is
+   written, and may proceed: the student then takes another open spot (rule 6, `vacancy_for_joiner`)
+   and still plays the side asked for (`presences.side`). pt "Já não há vaga do lado {lado} nesta
+   aula. Se aceitares, {nome} entra numa vaga de {outro lado} e joga à {lado}. Confirmas?", en
+   "There is no {side} spot left in this class. If you accept, {name} takes a {other side} spot and
+   plays {side}. Confirm?". When the student also fails the bar (rule 7), both warnings come in the
+   one confirmation. A `both` request, or a class with no open spot yet, never gets this warning.
+   The automatic accept (rule 21) never overrides it: such a request waits for the coach, unchanged.
 8. **On accept, a credit is consumed exactly as a normal enrolment consumes one.** In the current
    schema the only credit balance that exists is `StandingWaitingListEntry.credits_*`, so this means:
    if the requesting student holds an active standing waiting-list entry with that coach, accepting
@@ -88,7 +98,11 @@ by a student's request — and whichever lands first wins.
     - `POST /app/class-join-requests/<id>/withdraw` — the requesting student only (rule 4).
     - `POST /app/class-join-requests/<id>/accept` `{confirm?: boolean}` — the class's coach only.
       Without `confirm`, a student who now fails the bar answers `409 {code: "ineligible",
-      ineligible: [...]}` in the `eligibility_check` shape (rule 7); a class that is meanwhile full
+      ineligible: [...]}` in the `eligibility_check` shape (rule 7); PAD-808 (rule 7a): the same
+      `409 ineligible` also answers a request whose side has no open spot, with `reasons` (each of
+      `"eligibility"`, `"side"` that applies), `requestedSide` and `openSides` (the sides of the open
+      spots, side-less ones omitted); `ineligible` is then `[]` when only the side applies, so an
+      older client still shows its confirmation; a class that is meanwhile full
       answers `409 {code: "spot_filled"}` and the request closes as `superseded` (rule 10).
     - `POST /app/class-join-requests/<id>/reject` — the class's coach only (rule 9).
     - The class payload (`POST /app/class_instance`) carries the requests: a coach gets
@@ -300,6 +314,21 @@ by a student's request — and whichever lands first wins.
 - **Then** the vacancy is filled by the requesting student
 - **And** the two outstanding invitation messages are retired exactly as they are when a spot is
   taken today
+
+#### The coach is warned before a request takes a spot of the other side (PAD-808)
+- **Given** a pending request for the left side, and the class's only open spots are on the right
+- **When** the coach accepts it without confirming
+- **Then** the server answers `409 ineligible` with `reasons` holding `"side"`, `requestedSide: "left"`
+  and `openSides: ["right"]`, and nobody is enrolled
+- **When** the coach confirms
+- **Then** the student is enrolled on a right spot and plays left in that class
+- **And** with a left spot open, or for a `both` request, the accept needs no confirmation
+
+#### Both warnings come in one confirmation (PAD-808)
+- **Given** a pending request for the left side from a student who now fails the bar, and only right
+  spots open
+- **When** the coach accepts it
+- **Then** one confirmation names the bar's reasons and the side, and confirming enrols the student
 
 #### A student who fell below the bar is not silently enrolled
 - **Given** a pending request from a student who was eligible when they requested

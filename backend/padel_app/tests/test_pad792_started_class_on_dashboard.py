@@ -75,19 +75,6 @@ def test_once_it_ends_the_hero_moves_to_the_next_class(app):
     assert hero["data"]["title"] == "A2 Class" and hero["data"]["inProgress"] is False
 
 
-def test_two_classes_running_the_hero_is_the_one_that_started_first():
-    """Rule 12c: an assumption pending the owner's confirmation (the ticket asks which to show)."""
-    from padel_app.helpers.dashboard.coach_home import next_class_block
-
-    now = datetime(2026, 10, 29, 20, 23)
-    later = {"type": "class", "id": "2", "title": "Later", "date": "2026-10-29", "startTime": "20:00", "endTime": "21:00"}
-    earlier = {"type": "class", "id": "1", "title": "Earlier", "date": "2026-10-29", "startTime": "19:30", "endTime": "21:00"}
-
-    block = next_class_block([earlier, later], now=now)
-
-    assert block["data"]["title"] == "Earlier" and block["data"]["inProgress"] is True
-
-
 def test_at_its_start_time_the_student_hero_moves_to_the_next_class(app):
     """The student home loads its classes from `now` (calendar_helpers: start_datetime >= start), so
     a running class never reaches it: at the start time the hero is the next class, not in progress.

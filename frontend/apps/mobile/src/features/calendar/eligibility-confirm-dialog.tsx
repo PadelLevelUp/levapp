@@ -42,6 +42,7 @@ export function EligibilityConfirmDialog({
   onConfirm,
   action = "add",
   portalHost,
+  sideGone = null,
 }: {
   open: boolean;
   ineligible: EligibilityCheckEntry[];
@@ -53,19 +54,26 @@ export function EligibilityConfirmDialog({
   /** A PortalHost name when the dialog must draw on top of a native modal (the notify modal),
    *  as BlockerSheet does; defaults to the root host. */
   portalHost?: string;
+  /** classes.join-requests rule 7a (PAD-808), as web: accepting a request whose side has no open
+   *  spot left. Alone it is the whole message; with failing students it is added below them. */
+  sideGone?: { side: "left" | "right"; name: string } | null;
 }) {
   const { t } = useTranslation();
   // One entry per verb (eligibility.enforcement rules 6 and 6a): the add dialog's copy, or the
   // invite dialog's — the same sentence with the verb swapped.
   const copy = COPY[action];
   const students = React.useMemo(() => describeIneligible(ineligible), [ineligible]);
+  const sideOnly = sideGone != null && students.length === 0;
+  const sideLine = sideGone
+    ? t(sideGone.side === "left" ? "calendar.eligibilityConfirm.sideGoneLeft" : "calendar.eligibilityConfirm.sideGoneRight", { name: sideGone.name })
+    : null;
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => (!next ? onCancel() : null)}>
       <AlertDialogContent testID="eligibility-confirm" portalHost={portalHost}>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t(copy.title)}</AlertDialogTitle>
-          <AlertDialogDescription>{t(copy.body)}</AlertDialogDescription>
+          <AlertDialogTitle>{t(sideOnly ? "calendar.eligibilityConfirm.sideTitle" : copy.title)}</AlertDialogTitle>
+          <AlertDialogDescription>{sideOnly ? sideLine : t(copy.body)}</AlertDialogDescription>
         </AlertDialogHeader>
         <View className="gap-2">
           {students.map((s) => (
@@ -79,13 +87,18 @@ export function EligibilityConfirmDialog({
               ))}
             </View>
           ))}
+          {sideLine && !sideOnly ? (
+            <Text className="text-sm" testID="eligibility-confirm-side">
+              {sideLine}
+            </Text>
+          ) : null}
         </View>
         <AlertDialogFooter>
           <AlertDialogCancel testID="eligibility-confirm-cancel" onPress={onCancel}>
             <Text>{t("calendar.eligibilityConfirm.cancel")}</Text>
           </AlertDialogCancel>
           <AlertDialogAction testID="eligibility-confirm-proceed" onPress={onConfirm}>
-            <Text>{t(copy.confirm)}</Text>
+            <Text>{t(sideOnly ? "calendar.eligibilityConfirm.sideConfirm" : copy.confirm)}</Text>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -229,8 +229,14 @@ export function NotifyModal({
       if (shouldReportSent(sent, blocked)) {
         toast.success(t("calendar.notify.invitationSent", { count: sent }));
       }
-    } catch {
-      toast.error(t("calendar.notify.failedSendInvitations"));
+    } catch (err) {
+      // PAD-798 (notifications.manual rule 10): the class started while the picker was open.
+      if ((err as { response?: { data?: { code?: string } } }).response?.data?.code === "CLASS_STARTED") {
+        toast.error(t("calendar.notify.classStarted"));
+        resetAndClose();
+      } else {
+        toast.error(t("calendar.notify.failedSendInvitations"));
+      }
     }
   };
 

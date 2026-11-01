@@ -6699,12 +6699,25 @@ def players_with_live_invitation(instance_id: int, player_ids) -> set:
     }
 
 
+class ClassStartedError(Exception):
+    """PAD-798 (notifications.manual rule 10): a class that has started takes no invitation."""
+
+
+def class_has_started(instance: LessonInstance, now: datetime | None = None) -> bool:
+    """PAD-798: the class's start has come, on the club's clock (R-023)."""
+    return instance.start_datetime <= utc_to_wall_naive(now or utcnow_naive())
+
+
 def send_manual_notifications(
-    instance_id: int, player_ids: list[int], coach_id: int
+    instance_id: int, player_ids: list[int], coach_id: int, *, now: datetime | None = None
 ) -> list[NotificationEvent]:
     from padel_app.models import Coach, Player
 
     instance = LessonInstance.query.get_or_404(instance_id)
+    # PAD-798 (rule 10, owner 2026-10-30): once the class has started (club clock, R-023) nobody is
+    # invited, whoever sends. The engine stops at the same moment (PAD-68, invitations rule 20).
+    if class_has_started(instance, now):
+        raise ClassStartedError(instance_id)
     # PAD-732 (toggle-class rule 3b, owner 2026-10-22): no `notifications_enabled` check here. That
     # switch governs the engine's automatic sends; a coach's manual invitation always goes out.
     config = get_or_create_config(coach_id)

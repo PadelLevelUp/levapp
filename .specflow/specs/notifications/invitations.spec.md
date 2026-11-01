@@ -747,6 +747,15 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
       enrolled (the yes answered `spot_filled`) â€” never both and never neither; the mutant with the
       withdrawal's locks dropped fails that cell.
 
+20. **The engine stops at the class's start (PAD-798, restating PAD-68; owner, 2026-10-30).** From
+   the class's start time on the club's clock (`_instance_is_over`: start <= Lisbon now, or the
+   class canceled or completed) the engine opens no vacancy and sends no invitation, first round or
+   later. `trigger_invitations` returns nothing; `_send_invitation_batch` sends nothing; the tick
+   (`process_invitation_batches`) expires the class's open vacancies and with them the invitations
+   still out (rule 15), as before; a decline's follow-up, a waiting-list answer and a semi-automatic
+   approval (`semi-auto-approval`) refuse the same way. Nothing here changed in PAD-798: the rule
+   states, beside `notifications.manual` rule 10 (manual sends refused with 409 `CLASS_STARTED`),
+   what the owner decided for every path, and its criteria pin it.
 ### Acceptance Criteria
 
 #### An empty round logs its stage counts (rule 3d)
@@ -1384,3 +1393,12 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
 - **When** the coach marks the student absent
 - **Then** the three are invited inside the request and the reply lists them in `notifiedPlayers`
   with `invitationsQueued: false`
+
+#### No round opens or continues once the class has started (rule 20, PAD-798)
+- **Given** an automatic class at 19:30 Lisbon on a summer day (18:30 UTC) and an absent student
+  whose place a candidate could take
+- **When** invitations are triggered at 19:29, at 19:30 and at 19:45 Lisbon
+- **Then** the 19:29 trigger invites the candidate; the 19:30 and 19:45 triggers open no vacancy and
+  invite nobody
+- **And** for a vacancy whose first batch went out at 19:29, the tick at 19:45 sends no further
+  invitation, expires the vacancy, and expires the invitation still out

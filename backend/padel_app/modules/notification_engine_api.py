@@ -18,6 +18,8 @@ from padel_app.services.notification_service import (
     send_class_reminders,
     already_invited_players,
     send_manual_notifications,
+    ClassStartedError,
+    class_has_started,
     trigger_invitations,
     process_invitation_batches,
     get_notification_activity,
@@ -314,6 +316,10 @@ def manual_notify():
     for pid in player_ids:
         if Association_CoachPlayer.query.filter_by(coach_id=coach.id, player_id=pid).first() is None:
             abort(403, "Player is not on your roster")
+    # PAD-798 (notifications.manual rule 10): after the ownership checks, so a stranger learns
+    # nothing about the class; before anything is worked out or sent. The service refuses too.
+    if class_has_started(instance):
+        return _class_started()
     # PAD-107 + PAD-112: work out who will be skipped BEFORE sending, so the
     # coach is told by name exactly who could not be reached instead of just
     # seeing a count that is quietly short. Two independent reasons a student is
@@ -333,8 +339,15 @@ def manual_notify():
     for entry in already_invited_players(instance.id, player_ids):
         blocked_by_id.setdefault(entry["playerId"], entry)
     blocked = list(blocked_by_id.values())
-    events = send_manual_notifications(instance.id, player_ids, coach.id)
+    try:
+        events = send_manual_notifications(instance.id, player_ids, coach.id)
+    except ClassStartedError:  # the start came while the lists above were worked out
+        return _class_started()
     return jsonify({"sent": len(events), "blocked": blocked})
+
+
+def _class_started():
+    return jsonify({"error": "CLASS_STARTED", "code": "CLASS_STARTED"}), 409
 
 
 @bp.post("/past_due/send")

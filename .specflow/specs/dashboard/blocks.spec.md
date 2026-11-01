@@ -299,10 +299,12 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
        with no "starts in" chip. Once the class ends the hero is the next class that has not started,
        with "A SEGUIR". The running class stays the first row of the next 7 days (PAD-754), with no
        `inviteHref`; both shells drop its seats badge (Vazia, N vagas) and its Convidar.
-    c. **Two classes running at once:** the hero is the one that started first (the window is
-       sorted by start). This is an ASSUMPTION pending the owner's confirmation; the ticket asks:
-       "Se houver duas aulas a decorrer ao mesmo tempo, confirmar com o Pedro qual mostrar
-       (proposta: a que começou primeiro)."
+    c. **(PAD-797) Two or more classes running at once** (two courts): the hero shows one
+       "A DECORRER" card per running class, in start order, each with its own start–end and its
+       own Abrir to the class, and no invite button. The block's own `data` is the first running
+       class, so a build that predates PAD-797 still shows that one; `alsoRunning` lists the
+       others (same fields, set only when there are others). One running class, or none, is
+       unchanged from 12b.
     d. **The student home** loads its classes from `now` (the player instance loader keeps
        `start_datetime >= start`), so a running class never reaches it: at its start time the
        student's hero is already the next class, never `inProgress`. A student "A DECORRER" would
@@ -568,10 +570,17 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the hero's eyebrow is `dashboard.hero.inProgress` with 19:30 and 21:00, not `upNext`
 - **And** the running row shows no "Vazia" badge and (web) no Convidar, while the other row keeps both
 
-#### Two running classes: the one that started first (rule 12c, PAD-792; pending the owner)
-- **Given** classes 19:30–21:00 and 20:00–21:00 and the clock at 20:23
+#### Two running classes are two hero cards (rule 12c, PAD-797)
+- **Given** classes 19:30–21:00 and 20:00–21:00, a class at 21:30, and the clock at 20:23
 - **When** the hero is built
-- **Then** it is the 19:30 class, `inProgress` true
+- **Then** its data is the 19:30 class, `inProgress` true, and `alsoRunning` holds only the 20:00 class, `inProgress` true, with its own 20:00–21:00 and link
+- **And** with only the 19:30 class running, the block has no `alsoRunning`
+
+#### The shells show a card per running class (rule 12c, PAD-797)
+- **Given** a hero payload for "Treino A" 19:30–21:00 with `alsoRunning` holding "Treino B" 20:00–21:00, both `inProgress`
+- **When** web and iOS render it
+- **Then** there are two cards, each reading `dashboard.hero.inProgress` with its own start and end, and Abrir on "Treino B" opens "Treino B"
+- **And** neither card has an invite button; without `alsoRunning` there is one card, as in PAD-792
 
 #### A student's hero moves on at the class's start time (rule 12d, PAD-792)
 - **Given** a student signed up for a class from 10:45 to 11:45 and a class tomorrow, and the club clock at 11:15
