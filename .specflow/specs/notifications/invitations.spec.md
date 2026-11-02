@@ -448,8 +448,12 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    (`_vacancy_level`) and the group's rules. It is reused by every other spot of that shape. The
    eligibility bar and the student's auto-invite opt-out do not read the spot, and are computed once
    per class and student. *Implementation note:* the run's cache lives in a context variable
-   (`engine_run()`); a caller outside a run (the simulation, the approval queue, the coach-facing
-   reasons with `explain=True`, the manual-add warning) evaluates as before. What a run writes
+   (`_ENGINE_RUN`, set by `@_in_engine_run` on both entry points). The engine's own callers
+   inside a run share it: the batch, the waiting list's group 0 (`_waiting_list_candidates`), the
+   sibling-offer check (`_held_by_another_offer`) and the approval prompts a semi-automatic
+   `trigger_invitations` creates. A call made outside a tick or a `trigger_invitations` call (the
+   simulation, the coach-facing reasons) and every `explain=True` call evaluate as before, and so
+   does the bar re-check under the class lock (`_still_invitable`), which stays fresh. What a run writes
    (invitations, vacancies, messages, claims) is not an input to these verdicts, so the stages read
    from it stay per spot and per call: departing player, already enrolled, declined this class,
    already invited, offered another spot, same-day class and offer, availability. **Behaviour is
