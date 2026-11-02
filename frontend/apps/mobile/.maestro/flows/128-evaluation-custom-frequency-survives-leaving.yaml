@@ -63,6 +63,10 @@ onFlowComplete:
 - copyTextFrom:
     id: "settings-evaluation-reminder-n"
 - assertTrue: "${maestro.copiedText == '7'}"
+# PAD-816: the number field still has focus, so the keyboard is up and Save, below it, is not
+# listed on Android (Maestro sees only what is on screen) and the scroll cannot reach it. Put the
+# keyboard away first, as a coach does (on Android hideKeyboard is the back key while it is up).
+- hideKeyboard
 - scrollUntilVisible:
     element:
       id: "settings-preferences-save"

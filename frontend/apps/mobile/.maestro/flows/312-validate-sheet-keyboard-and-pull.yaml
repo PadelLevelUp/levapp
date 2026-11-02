@@ -64,11 +64,9 @@ onFlowComplete:
 - inputText: "Zz"
 
 # Rule 5: the drag puts the keyboard away, so Cancel (which sat behind it) takes the tap.
-# PAD-816: the drag starts on a row of the list, not on the search field: on Android a drag that
-# starts on the focused input is taken by the input and neither scrolls the list nor dismisses.
 - swipe:
     from:
-      id: "validate-list-name-.*"
+      id: "presences-card-player-search"
     direction: DOWN
     duration: 600
 - tapOn:

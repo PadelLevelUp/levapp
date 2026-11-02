@@ -57,14 +57,6 @@ appId: com.padellevelup.app
 - tapOn:
     id: "presences-card-add-player"
 - inputText: "${maestro.copiedText}"
-# PAD-816: the answer row renders below the search field, under the keyboard on Android, where
-# Maestro does not list it. A drag on the list puts the keyboard away (client.pull-to-refresh
-# rule 5), as a coach would.
-- swipe:
-    from:
-      id: "validate-list-name-.*"
-    direction: DOWN
-    duration: 600
 - extendedWaitUntil:
     visible:
       id: "presences-card-already-in-class"
