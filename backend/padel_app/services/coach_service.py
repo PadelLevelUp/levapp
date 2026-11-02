@@ -21,12 +21,93 @@ from padel_app.tools.request_adapter import JsonRequestAdapter
 
 # Ordering convention (.specflow/specs/levels/coach-levels.spec.md rule 3): lower display_order =
 # STRONGER level, so the first entry here is the top of a new coach's ladder.
-# These are placeholders the coach renames and reorders in Settings.
+# levels.coach-levels rule 14 (PAD-815): the reference coach's ladder, labels as they read in its
+# Settings. The coach renames and reorders them in Settings.
 DEFAULT_COACH_LEVELS = [
-    {"code": "L1", "label": "Level 1", "display_order": 1},
-    {"code": "L2", "label": "Level 2", "display_order": 2},
-    {"code": "L3", "label": "Level 3", "display_order": 3},
+    {"code": code, "label": label, "display_order": order}
+    for order, (code, label) in enumerate(
+        [
+            ("2+", "Nivel 2 alto"), ("2", "Nivel 2"), ("2-", "Nivel 2 baixo"),
+            ("3+", "Nivel 3 alto"), ("3", "Nivel 3"), ("3-", "Nivel 3 baixo"),
+            ("4+", "Nivel 4 alto"), ("4", "Nivel 4"), ("4-", "Nivel 4 baixo"),
+            ("5+", "Nivel 5 alto"), ("5", "Nivel 5"), ("5-", "Nivel 5 baixo"),
+            ("6+", "Nivel 6 alto"), ("6", "Nivel 6"), ("6-", "Nivel 6 baixo"),
+            ("7+", "Nivel 7 alto"), ("7", "Iniciação"),
+        ],
+        start=1,
+    )
 ]
+
+
+def _invitation_group(n, *rules):
+    return {"id": f"default_{n}", "rules": [{"attribute": a, "operation": o} for a, o in rules]}
+
+
+_ONE_ABOVE, _SAME = ("level", "one_above_vacancy"), ("level", "same_as_vacancy")
+_SIDE, _MAKEUPS = ("side", "same_as_vacancy"), ("has_makeups", "is_true")
+
+# notifications.config rule 17 (PAD-815): the configuration a new coach starts from, the reference
+# coach's (the set PAD-810 copied). Written as a full row at creation; the column defaults and the
+# DEFAULT_* fallbacks stay as they were, so a coach created before the rule reads as before.
+# Not taken from the reference: evaluation_scale_max (stays the product's 5, PAD-403), excluded
+# players (off, empty), message_templates (NULL = the built-in texts, until the owner approves).
+DEFAULT_COACH_CONFIG = {
+    "auto_notify_enabled": True,
+    "invitation_mode": "automatic",
+    "auto_accept_join_requests": True,
+    "invitation_start_type": "days_before_at_time",
+    "invitation_start_value": 2,
+    "invitation_start_time": "19:00",
+    "reminder_type": "days_before_at_time",
+    "reminder_value": 1,
+    "reminder_time": "17:00",
+    "reminder_count": 3,
+    "hours_between_reminders": 2,
+    "quiet_hours_enabled": True,
+    "quiet_hours_start": "00:00",
+    "quiet_hours_end": "07:00",
+    "max_simultaneous_enabled": True,
+    "max_simultaneous_value": 3,
+    "max_total_enabled": True,
+    "max_total_value": 10,
+    "max_invites_per_student_per_day_enabled": True,
+    "max_invites_per_student_per_day_value": 3,
+    "no_same_day_class_enabled": True,
+    "max_inactive_time_enabled": True,
+    "max_inactive_time_value": 60,
+    "min_time_before_class_enabled": False,
+    "min_time_before_class_value": 125,
+    "exclude_inactive_accounts": False,
+    "cancellation_deadline_hours": 24,
+    "evaluation_reminder_type": "never",
+    "evaluation_reminder_value": None,
+    "eligibility_rules": [{"value": 2, "attribute": "level", "operation": "within_n_above_class"}],
+    "invitation_groups": [
+        _invitation_group(1, _ONE_ABOVE, _SIDE, _MAKEUPS), _invitation_group(2, _SAME, _SIDE, _MAKEUPS),
+        _invitation_group(3, _ONE_ABOVE, _SIDE), _invitation_group(4, _SAME, _SIDE),
+        _invitation_group(5, _ONE_ABOVE, _MAKEUPS), _invitation_group(6, _SAME, _MAKEUPS),
+        _invitation_group(7, _ONE_ABOVE), _invitation_group(8, _SAME),
+    ],
+    "tiebreakers": [
+        {"id": "unjustified_absences", "label": "Fewest unjustified absences", "enabled": True},
+        {"id": "justified_absences", "label": "Most justified absences", "enabled": True},
+        {"id": "attendance_rate", "label": "Highest attendance rate", "enabled": True},
+        {"id": "playing_side_match", "label": "Matching playing side", "enabled": True},
+        {"id": "subscription_status", "label": "Active subscription", "enabled": False},
+    ],
+    "notification_groups": [
+        {"id": "same_level", "label": "Same level", "enabled": True},
+        {"id": "recent_absences", "label": "Recent absences", "enabled": True},
+        {"id": "justified_absences", "label": "Justified absences", "enabled": True},
+        {"id": "all_students", "label": "All students", "enabled": True},
+    ],
+    "open_spots_visible": True,
+    "priority_criteria": None,
+    "evaluation_scale_max": 5,
+    "excluded_players_enabled": False,
+    "excluded_player_ids": [],
+    "message_templates": None,
+}
 
 
 def _apply_form(form, payload, element):
@@ -66,6 +147,33 @@ def create_default_levels_for_coach(coach):
     return coach.levels
 
 
+def create_default_config_for_coach(coach):
+    """Write a new coach's notification configuration from DEFAULT_COACH_CONFIG (rule 17).
+
+    Idempotent: a coach who already has a row keeps it. Same unit of work as
+    create_default_levels_for_coach: flushed inside a caller's unit, committed outside one.
+    """
+    import copy
+
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    existing = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+    if existing is not None:
+        return existing
+    config = NotificationConfig(coach_id=coach.id, **copy.deepcopy(DEFAULT_COACH_CONFIG))
+    db.session.add(config)
+    commit_or_flush()
+    return config
+
+
+def apply_new_coach_defaults(coach):
+    """Everything a newly created coach starts with: the ladder (levels rule 14) and the
+    notification configuration (notifications.config rule 17). Every creation path calls this."""
+    create_default_levels_for_coach(coach)
+    create_default_config_for_coach(coach)
+
+
 def create_coach_service(data):
     coach = Coach()
     form = coach.get_create_form()
@@ -75,7 +183,7 @@ def create_coach_service(data):
 
     coach.update_with_dict(values)
     coach.create()
-    create_default_levels_for_coach(coach)
+    apply_new_coach_defaults(coach)
     return coach
 
 

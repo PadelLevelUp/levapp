@@ -63,8 +63,20 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
 13. **`display_order` is NOT NULL with a database default of `0`** (PAD-273, audit M12). `0` is the
     "unset" value rules 9 and 10 already describe, so a row written without an order (raw SQL, an
     old client) still sorts last and is renumbered on the next write. It is never `NULL`.
+14. **A new coach starts from the reference ladder (PAD-815; owner, 2026-11-02).** The ladder written
+    when a coach is created (`create_default_levels_for_coach`, used by every creation path) is the
+    reference coach's 17 levels, strongest first: `2+` "Nivel 2 alto", `2` "Nivel 2", `2-` "Nivel 2
+    baixo", then the same three for 3, 4, 5 and 6, then `7+` "Nivel 7 alto" and `7` "Iniciação"
+    (display_order 1…17). It replaces L1/L2/L3. The labels are the reference's own, as they read
+    in its Settings. The helper stays idempotent: a coach who already has levels keeps them.
 
 ### Acceptance Criteria
+
+#### A new coach starts from the reference ladder (rule 14)
+- **Given** no coach yet
+- **When** a coach is created by sign-up, by accepting a club invitation as a new user, or by
+  `create_coach_service`
+- **Then** their ladder is rule 14's 17 levels, with those codes, labels and display_order 1…17
 
 #### The levels list comes strongest first, whatever order they were created in (PAD-522)
 - **Given** Maria created Iniciação, then Competição, then Avançado, and ordered them in Settings as

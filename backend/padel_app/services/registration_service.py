@@ -332,9 +332,9 @@ def _create_account(*, role, name, username, email, password_hash, birth_date, c
             )
             db.session.add(coach)
             db.session.flush()
-            from padel_app.services.coach_service import create_default_levels_for_coach
+            from padel_app.services.coach_service import apply_new_coach_defaults
 
-            create_default_levels_for_coach(coach)
+            apply_new_coach_defaults(coach)
 
     if identity is None:
         # auth.register rule 14 / auth.email-verification rule 6: the first code

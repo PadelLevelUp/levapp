@@ -7,10 +7,16 @@
  * look up any single student who is missing. Nothing is sent or placed.
  *
  * Seeded world (e2e/scripts/seed.py): coach `e2e-coach` with levels I1
- * (strongest) and B1; "E2E Academy Class" next Monday 10:00 at level B1 with
- * `E2E Student` (B1, right) enrolled; `E2E Student Two` (B1, left) on the
- * roster but not enrolled; 27 "Filler Player NN" at I1/right; default engine
- * config (auto on, default invitation groups, maxSimultaneous 3).
+ * (strongest) and B1; `E2E Student` (B1, right) and `E2E Student Two` (B1,
+ * left); 27 "Filler Player NN" at I1/right; default engine config (auto on,
+ * default invitation groups, maxSimultaneous 3, maxTotal 10).
+ *
+ * PAD-812 (B-721): the tutorial previews a B1 class this spec creates 10 days
+ * out with `E2E Student` enrolled, not the seed's "E2E Academy Class". That one
+ * is next Monday, so on a Sunday it is inside the invitation window and the
+ * released scheduler really invites for it, filling maxTotal within a minute;
+ * the preview then shows no first batch. A class 10 days out is never inside
+ * the window, whatever the weekday.
  *
  * Run:
  *   npx playwright test e2e/settings/tutorials-understand-invites.spec.ts
@@ -27,7 +33,8 @@ import {
 import { openSettings } from "../helpers/navigation";
 import { API_ROOT } from "../helpers/api";
 
-const CLASS_TITLE = "E2E Academy Class";
+const CLASS_TITLE = `PAD-812 Tutorial Class ${Date.now()}`;
+const CLASS_DAYS_AHEAD = 10;
 const ENROLLED_STUDENT = "E2E Student";
 const FILLER_ABOVE_BAR = "Filler Player 01";
 
@@ -38,6 +45,44 @@ async function getToken(request: APIRequestContext): Promise<string> {
   expect(res.ok(), `login failed: ${res.status()}`).toBeTruthy();
   const json = await res.json();
   return (json.accessToken ?? json.access_token) as string;
+}
+
+function isoDaysAhead(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** The previewed class: B1, `ENROLLED_STUDENT` enrolled, CLASS_DAYS_AHEAD days out. Returns its calendar event. */
+async function createPreviewClass(request: APIRequestContext): Promise<Record<string, unknown>> {
+  const auth = { Authorization: `Bearer ${await getToken(request)}` };
+  const levels = (await (await request.get(`${API_ROOT}/app/coach_levels`, { headers: auth })).json()) as Array<{
+    id: number;
+    code: string;
+  }>;
+  const b1 = levels.find((l) => l.code === "B1");
+  expect(b1, "seed level B1").toBeTruthy();
+  const players = (await (await request.get(`${API_ROOT}/app/coach_players`, { headers: auth })).json()) as Array<{
+    playerId: number | string;
+    name: string;
+  }>;
+  const student = players.find((p) => p.name === ENROLLED_STUDENT);
+  expect(student, `seed player ${ENROLLED_STUDENT}`).toBeTruthy();
+  const res = await request.post(`${API_ROOT}/app/add_class`, {
+    headers: auth,
+    data: {
+      name: CLASS_TITLE,
+      classType: "academy",
+      maxPlayers: 4,
+      levelId: b1!.id,
+      date: isoDaysAhead(CLASS_DAYS_AHEAD),
+      startTime: "10:00",
+      endTime: "11:00",
+      playerIds: [String(student!.playerId)],
+    },
+  });
+  expect(res.ok(), `add_class failed: ${res.status()}`).toBeTruthy();
+  return (await res.json()) as Record<string, unknown>;
 }
 
 async function setEligibility(request: APIRequestContext, rules: unknown[] | null) {
@@ -71,12 +116,36 @@ async function openTutorial(page: Page) {
 }
 
 async function pickClassAndPlayer(page: Page) {
-  await page.getByRole("button", { name: CLASS_TITLE }).first().click();
+  await page.getByRole("button", { name: CLASS_TITLE }).click();
   await page.getByRole("button", { name: ENROLLED_STUDENT, exact: true }).click();
   await expect(page.getByTestId("tutorial-results")).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe("PAD-196: Settings › Tutorials › Understand invites", () => {
+  let previewClass: Record<string, unknown> | null = null;
+
+  test.beforeAll(async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    try {
+      previewClass = await createPreviewClass(request);
+    } finally {
+      await request.dispose();
+    }
+  });
+
+  test.afterAll(async ({ playwright }) => {
+    if (!previewClass) return;
+    const request = await playwright.request.newContext();
+    try {
+      await request.post(`${API_ROOT}/app/remove_class`, {
+        headers: { Authorization: `Bearer ${await getToken(request)}` },
+        data: { event: previewClass, scope: "single" },
+      });
+    } finally {
+      await request.dispose();
+    }
+  });
+
   test("US-196-01: coach sees Tutorials right after Notifications; a student does not", async ({
     page,
   }) => {
