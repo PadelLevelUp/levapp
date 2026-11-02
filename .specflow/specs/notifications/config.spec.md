@@ -73,7 +73,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    ones still pending (`sent`) and the ones accepted (`confirmed`) together: two open spots in one
    occurrence share one budget, each new batch is trimmed to what remains, and an occurrence at its
    budget invites no one more (`notification_service._check_restrictions` and
-   `_send_invitation_batch`). **Queued and expired invitations do not count**: a queued one is not
+   `_send_invitation_batch`), and its open spots hold their round until the budget frees
+   (`notifications.invitations` rule 3e, PAD-801). **Queued and expired invitations do not count**: a queued one is not
    charged until it is sent, and an invitation that expires gives its place back to the budget, so
    "max total" is not a lifetime cap. The settings copy says "Max total per class" / "Invitations
    for one class date, pending and accepted together".
