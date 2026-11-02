@@ -70,10 +70,11 @@ appId: com.padellevelup.app
       - tapOn:
           id: "overlap-cancel"
       # Back to the form, which must still be usable — and out again, leaving
-      # no class behind.
+      # no class behind. PAD-816: the form is still scrolled down to Save, so the
+      # name field is off-screen (Android lists only what is on screen); Save is not.
       - extendedWaitUntil:
           visible:
-            id: "class-name"
+            id: "class-save"
           timeout: 10000
       - tapOn:
           id: "class-new-back"

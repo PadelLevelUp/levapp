@@ -15,9 +15,11 @@ onFlowComplete:
     id: "tab-messages"
 - tapOn:
     id: "messages-new"
-- extendedWaitUntil:
-    visible:
+# PAD-816: Android lists only what is on screen, and the target user's row (the 14th in the picker) sits below the fold; scroll to it.
+- scrollUntilVisible:
+    element:
       id: "user-item-${output.targetId}"
+    direction: DOWN
     timeout: 20000
 - runScript: ../scripts/pad483-block.js
 - assertTrue: "${output.blockStatus < 300}"
