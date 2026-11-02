@@ -31,6 +31,12 @@ onFlowComplete:
       id: "settings-evaluation-reminder"
     direction: DOWN
     timeout: 30000
+# PAD-816: Android lists only what is on screen, and the custom option (after never/monthly) sits below the fold; scroll to it.
+- scrollUntilVisible:
+    element:
+      id: "settings-evaluation-reminder-option-custom"
+    direction: DOWN
+    timeout: 15000
 - tapOn:
     id: "settings-evaluation-reminder-option-custom"
 - extendedWaitUntil:
