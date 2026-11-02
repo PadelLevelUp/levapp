@@ -253,6 +253,13 @@ Send browser push notifications when a new message arrives and the recipient isn
    asking for permission, and the permission request is the Android 13+ `POST_NOTIFICATIONS`
    prompt (`requestPermissionsAsync`; a no-op grant below 13). Firebase/EAS steps live in
    `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
+   (e) **`google-services.json` is never committed (PAD-355).** A prebuild with
+   `LEVAPP_ANDROID_FCM=1` sets `android.googleServicesFile` (plugin `with-google-services`) to
+   `$GOOGLE_SERVICES_JSON` when set, else to the operator's gitignored copy at
+   `docs/infra/google-services.json`, and fails the prebuild when that file does not exist, so a
+   store build cannot ship without Android push by accident. Without the flag (the CI emulator
+   lane, debug builds) the prebuild has no Firebase config. The Play bundle job sets the flag
+   whenever the `GOOGLE_SERVICES_JSON_BASE64` secret exists (`mobile.android-play-bundle` rule 10).
 
 12. **A message push names the message, and the tap lands on it (PAD-408).** Every push
    that announces a `Message` row carries that row's id as well as its thread: the native
@@ -566,3 +573,10 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **When** `platform` is `android`
 - **Then** the row is stored with `platform = "android"`, and re-registering the same token with `ios` updates it
 - **And** `platform` missing, empty, or any other value (`web`, `IOS`) answers 400 and stores nothing
+
+#### Firebase config only when asked for, and never missing when asked (rule 11e, PAD-355)
+- **Given** `LEVAPP_ANDROID_FCM` unset, and a `google-services.json` at `docs/infra/`
+- **When** the Android prebuild config is resolved
+- **Then** it has no `googleServicesFile`
+- **And** with `LEVAPP_ANDROID_FCM=1` and `GOOGLE_SERVICES_JSON=/tmp/gs.json` (present) it is `/tmp/gs.json`; with the flag and no variable it is the `docs/infra/` copy
+- **And** with the flag and no file at the resolved path the prebuild fails with an error naming `google-services.json` and the path

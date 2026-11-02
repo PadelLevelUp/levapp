@@ -62,6 +62,25 @@ on:
         description: "Make the emulator step's SDK install fail (proves a setup failure is never green)"
         type: boolean
         default: false
+      aab:
+        # PAD-355 (mobile.android-play-bundle): build the Play bundle instead of the emulator lane.
+        # True skips the APK and the Maestro suite; only the `aab` job runs.
+        description: "Build the Google Play bundle (AAB) instead of the APK + Maestro lane"
+        type: boolean
+        default: false
+      version_code:
+        description: "AAB only: the Android versionCode to stamp (a positive integer, higher than every upload so far); empty keeps app.json's"
+        type: string
+        default: ""
+      require_upload_key:
+        description: "AAB only: fail unless the bundle is signed with the upload key (set for every bundle meant for Play)"
+        type: boolean
+        default: false
+      target:
+        description: "AAB only: the API the bundle talks to (release-targets.json)"
+        type: choice
+        options: [ production, staging ]
+        default: production
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -84,6 +103,9 @@ env:
 jobs:
   apk:
     name: APK (prebuild + Gradle)
+    # PAD-355: a dispatch with `aab` builds the Play bundle only; skipping here skips Maestro and
+    # the lane check with it.
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.aab) }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
@@ -231,6 +253,195 @@ jobs:
           path: ${{ env.APK_PATH }}
           if-no-files-found: error
           retention-days: 14
+
+  # PAD-355 (mobile.android-play-bundle): the Google Play bundle. A store prebuild (no
+  # LEVAPP_CI_APK), the production or staging API from release-targets.json, all four ABIs,
+  # `gradlew bundleRelease`. Signed with the owner's upload key only on a dispatch whose secrets
+  # carry it (plugins/with-release-signing reads them at Gradle time); otherwise the template's
+  # debug key, and the artefact's name says NOT-FOR-PLAY. Never on the schedule. A pull request
+  # builds it (unsigned) only when the signing or Firebase plugins, app.json or this file change.
+  aab:
+    name: AAB (Play bundle)
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.aab)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            bundle:
+              - '.github/workflows/android-build.yaml'
+              - 'frontend/apps/mobile/plugins/**'
+              - 'frontend/apps/mobile/app.json'
+
+      - name: Decide whether to build
+        id: go
+        env:
+          BUNDLE_CHANGED: ${{ steps.filter.outputs.bundle }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ "$BUNDLE_CHANGED" = true ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"; echo "no bundle-relevant change: nothing to build"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.go.outputs.build == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-java@v4
+        if: steps.go.outputs.build == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.go.outputs.build == 'true'
+
+      - name: Install workspace dependencies
+        if: steps.go.outputs.build == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      # Secrets cannot be read in `if:`; each step below reads these flags instead. The upload key
+      # is used on a dispatch only, so a pull request can never produce a Play-signed bundle.
+      - name: Upload key and Firebase config
+        id: secrets
+        if: steps.go.outputs.build == 'true'
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          REQUIRE_UPLOAD_KEY: ${{ inputs.require_upload_key }}
+        run: |
+          set -euo pipefail
+          signed=false
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ -n "$UPLOAD_KEYSTORE_BASE64" ] && [ -n "$UPLOAD_STORE_PASSWORD" ] \
+              && [ -n "$UPLOAD_KEY_ALIAS" ] && [ -n "$UPLOAD_KEY_PASSWORD" ]; then
+            printf '%s' "$UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            signed=true
+          fi
+          if [ "$REQUIRE_UPLOAD_KEY" = true ] && [ "$signed" != true ]; then
+            echo "::error::require_upload_key is set but the four ANDROID_UPLOAD_* secrets are not all present"; exit 1
+          fi
+          fcm=false
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > "$RUNNER_TEMP/google-services.json"
+            fcm=true
+          fi
+          echo "signed=$signed" >> "$GITHUB_OUTPUT"
+          echo "fcm=$fcm" >> "$GITHUB_OUTPUT"
+          echo "upload-key signing: $signed; FCM config: $fcm"
+
+      - name: Stamp the versionCode
+        id: version
+        if: steps.go.outputs.build == 'true'
+        working-directory: frontend/apps/mobile
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          if [ -n "${VERSION_CODE:-}" ]; then
+            [[ "$VERSION_CODE" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "::error::version_code must be a positive integer, got '$VERSION_CODE'"; exit 1; }
+            node -e 'const fs = require("fs"); const a = JSON.parse(fs.readFileSync("app.json", "utf8"));
+              a.expo.android.versionCode = Number(process.argv[1]); fs.writeFileSync("app.json", JSON.stringify(a, null, 2) + "\n");' "$VERSION_CODE"
+          fi
+          echo "name=$(node -p 'require("./app.json").expo.version')" >> "$GITHUB_OUTPUT"
+          echo "code=$(node -p 'require("./app.json").expo.android.versionCode')" >> "$GITHUB_OUTPUT"
+
+      # The same guard as the APK job: a store prebuild carries no cleartext permission.
+      - name: Store prebuild (no cleartext)
+        if: steps.go.outputs.build == 'true'
+        working-directory: frontend/apps/mobile
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          LEVAPP_ANDROID_FCM: ${{ steps.secrets.outputs.fcm == 'true' && '1' || '' }}
+          GOOGLE_SERVICES_JSON: ${{ steps.secrets.outputs.fcm == 'true' && format('{0}/google-services.json', runner.temp) || '' }}
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --no-install
+          if grep -q "usesCleartextTraffic" android/app/src/main/AndroidManifest.xml; then
+            echo "::error::the store manifest carries usesCleartextTraffic"; exit 1
+          fi
+          grep -q "PAD-355: upload-key signing" android/app/build.gradle \
+            || { echo "::error::with-release-signing did not patch app/build.gradle"; exit 1; }
+          chmod +x android/gradlew
+
+      - name: Gradle bundleRelease (all four ABIs)
+        if: steps.go.outputs.build == 'true'
+        working-directory: frontend/apps/mobile/android
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          EXPO_PUBLIC_API_URL: ${{ inputs.target == 'staging' && 'https://staging.levapp.app/api' || 'https://levapp.app/api' }}
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g
+          LEVAPP_UPLOAD_STORE_FILE: ${{ steps.secrets.outputs.signed == 'true' && format('{0}/upload.jks', runner.temp) || '' }}
+          LEVAPP_UPLOAD_STORE_PASSWORD: ${{ steps.secrets.outputs.signed == 'true' && secrets.ANDROID_UPLOAD_STORE_PASSWORD || '' }}
+          LEVAPP_UPLOAD_KEY_ALIAS: ${{ steps.secrets.outputs.signed == 'true' && secrets.ANDROID_UPLOAD_KEY_ALIAS || '' }}
+          LEVAPP_UPLOAD_KEY_PASSWORD: ${{ steps.secrets.outputs.signed == 'true' && secrets.ANDROID_UPLOAD_KEY_PASSWORD || '' }}
+        run: ./gradlew bundleRelease --no-daemon --stacktrace
+
+      # The bundled JS must name the target's API and nothing else (mobile.release-build-target).
+      - name: Bundle check, signer and summary
+        id: summary
+        if: steps.go.outputs.build == 'true'
+        working-directory: frontend/apps/mobile
+        env:
+          AAB: android/app/build/outputs/bundle/release/app-release.aab
+          TARGET: ${{ inputs.target || 'production' }}
+          SIGNED: ${{ steps.secrets.outputs.signed }}
+          FCM: ${{ steps.secrets.outputs.fcm }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          set -euo pipefail
+          ls -la "$AAB"
+          unzip -p "$AAB" base/assets/index.android.bundle > "$RUNNER_TEMP/index.android.bundle"
+          node scripts/verify-release-bundle.mjs "$RUNNER_TEMP/index.android.bundle" "$TARGET"
+          cert=$(keytool -printcert -jarfile "$AAB")
+          owner=$(printf '%s\n' "$cert" | grep -m1 'Owner:' | sed 's/^[[:space:]]*//' || true)
+          sha=$(printf '%s\n' "$cert" | grep -m1 'SHA256:' | sed 's/.*SHA256: *//' || true)
+          if [ "$SIGNED" = true ]; then
+            name="levapp-android-aab-$VERSION_NAME-$VERSION_CODE"
+            if printf '%s' "$owner" | grep -q "Android Debug"; then
+              echo "::error::the bundle was meant to be upload-signed but its signer is the debug key ($owner)"; exit 1
+            fi
+          else
+            name="levapp-android-aab-NOT-FOR-PLAY-debug-signed"
+          fi
+          echo "artifact=$name" >> "$GITHUB_OUTPUT"
+          {
+            echo "### $name"
+            echo ""
+            if [ "$SIGNED" = true ]; then echo "- **signed with the upload key** — for Play Console (Play App Signing re-signs it)"
+            else echo "- **NOT FOR PLAY: signed with the Expo template's debug key** (no upload key on this run)"; fi
+            echo "- signer: \`${owner:-none}\`"
+            echo "- signer SHA-256: \`${sha:-none}\`"
+            echo "- version: $VERSION_NAME ($VERSION_CODE); API target: $TARGET; FCM: $FCM"
+            echo "- sha256: \`$(sha256sum "$AAB" | cut -d' ' -f1)\` ($(du -h "$AAB" | cut -f1))"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.go.outputs.build == 'true'
+        with:
+          name: ${{ steps.summary.outputs.artifact }}
+          path: frontend/apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove the keystore and Firebase config
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks" "$RUNNER_TEMP/google-services.json"
 
   maestro:
     name: Maestro on an Android emulator (${{ matrix.shard }})

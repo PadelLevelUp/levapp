@@ -6,8 +6,9 @@
  * "resume from the next occurrence" copy was never created, so every later
  * occurrence vanished with the one the coach deleted.
  *
- * The series is made through the API — four Mondays, starting THIS week's Monday —
- * so the occurrence opened in the UI (next Monday) is a MIDDLE one. The delete goes
+ * The series is made through the API — four Mondays, starting the Monday of THIS app week
+ * (weeks start on WEEK_STARTS_ON, PAD-811) — so the occurrence opened in the UI (the next
+ * week's Monday) is a MIDDLE one. The delete goes
  * through the UI (event sheet → "this one"); the server's calendar is the judge.
  * Test ids and fixture titles only, never copy. Mirrors Maestro flow 93; the routes
  * are covered case by case in backend test_pad371_single_occurrence_keeps_series.py.
@@ -17,18 +18,13 @@ import { loginAsCoach, COACH_USERNAME, COACH_PASSWORD } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
 import { API_APP, API_AUTH } from "../helpers/api";
+import { dayInAppWeek, pinBrowserToE2eToday } from "../helpers/app-week";
 
 const TITLE = "PAD-371 Weekly Event";
 
-const iso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-/** This week's Monday and the three after it. */
+/** The Monday of this app week and the three after it (Monday = getDay() 1). */
 function mondays(): string[] {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return [0, 7, 14, 21].map((n) => iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)));
+  return [0, 1, 2, 3].map((weeks) => dayInAppWeek(1, weeks));
 }
 
 async function token(request: APIRequestContext): Promise<string> {
@@ -68,6 +64,7 @@ test("PAD-371: deleting one occurrence of a weekly event keeps the later ones", 
     expect(made.status(), await made.text()).toBe(201);
     expect((await events(request, auth, first, fourth)).map((e) => e.date)).toEqual([first, target, third, fourth]);
 
+    await pinBrowserToE2eToday(page);
     await loginAsCoach(page);
     await openCalendar(page);
     await goToNextWeek(page);

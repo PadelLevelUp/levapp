@@ -2,6 +2,7 @@ import { test, expect, Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
 import { goToNextWeek } from "../helpers/calendar-navigation";
+import { appWeeksAhead, pinBrowserToE2eToday, seedAcademyMonday } from "../helpers/app-week";
 import { ui } from "../helpers/i18n";
 import { setClassTime } from "../helpers/class-time";
 
@@ -11,21 +12,10 @@ import { setClassTime } from "../helpers/class-time";
  *
  * The seeded "E2E Academy Class" sits on the FIRST Monday after today, 10:00–11:00.
  * Because the calendar only loads the currently-visible week's events, the test
- * must navigate to that week (one "Next week" click) before the overlap data is
- * available client-side.
+ * must navigate to that week before the overlap data is available client-side.
+ * PAD-811: weeks start on WEEK_STARTS_ON, so that is one "Next week" click on six
+ * weekdays and none on a Sunday (the Monday is tomorrow, in this week).
  */
-function firstMondayAfterTodayISO(): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const pyWeekday = (today.getDay() + 6) % 7; // Mon=0 … Sun=6
-  const daysUntilMonday = (7 - pyWeekday) % 7 || 7; // strictly in the future
-  const d = new Date(today);
-  d.setDate(d.getDate() + daysUntilMonday);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 async function openAddClass(page: Page) {
   const addBtn = page
@@ -61,17 +51,18 @@ async function fillClassForm(
 }
 
 test.beforeEach(async ({ page }) => {
+  await pinBrowserToE2eToday(page);
   await loginAsCoach(page);
   await openCalendar(page);
-  // Seeded class lives in the next calendar week — load that week's events.
-  await goToNextWeek(page);
+  // Load the week of the seeded class's Monday, however far it is.
+  for (let i = appWeeksAhead(seedAcademyMonday()); i > 0; i--) await goToNextWeek(page);
 });
 
 // US-PAD-99: overlapping creation triggers a non-blocking confirm dialog
 test("US-PAD-99: creating a class overlapping an existing event warns the coach", async ({
   page,
 }) => {
-  const monday = firstMondayAfterTodayISO();
+  const monday = seedAcademyMonday();
 
   await openAddClass(page);
   // 10:30–11:30 overlaps the seeded 10:00–11:00 class on the same Monday.
@@ -103,7 +94,7 @@ test("US-PAD-99: creating a class overlapping an existing event warns the coach"
 test("US-PAD-99: creating a class at a free time does not warn", async ({
   page,
 }) => {
-  const monday = firstMondayAfterTodayISO();
+  const monday = seedAcademyMonday();
 
   await openAddClass(page);
   // 07:00–08:00 is clear of the seeded 10:00–11:00 class.

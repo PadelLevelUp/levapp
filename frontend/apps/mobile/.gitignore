@@ -17,6 +17,8 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+# PAD-355: Firebase's Android config is injected at prebuild (LEVAPP_ANDROID_FCM), never committed.
+google-services.json
 
 # Metro
 .metro-health-check*

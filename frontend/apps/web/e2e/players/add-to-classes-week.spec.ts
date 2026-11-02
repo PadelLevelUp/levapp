@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
 import { clickPlayerCard } from "../helpers/players";
+import { appWeeksAhead, pinBrowserToE2eToday, seedAcademyMonday } from "../helpers/app-week";
 
 /**
  * PAD-439: the "Add to classes" picker (players.profile rules 5, 5a, 5b).
@@ -53,14 +54,18 @@ async function openPicker(page: Page) {
 
 test("PAD-439: a long week scrolls inside the picker; the last class clears the footer", async ({ page }) => {
   // Real data, not a mock: WebKit does not route this cross-port request, and Safari is where the
-  // owner saw it. B-193: on EVERY weekday next week holds the seed's Monday academy class and its
-  // Tuesday recurring class (seed_dates.py); the "Next 7 days" class is there on six weekdays but
-  // on a Monday it falls on this week's Sunday. So the test waits for those two, in a window short
+  // owner saw it. B-193: the week of the seed's Monday academy class also holds its Tuesday
+  // recurring class (seed_dates.py starts it the day after). PAD-811: weeks start on
+  // WEEK_STARTS_ON, so that week is the next one on six weekdays and this one on a Sunday; the
+  // picker steps to it, however far it is. The test waits for those two rows, in a window short
   // enough that two rows overflow the list (measured: 69 px at 460), and asserts the overflow —
   // a list that fits would pass the footer check below without scrolling anything.
+  await pinBrowserToE2eToday(page);
   await page.setViewportSize({ width: 1280, height: 460 });
   await openPicker(page);
-  await page.getByTestId("add-to-classes-next-week").click();
+  for (let i = appWeeksAhead(seedAcademyMonday()); i > 0; i--) {
+    await page.getByTestId("add-to-classes-next-week").click();
+  }
   const rows = page.locator('[data-testid^="add-to-classes-class-"]');
   await expect(rows.nth(1)).toBeAttached({ timeout: 10_000 });
   const last = rows.last();
