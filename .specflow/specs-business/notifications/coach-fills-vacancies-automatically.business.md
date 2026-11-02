@@ -114,7 +114,10 @@ the waiting list.
   close as "Já inscrito noutra aula". It follows the coach's "no second class that day" setting.
 - Opening many spots at once, such as a large class nobody has signed up for yet, does not slow
   the app for coaches who are using it at that moment: the engine works out who matches each spot
-  without asking the database again for every student (PAD-788).
+  without asking the database again for every student (PAD-788), and without checking a student
+  again for every spot that asks the same thing: same side, same level, same group (PAD-801).
+- When a class has already sent as many invitations as the coach allows in all, its open spots
+  wait where they are; they do not skip ahead to wider groups while nobody can be asked (PAD-801).
 - Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
   ask is authoritative, and the coach can select or deselect students with a single click on their
   row, name, or checkbox.
