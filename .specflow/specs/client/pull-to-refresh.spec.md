@@ -68,6 +68,12 @@ puts the keyboard away, so the walk-in search can never trap the coach behind it
    walk-in search focused the keyboard covered the matches, Cancel, Open and Validate, and a pull
    did nothing. The list also bounces when it is short (`alwaysBounceVertical`), so an empty week
    still takes a pull.
+5a. **On Android a drag puts it away even when the list does not scroll (PAD-818, B-723).** On
+   Android `on-drag` fires only once the ScrollView scrolls, and `alwaysBounceVertical` is
+   iOS-only, so a short list, or a downward drag at the top that goes to the pull, left the keyboard
+   up with Cancel and the walk-in answer under it. On Android both scroll areas also dismiss the
+   keyboard when a touch moves more than 8 pt (`drag-dismiss.ts`), whether or not the list
+   scrolls; a tap's jitter does not. iOS adds nothing and keeps `on-drag` as it was.
 6. **The E2E stall switch.** Under `E2E_DEBUG_ENDPOINTS` only, `POST /api/app/debug/stall`
    `{ "path": "/api/app/…", "seconds": n }` makes every request whose path starts with `path`
    wait `n` seconds (at most 120) before it is handled, until `DELETE /api/app/debug/stall`. Like
@@ -113,6 +119,15 @@ puts the keyboard away, so the walk-in search can never trap the coach behind it
 - **Then** the keyboard is gone and Validate is visible
 - **And** with `/api/app/class_instances/pending_validation` stalled, a pull on the sheet's list
   ends within 50 s with "Couldn't refresh", the sheet still open and the class still expanded
+
+#### On Android the drag works on a short list too (rule 5a, flows 312 and 313)
+- **Given** a coach on the Android emulator in "Aulas por validar", with one class expanded and the
+  walk-in search focused, the keyboard covering Cancel
+- **When** they drag on a row of the list (the list is too short to scroll)
+- **Then** the keyboard is gone, and Cancel (`presences-card-add-player-cancel`) and the walk-in
+  answer (`presences-card-already-in-class`) can be reached. Maestro flows 312 and 313 on the
+  Android lane check this: both were red before the fix (run 41479176831).
+  `drag-dismiss.test.ts` pins the slop and that iOS gets no handlers.
 
 #### The stall switch exists only under the E2E flag (rule 6)
 - **Given** the Flask test app

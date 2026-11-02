@@ -23,6 +23,7 @@ import { PlayerSearchFeedback } from "@/features/players/player-search-feedback"
 import { PresenceMarkToggle } from "./PresenceMarkToggle";
 import type { ValidatePayload } from "./hooks";
 import { weekLabelDates } from "@/features/attendance/date-ranges";
+import { useDragDismissKeyboard } from "./drag-dismiss";
 import {
   availableRoster,
   clearValidated,
@@ -155,6 +156,8 @@ export function ValidateClassesSheet({
   const [selected, setSelected] = React.useState<number[]>([]);
   const [notice, setNotice] = React.useState<string | null>(null);
   const listScroll = React.useRef<ScrollView | null>(null);
+  // PAD-818 (rule 5a): on Android a drag on the list puts the keyboard away even when it does not scroll.
+  const listDragDismiss = useDragDismissKeyboard();
   const listContent = React.useRef<View | null>(null);
   const listFocus = useRowFocus(listScroll, listContent);
 
@@ -463,6 +466,7 @@ export function ValidateClassesSheet({
               // keyboard covered the matches, Cancel and Validate, and a drag did nothing. A drag
               // now puts the keyboard away.
               keyboardDismissMode="on-drag"
+              {...listDragDismiss}
             >
               {loading ? (
                 <View className="gap-2">
@@ -981,6 +985,8 @@ function ClassDetail({
   // PAD-660: the marking rows name students as the coach does (nickname); coach-only sheet.
   const displayName = useCoachDisplayName();
   const detailScroll = React.useRef<ScrollView | null>(null);
+  // PAD-818 (rule 5a): as on the list.
+  const detailDragDismiss = useDragDismissKeyboard();
   const detailContent = React.useRef<View | null>(null);
   const focus = useRowFocus(detailScroll, detailContent);
   const rowKey = (playerId: number) => `detail-${playerId}`;
@@ -1047,6 +1053,7 @@ function ClassDetail({
         keyboardShouldPersistTaps="handled"
         // B-704: as on the list, a drag puts the walk-in search's keyboard away.
         keyboardDismissMode="on-drag"
+        {...detailDragDismiss}
       >
         <View className="gap-2">
           {sortPlayers(klass.players, edits, displayName).map((player) => {

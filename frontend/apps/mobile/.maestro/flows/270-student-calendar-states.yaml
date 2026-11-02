@@ -141,6 +141,16 @@ onFlowComplete:
     id: "class-join-request-button"
 - tapOn:
     id: "class-waiting-list-join"
+# PAD-816: since PAD-672 a waiting-list join first asks for the side (class-side-sheet), as in
+# flow 66; the flow predated the sheet and waited for the joined state with the sheet still open.
+- extendedWaitUntil:
+    visible:
+      id: "class-side-sheet"
+    timeout: 10000
+- tapOn:
+    id: "class-side-left"
+- tapOn:
+    id: "class-side-send"
 - extendedWaitUntil:
     visible:
       id: "class-waiting-list-on"

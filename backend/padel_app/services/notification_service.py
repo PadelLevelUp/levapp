@@ -34,9 +34,12 @@ Handles reminders, vacancy-based invitations, waiting list, and manual notificat
 from __future__ import annotations
 
 import copy
+import functools
+import json
 import re
 from collections import Counter
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
 
@@ -1093,6 +1096,43 @@ class _RosterFacts:
         return self._makeups.get(int(player_id), 0)
 
 
+class _EngineRun:
+    """PAD-801 (invitations rule 12b): the verdicts one engine run reuses across the spots it
+    evaluates. A student's group-rule failures depend on the spot only through its shape (side,
+    level, the group's rules); the eligibility bar and the auto-invite opt-out do not read the spot
+    at all. Nothing a run writes (invitations, vacancies, messages, claims) is an input to them, so
+    they hold for the whole run; the stages that read what the run writes stay per call."""
+
+    def __init__(self):
+        self.group_failures: dict = {}
+        self.passes_bar: dict = {}
+        self.blocks_auto: dict = {}
+
+
+_ENGINE_RUN: ContextVar[_EngineRun | None] = ContextVar("engine_run", default=None)
+
+
+def _rules_key(rules) -> str:
+    return json.dumps(rules, sort_keys=True, default=str)
+
+
+def _in_engine_run(fn):
+    """Run ``fn`` as one engine run (rule 12b). A run already in progress is joined, so the tick's
+    never-filled-places scan shares the tick's run when it calls ``trigger_invitations``."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if _ENGINE_RUN.get() is not None:
+            return fn(*args, **kwargs)
+        token = _ENGINE_RUN.set(_EngineRun())
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _ENGINE_RUN.reset(token)
+
+    return wrapper
+
+
 # ---------------------------------------------------------------------------
 # Invitation group helpers
 # ---------------------------------------------------------------------------
@@ -1745,6 +1785,41 @@ def evaluate_candidates(
     # PAD-788 (B-712, rule 12): the facts the bar and the group rules read, once for the roster.
     facts = _RosterFacts(coach_id, [cp.player_id for cp in roster])
 
+    # PAD-801 (rule 12b): inside an engine run the engine's path reuses the verdicts that do not
+    # depend on this particular spot. The coach-facing path (explain) always evaluates afresh.
+    run = None if explain else _ENGINE_RUN.get()
+    if run is not None:
+        bar_key = (instance.id, _rules_key(eligibility_rules))
+        shape_key = (instance.id, getattr(vacancy, "side", None), _vacancy_level(vacancy, instance)[0],
+                     _rules_key(group_rules))
+
+    def _clears_bar(cp) -> bool:
+        if run is None:
+            return passes_eligibility(cp, instance, coach_id, eligibility_rules, facts=facts)
+        key = (*bar_key, cp.player_id)
+        if key not in run.passes_bar:
+            run.passes_bar[key] = passes_eligibility(cp, instance, coach_id, eligibility_rules, facts=facts)
+        return run.passes_bar[key]
+
+    def _blocks_auto(pid) -> bool:
+        if run is None:
+            return player_blocks_auto_invitations(pid)
+        if pid not in run.blocks_auto:
+            run.blocks_auto[pid] = player_blocks_auto_invitations(pid)
+        return run.blocks_auto[pid]
+
+    def _rule_failures(cp) -> list:
+        if run is None:
+            return _group_rule_failures(
+                group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain, facts=facts
+            )
+        key = (*shape_key, cp.player_id)
+        if key not in run.group_failures:
+            run.group_failures[key] = _group_rule_failures(
+                group_rules, cp, vacancy, coach_id, instance, short_circuit=True, facts=facts
+            )
+        return list(run.group_failures[key])
+
     verdicts: list[CandidateVerdict] = []
     for cp in roster:
         pid = cp.player_id
@@ -1765,7 +1840,7 @@ def evaluate_candidates(
             if failures:
                 verdicts.append(CandidateVerdict(cp, "eligibility", {"failures": failures}))
                 continue
-        elif not passes_eligibility(cp, instance, coach_id, eligibility_rules, facts=facts):
+        elif not _clears_bar(cp):
             verdicts.append(CandidateVerdict(cp, "eligibility"))
             continue
         if str(pid) in excluded_player_ids:
@@ -1792,15 +1867,13 @@ def evaluate_candidates(
         if user_id in blocked_user_ids:
             verdicts.append(CandidateVerdict(cp, "unavailable"))
             continue
-        if player_blocks_auto_invitations(pid):
+        if _blocks_auto(pid):
             verdicts.append(CandidateVerdict(cp, "auto_invites_off"))
             continue
         if not wave_exists:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": []}))
             continue
-        failures = _group_rule_failures(
-            group_rules, cp, vacancy, coach_id, instance, short_circuit=not explain, facts=facts
-        )
+        failures = _rule_failures(cp)
         if failures:
             verdicts.append(CandidateVerdict(cp, "no_round_matched", {"failures": failures}))
             continue
@@ -5028,6 +5101,22 @@ def _send_invitation_batch(
             vacancy.save()
         return []
 
+    # PAD-801 (rule 3e): a class at its maxTotal budget (across ALL its spots, config rule 6c) holds
+    # the spot: nobody is evaluated, an empty round is not deferred and a last round does not expire.
+    # The tick refuses such a class before calling here; trigger_invitations' loop (after an earlier
+    # spot used the budget up) and a decline's follow-up used to move an empty round on instead.
+    restrictions = config.get_restrictions()
+    remaining_budget = None
+    max_total = restrictions.get("maxTotal", {})
+    if max_total.get("enabled"):
+        already_sent = NotificationEvent.query.filter(
+            NotificationEvent.lesson_instance_id == instance.id,
+            NotificationEvent.status.in_(["sent", "confirmed"]),
+        ).count()
+        remaining_budget = max_total["value"] - already_sent
+        if remaining_budget <= 0:
+            return []
+
     # PAD-446 (invitations rule 8a, waiting-list rule 4): group 0 first. While a waiting-list
     # student is left to ask for this spot, the batch asks them — in join order — and the vacancy's
     # own round does not move; only then does it go to the current invitation group.
@@ -5035,11 +5124,10 @@ def _send_invitation_batch(
     # rule 8a) — a list member at maxInvitesPerStudentPerDay must not hold the spot from the groups
     # for the rest of the club day. (Kept here, not in _waiting_list_candidates: the simulation and
     # the approval queue show the list as it is, as they show the groups.)
-    restrictions_today = config.get_restrictions()
     waiting_list = [
         (entry, cp)
         for entry, cp in _waiting_list_candidates(vacancy, instance, coach_id, config)
-        if _check_per_student_daily_limit(cp.player_id, coach_id, restrictions_today, now=now)
+        if _check_per_student_daily_limit(cp.player_id, coach_id, restrictions, now=now)
     ]
     wave_round = 0 if waiting_list else vacancy.current_round_number
     entry_of = {cp.player_id: entry for entry, cp in waiting_list}
@@ -5082,8 +5170,6 @@ def _send_invitation_batch(
         _defer_next_round(vacancy, config, now=now)
         return []
 
-    restrictions = config.get_restrictions()
-
     # Determine batch size
     first_batch_already_full = False
     first_batch_cap = None  # PAD-495 item 10 / #526 item 7: maxSimultaneous, re-counted under the lock
@@ -5107,16 +5193,8 @@ def _send_invitation_batch(
             first_batch_already_full = batch_size == 0
             first_batch_cap = max_sim["value"]
 
-    # Respect maxTotal across ALL vacancies for this instance
-    max_total = restrictions.get("maxTotal", {})
-    if max_total.get("enabled"):
-        already_sent = NotificationEvent.query.filter(
-            NotificationEvent.lesson_instance_id == instance.id,
-            NotificationEvent.status.in_(["sent", "confirmed"]),
-        ).count()
-        remaining_budget = max_total["value"] - already_sent
-        if remaining_budget <= 0:
-            return []
+    # Respect maxTotal across ALL vacancies for this instance (counted above, rule 3e)
+    if remaining_budget is not None:
         batch_size = min(batch_size, remaining_budget)
 
     coach_obj = Coach.query.get(coach_id)
@@ -5536,6 +5614,7 @@ def _start_vacancy(
     return sent
 
 
+@_in_engine_run
 def trigger_invitations(
     instance: LessonInstance,
     coach_id: int,
@@ -6013,6 +6092,7 @@ def _open_never_filled_places(*, now: datetime) -> int:
     return opened
 
 
+@_in_engine_run
 def process_invitation_batches(*, now: datetime | None = None) -> int:
     """
     For each open vacancy, check if enough time has passed since last activity.
