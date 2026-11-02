@@ -107,6 +107,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    between them. A list that has no room below its trigger moves up until it fits (the
    popper's `avoidCollisions`), and its last option is never under the navigation bar. iOS
    keeps the cap and the popper's own placement, unchanged.
+9c. **A bottom sheet's action row stays above the navigation bar (PAD-817, B-722).** On Android
+   the app draws edge to edge, so a bottom sheet in a `Modal` runs under the navigation bar. The
+   class side sheet (`ClassSideSheet`, before a join request or a waiting-list join) adds the
+   bottom safe-area inset to its bottom padding, so its Cancel / Send row
+   (`class-side-cancel`, `class-side-send`) is above the bar and can be tapped. Before this the
+   row sat behind the 3-button bar, and a student could not send the request. iOS keeps its
+   20 pt padding, unchanged.
 
 10. **A screen does not restyle itself in the commit that removes it.** On Android, Fabric can
    flatten a view whose style changes and reparent its children in one mount pass. If that commit
@@ -201,6 +208,15 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the last level is above the navigation bar, and tapping it chooses it. Maestro flow
   `280-level-select-scrolls` on the Android lane checks this: it was red before the fix, with
   levels 13–14 under the navigation bar. `select.safe-area.test.ts` pins the sizing.
+
+#### The class side sheet can be sent on Android (rule 9c, PAD-817)
+- **Given** a student on the Android emulator (3-button navigation) asks to join an open academy
+  class, or a full class's waiting list, from the booking wizard
+- **When** the side sheet opens and they choose a side
+- **Then** `class-side-send` is on screen above the navigation bar and tapping it sends the
+  request. Maestro flows `65-academy-class-request` and `66-academy-class-waitlist` on the
+  Android lane check this: both were red before the fix ("Element not found: class-side-send").
+  `side-sheet-layout.test.ts` pins the padding, and that iOS keeps 20 pt.
 
 #### A dialog's cancel closes the dialog on Android
 - **Given** the coach is on a player's detail screen on the emulator — a screen that mounts three
