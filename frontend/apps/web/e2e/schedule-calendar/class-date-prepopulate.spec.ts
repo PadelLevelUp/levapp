@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openCalendar } from "../helpers/navigation";
-import { format, addDays, nextMonday } from "date-fns";
+import { dayInAppWeek, e2eToday, pinBrowserToE2eToday } from "../helpers/app-week";
 
 test.describe("PAD-25: Calendar day click should pre-populate class date field", () => {
   test.beforeEach(async ({ page }) => {
+    await pinBrowserToE2eToday(page);
     await loginAsCoach(page);
     await openCalendar(page);
   });
@@ -23,8 +24,7 @@ test.describe("PAD-25: Calendar day click should pre-populate class date field",
     const dateInput = page.locator('input[type="date"]').first();
     await expect(dateInput).toBeVisible({ timeout: 5000 });
 
-    const today = format(new Date(), "yyyy-MM-dd");
-    await expect(dateInput).toHaveValue(today);
+    await expect(dateInput).toHaveValue(e2eToday());
   });
 
   test("clicking a time slot pre-populates date with that day", async ({
@@ -84,11 +84,8 @@ test.describe("PAD-25: Calendar day click should pre-populate class date field",
     const dateInput = page.locator('input[type="date"]').first();
     await expect(dateInput).toBeVisible({ timeout: 5000 });
 
-    // Calculate next week's Wednesday
-    const nextWeekMonday = nextMonday(new Date());
-    const nextWed = addDays(nextWeekMonday, 2);
-    const expectedDate = format(nextWed, "yyyy-MM-dd");
-
-    await expect(dateInput).toHaveValue(expectedDate);
+    // The Wednesday of the next app week (PAD-811): weeks start on WEEK_STARTS_ON, so on a Sunday
+    // it is ten days out, not the Wednesday after the next Monday.
+    await expect(dateInput).toHaveValue(dayInAppWeek(3, 1));
   });
 });
