@@ -3,6 +3,7 @@ id: mobile.store-build-reaches-real-users
 status: draft
 implemented_by:
   - ../../specs/mobile/release-build-target.spec.md
+  - ../../specs/mobile/android-play-bundle.spec.md
 ---
 
 # The Store Build Reaches Real Users
@@ -49,8 +50,8 @@ on screen, so a founder or tester never mistakes it for the real app.
 ## Out of Scope
 
 - Submitting to the App Store: the owner decides (PAD-351 item 3 is a written plan).
-- Android release builds (PAD-290): the same question comes up there, and the target table is
-  written so Android can use it.
+- Publishing on Google Play: the owner creates the listing and uploads the first bundle. The
+  Android store build itself (PAD-355) uses the same target table and the same bundle check.
 - The web app. It is served by the backend it calls (`/api` on the same host), so it cannot
   point at the wrong server.
 

@@ -2,8 +2,8 @@
 
 Status: **prepared, not published.** Data safety and target audience were brought up to date on
 2026-10-22 (PAD-608). Owner decision 2026-09-09: prepare only. Nothing here uploads,
-submits or publishes anything. The Android build config lives in `../../app.json` (`expo.android`)
-and `../../eas.json`; this folder holds what the Play Console listing needs.
+submits or publishes anything. The Android build config lives in `../../app.json` (`expo.android`), the
+config plugins in `../../plugins/` and the `aab` job in `.github/workflows/android-build.yaml`; this folder holds what the Play Console listing needs.
 
 ## Owner prerequisites — checklist
 
@@ -11,21 +11,23 @@ These can only be done by the owner (accounts, payment, keys). Each unblocks a l
 
 - [ ] **Google Play Console developer account** — one-time 25 USD. Recommended owner:
       `admin@levapp.app`, matching the Apple account arrangement until a legal entity exists.
-- [ ] **Expo login for EAS** on the building machine — `npm i -g eas-cli && eas login` with the
-      `levapps-team` account (the `owner` in `app.json`). Needed for the recommended build path.
-- [ ] **Signing key** — let EAS generate and store the upload keystore on the first Android build
-      (`eas build` asks), and enrol the app in **Play App Signing** when creating it in Play Console.
-      Afterwards run `eas credentials -p android` and keep both SHA-256 fingerprints (upload key and
-      Play app-signing key) — the App Links file below needs them.
-- [ ] **Firebase project + `google-services.json`** — Android push goes through Firebase Cloud
-      Messaging; iOS push does not use it. Create a Firebase project, add an Android app with package
-      `com.padellevelup.app`, download `google-services.json` to `frontend/apps/mobile/`, then add
-      `"googleServicesFile": "./google-services.json"` under `expo.android` and upload the FCM V1
-      service-account key to Expo (`eas credentials -p android` → Push Notifications). Until this
-      exists the Android build works but receives no push; the listing below makes no push claim.
-- [ ] **Play service account JSON** for `eas submit` (Play Console → Setup → API access). Only when
-      the owner decides to upload; `eas.json` sends a submit to the **internal** track as a
-      **draft**, never to production.
+- [ ] **Upload key** — the owner makes it once with `keytool` (a JKS keystore, RSA 2048, validity
+      10 000 days) on their own machine, keeps the file and its passwords in their password
+      manager, and stores it as four GitHub secrets: `ANDROID_UPLOAD_KEYSTORE_BASE64` (the file,
+      base64), `ANDROID_UPLOAD_STORE_PASSWORD`, `ANDROID_UPLOAD_KEY_ALIAS`, `ANDROID_UPLOAD_KEY_PASSWORD`.
+      The exact commands are in the owner handoff, not in the repository; no key is ever
+      committed. When creating the app in Play Console, enrol it in **Play App Signing**: Google
+      holds the app-signing key and the upload key only proves an upload, so a lost upload key is
+      reset through Play support. Keep both SHA-256 fingerprints (upload key — printed in the
+      bundle job's summary — and Play's app-signing key) — the App Links file below needs them.
+- [x] **Firebase project + `google-services.json`** (2026-09-22) — Android push goes through
+      Firebase Cloud Messaging; iOS push does not use it. The file is never committed
+      (`messaging.push-notifications` rule 11e): the operator copy lives in the gitignored
+      `docs/infra/`, and CI reads it from the `GOOGLE_SERVICES_JSON_BASE64` secret. A prebuild with
+      `LEVAPP_ANDROID_FCM=1` wires it in and fails if it is missing; the FCM V1 service-account key
+      goes to Expo (`eas credentials -p android` → Push Notifications).
+- [ ] **First upload** — by hand in Play Console (internal testing track first) with a bundle from
+      the `aab` job below. Automated uploads (Play Developer API) are a later ticket.
 - [ ] **Audience decision** (see "Target audience" below) — whether the Play listing declares
       users under 13, which brings Google's Families Policy into scope.
 
@@ -39,13 +41,24 @@ SDK: package `com.padellevelup.app`, `versionCode 1`, the App Links intent filte
 `INTERNET` and `VIBRATE` permissions from the Expo template (three unused template permissions are
 blocked in `app.json`).
 
-### Recommended — EAS cloud build
+### Recommended — the `aab` job on GitHub (PAD-355, `mobile.android-play-bundle`)
 
-```bash
-cd frontend/apps/mobile
-eas build -p android --profile preview      # installable APK: open the link on a device or emulator
-eas build -p android --profile production   # app bundle (.aab) for Play Console
-```
+Actions → **Android build** → Run workflow on `staging` (or `main`), with:
+
+- `aab`: on — builds the bundle only (no emulator APK, no Maestro);
+- `version_code`: the next integer above every bundle uploaded so far (Play refuses a repeat);
+- `require_upload_key`: on for anything meant for Play — the run fails if the four upload-key
+  secrets are not all set, instead of producing a debug-signed bundle;
+- `target`: `production` (default) or `staging`, from `../../release-targets.json`.
+
+The job prebuilds a store build (no cleartext), runs `gradlew bundleRelease` for all four ABIs,
+checks the bundled JS against the target, and uploads the artefact
+`levapp-android-aab-<version>-<versionCode>`. Its summary shows the signer and its SHA-256. A run
+without the upload key still builds, signed with the template's debug key, and its artefact is
+named `levapp-android-aab-NOT-FOR-PLAY-debug-signed` — Play rejects it, and it is not for upload.
+
+EAS (`eas build -p android --profile production`) also produces a bundle, but it would hold the
+key in Expo's credential store instead of the owner's; the GitHub job is the path in use.
 
 ### Local — only if an emulator run is wanted on a Mac
 

@@ -14,6 +14,9 @@ server a given build talks to.
 - `mobile.release-build-target` — draft (PAD-351: a release build names its API target, the
   archived bundle is checked against it before upload, and a non-production build shows its
   server in Settings and on sign-in)
+- `mobile.android-play-bundle` — implementing (PAD-355: the Google Play bundle on the GitHub
+  runner, signed with the owner's upload key from secrets at Gradle time, checked against its API
+  target, named NOT-FOR-PLAY when debug-signed; Firebase config from a secret)
 - `mobile.status-bar` — implementing (PAD-419 / D136: dark status-bar content on the light
   screens, light on the navy ones; the shared `Screen` decides)
 - `mobile.install-suggestion` — draft (PAD-573: the web app on an iPhone suggests the iOS app to a
