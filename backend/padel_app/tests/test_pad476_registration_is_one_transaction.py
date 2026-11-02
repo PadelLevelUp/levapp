@@ -17,6 +17,10 @@ import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_coach_invitation import _inv, _make_coach_with_club, _make_invitation
 from padel_app.tests.test_registration import _coach, _count, _student
+from padel_app.services.coach_service import DEFAULT_COACH_LEVELS
+
+# levels.coach-levels rule 14 (PAD-815): the size of a new coach's default ladder.
+LADDER = len(DEFAULT_COACH_LEVELS)
 
 
 @pytest.fixture(autouse=True)
@@ -61,7 +65,7 @@ def test_a_failed_coach_signup_can_be_retried(client, app, monkeypatch):
     retry = client.post("/api/auth/register", json=_coach())
 
     assert retry.status_code == 201, retry.get_json()
-    assert (_count(app, User), _count(app, Coach), _count(app, CoachLevel)) == (1, 1, 3)
+    assert (_count(app, User), _count(app, Coach), _count(app, CoachLevel)) == (1, 1, LADDER)
 
 
 def test_a_failed_coach_signup_sends_no_mail_no_admin_notice_and_no_sync(client, app, monkeypatch):
@@ -224,7 +228,7 @@ def test_a_failed_invitation_accept_can_be_retried(client, app, monkeypatch):
     assert retry.status_code == 200, retry.get_json()
     with app.app_context():
         user = User.query.filter_by(username="new_coach").one()
-        assert CoachLevel.query.filter_by(coach_id=user.coach.id).count() == 3
+        assert CoachLevel.query.filter_by(coach_id=user.coach.id).count() == LADDER
         assert _inv(token).one().status == "accepted"
 
 
@@ -250,9 +254,9 @@ def test_the_levels_helper_inside_a_unit_returns_its_levels_and_stays_idempotent
             first = create_default_levels_for_coach(coach)
             second = create_default_levels_for_coach(coach)
 
-            assert len(first) == 3
-            assert len(second) == 3
-        assert CoachLevel.query.filter_by(coach_id=coach.id).count() == 3
+            assert len(first) == LADDER
+            assert len(second) == LADDER
+        assert CoachLevel.query.filter_by(coach_id=coach.id).count() == LADDER
 
 
 def test_the_levels_helper_outside_a_unit_still_commits(app):
@@ -272,5 +276,5 @@ def test_the_levels_helper_outside_a_unit_still_commits(app):
         levels = create_default_levels_for_coach(coach)
         db.session.rollback()
 
-        assert len(levels) == 3
-        assert CoachLevel.query.filter_by(coach_id=coach.id).count() == 3
+        assert len(levels) == LADDER
+        assert CoachLevel.query.filter_by(coach_id=coach.id).count() == LADDER
