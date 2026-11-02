@@ -11,9 +11,16 @@ appId: com.padellevelup.app
 - runFlow: ../subflows/login-coach.yaml
 - tapOn:
     id: "tab-messages"
+# PAD-816 (PAD-791 trap): an earlier flow that turns the engine on (80, 310) adds conversations
+# above the seeded coach↔student thread, and Android lists only what is on screen: scroll to it.
 - extendedWaitUntil:
     visible:
+      id: "screen-messages"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
       id: "conversation-item-1"
+    direction: DOWN
     timeout: 20000
 - tapOn:
     id: "conversation-item-1"

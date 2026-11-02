@@ -12,6 +12,27 @@ appId: com.padellevelup.app
 - runFlow: ../subflows/login-coach.yaml
 
 - openLink: "levelup://presences?validate=1&week=-1"
+# PAD-816: weeks start on Sunday (PAD-682) and the seed's classes are in the previous Monday-to-
+# Sunday week, so on a Sunday they are two app weeks back, not one. Step back once more if
+# week -1 has nothing to validate.
+# Wait for the week to load (a card or the empty state) before deciding; step back while empty.
+- extendedWaitUntil:
+    visible:
+      id: "presences-class-card|presences-validate-empty"
+    timeout: 20000
+- repeat:
+    while:
+      visible:
+        id: "presences-validate-empty"
+    times: 2
+    commands:
+      - tapOn:
+          id: "presences-week-prev"
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            id: "presences-class-card|presences-validate-empty"
+          timeout: 20000
 # Cards open collapsed; the needs-input group comes first, and the card's centre is its expand control.
 - extendedWaitUntil:
     visible:
