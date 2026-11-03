@@ -56,7 +56,7 @@ about anyone who is missing. Web and iOS ship it together (R-024).
       recounts — two places counting sides is how PAD-541 started). **The counts are a projection,
       and the sentence says so (PAD-825, PAD-822):** they are the players going without the leaver
       plus the class's open spots on their reserved side, which a coach read as the roster. Every
-      sentence opens "Contando quem vai e as vagas abertas (cada uma no lado a que está
+      sentence with counts opens "Contando quem vai e as vagas abertas (cada uma no lado a que está
       reservada), …" / "Counting who is going plus the open spots on their reserved side, …";
       when one side has fewer, "… a aula fica com {{left}} de esquerda e {{right}} de direita.
       Convidamos <lado> …"; on a tie with a sided leaver, "… e faltou
