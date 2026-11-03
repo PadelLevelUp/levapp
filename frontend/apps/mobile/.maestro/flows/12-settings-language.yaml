@@ -91,11 +91,14 @@ onFlowComplete:
       - assertTrue: "${output.lang == 'pt'}"
 
 # ── Remount Settings ── (the Save sits at the bottom; the back row is at the top)
+# PAD-816: 45 s, as long as the pane needs. On the Android emulator this scroll up the whole pane
+# took 7.2 s on 2 Nov and ran out its old 15 s from 3 Nov on, on the same build and runner image
+# (dispatches 41651326528 and 41651333599); the scrolls down to Save take about 7 s with 30 s.
 - scrollUntilVisible:
     element:
       id: "settings-back"
     direction: UP
-    timeout: 15000
+    timeout: 45000
 - tapOn:
     id: "settings-back"
 - extendedWaitUntil:
