@@ -32,3 +32,39 @@ def unique_placeholder_username():
         candidate = f"{PLACEHOLDER_USERNAME_PREFIX}{secrets.token_hex(8)}"
         if User.query.filter_by(username=candidate).first() is None:
             return candidate
+
+
+# PAD-799 (auth.register rule 2a): usernames are case-insensitive and stored lowercase.
+
+def normalize_username(raw):
+    """The stored form of a username someone chooses: trimmed and lowercased."""
+    return (raw or "").strip().lower()
+
+
+def find_user_by_username(raw):
+    """The account a typed username names (auth.login rule 2a): the exact spelling first, else the
+    ONE account whose username matches ignoring case, else None. Until the migration lowercases
+    the stored usernames, two accounts may differ only by case; each keeps its own spelling, and a
+    third spelling that matches both ignoring case names neither."""
+    from padel_app.models import User
+    from padel_app.sql_db import db
+
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    typed = raw.strip()
+    exact = User.query.filter_by(username=typed).first()
+    if exact is not None:
+        return exact
+    matches = User.query.filter(db.func.lower(User.username) == typed.lower()).limit(2).all()
+    return matches[0] if len(matches) == 1 else None
+
+
+def username_taken(raw, exclude_user_id=None):
+    """True when another account holds this username in any case (rule 2a's uniqueness)."""
+    from padel_app.models import User
+    from padel_app.sql_db import db
+
+    query = User.query.filter(db.func.lower(User.username) == normalize_username(raw))
+    if exclude_user_id is not None:
+        query = query.filter(User.id != exclude_user_id)
+    return query.first() is not None

@@ -420,6 +420,9 @@ executionOrder:
     # list with the side picked; it makes and removes its own class, so its position is not load
     # bearing.
     - 317-class-waiting-list-side
+    # 318 (PAD-799, auth.register rule 2a): signs in as "E2E-Coach" and types a capitalised username
+    # into sign-up without submitting; it writes nothing, so its position is not load bearing.
+    - 318-username-case
     # 28-password-recovery stays LAST (PAD-300 pins it in
     # src/lib/maestro-flow-numbers.test.ts): a mid-flow failure cannot lock the
     # other flows out, and it ends signed out through the recovery link.

@@ -126,3 +126,14 @@ describe("RegisterPage — the Terms (PAD-637, auth.activate rule 13b)", () => {
     expect(await screen.findByTestId("register-terms-error")).toHaveTextContent("auth.legal.termsRequiredToContinue");
   });
 });
+
+describe("RegisterPage — a chosen username is lowercase (PAD-799, auth.register rule 2a)", () => {
+  it("capitals typed become lowercase as they are typed, and the field never auto-capitalises", async () => {
+    await mountFilled("1990-01-01");
+    const field = document.getElementById("username") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "New.Name" } });
+    expect(field.value).toBe("new.name");
+    expect(field.getAttribute("autocapitalize")).toBe("none");
+    expect(field.getAttribute("autocorrect")).toBe("off");
+  });
+});

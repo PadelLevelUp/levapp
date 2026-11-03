@@ -25,8 +25,10 @@ can't search for usernames unless you are already connected."*
 ### Rules
 1. `POST /api/app/conversation` accepts `otherUsername` **instead of** `otherParticipants`
    (both present → 400). Any signed-in user — coach or student — may use it.
-2. The server resolves `otherUsername` to exactly one User: case-insensitive exact match on
-   `users.username`, `status = active`, coach or student, and not the caller. Placeholder
+2. The server resolves `otherUsername` to exactly one User: the exact spelling first, else the one
+   account matching ignoring case (`auth.register` rule 2a, PAD-799: until the migration, two
+   accounts that differ only by case are each reached by their own spelling and a third spelling
+   reaches neither) on `users.username`, `status = active`, coach or student, and not the caller. Placeholder
    accounts (`pending-…`, never activated) never match. No prefix matching, no search.
 3. An unknown username, an inactive or placeholder account, the caller's own username, and
    a target who has blocked the caller **all answer 404 with the same body**

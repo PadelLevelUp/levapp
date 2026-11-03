@@ -113,7 +113,8 @@ def accept_player_invitation_service(token, data=None, now=None):
     invitation = get_player_invitation_service(token, now=now)
 
     data = data or {}
-    username = data.get("username")
+    # auth.register rule 2a (PAD-799): the chosen username is stored trimmed and lowercase.
+    username = data.get("username").strip().lower() if isinstance(data.get("username"), str) else None
     password = data.get("password")
     if not username or not password:
         abort(400, "username and password are required")
@@ -135,8 +136,9 @@ def accept_player_invitation_service(token, data=None, now=None):
     country = validate_completion_country(data)
     terms_accepted = validate_completion_terms(data)  # players.invite-completion rule 10b (PAD-637)
 
-    existing = User.query.filter_by(username=username).first()
-    if existing is not None and existing.id != invitation.player.user_id:
+    from padel_app.tools.username_tools import username_taken
+
+    if username_taken(username, exclude_user_id=invitation.player.user_id):
         abort(409, "Username already taken")
 
     user = invitation.player.user

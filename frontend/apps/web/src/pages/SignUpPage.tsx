@@ -22,7 +22,7 @@ import { needsEmailVerification, postLoginPath } from "@/auth/postLoginPath";
 import { consumePostAuthRedirect } from "@/auth/postAuthRedirect";
 import { cn } from "@/lib/utils";
 import { GraduationCap, User } from "lucide-react";
-import { COUNTRIES, countryName, isUnderSignupAge, suggestUsername, usernameCharsIssue } from "@levelup/config";
+import { COUNTRIES, countryName, isUnderSignupAge, suggestUsername, typedChosenUsername, usernameCharsIssue } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { browserSignupDraft } from "@/lib/signupDraft";
 
@@ -126,7 +126,8 @@ const SignUpPage = () => {
     () => !!form.username && form.username !== suggestUsername(form.name, form.email)
   );
 
-  const setField = (field: keyof typeof form, value: string) => {
+  const setField = (field: keyof typeof form, typed: string) => {
+    const value = field === "username" ? typedChosenUsername(typed) : typed; // rule 2a (PAD-799)
     setForm((f) => {
       const next = { ...f, [field]: value };
       if (!usernameTyped && (field === "name" || field === "email")) {
@@ -338,6 +339,8 @@ const SignUpPage = () => {
                   type={type}
                   autoComplete={autoComplete}
                   autoCapitalize={field === "name" ? "words" : "none"}
+                  autoCorrect={field === "username" ? "off" : undefined}
+                  spellCheck={field === "username" ? false : undefined}
                   value={form[field]}
                   onChange={(e) => setField(field, e.target.value)}
                 />
