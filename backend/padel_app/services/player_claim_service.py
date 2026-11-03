@@ -22,7 +22,6 @@ future ``players.id`` FK cannot silently orphan rows on merge.
 import unicodedata
 
 from flask import abort
-from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from padel_app.services.level_service import set_roster_level
@@ -57,7 +56,6 @@ from padel_app.models import (
     PushSubscription,
     ReplacementApprovalPrompt,
     StandingWaitingListEntry,
-    User,
     Vacancy,
     WaitingListEntry,
 )
@@ -594,11 +592,12 @@ def _repoint_user_unique(model, user_attr, other_attrs, from_id, to_id, counts=N
 def _resolve_target_student(username):
     if not username or not isinstance(username, str):
         abort(404, "No user with that username")
-    user = (
-        User.query.filter(func.lower(User.username) == username.strip().lower())
-        .filter(User.status == "active")
-        .first()
-    )
+    # auth.login rule 2a (PAD-799): the exact spelling, else the one account matching ignoring case.
+    from padel_app.tools.username_tools import find_user_by_username
+
+    user = find_user_by_username(username)
+    if user is not None and user.status != "active":
+        user = None
     if user is None or user.player is None or user.coach is not None:
         abort(404, "No user with that username")
     return user

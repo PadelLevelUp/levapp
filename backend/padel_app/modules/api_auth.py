@@ -261,7 +261,10 @@ def login():
     if not username or not password:
         return {"error": "Email and password required"}, 400
 
-    user = User.query.filter_by(username=username).first()
+    # auth.login rule 2a (PAD-799): the exact spelling, else the one account matching ignoring case.
+    from padel_app.tools.username_tools import find_user_by_username
+
+    user = find_user_by_username(username)
 
     # auth.login rule 11 (PAD-269): a coach-created account with no password yet
     # is a wrong password, not a 500 that tells a caller the username exists.

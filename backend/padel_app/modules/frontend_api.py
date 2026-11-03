@@ -2922,7 +2922,13 @@ def check_field_available():
     column = getattr(ModelClass, field)
 
     if is_unique:
-        exists = ModelClass.query.filter_by(**{field: value}).first() is not None
+        if field == "username":
+            # auth.register rule 2a (PAD-799): a username is taken in any case.
+            from padel_app.tools.username_tools import username_taken
+
+            exists = username_taken(value)
+        else:
+            exists = ModelClass.query.filter_by(**{field: value}).first() is not None
         message = f"This {field} is already taken"
     else:
         # Warn-only duplicate field (name): case-insensitive exact match, scoped

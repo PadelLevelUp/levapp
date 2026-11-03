@@ -116,7 +116,7 @@ def activate_user_service(user_id, data, *, token):
     if isinstance(sent.get("username"), str):
         # The check and the write look at the same value (Session-B, #372): a login
         # with a leading space could never be typed.
-        sent["username"] = sent["username"].strip()
+        sent["username"] = sent["username"].strip().lower()  # auth.register rule 2a (PAD-799)
     refused = _refused_activation_fields(sent, user)
     if refused:
         raise NotNullableFieldError(refused)  # the blueprint answers 400 {"error": "invalid_fields", "fields": [...]}
@@ -139,8 +139,9 @@ def activate_user_service(user_id, data, *, token):
     country = validate_completion_country(data)
     terms_accepted = validate_completion_terms(data)  # auth.activate rule 13b (PAD-637)
     if "username" in sent:
-        taken = User.query.filter_by(username=sent["username"]).first()
-        if taken is not None and taken.id != user.id:
+        from padel_app.tools.username_tools import username_taken
+
+        if username_taken(sent["username"], exclude_user_id=user.id):
             abort(409, "Username already taken")  # as invite-completion and self-signup answer
     # auth.activate rule 11a (PAD-761): an email another account holds, in any case, is sign-up's
     # 409 on `email` before anything is written. Unchecked, the UPDATE hit users_email_key: a 500.
