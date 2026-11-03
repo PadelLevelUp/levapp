@@ -1,0 +1,43 @@
+# PAD-799 (auth.register rule 2a, auth.login rule 1a; ledger B-724): usernames are case-insensitive
+# and stored lowercase.
+# - Sign-in sends what was typed and finds the account in any case: the seeded "e2e-coach" signs in
+#   as "E2E-Coach" and lands on the dashboard.
+# - A username being chosen is lowercase as it is typed: "Maestro-Case" in the sign-up form reads
+#   "maestro-case". Nothing is submitted, so the flow creates no account.
+#
+# Mirrors: apps/web/e2e/auth-onboarding/username-case.spec.ts
+appId: com.padellevelup.app
+---
+- runFlow:
+    file: ../subflows/login.yaml
+    env:
+      USERNAME: E2E-Coach
+      PASSWORD: E2eCoach123!
+- extendedWaitUntil:
+    visible:
+      id: "tab-dashboard"
+    timeout: 20000
+- runFlow: ../subflows/logout.yaml
+
+# ── A chosen username is lowercase as it is typed ──
+- extendedWaitUntil:
+    visible:
+      id: "login-create-account"
+    timeout: 20000
+- tapOn:
+    id: "login-create-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-signup"
+    timeout: 15000
+- tapOn:
+    id: "signup-role-student"
+- tapOn:
+    id: "signup-username"
+- eraseText: 40
+- inputText: "Maestro-Case"
+- assertVisible:
+    id: "signup-username"
+    text: "maestro-case"
+- hideKeyboard
+- back
