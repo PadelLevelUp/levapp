@@ -39,6 +39,6 @@ Rule 4e treats a row with no side as "any spot", and the waiting list is asked b
 1. Spec: rule 18a and the criteria.
 2. Backend:
    - `side` on the route, and in `add_to_class_waiting_list` and `change_class_waiting_list_scope`;
-   - `waiting_list_side_for` (the capability gate and the assumed default);
+   - `waiting_list_side_for` (the capability gate and the profile-side default, decided by the owner 2026-11-03);
    - `side` on the class list's rows.
 3. Web and iOS: the side picker in the class's add dialog, the side chip on rows, and the `waiting-list-side` capability.

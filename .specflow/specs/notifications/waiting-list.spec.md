@@ -290,9 +290,9 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
     - **A client that declares `waiting-list-side` and sends no side:** the profile side; with no
       profile side, `400 {"error": "side_required"}` and nothing is written.
     - **A client that does not declare it** (every build before the one that ships this dialog) sends no side and
-      gets the profile side, or no side when the profile has none, as before. **ASSUMED, pending
-      the owner (PAD-803's "Proposta"):** the profile side, not "no side". If the owner decides
-      otherwise, only `waiting_list_side_for` changes. **Why the 400 is gated on the capability
+      gets the profile side, or no side when the profile has none, as before. **Decided (owner,
+      2026-11-03, PAD-803's "Proposta"):** the profile side, not "no side". The default lives in
+      `waiting_list_side_for` alone. **Why the 400 is gated on the capability
       (coordinator, 2026-10-30):** a build already in the store cannot send a side, so refusing it
       for a student with no profile side would break the add on every older phone; the refusal
       applies only to a client that declares the picker. The token retires with the other
@@ -603,7 +603,7 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 - **When** a client that declares `waiting-list-side` adds him with no side
 - **Then** the answer is 400 `side_required` and nothing is written
 - **And** an older client that does not declare it adds him as before, with no side
-- **And** a client that sends no side for Carla stores her profile side, left (assumed, pending the owner)
+- **And** a client that sends no side for Carla stores her profile side, left
 
 #### A coach-wide standing row is not changed from the class (rule 22)
 - **Given** Bruno on the class's list from a coach-wide standing entry
