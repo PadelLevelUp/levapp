@@ -1558,7 +1558,16 @@ export interface InviteSimulationSpot {
    *  (players going minus the departing player, plus the class's other open freed spots;
    *  never-filled spots are not counted); `chosen` equals `side`. `null` when the coach's roster
    *  has no left/right player. A tutorial shows these, never a recount. */
-  sideCounts: { left: number; right: number; leaverSide: PlayerSide | null; chosen: PlayerSide | null } | null;
+  sideCounts: {
+    left: number;
+    right: number;
+    leaverSide: PlayerSide | null;
+    chosen: PlayerSide | null;
+    /** PAD-825: the two parts of left/right — who is going (without the leaver) and the open spots
+     * on their reserved side. Absent from a server before PAD-825. */
+    going?: { left: number; right: number };
+    open?: { left: number; right: number };
+  } | null;
 }
 
 export type InviteSendStatus = "first_batch" | "queued" | "daily_quota";
