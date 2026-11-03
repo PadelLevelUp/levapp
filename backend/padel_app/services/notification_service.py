@@ -7256,8 +7256,8 @@ def _repoint_class_row(instance: LessonInstance, player_id: int, entry: Standing
 
 def waiting_list_side_for(side, cp) -> str | None:
     """PAD-803 (notifications.waiting-list rule 18a): the side a coach's add stores. A side named is
-    kept (anything but left/right/both is a 400). None named: the profile side — ASSUMED, pending the
-    owner (PAD-803's "Proposta"); this line is the one to change if they decide otherwise. A client
+    kept (anything but left/right/both is a 400). None named: the profile side (the owner's decision,
+    2026-11-03, PAD-803's "Proposta"). A client
     that declares `waiting-list-side` must name one for a student with no profile side."""
     from flask import abort, jsonify, make_response
 

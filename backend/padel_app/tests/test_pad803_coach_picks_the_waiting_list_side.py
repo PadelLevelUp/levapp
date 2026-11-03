@@ -50,7 +50,7 @@ def test_the_side_the_coach_picks_is_stored(app, client, monkeypatch):
 
 
 def test_an_old_client_sending_no_side_gets_the_profile_side(app, client, monkeypatch):
-    """RED before the fix: stored None. (The default is pending the owner's answer.)"""
+    """RED before the fix: stored None. (The profile side is the owner's decision, 2026-11-03.)"""
     _quiet(monkeypatch)
     ids, cls, pid, headers = _world(app)
     assert _post(client, headers, cls, pid, scope="occurrence").status_code == 201
