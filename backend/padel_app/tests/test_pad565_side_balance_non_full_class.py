@@ -92,7 +92,9 @@ def test_the_coach_absent_mark_and_tick_path_lands_in_the_same_place(app):
         _find_or_create_open_vacancies(instance, coach.id)
         leaver = Vacancy.query.filter_by(lesson_instance_id=instance.id, original_player_id=pids[0]).one()
         assert leaver.side == "right"
-        assert _open_sides(instance.id) == Counter({"right": 7, "left": 2})
+        # PAD-805 (rule 2d): the absence re-counts the never-filled spots at once (5L/2R going + 2L/7R
+        # open → the first right one flips), so the class projects 8 / 8: 6 right + 3 left open.
+        assert _open_sides(instance.id) == Counter({"right": 6, "left": 3})
 
 
 def test_the_reminder_no_path_lands_in_the_same_place(app):

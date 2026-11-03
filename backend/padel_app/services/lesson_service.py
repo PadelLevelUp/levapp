@@ -172,7 +172,8 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # whose premise — that they left — is void, and which capacity alone
         # would not close while the class has spare room.
         from padel_app.services.notification_service import (
-            _close_vacancy, _open_vacancy_for, _publish_retired, reconcile_vacancies,
+            _close_vacancy, _open_vacancy_for, _publish_retired, _recount_open_spots, reconcile_vacancies,
+            vacancy_for_joiner,
         )
 
         retired = []
@@ -181,7 +182,17 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             if own is not None:
                 retired = _close_vacancy(own, player_id)
         _publish_retired(retired)  # PAD-499: queued now, sent by the next commit (this enrolment's)
-        reconcile_vacancies(instance, filled_by_player_id=player_id)
+        # PAD-805 (invitations rules 2d and 13): the coach's hand on one occurrence closes the spot
+        # of the student's side when capacity closes one, as an accepted join request does
+        # (PAD-715), and re-counts the spots left open with the student going, in this same one
+        # commit. Spots are locked only with SKIP LOCKED, so a "yes" deciding on one never waits.
+        coach = primary_coach(instance) if source == "coach" else None
+        preferred = vacancy_for_joiner(instance, coach.id, player_id) if coach is not None else None
+        reconcile_vacancies(
+            instance, filled_by_player_id=player_id, preferred_id=preferred.id if preferred else None,
+        )
+        if coach is not None:
+            _publish_retired(_recount_open_spots(instance, coach.id))
 
         # PAD-330: the coach's own hand on ONE occurrence — an instance-level add
         # or putting back someone who had cancelled — tells the student. Only
@@ -199,6 +210,14 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
             )
     commit_or_flush()
     db.session.expire(instance, ["presences"])
+    if source == "coach" and (created or returning):
+        # PAD-805 (join-requests rule 20): a pending request whose side just lost its last spot
+        # waits on that side's list, as on the fill path, which also runs it after the enrolment's
+        # commit (it commits its own move). An occurrence created under `unit_of_work` has no
+        # request yet, so it returns before any commit there.
+        from padel_app.services.class_join_request_service import move_side_requests_to_waiting_list
+
+        move_side_requests_to_waiting_list(instance, filled_by_player_id=player_id)
     return presence
 
 
