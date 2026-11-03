@@ -213,7 +213,8 @@ def test_control_a_left_student_never_withdrawn_is_invited_by_round_1_of_a_left_
 
 def test_a_batch_re_counts_a_stale_spot_withdraws_and_invites_the_new_side(app, monkeypatch, trail):
     """OLD-RED: the batch read the spot's stored side. The class went 2 left / 1 right without a yes
-    on a spot (the coach enrolled Duarte), so only the batch can notice."""
+    on a spot (an import enrolled Duarte; since PAD-805 a coach's enrolment re-counts at once), so
+    only the batch can notice."""
     from padel_app.models.vacancy import Vacancy
     from padel_app.services import notification_service as ns
     from padel_app.services.lesson_service import enrol
@@ -222,7 +223,7 @@ def test_a_batch_re_counts_a_stale_spot_withdraws_and_invites_the_new_side(app, 
     with app.app_context():
         coach, instance, spots, players = _setup("batchpath")
         ana = _invite(coach, instance, spots["left"], players["ana"])
-        enrol(players["duarte"], instance, "coach", confirmed=True)
+        enrol(players["duarte"], instance, "import", confirmed=True)
         db.session.commit()
         ana_message = _event(ana).message_id
         spot = db.session.get(Vacancy, spots["left"].id)
