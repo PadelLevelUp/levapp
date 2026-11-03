@@ -3381,6 +3381,7 @@ def _side_counts(
     *,
     leaver_id: int | None = None,
     freed_only: bool = False,
+    with_parts: bool = False,
 ) -> dict | None:
     """Rules 2b and 2c: the class's ``left`` / ``right`` count — the players holding a spot (their
     side with this coach; ``both`` and no side count on neither), minus ``leaver_id``, plus the
@@ -3400,15 +3401,20 @@ def _side_counts(
     ).first() is None:
         return None
 
-    counts = {"left": 0, "right": 0}
+    going = {"left": 0, "right": 0}
     holding = [p.player_id for p in instance.holding_presences if p.player_id != leaver_id]
     # PAD-551: each going player's side in this occurrence (the coach's override first).
     for side in sides_in_occurrence(instance, coach_id, holding).values():
-        if side in counts:
-            counts[side] += 1
+        if side in going:
+            going[side] += 1
+    open_ = {"left": 0, "right": 0}
     for side in _open_vacancy_sides(instance, freed_only=freed_only):
-        if side in counts:
-            counts[side] += 1
+        if side in open_:
+            open_[side] += 1
+    counts = {side: going[side] + open_[side] for side in ("left", "right")}
+    if with_parts:
+        # PAD-825 (invite-simulation rule 9): the two parts, for the tutorial's roster line.
+        counts.update(going=going, open=open_)
     return counts
 
 
@@ -3584,20 +3590,21 @@ def freed_spot_side_counts(
 ) -> dict | None:
     """PAD-541 / PAD-565 (notifications.invitations rule 2c; owner, 2026-10-09, option A): the side
     of a spot a cancellation frees, with the numbers that chose it — ``{left, right, leaverSide,
-    chosen}`` — so the invite simulation and a tutorial show the engine's own count
+    chosen, going, open}``, the last two the parts of ``left``/``right`` (PAD-825) — so the invite simulation and a tutorial show the engine's own count
     (`notifications.invite-simulation` rule 9). The count is the players going without the leaver,
     plus the class's other open freed spots; never-filled spots are not counted (B-401). A tie
     keeps the leaver's side (which may be ``both`` or none). ``None`` when no player on the coach's
     roster plays a side: the leaver's side is kept. Call it under the class lock (rule 10) so two
     cancellations at once see each other's spot."""
-    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True)
+    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True, with_parts=True)
     if counts is None:
         return None
     if counts["left"] == counts["right"]:
         chosen = leaver_side
     else:
         chosen = "left" if counts["left"] < counts["right"] else "right"
-    return {"left": counts["left"], "right": counts["right"], "leaverSide": leaver_side, "chosen": chosen}
+    return {"left": counts["left"], "right": counts["right"], "leaverSide": leaver_side, "chosen": chosen,
+            "going": counts["going"], "open": counts["open"]}
 
 
 def freed_spot_side(instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None) -> str | None:

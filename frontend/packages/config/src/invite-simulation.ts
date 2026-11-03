@@ -193,6 +193,24 @@ export function describeSideReasoning(spot: Pick<InviteSimulationSpot, "sideCoun
   return { key: `${NS}.sideReason.${kind}.${counts.chosen}`, params };
 }
 
+/**
+ * PAD-825 (settings.tutorials rule 4.4): the roster under the projection — who is going and the
+ * open spots, each by side — from the engine's own parts (`sideCounts.going` / `.open`, which add
+ * up to `left`/`right`), so the coach can reconcile the two lines. Nothing with no counts, or from
+ * a server that does not send the parts.
+ */
+export function describeSideRoster(spot: Pick<InviteSimulationSpot, "sideCounts">): I18nText | null {
+  const counts = spot.sideCounts;
+  if (!counts?.going || !counts.open) return null;
+  return {
+    key: `${NS}.sideRoster`,
+    params: {
+      goingLeft: counts.going.left, goingRight: counts.going.right,
+      openLeft: counts.open.left, openRight: counts.open.right,
+    },
+  };
+}
+
 export function describeSendStatus(status: InviteSendStatus): I18nText {
   return { key: `${NS}.sendStatus.${status}` };
 }

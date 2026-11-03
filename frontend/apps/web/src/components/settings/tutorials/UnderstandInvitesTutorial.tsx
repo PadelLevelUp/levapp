@@ -5,7 +5,7 @@ import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
 import { useDebouncedText } from "@/hooks/useDebouncedText";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
-import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeSideReasoning, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
+import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeSideReasoning, describeSideRoster, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
 
 import type {
   CalendarEvent,
@@ -286,6 +286,7 @@ function SimulationResults({
   const blocked = gates.filter((g) => g.blocked);
   const sideKey = simulation.spot.side ?? "none";
   const sideReason = describeSideReasoning(simulation.spot);
+  const sideRoster = describeSideRoster(simulation.spot);
   const spotParams = {
     side: t(`tutorials.sides.${sideKey}`),
     level: simulation.spot.levelCode ?? "",
@@ -354,6 +355,12 @@ function SimulationResults({
       <p className="text-xs text-muted-foreground" data-testid="tutorial-spot-side-reason">
         {resolveText(t, sideReason)}
       </p>
+      {/* PAD-825 (rule 4.4): the roster the projection above is built from. Mirrored on iOS. */}
+      {sideRoster && (
+        <p className="text-xs text-muted-foreground" data-testid="tutorial-spot-side-roster">
+          {resolveText(t, sideRoster)}
+        </p>
+      )}
 
       <div className="space-y-3">
         {simulation.rounds.map((round) => (

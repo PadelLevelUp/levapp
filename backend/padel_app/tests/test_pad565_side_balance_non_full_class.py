@@ -194,7 +194,9 @@ def test_the_simulation_shows_the_counts_behind_the_side(app):
         _create_structural_vacancies(instance, coach.id)
         spot = simulate_vacancy(instance, coach.id, pids[0])["spot"]
         assert spot["side"] == "right"
-        assert spot["sideCounts"] == {"left": 5, "right": 2, "leaverSide": "left", "chosen": "right"}
+        # PAD-825: with its two parts; the never-filled spots are not among the open ones.
+        assert spot["sideCounts"] == {"left": 5, "right": 2, "leaverSide": "left", "chosen": "right",
+                                      "going": {"left": 5, "right": 2}, "open": {"left": 0, "right": 0}}
         # The simulation and the engine agree (R-029): the live spot takes the simulated side.
         _absent(instance, pids[0])
         assert _create_vacancy_for_absent_player(instance, coach.id, pids[0]).side == spot["sideCounts"]["chosen"]
