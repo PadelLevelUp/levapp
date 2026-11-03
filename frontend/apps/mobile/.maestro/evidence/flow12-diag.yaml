@@ -1,0 +1,99 @@
+# DIAGNOSTIC ONLY (PAD-816, flow 12 since 3 Nov), throwaway branch, never merged. Flow 12's steps up
+# to the Portuguese save, with a control first: from the freshly opened pane, does the flow's own
+# scroll reach `settings-back`? Then, after the save, swipe toward the top one swipe at a time,
+# screenshot each, and record whether `settings-back` is visible.
+appId: com.padellevelup.app
+onFlowComplete:
+  # Whatever happened, leave the seeded coach in English.
+  - evalScript: "${output.tidy = (typeof output.coachTok === 'undefined') ? false : http.request(output.api + '/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ language: 'en' }) }).ok}"
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-preferences"
+- extendedWaitUntil:
+    visible:
+      id: "settings-language-select"
+    timeout: 15000
+# (The selected value text is collapsed into the trigger's a11y label
+# "Preferred language", so it cannot be asserted directly.)
+
+# ── Control: before any change, scroll to Save and back up to settings-back ──
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: diag-00-control-at-save
+- scrollUntilVisible:
+    element:
+      id: "settings-back"
+    direction: UP
+    timeout: 15000
+    optional: true
+- takeScreenshot: diag-01-control-after-scroll-up
+- runFlow:
+    when:
+      visible:
+        id: "settings-back"
+    commands:
+      - takeScreenshot: diag-02-control-BACK-VISIBLE
+
+# ── Switch to Portuguese (first option) — a genuine change from seeded "en" ──
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: "settings-language-select"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      # Both platforms tap the option by id (PAD-304). The percent taps this
+      # used to need on iOS are gone: B-067 made the select's portal wrapper
+      # fill the overlay, so the options are addressable on both platforms.
+      - tapOn:
+          id: "settings-language-pt"
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: "settings-preferences-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-preferences-save"
+# The server holds the language only once Save has run (read until it lands).
+- retry:
+    maxRetries: 5
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "b506-never-present"
+          timeout: 2000
+          optional: true
+      - evalScript: "${output.lang = json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).language}"
+      - assertTrue: "${output.lang == 'pt'}"
+
+- takeScreenshot: diag-10-after-save
+- evalScript: ${output.i = 0}
+- repeat:
+    times: 12
+    commands:
+      - evalScript: ${output.i = output.i + 1}
+      - swipe:
+          direction: DOWN
+          duration: 400
+      - waitForAnimationToEnd
+      - takeScreenshot: diag-2${output.i}-after-swipe
+      - runFlow:
+          when:
+            visible:
+              id: "settings-back"
+          commands:
+            - takeScreenshot: diag-3${output.i}-BACK-VISIBLE
