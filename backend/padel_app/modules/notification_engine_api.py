@@ -553,6 +553,7 @@ def class_waiting_list_add():
     # `credits` from old builds is accepted and ignored (rule 19); it is not validated.
     result = add_to_class_waiting_list(
         coach.id, instance, player_id, scope=scope, expires_at=expires_at, classes=classes,
+        side=data.get("side"),  # PAD-803 (rule 18a)
     )
     return jsonify(result), 201 if result["action"] == "added" else 200
 
@@ -586,7 +587,9 @@ def class_waiting_list_change_scope(entry_id: int):
     coach = _current_coach()
     data = request.get_json() or {}
     scope, classes, expires_at = _parse_scope_body({**data, "scope": data.get("scope", "")})
-    row = change_class_waiting_list_scope(entry_id, coach.id, scope=scope, classes=classes, expires_at=expires_at)
+    row = change_class_waiting_list_scope(
+        entry_id, coach.id, scope=scope, classes=classes, expires_at=expires_at, side=data.get("side"),  # PAD-803
+    )
     return jsonify(row), 200
 
 
