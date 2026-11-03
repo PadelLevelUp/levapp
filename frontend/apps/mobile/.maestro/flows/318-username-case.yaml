@@ -39,5 +39,11 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "signup-username"
     text: "maestro-case"
-- hideKeyboard
-- back
+# Leave sign-up for the next flow (`back` is Android-only): nobody is signed in, so a clean
+# relaunch lands on the login screen.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "login-create-account"
+    timeout: 25000
