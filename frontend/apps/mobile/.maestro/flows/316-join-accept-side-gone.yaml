@@ -1,0 +1,77 @@
+# PAD-808 — classes.join-requests rule 7a on iOS: accepting a join request whose side has no open
+# spot left asks the coach first, naming the side, in the confirmation the bar already uses.
+#
+# Setup (API only): the coach goes semi-automatic so an absence opens a spot without inviting
+# anyone; a class with E2E Student Two (left) enrolled; Two is marked absent, which opens one LEFT
+# spot; e2e-student (profile side right) asks to join with no `side` (an old client's request,
+# stored with the profile side). The coach then accepts from the chat bubble: the server answers
+# 409 ineligible with reasons ["side"], and the app shows the side-only confirmation (no student
+# list, no side line under one). Confirming accepts. Config and class are restored at the end.
+# Flow number 316 is reserved for PAD-808 by the coordinator.
+appId: com.padellevelup.app
+---
+- evalScript: "${output.api = (typeof API_BASE === 'undefined' ? 'http://localhost:5001' : API_BASE)}"
+- evalScript: "${output.fmt = function (d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day); }}"
+- evalScript: "${output.day = output.fmt(new Date(Date.now() + 2 * 86400000))}"
+- evalScript: "${output.title = 'E2E Side Gone'}"
+- evalScript: "${output.coachTok = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-coach', password: 'E2eCoach123!' }) }).body).accessToken}"
+- evalScript: "${output.student = json(http.post(output.api + '/api/auth/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'e2e-student', password: 'E2eStudent123!' }) }).body).accessToken}"
+- evalScript: "${output.studentUserId = String(json(http.get(output.api + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + output.student } }).body).id)}"
+- evalScript: "${output.cfg = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.saved = { invitationMode: output.cfg.invitationMode, openSpotsVisible: output.cfg.openSpotsVisible === true }}"
+- evalScript: "${output.set = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ invitationMode: 'semi_automatic', openSpotsVisible: true }) }).ok}"
+- assertTrue: "${output.set == true}"
+- evalScript: "${output.two = json(http.get(output.api + '/api/app/coach_players', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (p) { return p.name === 'E2E Student Two'; })[0]}"
+- assertTrue: "${output.two != null && output.two.side === 'left'}"
+- evalScript: "${output.twoId = String(output.two.id).split('_')[0].replace('p-', '')}"
+- evalScript: "${output.created = json(http.post(output.api + '/api/app/add_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ name: output.title, classType: 'academy', date: output.day, startTime: '18:00', endTime: '19:00', maxPlayers: 3, playerIds: [Number(output.twoId)], isRecurring: false, notificationsEnabled: true }) }).body)}"
+- evalScript: "${output.lid = output.created.originalId}"
+- evalScript: "${output.absent = http.post(output.api + '/api/app/class_instance/presences/confirm', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ classInstance: { id: 'lesson-' + output.lid + '-' + output.day, originalId: output.lid, date: output.day, model: 'Lesson' }, presences: [{ playerId: output.twoId, status: 'absent' }] }) }).ok}"
+- assertTrue: "${output.absent == true}"
+- evalScript: "${output.coachId = String(json(http.get(output.api + '/api/app/class-requests/coaches', { headers: { 'Authorization': 'Bearer ' + output.student } }).body)[0].id)}"
+- evalScript: "${output.cls = json(http.get(output.api + '/api/app/academy-classes?coachId=' + output.coachId, { headers: { 'Authorization': 'Bearer ' + output.student } }).body).classes.filter(function (c) { return c.title === output.title; })[0]}"
+- assertTrue: "${output.cls != null}"
+- evalScript: "${output.req = json(http.post(output.api + '/api/app/class-join-requests', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.student }, body: JSON.stringify({ model: output.cls.model, originalId: output.cls.originalId, date: output.cls.date }) }).body)}"
+- assertTrue: "${output.req.status === 'pending' && output.req.side === 'right'}"
+- evalScript: "${output.convId = String(json(http.get(output.api + '/api/app/conversations?limit=50', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).conversations.filter(function (c) { return String(c.participantId) === output.studentUserId; })[0].id)}"
+
+# ── The coach accepts from the bubble; the side-only confirmation asks first ──
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://conversation/${output.convId}"
+- scrollUntilVisible:
+    element:
+      id: "join-request-bubble-actions-${output.req.id}"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "join-request-bubble-accept"
+- extendedWaitUntil:
+    visible:
+      id: "eligibility-confirm"
+    timeout: 15000
+- assertVisible:
+    text: "Aceitar numa vaga do outro lado\\?|Accept into a spot on the other side\\?"
+- assertVisible:
+    text: ".*(Já não há vaga do lado direito|There is no spot on the right any more).*"
+- assertNotVisible:
+    id: "eligibility-confirm-student"
+- assertNotVisible:
+    id: "eligibility-confirm-side"
+- takeScreenshot: pad808-side-gone-confirm
+- tapOn:
+    id: "eligibility-confirm-proceed"
+- extendedWaitUntil:
+    notVisible:
+      id: "eligibility-confirm"
+    timeout: 15000
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/class-join-requests', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).filter(function (r) { return r.id === output.req.id; })[0]}"
+- assertTrue: "${output.after != null && output.after.status === 'accepted'}"
+
+# ── Leave, then clean up ──
+- openLink: "levelup://players"
+- runFlow: ../subflows/logout.yaml
+- evalScript: "${output.events = json(http.get(output.api + '/api/app/calendar?from=' + output.day + 'T00:00:00&to=' + output.day + 'T23:59:59', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body)}"
+- evalScript: "${output.removed = (function (evs) { var n = 0; for (var i = 0; i < evs.length; i++) { var e = evs[i]; if (e.type === 'class' && e.title === output.title) { http.post(output.api + '/api/app/remove_class', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify({ event: e, scope: 'single' }) }); n++; } } return n; })(output.events)}"
+- assertTrue: "${output.removed >= 1}"
+- evalScript: "${output.restored = http.post(output.api + '/api/app/notify/config', { headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + output.coachTok }, body: JSON.stringify(output.saved) }).ok}"
+- assertTrue: "${output.restored == true}"

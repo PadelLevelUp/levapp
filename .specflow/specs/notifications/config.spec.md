@@ -73,7 +73,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    ones still pending (`sent`) and the ones accepted (`confirmed`) together: two open spots in one
    occurrence share one budget, each new batch is trimmed to what remains, and an occurrence at its
    budget invites no one more (`notification_service._check_restrictions` and
-   `_send_invitation_batch`). **Queued and expired invitations do not count**: a queued one is not
+   `_send_invitation_batch`), and its open spots hold their round until the budget frees
+   (`notifications.invitations` rule 3e, PAD-801). **Queued and expired invitations do not count**: a queued one is not
    charged until it is sent, and an invitation that expires gives its place back to the budget, so
    "max total" is not a lifetime cap. The settings copy says "Max total per class" / "Invitations
    for one class date, pending and accepted together".
@@ -351,8 +352,52 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     survive a redeploy (on 28/10 two rollouts erased the 26/10 engine logs), and a past round can only
     be replayed against the configuration it ran under. `update_config` is the only writer of these
     columns. The rows carry rules and timings, never a student id or name.
+17. **A new coach starts from the reference configuration (PAD-815; owner, 2026-11-02).** Every
+    path that creates a coach writes the coach's `notification_configs` row in the same unit of work
+    as the coach and its ladder (`levels.coach-levels` rule 14): sign-up (`auth.register`), a club
+    invitation accepted as a new user (`clubs.coach-invitation`), and `create_coach_service`. The
+    row holds the reference coach's values, the set PAD-810 copied:
+    - the engine on (`auto_notify_enabled` true), `invitation_mode` `automatic`, join requests
+      accepted automatically (`auto_accept_join_requests` true);
+    - invitation start 2 days before at 19:00; reminders 1 day before at 17:00, 3 of them, 2 hours
+      apart;
+    - quiet hours on, 00:00–07:00;
+    - limits: at most 3 at once and 10 in all per class; 3 invitations per student per day; no
+      student who already has a class that day; an invitation unanswered for 60 minutes passes to
+      the next student (`maxInactiveTime` on, 60); the minimum time before class off (its value
+      125 minutes); inactive accounts not excluded; cancellation deadline 24 hours;
+    - eligibility: up to 2 levels above the class (`within_n_above_class`, value 2);
+    - the eight invitation groups `default_1`…`default_8` (level one above or the same as the
+      vacancy, combined with the same side and with having make-ups, in the reference's order);
+    - the five tiebreakers (fewest unjustified absences, most justified absences, highest attendance
+      rate, matching playing side on; active subscription off);
+    - the four notification groups, all on; open spots visible to students;
+    - the evaluation reminder `never`.
+
+    **Not taken from the reference:**
+    - `evaluation_scale_max` stays the product value, 5 (PAD-403);
+    - `excluded_players_enabled` stays off, with an empty list;
+    - `message_templates` stays `NULL`, which means the built-in texts. The reference coach's texts
+      become product copy only once the owner approves them.
+
+    The column defaults and the `DEFAULT_*` fallbacks for NULL lists are unchanged. A coach created
+    before this rule, with or without a row, reads exactly as before (rule 1 still creates a missing
+    row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
 
 ### Acceptance Criteria
+
+#### A new coach starts from the reference configuration (rule 17)
+- **Given** no coach yet
+- **When** a coach is created by sign-up, by accepting a club invitation as a new user, or by
+  `create_coach_service`
+- **Then** the coach has one `notification_configs` row holding exactly rule 17's values
+- **And** `evaluation_scale_max` is 5, `excluded_players_enabled` is false with `[]`, and
+  `message_templates` is NULL
+
+#### A coach created before rule 17 reads as before (rule 17)
+- **Given** a coach with no `notification_configs` row
+- **When** their configuration is first read
+- **Then** the row created is the engine-off default of rule 1, not rule 17's values
 
 #### A save that changes the invitation start is recorded (rule 16)
 - **Given** a coach whose invitation start is 7 days before at 19:00

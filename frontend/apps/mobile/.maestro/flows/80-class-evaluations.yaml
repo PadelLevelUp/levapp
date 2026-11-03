@@ -29,9 +29,11 @@ appId: com.padellevelup.app
     timeout: 20000
 - tapOn:
     text: "${output.classTitle}"
-- extendedWaitUntil:
-    visible:
+# PAD-816: Android lists only what is on screen, and the evaluations button (after Planning) sits below the fold; scroll to it.
+- scrollUntilVisible:
+    element:
       id: "class-evaluations-open"
+    direction: DOWN
     timeout: 20000
 - assertNotVisible:
     id: "class-eval-unavailable"
@@ -117,9 +119,11 @@ appId: com.padellevelup.app
     timeout: 20000
 - tapOn:
     text: "${output.yesterdayTitle}"
-- extendedWaitUntil:
-    visible:
+# PAD-816: Android lists only what is on screen, and the evaluations button (after Planning) sits below the fold; scroll to it.
+- scrollUntilVisible:
+    element:
       id: "class-evaluations-open"
+    direction: DOWN
     timeout: 20000
 - tapOn:
     id: "class-evaluations-open"

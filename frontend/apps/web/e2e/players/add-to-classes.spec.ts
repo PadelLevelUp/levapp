@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsCoach } from "../helpers/auth";
 import { openPlayers } from "../helpers/navigation";
+import { appWeeksAhead, pinBrowserToE2eToday, seedAcademyMonday } from "../helpers/app-week";
 
 // PAD-80: "Add to Classes" on the player profile showed no classes at all, even
 // with a compatible class with free spots in the week.
@@ -12,6 +13,7 @@ import { openPlayers } from "../helpers/navigation";
 // The picker is deliberately NOT level-filtered — a coach may add any player to
 // any class — so this exercises the plain "class exists this week" path.
 test("PAD-80: add-to-classes dialog lists the coach's classes for the week", async ({ page }) => {
+  await pinBrowserToE2eToday(page);
   await loginAsCoach(page);
   await openPlayers(page);
 
@@ -26,10 +28,12 @@ test("PAD-80: add-to-classes dialog lists the coach's classes for the week", asy
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible({ timeout: 5000 });
 
-  // The seeded "E2E Academy Class" always lands on the Monday of the FOLLOWING
-  // week (seed.py derives `next_monday` strictly in the future), so step the
-  // picker forward one week before asserting.
-  await dialog.getByRole("button", { name: /next week/i }).click();
+  // The seeded "E2E Academy Class" lands on the first Monday after today (seed_dates.py). The
+  // picker's weeks start on WEEK_STARTS_ON, so that Monday is in the next week on six weekdays and
+  // in this one on a Sunday (PAD-811): step forward as many weeks as it is away.
+  for (let i = appWeeksAhead(seedAcademyMonday()); i > 0; i--) {
+    await dialog.getByRole("button", { name: /next week/i }).click();
+  }
 
   await expect(dialog.getByText("E2E Academy Class").first()).toBeVisible({
     timeout: 10_000,

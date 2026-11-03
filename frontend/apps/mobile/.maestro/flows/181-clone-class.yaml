@@ -32,6 +32,11 @@ appId: com.padellevelup.app
 - assertVisible:
     id: "class-start-time"
     text: ".*(Escolhe a hora de início|Choose the start time).*"
+# PAD-816: as flow 52 on the same form, swipe the form up once first; on Android the
+# scroll below did not move it in 30 s.
+- swipe:
+    start: "50%, 45%"
+    end: "50%, 20%"
 - scrollUntilVisible:
     element:
       id: "class-save"

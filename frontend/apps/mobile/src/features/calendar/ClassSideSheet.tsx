@@ -16,8 +16,10 @@ import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinReque
 import type { ClassJoinRequest, PlayerSide } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Pressable, View } from "react-native";
+import { Modal, Platform, Pressable, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ui/text";
+import { SIDE_SHEET_PADDING, sideSheetPaddingBottom } from "./side-sheet-layout";
 
 /**
  * PAD-672 slice 1 (`classes.join-requests` rule 20, `classes.academy-class-booking` rule 6), the
@@ -57,6 +59,8 @@ export function ClassSideSheet({
   onFailed,
 }: ClassSideSheetProps) {
   const { t } = useTranslation();
+  // PAD-817 (rule 9c): on Android the sheet's action row clears the navigation bar.
+  const insets = useSafeAreaInsets();
   const [chosen, setChosen] = React.useState<PlayerSide | null>(preselectedSide(profileSide));
   const [full, setFull] = React.useState<SideFull | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -176,7 +180,13 @@ export function ClassSideSheet({
         <View
           testID="class-side-sheet"
           className="bg-background"
-          style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 12 }}
+          style={{
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: SIDE_SHEET_PADDING,
+            paddingBottom: sideSheetPaddingBottom(Platform.OS, insets),
+            gap: 12,
+          }}
         >
           {full ? (
             <>

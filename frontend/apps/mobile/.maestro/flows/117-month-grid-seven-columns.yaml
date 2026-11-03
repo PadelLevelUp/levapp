@@ -1,11 +1,15 @@
-# PAD-437 (B-201): the Mês grid is seven columns wide, Sunday included.
+# PAD-437 (B-201): the Mês grid is seven columns wide, the last column included.
 #
 # The React Native grid wrapped each cell at width `${100 / 7}%`; seven of those rounded past the
-# row's width, so the Sunday cell wrapped onto the next line and every later date sat one
-# weekday off (Sun 4 Oct under SEG, Thu 29 Oct under TER). Asserted by position, not by copy:
-# each Sunday is to the RIGHT of its Saturday, on the same row; a wrapped Sunday sits at the far
-# left of the next row and fails. (Maestro's `below` compares only y, so it cannot catch a column
-# shift and is not used.) October 2026 starts on a Thursday: its first row is 28 Sep–4 Oct.
+# row's width, so the seventh cell wrapped onto the next line and every later date sat one
+# weekday off. Asserted by position, not by copy: each week's last cell is to the RIGHT of the
+# cell before it, on the same row; a wrapped cell sits at the far left of the next row and
+# fails. (Maestro's `below` compares only y, so it cannot catch a column shift and is not used.)
+#
+# PAD-816: weeks start on Sunday (PAD-682), so the seventh cell is Saturday: the pairs checked are
+# Friday → Saturday. They are taken from the month the seeded Monday is in, the month the grid
+# opens on, not from a fixed date (the flow stepped forward to October 2026 and ran out of
+# months once October had passed).
 appId: com.padellevelup.app
 # R-040: the view mode persists, and goto-seeded-monday (every later flow) needs the week view.
 onFlowComplete:
@@ -16,31 +20,41 @@ onFlowComplete:
 - runFlow: ../subflows/login-student.yaml
 - runFlow: ../subflows/goto-seeded-monday.yaml
 
+# The first two Friday → Saturday pairs of the seeded Monday's month (days 1–28, so both cells
+# are in that month), and a mid-month cell to know the grid is on it.
+- evalScript: "${output.cell = function (y, m, d) { return 'calendar-month-cell-' + y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d); }}"
+- evalScript: "${output.ym = output.seededMonday.split('-').map(Number)}"
+- evalScript: "${output.firstSat = (function (y, m) { for (var d = 2; d <= 8; d++) { if (new Date(y, m - 1, d).getDay() === 6) return d; } return 0; })(output.ym[0], output.ym[1])}"
+- evalScript: "${output.fri1 = output.cell(output.ym[0], output.ym[1], output.firstSat - 1)}"
+- evalScript: "${output.sat1 = output.cell(output.ym[0], output.ym[1], output.firstSat)}"
+- evalScript: "${output.fri2 = output.cell(output.ym[0], output.ym[1], output.firstSat + 6)}"
+- evalScript: "${output.sat2 = output.cell(output.ym[0], output.ym[1], output.firstSat + 7)}"
+- evalScript: "${output.mid = output.cell(output.ym[0], output.ym[1], 15)}"
+
 - tapOn:
     id: "calendar-view-month"
 - extendedWaitUntil:
     visible:
       id: "calendar-month-grid"
     timeout: 20000
-
-# Step to October 2026 whichever month the seed anchor opened on.
+# Near a month's end the grid can open on today's month, one before the seeded Monday's.
 - repeat:
     while:
       notVisible:
-        id: "calendar-month-cell-2026-10-15"
-    times: 14
+        id: "${output.mid}"
+    times: 2
     commands:
       - tapOn:
           id: "calendar-month-next"
 - assertVisible:
-    id: "calendar-month-cell-2026-10-15"
+    id: "${output.mid}"
 
-# Sunday stays on its week's row, to the right of Saturday.
+# Saturday stays on its week's row, to the right of Friday.
 - assertVisible:
-    id: "calendar-month-cell-2026-10-04"
+    id: "${output.sat1}"
     rightOf:
-      id: "calendar-month-cell-2026-10-03"
+      id: "${output.fri1}"
 - assertVisible:
-    id: "calendar-month-cell-2026-10-11"
+    id: "${output.sat2}"
     rightOf:
-      id: "calendar-month-cell-2026-10-10"
+      id: "${output.fri2}"

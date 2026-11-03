@@ -57,6 +57,7 @@ import {
   acceptClassJoinRequest,
   joinRequestRefusal,
   rejectClassJoinRequest,
+  sideGoneOf,
   withdrawClassJoinRequest,
 } from "@/api/classJoinRequests";
 import {
@@ -233,6 +234,8 @@ export function ClassDetailSheet({
   const [pendingAccept, setPendingAccept] = useState<{
     id: number;
     ineligible: EligibilityCheckEntry[];
+    /** PAD-808 (rule 7a): the side asked for and the student, when no spot of it is open any more. */
+    sideGone: { side: "left" | "right"; name: string } | null;
   } | null>(null);
   const [pendingEdit, setPendingEdit] = useState<{
     changes: Record<string, unknown>;
@@ -248,9 +251,13 @@ export function ClassDetailSheet({
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   // PAD-285: the dashboard's "Convidar" lands here with Notificar to open — once
   // the sheet is up for a coach, and only for this opening.
+  // PAD-798 (notifications.manual rule 10): not for a class that has started — nobody can be invited.
   useEffect(() => {
-    if (open && openNotify && canManage && event?.type === "class") setShowNotifyModal(true);
-  }, [open, openNotify, canManage, event?.type]);
+    if (!(open && openNotify && canManage && event?.type === "class")) return;
+    const startMs = wallClockMs(event.date, event.startTime);
+    if (!Number.isNaN(startMs) && startMs <= lisbonNowMs()) return;
+    setShowNotifyModal(true);
+  }, [open, openNotify, canManage, event?.type, event?.date, event?.startTime]);
   const [sendingReminders, setSendingReminders] = useState(false);
 
   // PAD-376 (evaluations.class-panel): "Avaliações" swaps this surface for the class's
@@ -692,7 +699,12 @@ export function ClassDetailSheet({
       const refusal = joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setJoinBusy(false);
-        setPendingAccept({ id, ineligible: refusal.ineligible ?? [] });
+        const side = sideGoneOf(refusal);
+        setPendingAccept({
+          id,
+          ineligible: refusal.ineligible ?? [],
+          sideGone: side ? { side, name: req ? displayName(req.playerId, req.playerName) : "" } : null,
+        });
         return;
       }
       toast({
@@ -2180,16 +2192,27 @@ export function ClassDetailSheet({
                   )}
                   {event?.type === "class" && (
                     <>
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        data-testid="class-notify-open"
-                        onClick={() => setShowNotifyModal(true)}
-                        disabled={isValidating || sendingReminders}
-                      >
-                        <Send className="w-4 h-4 mr-2" />
-                        {t("calendar.detail.notify")}
-                      </Button>
+                      {/* PAD-798 (notifications.manual rule 10): once the class has started nobody
+                          can be invited; the warning stands where Notificar was. */}
+                      {classStarted ? (
+                        <p
+                          className="flex-1 self-center text-sm text-muted-foreground"
+                          data-testid="class-notify-closed"
+                        >
+                          {t("calendar.notify.classStarted")}
+                        </p>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          data-testid="class-notify-open"
+                          onClick={() => setShowNotifyModal(true)}
+                          disabled={isValidating || sendingReminders}
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          {t("calendar.detail.notify")}
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         className="flex-1"
@@ -2564,6 +2587,7 @@ export function ClassDetailSheet({
       <EligibilityConfirmDialog
         open={pendingAccept !== null}
         ineligible={pendingAccept?.ineligible ?? []}
+        sideGone={pendingAccept?.sideGone ?? null}
         onCancel={() => setPendingAccept(null)}
         onConfirm={() => {
           const parked = pendingAccept;

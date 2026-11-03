@@ -270,6 +270,19 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    carries stage names and counts only, never a student id or name. It is what explains a vacancy
    that runs out of rounds with nobody invited. Like every container log it does not survive a
    redeploy, so it is read before the next rollout.
+3e. **A class at its budget holds its spots (PAD-801).** `_send_invitation_batch` asks the
+   class's remaining `maxTotal` budget (`notifications.config` rule 6c) before it reads the
+   waiting list or evaluates anyone. With nothing left it sends nothing and returns: the spot keeps
+   its round, an empty round is not deferred (rule 3c) and a last round does not expire (rule 16).
+   A never-started spot gives its start back (rule 1b) and is retried on a later tick. The tick
+   already held such a spot (its `_check_restrictions` refuses the class before the batch, rule 6d
+   of `notifications.config`); before PAD-801 the two paths without that outer check moved an
+   empty round on past an exhausted budget: a spot started inside `trigger_invitations` after an
+   earlier spot of the same call used up the budget, and a decline's follow-up
+   (`_send_next_on_decline`). Now every path holds. Once an invitation expires or is declined and
+   the budget frees, the spot goes on from the round it held. A spot whose class's budget is
+   used up for good (every counted invitation accepted) holds until the class starts (rule 20),
+   as the tick already did.
 4. Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
 4a. Side eligibility with "both" (eligibility is symmetric and inclusive):
    - A `both` player is eligible for a vacancy of ANY side (`left`, `right`, or `both`).
@@ -426,6 +439,29 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    class opening many never-filled spots runs one evaluation per spot and group in one tick, so the
    per-student reads used to multiply by spots × groups × roster. Measured and reproducible with
    `backend/scripts/opening_cost_probe.py`.
+
+12b. **One verdict per student and spot shape in one engine run (PAD-801).** An engine run is one
+   `process_invitation_batches` tick or one `trigger_invitations` call (the tick's own
+   never-filled-places scan included). Within a run, a student's group-rule verdict
+   (`_group_rule_failures`) is computed once per **spot shape**: the class, the spot's side as it
+   stands when the spot is evaluated (rule 2d can move it within the run), the spot's level
+   (`_vacancy_level`) and the group's rules. It is reused by every other spot of that shape. The
+   eligibility bar and the student's auto-invite opt-out do not read the spot, and are computed once
+   per class and student. *Implementation note:* the run's cache lives in a context variable
+   (`_ENGINE_RUN`, set by `@_in_engine_run` on both entry points). The engine's own callers
+   inside a run share it: the batch, the waiting list's group 0 (`_waiting_list_candidates`), the
+   sibling-offer check (`_held_by_another_offer`) and the approval prompts a semi-automatic
+   `trigger_invitations` creates. A call made outside a tick or a `trigger_invitations` call (the
+   simulation, the coach-facing reasons) and every `explain=True` call evaluate as before, and so
+   does the bar re-check under the class lock (`_still_invitable`), which stays fresh. What a run writes
+   (invitations, vacancies, messages, claims) is not an input to these verdicts, so the stages read
+   from it stay per spot and per call: departing player, already enrolled, declined this class,
+   already invited, offered another spot, same-day class and offer, availability. **Behaviour is
+   preserved:** a run invites the same students to the same spots in the same rounds as
+   evaluating every spot afresh did. The one difference: a coach's edit to a student's level,
+   side or account, or to the config, made while a run is in flight, applies from the next run
+   (at most one tick later), not from the next spot of the same run. Measured with
+   `backend/scripts/opening_cost_probe.py`; its statement count must not regress.
 
 13. **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
    2026-09-11, unconfirmed).** A `Vacancy` is a promise that a spot is open; capacity
@@ -747,6 +783,15 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
       enrolled (the yes answered `spot_filled`) — never both and never neither; the mutant with the
       withdrawal's locks dropped fails that cell.
 
+20. **The engine stops at the class's start (PAD-798, restating PAD-68; owner, 2026-10-30).** From
+   the class's start time on the club's clock (`_instance_is_over`: start <= Lisbon now, or the
+   class canceled or completed) the engine opens no vacancy and sends no invitation, first round or
+   later. `trigger_invitations` returns nothing; `_send_invitation_batch` sends nothing; the tick
+   (`process_invitation_batches`) expires the class's open vacancies and with them the invitations
+   still out (rule 15), as before; a decline's follow-up, a waiting-list answer and a semi-automatic
+   approval (`semi-auto-approval`) refuse the same way. Nothing here changed in PAD-798: the rule
+   states, beside `notifications.manual` rule 10 (manual sends refused with 409 `CLASS_STARTED`),
+   what the owner decided for every path, and its criteria pin it.
 ### Acceptance Criteria
 
 #### An empty round logs its stage counts (rule 3d)
@@ -1109,6 +1154,26 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **Then** the 40-student evaluation issues no more SQL statements than the 20-student one plus two per group
 - **And** every student's stage is the one the per-student evaluator gives: `eligibility` exactly when the bar fails, otherwise `invited` exactly when the group's rules pass
 
+#### One run checks each student once per spot shape, and invites the same (rule 12b, PAD-801)
+- **Given** a class with four never-filled spots (left, left, right, right) at one level, eight
+  roster students alternating sides, one invitation group (same side, same level), an absence bar
+  and at most one invitation at a time per spot
+- **When** `trigger_invitations` starts the four spots
+- **Then** spots 1–4 invite students 1, 3, 2 and 4 of the roster, as evaluating every spot afresh did
+- **And** each student's group rules are checked at most once per spot shape (two shapes), and the
+  bar and the auto-invite opt-out at most once per student
+- **And** the same holds for a tick that sends the next round of four started spots
+
+#### A class at its budget holds its spots (rule 3e, PAD-801)
+- **Given** `maxTotal` 1, two never-started spots, and one student who matches only the first
+- **When** one `trigger_invitations` call starts both
+- **Then** the first spot invites the student, and the second stays on round 1 with its start given
+  back
+- **Given** `maxTotal` 1 already used by another spot's live invitation, and a started spot whose
+  group 1 matches nobody
+- **When** a decline's follow-up asks that spot for its next student
+- **Then** nothing is sent and the spot stays on round 1
+
 #### A filled vacancy stops inviting, whichever door filled it (PAD-317)
 - **Given** an open vacancy with one `sent` invitation and one `queued` invitation out for it
 - **When** the spot is filled by any path — a student accepting (a waiting-list student's group-0 invitation included), a coach accepting for them, an accepted join request, or capacity reconciliation
@@ -1384,3 +1449,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** the coach marks the student absent
 - **Then** the three are invited inside the request and the reply lists them in `notifiedPlayers`
   with `invitationsQueued: false`
+
+#### No round opens or continues once the class has started (rule 20, PAD-798)
+- **Given** an automatic class at 19:30 Lisbon on a summer day (18:30 UTC) and an absent student
+  whose place a candidate could take
+- **When** invitations are triggered at 19:29, at 19:30 and at 19:45 Lisbon
+- **Then** the 19:29 trigger invites the candidate; the 19:30 and 19:45 triggers open no vacancy and
+  invite nobody
+- **And** for a vacancy whose first batch went out at 19:29, the tick at 19:45 sends no further
+  invitation, expires the vacancy, and expires the invitation still out

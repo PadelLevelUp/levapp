@@ -2,8 +2,10 @@
 # Mirrors: apps/web/e2e/settings/tutorials-understand-invites.spec.ts
 #   US-196-01 (coach sees Tutorials) and US-196-02 (class → player → rounds).
 #
-# Read-only on purpose: the tutorial is a rehearsal of the invitation engine
-# and creates nothing, so there is no state to restore afterwards.
+# The tutorial is a rehearsal of the invitation engine and creates nothing. PAD-816: the class it
+# previews is the flow's own (scripts/tutorial-class-setup.js, 4 days out), created and removed by
+# the hooks below, not the seed's next-Monday "E2E Academy Class": on a Sunday that one is inside
+# the invitation window, the engine fills its maxTotal, and the rehearsal shows no first batch.
 #
 # Pickers are Pressable rows with testIDs (an @rn-primitives Select's portal
 # is invisible to the iOS accessibility tree — see 08-set-player-level.skipped),
@@ -12,6 +14,10 @@
 # The badge at the end is asserted by its status id
 # (tutorial-send-status-first_batch), not its rendered English text (PAD-320).
 appId: com.padellevelup.app
+onFlowStart:
+  - runScript: ../scripts/tutorial-class-setup.js
+onFlowComplete:
+  - runScript: ../scripts/tutorial-class-teardown.js
 ---
 - runFlow: ../subflows/login-coach.yaml
 # PAD-193: Settings is off the bottom bar — the account avatar in the
@@ -42,13 +48,14 @@ appId: com.padellevelup.app
       id: "tutorial-understand-invites-screen"
     timeout: 15000
 
-# ── Step 1: the seeded class ──
-- extendedWaitUntil:
-    visible:
-      text: "E2E Academy Class"
-    timeout: 15000
+# ── Step 1: the flow's class ──
+- scrollUntilVisible:
+    element:
+      text: "E2E Tutorial Class"
+    direction: DOWN
+    timeout: 20000
 - tapOn:
-    text: "E2E Academy Class"
+    text: "E2E Tutorial Class"
 
 # ── Step 2: the enrolled student ──
 - extendedWaitUntil:

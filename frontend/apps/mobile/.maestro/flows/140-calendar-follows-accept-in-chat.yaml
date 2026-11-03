@@ -1,9 +1,11 @@
 # PAD-488 / classes.class-requests rule 19 (B-264) on iOS: the reporter's case. The coach's
 # calendar tab is open on a day holding a student's request. The coach accepts it in the chat,
-# then goes back to the still-mounted tab with the in-app back button. The hold must be gone
-# within 15 s, under the 60 s staleTime (QUERY_STALE_TIME_MS; it was 30 s before PAD-586). The flow returns with `chat-back`, never with openLink,
-# so no app resume can refetch the calendar for it. Before the fix the chat's accept refreshed
-# the request lists only.
+# then goes back to the still-mounted tab in-app. The hold must be gone within 15 s, under the
+# 60 s staleTime (QUERY_STALE_TIME_MS; it was 30 s before PAD-586). The flow returns in-app, never
+# with openLink, so no app resume can refetch the calendar for it. Before the fix the chat's
+# accept refreshed the request lists only.
+# PAD-816: since PAD-768 `chat-back` goes up to Mensagens, not back in history, so the way back
+# to the calendar is `chat-back` then the Calendar tab, as a coach does it.
 #
 # Setup and teardown as flow 139. Flow number 140 is from Session-D's reserved block.
 appId: com.padellevelup.app
@@ -84,9 +86,15 @@ onFlowComplete:
       id: "class-request-bubble-accept"
     timeout: 20000
 
-# ── Back to the same calendar tab, in-app: the hold is gone ──
+# ── Back to the same calendar tab, in-app (chat-back → Mensagens → Calendar tab): the hold is gone ──
 - tapOn:
     id: "chat-back"
+- extendedWaitUntil:
+    visible:
+      id: "screen-messages"
+    timeout: 15000
+- tapOn:
+    id: "tab-calendar"
 - extendedWaitUntil:
     visible:
       id: "screen-calendar"
