@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { TermsAcceptField } from "@/features/auth/TermsAcceptField";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
+import { typedChosenUsername } from "@levelup/config";
 
 /**
  * The chrome the three account-creation screens share (PAD-164).
@@ -203,7 +204,10 @@ export function AccountSetupForm({
                   testID={`${testID}-${field.id}`}
                   accessibilityLabel={field.label}
                   value={values[field.id] ?? ""}
-                  onChangeText={(next) => onChangeField(field.id, next)}
+                  // auth.register rule 2a (PAD-799): the chosen username is lowercase as it is typed.
+                  onChangeText={(next) =>
+                    onChangeField(field.id, field.id === "username" ? typedChosenUsername(next) : next)
+                  }
                   secureTextEntry={field.secure}
                   keyboardType={field.keyboardType ?? "default"}
                   placeholder={field.placeholder}

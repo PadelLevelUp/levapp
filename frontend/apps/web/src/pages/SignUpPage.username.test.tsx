@@ -68,7 +68,7 @@ describe("SignUpPage — the username explains itself (PAD-651, auth.register ru
     expect(input("signup-username").value).toBe("jorge.torres");
     set("signup-username", "JPT");
     set("signup-name", "Jorge P. Torres");
-    expect(input("signup-username").value).toBe("JPT");
+    expect(input("signup-username").value).toBe("jpt"); // rule 2a (PAD-799): lowercase as typed
   });
 
   it("21b: an email typed as the username gets its own message, and nothing is sent", async () => {
@@ -104,5 +104,15 @@ describe("SignUpPage — the username explains itself (PAD-651, auth.register ru
     fireEvent.click(screen.getByTestId("signup-submit"));
     await new Promise((r) => setTimeout(r, 20));
     expect(register).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SignUpPage — a chosen username is lowercase (PAD-799, auth.register rule 2a)", () => {
+  it("2a: capitals typed become lowercase as they are typed, and the field never auto-capitalises", () => {
+    mount();
+    set("signup-username", "Bernardo.Silva");
+    expect(input("signup-username").value).toBe("bernardo.silva");
+    expect(input("signup-username").getAttribute("autocapitalize")).toBe("none");
+    expect(input("signup-username").getAttribute("autocorrect")).toBe("off");
   });
 });

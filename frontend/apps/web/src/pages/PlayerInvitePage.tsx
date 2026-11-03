@@ -13,7 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { COUNTRIES, countryName, isUnderSignupAge } from "@levelup/config";
+import { COUNTRIES, countryName, isUnderSignupAge, typedChosenUsername } from "@levelup/config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TermsAcceptField } from "@/components/auth/TermsAcceptField";
 
@@ -346,10 +346,12 @@ const PlayerInvitePage = () => {
                   id={id}
                   type={type}
                   value={form[id as keyof typeof form]}
+                  // auth.register rule 2a (PAD-799): the chosen username is lowercase as it is typed.
+                  {...(id === "username" ? { autoCapitalize: "none", autoCorrect: "off", spellCheck: false } : {})}
                   onChange={(e) => {
                     setForm((prev) => ({
                       ...prev,
-                      [id]: e.target.value,
+                      [id]: id === "username" ? typedChosenUsername(e.target.value) : e.target.value,
                     }));
                     setErrors((prev) => ({ ...prev, [id]: undefined }));
                   }}

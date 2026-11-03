@@ -18,6 +18,12 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 
 ### Rules
 1. Login accepts `username` (or email) + `password`
+1a. **A username signs in in any case (PAD-799, `auth.register` rule 2a).** The typed username is
+   resolved by the exact spelling first, else by the one account whose username matches ignoring
+   case. Until the stored usernames are lowercased (rule 2a's migration), two accounts that differ
+   only by case each sign in with their own spelling, and a spelling that matches both ignoring
+   case finds nobody (the ordinary 401). The sign-in field on web, iOS and Android is never
+   auto-capitalised or auto-corrected and sends what was typed.
 2. Password is verified against bcrypt hash stored in `users.password`
 3. Returns JWT access token with 30-day expiry
 4. Token is sent in the `Authorization` header. The `?token=` query string is accepted on the SSE
@@ -88,6 +94,16 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     builds that predate it simply never show it; the server needs no capability.
 
 ### Acceptance Criteria
+
+#### A mixed-case username signs in (rule 1a, PAD-799)
+- **Given** an account `bernardo`, and an account saved earlier as `Joana`
+- **When** they sign in as `Bernardo` and as `joana`
+- **Then** each signs into its own account
+
+#### Two accounts differing only by case each keep their spelling (rule 1a, PAD-799; until the migration)
+- **Given** accounts `Bernardo` and `bernardo`
+- **When** each signs in with its own spelling, and someone signs in as `BERNARDO`
+- **Then** each reaches its own account, and `BERNARDO` is 401
 
 #### Successful login
 - **Given** a user with username `coach1` and password `SecurePass1!` exists with status `active`

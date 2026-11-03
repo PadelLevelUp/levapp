@@ -201,6 +201,8 @@ const AuthPage = () => {
                 type="text"
                 placeholder={t("auth.login.usernamePlaceholder")}
                 autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
