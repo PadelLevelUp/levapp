@@ -53,9 +53,13 @@ about anyone who is missing. Web and iOS ship it together (R-024).
    4. **The spot** — side and level and where the level came from ("a left-side, level 5 spot —
       level taken from the player") and, under it (PAD-566), why that side, in the engine's own
       numbers from `spot.sideCounts` (`notifications.invite-simulation` rule 9; the client never
-      recounts — two places counting sides is how PAD-541 started): when one side has fewer
-      players going, "A aula tem {{left}} de esquerda e {{right}} de direita a ir. Para equilibrar
-      os lados, damos prioridade a jogadores de <lado>."; on a tie with a sided leaver, "… e faltou
+      recounts — two places counting sides is how PAD-541 started). **The counts are a projection,
+      and the sentence says so (PAD-825, PAD-822):** they are the players going without the leaver
+      plus the class's open spots on their reserved side, which a coach read as the roster. Every
+      sentence opens "Contando quem vai e as vagas abertas (cada uma no lado a que está
+      reservada), …" / "Counting who is going plus the open spots on their reserved side, …";
+      when one side has fewer, "… a aula fica com {{left}} de esquerda e {{right}} de direita.
+      Convidamos <lado> …"; on a tie with a sided leaver, "… e faltou
       um jogador de <lado>, por isso damos prioridade a <lado> para manter a aula equilibrada.";
       on a tie with no side to keep, "A aula já está equilibrada ({{left}} + {{right}}) … o lado não
       influenciou esta escolha."; with no counts (no sided player on the roster), "… a vaga mantém
@@ -63,7 +67,12 @@ about anyone who is missing. Web and iOS ship it together (R-024).
       client never recounts or re-decides; `chosen` of `both`/none reads as "the side did not
       influence" whatever the counts (`describeSideReasoning` in `@levelup/config`;
       `tutorials.sideReason.*`, pt/en; both shells; the Playwright spec asserts the line against the
-      locale's sentences, numbers wild).
+      locale's sentences, numbers wild). **Under it, the roster as the coach sees it (PAD-825):**
+      "Agora vão {{goingLeft}} de esquerda e {{goingRight}} de direita (sem quem falta); vagas
+      abertas: {{openLeft}} de esquerda e {{openRight}} de direita." from `sideCounts.going` and
+      `sideCounts.open`, so the two lines add up at a glance (`describeSideRoster`,
+      `tutorials.sideRoster`, test id `tutorial-spot-side-roster`). Not shown with no counts, or
+      from a server that does not send `going`/`open`.
    5. **The rounds**, in order. Each round is headed by its rules rendered in words ("Same level
       and balance the class sides", "Same level", "Everyone eligible"; the side words are PAD-564's,
       `notifications.groups` rule 6). Each candidate row shows
@@ -123,6 +132,12 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 - **Then** under the spot line it reads "A aula tem 5 de esquerda e 2 de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de direita." — the same numbers `spot.sideCounts` carries
 - **And** for a class of 2 + 2 losing a left-side student it reads that left is kept to stay balanced
 - **And** for a class of 3 + 3 losing a student with no set side it reads that the side did not influence the choice
+
+#### The side counts read as a projection, next to the roster (rule 4.4, PAD-825)
+- **Given** a class with 8 left-side and 5 right-side students going, 4 open right spots freed by absences, and a right-side student who cancels (PAD-822's class), on web and on iOS
+- **When** the coach picks that class and student in the tutorial
+- **Then** the side line opens "Contando quem vai e as vagas abertas…" and gives 8 left and 8 right, the projection `spot.sideCounts` carries
+- **And** under it the roster line gives 8 left and 4 right going and 0 left and 4 right open, so 8 + 0 and 4 + 4 give the projection
 
 #### A blocked gate is shown above the queue
 - **Given** the coach has `quietHours` enabled and the tutorial is run at 22:30 club-local
