@@ -50,6 +50,16 @@ three separate fields on it. Decision record:
    inside a unit of work and commits outside one (PAD-272), so a roster materialises in one commit.
    `unenrol(player_id, instance)` deletes the row. No other code constructs a `Presence` for an
    enrolment.
+4a. **A coach's enrolment keeps the class's sides (PAD-805; numbering unconfirmed).** When a coach
+   puts a student on one occurrence (`source = coach`: instance create or edit-add, a cancelled
+   student put back) and capacity closes an open spot (`notifications.invitations` rule 13), the
+   spot of the student's side closes, chosen as for an accepted join request (`vacancy_for_joiner`,
+   `classes.join-requests` rule 6), not the oldest. In the same commit the class's spots left open
+   are re-counted with the student going (`notifications.invitations` rule 2d). After that commit,
+   a pending join request whose side just lost its last spot moves to that side's waiting list
+   (`classes.join-requests` rule 20), as on the engine's fill path. The other sources (`roster`,
+   `fill`, `walk_in`, `import`) are unchanged: a fill's own path does this, and the others record a
+   roster or a class that already happened.
 5. **Capacity** is presences minus those with `status = 'absent'`, floored at 0 — the same
    arithmetic as before, now over one table (`calendar.view` rules 8–9, `LessonInstance.effective_filled_spots`).
 6. **Reads.** "Is this player in this occurrence", the class-detail participants list, the engine's
@@ -282,6 +292,13 @@ three separate fields on it. Decision record:
   longer short
 - **Then** the spot re-counts to right in the same commit and the left student's round-1 invitation
   is withdrawn for balance (`retired_reason = "side_balanced"`)
+
+#### A coach's enrolment moves a request for the side it filled to that side's waiting list (rule 4a, PAD-805)
+- **Given** a class of 4 with Ana (left) and Rui (right) going, a right spot (older) and a left spot
+  open, and Sofia's pending join request for the right
+- **When** the coach adds Bruno (right) to that occurrence
+- **Then** the right spot is `filled`, Sofia's request is `superseded`, and she holds an active
+  right waiting-list entry
 
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the

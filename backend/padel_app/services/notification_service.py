@@ -3274,7 +3274,17 @@ def _create_vacancy_for_absent_player(
         status="open",
         approval_status="pending" if _is_semi_auto(config) else "not_required",
     )
-    vacancy.create()
+    db.session.add(vacancy)
+    db.session.flush()
+    # PAD-805 (rule 2d): the absence re-counts the class's open spots now, as a "yes" does, in the
+    # same one commit. The new spot re-counts to the side rule 2c just gave it (the same count,
+    # itself left out). The class lock is held, and the spots are locked only with SKIP LOCKED, so
+    # this never waits on a "yes" that holds a spot and waits for the class: that spot is passed
+    # over and re-counted at its next batch.
+    _publish_retired(_recount_open_spots(instance, coach_id))
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    commit_or_flush()  # the spot, the re-count, and the end of the lock
     return vacancy
 
 
@@ -5935,13 +5945,16 @@ def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
     trigger_invitations(instance, coach.id, now=_now)
 
 
-def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:
+def reconcile_vacancies(
+    instance: LessonInstance, *, filled_by_player_id: int | None = None, preferred_id: int | None = None
+) -> list:
     """Close the open vacancies capacity no longer supports (PAD-271, invitations rule 13).
 
     A Vacancy is a promise that a spot is open; ``effective_filled_spots`` is the
     truth it follows. While the instance has more open vacancies than open spots,
     one is marked ``filled``: the enrolled player's own (``original_player_id``)
-    first, else one with no live invitation, else the oldest. Its ``sent`` /
+    first, else ``preferred_id`` (PAD-805: a coach's enrolment names the spot of the
+    joiner's side, `vacancy_for_joiner`), else one with no live invitation, else the oldest. Its ``sent`` /
     ``queued`` invitations expire and their messages are retired. Never opens
     anything; a class that is over is left to the expiry path. Flushes inside a
     unit of work and commits outside one (PAD-272), so it composes with
@@ -5973,7 +5986,8 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
             (v for v in open_vacancies
              if filled_by_player_id is not None and v.original_player_id == filled_by_player_id),
             None,
-        ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
+        ) or next((v for v in open_vacancies if v.id == preferred_id), None) \
+          or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
           or open_vacancies[0]
         open_vacancies.remove(pick)
         locked = (
