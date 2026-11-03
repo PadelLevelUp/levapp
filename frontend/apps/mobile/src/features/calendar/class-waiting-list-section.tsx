@@ -8,6 +8,7 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import {
+  SIDE_CHOICE_ORDER,
   STANDING_PRESETS,
   WAITING_LIST_MAX_PERIOD_CLASSES,
   WAITING_LIST_SCOPE_KEYS,
@@ -15,7 +16,10 @@ import {
   describeIneligible,
   formatShortDate,
   lightTheme,
+  preselectedSide,
+  requestedSideChipKey,
   resolveText,
+  sideLabelKey,
   standingEndFor,
   standingPresetOf,
   waitingListCandidates,
@@ -33,7 +37,7 @@ import {
 } from "@levelup/config";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
 import { useCoachDisplayName } from "@levelup/hooks";
-import type { CoachClassWaitingListRow, EligibilityCheckEntry } from "@levelup/types";
+import type { CoachClassWaitingListRow, EligibilityCheckEntry, PlayerSide } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
@@ -102,7 +106,15 @@ export function ClassWaitingListSection({ event, isRecurring, recurrenceEnd, row
                 className="flex-row items-center justify-between py-1"
               >
                 <View className="flex-1">
-                  <Text className="text-sm" numberOfLines={1}>{displayName(row.playerId, row.playerName)}</Text>
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-sm shrink" numberOfLines={1}>{displayName(row.playerId, row.playerName)}</Text>
+                    {/* PAD-803 (rule 18a): the side the row waits for; none on a row stored before it. */}
+                    {requestedSideChipKey(row.side) ? (
+                      <View testID={`class-waiting-list-side-${row.playerId}`} className="rounded-full bg-muted px-2 py-0.5">
+                        <Text className="text-[11px]">{t(requestedSideChipKey(row.side) as string)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text
                     testID={`class-waiting-list-row-scope-${row.playerId}-${row.scope}`}
                     className="text-[11px] text-muted-foreground"
@@ -221,6 +233,14 @@ function ScopeDialog({
   // PAD-724 (PAD-669 R5, waiting-list rule 18): adding a student who fails the bar asks first — the
   // warning shows in the dialog and the button turns into "Adicionar mesmo assim" (no nested modal).
   const [warned, setWarned] = React.useState(false);
+  // PAD-803 (rule 18a): the side the student waits for — the profile side pre-selected ("Habitual"),
+  // mandatory when there is none. Adding only: a change of scope keeps the row's side.
+  const [side, setSide] = React.useState<PlayerSide | null>(null);
+  const habitual = React.useMemo(
+    () => preselectedSide(candidates.find((c) => String(c.playerId) === playerId)?.side),
+    [candidates, playerId]
+  );
+  React.useEffect(() => setSide(habitual), [habitual, open]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -259,7 +279,7 @@ function ScopeDialog({
   React.useEffect(() => setWarned(false), [playerId, open]);
 
   const confirm = async () => {
-    if (!playerId || !periodValid) return;
+    if (!playerId || !periodValid || (!editing && !side)) return;
     if (chosenIneligible && !warned) {
       setWarned(true);
       return;
@@ -275,6 +295,7 @@ function ScopeDialog({
           originalId: event.originalId,
           date: event.date,
           playerId: Number(playerId),
+          side,
           ...req,
         });
         if (result.action === "already_on_list") toast.warning(t("calendar.detail.waitingListAlready"));
@@ -335,6 +356,40 @@ function ScopeDialog({
             </ScrollView>
           </>
         )}
+        {!editing && playerId ? (
+          // PAD-803 (rule 18a): the same cards as the standing list (players/waiting-list-dialog).
+          <View className="gap-2" testID="class-waiting-list-side">
+            <Text className="text-sm font-medium">{t("calendar.sidePick.standing.label")}</Text>
+            <View className="flex-row flex-wrap gap-2" accessibilityRole="radiogroup">
+              {SIDE_CHOICE_ORDER.map((opt) => {
+                const chosen = side === opt;
+                return (
+                  <Pressable
+                    key={opt}
+                    testID={`class-waiting-list-side-${opt}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: chosen }}
+                    onPress={() => setSide(opt)}
+                    className="flex-row items-center gap-1.5 rounded-md border px-3 py-1.5"
+                    style={{
+                      backgroundColor: chosen ? lightTheme.primary : "transparent",
+                      borderColor: chosen ? lightTheme.primary : lightTheme.border,
+                    }}
+                  >
+                    <Text className="text-sm" style={{ color: chosen ? lightTheme.primaryForeground : lightTheme.foreground }}>
+                      {t(sideLabelKey(opt))}
+                    </Text>
+                    {habitual === opt ? (
+                      <View testID={`class-waiting-list-side-usual-${opt}`} className="rounded-full bg-muted px-1.5">
+                        <Text className="text-[11px]">{t("calendar.sidePick.usual")}</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <View className="gap-2">
           <Text className="text-sm font-medium">{t("calendar.detail.waitingListScope")}</Text>
           <View className="flex-row flex-wrap gap-2">
@@ -430,7 +485,7 @@ function ScopeDialog({
           <Button variant="outline" onPress={onClose} disabled={saving}>
             <Text>{t("common.cancel")}</Text>
           </Button>
-          <Button testID="class-waiting-list-confirm" onPress={() => void confirm()} disabled={saving || !playerId || !periodValid}>
+          <Button testID="class-waiting-list-confirm" onPress={() => void confirm()} disabled={saving || !playerId || !periodValid || (!editing && !side)}>
             <Text>{t(editing ? "common.save" : warned && chosenIneligible ? "calendar.eligibilityConfirm.confirm" : "calendar.detail.waitingListAdd")}</Text>
           </Button>
         </DialogFooter>

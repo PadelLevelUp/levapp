@@ -166,6 +166,12 @@ export function AddToStandingWaitingListDialog({ open, onClose, playerId, player
                     }`}
                   >
                     {t(sideLabelKey(opt))}
+                    {/* PAD-803: tagged "Habitual" as in the class's waiting-list add. */}
+                    {standingDefaultSide(profileSide) === opt ? (
+                      <span data-testid={`standing-wl-side-usual-${opt}`} className="ml-1.5 text-[11px] opacity-80">
+                        · {t("calendar.sidePick.usual")}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>

@@ -31,7 +31,8 @@ vi.mock("@/api/notificationEngine", () => api);
 
 import { ClassWaitingListSection } from "./ClassWaitingListSection";
 
-const player = (playerId: number, name: string) => ({ playerId, name }) as unknown as CoachPlayer;
+// PAD-803 (rule 18a): a profile side, so the side cards open on it ("Habitual") and Add is enabled.
+const player = (playerId: number, name: string) => ({ playerId, name, side: "right" }) as unknown as CoachPlayer;
 const roster = [player(1, "Álvaro Sousa"), player(2, "Ana Pinto")];
 const row = (over: Partial<CoachClassWaitingListRow>): CoachClassWaitingListRow => ({
   id: 10, playerId: 1, playerName: "Álvaro Sousa", joinedAt: null, origin: "coach", standingEntryId: null, seriesScoped: false,
@@ -80,7 +81,8 @@ describe("PAD-560 the add dialog's three scopes (rule 20)", () => {
     expect(until).not.toContain("2030");
     confirm();
     await waitFor(() => expect(api.addToClassWaitingList).toHaveBeenCalledTimes(1));
-    expect(lastAdd()).toEqual({ model: "LessonInstance", originalId: 7, date: "2026-10-13", playerId: 2, scope: "series" });
+    // PAD-803 (rule 18a): the add names the side too - the profile side, pre-selected.
+    expect(lastAdd()).toEqual({ model: "LessonInstance", originalId: 7, date: "2026-10-13", playerId: 2, scope: "series", side: "right" });
   });
 
   it("a period is a number of classes or an end date, never both (rule 19a)", async () => {

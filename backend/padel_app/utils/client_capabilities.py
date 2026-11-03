@@ -74,6 +74,11 @@ ADULT_ROSTER_CONFIRMATION = "adult-roster-confirmation"
 # when no spot of that side is open; `has_spots` per side); one that does not (App Store builds up
 # to 33) is taken as before, its side recorded as the profile side. Retire like the others.
 JOIN_SIDE = "join-side"
+# PAD-803 (notifications.waiting-list rule 18a): the coach's add to a class's waiting list names the
+# side. A client that declares this and sends none for a student with no profile side is refused
+# (400 side_required); one that does not (builds before the dialog) is taken as before, its side the
+# profile side. Retire like the others.
+WAITING_LIST_SIDE = "waiting-list-side"
 
 
 # PAD-680 (notifications.notification-sound rule 5): the build has the "Notification sound" switch
@@ -99,6 +104,7 @@ CAPABILITIES = {
     TERMS_ON_COMPLETION: "compat",
     ADULT_ROSTER_CONFIRMATION: "compat",
     JOIN_SIDE: "compat",
+    WAITING_LIST_SIDE: "compat",
 }
 
 # Rule 5: the kill-switches, read through a per-worker cache of at most 30 seconds.

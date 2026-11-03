@@ -29,7 +29,8 @@ vi.mock("@/api/notificationEngine", () => ({
 
 import { ClassWaitingListSection } from "./ClassWaitingListSection";
 
-const player = (playerId: number, name: string) => ({ playerId, name }) as unknown as CoachPlayer;
+// PAD-803 (rule 18a): a profile side, so the side cards open on it ("Habitual") and Add is enabled.
+const player = (playerId: number, name: string) => ({ playerId, name, side: "right" }) as unknown as CoachPlayer;
 const roster = [player(1, "Álvaro Sousa"), player(2, "Ana Pinto"), player(3, "Bruno Álves"), player(9, "Enrolled One")];
 
 function renderSection(rows: CoachClassWaitingListRow[] = []) {

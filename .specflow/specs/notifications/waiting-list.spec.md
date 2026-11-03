@@ -275,6 +275,31 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
     `already_on_list`. It sends the student nothing — the invitation, if a spot opens, is the first
     they hear (coordinator, 2026-10-07: no change of message volume). The coach's class views get
     the `waiting_list_changed` live event.
+18a. **The coach names the side the student waits for (PAD-803, B-714; numbering unconfirmed).**
+    Rules 18, 19, 19a and 22 take `side`: `"left"`, `"right"` or `"both"`, as a student's own
+    request does (`classes.join-requests` rule 20); anything else is answered 400 and nothing is
+    written. The side is stored on the class's row (rule 18) or on the series-scoped standing entry
+    (rules 19, 19a), which copies it to every row it fans out (rule 4e) and to the row it re-points;
+    a change of scope (rule 22) carries the row's side to the new entry. Rule 4e then asks the entry
+    only for a spot that side can take.
+    - **The clients** ask it in the add dialog, below the student: Direita, Esquerda, Ambos, in
+      `SIDE_CHOICE_ORDER`, the student's profile side pre-selected and tagged "Habitual". With no
+      profile side nothing is pre-selected and the add stays disabled until one is chosen. Web and
+      iOS declare the `waiting-list-side` capability (`client-capabilities` convention) with this
+      dialog.
+    - **A client that declares `waiting-list-side` and sends no side:** the profile side; with no
+      profile side, `400 {"error": "side_required"}` and nothing is written.
+    - **A client that does not declare it** (every build before the one that ships this dialog) sends no side and
+      gets the profile side, or no side when the profile has none, as before. **Decided (owner,
+      2026-11-03, PAD-803's "Proposta"):** the profile side, not "no side". The default lives in
+      `waiting_list_side_for` alone. **Why the 400 is gated on the capability
+      (coordinator, 2026-10-30):** a build already in the store cannot send a side, so refusing it
+      for a student with no profile side would break the add on every older phone; the refusal
+      applies only to a client that declares the picker. The token retires with the other
+      capability tokens.
+    - **Rows already stored with no side stay as they are:** no migration. Such a row is asked for
+      any spot (rule 4e) until it ends.
+    - The class's list (rule 20) returns each row's `side` and the clients show it as a chip.
 19. **…or to the whole series, as a standing entry scoped to that series (PAD-547, PAD-560;
     numbering unconfirmed).** The same request with `scope: "series"` creates a standing entry
     whose `lesson_id` is the class's series, with **no credit limit** (`credits_total` NULL: a yes
@@ -565,6 +590,20 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 - **Then** his entry is deactivated, his rows on the other occurrences go, and his 10-13 row stays active as the coach's, with no message to him
 - **When** Ana changes Carla's row to a period of 2 classes
 - **Then** her entry's end moves to 2026-10-20, her 10-27 row is deactivated and `whole_series` is false
+
+#### The coach names the side when adding to a class's list (rule 18a)
+- **Given** Carla, whose profile side with Ana is left, and Ana's class
+- **When** Ana adds Carla to the class's waiting list with `side: "right"`
+- **Then** Carla's row has side right and is asked only for a spot a right player can take
+- **And** adding her to the whole series with `side: "both"` gives the standing entry and every row
+  it fans out side both
+
+#### A student with no profile side needs a side (rule 18a)
+- **Given** Dinis, who has no profile side
+- **When** a client that declares `waiting-list-side` adds him with no side
+- **Then** the answer is 400 `side_required` and nothing is written
+- **And** an older client that does not declare it adds him as before, with no side
+- **And** a client that sends no side for Carla stores her profile side, left
 
 #### A coach-wide standing row is not changed from the class (rule 22)
 - **Given** Bruno on the class's list from a coach-wide standing entry
