@@ -45,3 +45,12 @@ export function usernameCharsIssue(username: string): "usernameIsEmail" | "usern
   if (USERNAME_PATTERN.test(username)) return null;
   return username.includes("@") ? "usernameIsEmail" : "usernameChars";
 }
+
+/**
+ * auth.register rule 2a (PAD-799): a username is stored lowercase, so a username being CHOSEN
+ * (sign-up, activation, an invitation) is lowercase as it is typed. A field that LOOKS a username up
+ * (sign-in, messaging, a claim) sends what was typed, until the stored usernames are lowercased.
+ */
+export function typedChosenUsername(raw: string): string {
+  return raw.toLowerCase();
+}

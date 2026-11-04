@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { suggestUsername, usernameCharsIssue } from "./signup-username";
+import { suggestUsername, typedChosenUsername, usernameCharsIssue } from "./signup-username";
 
 /**
  * auth.register rule 21 (PAD-651, B-528): the sign-up username is pre-filled from the name or the
@@ -51,5 +51,14 @@ describe("usernameCharsIssue — rule 21b", () => {
   it("accepts letters (capitals too), digits, dot, hyphen and underscore", () => {
     expect(usernameCharsIssue("JPT")).toBeNull();
     expect(usernameCharsIssue("jorge.torres_1-x")).toBeNull();
+  });
+});
+
+/** auth.register rule 2a (PAD-799): a username being chosen is lowercase as it is typed. */
+describe("typedChosenUsername — rule 2a", () => {
+  it("lowercases what is typed and keeps everything else for the character rule to judge", () => {
+    expect(typedChosenUsername("Bernardo.SILVA")).toBe("bernardo.silva");
+    expect(typedChosenUsername("jpt")).toBe("jpt");
+    expect(typedChosenUsername("Ana Maria")).toBe("ana maria");
   });
 });

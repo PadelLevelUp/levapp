@@ -16,6 +16,7 @@ from flask import abort, jsonify, make_response
 from padel_app.models.lesson_instances import LessonInstance
 from padel_app.models import Association_CoachPlayer, CalendarBlock, Coach, Player, User
 from padel_app.sql_db import db
+from padel_app.tools.username_tools import find_user_by_username
 
 DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DEFAULT_WINDOW = ("08:00", "22:00")   # classes.class-requests rule 1, until a coach declares hours
@@ -112,7 +113,7 @@ def resolve_participants(requester: Player, coach: Coach, usernames) -> list:
             out.append({"username": username, "ok": False, "code": "DUPLICATE_INVITEE"})
             continue
         seen.add(key)
-        user = User.query.filter(db.func.lower(User.username) == key).first()
+        user = find_user_by_username(username)  # auth.login rule 2a (PAD-799)
         if user is not None and requester.user_id == user.id:
             out.append({"username": username, "ok": False, "code": "SELF_INVITE"})
             continue

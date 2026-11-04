@@ -198,7 +198,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    it is **re-counted** — the count of rule 2b for a never-filled spot (players going plus the sides
    of the class's other open spots), of rule 2c for a freed one (players going plus the other open
    **freed** spots, never the never-filled ones, B-401), the spot itself left out, a tie keeping the
-   spot's current side — at two moments, and stored on the spot when it changes:
+   spot's current side — at these moments, and stored on the spot when it changes:
    - **each batch** of the spot, under its lock, before the candidates are read (round 1's
      "same side" and the side sort use the re-counted side);
    - **each "yes"** of the class (a student's or the coach's) **and each accepted join request**
@@ -207,8 +207,17 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - **each change of a player's side in the occurrence** (`classes.instance-enrollment` rule 13,
      PAD-551), set or cleared by the coach, under the same locks and in the same one commit, for
      all the class's open spots, counted with the new side — the same re-count as a yes, so the
-     balancing stays dynamic. A spot another
-     answer holds is passed over (SKIP LOCKED) and re-counted at its own next batch.
+     balancing stays dynamic;
+   - **each absence that opens a spot** (PAD-805): when a cancellation, a reminder "no" or the
+     coach's absent mark creates the leaver's freed spot (rule 2c), under the class lock and in that
+     same one commit, for all the class's open spots, the leaver no longer counted as going (the new
+     spot re-counts to the side rule 2c just gave it);
+   - **each coach's enrolment on one occurrence** (PAD-805, `classes.instance-enrollment` rule 4a),
+     in the enrolment's one commit, for the spots left open after rule 13 closed one, the new student
+     counted as going.
+   A spot another answer holds is passed over (SKIP LOCKED) and re-counted at its own next batch:
+   these re-counts never wait on a spot's lock, so a "yes" that holds a spot and waits for the class
+   lock (rule 10's order) cannot deadlock with them.
    When a re-count flips a spot to the other side, its live **round-1** invitations to students of
    the side it left (exactly `left` or `right`; a `both` or side-less student stays invited) are
    **withdrawn for balance**: the invitation is expired with `retired_reason = "side_balanced"`,
@@ -469,7 +478,9 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - **Every enrolment closes a vacancy.** `enrol()` (`classes.instance-enrollment` rule 4) is
      the one place a spot gets taken, so after it writes the row it reconciles the instance:
      while the instance has more open vacancies than open spots, one open vacancy is marked
-     `filled` — the departing player's own if the enrolled player is that player, else a vacancy
+     `filled` — the departing player's own if the enrolled player is that player, else, for a
+     coach's enrolment (`source = coach`), the spot of the student's side chosen as for an accepted
+     join request (`vacancy_for_joiner`, `classes.join-requests` rule 6; PAD-805), else a vacancy
      with no live invitation, else the oldest — with `filled_by_player_id` set to the enrolled
      player and `filled_at` to now, and its `sent` invitations expire with their messages retired
      (rule 7's fill message is not re-sent; the fill paths that already marked their own vacancy
@@ -1240,6 +1251,26 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
 - **When** Ana joins the class's waiting list from the bubble
 - **Then** she holds an active row; a student never invited to the class is still refused `has_spots`
 - **And** group 0 asks Ana for a left or side-less spot of that class, never a right one
+
+#### An absence re-counts the class's other open spots at once (rule 2d, PAD-805)
+- **Given** a class of 4 with Ana and Bia (left) going and two never-filled spots, both right,
+  Rui (right) invited by round 1 on the first, before the invitation window opens
+- **When** Ana is marked absent and her freed spot is created (right, rule 2c)
+- **Then** in that one commit the first never-filled spot re-counts to left, and Rui's invitation
+  moves to the other right spot (rule 18a) instead of waiting for that spot's next batch
+
+#### A coach's enrolment closes the spot of the student's side (rules 13 and 2d, PAD-805)
+- **Given** a class of 4 with Ana (left) and Rui (right) going, a left spot (older) and a right
+  spot open, no invitations
+- **When** the coach adds Bruno (right) to that occurrence
+- **Then** the right spot is `filled` and the left one stays open
+
+#### A coach's enrolment re-counts the spot left open (rule 2d, PAD-805)
+- **Given** a class of 4 with Ana (left) and Rui (right) going, two right spots open, Tiago (right)
+  invited by round 1 on the newer one
+- **When** the coach adds Bruno (right)
+- **Then** the older right spot is `filled`, the newer one re-counts to left in the same commit, and
+  Tiago's invitation is withdrawn for balance (`retired_reason = "side_balanced"`)
 
 #### Every fill retires the others as "spot_filled" (rule 15, PAD-609)
 - **Given** Ana and Bruno invited to Friday's one spot, and Carla and Dinis invited to it by hand

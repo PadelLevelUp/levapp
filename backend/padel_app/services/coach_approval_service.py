@@ -147,7 +147,9 @@ def reapply_coach_service(username, password):
     body."""
     from flask import abort
 
-    user = User.query.filter_by(username=username or "").first()
+    from padel_app.tools.username_tools import find_user_by_username
+
+    user = find_user_by_username(username)  # auth.login rule 2a (PAD-799)
     if user is None or not user.password or not check_password_hash(user.password, password or ""):
         abort(401)
     coach = rejected_coach_of(user)

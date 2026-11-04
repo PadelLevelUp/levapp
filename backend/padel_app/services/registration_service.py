@@ -101,7 +101,7 @@ def validate_registration(data):
     if not name:
         raise RegistrationError("name is required", 400, "name")
 
-    username = _clean(data.get("username"))
+    username = _clean(data.get("username")).lower()  # auth.register rule 2a (PAD-799)
     if not USERNAME_RE.match(username):
         raise RegistrationError(
             "username must be 3-80 characters of letters, digits, '.', '_' or '-'",
@@ -252,7 +252,9 @@ def assert_email_free(email):
 
 
 def _assert_unique(username, email):
-    if User.query.filter_by(username=username).first() is not None:
+    from padel_app.tools.username_tools import username_taken
+
+    if username_taken(username):  # auth.register rule 2a (PAD-799): taken in any case
         raise RegistrationError("Username already taken", 409, "username")
     assert_email_free(email)
 

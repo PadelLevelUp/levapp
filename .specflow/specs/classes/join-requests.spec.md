@@ -227,7 +227,8 @@ by a student's request — and whichever lands first wins.
       `classes.instance-enrollment` rule 13a) unless it is empty, and
       closes a spot of that side (rule 6, `vacancy_for_joiner`, which reads that side).
     - **A pending request whose side lost its last spot** (an invitation's "yes" or another accepted
-      request filled it — rule 10's fill paths — while the coach had not answered) is **moved to that
+      request filled it — rule 10's fill paths — or a coach's enrolment closed it,
+      `classes.instance-enrollment` rule 4a, PAD-805 — while the coach had not answered) is **moved to that
       side's waiting list**
       (Q2): it becomes `superseded` and an active waiting-list entry with its side is created (or an
       existing one reactivated), in the same commit as the fill, and the student is told in their

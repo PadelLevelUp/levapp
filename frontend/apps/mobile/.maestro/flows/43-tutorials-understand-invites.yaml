@@ -80,6 +80,14 @@ onFlowComplete:
     timeout: 30000
 - assertVisible:
     id: "tutorial-spot-side-reason"
+# PAD-825 (rule 4.4): under it, the roster the projection is built from (going and open spots).
+- scrollUntilVisible:
+    element:
+      id: "tutorial-spot-side-roster"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "tutorial-spot-side-roster"
 - scrollUntilVisible:
     element:
       id: "tutorial-round-1"

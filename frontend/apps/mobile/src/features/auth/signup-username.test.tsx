@@ -65,7 +65,7 @@ describe("SignUpScreen — the username explains itself (PAD-651, auth.register 
     expect(n.byTestId("signup-username").props.value).toBe("jorge.torres");
     await n.changeText("signup-username", "JPT");
     await n.changeText("signup-name", "Jorge P. Torres");
-    expect(n.byTestId("signup-username").props.value).toBe("JPT");
+    expect(n.byTestId("signup-username").props.value).toBe("jpt"); // rule 2a (PAD-799): lowercase as typed
   });
 
   it("21b: an email typed as the username gets its own message, and nothing is sent", async () => {
@@ -92,5 +92,15 @@ describe("SignUpScreen — the username explains itself (PAD-651, auth.register 
     await n.flush();
     expect(register).toHaveBeenCalledTimes(1);
     expect(n.byTestId("signup-submit").props.disabled).toBe(true);
+  });
+});
+
+describe("SignUpScreen — a chosen username is lowercase (PAD-799, auth.register rule 2a)", () => {
+  it("2a: capitals typed become lowercase as they are typed, never auto-capitalised or corrected", async () => {
+    const n = await renderNative(createElement(SignUpScreen));
+    await n.changeText("signup-username", "Bernardo.Silva");
+    const field = n.byTestId("signup-username");
+    expect(field.props.value).toBe("bernardo.silva");
+    expect([field.props.autoCapitalize, field.props.autoCorrect]).toEqual(["none", false]);
   });
 });

@@ -176,15 +176,16 @@
     "sideReason": {
       "noSides": "Nobody on your roster plays a set side, so the spot keeps the leaving player's side.",
       "fewer": {
-        "left": "The class has {{left}} left and {{right}} right going. Left players are asked until the sides are balanced; if the class changes meanwhile, the invitations of the side no longer needed are withdrawn.",
-        "right": "The class has {{left}} left and {{right}} right going. Right players are asked until the sides are balanced; if the class changes meanwhile, the invitations of the side no longer needed are withdrawn."
+        "left": "Counting who is going plus the open spots on their reserved side, the class has {{left}} left and {{right}} right. Left players are asked until the sides are balanced; if the class changes meanwhile, the invitations of the side no longer needed are withdrawn.",
+        "right": "Counting who is going plus the open spots on their reserved side, the class has {{left}} left and {{right}} right. Right players are asked until the sides are balanced; if the class changes meanwhile, the invitations of the side no longer needed are withdrawn."
       },
       "tie": {
-        "left": "The class has {{left}} left and {{right}} right going and the leaving player played left, so left players are asked first to keep it balanced.",
-        "right": "The class has {{left}} left and {{right}} right going and the leaving player played right, so right players are asked first to keep it balanced."
+        "left": "Counting who is going plus the open spots on their reserved side, the class has {{left}} left and {{right}} right and the leaving player played left, so left players are asked first to keep it balanced.",
+        "right": "Counting who is going plus the open spots on their reserved side, the class has {{left}} left and {{right}} right and the leaving player played right, so right players are asked first to keep it balanced."
       },
-      "balancedAny": "The class is balanced ({{left}} left + {{right}} right) and the leaving player had no set side, so the side did not influence this choice."
+      "balancedAny": "Counting who is going plus the open spots on their reserved side, the class is balanced ({{left}} left + {{right}} right) and the leaving player had no set side, so the side did not influence this choice."
     },
+    "sideRoster": "Now {{goingLeft}} left and {{goingRight}} right going (without the student who cancels); open spots: {{openLeft}} left and {{openRight}} right.",
     "levelSource": {
       "player": "level taken from the student who cancels",
       "class": "level taken from the class (the student has none)",

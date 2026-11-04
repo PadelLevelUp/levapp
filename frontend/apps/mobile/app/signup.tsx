@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text } from "@/components/ui/text";
 import { describeApiError } from "@/lib/apiError";
-import { COUNTRIES, countryName, suggestUsername } from "@levelup/config";
+import { COUNTRIES, countryName, suggestUsername, typedChosenUsername } from "@levelup/config";
 import { CODE_KEYS, formatBirthInput, signUpSchema, toIso } from "@/features/auth/signup-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { keyboardAvoidingBehavior } from "@/lib/keyboard-avoiding";
@@ -100,7 +100,8 @@ export default function SignUpScreen() {
     if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
   };
 
-  const setField = (field: Field, value: string) => {
+  const setField = (field: Field, typed: string) => {
+    const value = field === "username" ? typedChosenUsername(typed) : typed; // rule 2a (PAD-799)
     setForm((f) => {
       const next = { ...f, [field]: value };
       if (!usernameTyped && (field === "name" || field === "email")) {

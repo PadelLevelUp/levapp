@@ -112,7 +112,8 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     # New-user path: register User + Coach and join the club
     data = data or {}
     name = data.get("name")
-    username = data.get("username")
+    # auth.register rule 2a (PAD-799): the chosen username is stored trimmed and lowercase.
+    username = data.get("username").strip().lower() if isinstance(data.get("username"), str) else None
     password = data.get("password")
     if not name or not username or not password:
         abort(400, "name, username and password are required")
@@ -151,7 +152,9 @@ def accept_coach_invitation_service(token, data=None, coach=None, now=None):
     else:
         email = None
 
-    if User.query.filter_by(username=username).first() is not None:
+    from padel_app.tools.username_tools import username_taken
+
+    if username_taken(username):
         abort(409, "Username already taken")
     if email:
         # After the username, as sign-up's _assert_unique tie-breaks.

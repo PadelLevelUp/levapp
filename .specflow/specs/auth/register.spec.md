@@ -33,6 +33,27 @@ create one, or ask to join an existing one — happens right after approval (`cl
    (rule 7). An unknown key is ignored.
 2. `username` and `email` must each be unique across `users` (email compared case-insensitively
    and stored lowercased). A taken value is 409 with `{"error": "...", "field": "username"|"email"}`.
+2a. **Usernames are case-insensitive and stored lowercase (PAD-799, B-724; rule number unconfirmed).**
+   `Bernardo`, `BERNARDO` and `bernardo` are one username.
+   - **Choosing one.** Wherever a person chooses a username — sign-up, activation (`auth.activate`),
+     a player invitation (`players.invite-completion`), a coach invitation
+     (`clubs.coach-invitation`) — the server trims and lowercases what the client sends before it
+     validates, checks and saves it, so an older client sending capitals still works. "Already
+     taken" (409, and the field-availability check) compares ignoring case. On web, iOS and Android
+     the field is lowercase as it is typed (`typedChosenUsername`), never auto-capitalised or
+     auto-corrected.
+   - **Looking one up** (sign-in, a rejected coach's re-apply, messaging by username, a claim by
+     username, class-request participants): the exact spelling first, else the one account whose
+     username matches ignoring case, else none (`username_tools.find_user_by_username`). Those
+     fields are never auto-capitalised or auto-corrected and send what was typed.
+   - **Until the migration (temporary).** Accounts saved before PAD-799 may hold capitals, and a
+     few pairs differ only by case. Until the owner has resolved those pairs and the migration has
+     lowercased every stored username, a lookup field does NOT lowercase as typed: each account of
+     such a pair signs in with its own spelling, and a third spelling (matching both ignoring case)
+     finds nobody. The migration (`migrations/pending/a7c3e9d1b799`, outside the chain until then)
+     refuses while any two usernames are equal ignoring case or any fails rule 4 once lowercased,
+     naming account ids only; once it has run, a unique index on `lower(username)` holds rule 2a
+     in the database, and this temporary part ends.
 3. `email` is required at self-signup (recovery and parental consent depend on it). It stays
    optional for coach-created players (`players.create` rule 7 unchanged).
 4. A chosen `username` may not start with the placeholder prefix `pending-`
@@ -165,6 +186,18 @@ create one, or ask to join an existing one — happens right after approval (`cl
     last name" (en).
 
 ### Acceptance Criteria
+
+#### A mixed-case sign-up is saved lowercase (rule 2a, PAD-799)
+- **Given** the sign-up form, or an older client posting `/api/auth/register` directly
+- **When** the newcomer types `Bernardo.Silva` as the username (the field shows `bernardo.silva`), or
+  the client sends `" Bernardo.Silva "`
+- **Then** the account's username is `bernardo.silva`
+
+#### A username differing only by case is taken (rule 2a, PAD-799)
+- **Given** an account `bernardo`
+- **When** a newcomer signs up as `Bernardo` or `BERNARDO`, or activates, or accepts an invitation
+  with it
+- **Then** the answer is 409 on `username` and nothing is written
 
 #### The Terms must be accepted to sign up (rule 19, PAD-485)
 - **Given** the web or iOS sign-up form, filled in, with the Terms box unticked

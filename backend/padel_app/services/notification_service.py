@@ -3274,7 +3274,17 @@ def _create_vacancy_for_absent_player(
         status="open",
         approval_status="pending" if _is_semi_auto(config) else "not_required",
     )
-    vacancy.create()
+    db.session.add(vacancy)
+    db.session.flush()
+    # PAD-805 (rule 2d): the absence re-counts the class's open spots now, as a "yes" does, in the
+    # same one commit. The new spot re-counts to the side rule 2c just gave it (the same count,
+    # itself left out). The class lock is held, and the spots are locked only with SKIP LOCKED, so
+    # this never waits on a "yes" that holds a spot and waits for the class: that spot is passed
+    # over and re-counted at its next batch.
+    _publish_retired(_recount_open_spots(instance, coach_id))
+    from padel_app.tools.unit_of_work import commit_or_flush
+
+    commit_or_flush()  # the spot, the re-count, and the end of the lock
     return vacancy
 
 
@@ -3371,6 +3381,7 @@ def _side_counts(
     *,
     leaver_id: int | None = None,
     freed_only: bool = False,
+    with_parts: bool = False,
 ) -> dict | None:
     """Rules 2b and 2c: the class's ``left`` / ``right`` count — the players holding a spot (their
     side with this coach; ``both`` and no side count on neither), minus ``leaver_id``, plus the
@@ -3390,15 +3401,20 @@ def _side_counts(
     ).first() is None:
         return None
 
-    counts = {"left": 0, "right": 0}
+    going = {"left": 0, "right": 0}
     holding = [p.player_id for p in instance.holding_presences if p.player_id != leaver_id]
     # PAD-551: each going player's side in this occurrence (the coach's override first).
     for side in sides_in_occurrence(instance, coach_id, holding).values():
-        if side in counts:
-            counts[side] += 1
+        if side in going:
+            going[side] += 1
+    open_ = {"left": 0, "right": 0}
     for side in _open_vacancy_sides(instance, freed_only=freed_only):
-        if side in counts:
-            counts[side] += 1
+        if side in open_:
+            open_[side] += 1
+    counts = {side: going[side] + open_[side] for side in ("left", "right")}
+    if with_parts:
+        # PAD-825 (invite-simulation rule 9): the two parts, for the tutorial's roster line.
+        counts.update(going=going, open=open_)
     return counts
 
 
@@ -3574,20 +3590,21 @@ def freed_spot_side_counts(
 ) -> dict | None:
     """PAD-541 / PAD-565 (notifications.invitations rule 2c; owner, 2026-10-09, option A): the side
     of a spot a cancellation frees, with the numbers that chose it — ``{left, right, leaverSide,
-    chosen}`` — so the invite simulation and a tutorial show the engine's own count
+    chosen, going, open}``, the last two the parts of ``left``/``right`` (PAD-825) — so the invite simulation and a tutorial show the engine's own count
     (`notifications.invite-simulation` rule 9). The count is the players going without the leaver,
     plus the class's other open freed spots; never-filled spots are not counted (B-401). A tie
     keeps the leaver's side (which may be ``both`` or none). ``None`` when no player on the coach's
     roster plays a side: the leaver's side is kept. Call it under the class lock (rule 10) so two
     cancellations at once see each other's spot."""
-    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True)
+    counts = _side_counts(instance, coach_id, leaver_id=leaver_id, freed_only=True, with_parts=True)
     if counts is None:
         return None
     if counts["left"] == counts["right"]:
         chosen = leaver_side
     else:
         chosen = "left" if counts["left"] < counts["right"] else "right"
-    return {"left": counts["left"], "right": counts["right"], "leaverSide": leaver_side, "chosen": chosen}
+    return {"left": counts["left"], "right": counts["right"], "leaverSide": leaver_side, "chosen": chosen,
+            "going": counts["going"], "open": counts["open"]}
 
 
 def freed_spot_side(instance: LessonInstance, coach_id: int, leaver_id: int, leaver_side: str | None) -> str | None:
@@ -5935,13 +5952,16 @@ def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
     trigger_invitations(instance, coach.id, now=_now)
 
 
-def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | None = None) -> list:
+def reconcile_vacancies(
+    instance: LessonInstance, *, filled_by_player_id: int | None = None, preferred_id: int | None = None
+) -> list:
     """Close the open vacancies capacity no longer supports (PAD-271, invitations rule 13).
 
     A Vacancy is a promise that a spot is open; ``effective_filled_spots`` is the
     truth it follows. While the instance has more open vacancies than open spots,
     one is marked ``filled``: the enrolled player's own (``original_player_id``)
-    first, else one with no live invitation, else the oldest. Its ``sent`` /
+    first, else ``preferred_id`` (PAD-805: a coach's enrolment names the spot of the
+    joiner's side, `vacancy_for_joiner`), else one with no live invitation, else the oldest. Its ``sent`` /
     ``queued`` invitations expire and their messages are retired. Never opens
     anything; a class that is over is left to the expiry path. Flushes inside a
     unit of work and commits outside one (PAD-272), so it composes with
@@ -5973,7 +5993,8 @@ def reconcile_vacancies(instance: LessonInstance, *, filled_by_player_id: int | 
             (v for v in open_vacancies
              if filled_by_player_id is not None and v.original_player_id == filled_by_player_id),
             None,
-        ) or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
+        ) or next((v for v in open_vacancies if v.id == preferred_id), None) \
+          or next((v for v in open_vacancies if not _vacancy_has_live_invitations(v)), None) \
           or open_vacancies[0]
         open_vacancies.remove(pick)
         locked = (
@@ -7154,6 +7175,7 @@ def get_waiting_list(instance_id: int, coach_id: int | None = None) -> list[dict
             "standingEntryId": standing.id if standing else None,
             "seriesScoped": bool(standing is not None and standing.lesson_id is not None),
             "scope": _waiting_list_row_scope(standing),
+            "side": e.side,  # PAD-803 (rule 18a)
             "expiresOn": standing_end_on(standing) if standing is not None else None,
         }))
     return [row for _, _, row in sorted(rows, key=lambda r: (r[0], r[1]))]
@@ -7248,13 +7270,34 @@ def _repoint_class_row(instance: LessonInstance, player_id: int, entry: Standing
         return row
     row.standing_entry_id = entry.id
     row.coach_id = entry.coach_id
+    row.side = entry.side  # PAD-803 (rule 18a): the row waits for its entry's side (rule 4e)
     db.session.commit()
     return row
+
+
+def waiting_list_side_for(side, cp) -> str | None:
+    """PAD-803 (notifications.waiting-list rule 18a): the side a coach's add stores. A side named is
+    kept (anything but left/right/both is a 400). None named: the profile side (the owner's decision,
+    2026-11-03, PAD-803's "Proposta"). A client
+    that declares `waiting-list-side` must name one for a student with no profile side."""
+    from flask import abort, jsonify, make_response
+
+    from padel_app.utils.client_capabilities import WAITING_LIST_SIDE, client_declares
+
+    if side is not None and side not in ("left", "right", "both"):
+        abort(make_response(jsonify({"error": "invalid_fields", "fields": ["side"]}), 400))
+    if side is not None:
+        return side
+    profile = cp.side if cp is not None and cp.side in ("left", "right", "both") else None
+    if profile is None and client_declares(WAITING_LIST_SIDE):
+        abort(make_response(jsonify({"error": "side_required"}), 400))
+    return profile
 
 
 def add_to_class_waiting_list(
     coach_id: int, instance: LessonInstance, player_id: int, *, scope: str,
     credits: int | None = None, expires_at: datetime | None = None, classes: int | None = None,
+    side: str | None = None,
 ) -> dict:
     """PAD-547 (notifications.waiting-list rules 18–19): the coach puts a roster student on this
     class's waiting list — this occurrence, the whole series (PAD-560: no credit limit, to the
@@ -7269,10 +7312,12 @@ def add_to_class_waiting_list(
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.services.academy_class_service import _publish_waiting_list_changed
 
-    if Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first() is None:
+    cp = Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=player_id).first()
+    if cp is None:
         abort(404, "Not on your roster")
     if player_id in set(instance.enrolled_player_ids):
         abort(make_response(jsonify({"code": "already_enrolled", "message": "Already in this class"}), 409))
+    side = waiting_list_side_for(side, cp)  # PAD-803 (rule 18a)
 
     if scope in ("series", "period"):
         lesson = instance.lesson
@@ -7282,6 +7327,7 @@ def add_to_class_waiting_list(
         end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         entry = add_standing_waiting_list_entry(
             coach_id, player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=scope == "series",
+            side=side,
         )
         row = _repoint_class_row(instance, player_id, entry)
         if row is not None:
@@ -7301,6 +7347,7 @@ def add_to_class_waiting_list(
     row.standing_entry_id = None
     row.added_by = "coach"
     row.joined_at = utcnow_naive()
+    row.side = side
     try:
         db.session.commit()
     except IntegrityError:
@@ -7314,6 +7361,7 @@ def add_to_class_waiting_list(
 
 def change_class_waiting_list_scope(
     entry_id: int, coach_id: int, *, scope: str, classes: int | None = None, expires_at: datetime | None = None,
+    side: str | None = None,
 ) -> dict:
     """PAD-560 (notifications.waiting-list rule 22): the class's coach moves one active row between
     this class only, the whole series and a period. A coach-wide standing row answers 409
@@ -7333,6 +7381,11 @@ def change_class_waiting_list_scope(
         abort(make_response(jsonify({"code": "coach_wide", "message": "Managed in Settings"}), 409))
     instance = row.lesson_instance
     lesson = instance.lesson if instance is not None else None
+    # PAD-803 (rule 18a): a side named here is validated and applies; none keeps the row's.
+    if side is not None:
+        side = waiting_list_side_for(side, None)
+        row.side = side
+    side = row.side
 
     if scope == "occurrence":
         if standing is not None:
@@ -7344,10 +7397,14 @@ def change_class_waiting_list_scope(
         whole = scope == "series"
         end = _series_scope_end(lesson, instance, scope, classes=classes, expires_at=expires_at)
         if standing is not None:
+            standing.side = side
+            for other in WaitingListEntry.query.filter_by(standing_entry_id=standing.id, is_active=True).all():
+                other.side = side  # rule 4e: the entry's rows wait for its side
             _retarget_standing_entry(standing, end, whole_series=whole, keep_row_id=row.id)
         else:
             entry = add_standing_waiting_list_entry(
                 coach_id, row.player_id, None, expires_at=end, lesson_id=lesson.id, whole_series=whole,
+                side=side,
             )
             _repoint_class_row(instance, row.player_id, entry)
         _publish_waiting_list_changed(row)

@@ -5,6 +5,7 @@ import {
   describeRules,
   describeSendStatus,
   describeSideReasoning,
+  describeSideRoster,
   describeVerdict,
   formatClubTime,
   resolveText,
@@ -258,6 +259,7 @@ function SimulationResults({
   const gates = sortGates(simulation.gates);
   const blocked = gates.filter((g) => g.blocked);
   const sideReason = describeSideReasoning(simulation.spot);
+  const sideRoster = describeSideRoster(simulation.spot);
   const spotParams = {
     side: t(`tutorials.sides.${simulation.spot.side ?? "none"}`),
     level: simulation.spot.levelCode ?? "",
@@ -320,6 +322,12 @@ function SimulationResults({
       <Text className="text-xs text-muted-foreground" testID="tutorial-spot-side-reason">
         {resolveText(t, sideReason)}
       </Text>
+      {/* PAD-825 (rule 4.4): the roster the projection above is built from. Mirrors web. */}
+      {sideRoster ? (
+        <Text className="text-xs text-muted-foreground" testID="tutorial-spot-side-roster">
+          {resolveText(t, sideRoster)}
+        </Text>
+      ) : null}
 
       {simulation.rounds.map((round) => (
         <Card key={round.number} testID={`tutorial-round-${round.number}`}>

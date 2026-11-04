@@ -180,6 +180,8 @@ test.describe("PAD-196: Settings › Tutorials › Understand invites", () => {
     // PAD-566 (rule 4.4): the spot says why its side, from the engine's own counts — one of the
     // locale's side-reason sentences, with numbers in place of {{left}}/{{right}} (never typed here).
     await expect(results.getByTestId("tutorial-spot-side-reason")).toHaveText(sideReasonPattern());
+    // PAD-825 (rule 4.4): under it, the roster the projection is built from (going and open spots).
+    await expect(results.getByTestId("tutorial-spot-side-roster")).toBeVisible();
     await expect(results.getByTestId("tutorial-round-1")).toBeVisible();
 
     // Round 1 = same level + same side as the spot (B1 / right): only students

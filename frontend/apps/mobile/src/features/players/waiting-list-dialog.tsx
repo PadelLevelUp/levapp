@@ -221,6 +221,8 @@ export function WaitingListDialog({
                         style={{ color: chosen ? lightTheme.primaryForeground : lightTheme.foreground }}
                       >
                         {t(sideLabelKey(opt))}
+                        {/* PAD-803: tagged "Habitual" as in the class's waiting-list add. */}
+                        {standingDefaultSide(profileSide) === opt ? ` · ${t("calendar.sidePick.usual")}` : ""}
                       </Text>
                     </Pressable>
                   );

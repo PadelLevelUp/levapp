@@ -431,6 +431,8 @@ export async function addToClassWaitingList(
     originalId: string | number;
     date: string | null | undefined;
     playerId: number;
+    /** PAD-803 (rule 18a): the side the student waits for. */
+    side?: PlayerSide | null;
   } & ClassWaitingListScopeRequest,
 ): Promise<{ action: "added" | "already_on_list"; entryId: number | null; standingEntryId?: number }> {
   const res = await getApi().post("/app/notify/class_waiting_list", { ...req, date: req.date ?? null });
