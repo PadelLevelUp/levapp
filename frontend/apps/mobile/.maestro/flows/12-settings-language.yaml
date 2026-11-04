@@ -91,11 +91,21 @@ onFlowComplete:
       - assertTrue: "${output.lang == 'pt'}"
 
 # ── Remount Settings ── (the Save sits at the bottom; the back row is at the top)
-- scrollUntilVisible:
-    element:
-      id: "settings-back"
-    direction: UP
-    timeout: 15000
+# PAD-816: swipe from the left margin, not mid-screen. On the Android emulator a mid-screen swipe up
+# the pane stalls once the Coach Levels text inputs sit under its start point (most likely the inputs
+# take the gesture): `scrollUntilVisible` UP ran out 15 s and then 45 s at that spot (dispatches 41620571377,
+# 41656457773), while one swipe starting over the left margin reached the top (41661707295).
+- repeat:
+    while:
+      notVisible:
+        id: "settings-back"
+    times: 8
+    commands:
+      - swipe:
+          start: 2%, 30%
+          end: 2%, 85%
+          duration: 500
+      - waitForAnimationToEnd
 - tapOn:
     id: "settings-back"
 - extendedWaitUntil:
