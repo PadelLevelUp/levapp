@@ -151,3 +151,105 @@ def register_cli(app):
         db.session.commit()
 
         click.echo(f"✅ Reset {len(table_names)} table(s): {', '.join(table_names)}")
+
+    _register_onboarding(app)
+
+
+def _register_onboarding(app):
+    """import.onboarding-runner (PAD-827): the team's command that loads a new coach's roster.
+
+    Run by the operator on the server; nothing runs it automatically. The work is in
+    `services/onboarding_service.py` (R-005); this is the command line around it.
+    """
+    from flask.cli import AppGroup
+
+    onboarding = AppGroup("onboarding", help="Load a new coach's roster from an onboarding file.")
+
+    def _refuse(problems, heading="Refused:"):
+        click.echo(heading)
+        for problem in problems:
+            click.echo(f"  - {problem}")
+        raise click.exceptions.Exit(1)
+
+    def _require_database(service, database):
+        """Rule 6: a run that writes names the database it is connected to."""
+        connected = service.connected_database()
+        if database != connected:
+            given = f'"{database}" was given' if database else "none was given"
+            _refuse([f'--database must name the connected database "{connected}"; {given}'])
+        return connected
+
+    @onboarding.command("apply")
+    @click.argument("file")
+    @click.option("--dry-run", is_flag=True, help="Check the file and the target, print the plan, write nothing.")
+    @click.option("--database", default=None, help="Name of the connected database (required unless --dry-run).")
+    def onboarding_apply(file, dry_run, database):
+        """Apply the onboarding FILE (a path, or - for standard input)."""
+        from padel_app.services import onboarding_service as service
+
+        try:
+            if file == "-":
+                raw = click.get_binary_stream("stdin").read()
+            else:
+                with open(file, "rb") as handle:
+                    raw = handle.read()
+        except OSError as exc:
+            _refuse([f"cannot read {file}: {exc}"])
+
+        try:
+            data = service.parse(raw)
+        except service.OnboardingRefused as exc:
+            _refuse(exc.problems)
+        problems = service.validate_file(data)
+        if problems:
+            _refuse(problems)
+        if not dry_run:
+            _require_database(service, database)
+
+        coach, club, problems = service.check_target(data)
+        if problems:
+            _refuse(problems)
+        for line in service.plan_lines(data, coach, club):
+            click.echo(line)
+        if dry_run:
+            click.echo("Dry run: nothing written.")
+            return
+
+        try:
+            run = service.apply(data, raw, coach, club)
+        except service.OnboardingFailed as exc:
+            _refuse([str(exc)], heading="Failed:")
+        click.echo(f"Applied onboarding {data['id']} as import #{run.id}.")
+        click.echo(f"Undo with: flask onboarding revert {data['id']} --database {service.connected_database()}")
+
+    @onboarding.command("revert")
+    @click.argument("onboarding_id")
+    @click.option("--database", default=None, help="Name of the connected database (required).")
+    def onboarding_revert(onboarding_id, database):
+        """Delete everything the onboarding ONBOARDING_ID created."""
+        from padel_app.services import onboarding_service as service
+
+        _require_database(service, database)
+        try:
+            deleted = service.revert(onboarding_id)
+        except service.OnboardingRefused as exc:
+            _refuse(exc.problems)
+        removed = ", ".join(f"{count} {kind}" for kind, count in deleted.items()) or "nothing"
+        click.echo(f"Reverted onboarding {onboarding_id}: removed {removed}.")
+
+    @onboarding.command("list")
+    def onboarding_list():
+        """Every onboarding run, oldest first."""
+        from padel_app.services import onboarding_service as service
+
+        listed = service.runs()
+        if not listed:
+            click.echo("No onboarding has been applied.")
+            return
+        for run in listed:
+            click.echo(
+                f"{run['id']}  coach #{run['coach_id']} {run['coach_name']}  "
+                f"{run['applied_at']:%Y-%m-%d %H:%M}  {run['status']}  {run['counts']}  (import #{run['import_id']})"
+            )
+
+    app.cli.add_command(onboarding)
