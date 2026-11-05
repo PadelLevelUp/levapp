@@ -167,8 +167,6 @@ def validate_file(data):
             continue
         problems.extend(_class_problems(lesson, seen_names, seen_titles))
 
-    if players and data.get("confirms_adults") is not True:
-        problems.append("confirms_adults must be true: the coach confirms every student is 18 or older")
     return problems
 
 

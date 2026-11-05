@@ -63,7 +63,6 @@ def _file(ids, **overrides):
         "coach": {"id": ids["coach_id"], "name": COACH_NAME,
                   "club": {"id": ids["club_id"], "name": CLUB_NAME}},
         "expects": {"players": 0, "classes": 0},
-        "confirms_adults": True,
         "notes": ["Laranja ficou de fora"],
         "players": [
             {"name": "Júlio Exemplo", "level_code": "3"},
@@ -429,7 +428,7 @@ def test_a_real_run_must_name_its_database(app, tmp_path, database):
 def test_file_problems_are_all_reported_before_the_database_is_read(app, tmp_path):
     ids = _seed(app)
     monday = _monday()
-    data = _file(ids, id="Wrong Id", confirms_adults=False)
+    data = _file(ids, id="Wrong Id")
     data["coach"]["id"] = 987654  # would be "no coach with id" if the database were read
     data["players"] = [{"name": "Júlio Exemplo"}, {"name": "julio  exemplo"}, {"name": "Ana Lima"},
                        {"name": "Bruno Faria"}]
@@ -449,10 +448,22 @@ def test_file_problems_are_all_reported_before_the_database_is_read(app, tmp_pat
 
     assert result.exit_code == 1, result.output
     for problem in ('id "Wrong Id"', "duplicate player name", '"Ghost"', 'class "Cheia"', "max_players",
-                    'class "Ao contrário"', "end_time", 'class "Sem fim"', "until", "confirms_adults"):
+                    'class "Ao contrário"', "end_time", 'class "Sem fim"', "until"):
         assert problem in result.output, (problem, result.output)
     assert "no coach with id" not in result.output
     assert _rows(app) == before
+
+
+def test_no_age_confirmation_is_asked(app, tmp_path):
+    """Rule 3g (owner decision, 2026-11-05): roster players have no login; the file is not asked."""
+    ids = _seed(app)
+    data = _file(ids, confirms_adults=False)  # a leftover field is not a reason to refuse
+    assert "confirms_adults" not in _file(ids)
+
+    result = _apply(app, _write(tmp_path, data), ids["database"])
+
+    assert result.exit_code == 0, result.output
+    assert _run_row(app)["summary"]["Players"] == 3
 
 
 def test_values_the_columns_cannot_hold_and_a_repeated_email_are_refused(app, tmp_path):
