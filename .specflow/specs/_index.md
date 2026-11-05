@@ -20,7 +20,7 @@ governing leaf spec and its dependencies before touching code.
 - `delivery/` — How changes reach production safely (10 leaves; `delivery.events-role` added 2026-10-22, PAD-697: the streams in their own gevent process, staging only; `delivery.k8s-manifests` added 2026-10-22, PAD-698: the GKE target in Kustomize, kubeconform in CI; `delivery.worker-role` added 2026-10-22, PAD-695: the scheduler's jobs in a worker process behind WORKER_SPLIT; `delivery.android-nightly-lane` added 2026-10-21, PAD-710: the nightly Android suite in parallel shards with a flow-naming watchdog; `delivery.transport-security` added 2026-10-12, PAD-643; `delivery.repair-diagnostics` added 2026-10-12, PAD-641; `delivery.pr-e2e-subset` added 2026-10-03, PAD-511; `delivery.staging-data-sync` added 2026-10-10, PAD-589: staging restored from the nightly dump once per dump; `delivery.zero-downtime-deploy` added 2026-10-10, PAD-588; `delivery.api-host` added 2026-10-11, PAD-614; `delivery.production-activity-reset` added 2026-10-11, PAD-632: the one-transaction script that clears production activity before real use)
 - `eligibility/` — Who May Join a Class (4 leaves)
 - `evaluations/` — Player Evaluation System (13 leaves: 4 implemented, 9 draft; `evaluations.legacy-client-contract`, `.competencies`, `.records`, `.class-panel`, `.history`, `.evolution`, `.sharing`, `.student-view`, `.reminders` drafted 2026-09-21 from the "Sistema de Avaliações" canvas ingest, and the four shipped leaves corrected for drift the same day; sharing, student-view and reminders are owner-pending)
-- `import/` — Bulk Data Import (4 leaves)
+- `import/` — Bulk Data Import (5 leaves; `import.onboarding-runner` added 2026-11-05, PAD-827: the team's run-once, revertible `flask onboarding` command for a new coach's roster)
 - `levels/` — Coach-Defined Skill Levels (2 leaves)
 - `messaging/` — Real-Time Messaging (9 leaves)
 - `mobile/` — Mobile Platform Runtime (6 leaves; `mobile.android-runtime` drafted 2026-09-11, PAD-298 — Android wave B; `mobile.release-build-target` drafted 2026-09-16, PAD-351; `mobile.status-bar` added 2026-09-24, PAD-419; `mobile.install-suggestion` drafted 2026-10-09, PAD-573 — web-only nudge to the iOS app; `mobile.launch` drafted 2026-10-10, PAD-587 — cold start and the launch overlay; `mobile.interaction-performance` drafted 2026-10-10, PAD-592 — iOS render hot spots)
@@ -109,7 +109,7 @@ level and acyclic at leaf level** — trace impact on the leaves, never on the d
 | messaging | 4 | 9 | implemented |
 | notifications | 4 | 13 | implemented |
 | training | 2 | 6 | implemented |
-| import | 1 | 4 | implemented |
+| import | 2 | 5 | implemented |
 | dashboard | 1 | 2 | implemented |
 | settings | 2 | 4 | partial (settings.tutorials implemented; settings.language draft) |
 | client | 4 | 4 | implementing (client.query-cache, PAD-586 web / PAD-592 mobile; client.route-loading, PAD-585 web; client.request-timeout and client.pull-to-refresh, PAD-786) |
