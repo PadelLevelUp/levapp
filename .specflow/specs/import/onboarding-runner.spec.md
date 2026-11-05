@@ -35,7 +35,6 @@ onto that coach only, exactly once, with a rehearsal mode, a full undo and a his
    - `id`: `YYYY_MM_DD_<slug>`, lower-case letters, digits and underscores.
    - `coach`: `{id, name, club: {id, name}}`.
    - `expects`: `{players, classes}`, the coach's roster and class counts before the run.
-   - `confirms_adults`: boolean.
    - `notes`: optional list of strings (transcription decisions; printed, never interpreted).
    - `players`: list of `{name, level_code?, email?, phone?, side?, link_existing?}`.
    - `classes`: list of `{title, date, start_time, end_time, max_players, type?, weekly?, until?,
@@ -56,7 +55,11 @@ onto that coach only, exactly once, with a rehearsal mode, a full undo and a his
       (an end of `00:00` is midnight at the end of the day, `classes.create` rule 8c). A weekly
       class has `until`; an `until` date is not before `date`.
    f. `side`, when given, is `left`, `right` or `both`; `type` is `academy` or `private`.
-   g. With at least one player, `confirms_adults` is `true` (`import.confirm` rule 9, PAD-642).
+   g. **No age confirmation is asked (owner decision, 2026-11-05).** An onboarding creates roster
+      players whose account is a placeholder with no login. The coach's "18 or older" tick
+      (`import.confirm` rule 9, `players.create` rule 10) belongs to the coach's own actions in the
+      app, and a student's birth date is judged when they activate an account (`auth.activate`).
+      The file has no such field; one that carries it is not refused for it.
    h. No value is longer than its column: a player's name and email 120 characters, phone 20; a
       class title 255. A longer value would otherwise fail part-way through the run.
    i. The file has at least one player or one class.
@@ -174,10 +177,16 @@ onto that coach only, exactly once, with a rehearsal mode, a full undo and a his
 #### File problems are all reported before the database is read (rule 3)
 - **Given** a file with the id `Wrong Id`, two players "Júlio Exemplo" and "julio exemplo", a class
   listing a player "Ghost" who is not in `players`, a class with 3 players and `max_players` 2, a
-  class ending before it starts, a weekly class with no `until`, and `confirms_adults: false`
+  class ending before it starts, and a weekly class with no `until`
 - **When** the operator applies it with `--dry-run`
-- **Then** every one of those seven problems is printed, exit code 1, and the coach was never looked
+- **Then** every one of those six problems is printed, exit code 1, and the coach was never looked
   up
+
+#### No age confirmation is asked (rule 3g)
+- **Given** a valid file with 3 players and no age confirmation field
+- **When** the operator applies it
+- **Then** the run is accepted
+- **And** the same file carrying `confirms_adults: false` is accepted too
 
 #### Values the columns cannot hold and a repeated email are refused (rules 3b, 3h)
 - **Given** a file with a player phone of 26 characters, two players with the emails

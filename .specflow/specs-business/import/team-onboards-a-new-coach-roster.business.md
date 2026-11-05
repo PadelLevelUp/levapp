@@ -46,8 +46,9 @@ for that coach only, and it can be taken back completely if it turns out to be w
    off; the coach turns them on when they are ready.
 6. **A student is never merged into someone else's account by accident.** A student is joined to an
    existing account only when the operator said so for that student.
-7. **Adults only.** A setup with students needs the coach's confirmation that every student is 18 or
-   older, as any roster does.
+7. **The coach is not asked for the students' ages** (owner decision, 2026-11-05). A setup creates
+   roster entries, not people who can log in. A student's age is judged if and when they activate
+   an account of their own.
 8. **Students' names are not published.** The setup file holds personal data and is kept outside the
    public source repository. What the repository holds is the tool.
 9. **Every run is recorded**: which setup, for which coach, when, what it created, and whether it
