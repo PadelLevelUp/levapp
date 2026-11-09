@@ -385,6 +385,42 @@ stored record — the visitor's cookie choice, in localStorage key `levapp.cooki
 - **When** a link preview reads its Open Graph and Twitter tags
 - **Then** `og:url` is `https://levapp.app/`, `og:image` and `twitter:image` are `https://levapp.app/og-image.png`, and `padellevelup.com` appears nowhere
 
+#### AUTH-LANDING-PAGE-30: The consent text sent is the text the visitor saw, in their language (rule 10)
+- **Given** the contact form in Portuguese or in English
+- **When** a request is relayed to HubSpot
+- **Then** the consent text and the marketing text it carries are, word for word, the two texts the form shows in that language
+test: `backend/padel_app/tests/test_pad617_demo_request.py` › `test_the_english_page_sends_the_english_consent_text` (+1 more)
+
+#### AUTH-LANDING-PAGE-31: The contact form shows its fields in order, marks what is required, and keeps the visitor informed (rules 10, 18)
+- **Given** the contact dialog open
+- **Then** it shows first name, surname, phone, email, club, the three option groups and the consent box, in that order, with one submit and a hidden trap field
+- **And** the required fields are marked as required, and after an empty submit each group's options point at the group's error
+- **When** the visitor submits a valid form
+- **Then** the submit is disabled while the request is in flight, and the sent state shows when it answers
+- **And** a 400 that names a field shows the error on that field, with the form still usable; a 429, 502, 503 or a network failure is told apart from it
+- **And** the dialog closed and opened again starts empty
+test: `frontend/apps/web/src/components/landing/DemoRequestDialog.test.tsx` › `renders the heading, the fields in the ticket's order, the honeypot and one submit` (+8 more)
+
+#### AUTH-LANDING-PAGE-32: The contact page hosts the same form in the site frame (rule 17)
+- **Given** `/contacto`
+- **When** the visitor fills the form and submits
+- **Then** the page shows the form inside the site's header and footer, not in a dialog; the request carries no `pedido` and a page address ending in `/contacto`; the sent state links back to `/`
+test: `frontend/apps/web/src/site/pages/ContactPage.test.tsx` › `renders the form in the site frame and sends no pedido, from the /contacto URL`
+
+#### AUTH-LANDING-PAGE-33: Each mock-up is one labelled image, with its caption or legend outside it (rule 7)
+- **Given** the calendar mock-up and the tactical-board mock-up
+- **Then** each is one image with a label to assistive technology, and its legend or caption sits outside the image
+- **And** the calendar sits in a box that scrolls sideways on its own, and shows one class running, one next, a full class as "16/16" and the now line on its fourth day
+- **And** the board shows its four player tokens
+test: `frontend/apps/web/src/site/mockups/CalendarMockup.test.tsx` › `is an image labelled by the i18n key, inside a horizontally scrolling wrapper` (+5 more)
+
+#### AUTH-LANDING-PAGE-34: The site is light whatever the system theme, and its menu carries the links (rule 8)
+- **Given** a system set to dark
+- **When** the public site is mounted
+- **Then** the page is painted light, and the app's own theme returns when the site is left
+- **And** the burger menu holds the three section links, "Entrar" and the demo button, and closes after a link is chosen
+test: `frontend/apps/web/src/site/SiteFrame.theme.test.tsx` › `paints <html> light under a dark system theme while the site is mounted, and lets go after` (+1 more)
+
 ### Notes
 - PAD-656 (2026-10-21/22, la-2110-SessionE + la-2110-SessionB on feature/pad-656): the new site from
   the FINAL Claude design replaces the Lovable-port landing page. Owner decisions via the coordinator:
@@ -433,3 +469,15 @@ stored record — the visitor's cookie choice, in localStorage key `levapp.cooki
   `index.html` check in `landing-guards.test.ts` covers them.
 - Rule 13's order is tested by outcome: after Recusar the reloaded document reads `declined` and
   runs no tracker; a reload before the write would come back `accepted` and load it again.
+
+### Open questions
+
+- **Rule 10 sends the footer's "Contacto" to `/support`; rule 6 and the code send it to `/contacto`.**
+  - Rule 10: "the footer "Contacto" stays `/support`".
+  - Rule 6: "the footer's in-site link to `/contacto` is the one exception, in the layout"; rule 17
+    defines `/contacto` (PAD-656).
+  - Code today: `site/SiteLayout.tsx` renders the footer link `site-footer-contact` to
+    `/contacto`.
+  - Recommendation: rule 10's clause predates the contact page; amend it.
+  - Proposed text for rule 10: "…"Enviar ideia" (the "others" audience) stays an email, and the
+    footer "Contacto" opens the contact page (rule 17)."

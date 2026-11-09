@@ -47,3 +47,10 @@ Silently refresh JWT tokens before they expire, avoiding forced re-login.
 - **Given** a token whose `auth_time` is 80 days ago and which expires in 10 days
 - **When** it calls `GET /api/auth/me`
 - **Then** the response is 200 and `X-New-Token` carries a token with the same `auth_time`
+
+#### AUTH-TOKEN-REFRESH-4: The session cap counts from the login, also for older tokens, and follows the configured days (rule 6)
+- **Given** a user who logs in
+- **Then** the access token carries `auth_time`, the time of that login
+- **And** a token issued before the claim existed is refreshed with its issue time as `auth_time`
+- **And** with `JWT_ABSOLUTE_SESSION_DAYS` at `30`, a token whose `auth_time` is `31` days old answers 401
+test: `backend/padel_app/tests/test_token_hygiene.py` › `test_login_token_carries_auth_time` (+2 more)

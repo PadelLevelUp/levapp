@@ -24,6 +24,7 @@ The auth domain.
 - `auth.mobile-account-creation` — implemented
 - `auth.account-deletion` — implemented (PAD-268: deleting an account removes it from the future, keeps the coach's records)
 - `auth.account-profiles` — implemented (PAD-260: an account has at most one player and one coach profile; a profile never outlives its account)
+- `auth.route-authorization` — implemented (PAD-92: no write without a session, a coach acts only on their own data; written from the tests during the 4.0 port)
 
 ## Why it's grouped this way
 

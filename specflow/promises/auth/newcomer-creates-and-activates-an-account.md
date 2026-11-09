@@ -12,7 +12,7 @@ A person whose account was created for them, by a coach, a teammate or an invite
 - Every way of completing an account (signing up, accepting a coach or player invitation, or activating an account a coach created) asks the person to accept the Privacy Policy and the Terms, and records when and which versions (PAD-637).
 - Someone whose account predates that record, or who never gave a date of birth, is asked once per login for what is missing, on one screen they may skip; the 18+ rule applies to the date (PAD-637).
 - An account created on someone's behalf starts inactive; nobody signs in with it until it is activated.
-- Only an inactive account can be activated. The activation link is for that one account and carries a secret only the coach's app can produce: knowing or guessing an account's number is never enough, and a link without its secret does not work.
+- Only an inactive account can be activated. The activation link is for that one account and carries a secret that only the server can produce and only that person's coach is shown: knowing or guessing an account's number is never enough, and a link without its secret does not work.
 - The username is unique across the app once activation completes.
 - The form never shows a system-generated placeholder username: it shows a blank field, or the real username the person chose earlier.
 - Completing an account, by activation or by accepting an invitation, asks for date of birth and country, as sign-up does (PAD-457, PAD-604). An app version from before the country question still completes the account; those accounts are asked later (PAD-630).

@@ -70,6 +70,10 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
 5. **Store listings** link to `https://levapp.app/privacy` (App Store Connect
    `appInfoLocalizations.privacyPolicyUrl`, both locales) and `/terms`; the legacy
    `padellevelup.com` host keeps serving both paths through the SPA fallback.
+6. **The privacy policy covers the website's contact form and cookie preferences (PAD-649).** Its
+   English text has a section on contact requests through the website: the data collected, the
+   purpose and legal basis, that it is stored in HubSpot acting as processor, the 24 months it is
+   kept, and how to withdraw consent.
 
 ### Acceptance Criteria
 
@@ -91,3 +95,15 @@ listings have stable URLs (PAD-601, replacing the hard-coded JSX pages of PAD-21
 #### AUTH-LEGAL-PAGES-4: The header never disagrees with the text (rule 2)
 - **Given** each live document
 - **Then** its markdown contains `Effective date: <effectiveDate>` exactly as the index states it
+
+#### AUTH-LEGAL-PAGES-5: A legal page renders markdown only (rule 1)
+- **Given** a legal document whose markdown holds a `<script>` element and a link to `javascript:alert(1)`
+- **When** the page renders
+- **Then** no script element is in the page, the script did not run, and no link's target starts with `javascript:`; an ordinary link is kept
+test: `frontend/apps/web/src/pages/LegalPage.test.tsx` › `renders no raw HTML and no javascript: href from the markdown`
+
+#### AUTH-LEGAL-PAGES-6: The privacy policy states how website contact requests are handled (rule 6, PAD-649)
+- **Given** the published English privacy policy
+- **When** its section on contact requests through the website is read
+- **Then** it names the data collected, the consent it rests on, HubSpot as processor, the 24 months of retention unless the person has become a user, and the right to withdraw consent
+test: `frontend/apps/web/src/content/legal/index.test.ts` › `covers the website contact form: data, purpose, basis, HubSpot, 24 months, rights`

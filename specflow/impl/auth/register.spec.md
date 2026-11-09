@@ -348,6 +348,50 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **When** it renders
 - **Then** the name field's label is "Nome e Apelido" / "First and last name"
 
+#### AUTH-REGISTER-28: The typed form survives the Terms detour (PAD-575, B-561)
+- **Given** a student on web `/signup` (iPhone profile) who typed name, username, email, both
+  passwords, a birth date and ticked the Terms box
+- **When** the tab navigates to `/terms` and comes back (`history.back()`), or the tab is reloaded
+- **Then** name, username, email, birth date and the Terms box are as they were, the password fields
+  are empty, and nothing was submitted
+- **And** after a successful sign-up the draft is gone: a later visit to `/signup` starts blank
+
+#### AUTH-REGISTER-29: A date that is not a real past date is invalid, never under age (rules 16, 18)
+- **Given** a sign-up with a birth date in the future
+- **When** it is posted
+- **Then** the answer is 400 `INVALID_BIRTH_DATE`, not `UNDERAGE`
+- **And** on the forms an empty date, a date in another format, or a day that does not exist is left to the date check: the age check says nothing about it
+- **And** the forms count full years on the given day: a tenth birthday today is 10, tomorrow's is 9
+test: `backend/padel_app/tests/test_pad445_adults_only.py` › `test_an_invalid_date_is_still_invalid_not_underage` (+3 more)
+
+#### AUTH-REGISTER-30: The username migration refuses while two names differ only by case, then lower-cases and enforces it (rule 2a)
+- **Given** accounts `Bernardo` and `bernardo`
+- **When** the migration runs
+- **Then** it refuses, naming the ids of each clashing pair and never a username, and changes nothing
+- **Given** no clashing pair
+- **When** it runs
+- **Then** every username is stored lower-case, a later insert that differs only by case is refused by the database, and the downgrade restores the original spellings
+test: `backend/padel_app/tests/test_pad799_usernames_are_lowercase.py` › `test_the_migration_refuses_while_two_accounts_differ_only_by_case_and_names_their_ids` (+1 more)
+
+#### AUTH-REGISTER-31: `/api/auth/me` lists a student's coaches by name, and none for a coach (rule 9)
+- **Given** a student on the rosters of "Zara Coach" and "Abel Coach"
+- **When** they GET `/api/auth/me`
+- **Then** `coaches` is `[{id, name}]` for Abel, then Zara
+- **And** a student on no roster, and a coach, each get `coaches: []`
+test: `backend/padel_app/tests/test_me_coaches.py` › `test_student_on_a_roster_sees_their_coaches_sorted_by_name` (+2 more)
+
+#### AUTH-REGISTER-32: Every refused sign-up names its field and creates nothing (rules 1, 4)
+- **Given** an otherwise valid sign-up
+- **When** it is posted with an unknown role, an empty name, a username of two characters or with a space, an email that is empty or not an address, or a password that is too short
+- **Then** each answers 400 with `field` naming that field, and no user is created
+test: `backend/padel_app/tests/test_registration.py` › `test_validation_errors_name_the_field`
+
+#### AUTH-REGISTER-33: The country picker lists Portugal first and names countries in the active language (rule 16)
+- **Given** the country list the forms share
+- **Then** its first entry is Portugal, and every code is a distinct two-letter upper-case code
+- **And** Germany reads "Alemanha" in Portuguese and "Germany" in English
+test: `frontend/packages/config/src/countries.test.ts` › `lists unique upper-case ISO codes with Portugal first` (+1 more)
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2
   and 7 (admin approval of coaches, added the same day).
@@ -355,10 +399,17 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - Email verification: `auth.email-verification` (PAD-234), added 2026-09-07.
 - PAD-198: rules 16–17 and `auth.parental-consent` (rules numbered 16+ because PAD-228 takes 15).
 
-#### The typed form survives the Terms detour (PAD-575, B-561)
-- **Given** a student on web `/signup` (iPhone profile) who typed name, username, email, both
-  passwords, a birth date and ticked the Terms box
-- **When** the tab navigates to `/terms` and comes back (`history.back()`), or the tab is reloaded
-- **Then** name, username, email, birth date and the Terms box are as they were, the password fields
-  are empty, and nothing was submitted
-- **And** after a successful sign-up the draft is gone: a later visit to `/signup` starts blank
+### Open questions
+
+- **Rule 19 and AUTH-REGISTER-3 record the privacy version `2026-10-13`; sign-up records `2026-10-21`.**
+  - Spec: rule 19, "Privacy `2026-10-13` since PAD-603 and PAD-634"; AUTH-REGISTER-3,
+    "`privacy_version` = `2026-10-13`".
+  - Other spec: `auth.legal-pages` Entities, "Privacy v2026-10-21 (PAD-638, owner decisions
+    2026-10-21; version change only…)".
+  - Code today: `registration_service.py` has `PRIVACY_VERSION = "2026-10-21"` and the web's
+    legal index says the same; `test_pad485_terms_acceptance.py` ›
+    `test_each_version_is_the_effective_date_its_page_states` keeps the three in step.
+  - Recommendation: amend the two dates; better, stop writing the date in this spec and say "the
+    version `auth.legal-pages` publishes", so the next policy version does not stale it again.
+  - Proposed text for AUTH-REGISTER-3: "`terms_version` and `privacy_version` = the versions in
+    force (`auth.legal-pages` rule 2)".

@@ -168,6 +168,15 @@ session login still let a disabled user in (audit M10). This leaf states the ful
 - **Given** instead the coach deletes their account
 - **Then** the request is `declined` and the student is sent nothing
 
+#### AUTH-ACCOUNT-DELETION-13: What goes with the account and what stays (rules 4, 5, 10)
+- **Given** a student who blocked someone, was blocked by someone, and holds an unavailability block on her calendar
+- **When** she deletes her account
+- **Then** every block she made or received is gone, and so are her calendar blocks
+- **Given** a coach with classes, a roster and a registered device
+- **When** the coach deletes their account
+- **Then** the device token is gone and the username is anonymised, and every class still exists
+test: `backend/padel_app/tests/test_pad268_account_deletion_cascade.py` › `test_blocks_both_ways_and_calendar_blocks_are_deleted` (+1 more)
+
 ### Open items
 - A deleting **coach**'s classes, roster and club are untouched; what should happen to them (hand
   over, cancel, keep) is an owner decision.

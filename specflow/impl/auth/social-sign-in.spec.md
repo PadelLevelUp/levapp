@@ -121,6 +121,46 @@ neither. Every provider ships dark: its button appears only where its client id 
 - **Given** an iOS build without the Google iOS client id
 - **Then** neither the Google nor the Apple button shows
 
+#### AUTH-SOCIAL-SIGN-IN-8: Who a provider token does not let in (rules 1, 2, 3)
+- **Given** a disabled account whose email a verified Google token carries
+- **When** that token is posted
+- **Then** the answer is 401 `ACCOUNT_DISABLED` and no link to the provider is stored
+- **And** an Apple token with no email, for an Apple account never seen before, answers 401 and stores nothing
+- **And** a provider other than `google` or `apple` answers 400
+test: `backend/padel_app/tests/test_pad618_social_sign_in.py` › `test_a_disabled_account_is_refused_as_login_refuses_it` (+2 more)
+
+#### AUTH-SOCIAL-SIGN-IN-9: A sign-up ticket cannot be forged or used twice (rule 4)
+- **Given** a sign-up ticket issued for a new person
+- **When** the completion is posted with the ticket altered, or with text that is not a ticket
+- **Then** the answer is 401 and no account is created
+- **And** a ticket already used answers 409; a completion that loses a race with another for the same person answers 409 `ALREADY_COMPLETED`, not an error
+test: `backend/padel_app/tests/test_pad618_social_sign_in.py` › `test_a_forged_or_tampered_ticket_is_401` (+2 more)
+
+#### AUTH-SOCIAL-SIGN-IN-10: A deleted account's provider links go with it (rule 8)
+- **Given** an account linked to a Google account
+- **When** the account is deleted and the same Google account signs in again
+- **Then** no link remains, and the person is asked to complete a new sign-up
+test: `backend/padel_app/tests/test_pad618_social_sign_in.py` › `test_account_deletion_removes_the_identities`
+
+#### AUTH-SOCIAL-SIGN-IN-11: The web's Google button signs in, starts a sign-up, or says why not (rules 3, 4, 5, 7)
+- **Given** the sign-in or the sign-up page with the Google client id configured
+- **Then** Google's own button is drawn, in popup mode
+- **When** Google hands back a credential
+- **Then** it is posted as `{provider: "google", idToken}`; a sign-in answer signs the person in and takes them where a password sign-in would, a remembered destination such as a join link included
+- **And** an answer that asks for a profile opens `/signup/complete` with the ticket, the name and the email, and signs nobody in
+- **And** a refusal shows its cause beside the button (an invalid token, the provider unavailable, a rejected coach, an unverified email, a disabled account) and signs nobody in
+test: `frontend/apps/web/src/components/auth/GoogleSignInButton.test.tsx` › `renders the container and asks Google to draw its button when configured` (+5 more)
+
+#### AUTH-SOCIAL-SIGN-IN-12: The completion page asks what the provider did not give, and refuses before sending (rules 4, 7)
+- **Given** the completion page opened with a ticket, a name and an email
+- **Then** it shows the name and the email as given
+- **When** the person submits with a birth date under 18 or the Terms unticked
+- **Then** each field shows its error and nothing is sent; a server refusal that names a field is shown on that field
+- **When** they choose a role, give a valid date, tick the Terms and submit
+- **Then** the completion is posted with the ticket, the role, the date, the country and the acceptance, and they are signed in and taken where a new account goes
+- **And** an expired ticket, or the page opened with no ticket, explains it and links back to `/signup`
+test: `frontend/apps/web/src/pages/SocialSignUpCompletePage.test.tsx` › `shows the provider's name and email read-only` (+5 more)
+
 ### Notes
 - Owner setup (PAD-618 ticket and the coordinator's list): Google OAuth consent screen and the web +
   iOS client ids (repo variables `GOOGLE_WEB_CLIENT_ID`, `_STAGING`, `GOOGLE_IOS_CLIENT_ID`); Apple

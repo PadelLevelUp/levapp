@@ -73,3 +73,20 @@ for what is missing, without being locked out.
 - **When** they log in
 - **Then** the catch-up screen opens with the Terms box and no birth-date field
 - **And** "Not now" takes them to their usual landing, and the screen does not reopen in that session
+
+#### AUTH-LEGAL-CATCH-UP-6: The catch-up comes after the other holds, and gates nothing (rules 2, 6; web and iOS)
+- **Given** a user with Terms or a birth date pending
+- **When** they sign in while their email code or their coach approval is also pending
+- **Then** they land on the email-code screen, or the coach-pending screen, not on the catch-up
+- **And** the route guard never sends anyone to the catch-up: with it pending, a guarded route still opens the dashboard
+test: `frontend/apps/web/src/auth/postLoginPath.test.ts` › `keeps the email code and the coach holds first` (+3 more)
+
+#### AUTH-LEGAL-CATCH-UP-7: The screen checks only the pending parts on their own fields, and sends only those (rules 2, 3, 5; web and iOS)
+- **Given** a user with both parts pending
+- **When** they press save with the box unticked and no date
+- **Then** each field shows its own error and nothing is sent
+- **And** a date under 18 is refused on the date field before sending, and a server answer of `UNDERAGE` is shown on that field too
+- **When** they tick the Terms, give a valid date and save
+- **Then** the request carries the Terms acceptance and the date as `YYYY-MM-DD`, and they go on to their usual landing
+- **And** a part that is not pending is neither checked nor sent
+test: `frontend/apps/web/src/pages/LegalCatchUpPage.test.tsx` › `saves both parts and moves on to the usual landing` (+7 more)

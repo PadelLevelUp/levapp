@@ -102,3 +102,10 @@ Register browser push notification subscriptions for authenticated users.
 - **When** the subscription save answers 500
 - **Then** the Messages page shows `push-inactive-banner` with "Browser alerts aren't active", and its
   button saves again; no unhandled rejection is raised
+
+#### AUTH-PUSH-SUBSCRIPTION-8: A save needs a session and a subscription (rule 2)
+- **Given** a signed-in user
+- **When** they POST `/api/notifications/save-subscription` with no `subscription` in the body
+- **Then** the answer is 400
+- **And** the same route with no session answers 401
+test: `backend/padel_app/tests/test_pad173_single_subscription_route.py` › `test_save_subscription_rejects_missing_subscription` (+1 more)
