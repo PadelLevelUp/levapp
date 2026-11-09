@@ -27,6 +27,8 @@ Coaches record strengths and weaknesses notes for their players.
    replaced by the record form, which does not. `e2e/evaluation-tools/player-notes.spec.ts`
    (US-44, US-45) is the proof that the card works on its own.
 
+6. A note's text is required: a blank text answers 400 `text is required` and writes nothing.
+
 ### Acceptance Criteria
 
 #### PLAYERS-NOTES-1: Add strength note
@@ -40,7 +42,7 @@ Coaches record strengths and weaknesses notes for their players.
 - **When** coach POSTs to `/api/app/delete/coach_note` with `{"note_id": 10}`
 - **Then** the note is deleted
 
-#### PLAYERS-NOTES-3: A note needs text (rules 3, 4)
+#### PLAYERS-NOTES-3: A note needs text (rules 4, 6)
 - **Given** a coach and a student on their roster
 - **When** the coach POSTs `/api/app/add_coach_note` with a blank text, and then with "Fast feet"
 - **Then** the blank one answers 400 and writes no note

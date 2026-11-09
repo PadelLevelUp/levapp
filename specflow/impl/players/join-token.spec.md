@@ -184,7 +184,7 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 - **Then** the sheet shows the code's expiry, the number of students who joined and "Generate new code"
 - **And** generating shows a new QR, and the earlier code is 410 from then on
 
-#### PLAYERS-JOIN-TOKEN-17: The join routes refuse whoever may not use them (rules 1, 2, 4, 5)
+#### PLAYERS-JOIN-TOKEN-17: The join routes refuse whoever may not use them (rules 1, 2, 4, 5; `auth.coach-approval` rule 8)
 - **Given** a coach awaiting approval, an approved coach with no club, and an approved coach with a club and no token yet
 - **When** each asks for a join token, and a token is previewed and accepted
 - **Then** the coach awaiting approval gets 403 `COACH_NOT_APPROVED`, and the coach with no club gets 409 `NO_CLUB`

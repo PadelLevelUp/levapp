@@ -65,6 +65,7 @@ Coaches view their player roster with search, sorting, filtering, and pagination
     stay real controls (rule 8, R-026).
 
 11. A roster row's `validated` is true only once the player's account has a password; an account can be `active` and still not validated.
+12. On web, a reload of the roster that fails keeps the rows on screen and says so in a toast, and the answer to an older search never replaces the rows of a newer one.
 
 ### Acceptance Criteria
 
@@ -134,14 +135,14 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 - **And** a search keeps the level order among the students it matches
 test: `backend/padel_app/tests/test_pad521_level_order.py` › `test_an_unordered_level_is_the_weakest_in_both_directions` (+1 more)
 
-#### PLAYERS-LIST-11: A query with nothing to search for matches nobody (rule 3)
+#### PLAYERS-LIST-11: A query of wildcards or punctuation matches nobody, and a blank type-ahead lists nobody (rule 3)
 - **Given** a roster that includes "Ana 100%_ Real"
-- **When** the roster and the type-ahead are searched with `%`, `_`, `!!` and a blank
+- **When** the roster is searched with `%`, `_` and `!!`, and the type-ahead with a blank
 - **Then** each returns nobody
 - **And** `100% real` and `_ ana` each return that one player, and the type-ahead finds "sousa pedro" in any word order
 test: `backend/padel_app/tests/test_pad516_any_order_search.py` › `test_a_query_with_no_searchable_characters_matches_nobody` (+2 more)
 
-#### PLAYERS-LIST-12: The roster on screen survives a failed or a late answer (rule 6)
+#### PLAYERS-LIST-12: The roster on screen survives a failed or a late answer (rule 12)
 - **Given** the web Players page showing two students
 - **When** a reload of the roster fails, and two searches answer out of order
 - **Then** after the failure the rows are still shown and a toast says the list could not load

@@ -155,7 +155,7 @@ test: `backend/padel_app/tests/test_player_invitation.py` › `test_create_incom
 - **Then** the first answers 401 and the second 403
 test: `backend/padel_app/tests/test_player_invitation.py` › `test_incomplete_player_rejects_other_coachs_id` (+1 more)
 
-#### PLAYERS-INVITE-COMPLETION-13: The web completion form checks before it sends and shows each refusal on its field (rules 10, 10a, 10b)
+#### PLAYERS-INVITE-COMPLETION-13: The web completion form checks before it sends and shows each refusal on its field (rules 10a, 10b; `auth.register` rule 2a)
 - **Given** the web completion form at `/invite/player/:token`
 - **When** the visitor types and submits
 - **Then** a typed username is lowercased, and the field never capitalises or corrects it

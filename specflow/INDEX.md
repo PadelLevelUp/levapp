@@ -2350,13 +2350,13 @@ Untagged tests: 7552
   - **PLAYERS-LIST-8** Player card is reachable and activatable by keyboard · unverified
   - **PLAYERS-LIST-9** The selected row survives a change of player (PAD-410) · unverified
   - **PLAYERS-LIST-10** The level sort holds with a search, and a level with no order is the weakest (rules 3, 4) · unverified
-  - **PLAYERS-LIST-11** A query with nothing to search for matches nobody (rule 3) · unverified
-  - **PLAYERS-LIST-12** The roster on screen survives a failed or a late answer (rule 6) · unverified
+  - **PLAYERS-LIST-11** A query of wildcards or punctuation matches nobody, and a blank type-ahead lists nobody (rule 3) · unverified
+  - **PLAYERS-LIST-12** The roster on screen survives a failed or a late answer (rule 12) · unverified
   - **PLAYERS-LIST-13** A student is marked validated only once their account has a password (rule 11) · unverified
 - spec **players.notes** (`specflow/impl/players/notes.spec.md`)
   - **PLAYERS-NOTES-1** Add strength note · unverified
   - **PLAYERS-NOTES-2** Delete note · unverified
-  - **PLAYERS-NOTES-3** A note needs text (rules 3, 4) · unverified
+  - **PLAYERS-NOTES-3** A note needs text (rules 4, 6) · unverified
 - spec **players.profile** (`specflow/impl/players/profile.spec.md`)
   - **PLAYERS-PROFILE-1** Player profile rejects a student with 403 · unverified
   - **PLAYERS-PROFILE-2** Get player profile · unverified
@@ -2453,7 +2453,7 @@ Untagged tests: 7552
   - **PLAYERS-INVITE-COMPLETION-10** The Terms are recorded on completion (rule 10b, PAD-637) · unverified
   - **PLAYERS-INVITE-COMPLETION-11** The invitation link lives seven days, and only its hash is stored (rules 2, 7) · unverified
   - **PLAYERS-INVITE-COMPLETION-12** Only a signed-in coach creates an invitation, and only as themselves (rule 3) · unverified
-  - **PLAYERS-INVITE-COMPLETION-13** The web completion form checks before it sends and shows each refusal on its field (rules 10, 10a, 10b) · unverified
+  - **PLAYERS-INVITE-COMPLETION-13** The web completion form checks before it sends and shows each refusal on its field (rules 10a, 10b; `auth.register` rule 2a) · unverified
 - spec **players.join-token** (`specflow/impl/players/join-token.spec.md`)
   - **PLAYERS-JOIN-TOKEN-1** Shared links and QR codes use the public web origin (rule 3a, PAD-595) · unverified
   - **PLAYERS-JOIN-TOKEN-2** Coach mints a token bound to their current club · unverified
@@ -2471,7 +2471,7 @@ Untagged tests: 7552
   - **PLAYERS-JOIN-TOKEN-14** Coach sees the QR on both platforms · unverified
   - **PLAYERS-JOIN-TOKEN-15** The token is stored only as a hash (PAD-269) · unverified
   - **PLAYERS-JOIN-TOKEN-16** Reopening Add by QR offers a new code (PAD-269) · unverified
-  - **PLAYERS-JOIN-TOKEN-17** The join routes refuse whoever may not use them (rules 1, 2, 4, 5) · unverified
+  - **PLAYERS-JOIN-TOKEN-17** The join routes refuse whoever may not use them (rules 1, 2, 4, 5; `auth.coach-approval` rule 8) · unverified
   - **PLAYERS-JOIN-TOKEN-18** The join flow speaks of the coach's student base and names the coach (rule 9) · unverified
 
 ### P-PLAYERS-3: Coach edits player details
