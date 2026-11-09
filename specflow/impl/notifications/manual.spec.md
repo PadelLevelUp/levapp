@@ -89,3 +89,17 @@ Coaches manually select players to notify about a class, bypassing the automatic
 - **Then** the student becomes selected and the send button counts them
 - **And** clicking the student's name instead produces the same result
 - **And** clicking the same target again deselects the student
+
+#### NOTIFICATIONS-MANUAL-7: Only the class's own coach invites, and only players of their own roster (rule 7)
+- **Given** coach Ana's class, and coach Bruno
+- **When** Bruno sends a manual invitation for it
+- **Then** the answer is 403 and no invitation is stored
+- **And** Ana inviting a player who is on nobody's roster answers 403 too
+- **And** when the class has no occurrence row yet, the refusal comes before one is created, also on the class's waiting-list and simulation routes
+test: `backend/padel_app/tests/test_b619_engine_routes_check_ownership.py` › `test_a_foreign_class_is_refused_before_it_is_materialised` (+2 more)
+
+#### NOTIFICATIONS-MANUAL-8: The picker marks a student who declined this class and still lets the coach choose them (notifications.invitations rule 18)
+- **Given** the manual-invitation picker for a class one student already declined
+- **Then** that student's row says they declined this class, the other rows do not
+- **And** the coach can still tick the student
+test: `frontend/apps/mobile/src/features/calendar/notify-modal.declined.test.tsx` › `marks the decliner in the search, not the others, and keeps them selectable`

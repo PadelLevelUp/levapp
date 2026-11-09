@@ -110,16 +110,7 @@ with a per-user opt-out (PAD-232).
 - **When** they switch "Request alerts" off, press Save (PAD-506, `settings.explicit-save`) and reload
 - **Then** the switch stays off and `GET /api/auth/me` returns `requestAlerts: false`
 
-### Notes
-- **Pending-coach push target (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10
-  points the superadmin's pending-coach push at the staff console's approvals page; who receives
-  it is decided (2026-10-07): every owner and operator.
-- OPEN: role-neutral editable copy for these alerts (rule 4).
-- RESOLVED (PAD-327): the native tap route. Request alerts no longer send `type: "request"`;
-  they carry `messaging.push-notifications` rule 7's `path` shape with `PATHS[kind]`, and the
-  app routes that web path natively (`nativeRouteForWebPath`, including `/settings?section=…`).
-
-#### The two channels agree, per writer (PAD-327)
+#### NOTIFICATIONS-REQUEST-ALERTS-6: The two channels agree, per writer (PAD-327)
 - **Given** any push writer that sends both a web push and an Expo push for the same event
 - **Then** the web push's `url` and the Expo payload's destination name the same place — the
   same path string, or for a message-shaped push the conversation that path points at
@@ -129,3 +120,19 @@ with a per-user opt-out (PAD-232).
 
 - **Given** an Expo payload whose path the client cannot map
 - **Then** the tap routes nowhere and nothing crashes
+
+#### NOTIFICATIONS-REQUEST-ALERTS-7: An alert never breaks what it announces (rules 4, 5)
+- **Given** a club join request, with web push, native push and mail all failing
+- **When** the request is created
+- **Then** it is stored as pending and no error reaches the requester
+- **And** every alert's title and body, in Portuguese and in English, is rendered with no placeholder left unfilled
+test: `backend/padel_app/tests/test_pad232_request_alerts.py` › `test_render_copy_substitutes_every_placeholder` (+1 more)
+
+### Notes
+- **Pending-coach push target (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10
+  points the superadmin's pending-coach push at the staff console's approvals page; who receives
+  it is decided (2026-10-07): every owner and operator.
+- OPEN: role-neutral editable copy for these alerts (rule 4).
+- RESOLVED (PAD-327): the native tap route. Request alerts no longer send `type: "request"`;
+  they carry `messaging.push-notifications` rule 7's `path` shape with `PATHS[kind]`, and the
+  app routes that web path natively (`nativeRouteForWebPath`, including `/settings?section=…`).

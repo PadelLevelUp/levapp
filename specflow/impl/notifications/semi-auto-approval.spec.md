@@ -311,3 +311,61 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **When** the engine processes the vacancy
 - **Then** nobody is invited or enrolled, the waiting-list student included
 - **And** after the coach approves, the waiting-list student is invited first
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-32: An answer that arrives too late is a no-op, and "at the window" on an open window sends at once (rules 8, 11)
+- **Given** a pending prompt for a class at 10:00 club time
+- **When** the coach answers yes after the class has started on the club's clock
+- **Then** the answer is `stale` and nothing is sent; half an hour before the start it is approved
+- **And** an answer for a spot that is no longer open is `stale`: the prompt reads stale, the spot's approval is unchanged and nobody is invited
+- **And** "yes, at the window" for a window that is already open approves the spot and invites at once
+test: `backend/padel_app/tests/test_pad256_class_over.py` › `test_a_replacement_prompt_goes_stale_when_the_class_starts` (+2 more)
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-33: The Assistant is never listed among users (rule 6)
+- **Given** the Assistant account that carries the prompts
+- **When** the active users are listed
+- **Then** the Assistant is not among them
+test: `backend/padel_app/tests/test_semi_auto_approval.py` › `test_assistant_user_never_listed_in_active_users`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-34: Only the class's own coach, in semi-automatic mode, reads or recomputes its suggestions (rules 1, 12)
+- **Given** coach A's class and coach B
+- **When** B reads or recomputes the suggestions of A's class
+- **Then** both answer 403, while A gets the class's state
+- **And** a coach in automatic mode who recomputes is refused with 409
+test: `backend/padel_app/tests/test_pad545_recompute_suggestions.py` › `test_the_endpoints_are_the_classs_coachs_only` (+1 more)
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-35: The conversation's card offers the send buttons only; ignoring a suggestion is on the class's card (rule 8, PAD-545)
+- **Given** an approval card for one open spot
+- **When** it is shown in the Assistant conversation
+- **Then** it offers "yes, right now" and no "Ignorar"
+- **And** the same card on the class offers "Ignorar" too
+test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.test.tsx` › `the conversation's card has no dismiss button` (+1 more)
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-36: A card shows its buttons only while it can be answered, and says when a yes reached no spot (rules 8, 11, 12; iOS)
+- **Given** an approval message in the iOS app
+- **Then** a card is drawn only when the message carries a bundle id and at least one spot
+- **And** the buttons show while the bundle is unanswered and not read-only; afterwards the recorded answer shows
+- **And** the card is stale only when the server refused every one of its spots as stale
+- **And** a yes that reached no spot tells the coach the spots were filled or expired, or that the list was recalculated
+test: `frontend/apps/mobile/src/features/notifications/approval-bundle.test.ts` › `accepts a bundle carrying an id and at least one vacancy` (+14 more)
+
+### Open questions
+
+- **Criteria 11, 13 and 14 put a "No" button on the prompt; rule 8 moved ignoring to the class's card.**
+  - Criteria: NOTIFICATIONS-SEMI-AUTO-APPROVAL-11, "the prompt offers "Yes, right now", "Yes, at
+    {window open time}" … and "No""; -13, "offers only "Yes, right now" and "No""; -14, "When the
+    coach responds "No"".
+  - Rule 8: the third action is ""Ignorar" (action `dismiss`)", and "When the invitation window is
+    already open, only "Yes, right now" is offered in the conversation (and "Ignorar" on the
+    class card)".
+  - Code today: the conversation's card renders no dismiss button; the class's card does
+    (`ReplacementApprovalCard.test.tsx`, NOTIFICATIONS-SEMI-AUTO-APPROVAL-35). The `dismiss`
+    action and its effect are as criterion 14 says.
+  - Recommendation: amend the three criteria to rule 8; the behaviour after a dismiss is unchanged.
+  - Proposed: in -11, "the conversation's prompt offers "Yes, right now" and "Yes, at {window open
+    time}"; the class's card also offers "Ignorar""; in -13, "the prompt offers only "Yes, right
+    now" (the class's card also "Ignorar")"; in -14, "When the coach presses "Ignorar" on the
+    class's card".
+- **Rules 11 and 12 do not name a started class as a reason an answer is stale.** The code treats
+  an answer as `stale` once the class has started on the club's clock
+  (`replacement_approval_service.py`, PAD-256; NOTIFICATIONS-SEMI-AUTO-APPROVAL-32).
+  Recommendation: add "or its class has started" to rule 11's list of what makes a decision a no-op.

@@ -674,3 +674,80 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **Then** the description reads "Sem notificações entre as 23:00 e as 08:00" (en "No notifications between 23:00 and 08:00") and the saved config carries those bounds
 - **And** with quiet hours off the time pickers are hidden, as a disabled stepper hides its value
 
+#### NOTIFICATIONS-CONFIG-45: Automatic acceptance of join requests and semi-automatic mode exclude each other (rule 3a)
+- **Given** a coach in semi-automatic mode
+- **When** a save turns `autoAcceptJoinRequests` on
+- **Then** it answers 400; the same save together with a switch to automatic mode is accepted
+- **When** a coach who has it on saves the mode `semi_automatic`
+- **Then** the save is accepted, `autoAcceptJoinRequests` comes back false, and the response carries `notice: "auto_accept_off"`; a save that changes neither carries no notice
+- **And** on web and iOS the switch is held until Save and sent once with the rest of the engine's changes; in semi-automatic mode it is disabled with a one-line reason; a save answered with the notice tells the coach it was switched off
+test: `backend/padel_app/tests/test_pad672_auto_accept_join_requests.py` › `test_it_cannot_be_turned_on_in_semi_automatic_mode` (+8 more)
+
+#### NOTIFICATIONS-CONFIG-46: A setting nobody saved reads its built-in default, and a saved one reads as saved (rule 12)
+- **Given** a configuration row with nothing saved
+- **When** its settings are read
+- **Then** the mode is `automatic`; the first reminder is `48` hours before and the invitation start `24` hours before; one reminder per student, `24` hours apart; the cancellation deadline is `24` hours
+- **And** the limits read `maxSimultaneous` on at `3`, `maxTotal` at `10`, `maxInactiveTime` on at `120`, no excluded players, and the same-day restriction on
+- **And** the invitation groups are the three built-in ones, the last with no rules, and the tiebreakers the five built-in ones
+- **And** a setting that was saved reads as saved, the others keeping their defaults; a reminder count or spacing stored as zero or as something that is not a number reads as its default
+test: `backend/padel_app/tests/test_semi_auto_approval.py` › `test_default_mode_is_automatic` (+34 more)
+
+#### NOTIFICATIONS-CONFIG-47: The same-day switch says once that it now comes on by default (rule 6e, PAD-685)
+- **Given** a coach on web or iOS Settings who has not dismissed the note
+- **When** they open Restrictions
+- **Then** the same-day switch shows on, and a note above it says the restriction now comes on by default
+- **When** they dismiss the note
+- **Then** it is gone, and stays gone on that device; storage that cannot be read or written never breaks the section and the note simply shows
+- **And** flipping the switch changes only its own flag in the restrictions sent
+test: `frontend/packages/config/src/same-day-default-note.test.ts` › `keeps the key web and iOS both store under` (+9 more)
+
+#### NOTIFICATIONS-CONFIG-48: Each restrictions control changes its own value and nothing else (rule 14)
+- **Given** a coach on the Restrictions section
+- **When** they flip a switch, step the cancellation deadline, or add and remove an excluded player
+- **Then** the restrictions reported are the whole object with only that value changed: a switch its own `enabled`, the deadline a plain number of hours, the excluded list its ids
+- **And** a player already excluded is not offered again by the search
+- **And** with the engine off the switches and steppers are disabled
+- **And** the simultaneous limit is worded as invitations, not notifications, in Portuguese and in English
+test: `frontend/apps/mobile/src/features/settings/restrictions-i18n.test.ts` › `pt` (+5 more)
+
+#### NOTIFICATIONS-CONFIG-49: A past-due check that cannot be made does not fail the save, and the coach is told (rule 10f)
+- **Given** a coach whose timing save would list past-due classes, and a listing that fails
+- **When** they save the timing
+- **Then** the save answers 200 with the saved timing, no `pastDue`, and `pastDueUnknown: true`; the failure is logged with the coach
+- **And** the card says the check could not be made and asks nothing, also with the reminders section closed, on web and iOS; the line goes after the next timing save whose answer lacks the flag
+test: `backend/padel_app/tests/test_pad478_ask_before_sending.py` › `test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error` (+3 more)
+
+### Open questions
+
+- **NOTIFICATIONS-CONFIG-10, -11 and -26 name a route and body keys the API does not have.**
+  - The criteria: "GET `/api/app/notification_config`", "POST `/api/app/notification_config` with
+    `{"auto_notify_enabled": true, "reminder_timing": {...}}`" and "with `{"invitation_mode":
+    "semi_automatic"}`".
+  - Rule 12 and every later criterion: `GET|POST /api/app/notify/config`, camelCase.
+  - Code today: the only routes are `GET` and `POST /api/app/notify/config`
+    (`notification_engine_api.py`); the save reads `autoNotifyEnabled`, `reminderTiming` and
+    `invitationMode` and ignores the snake_case keys.
+  - Recommendation: the three criteria are stale; amend their When lines.
+  - Proposed: CONFIG-10 "When GET `/api/app/notify/config`"; CONFIG-11 "When POST
+    `/api/app/notify/config` with `{"autoNotifyEnabled": true, "reminderTiming": {"type":
+    "hours_before", "value": 24}}`"; CONFIG-26 "When POST `/api/app/notify/config` with
+    `{"invitationMode": "semi_automatic"}`".
+- **Rule 14 and NOTIFICATIONS-CONFIG-33 say nine restriction controls; the rule lists ten and both clients show ten.**
+  - Rule 14: "show the same nine controls", then names ten (the tenth, `noSameDayClass`, came with
+    rule 6e). NOTIFICATIONS-CONFIG-33: "the nine controls of rule 14 are shown".
+  - Code today: both sections render ten rows;
+    `frontend/apps/mobile/src/features/settings/restrictions-section.test.tsx` lists the ten and
+    names its group "the same ten restriction controls as web".
+  - Recommendation: the count is stale; say ten in the rule, and in the criterion's title and Then.
+- **Rule 12 says loose booleans are read "the way the old truthiness check read them"; the string "false" reads as off.**
+  - Rule 12: "Booleans stored as `0`/`1` or `"true"`/`"false"` by an older client are read the way
+    the old truthiness check read them, not reset to the default." By truthiness the string
+    `"false"` is true.
+  - NOTIFICATIONS-CONFIG-30: "the `1` reads as enabled and the `"false"` as disabled".
+  - Code today: `_bool_or` in `notification_config.py` reads the strings `true`, `1`, `yes`, `on`
+    as true and any other string as false; other values by truthiness.
+    `test_pad279_notification_config_columns.py` ›
+    `test_the_restrictions_setter_reads_loose_booleans_too` proves it.
+  - Recommendation: the criterion and the code agree; amend the rule's sentence.
+  - Proposed sentence: "Booleans stored as `0`/`1` or as the strings `"true"`/`"false"` by an older
+    client are read as the boolean they spell, not reset to the default."

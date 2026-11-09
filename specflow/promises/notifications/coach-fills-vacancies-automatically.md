@@ -7,7 +7,7 @@ status: implemented
 
 ## Outcome
 
-When a player drops out, the engine works through eligible students in ordered rounds, closest match first, and invites them within the coach's timing and restrictions; the coach can also hand-pick students. Waiting-list students are always asked first, the first yes gets the spot, and every other invitation for it is retired.
+When a player drops out, the engine works through eligible students in ordered rounds, closest match first, and invites them within the coach's timing and restrictions; the coach can also hand-pick students. Waiting-list students are always asked first, the first yes gets the spot, and every other invitation for it is retired or, when the class has another open spot the student fits, moved to that spot without a new message (PAD-679).
 
 - Matching widens: exact level and side, then level only, then anyone still eligible.
 - Every free seat (nobody going or still to answer, the coach's "K vagas") is offered. Filling one spot never hides another, nor does a spot that ran out of students: the others are offered from the invitation start, or within minutes once no other spot is open, waiting list first. A spot that ran out stays closed (PAD-763).
@@ -24,6 +24,6 @@ When a player drops out, the engine works through eligible students in ordered r
 - A student has one unanswered invitation per day at a time, and the coach sees why; a yes closes their other invitations that day as "Já inscrito noutra aula", following the coach's "no second class that day" setting (PAD-775).
 - Opening many spots at once does not slow the app for others (PAD-788, PAD-801). When a class has sent as many invitations as the coach allows, its spots wait and do not skip to wider groups (PAD-801).
 - Manual invitations bypass matching; one click on a row, name or checkbox selects a student.
-- Whatever fills a spot closes every other invitation for it; a student never hears "taken" after saying yes.
+- Whatever fills a spot closes or moves every other invitation for it. The student who got the spot is never told it was taken; one who answers too late is told on the invitation itself and offered the waiting list.
 
 It does not promise the engine's wording and ordering settings, the approval gate, or who is eligible.

@@ -247,6 +247,22 @@ that what the tutorial shows and what the engine does can never disagree.
 - **When** they call either endpoint
 - **Then** the response status is exactly 403 and nothing is computed
 
+#### NOTIFICATIONS-INVITE-SIMULATION-17: The simulation is asked for a class and a player who is in it (rules 1, 2)
+- **Given** a class with Alice enrolled and Jo on the roster, not enrolled
+- **When** the coach asks what happens if Alice leaves
+- **Then** the answer is 200 with the spot's side, level and where the level came from, the candidates, the gates and the time it was evaluated, and Jo is among the candidates
+- **And** asking why Jo would be invited answers the stage `invited`
+- **And** naming Jo, who is not in the class, as the one leaving answers 400
+test: `backend/padel_app/tests/test_pad196_invite_simulation.py` › `test_routes_happy_path`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-18: The spot's side is the side the engine would choose, with the counts behind it (rule 9)
+- **Given** a class with six left and three right players, and a left player leaving
+- **When** the simulation runs
+- **Then** the spot's side is right: the leaver is counted out although still in the class, and a tie keeps the leaver's side
+- **And** `sideCounts` carries the two totals, the leaver's side, the chosen side, and each total split into players going and open spots; spots that were never filled are left out
+- **And** the spot the engine then creates for that player has the side the simulation chose
+test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `test_the_simulation_shows_the_side_the_engine_would_choose` (+4 more)
+
 ### Notes
 - Why the pipeline is shared rather than re-stated:
   `.cortex/atlas/decisions/2026-09-06-invite-simulation-shares-the-engine-pipeline.md`.
@@ -256,3 +272,22 @@ that what the tutorial shows and what the engine does can never disagree.
   answer — the owner chose this on 2026-09-06 over a clock-independent structural view.
 - OPEN: whether the tutorial should also expose the round *timing* (`maxInactiveTime`) as a gate
   entry. Left out of v1; `queued` covers the coach-facing meaning.
+
+### Open questions
+
+- **Rule 6 and NOTIFICATIONS-INVITE-SIMULATION-6 report quiet hours until "the next 07:00"; the coach sets the window since PAD-451.**
+  - Spec: rule 6, "`quiet_hours` with `until` (next 07:00 club-local, `notifications.config` rule
+    6a)"; NOTIFICATIONS-INVITE-SIMULATION-6, "`until` at the next 07:00 club-local".
+  - Other spec: `notifications.config` rule 6a (PAD-451), "The coach sets it: `quietHours` is
+    `{enabled, start, end}` … default **22:00–07:00**".
+  - Code today: `invite_simulation_service.py` answers `until` as the end of the coach's own
+    window ("06:00" for a 20:00 to 06:00 window) and, while blocked, `untilAt`, the instant that
+    end falls on.
+  - Recommendation: amend both to the coach's window; 07:00 is only the default.
+  - Proposed text: rule 6, "`quiet_hours` with `until` (the end of the coach's quiet window,
+    club-local, `notifications.config` rule 6a) and, while blocked, `untilAt` (that end as a UTC
+    instant)". Criterion 6, "…`blocked: true` with `until` at the end of the coach's window (07:00
+    by default)".
+- **Rule 6's list of gates lacks `class_auto_invites_off`.** The simulation reports it for a
+  client that declares `class-type-defaults` (NOTIFICATIONS-TOGGLE-CLASS-10). Recommendation: add
+  the gate to the list.

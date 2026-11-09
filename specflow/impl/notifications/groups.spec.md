@@ -66,6 +66,13 @@ Define student notification groups for organizing who gets notified.
 - **Then** it shows "The groups offered when you invite students by hand from a class. They don't affect automatic invitations, which follow Invitation groups." (pt: "Os grupos que aparecem quando convida alunos à mão numa aula. Não afetam os convites automáticos — esses seguem os Grupos de convite.")
 - **And** the "Invitation groups" hint ends "Used by the automatic invitation engine." (pt: "Usados pelos convites automáticos.")
 
+#### NOTIFICATIONS-GROUPS-3: The absence groups hold only absences from the asking coach's own classes (rule 4, PAD-382)
+- **Given** a student on the rosters of coach Ana and coach Bruno, with a justified absence in one of Bruno's classes
+- **When** Ana reads the groups for one of her classes
+- **Then** the student is in "all students" and in neither absence group
+- **And** had the absence been in one of Ana's classes, the student would be in both
+test: `backend/padel_app/tests/test_pad382_attendance_readers_are_coach_scoped.py` › `test_an_absence_in_another_coachs_class_does_not_shape_this_coachs_dialog` (+1 more)
+
 ### Notes
 - Secondary outcome: the matching order these groups define is what a student actually experiences
   when a spot opens — see `notifications.coach-fills-vacancies-automatically`.

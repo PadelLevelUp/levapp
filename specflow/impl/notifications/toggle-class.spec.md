@@ -133,6 +133,35 @@ Toggle notification engine on/off for a specific class.
 - **And** the same save from the first occurrence turns all three on, and switching off works the same way
 - **And** an edit that does not send `notificationsEnabled` leaves every occurrence as it was
 
+#### NOTIFICATIONS-TOGGLE-CLASS-10: An occurrence's own choice wins, and the simulation says when automatic invitations are off (rules 5, 6)
+- **Given** a class with automatic invitations on, and one occurrence of it with them off
+- **When** a spot opens on that occurrence
+- **Then** nobody is invited, and the class reads `autoInvites` false with `autoInvitesSource` `instance`
+- **And** for a client that declares `class-type-defaults`, the simulation reports the gate `class_auto_invites_off`; an older client is told the class's notifications are off instead
+test: `backend/padel_app/tests/test_pad429_private_class_defaults.py` › `test_an_instance_override_wins_over_the_lesson` (+1 more)
+
+#### NOTIFICATIONS-TOGGLE-CLASS-11: The class forms store the automatic-invitations choice only when the coach makes one (rule 7)
+- **Given** a class created with no `autoInvites`
+- **Then** it stores none and follows its type's default
+- **When** the coach sets it on, edits the name, then sets it back to "inherit"
+- **Then** the stored value is true, stays true through the name edit, and is cleared, with `autoInvitesSource` `type` again
+- **And** the class detail shows the three choices, inherit, on and off, with where the current value comes from, and sends null, true or false
+test: `backend/padel_app/tests/test_pad429_private_class_defaults.py` › `test_edit_single_sets_auto_invites_and_null_returns_it_to_the_type_default` (+6 more)
+
+#### NOTIFICATIONS-TOGGLE-CLASS-12: A class created with notifications off keeps them off when an occurrence is materialised later (rule 3a, PAD-729)
+- **Given** a class created with notifications off, as a one-off or as a weekly series, never materialised
+- **When** a student's request materialises an occurrence and a spot opens
+- **Then** the occurrence has notifications off and nobody is invited
+- **And** the same class created with notifications on invites
+test: `backend/padel_app/tests/test_notifications_off_survives_materialisation.py` › `test_a_class_created_with_notifications_off_invites_nobody_once_materialised`
+
+#### NOTIFICATIONS-TOGGLE-CLASS-13: Only the class's own coach switches its notifications (rule 4)
+- **Given** coach Ana's class with notifications on, and coach Bruno
+- **When** Bruno posts the switch for it
+- **Then** the answer is 403 and the class is unchanged
+- **And** Ana's own post answers 200 with the new state
+test: `backend/padel_app/tests/test_pad258_write_ownership.py` › `test_other_coach_cannot_toggle_class_notifications` (+1 more)
+
 ### Notes
 - Settled (PAD-736): the OPEN question from PAD-429, whether rule 3's "no reminders" or the code
   that ignored it was right, went to the owner: the rule stands and the code now reads the switch.

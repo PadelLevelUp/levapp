@@ -532,6 +532,135 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 - **When** the engine processes the spot any number of times
 - **Then** the student is not enrolled and no `waiting_list_placed` message exists until they answer yes
 
+#### NOTIFICATIONS-WAITING-LIST-27: A waiting-list invitation never offers a spot someone else already won (PAD-261)
+- **Given** a vacancy that another path has just filled, or a class that is already full
+- **When** the engine would invite a waiting-list student for it
+- **Then** nobody is invited and the waiting-list entry stays active
+
+#### NOTIFICATIONS-WAITING-LIST-28: The student is re-read under the lock (PAD-499)
+- **Given** a waiting-list student picked for a spot
+- **When** before the invitation takes its lock they answer "no" to an invitation for the class, or leave the waiting list
+- **Then** they are not invited and the spot stays open
+
+#### NOTIFICATIONS-WAITING-LIST-29: The coach puts a student on one class's waiting list (rule 18, PAD-547)
+- **Given** coach Ana's class "Terça 18h" on 2026-10-13 with one free place, and roster student Carla who is not in it
+- **When** Ana adds Carla to that class's waiting list for this class only
+- **Then** one active `WaitingListEntry` exists for that occurrence and Carla, `added_by = "coach"`, `standing_entry_id` NULL
+- **And** Carla receives no message, and when a place opens on that occurrence she is asked first (group 0)
+- **And** adding her again answers `already_on_list` and writes nothing
+
+#### NOTIFICATIONS-WAITING-LIST-30: The coach puts a student on a whole series (rule 19)
+- **Given** Ana's weekly series "Terça 18h" ending 2026-12-31 and another class of Ana's, "Quinta 19h"
+- **When** Ana adds Carla to "Terça 18h"'s waiting list for the whole series
+- **Then** a standing entry with `lesson_id` = that series, `whole_series`, no credit limit and `expiresOn` 2026-12-31 exists, and Carla has an active row on every upcoming "Terça 18h" occurrence up to 2026-12-31 and none on "Quinta 19h"
+- **And** an occurrence of "Terça 18h" materialised later gains her row too
+- **And** a coach-wide standing entry Carla already had stays active beside it
+- **And** Carla's yes to a "Terça 18h" spot leaves the entry active for the next ones
+- **And** the same add on a series with no end date, or one ending in 2028, gets an entry running to 12 months from today
+
+#### NOTIFICATIONS-WAITING-LIST-31: The coach puts a student on a series for a number of classes (rule 19a)
+- **Given** Ana's weekly "Terça 18h" with occurrences on 2026-10-13, 10-20, 10-27 and 11-03, the 10-20 one not yet materialised
+- **When** Ana adds Carla from the 10-13 class for a period of 3 classes
+- **Then** the entry's `expiresOn` is 2026-10-27, Carla has rows on 10-13 and 10-27 at once, the 10-20 occurrence gains one when materialised, and 11-03 never does
+- **And** asking for 10 classes of a series whose last occurrence is 11-03 ends the entry on 2026-11-03
+
+#### NOTIFICATIONS-WAITING-LIST-32: …or until a date (rule 19a)
+- **Given** the same series
+- **When** Ana adds Carla for a period until 2026-10-20
+- **Then** the entry runs to 2026-10-20 and Carla has rows on 10-13 and 10-20 only
+- **And** a request with both `classes` and `expiresOn`, or neither, is refused (400)
+
+#### NOTIFICATIONS-WAITING-LIST-33: The coach moves a row between scopes (rule 22)
+- **Given** Carla on the 10-13 class's list for this class only, and Dinis on it from a whole-series entry
+- **When** Ana changes Carla's row to the whole series
+- **Then** Carla's row now points at a new series-scoped entry, keeps its join time, and her rows appear on the later occurrences
+- **When** Ana changes Dinis's row to this class only
+- **Then** his entry is deactivated, his rows on the other occurrences go, and his 10-13 row stays active as the coach's, with no message to him
+- **When** Ana changes Carla's row to a period of 2 classes
+- **Then** her entry's end moves to 2026-10-20, her 10-27 row is deactivated and `whole_series` is false
+
+#### NOTIFICATIONS-WAITING-LIST-34: The coach names the side when adding to a class's list (rule 18a)
+- **Given** Carla, whose profile side with Ana is left, and Ana's class
+- **When** Ana adds Carla to the class's waiting list with `side: "right"`
+- **Then** Carla's row has side right and is asked only for a spot a right player can take
+- **And** adding her to the whole series with `side: "both"` gives the standing entry and every row
+  it fans out side both
+
+#### NOTIFICATIONS-WAITING-LIST-35: A student with no profile side needs a side (rule 18a)
+- **Given** Dinis, who has no profile side
+- **When** a client that declares `waiting-list-side` adds him with no side
+- **Then** the answer is 400 `side_required` and nothing is written
+- **And** an older client that does not declare it adds him as before, with no side
+- **And** a client that sends no side for Carla stores her profile side, left
+
+#### NOTIFICATIONS-WAITING-LIST-36: A coach-wide standing row is not changed from the class (rule 22)
+- **Given** Bruno on the class's list from a coach-wide standing entry
+- **When** Ana tries to change his row's scope from the class
+- **Then** the answer is 409 `coach_wide` and nothing is written
+
+#### NOTIFICATIONS-WAITING-LIST-37: The class's list says where each student came from, and the coach removes one (rules 20–21)
+- **Given** an occurrence with three active rows: Bruno from a standing entry, Carla added by the coach, Dinis who joined from the wizard
+- **When** the coach reads the class's waiting list
+- **Then** their `origin` is `standing`, `coach` and `student`
+- **And** their `scope` is `standing`, `occurrence` and `occurrence`, Bruno's `expiresOn` is his entry's end date and the others' is null (PAD-560)
+- **And** a fourth row from a series-scoped entry with credits and an end date reads `scope: period` with that end date
+- **And** removing Bruno's row deactivates it, sends nothing, and leaves his standing entry active with its rows on his other classes
+
+#### NOTIFICATIONS-WAITING-LIST-38: An offer settles once: a late yes is expired, and an answer that cannot be read settles nothing (rule 1a)
+- **Given** a waiting-list offer, which starts unanswered and shows Yes and No
+- **When** the student answers yes after the class's time has passed
+- **Then** the answer is `expired`: nobody is queued, the offer is stored as answered with `expired`, and the bubble shows an expired mark with a warning, never a joined one
+- **And** an answer that is neither yes nor no answers `unknown`, stores nothing and leaves the offer answerable, with a "something went wrong" message
+- **And** on iOS a recorded answer the app does not know reads as declined, and the student's own tap settles the bubble before the stored answer arrives
+test: `backend/padel_app/tests/test_waiting_list_offer_response.py` › `test_offer_starts_unanswered` (+11 more)
+
+#### NOTIFICATIONS-WAITING-LIST-39: The coach is warned before adding a student who fails a class's bar, and a second press adds (rule 2a)
+- **Given** a coach adding a student to a class's waiting list, and the student fails that class's bar
+- **When** the coach presses add
+- **Then** a warning names the student and why, and nothing is added; pressing again adds
+- **And** adding to the standing list first names the upcoming classes whose bar the student fails, read from `POST /api/app/notify/standing_waiting_list/eligibility_check`; with none, the first press adds
+test: `frontend/apps/mobile/src/features/calendar/class-waiting-list-section.eligibility.test.tsx` › `the first press warns and adds nothing; the second adds` (+9 more)
+
+#### NOTIFICATIONS-WAITING-LIST-40: Adding a standing entry queues the student once on each upcoming class (rule 10)
+- **Given** a coach's class two days ahead
+- **When** the coach adds a standing entry for a student
+- **Then** the student has an active row on that class, linked to the entry
+- **And** adding again, or after removing the first entry, reuses that one row, linked to the newest entry
+- **And** a row the student created themselves stays theirs
+test: `backend/padel_app/tests/test_standing_waiting_list_readd.py` › `test_remove_then_readd_does_not_raise` (+3 more)
+
+#### NOTIFICATIONS-WAITING-LIST-41: A removed standing entry is gone from the list, queues nobody, and cannot be renewed (rule 6)
+- **Given** an active standing entry with a row on an upcoming class
+- **When** the coach removes the entry
+- **Then** the standing list no longer shows it and the class row is inactive
+- **And** renewing it afterwards answers 404 and queues nobody
+test: `backend/padel_app/tests/test_notification_reminder_flow.py` › `test_remove_standing_entry_deactivates_it` (+1 more)
+
+#### NOTIFICATIONS-WAITING-LIST-42: A waiting-list invitation counts toward the student's daily limit, and a student at the limit does not hold the spot (rules 4, 4c)
+- **Given** a daily limit of one invitation per student, and a student on two classes' waiting lists
+- **When** a spot opens in each class on the same day
+- **Then** the student is asked for the first and not for the second
+- **And** when the only waiting-list student is already at the limit, the spot goes to the coach's first group at once
+test: `backend/padel_app/tests/test_pad446_waiting_list_group_zero.py` › `test_a_waiting_list_student_at_todays_limit_does_not_hold_the_spot_from_the_groups` (+1 more)
+
+#### NOTIFICATIONS-WAITING-LIST-43: An entry with a side is asked only for a spot that side can take (rule 4e)
+- **Given** a student waiting for the left, and an open spot on the right
+- **When** the waiting list is read for that spot
+- **Then** the student is not a candidate
+- **And** a left or side-less spot, or an entry for both sides or with no side, makes them one
+- **And** a standing entry's side is copied to every row it fans out
+test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_group_0_asks_an_entry_only_for_a_spot_its_side_can_take` (+1 more)
+
+#### NOTIFICATIONS-WAITING-LIST-44: A credit is spent only when the student takes a spot, and the last one withdraws their other offers (rules 15a, 15b)
+- **Given** a student with a standing entry and a waiting-list invitation not yet answered
+- **Then** no credit is spent
+- **When** the coach accepts the student's join request for a class the entry queued them on
+- **Then** one credit of that entry is spent, and no other entry's
+- **When** a yes spends the entry's last credit
+- **Then** the student's other live waiting-list invitations are withdrawn as `credits_spent`, and their bubbles are settled
+- **And** with a credit left, the other invitations stay
+test: `backend/padel_app/tests/test_pad547_coach_adds_to_class_waiting_list.py` › `test_an_accepted_join_request_never_spends_another_series_entry` (+3 more)
+
 ### Notes
 - **[DEC 2026-09-04, PAD-124]** Wire `waiting_list_offer` as a third actionable message type in
   both web and mobile `MessageBubble`s, calling the existing `POST /api/app/notify/respond_waiting_list`.
@@ -544,76 +673,28 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
   derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
   is not unit-testable there.
 
-#### A waiting-list invitation never offers a spot someone else already won (PAD-261)
-- **Given** a vacancy that another path has just filled, or a class that is already full
-- **When** the engine would invite a waiting-list student for it
-- **Then** nobody is invited and the waiting-list entry stays active
+### Open questions
 
-#### The student is re-read under the lock (PAD-499)
-- **Given** a waiting-list student picked for a spot
-- **When** before the invitation takes its lock they answer "no" to an invitation for the class, or leave the waiting list
-- **Then** they are not invited and the spot stays open
-
-#### The coach puts a student on one class's waiting list (rule 18, PAD-547)
-- **Given** coach Ana's class "Terça 18h" on 2026-10-13 with one free place, and roster student Carla who is not in it
-- **When** Ana adds Carla to that class's waiting list for this class only
-- **Then** one active `WaitingListEntry` exists for that occurrence and Carla, `added_by = "coach"`, `standing_entry_id` NULL
-- **And** Carla receives no message, and when a place opens on that occurrence she is asked first (group 0)
-- **And** adding her again answers `already_on_list` and writes nothing
-
-#### The coach puts a student on a whole series (rule 19)
-- **Given** Ana's weekly series "Terça 18h" ending 2026-12-31 and another class of Ana's, "Quinta 19h"
-- **When** Ana adds Carla to "Terça 18h"'s waiting list for the whole series
-- **Then** a standing entry with `lesson_id` = that series, `whole_series`, no credit limit and `expiresOn` 2026-12-31 exists, and Carla has an active row on every upcoming "Terça 18h" occurrence up to 2026-12-31 and none on "Quinta 19h"
-- **And** an occurrence of "Terça 18h" materialised later gains her row too
-- **And** a coach-wide standing entry Carla already had stays active beside it
-- **And** Carla's yes to a "Terça 18h" spot leaves the entry active for the next ones
-- **And** the same add on a series with no end date, or one ending in 2028, gets an entry running to 12 months from today
-
-#### The coach puts a student on a series for a number of classes (rule 19a)
-- **Given** Ana's weekly "Terça 18h" with occurrences on 2026-10-13, 10-20, 10-27 and 11-03, the 10-20 one not yet materialised
-- **When** Ana adds Carla from the 10-13 class for a period of 3 classes
-- **Then** the entry's `expiresOn` is 2026-10-27, Carla has rows on 10-13 and 10-27 at once, the 10-20 occurrence gains one when materialised, and 11-03 never does
-- **And** asking for 10 classes of a series whose last occurrence is 11-03 ends the entry on 2026-11-03
-
-#### …or until a date (rule 19a)
-- **Given** the same series
-- **When** Ana adds Carla for a period until 2026-10-20
-- **Then** the entry runs to 2026-10-20 and Carla has rows on 10-13 and 10-20 only
-- **And** a request with both `classes` and `expiresOn`, or neither, is refused (400)
-
-#### The coach moves a row between scopes (rule 22)
-- **Given** Carla on the 10-13 class's list for this class only, and Dinis on it from a whole-series entry
-- **When** Ana changes Carla's row to the whole series
-- **Then** Carla's row now points at a new series-scoped entry, keeps its join time, and her rows appear on the later occurrences
-- **When** Ana changes Dinis's row to this class only
-- **Then** his entry is deactivated, his rows on the other occurrences go, and his 10-13 row stays active as the coach's, with no message to him
-- **When** Ana changes Carla's row to a period of 2 classes
-- **Then** her entry's end moves to 2026-10-20, her 10-27 row is deactivated and `whole_series` is false
-
-#### The coach names the side when adding to a class's list (rule 18a)
-- **Given** Carla, whose profile side with Ana is left, and Ana's class
-- **When** Ana adds Carla to the class's waiting list with `side: "right"`
-- **Then** Carla's row has side right and is asked only for a spot a right player can take
-- **And** adding her to the whole series with `side: "both"` gives the standing entry and every row
-  it fans out side both
-
-#### A student with no profile side needs a side (rule 18a)
-- **Given** Dinis, who has no profile side
-- **When** a client that declares `waiting-list-side` adds him with no side
-- **Then** the answer is 400 `side_required` and nothing is written
-- **And** an older client that does not declare it adds him as before, with no side
-- **And** a client that sends no side for Carla stores her profile side, left
-
-#### A coach-wide standing row is not changed from the class (rule 22)
-- **Given** Bruno on the class's list from a coach-wide standing entry
-- **When** Ana tries to change his row's scope from the class
-- **Then** the answer is 409 `coach_wide` and nothing is written
-
-#### The class's list says where each student came from, and the coach removes one (rules 20–21)
-- **Given** an occurrence with three active rows: Bruno from a standing entry, Carla added by the coach, Dinis who joined from the wizard
-- **When** the coach reads the class's waiting list
-- **Then** their `origin` is `standing`, `coach` and `student`
-- **And** their `scope` is `standing`, `occurrence` and `occurrence`, Bruno's `expiresOn` is his entry's end date and the others' is null (PAD-560)
-- **And** a fourth row from a series-scoped entry with credits and an end date reads `scope: period` with that end date
-- **And** removing Bruno's row deactivates it, sends nothing, and leaves his standing entry active with its rows on his other classes
+- **NOTIFICATIONS-WAITING-LIST-9 allows one active standing entry per coach and player; rule 19 allows one per scope.**
+  - Criterion: "a second active entry for `maria` and `rui` is written directly … the database
+    refuses it".
+  - Rule 19: a series entry "stays active beside" a coach-wide one; the Entities' index is per
+    coach, player and scope.
+  - Code today: the unique index `uq_standing_entries_active_coach_player_scope` (migration
+    `e22cb56a3aee`) admits a coach-wide entry and one per series for the same student;
+    `test_pad547_coach_adds_to_class_waiting_list.py` ›
+    `test_one_active_standing_entry_per_coach_player_and_scope` proves it.
+  - Recommendation: amend the criterion to the scope.
+  - Proposed title and When: "Only one active standing entry per coach, player and scope" and
+    "When a second active entry for `maria` and `rui` with the same scope (coach-wide, or the same
+    series) is written directly".
+- **Rule 19 says a yes on a whole-series entry "spends nothing"; the code counts it.**
+  - Rule 19: "no credit limit (`credits_total` NULL: a yes spends nothing and never closes it,
+    rule 15)". Rule 15a: the yes and the accepted join request "each spend one; a standing entry
+    with no credit limit … never runs out".
+  - Code today: `_settle_waiting_list_entry` adds one to `credits_used` for any standing entry
+    and only skips the close when there is no limit. Two yeses leave `credits_used` 2 and the
+    entry active (NOTIFICATIONS-WAITING-LIST-30).
+  - Recommendation: keep the code; the count is harmless and useful. Amend rule 19's wording.
+  - Proposed text: "no credit limit (`credits_total` NULL: a yes is counted and never closes it,
+    rules 15 and 15a)".
