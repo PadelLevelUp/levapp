@@ -129,3 +129,8 @@ live fallback (architecture review, 2026-10-22).
 - **Given** a `padelapp_staging_events` container
 - **When** the sync restores
 - **Then** it stops the events container before the restore and starts it after the API; without one, it touches none
+
+### Open questions
+
+- **Three tests pointed at DELIVERY-EVENTS-ROLE-10 read the workflow and the nginx file as text.** They pin that a leftover events container is kept, with a warning, while a vhost still routes to it; that `EVENTS_SPLIT` is never on in an env template without `EVENTS_ROLE`; and the upstream's two ports with `max_fails=1 fail_timeout=5s`. Rule 8 states the first two; the `fail_timeout` value is in no rule, though the rollout reads it to know how long to wait. Recommendation: state the value in rule 8.
+- **The trailing-slash test proves half of its name.** On the events role it asserts only that the answer is not `NOT_ON_EVENTS`, with no status. Recommendation: assert the status.

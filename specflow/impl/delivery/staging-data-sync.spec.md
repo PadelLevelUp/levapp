@@ -212,6 +212,14 @@ reload and a live copy stay available through `workflow_dispatch`.
 - **Then** every String/Text/JSON column is either in the scrub file or in the guard's
   non-personal list
 
+#### DELIVERY-STAGING-DATA-SYNC-14: The sync restores the newest dump it can use and leaves staging running when it cannot (rules 1, 2, 6, 8)
+- **Given** a staging server and the backup bucket
+- **When** the sync runs with no record of an earlier restore, with a newest dump that is older than 48 hours or empty, and with a mode it does not know
+- **Then** with no record the newest dump is restored and its address recorded
+- **And** a dump older than 48 hours is reported with a warning
+- **And** an empty dump is skipped, and so is an unknown mode; in both cases staging is not stopped
+test: `backend/padel_app/tests/test_pad589_staging_sync.py` › `test_a_stale_backup_is_reported_and_still_restored` (+3 more)
+
 ### Notes
 - PAD-606 (2026-10-11, owner decision): everything personal is scrubbed, usernames included; the
   login instructions (shared password in the staging secrets, `staging-coach`, `staging-student`,
@@ -222,3 +230,15 @@ reload and a live copy stay available through `workflow_dispatch`.
   of on every push, and it never reads prod's tables.
 - `test_pad498_recovery_code_and_email_change.py` pins the scrub's one-line email UPDATE; it
   stays one line.
+
+### Open questions
+
+- **The promise's line on names is current; the stale text is rule 6's.**
+  - P-DELIVERY-6: "Nothing on staging identifies a real person: names, usernames, emails, phones, birth dates, messages, notes, evaluations and push tokens are rewritten on every load (PAD-606)."
+  - The old business spec also carried, under Out of Scope, "Anonymising names or classes on staging (unchanged from PAD-200)"; the port dropped that line and left the call to the owner.
+  - This spec: rule 9 (PAD-606, owner decision 2026-10-11) rewrites names to `Coach <id>` or `Player <id>` and usernames to `user<id>`. Rule 6 still describes the scrub as PAD-200's (push tokens and e-mails only).
+  - The code today: `staging-scrub.sql:16-31` rewrites usernames, e-mails, names, phones, abbreviations and birth dates, and `:74` renames classes; `sync-staging-db.sh:320-323` runs it after the migrate step on every restore, in every mode.
+  - Recommendation: PAD-606 holds and the out-of-scope line was rightly dropped; update rule 6 to point at rule 9.
+- **Four other sentences of P-DELIVERY-6 say more than the rules.** "Nothing on staging identifies a real person": rule 9 keeps staff rows (`admin_roles`, the audit log's actors), clubs, courts, countries and the birth year on purpose. "At most about a day old": rule 8 restores a dump of any age. "Loaded at most once": rules 3 and 9a retry the same dump after a failed scrub or an empty restore, and `reload` forces it. "Never fails a deploy": true of the deploy job, but rule 9a turns the sync job red and can leave staging empty or stopped. Recommendation: reword the four in the promise; it was not changed.
+- **"A backup older than 48 hours is still restored" is asserted only as far as the warning.** The test checks the warning line and the exit, not the restore that rule 8 promises; DELIVERY-STAGING-DATA-SYNC-14 says no more than the test. Recommendation: assert the restore.
+- **Rule 2 says the state file records "the object name"; it records the full `gs://` address.** Recommendation: fix the wording.
