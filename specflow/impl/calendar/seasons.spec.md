@@ -195,6 +195,21 @@ season each September.
 - **Given** a student on their own attendance page
 - **Then** no Season preset is offered
 
+#### CALENDAR-SEASONS-12: The season form keeps what was typed when the language settles (PAD-392)
+- **Given** the season form shows the saved label "2026/27" and the coach types a new label
+- **When** the account's language settles afterwards
+- **Then** the field still holds what was typed, and the season was fetched exactly once
+
+#### CALENDAR-SEASONS-13: Reading the season answers the current and the next occurrence on the club's date (rules 3, 5)
+- **Given** a coach whose season runs from 1 September to 31 July
+- **When** they GET `/api/app/season` on 15 October 2026, and on 10 August 2026
+- **Then** in October `current` is 2026-09-01 to 2027-07-31, labelled "2026/2027", and `upcoming` is the 2027/2028 one
+- **And** in August, between two seasons, `current` is null and `upcoming` starts on 2026-09-01
+- **And** both bounds belong to the season, and "today" is the club's date, not the UTC date
+- **And** the label is the coach's own when set, and otherwise "2026/2027" for a season across two years and "2026" for one inside a year
+- **And** a coach with no season reads `null`, and a student gets 403 on reading, saving and deleting
+test: `frontend/packages/config/src/season-coverage.test.ts` › `treats both bounds as inclusive` (+7 more)
+
 ### Notes
 - Source: PAD-82 (this), PAD-83 (investigation: zero inbound FKs, stats have no season link),
   PAD-91 (production profile: one season, wrapping, two unbounded flagged lessons), PAD-8/PAD-89/
@@ -210,7 +225,8 @@ season each September.
   now hit `UNIQUE(coach_id)` and the rule-2 checks live in the service, so a semantically wrong
   editor row is still possible — the same caveat as before, one table narrower.
 
-#### The season form keeps what was typed when the language settles (PAD-392)
-- **Given** the season form shows the saved label "2026/27" and the coach types a new label
-- **When** the account's language settles afterwards
-- **Then** the field still holds what was typed, and the season was fetched exactly once
+### Open questions
+
+- **Rule 11 flags a collapsed row that spanned more than 400 days; the code also flags an inverted row.** The migration helper sets `needs_review` when the span is negative too (pinned by the test pointed at CALENDAR-SEASONS-8). Recommendation: add the inverted case to rule 11.
+- **The client's date hints have no server twin.** The shared season helper reads a timestamp by its day and treats a half-typed date as no answer; the test file says the same cases pin the Python twin, and they do not exist there. Recommendation: accept, since the client's answer is "a hint, never a gate", and fix the test's header.
+- **"With recurs-until-season-end off, a class keeps its typed end date" is not what the test checks.** It asserts that the end date is not empty, not that it equals the date typed. Recommendation: assert the date.

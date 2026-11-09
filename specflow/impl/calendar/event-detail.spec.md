@@ -446,3 +446,70 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Then** only Álvaro Sousa's row is shown, and there is no other control listing the candidates (B-421)
 - **And** clearing the search shows all three again
 - **And** a student chosen before the search changed stays chosen and listed even when the search no longer matches them
+
+#### CALENDAR-EVENT-DETAIL-26: A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22)
+- **Given** a class with students in every attendance state, some of them not on the coach's roster
+- **When** the coach's participant list is built
+- **Then** `planned`, or no answer at all, is listed under pending; `coming` and `attended` under going; `not_coming` and `missed` under not going; each row keeps its stored state
+- **And** a row carries the initials of the first and last name, and `?` when there is no name
+- **And** side and level come from the coach's roster; a student who is not on it comes last with neither
+- **And** a student who plays both sides and was given the left reads "Amb → Esq"
+- **And** a class with no capacity shows the count alone
+test: `frontend/apps/web/src/components/calendar/ParticipantGroups.test.tsx` › `a both player of a full class reads Ambos → esquerda (PAD-672 slice 3); without one, today's label` (+7 more)
+
+#### CALENDAR-EVENT-DETAIL-27: A row shows one state word, read from the stored attendance state (rules 3a, 25)
+- **Given** a participant row whose older fields disagree with its `attendanceState`
+- **When** the row renders for the coach, and for the student
+- **Then** it shows exactly one state word, the one for `attendanceState`
+- **And** the coach reads about the student ("Vai") and the student reads the second person ("Vais")
+- **And** until the class ends a coach's mark is worded as the intent, and afterwards as the record; `planned`, `coming` and `not_coming` read the same before and after
+- **And** a class that ends at 24:00 ends with its day on the club's clock, and a class whose end time cannot be read counts as not ended
+test: `frontend/packages/config/src/participant-groups.test.ts` › `a midnight end (24:00) is the end of that day, and an unreadable time is not ended` (+11 more)
+
+#### CALENDAR-EVENT-DETAIL-28: The cancellation and reminder lines show only while they still mean something (rules 3a, 23)
+- **Given** a student who cancelled, and a student who was sent a reminder
+- **When** the coach's row and the student's own row render
+- **Then** the cancelled-by-student line, with its time, shows to the coach only, and only until the coach validates the class
+- **And** it needs both the flag and the time, and an absence the coach recorded shows none
+- **And** the reminder-sent line shows only while the row is `planned` and a reminder went out
+test: `frontend/apps/web/src/components/calendar/AttendanceRow.test.tsx` › `is absent on the student's own row` (+12 more)
+
+#### CALENDAR-EVENT-DETAIL-29: An invitee row follows the live answer and says how it got there (rules 16, 17)
+- **Given** an invitee row on an open class
+- **When** a live `notification_responded` event arrives, and a row's history is shown
+- **Then** `yes`, `no`, `spot_filled` and `withdrawn` move the row to accepted, declined, spot filled and withdrawn; an answer the app does not know leaves the row as it is
+- **And** an invitation moved from an earlier spot says so, and an answer the coach recorded says so first
+- **And** the older `status` field follows the outcome: accepted is `confirmed`, pending is `sent`, anything else `expired`
+test: `frontend/packages/config/src/invitation-outcome.test.ts` › `maps a live event's response to the row's outcome` (+3 more)
+
+#### CALENDAR-EVENT-DETAIL-30: The waiting-list dialog offers who can be added and sends what its scope means (rules 19, 20)
+- **Given** a class with students enrolled, students on its waiting list and other students on the coach's roster
+- **When** the coach opens the dialog to add, and to edit a row
+- **Then** the picker offers the roster's students who are neither in the class nor on its list
+- **And** an add opens on "this class only", and an edit opens on the row's own scope and end date
+- **And** this class sends `scope: "occurrence"`, the whole series `scope: "series"`, and a period either a number of classes from 1 to 52 or an end date from today on
+- **And** each row words where it came from (the standing list, the coach, the student's request) and its scope
+test: `frontend/packages/config/src/waiting-list-origin.test.ts` › `validates only a period: a count in 1..52, or a date inside the standing window` (+6 more)
+
+#### CALENDAR-EVENT-DETAIL-31: A class opened by its id alone still knows whether it recurs (rule 15)
+- **Given** a weekly series and a one-off class
+- **When** the class payload is read by the coach, and by a student
+- **Then** `isRecurring` is true for the series, for both readers, and false for the one-off
+test: `backend/padel_app/tests/test_pad560_deeplink_recurring.py` › `test_the_class_payload_says_whether_the_class_recurs`
+
+#### CALENDAR-EVENT-DETAIL-32: Every write that moves a presence reaches the coach's open class, however the class is named (rule 24)
+- **Given** a class with a coach and an enrolled student
+- **When** the student cancels, the coach marks a presence, and the coach clears it
+- **Then** each write publishes `presence_changed` with the class, the player, the series and the date, to the coach alone and never to the student
+- **And** the open class reloads when the event names its occurrence, whether the id arrives as a number or as text, and by series and date when the occurrence did not exist yet
+- **And** an event for another class, or of another type, is ignored
+test: `backend/padel_app/tests/test_pad659_presence_changed_event.py` › `test_a_cancellation_tells_the_coach` (+5 more)
+
+### Open questions
+
+- **Rule 15 and CALENDAR-EVENT-DETAIL-13 say a 404 on the id fetch means "no longer exists"; the screen treats a 403 the same way.** The iOS class screen shows the same "gone" message, with no Retry, for 403 and 404, on purpose: a distinct "not allowed" would tell a stranger the class exists. Recommendation: add the 403 to rule 15 and the criterion.
+- **Rule 3a still reads as the coach's view of the rows; rule 22 replaced that view with the grouped list.** The cancellation and reminder lines now show in the student's view, in the coach's marking mode and in the pop-up only. Recommendation: rewrite rule 3a's first paragraph to say where each line is shown.
+- **Two rows of the same student can show different initials.** The grouped list and the pop-up take the first and last name's initials, with `?` for no name; the marking row has its own helper that takes the first two words and has no fallback. Recommendation: use one helper.
+- **A row that is not told whether the class has ended assumes it has.** `classEnded` defaults to true in the web and the iOS row, so a caller that forgets it words an unfinished class as "Presente" or "Faltou". Recommendation: make the prop required.
+- **Nine iOS tests of the class screen read its source.** The screen cannot be mounted in the unit harness; Maestro flows 170 and 219 are named as the real proof. They are proposed as plain unit tests. Recommendation: tag those flows to CALENDAR-EVENT-DETAIL-13, 22 to 25.
+- **Four tests assert less than their names say:** the validated row checks only `data-state`; the pop-up test reads two labels and presses neither; "offers only the candidates the caller passed" checks that a query matching nobody is empty; the listed-student count is compared with the literal 1. Recommendation: tighten them when the tags are applied.

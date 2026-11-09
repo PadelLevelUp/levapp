@@ -363,3 +363,26 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Then** both cards show the new name, with no page reload
 - **When** the coach deletes the first one "this and future"
 - **Then** both cards are gone, with no page reload
+
+#### CALENDAR-VIEW-25: A card's count and level come from where the invitation engine reads them (rules 9, 10)
+- **Given** a series that has no occurrence yet, an occurrence with three students coming, and an occurrence with no level of its own
+- **When** the calendar's events are built
+- **Then** the series counts the students enrolled in it
+- **And** the occurrence's `participantCount` is the number the invitation engine counts for it, 3
+- **And** the occurrence with no level reports its series' level
+test: `backend/padel_app/tests/test_calendar_participant_count.py` › `test_lesson_template_participant_count_is_enrolment` (+2 more)
+
+#### CALENDAR-VIEW-26: A bare date is a calendar day, whatever the device's time zone (rule 16)
+- **Given** the dates `2027-07-13` and `2027-01-31` typed into the new-class or new-event sheet
+- **When** the sheet works out the weekday, and the date some months later
+- **Then** 13 July 2027 is a Tuesday
+- **And** one month after 31 January is 28 February, and three months after 13 July is 13 October
+test: `frontend/apps/web/src/lib/dateOnly.test.ts` › `the weekday of a bare date is that date's weekday` (+1 more)
+
+### Open questions
+
+- **Rule 11 and CALENDAR-VIEW-8 leave out two cases the code handles.** A class that ends at 00:00 is treated as ending at the end of its day, so it reads scheduled while it runs (PAD-553), and a class whose end is before its start keeps its old reading (`calendar_event.py:50-57`). Recommendation: add both to rule 11.
+- **Rule 13, rule 22 and CALENDAR-VIEW-5 name legend keys that were replaced.** They list `calendar.legend.enrolled`, `.openSpots`, `.invited`, `.waiting` and `.notComing`; the student's legend now reads `calendar.legend.student.*` (`calendar-card.ts:444-448`). Recommendation: update the three places.
+- **Rule 23 says iOS keeps the student's filter in `AsyncStorage`; it uses `expo-secure-store`.** `student-filter-store.ts:7`. Recommendation: fix the rule.
+- **Two tests cannot fail for the reason their names give.** The series-count test compares the count with the series' own roster length, never a number; the engine-count test compares the calendar with a one-line delegate to the same method. Recommendation: assert numbers.
+- **`week-start.ts` points at `padel_app/utils/week.py`, which does not exist.** The backend's week helper is `padel_app/utils/dates.py:30-36`; rule 5a's claim holds there. Recommendation: fix the comment.
