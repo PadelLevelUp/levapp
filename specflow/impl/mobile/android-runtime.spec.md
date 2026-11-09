@@ -153,6 +153,8 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    recorded in `.maestro/README.md`: Select portals, keyboard dismissal, `- back` is now
    meaningful, no `simctl` push.
 
+12. **A dialog is never taller than the window it can be seen in (PAD-496), on both platforms.** The shared dialog caps its height at the window height minus twice the larger safe-area inset minus a 16 pt margin, and never below 240 pt. A caller that sets its own height keeps it.
+
 ### Acceptance Criteria
 
 #### MOBILE-ANDROID-RUNTIME-1: The day sheet has depth on Android
@@ -272,9 +274,37 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the field is above the keyboard (the screen gets no root padding), and every screen
   with a `KeyboardAvoidingView` is in `KEYBOARD_SCREENS` (`bottom-inset.test.ts`)
 
+#### MOBILE-ANDROID-RUNTIME-18: A dialog is never taller than the window between its safe areas (rule 12)
+- **Given** a window 844 pt tall with safe areas of 62 pt at the top and 34 pt at the bottom
+- **When** a dialog opens
+- **Then** its height is capped at 704 pt: the window, less twice the larger safe area, less 16 pt
+- **And** on a window too small for that the cap stops at 240 pt
+- **And** a dialog whose caller sets a maximum height of 300 pt keeps 300 pt
+test: `frontend/apps/mobile/src/components/ui/dialog.test.tsx` › `is never taller than the window between its safe areas` (+5 more)
+
+#### MOBILE-ANDROID-RUNTIME-19: Keyboard tracking uses each platform's own events, and a focused last field scrolls into view once the keyboard is up (rule 2)
+- **Given** a form whose last field asks to be scrolled into view, on iOS and on Android
+- **When** the field is focused and the keyboard shows and hides
+- **Then** the keyboard counts as visible from `keyboardWillShow` to `keyboardWillHide` on iOS, and from `keyboardDidShow` to `keyboardDidHide` on Android
+- **And** the form scrolls to its end once, after the keyboard has shown, and not when the keyboard shows with no field focused
+- **And** nothing listens after the screen is left
+test: `frontend/apps/mobile/src/lib/scroll-to-end-on-keyboard.test.tsx` › `scrolls to the end once the keyboard shows after the field is focused` (+9 more)
+
+#### MOBILE-ANDROID-RUNTIME-20: Dialogs fade on iOS and carry no layout animation on Android (rule 9)
+- **Given** a dialog, an alert or a select list
+- **When** it opens and closes
+- **Then** on iOS it fades in and out over 150 ms
+- **And** on Android it has no entering and no exiting animation
+test: `frontend/apps/mobile/src/lib/dialog-motion.test.ts` › `fades in and out on iOS` (+2 more)
+
 ### Notes
 - Web n/a: this leaf changes nothing on web (R-024's parity is between the shells that exist;
   Android joins iOS).
 - Rule 2's Android value was decided by the first emulator run (padding); rule 6's pre-grant is
   a lane step owned by PAD-297 (`scripts/ci-android-maestro.sh`).
 - OPEN: none.
+
+### Open questions
+
+- **The rules are numbered 1 to 7, then 9, 9b, 9c, 10, 11, with 8 last.** A criterion that cites "rule 8" or "rule 9" is easy to misplace, and the new rule tonight took 12. Recommendation: renumber in one commit with the `Specflow-Amends:` trailers.
+- **Three source-reading tests are the only pin of a behaviour that a device flow is said to prove.** MOBILE-ANDROID-RUNTIME-7 (a long select scrolls) and 12 (the email code lands on the next screen) have no test pointed at them; the tests that guard their code read source text and are proposed as plain unit tests. Recommendation: tag the Maestro flows to those criteria.

@@ -11,6 +11,6 @@ An iOS build meant for the App Store always talks to the production server, whoe
 
 - The App Store app uses `levapp.app`. `padellevelup.com` keeps serving production for App Store builds already installed; new builds do not use it.
 - What a build is for is decided by name when it is made, not by the builder's environment.
-- A non-production build shows its server where a tester looks first: the sign-in screen and Settings.
+- A non-production build shows its server where a tester looks first: in Settings in every build, and on the sign-in screen of a release build.
 
 It does not promise submitting to the App Store or publishing on Google Play, which the owner does, or anything about the web app, which always calls the server it is served from.

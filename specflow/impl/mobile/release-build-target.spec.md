@@ -146,8 +146,28 @@ It also makes the target visible inside the app.
 - Given the target helpers
 - Then `showsTestServerNotice` is true for the staging URL in a release build, and false for production, and false for any URL in a debug build
 
+#### MOBILE-RELEASE-BUILD-TARGET-10: The bundle check knows its targets and refuses a stray address (rules 4, 5)
+- **Given** the release bundle check with the targets `production` and `staging`
+- **When** a bundle is checked
+- **Then** a production bundle that also carries the staging address, or the old `padellevelup.com` address, is refused, and the refusal names the stray address
+- **And** a bundle checked under a target name that is not in the table is refused as an unknown target
+- **And** a staging bundle checked as `staging` passes
+test: `frontend/apps/mobile/src/lib/release-bundle-check.test.ts` › `refuses an unknown target` (+3 more)
+
+#### MOBILE-RELEASE-BUILD-TARGET-11: The phone app declares the capabilities its screens rely on (rule 4)
+- **Given** the phone app's API client set-up
+- **When** its capability list is read
+- **Then** it declares `open-spots`, `evaluations`, `student-relations`, `coach-invite-email`, `terms-acceptance` and `join-side`
+test: `frontend/apps/mobile/src/lib/api-capabilities.test.ts` › `found the initApi call and its known options before judging it (R-032)` (+6 more)
+
 ### Notes
 - iOS-first by nature. The web has no counterpart: it calls `/api` on the host that serves it.
   Android (PAD-290) reuses the table and the checker when its release build exists.
 - Uploading to TestFlight is `scripts/testflight-upload.sh` (altool with the ASC API key, then
   attach to the Internal group). It uploads only an export that `ios-release.sh` produced.
+
+### Open questions
+
+- **A build that points at `padellevelup.com` is labelled a test server.** `describeApiTarget` treats only the host `levapp.app` as production, while P-MOBILE-2 says `padellevelup.com` "keeps serving production for App Store builds already installed". No new build uses that host, so nobody sees the label today. Recommendation: leave the code; say in rule 6 that the old host reads as non-production.
+- **Seven of the thirteen capabilities the phone app declares have no test.** `api.ts:57` declares thirteen tokens; MOBILE-RELEASE-BUILD-TARGET-11 and its tests name six. A token that goes missing withdraws its feature from that build with no error. Recommendation: pin the whole list in one test.
+- **Rule 3b names `plugins/with-pod-deployment-floor.js`; the function its tests call is in `plugins/pod-deployment-floor.js`.** Recommendation: name both files in the rule.
