@@ -1,0 +1,582 @@
+---
+id: messaging.push-notifications
+status: implemented
+depends_on: [messaging.messages, auth.push-subscription]
+implements: ../../promises/messaging/user-manages-unread-and-notifications.business.md
+governed_by: []
+---
+
+# messaging.push-notifications
+
+
+### Intent
+Send browser push notifications when a new message arrives and the recipient isn't actively viewing the conversation.
+
+### Rules
+1. On message send, `send_push_notification()` called for each recipient
+2. Uses VAPID web push (pywebpush library)
+3. Notification includes: title (sender name), body (message text), URL (conversation link)
+4. Only sent to users with a valid `push_subscriptions` record
+5. Native (Expo) message pushes carry `badge` = the recipient's unread message
+   total at send time, so the iOS home-screen icon badge matches the in-app
+   unread count. The count is the recipient's real total, not an increment, so
+   the badge self-corrects after an undelivered push. **This covers every
+   message-backed push** (PAD-147): the notification engine's system messages
+   (invitations, reminders, spot filled, waiting-list offers) and the
+   cancellation notice to the coach are unread `Message` rows exactly like a
+   direct message, so their pushes carry the same `badge`; a push without it
+   leaves the icon under-counting until the app is next opened
+6. Both clients keep the app-icon badge in sync with the unread count while
+   running — iOS via `setBadgeCountAsync` (on Android the same call is best effort,
+   launcher permitting, and a failure is swallowed — `mobile.android-runtime` rule 6),
+   installed web via the Badging API —
+   and clear it on logout. A notification payload is never the only writer of
+   the badge: without a client-side writer a stale badge can never be cleared
+   (PAD-147). **The client writes the badge on every successful fetch of the
+   unread count, not only when the value changes** (PAD-147 follow-up): an
+   APNs payload can set the icon badge while the app is closed, and the next
+   fetch may return the same number the app already held (typically 0, when
+   the message was read on another device, or when a cold launch opened the
+   thread before the count was ever observed). A value-change gate skips that
+   write and the badge lingers; writing on every fresh answer — after a
+   mark-read invalidation, on foreground refetch, and on the first fetch of a
+   cold launch — makes the icon equal the server count at every observation
+7. **Tap-routing contract (PAD-240; third shape added by PAD-327).** A native
+   push's `data` names where a tap lands: `{type: "message", conversationId}`
+   opens the conversation thread, `{type: "class", classInstanceId}` ~~opens the
+   class~~ (retired, see below), and **`{type: "path", path}` opens a plain
+   in-app destination named by the SAME web path the push's web sibling
+   carries** — for pushes that are backed by neither a message nor a class, such
+   as the request alerts of `notifications.request-alerts` rule 7. The client
+   maps that web path to a native route through the single mapper it already
+   uses for server-emitted paths (`dashboard.blocks` rule 10); a path it cannot
+   map routes nowhere and never crashes. The path is sent rather than derived
+   from a `kind` so that the server keeps sole ownership of the destination —
+   two copies of that table would disagree the day a kind is added, which is the
+   defect this shape exists to end. **Every push that
+   announces a `Message` row is a message notification** — direct messages and
+   all system messages alike (invitations, reminders, spot filled, waiting-list
+   offers, cancellations to the coach) — because the thing the user acts on
+   (the Yes/No answer, the reply, the cancellation text) lives in the thread.
+   Such a push carries `type: "message"` plus `conversationId`, and may add
+   `classInstanceId` as secondary context; it never routes to the class. ~~The
+   `class` type is reserved for pushes that are not backed by a message.~~
+   **The `class` type is RETIRED (PAD-326).** It had no producer left once the
+   join-request push took the message shape (PAD-324), and a type nobody sends
+   must not be routable: `routeForPushData` returns null for it, so a payload
+   that somehow carries it is ignored rather than sent to a screen. Reviving it
+   needs this rule changed first.
+   ~~A client must never route on `classInstanceId` alone: the mobile class
+   screen rebuilds its event from route params (`model`, `originalId`, `date`)
+   that a push cannot carry, so a `/class/<id>` deep link from a push renders
+   "this class could not be found" — the PAD-240 defect.~~ **That prohibition
+   existed because the screen could not resolve an id; since PAD-326 it can
+   (`calendar.event-detail` rule 15), so the reason is gone. The routing rule
+   above stands on its own merit and is unchanged: a message-backed push opens
+   the THREAD, because the thing the user acts on lives there — not because the
+   class screen would fail.**
+   *(That part of the rule was already correct and the code contradicted it: it
+   named this exact failure, in these words, while `routeForPushData` kept the
+   branch that produced it. PAD-326 is the code catching up, not a change of
+   intent.)*
+   **A type outside the defined shapes routes nowhere (PAD-324).**
+   `routeForPushData` returns `null` for anything it does not recognise, so a
+   payload that invents its own type is not a wrong screen but a **dead tap**:
+   the notification opens the app and nothing happens. That is harder to notice
+   than an error screen, which is why **four** of the six push writers carried
+   one undetected — the join request (`class`, with a message behind it) and the
+   class request (`class_request`), both fixed by PAD-324, and the two request
+   alerts (`request`), which have neither a message nor a class and needed the
+   contract extended rather than their payload corrected — done by PAD-327's
+   `path` shape above. (PAD-324 counted three; the fourth, the class request,
+   was found by PAD-327's guard rather than by reading, which is the argument
+   for the guard.) **A push whose `data` does not match one of the defined
+   shapes is a defect even though nothing errors**, so a new push writer states
+   which shape it uses and why, and its test asserts the web and native pushes
+   for one event name the same destination
+8. **Push permission never gates the in-app feed (PAD-195).** *(Numbered 8: PAD-240's
+   tap-routing rule takes 7 on its own branch, so a batch merge does not produce two 7s.)* The browser's (or
+   the device's) notification permission decides only whether the OS shows an
+   alert while the app is closed. The conversation list, the SSE live updates,
+   the in-app message rows and the unread badge are served by the backend and
+   keep working with permission denied or never asked. The "blocked" banner on
+   the Messages page therefore says exactly that — browser/device alerts are
+   off and where to turn them on — and states that messages and the badge
+   still arrive in the app; copy that reads as "notifications are off" for the
+   whole app is the PAD-195 defect (a coach with push blocked believed the app
+   had stopped notifying them)
+9. **The latest login owns the phone (D137, PAD-418, superseding PAD-269's per-user rows).**
+   `POST /api/notifications/device` `{token, platform}` (JWT) records the pair (caller, token) and
+   **deletes every OTHER user's row for that token**, so one device token has exactly one owner:
+   whoever last signed in on that phone. `device_tokens` stays unique on `(user_id, token)`.
+   `DELETE /api/notifications/device` `{token}` removes only the caller's row and is idempotent; an
+   Expo `DeviceNotRegistered` receipt deletes every row holding that token. The app also removes
+   its token on logout (`auth.logout` rule 4 and the logout criterion below), and re-registers on
+   every launch with a restored session and on every login, so a phone left holding a previous
+   user's row heals itself the next time the app starts.
+   **The trade-off, accepted by the owner (D137, 2026-09-24):** PAD-269 kept one row per
+   (user, token) so that posting someone else's Expo token could not take their notifications
+   away. The cost of that design was measured on the owner's own phone: a stale row left a
+   previous account's pushes (with message previews) arriving on a phone signed into someone
+   else, and every tap dead-ended on a 403 (B-167). The owner chose the opposite risk: someone who
+   holds another user's push ID can redirect that user's notifications to themselves by
+   registering it. That is accepted over leaked previews; a push ID is not exposed in the app or
+   API.
+9a. **Two registrations at once both succeed and keep one row (PAD-652, B-581).** When two
+   `POST /api/notifications/device` calls for the same (caller, token) both find no row, both
+   insert, and the second insert collides with `uq_device_tokens_user_token`. The insert runs in
+   a savepoint, after the delete of other users' rows, which the rollback keeps. On that
+   collision only the savepoint rolls back, and the registration updates the row the other
+   request wrote: the platform is last-write-wins and both answer 200. This is the same shape
+   as `auth.push-subscription` rule 7.
+
+9b. **Only an Expo push token is registered, and a raw device token never orphans one (PAD-741,
+   B-706).** The token shape is decided in one place (`padel_app/utils/push_token_shape.py`):
+   `expo` is `ExponentPushToken[…]` or `ExpoPushToken[…]`; anything else is `apns_hex64` (64
+   hex characters, the raw APNs device token) or `other`.
+   - `POST /api/notifications/device` with a token that is not `expo` answers **200 and stores
+     nothing**. It also removes any row the caller already holds for that exact token (rows
+     written before this rule), and logs one INFO line naming the caller's user id and the
+     token's shape, never the token. It answers 200, not 400, because iOS build 34's registrar
+     retries a refused registration and then shows the "not active" banner (rule 15).
+   - `DELETE /api/notifications/device` and `/auth/logout`'s `pushToken` (`auth.logout`
+     rule 4) with a token that is not `expo` remove **every Expo row the caller holds**, plus
+     the caller's row for that exact token. The match is by account, not by device: a build
+     that sends its raw device token on logout (iOS builds 34 and 35) cannot name its Expo token,
+     and the server keeps nothing that ties a raw token to an Expo one. Removing all of the
+     caller's Expo rows is the superset that guarantees the signed-out phone stops receiving the
+     account's pushes (B-167). The cost: the same account's other phone stops receiving pushes
+     until it registers again (its next cold start or login, rule 9). With an `expo` token both
+     paths are unchanged: only the caller's row for that token goes.
+10. **Push goes out off the calling thread, through a bounded in-process sender (PAD-294,
+   PAD-276 decision 1).** Every push channel (web push, Expo) does its database work on the
+   caller — the subscription or device-token lookup, the unread badge — then hands the HTTP call
+   to `padel_app/utils/push_sender.py`: one FIFO worker thread behind a queue of bounded size
+   (`PUSH_QUEUE_MAX`, default 500). The caller's DB connection is never held across the network
+   round trip, so a slow or timed-out push service (10 s per call) cannot stall the scheduler's
+   executor or a request. The stale-token cleanups (`DeviceNotRegistered`, web push 404/410) run
+   in the worker under their own app context and session. **Full queue:** the *oldest* queued
+   push is dropped with a WARNING naming it and the new one is queued — the newest push is the most
+   recent event (a reminder, a fresh message) and push is best-effort already (rules 4 and 8);
+   blocking the engine would be worse than a missed alert. **Provider outage:** after three
+   consecutive deliveries slower than 8 s (the HTTP timeout is 10 s) the sender pauses for 60 s and
+   drops pushes with a WARNING instead of queueing hundreds that would each wait out the timeout;
+   delivery resumes after the pause. Worker and inline mode share one `_execute` path, so a
+   sender's exception is logged and swallowed identically in tests and in production. The queue is
+   drained for up to five seconds at process exit, inside the ten-second stop grace `docker stop`
+   gives the container on deploy. The web-push 404/410 cleanup deletes the subscription row only
+   while it still holds the subscription the push was sent to — a browser that re-subscribed while
+   the push was on the wire keeps its new endpoint. Per-recipient order is preserved (one worker).
+   Under the test configuration the sender runs inline so existing tests stay deterministic;
+   `PUSH_SENDER_INLINE` overrides either way. Verdicts, message rows, SSE events and idempotency
+   are untouched: only *when* the HTTP call happens changes.
+10a. **The push outbox (PAD-699; `PUSH_QUEUE=outbox`, default `memory`).** Under the flag, rule
+   10's in-memory queue is not used. A push is a row in `push_outbox`.
+   - **What, not where:** the row holds the channel (`expo` | `webpush`), the user and the message
+     (title, body, data or url, badge). Tokens, the web-push subscription and the VAPID key are
+     looked up when it is sent: no endpoint or key is stored, and a device unregistered meanwhile
+     is not sent to.
+   - **Enqueue:** inside an active unit of work the row joins it, so a rolled-back action sends
+     nothing. Outside one, the row is written at once on its own short transaction, never by
+     committing the caller's session. The caller keeps its view-as suppression and its "no
+     device, nothing to send" check.
+   - **One drainer per process holding the scheduler leadership** (the worker with `WORKER_SPLIT`
+     on, the API otherwise), started and stopped with it (idempotently), and stopped before the
+     lock is released. Every second it:
+     1. claims up to 50 due rows in one short transaction (pending rows whose `due_at` has come,
+        and `sending` rows whose 60 s lease ran out), `FOR UPDATE SKIP LOCKED`, marked `sending`
+        with its own id;
+     2. sends each one;
+     3. commits that row's outcome at once, on its own short transaction, and only while it still
+        holds the row.
+   - **Outcomes:**
+     - `sent`: any token accepted; a retry never re-sends to a token that accepted, so a partial
+       failure is `sent`;
+     - `skipped` (terminal, no incident): no destination, channel disabled
+       (`EXPO_PUSH_DISABLED`) or unconfigured (no VAPID), or a dead token or subscription
+       (DeviceNotRegistered, 404/410, which still retire it);
+     - `retry`: 5xx, 429, a timeout or a connection error, backed off 5 s × 2^attempts. After 6
+       attempts the row is `dead`, with a `push_failed` incident whose detail says
+       "outbox dead after 6 attempts".
+   - **Data kept:** a terminal row loses its message.
+   - **At least once:** a row is sent twice only if the process dies between the provider's accept
+     and that row's commit.
+   - **Stop:** finish the row in flight, put the drainer's other claims back to pending, and only
+     then release the lock.
+   - Rule 10's circuit (three sends slower than 8 s pause sending for 60 s) applies to the drainer,
+     with rows waiting instead of being dropped.
+   - The drainer's thread keeps one database connection across its sends: the one exception to
+     rule 10's "no connection held across a push".
+   - **Logs:** the per-minute lines (the worker's, and `realtime.stats_line` in a draining API)
+     carry `outbox_depth` and `oldest_due_age`, with a WARNING over a depth of 200.
+   - **What staging proves:** staging runs the outbox, but it cannot send (`EXPO_PUSH_DISABLED=1`,
+     no VAPID keys), so every staging row ends `skipped`. The staging week proves enqueue, claim,
+     the status transitions, one send per row across drainers, and kill/restart. It does not prove
+     a real provider send: prod's flip (after B8) is the first real one.
+10b. **Expo receipts are read (PAD-745; numbering unconfirmed).** `/push/send` answers a *ticket*
+   per message: `ok` only means Expo took it. Whether Apple or Google then took it is a *receipt*,
+   read later from `/push/getReceipts` by the ticket's id. Before PAD-745 the ids were dropped, so a
+   push Apple refused (`InvalidCredentials`, a wrong `aps-environment`) looked sent (PAD-118, PAD-741).
+   - **Kept at send, on both paths:** every `ok` ticket becomes one `push_receipt` row (ticket id,
+     token, user, outbox row when there is one, `pending`). It is written by the shared Expo send,
+     so the in-memory path (rule 10, prod until B8) and the outbox (rule 10a) both keep it. The
+     write is one insert per `/push/send` batch, on its own short transaction, never the caller's
+     session, and a failure to write it is logged by class and never fails the send.
+   - **Read by the scheduler leader every 10 minutes** (`read_push_receipts`), for `pending` rows
+     sent 15 minutes to 24 hours ago, at most 1000 ids per call, with rule 11c's headers:
+     - receipt `ok`: the row is `ok`;
+     - `DeviceNotRegistered`: the row is `error`, and every `device_tokens` row holding that token
+       is deleted (as rule 9 does at send);
+     - any other code: the row is `error` with the code, and one `push_failed` incident (channel
+       `expo`, detail `receipt error=<code>`) is recorded. A row is redeemed once, so one receipt
+       makes at most one incident;
+     - no receipt yet: the row stays `pending`; once it was sent more than 24 hours ago (Expo
+       keeps receipts 24 hours), it is `expired`.
+     - A failed call (HTTP, timeout, bad JSON) changes nothing; the next run asks again.
+   - **Logs:** at send, one INFO line `expo push sent user=<id> tickets=<n>`; per read, one INFO
+     line with the counts (`ok`, `error` by code, `expired`). Never a whole token, never the text.
+   - **Kept 30 days**, deleted by the daily `prune_delivery_incidents` job, as incidents are.
+   - Staging sends nothing (`EXPO_PUSH_DISABLED`), so it keeps no rows: prod is the first real run.
+11. **Android delivery is prepared on the Expo payload, without Firebase in the repo (PAD-307,
+   Android wave C prep).** Expo push tokens are platform-neutral: the
+   Expo push service delivers to Android over FCM once the project holds a `google-services.json`
+   and an FCM V1 service-account key — owner steps outside the code. What the code owns:
+   (a) every Expo message carries `channelId: "default"` and `priority: "high"`, so an Android
+   device shows it as a heads-up on the channel the client creates (iOS ignores both fields);
+   (b) `POST /api/notifications/device` accepts `platform` only as `ios` or `android` and answers
+   400 otherwise (missing included) — the value is recorded on `device_tokens.platform` as sent
+   and refreshed on re-registration; no database CHECK constraint is added; (c) when
+   `EXPO_ACCESS_TOKEN` is set and non-empty the sender adds `Authorization: Bearer <token>` to
+   every request to the Expo push API (needed once the Expo project enforces access tokens);
+   unset or empty, the request is byte-for-byte what it was — no behaviour change; (d) the
+   Android client creates the `default` channel at HIGH importance (name "Messages") before
+   asking for permission, and the permission request is the Android 13+ `POST_NOTIFICATIONS`
+   prompt (`requestPermissionsAsync`; a no-op grant below 13). Firebase/EAS steps live in
+   `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
+   (e) **`google-services.json` is never committed (PAD-355).** A prebuild with
+   `LEVAPP_ANDROID_FCM=1` sets `android.googleServicesFile` (plugin `with-google-services`) to
+   `$GOOGLE_SERVICES_JSON` when set, else to the operator's gitignored copy at
+   `docs/infra/google-services.json`, and fails the prebuild when that file does not exist, so a
+   store build cannot ship without Android push by accident. Without the flag (the CI emulator
+   lane, debug builds) the prebuild has no Firebase config. The Play bundle job sets the flag
+   whenever the `GOOGLE_SERVICES_JSON_BASE64` secret exists (`mobile.android-play-bundle` rule 10).
+
+12. **A message push names the message, and the tap lands on it (PAD-408).** Every push
+   that announces a `Message` row carries that row's id as well as its thread: the native
+   `data` is `{type: "message", conversationId, messageId}` and the web sibling's url is
+   `/messages/<conversationId>?message=<messageId>`. This covers direct messages
+   (`messaging_service.create_message_service`) and system messages
+   (`notification_service._send_system_message`) alike, and both pushes for one event name
+   the same conversation **and** message (the PAD-324 parity guard). Opening the thread with
+   a target message (`/conversation/<id>?message=<mid>` on iOS, `?message=<mid>` on web)
+   lands on that message, not on the newest one: the initial pin-to-newest is skipped, older
+   pages load until the message is present (at most **10 older pages** of `CONVERSATION_PAGE_SIZE` = 50, i.e. 500 messages beyond
+   the first page), and the message is scrolled to the middle of the list and highlighted
+   for 900 ms with the same primitive a quoted reply uses. The target is consumed once. A
+   message that is not found within the bound (deleted, or very old) falls back to today's
+   landing, the newest message, with no error. A push without `messageId` (an older server,
+   or the `path` shape) behaves exactly as before. Opening the thread from the conversation
+   list is unchanged.
+12a. **A warm tap shows the message it announces, still unread (PAD-475, B-236, iOS).** An open
+   with a target keeps the cached thread in two cases only, because the event stream is
+   suspended while the app is in the background: the target is in the cached thread, or the
+   target is older than the newest cached message (rule 12's walk). The second case does not
+   establish that the target is in an older page: a message missing from the middle of the
+   cached thread is not detected (B-248, open). Ids decide "older":
+   `messages.id` comes from one database sequence, so a later message has the larger id. In
+   every other case, including ids that cannot be compared, the open makes its own `GET`,
+   whatever the cache's age. The thread is marked read only after that `GET` has settled, so a
+   message is never marked read before the screen has it, and the `GET`'s
+   `firstUnreadMessageId` puts the "Unread messages" divider above it
+   (`messaging.conversation-detail` rule 9a). If the open's `GET` fails, the thread is not
+   marked read and the screen shows its load error with Retry; the read mark follows when a
+   later `GET` settles. A tap on the conversation already on screen opens a new instance of
+   the thread (`router.push`), so it is an open like any other. A landing scroll that must be
+   retried follows `messaging.conversation-detail` rule 9b. Web has no counterpart: its event
+   stream is not suspended and it has no cached-thread open. Tests: `use-thread-open.test.tsx`
+   mounts the screen's hook; the load error and the divider are tested as the open's phase and
+   `firstUnreadMessageId`, not as rendering, which only flow 122 sees.
+12b. **The walk waits for the open's `GET` (PAD-475, B-237, iOS).** Rule 12's walk through older
+   pages does not start while this open's own `GET` is in flight: it neither loads older pages
+   for a message that is newer than the cached thread, nor gives the target up before the
+   `GET` has delivered it.
+13. **A tap that launches the app waits for the navigator (PAD-409, B-166).** On a cold
+   start, `getLastNotificationResponseAsync()` resolves before the root layout has mounted
+   its navigator. A navigation issued then is not merely lost: it loops the root layout
+   ("Maximum update depth exceeded") and ends in "Attempted to navigate before mounting the
+   Root Layout component" (measured on the simulator, 3/3 cold, 2026-09-22). So the tap's
+   target is **held** until the root navigator is mounted and auth has settled, then
+   navigated to exactly once. The dedup of handled notifications outlives any re-mount of
+   the component that runs it. A tap that launches a **signed-out** app is dropped and the
+   normal login flow runs (default decision, 2026-09-22; changing it means changing this
+   rule). A warm tap (app running) is unchanged.
+
+14. **A system message's push is titled in the student's language (PAD-713; numbering
+    unconfirmed).** The push pair that announces a notification-engine message to a student
+    (`notification_service._push_message`, the one writer, R-029: invitations, reminders, "Está
+    marcado!", waiting-list offers, the pending nudge) is titled by the RECIPIENT's `users.language`:
+    `pt` "Nova mensagem", `en` "New message" (anything not English reads Portuguese, the app's
+    default). Web and iOS carry the same title. The body is unchanged: the message text (rule 12).
+    Before PAD-713 it was "New message" for everyone. A direct message keeps its sender-name title.
+
+15. **A granted permission registers without a restart, and a phone that is not registered says so
+    (PAD-744, B-678).** Rule 9's launch and login registrations are not the only ones. On iOS and
+    Android:
+    - **Only login, sign-up and the banner's tap ever prompt.** Every other registration first
+      reads the permission and stops, silently, unless it is granted.
+    - **The app registers without a prompt** when it returns to the foreground signed in and has
+      not registered this session, and right after the Messages banner's tap grants permission.
+      Granting in the system Settings is therefore enough: the next return to the app registers.
+    - **A rotated token is sent.** The app listens for push-token changes while signed in. The
+      listener's event carries the raw native device token (APNs on iOS, FCM on Android), which
+      Expo does not accept, so the event is only a signal: the app fetches its **Expo** push token
+      again (`getExpoPushTokenAsync`) and, when that differs from the cached token, caches and
+      posts it to `POST /api/notifications/device`. The event's own token is never posted and
+      never cached (PAD-741, B-706), so logout's revoke always sends the Expo token (rule 9 and
+      `auth.logout` rule 4). The old row needs no delete: Expo's `DeviceNotRegistered` receipt
+      prunes it (rule 9).
+    - **A failed registration is retried**, a bounded number of times with growing waits (3
+      retries, 2 s, 10 s, 30 s), never after a denial, and never after logout. After the last
+      try the next foreground tries again.
+    - **The registrar exposes its state** (`unknown`, `registered`, `no-permission`, `failed`,
+      `unsupported`), and the Messages banner gains a third case. Permission granted but the
+      registration failed shows "Notifications aren't active on this phone" with a tap that
+      registers again (`testID` `notifications-banner-retry`), instead of only a console line. The
+      two existing cases (never asked, blocked) are unchanged. A simulator, which cannot hold a
+      token, is `unsupported` and shows no third case.
+    - **Each failed attempt is reported to the server** (PAD-746): the registrar's
+      `onRegistrationFailure` hook fires once per failed attempt (`token` = anything that fails
+      before the POST, `post` = the POST), and the app sends it to
+      `POST /api/notifications/registration-failure` with the permission state and the build,
+      never the token (`admin.engine-health` rule 8). A denial and a simulator report nothing.
+    - Web's counterpart is `auth.push-subscription` rule 9.
+
+### Acceptance Criteria
+
+#### MESSAGING-PUSH-NOTIFICATIONS-1: The outbox is at least once (rule 10a)
+- **Given** an outbox row claimed by a drainer that then dies before sending **When** a new drainer
+  runs after the 60 s lease **Then** the push is sent once, and a third run sends nothing
+- **Given** a drainer that dies after the provider accepted, before the outcome committed **When** a
+  new drainer runs after the lease **Then** the push is sent once more and never again
+- **Given** a row whose lease another drainer took over **When** the first drainer finishes late
+  **Then** its outcome is not written
+
+#### MESSAGING-PUSH-NOTIFICATIONS-2: Outcomes (rule 10a)
+- **Given** a send answering skip **Then** the row is `skipped`, with no retry and no incident
+- **Given** a send answering retry **Then** the row is pending again, due 5 s × 2^attempts later;
+  after 6 attempts it is `dead`, with a `push_failed` incident "outbox dead after 6 attempts"
+- **Given** a terminal row **Then** its message is null
+- **Given** Expo tickets ok + MessageRateExceeded **Then** sent; DeviceNotRegistered only **Then**
+  skip; MessageRateExceeded only, or a connection error **Then** retry. Web push 404/410 **Then**
+  skip; 429/5xx **Then** retry
+
+#### MESSAGING-PUSH-NOTIFICATIONS-3: Enqueue (rule 10a)
+- **Given** `PUSH_QUEUE=outbox` and an action in a unit of work that raises **Then** no row exists;
+  committed, one row, holding no token
+- **Given** a stopping drainer with claimed, unsent rows **Then** they are back to pending, unclaimed
+
+#### MESSAGING-PUSH-NOTIFICATIONS-4: Expo receipts are read (rule 10b)
+- **Given** a send whose ticket is `ok` with id `T1` for user 7 **Then** one `push_receipt` row
+  `T1`, user 7, `pending` exists, and still only one HTTP call was made by the send
+- **Given** an outbox row 42 sent with an `ok` ticket **Then** its receipt row names outbox row 42
+- **Given** a ticket `error` (DeviceNotRegistered) **Then** no receipt row is kept for it
+- **Given** writing the receipt row fails **Then** the send still answers `sent`
+- **Given** a `pending` row sent 20 minutes ago and a receipt `ok` **When** `read_push_receipts`
+  runs **Then** the row is `ok` and no incident is recorded
+- **Given** a receipt `DeviceNotRegistered` **When** it runs **Then** the row is `error` and every
+  device token row holding that token is gone
+- **Given** a receipt `InvalidCredentials` **When** it runs twice **Then** the row is `error` with
+  that code and exactly one `push_failed` incident (channel `expo`) exists
+- **Given** a row sent 5 minutes ago **When** it runs **Then** its id is not asked for
+- **Given** no receipt for a row sent 25 hours ago **When** it runs **Then** the row is `expired`;
+  sent 2 hours ago, it stays `pending`
+- **Given** 1500 pending rows **When** it runs **Then** it asks in two calls, of 1000 and 500 ids
+- **Given** `/push/getReceipts` answers 503 **When** it runs **Then** every row is unchanged
+- **Given** receipt rows 31 and 29 days old **When** the daily prune runs **Then** only the 31-day
+  row is deleted
+
+#### MESSAGING-PUSH-NOTIFICATIONS-5: Granting permission from the banner registers the phone (PAD-744)
+- **Given** a signed-in student on a physical iPhone whose notification permission was never asked,
+  so the Messages banner shows "enable"
+- **When** they tap the banner's button and allow notifications
+- **Then** the device token is posted to `POST /api/notifications/device` with no second prompt, and
+  the banner disappears
+
+#### MESSAGING-PUSH-NOTIFICATIONS-6: A permission granted in Settings registers on the next return to the app (PAD-744)
+- **Given** a signed-in student whose permission was denied, so the app registered nothing
+- **When** they allow notifications in iOS Settings and return to the app
+- **Then** the token is posted once, without a prompt, and a later return with the token already
+  registered posts nothing
+
+#### MESSAGING-PUSH-NOTIFICATIONS-7: A rotated token replaces the cached one and is sent (PAD-744, PAD-741)
+- **Given** a signed-in student registered with `ExponentPushToken[old]`
+- **When** the push-token listener reports a raw device token (64 hex characters) and the Expo
+  token the app fetches again is now `ExponentPushToken[new]`
+- **Then** `ExponentPushToken[new]` is posted and the raw token is never posted
+- **And** a logout afterwards sends `ExponentPushToken[new]` in its revoke and in `/auth/logout`'s
+  `pushToken`
+- **And** when the fetched Expo token equals the cached one, nothing is posted
+
+#### MESSAGING-PUSH-NOTIFICATIONS-8: A raw device token is not registered (PAD-741)
+- **Given** a signed-in student
+- **When** the app POSTs a 64-hex raw device token (or any token that is not `ExponentPushToken[…]`
+  / `ExpoPushToken[…]`) to `/api/notifications/device`
+- **Then** the answer is 200 and no `device_tokens` row exists for it
+- **And** a row the student already held for that exact token is removed
+- **And** one INFO line names the student's user id and the shape `apns_hex64`, and does not
+  contain the token
+- **And** an `ExponentPushToken[…]` POST is still stored as before
+
+#### MESSAGING-PUSH-NOTIFICATIONS-9: A logout that names a raw device token still removes the Expo token (PAD-741, B-167)
+- **Given** a student holding `ExponentPushToken[abc]` and, from build 34, a cached raw device token
+- **When** the app sends `DELETE /api/notifications/device {token: <raw>}` or `/auth/logout
+  {pushToken: <raw>}`
+- **Then** every Expo row the student holds is removed, so the phone no longer receives their pushes
+- **And** another user's rows are untouched
+- **And** with an `ExponentPushToken[…]` token only the student's row for that token is removed
+
+#### MESSAGING-PUSH-NOTIFICATIONS-10: A failed registration is retried and then shown (PAD-744)
+- **Given** a signed-in student with permission granted whose registration POST fails
+- **When** the retries (2 s, 10 s, 30 s) also fail
+- **Then** four POSTs were sent in all, the registrar's state is `failed`, and the Messages banner
+  shows "Notifications aren't active on this phone" with a retry button whose tap posts again
+- **And** a logout during the waits cancels the remaining retries
+
+#### MESSAGING-PUSH-NOTIFICATIONS-11: Tapping a message notification opens the thread (PAD-240)
+- **Given** a student with a registered iOS device token who receives a class invitation, a reminder, or a direct message
+- **When** the push is sent
+- **Then** its `data` is `{type: "message", conversationId: <the thread's id>, messageId: <the message's id>}` (`messageId` since PAD-408), with `classInstanceId` present only as extra context on class-backed system messages
+- **And** tapping the notification on iOS opens `/conversation/<conversationId>`, never `/class/<id>`
+- **And** a coach's cancellation notice push routes the same way, to the coach–student thread
+
+#### MESSAGING-PUSH-NOTIFICATIONS-12: A push tap lands on the tapped message, even under newer ones (PAD-408)
+- **Given** a coach–student thread where message M ("Can we move Thursday?") is followed by 15 newer messages, more than one screen
+- **When** the coach taps M's push, with the app backgrounded
+- **Then** the thread opens with M visible in the list and highlighted, not scrolled to the newest message
+- **And** the same holds when M is older than the first page of 30: older pages load until M is present
+- **And** on web, opening `/messages/<conversationId>?message=<M's id>` shows M centred and highlighted
+
+#### MESSAGING-PUSH-NOTIFICATIONS-13: A target that cannot be found falls back to the newest message (PAD-408)
+- **Given** a push naming a `messageId` that was deleted, or that lies beyond 10 older pages
+- **When** the thread opens with that target
+- **Then** it lands on the newest message as before, with no error and no endless loading
+
+#### MESSAGING-PUSH-NOTIFICATIONS-14: A tap that launches the app opens the thread once (PAD-409)
+- **Given** a signed-in coach whose app is not running
+- **When** they tap a message push `{type: "message", conversationId: 1, messageId: M}`
+- **Then** the app launches into `/conversation/1` (with M targeted), navigating exactly once and never before the root navigator is mounted
+- **And** a signed-out app launched by the same tap shows the login screen and does not navigate to the thread
+
+#### MESSAGING-PUSH-NOTIFICATIONS-15: A warm tap shows the pushed message, unread (PAD-475)
+- **Given** a coach who read the thread with e2e-student seconds ago, left it, and put the app in the background
+- **When** the student sends "PAD-475 warm push probe" and the coach taps its push
+- **Then** the thread opens with that message on screen under the "Unread messages" divider, after one `GET` of the thread
+- **And** the thread is not marked read before that `GET` has settled
+
+#### MESSAGING-PUSH-NOTIFICATIONS-16: Ids that cannot be compared make the open fetch (PAD-475)
+- **Given** a cached thread whose only message has the id `temp-1`, or no message at all
+- **When** it opens with target message 46
+- **Then** the open makes one `GET`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-17: A target the cached thread holds opens from the cache (PAD-475)
+- **Given** a fresh cached thread holding messages 16, 17 and 45
+- **When** it opens with target 17, or with target 3 (older than message 45)
+- **Then** the open makes no `GET`; target 3 is reached by rule 12's walk
+
+#### MESSAGING-PUSH-NOTIFICATIONS-18: A tap on the conversation already on screen is a new open (PAD-475)
+- **Given** the coach left the app on the thread and the event stream was suspended
+- **When** they tap the push of a message newer than the cached thread
+- **Then** a new instance of the thread opens and makes exactly one `GET`
+
+#### MESSAGING-PUSH-NOTIFICATIONS-19: A failed open leaves the thread unread (PAD-475)
+- **Given** a warm tap whose `GET` fails
+- **When** the open ends
+- **Then** the thread is not marked read and the screen shows its load error with Retry
+- **And** once a later `GET` settles, the thread is marked read
+
+#### MESSAGING-PUSH-NOTIFICATIONS-20: The walk does not start on the cached copy (PAD-475)
+- **Given** a warm tap on a message newer than a cached thread that has older pages
+- **When** the open's `GET` is in flight
+- **Then** no older page is requested, and the target is not given up
+
+#### MESSAGING-PUSH-NOTIFICATIONS-21: The feed works with browser push denied (PAD-195)
+- **Given** a signed-in coach whose browser notification permission is `denied`
+- **When** they open the Messages page
+- **Then** the conversation list renders, and the banner names browser alerts only and says messages and the badge still arrive in the app
+- **And** when a student sends them a message, it appears in the list and the nav unread badge shows, live over SSE, without a reload
+- **And** iOS shows the equivalent copy for a device-level denial
+
+#### MESSAGING-PUSH-NOTIFICATIONS-22: The alerts-blocked banner leaves the thread and composer on screen (PAD-417)
+- **Given** a signed-in coach on the web whose browser notification permission is `denied`, so the banner shows above the Messages page
+- **And** their conversation list is taller than its pane
+- **When** they open a conversation at 390×844, 1280×600 or 1280×720
+- **Then** the page's remaining height is shared by the list and the thread, and the composer's send button ends inside the page's visible content area (not only inside the viewport: the page clips its overflow and keeps room for the phone tab bar)
+- *Web only:* the banner is about browser alerts; the iOS app has no such banner (B-198).
+
+#### MESSAGING-PUSH-NOTIFICATIONS-23: The app icon badge always equals the server unread count (PAD-147)
+- **Given** the iOS icon badge shows 1 because a push arrived while the app was closed
+- **When** the user reads that message on another device and then foregrounds the app, so the unread count fetch returns 0 — the same value the app last held
+- **Then** the app still writes 0 to the icon badge on that fetch and the badge clears
+- **And** reading a conversation in-app (which invalidates the unread count) and a cold launch both end with the badge equal to the fetched count, even when unchanged
+- **And** the badge is never written from a pending or failed fetch, and is cleared on logout
+
+#### MESSAGING-PUSH-NOTIFICATIONS-24: A second user registering the same token removes the first user's row (D137)
+- **Given** user `ana` registered the Expo token `ExponentPushToken[abc]`
+- **When** user `bruno` signs in on the same phone and POSTs that token to `/api/notifications/device`
+- **Then** `bruno` has the only row for that token, and `ana`'s row is gone, so her pushes no longer reach that phone
+- **And** `bruno` posting it again still leaves exactly one row, his
+- **And** `ana`'s rows for OTHER tokens (her other devices) are untouched
+
+#### MESSAGING-PUSH-NOTIFICATIONS-25: Two registrations of one token at once keep one row (PAD-652)
+- **Given** user `ana` with no row for `ExponentPushToken[abc]`
+- **When** two POSTs of that token to `/api/notifications/device` reach their insert at the same moment
+- **Then** both answer 200
+- **And** `ana` has exactly one row for that token
+- **And** when an insert collides with a row written after its lookup, the response is still 200 and that row takes this request's platform
+
+#### MESSAGING-PUSH-NOTIFICATIONS-26: A push opened on the wrong account says so (D137)
+- **Given** a phone signed in as `bruno` that still receives a push for conversation 176, where `bruno` is not a participant
+- **When** the tap opens the thread and `GET /api/app/conversation/176` answers 403
+- **Then** the thread shows "This conversation belongs to another account" / "Esta conversa pertence a outra conta" (true of every 403: a push for another account, a stale link, a thread the user left) with no Retry, since a retry can never succeed, instead of the generic "couldn't load" error
+- **And** on web, opening `/messages/176` from a notification when the fetch answers 403 shows the same message
+
+#### MESSAGING-PUSH-NOTIFICATIONS-27: Logout unregisters the push token before the session ends (PAD-418)
+- **Given** a signed-in user whose phone registered push token `ExponentPushToken[abc]`
+- **When** they log out
+- **Then** their row for that token is removed while their session is still valid: `/auth/logout` carries the token and deletes the row in the same request (`auth.logout` rule 4), and the separate `DELETE /api/notifications/device {token}` goes first as the fallback, so the phone stops receiving their pushes
+- **And** an unregister or a `/auth/logout` that hangs or fails never holds logout for more than a few seconds; logout still clears the stored token
+
+#### MESSAGING-PUSH-NOTIFICATIONS-28: Push is sent off the calling thread and never holds the engine (PAD-294)
+- **Given** a student with a registered device token and a push service that answers after 300 ms
+- **When** the engine sends them a system message
+- **Then** `_send_system_message` returns before the push round trip completes, the HTTP call runs on the sender's worker thread, and the push is still delivered with the same payload
+- **And** when the push service answers `DeviceNotRegistered`, the token row is deleted by the worker
+- **And** when the queue is full, the push is dropped with a warning and the caller is not blocked
+
+#### MESSAGING-PUSH-NOTIFICATIONS-29: The sender drops the oldest push, pauses on a provider outage, keeps a re-subscribed browser (PAD-294 review)
+- **Given** the worker is busy and the queue is full
+- **When** one more push is submitted
+- **Then** the oldest queued push is dropped with a warning naming it and the new one is queued
+- **Given** three deliveries in a row took longer than 8 s
+- **When** the next push is submitted
+- **Then** it is dropped with a warning and nothing is queued until the 60 s pause ends
+- **Given** a web push answered 410 while the browser had already re-subscribed on the same row
+- **When** the cleanup runs
+- **Then** the row with the new endpoint is kept
+
+#### MESSAGING-PUSH-NOTIFICATIONS-30: The Expo payload and the device route are Android-ready (PAD-307)
+- **Given** a recipient with a registered device token and `EXPO_ACCESS_TOKEN` unset
+- **When** a push is sent
+- **Then** each message posted to the Expo API carries `channelId: "default"` and `priority: "high"` next to `to`, `title`, `body` and `data`, and the request has no `Authorization` header
+- **And** with `EXPO_ACCESS_TOKEN=abc` the same request carries `Authorization: Bearer abc` and an otherwise identical body
+- **Given** a signed-in user registering a device token
+- **When** `platform` is `android`
+- **Then** the row is stored with `platform = "android"`, and re-registering the same token with `ios` updates it
+- **And** `platform` missing, empty, or any other value (`web`, `IOS`) answers 400 and stores nothing
+
+#### MESSAGING-PUSH-NOTIFICATIONS-31: Firebase config only when asked for, and never missing when asked (rule 11e, PAD-355)
+- **Given** `LEVAPP_ANDROID_FCM` unset, and a `google-services.json` at `docs/infra/`
+- **When** the Android prebuild config is resolved
+- **Then** it has no `googleServicesFile`
+- **And** with `LEVAPP_ANDROID_FCM=1` and `GOOGLE_SERVICES_JSON=/tmp/gs.json` (present) it is `/tmp/gs.json`; with the flag and no variable it is the `docs/infra/` copy
+- **And** with the flag and no file at the resolved path the prebuild fails with an error naming `google-services.json` and the path

@@ -1,0 +1,347 @@
+---
+id: auth.password-recovery
+status: draft
+depends_on: [auth.login, auth.email-verification]
+implements: ../../promises/auth/newcomer-signs-up-on-their-own.business.md
+governed_by: [R-022, R-024]
+---
+
+# auth.password-recovery
+
+### Intent
+A coach or student who forgot their password, their username, or both gets back into their
+account on their own, from the login screen, on web and on iOS. They type the email on the
+account; a 6-digit code and the username arrive in that inbox; the code plus a new password
+signs them in. Until PAD-139 the only recovery path was a legacy server-rendered
+`/auth/forgot_password` route whose mail template no longer existed, whose 5-digit code was
+stored in clear with no expiry, and which no client linked to — a locked-out user had no way
+back at all.
+
+### Entities
+- **WRITES:** User — new columns `password_reset_code_hash` (string, nullable),
+  `password_reset_expires_at` (datetime, nullable), `password_reset_sent_at` (datetime,
+  nullable), `password_reset_attempts` (int, server default 0); `password`; `email_verified_at`.
+  The legacy `generated_code` column is no longer read or written by any route (it is still
+  scrubbed on account deletion) and is dropped in a later cleanup migration.
+- **READS:** User
+
+### Rules
+1. **One token model.** The recovery code replaces the legacy `generated_code` flow: the
+   server-rendered `forgot_password`, `verify_generated_code` and `generate_new_code` routes and
+   their templates are removed, so there is exactly one recovery mechanism in the app. The code
+   follows `auth.email-verification` rule 3: 6 digits from a CSPRNG, stored only as an
+   HMAC-SHA256 keyed by `SECRET_KEY`, valid for 15 minutes, dead after 5 wrong attempts,
+   replaced by every new request, and **single-use**: a successful confirm clears it.
+2. **Recovery is by email.** `POST /api/auth/password-recovery/request` `{"email": "…"}`
+   (no JWT) looks the address up case-insensitively. Whether or not a user with that email
+   exists, and whether or not a code was actually issued, the response is 200
+   `{"ok": true, "expiresInSeconds": 900, "resendAvailableInSeconds": 60}` — the response
+   never reveals whether the email belongs to an account. A syntactically invalid email is the
+   only 400 (`{"error": "INVALID_EMAIL"}`), because that reveals nothing.
+3. **What gets sent.** When the email belongs to a user, one mail goes to that address carrying
+   the username **and** the code, so a person who forgot their username gets it from the same
+   flow with no separate "forgot username" endpoint. Subject
+   `Recuperar o acesso à tua conta LevApp` / `Recover access to your LevApp account`, in the
+   user's `language`. Branded HTML plus a plain-text alternative, rendered by
+   `padel_app/tools/email_templates.py`; pt-PT, *tu*, no emoji; "valid for 15 minutes",
+   "if this wasn't you, ignore this email — your password has not changed". It is sent through
+   `email_tools.send_email`, so the outbox capture (`auth.email-verification` rule 11) and the
+   recipient allowlist (rule 12) apply unchanged. The code is committed first and the mail goes
+   out after the commit, off the request thread (PAD-734), so the 200 never waits for the mail
+   server. A transport failure or timeout is logged and recorded on engine health, the answer is
+   still 200 (rule 2), and the stored code is cleared, unless a newer code has replaced it.
+   **3a. Every send leaves a trace (PAD-781).** A sent mail logs one INFO line
+   `recovery mail to user <id> sent`; a failed one logs the WARNING `recovery mail to user <id>
+   failed: <ExceptionClass>`. Neither line carries the address (B-254). A failed send clears the
+   code and its expiry but keeps `password_reset_sent_at` as the time of the attempt, so the failure
+   is still readable after the code is gone; that time only holds the rule-4 cooldown, as a
+   successful send's would. A mail lost in flight (a restart before the thread ran) is the one case
+   with neither line: the attempt's time is stored and no `sent`/`failed` line follows it.
+4. **Per-email cooldown.** A second request for the same email less than 60 seconds after a
+   mail was sent issues nothing and sends nothing, but still answers 200 with the same body.
+   The client shows the countdown from `resendAvailableInSeconds` on its own clock. A
+   per-IP throttle is PAD-228's job and layers on top.
+5. **Who can recover.** Any user with an email and a password, whatever their
+   `emailVerification` state — the address on the account is the only one there is, and
+   receiving the code proves possession of it exactly as the verification code does. A user
+   with no email (some coach-created players) cannot recover on their own; their coach resets
+   the password (`players.*`). A `disabled` user gets no mail.
+   **5a. A request that sends nothing says why, in the log only (PAD-781).** A request whose
+   address matches no recoverable user, or that falls inside the rule-4 cooldown, logs one INFO
+   line `recovery request sent nothing: <reason>` with the reason class `no_user`, `no_password`,
+   `disabled` or `cooldown`, never the address. The response stays the standard 200 (rule 2).
+   **5b. An account with no password is told what to do instead, in the mail only (PAD-782).**
+   Two kinds of account have an email and no password: one created through Google or Apple sign-in
+   (`auth.social-sign-in`), and a coach-created student who never finished the invite
+   (`players.invite-completion`, status `inactive`). A request for such an address still answers
+   the one standard 200 (rule 2) and issues no code, but one mail goes to the address:
+   - a Google/Apple account is told it signs in with that provider (named), and where to tap on the
+     sign-in screen; subject `A tua conta LevApp entra com o Google` / `Your LevApp account signs in
+     with Google`;
+   - an unfinished invite gets a fresh pending invitation (7 days, issued by the coach of the
+     student's latest invitation, else the coach whose roster holds them) and its link
+     `/invite/player/<token>`; subject `Termina a tua conta LevApp` / `Finish your LevApp account`.
+     Earlier invitations stay as they are.
+   The address is confirmed as known only inside its own inbox, so nothing leaks on screen, and the
+   web and iOS screens are unchanged. The per-email cooldown of rule 4 applies to this mail too
+   (`password_reset_sent_at`). A `disabled` account, and a passwordless account that is neither kind
+   (or a student no coach can invite), get nothing. A help mail that goes out logs
+   `recovery help mail to user <id> sent` (rule 3a); one that does not logs the rule-5a reason
+   (`disabled`, `cooldown`, or `no_password`).
+6. `POST /api/auth/password-recovery/confirm` `{"email": "…", "code": "123456",
+   "newPassword": "…"}` (no JWT). Checks run in this order and the first failure answers:
+   - `newPassword` shorter than 8 characters → 400 `{"error": "WEAK_PASSWORD"}` (the
+     registration minimum, `auth.register`); never consumes an attempt.
+   - `code` not exactly 6 digits after trimming → 400 `{"error": "INVALID_CODE",
+     "attemptsLeft": n}`; never consumes an attempt.
+   - unknown email, no code issued, expired, or exhausted → 410 `{"error": "CODE_EXPIRED"}` —
+     the same answer for an email that has no account, so the confirm step leaks nothing
+     either.
+   - wrong code → 400 `{"error": "INVALID_CODE", "attemptsLeft": n}`; the 5th wrong attempt
+     clears the code and the right one is 410 from then on.
+   - match → the password is replaced (bcrypt, as `auth.register`), the code, expiry, sent-at
+     and attempts are cleared, `email_verified_at` is set if it was null (the person just
+     proved the address), and the response is 200 with the same body as `POST /api/auth/login`
+     (`accessToken` + `user`), so the client signs the person in without a second round trip.
+7. **Entry point on the login screen (web and iOS, R-024).** `auth.login` gains a
+   **Forgot your password?** link under the sign-in button (`data-testid`
+   `auth-forgot-password` on web, `testID` `login-forgot-password` on iOS) that opens the
+   recovery flow: `/forgot-password` on web, the `forgot-password` screen on iOS. The copy on
+   the recovery screen says the mail also carries the username, so "I forgot my username" is
+   the same tap.
+8. **The recovery screen (web and iOS).** Step 1: an email field and **Send code**; on submit
+   it always moves to step 2 and says "If that email has an account, we sent a code" — never
+   "no account with that email". Step 2, on the same route: the six code cells of
+   `auth.email-verification` rule 8 (numeric keyboard, one-time-code autofill, paste), a
+   **New password** field with the registration minimum, **Sign in**, **Send a new code**
+   (disabled with a 60-second countdown after each send, then re-requests for the same email)
+   and **Back to sign in**. A wrong code shows the attempts left under the cells; a 410 says the
+   code is no longer valid and points at **Send a new code**; a `WEAK_PASSWORD` is shown under
+   the password field. On success the client stores the token, refreshes `/me` and routes
+   exactly as a fresh login does (`auth.register` rule 11 / `postLoginLanding`), with a
+   "Password changed" toast.
+9. **Test transport.** The E2E suites read the code with the existing
+   `GET /api/auth/email-verification/debug/last-code?email=` route (`auth.email-verification`
+   rule 11): the recovery mail's text body carries the same 6-digit shape, and the route is
+   flag-gated and unauthenticated by design.
+10. **Per-IP throttle (PAD-228).** `POST /api/auth/password-recovery/request` and `/confirm` share one bucket, throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_RECOVERY` (`"count/seconds"`, default `5/600`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is the first `X-Forwarded-For` entry when present (Cloud Run sits behind a load balancer), else `remote_addr`. The store is in-process (prod runs one gunicorn worker); a restart empties it. This is the per-IP layer on top of the
+    per-email cooldown of rule 4, and it caps code guessing across many emails.
+11. **A code belongs to the address it was sent to (PAD-498, B-276).** Rule 6 marks the account's email
+    verified on success, because the person just proved they read mail at that address. So the code is
+    **bound to that address**: the address it was mailed to (trimmed, lower-cased) is part of the HMAC
+    input, and confirm checks the code against the account's address at that moment. A code therefore
+    never confirms once the account's address is a different one, whatever order the writes land in —
+    including an email change committed while the code's mail is still being sent. As defence in depth,
+    any ORM write that changes or clears the account's email also discards the pending code at once (a
+    `set` listener on `User.email`); re-saving the same address in another case is not a change. The
+    one writer outside the ORM, `backend/scripts/sync-staging-db.sh` (the bulk email rewrite on the
+    staging copy after each deploy), clears both this code and the email-verification code in the same
+    statement. A recovery requested and confirmed on an unchanged address is unaffected. **At deploy:**
+    a recovery code issued before this change no longer matches — its confirm answers 400
+    `INVALID_CODE` and uses up an attempt (not 410); the person asks for a new code (the old one would
+    have expired within 15 minutes anyway).
+12. **One stored form of an email (PAD-781).** Every lookup by email compares a trimmed, lower-cased
+    address with `lower(users.email)`, so a stored address with a space around it never matched:
+    recovery answered its 200 and sent nothing, and login by email failed the same way. Every writer
+    of `users.email` that takes the address from a person stores it trimmed and lower-cased through
+    one helper (`padel_app/utils/emails.normalise_email`): sign-up and the coach-invite accept
+    (`registration_service.normalised_email`), the profile edit, the coach-created student
+    (`create_incomplete_player_service`) and the student's invite accept. A blank address is no
+    address (null). Existing rows are rewritten once by a data migration that skips any row whose
+    normalised form another account already holds, keeps every original value it changes so the
+    downgrade restores them, and is a no-op on a second run.
+
+### Acceptance Criteria
+
+#### AUTH-PASSWORD-RECOVERY-1: A recovery code does not survive an email change (rule 11, PAD-498)
+- **Given** a recovery code was mailed to the account's address
+- **When** the account's email is changed, or cleared and then set again, before the code is used
+- **Then** the code no longer confirms (410 `CODE_EXPIRED`), the new address is not marked verified,
+  and the password is unchanged
+
+#### AUTH-PASSWORD-RECOVERY-2: A code issued while the address changes does not confirm on the new one (rule 11)
+- **Given** a recovery code is issued and, before its own write commits, another request changes the
+  account's email
+- **When** the code is confirmed against the new address
+- **Then** it is refused, the new address is not marked verified, and the password is unchanged
+
+#### AUTH-PASSWORD-RECOVERY-3: A recovery on an unchanged address is unchanged (rule 11)
+- **Given** a recovery code was mailed to the account's address, which has not changed
+- **When** it is confirmed with a new password
+- **Then** the password is reset, the user is signed in and the address is marked verified, as before
+
+#### AUTH-PASSWORD-RECOVERY-4: Request issues a code and mails the username
+- **Given** user `ana` with email `ana@example.com`, username `ana.silva`, `language` `pt` and a captured mail transport
+- **When** POST `/api/auth/password-recovery/request` with `{"email": "Ana@Example.com"}`
+- **Then** the response is 200 `{"ok": true, "expiresInSeconds": 900, "resendAvailableInSeconds": 60}`
+- **And** exactly one mail was sent to `ana@example.com` whose subject is `Recuperar o acesso à tua conta LevApp` and whose text body contains `ana.silva` and a 6-digit code
+- **And** the stored `password_reset_code_hash` is not the code and `password_reset_expires_at` is 15 minutes after `password_reset_sent_at`
+
+#### AUTH-PASSWORD-RECOVERY-5: Unknown email answers exactly like a known one
+- **Given** no user with email `nobody@example.com`
+- **When** POST `request` with that email
+- **Then** the response is 200 with the same body as for a known email, and no mail is sent
+- **When** POST `request` with `{"email": "not-an-email"}`
+- **Then** the response is 400 `INVALID_EMAIL`
+
+#### AUTH-PASSWORD-RECOVERY-6: Confirm sets the password and signs in
+- **Given** `ana` with a code issued at 10:00 and old password `OldPass123`
+- **When** at 10:05 she POSTs `confirm` with the code and `newPassword` `NewPass456`
+- **Then** the response is 200 with an `accessToken` and `user.id` equal to hers
+- **And** `POST /api/auth/login` with `NewPass456` is 200 and with `OldPass123` is 401
+- **And** the hash, expiry, sent-at and attempts are cleared, and `email_verified_at` is set
+
+#### AUTH-PASSWORD-RECOVERY-7: A code is single-use
+- **Given** `ana` just confirmed with code A
+- **When** she POSTs `confirm` again with code A and another password
+- **Then** the response is 410 `CODE_EXPIRED` and the password is unchanged
+
+#### AUTH-PASSWORD-RECOVERY-8: Expired code
+- **Given** `ana` with a code issued at 10:00
+- **When** at 10:16 she POSTs `confirm` with the correct code
+- **Then** the response is 410 `CODE_EXPIRED` and her password is unchanged
+
+#### AUTH-PASSWORD-RECOVERY-9: Wrong code counts attempts and locks on the fifth
+- **Given** `ana` with a valid code
+- **When** she POSTs `confirm` with a wrong code four times
+- **Then** each response is 400 `INVALID_CODE` with `attemptsLeft` 4, 3, 2, 1
+- **When** she POSTs a wrong code a fifth time
+- **Then** the response is 400 with `attemptsLeft: 0`, and the *correct* code is now 410 `CODE_EXPIRED`
+
+#### AUTH-PASSWORD-RECOVERY-10: Confirm for an unknown email looks like an expired code
+- **Given** no user with email `nobody@example.com`
+- **When** POST `confirm` with that email, code `123456` and password `NewPass456`
+- **Then** the response is 410 `CODE_EXPIRED`
+
+#### AUTH-PASSWORD-RECOVERY-11: Weak password and malformed code do not consume an attempt
+- **Given** `ana` with a valid code and 5 attempts left
+- **When** she POSTs `confirm` with the right code and `newPassword` `short`
+- **Then** the response is 400 `WEAK_PASSWORD` and the code still has 5 attempts
+- **When** she POSTs `confirm` with code `12 34` and `NewPass456`
+- **Then** the response is 400 `INVALID_CODE` with `attemptsLeft: 5`
+- **And** POSTing ` <the right code> ` with spaces around it and `NewPass456` is 200
+
+#### AUTH-PASSWORD-RECOVERY-12: Cooldown does not resend and does not leak
+- **Given** `ana` requested a code at 10:00:00
+- **When** she POSTs `request` at 10:00:30
+- **Then** the response is 200 with the standard body and no second mail is sent, and the first code still confirms
+- **When** she POSTs `request` at 10:01:00
+- **Then** a second mail is sent, the first code is now a wrong code (400 `INVALID_CODE`) and the new one confirms
+
+#### AUTH-PASSWORD-RECOVERY-13: Mail failure still answers 200 and leaves no code
+- **Given** `send_email` raises
+- **When** `ana` POSTs `request`
+- **Then** the response is 200 with the standard body and `password_reset_code_hash` is null
+
+#### AUTH-PASSWORD-RECOVERY-14: A hung mail server does not hold the recovery (rule 3, PAD-734)
+- **Given** `ana734` has an email and a password, and the mail server accepts and never answers
+- **When** POST `/api/auth/password-recovery/request` with her email
+- **Then** the response is the standard 200 within 2 seconds and her code hash is stored, committed
+  before the send began
+- **And** when the send then times out, she has no code stored, `password_reset_sent_at` still
+  holds the attempt's time (rule 3a), and an `email_failed` incident names her on engine health
+
+#### AUTH-PASSWORD-RECOVERY-15: A failed mail does not clear a newer code (rule 3, PAD-734)
+- **Given** a recovery mail whose send fails after a newer code replaced the one it carried
+- **When** the failure's cleanup runs
+- **Then** the newer code is still stored
+
+#### AUTH-PASSWORD-RECOVERY-16: A sent recovery mail leaves an INFO line (rule 3a, PAD-781)
+- **Given** `ana` with an email and a password
+- **When** she POSTs `request` and the mail is sent
+- **Then** the log has exactly one `recovery mail to user <her id> sent` line and no line carries her address
+
+#### AUTH-PASSWORD-RECOVERY-17: A failed send keeps the attempt's time (rule 3a)
+- **Given** `send_email` raises
+- **When** `ana` POSTs `request` at 10:00
+- **Then** her code hash and expiry are null and `password_reset_sent_at` is 10:00
+- **And** a request at 10:01:01 issues and sends a new code
+
+#### AUTH-PASSWORD-RECOVERY-18: A request that sends nothing logs the reason (rule 5a, PAD-781)
+- **Given** no account for `nobody@example.com`, a coach-created player with no password, a `disabled` user, and `ana` who requested 30 seconds ago
+- **When** each POSTs `request`
+- **Then** each response is the standard 200, no mail is sent, and the log has one `recovery request sent nothing: <reason>` line with `no_user`, `no_password`, `disabled` and `cooldown` respectively, never the address
+
+#### AUTH-PASSWORD-RECOVERY-19: A padded, mixed-case address recovers (rule 12, PAD-781)
+- **Given** a coach creates a student with email ` End.To.End@Example.COM ` and the student accepts the invite
+- **When** POST `request` with `end.to.end@example.com`
+- **Then** the stored email is `end.to.end@example.com` and one mail is sent to it
+#### AUTH-PASSWORD-RECOVERY-20: A Google or Apple account is told how it signs in (rule 5b, PAD-782)
+- **Given** an account with email `sofia@example.com`, no password and a Google identity, `language` `pt`
+- **When** POST `request` with `Sofia@Example.com`
+- **Then** the response is the standard 200, and one mail goes to `sofia@example.com` with subject
+  `A tua conta LevApp entra com o Google`, a link to `/auth`, and no 6-digit code
+- **And** POST `confirm` with any code for that address is 410 `CODE_EXPIRED`
+
+#### AUTH-PASSWORD-RECOVERY-21: An unfinished invite gets a fresh invite link (rule 5b, PAD-782)
+- **Given** a coach-created student with email `ines@example.com`, no password, status `inactive`, whose invitation has expired
+- **When** POST `request` with that email
+- **Then** the response is the standard 200, and one mail with subject `Termina a tua conta LevApp`
+  carries `/invite/player/<token>` for a new pending invitation from the same coach, valid 7 days
+- **And** accepting that link with a username and password activates the account
+- **And** a second request 30 seconds later sends nothing and issues no other invitation
+
+#### AUTH-PASSWORD-RECOVERY-22: Users without an email or disabled get nothing
+- **Given** a coach-created player with no email, and a `disabled` user with email `off@example.com`
+- **When** POST `request` for `off@example.com`
+- **Then** the response is 200 and no mail is sent
+
+#### AUTH-PASSWORD-RECOVERY-23: Too many recovery calls from one IP are throttled
+- **Given** `AUTH_RATE_LIMIT_RECOVERY` is `2/600` and `ana` has a valid code
+- **When** IP `203.0.113.7` POSTs `request` once and `confirm` with a wrong code once, then `confirm` with the right code
+- **Then** the third call is 429 `RATE_LIMITED` with `retryAfterSeconds`, the password is unchanged and no attempt was consumed
+- **And** the same `confirm` from `203.0.113.8` is 200
+
+#### AUTH-PASSWORD-RECOVERY-24: The legacy routes are gone
+- **Given** the app
+- **When** GET `/auth/forgot_password`
+- **Then** the response is 404
+
+#### AUTH-PASSWORD-RECOVERY-25: Web: forgot password from the login screen
+- **Given** a visitor on web `/auth` with `E2E_DEBUG_ENDPOINTS` on and the seeded coach `e2e-coach`
+- **When** they click **Forgot your password?**
+- **Then** they are on `/forgot-password` with an email field
+- **When** they submit the seeded coach's email
+- **Then** the code step is shown with the neutral "if that email has an account" copy and six code cells
+- **When** they type a wrong code and a valid new password and submit
+- **Then** the wrong-code message shows "4 attempts left"
+- **When** they type the code read from the debug route and the new password
+- **Then** they land where a fresh login lands (the dashboard) and the "Password changed" toast is shown
+- **And** signing out and signing in with the new password works, and the old one is refused
+
+#### AUTH-PASSWORD-RECOVERY-26: Web: an unknown email shows the same code step
+- **Given** a visitor on `/forgot-password`
+- **When** they submit `nobody@example.com`
+- **Then** the code step is shown with the same neutral copy and no error
+
+#### AUTH-PASSWORD-RECOVERY-27: iOS: same flow
+- **Given** the iOS login screen
+- **When** the user taps **Forgot your password?**, submits the seeded coach's email, types the code from the debug route and a new password
+- **Then** they land on the dashboard, and the seeded password is restored by the flow so later flows still sign in
+
+### Notes
+- Linear: PAD-139. Decision: a mailed code, not a link, for the reason `auth.email-verification`
+  records — the person is on the device they will use, and a link opens a browser and loses the
+  app. Decision: username recovery is folded into the same mail rather than a separate
+  "forgot username" endpoint; a separate endpoint would have had to answer "we sent it" for
+  unknown addresses too and would have doubled the surface for PAD-228 to throttle.
+- Decision: recovery does not require a verified email (rule 5). A pending self-signup who
+  forgot their password would otherwise be locked out of the very screen that verifies them.
+- Decision: the legacy routes are removed rather than retargeted — their mail template was
+  already missing, nothing linked to them, and keeping two entry points is what the ticket asked
+  not to do.
+- Per-IP throttling: rule 10 (PAD-228).
+- PAD-781 (B-707): rules 3a, 5a and 12. Before, a successful send logged nothing, a request that
+  matched nobody logged nothing, and a failed send cleared `password_reset_sent_at`, so after the
+  15-minute window "never attempted", "sent" and "lost in flight" looked the same. Prod on 30/10:
+  one stored address differed from its normalised form (case only), none padded, none colliding.
+- PAD-782 (B-708), rule 5b. Decision ASSUMED, not confirmed: the ticket offered (a) keep the silent
+  200 and send an explanatory mail, or (b) let a social account set a password through the code.
+  The owner had not answered by 2026-10-30; the coordinator chose (a), the ticket's recommendation,
+  because it costs no enumeration. Reverse it here if the owner picks (b).
+- Reach on prod, read 2026-10-30: 0 accounts. Every passwordless account on prod has no email,
+  there is no Google/Apple identity yet, and there is no pending invitation, so no request today
+  takes the 5b path. It becomes real when (1) Google/Apple sign-in reaches users, or (2) a coach
+  creates a student with an email who does not finish the invite.
+- OPEN: revoking other sessions on password change (JWTs are 30-day and there is no per-user
+  blocklist) — not in v1.

@@ -1,0 +1,88 @@
+---
+id: eligibility.student-discovers-open-spots
+status: implemented
+implemented_by:
+  - ../../impl/eligibility/open-spot-visibility.spec.md
+---
+
+# Student discovers open spots
+
+## Outcome
+
+A student can spot a class they could join right inside the calendar they already use — no
+separate browse screen — but only if their coach has chosen to advertise it, and only for classes
+they're actually eligible for. It shows up as visually distinct from their own enrolled classes, so
+there's no confusion about which is which.
+
+## Who This Is For
+
+A student who wants to find a class with room, on their own initiative, without waiting to be
+invited — and a coach deciding whether they want their open spots advertised at all.
+
+## User Journey
+
+1. A coach who wants students to be able to find open spots on their own turns on "make empty spots
+   visible" — either as their standard, or for just one recurring class or occurrence.
+2. A student who's eligible for that class opens their calendar and sees it appear alongside their
+   own enrolled classes, but in a distinctly different color, clearly marked as a spot they could
+   join rather than one they're already in. Their own classes carry a ✓, so telling the two
+   apart never depends on colour alone (PAD-578).
+3. A student who isn't eligible for that class — too far below its level, say — never sees it at
+   all; visibility and eligibility are checked together.
+4. A class that's already happened or been canceled never shows up as an open spot, whether or not
+   visibility is on. A class that's **full** shows up in amber, marked "Cheia", and opening it
+   offers to join its waiting list (PAD-664) — it's never offered as a spot to take.
+5. If a coach hasn't turned visibility on anywhere, nothing changes for their students — the
+   calendar shows exactly the classes they're enrolled in, same as always.
+6. **(PAD-664)** The student can narrow the calendar to "Só as minhas aulas", which hides the
+   offers (open and full classes) but never an invitation waiting for an answer. The app remembers
+   the choice on that device; the default shows every class they're eligible for.
+
+## Business Rules
+
+- Visibility is a coach-controlled toggle, and it cascades the same way the eligibility bar itself
+  does: a coach standard, overridable per recurring series and per single occurrence, most specific
+  wins.
+- **A private class is not shown to students by default (PAD-429, owner, 2026-09-24).** Its open
+  spots stay out of students' calendars and out of the "book a class" list, whatever the coach's
+  standard says, unless the coach makes that class (or that date) visible. An academy class
+  follows the coach's standard as before. This holds for private classes that already exist, too:
+  it is worked out from the class type, never written onto the classes, and a visibility choice
+  a coach already made for a class is kept.
+- A class only ever counts as "open" if it genuinely has room — the same capacity measure the rest
+  of the calendar already uses, whether or not that occurrence has been created as a concrete
+  record yet.
+- A student only ever sees open spots for a coach they're already on the roster of — this never
+  surfaces another coach's classes.
+- A student's own availability preferences (blocking certain hours) hide them from being *solicited*
+  about a class, but never hide the class from their own discovery — since here the student is the
+  one initiating.
+- Looking at the calendar never creates anything — no class record is materialized and no data
+  changes just because a student looked.
+- Open spots are only shown in an app version that knows what they are. A student still on an older
+  App Store version sees just their own classes, with no open spots and no way to open one, until
+  they update. Those versions would draw an open spot as one of the student's own bookings, and
+  showing nothing is better than showing that. This is temporary and lifts once nobody uses those
+  versions any more.
+- **The difference never rests on colour alone (PAD-578, owner, 2026-10-09).** A student's own
+  classes carry a ✓ mark and an open spot carries its "Vaga" chip — on the day cards and in the
+  week grid, on web and on the phone apps — and the desktop calendar's legend explains both.
+  ~~The student's own classes keep their coach's colour.~~ **Superseded by PAD-664 (owner,
+  2026-10-13):** on the student's calendar the colour says what a class is to them — blue for
+  their own, grey for a class with a spot, amber for a full class (waiting list only) — with the
+  ✓, the outline and a word on each card as the second signal, and a legend on every screen size
+  listing the states currently shown. The coach's calendar keeps the coach's colours.
+
+## Success Metrics
+
+Not yet measured.
+
+## Out of Scope
+
+- Requesting to join, or being enrolled — this outcome covers discovery only; the join mechanism
+  itself lives in the `classes` domain.
+- Whether the student is actually eligible — that's decided by the bar the coach set, see "Coach
+  sets the eligibility bar".
+
+## Notes
+- None.

@@ -1,0 +1,204 @@
+---
+id: auth.login
+status: implemented
+depends_on: []
+implements: ../../promises/auth/coach-signs-in-and-stays-connected.business.md
+governed_by: []
+---
+
+# auth.login
+
+
+### Intent
+Allow users to authenticate with username/email and password, receiving a JWT token for subsequent API calls.
+
+### Entities
+- **User** (`users`): name, username, email, phone, password (hashed), is_admin, is_superadmin, status (inactive|active|disabled), user_image_id, language (`pt`|`en`, default `pt` — preferred locale; see settings.language)
+- **TokenBlocklist** (`token_blocklist`): jti (JWT ID), created_at
+
+### Rules
+1. Login accepts `username` (or email) + `password`
+1a. **A username signs in in any case (PAD-799, `auth.register` rule 2a).** The typed username is
+   resolved by the exact spelling first, else by the one account whose username matches ignoring
+   case. Until the stored usernames are lowercased (rule 2a's migration), two accounts that differ
+   only by case each sign in with their own spelling, and a spelling that matches both ignoring
+   case finds nobody (the ordinary 401). The sign-in field on web, iOS and Android is never
+   auto-capitalised or auto-corrected and sends what was typed.
+2. Password is verified against bcrypt hash stored in `users.password`
+3. Returns JWT access token with 30-day expiry
+4. Token is sent in the `Authorization` header. The `?token=` query string is accepted on the SSE
+   endpoint `/api/app/events` alone, because `EventSource` cannot set headers (R-009; PAD-269 —
+   until then the query string worked on every route and put tokens in access logs).
+4a. **No proxy logs the SSE token (B-182, PAD-435).** Every nginx in front of the API (the VM's host
+   nginx, `infra/nginx/`, and the web image's `frontend/apps/web/nginx.conf`) writes a request
+   whose query carries `token=` (or `access_token=`) to its access log with the query cut to
+   `?[redacted]`, and the SSE location logs to its error log only at `crit`, since an upstream
+   error writes the full request line at level `error`. Other requests keep their query in the
+   log. `infra/nginx/check-log-redaction.sh` proves it in Docker, and CI runs it.
+   **The admin console never takes a token in a URL:** a request to it whose query carries
+   `token`, `t` or `access_token` is a 404 before anything else. On the VM the host vhosts
+   (`infra/nginx/sites-available/levapp-admin*`) enforce it; on GKE the admin image's own
+   `frontend/apps/admin/nginx.conf` does, because the Gateway cannot answer a 404 from a route
+   (PAD-698). **On GKE no load-balancer log is kept** (`delivery.k8s-manifests` rule 4): it would
+   record the full URL.
+5. Token contains user identity (user_id)
+6. The login screen (web `/auth` and the iOS login screen) carries a **Forgot your password?** link under the sign-in button that opens `auth.password-recovery` (its rule 7).
+7. **Per-IP throttle (PAD-228).** `POST /api/auth/login` is throttled per client IP by `padel_app/utils/rate_limit.py`: at most N requests per window per IP, N/window from the config knob `AUTH_RATE_LIMIT_LOGIN` (`"count/seconds"`, default `20/60`; `"0"` or `AUTH_RATE_LIMIT_ENABLED=0` switches it off, which the E2E backends do). A request over the limit is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header and is not processed. The window slides; successful and failed requests count alike. The IP is `X-Real-IP`, which the host nginx sets from the connecting address (resolved from Cloudflare's `CF-Connecting-IP`); `X-Forwarded-For` is never read (PAD-554), and without a valid `X-Real-IP` the socket peer is the key. **The store (PAD-693)** is chosen by `AUTH_RATE_LIMIT_STORE`: `memory` (default; one store per process, a restart empties it) or `database` (the `auth_rate_limit_hits` table, shared by every process, so N processes still allow one budget in total). The database check runs on its own short transaction, so a hit counts even when the request later fails, and holds a per-key advisory lock across count-and-insert, so two processes can never both take the last slot. Hit times are wall-clock seconds passed in by the limiter's clock, never the database's `now()`. Rows older than the longest window (3,600 s) are pruned on about 1 check in 100. On a database that is not Postgres, `database` falls back to `memory` with one WARNING. If the store cannot be reached within 2 s the request is **served** and `auth rate limit store unavailable` is logged as a WARNING: a database hiccup never locks everyone out of signing in. Account lockout after repeated failures (B-002) stays out of scope.
+7a. **(PAD-693; rule number unconfirmed) Auth is JWT-only; there is no server-side session.** Web, iOS and the admin console authenticate with bearer JWTs; nothing reads or writes Flask's `session`, and Flask-Session is not installed. Flask's default signed-cookie session interface remains and stays unused: no session cookie is set by any route.
+8. **The launch animation plays only on success (PAD-186).** On web, the mark-forming overlay
+   (`LaunchOverlayProvider` / `launch-loader`) is started only after `POST /api/auth/login` has
+   answered 200 — never before the request goes out — so a wrong password, a throttled attempt or
+   a network error shows the error toast on the untouched form and the loader never mounts. The
+   session hydration and `/api/auth/me` still run behind the overlay. Web-only: the iOS app has no
+   sign-in animation (its launch animation runs at app start, `app/_layout.tsx`, not on login —
+   when it ends is `mobile.launch` rule 2, PAD-587), so
+   there is nothing to port (R-024 exception recorded here and in the PR).
+9. A rejected coach's correct credentials answer 403 `COACH_REJECTED` with the reason and no
+   token (`auth.coach-approval` rule 11); the login screens offer re-application (its rule 13).
+10. **No guardian branch any more (PAD-457; was PAD-198's guardian consent).** LevApp accepts adults
+    only and the guardian flow is removed, so login has no pending-consent answer. PAD-644 dropped
+    the `users.guardian_consent_status` column and with it the safety net that refused a `pending`
+    or `revoked` status at login and in the JWT loader; prod had the column NULL for every user (2026-10-12).
+    Only rule 12 (`disabled`) refuses an account now. Numbered 10 to stay clear of rules 6–9 added by PAD-139,
+    PAD-228, PAD-186 and PAD-233 in parallel branches.
+11. **An account with no password yet** (created by a coach, not activated) answers the ordinary
+    401 `Invalid credentials`, never a 500 — the 500 told a caller which usernames exist (PAD-269,
+    audit M11). Numbered 11 to stay clear of rules 6–10 in parallel branches.
+12. **Disabled accounts cannot sign in (B-053).** After the credentials check, a rejected coach
+    keeps rule 9's 403 `COACH_REJECTED` with the reason, which drives the re-application button.
+    Any other user with `status = disabled`, of either role, gets 401
+    `{"error": "ACCOUNT_DISABLED"}` and no token. That covers a deleted account (App Store
+    5.1.1(v)) and a minor whose guardian withdrew consent. Wrong credentials stay the ordinary 401
+    `Invalid credentials` and are checked first, so the status never leaks to a guesser. Before
+    this, the JSON route issued a token to a disabled account (the blocklist loader refused it on
+    the next request) and the legacy route opened a session. Numbered 12 to stay clear of rules 10
+    and 11 in open PRs.
+13. **No route accepts an empty password (PAD-645).** `POST /api/auth/login` is the only password
+    sign-in, and it answers 400 `Email and password required` to an empty password before any
+    account is looked up, whatever hash the account stores. The server-rendered `/auth/` blueprint
+    (index, register, login, logout) is deleted: its login checked `check_password_hash` with no
+    empty-password guard and no rate limit, so an account whose stored hash was hash("") opened a
+    Flask-Login session with "". Flask-Login is removed with it (nothing else read its session),
+    and no blueprint registers under `/auth/`.
+
+13. **The country, asked once after sign-in (PAD-630; Privacy Policy §1).** Accounts created before
+    the country was asked, and accounts completed by an App Store build that predates PAD-604, have
+    `country` null. When `GET /api/auth/me` answers `country: null`, web and iOS show a short,
+    dismissible dialog over the signed-in app — "Em que país vives?" with the `COUNTRIES` list of
+    `@levelup/config`, PT preselected — on any page except while a hold keeps the user (the email
+    code, a pending or rejected coach, club onboarding: whenever the route guards' own landing is
+    not the dashboard). "Guardar" sends `PATCH /api/auth/me {country}`, checked as sign-up checks it
+    (two letters, upper-cased; anything else, empty included, is 400 and nothing changes); "Agora
+    não" — and closing it any other way (Esc, a click outside, the close button, Android back) —
+    hides it on that device for 30 days. It is never shown once a country is stored. App Store
+    builds that predate it simply never show it; the server needs no capability.
+
+### Acceptance Criteria
+
+#### AUTH-LOGIN-1: A mixed-case username signs in (rule 1a, PAD-799)
+- **Given** an account `bernardo`, and an account saved earlier as `Joana`
+- **When** they sign in as `Bernardo` and as `joana`
+- **Then** each signs into its own account
+
+#### AUTH-LOGIN-2: Two accounts differing only by case each keep their spelling (rule 1a, PAD-799; until the migration)
+- **Given** accounts `Bernardo` and `bernardo`
+- **When** each signs in with its own spelling, and someone signs in as `BERNARDO`
+- **Then** each reaches its own account, and `BERNARDO` is 401
+
+#### AUTH-LOGIN-3: Successful login
+- **Given** a user with username `coach1` and password `SecurePass1!` exists with status `active`
+- **When** they POST to `/api/auth/login` with `{"username": "coach1", "password": "SecurePass1!"}`
+- **Then** the response status is 200
+- **And** the response body contains `{"accessToken": "<valid-jwt>"}`
+
+#### AUTH-LOGIN-4: Invalid credentials
+- **Given** a user with username `coach1` exists
+- **When** they POST to `/api/auth/login` with wrong password
+- **Then** the response status is 401
+
+#### AUTH-LOGIN-5: Too many logins from one IP are throttled
+- **Given** `AUTH_RATE_LIMIT_LOGIN` is `3/60` and no requests yet from `203.0.113.7`
+- **When** that IP POSTs `/api/auth/login` four times within a minute (right or wrong password)
+- **Then** the first three are processed and the fourth is 429 `{"error": "RATE_LIMITED", "retryAfterSeconds": n}` with a `Retry-After` header
+- **And** a POST from `203.0.113.8` in the same minute is processed
+- **And** once the window has passed the first IP is processed again
+
+#### AUTH-LOGIN-6: A failed login never shows the launch animation (PAD-186)
+- **Given** the web login form and a `/api/auth/login` that answers 401 after a delay
+- **When** the user submits a wrong password
+- **Then** while the request is in flight and after the error toast appears, no `launch-loader` element exists on the page
+- **When** the user submits the right password
+- **Then** the loader mounts after the 200 and the dashboard is revealed behind it
+
+#### AUTH-LOGIN-7: Rejected coach cannot log in (PAD-233)
+- **Given** coach `rui` rejected with reason "not a coach"
+- **When** they POST `/api/auth/login` with the right password
+- **Then** the response is 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
+
+#### AUTH-LOGIN-8: A disabled account gets a clear 401 (B-053)
+- **Given** a deleted student `ana` and a deleted approved coach `rui`, both `status = disabled`
+- **When** each POSTs `/api/auth/login` with the right password
+- **Then** each response is 401 `{"error": "ACCOUNT_DISABLED"}` with no `accessToken`
+- **And** with a wrong password each response is 401 `Invalid credentials`
+
+#### AUTH-LOGIN-9: A rejected coach still gets the reason (B-053)
+- **Given** rejected coach `rita` (`status = disabled`, reason "not a coach")
+- **When** she POSTs `/api/auth/login` with the right password
+- **Then** the response is still 403 `{"error": "COACH_REJECTED", "reason": "not a coach"}`
+
+#### AUTH-LOGIN-10: No route accepts an empty password (PAD-645)
+- **Given** an active student `ana645` whose stored password hash is hash("")
+- **When** anyone POSTs `/api/auth/login` with `{"username": "ana645", "password": ""}`
+- **Then** the response is 400 and carries no token
+- **And** POST `/auth/`, `/auth/login`, `/auth/register` and `/auth/logout` all answer 404, and no
+  URL rule starts with `/auth/`
+
+#### AUTH-LOGIN-11: A token in the query string is refused outside the SSE endpoint (PAD-269)
+- **Given** a valid access token for `coach1`
+- **When** they GET `/api/auth/me?token=<the token>` with no `Authorization` header
+- **Then** the response is 401
+- **And** GET `/api/app/events?token=<the token>` is accepted (200, `text/event-stream`)
+
+#### AUTH-LOGIN-12: No nginx log holds the SSE token (B-182)
+- **Given** the tracked host config (`infra/nginx/`) or the web image's `nginx.conf`, running in the VM's nginx image with the upstreams down
+- **When** `GET /api/app/events?token=<a canary>` reaches every vhost on every port it serves, followed by `GET /api/app/players?page=2`
+- **Then** the canary is in neither access.log nor error.log
+- **And** each SSE request is still logged, as `/api/app/events?[redacted]`, and the control request is logged with `?page=2`
+
+#### AUTH-LOGIN-13: An unactivated account is an ordinary 401 (PAD-269)
+- **Given** a coach-created user `bruno` with no password
+- **When** anyone POSTs `/api/auth/login` with `{"username": "bruno", "password": "anything"}`
+- **Then** the response is 401 `Invalid credentials`, not 500
+
+#### AUTH-LOGIN-14: Inactive user login
+- **Given** a user with status `inactive`
+- **When** they attempt to login
+- **Then** the response status is 401
+
+#### AUTH-LOGIN-15: An account without a country is asked once (rule 13, PAD-630)
+- **Given** a signed-in student whose `country` is null
+- **When** they sign in on the web or on iOS and no hold keeps them
+- **Then** the country prompt shows with PT selected; "Guardar" stores `PT` and the prompt never
+  shows again; "Agora não" hides it on that device for 30 days
+- **And** `PATCH /api/auth/me {country: "br"}` stores `BR`; `"Brazil"` is 400 and changes nothing
+- **And** a user whose country is set never sees the prompt
+
+#### AUTH-LOGIN-16: Two processes share one login budget (rule 7, PAD-693)
+- **Given** two app processes on one Postgres, both `AUTH_RATE_LIMIT_STORE=database`, and `AUTH_RATE_LIMIT_LOGIN` = `4/60`
+- **When** one IP sends 6 login requests alternating between the two processes
+- **Then** exactly 4 are processed and 2 answer 429 `RATE_LIMITED`
+- **And** with `memory` on both, all 6 are processed (each process keeps its own budget)
+
+#### AUTH-LOGIN-17: The database store slides like the memory store (rule 7)
+- **Given** `AUTH_RATE_LIMIT_STORE=database`, `AUTH_RATE_LIMIT_LOGIN` = `3/60`, the limiter clock at 1000
+- **When** an IP sends 3 requests, then a 4th
+- **Then** the 4th is 429 with `0 < retryAfterSeconds <= 60`, and at clock 1061 the IP is served again
+
+#### AUTH-LOGIN-18: No login sets a session cookie (rule 7a)
+- **Given** an active user
+- **When** they sign in through `POST /api/auth/login` (and an admin through `POST /admin/api/auth/google`)
+- **Then** no response carries a `Set-Cookie` header named `session`
+
+### Notes
+- Rate limiting: rule 7 (PAD-228, closes B-001).
+- OPEN: No account lockout after failed attempts

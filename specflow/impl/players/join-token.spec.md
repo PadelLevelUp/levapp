@@ -1,0 +1,192 @@
+---
+id: players.join-token
+status: implemented
+depends_on: [players.create, clubs.membership, auth.register, auth.login]
+implements: ../../promises/players/coach-builds-roster.business.md
+governed_by: []
+---
+
+# players.join-token
+
+### Intent
+A coach shows a QR code (or shares the same link) and any student with an account joins the
+coach's roster by scanning it. The token is coach-scoped, reusable and rotatable, so one code
+serves a whole class and a leaked one can be retired. This is the student-initiated half of what
+`players.add-existing` intended, and it needs no coach approval: the coach produced the code.
+
+### Entities
+- **CREATES:** CoachJoinToken (`coach_join_tokens`): coach_id (FK → coaches, CASCADE), club_id
+  (FK → clubs, CASCADE), token_hash (unique, indexed: the SHA-256 hex of a `secrets.token_urlsafe(32)` token; the token
+  itself is never stored, PAD-269), expires_at,
+  is_active (bool), uses (int, default 0), created_at
+- **READS:** Coach, Club, User, Player
+- **WRITES:** Association_CoachPlayer, Association_PlayerClub
+
+### Rules
+1. `POST /api/app/coach/join-token` — `require_coach()`. Deactivates the coach's current active
+   token (if any) and creates a new one bound to the coach and their `current_club`, expiring
+   in 7 days. Returns `{token, url, expiresAt, clubName}`, the only response that ever carries the
+   token. A coach with no club is 409 `NO_CLUB`.
+2. `GET /api/app/coach/join-token` — the coach's active, unexpired token as
+   `{active: true, expiresAt, clubName, uses}`, or `null`. It carries no token, path or url:
+   only the hash is stored (PAD-269), so a code can be shown only when it is minted.
+3. `url` is `<web origin>/join/coach/<token>`. PAD-184's universal links route
+   `/join/coach/:token` into the iOS app; the web page is the fallback.
+3a. **Every link and QR code a coach shares is built on the public web origin (PAD-595).** The
+   origin is this environment's `PUBLIC_WEB_ORIGIN` (levapp.app on prod, staging.levapp.app on
+   staging), served publicly by `GET /api/app/public-web-origin` → `{webOrigin}` (`null` when
+   unset). Web builds the join QR and link, the player invite link (`players.invite-completion`),
+   the activation link (`auth.activate`) and the coach invitation link (`clubs.coach-invitation`)
+   on it, never on `window.location.origin` — the old padellevelup.com domain still serves the
+   app, so a coach browsing there handed out old-domain links. While the origin is being read no
+   QR is drawn; when the server has none, or the read fails, the browser's own origin is used, so
+   rolling back is changing the variable. iOS builds the same links on its configured
+   `WEB_APP_URL` (levapp.app), the coach invitation link included. The old domain keeps
+   redirecting (PAD-595 step 2, nginx).
+4. `GET /api/app/join-tokens/<token>` is public: `{coachName, clubName, clubLogoUrl}` — enough for
+   the student to see who they are joining. 404 unknown; 410 inactive or expired (an expired
+   token is flipped to `is_active=false` on read, as invitations do).
+5. `POST /api/app/join-tokens/<token>/accept` — `@jwt_required()`. The acting user comes from
+   the JWT, never from the body. The user must have a Player row and no Coach row; a coach
+   account is 403. Creates `Association_CoachPlayer(coach_id, player_id)` with level/side/notes
+   null and `Association_PlayerClub(player_id, token.club_id)`, each only if missing. Increments
+   `uses`. Returns 200 `{joined: true, alreadyMember: <bool>, coachName, clubName}` —
+   idempotent.
+6. Rotation is the only revocation: a new `POST` retires the previous token (410 from then on).
+   A token is never deleted, so `uses` stays auditable.
+7. Coach UI — Players tab → "Add by QR" (web: dialog; iOS: sheet). Shows the QR (rendered
+   client-side from `url`, no server image), the URL as copyable text, the expiry, a Share
+   button on iOS, and "Generate new code" (rotate) with a confirm that the old one stops
+   working. With no live code the sheet mints one on open. With a live one (rule 2) it shows
+   when that code expires and how many students joined, and **Generate new code** to show a
+   fresh QR, saying that the current code stops working (PAD-269). Web and iOS.
+8. Student UI — "Connect with a coach" screen: reached after student signup (`auth.register`
+   rule 11), from the dashboard when the student has no coach, and from Settings → My
+   connections (PAD-287; it was Settings → Account). "Has
+   no coach" means `GET /api/auth/me` returns `coaches: []` — never inferred from an empty
+   calendar (a connected student with no classes this week was shown "Not connected to a coach
+   yet?", TestFlight 2026-09-07). It explains "scan your coach's QR with your camera, or paste the link here" and
+   accepts a pasted `/join/coach/<token>` URL. Web and iOS.
+8a. **The signed-in user is refreshed the moment a coach is linked (PAD-444, B-197).** Rule 8 reads
+   "has no coach" from the client's copy of `GET /api/auth/me`, which is loaded at sign-in and
+   sign-up. So when the student gets linked in the same session — a join accepted (rule 5) or a
+   coach's claim accepted (`players.claim`) — the client re-reads `/me` (`refreshUser`) right after
+   the server confirms, on web and iOS, before any screen that reads `coaches` is shown. Otherwise the
+   brand-new student's first dashboard still says "No coach yet?", which is exactly the QR onboarding
+   path. A failed refresh leaves the join itself standing; the next sign-in corrects the copy.
+9. Join page (`/join/coach/:token`): signed in as a student → preview (rule 4) with "Join
+   {coachName} at {clubName}" → accept (rule 5) → success state linking to the calendar. Not
+   signed in → the token is remembered, the visitor is sent to `/auth` (with "Create account"
+   and "Sign in"), and returned to the join page afterwards. Signed in as a coach → the page
+   explains coaches cannot join a coach's student base.
+   **(PAD-484) Wording.** The flow speaks of the coach's **base de alunos** / **student base**, never
+   "plantel" / "roster" — the join page, its success state, and the coach's join-code card. The
+   confirmation greets the student and says in one line what accepting means: "Bem-vindo! Ao
+   aceitares, passas a fazer parte da base de alunos de {coach}, que te pode adicionar às suas
+   aulas." / "Welcome! By accepting, you join {coach}'s student base, and they can add you to their
+   classes." The success title names the coach: "Estás na base de alunos de {coach}" / "You're in
+   {coach}'s student base".
+10. No in-app QR scanner in v1: the phone camera opens the universal link. Adding a scanner
+    needs a camera-permission string and App Store metadata — deferred.
+11. A player who joined this way appears in `players.list` with `validated: true`,
+    `isActive: true` and no level; the `missing_level` filter (`players.list` rule 5) is how
+    the coach finds them to set one. No new roster UI.
+
+### Acceptance Criteria
+
+#### PLAYERS-JOIN-TOKEN-1: Shared links and QR codes use the public web origin (rule 3a, PAD-595)
+- **Given** prod's `PUBLIC_WEB_ORIGIN=https://levapp.app` and a coach browsing the app at padellevelup.com
+- **When** they open "Adicionar por QR", create a player, copy an activation link or invite a coach to their club
+- **Then** the QR and every link read `https://levapp.app/...`, on web and on iOS
+- **And** with `PUBLIC_WEB_ORIGIN` unset, `GET /api/app/public-web-origin` answers `{webOrigin: null}` and web falls back to the browsed origin
+
+#### PLAYERS-JOIN-TOKEN-2: Coach mints a token bound to their current club
+- **Given** an authenticated coach whose current club is `Padel Academy`
+- **When** they POST `/api/app/coach/join-token`
+- **Then** a `coach_join_tokens` row exists with `is_active=true`, `club_id` = Padel Academy, `expires_at` ≈ now + 7 days
+- **And** the response `url` ends with `/join/coach/<token>` and `clubName` is `Padel Academy`
+
+#### PLAYERS-JOIN-TOKEN-3: Rotating retires the previous token
+- **Given** an active token `T1` for a coach
+- **When** the coach POSTs `/api/app/coach/join-token` again, receiving `T2`
+- **Then** `GET /api/app/join-tokens/T1` is 410 and `GET /api/app/join-tokens/T2` is 200
+
+#### PLAYERS-JOIN-TOKEN-4: Preview is public and reveals only coach and club
+- **Given** an active token for coach `Maria` at `Padel Academy`
+- **When** an unauthenticated visitor GETs `/api/app/join-tokens/<token>`
+- **Then** the response is 200 with `coachName: "Maria"` and `clubName: "Padel Academy"`
+- **And** no player, email or roster information is in the payload
+
+#### PLAYERS-JOIN-TOKEN-5: Student joins the roster and the club
+- **Given** an active token for coach `Maria` (club 1) and student `ana` with a Player and no relation to Maria
+- **When** `ana` POSTs `/api/app/join-tokens/<token>/accept`
+- **Then** a `coach_in_player` row (coach Maria, player ana, level null) and a `player_in_club` row (ana, club 1) exist
+- **And** the response is `{joined: true, alreadyMember: false}` and the token's `uses` is 1
+
+#### PLAYERS-JOIN-TOKEN-6: Accept is idempotent
+- **Given** `ana` already on Maria's roster
+- **When** `ana` POSTs accept again
+- **Then** the response is 200 with `alreadyMember: true` and exactly one `coach_in_player` row exists for the pair
+
+#### PLAYERS-JOIN-TOKEN-7: A coach account cannot join a roster
+- **Given** an authenticated coach
+- **When** they POST `/api/app/join-tokens/<token>/accept`
+- **Then** the response is 403 and no association is created
+
+#### PLAYERS-JOIN-TOKEN-8: Expired token is 410
+- **Given** a token whose `expires_at` is in the past
+- **When** anyone GETs or POSTs accept on it
+- **Then** the response is 410 and the row now has `is_active=false`
+
+#### PLAYERS-JOIN-TOKEN-9: Acting player comes from the JWT only
+- **Given** student `ana` authenticated and student `bruno` existing
+- **When** `ana` POSTs accept with body `{"playerId": <bruno's id>}`
+- **Then** the association created is for `ana`, not `bruno`
+
+#### PLAYERS-JOIN-TOKEN-10: Unauthenticated scan round-trips through signup
+- **Given** a visitor with no session opening `/join/coach/<token>` on the web
+- **When** they choose "Create account", register as a student and submit
+- **Then** they land back on `/join/coach/<token>` showing "Join Maria at Padel Academy"
+- **And** confirming shows the success state and the coach's roster now lists them
+
+#### PLAYERS-JOIN-TOKEN-11: Connected student is not prompted to connect
+- **Given** student `ana` on coach Maria's roster with no classes in the next 7 days
+- **When** `ana` opens the dashboard on web and on iOS
+- **Then** no "Not connected to a coach yet?" prompt is shown
+- **And** a student with `coaches: []` does see it
+
+#### PLAYERS-JOIN-TOKEN-12: A student who just joined is not prompted to connect (PAD-444)
+- **Given** a new student `ana` who signed up from coach Maria's QR link and is still in the same session
+- **When** she accepts the join (rule 5) and then opens the dashboard in-app, without signing in again or reloading
+- **Then** no "No coach yet?" prompt is shown, on web and on iOS
+- **And** the client asked `GET /api/auth/me` again after the join was accepted
+
+#### PLAYERS-JOIN-TOKEN-13: A student who accepts a coach's claim is not prompted to connect (PAD-444)
+- **Given** a signed-in student with `coaches: []` and a coach's pending claim request
+- **When** she accepts it on the dashboard banner
+- **Then** the client re-reads `GET /api/auth/me` and the "No coach yet?" prompt goes away without a reload, on web and on iOS
+
+#### PLAYERS-JOIN-TOKEN-14: Coach sees the QR on both platforms
+- **Given** an authenticated coach on the Players tab with no live code
+- **When** they open "Add by QR"
+- **Then** a QR code, the same link as text, the expiry and "Generate new code" are shown
+- **And** the same sheet exists on iOS with a Share action
+
+#### PLAYERS-JOIN-TOKEN-15: The token is stored only as a hash (PAD-269)
+- **Given** a coach who mints a code and receives token `T`
+- **Then** the row's `token_hash` is the SHA-256 hex of `T` and no column holds `T`
+- **And** `GET /api/app/coach/join-token` answers `{active: true, expiresAt, clubName, uses}` with no `token`, `path` or `url`
+- **And** `GET /api/app/join-tokens/T` is still 200
+
+#### PLAYERS-JOIN-TOKEN-16: Reopening Add by QR offers a new code (PAD-269)
+- **Given** a coach with a live code minted earlier
+- **When** they open "Add by QR" on web or iOS
+- **Then** the sheet shows the code's expiry, the number of students who joined and "Generate new code"
+- **And** generating shows a new QR, and the earlier code is 410 from then on
+
+### Notes
+- Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 3;
+  design lifted from PAD-127's proposal.
+- QR rendering libraries: web `qrcode.react` (or `qrcode` + canvas), iOS `react-native-qrcode-svg`.
+  Both render from the URL string; nothing is stored server-side beyond the token's hash.
+- OPEN: tell the coach when someone joins (system message)? v1: no.

@@ -1,0 +1,144 @@
+---
+id: attendance.absences
+status: implemented
+depends_on: [attendance.presence, attendance.history, classes.instances, players.list, dashboard.navigation]
+implements: ../../promises/attendance/student-tracks-attendance-and-absence-history.business.md
+governed_by: []
+---
+
+# attendance.absences
+
+
+### Intent
+Give a student a visual, navigable history of the classes they **missed**, and give a coach the
+same view for any player on their own roster. It is the counterpart of `attendance.history`:
+same shape, same controls, same navigation contract — the predicate is what differs.
+
+Before PAD-141 the student dashboard carried a "Missed" KPI with a number and no destination,
+so the one surface that told a student they had absences was also the one that could not explain
+them.
+
+### Entities
+No new entity, and **no migration**. Derived from existing `presences` joined to
+`lesson_instances`, exactly as `attendance.history` is.
+
+### Rules
+1. `GET /api/app/absence_history` returns a player's absence history. Query params are identical
+   to `attendance.history` rule 1: `playerId` (optional), `from` / `to` (optional),
+   `granularity` (optional).
+2. **Absence predicate**: a class counts as missed when its `Presence.status == "absent"`.
+   This is the same predicate as `compute_player_kpis().lessons_missed`, so the page and the
+   dashboard "Missed" KPI can never disagree — the same guarantee rule 2 of `attendance.history`
+   makes for "Attended".
+3. **Justified and unjustified absences both count.** `lessons_missed` does not filter on
+   `justification`, so neither may this page: a page that showed only unjustified absences would
+   display a smaller number than the KPI that links to it. The justification IS surfaced per row
+   (rule 8) so the distinction is visible without changing the total.
+4. Authorization, bucketing, gap-filling, the default range and the `sessions[]` contract are
+   **identical to `attendance.history` rules 3–8** and are implemented by the same shared code
+   path, not a parallel one. In particular the endpoint re-authorizes the subject with the same
+   resolver, self before coach.
+5. A missed class is always a materialized instance (a `Presence` row exists), so the session
+   `href` is always the `lessoninstance-<id>` deep-link form of `dashboard.navigation` rule 8.
+
+### Frontend rules
+6. Two routes, one page, mirroring `attendance.history` rule 9:
+   - `/absences` — the signed-in student's own absences
+   - `/players/:playerId/absences` — a coach viewing one roster player
+7. The page reuses the `attendance.history` chart, range-control and list components rather than
+   duplicating them. It carries its own `absences-*` test ids, so neither page's assertions can
+   pass against the other page.
+8. Each row shows whether that absence was **justified** or **unjustified**, from
+   `Presence.justification`. This is the one visible addition over the attendance list, and it is
+   presentational only — it never filters the set (rule 3).
+9. All copy goes through i18n (`src/locales/{pt,en}/`), default locale `pt`. The feature is named
+   "Faltas" in Portuguese.
+
+### Mobile (PAD-163)
+
+10. **iOS ships the same surface.** PAD-141 shipped web-only and no PR recorded a decision to do
+    that (PAD-152 parity audit, finding A2); PAD-163 closes it. `apps/mobile/app/absences.tsx` is
+    the single screen behind both entry points, reusing PAD-162's `AttendanceChart`,
+    `AttendanceRangeControls` and `AttendanceHistoryList` primitives unchanged (rule 7's
+    "identical components, not a fork" carries over to the mobile port too).
+11. Expo Router has no `/players/:playerId/absences` path, so the coach variant is the same
+    screen with a query param: `/absences?playerId=<id>` — the same routing shape PAD-162 used
+    for `attendance.history` rule 16. The param is still not authorization; rule 4 is still the
+    whole of it.
+12. Entry points mirror web's:
+    - the student's dashboard "Missed" KPI tile (`href: "/absences"` from the backend, mapped to
+      a mobile route in `DashboardBlocks`, alongside the "Attended" mapping PAD-162 added);
+    - an action on the coach's player-detail screen (`player-absences-link`), placed immediately
+      beside `player-attendance-link`, as web places it immediately beside its counterpart in
+      `PageActions`.
+13. Justification (rule 8) renders as a badge on each row, same rule as web: presentational only,
+    never filters the set.
+
+14. **(PAD-441) The justification badge uses the attendance colours.** A justified absence's badge
+    is amber (`presenceMarkTone("justified")`, the `warning` token) and an unjustified one red, on
+    both shells — the same colours the validate view and the class sheet use, so "justified" never
+    looks like a neutral, unmarked grey.
+
+### Acceptance Criteria
+
+#### ATTENDANCE-ABSENCES-1: Student sees their own absence history
+- **Given** a signed-in student with missed classes in the selected range
+- **When** they open `/absences`
+- **Then** the chart renders with a non-zero bar for each period containing an absence, the
+  range controls are shown, and the missed classes are listed most-recent-first
+
+#### ATTENDANCE-ABSENCES-2: The Missed KPI is the entry point
+- **Given** an authenticated student on the dashboard
+- **When** they click the "Missed" KPI card
+- **Then** they navigate to `/absences`
+
+#### ATTENDANCE-ABSENCES-3: The page total matches the dashboard KPI
+- **Given** a student with both justified and unjustified absences
+- **When** they open `/absences` over a range covering all of them
+- **Then** every absence is counted regardless of justification, and the total agrees with the
+  dashboard "Missed" KPI
+
+#### ATTENDANCE-ABSENCES-4: Justification is visible per row
+- **Given** a student with one justified and one unjustified absence
+- **When** they open `/absences`
+- **Then** each row indicates which it is, and both rows are present
+
+#### ATTENDANCE-ABSENCES-5: Only absences are shown
+- **Given** a student with both attended and missed classes
+- **When** they open `/absences`
+- **Then** only the missed classes are counted and listed; attended classes never appear
+
+#### ATTENDANCE-ABSENCES-6: A coach cannot read a non-roster player's absences
+- **Given** a coach with no `Association_CoachPlayer` row for player X
+- **When** they `GET /api/app/absence_history?playerId=X`
+- **Then** the request is rejected with 403 and no data is returned
+
+#### ATTENDANCE-ABSENCES-7: A student cannot read another student's absences
+- **Given** a signed-in student
+- **When** they `GET /api/app/absence_history?playerId=<another player's id>`
+- **Then** the request is rejected with 403
+
+#### ATTENDANCE-ABSENCES-8: Absence row opens that exact class
+- **Given** a student on `/absences` with at least one missed class
+- **When** they click that class in the list
+- **Then** they land on `/calendar` showing that class's week with its detail sheet open
+
+#### ATTENDANCE-ABSENCES-9: Student sees their own absence history on iOS
+- **Given** a signed-in student on the mobile dashboard
+- **When** they tap the "Missed" KPI tile
+- **Then** the absences screen opens with the chart, the range controls below it, and the missed
+  classes listed underneath with their justification badges
+
+#### ATTENDANCE-ABSENCES-10: Coach reaches a roster player's absences from iOS player detail
+- **Given** a coach on a roster player's detail screen
+- **When** they tap the absences action, next to the attendance action
+- **Then** the same absences screen opens for that player, subtitled with their name
+
+#### ATTENDANCE-ABSENCES-11: A justified absence badge is amber, an unjustified one red (PAD-441)
+- **Given** a student with one justified and one unjustified absence
+- **When** the absence history is shown (web or iOS)
+- **Then** the justified row's badge has the `warning` tone and the unjustified row's the `negative` tone
+
+### Notes
+- Source: ticket PAD-141. iOS parity: PAD-163 (from the PAD-152 parity audit, finding A2).
+- Supersedes `dashboard.navigation`'s previous "Missed stays inert" rule (now 11a).

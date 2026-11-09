@@ -1,0 +1,157 @@
+---
+id: notifications.coach-fills-vacancies-automatically
+status: implemented
+implemented_by:
+  - ../../impl/notifications/invitations.spec.md
+  - ../../impl/notifications/waiting-list.spec.md
+  - ../../impl/notifications/manual.spec.md
+---
+
+# Coach fills vacancies automatically
+
+## Outcome
+
+When a player drops out of a class, the coach doesn't have to scramble to find a replacement by
+phone or WhatsApp. The engine works through eligible students in ordered rounds — closest match
+first, widening as needed — and invites them to take the spot, respecting the coach's timing and
+restriction settings. If the engine's automatic reach isn't enough, the coach can step in and hand-
+pick students to invite. Students on the class's waiting list — who already asked for a place —
+are always asked first. Either way, the first student to say yes gets the spot, and everyone else's invitation is
+retired automatically.
+
+## Who This Is For
+
+A coach who needs an open spot filled without manual outreach, and the students on their roster
+who receive and respond to those invitations — including students holding a paid, standing spot on
+the waiting list.
+
+## User Journey
+
+1. A student cancels their attendance for an upcoming class (or a coach marks them absent), and the
+   engine notices the spot has opened.
+2. Students on the class's waiting list are asked first, in the order they joined it. Their
+   invitation says which side the spot is on when the spot has one, so they can decide.
+3. The engine then works through matching rounds — first students at the same level and playing side,
+   then same level only, then anyone still eligible — sending invitations in small batches so it
+   never floods the class chat.
+4. An invited student sees the message and taps Yes or No. The first to accept gets the spot; every
+   other pending invitation for that spot is retired automatically, and the class list updates.
+   Nobody is put into a class without saying yes — waiting-list students included.
+5. If the coach would rather choose by hand — for a sensitive placement, or because the automatic
+   rounds came back empty — they open the manual notification picker, search their roster, and
+   send invitations to exactly the students they choose.
+6. Once the spot is filled, the coach sees it reflected on their calendar and class roster with no
+   further action needed.
+7. A student who missed out because a spot was filled by someone else can answer that same message
+   with Yes to join the waiting list for that class themselves, in case another spot opens later.
+8. An invitation does not run out because the student has not answered yet: while the spot is open
+   they can still say yes. It reads "Vaga preenchida" only once the spot is taken — by another
+   student or by the coach on someone's behalf — and from there the student can join that class's
+   waiting list, even if the coach does not show open spots to students (PAD-609, owner
+   2026-10-10).
+9. When a class has more than one open spot and the one a student was asked for is taken, the
+   student who would have been asked for another of its open spots anyway keeps the same invitation,
+   now for that spot: no "Vaga preenchida" followed by "abriu uma vaga" (PAD-679).
+
+## Business Rules
+
+- Matching widens progressively: exact level-and-side match first, then level-only, then anyone
+  still eligible — so the engine tries the closest replacement before it tries everyone.
+- Every free seat gets offered: a seat is free when nobody is going or still to answer for it,
+  the same count as the "K vagas" the coach sees on the class. Filling one freed spot never hides
+  another free seat of the class, nor does a spot that ran out of students to ask: the other seats
+  are offered from the invitation start, or within a couple of minutes once the class has no other
+  spot open, waiting list first. A spot that ran out stays closed (PAD-763).
+- When a class has spots that were never filled, the app aims to balance left- and right-side
+  players: each open spot looks for the side the class is short of first, and falls back to any
+  side, so no spot stays empty for lack of the "right" side.
+- The sides re-balance as the class fills (PAD-581): every "yes" re-counts the open spots, and a
+  spot that now needs the other side withdraws the invitations it sent to the side no longer
+  needed. Those students see "Já não é preciso deste lado" and can join the class's waiting list,
+  where they are asked first only for a spot of their own side. A withdrawal is not a "no".
+- The same holds when students cancel (PAD-541): a freed spot first asks the side the class is now
+  short of, not automatically the side of whoever left. When the sides are even, it keeps the
+  leaver's side. Two left-side students leaving a 6-left / 3-right class are replaced by one right
+  and one left, so the class can end 5 / 4. The count is the students going to the class, not the
+  spots still being filled (PAD-565): in a class of 16 with 6 left and 2 right going, a left
+  student leaving is replaced by a right one.
+- A student marked "both sides" is a match for either a left or right vacancy, and a "both" vacancy
+  accepts a player of any side; when both an exact-side and a "both" candidate are available, the
+  exact-side player is offered first.
+- The engine never invites past a class that has already started — a stale invitation from before
+  the class began is retired rather than answered.
+- Being on a class's waiting list means being asked first when a spot opens — before every
+  invitation group, in the order students joined the list. It is not a reserved place: the
+  student still answers yes or no, and nothing is checked until the spot actually opens, since a
+  student's level and record can change in between.
+- A paid standing waiting-list entry spends one of its credits only when the student says yes and
+  gets the place. A student who says no to a class is not asked for that class again and leaves
+  its waiting list; their standing entry stays for their other classes.
+- A standing entry lasts until a date the coach chooses — at most twelve months ahead, never
+  indefinitely — and the coach can renew it before or after it runs out without losing the classes
+  already paid for (PAD-507).
+- A student is never offered, through the waiting list, a class they just left or a class they're
+  already enrolled in.
+- A student whose invitation shows "Vaga preenchida" because someone else was faster can join that
+  class's waiting list from the message itself, and is asked first if a spot opens again
+  (PAD-577).
+- The coach can see a class's waiting list from the class itself, with where each student came from
+  (the standing list, their own request, or the coach) and for how long they are on it (this class
+  only, the whole series, or until a date), add students to it — for that class only, for the whole
+  series with nothing more to fill in, or for a period of so many classes or until a date — change
+  that later, and take them off it. The whole series means every remaining class of it, up to
+  twelve months out. A student there through the coach's standing list is managed from Settings,
+  since that entry spans their other classes too (PAD-560). Adding someone is not a promise: they are asked
+  first when a spot opens, if they still qualify then, and they hear nothing until that moment
+  (PAD-547).
+- Changing when invitations start applies to spots already open, not only to new ones (PAD-776):
+  moved later, nothing more goes out for a class until the new time (invitations already sent can
+  still be answered); moved earlier, a spot that was waiting starts within minutes. A spot the coach
+  approved "Yes, right now" and the coach's own invitations are not held back.
+- A student is offered one class a day at a time (PAD-775): while they have an unanswered
+  invitation for one class, the engine does not invite them to another class that same day (another
+  day is fine), and the coach sees why. Once they say yes to one, their other invitations that day
+  close as "Já inscrito noutra aula". It follows the coach's "no second class that day" setting.
+- Opening many spots at once, such as a large class nobody has signed up for yet, does not slow
+  the app for coaches who are using it at that moment: the engine works out who matches each spot
+  without asking the database again for every student (PAD-788), and without checking a student
+  again for every spot that asks the same thing: same side, same level, same group (PAD-801).
+- When a class has already sent as many invitations as the coach allows in all, its open spots
+  wait where they are; they do not skip ahead to wider groups while nobody can be asked (PAD-801).
+- Manual invitations bypass the automatic matching entirely — the coach's own judgment about who to
+  ask is authoritative, and the coach can select or deselect students with a single click on their
+  row, name, or checkbox.
+- Whichever path fills the spot, every other outstanding invitation for it is closed out — a
+  student never gets a "sorry, taken" reply after having already said yes.
+- Once a class has started, nobody is invited to it, automatically or by hand (PAD-798, owner's
+  decision 2026-10-30). The engine stops at the start time; a coach who opens the class sees "Esta
+  aula já começou; já não é possível convidar." where the invite button was, and a send that was
+  already on its way is refused with the same words, on web and iOS. Invitations already out close
+  as before.
+
+## Success Metrics
+
+Not yet measured.
+
+## Out of Scope
+
+- The wording of the messages sent and the ordering rules the coach configures — see "Coach tunes
+  the invitation engine".
+- The coach-approval gate some coaches turn on before any of this fires — see "Coach approves
+  replacements".
+- Whether a given student is *allowed* to be invited or placed at all — governed by the
+  `eligibility` domain's bar, which this engine respects but does not define.
+
+## Notes
+
+- **[2026-09-24, PAD-421]** Balancing the class's sides has no per-class or coach-wide opt-out:
+  the owner asked for it "if possible" and named no switch. Add one if the owner asks.
+- **[DEC 2026-09-04, PAD-124]** RESOLVED: a student can self-serve onto the waiting list — by
+  answering Yes on the same message they get when a spot was just filled by someone else. That
+  answer already worked once tapped, but neither app actually showed a Yes/No on the message, so
+  it was unreachable in practice; the decision was to make the message answerable rather than
+  remove the capability, and it was built on 2026-09-06 — the offer now carries Yes/No in both
+  apps and settles into the answer the student gave. It remains a separate path from the
+  student-initiated "I want in" flow
+  for a full class (`classes.join-requests`, PAD-130/131) — the two are not merged. Implementation
+  detail: `notifications.waiting-list` rule 1.

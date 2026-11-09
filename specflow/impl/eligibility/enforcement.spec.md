@@ -1,0 +1,218 @@
+---
+id: eligibility.enforcement
+status: implemented
+depends_on: [eligibility.cascade, notifications.invitations, notifications.waiting-list, notifications.manual]
+implements: ../../promises/eligibility/coach-enforces-the-eligibility-bar.business.md
+governed_by: []
+---
+
+# eligibility.enforcement
+
+
+### Intent
+Eligibility is a **hard wall for everything the system does automatically**, and a **warning** when
+a coach acts by hand. The coach's roster always wins.
+
+### Rules
+1. **Invitation waves are capped at the bar, and otherwise unchanged.** The widening rounds of
+   `notifications.invitations` keep working exactly as they do today; the final, widest wave becomes
+   "everyone **eligible**" instead of "everyone". Eligibility is applied first, wave criteria second,
+   priority criteria and tiebreakers third. No candidate above the last wave was ever below the bar.
+2. **Waiting-list invitations are hard-gated.** Since PAD-446 the waiting list is invitation group 0
+   (`notifications.invitations` rule 8a): it asks only students who pass `effective_eligibility()`
+   for that class. They are **not** subject to the coach's wave criteria (group 0 has none; the
+   invitation names the spot's side and the student decides) and they are ordered by join time
+   (`notifications.waiting-list` rule 4), not by the priority criteria.
+3. **Adding a student to the standing waiting list is a coach action and is warn-only** (rule 6).
+   Being *invited* from that list is hard-gated (rule 2). These are different moments and must
+   not be conflated.
+4. **A student is never invited from the waiting list into a class they are already in.** Group 0
+   leaves out any student with a presence for that instance, `absent` included. Without the second
+   case the student whose cancellation created the vacancy is offered it straight back — see the
+   acceptance criteria below.
+5. **Waiting-list invitations honour the same restrictions every invitation honours**:
+   `restrictions.excludedPlayers`, `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), and the student
+   availability-blocker filter (`calendar.student-blockers`).
+6. **Manual add warns, it does not block.** When a coach adds an ineligible student to a class by
+   hand, the action proceeds after an explicit confirmation. This mirrors the existing
+   availability-blocker behaviour (`calendar.student-blockers` rule 4): enrolment is the coach's
+   decision.
+6a. **A manual invitation warns the same way (PAD-562; owner, 2026-10-09).** When a coach invites
+   a student by hand (`notifications.manual`, the "Convidar" modal on web and iOS) and that student
+   fails the class's bar, the client runs the same check (`POST /api/app/notify/eligibility_check`,
+   rule 7c) BEFORE `POST /api/app/notify/manual` and opens the same confirmation (rule 7d's dialog,
+   `describeEligibilityFailure`), one block per failing student with one line per failed rule —
+   one dialog for the whole selection, never one per student. The dialog's verb matches the
+   action: "Convidar alunos que não cumprem a fasquia?" / "Convidar mesmo assim". Confirming sends
+   the invitations exactly as before; cancelling sends nothing and keeps the selection; a failed
+   check falls through to the send (the warning never blocks). The backend is unchanged: it never
+   filtered manual invitations by the bar, and still does not.
+7. **The warning must name what failed**, in the coach's locale — e.g. "2 levels below this class",
+   "over the unjustified-absence limit (4, limit is 2)". A bare "this student is not eligible" is not
+   sufficient: the reason is what makes it a decision instead of a nag. One line per failed rule.
+7a. **(PAD-133)** The backend reports failures as **structured data, never prose** — the locale
+   belongs to the client. Each record is
+   `{attribute, operation, actual, threshold, ladder_distance, reason}`. `actual` is the student's
+   real value (a level code, a *count*, a percentage — never a bool, or rule 7's "(4, limit is 2)"
+   cannot be rendered); `ladder_distance` is **signed**, negative meaning the student is stronger
+   than the class, which is what lets the client say "below" rather than a direction-less "away";
+   `reason` names the fail-closed cases (`class_has_no_level`, `student_has_no_level`,
+   `level_not_in_ladder`) where `actual`/`threshold` cannot be meaningful.
+7b. **(PAD-133)** `passes_eligibility` and the reason-reporting call MUST run the **same evaluator**,
+   with the bool being defined as "no failures". Two evaluators would let the verdict drift from the
+   explanation — warning about a student who is then enrolled silently, or enrolling one just called
+   ineligible. The shared evaluator takes a short-circuit flag: the invitation engine keeps stopping
+   at the first failure, so the hot matching loop never pays for the extra absence/attendance queries
+   that a full explanation needs. Only the coach-facing path evaluates every rule.
+7c. **(PAD-133)** The check is a **separate read-only endpoint**
+   (`POST /api/app/notify/eligibility_check`), not a hook inside the class-edit save. Rule 6 warns
+   and never blocks, so the save path is unchanged and a client that ignores the check cannot be
+   prevented from enrolling anyone. It returns only the students who FAIL, so an empty list means
+   "no confirmation needed".
+7e. **(B-619) Only the class's coach may ask.** `eligibility_check` resolves the class through the
+   engine's owned resolver, before anything is written: another coach's class is 403, and a
+   Lesson + date ref of another coach's class materialises no occurrence (before B-619 it did,
+   then answered).
+7d. **(PAD-150) Both shells render the check the same way.** When a class edit ADDS participants,
+    the client calls `eligibility_check` for the added ids first. A non-empty `ineligible` list
+    opens a confirmation listing **each failing student by name with one line per failed rule**,
+    rendered through the shared `describeEligibilityFailure` renderer (`@levelup/config`) so the
+    reason strings are the same ones the invite tutorial already speaks, in the coach's locale.
+    **Confirm** proceeds with the save exactly as before; **Cancel** aborts the whole save and
+    leaves the coach in the edit with their draft intact. An empty list saves without any prompt.
+    A failed check (network error) never blocks the save either — the warning is a courtesy, the
+    enrolment is the coach's. `ManualNotificationModal` is NOT this surface: it sends manual
+    *notifications* and reports availability blockers (`calendar.student-blockers` rule 8); it does
+    not enrol anyone and gets no eligibility prompt.
+8. **Tightening the bar never removes anyone.** Eligibility governs *joining*, never *staying*. No
+   retroactive evaluation, no auto-removal, no expiry of existing enrolments.
+9. **Saving a stricter bar reports who it would have excluded**, informationally: "3 enrolled
+   students no longer meet this bar". It names them, offers no bulk action, and does not block the
+   save. The coach removes students through the normal flow if they choose to.
+9a. **(PAD-133)** The report rides on the existing `POST /api/app/notify/config` response as
+   `eligibilityImpact.affected`, and is computed **only when the request actually touched
+   `eligibilityRules`** — an unrelated config save costs nothing. It is scoped to **future** classes
+   (a bar cannot retroactively un-enrol anyone, so past classes are noise) and is **per class**,
+   because eligibility is relative to the class's level: the same student can clear the bar for one
+   class and fail another, so they appear once per class they would fail, with that class named.
+   Rule 8 is unaffected — nobody is un-enrolled and nobody is notified.
+9b. **(PAD-150) The report is rendered as an informational note under the eligibility editor**, on
+    both shells, immediately after the save that produced it: a headline with the number of
+    affected students, then one line per (student, class) — name, class title, class date, and
+    the failed rules through the same renderer as 7d. It has no action button, it never blocks,
+    and it clears when the bar is next saved with nobody affected. It is derived from the save
+    response only; the client never re-evaluates the bar itself.
+10. **With an unset bar, waiting-list invitations are unfiltered by level — and that is the coach's
+    choice, not an engine decision.** Rule 2 gates on eligibility, so a coach who has defined no bar
+    will still see waiting-list students invited to any of their classes. Rules 4 and 5 apply regardless of whether
+    a bar is defined; they are unconditional correctness fixes.
+
+### Acceptance Criteria
+
+#### ELIGIBILITY-ENFORCEMENT-1: Manual add names the failed rule (PAD-133)
+- **Given** a coach whose eligibility is `[{level, same_as_class}]` and a class at level `5`
+- **When** they add a student two ladder steps below the class by hand
+- **Then** the check reports that student with `actual: "5-"`, `threshold: "5"` and a positive
+  `ladder_distance`, enough to render "2 levels below this class"
+- **And** confirming enrols the student normally, because rule 6 warns rather than blocks
+
+#### ELIGIBILITY-ENFORCEMENT-2: A student failing two rules gets two lines, not one (PAD-133)
+- **Given** a bar with both a level rule and an unjustified-absence rule
+- **When** a student fails both and the coach adds them
+- **Then** the report contains one record per failed rule, not just the first
+- **And** the absence record's `actual` is the student's real count, so "(4, limit is 2)" is
+  renderable — a boolean would make rule 7 impossible to satisfy
+
+#### ELIGIBILITY-ENFORCEMENT-3: The verdict and the explanation can never disagree (PAD-133)
+- **Given** any student, any class and any bar
+- **When** both `passes_eligibility` and the reason-reporting call are evaluated
+- **Then** an empty failure list occurs **exactly** when the bool is `True`
+- **And** this is the discriminating evidence that one evaluator backs both: forking them lets the
+  coach be warned about a student who is then enrolled silently, or vice versa
+
+#### ELIGIBILITY-ENFORCEMENT-4: Saving a stricter bar reports without removing (PAD-133)
+- **Given** a class with 6 enrolled students, 3 of whom would fail a stricter bar
+- **When** the coach saves that bar
+- **Then** the response names those 3 under `eligibilityImpact.affected`
+- **And** all 6 remain enrolled and none of them is notified (rule 8)
+
+#### ELIGIBILITY-ENFORCEMENT-5: The seeded coach is asked before adding a student who fails the bar (PAD-150)
+- **Given** `e2e-coach` with eligibility `[{level, same_as_class}]` and "E2E Academy Class" at
+  level B1
+- **When** they edit the class and add "E2E Student Three", who has no level
+- **Then** a confirmation names that student with the line "the student has no level assigned"
+- **And** cancelling leaves the class unchanged; confirming enrols them
+
+#### ELIGIBILITY-ENFORCEMENT-6: Saving a stricter bar shows the note on the settings page (PAD-150)
+- **Given** `e2e-coach` saving `[{level, same_as_class}]` while "E2E Pending Confirm Class" (B1)
+  has intermediate-level students enrolled
+- **When** the save completes
+- **Then** a note under the eligibility editor names those students and that class
+- **And** they remain enrolled
+
+#### ELIGIBILITY-ENFORCEMENT-7: The widest wave stops at the bar
+- **Given** a coach whose eligibility is `[{level, within_n_of_class, value: 1}]`
+- **And** an open vacancy whose earlier waves have all been exhausted
+- **When** the engine advances to its widest wave
+- **Then** only students within one ladder step of the class are invited
+- **And** students further away are not invited in any wave
+
+#### ELIGIBILITY-ENFORCEMENT-8: Waiting-list invitations respect the bar
+- **Given** a coach whose eligibility is `[{level, same_as_class}]`
+- **And** a student with an active standing waiting-list entry whose level does not match a class
+- **When** a vacancy opens in that class
+- **Then** that student is not invited
+- **And** no credit is consumed
+- **And** the vacancy proceeds to normal invitations
+
+#### ELIGIBILITY-ENFORCEMENT-9: A student is never offered the spot their own cancellation created
+- **Given** a student enrolled in a class who also has an active standing waiting-list entry
+- **When** they cancel their attendance and the vacancy is processed
+- **Then** they are not invited back into that class
+- **And** no credit is consumed
+- **And** the vacancy is offered to other students
+
+#### ELIGIBILITY-ENFORCEMENT-10: An enrolled student is never invited from the waiting list into their own class
+- **Given** a student already enrolled in a class who has an active standing waiting-list entry
+- **When** another student's cancellation opens a vacancy in that class
+- **Then** the enrolled student is not a waiting-list candidate
+- **And** the vacancy is offered to students who are not already in the class
+
+#### ELIGIBILITY-ENFORCEMENT-11: Manual add of an ineligible student warns with a reason and proceeds
+- **Given** a coach whose eligibility is `[{level, same_as_class}]`
+- **When** they add a student two levels below the class to it by hand
+- **Then** a confirmation names the failed rule (e.g. "2 levels below this class")
+- **And** confirming enrols the student normally
+- **And** cancelling aborts the add
+
+#### ELIGIBILITY-ENFORCEMENT-12: A manual invitation to a student who fails the bar asks first (rule 6a, PAD-562)
+- **Given** a class whose bar a roster student fails ("2 levels below this class")
+- **When** the coach selects that student in the "Convidar" modal and sends
+- **Then** the eligibility confirmation opens naming the student and the failed rule, with the invite verb, before anything is sent
+- **And** cancelling sends no invitation and keeps the modal and the selection as they were
+- **And** confirming sends the invitation as before (the server's answer unchanged)
+
+#### ELIGIBILITY-ENFORCEMENT-13: Several failing students get one combined warning (rule 6a, PAD-562)
+- **Given** two selected students fail the bar and one passes
+- **When** the coach sends
+- **Then** one confirmation lists the two failing students, each with their reasons, and the passing one is not named
+- **And** confirming sends to all three
+
+#### ELIGIBILITY-ENFORCEMENT-14: Another coach's class is refused before it is materialised (rule 7e, B-619)
+- **Given** coach Ana's one-off class with no occurrence row yet, and coach Bruno
+- **When** Bruno posts `eligibility_check` with that lesson and its date
+- **Then** the response is 403 and no occurrence is created
+- **And** Ana's same request is 200 and creates the occurrence, as before (R-001)
+
+#### ELIGIBILITY-ENFORCEMENT-15: Tightening the bar leaves enrolled students in place
+- **Given** a class with 6 enrolled students, 3 of whom would fail a stricter bar
+- **When** the coach saves that stricter bar
+- **Then** an informational note names the 3 students
+- **And** all 6 remain enrolled
+- **And** no notification is sent to any of them
+
+### Notes
+- **[PAD-150, 2026-09-09]** Rules 7d and 9b are the client half of PAD-133 (backend landed in
+  levelup_backend#89). Rendering reuses `describeEligibilityFailure` from the invite tutorial
+  (`tutorials.eligibility.*` keys) so the reasons never fork between the tutorial, the dialog and
+  the note.
