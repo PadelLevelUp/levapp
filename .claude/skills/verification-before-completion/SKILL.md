@@ -25,8 +25,6 @@ reading under which this does not apply to your case, that construction is the v
 "Fresh" means: produced in the current turn, **after** your most recent change. Evidence from
 before the last edit describes a state that no longer exists.
 
-Hardening mechanisms per `skills/_conventions/hardening.md`.
-
 ## The gate
 
 Run this before the claim leaves your mouth — not after, not "at the end".
@@ -104,6 +102,10 @@ rationalization row applies: you do not get to say "green". You say what is true
 > does not touch the validator.
 
 That report is longer and it is correct, which is the whole trade.
+
+## Cortex 4.0 store
+
+**Which store (Cortex 4.0 transition).** If `cortex/cortex.json` exists, this project uses the 4.0 store: read `cortex/` in place of the `.cortex/` paths in this skill. Start from `cortex/MAP.md`. Rules are in `cortex/world/rules/` (they apply by `match.paths`, not `governs`), decisions in `cortex/world/decisions/`, terms in `cortex/world/terms/`, working preferences in `cortex/world/agreements/working-preferences.md`, and open pitfalls (the former open bugs) in `cortex/code/<area>/` with `status: open`. There is no insight layer in 4.0: where this skill would query insight, read the file and grep `cortex/code/<area>/` and `cortex/world/terms/`. Check the store with `cortex store validate`. While `.cortex/` also exists and the migration is not accepted (`migration.accepted` is `null` in `cortex/cortex.json`), read `cortex/` but write nothing to either store beyond what this skill's 3.x instructions already allow. After acceptance, write nothing to `.cortex/`; file a durable fact with the `cortex-remember` skill. Without `cortex/cortex.json`, use the `.cortex/` paths as written.
 
 ## Scope
 
