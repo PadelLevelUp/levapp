@@ -48,3 +48,14 @@ Calculate attendance statistics for players, used by the notification engine for
 - **Given** Ana with 2 justified absences in 10 classes (20 %, 2 owed) and Bruno with 1 in 2 (50 %, 1 owed), and only the `justified_misses` tiebreaker on
 - **When** a spot opens
 - **Then** Ana is ranked before Bruno
+
+#### ATTENDANCE-STATS-8: A coach's rates count that coach's classes only (rule 1)
+- **Given** a student who missed two classes with another coach, both justified, and none with this coach
+- **When** this coach's attendance rate and justified-absence rate for the student are computed
+- **Then** both are 0
+- **And** the other coach's rates for the same student are 0 attended of 2 and 2 justified of 2
+test: `backend/padel_app/tests/test_pad382_attendance_readers_are_coach_scoped.py` › `test_another_coachs_absences_leave_this_coachs_rates_at_zero` (+1 more)
+
+### Open questions
+
+- **Where this spec belongs was left open by the port.** It serves P-ATTENDANCE-1, and its numbers feed the invitation engine's groups and ranking; the old business spec's own note asked whether it belongs under an eligibility or notifications promise instead. Recommendation: keep it here, since the coach reads "classes owed" on the attendance screens, and cite it from `notifications.invitations`.

@@ -563,6 +563,157 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **When** the coach views the rows
 - **Then** only Rui's row carries the alert icon, and Ana's state button keeps its own colour
 
+#### ATTENDANCE-VALIDATION-29: Correcting an absence to present clears its justification (PAD-381)
+- **Given** the coach recorded Rui as absent, justified
+- **When** the coach records Rui as present, with no `justification` key in the body
+- **Then** the row is `present` with no justification
+- **When** instead the coach records Rui as absent, unjustified
+- **Then** the row is `absent`, `unjustified`
+- **Given** Rui has two unjustified absences and a third row the coach corrected to present, still carrying `unjustified` from before this rule, under a bar of "at most 2 unjustified absences"
+- **Then** the bar admits Rui; with three real unjustified absences it does not
+- **Given** Sara's only row is `present` still carrying `justified`
+- **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
+
+#### ATTENDANCE-VALIDATION-30: Each class shows how many are present (rule 27, PAD-538)
+- **Given** a past class with Ana (confirmed), Bruno (declined) and Carla (no answer)
+- **When** the coach opens the validate view
+- **Then** the class reads "1 presente" beside its time and title
+- **When** the coach marks Carla present
+- **Then** it reads "2 presentes"
+
+#### ATTENDANCE-VALIDATION-31: The count is the whole backlog, not the shown week (rule 18, PAD-539)
+- **Given** a coach with three pending classes in the week before last and none in the current or
+  previous week
+- **When** they open the Presences tab on the current week
+- **Then** the trigger reads "3 aulas por validar" and "Nada nesta semana"; `pendingTotal` is 3 and
+  `pendingCount` is 0
+- **When** they move to the week before last
+- **Then** the trigger still reads "3 aulas por validar" and now "3 nesta semana"
+
+#### ATTENDANCE-VALIDATION-32: One number on four surfaces (rules 18 and 23, PAD-539)
+- **Given** pending classes in three different weeks, one fully validated class and one class
+  with no presence rows
+- **When** the count endpoint, the badge endpoint and the dashboard's needs-you block are read
+- **Then** `pendingTotal`, the badge's `count` and the validation item's `count` are the same
+  number, equal to the number of pending classes the listing returns over all history, and the
+  validated class and the empty class are not in it
+
+#### ATTENDANCE-VALIDATION-33: The deep link lands on the most recent week with work (rule 23, PAD-539)
+- **Given** the only pending classes are three weeks back
+- **When** the badge is read on a Tuesday
+- **Then** `count` is their number, `weekOffset` is -3 and `href` is `/presences?validate=1&week=-3`,
+  and following it opens the tab on that week with the validate view open and those classes listed
+
+#### ATTENDANCE-VALIDATION-34: The walk-in picker sorts and searches (rule 8a, PAD-537)
+- **Given** a coach whose roster outside the class is "Zé Costa", "ana silva" and "Bruno Silva Ramos"
+- **When** they open "Adicionar jogador" on a past class
+- **Then** the list reads ana silva, Bruno Silva Ramos, Zé Costa
+- **When** they type "silva ana"
+- **Then** only "ana silva" is listed
+
+#### ATTENDANCE-VALIDATION-35: A student already in the class is named, not "not found" (rule 8b, PAD-787)
+- **Given** a past class with "Gonçalo Simões" in it (the coach calls him "Gugu"), and a roster
+  that also has "Zé Costa"
+- **When** the coach types "goncalo simoes", or "Gugu", in that class's walk-in search
+- **Then** "Nenhum jogador encontrado para «…»" shows with "Gonçalo Simões já está nesta aula."
+  under it (web; on iOS the coach's name for him)
+- **When** they press "Ver"
+- **Then** the search closes and his row is brought into view (web, and iOS flow 313)
+
+#### ATTENDANCE-VALIDATION-36: A name nobody has is not on the roster (rule 8b, PAD-787)
+- **Given** the same class and roster
+- **When** the coach types "Xavier"
+- **Then** "Não está na tua lista de jogadores." shows with "Abrir Jogadores", which leads to the
+  players list; while the search lists someone, or is blank, neither line shows
+
+#### ATTENDANCE-VALIDATION-37: Pressing the selected mark clears it (PAD-567, rule 26)
+- **Given** a coach editing attendance on the class detail with Ana marked present
+- **When** they press "Presente" again
+- **Then** Ana's row shows no mark, the "needs a decision" highlight returns and `presentCount` drops by one, on web and on iOS, and the same happens in the Presences validate view through `PresenceMarkToggle`
+
+#### ATTENDANCE-VALIDATION-38: Saving a cleared row writes the never-answered shape (PAD-567, rule 26)
+- **Given** Ana's row `status = "present"`, `validated = true`, `response = "confirmed"`, `responded_at` set, `recorded_by = "student"`
+- **When** the coach saves `{"playerId": <ana>, "clear": true}` through `POST /class_instance/presences/confirm`
+- **Then** the row reads `status = null`, `justification = null`, `validated = false`, `response = "none"`, `responded_at = null`, `recorded_by = null`, `confirmed = false`, its `attendanceState` is `planned`, and the reply lists her in `cleared`
+
+#### ATTENDANCE-VALIDATION-39: Clearing an absence reopens the seat and closes her vacancy (PAD-567, rule 26)
+- **Given** Ana absent on a 4-place class with 3 others coming, her open vacancy inviting Bea
+- **When** the coach clears Ana's mark
+- **Then** `effective_filled_spots` is 4, Ana's vacancy is closed and Bea's invitation retired, and no new vacancy exists
+
+#### ATTENDANCE-VALIDATION-40: The freed spot was taken: warn and allow (PAD-567, rule 26)
+- **Given** Ana absent on a 4-place class where Bea has since taken the seat (4 coming)
+- **When** the coach clears Ana's mark on the class detail
+- **Then** a dialog warns that the class goes to 5/4 before saving, and on confirm the server records the clear without refusing
+
+#### ATTENDANCE-VALIDATION-41: A clear after the reminder instant sends nothing (PAD-567, rule 26, owner 2026-10-10)
+- **Given** a class whose first-reminder instant passed, where Ana was marked present before the pass (so rule 23 skipped her) and has no counted reminder
+- **When** the coach clears her mark
+- **Then** no job is armed, no message is written and she has no counted reminder — likewise when the class's notifications are off, the class is over, or the instant is ahead
+
+#### ATTENDANCE-VALIDATION-42: A clear before the instant leaves her to the ordinary reminder (PAD-567, rule 26)
+- **Given** a class whose first-reminder instant is two hours ahead and Ana marked present
+- **When** the coach clears her mark and the instant then passes
+- **Then** the ordinary reminder pass sends her one reminder
+
+#### ATTENDANCE-VALIDATION-43: A cleared row brings a validated class back to the backlog (PAD-567, rule 26)
+- **Given** a validated past class
+- **When** the coach clears one row
+- **Then** that row's `validated` is false, the class is pending again in rule 18's count and rule 23's badge, and the other rows keep their marks
+
+#### ATTENDANCE-VALIDATION-44: A cleared absence withdraws its suggestion (PAD-567, rule 26)
+- **Given** a coach in semi-automatic mode with a pending replacement suggestion born of Ana's absence
+- **When** the coach clears Ana's mark
+- **Then** `recompute_suggestions` runs, the suggestion for her seat is gone, and no new vacancy or suggestion was created
+
+#### ATTENDANCE-VALIDATION-45: A class waits for validation once it has ended on the club's clock, is not canceled and has a row to validate (rules 3, 15, 18)
+- **Given** classes that are running, just ended, and canceled, each with a presence that is not validated
+- **When** the classes waiting for validation are counted
+- **Then** a class is counted from the moment it ends on the club's clock, in summer and in winter, and not while it runs
+- **And** canceling a class takes it out of the count
+test: `backend/padel_app/tests/test_pad539_backlog_count.py` › `test_a_canceled_occurrence_is_never_pending` (+2 more)
+
+#### ATTENDANCE-VALIDATION-46: The report's filters, sort and columns act on the list the coach sees (rule 17)
+- **Given** the Presences report on the phone with a roster that includes a student with no activity
+- **When** the coach filters, sorts and chooses columns
+- **Then** with no filter every student is listed, the one with no activity included
+- **And** a name, a minimum total and a maximum of unjustified absences apply together, each bound included; a blank bound, or one that is not a number, is ignored
+- **And** the filter button counts the bounds in use, not the name search
+- **And** the list starts sorted by total, highest first; a count column tapped for the first time sorts highest first and the name column A to Z; a second tap reverses; names sort ignoring accents
+- **And** the columns keep their own order whatever order they were switched on, and every column can be shown
+test: `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `ignores a half-typed bound rather than blanking the list` (+15 more)
+
+#### ATTENDANCE-VALIDATION-47: The export is a file any spreadsheet reads (rule 17)
+- **Given** the Presences report with rows shown, and with none
+- **When** the coach exports
+- **Then** the file is named `presences-YYYY-MM-DD.csv`
+- **And** every field is quoted and a quote inside a field is doubled
+- **And** with no rows the file holds the header line alone
+test: `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `date-stamps the file so monthly exports do not collide` (+2 more)
+
+#### ATTENDANCE-VALIDATION-48: The phone's charts are drawn from the same numbers (rules 17, 17a)
+- **Given** the report's statistics, loaded, still loading, and filtered down to nobody
+- **When** the phone draws its two charts
+- **Then** the split is two bars, private and academy, from the totals; both stand at zero while the statistics load and when no row matches
+- **And** the ranking shows the eight students with the most presences, most first, with names shortened to a first name and an initial
+- **And** a student with no presence is left out of the ranking
+test: `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `reads the two totals the server already computed` (+10 more)
+
+#### ATTENDANCE-VALIDATION-49: A walk-in takes a seat and is saved with the class (rule 8)
+- **Given** a past class, and a roster student who was not enrolled in it
+- **When** the coach adds the student and validates
+- **Then** the student has a presence marked present and validated, and the class's filled count is one higher
+- **And** a student who was already enrolled does not add a seat
+- **And** in the app the walk-in appears in the class's list once, as a guest with no decision yet, and the server's row replaces it after the save
+test: `frontend/apps/mobile/src/features/presences/validate-state.test.ts` › `appends a locally added walk-in to the class roster` (+6 more)
+
+#### ATTENDANCE-VALIDATION-50: The roster statistics list every student, counted from their presence rows (rule 12)
+- **Given** a coach's roster with students who attended private and academy classes, one with a justified absence, and one with no activity
+- **When** the statistics are read for a period
+- **Then** each student's total, private, academy, justified and unjustified counts are those of their rows
+- **And** the student with no activity is listed with zeros
+test: `backend/padel_app/tests/test_presence_overview.py` › `test_roster_player_with_no_activity_still_appears` (+1 more)
+
 ### Notes
 - Source: ticket PAD-140.
 - Fills in the `validated` field reserved by `attendance.presence` rule 5, which
@@ -593,106 +744,17 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
   export needed no native rebuild. This mirrors the trade `app/player/[playerId].tsx` already
   records for share/clipboard.
 
-#### Correcting an absence to present clears its justification (PAD-381)
-- **Given** the coach recorded Rui as absent, justified
-- **When** the coach records Rui as present, with no `justification` key in the body
-- **Then** the row is `present` with no justification
-- **When** instead the coach records Rui as absent, unjustified
-- **Then** the row is `absent`, `unjustified`
-- **Given** Rui has two unjustified absences and a third row the coach corrected to present, still carrying `unjustified` from before this rule, under a bar of "at most 2 unjustified absences"
-- **Then** the bar admits Rui; with three real unjustified absences it does not
-- **Given** Sara's only row is `present` still carrying `justified`
-- **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
+### Open questions
 
-
-#### Each class shows how many are present (rule 27, PAD-538)
-- **Given** a past class with Ana (confirmed), Bruno (declined) and Carla (no answer)
-- **When** the coach opens the validate view
-- **Then** the class reads "1 presente" beside its time and title
-- **When** the coach marks Carla present
-- **Then** it reads "2 presentes"
-
-#### The count is the whole backlog, not the shown week (rule 18, PAD-539)
-- **Given** a coach with three pending classes in the week before last and none in the current or
-  previous week
-- **When** they open the Presences tab on the current week
-- **Then** the trigger reads "3 aulas por validar" and "Nada nesta semana"; `pendingTotal` is 3 and
-  `pendingCount` is 0
-- **When** they move to the week before last
-- **Then** the trigger still reads "3 aulas por validar" and now "3 nesta semana"
-
-#### One number on four surfaces (rules 18 and 23, PAD-539)
-- **Given** pending classes in three different weeks, one fully validated class and one class
-  with no presence rows
-- **When** the count endpoint, the badge endpoint and the dashboard's needs-you block are read
-- **Then** `pendingTotal`, the badge's `count` and the validation item's `count` are the same
-  number, equal to the number of pending classes the listing returns over all history, and the
-  validated class and the empty class are not in it
-
-#### The deep link lands on the most recent week with work (rule 23, PAD-539)
-- **Given** the only pending classes are three weeks back
-- **When** the badge is read on a Tuesday
-- **Then** `count` is their number, `weekOffset` is -3 and `href` is `/presences?validate=1&week=-3`,
-  and following it opens the tab on that week with the validate view open and those classes listed
-
-#### The walk-in picker sorts and searches (rule 8a, PAD-537)
-- **Given** a coach whose roster outside the class is "Zé Costa", "ana silva" and "Bruno Silva Ramos"
-- **When** they open "Adicionar jogador" on a past class
-- **Then** the list reads ana silva, Bruno Silva Ramos, Zé Costa
-- **When** they type "silva ana"
-- **Then** only "ana silva" is listed
-
-#### A student already in the class is named, not "not found" (rule 8b, PAD-787)
-- **Given** a past class with "Gonçalo Simões" in it (the coach calls him "Gugu"), and a roster
-  that also has "Zé Costa"
-- **When** the coach types "goncalo simoes", or "Gugu", in that class's walk-in search
-- **Then** "Nenhum jogador encontrado para «…»" shows with "Gonçalo Simões já está nesta aula."
-  under it (web; on iOS the coach's name for him)
-- **When** they press "Ver"
-- **Then** the search closes and his row is brought into view (web, and iOS flow 313)
-
-#### A name nobody has is not on the roster (rule 8b, PAD-787)
-- **Given** the same class and roster
-- **When** the coach types "Xavier"
-- **Then** "Não está na tua lista de jogadores." shows with "Abrir Jogadores", which leads to the
-  players list; while the search lists someone, or is blank, neither line shows
-
-#### Pressing the selected mark clears it (PAD-567, rule 26)
-- **Given** a coach editing attendance on the class detail with Ana marked present
-- **When** they press "Presente" again
-- **Then** Ana's row shows no mark, the "needs a decision" highlight returns and `presentCount` drops by one, on web and on iOS, and the same happens in the Presences validate view through `PresenceMarkToggle`
-
-#### Saving a cleared row writes the never-answered shape (PAD-567, rule 26)
-- **Given** Ana's row `status = "present"`, `validated = true`, `response = "confirmed"`, `responded_at` set, `recorded_by = "student"`
-- **When** the coach saves `{"playerId": <ana>, "clear": true}` through `POST /class_instance/presences/confirm`
-- **Then** the row reads `status = null`, `justification = null`, `validated = false`, `response = "none"`, `responded_at = null`, `recorded_by = null`, `confirmed = false`, its `attendanceState` is `planned`, and the reply lists her in `cleared`
-
-#### Clearing an absence reopens the seat and closes her vacancy (PAD-567, rule 26)
-- **Given** Ana absent on a 4-place class with 3 others coming, her open vacancy inviting Bea
-- **When** the coach clears Ana's mark
-- **Then** `effective_filled_spots` is 4, Ana's vacancy is closed and Bea's invitation retired, and no new vacancy exists
-
-#### The freed spot was taken: warn and allow (PAD-567, rule 26)
-- **Given** Ana absent on a 4-place class where Bea has since taken the seat (4 coming)
-- **When** the coach clears Ana's mark on the class detail
-- **Then** a dialog warns that the class goes to 5/4 before saving, and on confirm the server records the clear without refusing
-
-#### A clear after the reminder instant sends nothing (PAD-567, rule 26, owner 2026-10-10)
-- **Given** a class whose first-reminder instant passed, where Ana was marked present before the pass (so rule 23 skipped her) and has no counted reminder
-- **When** the coach clears her mark
-- **Then** no job is armed, no message is written and she has no counted reminder — likewise when the class's notifications are off, the class is over, or the instant is ahead
-
-#### A clear before the instant leaves her to the ordinary reminder (PAD-567, rule 26)
-- **Given** a class whose first-reminder instant is two hours ahead and Ana marked present
-- **When** the coach clears her mark and the instant then passes
-- **Then** the ordinary reminder pass sends her one reminder
-
-#### A cleared row brings a validated class back to the backlog (PAD-567, rule 26)
-- **Given** a validated past class
-- **When** the coach clears one row
-- **Then** that row's `validated` is false, the class is pending again in rule 18's count and rule 23's badge, and the other rows keep their marks
-
-#### A cleared absence withdraws its suggestion (PAD-567, rule 26)
-- **Given** a coach in semi-automatic mode with a pending replacement suggestion born of Ana's absence
-- **When** the coach clears Ana's mark
-- **Then** `recompute_suggestions` runs, the suggestion for her seat is gone, and no new vacancy or suggestion was created
+- **Sixteen blocks under Notes got ids tonight (ATTENDANCE-VALIDATION-29 to 44), text unchanged. Three do not match what proves them.**
+  - ATTENDANCE-VALIDATION-31 says that after moving to another week the trigger reads "3 nesta semana". Rule 18 and the code read "na semana mostrada" for any week but the current one (`ValidateClassesDialog.tsx:313-314`). Its backing test also uses classes from last week and a total of 4, not "the week before last" and 3. Recommendation: amend the block to rule 18.
+  - ATTENDANCE-VALIDATION-32 says "four surfaces"; its tests compare three code paths (the listing, the count endpoint and the badge with the dashboard item). Recommendation: accept, or add the fourth.
+  - ATTENDANCE-VALIDATION-44 says a cleared absence withdraws its suggestion; the code does so only while the class has not started (`frontend_api.py:2754`), and its tests use a future class. Recommendation: say "on a class that has not started" in rule 26 and the criterion.
+- **Rule 8 says a walk-in creates an `Association_PlayerLessonInstance` row; that table is gone.** Since PAD-301 the presence row is the enrolment (`lesson_service.py:73-76`). The behaviour is intact and ATTENDANCE-VALIDATION-49 states it. Recommendation: fix the rule's mechanism.
+- **Rule 8a says the walk-in picker lists alphabetically; a typed search lists the best match first.** Alphabetical order holds only for an empty box (`walk-in-options.ts:8-21`, following `players.search` rule 6), and the coach's nickname changes both the order and the match. Recommendation: amend rule 8a and ATTENDANCE-VALIDATION-34.
+- **Rule 21 ends by calling un-marking "a separate, open product question"; rule 26 answered it.** A row is cleared with `clear: true`; `status: null` is still ignored by the route. Recommendation: replace the sentence with a pointer to rule 26.
+- **The export's file name uses the UTC date; rule 15 puts every date of this tab on the club's day.** Both shells use the UTC date (`report-state.ts:243`, `PresencePlayersTable.tsx:145`). After midnight UTC and before midnight at the club the name is a day ahead. Recommendation: use the club's day.
+- **The badge's "99+" cap and its answer for a bad count are in the code only.** Rule 23 gives the tiers 0, 1 to 5 and more than 5. Recommendation: add the cap to rule 23.
+- **Rule 8b's number is still marked unconfirmed.** Recommendation: confirm it.
+- **A shared test file may not compile.** `packages/config/src/presence-status.test.ts` imports `presentCount` twice (lines 7 and 12). The reader of this spec did not run it. Recommendation: remove the duplicate import, then check the file's tests run.
+- **P-ATTENDANCE-1 lost three statements that the rules do not make.** "A player who never answered shows ... as absent, justified" (rule 6: it is the player who declined), "Only classes that have ended can be validated" (rule 3 is about the listing; the save route accepts any class) and "locks" (rule 9: a validation can be reopened). Recommendation: decide whether the save route should refuse a class that has not ended.

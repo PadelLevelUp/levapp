@@ -98,3 +98,25 @@ Track player attendance for each class instance, including invitation, confirmat
 - **When** coach POSTs to `/api/app/lesson_instance/{id}/confirm_presences` with status for each player
 - **Then** each presence.status is updated (present or absent)
 - **And** absent players have justification set
+
+#### ATTENDANCE-PRESENCE-6: A student's answer is kept beside the coach's mark, with when it was given and by whom (rules 3, 7)
+- **Given** an enrolled student who answers a reminder, and a coach who then marks the class
+- **When** the presence row is written and read
+- **Then** a yes is stored as response `confirmed`, a no as `declined`, a cancellation as `cancelled` or `proactive_decline`, each with its time and recorded by the student
+- **And** the coach's mark writes the status and leaves the response as it was
+- **And** the payload carries `response`, `respondedAt` and `recordedBy`
+- **And** a student the coach has marked gets no further reminder
+test: `backend/padel_app/tests/test_pad271_presence_response.py` › `test_a_reminder_yes_writes_response_confirmed_by_the_student` (+7 more)
+
+#### ATTENDANCE-PRESENCE-7: Marking an occurrence that does not exist yet creates it (rules 1, 3)
+- **Given** a weekly class and a date it falls on, with no occurrence stored
+- **When** the coach saves attendance for that date
+- **Then** the occurrence exists afterwards and the student's presence is recorded on it
+test: `backend/padel_app/tests/test_confirm_presences.py` › `test_confirm_presences_recurring_occurrence_materializes_and_records` (+1 more)
+
+### Open questions
+
+- **ATTENDANCE-PRESENCE-5 names a route that does not exist.** It posts to `/api/app/lesson_instance/{id}/confirm_presences`; the route is `POST /api/app/class_instance/presences/confirm` (`frontend_api.py:2692`). Recommendation: amend the criterion.
+- **Rule 7 says `recorded_by` is written only by the student's own actions and the import; the code also writes "coach" and "system".** Every attendance mark sets it to "coach" (`lesson_service.py:801`), so a coach's mark replaces the student's "student". One test asserts exactly that. Recommendation: decide whether `recorded_by` names who answered or who last touched the row, then fix the rule or the code.
+- **The app and the server derive one shape differently.** For a row that is validated, has no status and has `confirmed` true, the server says `coming` and the client's fallback says `planned` (`attendance-state.ts:85-89`). The fallback runs only when the server sends no state. Recommendation: align the fallback.
+- **One test accepts either kind of decline.** "cancel lands as cancelled or proactive_decline" passes on both, so it does not show which the fixture produces. Recommendation: pin the clock and assert one.

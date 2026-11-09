@@ -160,5 +160,46 @@ for every bucket and every history row.
 - **When** they tap the attendance action
 - **Then** the same attendance screen opens for that player, subtitled with their name
 
+#### ATTENDANCE-HISTORY-11: The buckets follow the length of the range and leave no gap (rules 4, 5)
+- **Given** ranges of a week, a year and five years
+- **When** the history is bucketed
+- **Then** a range of thirty-one days or fewer is bucketed by day, up to 18 months by month, and beyond that by year
+- **And** every period in the range has a bucket, the empty ones included, across a year's end too
+- **And** the Presences trend is filled the same way
+test: `backend/padel_app/tests/test_attendance_history_buckets.py` › `test_a_full_month_is_still_daily` (+8 more)
+
+#### ATTENDANCE-HISTORY-12: Ranges are counted on the club's calendar, whatever the device's time zone (rules 6, 10)
+- **Given** a device whose clock reads 23:30 UTC on a summer evening, when it is already the next day at the club
+- **When** the presets, the Presences week and the default range are worked out
+- **Then** the month preset is the club's month, first day to last, and the week preset the club's week, Sunday to Saturday
+- **And** the Presences week is that week moved by whole weeks, and its label names the week that was asked for
+- **And** with no range the server answers for the club's current month
+- **And** a class's date keeps its own calendar day when it is read and shown
+test: `frontend/apps/mobile/src/features/attendance/date-ranges.test.ts` › `round-trips a bare date` (+18 more)
+
+#### ATTENDANCE-HISTORY-13: The chart draws what the server sent, labelled in the app's language (rules 4, 5, 19)
+- **Given** a history answer with its buckets and the granularity the server chose
+- **When** the attendance chart is built
+- **Then** each bucket's count is plotted as sent, zeros included, and an empty answer plots nothing
+- **And** up to seven buckets are labelled by weekday and more by day number; months and years by their names, in the app's language
+- **And** the chart's spoken label names the series and each period that has classes, or says there is no attendance
+test: `frontend/apps/mobile/src/features/attendance/attendance-series.test.ts` › `names the series and every period that has data` (+9 more)
+
+#### ATTENDANCE-HISTORY-14: The phone's chart keeps whole numbers on its axis and every mark inside the plot (rule 19)
+- **Given** a series of counts drawn on the phone
+- **When** the chart is laid out
+- **Then** the axis ends one above the tallest count and never below 4, with whole-number ticks from zero
+- **And** the bars sit in equal slots, as tall as their count, no wider than their cap, and a count of zero draws no bar
+- **And** a line's points sit on the centres of those slots
+- **And** at most seven labels are shown, the first and the last among them
+test: `frontend/apps/mobile/src/components/charts/chart-geometry.test.ts` › `shares the bar slot centres, so line and bars align` (+23 more)
+
 ### Notes
 - Source: ticket PAD-114. iOS parity: PAD-162 (from the PAD-152 parity audit, finding A1).
+
+### Open questions
+
+- **Rule 4 says the buckets are "computed from `start_datetime` in UTC"; the code buckets on the club's clock.** `attendance_history_service.py:50-61`; stored times are the club's wall clock. The service's own docstring still says UTC. Rule 4's "18 months" is the constant 550 days, and no test sits on the 31-day or the 550-day edge. Recommendation: say "on the club's calendar" and "550 days" in rule 4, and add the two edge tests.
+- **Rule 6 applies the default month "when no `from`/`to` is supplied"; the server applies it unless both are supplied.** A request with only one of the two silently gets the current month (`frontend_api.py:1463`). Recommendation: answer 400 for half a range, or say so in rule 6.
+- **Three tests cannot fail for the reason their names give.** "uses UTC, not the device timezone" checks a month start that is the same in both zones; the two "keeps its own day" tests never leave UTC arithmetic. Recommendation: pin the process time zone in those tests.
+- **The web custom-period check has no test.** iOS uses a shared helper (pointed at ATTENDANCE-HISTORY-3); web repeats the check inline in `AttendanceRangeControls.tsx:58-62`. Recommendation: use the helper on web.

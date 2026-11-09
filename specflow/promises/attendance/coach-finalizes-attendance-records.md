@@ -9,10 +9,10 @@ status: draft
 
 After a class has run, the coach reviews who came and locks in the official attendance record in one place, pre-filled from each player's answer, instead of opening every class. Each player's row shows the same single state the class sheet shows (PAD-313), and the same numbers feed the invitation engine's metrics.
 
-- Only classes that have ended can be validated.
+- The Presences tab lists only classes that have ended.
 - A class cannot be validated while an enrolled player is undecided; the pre-filled guess writes nothing until the coach confirms.
-- A player who never answered shows, for display only, as "absent, justified".
-- Validating a batch locks only the classes that are ready; the rest stay listed with the reason.
+- A player who declined shows, pre-filled, as "absent, justified"; a player who never answered shows as undecided.
+- Validating a batch validates only the classes that are ready; the rest stay listed with the reason.
 - A walk-in added to a past class takes a real seat in its capacity.
 - When a search for a student to add finds nobody, the app says why: already in that class (and where), or not on the coach's list. Never just "not found" (PAD-787).
 - Undoing a validation reopens the record and erases nothing.

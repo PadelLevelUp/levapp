@@ -139,6 +139,14 @@ No new entity, and **no migration**. Derived from existing `presences` joined to
 - **When** the absence history is shown (web or iOS)
 - **Then** the justified row's badge has the `warning` tone and the unjustified row's the `negative` tone
 
+#### ATTENDANCE-ABSENCES-12: The absence history answers for its range only, with every day of it (rules 1, 4, 8)
+- **Given** a student with absences inside and outside a 31-day range
+- **When** the absence history is read for that range
+- **Then** only the absences inside it are counted and listed
+- **And** the range has 31 day buckets, the days with no absence included
+- **And** each absence carries its justification, and the attendance history's rows carry none
+test: `backend/padel_app/tests/test_absence_history.py` › `test_range_excludes_out_of_window_absences` (+2 more)
+
 ### Notes
 - Source: ticket PAD-141. iOS parity: PAD-163 (from the PAD-152 parity audit, finding A2).
 - Supersedes `dashboard.navigation`'s previous "Missed stays inert" rule (now 11a).
