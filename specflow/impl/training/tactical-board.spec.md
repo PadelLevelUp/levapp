@@ -334,6 +334,121 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
   59 (A2) guard this on the Android lane; `court-surface.geometry.test.ts` keeps a translated
   group from returning.
 
+#### TRAINING-TACTICAL-BOARD-21: Several ball paths in one step are numbered and kept in order (PAD-289)
+- **Given** the board in game mode with the Bola tool
+- **When** the coach draws a path from (58 %, 20 %) to (40 %, 80 %) and then a second from (40 %, 80 %) to (70 %, 30 %)
+- **Then** both paths are drawn, numbered 1 and 2 at their starts, and the step's `balls` holds them in that order with `ball` equal to the first
+- **And** toggling the second path's handle makes only that path a lob
+
+#### TRAINING-TACTICAL-BOARD-22: A ball path can be reordered and removed (PAD-289)
+- **Given** a step with two ball paths
+- **When** the coach presses ▲ on the second path
+- **Then** it becomes path 1 and the numbers on the court swap
+- **When** the coach presses ✕ on path 2
+- **Then** one path remains, no number is shown, and undo brings the removed path back
+
+#### TRAINING-TACTICAL-BOARD-23: Playback plays a step's paths in order (PAD-289)
+- **Given** a step with two flat paths
+- **When** the coach presses ▶ AUTO
+- **Then** the ball travels the first path and then the second, the step taking 1,600 ms, and Passo still advances one whole step
+
+#### TRAINING-TACTICAL-BOARD-24: Thumbnails and older diagrams (PAD-289)
+- **Given** one exercise saved before PAD-289 (`ball` only) and one saved after (`balls` with two paths)
+- **When** the exercise list renders
+- **Then** the first card shows its one path and the second shows both
+- **And** opening the older exercise reads `ball` as the only path and saving it writes `balls` plus the mirrored `ball`
+
+#### TRAINING-TACTICAL-BOARD-25: The court and the starting positions are the canvas's (rules 5, 6, 7, 14)
+- **Given** a new board
+- **When** it opens in game mode, and in basket mode
+- **Then** the court is 340 by 600 view units with the net at 50 % and the service lines at 32 % and 68 %, and the point (50 %, 50 %) is the view point (170, 300)
+- **And** game mode starts with A1 at (32, 26), A2 at (62, 26), B1 at (32, 70) and B2 at (62, 70), and no steps
+- **And** basket mode starts with A1 at (30, 18), A2 at (60, 18) and the feeder at (46, 55)
+test: `frontend/packages/config/src/board-logic.test.ts` › `has A1, A2 and one feeder at the canvas coordinates` (+4 more)
+
+#### TRAINING-TACTICAL-BOARD-26: A ball path needs length, is straight when flat and bows when lob (rules 9, 20)
+- **Given** the Bola tool in game mode
+- **When** the coach presses twice less than 3 % apart, and then draws a path from (58 %, 20 %) to (40 %, 80 %)
+- **Then** the close pair draws nothing and the second press becomes the new start
+- **And** the flat path is a straight line between its ends, and as a lob it curves to the right of its direction of travel, 12 % out at its middle
+- **And** during AUTO a lob ball follows that curve, and a step with no ball path shows no ball
+test: `frontend/packages/config/src/court-diagram.test.ts` › `a flat path is a straight line in view units` (+4 more)
+
+#### TRAINING-TACTICAL-BOARD-27: A movement needs an armed player and continues from that player's last leg (rule 10)
+- **Given** the Movimentação tool and A1 already holding one leg to (20 %, 40 %)
+- **When** the coach presses the court without pressing a player, presses A1 and then the court, and selects a tool while a player is armed
+- **Then** the press with no armed player records nothing
+- **And** pressing A1 again starts from (20 %, 40 %) and the next court press adds a second leg, keeping the first
+- **And** selecting a tool disarms the player, so the next court press records nothing
+test: `frontend/packages/config/src/board-logic.test.ts` › `pressing the player again later continues from its last leg, never replaces` (+2 more)
+
+#### TRAINING-TACTICAL-BOARD-28: Each action drawn takes the next place in its step's order (rules 23, 26)
+- **Given** a new game board, and a step saved before sequencing with one ball path and two movements
+- **When** the coach draws a ball path, a movement and a second ball path, and then draws on the older step
+- **Then** on the new board the paths take places 0 and 2 and the movement place 1
+- **And** on the older step what was there is placed first, ball paths before movements, and the new action follows
+- **And** a step that carries no order numbers its ball paths 1 and 2 and leaves its movements unnumbered
+test: `frontend/packages/config/src/board-sequence.test.ts` › `numbers only the ball paths, as rule 23` (+2 more)
+
+#### TRAINING-TACTICAL-BOARD-29: Steps are added, deleted and selected, and drawing goes to the current one (rules 18, 19)
+- **Given** a game board where A1 was moved to (20 %, 40 %) in the first step
+- **When** the coach adds a step, draws a ball path, steps back and forward, and deletes steps
+- **Then** the added step becomes the current one, it starts with A1 at (20 %, 40 %), and the ball path is written to it and not to the first step
+- **And** deleting the current step moves to the one before, and the step index never leaves the steps that exist
+- **And** a position asked for beyond the last step is the final position
+test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to the current step, and movements start from the previous step's end` (+5 more)
+
+#### TRAINING-TACTICAL-BOARD-30: Switching mode on a board with content asks first, then starts that mode afresh (rule 3)
+- **Given** a game board with a cone on it, and a fresh game board
+- **When** the coach picks another mode on each
+- **Then** the board with the cone asks for confirmation and stays as it is until the coach confirms; after that it holds the new mode's starting position and no steps
+- **And** the fresh board counts as empty, so it has nothing to lose
+test: `frontend/packages/config/src/board-logic.test.ts` › `a fresh board has no content; a cone or a step counts as content` (+2 more)
+
+#### TRAINING-TACTICAL-BOARD-31: Undo goes back twenty changes and does nothing when there is none (rule 4)
+- **Given** a board with no change yet, and a board with twenty-five changes
+- **When** the coach presses undo
+- **Then** on the first nothing changes
+- **And** on the second the twenty most recent changes can be undone and the five oldest cannot
+test: `frontend/packages/config/src/board-history.test.ts` › `keeps at most HISTORY_LIMIT entries, dropping the oldest` (+2 more)
+
+#### TRAINING-TACTICAL-BOARD-32: The cone, feeder and player tools place a piece where the coach taps (rules 11, 15)
+- **Given** the Cone tool in game mode, and the Alimentador and Jogador tools in basket mode
+- **When** the coach taps the court
+- **Then** the Cone tool adds `cone-1` at the tap and selects it, and a second tap adds `cone-2`
+- **And** the Alimentador tool moves the feeder to the tap
+- **And** the Jogador tool adds the next player, A3, at the tap and selects it
+test: `frontend/apps/web/src/components/training/board/TacticalBoard.test.tsx` › `Alimentador moves the feeder and Jogador places a player where tapped` (+3 more)
+
+#### TRAINING-TACTICAL-BOARD-33: What can be deleted depends on the mode (rules 7, 14, 16)
+- **Given** a selected player in game mode, in basket mode and in Magnético
+- **When** the coach deletes it
+- **Then** in game mode nothing is deleted
+- **And** in basket mode the player is deleted while another remains, the last player stays, and the feeder is never deleted
+- **And** in Magnético the player is deleted
+test: `frontend/packages/config/src/board-logic.test.ts` › `removePlayer goes down to one player and never below` (+2 more)
+
+#### TRAINING-TACTICAL-BOARD-34: Magnético places free pieces in the chosen colour and tidies a pen stroke (rule 16)
+- **Given** the board in Magnético
+- **When** the coach places players with the blue, red and amber swatches, a cone and a ball with a swatch chosen, and draws with the pen
+- **Then** the players are A1 (Team A), B1 (Team B, for red) and A2, numbered within their team
+- **And** the cone and the loose ball carry the chosen colour, and the ball adds no step
+- **And** the stored stroke drops points that lie on a straight run and keeps its corners
+test: `frontend/packages/config/src/board-logic.test.ts` › `drops collinear points and keeps the corners` (+4 more)
+
+#### TRAINING-TACTICAL-BOARD-35: Reading a diagram keeps what it understands and starts from 2v2 otherwise (rule 12)
+- **Given** a v2 diagram, no diagram, an empty legacy diagram, and a legacy diagram with a straight arrow and two movements
+- **When** each is opened
+- **Then** the v2 diagram is used unchanged, and a missing or empty one opens in game mode at the 2v2 start with no steps
+- **And** the straight arrow becomes a flat ball path, the movement near a player becomes that player's movement, and the movement more than 12 % from any player is dropped
+test: `frontend/packages/config/src/court-diagram.test.ts` › `returns a v2 diagram unchanged and builds the 2v2 start for undefined` (+2 more)
+
+#### TRAINING-TACTICAL-BOARD-36: A card without a diagram shows no court (rule 13)
+- **Given** an exercise with no diagram
+- **When** its card renders in the exercise list
+- **Then** the card shows no court thumbnail
+test: `frontend/apps/web/src/components/training/ExerciseCard.test.tsx` › `renders no thumbnail when there is no diagram`
+
 ### Status (2026-09-08, PAD-242..245)
 `implemented`: all four waves are built and verified on web and iOS — board shell, the three
 modes (Situações de jogo, Exercícios de cesto, Magnético), v2 model, legacy migration,
@@ -354,26 +469,9 @@ the shared reducer carries the iOS behaviour coverage in unit tests.
 - OPEN: the design-system skill readme still claims the navy redesign is not in production;
   `packages/config/src/tokens.ts` shows it is. Update the skill separately.
 
-#### Several ball paths in one step are numbered and kept in order (PAD-289)
-- **Given** the board in game mode with the Bola tool
-- **When** the coach draws a path from (58 %, 20 %) to (40 %, 80 %) and then a second from (40 %, 80 %) to (70 %, 30 %)
-- **Then** both paths are drawn, numbered 1 and 2 at their starts, and the step's `balls` holds them in that order with `ball` equal to the first
-- **And** toggling the second path's handle makes only that path a lob
+### Open questions
 
-#### A ball path can be reordered and removed (PAD-289)
-- **Given** a step with two ball paths
-- **When** the coach presses ▲ on the second path
-- **Then** it becomes path 1 and the numbers on the court swap
-- **When** the coach presses ✕ on path 2
-- **Then** one path remains, no number is shown, and undo brings the removed path back
-
-#### Playback plays a step's paths in order (PAD-289)
-- **Given** a step with two flat paths
-- **When** the coach presses ▶ AUTO
-- **Then** the ball travels the first path and then the second, the step taking 1,600 ms, and Passo still advances one whole step
-
-#### Thumbnails and older diagrams (PAD-289)
-- **Given** one exercise saved before PAD-289 (`ball` only) and one saved after (`balls` with two paths)
-- **When** the exercise list renders
-- **Then** the first card shows its one path and the second shows both
-- **And** opening the older exercise reads `ball` as the only path and saving it writes `balls` plus the mirrored `ball`
+- **Rule 16 says free players are "labelled by placement order"; the code numbers them within their team.** Blue, red, amber placed in that order give A1, B1, A2 (`board-logic.ts:289-294`; pinned by "In magnetic mode Jogador places a free player..."). TRAINING-TACTICAL-BOARD-34 is written to the code. Recommendation: keep the code and say "numbered within their team" in rule 16.
+- **Rule 9 gives the lob's bow as "12 % of the surface width"; the code measures 12 in percent space on both axes.** On the 340 by 600 court that is not 12 % of the width for a path that is not vertical (`court-diagram.ts:229-239`). Recommendation: keep the code and reword rule 9 to "12 percentage points, perpendicular to the path".
+- **Two of the four PAD-289 blocks that got ids tonight are proved only in part.** TRAINING-TACTICAL-BOARD-22 says the numbers on the court swap and that undo brings a removed path back; its tests check the order of the paths and never press undo. TRAINING-TACTICAL-BOARD-24's two-card render is tested in `ExerciseCard.test.tsx`, which is tagged elsewhere. Recommendation: add the two assertions.
+- **Six tests assert less than their names say:** "a piece or a step counts as content" builds no step; "Jogador places the next player where tapped" does not check the position; "any piece can be deleted" deletes only a player; "a step's movements start from the previous step's end" is not asserted in `board-logic.test.ts`; the step-indicator test mocks the translation, so no step number is read; "A ball path can be reordered and removed" removes the wrong index for its block. Recommendation: tighten them when the tags are applied.

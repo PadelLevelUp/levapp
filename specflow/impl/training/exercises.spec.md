@@ -58,3 +58,34 @@ Coaches create and manage a library of padel exercises with types, difficulty, c
 - **Given** an exercise owned by the coach
 - **When** they DELETE `/api/app/exercises/{id}`
 - **Then** the exercise is removed
+
+#### TRAINING-EXERCISES-5: A coach reads and writes their own exercises and groups (rules 7, 8, 9)
+- **Given** a coach who owns one exercise and one group, and a coach who owns none
+- **When** each lists exercises and groups, and the first creates, renames and deletes an exercise and creates a group
+- **Then** the first coach's lists hold exactly their exercise and their group, with ids as strings, and the second coach's lists are empty
+- **And** create answers 201, the rename 200 with the new name, the delete 204, and the group create 201
+test: `backend/padel_app/tests/test_backend_500_fixes.py` › `test_exercises_endpoint_still_works_for_coach` (+3 more)
+
+#### TRAINING-EXERCISES-6: Every exercise and group route answers an anonymous caller with 401 (rule 9)
+- **Given** no `Authorization` header
+- **When** each of the exercise and exercise-group routes is called with its method
+- **Then** every answer is 401
+test: `backend/padel_app/tests/test_training_players_role_authz.py` › `test_anonymous_callers_are_still_rejected`
+
+#### TRAINING-EXERCISES-7: The exercise form refuses what rules 1 and 3 do not allow (rules 1, 3)
+- **Given** the exercise form with a name, the type `volley` and difficulty 3
+- **When** the coach submits it, and submits it again with a blank name, with a type outside the list, and with difficulty 0, 6 or 2.5
+- **Then** the first is accepted, and each of the others is refused before any request is sent
+- **And** difficulty 1 and difficulty 5 are accepted
+test: `frontend/packages/validation/src/index.test.ts` › `parses valid input` (+3 more)
+
+### Open questions
+
+- **Only the form checks an exercise's type and difficulty; the server stores what it is sent.**
+  - Rules 1 and 3: the nine types, and difficulty 1 to 5.
+  - The code today: `exerciseFormSchema` (`frontend/packages/validation/src/index.ts:117`) refuses a type outside the list and a difficulty outside 1 to 5. `POST /api/app/exercises` checks neither (a test posts type `drill` and it is stored).
+  - Recommendation: validate both on the server too, so rules 1 and 3 hold for every client.
+- **The promise said a coach "can give other coaches access"; nothing in the product grants the follower role.**
+  - Rule 7: "Owner coach has full CRUD; follower coaches have read access".
+  - The code today: a follower row is honoured on read and on planning (`training_service.py:76`, `:110`; `frontend_api.py:558`), but no route or screen writes one. Only the retired data browser could.
+  - P-TRAINING-1 was reworded tonight to say the role exists and no screen grants it. Recommendation: decide whether sharing an exercise is wanted; if not, drop the follower role from rule 7 and from the promise.
