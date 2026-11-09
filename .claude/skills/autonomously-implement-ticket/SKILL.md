@@ -51,7 +51,7 @@ next skill. Follow its routing:
 
 | entry routes to | you then run |
 |---|---|
-| a spec gap / spec change / new behaviour | `specflow-spec` — update or create the leaf (and its business spec if the promise changes). **Spec edits are their own commit**, before any code. |
+| a spec gap / spec change / new behaviour | `specflow-spec-editor` — update or create the leaf (and its business spec if the promise changes). **Spec edits are their own commit**, before any code. |
 | "something is broken" | `specflow-bugs` — root-cause it and file it in `cortex/code/<area>/` (with `status: open`) first; its change plan names the spec to touch. |
 | no spec applies (standalone task) | say so explicitly in the PR body and proceed from the ticket text. |
 
@@ -72,7 +72,7 @@ Run `specflow-tests` for the leaf spec(s) from Step 1. For LevApp that means, co
   a vacuous flow).
 
 The test MUST fail before Step 4. **Never modify an assertion to make it pass** — if the test is
-wrong, the spec is wrong: go back to `specflow-spec`, then fix the test.
+wrong, the spec is wrong: go back to `specflow-spec-editor`, then fix the test.
 
 ## Step 3: Plan — `specflow-plan`
 
