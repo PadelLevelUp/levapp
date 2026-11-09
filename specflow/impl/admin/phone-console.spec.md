@@ -2,7 +2,7 @@
 id: admin.phone-console
 status: draft
 depends_on: [admin.foundation, admin.approvals-and-users, admin.clubs-and-switches, admin.engine-health]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-013, R-021, R-024]
 ---
 

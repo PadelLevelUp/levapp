@@ -2,7 +2,7 @@
 id: classes.availability
 status: draft
 depends_on: [classes.class-requests, calendar.student-blockers, settings.coach-working-hours, classes.instances]
-implements: ../../promises/classes/student-books-a-class.business.md
+serves: [P-CLASSES-3]
 governed_by: []
 ---
 

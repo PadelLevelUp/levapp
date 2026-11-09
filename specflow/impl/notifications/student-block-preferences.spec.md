@@ -2,7 +2,7 @@
 id: notifications.student-block-preferences
 status: implemented
 depends_on: [notifications.invitations, notifications.manual, notifications.reminders, notifications.waiting-list, settings.profile, settings.role-scope, calendar.student-blockers]
-implements: ../../promises/notifications/student-controls-their-notifications.business.md
+serves: [P-NOTIFICATIONS-6]
 governed_by: []
 ---
 

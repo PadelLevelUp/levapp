@@ -2,7 +2,7 @@
 id: client.query-cache
 status: implementing
 depends_on: [dashboard.blocks, calendar.view, players.list, messaging.conversations, attendance.validation, messaging.sse-realtime]
-implements: ../../promises/client/user-returns-to-a-screen-at-once.business.md
+serves: [P-CLIENT-1]
 governed_by: [R-012, R-014, R-024]
 ---
 

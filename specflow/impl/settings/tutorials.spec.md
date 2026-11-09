@@ -2,7 +2,7 @@
 id: settings.tutorials
 status: implemented
 depends_on: [settings.role-scope, notifications.invite-simulation, calendar.view, classes.instances]
-implements: ../../promises/notifications/coach-understands-who-gets-invited.business.md
+serves: [P-NOTIFICATIONS-4]
 governed_by: [R-001, R-011, R-012, R-015, R-024]
 ---
 

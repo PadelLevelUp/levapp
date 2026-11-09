@@ -2,7 +2,7 @@
 id: dashboard.blocks
 status: implemented
 depends_on: [classes.instances, messaging.conversations, notifications.activity, players.list]
-implements: ../../promises/dashboard/user-relies-on-the-dashboard.business.md
+serves: [P-DASHBOARD-1]
 governed_by: []
 ---
 

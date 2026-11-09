@@ -2,7 +2,7 @@
 id: evaluations.class-panel
 status: implemented
 depends_on: [evaluations.records, evaluations.competencies, classes.detail-visibility, attendance.presence]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: []
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md

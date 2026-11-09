@@ -2,7 +2,7 @@
 id: evaluations.bulk-import
 status: implemented
 depends_on: [evaluations.entries, import.confirm]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: []
 ---
 

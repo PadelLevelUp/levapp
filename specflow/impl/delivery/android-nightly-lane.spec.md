@@ -2,7 +2,7 @@
 id: delivery.android-nightly-lane
 status: implementing
 depends_on: [delivery.ci-images]
-implements: ../../promises/delivery/owner-sees-breakage-before-release.business.md
+serves: [P-DELIVERY-4]
 ---
 
 # delivery.android-nightly-lane

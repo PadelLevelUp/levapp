@@ -2,7 +2,7 @@
 id: evaluations.sharing
 status: implemented
 depends_on: [evaluations.records, evaluations.history, evaluations.evolution, messaging.messages]
-implements: ../../promises/evaluations/coach-shares-an-evaluation.business.md
+serves: [P-EVALUATIONS-2]
 governed_by: []
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md

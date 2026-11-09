@@ -2,7 +2,7 @@
 id: auth.account-profiles
 status: implemented
 depends_on: [auth.register, auth.activate, players.create, players.remove, import.revert]
-implements: ../../promises/auth/newcomer-creates-and-activates-an-account.business.md
+serves: [P-AUTH-4]
 governed_by: []
 ---
 

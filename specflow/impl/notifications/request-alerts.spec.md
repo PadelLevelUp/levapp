@@ -2,7 +2,7 @@
 id: notifications.request-alerts
 status: implemented
 depends_on: [clubs.join-request, players.claim, auth.coach-approval, auth.push-subscription, messaging.push-notifications, settings.profile]
-implements: ../../promises/notifications/people-hear-about-requests.business.md
+serves: [P-NOTIFICATIONS-5]
 governed_by: []
 ---
 

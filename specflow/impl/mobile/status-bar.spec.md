@@ -2,7 +2,7 @@
 id: mobile.status-bar
 status: implementing
 depends_on: []
-implements: ../../promises/mobile/system-bar-stays-readable.business.md
+serves: [P-MOBILE-4]
 governed_by: []
 ---
 

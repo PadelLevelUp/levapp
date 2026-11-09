@@ -2,7 +2,7 @@
 id: classes.enrollment
 status: implemented
 depends_on: [classes.create, players.create]
-implements: ../../promises/classes/coach-runs-class-occurrences.business.md
+serves: [P-CLASSES-1]
 governed_by: []
 ---
 

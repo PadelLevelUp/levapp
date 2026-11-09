@@ -2,7 +2,7 @@
 id: settings.role-scope
 status: implemented
 depends_on: [auth.login, settings.profile, settings.language, levels.coach-levels, evaluations.categories, evaluations.competencies, calendar.seasons, import.analyze, clubs.coach-invitation]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

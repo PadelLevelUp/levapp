@@ -2,7 +2,7 @@
 id: settings.profile
 status: implemented
 depends_on: [auth.login]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

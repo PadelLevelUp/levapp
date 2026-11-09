@@ -2,7 +2,7 @@
 id: players.nickname
 status: draft
 depends_on: [players.edit, players.list, players.remove]
-implements: ../../promises/players/coach-nicknames-a-player.business.md
+serves: [P-PLAYERS-4]
 governed_by: []
 ---
 

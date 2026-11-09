@@ -2,7 +2,7 @@
 id: auth.mobile-universal-links
 status: implemented
 depends_on: [auth.register, players.invite-completion, clubs.coach-invitation]
-implements: ../../promises/auth/newcomer-creates-and-activates-an-account.business.md
+serves: [P-AUTH-4]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: training.tactical-board
 status: implemented
 depends_on: [training.exercises]
-implements: ../../promises/training/coach-builds-exercise-library.business.md
+serves: [P-TRAINING-1]
 governed_by: [R-015, R-024, R-025]
 provenance:
   - derives_from: archive/documents/treino-quadro-tatico-2026-09-08/extracted/requirements.md

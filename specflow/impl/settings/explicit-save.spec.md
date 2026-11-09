@@ -2,7 +2,7 @@
 id: settings.explicit-save
 status: implementing
 depends_on: [settings.role-scope, settings.profile, settings.language, settings.unsaved-edits, evaluations.reminders, evaluations.scale, notifications.request-alerts, notifications.config, calendar.seasons, settings.coach-working-hours, notifications.student-block-preferences]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

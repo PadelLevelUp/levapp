@@ -2,7 +2,7 @@
 id: auth.legal-catch-up
 status: implementing
 depends_on: [auth.register, auth.login]
-implements: ../../promises/auth/newcomer-creates-and-activates-an-account.business.md
+serves: [P-AUTH-4]
 governed_by: []
 ---
 

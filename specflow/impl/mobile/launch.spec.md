@@ -2,7 +2,7 @@
 id: mobile.launch
 status: draft
 depends_on: [auth.login]
-implements: ../../promises/mobile/the-app-opens-fast.business.md
+serves: [P-MOBILE-6]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: messaging.messages
 status: implemented
 depends_on: [messaging.conversations]
-implements: ../../promises/messaging/user-and-coach-message-in-real-time.business.md
+serves: [P-MESSAGING-2]
 governed_by: []
 ---
 

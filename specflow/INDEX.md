@@ -7,7 +7,9 @@ Untagged tests: 7552
 
 ## Promises
 
-### specflow/promises/admin/personal-data-is-kept-only-as-long-as-needed.business.md
+### P-ADMIN-1: Personal data is kept only as long as it is needed
+
+`specflow/promises/admin/personal-data-is-kept-only-as-long-as-needed.md`
 
 - spec **admin.data-retention** (`specflow/impl/admin/data-retention.spec.md`)
   - **ADMIN-DATA-RETENTION-1** The owner's periods are on with no setting (rules 1, 2) · unverified
@@ -19,7 +21,9 @@ Untagged tests: 7552
   - **ADMIN-DATA-RETENTION-7** The audit log refuses every other delete (rule 5) · unverified
   - **ADMIN-DATA-RETENTION-8** One failing item does not stop the others (rule 2) · unverified
 
-### specflow/promises/admin/staff-act-under-the-company-identity-and-leave-a-trail.business.md
+### P-ADMIN-2: Staff act under the company's identity, and every action leaves a trail
+
+`specflow/promises/admin/staff-act-under-the-company-identity-and-leave-a-trail.md`
 
 - spec **admin.foundation** (`specflow/impl/admin/foundation.spec.md`)
   - **ADMIN-FOUNDATION-1** A company account with a role signs in (rules 1, 3) · unverified
@@ -47,7 +51,9 @@ Untagged tests: 7552
   - **ADMIN-FOUNDATION-23** The product apps carry no admin code (rule 14) · unverified
   - **ADMIN-FOUNDATION-24** The console builds alone (rules 14, 16) · unverified
 
-### specflow/promises/admin/staff-operate-the-platform-without-the-database.business.md
+### P-ADMIN-3: Staff operate the platform without the database
+
+`specflow/promises/admin/staff-operate-the-platform-without-the-database.md`
 
 - spec **admin.approvals-and-users** (`specflow/impl/admin/approvals-and-users.spec.md`)
   - **ADMIN-APPROVALS-AND-USERS-1** The console lists and approves a pending coach with the full side effects (rules 1, 2) · unverified
@@ -136,7 +142,9 @@ Untagged tests: 7552
   - **ADMIN-WORK-DASHBOARD-9** Open bugs by severity (rule 10) · unverified
   - **ADMIN-WORK-DASHBOARD-10** CI lanes near their limit (rule 11) · unverified
 
-### specflow/promises/admin/the-owner-knows-what-levapp-has-cost.business.md
+### P-ADMIN-4: The owner knows what LevApp has cost
+
+`specflow/promises/admin/the-owner-knows-what-levapp-has-cost.md`
 
 - spec **admin.finance** (`specflow/impl/admin/finance.spec.md`)
   - **ADMIN-FINANCE-1** Every console account reaches finance (rule 1) · unverified
@@ -167,7 +175,9 @@ Untagged tests: 7552
   - **ADMIN-FINANCE-26** Usable from a phone (rule 12) · unverified
   - **ADMIN-FINANCE-27** No identifiers in tracked files (rule 11) · unverified
 
-### specflow/promises/attendance/coach-finalizes-attendance-records.business.md
+### P-ATTENDANCE-1: Coach finalizes attendance records
+
+`specflow/promises/attendance/coach-finalizes-attendance-records.md`
 
 - spec **attendance.stats** (`specflow/impl/attendance/stats.spec.md`)
   - **ATTENDANCE-STATS-1** Classes owed are justified absences minus accepted invitations (rule 3, PAD-505) · unverified
@@ -207,7 +217,9 @@ Untagged tests: 7552
   - **ATTENDANCE-VALIDATION-27** An undecided player stands out until marked (rule 24, PAD-443) · unverified
   - **ATTENDANCE-VALIDATION-28** The alert never looks like "Justificada" (rule 24, PAD-443) · unverified
 
-### specflow/promises/attendance/player-confirms-and-manages-attendance.business.md
+### P-ATTENDANCE-2: Player confirms and manages attendance
+
+`specflow/promises/attendance/player-confirms-and-manages-attendance.md`
 
 - spec **attendance.confirm** (`specflow/impl/attendance/confirm.spec.md`)
   - **ATTENDANCE-CONFIRM-1** Player confirms attendance · unverified
@@ -253,7 +265,9 @@ Untagged tests: 7552
   - **ATTENDANCE-PRESENCE-4** The attendance badge reflects a message that exists (PAD-199) · unverified
   - **ATTENDANCE-PRESENCE-5** Mark attendance · unverified
 
-### specflow/promises/attendance/student-tracks-attendance-and-absence-history.business.md
+### P-ATTENDANCE-3: Student tracks attendance and absence history
+
+`specflow/promises/attendance/student-tracks-attendance-and-absence-history.md`
 
 - spec **attendance.absences** (`specflow/impl/attendance/absences.spec.md`)
   - **ATTENDANCE-ABSENCES-1** Student sees their own absence history · unverified
@@ -279,7 +293,9 @@ Untagged tests: 7552
   - **ATTENDANCE-HISTORY-9** Student sees their own attendance history on iOS · unverified
   - **ATTENDANCE-HISTORY-10** Coach reaches a roster player's attendance from iOS player detail · unverified
 
-### specflow/promises/auth/anyone-can-read-the-terms-and-privacy-policy.business.md
+### P-AUTH-1: Anyone can read the Terms of Service and the Privacy Policy
+
+`specflow/promises/auth/anyone-can-read-the-terms-and-privacy-policy.md`
 
 - spec **auth.legal-pages** (`specflow/impl/auth/legal-pages.spec.md`)
   - **AUTH-LEGAL-PAGES-1** The English terms render with their version header (rules 1–2) · unverified
@@ -287,7 +303,9 @@ Untagged tests: 7552
   - **AUTH-LEGAL-PAGES-3** The iOS app opens the hosted pages in the account's language (rule 3) · unverified
   - **AUTH-LEGAL-PAGES-4** The header never disagrees with the text (rule 2) · unverified
 
-### specflow/promises/auth/coach-signs-in-and-stays-connected.business.md
+### P-AUTH-2: Coach signs in and stays connected
+
+`specflow/promises/auth/coach-signs-in-and-stays-connected.md`
 
 - spec **auth.login** (`specflow/impl/auth/login.spec.md`)
   - **AUTH-LOGIN-1** A mixed-case username signs in (rule 1a, PAD-799) · unverified
@@ -329,7 +347,9 @@ Untagged tests: 7552
   - **AUTH-TOKEN-REFRESH-2** Logout never returns a fresh token (PAD-269) · unverified
   - **AUTH-TOKEN-REFRESH-3** A session ends 90 days after its login (PAD-269) · unverified
 
-### specflow/promises/auth/minor-signs-up-with-a-guardians-consent.business.md
+### P-AUTH-3: Minor signs up with a guardian's consent
+
+`specflow/promises/auth/minor-signs-up-with-a-guardians-consent.md`
 
 - spec **auth.parental-consent** (`specflow/impl/auth/parental-consent.spec.md`)
   - **AUTH-PARENTAL-CONSENT-1** An adult signs up exactly as before · unverified
@@ -345,7 +365,9 @@ Untagged tests: 7552
   - **AUTH-PARENTAL-CONSENT-11** Web: a minor signs up, the guardian consents, the minor gets in · unverified
   - **AUTH-PARENTAL-CONSENT-12** iOS: the same sign-up and waiting card · unverified
 
-### specflow/promises/auth/newcomer-creates-and-activates-an-account.business.md
+### P-AUTH-4: Newcomer creates and activates an account
+
+`specflow/promises/auth/newcomer-creates-and-activates-an-account.md`
 
 - spec **auth.account-profiles** (`specflow/impl/auth/account-profiles.spec.md`)
   - **AUTH-ACCOUNT-PROFILES-1** A profile always has exactly one account · unverified
@@ -386,7 +408,9 @@ Untagged tests: 7552
   - **AUTH-MOBILE-UNIVERSAL-LINKS-7** A malformed link does not open a tokenless web page · unverified
   - **AUTH-MOBILE-UNIVERSAL-LINKS-8** Push routing is unaffected · unverified
 
-### specflow/promises/auth/newcomer-signs-up-on-their-own.business.md
+### P-AUTH-5: Newcomer signs up on their own
+
+`specflow/promises/auth/newcomer-signs-up-on-their-own.md`
 
 - spec **auth.coach-approval** (`specflow/impl/auth/coach-approval.spec.md`)
   - **AUTH-COACH-APPROVAL-1** Existing coaches are approved by the migration · unverified
@@ -503,7 +527,9 @@ Untagged tests: 7552
   - **AUTH-REGISTER-26** A second submit after a successful sign-up is impossible (rule 21c, PAD-651) · unverified
   - **AUTH-REGISTER-27** The name field asks for first and last name (rule 22, PAD-666) · unverified
 
-### specflow/promises/auth/user-deletes-their-account.business.md
+### P-AUTH-6: User deletes their account
+
+`specflow/promises/auth/user-deletes-their-account.md`
 
 - spec **auth.account-deletion** (`specflow/impl/auth/account-deletion.spec.md`)
   - **AUTH-ACCOUNT-DELETION-1** The account cannot be used again · unverified
@@ -522,7 +548,9 @@ Untagged tests: 7552
   - **AUTH-DELETE-ACCOUNT-PAGE-1** Anyone can open the page · unverified
   - **AUTH-DELETE-ACCOUNT-PAGE-2** The page speaks the visitor's language · unverified
 
-### specflow/promises/auth/user-signs-in-with-google-or-apple.business.md
+### P-AUTH-7: User signs in with Google or Apple
+
+`specflow/promises/auth/user-signs-in-with-google-or-apple.md`
 
 - spec **auth.social-sign-in** (`specflow/impl/auth/social-sign-in.spec.md`)
   - **AUTH-SOCIAL-SIGN-IN-1** A known Google account signs in (rule 2a) · unverified
@@ -533,7 +561,9 @@ Untagged tests: 7552
   - **AUTH-SOCIAL-SIGN-IN-6** A coach who signs up with Google waits for approval (rules 3, 4) · unverified
   - **AUTH-SOCIAL-SIGN-IN-7** The buttons ship dark (rule 7) · unverified
 
-### specflow/promises/auth/visitor-picks-an-audience-and-finds-the-way-in.business.md
+### P-AUTH-8: Visitor picks an audience and finds the way in
+
+`specflow/promises/auth/visitor-picks-an-audience-and-finds-the-way-in.md`
 
 - spec **auth.landing-page** (`specflow/impl/auth/landing-page.spec.md`)
   - **AUTH-LANDING-PAGE-1** A visitor gets the landing page · unverified
@@ -566,7 +596,9 @@ Untagged tests: 7552
   - **AUTH-LANDING-PAGE-28** The site shows the owner's contact address everywhere (PAD-599, B-562) · unverified
   - **AUTH-LANDING-PAGE-29** A shared link previews levapp.app (rule 16, PAD-595) · unverified
 
-### specflow/promises/calendar/coach-blocks-personal-time.business.md
+### P-CALENDAR-1: Coach blocks personal time
+
+`specflow/promises/calendar/coach-blocks-personal-time.md`
 
 - spec **calendar.blocks** (`specflow/impl/calendar/blocks.spec.md`)
   - **CALENDAR-BLOCKS-1** Create calendar block · unverified
@@ -576,7 +608,9 @@ Untagged tests: 7552
   - **CALENDAR-BLOCKS-5** An emptied title or description is cleared; a required key is refused (rule 11) · unverified
   - **CALENDAR-BLOCKS-6** A recurring block keeps its end date (rule 11, D83) · unverified
 
-### specflow/promises/calendar/coach-plans-classes-within-seasons.business.md
+### P-CALENDAR-2: Coach plans classes within seasons
+
+`specflow/promises/calendar/coach-plans-classes-within-seasons.md`
 
 - spec **calendar.seasons** (`specflow/impl/calendar/seasons.spec.md`)
   - **CALENDAR-SEASONS-1** Occurrence maths agree across sides · unverified
@@ -591,7 +625,9 @@ Untagged tests: 7552
   - **CALENDAR-SEASONS-10** Same screen on iOS · unverified
   - **CALENDAR-SEASONS-11** Stats for this season · unverified
 
-### specflow/promises/calendar/coach-views-and-manages-schedule.business.md
+### P-CALENDAR-3: Coach views and manages the schedule
+
+`specflow/promises/calendar/coach-views-and-manages-schedule.md`
 
 - spec **calendar.drag-drop** (`specflow/impl/calendar/drag-drop.spec.md`)
   - **CALENDAR-DRAG-DROP-1** Drag class to new time · unverified
@@ -684,7 +720,9 @@ Untagged tests: 7552
   - **CALENDAR-VIEW-23** The calendar hook waits for both ends of the range (PAD-348) · unverified
   - **CALENDAR-VIEW-24** A "this and future" edit reaches the other cards of the week without a reload (rule 18, PAD-526) · unverified
 
-### specflow/promises/calendar/student-controls-invitation-availability.business.md
+### P-CALENDAR-4: Student controls invitation availability
+
+`specflow/promises/calendar/student-controls-invitation-availability.md`
 
 - spec **calendar.student-blockers** (`specflow/impl/calendar/student-blockers.spec.md`)
   - **CALENDAR-STUDENT-BLOCKERS-1** Blocker suppresses auto-invitation · unverified
@@ -698,7 +736,9 @@ Untagged tests: 7552
   - **CALENDAR-STUDENT-BLOCKERS-9** A block is created from the sheet, single or recurring (PAD-356) · unverified
   - **CALENDAR-STUDENT-BLOCKERS-10** An end before the start is refused before any request (PAD-356) · unverified
 
-### specflow/promises/classes/coach-runs-class-occurrences.business.md
+### P-CLASSES-1: Coach runs class occurrences
+
+`specflow/promises/classes/coach-runs-class-occurrences.md`
 
 - spec **classes.coach-assignment** (`specflow/impl/classes/coach-assignment.spec.md`)
   - **CLASSES-COACH-ASSIGNMENT-1** An occurrence with no coach row of its own is coached by its lesson (rule 4) · unverified
@@ -736,7 +776,9 @@ Untagged tests: 7552
   - **CLASSES-INSTANCES-7** The occurrence key is unique in the database (PAD-303) · unverified
   - **CLASSES-INSTANCES-8** The constraint migration refuses on duplicates and applies cleanly otherwise (PAD-303, Postgres) · unverified
 
-### specflow/promises/classes/coach-schedules-recurring-classes.business.md
+### P-CLASSES-2: Coach schedules recurring classes
+
+`specflow/promises/classes/coach-schedules-recurring-classes.md`
 
 - spec **classes.clone** (`specflow/impl/classes/clone.spec.md`)
   - **CLASSES-CLONE-1** A series is cloned as a new, independent series (rules 1-4) · unverified
@@ -790,7 +832,9 @@ Untagged tests: 7552
   - **CLASSES-RECURRENCE-1** A fork keeps the series and takes its jobs with it (rule 6) · unverified
   - **CLASSES-RECURRENCE-2** Deleting one occurrence records an exclusion, not a fork (rule 7) · unverified
 
-### specflow/promises/classes/student-books-a-class.business.md
+### P-CLASSES-3: Student books a class
+
+`specflow/promises/classes/student-books-a-class.md`
 
 - spec **classes.availability** (`specflow/impl/classes/availability.spec.md`)
   - **CLASSES-AVAILABILITY-1** Free windows are working time minus everyone's calendars · unverified
@@ -827,7 +871,9 @@ Untagged tests: 7552
   - **CLASSES-CLASS-REQUESTS-27** Accepting a weekly request after its first occurrence starts at the next one (rule 17) · unverified
   - **CLASSES-CLASS-REQUESTS-28** A live hold cannot be changed one occurrence at a time (PAD-372, rule 3) · unverified
 
-### specflow/promises/classes/student-joins-and-views-classes.business.md
+### P-CLASSES-4: Student joins and views classes
+
+`specflow/promises/classes/student-joins-and-views-classes.md`
 
 - spec **classes.academy-class-booking** (`specflow/impl/classes/academy-class-booking.spec.md`)
   - **CLASSES-ACADEMY-CLASS-BOOKING-1** An eligible student sees open and full classes for fourteen days · unverified
@@ -871,7 +917,9 @@ Untagged tests: 7552
   - **CLASSES-JOIN-REQUESTS-20** The sheet pre-selects the habitual side (PAD-672 S1 UI) · unverified
   - **CLASSES-JOIN-REQUESTS-21** No spot on the asked side offers both sides (PAD-672 S1 UI) · unverified
 
-### specflow/promises/client/user-returns-to-a-screen-at-once.business.md
+### P-CLIENT-1: A user returns to a screen and sees it at once
+
+`specflow/promises/client/user-returns-to-a-screen-at-once.md`
 
 - spec **client.pull-to-refresh** (`specflow/impl/client/pull-to-refresh.spec.md`)
   - **CLIENT-PULL-TO-REFRESH-1** A refresh that succeeds brings the spinner down (rule 3) · unverified
@@ -900,7 +948,9 @@ Untagged tests: 7552
   - **CLIENT-REQUEST-TIMEOUT-3** Only the import's long writes override it (rule 2) · unverified
   - **CLIENT-REQUEST-TIMEOUT-4** A stalled screen ends in its error state (rules 1, 3; iOS, flow 311) · unverified
 
-### specflow/promises/client/web-opens-quickly-on-a-first-visit.business.md
+### P-CLIENT-2: The web app opens quickly on a first visit
+
+`specflow/promises/client/web-opens-quickly-on-a-first-visit.md`
 
 - spec **client.route-loading** (`specflow/impl/client/route-loading.spec.md`)
   - **CLIENT-ROUTE-LOADING-1** No page is imported statically (rules 1, 4) · unverified
@@ -913,7 +963,9 @@ Untagged tests: 7552
   - **CLIENT-ROUTE-LOADING-8** No page asks Google for a font (rule 7, PAD-635) · unverified
   - **CLIENT-ROUTE-LOADING-9** Navigation still works everywhere (rules 1–3) · unverified
 
-### specflow/promises/clubs/coach-runs-a-club-and-its-team.business.md
+### P-CLUBS-1: Coach runs a club and its team
+
+`specflow/promises/clubs/coach-runs-a-club-and-its-team.md`
 
 - spec **clubs.coach-invitation** (`specflow/impl/clubs/coach-invitation.spec.md`)
   - **CLUBS-COACH-INVITATION-1** An invited coach confirms their email (rule 9, PAD-477) · unverified
@@ -961,7 +1013,9 @@ Untagged tests: 7552
   - **CLUBS-JOIN-REQUEST-9** Members see and decide requests in Settings → Club · unverified
 - spec **clubs.membership** (`specflow/impl/clubs/membership.spec.md`)
 
-### specflow/promises/dashboard/user-relies-on-the-dashboard.business.md
+### P-DASHBOARD-1: User relies on the dashboard
+
+`specflow/promises/dashboard/user-relies-on-the-dashboard.md`
 
 - spec **dashboard.blocks** (`specflow/impl/dashboard/blocks.spec.md`)
   - **DASHBOARD-BLOCKS-1** Coach dashboard · unverified
@@ -1021,7 +1075,9 @@ Untagged tests: 7552
   - **DASHBOARD-PROFILE-COMPLETENESS-10** Two reminders at once send one (rule 6c, #523) · unverified
   - **DASHBOARD-PROFILE-COMPLETENESS-11** The card says what is missing (rule 4, #523) · unverified
 
-### specflow/promises/delivery/a-release-never-drops-a-request.business.md
+### P-DELIVERY-1: A release never drops a request
+
+`specflow/promises/delivery/a-release-never-drops-a-request.md`
 
 - spec **delivery.events-role** (`specflow/impl/delivery/events-role.spec.md`)
   - **DELIVERY-EVENTS-ROLE-1** The events role serves only its route and probes (rule 1) · unverified
@@ -1099,20 +1155,26 @@ Untagged tests: 7552
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-30** The helper edits one block of one allowed file (rule 16) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-31** No POST meets a reset across a real deploy (rule 16; owner host step, then staging-measured) · unverified
 
-### specflow/promises/delivery/connections-are-always-encrypted.business.md
+### P-DELIVERY-2: Connections are always encrypted
+
+`specflow/promises/delivery/connections-are-always-encrypted.md`
 
 - spec **delivery.transport-security** (`specflow/impl/delivery/transport-security.spec.md`)
   - **DELIVERY-TRANSPORT-SECURITY-1** Only TLS 1.2 and 1.3 (rule 1) · unverified
   - **DELIVERY-TRANSPORT-SECURITY-2** HSTS on every HTTPS answer (rules 2–3) · unverified
 
-### specflow/promises/delivery/diagnostics-keep-personal-data-off-github.business.md
+### P-DELIVERY-3: Diagnostics keep personal data off GitHub
+
+`specflow/promises/delivery/diagnostics-keep-personal-data-off-github.md`
 
 - spec **delivery.repair-diagnostics** (`specflow/impl/delivery/repair-diagnostics.spec.md`)
   - **DELIVERY-REPAIR-DIAGNOSTICS-1** The app log tail goes to a file on the VM (rule 1) · unverified
   - **DELIVERY-REPAIR-DIAGNOSTICS-2** The saved log is only counted (rule 2) · unverified
   - **DELIVERY-REPAIR-DIAGNOSTICS-3** Postgres activity shows query ids, never query text (rule 3) · unverified
 
-### specflow/promises/delivery/owner-sees-breakage-before-release.business.md
+### P-DELIVERY-4: The owner sees a broken screen on its change, not at the release
+
+`specflow/promises/delivery/owner-sees-breakage-before-release.md`
 
 - spec **delivery.android-nightly-lane** (`specflow/impl/delivery/android-nightly-lane.spec.md`)
   - **DELIVERY-ANDROID-NIGHTLY-LANE-1** Every runnable flow is in exactly one shard · unverified
@@ -1145,7 +1207,9 @@ Untagged tests: 7552
   - **DELIVERY-PR-E2E-SUBSET-8** A red run costs its time once (rule 8) · unverified
   - **DELIVERY-PR-E2E-SUBSET-9** A red is re-run alone and labelled (rule 9) · unverified
 
-### specflow/promises/delivery/production-starts-clean-for-real-use.business.md
+### P-DELIVERY-5: Production starts clean for real use
+
+`specflow/promises/delivery/production-starts-clean-for-real-use.md`
 
 - spec **delivery.production-activity-reset** (`specflow/impl/delivery/production-activity-reset.spec.md`)
   - **DELIVERY-PRODUCTION-ACTIVITY-RESET-1** The dry run reports and changes nothing (rule 1) · unverified
@@ -1159,7 +1223,9 @@ Untagged tests: 7552
   - **DELIVERY-PRODUCTION-ACTIVITY-RESET-9** A spare coach that is not the reviewer account stops the script (rule 2) · unverified
   - **DELIVERY-PRODUCTION-ACTIVITY-RESET-10** A second run deletes nothing (rule 1) · unverified
 
-### specflow/promises/delivery/staging-stays-realistic-without-slowing-production.business.md
+### P-DELIVERY-6: Staging keeps realistic data without slowing production
+
+`specflow/promises/delivery/staging-stays-realistic-without-slowing-production.md`
 
 - spec **delivery.staging-data-sync** (`specflow/impl/delivery/staging-data-sync.spec.md`)
   - **DELIVERY-STAGING-DATA-SYNC-1** A push after the dump was restored leaves staging alone (rules 2, 7) · unverified
@@ -1176,14 +1242,18 @@ Untagged tests: 7552
   - **DELIVERY-STAGING-DATA-SYNC-12** A failed scrub fails the sync job (rule 9a) · unverified
   - **DELIVERY-STAGING-DATA-SYNC-13** A new personal column cannot slip through (rule 12) · unverified
 
-### specflow/promises/delivery/the-api-has-its-own-address.business.md
+### P-DELIVERY-7: The API has its own address
+
+`specflow/promises/delivery/the-api-has-its-own-address.md`
 
 - spec **delivery.api-host** (`specflow/impl/delivery/api-host.spec.md`)
   - **DELIVERY-API-HOST-1** The API host proxies only the API, with the log protections (rules 1, 2) · unverified
   - **DELIVERY-API-HOST-2** Only listed web origins get CORS (rule 3) · unverified
   - **DELIVERY-API-HOST-3** The web build's base is configurable and defaults to /api (rule 4) · unverified
 
-### specflow/promises/eligibility/coach-enforces-the-eligibility-bar.business.md
+### P-ELIGIBILITY-1: Coach enforces the eligibility bar
+
+`specflow/promises/eligibility/coach-enforces-the-eligibility-bar.md`
 
 - spec **eligibility.enforcement** (`specflow/impl/eligibility/enforcement.spec.md`)
   - **ELIGIBILITY-ENFORCEMENT-1** Manual add names the failed rule (PAD-133) · unverified
@@ -1202,7 +1272,9 @@ Untagged tests: 7552
   - **ELIGIBILITY-ENFORCEMENT-14** Another coach's class is refused before it is materialised (rule 7e, B-619) · unverified
   - **ELIGIBILITY-ENFORCEMENT-15** Tightening the bar leaves enrolled students in place · unverified
 
-### specflow/promises/eligibility/coach-sets-the-eligibility-bar.business.md
+### P-ELIGIBILITY-2: Coach sets the eligibility bar
+
+`specflow/promises/eligibility/coach-sets-the-eligibility-bar.md`
 
 - spec **eligibility.cascade** (`specflow/impl/eligibility/cascade.spec.md`)
   - **ELIGIBILITY-CASCADE-1** Most specific tier wins · unverified
@@ -1224,7 +1296,9 @@ Untagged tests: 7552
   - **ELIGIBILITY-RULES-11** Absence rules read the coach-scoped record · unverified
   - **ELIGIBILITY-RULES-12** The payments option is absent from the picker · unverified
 
-### specflow/promises/eligibility/student-discovers-open-spots.business.md
+### P-ELIGIBILITY-3: Student discovers open spots
+
+`specflow/promises/eligibility/student-discovers-open-spots.md`
 
 - spec **eligibility.open-spot-visibility** (`specflow/impl/eligibility/open-spot-visibility.spec.md`)
   - **ELIGIBILITY-OPEN-SPOT-VISIBILITY-1** An edit that changes only the open-spot toggle is saved, on every edit path (rule 10, B-219) · unverified
@@ -1241,7 +1315,9 @@ Untagged tests: 7552
   - **ELIGIBILITY-OPEN-SPOT-VISIBILITY-12** Open spots need both the coach's toggle and the client's declaration (PAD-352) · unverified
   - **ELIGIBILITY-OPEN-SPOT-VISIBILITY-13** An old client cannot take an attendance action on an open spot (PAD-352) · unverified
 
-### specflow/promises/evaluations/coach-evaluates-a-player.business.md
+### P-EVALUATIONS-1: Coach evaluates a player
+
+`specflow/promises/evaluations/coach-evaluates-a-player.md`
 
 - spec **evaluations.bulk-import** (`specflow/impl/evaluations/bulk-import.spec.md`)
 - spec **evaluations.categories** (`specflow/impl/evaluations/categories.spec.md`)
@@ -1377,7 +1453,9 @@ Untagged tests: 7552
   - **EVALUATIONS-SCALE-8** The backfill gives every existing entry its competency's scale · unverified
   - **EVALUATIONS-SCALE-9** Web and iOS both offer the setting and the slider · unverified
 
-### specflow/promises/evaluations/coach-shares-an-evaluation.business.md
+### P-EVALUATIONS-2: Coach shares an evaluation
+
+`specflow/promises/evaluations/coach-shares-an-evaluation.md`
 
 - spec **evaluations.sharing** (`specflow/impl/evaluations/sharing.spec.md`)
   - **EVALUATIONS-SHARING-1** Nothing is shared by default (rule 1) · unverified
@@ -1390,7 +1468,9 @@ Untagged tests: 7552
   - **EVALUATIONS-SHARING-8** Un-sharing is silent (rule 9) · unverified
   - **EVALUATIONS-SHARING-9** Cancelling writes nothing (rule 13) · unverified
 
-### specflow/promises/evaluations/student-sees-their-evaluations.business.md
+### P-EVALUATIONS-3: Student sees their evaluations
+
+`specflow/promises/evaluations/student-sees-their-evaluations.md`
 
 - spec **evaluations.student-view** (`specflow/impl/evaluations/student-view.spec.md`)
   - **EVALUATIONS-STUDENT-VIEW-1** A player sees only shared cards, and only what was chosen (rules 1, 2) · unverified
@@ -1399,7 +1479,9 @@ Untagged tests: 7552
   - **EVALUATIONS-STUDENT-VIEW-4** The dashboard block is gated by the token and omitted when empty (rules 4, 5) · unverified
   - **EVALUATIONS-STUDENT-VIEW-5** The player's card survives the coach's later changes (rules 1, 6) · unverified
 
-### specflow/promises/import/coach-imports-a-roster-spreadsheet.business.md
+### P-IMPORT-1: Coach imports a roster spreadsheet
+
+`specflow/promises/import/coach-imports-a-roster-spreadsheet.md`
 
 - spec **import.analyze** (`specflow/impl/import/analyze.spec.md`)
   - **IMPORT-ANALYZE-1** Analyze Excel file · unverified
@@ -1416,7 +1498,9 @@ Untagged tests: 7552
 - spec **import.revert** (`specflow/impl/import/revert.spec.md`)
   - **IMPORT-REVERT-1** Revert import · unverified
 
-### specflow/promises/import/team-onboards-a-new-coach-roster.business.md
+### P-IMPORT-2: The LevApp team sets up a new coach's roster for them
+
+`specflow/promises/import/team-onboards-a-new-coach-roster.md`
 
 - spec **import.onboarding-runner** (`specflow/impl/import/onboarding-runner.spec.md`)
   - **IMPORT-ONBOARDING-RUNNER-1** A dry run shows the plan and writes nothing (rule 5) · unverified
@@ -1437,7 +1521,9 @@ Untagged tests: 7552
   - **IMPORT-ONBOARDING-RUNNER-16** Revert removes exactly what the run created (rule 13) · unverified
   - **IMPORT-ONBOARDING-RUNNER-17** List shows the runs (rule 14) · unverified
 
-### specflow/promises/levels/coach-defines-and-assigns-skill-ladder.business.md
+### P-LEVELS-1: Coach defines and assigns a skill ladder
+
+`specflow/promises/levels/coach-defines-and-assigns-skill-ladder.md`
 
 - spec **levels.coach-levels** (`specflow/impl/levels/coach-levels.spec.md`)
   - **LEVELS-COACH-LEVELS-1** A new coach starts from the reference ladder (rule 14) · unverified
@@ -1454,7 +1540,9 @@ Untagged tests: 7552
   - **LEVELS-PLAYER-ASSIGNMENT-1** Assign level to player · unverified
   - **LEVELS-PLAYER-ASSIGNMENT-2** Level history ordering · unverified
 
-### specflow/promises/messaging/student-reaches-out-and-stays-safe.business.md
+### P-MESSAGING-1: Student reaches out and stays safe
+
+`specflow/promises/messaging/student-reaches-out-and-stays-safe.md`
 
 - spec **messaging.block-and-report** (`specflow/impl/messaging/block-and-report.spec.md`)
   - **MESSAGING-BLOCK-AND-REPORT-1** Block prevents messages both ways · unverified
@@ -1475,7 +1563,9 @@ Untagged tests: 7552
   - **MESSAGING-DIRECT-BY-USERNAME-6** Username field on both platforms, for every role · unverified
   - **MESSAGING-DIRECT-BY-USERNAME-7** Picker search filters connected users on iOS · unverified
 
-### specflow/promises/messaging/user-and-coach-message-in-real-time.business.md
+### P-MESSAGING-2: User and coach message in real time
+
+`specflow/promises/messaging/user-and-coach-message-in-real-time.md`
 
 - spec **messaging.conversation-detail** (`specflow/impl/messaging/conversation-detail.spec.md`)
   - **MESSAGING-CONVERSATION-DETAIL-1** A landing is not re-pinned by the list settling or a new message (B-189) · unverified
@@ -1596,7 +1686,9 @@ Untagged tests: 7552
   - **MESSAGING-SSE-REALTIME-34** gunicorn takes its threads from the environment (rule 25) · unverified
   - **MESSAGING-SSE-REALTIME-35** The stats line is visible under the process's default logging (rule 25, B-676) · unverified
 
-### specflow/promises/messaging/user-manages-unread-and-notifications.business.md
+### P-MESSAGING-3: User manages unread and notifications
+
+`specflow/promises/messaging/user-manages-unread-and-notifications.md`
 
 - spec **messaging.push-notifications** (`specflow/impl/messaging/push-notifications.spec.md`)
   - **MESSAGING-PUSH-NOTIFICATIONS-1** The outbox is at least once (rule 10a) · unverified
@@ -1640,7 +1732,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-NOTIFICATION-SOUND-3** iOS plays the foreground sound only with the switch on (rule 4) · unverified
   - **NOTIFICATIONS-NOTIFICATION-SOUND-4** Every iOS push carries the sound while the switch is on (rule 5) · unverified
 
-### specflow/promises/mobile/app-runs-on-android.business.md
+### P-MOBILE-1: The app runs on Android
+
+`specflow/promises/mobile/app-runs-on-android.md`
 
 - spec **mobile.android-runtime** (`specflow/impl/mobile/android-runtime.spec.md`)
   - **MOBILE-ANDROID-RUNTIME-1** The day sheet has depth on Android · unverified
@@ -1661,7 +1755,9 @@ Untagged tests: 7552
   - **MOBILE-ANDROID-RUNTIME-16** A stack screen ends above the navigation bar, padded once (rule 11) · unverified
   - **MOBILE-ANDROID-RUNTIME-17** A screen that manages the keyboard keeps its own bottom handling (rule 11) · unverified
 
-### specflow/promises/mobile/store-build-reaches-real-users.business.md
+### P-MOBILE-2: The store build reaches real users
+
+`specflow/promises/mobile/store-build-reaches-real-users.md`
 
 - spec **mobile.android-play-bundle** (`specflow/impl/mobile/android-play-bundle.spec.md`)
   - **MOBILE-ANDROID-PLAY-BUNDLE-1** Release signing reads the environment · unverified
@@ -1680,7 +1776,9 @@ Untagged tests: 7552
   - **MOBILE-RELEASE-BUILD-TARGET-8** A tester sees the server in Settings · unverified
   - **MOBILE-RELEASE-BUILD-TARGET-9** Only a non-production release build warns on sign-in · unverified
 
-### specflow/promises/mobile/student-on-a-phone-finds-the-ios-app.business.md
+### P-MOBILE-3: A student on a phone finds the iOS app
+
+`specflow/promises/mobile/student-on-a-phone-finds-the-ios-app.md`
 
 - spec **mobile.install-suggestion** (`specflow/impl/mobile/install-suggestion.spec.md`)
   - **MOBILE-INSTALL-SUGGESTION-1** A student on an iPhone sees the suggestion · unverified
@@ -1690,7 +1788,9 @@ Untagged tests: 7552
   - **MOBILE-INSTALL-SUGGESTION-5** Safari gets the Smart App Banner · unverified
   - **MOBILE-INSTALL-SUGGESTION-6** The copy is bilingual · unverified
 
-### specflow/promises/mobile/system-bar-stays-readable.business.md
+### P-MOBILE-4: The phone's own status bar stays readable on every screen
+
+`specflow/promises/mobile/system-bar-stays-readable.md`
 
 - spec **mobile.status-bar** (`specflow/impl/mobile/status-bar.spec.md`)
   - **MOBILE-STATUS-BAR-1** A pushed light screen gets dark content · unverified
@@ -1698,7 +1798,9 @@ Untagged tests: 7552
   - **MOBILE-STATUS-BAR-3** A titled screen gets dark content · unverified
   - **MOBILE-STATUS-BAR-4** A navy route pushed over a light screen shows light content · unverified
 
-### specflow/promises/mobile/the-app-feels-smooth.business.md
+### P-MOBILE-5: The app feels smooth
+
+`specflow/promises/mobile/the-app-feels-smooth.md`
 
 - spec **mobile.interaction-performance** (`specflow/impl/mobile/interaction-performance.spec.md`)
   - **MOBILE-INTERACTION-PERFORMANCE-1** A bubble with unchanged props does not render again · unverified
@@ -1710,13 +1812,17 @@ Untagged tests: 7552
   - **MOBILE-INTERACTION-PERFORMANCE-7** Calendar ranges keep the previous data · unverified
   - **MOBILE-INTERACTION-PERFORMANCE-8** The courts query waits for the club · unverified
 
-### specflow/promises/mobile/the-app-opens-fast.business.md
+### P-MOBILE-6: The app opens fast
+
+`specflow/promises/mobile/the-app-opens-fast.md`
 
 - spec **mobile.launch** (`specflow/impl/mobile/launch.spec.md`)
   - **MOBILE-LAUNCH-1** The overlay never ends before the fonts · unverified
   - **MOBILE-LAUNCH-2** The overlay ends with the app, not with the clock (PAD-587) · unverified
 
-### specflow/promises/notifications/coach-approves-replacements.business.md
+### P-NOTIFICATIONS-1: Coach approves replacements
+
+`specflow/promises/notifications/coach-approves-replacements.md`
 
 - spec **notifications.semi-auto-approval** (`specflow/impl/notifications/semi-auto-approval.spec.md`)
   - **NOTIFICATIONS-SEMI-AUTO-APPROVAL-1** A released spot waits for a window still ahead (rule 1a, PAD-776 part 2) · unverified
@@ -1751,7 +1857,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-SEMI-AUTO-APPROVAL-30** The waiting list heads the prompt's queue (PAD-446) · unverified
   - **NOTIFICATIONS-SEMI-AUTO-APPROVAL-31** The waiting list waits for approval (PAD-446) · unverified
 
-### specflow/promises/notifications/coach-fills-vacancies-automatically.business.md
+### P-NOTIFICATIONS-2: Coach fills vacancies automatically
+
+`specflow/promises/notifications/coach-fills-vacancies-automatically.md`
 
 - spec **notifications.invitations** (`specflow/impl/notifications/invitations.spec.md`)
   - **NOTIFICATIONS-INVITATIONS-1** An empty round logs its stage counts (rule 3d) · unverified
@@ -1896,7 +2004,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-WAITING-LIST-25** The invitation names the spot's side only when it has one (PAD-446) · unverified
   - **NOTIFICATIONS-WAITING-LIST-26** Nobody is enrolled from the waiting list without a yes (PAD-446) · unverified
 
-### specflow/promises/notifications/coach-tunes-the-invitation-engine.business.md
+### P-NOTIFICATIONS-3: Coach tunes the invitation engine
+
+`specflow/promises/notifications/coach-tunes-the-invitation-engine.md`
 
 - spec **notifications.activity** (`specflow/impl/notifications/activity.spec.md`)
 - spec **notifications.config** (`specflow/impl/notifications/config.spec.md`)
@@ -1972,7 +2082,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-TOGGLE-CLASS-8** A class with notifications off sends no automatic reminder (PAD-736) · unverified
   - **NOTIFICATIONS-TOGGLE-CLASS-9** A "this and following" save of the switch reaches the occurrences already materialised (PAD-793) · unverified
 
-### specflow/promises/notifications/coach-understands-who-gets-invited.business.md
+### P-NOTIFICATIONS-4: Coach understands who gets invited
+
+`specflow/promises/notifications/coach-understands-who-gets-invited.md`
 
 - spec **notifications.invite-simulation** (`specflow/impl/notifications/invite-simulation.spec.md`)
   - **NOTIFICATIONS-INVITE-SIMULATION-1** The simulation invites exactly who the engine invites — unset bar · unverified
@@ -2003,7 +2115,9 @@ Untagged tests: 7552
   - **SETTINGS-TUTORIALS-9** Switching class clears the results · unverified
   - **SETTINGS-TUTORIALS-10** The tutorial changes nothing · unverified
 
-### specflow/promises/notifications/people-hear-about-requests.business.md
+### P-NOTIFICATIONS-5: People hear about requests that wait for them
+
+`specflow/promises/notifications/people-hear-about-requests.md`
 
 - spec **notifications.request-alerts** (`specflow/impl/notifications/request-alerts.spec.md`)
   - **NOTIFICATIONS-REQUEST-ALERTS-1** A club member hears about a join request; the requester hears the decision · unverified
@@ -2012,7 +2126,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-REQUEST-ALERTS-4** Opt-out silences every channel but not the badge · unverified
   - **NOTIFICATIONS-REQUEST-ALERTS-5** The switch persists · unverified
 
-### specflow/promises/notifications/student-controls-their-notifications.business.md
+### P-NOTIFICATIONS-6: Student controls their notifications
+
+`specflow/promises/notifications/student-controls-their-notifications.md`
 
 - spec **notifications.student-block-preferences** (`specflow/impl/notifications/student-block-preferences.spec.md`)
   - **NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-1** Defaults are "receives everything" · unverified
@@ -2030,7 +2146,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-13** The signal survives a coach edit · unverified
   - **NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-14** No calendar control · unverified
 
-### specflow/promises/notifications/student-gets-class-reminders.business.md
+### P-NOTIFICATIONS-7: Student gets class reminders
+
+`specflow/promises/notifications/student-gets-class-reminders.md`
 
 - spec **notifications.class-reminders-manual** (`specflow/impl/notifications/class-reminders-manual.spec.md`)
   - **NOTIFICATIONS-CLASS-REMINDERS-MANUAL-1** Another coach cannot send a class's reminders (B-619) · unverified
@@ -2064,7 +2182,9 @@ Untagged tests: 7552
   - **NOTIFICATIONS-REMINDERS-27** A class that has started gets no reminder (PAD-256) · unverified
   - **NOTIFICATIONS-REMINDERS-28** The scheduler does not start inside a migration (PAD-264) · unverified
 
-### specflow/promises/players/coach-browses-and-reviews-roster.business.md
+### P-PLAYERS-1: Coach browses and reviews their roster
+
+`specflow/promises/players/coach-browses-and-reviews-roster.md`
 
 - spec **players.level-history** (`specflow/impl/players/level-history.spec.md`)
   - **PLAYERS-LEVEL-HISTORY-1** Level change tracked · unverified
@@ -2105,7 +2225,9 @@ Untagged tests: 7552
   - **PLAYERS-SEARCH-7** A search that finds nobody says so, with the query (rule 10) · unverified
   - **PLAYERS-SEARCH-8** A server search waits for the typing to stop and says it is searching (rule 10) · unverified
 
-### specflow/promises/players/coach-builds-roster.business.md
+### P-PLAYERS-2: Coach builds their roster
+
+`specflow/promises/players/coach-builds-roster.md`
 
 - spec **players.add-existing** (`specflow/impl/players/add-existing.spec.md`)
 - spec **players.claim** (`specflow/impl/players/claim.spec.md`)
@@ -2178,7 +2300,9 @@ Untagged tests: 7552
   - **PLAYERS-JOIN-TOKEN-15** The token is stored only as a hash (PAD-269) · unverified
   - **PLAYERS-JOIN-TOKEN-16** Reopening Add by QR offers a new code (PAD-269) · unverified
 
-### specflow/promises/players/coach-edits-player-details.business.md
+### P-PLAYERS-3: Coach edits player details
+
+`specflow/promises/players/coach-edits-player-details.md`
 
 - spec **players.edit** (`specflow/impl/players/edit.spec.md`)
   - **PLAYERS-EDIT-1** Edit player level · unverified
@@ -2200,7 +2324,9 @@ Untagged tests: 7552
   - **PLAYERS-REMOVE-7** A shared placeholder is not deleted · unverified
   - **PLAYERS-REMOVE-8** The impact names the action and what goes · unverified
 
-### specflow/promises/players/coach-nicknames-a-player.business.md
+### P-PLAYERS-4: Coach gives a student a private nickname
+
+`specflow/promises/players/coach-nicknames-a-player.md`
 
 - spec **players.nickname** (`specflow/impl/players/nickname.spec.md`)
   - **PLAYERS-NICKNAME-1** A nickname shown to its coach only (rules 1–3) · unverified
@@ -2213,7 +2339,9 @@ Untagged tests: 7552
   - **PLAYERS-NICKNAME-8** The guard catches a bypass (rule 9d) · unverified
   - **PLAYERS-NICKNAME-9** Export and deletion (rule 7) · unverified
 
-### specflow/promises/settings/coach-configures-preferences-and-access.business.md
+### P-SETTINGS-1: Coach configures preferences and access
+
+`specflow/promises/settings/coach-configures-preferences-and-access.md`
 
 - spec **settings.admin-editor** (`specflow/impl/settings/admin-editor.spec.md`)
   - **SETTINGS-ADMIN-EDITOR-1** The flag switches every surface off · unverified
@@ -2281,7 +2409,9 @@ Untagged tests: 7552
   - **SETTINGS-UNSAVED-EDITS-6** A held language asks (PAD-506) · unverified
   - **SETTINGS-UNSAVED-EDITS-7** Closing the page with an unsaved edit (web) · unverified
 
-### specflow/promises/training/coach-builds-exercise-library.business.md
+### P-TRAINING-1: Coach builds an exercise library
+
+`specflow/promises/training/coach-builds-exercise-library.md`
 
 - spec **training.court-diagram** (`specflow/impl/training/court-diagram.spec.md`)
 - spec **training.exercise-view** (`specflow/impl/training/exercise-view.spec.md`)
@@ -2316,7 +2446,9 @@ Untagged tests: 7552
   - **TRAINING-TACTICAL-BOARD-19** iOS parity (every wave) · unverified
   - **TRAINING-TACTICAL-BOARD-20** A piece is where its accessibility rect says it is, on Android too (PAD-728, B-606) · unverified
 
-### specflow/promises/training/coach-plans-training-for-a-class.business.md
+### P-TRAINING-2: Coach plans training for a class
+
+`specflow/promises/training/coach-plans-training-for-a-class.md`
 
 - spec **training.lesson-planning** (`specflow/impl/training/lesson-planning.spec.md`)
   - **TRAINING-LESSON-PLANNING-1** Plan training for class · unverified

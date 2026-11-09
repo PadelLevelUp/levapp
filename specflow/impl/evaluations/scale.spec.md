@@ -2,7 +2,7 @@
 id: evaluations.scale
 status: implemented
 depends_on: [evaluations.competencies, evaluations.records, evaluations.evolution, evaluations.reminders, evaluations.legacy-client-contract]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: [R-047, R-048]
 ---
 

@@ -2,7 +2,7 @@
 id: players.add-existing
 status: draft
 depends_on: [players.create]
-implements: ../../promises/players/coach-builds-roster.business.md
+serves: [P-PLAYERS-2]
 deprecated_by: [players.join-token, players.claim]
 governed_by: []
 ---

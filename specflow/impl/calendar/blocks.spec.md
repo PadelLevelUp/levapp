@@ -2,7 +2,7 @@
 id: calendar.blocks
 status: implemented
 depends_on: [auth.login]
-implements: ../../promises/calendar/coach-blocks-personal-time.business.md
+serves: [P-CALENDAR-1]
 governed_by: []
 ---
 

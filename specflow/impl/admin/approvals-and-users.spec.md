@@ -2,7 +2,7 @@
 id: admin.approvals-and-users
 status: draft
 depends_on: [admin.foundation, auth.coach-approval, auth.coach-crm-sync, auth.email-verification, notifications.request-alerts, settings.role-scope]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-005, R-022, R-024]
 ---
 

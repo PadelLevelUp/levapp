@@ -2,7 +2,7 @@
 id: mobile.install-suggestion
 status: draft
 depends_on: [auth.login]
-implements: ../../promises/mobile/student-on-a-phone-finds-the-ios-app.business.md
+serves: [P-MOBILE-3]
 governed_by: []
 ---
 

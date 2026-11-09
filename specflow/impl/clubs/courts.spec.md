@@ -2,7 +2,7 @@
 id: clubs.courts
 status: implemented
 depends_on: [clubs.crud, classes.create, classes.edit]
-implements: ../../promises/clubs/coach-runs-a-club-and-its-team.business.md
+serves: [P-CLUBS-1]
 governed_by: [R-022, R-024]
 ---
 

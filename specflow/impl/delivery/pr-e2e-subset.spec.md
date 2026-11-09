@@ -2,7 +2,7 @@
 id: delivery.pr-e2e-subset
 status: implementing
 depends_on: []
-implements: ../../promises/delivery/owner-sees-breakage-before-release.business.md
+serves: [P-DELIVERY-4]
 governed_by: []
 ---
 

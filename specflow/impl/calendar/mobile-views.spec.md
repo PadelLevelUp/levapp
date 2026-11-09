@@ -2,7 +2,7 @@
 id: calendar.mobile-views
 status: implemented
 depends_on: [calendar.view, calendar.event-detail, calendar.blocks, classes.instances]
-implements: ../../promises/calendar/coach-views-and-manages-schedule.business.md
+serves: [P-CALENDAR-3]
 governed_by: []
 provenance:
   - derives_from: archive/documents/2026-09-08-mobile-calendar-design/extracted/screens.md

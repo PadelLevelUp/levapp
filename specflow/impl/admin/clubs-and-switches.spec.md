@@ -2,7 +2,7 @@
 id: admin.clubs-and-switches
 status: implementing
 depends_on: [admin.foundation, clubs.crud, clubs.courts, clubs.membership, auth.coach-approval, eligibility.open-spot-visibility]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-003, R-004, R-005, R-022]
 ---
 

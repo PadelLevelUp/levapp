@@ -2,7 +2,7 @@
 id: settings.coach-working-hours
 status: draft
 depends_on: [settings.role-scope, auth.login]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

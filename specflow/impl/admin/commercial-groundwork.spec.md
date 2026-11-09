@@ -2,7 +2,7 @@
 id: admin.commercial-groundwork
 status: draft
 depends_on: [admin.foundation, admin.clubs-and-switches]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-005, R-022, R-023, R-024]
 ---
 

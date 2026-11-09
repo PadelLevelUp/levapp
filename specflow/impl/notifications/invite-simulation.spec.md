@@ -2,7 +2,7 @@
 id: notifications.invite-simulation
 status: implemented
 depends_on: [notifications.invitations, notifications.config, notifications.waiting-list, notifications.semi-auto-approval, eligibility.rules, eligibility.cascade, eligibility.enforcement, calendar.student-blockers, notifications.student-block-preferences, classes.instances]
-implements: ../../promises/notifications/coach-understands-who-gets-invited.business.md
+serves: [P-NOTIFICATIONS-4]
 governed_by: [R-002, R-005, R-022, R-023]
 ---
 

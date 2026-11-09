@@ -2,7 +2,7 @@
 id: import.analyze
 status: implemented
 depends_on: [auth.login]
-implements: ../../promises/import/coach-imports-a-roster-spreadsheet.business.md
+serves: [P-IMPORT-1]
 governed_by: []
 ---
 

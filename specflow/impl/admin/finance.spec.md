@@ -2,7 +2,7 @@
 id: admin.finance
 status: implementing
 depends_on: [admin.foundation, admin.engine-health, admin.phone-console]
-implements: ../../promises/admin/the-owner-knows-what-levapp-has-cost.business.md
+serves: [P-ADMIN-4]
 governed_by: [R-005, R-010, R-022, R-023, R-024, R-036]
 ---
 

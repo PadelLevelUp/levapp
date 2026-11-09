@@ -2,7 +2,7 @@
 id: players.invite-completion
 status: implemented
 depends_on: [players.create, clubs.coach-invitation, auth.activate]
-implements: ../../promises/players/coach-builds-roster.business.md
+serves: [P-PLAYERS-2]
 governed_by: []
 ---
 

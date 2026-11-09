@@ -2,7 +2,7 @@
 id: delivery.repair-diagnostics
 status: implementing
 depends_on: []
-implements: ../../promises/delivery/diagnostics-keep-personal-data-off-github.business.md
+serves: [P-DELIVERY-3]
 governed_by: [R-028]
 ---
 

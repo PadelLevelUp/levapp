@@ -2,7 +2,7 @@
 id: mobile.release-build-target
 status: draft
 depends_on: [eligibility.open-spot-visibility, settings.role-scope]
-implements: ../../promises/mobile/store-build-reaches-real-users.business.md
+serves: [P-MOBILE-2]
 governed_by: []
 ---
 

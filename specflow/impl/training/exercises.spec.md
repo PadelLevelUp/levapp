@@ -2,7 +2,7 @@
 id: training.exercises
 status: implemented
 depends_on: [auth.login, levels.coach-levels]
-implements: ../../promises/training/coach-builds-exercise-library.business.md
+serves: [P-TRAINING-1]
 governed_by: []
 ---
 

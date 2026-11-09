@@ -2,7 +2,7 @@
 id: eligibility.enforcement
 status: implemented
 depends_on: [eligibility.cascade, notifications.invitations, notifications.waiting-list, notifications.manual]
-implements: ../../promises/eligibility/coach-enforces-the-eligibility-bar.business.md
+serves: [P-ELIGIBILITY-1]
 governed_by: []
 ---
 

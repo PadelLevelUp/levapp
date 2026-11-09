@@ -2,7 +2,7 @@
 id: auth.activate
 status: implemented
 depends_on: [auth.register]
-implements: ../../promises/auth/newcomer-creates-and-activates-an-account.business.md
+serves: [P-AUTH-4]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: import.onboarding-runner
 status: implemented
 depends_on: [import.confirm, import.revert]
-implements: ../../promises/import/team-onboards-a-new-coach-roster.business.md
+serves: [P-IMPORT-2]
 governed_by: [R-002, R-003, R-005, R-023, R-024, R-036]
 ---
 

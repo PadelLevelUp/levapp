@@ -2,7 +2,7 @@
 id: notifications.invitations
 status: implemented
 depends_on: [notifications.config, notifications.reminders, eligibility.rules]
-implements: ../../promises/notifications/coach-fills-vacancies-automatically.business.md
+serves: [P-NOTIFICATIONS-2]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: classes.join-requests
 status: implemented
 depends_on: [eligibility.open-spot-visibility, eligibility.enforcement, classes.instances, notifications.invitations, messaging.messages]
-implements: ../../promises/classes/student-joins-and-views-classes.business.md
+serves: [P-CLASSES-4]
 governed_by: []
 ---
 

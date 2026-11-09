@@ -2,7 +2,7 @@
 id: auth.coach-crm-sync
 status: implemented
 depends_on: [auth.register, auth.coach-approval]
-implements: ../../promises/auth/newcomer-signs-up-on-their-own.business.md
+serves: [P-AUTH-5]
 governed_by: []
 ---
 

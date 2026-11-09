@@ -2,7 +2,7 @@
 id: players.profile
 status: implemented
 depends_on: [players.create, evaluations.entries, players.notes]
-implements: ../../promises/players/coach-browses-and-reviews-roster.business.md
+serves: [P-PLAYERS-1]
 governed_by: []
 ---
 

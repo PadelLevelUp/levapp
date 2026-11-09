@@ -2,7 +2,7 @@
 id: attendance.history
 status: implemented
 depends_on: [attendance.presence, classes.instances, players.list, dashboard.navigation]
-implements: ../../promises/attendance/student-tracks-attendance-and-absence-history.business.md
+serves: [P-ATTENDANCE-3]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: dashboard.navigation
 status: implemented
 depends_on: [dashboard.blocks]
-implements: ../../promises/dashboard/user-relies-on-the-dashboard.business.md
+serves: [P-DASHBOARD-1]
 governed_by: []
 ---
 

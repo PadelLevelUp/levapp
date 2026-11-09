@@ -2,7 +2,7 @@
 id: evaluations.evolution
 status: implemented
 depends_on: [evaluations.records, evaluations.history]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: [R-048]
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md

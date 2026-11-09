@@ -2,7 +2,7 @@
 id: classes.create
 status: implemented
 depends_on: [clubs.crud, levels.coach-levels]
-implements: ../../promises/classes/coach-schedules-recurring-classes.business.md
+serves: [P-CLASSES-2]
 governed_by: []
 ---
 

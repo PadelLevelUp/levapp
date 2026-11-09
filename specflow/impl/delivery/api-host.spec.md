@@ -2,7 +2,7 @@
 id: delivery.api-host
 status: implementing
 depends_on: [delivery.zero-downtime-deploy]
-implements: ../../promises/delivery/the-api-has-its-own-address.business.md
+serves: [P-DELIVERY-7]
 governed_by: [R-024, R-036]
 ---
 

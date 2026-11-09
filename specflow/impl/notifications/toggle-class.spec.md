@@ -2,7 +2,7 @@
 id: notifications.toggle-class
 status: implemented
 depends_on: [notifications.config, classes.instances]
-implements: ../../promises/notifications/coach-tunes-the-invitation-engine.business.md
+serves: [P-NOTIFICATIONS-3]
 governed_by: []
 ---
 

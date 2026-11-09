@@ -2,7 +2,7 @@
 id: mobile.interaction-performance
 status: draft
 depends_on: [messaging.conversations, messaging.sse-realtime, calendar.mobile-views, clubs.courts]
-implements: ../../promises/mobile/the-app-feels-smooth.business.md
+serves: [P-MOBILE-5]
 governed_by: []
 ---
 

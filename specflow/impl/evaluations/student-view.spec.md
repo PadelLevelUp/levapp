@@ -2,7 +2,7 @@
 id: evaluations.student-view
 status: implemented
 depends_on: [evaluations.sharing, dashboard.blocks]
-implements: ../../promises/evaluations/student-sees-their-evaluations.business.md
+serves: [P-EVALUATIONS-3]
 governed_by: []
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md

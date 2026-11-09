@@ -2,7 +2,7 @@
 id: admin.work-dashboard
 status: implementing
 depends_on: [admin.foundation]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-024, R-036]
 ---
 

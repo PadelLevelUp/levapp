@@ -3,7 +3,7 @@ id: delivery.worker-role
 status: implementing
 depends_on:
   - delivery.zero-downtime-deploy
-implements: ../../promises/delivery/a-release-never-drops-a-request.business.md
+serves: [P-DELIVERY-1]
 governed_by: [R-027]
 ---
 

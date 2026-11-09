@@ -2,7 +2,7 @@
 id: calendar.event-detail
 status: implemented
 depends_on: [calendar.view]
-implements: ../../promises/calendar/coach-views-and-manages-schedule.business.md
+serves: [P-CALENDAR-3]
 governed_by: []
 ---
 

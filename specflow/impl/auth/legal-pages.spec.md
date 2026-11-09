@@ -2,7 +2,7 @@
 id: auth.legal-pages
 status: implemented
 depends_on: []
-implements: ../../promises/auth/anyone-can-read-the-terms-and-privacy-policy.business.md
+serves: [P-AUTH-1]
 governs:
   - frontend/apps/web/src/pages/LegalPage.tsx
   - frontend/apps/web/src/content/legal/**

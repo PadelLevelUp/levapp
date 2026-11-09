@@ -6,7 +6,7 @@ depends_on:
   - auth.activate
   - players.invite-completion
   - clubs.coach-invitation
-implements: ../../promises/auth/newcomer-creates-and-activates-an-account.business.md
+serves: [P-AUTH-4]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: delivery.transport-security
 status: implementing
 depends_on: [delivery.api-host]
-implements: ../../promises/delivery/connections-are-always-encrypted.business.md
+serves: [P-DELIVERY-2]
 governed_by: [R-036]
 ---
 

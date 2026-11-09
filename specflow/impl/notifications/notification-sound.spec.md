@@ -2,7 +2,7 @@
 id: notifications.notification-sound
 status: implementing
 depends_on: [messaging.sse-realtime, messaging.push-notifications, settings.profile]
-implements: ../../promises/messaging/user-manages-unread-and-notifications.business.md
+serves: [P-MESSAGING-3]
 governed_by: []
 ---
 

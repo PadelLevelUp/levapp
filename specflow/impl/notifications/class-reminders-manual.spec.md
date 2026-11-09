@@ -2,7 +2,7 @@
 id: notifications.class-reminders-manual
 status: implemented
 depends_on: [notifications.reminders]
-implements: ../../promises/notifications/student-gets-class-reminders.business.md
+serves: [P-NOTIFICATIONS-7]
 governed_by: []
 ---
 

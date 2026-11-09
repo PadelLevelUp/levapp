@@ -2,7 +2,7 @@
 id: messaging.block-and-report
 status: implemented
 depends_on: [messaging.conversations, messaging.messages, messaging.conversation-detail]
-implements: ../../promises/messaging/student-reaches-out-and-stays-safe.business.md
+serves: [P-MESSAGING-1]
 governed_by: []
 ---
 

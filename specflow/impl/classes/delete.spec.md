@@ -2,7 +2,7 @@
 id: classes.delete
 status: implemented
 depends_on: [classes.create]
-implements: ../../promises/classes/coach-schedules-recurring-classes.business.md
+serves: [P-CLASSES-2]
 governed_by: []
 ---
 

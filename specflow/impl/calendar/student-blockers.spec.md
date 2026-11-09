@@ -2,7 +2,7 @@
 id: calendar.student-blockers
 status: implemented
 depends_on: [calendar.blocks, notifications.invitations]
-implements: ../../promises/calendar/student-controls-invitation-availability.business.md
+serves: [P-CALENDAR-4]
 governed_by: []
 ---
 

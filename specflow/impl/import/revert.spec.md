@@ -2,7 +2,7 @@
 id: import.revert
 status: implemented
 depends_on: [import.confirm]
-implements: ../../promises/import/coach-imports-a-roster-spreadsheet.business.md
+serves: [P-IMPORT-1]
 governed_by: []
 ---
 

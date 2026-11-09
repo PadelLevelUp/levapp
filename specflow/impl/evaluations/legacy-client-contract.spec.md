@@ -2,7 +2,7 @@
 id: evaluations.legacy-client-contract
 status: implemented
 depends_on: [evaluations.categories, evaluations.entries]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: [R-047]
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md

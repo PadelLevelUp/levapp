@@ -4,7 +4,7 @@ status: implementing
 depends_on:
   - delivery.worker-role
   - messaging.sse-realtime
-implements: ../../promises/delivery/a-release-never-drops-a-request.business.md
+serves: [P-DELIVERY-1]
 governed_by: [R-027]
 ---
 

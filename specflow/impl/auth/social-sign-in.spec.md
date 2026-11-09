@@ -2,7 +2,7 @@
 id: auth.social-sign-in
 status: draft
 depends_on: [auth.login, auth.register, auth.coach-approval]
-implements: ../../promises/auth/user-signs-in-with-google-or-apple.business.md
+serves: [P-AUTH-7]
 governed_by: []
 ---
 

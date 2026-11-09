@@ -2,7 +2,7 @@
 id: messaging.read-tracking
 status: implemented
 depends_on: [messaging.conversations]
-implements: ../../promises/messaging/user-manages-unread-and-notifications.business.md
+serves: [P-MESSAGING-3]
 governed_by: []
 ---
 

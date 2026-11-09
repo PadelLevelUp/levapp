@@ -2,7 +2,7 @@
 id: players.create
 status: implemented
 depends_on: [auth.login, clubs.crud]
-implements: ../../promises/players/coach-builds-roster.business.md
+serves: [P-PLAYERS-2]
 governed_by: []
 ---
 

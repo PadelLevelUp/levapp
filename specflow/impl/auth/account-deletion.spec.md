@@ -2,7 +2,7 @@
 id: auth.account-deletion
 status: implemented
 depends_on: [auth.login, auth.logout, auth.push-subscription, auth.coach-crm-sync, classes.instance-enrollment, classes.class-requests, notifications.invitations, notifications.waiting-list]
-implements: ../../promises/auth/user-deletes-their-account.business.md
+serves: [P-AUTH-6]
 governed_by: []
 ---
 

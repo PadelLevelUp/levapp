@@ -2,7 +2,7 @@
 id: admin.data-export
 status: draft
 depends_on: [admin.foundation, auth.account-deletion]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: []
 ---
 

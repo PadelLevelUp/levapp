@@ -2,7 +2,7 @@
 id: evaluations.entries
 status: implemented
 depends_on: [evaluations.categories, players.create]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: []
 ---
 

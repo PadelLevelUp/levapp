@@ -2,7 +2,7 @@
 id: client.route-loading
 status: implementing
 depends_on: [client.query-cache]
-implements: ../../promises/client/web-opens-quickly-on-a-first-visit.business.md
+serves: [P-CLIENT-2]
 governed_by: [R-024]
 ---
 

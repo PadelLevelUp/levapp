@@ -2,7 +2,7 @@
 id: classes.academy-class-booking
 status: draft
 depends_on: [eligibility.open-spot-visibility, eligibility.cascade, classes.join-requests, notifications.waiting-list, classes.instances]
-implements: ../../promises/classes/student-joins-and-views-classes.business.md
+serves: [P-CLASSES-4]
 governed_by: []
 ---
 

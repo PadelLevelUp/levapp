@@ -2,7 +2,7 @@
 id: evaluations.reminders
 status: implementing
 depends_on: [evaluations.records, evaluations.class-panel, notifications.config, attendance.presence]
-implements: ../../promises/evaluations/coach-evaluates-a-player.business.md
+serves: [P-EVALUATIONS-1]
 governed_by: [R-047, R-048]
 provenance:
   - derives_from: archive/documents/sistema-de-avaliacoes-2026-09-21/extracted/requirements.md

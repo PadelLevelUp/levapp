@@ -2,7 +2,7 @@
 id: settings.unsaved-edits
 status: implemented
 depends_on: [settings.role-scope, settings.profile, settings.coach-working-hours]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

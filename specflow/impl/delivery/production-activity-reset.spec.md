@@ -2,7 +2,7 @@
 id: delivery.production-activity-reset
 status: implementing
 depends_on: []
-implements: ../../promises/delivery/production-starts-clean-for-real-use.business.md
+serves: [P-DELIVERY-5]
 governed_by: []
 ---
 

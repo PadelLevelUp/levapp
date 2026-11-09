@@ -2,7 +2,7 @@
 id: levels.coach-levels
 status: implemented
 depends_on: [auth.login]
-implements: ../../promises/levels/coach-defines-and-assigns-skill-ladder.business.md
+serves: [P-LEVELS-1]
 governed_by: []
 ---
 

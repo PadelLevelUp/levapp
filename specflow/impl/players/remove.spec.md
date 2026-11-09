@@ -2,7 +2,7 @@
 id: players.remove
 status: implemented
 depends_on: [players.create]
-implements: ../../promises/players/coach-edits-player-details.business.md
+serves: [P-PLAYERS-3]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: delivery.staging-data-sync
 status: implementing
 depends_on: []
-implements: ../../promises/delivery/staging-stays-realistic-without-slowing-production.business.md
+serves: [P-DELIVERY-6]
 governed_by: [R-028]
 ---
 

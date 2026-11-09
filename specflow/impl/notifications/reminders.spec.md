@@ -2,7 +2,7 @@
 id: notifications.reminders
 status: implemented
 depends_on: [notifications.config, classes.instances, attendance.presence]
-implements: ../../promises/notifications/student-gets-class-reminders.business.md
+serves: [P-NOTIFICATIONS-7]
 governed_by: []
 ---
 

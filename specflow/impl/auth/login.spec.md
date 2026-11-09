@@ -2,7 +2,7 @@
 id: auth.login
 status: implemented
 depends_on: []
-implements: ../../promises/auth/coach-signs-in-and-stays-connected.business.md
+serves: [P-AUTH-2]
 governed_by: []
 ---
 

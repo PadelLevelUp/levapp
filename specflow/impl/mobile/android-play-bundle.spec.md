@@ -2,7 +2,7 @@
 id: mobile.android-play-bundle
 status: implementing
 depends_on: [mobile.release-build-target, mobile.android-runtime]
-implements: ../../promises/mobile/store-build-reaches-real-users.business.md
+serves: [P-MOBILE-2]
 governed_by: []
 ---
 

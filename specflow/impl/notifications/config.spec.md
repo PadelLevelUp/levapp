@@ -2,7 +2,7 @@
 id: notifications.config
 status: implemented
 depends_on: [auth.login]
-implements: ../../promises/notifications/coach-tunes-the-invitation-engine.business.md
+serves: [P-NOTIFICATIONS-3]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: eligibility.open-spot-visibility
 status: implemented
 depends_on: [eligibility.cascade, calendar.view]
-implements: ../../promises/eligibility/student-discovers-open-spots.business.md
+serves: [P-ELIGIBILITY-3]
 governed_by: []
 ---
 

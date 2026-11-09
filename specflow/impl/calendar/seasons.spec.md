@@ -2,7 +2,7 @@
 id: calendar.seasons
 status: implemented
 depends_on: [calendar.view, classes.create, attendance.history]
-implements: ../../promises/calendar/coach-plans-classes-within-seasons.business.md
+serves: [P-CALENDAR-2]
 governed_by: [R-022, R-024]
 ---
 

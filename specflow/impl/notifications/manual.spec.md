@@ -2,7 +2,7 @@
 id: notifications.manual
 status: implemented
 depends_on: [notifications.config, classes.instances]
-implements: ../../promises/notifications/coach-fills-vacancies-automatically.business.md
+serves: [P-NOTIFICATIONS-2]
 governed_by: []
 ---
 

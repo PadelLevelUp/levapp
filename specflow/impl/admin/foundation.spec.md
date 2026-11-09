@@ -2,7 +2,7 @@
 id: admin.foundation
 status: draft
 depends_on: [auth.login, auth.token-refresh]
-implements: ../../promises/admin/staff-act-under-the-company-identity-and-leave-a-trail.business.md
+serves: [P-ADMIN-2]
 governed_by: [R-005, R-022, R-023, R-024, R-036]
 ---
 

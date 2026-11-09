@@ -2,7 +2,7 @@
 id: training.court-diagram
 status: implemented
 depends_on: [training.exercises]
-implements: ../../promises/training/coach-builds-exercise-library.business.md
+serves: [P-TRAINING-1]
 governed_by: []
 ---
 

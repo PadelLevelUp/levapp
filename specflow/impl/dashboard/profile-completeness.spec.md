@@ -2,7 +2,7 @@
 id: dashboard.profile-completeness
 status: implementing
 depends_on: [dashboard.blocks, players.list, players.join-token, messaging.messages]
-implements: ../../promises/dashboard/user-relies-on-the-dashboard.business.md
+serves: [P-DASHBOARD-1]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: auth.landing-page
 status: implemented
 depends_on: []
-implements: ../../promises/auth/visitor-picks-an-audience-and-finds-the-way-in.business.md
+serves: [P-AUTH-8]
 governed_by: []
 ---
 

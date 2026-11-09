@@ -2,7 +2,7 @@
 id: attendance.presence
 status: implemented
 depends_on: [classes.instances, players.create]
-implements: ../../promises/attendance/player-confirms-and-manages-attendance.business.md
+serves: [P-ATTENDANCE-2]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: training.lesson-planning
 status: implemented
 depends_on: [training.exercises, classes.instances]
-implements: ../../promises/training/coach-plans-training-for-a-class.business.md
+serves: [P-TRAINING-2]
 governed_by: []
 ---
 

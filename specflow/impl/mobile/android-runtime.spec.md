@@ -2,7 +2,7 @@
 id: mobile.android-runtime
 status: draft
 depends_on: [calendar.mobile-views, messaging.push-notifications, training.tactical-board]
-implements: ../../promises/mobile/app-runs-on-android.business.md
+serves: [P-MOBILE-1]
 governed_by: []
 ---
 

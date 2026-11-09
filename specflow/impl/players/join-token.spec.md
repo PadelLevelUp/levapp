@@ -2,7 +2,7 @@
 id: players.join-token
 status: implemented
 depends_on: [players.create, clubs.membership, auth.register, auth.login]
-implements: ../../promises/players/coach-builds-roster.business.md
+serves: [P-PLAYERS-2]
 governed_by: []
 ---
 

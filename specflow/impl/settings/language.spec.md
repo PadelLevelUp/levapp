@@ -2,7 +2,7 @@
 id: settings.language
 status: draft
 depends_on: [auth.login, notifications.reminders, notifications.message-templates]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

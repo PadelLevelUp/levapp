@@ -2,7 +2,7 @@
 id: attendance.stats
 status: implemented
 depends_on: [attendance.presence]
-implements: ../../promises/attendance/coach-finalizes-attendance-records.business.md
+serves: [P-ATTENDANCE-1]
 governed_by: []
 ---
 

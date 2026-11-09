@@ -2,7 +2,7 @@
 id: eligibility.rules
 status: implemented
 depends_on: [notifications.config, levels.coach-levels, players.create, attendance.presence, classes.instances]
-implements: ../../promises/eligibility/coach-sets-the-eligibility-bar.business.md
+serves: [P-ELIGIBILITY-2]
 governed_by: []
 ---
 

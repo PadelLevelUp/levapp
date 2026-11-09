@@ -2,7 +2,7 @@
 id: messaging.push-notifications
 status: implemented
 depends_on: [messaging.messages, auth.push-subscription]
-implements: ../../promises/messaging/user-manages-unread-and-notifications.business.md
+serves: [P-MESSAGING-3]
 governed_by: []
 ---
 

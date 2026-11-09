@@ -2,7 +2,7 @@
 id: client.pull-to-refresh
 status: implementing
 depends_on: [client.query-cache, client.request-timeout, players.list, messaging.conversations, calendar.view, attendance.validation]
-implements: ../../promises/client/user-returns-to-a-screen-at-once.business.md
+serves: [P-CLIENT-1]
 governed_by: [R-024]
 ---
 

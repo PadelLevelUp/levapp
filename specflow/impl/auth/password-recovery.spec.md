@@ -2,7 +2,7 @@
 id: auth.password-recovery
 status: draft
 depends_on: [auth.login, auth.email-verification]
-implements: ../../promises/auth/newcomer-signs-up-on-their-own.business.md
+serves: [P-AUTH-5]
 governed_by: [R-022, R-024]
 ---
 

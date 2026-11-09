@@ -2,7 +2,7 @@
 id: auth.parental-consent
 status: implemented
 depends_on: [auth.register, auth.login, auth.email-verification]
-implements: ../../promises/auth/minor-signs-up-with-a-guardians-consent.business.md
+serves: [P-AUTH-3]
 governed_by: [R-022, R-024]
 ---
 

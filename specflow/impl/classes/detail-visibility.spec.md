@@ -2,7 +2,7 @@
 id: classes.detail-visibility
 status: implemented
 depends_on: [classes.instances, attendance.presence, notifications.reminders]
-implements: ../../promises/classes/student-joins-and-views-classes.business.md
+serves: [P-CLASSES-4]
 governed_by: []
 ---
 

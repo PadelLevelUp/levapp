@@ -2,7 +2,7 @@
 id: admin.data-retention
 status: implementing
 depends_on: [admin.clubs-and-switches, players.remove]
-implements: ../../promises/admin/personal-data-is-kept-only-as-long-as-needed.business.md
+serves: [P-ADMIN-1]
 governed_by: []
 ---
 

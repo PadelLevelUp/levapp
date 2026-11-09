@@ -2,7 +2,7 @@
 id: calendar.drag-drop
 status: implemented
 depends_on: [calendar.view, classes.edit, calendar.blocks]
-implements: ../../promises/calendar/coach-views-and-manages-schedule.business.md
+serves: [P-CALENDAR-3]
 governed_by: []
 ---
 

@@ -2,7 +2,7 @@
 id: eligibility.cascade
 status: implemented
 depends_on: [eligibility.rules, classes.instances, classes.edit, classes.recurrence]
-implements: ../../promises/eligibility/coach-sets-the-eligibility-bar.business.md
+serves: [P-ELIGIBILITY-2]
 governed_by: []
 ---
 

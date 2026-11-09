@@ -2,7 +2,7 @@
 id: settings.admin-editor
 status: draft
 depends_on: [auth.login, settings.role-scope]
-implements: ../../promises/settings/coach-configures-preferences-and-access.business.md
+serves: [P-SETTINGS-1]
 governed_by: []
 ---
 

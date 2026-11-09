@@ -2,7 +2,7 @@
 id: players.duplicate-name-check
 status: implemented
 depends_on: [players.create, import.confirm]
-implements: ../../promises/players/coach-builds-roster.business.md
+serves: [P-PLAYERS-2]
 governed_by: []
 ---
 

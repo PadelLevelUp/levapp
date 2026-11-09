@@ -2,7 +2,7 @@
 id: auth.delete-account-page
 status: implemented
 depends_on: [auth.account-deletion, auth.legal-pages]
-implements: ../../promises/auth/user-deletes-their-account.business.md
+serves: [P-AUTH-6]
 governs:
   - frontend/apps/web/src/pages/DeleteAccountPage.tsx
 ---

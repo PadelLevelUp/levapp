@@ -2,7 +2,7 @@
 id: classes.class-requests
 status: implemented
 depends_on: [classes.create, calendar.view, calendar.blocks, messaging.messages]
-implements: ../../promises/classes/student-books-a-class.business.md
+serves: [P-CLASSES-3]
 governed_by: []
 ---
 

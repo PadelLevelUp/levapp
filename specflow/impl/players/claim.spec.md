@@ -2,7 +2,7 @@
 id: players.claim
 status: implemented
 depends_on: [players.create, players.invite-completion, auth.login, messaging.conversations, attendance.presence]
-implements: ../../promises/players/coach-builds-roster.business.md
+serves: [P-PLAYERS-2]
 governed_by: []
 ---
 

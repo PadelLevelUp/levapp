@@ -2,7 +2,7 @@
 id: clubs.membership
 status: implemented
 depends_on: [clubs.crud]
-implements: ../../promises/clubs/coach-runs-a-club-and-its-team.business.md
+serves: [P-CLUBS-1]
 governed_by: []
 ---
 

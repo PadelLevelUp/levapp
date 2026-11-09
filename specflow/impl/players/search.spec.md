@@ -2,7 +2,7 @@
 id: players.search
 status: draft
 depends_on: [players.list]
-implements: ../../promises/players/coach-browses-and-reviews-roster.business.md
+serves: [P-PLAYERS-1]
 governed_by: []
 ---
 

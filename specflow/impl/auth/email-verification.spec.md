@@ -2,7 +2,7 @@
 id: auth.email-verification
 status: implemented
 depends_on: [auth.register, auth.login, settings.profile]
-implements: ../../promises/auth/newcomer-signs-up-on-their-own.business.md
+serves: [P-AUTH-5]
 governed_by: [R-022, R-024]
 ---
 

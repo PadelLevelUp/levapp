@@ -2,7 +2,7 @@
 id: admin.engine-health
 status: implemented
 depends_on: [admin.foundation, notifications.invitations, notifications.waiting-list, notifications.reminders, notifications.config, messaging.push-notifications]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-005, R-010, R-022, R-023, R-036]
 ---
 

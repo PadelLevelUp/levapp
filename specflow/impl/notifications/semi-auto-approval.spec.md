@@ -2,7 +2,7 @@
 id: notifications.semi-auto-approval
 status: draft
 depends_on: [notifications.config, notifications.invitations, messaging.conversations, messaging.messages]
-implements: ../../promises/notifications/coach-approves-replacements.business.md
+serves: [P-NOTIFICATIONS-1]
 governed_by: []
 ---
 

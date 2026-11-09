@@ -2,7 +2,7 @@
 id: admin.moderation
 status: draft
 depends_on: [admin.foundation, admin.approvals-and-users, messaging.block-and-report, messaging.messages]
-implements: ../../promises/admin/staff-operate-the-platform-without-the-database.business.md
+serves: [P-ADMIN-3]
 governed_by: [R-005, R-022, R-024]
 ---
 

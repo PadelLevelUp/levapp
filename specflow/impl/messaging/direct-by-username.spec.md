@@ -2,7 +2,7 @@
 id: messaging.direct-by-username
 status: implemented
 depends_on: [messaging.conversations, messaging.block-and-report, auth.register]
-implements: ../../promises/messaging/student-reaches-out-and-stays-safe.business.md
+serves: [P-MESSAGING-1]
 governed_by: []
 ---
 
