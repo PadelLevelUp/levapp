@@ -102,6 +102,8 @@ answered for any future class whether or not a spot is currently open.
     1 of `eligibility.enforcement` preserves. Day one after this ships, every existing coach's bar is
     open and nothing about their invitation flow changes.
 
+11. **The rule editor keeps every rule well-formed, on web and iOS.** A new rule is `level` / `same_as_class` with no `value`. A rule holds a `value` only while its operation takes one: always for the absence and attendance attributes, and for `level` only with the three `within_n_*` operations. Changing the attribute resets the operation to that attribute's first one and drops the value. The three `within_n_*` operations are one menu entry plus a direction (above, below, both), and choosing a direction changes only the operation. Removing the last rule stores `null`, not `[]`.
+
 ### Acceptance Criteria
 
 #### ELIGIBILITY-RULES-1: Unset eligibility admits everyone
@@ -184,6 +186,35 @@ answered for any future class whether or not a spot is currently open.
 - **And** no payments/subscription attribute is shown
 - **And** their existing invitation-group `subscription_status` rules, if any, are untouched
 
+#### ELIGIBILITY-RULES-13: The four older level operations pass the worked example's indexes, and N may arrive as text (rule 6)
+- **Given** a ladder with indexes 0 to 7, a class at index 3 and one student at each index
+- **When** eligibility is computed for each operation
+- **Then** `equal_or_above_class` passes 0 to 3, `equal_or_below_class` passes 3 to 7, `one_below_or_above_class` passes 2, 3 and 4, and `same_as_class` passes 3
+- **And** `within_n_above_class` with `value: "2"` passes 1, 2 and 3, as the number 2 does
+test: `backend/padel_app/tests/test_pad481_level_direction.py` › `test_n_sent_as_a_string_counts_as_the_number` (+1 more)
+
+#### ELIGIBILITY-RULES-14: The bar round-trips through the notification config, and an unset bar stays null (rules 1, 9)
+- **Given** a coach with no bar
+- **When** the config is read, a bar is saved, `null` is saved, and a bar is saved again followed by an unrelated setting
+- **Then** the first read answers `eligibilityRules: null`; after a save it answers the saved list; after `null` it answers `null`, not `[]`; the unrelated save leaves the bar as it was
+test: `backend/padel_app/tests/test_pad128_eligibility.py` › `test_eligibility_rules_round_trip_through_the_config_api`
+
+#### ELIGIBILITY-RULES-15: The editor keeps a rule well-formed as the coach changes it (rule 11)
+- **Given** the eligibility editor with the rules `level same_as_class` and `unjustified_absences less_than 3`
+- **When** the coach adds a rule, changes an attribute, changes an operation, and removes rules
+- **Then** the added rule is `{attribute: "level", operation: "same_as_class"}` with no value
+- **And** a value survives a change of operation only when the new operation takes one, and a change of attribute resets the operation and drops the value
+- **And** removing one rule leaves the other, and removing the last one stores `null`
+test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` › `starts on the first attribute's first operation, with no value` (+11 more)
+
+#### ELIGIBILITY-RULES-16: Within N is one menu entry with a direction that changes only the operation (rules 6, 11; PAD-481)
+- **Given** the eligibility editor on web or iOS and a rule `within_n_of_class` with N 2
+- **When** the coach opens the level operations and picks a direction
+- **Then** the menu offers five entries (`same_as_class`, `equal_or_above_class`, `equal_or_below_class`, `one_below_or_above_class`, `within_n_of_class`) and the stored rule shows direction both
+- **And** above saves `within_n_above_class`, below saves `within_n_below_class` and both saves `within_n_of_class`, each with N still 2
+- **And** picking "within N levels" again on a one-way rule keeps its direction and its N
+test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` › `picking within N on a one-way rule keeps its direction and N` (+15 more)
+
 ### Notes
 
 - PAD-481 (2026-10-02): `within_n_above_class` / `within_n_below_class` were added as new
@@ -194,3 +225,8 @@ answered for any future class whether or not a spot is currently open.
   could have survived an operation switch unseen. Their invite tutorial shows a raw i18n key for the
   new operations; this is cosmetic, and they are released. App Store 1.0 and 1.1.0 have no iOS
   eligibility editor.
+
+### Open questions
+
+- **Rule 6 cites a line that has moved.** It gives `notification_service.py:944` for "above means a lower ladder index"; that line is now attendance-rate code, and the direction logic is at `notification_service.py:1335-1380`. Recommendation: cite the function (`_group_rule_failures`), not a line.
+- **The web editor's rule transitions have no test of their own.** iOS has `eligibility-rules.ts` with unit tests; web repeats the same logic inline in `EligibilitySection.tsx` (lines 83, 110, 135, 227, 241), and only its direction cases are tested. ELIGIBILITY-RULES-15 is stated for both shells and proved on iOS. Recommendation: move the web copy onto the shared helper, or add the missing web tests.
