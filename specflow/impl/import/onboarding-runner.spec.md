@@ -241,6 +241,25 @@ onto that coach only, exactly once, with a rehearsal mode, a full undo and a his
 - **When** the operator runs `flask onboarding list`
 - **Then** both ids are printed with their coach, date, status (`active`, `reverted`) and summary
 
+#### IMPORT-ONBOARDING-RUNNER-18: The file comes from a path or from standard input, and must be JSON (rules 1, 2)
+- **Given** a valid onboarding file for coach 1
+- **When** the operator pipes it to `flask onboarding apply - --database <connected name>`
+- **Then** the run is accepted and creates the file's 3 players
+- **And** a file whose content is `{ not json` is refused with exit code 1, saying it is not valid JSON
+test: `backend/padel_app/tests/test_pad827_onboarding_runner.py` › `test_the_file_can_come_from_standard_input` (+1 more)
+
+#### IMPORT-ONBOARDING-RUNNER-19: A run shows in the coach's import history like any import (rule 10)
+- **Given** `2026_11_05_rui_coach` was applied for coach 1
+- **When** the coach's import history is read
+- **Then** it lists one row: `onboarding:2026_11_05_rui_coach`, status `active`, summary `{"Players": 3, "Classes": 2, "Players in Classes": 3}`
+test: `backend/padel_app/tests/test_pad827_onboarding_runner.py` › `test_the_run_shows_in_the_coachs_import_history`
+
+#### IMPORT-ONBOARDING-RUNNER-20: Another coach at the same club gains nothing (rules 8, 12)
+- **Given** a second coach who belongs to the file's club
+- **When** the file is applied for coach 1
+- **Then** coach 1 has the 3 players, and the second coach has no player and no class from the run
+test: `backend/padel_app/tests/test_pad827_onboarding_runner.py` › `test_another_coach_with_the_same_club_is_not_touched`
+
 ### Notes
 - Reused, not reimplemented: player creation is `import.confirm`'s, class creation is
   `classes.create`'s service, deletion is `import.revert`'s. `bulk_create_lessons` is not used: it

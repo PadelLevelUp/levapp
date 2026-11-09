@@ -51,6 +51,11 @@ Execute the confirmed import, creating all selected records in the database.
    "confirmsAdults", code: "ADULTS_CONFIRMATION_REQUIRED"}` before anything is imported (the streamed
    confirm refuses the same way, before its first event). An import with no Players rows needs no
    confirmation. Web only: iOS cannot upload an import.
+10. **An imported attendance row that says present stores no justification** (PAD-381;
+   `attendance.validation` rule 21). An absent row keeps the justification the sheet gave.
+11. **A row error is shown in the coach's language when this build knows its code** (D111;
+   `evaluations.legacy-conversion` rule 9). An error with a code the build does not know, or with
+   no code, is shown with the server's text as sent. Web only: iOS has no uploader.
 
 ### Acceptance Criteria
 
@@ -95,3 +100,41 @@ Execute the confirmed import, creating all selected records in the database.
   ends with `email`, `password` NULL and a `pending-…` username
 - **And** an inactive User in the same shape with a password someone chose is unchanged, and the
   migration reports it as skipped
+
+#### IMPORT-CONFIRM-7: An imported present row carries no justification (rule 10, PAD-381)
+- **Given** a sheet row for a class the coach gives, with status `present` and justification `justified`
+- **When** the attendance rows are imported
+- **Then** the stored row is `present` with no justification
+- **And** the same row with status `absent` is stored `absent`, `justified`
+test: `backend/padel_app/tests/test_pad381_engine_ignores_stale_justifications.py` › `test_an_imported_present_row_carries_no_justification` (+1 more)
+
+#### IMPORT-CONFIRM-8: Two rows with the same name and no email are two players (rule 7)
+- **Given** one file with two Players rows named "Ana Costa", neither with an email
+- **When** the coach confirms the import
+- **Then** both rows import with no error, and the coach's roster has two players
+test: `backend/padel_app/tests/test_pad633_import_invents_no_email.py` › `test_two_rows_with_the_same_name_and_no_email_are_two_players`
+
+#### IMPORT-CONFIRM-9: A row with an email gets a placeholder username too (rule 6)
+- **Given** a Players row `{"name": "Ana", "email": "ana.silva@example.com"}` and no user with that email
+- **When** the coach confirms the import
+- **Then** the new User keeps that email and its username starts with `pending-`
+test: `backend/padel_app/tests/test_pad633_import_invents_no_email.py` › `test_a_new_user_with_an_email_also_gets_a_placeholder_username`
+
+#### IMPORT-CONFIRM-10: The PAD-633 migration changes nothing when it runs again or is downgraded (rule 8)
+- **Given** a database the PAD-633 migration has repaired
+- **When** the upgrade runs a second time, or the downgrade runs
+- **Then** every user row is as the first run left it
+test: `backend/padel_app/tests/test_pad633_migration.py` › `test_upgrade_twice_is_a_no_op` (+1 more)
+
+#### IMPORT-CONFIRM-11: The web's streamed confirm declares the capability and carries the confirmation (rule 9)
+- **Given** the web app confirming an import through the streamed route
+- **When** the coach ticked the adults confirmation
+- **Then** the request's `X-LevApp-Capabilities` header contains `adult-roster-confirmation` and its body carries `confirmsAdults: true` beside the selected rows
+- **And** when the coach gave no confirmation, the body has no `confirmsAdults` key
+test: `frontend/apps/web/src/api/import.stream.test.ts` › `declares the shell's capabilities and sends confirmsAdults` (+1 more)
+
+#### IMPORT-CONFIRM-12: A row error this build cannot translate is shown as the server sent it (rule 11)
+- **Given** an import answer with a row error whose `code` is `some_future_code`, and another with no `code`
+- **When** the web renders the errors
+- **Then** each shows the server's `error` text unchanged
+test: `frontend/apps/web/src/components/settings/import-row-error.test.ts` › `falls back to the server's text for a code this build does not know` (+1 more)
