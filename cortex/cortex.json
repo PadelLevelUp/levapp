@@ -6,6 +6,6 @@
   },
   "migration": {
     "from": "3.3",
-    "accepted": null
+    "accepted": "2026-11-09"
   }
 }
