@@ -193,9 +193,9 @@ test: `backend/padel_app/tests/test_courts.py` › `test_class_detail_carries_cl
 
 #### CLUBS-COURTS-16: A split keeps the court, and a failed edit leaves it (rules 6, 9)
 - **Given** a weekly series on `Campo 1`, and a one-off class on `Campo 1`
-- **When** the series is edited "this and future" without `courtId`, and the one-off class is edited with `Campo 2` and a start time the server refuses
+- **When** the series is edited "this and future" without `courtId`, and the one-off class is edited with `Campo 2` and a start time that makes the edit fail
 - **Then** both halves of the split series are on `Campo 1`
-- **And** the refused edit leaves the one-off class on `Campo 1`
+- **And** the failed edit leaves the one-off class on `Campo 1`
 test: `backend/padel_app/tests/test_courts.py` › `test_future_split_copies_the_court` (+1 more)
 
 #### CLUBS-COURTS-17: The iOS editor sends the court it shows (rules 7, 9)

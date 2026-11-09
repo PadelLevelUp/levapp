@@ -201,7 +201,7 @@ test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › 
 test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › `test_a_failure_after_the_commit_still_answers_with_the_session` (+1 more)
 
 #### CLUBS-COACH-INVITATION-20: An existing coach who accepts is asked for nothing and gains only the membership (rules 5, 8a, 9)
-- **Given** a signed-in coach holding a pending invitation, whose client declares every capability
+- **Given** a signed-in coach holding a pending invitation, whose client declares `coach-invite-email`, `terms-acceptance` and `country-on-completion`, or nothing
 - **When** they accept with an empty body
 - **Then** the answer is 200 `{"success": true}`, no code is mailed and their email verification state is unchanged
 - **And** when they already belong to the club the answer is still 200 and they hold exactly one membership of it
