@@ -590,9 +590,9 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 #### DASHBOARD-BLOCKS-36: The coach home is built from one load whose cost does not grow with the classes (rule 8)
 - **Given** a coach with three classes in the window, then with thirteen, and a second coach with classes of their own
 - **When** the coach's dashboard is built
-- **Then** the classes are loaded once and the number of queries is the same for three classes and for thirteen
+- **Then** the classes are loaded once, and that load costs the same number of queries for three classes and for thirteen
 - **And** only that coach's classes are loaded, whether the coach is set on the class or on its series
-- **And** the blocks come in the order `next_class`, `needs_you`, `incomplete_players`, `schedule_7d`, `week_pulse`, and each equals the block built on its own
+- **And** the blocks come in the order `next_class`, `needs_you`, `incomplete_players`, `schedule_7d`, `week_pulse`, and each of the four other than `incomplete_players` equals the block built on its own
 test: `backend/padel_app/tests/test_pad262_dashboard_pipeline.py` › `test_a_window_costs_a_fixed_number_of_statements` (+2 more)
 
 #### DASHBOARD-BLOCKS-37: The coach's hero is the soonest class, counted on the club's clock (rule 3)
@@ -604,10 +604,10 @@ test: `backend/padel_app/tests/test_pad262_dashboard_pipeline.py` › `test_a_wi
 - **And** a coach with nothing scheduled gets no `next_class` block
 test: `backend/padel_app/tests/test_dashboard_coach_home.py` › `test_hero_is_omitted_entirely_when_nothing_is_scheduled` (+4 more)
 
-#### DASHBOARD-BLOCKS-38: The coach's queue lists free seats, then replies, then the validation card, each with its link (rules 3, 10)
+#### DASHBOARD-BLOCKS-38: The coach's queue lists free seats, replies and the validation card, each with its link (rules 3, 10)
 - **Given** a coach with a class today that has free seats, students who wrote and were not answered, and a class last week still to validate
 - **When** the `needs_you` block is built
-- **Then** the items come in that order and `count` is the number of items
+- **Then** the free-seats item comes before the validation card, and `count` is the number of items
 - **And** the free-seats item links to `/calendar?classId=<id>&date=<day>&notify=1`, a reply links to `/messages/<conversation id>`, and the validation card links to `/presences?validate=1`, with `&week=<offset>` for an earlier week
 - **And** with six conversations waiting, three replies are listed, one per conversation, newest first, each previewing its newest message, read in one query
 - **And** a class that already ended this week is not offered
@@ -650,7 +650,8 @@ test: `backend/padel_app/tests/test_dashboard_pending_confirmations.py` › `tes
 - **When** the shell decides which action to show
 - **Then** a row the server marks pending offers Yes and No
 - **And** a row that is not pending and is planned or coming offers the single "Avisar que não vou"
-- **And** a row that is `not_coming` offers no button, and a row that is attended or missed offers nothing
+- **And** a row that is `not_coming` offers neither Yes and No nor the single decline button, and what it offers instead is DASHBOARD-BLOCKS-45
+- **And** a row that is attended or missed offers nothing
 - **And** the settled state wins over a stale pending flag
 test: `frontend/packages/config/src/reminder-answer.test.ts` › `only 'Avisar que não vou' before the ask, and after a yes` (+4 more)
 

@@ -1132,7 +1132,7 @@ Untagged tests: 7552
   - **DASHBOARD-BLOCKS-35** A student's hero moves on at the class's start time (rule 12d, PAD-792) · unverified
   - **DASHBOARD-BLOCKS-36** The coach home is built from one load whose cost does not grow with the classes (rule 8) · unverified
   - **DASHBOARD-BLOCKS-37** The coach's hero is the soonest class, counted on the club's clock (rule 3) · unverified
-  - **DASHBOARD-BLOCKS-38** The coach's queue lists free seats, then replies, then the validation card, each with its link (rules 3, 10) · unverified
+  - **DASHBOARD-BLOCKS-38** The coach's queue lists free seats, replies and the validation card, each with its link (rules 3, 10) · unverified
   - **DASHBOARD-BLOCKS-39** Snoozing a card again restarts its day (rule 3) · unverified
   - **DASHBOARD-BLOCKS-40** The schedule carries its total, and only the coach's rows carry an invite link (rules 3, 10) · unverified
   - **DASHBOARD-BLOCKS-41** The week pulse carries its denominators, and a delta only when there is a week to compare (rule 3) · unverified
