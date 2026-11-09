@@ -127,3 +127,18 @@ otherwise.
 - **Then** the field reads 22:00, the save is accepted and Tuesday holds `[["08:00","22:00"]]`
 - **Given** Ana turns the minute wheel of Monday's end on iOS
 - **Then** every value it offers is a quarter hour, and the save is accepted
+
+#### SETTINGS-COACH-WORKING-HOURS-7: Add window has an answer for every kind of day (rule 5)
+- **Given** a day with no window, a day with the one window 09:00 to 13:00, a day whose windows leave no hour free, and a day the server would refuse
+- **When** the coach presses "add window"
+- **Then** the empty day gets 08:00 to 22:00, and the morning day gains 14:00 to 22:00, an hour after its window ends
+- **And** with no free hour the longest window is split at its middle with an hour's break: 15:00 to 22:30 becomes 15:00 to 18:15 and 19:15 to 22:30
+- **And** a day with a blank time, overlapping windows, a time off the grid or a start at or after its end gets no new window
+test: `frontend/packages/config/src/availability.test.ts` › `answers null for a day the server would refuse anyway: fix the row first` (+3 more)
+
+#### SETTINGS-COACH-WORKING-HOURS-8: Snapping changes only a real time, and can leave a window the server refuses (rule 6)
+- **Given** a time field holding `9:07`, an empty field, a field holding something that is not a time, and a window typed 23:45 to 23:59
+- **When** each field is snapped to the grid
+- **Then** `9:07` becomes `09:00`, and the empty or invalid field is left as it is
+- **And** both ends of the late window snap to 23:45, leaving a window with no length for the server to refuse
+test: `frontend/packages/config/src/availability.test.ts` › `returns what is not a time unchanged (an emptied field)` (+2 more)

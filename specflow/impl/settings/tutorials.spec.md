@@ -169,6 +169,23 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 - **When** they later open the Assistant conversation and the class's notification activity
 - **Then** no approval prompt, invitation or activity entry was created by the tutorial
 
+#### SETTINGS-TUTORIALS-11: The tutorial lists blocked gates first and the waiting list in the server's order (rule 4)
+- **Given** a simulation with four gates, two of them blocked, a gate that opens later, and a waiting list of two students
+- **When** the tutorial renders
+- **Then** the blocked gates come first, and each group keeps the engine's order
+- **And** the gate that opens later says when: `2026-07-15T15:00:00` reads `15/07 16:00`
+- **And** the waiting-list students are named in the server's order, and a server that sends no waiting list shows none
+test: `frontend/packages/config/src/invite-simulation.test.ts` › `keys on the gate code and formats the window-open instant on the club clock` (+3 more)
+
+#### SETTINGS-TUTORIALS-12: The lookup puts every verdict the engine can give into words (rules 5, 6)
+- **Given** the engine's answer for a student who was not invited
+- **When** the lookup renders it
+- **Then** a failed level rule reads as a number of levels below or above the class, with its own wording for one level
+- **And** a class with no level, a student with no level, a level outside the ladder and an unknown operation each have their own sentence, and an absence rule names the count and the limit
+- **And** a student no round matched gets each round's reasons, prefixed with the round
+- **And** a stage this build does not know reads "Not invited this time."
+test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a known stage and falls back to a generic line for one this build does not know` (+8 more)
+
 ### Notes
 - The Tutorials section is deliberately a registry so the next tutorial is one row and one
   screen, not a new Settings section.
@@ -176,3 +193,9 @@ about anyone who is missing. Web and iOS ship it together (R-024).
   classes" must be the same classes the coach sees on their calendar.
 - OPEN: the copy for each gate, stage and badge is drafted at plan time in pt first
   (`settings.language` rule: Portuguese is the default and the fallback).
+
+### Open questions
+
+- **The tutorial formats every time in Europe/Lisbon; rule 8 and SETTINGS-TUTORIALS-6 say the club's time zone.** `invite-simulation.ts:41` and `:82` hardcode the zone, and SETTINGS-TUTORIALS-11's example is a Lisbon time. A club elsewhere would read the wrong hour. Recommendation: pass the club's zone, or say "Lisbon" in rule 8 until a club outside Portugal exists.
+- **Rule 6 promises a neutral fallback for an unknown stage, gate code, send status and priority; two of the four have none.** `describeStage` and the priority wording fall back; `describeGate` and `describeSendStatus` build a key from the raw code. Recommendation: add the two fallbacks.
+- **The tutorial's wording is asserted as translation keys and parameters, not as sentences.** SETTINGS-TUTORIALS-3, 4, 8 and 12 are proved through a translator that echoes the key. Recommendation: accept, since the copy lives in the locale files.

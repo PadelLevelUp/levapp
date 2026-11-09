@@ -137,9 +137,34 @@ out of scope (no backend support exists for them).
 - **And** web and iOS show "Esta app só aceita maiores de 18 anos." under the field
 - **And** `{"birthDate": ""}` and `{"birthDate": "2001-02-30"}` are 400 `INVALID_BIRTH_DATE`
 
+#### SETTINGS-PROFILE-12: A profile save changes only the fields it sends, and only fields a user may edit (rule 2)
+- **Given** a user with a name, an email, a phone, a date of birth and a country
+- **When** they PATCH `/api/auth/me` with a name alone, and then with `is_superadmin`, `username` and a name
+- **Then** the first changes the name and leaves the email, phone, date of birth and country as they were
+- **And** the second changes the name only: the username and the superadmin flag stay as they were
+test: `backend/padel_app/tests/test_pad640_profile_birth_date.py` › `test_a_patch_without_the_birth_date_leaves_it_alone` (+3 more)
+
+#### SETTINGS-PROFILE-13: An empty value clears email, phone and abbreviation, and a bad value is refused (rules 4, 5, 6)
+- **Given** a user `Ana Beatriz Costa` with an email, a phone and no abbreviation
+- **When** they PATCH `/api/auth/me` with empty strings for the three, with the email `not-an-email`, and with the abbreviation `abcdefgh`
+- **Then** the empty strings clear the email and the phone, and the abbreviation reads as the initials `AB`
+- **And** the bad email answers 400 and the stored email stays
+- **And** the long abbreviation is stored as `ABCD`
+test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_own_profile_an_empty_phone_clears_it` (+3 more)
+
+#### SETTINGS-PROFILE-14: Once saved, the form follows the server again (rule 8)
+- **Given** the iOS profile form after the coach edited the phone and saved
+- **When** a later read of the profile brings a phone changed on another device
+- **Then** the form shows the phone from that read
+test: `frontend/apps/mobile/src/features/settings/profile-section.test.tsx` › `after a save, a later read fills the fields the coach had edited (the touched set is cleared)`
+
 ### Notes
 - Source: ticket PAD-81; rules 10–11 PAD-640 (privacy review D7: correction of one's own data).
 - The Settings Profile panel was removed from the web UI in the App Store readiness pass (commit
   `804cf5d`) precisely because it was fake; PAD-81 rebuilds it for real rather than leaving the gap.
 - Avatar upload, bio, and password change remain unbuilt — they were mocked and stay out of the UI until
   backend support exists (see `found_issues.md` item 1).
+
+### Open questions
+
+- **One test accepts an empty string where rule 6 says NULL.** `test_empty_phone_clears_it` passes if the stored phone is `None` or `""`; rule 6 says an empty phone "clears it to NULL", and the neighbouring test asserts `None`. Recommendation: tighten the test to `None`.

@@ -143,6 +143,21 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 - **Given** a superadmin turned "coach approval required" on
 - **Then** nothing is sent until Save; Save sends it once
 
+#### SETTINGS-EXPLICIT-SAVE-12: The engine's Save sends only what changed since the last one, and shows the server's answer (rules 2, 3)
+- **Given** the notification engine card with several controls changed and nothing saved yet
+- **When** the coach presses Save, changes one more control, and presses Save again
+- **Then** nothing is sent before the first Save; that Save sends one request holding only the fields that changed, each with its last value
+- **And** the second Save sends only the control changed since the first
+- **And** after a Save the card shows the value the server answered, and nothing is left unsaved
+test: `frontend/apps/web/src/components/settings/NotificationsEngineSection.test.tsx` › `after a Save only what changed since is sent` (+4 more)
+
+#### SETTINGS-EXPLICIT-SAVE-13: A tab that holds settings shows the one Save, and a tab that holds none shows no Save (rules 1, 3)
+- **Given** the web Settings page
+- **When** the coach opens Profile, Preferences, Calendar and My connections
+- **Then** the header Save is shown on the first three and not on My connections
+- **And** Calendar shows no Save of its own for working hours
+test: `frontend/apps/web/src/pages/SettingsPage.test.tsx` › `the header Save shows on every tab that has a setting, and not on a tab with nothing to save`
+
 ### Notes
 - Ledger: none (an owner decision, not a defect).
 - **Known limit of the tests:** iOS's screen-level Save and back logic (run every held part, keep the
@@ -157,3 +172,9 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 - PR 2 removed the PAD-473 machinery: the sign, the serial saver, `SaveLedger`, the keepalive and
   background flushes, the reminders form's 600 ms pause (`notifications.config` rule 10d), and the
   spec `settings.save-on-change`. Ledger entries that cite it (B-242, B-243, B-244) are history.
+
+### Open questions
+
+- **Rules 1 and 3 and SETTINGS-EXPLICIT-SAVE-11 describe an Admin tab that no longer exists.** They name `settings-admin-save` and the "coach-approval-required" switch. Neither shell lists an admin tab among the tabs with a Save (`SettingsPage.tsx:642`, `app/settings.tsx:194`), and no `settings-admin*` id exists; Settings → Admin was removed with PAD-532 (`admin.approvals-and-users` rule 10). Recommendation: delete the Admin lines from rules 1 and 3 and retire criterion 11.
+- **Rule 1's Preferências list leaves out the notification sound.** iOS Preferences holds it and sends it in the same request as the language (`preferences-section.tsx:93-95`). Recommendation: add it to the list.
+- **SETTINGS-EXPLICIT-SAVE-6 has no test that runs the screen.** "After a save, leaving does not ask" is guarded by a regular expression over `app/settings.tsx` and by Maestro flow 309. The iOS Save in every unit test is a stand-in that swallows failures, so the screen's own handler and its failure toast are never mounted. Recommendation: tag flow 309 to the criterion.
