@@ -108,3 +108,8 @@ else, in a single transaction, with a dry run that shows what it would do.
 - Tests: `backend/padel_app/tests/test_pad632_prod_reset_activity.py` (postgres backend only; runs
   the script through psql).
 - Rehearsal on a copy of staging, 2026-10-11 — counts in PR #689 and on PAD-632.
+
+### Open questions
+
+- **P-DELIVERY-5 uses "invitations" for two things.** Its first sentence says every invitation from the trial goes; its first bullet says invitations stay. Rule 1 removes the class invitations the engine sent (the invitation events and their vacancies) and keeps the invitations to join, of players and of coaches, with the join links. Recommendation: say "class invitations" in the first sentence and "invitations to join" in the bullet. The promise was not changed.
+- **"While the review is open" has no rule.** Rule 2 spares the demo coach and the students whose usernames start with `applereview` whenever the script runs; nothing ties it to a review being open. Recommendation: drop the clause from the promise.
