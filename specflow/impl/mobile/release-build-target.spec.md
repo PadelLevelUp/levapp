@@ -154,7 +154,7 @@ It also makes the target visible inside the app.
 - **And** a staging bundle checked as `staging` passes
 test: `frontend/apps/mobile/src/lib/release-bundle-check.test.ts` › `refuses an unknown target` (+3 more)
 
-#### MOBILE-RELEASE-BUILD-TARGET-11: The phone app declares the capabilities its screens rely on (rule 4)
+#### MOBILE-RELEASE-BUILD-TARGET-11: The phone app declares the capabilities its screens rely on (rule 4; `calendar.view` rule 22, `clubs.coach-invitation` rule 9, `auth.register` rule 19, `classes.join-requests` rule 20)
 - **Given** the phone app's API client set-up
 - **When** its capability list is read
 - **Then** it declares `open-spots`, `evaluations`, `student-relations`, `coach-invite-email`, `terms-acceptance` and `join-side`

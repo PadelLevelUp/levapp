@@ -1918,7 +1918,7 @@ Untagged tests: 7552
   - **MOBILE-RELEASE-BUILD-TARGET-8** A tester sees the server in Settings · unverified
   - **MOBILE-RELEASE-BUILD-TARGET-9** Only a non-production release build warns on sign-in · unverified
   - **MOBILE-RELEASE-BUILD-TARGET-10** The bundle check knows its targets and refuses a stray address (rules 4, 5) · unverified
-  - **MOBILE-RELEASE-BUILD-TARGET-11** The phone app declares the capabilities its screens rely on (rule 4) · unverified
+  - **MOBILE-RELEASE-BUILD-TARGET-11** The phone app declares the capabilities its screens rely on (rule 4; `calendar.view` rule 22, `clubs.coach-invitation` rule 9, `auth.register` rule 19, `classes.join-requests` rule 20) · unverified
 
 ### P-MOBILE-3: A student on a phone finds the iOS app
 
