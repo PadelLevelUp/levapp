@@ -60,6 +60,7 @@ def _entries(app, ids, category_key):
         ).count()
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-3")
 def test_a_save_with_no_scores_writes_no_entry(app, client):
     ids = _seed(app)
     _save(app, client, ids, [])
@@ -67,6 +68,7 @@ def test_a_save_with_no_scores_writes_no_entry(app, client):
     assert _entries(app, ids, "volley_id") == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-6")
 def test_a_null_value_is_an_abstention_not_a_score(app, client):
     ids = _seed(app)
     _save(app, client, ids, [
@@ -77,6 +79,7 @@ def test_a_null_value_is_an_abstention_not_a_score(app, client):
     assert _entries(app, ids, "volley_id") == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-ENTRIES-6")
 def test_an_unchanged_score_adds_no_history_row(app, client):
     from padel_app.models import EvaluationEntry
 

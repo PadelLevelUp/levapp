@@ -16,11 +16,11 @@ afterEach(() => {
 });
 
 describe("runRefresh (rule 3)", () => {
-  it("is 'ok' when the refresh resolves", async () => {
+  it("[CLIENT-PULL-TO-REFRESH-1] is 'ok' when the refresh resolves", async () => {
     await expect(runRefresh(async () => undefined)).resolves.toBe("ok");
   });
 
-  it("is 'failed' when any refetch of the pull failed (rule 4)", async () => {
+  it("[CLIENT-PULL-TO-REFRESH-2] is 'failed' when any refetch of the pull failed (rule 4)", async () => {
     const outcome = runRefresh(() =>
       refetchAll(
         async () => ({ isError: false }),
@@ -30,13 +30,13 @@ describe("runRefresh (rule 3)", () => {
     await expect(outcome).resolves.toBe("failed");
   });
 
-  it("is 'ok' when every refetch succeeded", async () => {
+  it("[CLIENT-PULL-TO-REFRESH-1] is 'ok' when every refetch succeeded", async () => {
     await expect(
       runRefresh(() => refetchAll(async () => ({ isError: false }), async () => undefined))
     ).resolves.toBe("ok");
   });
 
-  it("lets go of a refresh that never settles at the bound, not before", async () => {
+  it("[CLIENT-PULL-TO-REFRESH-3] lets go of a refresh that never settles at the bound, not before", async () => {
     vi.useFakeTimers();
     expect(REFRESH_SPINNER_MAX_MS).toBe(45_000);
     let outcome: string | null = null;
@@ -61,7 +61,7 @@ describe("the screens' pull wiring (rules 1, 5)", () => {
     ["src/features/presences/PresencesScreen.tsx", "presences-refresh"],
   ];
 
-  it.each(screens)("%s has a RefreshControl driven by usePullToRefresh", (path, testID) => {
+  it.each(screens)("[CLIENT-PULL-TO-REFRESH-4] %s has a RefreshControl driven by usePullToRefresh", (path, testID) => {
     const source = read(path);
     expect(source).toContain(`testID="${testID}"`);
     expect(source).toMatch(/usePullToRefresh\(/);
@@ -69,7 +69,7 @@ describe("the screens' pull wiring (rules 1, 5)", () => {
     expect(source).not.toMatch(/refreshing=\{[^}]*isRefetching/);
   });
 
-  it("the validation sheet's list takes the pull, and both its scroll areas drop the keyboard on a drag", () => {
+  it("[CLIENT-PULL-TO-REFRESH-4] the validation sheet's list takes the pull, and both its scroll areas drop the keyboard on a drag", () => {
     const sheet = read("src/features/presences/ValidateClassesSheet.tsx");
     expect(sheet).toContain('testID="presences-validate-refresh"');
     expect(sheet).toContain("alwaysBounceVertical");

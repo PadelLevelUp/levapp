@@ -59,6 +59,7 @@ def _open_ids(events):
 # ── the calendar: the 2×2 ─────────────────────────────────────────────────────
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-12")
 def test_a_visible_class_reaches_only_a_client_that_declares_open_spots(app, client):
     ids = _world(app, visible=True)
     # Control: a declaring client sees the class as an open spot.
@@ -70,6 +71,7 @@ def test_a_visible_class_reaches_only_a_client_that_declares_open_spots(app, cli
     assert ids["instance_id"] not in [e.get("originalId") for e in undeclared]
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-12")
 def test_with_the_toggle_off_no_client_gets_it_whatever_it_declares(app, client):
     ids = _world(app, visible=False)
     assert _open_ids(_calendar(client, ids, DECLARED)) == []
@@ -104,6 +106,7 @@ READS = [
 
 
 @pytest.mark.parametrize("method,path,by_query", READS)
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-2")
 def test_an_open_spot_opens_by_id_only_for_a_declaring_client(app, client, method, path, by_query):
     ids = _world(app, visible=True)
     url = path.format(iid=ids["instance_id"])
@@ -120,6 +123,7 @@ def test_an_open_spot_opens_by_id_only_for_a_declaring_client(app, client, metho
 # ── PAD-350's [I]: no attendance action on an open spot ──────────────────────
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-13")
 def test_an_old_client_cannot_cancel_attendance_on_an_open_spot(app, client):
     from padel_app.models import Presence
 

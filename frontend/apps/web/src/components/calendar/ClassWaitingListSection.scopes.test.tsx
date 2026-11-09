@@ -61,7 +61,7 @@ const lastAdd = () => (api.addToClassWaitingList.mock.calls.at(-1) as unknown[])
 beforeEach(() => { api.addToClassWaitingList.mockClear(); api.changeClassWaitingListScope.mockClear(); });
 
 describe("PAD-560 the add dialog's three scopes (rule 20)", () => {
-  it("offers the series scopes for a recurring class only", () => {
+  it("[CALENDAR-EVENT-DETAIL-23] offers the series scopes for a recurring class only", () => {
     renderSection({ isRecurring: false });
     openAdd();
     expect(screen.getByTestId("class-waiting-list-scope-occurrence")).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe("PAD-560 the add dialog's three scopes (rule 20)", () => {
     expect(screen.queryByTestId("class-waiting-list-scope-period")).toBeNull();
   });
 
-  it("the whole series asks nothing more, says the date it runs to (capped), and posts scope series alone", async () => {
+  it("[CALENDAR-EVENT-DETAIL-23] the whole series asks nothing more, says the date it runs to (capped), and posts scope series alone", async () => {
     renderSection({ recurrenceEnd: "2030-01-01" });
     openAdd();
     chooseAna();
@@ -85,7 +85,7 @@ describe("PAD-560 the add dialog's three scopes (rule 20)", () => {
     expect(lastAdd()).toEqual({ model: "LessonInstance", originalId: 7, date: "2026-10-13", playerId: 2, scope: "series", side: "right" });
   });
 
-  it("a period is a number of classes or an end date, never both (rule 19a)", async () => {
+  it("[CALENDAR-EVENT-DETAIL-23] a period is a number of classes or an end date, never both (rule 19a)", async () => {
     renderSection();
     openAdd();
     chooseAna();
@@ -112,7 +112,7 @@ describe("PAD-560 the add dialog's three scopes (rule 20)", () => {
 });
 
 describe("PAD-560 a row's edit control moves it between scopes (rules 19, 22)", () => {
-  it("opens on the row's scope with the student fixed, and saves through the PATCH", async () => {
+  it("[CALENDAR-EVENT-DETAIL-24] opens on the row's scope with the student fixed, and saves through the PATCH", async () => {
     renderSection({ rows: [row({ id: 10, playerId: 1, scope: "period", expiresOn: "2026-11-30", origin: "standing", standingEntryId: 4, seriesScoped: true })] });
     fireEvent.click(screen.getByTestId("class-waiting-list-edit-1"));
     expect(screen.getByTestId("class-waiting-list-editing-name")).toHaveTextContent("Álvaro Sousa");
@@ -125,7 +125,7 @@ describe("PAD-560 a row's edit control moves it between scopes (rules 19, 22)", 
     expect(api.addToClassWaitingList).not.toHaveBeenCalled();
   });
 
-  it("a coach-wide standing row has no edit control; the others do", () => {
+  it("[CALENDAR-EVENT-DETAIL-22] a coach-wide standing row has no edit control; the others do", () => {
     renderSection({ rows: [
       row({ id: 1, playerId: 1, scope: "standing", origin: "standing", standingEntryId: 5, expiresOn: "2026-12-31" }),
       row({ id: 2, playerId: 2, scope: "occurrence" }),

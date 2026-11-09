@@ -16,6 +16,7 @@ Criterion: "The Presences badge is the dashboard's number, with its tier";
 Run:
     pytest padel_app/tests/test_pad443_validation_badge.py -v
 """
+import pytest
 from datetime import datetime, timedelta
 
 from padel_app.tests.test_dashboard_coach_home import (
@@ -61,6 +62,7 @@ def test_badge_keeps_an_old_backlog_and_lands_on_its_week(app):
     assert badge == {"count": 3, "weekOffset": -3, "href": "/presences?validate=1&week=-3"}
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-25")
 def test_badge_is_zero_when_nothing_is_pending(app):
     from padel_app.helpers.dashboard.coach_home import validation_badge
 
@@ -71,6 +73,7 @@ def test_badge_is_zero_when_nothing_is_pending(app):
     assert badge == {"count": 0, "weekOffset": 0, "href": "/presences?validate=1"}
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-25")
 def test_badge_is_the_dashboard_items_number(app):
     """Rule 18: one derivation, so the badge and the dashboard card can never disagree."""
     from padel_app.helpers.dashboard.coach_home import build_needs_you_block, validation_badge

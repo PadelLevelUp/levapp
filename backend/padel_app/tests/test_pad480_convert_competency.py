@@ -71,6 +71,7 @@ def _scored_tecnica(app, client):
     return ids, tecnica
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-27")
 def test_a_legacy_row_converts_and_keeps_its_id_and_scores(app, client):
     """Criterion "A legacy row converts into a default category and keeps its scores"."""
     ids, tecnica = _scored_tecnica(app, client)
@@ -88,6 +89,7 @@ def test_a_legacy_row_converts_and_keeps_its_id_and_scores(app, client):
     assert _entries(app, tecnica) == [(4.0, 1, 5)]
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-28")
 def test_the_converted_row_takes_the_coachs_scale_and_its_scores_keep_theirs(app, client):
     """Criterion "The converted row takes the coach's scale; its scores keep the one they were given on"."""
     ids, tecnica = _scored_tecnica(app, client)
@@ -105,6 +107,7 @@ def test_the_converted_row_takes_the_coachs_scale_and_its_scores_keep_theirs(app
     "not legacy", "a converted row again", "a sub-level key", "an unknown key", "a key that is not a string",
     "no key", "default held", "name taken",
 ])
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-29")
 def test_a_refused_conversion_writes_nothing(app, client, case):
     """Criterion "A conversion that cannot be made is refused, and nothing changes"."""
     ids, tecnica = _scored_tecnica(app, client)
@@ -137,6 +140,7 @@ def test_a_refused_conversion_writes_nothing(app, client, case):
     assert _entries(app, tecnica) == [(4.0, 1, 5)]
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-29")
 def test_another_coachs_row_is_forbidden(app, client):
     ids = _seed(app)
     other = _other_coach(app)
@@ -147,6 +151,7 @@ def test_another_coachs_row_is_forbidden(app, client):
     assert _row(app, other["category_id"])["group"] is None
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-30")
 def test_the_frozen_endpoints_treat_a_converted_row_as_non_legacy(app, client):
     """Criterion "After conversion the old builds' endpoints no longer see it" (R-047 rule 9). A score an
     old build posts for it from a form opened before the conversion is answered 200 and stored nowhere."""
@@ -180,6 +185,7 @@ def test_the_frozen_endpoints_treat_a_converted_row_as_non_legacy(app, client):
     assert _row(app, tecnica)["key"] == "technique"
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-31")
 def test_known_limit_a_stale_old_editor_recreates_the_old_name_as_an_empty_legacy_row(app, client):
     """Rule 18's known limit, pinned so the frozen upsert is not "fixed" by accident (R-047 rule 6):
     App Store 1.1.0's editor posts its whole list with names as it read them. Saved after the
@@ -208,6 +214,7 @@ def test_known_limit_a_stale_old_editor_recreates_the_old_name_as_an_empty_legac
     assert client.delete(f"{BASE}/evaluation_competency/{recreated_id}", headers=headers).status_code == 200
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-32")
 def test_a_sub_level_entry_added_after_conversion_goes_under_the_converted_row(app, client):
     """Criterion "The converted row holds the default's sub-categories" (rule 15 "Creating")."""
     ids, tecnica = _scored_tecnica(app, client)
@@ -223,6 +230,7 @@ def test_a_sub_level_entry_added_after_conversion_goes_under_the_converted_row(a
     assert moved.status_code == 200 and moved.get_json()["parentId"] == tecnica
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-28")
 def test_a_score_with_no_snapshot_keeps_the_scale_it_was_given_on(app, client):
     """Rule 18 "each on its own scale snapshot", true by construction: a score the PAD-423 backfill could
     not stamp (NULL snapshot) is read on its category's scale, so the conversion stamps the row's old
@@ -258,6 +266,7 @@ def test_a_switched_off_legacy_row_stays_off(app, client):
     assert _row(app, tecnica)["is_active"] is False
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-29")
 def test_a_name_that_races_in_is_answered_name_taken(app, client, monkeypatch):
     """A row named "Técnica" inserted between the name check and the commit (a custom one, at the same
     moment) trips the (coach_id, name) index: answered name_taken, nothing written."""
@@ -278,6 +287,7 @@ def test_a_name_that_races_in_is_answered_name_taken(app, client, monkeypatch):
     assert _row(app, tecnica)["group"] is None
 
 
+@pytest.mark.criterion("EVALUATIONS-COMPETENCIES-29")
 def test_an_unknown_row_and_a_body_that_is_not_an_object_are_refused(app, client):
     ids, tecnica = _scored_tecnica(app, client)
     headers = _coach_headers(app, ids)

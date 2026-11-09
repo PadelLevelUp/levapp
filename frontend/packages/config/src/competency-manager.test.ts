@@ -49,7 +49,7 @@ describe("competencyKind", () => {
 });
 
 describe("managerSections", () => {
-  it("an existing coach opens onto their own categories, first and switched on, with the untouched catalogue below (Q31)", () => {
+  it("[EVALUATIONS-COMPETENCIES-18] an existing coach opens onto their own categories, first and switched on, with the untouched catalogue below (Q31)", () => {
     const ana: EvaluationCompetencies = { competencies: [FOREHAND_LEGACY], catalogue: CATALOGUE };
 
     const sections = managerSections(ana);
@@ -96,7 +96,7 @@ describe("managerSections", () => {
     expect(technique!.rows[3]).toEqual({ kind: "existing", competency: bandeja, rowKind: "catalogue" });
   });
 
-  it("switching an entry on for the FIRST time does not move it: it becomes a row in the same place", () => {
+  it("[EVALUATIONS-COMPETENCIES-19] switching an entry on for the FIRST time does not move it: it becomes a row in the same place", () => {
     const before: EvaluationCompetencies = { competencies: [], catalogue: CATALOGUE };
     // What the API answers after POST {catalogueKey: "smash"}: smash is a row now, and gone from catalogue[].
     const smash = competency({ id: 21, key: "smash", name: "Smash", group: "technique" });
@@ -195,7 +195,7 @@ describe("categorySections (PAD-431)", () => {
     expect(sections[0].subs.map(keyOf)).toEqual(CATALOGUE.slice(3, 12).map((e) => e.key));
   });
 
-  it("an existing coach with legacy categories only: their own first, then every default offered", () => {
+  it("[EVALUATIONS-COMPETENCIES-18] an existing coach with legacy categories only: their own first, then every default offered", () => {
     const sections = categorySections({ competencies: [FOREHAND_LEGACY], catalogue: CATALOGUE });
     expect(shape(sections)).toEqual([
       ["legacy", null, [7], null],
@@ -231,7 +231,7 @@ describe("categorySections (PAD-431)", () => {
     expect(sections.map((s) => [s.id, s.subs.length, s.parentId])).toEqual([["key-technique", 8, null], ["id-1", 1, 1]]);
   });
 
-  it("B-255: a default the coach cannot be offered (a legacy row holds its name) offers none of its sub-categories — they could not belong to it", () => {
+  it("[EVALUATIONS-COMPETENCIES-26] B-255: a default the coach cannot be offered (a legacy row holds its name) offers none of its sub-categories — they could not belong to it", () => {
     const legacyTecnica = competency({ id: 9, key: null, name: " Técnica ", group: null });
     const bandejaTop = competency({ id: 10, key: "bandeja", group: "technique", parentId: null });
     const offered = CATALOGUE.filter((e) => e.group === "technique" && e.key !== "bandeja");
@@ -248,7 +248,7 @@ describe("categorySections (PAD-431)", () => {
     expect(shape(categorySections({ competencies: [stray], catalogue: [] }))).toEqual([["id-8", 8, [], null]]);
   });
 
-  it("nothing moves when a switch is flipped", () => {
+  it("[EVALUATIONS-COMPETENCIES-19] nothing moves when a switch is flipped", () => {
     const { cats, subs } = tree();
     const before = categorySections({ competencies: [...cats, ...subs], catalogue: [] });
     const flipped = [...cats.map((c, i) => (i === 0 ? { ...c, isActive: false } : c)), ...subs.map((c, i) => (i === 3 ? { ...c, isActive: false } : c))];
@@ -311,7 +311,7 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     catalogue: [{ key: "tactics", group: "general" }, { key: "consistency", group: "general" }, { key: "smash", group: "technique" }],
   });
 
-  it("each alias suggests its default, after trimming, case and accents (prod's names carry a trailing space)", () => {
+  it("[EVALUATIONS-COMPETENCIES-33] each alias suggests its default, after trimming, case and accents (prod's names carry a trailing space)", () => {
     const cases: [string, string][] = [
       ["Técnica ", "technique"], ["tecnica", "technique"], ["Technique", "technique"],
       ["Tática", "tactics"], ["Tactica ", "tactics"], ["Táctica", "tactics"], ["TACTICS", "tactics"],
@@ -322,13 +322,13 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     }
   });
 
-  it("a near miss suggests nothing", () => {
+  it("[EVALUATIONS-COMPETENCIES-33] a near miss suggests nothing", () => {
     for (const name of ["Tática avançada", "Tacticas", "Tecnico", "Técnica 2", "Consistente"]) {
       expect(suggestConversion({ competencies: [legacy(1, name)], catalogue: [] }, legacy(1, name)), name).toBeNull();
     }
   });
 
-  it("the targets are every default the coach does not hold, the suggested one among them", () => {
+  it("[EVALUATIONS-COMPETENCIES-33] the targets are every default the coach does not hold, the suggested one among them", () => {
     expect(suggestConversion(coach2(), tactica)).toEqual({ suggested: "tactics", targets: ["technique", "tactics", "consistency"] });
     const held = competency({ id: 20, key: "technique", name: "Técnica", group: "general", parentId: null });
     expect(suggestConversion(coach2([held]), tactica)).toEqual({ suggested: "tactics", targets: ["tactics", "consistency"] });
@@ -340,7 +340,7 @@ describe("converting a legacy category (rule 18, PAD-480)", () => {
     expect(suggestConversion(coach2(), competency({ id: 22, name: "Tactica", group: "custom" }))).toBeNull();
   });
 
-  it("the manager offers the conversion, not the add, for a default a legacy row suggests", () => {
+  it("[EVALUATIONS-COMPETENCIES-33] the manager offers the conversion, not the add, for a default a legacy row suggests", () => {
     const ids = categorySections(coach2()).map((s) => s.id);
     expect(ids).not.toContain("key-tactics");
     expect(ids).not.toContain("key-consistency");

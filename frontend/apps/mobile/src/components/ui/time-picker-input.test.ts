@@ -23,13 +23,13 @@ describe("parseTypedTime", () => {
 });
 
 describe("guardEnd (rule 8c)", () => {
-  it("snaps an end at or before the start to the start plus the usual length and says so", () => {
+  it("[CLASSES-CREATE-17] snaps an end at or before the start to the start plus the usual length and says so", () => {
     expect(guardEnd("17:30", "18:00", 90)).toEqual({ value: "19:30", refused: true });
     expect(guardEnd("18:00", "18:00", undefined)).toEqual({ value: "19:00", refused: true });
     expect(guardEnd("23:45", "23:30", 60)).toEqual({ value: "23:45", refused: false });
     expect(guardEnd("23:30", "23:30", 60)).toEqual({ value: "23:59", refused: true });
   });
-  it("leaves a start field (no `from`) and a later end alone", () => {
+  it("[CLASSES-CREATE-17] leaves a start field (no `from`) and a later end alone", () => {
     expect(guardEnd("18:30", undefined, 60)).toEqual({ value: "18:30", refused: false });
     expect(guardEnd("19:00", "18:00", 60)).toEqual({ value: "19:00", refused: false });
   });

@@ -5,6 +5,7 @@ the migrations a PR into staging adds: it warns on every contract pattern in a r
 (the fixture with one of each), is silent on an expand-only revision whose downgrade() drops
 everything, and never fails the job.
 """
+import pytest
 import importlib.util
 import re
 import subprocess
@@ -35,6 +36,7 @@ def _run(*paths, tmp_path):
     return r, summary.read_text() if summary.exists() else ""
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-21")
 def test_each_contract_pattern_warns_on_its_line(tmp_path):
     r, summary = _run(CONTRACT, tmp_path=tmp_path)
     assert r.returncode == 0, "warn-only: never fails"
@@ -49,6 +51,7 @@ def test_each_contract_pattern_warns_on_its_line(tmp_path):
     assert summary.count(f"- `{CONTRACT}:") == len(expected)
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-22")
 def test_an_expand_only_revision_is_silent(tmp_path):
     r, summary = _run(EXPAND, tmp_path=tmp_path)
     assert r.returncode == 0
@@ -56,6 +59,7 @@ def test_an_expand_only_revision_is_silent(tmp_path):
     assert summary.strip() == "Expand/contract: 1 added migration(s), all expand-only."
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-22")
 def test_downgrade_is_never_read():
     m = _load()
     source = EXPAND.read_text()
@@ -77,6 +81,7 @@ def test_an_unreadable_file_warns_and_passes(tmp_path):
     assert f"::warning file={bad}::expand/contract guard could not read it" in r.stdout
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-22")
 def test_a_not_null_column_with_a_server_default_is_expand():
     m = _load()
     src = ("def upgrade():\n    op.add_column('t', sa.Column('c', sa.Integer(), nullable=False, "

@@ -36,7 +36,7 @@ const cls = (id: string, startTime: string, endTime: string): CalendarEvent =>
 const widthOf = (el: HTMLElement) => el.style.width;
 
 describe("desktop grid on a dense day (rule 20, B-543)", () => {
-  it("a chain of 22 classes, two at a time, takes two columns, no marker", () => {
+  it("[CALENDAR-VIEW-13] a chain of 22 classes, two at a time, takes two columns, no marker", () => {
     const chain = Array.from({ length: 22 }, (_, i) => {
       const s = 7 * 60 + 40 * i;
       const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -49,7 +49,7 @@ describe("desktop grid on a dense day (rule 20, B-543)", () => {
     expect(screen.queryByTestId("calendar-overflow")).toBeNull();
   });
 
-  it("four at 18:00: two cards and a '+2' that lists the others and opens one", () => {
+  it("[CALENDAR-VIEW-13] four at 18:00: two cards and a '+2' that lists the others and opens one", () => {
     const onEventClick = vi.fn();
     const four = [cls("a1", "18:00", "19:00"), cls("b2", "18:00", "19:00"), cls("c3", "18:00", "19:00"), cls("d4", "18:30", "19:30")];
     render(<CalendarGrid weekDays={[day]} events={four} startHour={7} endHour={23} onEventClick={onEventClick} />);
@@ -71,14 +71,14 @@ describe("desktop grid hours (rule 21, B-544)", () => {
   const hourLabels = () =>
     Array.from(document.querySelectorAll(".h-\\[60px\\] span")).map((s) => s.textContent);
 
-  it("07:00–22:00 while every class fits", () => {
+  it("[CALENDAR-VIEW-14] 07:00–22:00 while every class fits", () => {
     render(<CalendarGrid weekDays={[day]} events={[cls("a1", "09:00", "10:00")]} />);
     const labels = hourLabels();
     expect(labels[0]).toBe("07:00");
     expect(labels[labels.length - 1]).toBe("21:00");
   });
 
-  it("a class 22:30–00:00 widens the grid to 24:00 and is 90 minutes tall", () => {
+  it("[CALENDAR-VIEW-14] a class 22:30–00:00 widens the grid to 24:00 and is 90 minutes tall", () => {
     render(<CalendarGrid weekDays={[day]} events={[cls("late", "22:30", "00:00")]} />);
     const labels = hourLabels();
     expect(labels[labels.length - 1]).toBe("23:00");

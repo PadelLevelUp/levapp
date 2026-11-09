@@ -104,6 +104,7 @@ EXPECTED = {
 }
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-5")
 def test_the_paged_payload_flags_messages_whose_class_is_gone(app, client):
     ids = _seed(app)
     res = client.get(
@@ -114,6 +115,7 @@ def test_the_paged_payload_flags_messages_whose_class_is_gone(app, client):
     assert _flags(res.get_json()) == EXPECTED
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-5")
 def test_the_unpaged_payload_flags_them_too(app, client):
     ids = _seed(app)
     res = client.get(
@@ -124,6 +126,7 @@ def test_the_unpaged_payload_flags_them_too(app, client):
     assert _flags(res.get_json()) == EXPECTED
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-5")
 def test_one_lesson_instance_lookup_for_the_whole_page(app):
     from padel_app.models.conversations import Conversation
     from padel_app.serializers.conversation import serialize_conversation_detail

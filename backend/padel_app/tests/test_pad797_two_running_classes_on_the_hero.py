@@ -9,6 +9,7 @@ is unchanged.
 
 The clock is the club's wall clock (R-023), pinned: Thursday 29 Oct 2026, 20:23.
 """
+import pytest
 from datetime import datetime
 
 from padel_app.helpers.dashboard.coach_home import next_class_block
@@ -27,6 +28,7 @@ THIRD = _class("lessoninstance-3", "Treino C", "20:15", "21:15")
 UPCOMING = _class("lessoninstance-4", "Treino D", "21:30", "22:30")
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-33")
 def test_two_running_classes_both_reach_the_hero():
     block = next_class_block([EARLIER, LATER, UPCOMING], now=NOW)
 
@@ -48,6 +50,7 @@ def test_three_running_classes_are_three_cards_in_start_order():
     assert [c["title"] for c in block["data"]["alsoRunning"]] == ["Treino B", "Treino C"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-33")
 def test_one_running_class_is_unchanged_from_pad792():
     block = next_class_block([EARLIER, UPCOMING], now=NOW)
 

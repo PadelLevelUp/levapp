@@ -93,7 +93,7 @@ describe("diffInstance", () => {
 });
 
 describe("diffParticipants", () => {
-  it("splits the change into adds and removes", () => {
+  it("[CLASSES-EDIT-4] splits the change into adds and removes", () => {
     const result = diffParticipants(
       [{ id: "1" }, { id: "2" }],
       [{ id: "2" }, { id: "3" }]
@@ -101,7 +101,7 @@ describe("diffParticipants", () => {
     expect(result).toEqual({ addPlayers: ["3"], removePlayers: ["1"] });
   });
 
-  it("returns empty lists when the roster is unchanged", () => {
+  it("[CLASSES-EDIT-4] returns empty lists when the roster is unchanged", () => {
     const roster = [{ id: "1" }, { id: "2" }];
     expect(diffParticipants(roster, [...roster])).toEqual({
       addPlayers: [],
@@ -109,13 +109,13 @@ describe("diffParticipants", () => {
     });
   });
 
-  it("is order-independent", () => {
+  it("[CLASSES-EDIT-4] is order-independent", () => {
     expect(
       diffParticipants([{ id: "1" }, { id: "2" }], [{ id: "2" }, { id: "1" }])
     ).toEqual({ addPlayers: [], removePlayers: [] });
   });
 
-  it("handles emptying and filling the roster", () => {
+  it("[CLASSES-EDIT-4] handles emptying and filling the roster", () => {
     expect(diffParticipants([{ id: "1" }], [])).toEqual({
       addPlayers: [],
       removePlayers: ["1"],
@@ -126,7 +126,7 @@ describe("diffParticipants", () => {
     });
   });
 
-  it("dedupes a repeated id", () => {
+  it("[CLASSES-EDIT-4] dedupes a repeated id", () => {
     expect(diffParticipants([], [{ id: "7" }, { id: "7" }])).toEqual({
       addPlayers: ["7"],
       removePlayers: [],
@@ -144,7 +144,7 @@ describe("buildClassEditChanges carries participants (classes.edit rule 9)", () 
     participants: [{ id: "1" }],
   };
 
-  it("a participants-only edit is a change, not 'no changes'", () => {
+  it("[CLASSES-EDIT-4] a participants-only edit is a change, not 'no changes'", () => {
     const changes = buildClassEditChanges(base, {
       ...base,
       participants: [{ id: "1" }, { id: "2" }],
@@ -152,12 +152,12 @@ describe("buildClassEditChanges carries participants (classes.edit rule 9)", () 
     expect(changes).toEqual({ addPlayers: ["2"] });
   });
 
-  it("sends the added and removed ids and nothing else", () => {
+  it("[CLASSES-EDIT-4] sends the added and removed ids and nothing else", () => {
     const changes = buildClassEditChanges(base, { ...base, participants: [{ id: "2" }] });
     expect(changes).toEqual({ addPlayers: ["2"], removePlayers: ["1"] });
   });
 
-  it("keeps field changes beside the participant diff", () => {
+  it("[CLASSES-EDIT-4] keeps field changes beside the participant diff", () => {
     const changes = buildClassEditChanges(base, {
       ...base,
       name: "Quarta 18h",
@@ -175,12 +175,12 @@ describe("diffParticipants compares ids as strings (classes.edit rule 9)", () =>
   // The API serialises a participant id as a number; the picker hands back the
   // coach-player's playerId as a string. Unticking and re-ticking a student must
   // send nothing.
-  it("a numeric original and a string re-tick are the same student", () => {
+  it("[CLASSES-EDIT-4] a numeric original and a string re-tick are the same student", () => {
     const original = [{ id: 7 as unknown as string }];
     expect(diffParticipants(original, [{ id: "7" }])).toEqual({ addPlayers: [], removePlayers: [] });
   });
 
-  it("reports ids as strings", () => {
+  it("[CLASSES-EDIT-4] reports ids as strings", () => {
     expect(diffParticipants([{ id: 7 as unknown as string }], [{ id: "9" }])).toEqual({
       addPlayers: ["9"],
       removePlayers: ["7"],

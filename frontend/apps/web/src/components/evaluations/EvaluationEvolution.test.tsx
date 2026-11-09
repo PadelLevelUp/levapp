@@ -62,7 +62,7 @@ const show = (withData: number[], playerId = "9") =>
   render(<EvaluationEvolution playerId={playerId} competencies={[TECNICA, BANDEJA, FOREHAND]} competenciesWithData={withData} />);
 
 describe("the pills", () => {
-  it("are one per competency the player has data for — a switched-off one included — and the FIRST is selected", () => {
+  it("[EVALUATIONS-EVOLUTION-6] are one per competency the player has data for — a switched-off one included — and the FIRST is selected", () => {
     show([12, 3]);
     const pills = screen.getAllByTestId(/^evolution-pill-/);
     expect(pills.map((p) => p.getAttribute("data-testid"))).toEqual(["evolution-pill-12", "evolution-pill-3"]);
@@ -79,7 +79,7 @@ describe("the pills", () => {
 });
 
 describe("the figures are exactly what the server sent", () => {
-  it("shows the three means with one decimal and the delta as up, since the first month", () => {
+  it("[EVALUATIONS-EVOLUTION-1] shows the three means with one decimal and the delta as up, since the first month", () => {
     show([12]);
     expect(screen.getByTestId("evolution-mean-m1").getAttribute("data-value")).toBe("4.0");
     expect(screen.getByTestId("evolution-mean-m6").getAttribute("data-value")).toBe("3.7");
@@ -90,7 +90,7 @@ describe("the figures are exactly what the server sent", () => {
     expect(delta.textContent).toContain("jan");
   });
 
-  it("a zero delta reads '=' and is neutral — never '+0'", () => {
+  it("[EVALUATIONS-EVOLUTION-3] a zero delta reads '=' and is neutral — never '+0'", () => {
     show([3]);
     const delta = screen.getByTestId("evolution-delta");
     expect(delta.getAttribute("data-trend")).toBe("flat");
@@ -98,7 +98,7 @@ describe("the figures are exactly what the server sent", () => {
     expect(delta.textContent).toContain("deltaFlat");
   });
 
-  it("a single monthly point has no delta, and an empty window is a dash, not a zero", () => {
+  it("[EVALUATIONS-EVOLUTION-5] a single monthly point has no delta, and an empty window is a dash, not a zero", () => {
     show([30]);
     expect(screen.queryByTestId("evolution-delta")).toBeNull();
     expect(screen.getByTestId("evolution-mean-m1").getAttribute("data-value")).toBe("—");
@@ -108,7 +108,7 @@ describe("the figures are exactly what the server sent", () => {
 });
 
 describe("the chart", () => {
-  it("is drawn on the competency's OWN scale and names itself", () => {
+  it("[EVALUATIONS-EVOLUTION-8] is drawn on the competency's OWN scale and names itself", () => {
     show([30]);
     const chart = screen.getByTestId("evolution-chart");
     expect(chart.getAttribute("data-scale")).toBe("1-10");
@@ -123,7 +123,7 @@ describe("the chart", () => {
 });
 
 describe("no data at all", () => {
-  it("is the empty state, with no pill and no request", () => {
+  it("[EVALUATIONS-EVOLUTION-7] is the empty state, with no pill and no request", () => {
     show([]);
     expect(screen.getByTestId("evaluation-evolution-empty")).toBeTruthy();
     expect(screen.queryByTestId(/^evolution-pill-/)).toBeNull();
@@ -132,7 +132,7 @@ describe("no data at all", () => {
 });
 
 describe("another player", () => {
-  it("never inherits the previous player's selection", () => {
+  it("[EVALUATIONS-EVOLUTION-6] never inherits the previous player's selection", () => {
     const first = show([12, 3], "9");
     fireEvent.click(screen.getByTestId("evolution-pill-3"));
     first.unmount();

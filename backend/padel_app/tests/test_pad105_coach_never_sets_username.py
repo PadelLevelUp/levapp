@@ -40,6 +40,7 @@ def _user_for(app, player_info):
         return Player.query.get(player_info["playerId"]).user
 
 
+@pytest.mark.criterion("PLAYERS-CREATE-2")
 def test_creating_a_player_without_a_username_succeeds(app, coach_id):
     """The coach form no longer sends a username; creation must still work."""
     info = _add_player(app, coach_id)
@@ -49,6 +50,7 @@ def test_creating_a_player_without_a_username_succeeds(app, coach_id):
     assert is_placeholder_username(user.username)
 
 
+@pytest.mark.criterion("PLAYERS-CREATE-4")
 def test_a_coach_supplied_username_is_ignored(app, coach_id):
     """An older client (or a hand-rolled request) cannot claim a username."""
     info = _add_player(app, coach_id, username="chosen-by-coach")
@@ -112,6 +114,7 @@ def test_unique_placeholder_username_skips_taken_values(app):
         assert unique_placeholder_username() != taken
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-6")
 def test_registration_form_is_not_prefilled_with_the_placeholder(app, coach_id, client):
     """The activation form is where the user PICKS a username.
 
@@ -134,6 +137,7 @@ def test_registration_form_is_not_prefilled_with_the_placeholder(app, coach_id, 
     assert res.get_json()["username"] is None
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-6")
 def test_registration_form_keeps_a_real_username(app, client):
     """A user who already chose a username still sees it prefilled."""
     from padel_app.models import User

@@ -96,6 +96,7 @@ def _send(client, app, user_id, conversation_id, text="hi"):
     assert resp.status_code in (200, 201), resp.get_data(as_text=True)
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-5")
 def test_unknown_sender_is_flagged(client, app, people):
     """Two students with no shared coach or club: the recipient sees false."""
     conv = _start_by_username(client, app, people["bruno"], "kc_ana")
@@ -106,12 +107,14 @@ def test_unknown_sender_is_flagged(client, app, people):
     assert _detail(client, app, people["bruno"], conv)["isKnownContact"] is True
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-6")
 def test_coach_is_always_a_known_contact(client, app, people):
     conv = _start_by_ids(client, app, people["maria"], [people["ana"]])
     assert _detail(client, app, people["ana"], conv)["isKnownContact"] is True
     assert _detail(client, app, people["maria"], conv)["isKnownContact"] is True
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-7")
 def test_replying_clears_the_banner(client, app, people):
     conv = _start_by_username(client, app, people["bruno"], "kc_ana")
     _send(client, app, people["bruno"], conv, "olá")

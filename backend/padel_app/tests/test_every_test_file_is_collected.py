@@ -126,6 +126,7 @@ def test_every_file_that_defines_a_test_is_where_ci_looks_and_named_as_pytest_ex
     assert misnamed == [], f"these files define tests but do not match python_files={patterns}: {misnamed}"
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-2")
 def test_a_full_session_collected_every_file_that_defines_a_test(request):
     """The runner's own listing. Only meaningful when this session is CI's invocation:
     a single-file run has, rightly, collected one file."""

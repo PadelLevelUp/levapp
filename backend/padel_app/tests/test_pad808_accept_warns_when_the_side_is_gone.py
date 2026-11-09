@@ -47,6 +47,7 @@ def _state(instance, spots, player_id):
     )
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-9")
 def test_accepting_a_left_request_with_only_right_spots_open_warns_and_enrols_nobody(app, monkeypatch):
     """RED before the fix: the accept returned "accepted" with no warning."""
     from padel_app.services.class_join_request_service import decide_join_request_service
@@ -65,6 +66,7 @@ def test_accepting_a_left_request_with_only_right_spots_open_warns_and_enrols_no
         assert _state(instance, spots, pid) == (False, ["open", "open"], None)
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-9")
 def test_confirming_enrols_the_student_on_a_right_spot_playing_left(app, monkeypatch):
     """The coach's confirm is the override (rule 7): the oldest open spot closes, presence side left."""
     from padel_app.services.class_join_request_service import decide_join_request_service
@@ -78,6 +80,7 @@ def test_confirming_enrols_the_student_on_a_right_spot_playing_left(app, monkeyp
         assert _state(instance, spots, pid) == (True, ["filled", "open"], "left")
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-9")
 def test_with_a_spot_of_the_requested_side_open_the_accept_needs_no_confirm(app, monkeypatch):
     """Control: green before and after."""
     from padel_app.services.class_join_request_service import decide_join_request_service
@@ -90,6 +93,7 @@ def test_with_a_spot_of_the_requested_side_open_the_accept_needs_no_confirm(app,
         assert _state(instance, spots, pid) == (True, ["filled", "open"], "left")
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-9")
 def test_a_both_request_never_gets_the_side_warning(app, monkeypatch):
     """Control: a "both" student can take any spot (rule 20)."""
     from padel_app.services.class_join_request_service import decide_join_request_service
@@ -102,6 +106,7 @@ def test_a_both_request_never_gets_the_side_warning(app, monkeypatch):
         assert decide_join_request_service(rid, coach, accept=True, confirm=False).status == "accepted"
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-10")
 def test_a_student_failing_the_bar_and_the_side_gets_one_warning_with_both(app, monkeypatch):
     """Both parts in the one 409; the confirm then enrols. The bar's failure is stubbed: what is under
     test is the merge, not the bar (rule 7 has its own tests)."""

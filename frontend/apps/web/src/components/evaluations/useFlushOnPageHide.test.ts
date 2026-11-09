@@ -19,7 +19,7 @@ const show = () => {
 afterEach(() => show());
 
 describe("useFlushOnPageHide", () => {
-  it("flushes on pagehide — with keepalive, because an ordinary request started at unload is aborted", () => {
+  it("[EVALUATIONS-RECORDS-12] flushes on pagehide — with keepalive, because an ordinary request started at unload is aborted", () => {
     const flush = vi.fn();
     renderHook(() => useFlushOnPageHide(flush));
     window.dispatchEvent(new Event("pagehide"));
@@ -27,7 +27,7 @@ describe("useFlushOnPageHide", () => {
     expect(flush).toHaveBeenCalledWith({ keepalive: true });
   });
 
-  it("flushes when the page becomes hidden, and not when it becomes visible again", () => {
+  it("[EVALUATIONS-RECORDS-12] flushes when the page becomes hidden, and not when it becomes visible again", () => {
     const flush = vi.fn();
     renderHook(() => useFlushOnPageHide(flush));
     hide();

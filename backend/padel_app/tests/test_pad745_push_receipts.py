@@ -1,6 +1,7 @@
 """PAD-745 — messaging.push-notifications rule 10b: Expo tickets are kept at send and their receipts
 read by the scheduler leader. One test per acceptance criterion of "Expo receipts are read", plus
 admin.engine-health's "Push receipts are counted"."""
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -58,6 +59,7 @@ def _read(receipts_payload=None, response=None):
 
 # --- kept at send ------------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_an_ok_ticket_is_kept_pending_and_the_send_makes_one_call(app):
     from padel_app.utils.expo_push import send_expo_push
 
@@ -72,6 +74,7 @@ def test_an_ok_ticket_is_kept_pending_and_the_send_makes_one_call(app):
         assert (row.ticket_id, row.token, row.user_id, row.status) == ("T1", "ExponentPushToken[a]", uid, "pending")
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_an_outbox_row_names_itself_on_its_receipt(app):
     from padel_app.models import DeviceToken
     from padel_app.utils import push_outbox
@@ -88,6 +91,7 @@ def test_an_outbox_row_names_itself_on_its_receipt(app):
         assert (row.ticket_id, row.outbox_id, row.user_id) == ("T42", 42, uid)
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_an_error_ticket_keeps_no_receipt(app):
     from padel_app.utils.expo_push import send_expo_push
 
@@ -99,6 +103,7 @@ def test_an_error_ticket_keeps_no_receipt(app):
         assert _receipts() == []
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_a_failed_receipt_write_never_fails_the_send(app):
     from padel_app.utils.expo_push import SENT, send_expo_push_outcome
 
@@ -112,6 +117,7 @@ def test_a_failed_receipt_write_never_fails_the_send(app):
 
 # --- read by the leader ------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_an_ok_receipt_marks_the_row_ok_without_an_incident(app):
     from padel_app.models.delivery_incident import DeliveryIncident
 
@@ -124,6 +130,7 @@ def test_an_ok_receipt_marks_the_row_ok_without_an_incident(app):
         assert DeliveryIncident.query.count() == 0
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_device_not_registered_retires_the_token_for_everyone(app):
     from padel_app.models import DeviceToken
 
@@ -138,6 +145,7 @@ def test_device_not_registered_retires_the_token_for_everyone(app):
         assert DeviceToken.query.filter_by(token="ExponentPushToken[gone]").count() == 0
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_another_code_records_one_incident_however_often_it_runs(app):
     from padel_app.models.delivery_incident import DeliveryIncident
 
@@ -154,6 +162,7 @@ def test_another_code_records_one_incident_however_often_it_runs(app):
         assert incident.detail == "receipt error=InvalidCredentials"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_a_ticket_younger_than_15_minutes_is_not_asked_for(app):
     with app.app_context():
         _kept("R-young", sent_at=NOW - timedelta(minutes=5))
@@ -162,6 +171,7 @@ def test_a_ticket_younger_than_15_minutes_is_not_asked_for(app):
         assert _receipts()[0].status == "pending"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_no_receipt_expires_after_24_hours_and_waits_before(app):
     with app.app_context():
         _kept("R-old", sent_at=NOW - timedelta(hours=25))
@@ -172,6 +182,7 @@ def test_no_receipt_expires_after_24_hours_and_waits_before(app):
         assert counts["expired"] == 1
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_1500_pending_tickets_are_asked_in_calls_of_1000_and_500(app):
     from padel_app.models.push_receipt import PushReceipt
 
@@ -185,6 +196,7 @@ def test_1500_pending_tickets_are_asked_in_calls_of_1000_and_500(app):
         assert [len(c.kwargs["json"]["ids"]) for c in post.call_args_list] == [1000, 500]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_a_failed_call_changes_nothing(app):
     with app.app_context():
         _kept("R-503", sent_at=NOW - timedelta(hours=1))
@@ -194,6 +206,7 @@ def test_a_failed_call_changes_nothing(app):
         assert counts["failedCalls"] == 1
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_the_daily_prune_deletes_receipts_older_than_30_days(app):
     from padel_app.services import push_receipts
 
@@ -212,6 +225,7 @@ def test_the_leader_registers_the_reader_every_10_minutes(boot):
 
 # --- admin.engine-health -----------------------------------------------------------------------
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-8")
 def test_the_engine_health_summary_counts_push_receipts(app):
     from padel_app.models.push_receipt import PushReceipt
     from padel_app.services.admin import engine_health

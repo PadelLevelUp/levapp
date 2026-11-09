@@ -29,6 +29,7 @@ def _seed(app):
 JULY_1 = dt.date(2026, 7, 1)
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-2")
 def test_the_day_is_read_off_the_clubs_clock():
     from padel_app.services.evaluation_record_service import record_day
 
@@ -42,6 +43,7 @@ def test_the_day_is_read_off_the_clubs_clock():
     assert record_day(aware) == dt.date(2026, 7, 2)
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-3")
 def test_one_record_per_coach_player_and_day_and_one_more_per_class(app):
     from padel_app.models import EvaluationRecord
     from padel_app.services import evaluation_record_service as svc
@@ -78,6 +80,7 @@ def test_a_rating_is_upserted_in_place(app):
         assert EvaluationEntry.query.count() == 2
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-11")
 def test_an_appended_rating_keeps_the_history_and_takes_the_records_slot(app):
     """The legacy save and the import append: every score they write stays a row
     of its own, and the day's record holds the latest one per category."""

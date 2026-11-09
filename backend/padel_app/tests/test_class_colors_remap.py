@@ -5,6 +5,7 @@ remapped once to hues that cannot be mistaken for a status.
 Covered spec: calendar.mobile-views (rule 6)
 Criterion: "Retired colours are remapped once"
 """
+import pytest
 import glob
 import importlib.util
 import os
@@ -43,6 +44,7 @@ def _make_lesson(club_id, color):
     return lesson.id
 
 
+@pytest.mark.criterion("CALENDAR-MOBILE-VIEWS-12")
 def test_remap_class_color_maps_only_the_retired_hues():
     from padel_app.tools.class_colors import remap_class_color
 
@@ -69,6 +71,7 @@ def test_remap_mirrors_the_frontend_swatch_module():
         assert f'"{old}": "{new}"' in source, (old, new)
 
 
+@pytest.mark.criterion("CALENDAR-MOBILE-VIEWS-12")
 def test_migration_remaps_stored_colours_and_is_idempotent(app):
     from padel_app.models.clubs import Club
     from padel_app.models.lessons import Lesson

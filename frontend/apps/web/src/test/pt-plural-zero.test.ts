@@ -41,7 +41,7 @@ describe("Portuguese zero counts (PAD-629)", () => {
     expect(pairsWithoutZero(load())).toEqual([]);
   });
 
-  it("the calendar day header reads '0 aulas', '1 aula', '2 aulas' with the real i18next", async () => {
+  it("[SETTINGS-LANGUAGE-1] the calendar day header reads '0 aulas', '1 aula', '2 aulas' with the real i18next", async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "pt", resources: { pt: { translation: load() } } });
     expect([0, 1, 2].map((count) => i18n.t("calendar.mobile.classCount", { count }))).toEqual([

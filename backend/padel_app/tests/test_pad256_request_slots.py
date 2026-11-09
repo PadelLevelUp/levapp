@@ -66,6 +66,7 @@ def test_todays_free_blocks_start_at_club_now(app, monkeypatch, utc_now, first_s
     (SUMMER_NOW, True),    # 10:00 has started at 10:30 Lisbon
     (WINTER_NOW, False),   # 10:00 has not started at 09:30 Lisbon
 ])
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-17")
 def test_a_started_slot_is_refused_on_the_club_clock(app, monkeypatch, utc_now, refused):
     from padel_app.services.class_request_service import create_class_request_service
 

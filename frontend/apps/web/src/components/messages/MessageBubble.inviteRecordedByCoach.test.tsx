@@ -52,32 +52,32 @@ function invite(metadata: Message["metadata"]): Message {
 afterEach(cleanup);
 
 describe("an invitation the coach answered for the student", () => {
-  it("shows the student 'accepted by the coach' with no buttons", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] shows the student 'accepted by the coach' with no buttons", () => {
     renderBubble(invite({ responded: true, response: "yes", answeredBy: "coach" }), false);
     expect(screen.getByTestId("invite-recorded-by-coach")).toHaveTextContent("messages.acceptedByCoach");
     expect(screen.queryByTestId("invite-respond-yes")).toBeNull();
     expect(screen.queryByTestId("invite-respond-no")).toBeNull();
   });
 
-  it("shows the student 'declined by the coach' with no buttons", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] shows the student 'declined by the coach' with no buttons", () => {
     renderBubble(invite({ responded: true, response: "no", answeredBy: "coach" }), false);
     expect(screen.getByTestId("invite-recorded-by-coach")).toHaveTextContent("messages.declinedByCoach");
     expect(screen.queryByTestId("invite-respond-yes")).toBeNull();
   });
 
-  it("shows the coach the same badge instead of 'waiting for response'", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] shows the coach the same badge instead of 'waiting for response'", () => {
     renderBubble(invite({ responded: true, response: "yes", answeredBy: "coach" }), true);
     expect(screen.getByTestId("invite-recorded-by-coach")).toHaveTextContent("messages.acceptedByCoach");
     expect(screen.queryByText("messages.waitingForResponse")).toBeNull();
   });
 
-  it("keeps the student's own answer as a plain badge", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] keeps the student's own answer as a plain badge", () => {
     renderBubble(invite({ responded: true, response: "yes", answeredBy: "student" }), false);
     expect(screen.getByTestId("invite-accepted")).toHaveTextContent("messages.accepted");
     expect(screen.queryByTestId("invite-recorded-by-coach")).toBeNull();
   });
 
-  it("still offers Yes/No while nothing is on record", () => {
+  it("[NOTIFICATIONS-INVITATIONS-91] still offers Yes/No while nothing is on record", () => {
     renderBubble(invite({ responded: false }), false);
     expect(screen.getByTestId("invite-respond-yes")).toBeTruthy();
     expect(screen.getByTestId("invite-respond-no")).toBeTruthy();

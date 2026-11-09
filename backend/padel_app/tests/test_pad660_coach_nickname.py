@@ -48,6 +48,7 @@ def _roster_row(app, client, user_id, student_id):
     return next(r for r in rows if str(r["playerId"]) == str(student_id))
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-1")
 def test_the_coach_sets_a_nickname_on_the_relation_and_sees_it_as_the_display_name(app, client, world):
     res = _set_nickname(app, client, world, nickname=f"  {NICK}  ", nicknameAsName=True)
     assert res.status_code == 200, res.get_data(as_text=True)
@@ -79,6 +80,7 @@ def test_a_blank_nickname_clears_it_and_61_characters_are_refused(app, client, w
     assert row["displayName"] == "Rui Student"
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-1")
 def test_another_coach_of_the_same_student_never_sees_it(app, client, world):
     b_user_id, _ = _share_with_coach_b(app, world)
     _set_nickname(app, client, world, nickname=NICK, nicknameAsName=True)
@@ -87,6 +89,7 @@ def test_another_coach_of_the_same_student_never_sees_it(app, client, world):
     assert NICK not in json.dumps(client.get("/api/app/coach_players", headers=_headers(app, b_user_id)).get_json())
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-2")
 def test_the_student_and_shared_serializers_never_carry_it(app, client, world):
     from padel_app.models import Player, User
     from padel_app.serializers.player import serialize_player
@@ -102,6 +105,7 @@ def test_the_student_and_shared_serializers_never_carry_it(app, client, world):
     assert NICK not in me.get_data(as_text=True)
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-3")
 def test_search_finds_the_student_by_nickname_and_by_real_name(app, client, world):
     _set_nickname(app, client, world, nickname=NICK, nicknameAsName=True)
     h = _headers(app, world["coach_user_id"])
@@ -126,6 +130,7 @@ def test_the_conversation_list_shows_the_coach_their_display_name_and_the_studen
     assert NICK not in student_list.get_data(as_text=True)
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-9")
 def test_both_exports_carry_the_nickname_it_is_personal_data_about_the_student(app, client, world):
     """Rule 7 as decided (owner's approval comment, 2026-10-14: "entra no export de dados (PAD-640)"):
     the PAD-640 script answers a subject-access request, and the nickname is personal data about the
@@ -141,6 +146,7 @@ def test_both_exports_carry_the_nickname_it_is_personal_data_about_the_student(a
     assert [r["nickname"] for r in student_doc["tables"]["coach_in_player"]] == [NICK]
     assert [r["nickname"] for r in coach_doc["tables"]["coach_in_player"]] == [NICK]
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-9")
 def test_deleting_the_students_account_erases_the_nickname(app, client, world):
     from padel_app.services.account_service import delete_account_service
 
@@ -168,6 +174,7 @@ def test_ending_the_link_removes_the_nickname_with_the_row(app, client, world):
         ).scalar() == 0
 
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-2")
 def test_templates_and_the_shared_conversation_use_the_real_name(app, monkeypatch):
     """Rule 4: a reminder (templated, `{name}`) and the cancellation notice the student's own
     conversation with the coach carries are read by the student — the real name, always."""

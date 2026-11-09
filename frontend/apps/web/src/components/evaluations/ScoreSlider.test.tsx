@@ -60,7 +60,7 @@ describe("what the slider shows", () => {
 });
 
 describe("one input, one save", () => {
-  it("a drag across several values saves once, on release, with the final value", () => {
+  it("[EVALUATIONS-SCALE-6] a drag across several values saves once, on release, with the final value", () => {
     const onCommit = slider(null);
     const root = screen.getByTestId("evaluation-slider-7-input");
 
@@ -76,7 +76,7 @@ describe("one input, one save", () => {
     expect(onCommit).toHaveBeenCalledWith(7);
   });
 
-  it("a key press is one input", () => {
+  it("[EVALUATIONS-SCALE-6] a key press is one input", () => {
     const onCommit = slider(7);
     fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowRight" });
     expect(onCommit).toHaveBeenCalledTimes(1);

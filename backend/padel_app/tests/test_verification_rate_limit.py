@@ -68,6 +68,7 @@ def _call(client, path, ip, headers, **json):
     return client.post(path, json=json, headers=headers, environ_base={"REMOTE_ADDR": ip})
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-25")
 def test_confirm_is_throttled_per_ip_without_consuming_an_attempt(client, app, outbox):
     app.config["AUTH_RATE_LIMIT_VERIFICATION"] = "2/600"
     _clock(app, 1000)
@@ -91,6 +92,7 @@ def test_confirm_is_throttled_per_ip_without_consuming_an_attempt(client, app, o
     assert other.get_json()["attemptsLeft"] == left - 2
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-25")
 def test_send_and_confirm_share_the_bucket_and_a_throttled_send_mails_nothing(client, app, outbox):
     app.config["AUTH_RATE_LIMIT_VERIFICATION"] = "2/600"
     _clock(app, 1000)

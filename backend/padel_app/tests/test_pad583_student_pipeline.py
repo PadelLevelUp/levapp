@@ -5,6 +5,7 @@ number of statements, and the blocks equal the ones built from separate loads.
 The PAD-262 file (test_pad262_dashboard_pipeline.py) is the template, with the student
 substituted for the coach.
 """
+import pytest
 import json
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -184,6 +185,7 @@ def _blocks(app, player_id, user_id, now=NOW):
         return build_player_dashboard_blocks(player=db.session.get(Player, player_id), user_id=user_id, now=now)
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-10")
 def test_a_student_window_costs_a_fixed_number_of_statements(app):
     """Eager loading: N classes in a window must not mean N extra statements."""
     small_id, small_user, small_titles = _student(app, tag="small", near=3, far=2)
@@ -219,6 +221,7 @@ def test_a_student_window_costs_a_fixed_number_of_statements(app):
         raise AssertionError(f"{len(small)} statements for 3 classes, {len(big)} for 13; differing tables: {dict(diff)}")
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-9")
 def test_the_student_home_runs_the_pipeline_once(app, monkeypatch):
     from padel_app.helpers.dashboard import player_home
 

@@ -190,6 +190,7 @@ class TestSendClassRemindersIntegration:
             ).all()
             assert len(reminder_messages) == 1
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-27")
     def test_reminders_not_sent_when_instance_in_past(self, app):
         """send_class_reminders silently returns without creating messages if class already started."""
         from padel_app.services.notification_service import send_class_reminders
@@ -567,6 +568,7 @@ class TestRepeatReminders:
 
 class TestReminderSupersede:
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-23")
     def test_prior_reminder_superseded_by_new_one(self, app):
         """Sending a second reminder supersedes the first (un-actioned) one;
         the latest reminder stays actionable (no superseded flag)."""
@@ -599,6 +601,7 @@ class TestReminderSupersede:
             assert not second.msg_metadata.get("superseded")
             assert not second.msg_metadata.get("responded")
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-23")
     def test_responded_reminder_not_superseded(self, app):
         """A reminder the player already responded to keeps its badge and is
         NOT marked superseded when a new reminder is sent."""
@@ -650,6 +653,7 @@ class TestReminderSupersede:
             assert responded_msg.msg_metadata.get("responded") is True
             assert not responded_msg.msg_metadata.get("superseded")
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-23")
     def test_supersede_only_touches_unresponded_messages(self, app):
         """Superseding only sets the flag on responded-falsy reminders."""
         from padel_app.services.notification_service import send_class_reminders
@@ -719,6 +723,7 @@ def _enable_auto_notify(app, coach_id):
 
 class TestPastClassReminderExpiry:
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-18")
     def test_late_decline_does_not_fan_out_invitations(self, app):
         """PAD-68: answering 'no' after the class already happened sends no
         replacement invitations and creates no vacancy."""
@@ -748,6 +753,7 @@ class TestPastClassReminderExpiry:
             assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == 0
             assert Vacancy.query.filter_by(lesson_instance_id=instance_id).count() == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-18")
     def test_late_decline_does_not_rewrite_attendance(self, app):
         """PAD-68: a late answer must not retroactively mark the player absent —
         the coach's attendance record for a class that happened is authoritative."""
@@ -781,6 +787,7 @@ class TestPastClassReminderExpiry:
             assert presence.status == "present"
             assert presence.justification is None
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-18")
     def test_late_response_marks_stale_reminder_expired(self, app):
         """PAD-68: the un-actioned reminder is retired (superseded/expired) so the
         UI stops offering live Yes/No buttons for a class that already happened."""
@@ -808,6 +815,7 @@ class TestPastClassReminderExpiry:
             # It was never answered — it must not carry a confirmed/absent badge.
             assert not msg.msg_metadata.get("responded")
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-107")
     def test_trigger_invitations_noop_for_past_class(self, app):
         """PAD-68: the invitation engine refuses to open or fill vacancies for a
         class that already started, whatever calls it."""
@@ -833,6 +841,7 @@ class TestPastClassReminderExpiry:
             assert notified == []
             assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-19")
     def test_invitation_batch_expires_vacancy_for_past_class(self, app):
         """PAD-68: the send chokepoint expires an open vacancy instead of
         inviting anyone once the class has started."""
@@ -872,6 +881,7 @@ class TestPastClassReminderExpiry:
             assert vacancy.status == "expired"
             assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-17")
     def test_response_before_class_start_still_works(self, app):
         """Guard rail: the expiry check must not break the normal, timely path."""
         from padel_app.services.notification_service import (
@@ -989,6 +999,7 @@ class TestResponseAlwaysRecorded:
 
 class TestRespondToReminder:
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-16")
     def test_yes_response_confirms_presence(self, app):
         """Responding 'yes' sets confirmed=True but does NOT set status — coach controls presence."""
         from padel_app.models.presences import Presence
@@ -1028,6 +1039,7 @@ class TestRespondToReminder:
 
             assert Vacancy.query.filter_by(lesson_instance_id=instance_id).count() == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-17")
     def test_no_response_marks_absent(self, app):
         """Responding 'no' sets status='absent', justification='justified', confirmed=True."""
         from padel_app.models.presences import Presence
@@ -1050,6 +1062,7 @@ class TestRespondToReminder:
             assert updated.justification == "justified"
             assert updated.confirmed is True
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-17")
     def test_no_response_always_creates_vacancy(self, app):
         """Declining before the invitation window opens creates a Vacancy immediately
         (so the invite_start scheduler job finds it when the window opens) but does NOT
@@ -1076,6 +1089,7 @@ class TestRespondToReminder:
             event_count = NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count()
             assert event_count == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-17")
     def test_no_response_after_invite_start_creates_vacancy(self, app):
         """Declining after invitation start has passed should create a Vacancy immediately."""
         from padel_app.models.presences import Presence
@@ -1180,6 +1194,7 @@ class TestStandingWaitingListCRUD:
 
         assert result == []
 
+    @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-9")
     def test_add_deactivates_existing_active_entry(self, app):
         """Adding a second entry for the same coach/player deactivates the first."""
         from padel_app.services.notification_service import add_standing_waiting_list_entry
@@ -1244,6 +1259,7 @@ class TestCancelAttendance:
             presence = _presence(instance_id, player_id, invited=True, confirmed=True)
             return presence.id
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-3")
     def test_cancel_before_start_reverts_presence(self, app):
         from padel_app.services.notification_service import cancel_attendance
         from padel_app.models.presences import Presence
@@ -1263,6 +1279,7 @@ class TestCancelAttendance:
             assert presence.status == "absent"
             assert presence.justification == "justified"
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-3")
     def test_cancel_before_start_creates_vacancy(self, app):
         """Cancelling frees the spot — a Vacancy is created for the engine,
         exactly like a reminder decline (auto mode)."""
@@ -1288,6 +1305,7 @@ class TestCancelAttendance:
             ).first()
             assert vacancy is not None
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-5")
     def test_cancel_after_start_rejected_409(self, app):
         from werkzeug.exceptions import Conflict
         from padel_app.services.notification_service import cancel_attendance
@@ -1313,6 +1331,7 @@ class TestCancelAttendance:
             # And it is not flagged as a late cancellation (PAD-271 M5: no answer was recorded).
             assert presence.response != "cancelled"
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-6")
     def test_cancel_before_deadline_not_flagged_and_spot_freed(self, app):
         """Cancelling well before the deadline (start 48h away, default 24h
         deadline): succeeds, late_cancellation stays False, spot is freed."""
@@ -1354,6 +1373,7 @@ class TestCancelAttendance:
             ).first()
             assert vacancy is not None
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-8")
     def test_cancel_after_deadline_before_start_is_flagged_late(self, app):
         """Cancelling inside the deadline window (start 48h away, now +30h →
         18h before start, deadline is 24h before): still allowed, but
@@ -1409,6 +1429,7 @@ class TestCancelAttendance:
             and m.msg_metadata.get("lessonInstanceId") == instance_id
         ]
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-9")
     def test_cancel_before_deadline_notifies_coach_not_late(self, app):
         """PAD-44: a non-late cancel produces exactly one coach-facing
         notification identifying the student + class, not marked late.
@@ -1453,6 +1474,7 @@ class TestCancelAttendance:
             ]
             assert coach_pushes == []
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-10")
     def test_cancel_after_deadline_notifies_coach_marked_late(self, app):
         """PAD-44: a late cancel produces exactly one coach-facing notification
         MARKED as a late cancellation (text + metadata), no duplicate.
@@ -1576,6 +1598,7 @@ class TestCancelAttendance:
             for en in ("cancelled", "(LATE)", " for ", " on ", " at "):
                 assert en not in text, f"English fragment {en!r} leaked into PT text: {text!r}"
 
+    @pytest.mark.criterion("ATTENDANCE-CONFIRM-22")
     def test_cancellation_deadline_hours_defaults_to_24_and_round_trips(self, app):
         """cancellationDeadlineHours defaults to 24 and round-trips through
         get_config_dict / update_config (the GET|POST /notify/config path)."""

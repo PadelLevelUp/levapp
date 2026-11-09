@@ -134,6 +134,7 @@ def _first(stream, timeout):
     return None
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-7")
 def test_an_event_published_by_the_api_reaches_a_stream_held_by_the_gevent_events_process(app, pair):
     a, b = pair
     (u,) = _users(app, 1)
@@ -147,12 +148,14 @@ def test_an_event_published_by_the_api_reaches_a_stream_held_by_the_gevent_event
     assert time.monotonic() - sent < 1.5
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-7")
 def test_the_events_process_serves_only_the_stream(app, pair):
     _, b = pair
     r = requests.get(f"{b.base}/api/app/messages/unread_count", timeout=5)
     assert r.status_code == 404 and r.json() == {"error": "NOT_ON_EVENTS"}
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-8")
 def test_a_listener_drop_unreadies_then_readies_the_events_process_and_resyncs(app, pair):
     from sqlalchemy import create_engine, text
 
@@ -175,6 +178,7 @@ def test_a_listener_drop_unreadies_then_readies_the_events_process_and_resyncs(a
     assert any(s and json.loads(s) == {"type": "resync"} for s in seen)
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-9")
 def test_three_hundred_streams_ride_greenlets_not_threads(app, pair):
     a, b = pair
     users = _users(app, 75)  # 4 streams each: the per-user cap

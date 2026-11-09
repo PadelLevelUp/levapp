@@ -66,6 +66,7 @@ def _make_roster_player(app, coach_id, name, username):
         return player.id
 
 
+@pytest.mark.criterion("PLAYERS-DUPLICATE-NAME-CHECK-3")
 def test_name_duplicate_in_own_roster_warns(app, client):
     """PAD-17: a duplicate name on the REQUESTING coach's roster returns 409,
     case-insensitively."""
@@ -110,6 +111,7 @@ def test_name_duplicate_in_other_coach_roster_does_not_warn(app, client):
     assert res.get_json()["available"] is True
 
 
+@pytest.mark.criterion("PLAYERS-DUPLICATE-NAME-CHECK-2")
 def test_name_unique_value_is_available(app, client):
     """PAD-17: a genuinely new name is available on the coach's roster."""
     user_id, coach_id = _make_coach(app, "coach_unique")

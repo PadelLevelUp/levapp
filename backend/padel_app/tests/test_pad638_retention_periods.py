@@ -65,6 +65,7 @@ def _admin_row(created_at, tag):
 
 # ── rule 1: the owner's periods are on with no setting ─────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-1")
 def test_the_owners_periods_apply_with_no_setting(app):
     from padel_app.models import Conversation, Message, NotificationEvent, ReminderAttempt, User
     from padel_app.models.admin_audit_log import AdminAuditLog
@@ -147,6 +148,7 @@ def test_the_owners_periods_apply_with_no_setting(app):
     assert report["stale_placeholders"]["keep"] is True
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-2")
 def test_a_config_value_moves_a_default_period(app):
     from padel_app.models.player_invitation import PlayerInvitation
 
@@ -177,6 +179,7 @@ def test_a_config_value_moves_a_default_period(app):
     ({"code_hashes": {"enabled": True, "days": 0}}, {"enabled": False, "days": 30}),
     ({"code_hashes": {"enabled": "yes", "days": 5}}, {"enabled": False, "days": 5}),
 ])
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-3")
 def test_the_setting_overrides_the_default(app, value, expected):
     from padel_app.services.retention_service import retention_settings
 
@@ -186,6 +189,7 @@ def test_the_setting_overrides_the_default(app, value, expected):
         assert retention_settings()["code_hashes"] == expected
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-3")
 def test_switched_off_is_counted_and_nothing_removed(app):
     from padel_app.models import User
 
@@ -206,6 +210,7 @@ def test_switched_off_is_counted_and_nothing_removed(app):
 
 # ── rule 3: bounded and idempotent ─────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-6")
 def test_a_run_is_bounded_and_the_next_one_finishes(app):
     from padel_app.models import ReminderAttempt
 
@@ -231,6 +236,7 @@ def test_a_run_is_bounded_and_the_next_one_finishes(app):
         assert ReminderAttempt.query.count() == 0
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-6")
 def test_code_hashes_are_cleared_in_batches(app):
     from padel_app.models import User
 
@@ -248,6 +254,7 @@ def test_code_hashes_are_cleared_in_batches(app):
 
 # ── rule 5: the one exception to the append-only audit log ─────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-7")
 def test_the_audit_log_refuses_every_delete_but_the_sweeps(app):
     from padel_app.models.admin_audit_log import AdminAuditLog, AdminAuditLogImmutable
 

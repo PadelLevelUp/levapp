@@ -9,11 +9,11 @@ const original = {
 };
 
 describe("hasUnsavedClassEdit (PAD-525, classes.edit rule 10)", () => {
-  it("is clean when nothing changed", () => {
+  it("[CLASSES-EDIT-3] is clean when nothing changed", () => {
     expect(hasUnsavedClassEdit(original, structuredClone(original), FIELDS)).toBe(false);
   });
 
-  it("is clean when a change was typed back to its value", () => {
+  it("[CLASSES-EDIT-3] is clean when a change was typed back to its value", () => {
     const draft = { ...structuredClone(original), name: "Quinta 18h" };
     expect(hasUnsavedClassEdit(original, draft, FIELDS)).toBe(false);
   });

@@ -54,7 +54,7 @@ const hosts = (root: ReactTestInstance, id: string) =>
   root.findAll((node) => node.props.testID === id && typeof node.type === "string");
 
 describe("two classes running at once on the coach's home (PAD-797)", () => {
-  it("shows one A DECORRER card per running class, each with its own times", async () => {
+  it("[DASHBOARD-BLOCKS-34] shows one A DECORRER card per running class, each with its own times", async () => {
     const n = await renderNative(
       createElement(NextClassHero, { block: hero([card("lessoninstance-2", "Treino B", "20:00", "21:00")]) }),
     );
@@ -71,7 +71,7 @@ describe("two classes running at once on the coach's home (PAD-797)", () => {
     expect(`${first}${others[0]}`).not.toMatch(/invite|notify/i);
   });
 
-  it("one running class is a single card, as in PAD-792", async () => {
+  it("[DASHBOARD-BLOCKS-34] one running class is a single card, as in PAD-792", async () => {
     const n = await renderNative(createElement(NextClassHero, { block: hero() }));
 
     expect(text(n.byTestId("dashboard-next-class"))).toContain("Treino A");

@@ -8,6 +8,7 @@ from padel_app.sql_db import db
 from padel_app.tests.admin_helpers import admin_token, audit_rows, bearer, make_role
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-17")
 def test_the_write_and_its_audit_row_commit_together(app, client, monkeypatch):
     owner = make_role(app, "boss@levapp.app", "owner")
     token = admin_token(app, owner)
@@ -39,6 +40,7 @@ def test_the_write_and_its_audit_row_commit_together(app, client, monkeypatch):
     assert len(ok) == 1 and ok[0]["requestId"] == r.headers["X-Request-Id"]
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-18")
 def test_the_audit_log_cannot_be_changed(app, client):
     owner = make_role(app, "boss@levapp.app", "owner")
     client.post("/admin/api/roles", headers=bearer(admin_token(app, owner)), json={"email": "rui@levapp.app", "role": "support"})

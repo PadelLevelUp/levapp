@@ -51,6 +51,7 @@ def _fail_for(module, monkeypatch, name, coach_id):
     monkeypatch.setattr(module, name, maybe_fail)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-16")
 def test_the_startup_pass_goes_on_after_one_coach_fails(app, two_coaches, monkeypatch, caplog):
     import logging
 
@@ -64,6 +65,7 @@ def test_the_startup_pass_goes_on_after_one_coach_fails(app, two_coaches, monkey
     assert any(f"coach {two_coaches['first']}" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-16")
 def test_the_daily_pass_goes_on_after_one_coach_fails(two_coaches, monkeypatch, caplog):
     import logging
 
@@ -84,6 +86,7 @@ def _derivation_fails(module, monkeypatch):
     monkeypatch.setattr(module, "schedule_lesson_reminder_jobs", locked)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-16")
 def test_creating_a_class_answers_as_saved_when_its_jobs_cannot_be_derived(two_coaches, monkeypatch):
     from padel_app.models.clubs import Club
     from padel_app.models.coaches import Coach
@@ -103,6 +106,7 @@ def test_creating_a_class_answers_as_saved_when_its_jobs_cannot_be_derived(two_c
     assert lesson.id is not None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-16")
 def test_editing_a_series_answers_as_saved_when_its_jobs_cannot_be_derived(two_coaches, monkeypatch):
     import json
     from datetime import timedelta

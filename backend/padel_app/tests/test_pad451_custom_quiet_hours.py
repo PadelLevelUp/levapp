@@ -34,6 +34,7 @@ def _quiet(start, end):
     (datetime(2026, 6, 10, 21, 59), True),   # 22:59: before the start
     (datetime(2026, 6, 10, 22, 0), False),   # 23:00: the start, refused
 ])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-40")
 def test_a_window_crossing_midnight(app, utc, allowed):
     with app.app_context():
         assert _allowed(_quiet("23:00", "08:00"), utc) is allowed
@@ -45,6 +46,7 @@ def test_a_window_crossing_midnight(app, utc, allowed):
     (datetime(2026, 6, 10, 13, 30), False),  # 14:30
     (datetime(2026, 6, 10, 14, 0), True),    # 15:00
 ])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-41")
 def test_a_window_inside_one_day(app, utc, allowed):
     with app.app_context():
         assert _allowed(_quiet("13:00", "15:00"), utc) is allowed
@@ -83,6 +85,7 @@ def _post_quiet(client, headers, quiet):
     return client.post("/api/app/notify/config", json={"restrictions": restrictions}, headers=headers)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-40")
 def test_the_window_round_trips(client, coach_headers):
     assert _get(client, coach_headers) == {"enabled": False, "start": "22:00", "end": "07:00"}
     res = _post_quiet(client, coach_headers, {"enabled": True, "start": "23:00", "end": "08:00"})
@@ -96,6 +99,7 @@ def test_the_window_round_trips(client, coach_headers):
     {"enabled": True, "start": "22:00", "end": "25:00"},
     {"enabled": True, "start": "10pm", "end": "07:00"},
 ])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-42")
 def test_invalid_bounds_are_refused_and_nothing_is_stored(client, coach_headers, bad):
     _post_quiet(client, coach_headers, {"enabled": True, "start": "23:00", "end": "08:00"})
     res = _post_quiet(client, coach_headers, bad)
@@ -103,6 +107,7 @@ def test_invalid_bounds_are_refused_and_nothing_is_stored(client, coach_headers,
     assert _get(client, coach_headers) == {"enabled": True, "start": "23:00", "end": "08:00"}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-43")
 def test_an_older_apps_save_keeps_the_bounds(client, coach_headers):
     _post_quiet(client, coach_headers, {"enabled": True, "start": "23:00", "end": "08:00"})
     res = _post_quiet(client, coach_headers, {"enabled": False})
@@ -112,6 +117,7 @@ def test_an_older_apps_save_keeps_the_bounds(client, coach_headers):
 
 # ── held vacancies go out at the window's end (rule 6d) ────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-40")
 def test_a_held_vacancy_goes_out_at_the_custom_end(app):
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.vacancy import Vacancy

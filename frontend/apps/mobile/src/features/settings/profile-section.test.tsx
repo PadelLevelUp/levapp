@@ -128,12 +128,12 @@ async function mountProfile(props: { focusEmail?: boolean } = {}) {
 }
 
 describe("isProfileUnsaved (settings.unsaved-edits rule 2)", () => {
-  it("is false when form equals the last loaded/saved value, true the moment a field differs", () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] is false when form equals the last loaded/saved value, true the moment a field differs", () => {
     expect(isProfileUnsaved(ME, ME)).toBe(false);
     expect(isProfileUnsaved({ ...ME, phone: "+351999999999" }, ME)).toBe(true);
   });
 
-  it("a hand-revert back to the saved value reads clean — not 'was touched'", () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] a hand-revert back to the saved value reads clean — not 'was touched'", () => {
     const edited = { ...ME, phone: "+351999999999" };
     expect(isProfileUnsaved(edited, ME)).toBe(true);
     expect(isProfileUnsaved({ ...edited, phone: ME.phone }, ME)).toBe(false);
@@ -141,7 +141,7 @@ describe("isProfileUnsaved (settings.unsaved-edits rule 2)", () => {
 });
 
 describe("ProfileSection registers its unsaved state (PAD-394)", () => {
-  it("edit -> unsaved; hand-revert -> clean", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] edit -> unsaved; hand-revert -> clean", async () => {
     const { n, registry } = await mountProfile();
     expect(registry().hasUnsaved()).toBe(false);
 
@@ -152,7 +152,7 @@ describe("ProfileSection registers its unsaved state (PAD-394)", () => {
     expect(registry().hasUnsaved()).toBe(false);
   });
 
-  it("a successful save clears the unsaved flag (the baseline becomes the saved value)", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-4] a successful save clears the unsaved flag (the baseline becomes the saved value)", async () => {
     updateMe.mockResolvedValue({ ...ME, phone: "+351999999999" });
     const { n, registry } = await mountProfile();
 
@@ -178,7 +178,7 @@ describe("ProfileSection registers its unsaved state (PAD-394)", () => {
 // PAD-482 (auth.email-verification rule 14): the coach home's "Adicionar email" opens this section on the
 // email field (`focus=email`), and an empty field says why it matters. Same test ids as web.
 describe("a coach with no email (PAD-482)", () => {
-  it("the field is focused when asked, and the reason shows while it is empty", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] the field is focused when asked, and the reason shows while it is empty", async () => {
     getMe.mockResolvedValue({ ...ME, email: null, emailVerification: "unverified" });
     const { n } = await mountProfile({ focusEmail: true });
 
@@ -186,7 +186,7 @@ describe("a coach with no email (PAD-482)", () => {
     expect(n.queryByTestId("settings-profile-email-needed")).not.toBeNull();
   });
 
-  it("a coach with an email sees no reason line, and the field is not focused by default", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] a coach with an email sees no reason line, and the field is not focused by default", async () => {
     const { n } = await mountProfile();
 
     expect(n.byTestId("settings-profile-email").props.autoFocus).toBe(false);
@@ -197,7 +197,7 @@ describe("a coach with no email (PAD-482)", () => {
 // B-263 (PAD-482): typing before /auth/me lands used to skip hydration for EVERY field, so a save sent
 // `name: ""` and was refused. Only the fields the coach touched keep what they typed.
 describe("typing before the profile has loaded (B-263)", () => {
-  it("the untouched fields still fill in, and the save sends only the typed one", async () => {
+  it("[SETTINGS-PROFILE-8] the untouched fields still fill in, and the save sends only the typed one", async () => {
     let land!: (me: object) => void;
     getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
     updateMe.mockResolvedValue({ ...ME, email: "rui@example.com", emailVerification: "pending" });
@@ -216,13 +216,13 @@ describe("typing before the profile has loaded (B-263)", () => {
 });
 
 describe("#509 review", () => {
-  it("the reason line waits for /auth/me: a coach who has an email never sees it flash", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] the reason line waits for /auth/me: a coach who has an email never sees it flash", async () => {
     getMe.mockReturnValue(new Promise(() => undefined));
     const { n } = await mountProfile();
     expect(n.queryByTestId("settings-profile-email-needed")).toBeNull();
   });
 
-  it("a field typed in and emptied again before the read lands takes the loaded value", async () => {
+  it("[SETTINGS-PROFILE-8] a field typed in and emptied again before the read lands takes the loaded value", async () => {
     let land!: (me: object) => void;
     getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
     const { n } = await mountProfile();
@@ -260,7 +260,7 @@ describe("date of birth and country (PAD-640)", () => {
     return `01${String(t.getMonth() + 1).padStart(2, "0")}${t.getFullYear() - 17}`;
   };
 
-  it("shows the stored date as DD/MM/AAAA and saves the changed date and country", async () => {
+  it("[SETTINGS-PROFILE-10] shows the stored date as DD/MM/AAAA and saves the changed date and country", async () => {
     getMe.mockResolvedValue(STORED);
     updateMe.mockResolvedValue({ ...STORED, birthDate: "1991-06-02", country: "ES" });
     const { n } = await mountProfile();
@@ -274,7 +274,7 @@ describe("date of birth and country (PAD-640)", () => {
     expect(updateMe).toHaveBeenCalledWith({ birthDate: "1991-06-02", country: "ES" });
   });
 
-  it("an under-18 date is refused on the field and nothing is sent", async () => {
+  it("[SETTINGS-PROFILE-11] an under-18 date is refused on the field and nothing is sent", async () => {
     const { AccessibilityInfo } = await import("react-native");
     const announce = vi.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
     getMe.mockResolvedValue(STORED);
@@ -290,7 +290,7 @@ describe("date of birth and country (PAD-640)", () => {
     announce.mockRestore();
   });
 
-  it("the server's UNDERAGE lands on the field too", async () => {
+  it("[SETTINGS-PROFILE-11] the server's UNDERAGE lands on the field too", async () => {
     getMe.mockResolvedValue(STORED);
     updateMe.mockRejectedValue({ response: { status: 400, data: { code: "UNDERAGE", field: "birthDate" } } });
     const { n } = await mountProfile();

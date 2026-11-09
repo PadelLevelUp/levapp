@@ -95,6 +95,7 @@ def _events_on(app, coach_id, date, title):
         return [e for e in events if e.get("title") == title and e.get("date") == date.isoformat()]
 
 
+@pytest.mark.criterion("CLASSES-DELETE-1")
 def test_delete_materialised_one_off_removes_the_class(app, one_off_with_confirmed_attendance):
     """classes.delete — 'Delete a materialised one-off': the class is gone
     from the calendar, the Lesson row is gone, and the API says ``deleted``."""
@@ -125,6 +126,7 @@ def test_delete_materialised_one_off_removes_the_class(app, one_off_with_confirm
         "deleted one-off resurrected on the next calendar fetch"
 
 
+@pytest.mark.criterion("CLASSES-DELETE-1")
 def test_delete_materialised_one_off_cancels_the_lesson_reminder_job(
     app, one_off_with_confirmed_attendance, monkeypatch
 ):
@@ -160,6 +162,7 @@ def _one_off_events(app, coach_id, date):
     return _events_on(app, coach_id, date, "QA Verify Delete")
 
 
+@pytest.mark.criterion("CLASSES-DELETE-3")
 def test_delete_one_off_with_scope_future_deletes_the_class(app, one_off_with_confirmed_attendance):
     """F3: a one-off has no "future" beyond itself. A stale client (or a crafted
     body) sending scope=future on the Lesson or on its materialised instance
@@ -183,6 +186,7 @@ def test_delete_one_off_with_scope_future_deletes_the_class(app, one_off_with_co
     assert _one_off_events(app, coach_id, date) == []
 
 
+@pytest.mark.criterion("CLASSES-DELETE-3")
 def test_delete_one_off_lesson_with_scope_future_deletes_the_class(app, one_off_with_confirmed_attendance):
     coach_id, lesson_id, instance_id, date = one_off_with_confirmed_attendance
     from padel_app.models.lessons import Lesson
@@ -199,6 +203,7 @@ def test_delete_one_off_lesson_with_scope_future_deletes_the_class(app, one_off_
     assert _one_off_events(app, coach_id, date) == []
 
 
+@pytest.mark.criterion("CLASSES-DELETE-2")
 def test_delete_recurring_occurrence_via_lesson_path_removes_its_materialised_instance(app):
     """F2: the web sheet keeps event.model="Lesson" after confirming attendance,
     so "delete this occurrence" arrives as model=Lesson, scope=single on a date

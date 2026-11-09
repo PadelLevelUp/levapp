@@ -8,6 +8,7 @@ if nothing re-introduces a public default.
 These tests never touch GCS: `signed_url` is patched, and only the branch taken
 by `url()` is asserted.
 """
+import pytest
 
 from unittest.mock import patch
 
@@ -49,6 +50,7 @@ def test_url_still_honours_an_explicit_public_flag(app):
         assert img.url().endswith("/images/club/logo.png")
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-4")
 def test_url_degrades_to_none_when_signing_fails(app):
     """B-018: an environment that cannot sign (no bucket configured, or a
     service account without `iam.serviceAccountTokenCreator`) must not turn
@@ -61,6 +63,7 @@ def test_url_degrades_to_none_when_signing_fails(app):
             assert img.url() is None
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-4")
 def test_url_is_none_without_a_bucket(app):
     """No `GCS_UPLOADS_BUCKET` (staging) means there is nothing to sign
     against: answer None without ever building a storage client."""
@@ -74,6 +77,7 @@ def test_url_is_none_without_a_bucket(app):
         client.assert_not_called()
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-4")
 def test_storage_client_is_built_once(app):
     """Signing a page of avatars must not build a storage client per image —
     that is what made staging crawl once prod data (with avatars) landed."""

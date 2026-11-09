@@ -82,7 +82,7 @@ function renderDialog(busyClassIds: number[]) {
 }
 
 describe("ValidateClassesDialog bulk-run guard", () => {
-  it("disables every queued class while the run is in flight", () => {
+  it("[ATTENDANCE-VALIDATION-12] disables every queued class while the run is in flight", () => {
     renderDialog([1, 2]);
     const buttons = screen.getAllByTestId("presences-validate-class");
     expect(buttons).toHaveLength(2);
@@ -125,7 +125,7 @@ describe("ValidateClassesDialog undecided players (PAD-443)", () => {
     fireEvent.click(screen.getByTestId("presences-open-class"));
   }
 
-  it("flags only the undecided player and counts them in the header", () => {
+  it("[ATTENDANCE-VALIDATION-27] flags only the undecided player and counts them in the header", () => {
     openSilentClass();
     expect(screen.getByTestId("validate-player-row-11")).toHaveAttribute("data-undecided", "true");
     expect(screen.getByTestId("validate-undecided-icon-11")).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("ValidateClassesDialog undecided players (PAD-443)", () => {
     expect(screen.getByTestId("validate-undecided-summary")).toHaveTextContent("presences.validate.awaiting:1");
   });
 
-  it("drops the flag the moment the player is marked", () => {
+  it("[ATTENDANCE-VALIDATION-27] drops the flag the moment the player is marked", () => {
     openSilentClass();
     const row = screen.getByTestId("validate-player-row-11");
     fireEvent.click(within(row).getByTestId("presence-mark-present"));
@@ -208,7 +208,7 @@ describe("ValidateClassesDialog keeps a completed class in place (PAD-442)", () 
   const cardOf = (rowTestId: string) =>
     screen.getByTestId(rowTestId).closest('[data-testid="presences-class-card"]') as HTMLElement;
 
-  it("keeps the class under needs-input with Validate enabled once its last player is marked", () => {
+  it("[ATTENDANCE-VALIDATION-7] keeps the class under needs-input with Validate enabled once its last player is marked", () => {
     renderQueue();
     const needsInput = screen.getByTestId("presences-group-needsInput");
     expect(within(needsInput).getByTestId("validate-list-row-1-31")).toBeInTheDocument();

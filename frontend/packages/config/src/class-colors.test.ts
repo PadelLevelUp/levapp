@@ -42,7 +42,7 @@ describe("CLASS_COLOR_SWATCHES", () => {
 });
 
 describe("remapClassColor", () => {
-  it("maps each retired swatch to its replacement", () => {
+  it("[CALENDAR-MOBILE-VIEWS-12] maps each retired swatch to its replacement", () => {
     expect(remapClassColor("#ef4444")).toBe("#A21CAF");
     expect(remapClassColor("#f97316")).toBe("#0891B2");
     expect(remapClassColor("#eab308")).toBe("#0D9488");
@@ -53,7 +53,7 @@ describe("remapClassColor", () => {
     expect(remapClassColor("#EF4444")).toBe("#A21CAF");
   });
 
-  it("leaves kept swatches and legacy free-form values alone", () => {
+  it("[CALENDAR-MOBILE-VIEWS-12] leaves kept swatches and legacy free-form values alone", () => {
     expect(remapClassColor("#0ea5e9")).toBe("#0ea5e9");
     expect(remapClassColor("#123456")).toBe("#123456");
   });
@@ -63,7 +63,7 @@ describe("remapClassColor", () => {
     expect(remapClassColor(null)).toBeNull();
   });
 
-  it("is idempotent — a remapped value is never remapped again", () => {
+  it("[CALENDAR-MOBILE-VIEWS-12] is idempotent — a remapped value is never remapped again", () => {
     for (const [, replacement] of Object.entries(RETIRED_CLASS_COLOR_REMAP)) {
       expect(remapClassColor(replacement)).toBe(replacement);
     }

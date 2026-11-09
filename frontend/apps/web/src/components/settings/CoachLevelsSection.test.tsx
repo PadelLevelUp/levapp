@@ -69,7 +69,7 @@ describe("CoachLevelsSection — reports unsaved by rule 2 (PAD-394)", () => {
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("stays unsaved after a failed save", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] stays unsaved after a failed save", async () => {
     addCoachLevel.mockRejectedValue(new Error("nope"));
     render(
       <SettingsUnsavedTestHarness>

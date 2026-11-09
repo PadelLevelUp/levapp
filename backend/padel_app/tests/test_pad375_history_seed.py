@@ -30,6 +30,7 @@ def _read(app, client, ids, path):
     return client.get(f"/api/app/player/{ids['student_id']}/{path}", headers=_coach_headers(app, ids)).get_json()
 
 
+@pytest.mark.criterion("EVALUATIONS-HISTORY-1")
 def test_history_seeded_in_records_is_what_the_new_surfaces_show(app, client):
     ids = _seed(app)
     with app.app_context():

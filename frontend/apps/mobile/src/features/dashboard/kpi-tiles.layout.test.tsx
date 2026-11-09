@@ -39,7 +39,7 @@ const tokens = (node: { props: { className?: unknown } }) => String(node.props.c
 const zeroBasisRisk = (token: string) => /^(flex-(\d|auto|initial|\[)|basis-)/.test(token);
 
 describe("the student's KPI tiles keep their layout (PAD-438, B-223)", () => {
-  it("no card inside a tile takes flex-1 (flexBasis 0%): it grows from its content instead", async () => {
+  it("[DASHBOARD-BLOCKS-14] no card inside a tile takes flex-1 (flexBasis 0%): it grows from its content instead", async () => {
     const n = await renderNative(createElement(KpiTiles, { block }));
     for (const slug of ["attended", "missed", "upcoming-lessons", "invites"]) {
       const tile = n.byTestId(`dashboard-kpi-${slug}`);
@@ -54,7 +54,7 @@ describe("the student's KPI tiles keep their layout (PAD-438, B-223)", () => {
     }
   });
 
-  it("the tiles themselves still share their row equally", async () => {
+  it("[DASHBOARD-BLOCKS-14] the tiles themselves still share their row equally", async () => {
     const n = await renderNative(createElement(KpiTiles, { block }));
     for (const slug of ["attended", "missed", "upcoming-lessons", "invites"]) {
       expect(tokens(n.byTestId(`dashboard-kpi-${slug}`))).toContain("flex-1");

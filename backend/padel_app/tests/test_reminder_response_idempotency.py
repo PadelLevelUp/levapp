@@ -15,6 +15,7 @@ suppressed, and a genuinely NEW reminder is always answerable.
 Run:
     pytest padel_app/tests/test_reminder_response_idempotency.py -v
 """
+import pytest
 
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -81,6 +82,7 @@ def _seed_declinable_class(app):
 
 class TestReminderResponseIdempotency:
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-21")
     def test_repeated_no_produces_one_decline_and_one_invitation_round(self, app):
         """The headline regression: three "No" taps == one decline, one vacancy,
         one round of invitations."""
@@ -145,6 +147,7 @@ class TestReminderResponseIdempotency:
             assert second == {"action": "declined", "duplicate": True}
             assert third == {"action": "declined", "duplicate": True}
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-21")
     def test_eight_rapid_no_taps_match_the_production_incident(self, app):
         """The exact production shape: 8 taps in ~1 minute, still one decline."""
         from padel_app.services.notification_service import (
@@ -174,6 +177,7 @@ class TestReminderResponseIdempotency:
             invited_ids = [e.player_id for e in _invitation_events(instance_id)]
             assert len(invited_ids) == len(set(invited_ids))
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-21")
     def test_repeated_yes_produces_one_confirmation_message(self, app):
         """Same guarantee on the confirm side."""
         from padel_app.services.notification_service import (
@@ -205,6 +209,7 @@ class TestReminderResponseIdempotency:
             assert presence.confirmed is True
             assert presence.status is None
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-21")
     def test_changing_the_answer_is_never_suppressed(self, app):
         """yes → no is a real change: it must free the spot as usual."""
         from padel_app.services.notification_service import (

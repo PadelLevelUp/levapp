@@ -66,6 +66,7 @@ def _block_exists(app, block_id):
         return CalendarBlock.query.get(block_id) is not None
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-17")
 def test_delete_with_no_body_at_all_deletes_the_block(client, app, user_with_block):
     """The regression: no body, no Content-Type — used to be 415, row survived."""
     user_id, block_id = user_with_block
@@ -79,6 +80,7 @@ def test_delete_with_no_body_at_all_deletes_the_block(client, app, user_with_blo
     assert not _block_exists(app, block_id)
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-17")
 def test_delete_with_empty_json_body_deletes_the_block(client, app, user_with_block):
     """What the fixed client now sends: `{}` with `Content-Type: application/json`."""
     user_id, block_id = user_with_block

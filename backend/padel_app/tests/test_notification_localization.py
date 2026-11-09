@@ -15,6 +15,7 @@ default); full locale-driven i18n is deferred to PAD-39.
 Run:
     pytest padel_app/tests/test_notification_localization.py -v
 """
+import pytest
 
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -109,6 +110,7 @@ def _seed_pt_reminder_template(app, coach_id):
 
 class TestNotificationLocalization:
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
     def test_reminder_weekday_is_portuguese_and_no_this_artifact(self, app):
         """A pt reminder for a level-less instance renders the Portuguese weekday
         and no "this"/raw-placeholder artifacts."""

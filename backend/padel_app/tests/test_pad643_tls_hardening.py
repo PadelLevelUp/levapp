@@ -41,6 +41,7 @@ def _https_servers(name):
 
 
 @pytest.mark.parametrize("name", HOSTS)
+@pytest.mark.criterion("DELIVERY-TRANSPORT-SECURITY-2")
 def test_every_https_server_sends_hsts(name):
     servers = _https_servers(name)
     assert servers, f"{name} has no HTTPS server block"
@@ -50,6 +51,7 @@ def test_every_https_server_sends_hsts(name):
 
 
 @pytest.mark.parametrize("name", HOSTS)
+@pytest.mark.criterion("DELIVERY-TRANSPORT-SECURITY-2")
 def test_a_location_with_its_own_headers_repeats_hsts(name):
     for body in _https_servers(name):
         for loc in _blocks(body, "location"):
@@ -57,6 +59,7 @@ def test_a_location_with_its_own_headers_repeats_hsts(name):
                 assert HSTS.search(loc), f"{name}: a location with add_header drops the server's HSTS"
 
 
+@pytest.mark.criterion("DELIVERY-TRANSPORT-SECURITY-1")
 def test_only_tls_1_2_and_1_3():
     text = _strip_comments((NGINX / "nginx.conf").read_text())
     protocols = re.findall(r"ssl_protocols\s+([^;]+);", text)

@@ -111,6 +111,7 @@ def test_the_fixture_series_is_the_five_thursdays(app):
 
 # ── delete one occurrence ────────────────────────────────────────────────────
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-3")
 def test_deleting_one_middle_occurrence_keeps_every_later_one(client, app):
     """The regression: Oct 22 and Oct 29 vanished with Oct 15."""
     user_id, block_id = _series(app)
@@ -118,6 +119,7 @@ def test_deleting_one_middle_occurrence_keeps_every_later_one(client, app):
     assert _occurrences(app, user_id) == [AT_10[0], AT_10[1], AT_10[3], AT_10[4]]
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-3")
 def test_the_resumed_series_keeps_the_original_end(client, app):
     from padel_app.models.calendar_blocks import CalendarBlock
 
@@ -131,6 +133,7 @@ def test_the_resumed_series_keeps_the_original_end(client, app):
         ]
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-3")
 def test_deleting_the_last_occurrence_resumes_nothing(client, app):
     """The other half of the 2×2: here 'no resumed series' is the right answer."""
     from padel_app.models.calendar_blocks import CalendarBlock
@@ -142,6 +145,7 @@ def test_deleting_the_last_occurrence_resumes_nothing(client, app):
         assert CalendarBlock.query.filter_by(user_id=user_id).count() == 1
 
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-3")
 def test_deleting_the_first_occurrence_removes_it(client, app):
     """Was a 204 that removed nothing: 'next after Oct 1' found Oct 1 10:00 itself."""
     user_id, block_id = _series(app)
@@ -173,6 +177,7 @@ def test_deleting_the_only_occurrence_left_deletes_the_block(client, app):
 
 # ── move one occurrence ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("CALENDAR-BLOCKS-2")
 def test_moving_one_middle_occurrence_keeps_every_later_one(client, app):
     """calendar.blocks criterion 'Reschedule block': ONLY that occurrence moves."""
     user_id, block_id = _series(app)

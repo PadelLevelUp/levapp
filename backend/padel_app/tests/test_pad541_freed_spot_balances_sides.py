@@ -39,6 +39,7 @@ def _absent(instance, player_id):
     db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-96")
 def test_the_reporters_class_ends_five_four_one_leaver_at_a_time(app):
     """Criterion "A freed spot asks the side the class is short of": 6L/3R, two left leavers."""
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
@@ -52,6 +53,7 @@ def test_the_reporters_class_ends_five_four_one_leaver_at_a_time(app):
         assert (first, second) == ("right", "left")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-96")
 def test_the_reporters_class_ends_five_four_both_leavers_gone_before_either_spot_opens(app):
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
 
@@ -63,6 +65,7 @@ def test_the_reporters_class_ends_five_four_both_leavers_gone_before_either_spot
         assert sides == ["right", "left"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-97")
 def test_a_tie_keeps_the_leavers_side(app):
     """Criterion "A tie keeps the leaver's side": 3L/3R still coming after a right leaver."""
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
@@ -86,6 +89,7 @@ def test_a_both_side_leaver_on_an_uneven_class_asks_the_short_side_and_keeps_bot
         assert _create_vacancy_for_absent_player(instance2, coach2.id, pids2[2]).side == "both"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-98")
 def test_a_roster_with_no_sided_player_keeps_the_leavers_side(app):
     """Criterion "No sided roster keeps the leaver's side"."""
     from padel_app.services.notification_service import _create_vacancy_for_absent_player
@@ -128,6 +132,7 @@ def test_a_both_side_player_counts_on_neither_side(app):
         assert _create_vacancy_for_absent_player(instance, coach.id, pids[3]).side == "both"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-97")
 def test_the_leaver_is_counted_out_even_while_still_holding(app):
     """Rule 2c counts the class WITHOUT the leaver, whether or not their presence is already absent
     (#PAD-541 review: the engine cells always marked them absent first, so dropping the exclusion
@@ -158,6 +163,7 @@ def test_a_coach_with_no_settings_yet_still_gets_one_vacancy_per_leaver(app):
 # ── Postgres: two cancellations at once still see each other's spot ─────────
 
 @_POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-99")
 def test_two_freed_spots_created_at_once_balance(app, monkeypatch):
     """Criterion "Two cancellations at once still balance": both creators pass a barrier just before
     the class lock, so they race for it; the side is chosen under the lock, so the second sees the

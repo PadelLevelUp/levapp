@@ -133,6 +133,7 @@ def _text_columns():
     }
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-13")
 def test_every_text_column_is_scrubbed_or_declared_non_personal():
     columns = _text_columns()
     assert len(columns) > 150, "the guard must find the models (R-032)"
@@ -150,6 +151,7 @@ EMPTIED_TABLES = ("push_subscriptions", "device_tokens", "auth_rate_limit_hits",
                   "push_outbox", "push_receipt")
 
 
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-13")
 def test_every_listed_column_is_actually_written_by_the_sql():
     sql = SCRUB_SQL.read_text()
     statements = [
@@ -186,6 +188,7 @@ def test_the_sync_runs_the_scrub_before_staging_starts_again():
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="the scrub is Postgres SQL (jsonb, make_date, DO blocks)",
 )
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-7")
 def test_on_postgres_nothing_personal_survives(app):
     """Seed real-looking people and their text, run the file, count what survives."""
     from sqlalchemy import text
@@ -279,6 +282,7 @@ MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "migrations
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="walks the real Alembic revisions; Postgres backend only",
 )
+@pytest.mark.criterion("DELIVERY-STAGING-DATA-SYNC-10")
 def test_on_postgres_a_restore_behind_head_is_scrubbed_after_the_migrate_step(app):
     """Rule 9b: a dump at prod's older head cannot be scrubbed as it is, and is scrubbed fully once
     the migrate step has brought it to the image's head (the order sync-staging-db.sh now runs)."""

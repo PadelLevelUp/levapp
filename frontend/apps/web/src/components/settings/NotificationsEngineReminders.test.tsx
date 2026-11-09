@@ -97,7 +97,7 @@ async function mountOpen() {
 }
 
 describe("the reminders form inside the engine card (settings.explicit-save, PAD-506)", () => {
-  it("a timing change is held: nothing is sent until Save, which sends it once and leaves the card clean", async () => {
+  it("[NOTIFICATIONS-CONFIG-22] a timing change is held: nothing is sent until Save, which sends it once and leaves the card clean", async () => {
     await mountOpen();
     plus();
     expect(shown()).toBe(2);
@@ -111,7 +111,7 @@ describe("the reminders form inside the engine card (settings.explicit-save, PAD
     expect(shown()).toBe(2);
   });
 
-  it("changed and changed back is clean, and Save sends nothing", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] changed and changed back is clean, and Save sends nothing", async () => {
     await mountOpen();
     plus();
     minus();
@@ -121,7 +121,7 @@ describe("the reminders form inside the engine card (settings.explicit-save, PAD
     expect(api.updateNotificationConfig).not.toHaveBeenCalled();
   });
 
-  it("a failed Save keeps the coach's value on screen and unsaved; a second Save sends it again", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the coach's value on screen and unsaved; a second Save sends it again", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockRejectedValueOnce(new Error("offline"));
     plus();
@@ -135,7 +135,7 @@ describe("the reminders form inside the engine card (settings.explicit-save, PAD
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("closed with a held value: the value is kept and shown on reopen, and Save sends it", async () => {
+  it("[NOTIFICATIONS-CONFIG-22] closed with a held value: the value is kept and shown on reopen, and Save sends it", async () => {
     await mountOpen();
     plus();
     toggleReminders();
@@ -160,7 +160,7 @@ const dialog = () => screen.queryByTestId("past-due-dialog");
 const settle = () => new Promise((r) => setTimeout(r, 50));
 
 describe("the coach is asked before anything past due is sent (PAD-478, rule 10f)", () => {
-  it("a Save that lists a class asks; yes sends exactly the listed keys and says what happened", async () => {
+  it("[NOTIFICATIONS-CONFIG-15] a Save that lists a class asks; yes sends exactly the listed keys and says what happened", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockImplementationOnce(answering([A]));
 
@@ -177,7 +177,7 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(toast).toHaveBeenCalledWith({ title: "settings.engine.pastDue.sentOne" });
   });
 
-  it("nothing is asked before Save, however the timing is edited", async () => {
+  it("[NOTIFICATIONS-CONFIG-15] nothing is asked before Save, however the timing is edited", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockImplementation(answering([A]));
     plus();
@@ -187,7 +187,7 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(api.updateNotificationConfig).not.toHaveBeenCalled();
   });
 
-  it("a Save that lists nothing does not ask", async () => {
+  it("[NOTIFICATIONS-CONFIG-15] a Save that lists nothing does not ask", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockImplementationOnce(answering([]));
 
@@ -199,7 +199,7 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(dialog()).toBeNull();
   });
 
-  it("a Save that does not change the timing never asks", async () => {
+  it("[NOTIFICATIONS-CONFIG-15] a Save that does not change the timing never asks", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockImplementation(answering([A]));
     fireEvent.click(screen.getByTestId("notification-engine-auto-notify-toggle"));
@@ -209,7 +209,7 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(dialog()).toBeNull();
   });
 
-  it("'do not send' sends nothing, and the same class is not asked about again in this visit", async () => {
+  it("[NOTIFICATIONS-CONFIG-15] 'do not send' sends nothing, and the same class is not asked about again in this visit", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockImplementation(answering([A]));
 
@@ -230,7 +230,7 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(toast).not.toHaveBeenCalled();
   });
 
-  it("a class that was not asked about before is asked about, alone", async () => {
+  it("[NOTIFICATIONS-CONFIG-15] a class that was not asked about before is asked about, alone", async () => {
     await mountOpen();
     api.updateNotificationConfig.mockImplementationOnce(answering([A]));
     plus();
@@ -330,7 +330,7 @@ describe("the coach is asked before anything past due is sent (PAD-478, rule 10f
     expect(screen.queryByTestId("reminder-per-student")).toBeNull();
   });
 
-  it("the 'reminders could not be re-armed' note (rule 10c) is visible with the reminders section closed", async () => {
+  it("[NOTIFICATIONS-CONFIG-22] the 'reminders could not be re-armed' note (rule 10c) is visible with the reminders section closed", async () => {
     await mountOpen();
     const slow = deferred<object>();
     api.updateNotificationConfig.mockImplementationOnce(() => slow.promise);

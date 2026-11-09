@@ -77,7 +77,7 @@ describe("isAtBottom — rule 10's threshold", () => {
 });
 
 describe("shouldLoadOlder — rule 11's guard", () => {
-  it("loads when near the top and the server says there is more", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-14] loads when near the top and the server says there is more", () => {
     expect(
       shouldLoadOlder({ nearTop: true, hasMore: true, isLoadingOlder: false })
     ).toBe(true);
@@ -118,7 +118,7 @@ describe("shouldLoadOlder — rule 11's guard", () => {
 });
 
 describe("mergeOlderPage — rule 11's prepend", () => {
-  it("puts the older page in front, keeping the thread ascending", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-14] puts the older page in front, keeping the thread ascending", () => {
     const merged = mergeOlderPage(
       conversation([message(11), message(12)]),
       { messages: [message(9), message(10)], hasMore: true }
@@ -187,7 +187,7 @@ describe("applyIncomingMessage — rule 10's 'newest page only'", () => {
     expect(applied.messages.map((m) => m.id)).toEqual(["9", "10", "11"]);
   });
 
-  it("promotes an echo of the sender's own message instead of duplicating it", () => {
+  it("[MESSAGING-SSE-REALTIME-14] promotes an echo of the sender's own message instead of duplicating it", () => {
     const own = { ...message(11), status: "sent" as const };
     const applied = applyIncomingMessage(conversation([message(10), own]), {
       ...message(11),
@@ -225,7 +225,7 @@ describe("the first page is small so the anchor is immediate (rule 9)", () => {
 describe("shouldShowJumpToBottom — rule 12", () => {
   const viewportHeight = 600;
 
-  it("is shown once the reader is more than a screen above the bottom", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-16] is shown once the reader is more than a screen above the bottom", () => {
     expect(
       shouldShowJumpToBottom({
         distanceFromBottom: 1800,
@@ -235,7 +235,7 @@ describe("shouldShowJumpToBottom — rule 12", () => {
     ).toBe(true);
   });
 
-  it("is NOT conditional on a new message — a plain scroll back is enough", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-16] is NOT conditional on a new message — a plain scroll back is enough", () => {
     expect(
       shouldShowJumpToBottom({
         distanceFromBottom: 601,
@@ -255,7 +255,7 @@ describe("shouldShowJumpToBottom — rule 12", () => {
     ).toBe(false);
   });
 
-  it("is hidden at the bottom", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-17] is hidden at the bottom", () => {
     expect(
       shouldShowJumpToBottom({
         distanceFromBottom: 0,
@@ -265,7 +265,7 @@ describe("shouldShowJumpToBottom — rule 12", () => {
     ).toBe(false);
   });
 
-  it("is shown for unseen messages even just above the bottom — rule 10 folds into it", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-13] is shown for unseen messages even just above the bottom — rule 10 folds into it", () => {
     expect(
       shouldShowJumpToBottom({
         distanceFromBottom: 250,
@@ -275,7 +275,7 @@ describe("shouldShowJumpToBottom — rule 12", () => {
     ).toBe(true);
   });
 
-  it("is still hidden at the bottom even with the unseen flag set stale", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-17] is still hidden at the bottom even with the unseen flag set stale", () => {
     expect(
       shouldShowJumpToBottom({
         distanceFromBottom: 0,
@@ -336,7 +336,7 @@ describe("hasConversation", () => {
 // and folds it into what is loaded — older pages stay, messages missed while the stream was down
 // are appended, and a message the server changed meanwhile (edited, deleted, reacted) is replaced.
 describe("mergeNewestPage — the open thread after a resync (PAD-616)", () => {
-  it("appends the missed messages and keeps the older pages", () => {
+  it("[MESSAGING-SSE-REALTIME-18] appends the missed messages and keeps the older pages", () => {
     const loaded = conversation([message(1), message(2), message(3)]);
     const newest = { messages: [message(2), message(3), message(4), message(5)], hasMore: true };
     const { conversation: merged, added } = mergeNewestPage(loaded, newest);
@@ -378,19 +378,19 @@ describe("reconcileSentMessage — one bubble per send (PAD-647)", () => {
   const temp = { ...message("temp-1", "hello"), status: "sending" } as Message;
   const saved = message(42, "hello");
 
-  it("POST first: the temp bubble becomes the saved message", () => {
+  it("[MESSAGING-SSE-REALTIME-14] POST first: the temp bubble becomes the saved message", () => {
     const next = reconcileSentMessage(conversation([message(1), temp]), "temp-1", saved);
     expect(next.messages.map((m) => [m.id, m.status])).toEqual([["1", "delivered"], ["42", "sent"]]);
   });
 
-  it("echo first: the temp bubble goes and the echoed message stays, once", () => {
+  it("[MESSAGING-SSE-REALTIME-14] echo first: the temp bubble goes and the echoed message stays, once", () => {
     const echoed = applyIncomingMessage(conversation([message(1), temp]), saved);
     expect(echoed.messages.map((m) => m.id)).toEqual(["1", "temp-1", "42"]);
     const next = reconcileSentMessage(echoed, "temp-1", saved);
     expect(next.messages.map((m) => m.id)).toEqual(["1", "42"]);
   });
 
-  it("leaves the conversation alone when the temp is gone and the message is there", () => {
+  it("[MESSAGING-SSE-REALTIME-14] leaves the conversation alone when the temp is gone and the message is there", () => {
     const current = conversation([message(1), saved]);
     expect(reconcileSentMessage(current, "temp-1", saved).messages.map((m) => m.id)).toEqual(["1", "42"]);
   });

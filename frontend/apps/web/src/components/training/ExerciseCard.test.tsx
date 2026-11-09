@@ -17,7 +17,7 @@ const base: Omit<Exercise, "diagram" | "id" | "name"> = {
 
 // training.tactical-board — "Thumbnail renders both shapes"
 describe("ExerciseCard thumbnail", () => {
-  it("renders a court thumbnail for a legacy diagram", () => {
+  it("[TRAINING-TACTICAL-BOARD-13] renders a court thumbnail for a legacy diagram", () => {
     render(
       <ExerciseCard
         exercise={{
@@ -40,7 +40,7 @@ describe("ExerciseCard thumbnail", () => {
     expect(screen.getByTestId("thumb-ball-path").getAttribute("d")).toMatch(/Q/);
   });
 
-  it("renders a court thumbnail for a v2 diagram", () => {
+  it("[TRAINING-TACTICAL-BOARD-13] renders a court thumbnail for a v2 diagram", () => {
     render(
       <ExerciseCard
         exercise={{

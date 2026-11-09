@@ -1,5 +1,6 @@
 """PAD-683 — players.nickname rule 9c: text sent ONLY to a coach names the student by that coach's
 display name; text stored in the shared coach–student conversation keeps the real name."""
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -56,6 +57,7 @@ def test_a_non_coach_user_gets_the_real_name(app, client, world):
 
 # --- site 1: the cancellation notice -------------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-NICKNAME-7")
 def test_a_late_cancellation_pushes_the_nickname_but_stores_the_real_name(app, client, world):
     from padel_app.models import LessonInstance, Message, Player
     from padel_app.services.notification_service import _notify_coach_of_cancellation

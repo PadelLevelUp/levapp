@@ -91,6 +91,7 @@ def test_every_workload_is_in_the_environment_namespace(overlay):
     assert "Job" not in {d["kind"] for d in docs}, "the migrate Job is its own kustomization (rule 5)"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-1")
 def test_backend_roles_run_through_the_entrypoint(overlay):
     _, docs, _ = overlay
     deps = by_kind(docs, "Deployment")
@@ -108,6 +109,7 @@ def test_backend_roles_run_through_the_entrypoint(overlay):
     assert api_args[:2] == ["sh", "-c"] and api_args[2].startswith("exec gunicorn "), "exec: gunicorn is PID 1's child, signals reach it"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-2")
 def test_rollouts_overlap_except_the_worker(overlay):
     _, docs, _ = overlay
     deps = by_kind(docs, "Deployment")
@@ -118,6 +120,7 @@ def test_rollouts_overlap_except_the_worker(overlay):
     assert all(d["spec"]["replicas"] == 1 for d in deps.values()), "replicas: 2 waits for B8 (PAD-704)"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-8")
 def test_the_api_access_log_carries_no_query_string(overlay):
     _, docs, _ = overlay
     for name in ("api", "events"):
@@ -135,6 +138,7 @@ def probe(c, kind):
     return (p["httpGet"]["path"], p["periodSeconds"], p["failureThreshold"])
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-3")
 def test_the_probe_matrix(overlay):
     _, docs, _ = overlay
     deps = by_kind(docs, "Deployment")
@@ -173,6 +177,7 @@ def headers(rule):
     return {}
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-7")
 def test_the_gateway_takes_its_certificates_and_address_from_terraform(overlay):
     env, docs, _ = overlay
     gw = by_kind(docs, "Gateway")["levapp"]
@@ -182,6 +187,7 @@ def test_the_gateway_takes_its_certificates_and_address_from_terraform(overlay):
     assert "ManagedCertificate" not in {d["kind"] for d in docs}
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-4")
 def test_each_host_routes_like_its_vm_vhost(overlay):
     env, docs, _ = overlay
     routes = by_kind(docs, "HTTPRoute")
@@ -197,6 +203,7 @@ def test_each_host_routes_like_its_vm_vhost(overlay):
     assert headers(app["/register/"])["Referrer-Policy"] == "no-referrer"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-5")
 def test_every_host_that_serves_the_api_routes_events_to_the_long_timeout(overlay):
     _, docs, _ = overlay
     for name, route in by_kind(docs, "HTTPRoute").items():
@@ -208,6 +215,7 @@ def test_every_host_that_serves_the_api_routes_events_to_the_long_timeout(overla
     assert policies["api"]["spec"]["default"]["timeoutSec"] == 60
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-6")
 def test_every_https_rule_sets_hsts_and_http_redirects(overlay):
     env, docs, _ = overlay
     routes = by_kind(docs, "HTTPRoute")
@@ -224,6 +232,7 @@ def test_every_https_rule_sets_hsts_and_http_redirects(overlay):
     assert redirect["spec"]["rules"][0]["filters"][0]["requestRedirect"] == {"scheme": "https", "statusCode": 301}
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-4")
 def test_the_old_domain_serves_the_api_and_redirects_the_rest(overlay):
     env, docs, _ = overlay
     routes = by_kind(docs, "HTTPRoute")
@@ -240,6 +249,7 @@ def test_the_old_domain_serves_the_api_and_redirects_the_rest(overlay):
 
 # --- rule 4: logging, health checks ------------------------------------------------------------
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-8")
 def test_load_balancer_logging_is_off_on_every_backend(overlay):
     _, docs, _ = overlay
     policies = by_kind(docs, "GCPBackendPolicy")
@@ -260,6 +270,7 @@ def test_the_load_balancer_checks_readiness(overlay):
 # --- rule 5: the migrate Job -------------------------------------------------------------------
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-9")
 def test_the_migrate_job_is_its_own_kustomization(env):
     docs, _ = render(f"overlays/{env}/migrate")
     assert sorted(d["kind"] for d in docs) == ["ConfigMap", "Job"], "the Job and its config Component (PAD-702)"
@@ -287,6 +298,7 @@ PROJECT_SHAPES = [
 
 
 @pytest.mark.parametrize("path", ["overlays/staging", "overlays/prod", "overlays/staging/migrate", "overlays/prod/migrate"])
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-10")
 def test_no_project_identifier_is_tracked(path):
     _, text = render(path)
     for shape in PROJECT_SHAPES:
@@ -296,6 +308,7 @@ def test_no_project_identifier_is_tracked(path):
 
 # --- rule 7: the CI job ------------------------------------------------------------------------
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-11")
 def test_the_lint_workflow_validates_every_kustomization_with_schemas():
     wf = (REPO / ".github" / "workflows" / "k8s-lint.yaml").read_text()
     yaml.safe_load(wf)

@@ -48,7 +48,7 @@ describe("reminderState", () => {
     expect(s.canCancel).toBe(false);
   });
 
-  it("shows the settled not-enrolled state for a recorded not_enrolled answer (PAD-259 rule 7)", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-14] shows the settled not-enrolled state for a recorded not_enrolled answer (PAD-259 rule 7)", () => {
     const state = reminderState(
       { responded: true, response: "not_enrolled", startsAt: LATER },
       null,
@@ -61,7 +61,7 @@ describe("reminderState", () => {
     expect(state.showResponseButtons).toBe(false);
   });
 
-  it("shows the settled not-enrolled state for a not_enrolled answer given in this session", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-14] shows the settled not-enrolled state for a not_enrolled answer given in this session", () => {
     const state = reminderState({ startsAt: LATER }, "not_enrolled", NOW);
     expect(state.notEnrolled).toBe(true);
     expect(state.declined).toBe(false);
@@ -89,7 +89,7 @@ describe("reminderState", () => {
     expect(s.showResponseButtons).toBe(false);
   });
 
-  it("expires a reminder that a newer one superseded (PAD-49)", () => {
+  it("[NOTIFICATIONS-REMINDERS-23] expires a reminder that a newer one superseded (PAD-49)", () => {
     const s = reminderState(
       { superseded: true, startsAt: LATER },
       null,
@@ -100,7 +100,7 @@ describe("reminderState", () => {
     expect(s.showResponseButtons).toBe(false);
   });
 
-  it("expires a reminder for a class that already started (PAD-68)", () => {
+  it("[NOTIFICATIONS-REMINDERS-18] expires a reminder for a class that already started (PAD-68)", () => {
     // Derived from startsAt, so reminders already in history retire with no
     // data migration. Answering could not change anything anyway — the
     // backend rejects late responses.

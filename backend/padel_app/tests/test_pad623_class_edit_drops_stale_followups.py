@@ -49,6 +49,7 @@ def _move(instance_id, days):
     }, inst)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-1")
 def test_moving_the_class_drops_the_pending_followup(armed, monkeypatch):
     """OLD-RED (observed: red with the drop removed): the follow-up stayed armed at 07-11 19:00 for a
     class now a week later. The base reminder is armed for the new time (the day before, 18:00
@@ -63,6 +64,7 @@ def test_moving_the_class_drops_the_pending_followup(armed, monkeypatch):
 
 
 @pytest.mark.parametrize("occurrence_key", ["set", "null"], ids=["occurrence-key-set", "occurrence-key-null"])
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-1")
 def test_a_lesson_occurrence_form_followup_is_dropped_too(armed, monkeypatch, occurrence_key):
     """Review of PAD-623: the other id form, ``reminder_lesson_<L>_<date>_retry_<ts>``. With the
     occurrence key set the instance still resolves after the move (PIN). With it NULL (legacy rows),
@@ -101,6 +103,7 @@ def test_a_failing_drop_does_not_fail_the_edit_or_the_re_arm(armed, monkeypatch)
     assert base is not None and base.trigger.run_date.replace(tzinfo=None) == datetime(2027, 7, 18, 17, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-1")
 def test_an_edit_that_keeps_the_time_keeps_the_followup(armed, monkeypatch):
     """PIN: an edit that does not move the class (its title, say) leaves the chain alone."""
     from padel_app.models import LessonInstance

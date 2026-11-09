@@ -67,6 +67,7 @@ def _conversation_count(app):
         return Conversation.query.count()
 
 
+@pytest.mark.criterion("MESSAGING-DIRECT-BY-USERNAME-1")
 def test_student_starts_a_conversation_by_exact_username(client, app, people):
     from padel_app.models import Conversation, ConversationParticipant
 
@@ -94,6 +95,7 @@ def test_student_starts_a_conversation_by_exact_username(client, app, people):
         "dora",         # inactive
     ],
 )
+@pytest.mark.criterion("MESSAGING-DIRECT-BY-USERNAME-2")
 def test_unknown_placeholder_self_blocked_and_inactive_usernames_are_indistinguishable(
     client, app, people, username
 ):
@@ -104,6 +106,7 @@ def test_unknown_placeholder_self_blocked_and_inactive_usernames_are_indistingui
     assert _conversation_count(app) == before
 
 
+@pytest.mark.criterion("MESSAGING-DIRECT-BY-USERNAME-4")
 def test_callers_own_block_is_a_403(client, app, people):
     from padel_app.models import BlockedUser
 
@@ -115,6 +118,7 @@ def test_callers_own_block_is_a_403(client, app, people):
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-DIRECT-BY-USERNAME-3")
 def test_student_reaches_a_coach_and_a_coach_reaches_anyone_by_username(client, app, people):
     """Amended 2026-09-07: the username path is open to every role and reaches any active user."""
     from padel_app.models import Conversation
@@ -134,12 +138,14 @@ def test_student_reaches_a_coach_and_a_coach_reaches_anyone_by_username(client, 
     assert _conversation_count(app) == 3
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-7")
 def test_coach_participant_path_is_still_roster_scoped(client, app, people):
     """Discovery is unchanged: by id a coach may only reach roster/club players."""
     resp = _post(client, app, people["rui"], {"otherParticipants": [people["ana"]]})
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-DIRECT-BY-USERNAME-5")
 def test_both_keys_at_once_is_rejected(client, app, people):
     resp = _post(
         client,
@@ -151,6 +157,7 @@ def test_both_keys_at_once_is_rejected(client, app, people):
     assert _conversation_count(app) == 0
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-3")
 def test_username_path_is_idempotent_like_the_participant_path(client, app, people):
     first = _post(client, app, people["ana"], {"otherUsername": "bruno"})
     second = _post(client, app, people["bruno"], {"otherUsername": "ANA"})

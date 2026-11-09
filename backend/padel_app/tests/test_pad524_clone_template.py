@@ -4,6 +4,7 @@ occurrence's overrides; students are the series roster (a one-off: its participa
 anyone not coming); the start is left to the coach. POST /add_class takes the three lesson-tier
 engine overrides so the clone is one write.
 """
+import pytest
 import json
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -45,6 +46,7 @@ def _template(app, lesson, day, instance=None):
         return clone_template(les, occurrence_date=day, instance=inst, club_id=None)
 
 
+@pytest.mark.criterion("CLASSES-CLONE-1")
 def test_a_series_clone_copies_the_series_and_leaves_the_start_to_the_coach(app):
     ids, bruno, lesson_id, day = _series(app)
     t = _template(app, lesson_id, day)
@@ -61,6 +63,7 @@ def test_a_series_clone_copies_the_series_and_leaves_the_start_to_the_coach(app)
     assert t["openSpotsVisible"] is False and t["autoInvites"] is True
 
 
+@pytest.mark.criterion("CLASSES-CLONE-2")
 def test_an_occurrences_own_overrides_are_not_copied(app):
     from padel_app.models import LessonInstance
 
@@ -90,6 +93,7 @@ def test_a_student_who_cancelled_one_occurrence_is_still_copied_from_the_roster(
     assert str(bruno) in t["playerIds"]
 
 
+@pytest.mark.criterion("CLASSES-CLONE-4")
 def test_a_one_off_copies_its_participants_minus_anyone_not_coming(app):
     from padel_app.models import Lesson, Presence
 

@@ -55,7 +55,7 @@ const offered = () =>
   screen.getAllByTestId(/^class-waiting-list-candidate-/).map((el) => el.getAttribute("data-testid")!.replace("class-waiting-list-candidate-", ""));
 
 describe("PAD-558 the waiting-list picker searches by name (rule 20)", () => {
-  it("shows only the rows holding every typed word, and everyone again once cleared — with no second control (B-421)", () => {
+  it("[CALENDAR-EVENT-DETAIL-25] shows only the rows holding every typed word, and everyone again once cleared — with no second control (B-421)", () => {
     openPicker();
     expect(offered()).toEqual(["1", "2", "3"]);
     expect(screen.queryByTestId("class-waiting-list-player")).toBeNull();
@@ -66,7 +66,7 @@ describe("PAD-558 the waiting-list picker searches by name (rule 20)", () => {
     expect(offered()).toEqual(["1", "2", "3"]);
   });
 
-  it("keeps a chosen student chosen and listed when the search stops matching them", () => {
+  it("[CALENDAR-EVENT-DETAIL-25] keeps a chosen student chosen and listed when the search stops matching them", () => {
     openPicker();
     fireEvent.click(screen.getByTestId("class-waiting-list-candidate-3"));
     fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "pinto" } });
@@ -78,7 +78,7 @@ describe("PAD-558 the waiting-list picker searches by name (rule 20)", () => {
 });
 
 describe("players.search rule 10 (PAD-665): a search that finds nobody says so", () => {
-  it("shows the shared empty line for a non-blank query that matches nobody, and removes it once cleared", () => {
+  it("[PLAYERS-SEARCH-7] shows the shared empty line for a non-blank query that matches nobody, and removes it once cleared", () => {
     openPicker();
     expect(screen.queryByTestId("player-search-empty")).toBeNull();
     fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "  xavier " } });
@@ -90,7 +90,7 @@ describe("players.search rule 10 (PAD-665): a search that finds nobody says so",
     expect(offered()).toEqual(["1", "2", "3"]);
   });
 
-  it("still says so when the picker keeps a chosen student listed", () => {
+  it("[PLAYERS-SEARCH-7] still says so when the picker keeps a chosen student listed", () => {
     openPicker();
     fireEvent.click(screen.getByTestId("class-waiting-list-candidate-3"));
     fireEvent.change(screen.getByTestId("class-waiting-list-search"), { target: { value: "xavier" } });
@@ -105,7 +105,7 @@ describe("PAD-560 each row says how long the student is on the list (rule 19)", 
     scope: "occurrence", expiresOn: null, ...over,
   });
 
-  it("labels the scope and dates the dated ones; only a coach-wide standing row says it is managed in Settings", () => {
+  it("[CALENDAR-EVENT-DETAIL-22] labels the scope and dates the dated ones; only a coach-wide standing row says it is managed in Settings", () => {
     renderSection([
       row({ id: 1, playerId: 1, playerName: "Bruno", origin: "standing", standingEntryId: 5, scope: "standing", expiresOn: "2026-12-31" }),
       row({ id: 2, playerId: 2, playerName: "Carla", scope: "occurrence" }),

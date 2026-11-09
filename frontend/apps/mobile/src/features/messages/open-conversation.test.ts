@@ -30,7 +30,7 @@ function fakeRouter({ aboveTabs = true } = {}) {
 }
 
 describe("a thread opens on top of Mensagens", () => {
-  it("pops the root stack to the Mensagens tab, then pushes the thread", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] pops the root stack to the Mensagens tab, then pushes the thread", () => {
     const { calls, router } = fakeRouter();
     openConversation(router, "/conversation/42?message=7");
     expect(calls).toEqual([
@@ -42,7 +42,7 @@ describe("a thread opens on top of Mensagens", () => {
   // PAD-791 (B-713): with only `(tabs)` on the root stack there is nothing to pop, and the POP_TO
   // went to the tab navigator, which cannot handle it: React Navigation logged it as unhandled (a
   // LogBox toast over the composer in Debug) and the tab under the thread stayed where it was.
-  it("from the Mensagens list, nothing above (tabs): selects Mensagens instead of popping", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-25] from the Mensagens list, nothing above (tabs): selects Mensagens instead of popping", () => {
     const { calls, router } = fakeRouter({ aboveTabs: false });
     openConversation(router, "/conversation/1");
     expect(calls).toEqual([
@@ -51,14 +51,14 @@ describe("a thread opens on top of Mensagens", () => {
     ]);
   });
 
-  it("a push tap or dashboard link on another tab, nothing above (tabs): Mensagens is under the thread", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-25] a push tap or dashboard link on another tab, nothing above (tabs): Mensagens is under the thread", () => {
     const { calls, router } = fakeRouter({ aboveTabs: false });
     pushRoute(router, { pathname: "/conversation/[id]", params: { id: "9" } });
     expect(calls.map(([call]) => call)).toEqual(["navigate", "push"]);
     expect(calls).not.toContainEqual(["dismissTo", MESSAGES_TAB]);
   });
 
-  it("a destination decided at run time: a thread through openConversation, anything else pushed", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] a destination decided at run time: a thread through openConversation, anything else pushed", () => {
     const thread = fakeRouter();
     pushRoute(thread.router, { pathname: "/conversation/[id]", params: { id: "9" } });
     expect(thread.calls.map(([call]) => call)).toEqual(["dismissTo", "push"]);
@@ -78,7 +78,7 @@ describe("a thread opens on top of Mensagens", () => {
     expect(isConversationTarget("/conversation/12?message=4")).toBe(true);
   });
 
-  it("the header arrow goes up to Mensagens, never back in history", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] the header arrow goes up to Mensagens, never back in history", () => {
     const { calls, router } = fakeRouter();
     upFromConversation(router);
     expect(calls).toEqual([["dismissTo", MESSAGES_TAB]]);
@@ -101,12 +101,12 @@ const STRAY = /router\.(push|navigate)\(\s*(?:[`"']\/conversation\/(?!new\b)|\{\
 describe("wiring: every way into a thread goes through openConversation", () => {
   const files = [...sources(join(root, "app")), ...sources(join(root, "src"))];
 
-  it("scans the app (R-032: the check finds its subject)", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] scans the app (R-032: the check finds its subject)", () => {
     expect(files.length).toBeGreaterThan(100);
     expect(files.some((f) => f.endsWith(join("app", "(tabs)", "messages.tsx")))).toBe(true);
   });
 
-  it("no screen pushes a thread directly", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] no screen pushes a thread directly", () => {
     const helper = join(root, "src", "features", "messages", "open-conversation.ts");
     const stray = files
       .filter((f) => f !== helper && STRAY.test(readFileSync(f, "utf8")))
@@ -114,14 +114,14 @@ describe("wiring: every way into a thread goes through openConversation", () => 
     expect(stray).toEqual([]);
   });
 
-  it("the guard itself catches the shapes it exists for", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] the guard itself catches the shapes it exists for", () => {
     expect(STRAY.test("router.push(`/conversation/${id}`)")).toBe(true);
     expect(STRAY.test('router.push("/conversation/12")')).toBe(true);
     expect(STRAY.test('router.navigate({ pathname: "/conversation/[id]", params })')).toBe(true);
     expect(STRAY.test('router.push("/conversation/new")')).toBe(false);
   });
 
-  it("the run-time routers (push taps, dashboard links) and the header arrow use the helper", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-24] the run-time routers (push taps, dashboard links) and the header arrow use the helper", () => {
     const read = (...p: string[]) => readFileSync(join(root, ...p), "utf8");
     expect(read("src", "components", "PushTapRouter.tsx")).toMatch(/pushRoute\(router, target/);
     expect(read("src", "features", "dashboard", "blocks.tsx")).toMatch(/pushRoute\(router,/);

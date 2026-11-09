@@ -10,6 +10,7 @@ What these lock down beyond the coach tests:
 * every KPI carries the context that gives the number meaning (`total`);
 * the payload id, not block sniffing, tells the client which home it is.
 """
+import pytest
 from datetime import datetime, timedelta
 
 from padel_app.models.presences import Presence  # PAD-259
@@ -165,6 +166,7 @@ def _seed(app, *, now):
         return student.id, student_user.id, soon.id
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-13")
 def test_hero_is_the_soonest_class_with_classmates(app):
     from padel_app.helpers.dashboard.player_home import build_player_next_class_block
 
@@ -184,6 +186,7 @@ def test_hero_is_the_soonest_class_with_classmates(app):
     assert data["href"].startswith("/calendar?classId=")
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-15")
 def test_hero_is_omitted_when_nothing_is_scheduled(app):
     from padel_app.helpers.dashboard.player_home import (
         build_player_needs_you_block,
@@ -213,6 +216,7 @@ def test_hero_is_omitted_when_nothing_is_scheduled(app):
     assert queue["data"] == {"count": 0, "items": []}
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-11")
 def test_invite_reaches_the_queue_and_confirmed_class_does_not(app):
     """The old list could never populate; the queue reads Presence directly."""
     from padel_app.helpers.dashboard.player_home import build_player_needs_you_block
@@ -314,6 +318,7 @@ def _seed_asks(app, *, now, student_id, user_id):
                 "coach_id": coach.id}
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-12")
 def test_vacancy_invites_and_waiting_list_offers_reach_the_queue(app):
     """dashboard.blocks rule 3 (PAD-236): the asks are merged soonest-first."""
     from padel_app.helpers.dashboard.player_home import build_player_needs_you_block
@@ -342,6 +347,7 @@ def test_vacancy_invites_and_waiting_list_offers_reach_the_queue(app):
     assert offer["date"] == "2026-08-08"
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-12")
 def test_an_ask_answered_in_the_chat_is_not_asked_again(app):
     """Dedupe with the bubble: `responded` on the message settles the question everywhere."""
     from padel_app.sql_db import db
@@ -369,6 +375,7 @@ def test_an_ask_answered_in_the_chat_is_not_asked_again(app):
     assert [i["kind"] for i in block["data"]["items"]] == ["invite"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-12")
 def test_an_ask_for_a_class_that_started_is_dropped(app):
     from padel_app.helpers.dashboard.player_home import build_player_needs_you_block
 
@@ -385,6 +392,7 @@ def test_an_ask_for_a_class_that_started_is_dropped(app):
     assert [i["kind"] for i in block["data"]["items"]] == []
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-21")
 def test_schedule_lists_the_week_including_the_invite(app):
     """An invited-but-unconfirmed class is still on the student's calendar."""
     from padel_app.helpers.dashboard.player_home import build_player_schedule_block
@@ -435,6 +443,7 @@ def test_rows_and_hero_say_whether_the_student_still_has_to_answer(app):
     assert hero["data"]["lessonInstanceId"] == soon_id
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-16")
 def test_kpis_carry_their_denominator_and_keep_their_links(app):
     from padel_app.helpers.dashboard.player_home import build_player_kpi_block
 
@@ -459,6 +468,7 @@ def test_kpis_carry_their_denominator_and_keep_their_links(app):
     assert "href" not in by_label["Invites"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-17")
 def test_upcoming_lessons_is_the_schedules_count(app):
     """dashboard.blocks rule 3 (PAD-235): the tile and schedule_7d.totalCount are one number."""
     from padel_app.helpers.dashboard.player_home import (
@@ -478,6 +488,7 @@ def test_upcoming_lessons_is_the_schedules_count(app):
     assert upcoming["value"] == schedule["data"]["totalCount"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-8")
 def test_player_payload_uses_the_home_vocabulary_and_its_own_id(app):
     """Spec criterion "Player dashboard": id + block order, no class_list/grid."""
     from padel_app.helpers.dashboard_services import build_dashboard_payload
@@ -510,6 +521,7 @@ def test_player_payload_uses_the_home_vocabulary_and_its_own_id(app):
 LATE = datetime(2026, 8, 4, 22, 30)
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-23")
 def test_b031_class_crossing_utc_midnight_stays_on_the_student_home(app):
     from padel_app.helpers.dashboard.player_home import (
         build_player_next_class_block,

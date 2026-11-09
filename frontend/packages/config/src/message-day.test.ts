@@ -8,7 +8,7 @@ const pt = { language: "pt", todayLabel: "Hoje", yesterdayLabel: "Ontem", now: N
 const en = { language: "en", todayLabel: "Today", yesterdayLabel: "Yesterday", now: NOW };
 
 describe("messageDayLabel (PAD-676, conversation-detail rule 4a)", () => {
-  it("names today, yesterday, a weekday within the week, and a date beyond it", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-22] names today, yesterday, a weekday within the week, and a date beyond it", () => {
     expect(messageDayLabel("2026-10-21", pt)).toBe("Hoje");
     expect(messageDayLabel("2026-10-20", pt)).toBe("Ontem");
     expect(messageDayLabel("2026-10-18", pt)).toBe("Domingo"); // 3 days ago
@@ -47,7 +47,7 @@ describe("messageDayLabel (PAD-676, conversation-detail rule 4a)", () => {
 });
 
 describe("messageDayKey groups by the Lisbon date, not UTC", () => {
-  it("puts 00:30 Lisbon (23:30 UTC the day before) on the Lisbon day", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-22] puts 00:30 Lisbon (23:30 UTC the day before) on the Lisbon day", () => {
     expect(messageDayKey("2026-10-20T23:30:00Z")).toBe("2026-10-21");
     expect(messageDayKey("2026-10-20T22:59:00Z")).toBe("2026-10-20");
   });
@@ -58,7 +58,7 @@ describe("messageDayKey groups by the Lisbon date, not UTC", () => {
 });
 
 describe("groupByDay", () => {
-  it("opens a group at the first message and at every change of Lisbon date", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-22] opens a group at the first message and at every change of Lisbon date", () => {
     const stamps = [
       "2026-10-07T10:00:00Z", // two weeks ago
       "2026-10-18T09:00:00Z", // three days ago

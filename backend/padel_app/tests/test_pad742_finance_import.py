@@ -1,5 +1,6 @@
 """PAD-742 admin.finance rule 5c: the initial list is loaded from a CSV or a pasted table, with the
 form's validation, a dry-run preview, all-or-nothing, and one audit row per created cost."""
+import pytest
 import json
 
 from padel_app.tests.admin_helpers import admin_token, audit_rows, bearer, make_role
@@ -24,6 +25,7 @@ def _costs(app):
         return FinanceCost.query.count()
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-2")
 def test_a_dry_run_previews_every_line_and_writes_nothing(app, client):
     response = client.post(URL, json={"text": CSV, "dryRun": True}, headers=_headers(app))
     assert response.status_code == 200
@@ -38,6 +40,7 @@ def test_a_dry_run_previews_every_line_and_writes_nothing(app, client):
     assert row["after"] == {"changedFields": []}
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-3")
 def test_the_import_creates_every_line_with_one_audit_row_each(app, client):
     headers = _headers(app, "operator")
     response = client.post(URL, json={"text": CSV, "dryRun": False}, headers=headers)
@@ -55,6 +58,7 @@ def test_the_import_creates_every_line_with_one_audit_row_each(app, client):
     assert summary["months"][0]["byCategory"]["ai_tools"] == "368.74"
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-4")
 def test_one_bad_line_names_its_line_and_field_and_nothing_is_created(app, client):
     text = CSV + "domains_dns,Cloudflare,levapp.app,EUR,-10,,annual,2026-04-01,,,\n"
     headers = _headers(app)
@@ -68,6 +72,7 @@ def test_one_bad_line_names_its_line_and_field_and_nothing_is_created(app, clien
     assert audit_rows(app, "finance.cost.create") == []
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-5")
 def test_a_pasted_table_with_semicolons_tabs_and_decimal_commas_is_read(app, client):
     headers = _headers(app)
     pasted = "Category\tVendor\tDescription\tCurrency\tAmount\tRecurrence\tStartsOn\n" \
@@ -81,6 +86,7 @@ def test_a_pasted_table_with_semicolons_tabs_and_decimal_commas_is_read(app, cli
     assert (line["cost"]["amount"], line["cost"]["gcpInvoice"]) == ("12.34", True)
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-6")
 def test_a_line_already_entered_or_repeated_is_refused_as_a_duplicate(app, client):
     headers = _headers(app)
     assert client.post(URL, json={"text": CSV, "dryRun": False}, headers=headers).status_code == 201
@@ -93,6 +99,7 @@ def test_a_line_already_entered_or_repeated_is_refused_as_a_duplicate(app, clien
     assert [line["ok"] for line in twice["lines"]] == [True, False]
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-7")
 def test_a_bad_header_or_an_empty_text_is_refused(app, client):
     headers = _headers(app)
     unknown = client.post(URL, json={"text": "category,vendor,price\n"}, headers=headers)

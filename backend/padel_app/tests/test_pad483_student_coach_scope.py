@@ -130,6 +130,7 @@ def _start(client, app, user_id, body):
     return client.post("/api/app/conversation", json=body, headers=_auth_header(app, user_id))
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-20")
 def test_a_shared_club_alone_is_not_a_link(client, app, scope):
     """PAD-568 / B-461: coach "club" shares club S483 Club with the student and nothing else."""
     assert scope["user_ids"]["club"] not in _messageable_ids(client, app, scope["student_user_id"])
@@ -137,6 +138,7 @@ def test_a_shared_club_alone_is_not_a_link(client, app, scope):
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-19")
 def test_student_picker_lists_only_linked_coaches(client, app, scope):
     ids = _messageable_ids(client, app, scope["student_user_id"])
     assert ids == {scope["user_ids"][n] for n in LINKED}
@@ -150,18 +152,21 @@ def test_student_may_start_a_conversation_with_a_linked_coach(client, app, scope
     assert resp.status_code in (200, 201), resp.get_json()
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-22")
 def test_student_cannot_start_a_conversation_with_an_unlinked_coach(client, app, scope):
     resp = _start(client, app, scope["student_user_id"],
                   {"otherParticipants": [scope["user_ids"]["stranger"]]})
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-22")
 def test_exact_username_still_reaches_an_unlinked_coach(client, app, scope):
     """messaging.direct-by-username stays as the 2026-09-06 decision made it."""
     resp = _start(client, app, scope["student_user_id"], {"otherUsername": "s483_stranger"})
     assert resp.status_code in (200, 201), resp.get_json()
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-23")
 def test_an_existing_thread_keeps_working_after_the_link_is_removed(client, app, scope):
     """Rule 8: the scope governs starting a conversation, never sending inside one."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
@@ -217,6 +222,7 @@ def test_a_join_request_still_reaches_the_coach(app):
     assert len(msgs) == 1 and msgs[0][0] is True
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-7")
 def test_coach_side_is_unchanged(client, app, scope):
     """A coach still cannot start a conversation with a student off their roster and live classes."""
     resp = _start(client, app, scope["user_ids"]["stranger"],
@@ -305,6 +311,7 @@ def class_links(app, scope):
 
 
 @pytest.mark.parametrize("name", ["taught_once_past", "ended_series", "past_one_off", "future_cancelled"])
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-24")
 def test_a_class_that_is_over_is_not_a_link(client, app, scope, class_links, name):
     uid = class_links[name]
     assert uid not in _messageable_ids(client, app, scope["student_user_id"])
@@ -313,11 +320,13 @@ def test_a_class_that_is_over_is_not_a_link(client, app, scope, class_links, nam
 
 
 @pytest.mark.parametrize("name", ["future_declined", "open_series", "future_series_end"])
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-24")
 def test_a_class_not_yet_over_is_a_link(client, app, scope, class_links, name):
     """A declined ('not coming') enrolment on a future class still links: still enrolled."""
     assert class_links[name] in _messageable_ids(client, app, scope["student_user_id"])
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-24")
 def test_removing_the_roster_row_unlinks_a_coach_whose_classes_are_over(client, app, scope, class_links):
     """The reviewer's shape: taught once, roster row deleted, coach must drop out."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer

@@ -4,6 +4,7 @@ admin audit log's retention are in test_pad638_retention_periods.py.
 
     pytest padel_app/tests/test_pad638_data_retention.py -v
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -86,6 +87,7 @@ def _second_coach(app):
         return c.id
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-1")
 def test_everything_is_off_until_a_setting_turns_it_on(app):
     ids = _seed(app)
     player_id, user_id = _placeholder(app, ids, "quiet", created_days_ago=400)
@@ -98,6 +100,7 @@ def test_everything_is_off_until_a_setting_turns_it_on(app):
     assert _exists(app, Player, player_id)
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-3")
 def test_keep_means_no_period_and_nothing_removed(app):
     from padel_app.models import User
 
@@ -119,6 +122,7 @@ def test_keep_means_no_period_and_nothing_removed(app):
         assert db.session.get(User, uid).email_verification_code_hash == "h"
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-3")
 def test_a_stale_placeholder_is_deleted_through_the_roster_removal(app):
     from padel_app.models import User
     from padel_app.models.deletion_audit import DeletionAudit
@@ -156,6 +160,7 @@ def test_a_stale_placeholder_is_deleted_through_the_roster_removal(app):
 
 # ── deleted message text ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-4")
 def test_deleted_messages_lose_their_text_after_the_period(app):
     from padel_app.models import Conversation, Message, User
 
@@ -187,6 +192,7 @@ def test_deleted_messages_lose_their_text_after_the_period(app):
 
 # ── expired invitations and tokens ────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-5")
 def test_expired_invitations_and_join_tokens_go_after_the_period(app):
     from padel_app.models.coach_join_token import CoachJoinToken
     from padel_app.models.player_invitation import PlayerInvitation
@@ -219,6 +225,7 @@ def test_expired_invitations_and_join_tokens_go_after_the_period(app):
 
 # ── notification history ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-5")
 def test_notification_history_of_old_classes_goes(app):
     from padel_app.models import NotificationEvent, ReminderAttempt
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
@@ -251,6 +258,7 @@ def test_notification_history_of_old_classes_goes(app):
 
 # ── code hashes ───────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-5")
 def test_expired_code_hashes_are_cleared(app):
     from padel_app.models import User
 
@@ -274,6 +282,7 @@ def test_expired_code_hashes_are_cleared(app):
 
 # ── audit logs ────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-5")
 def test_old_deletion_audit_rows_go_and_the_admin_log_inside_its_period_stays(app):
     from padel_app.models.admin_audit_log import AdminAuditLog
     from padel_app.models.deletion_audit import DeletionAudit
@@ -298,6 +307,7 @@ def test_old_deletion_audit_rows_go_and_the_admin_log_inside_its_period_stays(ap
 
 # ── isolation ─────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-8")
 def test_one_failing_item_does_not_stop_the_others(app, monkeypatch):
     from padel_app.models import User
     from padel_app.services import retention_service
@@ -326,6 +336,7 @@ def test_one_failing_item_does_not_stop_the_others(app, monkeypatch):
 
 # ── review round ──────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-4")
 def test_a_deleted_message_frees_its_image(app, monkeypatch):
     """Review: blanking attachment_id alone left the image row and its bucket object behind."""
     from padel_app.model import Image
@@ -382,6 +393,7 @@ def test_a_placeholder_sweep_that_fails_midway_reports_what_it_removed(app, monk
     assert report["code_hashes"].get("error") is None  # the session was left clean for the next item
 
 
+@pytest.mark.criterion("ADMIN-DATA-RETENTION-3")
 def test_the_dry_count_is_what_an_enabled_sweep_removes(app):
     """Review: one due row of every kind; OFF counts them and removes nothing, ON removes exactly that."""
     from padel_app.models import Conversation, Message, NotificationEvent, User

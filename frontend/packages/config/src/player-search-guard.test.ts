@@ -59,14 +59,14 @@ function read(rel: string): string {
 
 describe("players.search guard (rule 9)", () => {
   for (const [surface, { file, calls }] of Object.entries(SURFACES)) {
-    it(`${surface}: calls ${calls}( and compares no name the raw way`, () => {
+    it(`[PLAYERS-SEARCH-6] ${surface}: calls ${calls}( and compares no name the raw way`, () => {
       const src = read(file);
       expect(src, `${surface} does not call ${calls}(`).toMatch(new RegExp(`\\b${calls}\\(`));
       expect(rawComparisons(src), `${file} compares a name the raw way`).toEqual([]);
     });
   }
 
-  it("the delegating screen and the shared helper are raw-free (the legacy line excepted)", () => {
+  it("[PLAYERS-SEARCH-6] the delegating screen and the shared helper are raw-free (the legacy line excepted)", () => {
     for (const file of ALSO_RAW_FREE) {
       expect(rawComparisons(read(file), file.endsWith("player-search.ts")), file).toEqual([]);
     }

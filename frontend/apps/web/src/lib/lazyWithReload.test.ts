@@ -26,7 +26,7 @@ describe("loadWithReload", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it("reloads once and records the time when no reload happened recently", async () => {
+  it("[CLIENT-ROUTE-LOADING-2] reloads once and records the time when no reload happened recently", async () => {
     const pending = loadWithReload(failing, () => 50_000);
     await Promise.resolve();
     await Promise.resolve();
@@ -36,7 +36,7 @@ describe("loadWithReload", () => {
     expect(await pendingAfter(pending)).toBe(true);
   });
 
-  it("rethrows without reloading when a reload happened 3 s ago", async () => {
+  it("[CLIENT-ROUTE-LOADING-2] rethrows without reloading when a reload happened 3 s ago", async () => {
     window.sessionStorage.setItem(CHUNK_RELOAD_KEY, "47000");
     await expect(loadWithReload(failing, () => 50_000)).rejects.toThrow("Failed to fetch dynamically imported module");
     expect(reload).not.toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe("loadWithReload", () => {
 
   // B-532: a navigation away cancels the page's in-flight chunk loads (WebKit rejects the import);
   // reloading then would send the browser back to the page being left and swallow the navigation.
-  it("does not reload when the chunk failed because the page is being left", async () => {
+  it("[CLIENT-ROUTE-LOADING-3] does not reload when the chunk failed because the page is being left", async () => {
     markLeaving(50_000);
     const pending = loadWithReload(failing, () => 50_500);
     await Promise.resolve();
@@ -61,7 +61,7 @@ describe("loadWithReload", () => {
     expect(await pendingAfter(pending)).toBe(true);
   });
 
-  it("reloads again once a cancelled leave is over (2 s after beforeunload)", async () => {
+  it("[CLIENT-ROUTE-LOADING-3] reloads again once a cancelled leave is over (2 s after beforeunload)", async () => {
     markLeaving(50_000);
     void loadWithReload(failing, () => 52_500);
     await Promise.resolve();
@@ -69,7 +69,7 @@ describe("loadWithReload", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("beforeunload is what marks the page as being left", async () => {
+  it("[CLIENT-ROUTE-LOADING-3] beforeunload is what marks the page as being left", async () => {
     window.dispatchEvent(new Event("beforeunload"));
     void loadWithReload(failing);
     await Promise.resolve();

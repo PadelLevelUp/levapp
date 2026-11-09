@@ -163,7 +163,7 @@ describe("PlayersPage nickname (PAD-660)", () => {
     expect(screen.queryByTestId("player-real-name")).not.toBeInTheDocument();
   });
 
-  it("the edit form shows the field, the warning and the switch with the row's values", async () => {
+  it("[PLAYERS-NICKNAME-4] the edit form shows the field, the warning and the switch with the row's values", async () => {
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Jorge chato" });
     fireEvent.click(screen.getAllByRole("button", { name: /common\.edit/ })[0]);
@@ -221,7 +221,7 @@ describe("PlayersPage nickname (PAD-660)", () => {
     expect(vi.mocked(editPlayer).mock.calls[0][1].nickname).toBe("");
   });
 
-  it("a nickname over 60 characters is refused client-side with the too-long message", async () => {
+  it("[PLAYERS-NICKNAME-4] a nickname over 60 characters is refused client-side with the too-long message", async () => {
     vi.mocked(editPlayer).mockClear();
     renderAt("/players/1");
     await screen.findByRole("heading", { name: "Jorge chato" });

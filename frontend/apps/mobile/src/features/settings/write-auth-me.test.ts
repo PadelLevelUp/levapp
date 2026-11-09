@@ -24,7 +24,7 @@ function staleFetchInFlight(client: QueryClient, answer: Me) {
 }
 
 describe("writeAuthMe (B-185)", () => {
-  it("keeps the saved profile when an older auth-me fetch lands after the save", async () => {
+  it("[SETTINGS-LANGUAGE-9] keeps the saved profile when an older auth-me fetch lands after the save", async () => {
     const client = new QueryClient();
     client.setQueryData<Me>(AUTH_ME_KEY, { language: "en" });
     const stale = staleFetchInFlight(client, { language: "en" }); // read before the save
@@ -63,7 +63,7 @@ describe("every save writes its answer through writeAuthMe (B-185)", () => {
   const WRITE = /setQueryData(?:<[^>]*>)?\(\s*(?:\["auth-me"\]|AUTH_ME_KEY)\s*,\s*([^,)\s][^,)]*)/g;
   const CANCEL = /cancelQueries\(\s*\{\s*queryKey:\s*(?:\["auth-me"\]|AUTH_ME_KEY)/;
 
-  it("writes to ['auth-me'] outside writeAuthMe are only optimistic updaters or the rollback", () => {
+  it("[SETTINGS-LANGUAGE-9] writes to ['auth-me'] outside writeAuthMe are only optimistic updaters or the rollback", () => {
     const bad: string[] = [];
     for (const f of files) {
       const src = readFileSync(f, "utf8");

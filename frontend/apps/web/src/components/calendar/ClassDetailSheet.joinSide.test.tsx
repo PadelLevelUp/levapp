@@ -92,7 +92,7 @@ beforeEach(() => {
 });
 
 describe("Pedir para entrar (PAD-672)", () => {
-  it("opens the sheet with the profile side pre-selected and sends it", async () => {
+  it("[CLASSES-JOIN-REQUESTS-20] opens the sheet with the profile side pre-selected and sends it", async () => {
     const ev = event();
     renderSheet(ev);
     fireEvent.click(await screen.findByTestId("class-join-request-button"));

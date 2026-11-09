@@ -131,17 +131,17 @@ describe("resolveCardVariant — open spot (B-541, mobile-views rule 5 / open-sp
 
 describe("showsEnrolledMark (PAD-578, calendar.view rule 6 / mobile-views rule 19)", () => {
   const e = event({ participantCount: 4 });
-  it("a student's own scheduled, next or past class is ticked", () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] a student's own scheduled, next or past class is ticked", () => {
     expect(showsEnrolledMark(e, "scheduled", "student")).toBe(true);
     expect(showsEnrolledMark(e, "next", "student")).toBe(true);
     expect(showsEnrolledMark(e, "past", "student")).toBe(true);
   });
-  it("never an open spot, a canceled class or a block", () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] never an open spot, a canceled class or a block", () => {
     expect(showsEnrolledMark(event({ openSpot: true }), "open-spot", "student")).toBe(false);
     expect(showsEnrolledMark(event({ status: "canceled" }), "canceled", "student")).toBe(false);
     expect(showsEnrolledMark(event({ type: "block" }), "block", "student")).toBe(false);
   });
-  it("never on a coach's calendar", () => {
+  it("[CALENDAR-MOBILE-VIEWS-6] never on a coach's calendar", () => {
     expect(showsEnrolledMark(e, "scheduled", "coach")).toBe(false);
   });
 });
@@ -163,7 +163,7 @@ describe("a student's relation (PAD-611, calendar.view rule 22 / mobile-views ru
     expect(resolveCardVariant(rel("invited", { status: "canceled" }), { now: NOW }).variant).toBe("canceled");
   });
 
-  it("surfaces: not-coming is faded with muted text; invited is the dashed outline; waiting is dotted and muted", () => {
+  it("[CALENDAR-MOBILE-VIEWS-8] surfaces: not-coming is faded with muted text; invited is the dashed outline; waiting is dotted and muted", () => {
     expect(cardSurfaceWeb(hex, "not-coming")).toEqual(cardSurfaceWeb(hex, "past"));
     expect(cardSurfaceWeb(hex, "invited")).toEqual(cardSurfaceWeb(hex, "open-spot"));
     expect(cardSurfaceWeb(hex, "waiting")).toEqual({
@@ -182,7 +182,7 @@ describe("a student's relation (PAD-611, calendar.view rule 22 / mobile-views ru
     });
   });
 
-  it("the ✓ only on what the student is going to or went to", () => {
+  it("[CALENDAR-MOBILE-VIEWS-8] the ✓ only on what the student is going to or went to", () => {
     expect(showsEnrolledMark(rel("enrolled"), "scheduled", "student")).toBe(true);
     expect(showsEnrolledMark(rel("attended", { status: "completed" }), "past", "student")).toBe(true);
     expect(showsEnrolledMark(rel("missed", { status: "completed" }), "past", "student")).toBe(false);
@@ -203,14 +203,14 @@ describe("a student's relation (PAD-611, calendar.view rule 22 / mobile-views ru
 describe("cardSurfaceWeb", () => {
   const hex = "#6366F1";
 
-  it("scheduled: solid coach colour, text by contrast", () => {
+  it("[CALENDAR-MOBILE-VIEWS-3] scheduled: solid coach colour, text by contrast", () => {
     expect(cardSurfaceWeb(hex, "scheduled")).toEqual({
       backgroundColor: hex,
       color: contrastTextOn(hex),
     });
   });
 
-  it("next: card surface with a 1.5px outline in the coach colour", () => {
+  it("[CALENDAR-MOBILE-VIEWS-4] next: card surface with a 1.5px outline in the coach colour", () => {
     expect(cardSurfaceWeb(hex, "next")).toEqual({
       backgroundColor: "hsl(var(--card))",
       border: `1.5px solid ${hex}`,
@@ -218,7 +218,7 @@ describe("cardSurfaceWeb", () => {
     });
   });
 
-  it("past: faded coach colour with muted text", () => {
+  it("[CALENDAR-MOBILE-VIEWS-3] past: faded coach colour with muted text", () => {
     expect(cardSurfaceWeb(hex, "past")).toEqual({
       backgroundColor: fadeColor(hex),
       color: "hsl(var(--muted-foreground))",
@@ -226,7 +226,7 @@ describe("cardSurfaceWeb", () => {
     });
   });
 
-  it("canceled: the destructive surface regardless of the coach colour", () => {
+  it("[CALENDAR-MOBILE-VIEWS-9] canceled: the destructive surface regardless of the coach colour", () => {
     expect(cardSurfaceWeb(hex, "canceled")).toEqual({
       backgroundColor: "hsl(var(--destructive))",
       color: "hsl(var(--destructive-foreground))",
@@ -240,7 +240,7 @@ describe("cardSurfaceWeb", () => {
     expect(cardSurfaceWeb(hex, "block")).toEqual({});
   });
 
-  it("open-spot: card surface, 1.5px dashed outline in the coach colour, readable ink (B-541)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-5] open-spot: card surface, 1.5px dashed outline in the coach colour, readable ink (B-541)", () => {
     expect(cardSurfaceWeb(hex, "open-spot")).toEqual({
       backgroundColor: "hsl(var(--card))",
       border: `1.5px dashed ${hex}`,
@@ -264,14 +264,14 @@ describe("cardSurfaceWeb", () => {
 describe("cardSurfaceNative", () => {
   const hex = "#0D9488";
 
-  it("scheduled: solid coach colour with the native contrast text", () => {
+  it("[CALENDAR-MOBILE-VIEWS-3] scheduled: solid coach colour with the native contrast text", () => {
     expect(cardSurfaceNative(hex, "scheduled", SURFACES)).toEqual({
       backgroundColor: hex,
       color: contrastTextOnNative(hex, SURFACES),
     });
   });
 
-  it("next: card surface, 1.5pt border, readable ink", () => {
+  it("[CALENDAR-MOBILE-VIEWS-4] next: card surface, 1.5pt border, readable ink", () => {
     expect(cardSurfaceNative(hex, "next", SURFACES)).toEqual({
       backgroundColor: SURFACES.card,
       borderWidth: 1.5,
@@ -280,7 +280,7 @@ describe("cardSurfaceNative", () => {
     });
   });
 
-  it("past: faded colour, muted text, hairline edge", () => {
+  it("[CALENDAR-MOBILE-VIEWS-3] past: faded colour, muted text, hairline edge", () => {
     expect(cardSurfaceNative(hex, "past", SURFACES)).toEqual({
       backgroundColor: fadeColorNative(hex, SURFACES),
       color: SURFACES.mutedForeground,
@@ -289,14 +289,14 @@ describe("cardSurfaceNative", () => {
     });
   });
 
-  it("canceled: destructive tokens", () => {
+  it("[CALENDAR-MOBILE-VIEWS-9] canceled: destructive tokens", () => {
     expect(cardSurfaceNative(hex, "canceled", SURFACES)).toEqual({
       backgroundColor: lightTheme.destructive,
       color: lightTheme.destructiveForeground,
     });
   });
 
-  it("open-spot: card surface, 1.5pt dashed border, readable ink — never the solid surface's white (B-541)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-5] open-spot: card surface, 1.5pt dashed border, readable ink — never the solid surface's white (B-541)", () => {
     expect(cardSurfaceNative("#1355DC", "open-spot", SURFACES)).toEqual({
       backgroundColor: SURFACES.card,
       borderWidth: 1.5,
@@ -355,7 +355,7 @@ describe("the student's palette (PAD-664, calendar.view rule 23)", () => {
     expect(resolveCardVariant(own("enrolled", { participantCount: 2 }), { now: NOW, viewer: "student" }).seatsShort).toBe(false);
   });
 
-  it("web: no student surface carries the coach colour; each family has its own colour", () => {
+  it("[CALENDAR-VIEW-19] web: no student surface carries the coach colour; each family has its own colour", () => {
     const variants = ["scheduled", "next", "past", "not-coming", "invited", "open-spot", "full", "waiting"] as const;
     for (const v of variants) {
       expect(JSON.stringify(cardSurfaceWeb(TEAL, v, "student"))).not.toContain(TEAL);
@@ -373,7 +373,7 @@ describe("the student's palette (PAD-664, calendar.view rule 23)", () => {
     expect(cardSurfaceWeb(TEAL, "scheduled").backgroundColor).toBe(TEAL);
   });
 
-  it("native: the same families, resolved to concrete colours", () => {
+  it("[CALENDAR-VIEW-19] native: the same families, resolved to concrete colours", () => {
     expect(cardSurfaceNative(TEAL, "scheduled", SURFACES, "student").backgroundColor).toBe(lightTheme.primary);
     // White ink is written "#FFFFFF", the form EventCard's onColor test compares against.
     expect(cardSurfaceNative(TEAL, "scheduled", SURFACES, "student").color).toBe("#FFFFFF");
@@ -414,7 +414,7 @@ describe("the student's filter and legend (PAD-664, calendar.view rule 23)", () 
     event({ id: "b", type: "block", model: "CalendarBlock" }),
   ];
 
-  it("'mine' hides only the offers — never an invitation or a waiting place", () => {
+  it("[CALENDAR-VIEW-20] 'mine' hides only the offers — never an invitation or a waiting place", () => {
     expect(filterStudentEvents(evs, "mine").map((e) => e.id)).toEqual(["e", "i", "w", "n", "b"]);
     expect(filterStudentEvents(evs, "eligible")).toHaveLength(evs.length);
   });
@@ -428,7 +428,7 @@ describe("the student's filter and legend (PAD-664, calendar.view rule 23)", () 
     expect(studentFilterStorageKey(42)).toBe("levapp.calendar.studentFilter.42");
   });
 
-  it("the legend lists only what the filter leaves visible", () => {
+  it("[CALENDAR-VIEW-20] the legend lists only what the filter leaves visible", () => {
     expect(studentLegendItems("eligible").map((i) => i.variant)).toEqual([
       "scheduled", "invited", "waiting", "not-coming", "open-spot", "full",
     ]);

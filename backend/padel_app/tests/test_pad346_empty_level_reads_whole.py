@@ -24,6 +24,7 @@ def _render(template):
 
 
 @pytest.mark.parametrize("key", _LEVEL_TEMPLATES)
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_pt_defaults_drop_the_level_phrase_whole(key):
     from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
     text = _render(DEFAULT_MESSAGE_TEMPLATES_PT[key])
@@ -32,6 +33,7 @@ def test_pt_defaults_drop_the_level_phrase_whole(key):
     assert "aula" in text
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_pt_reminder_exact_text():
     from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES_PT
     assert _render(DEFAULT_MESSAGE_TEMPLATES_PT["reminder"]) == \
@@ -41,12 +43,14 @@ def test_pt_reminder_exact_text():
 
 
 @pytest.mark.parametrize("key", _LEVEL_TEMPLATES)
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_en_defaults_still_read_whole(key):
     from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES
     text = _render(DEFAULT_MESSAGE_TEMPLATES[key])
     assert "  " not in text and "{level}" not in text and " class" in text
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_a_level_keeps_its_connector():
     """With a level the phrase is untouched — the connector is only dropped
     when the placeholder is empty."""
@@ -57,6 +61,7 @@ def test_a_level_keeps_its_connector():
     assert _format_template("aula com nível {level} amanhã", level="") == "aula com nível amanhã"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-7")
 def test_reminder_for_a_level_less_class_reads_whole_end_to_end(app):
     """Through send_class_reminders, in pt, on the default template."""
     from padel_app.models.users import User

@@ -9,6 +9,7 @@ invitation path, `evaluate_candidates` → `_send_invitation_batch`, had none. T
 the roster, the first excluded: the batch invites only the second, and the verdict for the
 first is `excluded_by_coach`.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -86,6 +87,7 @@ def _seed():
             "vacancy_id": vacancy.id, **players}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-37")
 def test_an_excluded_player_is_not_invited(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.vacancy import Vacancy
@@ -108,6 +110,7 @@ def test_an_excluded_player_is_not_invited(app):
         assert [s["id"] for s in sent] == [str(ids["other"])]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-35")
 def test_the_coach_sees_the_excluded_players_name_after_a_reload(app, client):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     with app.app_context():

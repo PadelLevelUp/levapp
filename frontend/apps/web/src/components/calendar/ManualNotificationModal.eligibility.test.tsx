@@ -75,7 +75,7 @@ beforeEach(() => {
 });
 
 describe("manual invite below the bar", () => {
-  it("asks first with the invite verb, cancel sends nothing", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-12] asks first with the invite verb, cancel sends nothing", async () => {
     api.checkEligibility.mockResolvedValue({ ineligible: failingRita });
     await openAndSelect(["Rita Below"]);
     const dialog = await screen.findByTestId("eligibility-confirm");
@@ -90,7 +90,7 @@ describe("manual invite below the bar", () => {
     expect(screen.getByTestId("notify-students-dialog")).toBeTruthy();
   });
 
-  it("confirm sends the whole selection, the passing student included", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-13] confirm sends the whole selection, the passing student included", async () => {
     api.checkEligibility.mockResolvedValue({ ineligible: failingRita });
     await openAndSelect(["Rita Below", "Rui Fine"]);
     await screen.findByTestId("eligibility-confirm");

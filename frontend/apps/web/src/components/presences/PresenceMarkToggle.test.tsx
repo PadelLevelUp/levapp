@@ -32,7 +32,7 @@ describe("PresenceMarkToggle colours (PAD-441)", () => {
     expect(screen.getByTestId(`presence-mark-${mark}-label`).className.split(/\s+/)).toContain("font-semibold");
   });
 
-  it("leaves every unselected option neutral", () => {
+  it("[ATTENDANCE-VALIDATION-8] leaves every unselected option neutral", () => {
     renderWith("justified");
     for (const mark of ["present", "unjustified"]) {
       const button = screen.getByTestId(`presence-mark-${mark}`);

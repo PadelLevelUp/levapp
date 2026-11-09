@@ -111,6 +111,7 @@ def _verdicts(ids, *, wave=("group", 1), explain=False):
         ids["coach"], get_or_create_config(ids["coach"]), wave=wave, explain=explain)}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-5")
 def test_on_a_student_with_another_class_that_day_is_not_invited(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.vacancy import Vacancy
@@ -125,6 +126,7 @@ def test_on_a_student_with_another_class_that_day_is_not_invited(app):
         assert [int(s["id"]) for s in sent] == [ids["free"]]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-6")
 def test_on_by_default_a_fresh_coach_does_not_invite_the_same_day_student(app):
     """PAD-685: a config row created without touching the column reads the restriction on."""
     with app.app_context():
@@ -132,6 +134,7 @@ def test_on_by_default_a_fresh_coach_does_not_invite_the_same_day_student(app):
         assert _verdicts(ids) == {ids["busy"]: "has_class_same_day", ids["free"]: "invited"}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-6")
 def test_switched_off_the_same_day_student_is_invited_again(app):
     with app.app_context():
         ids = _seed(restriction_on=False, other_start=TARGET.replace(hour=10))
@@ -145,12 +148,14 @@ def test_switched_off_the_same_day_student_is_invited_again(app):
     ("a declined spot is not held", {"other_start": TARGET.replace(hour=10), "presence_response": "declined"}),
     ("a cancelled class holds nothing", {"other_start": TARGET.replace(hour=10), "other_status": "canceled"}),
 ])
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-8")
 def test_on_what_does_not_count_as_a_class_that_day(app, case, kwargs):
     with app.app_context():
         ids = _seed(restriction_on=True, tag=case[:6].replace(" ", ""), **kwargs)
         assert _verdicts(ids)[ids["busy"]] == "invited", case
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-8")
 def test_the_day_is_the_club_day_at_both_ends(app):
     """00:00 and 23:59 of the target's wall date both count."""
     with app.app_context():
@@ -160,6 +165,7 @@ def test_the_day_is_the_club_day_at_both_ends(app):
         assert _verdicts(late)[late["busy"]] == "has_class_same_day"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-5")
 def test_the_simulation_and_the_waiting_list_wave_read_the_same_stage(app):
     """One pipeline: the coach-facing explain path and group 0 drop the student the same way."""
     with app.app_context():
@@ -168,6 +174,7 @@ def test_the_simulation_and_the_waiting_list_wave_read_the_same_stage(app):
         assert _verdicts(ids, wave=("waiting_list", 0))[ids["busy"]] == "has_class_same_day"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-9")
 def test_the_setting_round_trips_and_an_older_client_cannot_switch_it_off(app, client):
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
     with app.app_context():

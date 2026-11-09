@@ -132,6 +132,7 @@ def _run_row(app):
 # rule 5 — dry run
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-1")
 def test_a_dry_run_shows_the_plan_and_writes_nothing(app, tmp_path):
     ids = _seed(app)
     before = _rows(app)
@@ -149,6 +150,7 @@ def test_a_dry_run_shows_the_plan_and_writes_nothing(app, tmp_path):
 # rules 7, 8, 10 — apply
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-2")
 def test_apply_creates_the_students_classes_and_enrolments_on_that_coach(app, tmp_path):
     from padel_app.models import Association_CoachPlayer, Association_PlayerLesson, Coach, Lesson
 
@@ -256,6 +258,7 @@ def _record_outgoing(monkeypatch):
     return sent
 
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-3")
 def test_no_student_is_contacted(app, tmp_path, monkeypatch):
     from padel_app.models import Association_CoachPlayer, Club, Coach, Lesson, Message
     from padel_app.models.notification_event import NotificationEvent
@@ -294,6 +297,7 @@ def test_no_student_is_contacted(app, tmp_path, monkeypatch):
 # rules 4c, 11 — once
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-4")
 def test_a_second_apply_is_refused_also_after_a_revert(app, tmp_path):
     ids = _seed(app)
     path = _write(tmp_path, _file(ids))
@@ -327,6 +331,7 @@ def test_a_second_apply_is_refused_also_after_a_revert(app, tmp_path):
     ("club name", "current club"),
     ("missing coach", "no coach with id 987654"),
 ])
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-5")
 def test_the_wrong_coach_is_refused(app, tmp_path, case, expected):
     ids = _seed(app)
     data = _file(ids)
@@ -390,6 +395,7 @@ def _own_player(app, coach_id, name="Aluno Antigo"):
         return player.id
 
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-6")
 def test_a_starting_state_that_is_not_the_expected_one_is_refused(app, tmp_path):
     ids = _seed(app)
     _own_player(app, ids["coach_id"])
@@ -407,6 +413,7 @@ def test_a_starting_state_that_is_not_the_expected_one_is_refused(app, tmp_path)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("database", [None, "some_other_database"], ids=["missing", "different"])
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-7")
 def test_a_real_run_must_name_its_database(app, tmp_path, database):
     ids = _seed(app)
     path = _write(tmp_path, _file(ids))
@@ -425,6 +432,7 @@ def test_a_real_run_must_name_its_database(app, tmp_path, database):
 # rule 3 — the file is checked first, and completely
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-8")
 def test_file_problems_are_all_reported_before_the_database_is_read(app, tmp_path):
     ids = _seed(app)
     monday = _monday()
@@ -454,6 +462,7 @@ def test_file_problems_are_all_reported_before_the_database_is_read(app, tmp_pat
     assert _rows(app) == before
 
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-9")
 def test_no_age_confirmation_is_asked(app, tmp_path):
     """Rule 3g (owner decision, 2026-11-05): roster players have no login; the file is not asked."""
     ids = _seed(app)
@@ -466,6 +475,7 @@ def test_no_age_confirmation_is_asked(app, tmp_path):
     assert _run_row(app)["summary"]["Players"] == 3
 
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-10")
 def test_values_the_columns_cannot_hold_and_a_repeated_email_are_refused(app, tmp_path):
     ids = _seed(app)
     data = _file(ids)
@@ -505,6 +515,7 @@ def test_a_file_that_is_not_json_is_refused(app, tmp_path):
     ("name", '"ana lima" is already on'),
     ("title", 'class "Segunda 07:00" already exists'),
 ])
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-11")
 def test_an_unknown_level_a_taken_name_and_a_taken_title_are_refused(app, tmp_path, case, expected):
     from padel_app.models import Club, Coach
     from padel_app.services.lesson_service import add_class_service
@@ -544,6 +555,7 @@ def test_an_unknown_level_a_taken_name_and_a_taken_title_are_refused(app, tmp_pa
 # rule 4e — existing accounts
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-12")
 def test_an_existing_account_is_joined_only_when_the_file_says_so(app, tmp_path):
     from padel_app.models import Association_CoachPlayer, User
 
@@ -582,6 +594,7 @@ def test_an_existing_account_is_joined_only_when_the_file_says_so(app, tmp_path)
 # rule 4g — seasons
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-13")
 def test_no_season_no_endless_class(app, tmp_path):
     ids = _seed(app, season=False)
     data = _file(ids)
@@ -602,6 +615,7 @@ def test_no_season_no_endless_class(app, tmp_path):
 # rule 11 — all or nothing
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-14")
 def test_a_run_that_fails_part_way_leaves_nothing(app, tmp_path, monkeypatch):
     from padel_app.services import lesson_service
 
@@ -637,6 +651,7 @@ def test_a_run_that_fails_part_way_leaves_nothing(app, tmp_path, monkeypatch):
 # rule 12 — ownership
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-15")
 def test_ownership_is_checked_on_what_was_created(app, tmp_path, monkeypatch):
     from padel_app.models import Association_CoachLesson, Coach, User
     from padel_app.services import lesson_service
@@ -674,6 +689,7 @@ def test_ownership_is_checked_on_what_was_created(app, tmp_path, monkeypatch):
 # rule 13 — revert
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-16")
 def test_revert_removes_exactly_what_the_run_created(app, tmp_path):
     from padel_app.models import Association_CoachPlayer, Club, Coach, Lesson, User
     from padel_app.services.lesson_service import add_class_service
@@ -712,6 +728,7 @@ def test_revert_removes_exactly_what_the_run_created(app, tmp_path):
     assert _rows(app) == after
 
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-7")
 def test_revert_must_name_its_database(app, tmp_path):
     ids = _seed(app)
     assert _apply(app, _write(tmp_path, _file(ids)), ids["database"]).exit_code == 0
@@ -728,6 +745,7 @@ def test_revert_must_name_its_database(app, tmp_path):
 # rule 14 — list
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("IMPORT-ONBOARDING-RUNNER-17")
 def test_list_shows_the_runs(app, tmp_path):
     ids = _seed(app)
     assert _apply(app, _write(tmp_path, _file(ids)), ids["database"]).exit_code == 0

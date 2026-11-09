@@ -42,6 +42,7 @@ def test_me_returns_a_stored_country(client, app):
     assert client.get("/api/auth/me", headers=headers).get_json()["country"] == "ES"
 
 
+@pytest.mark.criterion("AUTH-LOGIN-15")
 def test_the_country_is_stored_upper_cased(client, app):
     uid, headers = _user(app)
     res = client.patch("/api/auth/me", json={"country": "br"}, headers=headers)
@@ -51,6 +52,7 @@ def test_the_country_is_stored_upper_cased(client, app):
 
 
 @pytest.mark.parametrize("bad", ["Brazil", "B", "12", "", None])
+@pytest.mark.criterion("AUTH-LOGIN-15")
 def test_a_country_that_is_not_two_letters_is_refused(client, app, bad):
     uid, headers = _user(app, country="PT")
     res = client.patch("/api/auth/me", json={"country": bad}, headers=headers)

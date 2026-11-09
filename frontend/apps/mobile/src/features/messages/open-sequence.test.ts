@@ -43,13 +43,13 @@ describe("advanceOpenFetch", () => {
 });
 
 describe("shouldMarkRead", () => {
-  it("waits while a cached copy is on screen and this open's GET is in flight", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-4] waits while a cached copy is on screen and this open's GET is in flight", () => {
     expect(shouldMarkRead(cached, null)).toBe(false);
   });
   it("marks a still-fresh cached copy at once: no GET is coming", () => {
     expect(shouldMarkRead(cachedFresh, null)).toBe(true);
   });
-  it("marks once this open's own GET has settled", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-4] marks once this open's own GET has settled", () => {
     expect(shouldMarkRead(fresh, null)).toBe(true);
   });
   it("marks once per conversation", () => {
@@ -62,11 +62,11 @@ describe("shouldMarkRead", () => {
 });
 
 describe("shouldFreezeFirstUnread", () => {
-  it("never freezes the cached copy's value", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-4] never freezes the cached copy's value", () => {
     expect(shouldFreezeFirstUnread(cached, null)).toBe(false);
     expect(shouldFreezeFirstUnread(cachedFresh, null)).toBe(false);
   });
-  it("freezes from this open's own settled GET, once per conversation", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-4] freezes from this open's own settled GET, once per conversation", () => {
     expect(shouldFreezeFirstUnread(fresh, null)).toBe(true);
     expect(shouldFreezeFirstUnread(fresh, "7")).toBe(false);
   });

@@ -90,7 +90,7 @@ beforeEach(() => {
 });
 
 describe("the class's approval cards follow the class (PAD-770)", () => {
-  it("a spot filled by a join drops its card when the presence moves, without reopening", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-21] a spot filled by a join drops its card when the presence moves, without reopening", async () => {
     server.answer = { state: "pending", bundles: [bundle("b-7", 7), bundle("b-8", 8)], semiAutomatic: true };
     renderSheet();
     await waitFor(() => expect(cardIds()).toEqual(["b-7", "b-8"]));
@@ -105,7 +105,7 @@ describe("the class's approval cards follow the class (PAD-770)", () => {
     await waitFor(() => expect(cardIds()).toEqual(["b-8"]));
   });
 
-  it("the last card goes when nothing is pending any more", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-21] the last card goes when nothing is pending any more", async () => {
     server.answer = { state: "pending", bundles: [bundle("b-7", 7)], semiAutomatic: true };
     renderSheet();
     await waitFor(() => expect(cardIds()).toEqual(["b-7"]));

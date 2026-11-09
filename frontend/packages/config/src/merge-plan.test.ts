@@ -9,7 +9,7 @@ const PLAN = {
 };
 
 describe("summarizeMergePlan", () => {
-  it("buckets the spec example: 2 attendances, 1 evaluation, 1 note, 1 class move; 1 attendance and 1 class kept", () => {
+  it("[PLAYERS-CLAIM-23] buckets the spec example: 2 attendances, 1 evaluation, 1 note, 1 class move; 1 attendance and 1 class kept", () => {
     const { moved, kept } = summarizeMergePlan(PLAN);
     expect(bucketEntries(moved)).toEqual([
       { bucket: "attendances", count: 2 },

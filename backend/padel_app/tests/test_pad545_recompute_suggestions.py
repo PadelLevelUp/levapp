@@ -9,6 +9,7 @@ recomputing (semi-auto-approval rule 12; numbering unconfirmed).
   now, and posts one new Assistant message — one commit, nothing sent.
 - An older message's buttons answer "stale" for every vacancy and decide nothing.
 """
+import pytest
 from datetime import datetime
 
 from flask_jwt_extended import create_access_token
@@ -34,6 +35,7 @@ def _approval_messages():
     return Message.query.filter_by(message_type="replacement_approval").order_by(Message.id).all()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-15")
 def test_ignore_then_recompute_asks_again_and_sends_nothing(app):
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.replacement_approval_service import (
@@ -63,6 +65,7 @@ def test_ignore_then_recompute_asks_again_and_sends_nothing(app):
         assert state["state"] == "pending" and state["bundle"]["bundleId"] == result["bundle"]["bundleId"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-16")
 def test_an_old_messages_yes_after_a_recompute_decides_nothing_and_says_so(app):
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.replacement_approval_service import recompute_suggestions, respond_to_approval
@@ -88,6 +91,7 @@ def test_an_old_messages_yes_after_a_recompute_decides_nothing_and_says_so(app):
         assert _auto_events() == 1, "the new bundle's yes sends"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-16")
 def test_a_pending_bundle_is_superseded_by_a_recompute_too(app):
     from padel_app.services.replacement_approval_service import recompute_suggestions, respond_to_approval
 
@@ -103,6 +107,7 @@ def test_a_pending_bundle_is_superseded_by_a_recompute_too(app):
         assert _auto_events() == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-15")
 def test_the_recompute_reads_the_class_as_it_is_now(app):
     """A student added to the roster after the first list appears in the recomputed one."""
     from padel_app.services.replacement_approval_service import recompute_suggestions, respond_to_approval

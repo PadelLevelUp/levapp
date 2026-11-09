@@ -87,6 +87,7 @@ def _enrolled_player(instance_id):
 
 # --- cancel_attendance -----------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-102")
 def test_a_cancellation_answers_before_the_first_invitation_and_the_job_sends_once(app, client, live_scheduler, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 
@@ -117,6 +118,7 @@ def test_a_cancellation_answers_before_the_first_invitation_and_the_job_sends_on
 
 # --- presences/confirm -----------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-102")
 def test_an_attendance_sheet_answers_before_the_first_invitation_and_the_job_sends_once(app, client, live_scheduler, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 
@@ -153,6 +155,7 @@ def test_an_attendance_sheet_answers_before_the_first_invitation_and_the_job_sen
             assert _invited(instance_id) == sent
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-106")
 def test_without_a_scheduler_the_sheet_still_invites_inline(app, client, monkeypatch):
     """CLI and the rest of the suite: no scheduler in the process, the old inline path."""
     from padel_app.tests.helpers import pin_clock
@@ -172,6 +175,7 @@ def test_without_a_scheduler_the_sheet_still_invites_inline(app, client, monkeyp
 
 # --- notify/respond --------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-103")
 def test_a_students_no_answers_before_the_next_invitation_and_the_job_sends_one(app, client, live_scheduler, monkeypatch):
     from padel_app.models.players import Player
     from padel_app.services.notification_service import trigger_invitations
@@ -278,6 +282,7 @@ def _approval_state(instance_id):
     return [v.approval_status for v in vacancies], len(prompts), len(messages)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-104")
 def test_a_semi_automatic_cancellation_answers_before_the_coachs_approval_prompt(app, client, live_scheduler, monkeypatch):
     from padel_app.services import replacement_approval_service as approvals
     from padel_app.tests.helpers import pin_clock
@@ -316,6 +321,7 @@ def test_a_semi_automatic_cancellation_answers_before_the_coachs_approval_prompt
             assert _invited(instance_id) == [], "approval asked; nobody invited before the coach answers"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-104")
 def test_without_a_scheduler_the_semi_automatic_cancellation_still_asks_inline(app, client, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 

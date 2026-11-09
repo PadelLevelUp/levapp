@@ -65,6 +65,7 @@ def _reminder_count(app, instance_id):
 
 # ── /send_reminders ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CLASS-REMINDERS-MANUAL-1")
 def test_another_coach_cannot_send_reminders_for_a_class(app, client, world):
     before = _reminder_count(app, world["instance"])
     res = _post(app, client, "send_reminders", world["bruno"],
@@ -73,12 +74,14 @@ def test_another_coach_cannot_send_reminders_for_a_class(app, client, world):
     assert _reminder_count(app, world["instance"]) == before
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CLASS-REMINDERS-MANUAL-1")
 def test_the_owner_still_sends_reminders(app, client, world):
     res = _post(app, client, "send_reminders", world["ana"],
                 {"model": "LessonInstance", "originalId": world["instance"]})
     assert res.status_code == 200, res.get_json()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CLASS-REMINDERS-MANUAL-1")
 def test_another_coach_cannot_materialise_an_occurrence_through_send_reminders(app, client, world, virtual):
     res = _post(app, client, "send_reminders", world["bruno"],
                 {"model": "Lesson", "originalId": virtual["lesson"], "date": virtual["date"]})
@@ -88,12 +91,14 @@ def test_another_coach_cannot_materialise_an_occurrence_through_send_reminders(a
 
 # ── /eligibility_check ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-14")
 def test_another_coach_cannot_check_eligibility_on_a_class(app, client, world):
     res = _post(app, client, "eligibility_check", world["bruno"],
                 {"model": "LessonInstance", "originalId": world["instance"], "playerIds": [world["sara"]]})
     assert res.status_code == 403
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-14")
 def test_the_owner_still_checks_eligibility(app, client, world):
     res = _post(app, client, "eligibility_check", world["ana"],
                 {"model": "LessonInstance", "originalId": world["instance"], "playerIds": [world["sara"]]})
@@ -101,6 +106,7 @@ def test_the_owner_still_checks_eligibility(app, client, world):
     assert "ineligible" in res.get_json()
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-14")
 def test_another_coach_cannot_materialise_an_occurrence_through_eligibility_check(app, client, world, virtual):
     res = _post(app, client, "eligibility_check", world["bruno"],
                 {"model": "Lesson", "originalId": virtual["lesson"], "date": virtual["date"], "playerIds": []})
@@ -108,6 +114,7 @@ def test_another_coach_cannot_materialise_an_occurrence_through_eligibility_chec
     assert _instances_of(app, virtual["lesson"]) == 0
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-14")
 def test_the_owner_still_materialises_through_eligibility_check(app, client, world, virtual):
     """Control: the owner's Lesson + date still resolves (and materialises) as before (R-001)."""
     res = _post(app, client, "eligibility_check", world["ana"],

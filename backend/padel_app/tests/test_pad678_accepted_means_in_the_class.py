@@ -5,6 +5,7 @@ when the coach accepts their join request says they have a place in the class.
 waiting list. The approved text leads with the outcome and never says "pedido" or "aceite";
 its `{when}` is the weekday-first form of message-templates rule 17.
 """
+import pytest
 from datetime import datetime
 
 from padel_app.sql_db import db
@@ -56,6 +57,7 @@ def _accept(app, language=None, title=None):
     return texts, start, shown_title
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-3")
 def test_a_pt_student_reads_that_they_are_in_the_class(app, monkeypatch):
     _quiet(monkeypatch)
     texts, start, title = _accept(app, title="PEAK PERFORMANCE")
@@ -64,6 +66,7 @@ def test_a_pt_student_reads_that_they_are_in_the_class(app, monkeypatch):
     assert "pedido" not in told[0] and "aceite" not in told[0]
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-3")
 def test_an_english_coach_sends_the_english_text(app, monkeypatch):
     _quiet(monkeypatch)
     texts, start, _ = _accept(app, language="en", title="PEAK PERFORMANCE")
@@ -83,6 +86,7 @@ def test_a_class_with_no_title_reads_nesta_aula(app):
     assert _accepted_text(_Untitled(), "en") == "You're booked! You're enrolled in this class on Sunday, 18/10, at 10:00. See you there!"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-12")
 def test_a_refusal_says_not_enrolled_in_both_languages(app):
     """Rule 19a: the refusal leads with the outcome, same `{when}` and untitled form as rule 19."""
     from padel_app.services.class_join_request_service import _declined_text

@@ -49,20 +49,20 @@ async function mount() {
 }
 
 describe("GridWithSheet bottom inset, iOS (PAD-790)", () => {
-  it("ends the grid with a spacer that starts at the floating buttons' clearance", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] ends the grid with a spacer that starts at the floating buttons' clearance", async () => {
     const n = await renderNative(<GridWithSheet {...props} />);
     const spacer = n.byTestId("calendar-grid-end-space");
     const style = [spacer.props.style].flat().reduce((a: object, s: object) => ({ ...a, ...s }), {});
     expect(style).toMatchObject({ height: FAB_CLEARANCE });
   });
 
-  it("is the part of the grid the sheet covers at rest", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] is the part of the grid the sheet covers at rest", async () => {
     const { inset } = await mount();
     expect(latestSheet!.top).toBe(480); // 60% of 800
     expect(inset()).toBe(800 - 480);
   });
 
-  it("follows the sheet when it is raised and lowered", async () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] follows the sheet when it is raised and lowered", async () => {
     const { inset } = await mount();
     await act(async () => latestSheet!.onTopChange(GRID_ROW_HEIGHT));
     expect(inset()).toBe(800 - GRID_ROW_HEIGHT);

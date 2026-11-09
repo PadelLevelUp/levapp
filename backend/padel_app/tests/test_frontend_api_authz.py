@@ -638,6 +638,7 @@ def _planned_exercise_ids(app, instance_id):
         return sorted(r.exercise_id for r in rows)
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-2")
 def test_confirm_training_rejects_anonymous(app, client, training_world):
     w = training_world
     res = client.post("/api/app/class_instance/training/confirm",
@@ -647,6 +648,7 @@ def test_confirm_training_rejects_anonymous(app, client, training_world):
     assert _planned_exercise_ids(app, w["instance"]) == [w["ex_a"]]
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-3")
 def test_confirm_training_rejects_student(app, client, training_world):
     """A user with a player profile and no coach profile: 403, not 500."""
     w = training_world
@@ -660,6 +662,7 @@ def test_confirm_training_rejects_student(app, client, training_world):
     assert _planned_exercise_ids(app, w["instance"]) == [w["ex_a"]]
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-4")
 def test_confirm_training_rejects_other_coach_and_writes_nothing(
     app, client, training_world
 ):
@@ -678,6 +681,7 @@ def test_confirm_training_rejects_other_coach_and_writes_nothing(
     assert _planned_exercise_ids(app, w["instance"]) == [w["ex_a"]]
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-5")
 def test_confirm_training_rejects_exercise_the_coach_cannot_access(
     app, client, training_world
 ):
@@ -693,6 +697,7 @@ def test_confirm_training_rejects_exercise_the_coach_cannot_access(
     assert _planned_exercise_ids(app, w["instance_b"]) == []
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-5")
 def test_confirm_training_rejects_the_whole_request_atomically(
     app, client, training_world
 ):
@@ -709,6 +714,7 @@ def test_confirm_training_rejects_the_whole_request_atomically(
     assert _planned_exercise_ids(app, w["instance_b"]) == []
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-6")
 def test_confirm_training_allows_a_followed_exercise(app, client, training_world):
     """`follower` is read access (training.exercises rule 7), so B may plan it."""
     w = training_world
@@ -752,6 +758,7 @@ def test_confirm_training_allows_an_exercise_owned_without_an_association(
     assert _planned_exercise_ids(app, w["instance_b"]) == [orphan_id]
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-5")
 def test_confirm_training_rejects_a_foreign_orphan_exercise(
     app, client, training_world
 ):
@@ -821,6 +828,7 @@ def test_confirm_training_rejects_a_malformed_body(app, client, training_world):
     assert bad_ids.status_code == 400
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-1")
 def test_confirm_training_allows_the_owning_coach(app, client, training_world):
     w = training_world
     res = client.post(
@@ -835,6 +843,7 @@ def test_confirm_training_allows_the_owning_coach(app, client, training_world):
         [w["ex_a"], w["ex_shared"]])
 
 
+@pytest.mark.criterion("TRAINING-LESSON-PLANNING-7")
 def test_confirm_training_rejection_does_not_materialize_an_instance(
     app, client, training_world
 ):

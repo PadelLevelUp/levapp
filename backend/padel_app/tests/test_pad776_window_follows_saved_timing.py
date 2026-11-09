@@ -14,6 +14,7 @@ coach approved "Yes, right now" and the coach's manual invitations are exempt.
 Pinned clock (`NOW`, the class tomorrow 09:00 Lisbon = 08:00 UTC). "24 h before" opens at 08:00
 UTC today (open); "6 h before" opens at 02:00 UTC tomorrow (closed until then).
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -73,6 +74,7 @@ def _started_spot(monkeypatch, *, semi=False, candidates=6):
     return instance_id, coach_id, others
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-18")
 def test_a_later_window_pauses_a_started_spot_and_keeps_its_invitations_live(app, monkeypatch):
     from padel_app.services.notification_service import update_config
 
@@ -91,6 +93,7 @@ def test_a_later_window_pauses_a_started_spot_and_keeps_its_invitations_live(app
         assert len(_invited(instance_id)) > 3, "the spot resumes once the new window opens"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-19")
 def test_an_earlier_window_starts_a_held_spot_at_the_next_tick(app, monkeypatch):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.notification_config import NotificationConfig
@@ -120,6 +123,7 @@ def test_an_earlier_window_starts_a_held_spot_at_the_next_tick(app, monkeypatch)
         assert len(_live(instance_id)) == 3, "the next tick starts the spot (maxSimultaneous 3)"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-20")
 def test_yes_right_now_and_manual_invitations_ignore_a_later_window(app, monkeypatch):
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
     from padel_app.models.vacancy import Vacancy
@@ -146,6 +150,7 @@ def test_yes_right_now_and_manual_invitations_ignore_a_later_window(app, monkeyp
             "the coach's own invitation goes out whatever the window"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-22")
 def test_a_save_by_a_coach_who_is_not_the_primary_coach_leaves_the_spot_alone(app, monkeypatch):
     from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.coaches import Coach

@@ -141,7 +141,7 @@ describe("iOS engine card waits for the one Save (settings.explicit-save)", () =
     expect(registry.hasUnsaved()).toBe(false);
   });
 
-  it("changing a control and changing it back is clean and sends nothing", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] changing a control and changing it back is clean and sends nothing", async () => {
     const n = await mount();
     await n.toggle("open-spots-visible");
     await n.flush();

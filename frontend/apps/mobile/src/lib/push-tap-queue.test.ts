@@ -20,38 +20,38 @@ const READY = { navigatorReady: true, pastLaunchGate: true, authLoading: false, 
 describe("push tap queue", () => {
   beforeEach(() => resetPushTapsForTest());
 
-  it("holds a tap until the navigator is mounted", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-14] holds a tap until the navigator is mounted", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap({ ...READY, navigatorReady: false })).toBeNull();
     expect(takeReadyPushTap(READY)).toBe("/conversation/1");
   });
 
-  it("holds a tap while auth is still loading", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-14] holds a tap while auth is still loading", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap({ ...READY, authLoading: true })).toBeNull();
     expect(takeReadyPushTap(READY)).toBe("/conversation/1");
   });
 
-  it("holds a tap while the launch gate is still the current route (its Redirect would replace the push)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-14] holds a tap while the launch gate is still the current route (its Redirect would replace the push)", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap({ ...READY, pastLaunchGate: false })).toBeNull();
     expect(takeReadyPushTap(READY)).toBe("/conversation/1");
   });
 
-  it("releases a tap exactly once", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-14] releases a tap exactly once", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap(READY)).toBe("/conversation/1");
     expect(takeReadyPushTap(READY)).toBeNull();
   });
 
-  it("ignores the same notification offered again (cold-start path + live listener, or a re-mount)", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-14] ignores the same notification offered again (cold-start path + live listener, or a re-mount)", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap(READY)).toBe("/conversation/1");
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap(READY)).toBeNull();
   });
 
-  it("drops a tap that launched a signed-out app", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-14] drops a tap that launched a signed-out app", () => {
     offerPushTap("n1", "/conversation/1");
     expect(takeReadyPushTap({ ...READY, signedIn: false })).toBeNull();
     expect(takeReadyPushTap(READY)).toBeNull();

@@ -50,6 +50,7 @@ def _owners(conn):
     return [tuple(r) for r in rows]
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-14")
 def test_the_migration_seeds_the_existing_superadmin_as_owner_sqlite():
     mod = _load()
     conn = _scratch()
@@ -82,6 +83,7 @@ def test_the_migration_seeds_the_existing_superadmin_as_owner_sqlite():
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="walks the real Alembic revision; Postgres backend only",
 )
+@pytest.mark.criterion("ADMIN-FOUNDATION-14")
 def test_the_migration_walks_on_postgres_and_seeds_the_owner(app):
     from flask_migrate import downgrade, upgrade
     from sqlalchemy import text

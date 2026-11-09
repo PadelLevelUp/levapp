@@ -70,6 +70,7 @@ def _pairs(conn):
     )
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-16")
 def test_upgrade_drops_the_table_when_every_pair_has_a_presence():
     conn = _scratch(pairs=[(1, 10), (2, 10)], presences=[(1, 10), (2, 10), (3, 11)])
     _run(conn, "upgrade")
@@ -78,6 +79,7 @@ def test_upgrade_drops_the_table_when_every_pair_has_a_presence():
     assert conn.exec_driver_sql("SELECT count(*) FROM presences").scalar() == 3
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-16")
 def test_upgrade_is_a_no_op_when_the_table_is_already_gone():
     conn = _scratch(pairs=[(1, 10)], presences=[(1, 10)])
     _run(conn, "upgrade")
@@ -85,6 +87,7 @@ def test_upgrade_is_a_no_op_when_the_table_is_already_gone():
     assert "player_in_lesson_instance" not in _tables(conn)
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-16")
 def test_upgrade_refuses_when_a_pair_has_no_presence():
     conn = _scratch(pairs=[(1, 10), (2, 11)], presences=[(1, 10)])
     with pytest.raises(RuntimeError) as exc:
@@ -94,6 +97,7 @@ def test_upgrade_refuses_when_a_pair_has_no_presence():
     assert _pairs(conn) == [(1, 10), (2, 11)]
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-16")
 def test_downgrade_recreates_and_refills_from_presences_then_is_a_no_op():
     conn = _scratch(pairs=[(1, 10)], presences=[(1, 10), (3, 11)])
     _run(conn, "upgrade")

@@ -36,6 +36,7 @@ def events_app(app_with_config, monkeypatch):
 
 # --- the role guard -------------------------------------------------------------------------------
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-1")
 def test_the_events_role_serves_only_the_stream_and_its_probes(events_app):
     client = events_app.test_client()
     res = client.get("/api/app/messages/unread_count")
@@ -45,6 +46,7 @@ def test_the_events_role_serves_only_the_stream_and_its_probes(events_app):
     assert client.get("/api/app/events").status_code == 401
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-2")
 def test_the_api_answers_410_on_the_moved_path_only_when_split(app_with_config, monkeypatch):
     monkeypatch.setenv("ROLE", "api")
     monkeypatch.setenv("EVENTS_SPLIT", "on")
@@ -54,6 +56,7 @@ def test_the_api_answers_410_on_the_moved_path_only_when_split(app_with_config, 
     assert client.get("/api/app/livez").status_code == 200
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-2")
 def test_without_the_split_the_api_still_serves_the_stream(app_with_config, monkeypatch):
     monkeypatch.setenv("ROLE", "api")
     monkeypatch.delenv("EVENTS_SPLIT", raising=False)
@@ -62,6 +65,7 @@ def test_without_the_split_the_api_still_serves_the_stream(app_with_config, monk
 
 # --- readiness (R1) -------------------------------------------------------------------------------
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-3")
 def test_the_events_role_is_never_ready_on_the_memory_broker(events_app, caplog):
     import logging
 
@@ -71,6 +75,7 @@ def test_the_events_role_is_never_ready_on_the_memory_broker(events_app, caplog)
     assert events_app.test_client().get("/api/app/livez").status_code == 200
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-3")
 def test_the_events_role_logs_an_error_on_the_memory_broker(app_with_config, monkeypatch, caplog):
     import logging
 
@@ -81,12 +86,14 @@ def test_the_events_role_logs_an_error_on_the_memory_broker(app_with_config, mon
 
 
 @pytest.mark.parametrize("listening,code,status", [(False, 503, "listener_down"), (True, 200, "ok")])
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-4")
 def test_events_readiness_follows_the_listener(events_app, monkeypatch, listening, code, status):
     monkeypatch.setattr(realtime, "broker_status", lambda: {"broker": "postgres", "listening": listening, "since": None})
     res = events_app.test_client().get("/api/app/healthz")
     assert res.status_code == code and res.get_json()["status"] == status
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-4")
 def test_api_readiness_never_depends_on_the_listener(app_with_config, monkeypatch):
     monkeypatch.setenv("ROLE", "api")
     app = app_with_config({})
@@ -96,6 +103,7 @@ def test_api_readiness_never_depends_on_the_listener(app_with_config, monkeypatc
 
 # --- role-aware stream cap (R6) -------------------------------------------------------------------
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-5")
 def test_the_stream_cap_default_is_role_aware():
     from padel_app.config import sse_stream_limits
 
@@ -115,17 +123,20 @@ def _serve(env, tmp_path):
     return subprocess.run(["sh", str(SERVE)], env=run_env, capture_output=True, text=True, check=True).stdout
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-6")
 def test_the_image_runs_the_serve_script():
     cmd = [l for l in (BACKEND / "Dockerfile").read_text().splitlines() if l.startswith("CMD ")][-1]
     assert "scripts/serve.sh" in cmd
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-6")
 def test_the_api_role_runs_threads(tmp_path):
     out = _serve({}, tmp_path)
     assert "--workers 1" in out and "--threads 64" in out and "gevent" not in out
     assert "--threads 160" in _serve({"GUNICORN_THREADS": "160"}, tmp_path)
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-6")
 def test_the_events_role_runs_gevent_and_can_fall_back_to_threads(tmp_path):
     out = _serve({"ROLE": "events"}, tmp_path)
     assert "--worker-class gevent" in out and "--workers 1" in out
@@ -135,6 +146,7 @@ def test_the_events_role_runs_gevent_and_can_fall_back_to_threads(tmp_path):
     assert "gevent" not in fallback and "--threads" in fallback
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-6")
 def test_no_preload_and_no_query_string_in_any_access_log(tmp_path):
     text = "\n".join(
         line for f in (SERVE, BACKEND / "Dockerfile")
@@ -145,6 +157,7 @@ def test_no_preload_and_no_query_string_in_any_access_log(tmp_path):
         assert fmt not in text, "the stream's token rides in the query string (PAD-435)"
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-6")
 def test_the_api_role_never_imports_gevent():
     code = (
         "import sys, tempfile; from padel_app import create_app; "
@@ -185,6 +198,7 @@ def _events_block():
     return wf[start:wf.index("docker image prune", start)]
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-10")
 def test_the_staging_deploy_rolls_the_events_container_on_its_own_pair_and_upstream():
     block = _events_block()
     assert "--name padelapp_staging_events --ports 5104,5106 --upstream levapp_events_staging" in block
@@ -194,6 +208,7 @@ def test_the_staging_deploy_rolls_the_events_container_on_its_own_pair_and_upstr
         assert absent not in block.split("elif")[0], absent
 
 
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-10")
 def test_no_events_container_outlives_the_flag():
     block = _events_block()
     assert "docker rm padelapp_staging_events" in block.split("elif")[1]
@@ -207,6 +222,7 @@ def test_the_events_upstream_has_two_loopback_ports_with_a_fail_timeout():
 
 
 @pytest.mark.parametrize("vhost", ["levapp-staging", "levapp-api-staging"])
+@pytest.mark.criterion("DELIVERY-EVENTS-ROLE-10")
 def test_both_staging_hosts_route_the_stream_to_the_events_upstream(vhost):
     text = (REPO / "infra" / "nginx" / "sites-available" / vhost).read_text()
     loc = text[text.index("location /api/app/events {"):]

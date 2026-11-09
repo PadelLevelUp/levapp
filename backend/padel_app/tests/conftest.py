@@ -191,6 +191,9 @@ def pytest_configure(config):
         "markers", "two_process: runs two app processes against one Postgres (PAD-692); "
         "deselected unless LEVAPP_TWO_PROCESS=1",
     )
+    config.addinivalue_line(
+        "markers", "criterion(id): the spec criterion this test proves (specflow, cortex specs index)",
+    )
 
 
 def pytest_collection_modifyitems(config, items):

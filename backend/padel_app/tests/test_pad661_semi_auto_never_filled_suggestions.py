@@ -156,6 +156,7 @@ def _patched():
 
 # --- controls: both existing paths do produce the semi-automatic prompt ---------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-3")
 def test_control_tick_path_semi_auto_suggests_a_never_filled_place(app, live_scheduler, monkeypatch):
     """Cell 2 of PAD-540 in semi-automatic mode: a class materialised inside its window is opened by
     the next tick, and the coach gets an approval prompt (one pending vacancy, one prompt, one
@@ -184,6 +185,7 @@ def test_control_tick_path_semi_auto_suggests_a_never_filled_place(app, live_sch
         assert _state(instance.id) == SUGGESTED
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-2")
 def test_control_lesson_job_path_semi_auto_suggests_a_never_filled_place(app, live_scheduler, monkeypatch):
     """Cell 1 of PAD-540 in semi-automatic mode: the jobs are derived BEFORE the window opens, the
     lesson-level start job fires at the window, materialises the occurrence and the coach gets the
@@ -208,6 +210,7 @@ def test_control_lesson_job_path_semi_auto_suggests_a_never_filled_place(app, li
 # --- the gap: the window is already open when the jobs are derived, nothing is materialised ------
 
 @pytest.mark.parametrize("mode,expected", [("semi_automatic", SUGGESTED), ("automatic", INVITED)])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-14")
 def test_window_already_open_at_derivation_is_opened_by_the_next_tick(app, live_scheduler, monkeypatch, mode, expected):
     """The ticket's coach: "start invitations 7 days before, at 19:30", first reminder 48 h before.
     The jobs are derived 5 days before the class (a deploy, a restart, a save, the daily pass): the
@@ -297,6 +300,7 @@ def test_a_pending_catch_up_survives_a_second_derivation(app, live_scheduler, mo
         assert job is not None and job.trigger.run_date == first
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-16")
 def test_a_materialised_date_never_gets_the_catch_up(app, live_scheduler, monkeypatch):
     """The class of PAD-540 cell 2 (materialised inside its window, no start job): the lesson walk
     arms no lesson-level job for that date — the instance path (the tick) owns it."""
@@ -315,6 +319,7 @@ def test_a_materialised_date_never_gets_the_catch_up(app, live_scheduler, monkey
         assert live_scheduler._scheduler.get_job(f"invite_start_lesson_{occ}") is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-17")
 def test_a_timing_of_none_arms_no_catch_up(app, live_scheduler, monkeypatch):
     """An invitation start of type `none` opens nothing from the derivation either."""
     with app.app_context(), _patched():
@@ -411,6 +416,7 @@ def test_the_coach_walk_arms_one_catch_up_per_open_occurrence(app, live_schedule
 
 # --- acceptance 3: when every suggestion is blocked, the coach sees why ---------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-7")
 def test_an_empty_suggestion_queue_says_why(app, live_scheduler, monkeypatch):
     """Semi-automatic coach, never-filled place inside the window, and the only free student is on
     the coach's excluded list (restrictions.excludedPlayers). The prompt is created (restrictions

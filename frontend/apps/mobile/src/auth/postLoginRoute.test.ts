@@ -11,12 +11,12 @@ const pending = { legalPending: { terms: true, birthDate: false } };
 afterEach(() => legalCatchUpSession.reset());
 
 describe("the next-login catch-up on iOS", () => {
-  it("lands on the catch-up after sign-in and on app start", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] lands on the catch-up after sign-in and on app start", () => {
     expect(postLoginLanding(me(pending))).toBe("/legal-catch-up");
     expect(appStartRoute(me(pending))).toBe("/legal-catch-up");
   });
 
-  it("lands as usual when nothing is pending or after a skip", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] lands as usual when nothing is pending or after a skip", () => {
     expect(postLoginLanding(me({}))).toBe("/(tabs)/dashboard");
     legalCatchUpSession.skip(7);
     expect(postLoginLanding(me(pending))).toBe("/(tabs)/dashboard");

@@ -15,7 +15,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(HERE, "court-surface.tsx"), "utf8");
 
 describe("court-surface draws at absolute coordinates (PAD-728)", () => {
-  it("has no <G> positioned by x/y (or a translate transform)", () => {
+  it("[TRAINING-TACTICAL-BOARD-20] has no <G> positioned by x/y (or a translate transform)", () => {
     const groups = src.match(/<G\b[^>]*>/g) ?? [];
     expect(groups.length).toBeGreaterThan(0);
     for (const g of groups) {
@@ -24,7 +24,7 @@ describe("court-surface draws at absolute coordinates (PAD-728)", () => {
     }
   });
 
-  it("places each piece shape at the piece's own point", () => {
+  it("[TRAINING-TACTICAL-BOARD-20] places each piece shape at the piece's own point", () => {
     expect(src).toContain("<PieceShape piece={piece} compact={compact} at={v} />");
     expect(src).toMatch(/<Circle cx=\{at\.x\} cy=\{at\.y\} r=\{PLAYER_RADIUS\}/);
   });

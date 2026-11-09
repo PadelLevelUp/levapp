@@ -89,6 +89,7 @@ def test_an_exception_inside_a_unit_of_work_rolls_everything_back(app):
 # the pilot: players.create rule 9
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-CREATE-7")
 def test_a_player_whose_level_does_not_exist_leaves_no_rows_behind(app, coach_id):
     from padel_app.models import Player, User
     from padel_app.services.player_service import add_player_service
@@ -104,6 +105,7 @@ def test_a_player_whose_level_does_not_exist_leaves_no_rows_behind(app, coach_id
         assert User.query.filter_by(name="Orphan Test").count() == 0
 
 
+@pytest.mark.criterion("PLAYERS-CREATE-7")
 def test_a_valid_player_still_produces_the_four_rows(app, coach_id):
     from padel_app.models import Association_CoachPlayer, CoachLevel, Player, PlayerLevelHistory, User
     from padel_app.services.player_service import add_player_service

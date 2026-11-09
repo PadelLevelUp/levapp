@@ -57,7 +57,7 @@ function build(rows: Array<[number, string, string, Side | undefined]>) {
 const names = (g: { rows: Array<{ name: string }> }) => g.rows.map((r) => r.name);
 
 describe("groupParticipants (rule 22)", () => {
-  it("orders the groups going, pending, not going and leaves an empty one out", () => {
+  it("[CALENDAR-EVENT-DETAIL-5] orders the groups going, pending, not going and leaves an empty one out", () => {
     const groups = groupParticipants(
       build([
         [1, "Ana", "not_coming", "left"],
@@ -70,7 +70,7 @@ describe("groupParticipants (rule 22)", () => {
     expect(names(groups[1])).toEqual(["Ana", "Carla"]);
   });
 
-  it("puts a coach's validated mark in the intent groups: attended is going, missed is not going", () => {
+  it("[CALENDAR-EVENT-DETAIL-6] puts a coach's validated mark in the intent groups: attended is going, missed is not going", () => {
     const groups = groupParticipants(
       build([
         [1, "Ana", "attended", "left"],
@@ -85,7 +85,7 @@ describe("groupParticipants (rule 22)", () => {
     ]);
   });
 
-  it("orders a group by side (both, right, left, none) and then by name in Portuguese", () => {
+  it("[CALENDAR-EVENT-DETAIL-1] orders a group by side (both, right, left, none) and then by name in Portuguese", () => {
     const groups = groupParticipants(
       build([
         [1, "Zé Esquerdo", "planned", "left"],
@@ -139,12 +139,12 @@ describe("groupParticipants (rule 22)", () => {
 });
 
 describe("displayStateOf (rule 25, PAD-663)", () => {
-  it("before the class ends, a coach's mark reads as the intent", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] before the class ends, a coach's mark reads as the intent", () => {
     expect(displayStateOf("attended", false)).toBe("coming");
     expect(displayStateOf("missed", false)).toBe("not_coming");
   });
 
-  it("after the class ends, the record keeps its own word", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] after the class ends, the record keeps its own word", () => {
     expect(displayStateOf("attended", true)).toBe("attended");
     expect(displayStateOf("missed", true)).toBe("missed");
   });
@@ -186,14 +186,14 @@ describe("classHasEnded + displayStateOf on each side of the end (rule 25, pinne
   const date = "2026-10-20";
   const endTime = "21:30";
 
-  it("one minute before the end, a coach's present mark reads as Vai", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] one minute before the end, a coach's present mark reads as Vai", () => {
     const now = new Date("2026-10-20T20:29:00Z");
     expect(classHasEnded(date, endTime, now)).toBe(false);
     expect(displayStateOf("attended", classHasEnded(date, endTime, now))).toBe("coming");
     expect(displayStateOf("missed", classHasEnded(date, endTime, now))).toBe("not_coming");
   });
 
-  it("one minute after the end, the record keeps Presente / Faltou", () => {
+  it("[CALENDAR-EVENT-DETAIL-9] one minute after the end, the record keeps Presente / Faltou", () => {
     const now = new Date("2026-10-20T20:31:00Z");
     expect(classHasEnded(date, endTime, now)).toBe(true);
     expect(displayStateOf("attended", classHasEnded(date, endTime, now))).toBe("attended");
@@ -259,7 +259,7 @@ describe("the coach's nickname in the grouped list (PAD-660, players.nickname ru
 });
 
 describe("groupParticipants — the side in this occurrence (PAD-551)", () => {
-  it("chips and orders a player by the coach's override for this class, not the roster side", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-18] chips and orders a player by the coach's override for this class, not the roster side", () => {
     const groups = groupParticipants({
       participants: [player(1, "Ana"), player(2, "Bia")],
       presences: [
@@ -275,7 +275,7 @@ describe("groupParticipants — the side in this occurrence (PAD-551)", () => {
     ]);
   });
 
-  it("keeps the roster side when the presence has no override", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-18] keeps the roster side when the presence has no override", () => {
     const groups = groupParticipants({
       participants: [player(1, "Ana")],
       presences: [{ ...presence(1, "coming"), side: "right", sideOverride: false }],

@@ -7,6 +7,7 @@ invitations rule 3d: an empty round logs one INFO line with the stage counts of 
 and counts only). config rule 16: a save that changes the invitation groups, the eligibility rules or
 the invitation start writes one `notification_config_changes` row per changed key, before and after.
 """
+import pytest
 import logging
 import re
 from datetime import datetime
@@ -51,6 +52,7 @@ def _empty_round_lines(caplog):
     return [r for r in caplog.records if r.getMessage().startswith("empty round:")]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-1")
 def test_an_empty_round_logs_its_stage_counts_and_no_student(app, caplog):
     from padel_app.models import NotificationEvent, Vacancy
     from padel_app.services.notification_service import trigger_invitations
@@ -78,6 +80,7 @@ def test_an_empty_round_logs_its_stage_counts_and_no_student(app, caplog):
             assert student.user.username not in message
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-1")
 def test_a_round_that_invites_logs_no_empty_round_line(app, caplog):
     from padel_app.models import NotificationEvent, Vacancy
     from padel_app.models.notification_config import NotificationConfig
@@ -119,6 +122,7 @@ def _changes(coach_id):
     ).all()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-3")
 def test_a_saved_invitation_start_is_recorded_and_a_template_is_not(app):
     from padel_app.services.notification_service import update_config
 
@@ -155,6 +159,7 @@ def test_groups_and_rules_record_their_before_and_after(app):
         }
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-4")
 def test_a_save_that_changes_nothing_recorded_writes_nothing(app):
     from padel_app.services.notification_service import update_config
 

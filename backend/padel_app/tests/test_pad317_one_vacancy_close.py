@@ -19,6 +19,7 @@ One test per caller, each asserting the same invariant in both live states: afte
 the close, no event for that vacancy is left in ``LIVE_INVITATION_STATES``, and
 no invite message is left actionable.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -122,6 +123,7 @@ def _message_is_actionable(event_id):
 
 # --- caller 1: a student accepts their invitation --------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
 def test_the_student_accept_retires_every_live_invitation_including_queued(app):
     ids = _world(app)
     with app.app_context():
@@ -146,6 +148,7 @@ def test_the_student_accept_retires_every_live_invitation_including_queued(app):
 
 # --- caller 2: the coach accepts on the student's behalf -------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
 def test_the_coach_accept_retires_the_events_and_their_messages(app):
     ids = _world(app)
     with app.app_context():
@@ -169,6 +172,7 @@ def test_the_coach_accept_retires_the_events_and_their_messages(app):
 
 # --- caller 3: a waiting-list student's yes (PAD-446: group 0, no placement) --
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
 def test_a_waiting_list_yes_retires_the_invitations_it_outran(app):
     """PAD-446: the waiting list is invitation group 0, so its door is the student accept — and it
     closes the spot through the same routine, retiring every other live invitation."""
@@ -201,6 +205,7 @@ def test_a_waiting_list_yes_retires_the_invitations_it_outran(app):
 
 # --- the routine's own contract --------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
 def test_the_close_spares_only_the_event_it_is_told_to_spare(app):
     ids = _world(app)
     with app.app_context():
@@ -221,6 +226,7 @@ def test_the_close_spares_only_the_event_it_is_told_to_spare(app):
         assert NotificationEvent.query.get(drop).status == "expired"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
 def test_a_second_close_is_a_no_op(app):
     """Idempotent: nothing is left live to retire, and the first filler stands."""
     ids = _world(app)
@@ -242,6 +248,7 @@ def test_a_second_close_is_a_no_op(app):
 
 # --- caller 4: the coach accepts a join request ----------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
 def test_the_join_request_accept_retires_every_live_invitation(app):
     """The fourth door (classes.join-requests rule 10). It already retired through
     the broadcast, but that matched ``sent`` only — a queued invitation lived on."""

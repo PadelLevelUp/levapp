@@ -40,6 +40,7 @@ def _cols(table):
     }
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-8")
 def test_the_migration_snapshots_each_entry_scale_and_changes_no_score(app):
     from flask_migrate import downgrade, upgrade
 

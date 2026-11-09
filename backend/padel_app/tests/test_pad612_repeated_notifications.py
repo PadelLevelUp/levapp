@@ -26,6 +26,7 @@ def _live_invitations(instance_id, player_id):
     ).count()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-1")
 def test_a_second_manual_notify_does_not_stack_a_second_live_invitation(app, monkeypatch):
     """PAD-612 R1, fixed by PAD-620 (invitations rule 18)."""
     from padel_app.services import notification_service as ns
@@ -57,6 +58,7 @@ def test_the_notify_pending_nudge_twice_leaves_one_live_invitation(app, monkeypa
         assert _live_invitations(instance_id, a) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-1")
 def test_a_second_yes_on_a_waiting_list_offer_sends_no_second_confirmation(app):
     """PAD-612 R3, fixed by PAD-621: the confirmation is for the place, not the tap."""
     from padel_app.models import Message
@@ -74,6 +76,7 @@ def test_a_second_yes_on_a_waiting_list_offer_sends_no_second_confirmation(app):
             assert Message.query.filter_by(sender_id=coach_user_id).count() == after_first
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-1")
 def test_the_manual_notify_route_names_a_student_who_already_holds_an_invitation(app, monkeypatch):
     """PAD-620: the coach is told by name, cause "already_invited", and nothing is sent to them."""
     from flask_jwt_extended import create_access_token
@@ -106,6 +109,7 @@ def test_the_manual_notify_route_names_a_student_who_already_holds_an_invitation
         assert _live_invitations(instance_id, a) == 1 and _live_invitations(instance_id, b) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-1")
 def test_a_queued_invitation_counts_as_live_for_the_manual_skip(app, monkeypatch):
     """PAD-620 (notifications.manual rule 9): live is `sent` OR `queued`."""
     from padel_app.models.notification_event import NotificationEvent
@@ -123,6 +127,7 @@ def test_a_queued_invitation_counts_as_live_for_the_manual_skip(app, monkeypatch
         assert [e["cause"] for e in ns.already_invited_players(instance_id, [a])] == ["already_invited"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-1")
 def test_a_late_yes_on_a_filled_spot_sends_no_offer_message_and_no_push(app, monkeypatch):
     """OLD-RED (PAD-621, owner D4): a late yes posted a separate waiting-list offer message (and its
     push) on top of the bubble that already offers the list (rule 15a)."""
@@ -152,6 +157,7 @@ def test_a_late_yes_on_a_filled_spot_sends_no_offer_message_and_no_push(app, mon
         assert Message.query.count() == messages_before and len(pushes) == pushes_before
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-1")
 def test_the_fill_retires_the_losers_bubble_live_without_a_push_or_a_message(app, monkeypatch):
     """PIN of owner D4's first half (already true since PAD-609): the fill edits the loser's bubble to
     spot_filled (a live message_edited) — no push to them and no new message for them."""
@@ -182,6 +188,7 @@ def test_the_fill_retires_the_losers_bubble_live_without_a_push_or_a_message(app
         assert Message.query.filter(Message.conversation_id == Message.query.get(ev_b.message_id).conversation_id).count() == loser_messages
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-1")
 def test_a_yes_that_reactivates_a_left_place_is_confirmed_once(app):
     """PAD-621: one confirmation per place — a student who left the list and says yes again is
     confirmed (the entry reactivates), exactly once."""

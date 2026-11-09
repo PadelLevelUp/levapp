@@ -91,12 +91,12 @@ beforeEach(() => {
 const open = () => render(<PlayerEvaluationsDrawer open playerId="9" playerName="João Silva" onClose={vi.fn()} />);
 
 describe("the profile card", () => {
-  it("names the last evaluation in the active locale, from the server's date", () => {
+  it("[EVALUATIONS-HISTORY-2] names the last evaluation in the active locale, from the server's date", () => {
     render(<EvaluationSummaryCard lastEvaluatedOn="2026-09-21" onOpen={vi.fn()} />);
     expect(screen.getByTestId("evaluation-card-last").textContent).toContain("21 set 2026");
   });
 
-  it("says so when there is none, and still offers 'Avaliações'", () => {
+  it("[EVALUATIONS-HISTORY-2] says so when there is none, and still offers 'Avaliações'", () => {
     const onOpen = vi.fn();
     render(<EvaluationSummaryCard lastEvaluatedOn={null} onOpen={onOpen} />);
     expect(screen.getByTestId("evaluation-card-last").textContent).toBe("players.evaluationHistory.none");
@@ -117,7 +117,7 @@ describe("the history", () => {
     expect(within(cards[0]).getByTestId("evaluation-history-note").textContent).toContain("tomada de decisão");
   });
 
-  it("shows a switched-off competency on its card, stars for 1-5 and n/max for a legacy scale", () => {
+  it("[EVALUATIONS-HISTORY-3] shows a switched-off competency on its card, stars for 1-5 and n/max for a legacy scale", () => {
     open();
     const june = screen.getByTestId("evaluation-history-card-2");
     expect(within(june).getByTestId("evaluation-stars-12").getAttribute("data-score")).toBe("4");
@@ -171,7 +171,7 @@ describe("'Nova avaliação' waits for its data (review F3)", () => {
 });
 
 describe("'Nova avaliação'", () => {
-  it("opens on today's class-less record, pre-filled, hides the action, and lists no switched-off competency", () => {
+  it("[EVALUATIONS-HISTORY-4] opens on today's class-less record, pre-filled, hides the action, and lists no switched-off competency", () => {
     open();
     fireEvent.click(screen.getByTestId("evaluation-new"));
     expect(screen.queryByTestId("evaluation-new")).toBeNull();
@@ -195,7 +195,7 @@ describe("'Nova avaliação'", () => {
     expect(screen.getByTestId("evolution-pill-3")).toBeTruthy();
   });
 
-  it("closing it untouched sends nothing", async () => {
+  it("[EVALUATIONS-HISTORY-4] closing it untouched sends nothing", async () => {
     open();
     fireEvent.click(screen.getByTestId("evaluation-new"));
     await act(async () => fireEvent.click(screen.getByTestId("evaluation-finish")));

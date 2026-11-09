@@ -85,25 +85,25 @@ async function openSheet(now: Date, openNotify = false) {
 }
 
 describe("Notificar once the class has started (PAD-798)", () => {
-  it("before the start the coach can open Notificar", async () => {
+  it("[NOTIFICATIONS-MANUAL-3] before the start the coach can open Notificar", async () => {
     await openSheet(BEFORE);
     expect(await screen.findByTestId("class-notify-open")).toBeEnabled();
     expect(screen.queryByTestId("class-notify-closed")).toBeNull();
   });
 
-  it("once it has started the warning stands where Notificar was", async () => {
+  it("[NOTIFICATIONS-MANUAL-3] once it has started the warning stands where Notificar was", async () => {
     await openSheet(RUNNING);
     expect(await screen.findByTestId("class-notify-closed")).toBeInTheDocument();
     expect(screen.queryByTestId("class-notify-open")).toBeNull();
   });
 
-  it("the dashboard's ?notify=1 does not open the picker on a class that has started", async () => {
+  it("[NOTIFICATIONS-MANUAL-3] the dashboard's ?notify=1 does not open the picker on a class that has started", async () => {
     await openSheet(RUNNING, true);
     await screen.findByTestId("class-notify-closed");
     expect(screen.queryByTestId("notify-students-dialog")).toBeNull();
   });
 
-  it("before the start ?notify=1 still opens the picker", async () => {
+  it("[NOTIFICATIONS-MANUAL-3] before the start ?notify=1 still opens the picker", async () => {
     await openSheet(BEFORE, true);
     expect(await screen.findByTestId("notify-students-dialog")).toBeInTheDocument();
   });

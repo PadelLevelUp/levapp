@@ -24,6 +24,7 @@ WED = datetime(2026, 10, 7, 10, 0)     # a Wednesday, club wall clock
     (datetime(2026, 10, 19, 18, 0), "dia 19/10", "19/10"),
     (datetime(2026, 10, 6, 18, 0), "dia 06/10", "06/10"),
 ])
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-3")
 def test_the_day_reads_like_a_person_would(app, start, pt, en):
     from padel_app.services.notification_service import format_relative_day
 
@@ -32,6 +33,7 @@ def test_the_day_reads_like_a_person_would(app, start, pt, en):
         assert format_relative_day(start, "en", now=WED) == en
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-3")
 def test_from_a_friday_a_monday_three_days_on_is_next_week(app):
     from padel_app.services.notification_service import format_relative_day
 
@@ -39,6 +41,7 @@ def test_from_a_friday_a_monday_three_days_on_is_next_week(app):
         assert format_relative_day(datetime(2026, 10, 12, 18, 0), "pt", now=datetime(2026, 10, 9, 23, 59)) == "na próxima segunda-feira"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-3")
 def test_the_day_is_computed_when_the_message_renders(app, monkeypatch):
     """Rule 18: at send time, on the club clock. A message held past midnight says "hoje"."""
     from padel_app.services import notification_service as ns

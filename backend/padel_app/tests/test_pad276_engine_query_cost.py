@@ -13,6 +13,7 @@ batch and every decline.
 The verdicts and the ranking must not change: the blocked student still comes
 out ``unavailable`` and the order is still the per-player attendance order.
 """
+import pytest
 from datetime import datetime, timedelta
 
 from sqlalchemy import event
@@ -152,6 +153,7 @@ def _evaluate_and_rank(app, ids):
     return counter.n, verdicts, ranked
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-54")
 def test_a_wave_costs_the_same_for_a_big_roster_as_for_a_small_one(app):
     with app.app_context():
         small = _seed(6)

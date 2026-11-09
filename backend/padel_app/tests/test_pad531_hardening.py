@@ -148,6 +148,7 @@ def test_a_role_change_ends_the_old_token(app, client):
 # 4 ─ the seed is staff-domain only
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-14")
 def test_the_migration_seeds_only_staff_domain_owners():
     versions = ROOT / "backend/migrations/versions"
     (path,) = versions.glob("*pad531_admin_roles_and_audit_log*.py")

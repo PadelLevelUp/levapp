@@ -110,7 +110,7 @@ describe("every key the mapper and the rows can show resolves in both languages"
       }
     }
   });
-  it("a settled state beats a stale flag in the shared row action", () => {
+  it("[DASHBOARD-BLOCKS-19] a settled state beats a stale flag in the shared row action", () => {
     expect(studentRowAction({ pendingConfirmation: true, attendanceState: "not_coming" })).toBe("declined");
   });
 });

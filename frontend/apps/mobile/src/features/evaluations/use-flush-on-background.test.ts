@@ -12,7 +12,7 @@ import { subscribeFlushOnBackground } from "./use-flush-on-background";
 afterEach(() => __resetReactNativeMock());
 
 describe("subscribeFlushOnBackground", () => {
-  it("flushes when the app goes to the background, and again when it goes inactive — never on active", () => {
+  it("[EVALUATIONS-RECORDS-12] flushes when the app goes to the background, and again when it goes inactive — never on active", () => {
     const flush = vi.fn();
     subscribeFlushOnBackground(() => flush);
     __emitAppState("background");

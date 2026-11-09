@@ -27,7 +27,7 @@ const base: PresenceStatsTotals = {
 
 // attendance.validation rule 17a — "The charts follow the table filters"
 describe("narrowedTotals", () => {
-  it("sums the split over the visible rows only", () => {
+  it("[ATTENDANCE-VALIDATION-19] sums the split over the visible rows only", () => {
     const totals = narrowedTotals([player(1, 1, 3)], base);
     expect(totals).toMatchObject({ private: 1, academy: 3, presences: 4, academyShare: 75 });
     // Untouched roster-wide fields survive.
@@ -44,7 +44,7 @@ describe("narrowedTotals", () => {
 });
 
 describe("chartScope", () => {
-  it("is null with no filter and n-of-N otherwise", () => {
+  it("[ATTENDANCE-VALIDATION-19] is null with no filter and n-of-N otherwise", () => {
     const roster = [player(1, 1, 1), player(2, 2, 2)];
     expect(chartScope(null, roster)).toBeNull();
     expect(chartScope([roster[0]], roster)).toEqual({ shown: 1, total: 2 });

@@ -7,7 +7,7 @@ import { createBackRegistry } from "./android-back";
  * surface is gone, and an empty registry leaves the event to the navigator.
  */
 describe("createBackRegistry", () => {
-  it("hands the press to the newest registered surface only", () => {
+  it("[MOBILE-ANDROID-RUNTIME-4] hands the press to the newest registered surface only", () => {
     const registry = createBackRegistry();
     const calls: string[] = [];
     registry.register(() => calls.push("dialog"));
@@ -16,7 +16,7 @@ describe("createBackRegistry", () => {
     expect(calls).toEqual(["menu"]);
   });
 
-  it("falls through to older surfaces once the newer ones are gone, then to the navigator", () => {
+  it("[MOBILE-ANDROID-RUNTIME-4] falls through to older surfaces once the newer ones are gone, then to the navigator", () => {
     const registry = createBackRegistry();
     const calls: string[] = [];
     const unregisterDialog = registry.register(() => calls.push("dialog"));
@@ -28,7 +28,7 @@ describe("createBackRegistry", () => {
     expect(registry.handle()).toBe(false);
   });
 
-  it("a surface closed by other means is no longer in the registry", () => {
+  it("[MOBILE-ANDROID-RUNTIME-4] a surface closed by other means is no longer in the registry", () => {
     const registry = createBackRegistry();
     const unregister = registry.register(() => {});
     expect(registry.size()).toBe(1);

@@ -29,12 +29,14 @@ def _superadmin_headers(app):
 
 
 @pytest.mark.parametrize("path", ["/editor/", "/api/editor/models", "/api/query/user"])
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-15")
 def test_the_editor_routes_are_gone(app, client, path):
     res = client.get(path, headers=_superadmin_headers(app))
 
     assert res.status_code == 404, (path, res.status_code)
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-15")
 def test_no_url_rule_names_the_editor_or_the_crud_api(app):
     rules = [rule.rule for rule in app.url_map.iter_rules()]
 
@@ -48,6 +50,7 @@ def test_the_root_answers_json_not_a_redirect_to_the_editor(client):
     assert res.get_json() == {"service": "levapp-api"}
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-15")
 def test_the_editor_switch_is_gone_from_the_config_module():
     import padel_app.config as config
 

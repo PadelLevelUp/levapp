@@ -13,12 +13,12 @@ import {
 // helpers only PRESENT a known response — labels, signs, pixel positions.
 
 describe("which competency opens selected", () => {
-  it("is the first one the player has data for — never a hard-coded one — and none when there is no data", () => {
+  it("[EVALUATIONS-EVOLUTION-6] is the first one the player has data for — never a hard-coded one — and none when there is no data", () => {
     expect(defaultEvolutionCompetency([12, 3])).toBe(12);
     expect(defaultEvolutionCompetency([])).toBeNull();
   });
 
-  it("keeps a selection that still has data and drops one that does not (another player)", () => {
+  it("[EVALUATIONS-EVOLUTION-6] keeps a selection that still has data and drops one that does not (another player)", () => {
     expect(defaultEvolutionCompetency([12, 3], 3)).toBe(3);
     expect(defaultEvolutionCompetency([12, 3], 99)).toBe(12);
   });
@@ -38,7 +38,7 @@ describe("month labels", () => {
 });
 
 describe("the delta line", () => {
-  it("is up only when positive; down and zero are neutral; zero prints '=' and never '+0'", () => {
+  it("[EVALUATIONS-EVOLUTION-3] is up only when positive; down and zero are neutral; zero prints '=' and never '+0'", () => {
     expect(deltaPresentation({ value: 1.5, sinceMonth: "2026-01" })).toEqual({ trend: "up", text: "+1.5", sinceMonth: "2026-01" });
     expect(deltaPresentation({ value: -0.5, sinceMonth: "2026-01" })).toEqual({ trend: "down", text: "-0.5", sinceMonth: "2026-01" });
     expect(deltaPresentation({ value: 0, sinceMonth: "2026-01" })).toEqual({ trend: "flat", text: "=", sinceMonth: "2026-01" });

@@ -21,6 +21,7 @@ def op(app):
     return admin_token(app, make_role(app, "op@levapp.app", "operator"))
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-5")
 def test_search_finds_by_name_username_and_email(app, client, sup):
     # The username and email must not contain "joao": only the accented name can match it.
     joao = make_user(app, "jsilva", "js@example.com")
@@ -52,6 +53,7 @@ def test_search_pages_at_fifty_with_a_cursor(app, client, sup):
     assert not ({u["userId"] for u in first["items"]} & {u["userId"] for u in second["items"]})
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-6")
 def test_the_user_view_never_leaks_secrets(app, client, sup):
     from padel_app.models import DeviceToken, User
 
@@ -73,6 +75,7 @@ def test_the_user_view_never_leaks_secrets(app, client, sup):
     assert client.get("/admin/api/users/999999", headers=bearer(sup)).status_code == 404
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-7")
 def test_disable_signs_the_user_out_everywhere_and_enable_lets_them_back(app, client, op):
     pedro = make_user(app, "pedro", "pedro@example.com")
     with app.app_context():
@@ -94,6 +97,7 @@ def test_disable_signs_the_user_out_everywhere_and_enable_lets_them_back(app, cl
     assert client.post(f"/admin/api/users/{pedro}/enable", headers=bearer(op)).status_code == 200
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-8")
 def test_enable_does_not_reapprove_a_rejected_coach(app, client, op):
     from padel_app.models import Coach, User
 
@@ -107,6 +111,7 @@ def test_enable_does_not_reapprove_a_rejected_coach(app, client, op):
         assert Coach.query.filter_by(user_id=rui).one().approval_status == "rejected"
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-9")
 def test_resend_verification_follows_the_product_limits(app, client, op, monkeypatch):
     from padel_app.tools import email_tools
 
@@ -181,6 +186,7 @@ def test_a_coach_view_lists_its_approval_rows(app, client, op, monkeypatch):
     assert "coach.approve" in [a["action"] for a in body["audit"]]
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-10")
 def test_support_reads_but_cannot_change_users(app, client, sup):
     pedro = make_user(app, "pedro", "pedro@example.com")
     for path in ("disable", "enable", "resend-verification"):

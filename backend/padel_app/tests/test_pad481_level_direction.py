@@ -63,6 +63,7 @@ def _passing_indexes(app, rules):
         ("within_n_below_class", {3, 4, 5}),   # weaker = higher index, plus the class's own
     ],
 )
+@pytest.mark.criterion("ELIGIBILITY-RULES-4")
 def test_within_n_looks_above_below_or_both(app, operation, expected):
     """eligibility.rules rule 6 / AC "Within N looks above, below, or both"."""
     assert _passing_indexes(app, [_rule(operation, 2)]) == expected
@@ -83,6 +84,7 @@ def test_the_existing_operations_keep_their_recipients(app, operation, expected)
 
 
 @pytest.mark.parametrize("operation", ["within_n_of_class", "within_n_above_class", "within_n_below_class"])
+@pytest.mark.criterion("ELIGIBILITY-RULES-5")
 def test_n_zero_is_the_class_level_only(app, operation):
     """AC "N = 0 is the class's level only"."""
     assert _passing_indexes(app, [_rule(operation, 0)]) == {CLASS_INDEX}
@@ -101,6 +103,7 @@ def test_n_sent_as_a_string_counts_as_the_number(app):
     "operation,value",
     [("within_n_of_class", 7), ("within_n_above_class", 7), ("within_n_below_class", 7), ("equal_or_below_class", None)],
 )
+@pytest.mark.criterion("ELIGIBILITY-RULES-6")
 def test_a_level_outside_the_ladder_never_passes(app, operation, value):
     """AC "A level outside the ladder never passes" — today's behaviour, now pinned."""
     from padel_app.models.coach_levels import CoachLevel
@@ -131,6 +134,7 @@ def test_a_level_outside_the_ladder_never_passes(app, operation, value):
         assert failure["reason"] == "level_not_in_ladder"
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-7")
 def test_an_unknown_level_operation_fails_everyone_and_says_so(app):
     """AC "An unknown level operation fails everyone, and says so" (B-257).
 
@@ -176,6 +180,7 @@ def test_the_impact_scan_names_students_failing_an_unknown_operation(app):
 # Rule 6 — saving
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-8")
 def test_saving_rejects_an_unknown_level_operation(app):
     """AC "Saving rejects an unknown level operation …" — coach tier."""
     from padel_app.services.notification_service import get_config_dict, update_config
@@ -191,6 +196,7 @@ def test_saving_rejects_an_unknown_level_operation(app):
         assert get_config_dict(ids["coach_id"])["eligibilityRules"] == before
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-8")
 def test_saving_accepts_what_a_client_round_trips(app):
     """AC "… and accepts what a client round-trips": a released build that does not
     offer the directional operations posts the list back exactly as it received it."""
@@ -210,6 +216,7 @@ def test_saving_accepts_what_a_client_round_trips(app):
         assert get_config_dict(ids["coach_id"])["eligibilityRules"] == held
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-8")
 def test_edit_class_rejects_an_unknown_level_operation_and_accepts_the_new_ones(app):
     """AC "… the same holds for edit_class with updates.eligibilityRules"."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -235,6 +242,7 @@ def test_edit_class_rejects_an_unknown_level_operation_and_accepts_the_new_ones(
 
 
 @pytest.mark.parametrize("operation", ["within_n_above_class", "within_n_below_class", "made_up_operation"])
+@pytest.mark.criterion("ELIGIBILITY-RULES-9")
 def test_saving_invitation_groups_rejects_a_level_operation_outside_the_vacancy_five(app, operation):
     """Rule 6: an invitation group's level rule is anchored to the VACANCY — saving one
     with a class operation (or an unknown one) is refused, and nothing is stored."""
@@ -252,6 +260,7 @@ def test_saving_invitation_groups_rejects_a_level_operation_outside_the_vacancy_
         assert get_config_dict(ids["coach_id"])["invitationGroups"] == before
 
 
+@pytest.mark.criterion("ELIGIBILITY-RULES-9")
 def test_saving_invitation_groups_accepts_the_vacancy_five_and_other_attributes(app):
     """… and every vacancy operation, plus non-level rules, still save."""
     from padel_app.services.notification_service import get_config_dict, update_config

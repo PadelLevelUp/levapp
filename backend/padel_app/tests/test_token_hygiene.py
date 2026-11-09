@@ -59,12 +59,14 @@ def _claims(app, token):
 
 # --- auth.login rule 4: the query string only on the SSE endpoint ----------
 
+@pytest.mark.criterion("AUTH-LOGIN-11")
 def test_query_string_token_refused_outside_sse(client, app, coach):
     token = _token(app, coach)
     assert client.get(f"/api/auth/me?token={token}").status_code == 401
     assert client.get("/api/auth/me", headers=_hdr(token)).status_code == 200
 
 
+@pytest.mark.criterion("AUTH-LOGIN-11")
 def test_query_string_token_accepted_on_sse(client, app, coach):
     res = client.get(f"/api/app/events?token={_token(app, coach)}")
     try:
@@ -76,6 +78,7 @@ def test_query_string_token_accepted_on_sse(client, app, coach):
 
 # --- auth.login rule 11: an unactivated account is an ordinary 401 ---------
 
+@pytest.mark.criterion("AUTH-LOGIN-13")
 def test_unactivated_account_login_is_401(client, app):
     from padel_app.models import User
 
@@ -89,6 +92,7 @@ def test_unactivated_account_login_is_401(client, app):
 
 # --- auth.token-refresh rule 5: no fresh token on the way out --------------
 
+@pytest.mark.criterion("AUTH-TOKEN-REFRESH-2")
 def test_logout_never_returns_a_fresh_token(client, app, coach):
     near_expiry = _token(app, coach, expires_in_days=10)
     control = client.get("/api/auth/me", headers=_hdr(near_expiry))
@@ -112,11 +116,13 @@ def test_login_token_carries_auth_time(client, app, coach):
     assert abs(claims["auth_time"] - _ts(0)) < 60
 
 
+@pytest.mark.criterion("AUTH-TOKEN-REFRESH-3")
 def test_session_older_than_cap_is_refused(client, app, coach):
     token = _token(app, coach, expires_in_days=10, auth_time_days_ago=91)
     assert client.get("/api/auth/me", headers=_hdr(token)).status_code == 401
 
 
+@pytest.mark.criterion("AUTH-TOKEN-REFRESH-3")
 def test_refresh_keeps_the_original_auth_time(client, app, coach):
     token = _token(app, coach, expires_in_days=10, auth_time_days_ago=80)
     res = client.get("/api/auth/me", headers=_hdr(token))
@@ -142,6 +148,7 @@ def test_cap_is_configurable(client, app, coach):
 
 # --- auth.logout rule 3: the blocklist is pruned ---------------------------
 
+@pytest.mark.criterion("AUTH-LOGOUT-3")
 def test_logout_prunes_expired_blocklist_rows(client, app, coach):
     from padel_app.models import TokenBlocklist
 

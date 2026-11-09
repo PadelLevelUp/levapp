@@ -13,16 +13,16 @@ import { canRetryThreadLoad, threadLoadErrorKey } from "./threadLoadError";
 const axiosLike = (status: number) => ({ isAxiosError: true, response: { status } });
 
 describe("threadLoadErrorKey", () => {
-  it("names another account on a 403", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-26] names another account on a 403", () => {
     expect(threadLoadErrorKey(axiosLike(403))).toBe("messages.conversationBelongsToAnotherAccount");
   });
 
-  it("keeps the generic message for other statuses", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-26] keeps the generic message for other statuses", () => {
     expect(threadLoadErrorKey(axiosLike(404))).toBe("messages.couldNotLoadConversation");
     expect(threadLoadErrorKey(axiosLike(500))).toBe("messages.couldNotLoadConversation");
   });
 
-  it("keeps the generic message for a network error or anything unknown", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-26] keeps the generic message for a network error or anything unknown", () => {
     expect(threadLoadErrorKey(new Error("Network Error"))).toBe("messages.couldNotLoadConversation");
     expect(threadLoadErrorKey(undefined)).toBe("messages.couldNotLoadConversation");
     expect(threadLoadErrorKey(null)).toBe("messages.couldNotLoadConversation");
@@ -30,11 +30,11 @@ describe("threadLoadErrorKey", () => {
 });
 
 describe("canRetryThreadLoad", () => {
-  it("offers no retry on a 403 — it can never succeed", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-26] offers no retry on a 403 — it can never succeed", () => {
     expect(canRetryThreadLoad(axiosLike(403))).toBe(false);
   });
 
-  it("offers a retry for every other failure", () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-26] offers a retry for every other failure", () => {
     expect(canRetryThreadLoad(axiosLike(500))).toBe(true);
     expect(canRetryThreadLoad(axiosLike(404))).toBe(true);
     expect(canRetryThreadLoad(new Error("Network Error"))).toBe(true);

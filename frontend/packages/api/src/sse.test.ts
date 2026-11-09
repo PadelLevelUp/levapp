@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 describe("sseRetryDelay — exponential with equal jitter", () => {
-  it("doubles the ceiling each attempt and keeps at least half of it", () => {
+  it("[MESSAGING-SSE-REALTIME-12] doubles the ceiling each attempt and keeps at least half of it", () => {
     expect(sseRetryDelay(0, () => 0)).toBe(500);
     expect(sseRetryDelay(0, () => 1)).toBe(1_000);
     expect(sseRetryDelay(1, () => 0)).toBe(1_000);
@@ -69,7 +69,7 @@ describe("sseRetryDelay — exponential with equal jitter", () => {
     expect(sseRetryDelay(3, () => 0.5)).toBe(6_000);
   });
 
-  it("never exceeds the maximum, however many attempts", () => {
+  it("[MESSAGING-SSE-REALTIME-12] never exceeds the maximum, however many attempts", () => {
     for (const attempt of [5, 10, 50]) {
       const low = sseRetryDelay(attempt, () => 0);
       const high = sseRetryDelay(attempt, () => 1);
@@ -80,7 +80,7 @@ describe("sseRetryDelay — exponential with equal jitter", () => {
 });
 
 describe("createSseHub — one connection shared by every listener", () => {
-  it("opens a single source for several listeners and delivers to all of them", async () => {
+  it("[MESSAGING-SSE-REALTIME-11] opens a single source for several listeners and delivers to all of them", async () => {
     const { hub, sources, flush } = harness();
     const a = vi.fn();
     const b = vi.fn();
@@ -94,7 +94,7 @@ describe("createSseHub — one connection shared by every listener", () => {
     expect(b).toHaveBeenCalledWith({ type: "message_created", payload: { id: 1 } });
   });
 
-  it("closes the source when the last listener leaves and reopens for the next", async () => {
+  it("[MESSAGING-SSE-REALTIME-11] closes the source when the last listener leaves and reopens for the next", async () => {
     const { hub, sources, flush } = harness();
     const offA = hub.subscribe(vi.fn());
     const offB = hub.subscribe(vi.fn());
@@ -137,7 +137,7 @@ describe("createSseHub — one connection shared by every listener", () => {
 });
 
 describe("createSseHub — reconnection", () => {
-  it("reconnects after an error with growing, jittered delays, and an open resets them", async () => {
+  it("[MESSAGING-SSE-REALTIME-12] reconnects after an error with growing, jittered delays, and an open resets them", async () => {
     const { hub, sources, timers, flush } = harness({ random: () => 0 });
     hub.subscribe(vi.fn());
     await flush();
@@ -212,7 +212,7 @@ describe("createSseHub — logging", () => {
 describe("createSseHub — resync after a re-open (PAD-616)", () => {
   const resyncs = (events: { type: string }[]) => events.filter((e) => e.type === RESYNC_EVENT).length;
 
-  it("the first open is not a resync", async () => {
+  it("[MESSAGING-SSE-REALTIME-16] the first open is not a resync", async () => {
     const { hub, sources, flush } = harness();
     const seen: { type: string }[] = [];
     hub.subscribe((e) => seen.push(e));
@@ -221,7 +221,7 @@ describe("createSseHub — resync after a re-open (PAD-616)", () => {
     expect(resyncs(seen)).toBe(0);
   });
 
-  it("open, drop, re-open: exactly one resync, delivered to every listener", async () => {
+  it("[MESSAGING-SSE-REALTIME-16] open, drop, re-open: exactly one resync, delivered to every listener", async () => {
     let t = 0;
     const { hub, sources, timers, flush } = harness({ now: () => t });
     const a: { type: string }[] = [];
@@ -253,7 +253,7 @@ describe("createSseHub — resync after a re-open (PAD-616)", () => {
     expect(resyncs(seen)).toBe(1);
   });
 
-  it("a flapping stream resyncs at most once per window, with one trailing resync", async () => {
+  it("[MESSAGING-SSE-REALTIME-17] a flapping stream resyncs at most once per window, with one trailing resync", async () => {
     let t = 0;
     const { hub, sources, timers, flush } = harness({ now: () => t });
     const seen: { type: string }[] = [];

@@ -12,7 +12,7 @@ const pad822: Counts = {
 };
 
 describe("PAD-825: describeSideRoster", () => {
-  it("gives the going and open counts by side, which add up to the projection", () => {
+  it("[SETTINGS-TUTORIALS-5] gives the going and open counts by side, which add up to the projection", () => {
     expect(describeSideRoster({ sideCounts: pad822 })).toEqual({
       key: "tutorials.sideRoster",
       params: { goingLeft: 8, goingRight: 4, openLeft: 0, openRight: 4 },

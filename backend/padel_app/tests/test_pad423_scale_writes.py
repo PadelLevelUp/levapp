@@ -50,6 +50,7 @@ def test_a_competency_created_after_the_scale_is_set_is_created_on_it(app):
         assert (builtin.scale_min, builtin.scale_max) == (1, 10)
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-3")
 def test_an_entry_keeps_the_scale_it_was_given_on_even_when_re_scored(app):
     from padel_app.models import EvaluationEntry
     from padel_app.services.evaluation_api_service import create_competency
@@ -76,6 +77,7 @@ def test_an_entry_keeps_the_scale_it_was_given_on_even_when_re_scored(app):
     assert garra_id is not None
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-5")
 def test_a_score_outside_the_current_scale_is_refused(app):
     from padel_app.services.evaluation_api_service import ApiError, _validated_ratings, create_competency
 
@@ -89,6 +91,7 @@ def test_a_score_outside_the_current_scale_is_refused(app):
         assert err.value.status == 400 and err.value.code == "score_out_of_range"
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-7")
 def test_the_coach_scale_never_reaches_legacy_import_or_the_frozen_save(app, client):
     """B's R-047 pin."""
     from padel_app.models import EvaluationCategory, EvaluationEntry
@@ -112,6 +115,7 @@ def test_the_coach_scale_never_reaches_legacy_import_or_the_frozen_save(app, cli
         assert [(r.score, r.scale_min, r.scale_max) for r in rows] == [(4.0, 1, 5)]
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-3")
 def test_editing_a_same_day_rating_after_a_scale_change_keeps_its_own_scale(app, client):
     """D149: 4/5 (80%) must never silently become 4/10 (40%). The coach rates Garra 4 on 1-5, moves
     to 1-10, and edits today's record: Garra is still validated and stored on 1-5 (5 is fine, 7 is

@@ -101,6 +101,7 @@ def _invited_student(app, coach_id, *, with_invitation=True, email="invited782@e
     ("google", "pt", "A tua conta LevApp entra com o Google", "Google"),
     ("apple", "en", "Your LevApp account signs in with Apple", "Apple"),
 ])
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-20")
 def test_a_social_account_gets_a_mail_naming_its_provider(app, outbox, provider, language, subject, word):
     _social_user(app, provider=provider, language=language)
 
@@ -115,6 +116,7 @@ def test_a_social_account_gets_a_mail_naming_its_provider(app, outbox, provider,
     assert not re.search(r"\b\d{6}\b", mail["body"])  # no recovery code: there is no password to reset
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-20")
 def test_a_social_account_still_cannot_confirm_a_code(client, app, outbox):
     _social_user(app)
     _request(app, "social782@example.com")
@@ -126,6 +128,7 @@ def test_a_social_account_still_cannot_confirm_a_code(client, app, outbox):
 
 # --- A student who never finished the invite gets a fresh invite link -------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-21")
 def test_an_unfinished_invite_gets_a_mail_with_a_fresh_invite_link(app, outbox):
     from padel_app.models import PlayerInvitation
 
@@ -161,6 +164,7 @@ def test_an_unfinished_invite_with_no_invitation_row_uses_the_coach_link(app, ou
         assert PlayerInvitation.by_token(token).invited_by_coach_id == coach_id
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-21")
 def test_the_fresh_link_completes_the_account(client, app, outbox):
     coach_id = _coach(app)
     _invited_student(app, coach_id)
@@ -174,6 +178,7 @@ def test_the_fresh_link_completes_the_account(client, app, outbox):
 
 # --- The cooldown and the cases that still get nothing ------------------------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-21")
 def test_the_help_mail_honours_the_cooldown(app, outbox):
     from padel_app.models import PlayerInvitation
 
@@ -190,6 +195,7 @@ def test_the_help_mail_honours_the_cooldown(app, outbox):
     assert len(outbox) == 2
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-22")
 def test_a_disabled_passwordless_account_gets_nothing(app, outbox):
     _social_user(app, status="disabled")
 
@@ -209,6 +215,7 @@ def test_a_passwordless_account_with_no_provider_and_no_coach_gets_nothing(app, 
     assert outbox == []
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-4")
 def test_an_account_with_a_password_still_gets_the_code_mail(app, outbox):
     from padel_app.models import User
 
@@ -245,6 +252,7 @@ def test_a_sent_help_mail_logs_sent_and_not_sent_nothing(app, outbox, caplog):
     ("orphan", "no_password"),
     ("cooldown", "cooldown"),
 ])
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-18")
 def test_a_help_mail_not_sent_logs_its_reason(app, outbox, caplog, case, reason):
     from padel_app.models import User
 

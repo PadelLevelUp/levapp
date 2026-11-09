@@ -64,7 +64,7 @@ describe("Escala de avaliações", () => {
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("a failed Save keeps the choice held and unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the choice held and unsaved", async () => {
     open({ scaleMax: 20 });
     api.putEvaluationScale.mockRejectedValue(new Error("offline"));
     await waitFor(() => expect(scale(20)).toBeChecked());
@@ -77,7 +77,7 @@ describe("Escala de avaliações", () => {
     expect(unsavedIds()).toBe("evaluationScale");
   });
 
-  it("choosing a scale and back is clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] choosing a scale and back is clean", async () => {
     open({ scaleMax: 5 });
     await waitFor(() => expect(scale(5)).toBeChecked());
 

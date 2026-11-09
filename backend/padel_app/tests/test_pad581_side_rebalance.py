@@ -100,6 +100,7 @@ def _patch_io(monkeypatch):
 
 
 @pytest.mark.parametrize("by", ["student", "coach"], ids=["student-yes", "coach-recorded-yes"])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-65")
 def test_a_yes_that_flips_a_spot_withdraws_its_old_side_round_1_invitations(app, monkeypatch, by):
     """OLD-RED: the left spot kept asking left after the class went 2 left / 1 right."""
     _patch_io(monkeypatch)
@@ -122,6 +123,7 @@ def test_a_yes_that_flips_a_spot_withdraws_its_old_side_round_1_invitations(app,
         assert not _bubble(carla).get("responded")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-65")
 def test_a_yes_that_keeps_the_balance_withdraws_nothing(app, monkeypatch):
     """PIN: Rui (right) takes the right spot — 1 left / 2 right going; the left spot stays left."""
     from padel_app.models.players import Player
@@ -136,6 +138,7 @@ def test_a_yes_that_keeps_the_balance_withdraws_nothing(app, monkeypatch):
         assert _event(ana).status == "sent" and _event(ana).retired_reason is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-66")
 def test_a_batch_re_counts_its_spot_and_round_1_skips_the_balance_withdrawn(app, monkeypatch):
     """OLD-RED: round 1 read the spot's creation side."""
     from padel_app.services import notification_service as ns
@@ -154,6 +157,7 @@ def test_a_batch_re_counts_its_spot_and_round_1_skips_the_balance_withdrawn(app,
         assert verdicts[players["bia"]] == "no_round_matched", "a left student does not match the spot's side now"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-67")
 def test_a_balance_withdrawn_student_joins_the_waiting_list_while_the_class_has_a_place(app, monkeypatch):
     """OLD-RED: has_spots refused her (Q3: the owner wants the list offered)."""
     from werkzeug.exceptions import HTTPException
@@ -177,6 +181,7 @@ def test_a_balance_withdrawn_student_joins_the_waiting_list_while_the_class_has_
         assert e.value.response.get_json()["code"] == "has_spots"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-67")
 def test_group_0_asks_a_balance_withdrawn_member_only_for_her_side(app, monkeypatch):
     """OLD-RED: group 0 asked list members for any spot, so the list could undo the balance."""
     from padel_app.models.players import Player
@@ -211,6 +216,7 @@ def test_control_a_left_student_never_withdrawn_is_invited_by_round_1_of_a_left_
         assert verdicts[players["rui"]] == "no_round_matched"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-66")
 def test_a_batch_re_counts_a_stale_spot_withdraws_and_invites_the_new_side(app, monkeypatch, trail):
     """OLD-RED: the batch read the spot's stored side. The class went 2 left / 1 right without a yes
     on a spot (an import enrolled Duarte; since PAD-805 a coach's enrolment re-counts at once), so

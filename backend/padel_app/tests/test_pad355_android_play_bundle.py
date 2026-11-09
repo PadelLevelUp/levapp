@@ -6,6 +6,7 @@ the bundle", "The upload key never reaches a pull request" and "The name says NO
 all four ABIs are built, the keystore is decoded on a dispatch only, and a debug-signed bundle is
 named NOT-FOR-PLAY while an upload-signed one with a debug signer fails the job.
 """
+import pytest
 import pathlib
 import re
 
@@ -33,6 +34,7 @@ def test_the_dispatch_declares_the_bundle_inputs():
     assert inputs["target"]["default"] == "production"
 
 
+@pytest.mark.criterion("MOBILE-ANDROID-PLAY-BUNDLE-3")
 def test_a_dispatch_for_play_builds_only_the_bundle():
     jobs = _doc()["jobs"]
     assert jobs["apk"]["if"] == "${{ !(github.event_name == 'workflow_dispatch' && inputs.aab) }}"
@@ -44,6 +46,7 @@ def test_a_dispatch_for_play_builds_only_the_bundle():
     assert "schedule" not in aab_if
 
 
+@pytest.mark.criterion("MOBILE-ANDROID-PLAY-BUNDLE-3")
 def test_the_bundle_is_built_for_all_four_abis():
     step = _step(_doc()["jobs"]["aab"], "Gradle bundleRelease")
     assert step["run"].startswith("./gradlew bundleRelease")
@@ -57,6 +60,7 @@ def test_the_store_prebuild_has_no_ci_flag_and_is_checked():
     assert "PAD-355: upload-key signing" in step["run"]
 
 
+@pytest.mark.criterion("MOBILE-ANDROID-PLAY-BUNDLE-4")
 def test_the_upload_key_never_reaches_a_pull_request():
     job = _doc()["jobs"]["aab"]
     script = _step(job, "Upload key and Firebase config")["run"]
@@ -69,6 +73,7 @@ def test_the_upload_key_never_reaches_a_pull_request():
     assert cleanup["if"] == "always()" and "upload.jks" in cleanup["run"]
 
 
+@pytest.mark.criterion("MOBILE-ANDROID-PLAY-BUNDLE-5")
 def test_the_artefact_name_says_not_for_play():
     job = _doc()["jobs"]["aab"]
     script = _step(job, "Bundle check, signer and summary")["run"]

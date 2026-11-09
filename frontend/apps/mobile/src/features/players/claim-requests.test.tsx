@@ -58,7 +58,7 @@ async function mount() {
 }
 
 describe("ClaimRequests re-reads /me after an accepted claim (PAD-444)", () => {
-  it("refreshes the signed-in user once the claim is accepted", async () => {
+  it("[PLAYERS-JOIN-TOKEN-13] refreshes the signed-in user once the claim is accepted", async () => {
     const n = await mount();
     await n.press("claim-accept-5");
     await n.flush();
@@ -66,7 +66,7 @@ describe("ClaimRequests re-reads /me after an accepted claim (PAD-444)", () => {
     expect(refreshUser).toHaveBeenCalledTimes(1);
   });
 
-  it("refreshes nothing on a reject", async () => {
+  it("[PLAYERS-JOIN-TOKEN-13] refreshes nothing on a reject", async () => {
     const n = await mount();
     await n.press("claim-reject-5");
     await n.flush();

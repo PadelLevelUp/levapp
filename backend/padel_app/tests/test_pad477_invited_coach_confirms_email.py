@@ -50,6 +50,7 @@ def _accept(client, token, headers=CAPABLE, **over):
     return client.post(f"/api/app/coach-invitations/{token}/accept", json=_body(**over), headers=headers)
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-1")
 def test_an_invited_coach_is_pending_with_a_code_sent_to_their_email(client, app, outbox):
     from padel_app.models import Association_CoachClub, User
 
@@ -67,6 +68,7 @@ def test_an_invited_coach_is_pending_with_a_code_sent_to_their_email(client, app
         assert _inv(token).one().status == "accepted"
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-1")
 def test_a_capable_client_without_an_email_is_400_email_required_and_writes_nothing(client, app, outbox):
     """Criterion (e)."""
     from padel_app.models import User
@@ -85,6 +87,7 @@ def test_a_capable_client_without_an_email_is_400_email_required_and_writes_noth
     assert outbox == []
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-2")
 def test_a_build_that_predates_the_field_accepts_as_before_pad_477(client, app, outbox):
     """Criterion (d), the legacy path: builds up to 1.2.1 (28) declare no `coach-invite-email`
     and send no email. They keep today's behaviour: the account is created without an email,
@@ -129,6 +132,7 @@ def test_a_malformed_email_is_400_on_the_email_field(client, app):
     assert res.get_json()["field"] == "email"
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-1")
 def test_a_taken_email_in_any_case_is_409_on_the_email_field(client, app, outbox):
     from padel_app.models import User
 
@@ -220,6 +224,7 @@ def test_pad477_capability_spelling_matches_both_shells():
 # --- #500 independent review ------------------------------------------------------------
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-1")
 def test_the_code_is_mailed_with_no_unit_of_work_open(client, app, monkeypatch):
     """Rule 4/9: the code goes out AFTER the unit has committed, not at its end inside it."""
     from padel_app.tools import email_tools, unit_of_work
@@ -235,6 +240,7 @@ def test_the_code_is_mailed_with_no_unit_of_work_open(client, app, monkeypatch):
     assert at_send == [False]
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-2")
 def test_the_legacy_path_ignores_the_invitations_own_email(client, app, outbox):
     """Rule 9: the invitation's optional email is not used for the account, legacy path included."""
     from padel_app.models import User
@@ -251,6 +257,7 @@ def test_the_legacy_path_ignores_the_invitations_own_email(client, app, outbox):
         assert User.query.filter_by(username="rita_coach").one().email is None
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-1")
 def test_a_stored_mixed_case_email_is_still_taken(client, app, outbox):
     from padel_app.models import User
 

@@ -5,6 +5,7 @@ convention, 0 = Sunday … 6 = Saturday (`calendar_tools.WEEKDAY_MAP`, date-fns 
 Saturday coincide (1..6) — Sunday does not. Moving an occurrence ONTO a Sunday wrote 7, which
 `WEEKDAY_MAP` drops, so the series lost that day; moving one OFF a Sunday never removed the stored 0.
 """
+import pytest
 import json
 from datetime import date, datetime
 from types import SimpleNamespace
@@ -31,18 +32,21 @@ def _weekdays_expanded(rule, start):
     return sorted({o.date().isoweekday() % 7 for o in occ})  # back to 0 = Sunday
 
 
+@pytest.mark.criterion("CLASSES-EDIT-6")
 def test_moving_a_monday_occurrence_onto_a_sunday_keeps_the_sunday():
     rule = _moved([1, 3], old=MON, new=SUN)  # Mon + Wed, the Monday moves to Sunday
     assert rule["daysOfWeek"] == [0, 3]
     assert _weekdays_expanded(rule, SUN) == [0, 3]
 
 
+@pytest.mark.criterion("CLASSES-EDIT-6")
 def test_moving_a_sunday_occurrence_off_the_sunday_drops_it():
     rule = _moved([0], old=SUN, new=TUE)
     assert rule["daysOfWeek"] == [2]
     assert _weekdays_expanded(rule, TUE) == [2]
 
 
+@pytest.mark.criterion("CLASSES-EDIT-6")
 def test_weekdays_other_than_sunday_are_unchanged_by_the_convention():
     # Monday..Saturday are 1..6 in both conventions: the control cell.
     rule = _moved([1, 3], old=MON, new=TUE)

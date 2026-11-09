@@ -46,7 +46,7 @@ describe("what the slider shows", () => {
 });
 
 describe("one input, one save", () => {
-  it("a drag across several values saves once, when the finger lifts, with the final value", async () => {
+  it("[EVALUATIONS-SCALE-6] a drag across several values saves once, when the finger lifts, with the final value", async () => {
     const { n, input, onCommit } = await slider(null);
 
     await act(async () => { input().props.onValueChange(3); });

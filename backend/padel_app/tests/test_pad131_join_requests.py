@@ -101,6 +101,7 @@ def _status(app, request_id):
 
 # ── AC: eligible student requests an open spot ───────────────────────────────
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-1")
 def test_eligible_student_requests_and_the_coach_is_told(app):
     ids = _seed(app, eligibility_rules=LEVEL_SAME)
     _config(app, ids, open_spots_visible=True)
@@ -135,6 +136,7 @@ def test_server_refuses_what_the_calendar_would_not_show(app):
 
 # ── AC: a student cannot request a class they are already in ────────────────
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-12")
 def test_an_enrolled_student_cannot_request(app):
     from padel_app.models import LessonInstance
     from padel_app.services.class_join_request_service import create_join_request_service
@@ -152,6 +154,7 @@ def test_an_enrolled_student_cannot_request(app):
 
 # ── AC: coach accepts / rejects ──────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-2")
 def test_coach_accepts_and_the_student_is_enrolled_with_the_vacancy_attributed(app):
     from padel_app.models import Vacancy
 
@@ -171,6 +174,7 @@ def test_coach_accepts_and_the_student_is_enrolled_with_the_vacancy_attributed(a
                for from_student, _, meta in _messages_for(app, ids, pid))
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-4")
 def test_coach_rejects_and_nothing_else_happens(app):
     ids = _seed(app, eligibility_rules=None)
     _config(app, ids, open_spots_visible=True)
@@ -187,6 +191,7 @@ def test_coach_rejects_and_nothing_else_happens(app):
 
 # ── AC: requesting a virtual occurrence materializes it ──────────────────────
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-5")
 def test_requesting_a_virtual_occurrence_materializes_it(app):
     from padel_app.models import ClassJoinRequest
     from padel_app.models.lessons import Lesson
@@ -228,6 +233,7 @@ def _fill_to_one_spot(app, ids, count=3):
 
 
 @pytest.mark.parametrize("auto_reply", [True, False])
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-6")
 def test_an_invitation_filling_the_spot_supersedes_pending_requests(app, auto_reply):
     from padel_app.helpers.calendar_helpers import load_open_spot_events_for_player
     from padel_app.models.lesson_instances import LessonInstance
@@ -257,6 +263,7 @@ def test_an_invitation_filling_the_spot_supersedes_pending_requests(app, auto_re
             assert load_open_spot_events_for_player(pid, now - timedelta(days=1), now + timedelta(days=30)) == []
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-8")
 def test_an_accepted_request_retires_outstanding_invitations(app):
     from padel_app.models import Coach, Message, NotificationEvent, Player, Vacancy
     from padel_app.services.notification_service import _get_or_create_direct_conversation
@@ -297,6 +304,7 @@ def test_an_accepted_request_retires_outstanding_invitations(app):
 
 # ── AC: a student who fell below the bar is not silently enrolled ───────────
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-11")
 def test_a_student_who_fell_below_the_bar_needs_the_coach_to_confirm(app):
     from padel_app.services.class_join_request_service import decide_join_request_service
 
@@ -373,6 +381,7 @@ def _read_as(app, client, pid, ids):
     )
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-13")
 def test_an_eligible_student_may_open_an_advertised_class_before_asking(app, client):
     ids = _seed(app, eligibility_rules=LEVEL_SAME)
     _config(app, ids, open_spots_visible=True)
@@ -383,6 +392,7 @@ def test_an_eligible_student_may_open_an_advertised_class_before_asking(app, cli
     assert body.get("myJoinRequest") is None and "joinRequests" not in body
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-13")
 def test_an_ineligible_or_unadvertised_non_enrolled_student_still_gets_403(app, client):
     ids = _seed(app, eligibility_rules=LEVEL_SAME)
     weak = _student(app, ids, "weak", "5-")

@@ -54,6 +54,7 @@ def make(world):
     )
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-1")
 def test_the_free_lock_is_taken_and_the_scheduler_resumed_once(world):
     lead = make(world)
     lead.step()
@@ -63,6 +64,7 @@ def test_the_free_lock_is_taken_and_the_scheduler_resumed_once(world):
     assert world["events"] == ["acquire"], "a held lock is pinged, never re-acquired"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-1")
 def test_a_lock_held_by_the_other_container_keeps_this_one_paused(world):
     world["held_by_other"] = True
     lead = make(world)
@@ -72,6 +74,7 @@ def test_a_lock_held_by_the_other_container_keeps_this_one_paused(world):
     assert world["events"] == []
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-1")
 def test_the_waiting_container_takes_over_when_the_old_one_stops(world):
     world["held_by_other"] = True
     lead = make(world)
@@ -82,6 +85,7 @@ def test_the_waiting_container_takes_over_when_the_old_one_stops(world):
     assert world["events"] == ["acquire"]
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-2")
 def test_a_postgres_restart_pauses_then_reacquires(world):
     lead = make(world)
     lead.step()
@@ -127,6 +131,7 @@ def test_a_failing_acquire_callback_releases_the_lock_for_the_next_try(world):
     __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="session advisory locks are a Postgres feature",
 )
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-1")
 def test_on_postgres_one_session_leads_and_the_next_takes_over_when_it_ends(app):
     """The real lock: a second process cannot lead while the first session lives, and leads once
     that session ends (the old container stopping), with no explicit unlock."""
@@ -148,6 +153,7 @@ def test_on_postgres_one_session_leads_and_the_next_takes_over_when_it_ends(app)
     new.stop()
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-3")
 def test_outside_test_mode_the_scheduler_starts_paused_and_leadership_resumes_it(app, monkeypatch):
     """Wiring (rule 1): production boot starts the scheduler paused and does NOT reschedule on the
     boot path; the leadership thread's acquire runs the reschedule, then resumes."""

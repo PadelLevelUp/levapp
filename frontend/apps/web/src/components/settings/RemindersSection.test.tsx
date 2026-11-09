@@ -37,7 +37,7 @@ function Held({ onSeen }: { onSeen: (c: ReminderConfig) => void }) {
 }
 
 describe("RemindersSection is controlled (PAD-506)", () => {
-  it("each stepper tap goes up at once with the new value; the final value is the sum of the taps", () => {
+  it("[NOTIFICATIONS-CONFIG-22] each stepper tap goes up at once with the new value; the final value is the sum of the taps", () => {
     const seen = vi.fn();
     render(<Held onSeen={seen} />);
     const first = within(screen.getByTestId("reminder-first-reminder-timing"));
@@ -50,7 +50,7 @@ describe("RemindersSection is controlled (PAD-506)", () => {
     expect(seen.mock.calls[4][0].firstReminder).toEqual({ type: "hours_before", value: 29 });
   });
 
-  it("typing a time goes up with the time as typed, other fields intact", () => {
+  it("[NOTIFICATIONS-CONFIG-22] typing a time goes up with the time as typed, other fields intact", () => {
     const onChange = vi.fn();
     const { container } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
     // PAD-559 PR-2: the shared field commits a complete "HH:MM" as it is typed.
@@ -65,7 +65,7 @@ describe("RemindersSection is controlled (PAD-506)", () => {
     });
   });
 
-  it("edits to two controls both reach the held value", () => {
+  it("[NOTIFICATIONS-CONFIG-22] edits to two controls both reach the held value", () => {
     const seen = vi.fn();
     render(<Held onSeen={seen} />);
     fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);
@@ -93,7 +93,7 @@ describe("RemindersSection is controlled (PAD-506)", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("closing the section sends nothing of its own (the held value lives in the card)", () => {
+  it("[NOTIFICATIONS-CONFIG-22] closing the section sends nothing of its own (the held value lives in the card)", () => {
     const onChange = vi.fn();
     const { unmount } = render(<RemindersSection reminderTiming={HOURS} onChange={onChange} />);
     fireEvent.click(within(screen.getByTestId("reminder-per-student")).getAllByRole("button")[1]);

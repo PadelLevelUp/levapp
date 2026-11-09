@@ -81,6 +81,7 @@ def _user_of(player_id):
     return Player.query.get(player_id).user_id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-18")
 def test_the_waiting_list_is_asked_first_and_paced_like_a_group(app, monkeypatch):
     """AC "The waiting list is asked first": three on the list, maxSimultaneous 1. PAD-723 (PAD-669
     R4): with equal priority stats the rows' own join times decide (10:00, 11:00, 12:00); Bea's
@@ -113,6 +114,7 @@ def test_the_waiting_list_is_asked_first_and_paced_like_a_group(app, monkeypatch
         assert not _enrolled(instance_id), "nobody is enrolled from the waiting list without a yes"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-21")
 def test_several_on_the_list_are_asked_together_up_to_max_simultaneous(app, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 
@@ -126,6 +128,7 @@ def test_several_on_the_list_are_asked_together_up_to_max_simultaneous(app, monk
         assert _invites(instance_id) == [(ana, 0), (bea, 0)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-22")
 def test_the_last_waiting_list_no_moves_on_to_the_groups_at_once_and_closes_the_entry(app, monkeypatch):
     from padel_app.models.waiting_list_entry import WaitingListEntry
     from padel_app.services.notification_service import respond_to_notification
@@ -145,6 +148,7 @@ def test_the_last_waiting_list_no_moves_on_to_the_groups_at_once_and_closes_the_
 
 
 @pytest.mark.parametrize("commit_fails", [False, True])
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-23")
 def test_a_waiting_list_yes_spends_the_credit_in_the_accepts_commit(app, monkeypatch, commit_fails):
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
     from padel_app.models.waiting_list_entry import WaitingListEntry
@@ -189,6 +193,7 @@ def test_a_waiting_list_yes_spends_the_credit_in_the_accepts_commit(app, monkeyp
             assert bea in _enrolled(instance_id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-24")
 def test_a_waiting_list_no_closes_the_entry_for_that_class_only(app, monkeypatch):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
@@ -223,6 +228,7 @@ def test_a_waiting_list_no_closes_the_entry_for_that_class_only(app, monkeypatch
 
 
 @pytest.mark.parametrize("side, says", [("left", "lado esquerdo"), ("right", "lado direito"), ("both", None), (None, None)])
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-25")
 def test_the_invitation_names_the_spots_side_only_when_it_has_one(app, monkeypatch, side, says):
     from padel_app.models import Message
     from padel_app.models.vacancy import Vacancy
@@ -268,6 +274,7 @@ def test_the_coach_recording_a_waiting_list_yes_settles_the_entry_too(app, monke
         assert bea in _enrolled(instance_id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-7")
 def test_a_student_who_blocked_automatic_invitations_is_not_asked_from_the_list(app, monkeypatch):
     from padel_app.tests.helpers import pin_clock
 
@@ -363,6 +370,7 @@ def test_a_waiting_list_yes_and_a_group_yes_on_two_spots_cannot_overfill(app, mo
         assert [results["x"]["action"], results["y"]["action"]].count("confirmed") == 1, results
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-23")
 def test_a_crash_right_after_the_accepts_commit_leaves_the_entry_settled(app, monkeypatch):
     """Rule 15: the entry and the credit are written IN the accept's single commit, not after it. A
     crash right after that commit (here: the moment the enrolment returns — PAD-596 removed the
@@ -444,6 +452,7 @@ def test_the_coach_recording_a_waiting_list_no_closes_the_entry_without_spending
         assert bea not in _enrolled(instance_id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-25")
 def test_the_english_side_phrase():
     from padel_app.services.notification_service import _side_phrase
 
@@ -451,6 +460,7 @@ def test_the_english_side_phrase():
         " (left side)", " (right side)", "")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-20")
 def test_a_student_answers_one_waiting_list_offer_before_the_next_spot_asks_them(app, monkeypatch):
     """The volume cap (coordinator default 2026-10-03, the owner may reverse it; waiting-list rule 4):
     one live group-0 offer per student per coach at a time. Bea is on the waiting list of classes A

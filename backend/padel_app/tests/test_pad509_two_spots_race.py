@@ -32,6 +32,7 @@ def _io():
         yield
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-87")
 def test_two_spots_sending_at_once_never_offer_one_student_twice(app, monkeypatch):
     """Two open spots, two free students, one invitation per spot (maxSimultaneous 1). Both spots
     start sending at the same moment. Expected: each student holds at most one live offer for the

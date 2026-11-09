@@ -15,6 +15,7 @@ CASES = json.loads(
 
 
 @pytest.mark.parametrize("text,folded", CASES["fold"])
+@pytest.mark.criterion("PLAYERS-SEARCH-4")
 def test_fold(text, folded):
     from padel_app.services.player_service import fold_search_text  # R-006
 
@@ -22,6 +23,7 @@ def test_fold(text, folded):
 
 
 @pytest.mark.parametrize("case", CASES["rank"], ids=lambda c: f"{c['name']}/{c['query']}")
+@pytest.mark.criterion("PLAYERS-SEARCH-1")
 def test_rank(case):
     from padel_app.services.player_service import rank_player_match  # R-006
 

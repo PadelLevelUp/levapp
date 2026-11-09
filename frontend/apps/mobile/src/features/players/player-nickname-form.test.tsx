@@ -33,7 +33,7 @@ async function mount(showNickname: boolean, initialValues: Record<string, unknow
 }
 
 describe("PlayerForm — nickname (PAD-660)", () => {
-  it("shows the field, the warning and the switch in edit mode", async () => {
+  it("[PLAYERS-NICKNAME-4] shows the field, the warning and the switch in edit mode", async () => {
     const { n } = await mount(true, { nickname: "Jorge chato", nicknameAsName: true });
     expect(n.byTestId("player-nickname").props.value).toBe("Jorge chato");
     expect(n.byTestId("player-nickname").props.maxLength).toBe(60);
@@ -59,7 +59,7 @@ describe("PlayerForm — nickname (PAD-660)", () => {
     expect(sent.nicknameAsName).toBe(true);
   });
 
-  it("refuses over 60 characters with the too-long text", async () => {
+  it("[PLAYERS-NICKNAME-4] refuses over 60 characters with the too-long text", async () => {
     const { n, onSubmit } = await mount(true);
     await n.changeText("player-nickname", "x".repeat(61));
     await n.press("player-save");

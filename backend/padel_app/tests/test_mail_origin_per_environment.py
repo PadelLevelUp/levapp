@@ -10,6 +10,7 @@ nothing but a human noticed).
 Two things are pinned: the env files each deployed environment boots from set
 `PUBLIC_WEB_ORIGIN` to their own origin, and the renderer honours it.
 """
+import pytest
 
 import re
 from pathlib import Path
@@ -36,14 +37,17 @@ class _User:
     name = "Alguém"
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-22")
 def test_staging_env_file_names_its_own_origin():
     assert _env_value(".env.staging", "PUBLIC_WEB_ORIGIN") == STAGING_ORIGIN
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-22")
 def test_prod_env_file_names_its_own_origin():
     assert _env_value(".env.prod", "PUBLIC_WEB_ORIGIN") == PROD_ORIGIN
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-22")
 def test_verification_mail_is_rooted_at_the_configured_origin(app):
     app.config["PUBLIC_WEB_ORIGIN"] = STAGING_ORIGIN
     with app.app_context():

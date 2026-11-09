@@ -24,12 +24,12 @@ const FOREHAND = competency(30, "Forehand", { group: null, scaleMax: 10, isActiv
 const KNOWN = [...ACTIVE, BANDEJA, POSICAO, FOREHAND];
 
 describe("what a row lists (rule 5, Q26)", () => {
-  it("is the active competencies when the record rates nothing else", () => {
+  it("[EVALUATIONS-CLASS-PANEL-3] is the active competencies when the record rates nothing else", () => {
     expect(classRowCompetencies(ACTIVE, null, KNOWN).map((c) => c.id)).toEqual([1, 2, 3]);
     expect(classRowCompetencies(ACTIVE, record({ ratings: [rating(1, "Técnica", 4, "technique")] }), KNOWN).map((c) => c.id)).toEqual([1, 2, 3]);
   });
 
-  it("adds a switched-off competency the record already rates — as the coach's set knows it, so stars stay stars and a legacy scale stays a number", () => {
+  it("[EVALUATIONS-CLASS-PANEL-3] adds a switched-off competency the record already rates — as the coach's set knows it, so stars stay stars and a legacy scale stays a number", () => {
     const joao = record({ ratings: [rating(12, "Bandeja", 4, "bandeja"), rating(13, "Posição atacante", 4), rating(30, "Forehand", 7, null, 10)] });
     const listed = classRowCompetencies(ACTIVE, joao, KNOWN);
     expect(listed.map((c) => c.id)).toEqual([1, 2, 3, 12, 13, 30]);
@@ -45,11 +45,11 @@ describe("what a row lists (rule 5, Q26)", () => {
 });
 
 describe("the row summary never hides a rating (rule 5, AV-070)", () => {
-  it("counts only this occurrence's record: Técnica 4 here reads 1 of 3", () => {
+  it("[EVALUATIONS-CLASS-PANEL-2] counts only this occurrence's record: Técnica 4 here reads 1 of 3", () => {
     expect(classRowSummary(ACTIVE, record({ ratings: [rating(1, "Técnica", 4, "technique")] }))).toEqual({ rated: 1, total: 3 });
   });
 
-  it("reads 3 of 6 when all three ratings sit under switched-off competencies — not 'no evaluation'", () => {
+  it("[EVALUATIONS-CLASS-PANEL-3] reads 3 of 6 when all three ratings sit under switched-off competencies — not 'no evaluation'", () => {
     const joao = record({
       ratings: [rating(12, "Bandeja", 4, "bandeja"), rating(13, "Posição atacante", 4), rating(14, "Tomada de decisão", 3)],
       note: "Continua a trabalhar a tomada de decisão no ataque.",
@@ -62,12 +62,12 @@ describe("the row summary never hides a rating (rule 5, AV-070)", () => {
     expect(classRowSummary(ACTIVE, null)).toEqual({ rated: 0, total: 3 });
   });
 
-  it("an earlier day's record still counts (Q28): yesterday's Técnica 4 reads 1 of 3", () => {
+  it("[EVALUATIONS-CLASS-PANEL-4] an earlier day's record still counts (Q28): yesterday's Técnica 4 reads 1 of 3", () => {
     const yesterday = record({ evaluatedOn: "2026-09-20", editable: false, ratings: [rating(1, "Técnica", 4, "technique")] });
     expect(classRowSummary(ACTIVE, yesterday)).toEqual({ rated: 1, total: 3 });
   });
 
-  it("with every competency switched off and nothing rated there is nothing to list", () => {
+  it("[EVALUATIONS-CLASS-PANEL-6] with every competency switched off and nothing rated there is nothing to list", () => {
     expect(classRowCompetencies([], null, KNOWN)).toEqual([]);
     expect(classRowSummary([], null)).toEqual({ rated: 0, total: 0 });
   });
@@ -76,7 +76,7 @@ describe("the row summary never hides a rating (rule 5, AV-070)", () => {
 describe("when the class detail offers 'Avaliações' (rules 1, 10)", () => {
   const read = (over: Partial<ClassEvaluations>): ClassEvaluations => ({ classInstanceId: null, canRate: true, competencies: [], participants: [], ...over });
 
-  it("never for a student, and never for an event that is not a class", () => {
+  it("[EVALUATIONS-CLASS-PANEL-7] never for a student, and never for an event that is not a class", () => {
     expect(classEvaluationsAction({ isCoach: false, isClass: true, data: read({}), isError: false })).toBe("hidden");
     expect(classEvaluationsAction({ isCoach: true, isClass: false, data: read({}), isError: false })).toBe("hidden");
   });
@@ -100,7 +100,7 @@ describe("when the class detail offers 'Avaliações' (rules 1, 10)", () => {
     expect(classEvaluationsAction({ isCoach: true, isClass: true, data: undefined, isError: false })).toBe("loading");
   });
 
-  it("is unavailable exactly when the server says the occurrence cannot be rated, available otherwise", () => {
+  it("[EVALUATIONS-CLASS-PANEL-5] is unavailable exactly when the server says the occurrence cannot be rated, available otherwise", () => {
     expect(classEvaluationsAction({ isCoach: true, isClass: true, data: read({ canRate: false }), isError: false })).toBe("unavailable");
     expect(classEvaluationsAction({ isCoach: true, isClass: true, data: read({ canRate: true }), isError: false })).toBe("available");
     expect(classEvaluationsAction({ isCoach: true, isClass: true, data: read({ classInstanceId: 88, canRate: true }), isError: false })).toBe("available");

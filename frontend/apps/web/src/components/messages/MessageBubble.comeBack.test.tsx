@@ -53,7 +53,7 @@ beforeEach(() => { api.respondToReminder.mockReset(); api.joinClassWaitingList.m
 afterEach(cleanup);
 
 describe("PAD-684 the reminder bubble's 'Afinal vou'", () => {
-  it("offers it after a recorded no on a class that has not started; confirmed shows the recorded yes", async () => {
+  it("[ATTENDANCE-CONFIRM-32] offers it after a recorded no on a class that has not started; confirmed shows the recorded yes", async () => {
     api.respondToReminder.mockResolvedValue({ action: "confirmed" });
     renderBubble(reminder({}));
     fireEvent.click(await screen.findByTestId("bubble-come-back"));
@@ -62,7 +62,7 @@ describe("PAD-684 the reminder bubble's 'Afinal vou'", () => {
     expect(screen.queryByTestId("bubble-come-back")).toBeNull();
   });
 
-  it("spot_filled: the spot-taken line and the join for that occurrence; joining shows the list state", async () => {
+  it("[ATTENDANCE-CONFIRM-33] spot_filled: the spot-taken line and the join for that occurrence; joining shows the list state", async () => {
     api.respondToReminder.mockResolvedValue({ action: "spot_filled" });
     renderBubble(reminder({}));
     fireEvent.click(await screen.findByTestId("bubble-come-back"));

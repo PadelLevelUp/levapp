@@ -37,7 +37,7 @@ function fakeServer() {
 }
 
 describe("signOut", () => {
-  it("unregisters the push token before revoking the session, even when the token must be looked up first", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-27] unregisters the push token before revoking the session, even when the token must be looked up first", async () => {
     const server = fakeServer();
     // Like expoPushRegistrar.unregister() with no cached token: it awaits
     // getDeviceToken() before sending the DELETE.
@@ -55,7 +55,7 @@ describe("signOut", () => {
     expect(server.tokenStillRegistered).toBe(false);
   });
 
-  it("never lets a hung unregister block logout", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-27] never lets a hung unregister block logout", async () => {
     const server = fakeServer();
     const unregisterPush = () => new Promise<void>(() => undefined); // never settles
     const clearToken = vi.fn(async () => {
@@ -67,7 +67,7 @@ describe("signOut", () => {
     expect(server.events).toEqual(["revoke", "clear"]);
   });
 
-  it("still revokes and clears when unregister or revoke fail", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-27] still revokes and clears when unregister or revoke fail", async () => {
     const events: string[] = [];
     await signOut({
       unregisterPush: async () => {
@@ -85,7 +85,7 @@ describe("signOut", () => {
     expect(events).toEqual(["revoke", "clear"]);
   });
 
-  it("never lets a hung revoke block logout (a blackholed /auth/logout)", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-27] never lets a hung revoke block logout (a blackholed /auth/logout)", async () => {
     const events: string[] = [];
     await signOut({
       unregisterPush: async () => {
@@ -104,7 +104,7 @@ describe("signOut", () => {
 
 // PAD-482 (auth.email-verification rule 14): "Agora não" lasts for the session; signing out ends it.
 describe("signOut ends the email prompt's dismissal", () => {
-  it("the next sign-in asks for a missing email again", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] the next sign-in asks for a missing email again", async () => {
     emailPromptSession.dismiss(7);
     await signOut({ unregisterPush: async () => {}, revokeSession: async () => {}, clearToken: async () => {} });
     expect(emailPromptSession.isDismissed(7)).toBe(false);
@@ -113,7 +113,7 @@ describe("signOut ends the email prompt's dismissal", () => {
 
 // #509 review: a session lost to a 401 (AuthContext's unauthorized handler) ends the same session-only state.
 describe("a session lost to a 401", () => {
-  it("endSessionState ends the email prompt's dismissal", () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] endSessionState ends the email prompt's dismissal", () => {
     emailPromptSession.dismiss(7);
     endSessionState();
     expect(emailPromptSession.isDismissed(7)).toBe(false);
@@ -133,7 +133,7 @@ describe("a session lost to a 401", () => {
 // account's cached answers. The query cache is cleared on sign-out (after the token is gone), on a
 // session lost to a 401, and on sign-in.
 describe("a session's cached data ends with it", () => {
-  it("signOut empties the query cache, including an answer that lands while signing out", async () => {
+  it("[AUTH-LOGOUT-6] signOut empties the query cache, including an answer that lands while signing out", async () => {
     const { QueryClient } = await import("@tanstack/react-query");
     const { bindSessionCache } = await import("./session-cache");
     const qc = new QueryClient();
@@ -152,7 +152,7 @@ describe("a session's cached data ends with it", () => {
     expect(qc.getQueryData(["conversations"])).toBeUndefined();
   });
 
-  it("a session lost to a 401 empties it too", async () => {
+  it("[AUTH-LOGOUT-6] a session lost to a 401 empties it too", async () => {
     const { QueryClient } = await import("@tanstack/react-query");
     const { bindSessionCache } = await import("./session-cache");
     const qc = new QueryClient();
@@ -189,14 +189,14 @@ describe("a session that ends dismisses the stack before showing the login scree
     return fs.readFileSync(path.resolve(__dirname, "AuthContext.tsx"), "utf8");
   }
 
-  it("leaveToLogin dismisses to the first route, then replaces it with the login screen", async () => {
+  it("[AUTH-LOGOUT-7] leaveToLogin dismisses to the first route, then replaces it with the login screen", async () => {
     const src = await authContext();
     const at = src.indexOf("function leaveToLogin(");
     expect(at).toBeGreaterThan(-1);
     expect(src.slice(at, at + 200)).toMatch(/router\.dismissAll\(\);[\s\S]*dropUser\(\);[\s\S]*router\.replace\("\/login"\)/);
   });
 
-  it("sign-out and a 401 both leave through it, and nothing else replaces to the login screen", async () => {
+  it("[AUTH-LOGOUT-7] sign-out and a 401 both leave through it, and nothing else replaces to the login screen", async () => {
     const src = await authContext();
     const logout = src.indexOf("const logout = useCallback(");
     expect(src.slice(logout, logout + 1600)).toMatch(/leaveToLogin\(\(\) => setUser\(null\)\)/);

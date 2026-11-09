@@ -52,7 +52,7 @@ describe("ReplacementApprovalCard (PAD-545)", () => {
     expect(screen.getByTestId("dismiss-invitations").textContent).toBe("notificationsUi.replacementApproval.ignore");
   });
 
-  it("a yes on a recomputed bundle tells the coach the list was recalculated", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-16] a yes on a recomputed bundle tells the coach the list was recalculated", async () => {
     respondToApproval.mockResolvedValue({ action: "yes_now", superseded: true,
                                           vacancies: [{ vacancyId: 7, result: "stale" }] });
     render(<ReplacementApprovalCard bundle={BUNDLE} />);
@@ -69,7 +69,7 @@ const bundleOf = (vacancies: unknown[]) =>
   ({ bundleId: "b-574", lessonInstanceId: 1, windowOpenAt: null, responded: false, vacancies }) as unknown as ApprovalBundle;
 
 describe("PAD-574 the card says why each spot is open, groups open spots, previews five", () => {
-  it("a freed spot names the student; a never-filled spot reads as an open spot", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-6] a freed spot names the student; a never-filled spot reads as an open spot", () => {
     render(<ReplacementApprovalCard bundle={bundleOf([
       vac(1, { declinedPlayerId: 3, declinedPlayerName: "Ana", openSpot: false, side: "left", queue: q(2) }),
       vac(2, { openSpot: true, side: "right", queue: q(2) }),
@@ -82,7 +82,7 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
     expect(screen.getAllByTestId("approval-block")).toHaveLength(2);
   });
 
-  it("groups identical open-spot lists by side with a count; freed spots stay apart", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-8] groups identical open-spot lists by side with a count; freed spots stay apart", () => {
     const a = q(3);
     render(<ReplacementApprovalCard bundle={bundleOf([
       vac(1, { openSpot: true, side: "left", queue: a }),
@@ -95,7 +95,7 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
     expect(screen.getAllByTestId("approval-group-label")[0].textContent).toContain("openSpotGroup:count=2,side=notificationsUi.replacementApproval.sideLeft");
   });
 
-  it("shows the first five with 'Ver mais' and the approving-invites-all line only while truncated", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-9] shows the first five with 'Ver mais' and the approving-invites-all line only while truncated", () => {
     render(<ReplacementApprovalCard bundle={bundleOf([vac(1, { openSpot: true, side: null, queue: q(31) })])} />);
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
     expect(screen.getByTestId("approval-showing-of").textContent).toBe("notificationsUi.replacementApproval.showingOf:shown=5,total=31");
@@ -107,7 +107,7 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
     expect(screen.getByTestId("approval-show-more").textContent).toBe("notificationsUi.replacementApproval.showLess");
   });
 
-  it("a list of five or fewer shows neither the button nor the line", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-9] a list of five or fewer shows neither the button nor the line", () => {
     render(<ReplacementApprovalCard bundle={bundleOf([vac(1, { openSpot: true, side: "left", queue: q(5) })])} />);
     expect(screen.queryByTestId("approval-show-more")).toBeNull();
     expect(screen.queryByTestId("approval-showing-of")).toBeNull();
@@ -116,7 +116,7 @@ describe("PAD-574 the card says why each spot is open, groups open spots, previe
 
 // ── PAD-661 (semi-auto-approval rule 4b) ─────────────────────────────────────────────────────
 describe("PAD-661 an empty queue says why", () => {
-  it("lists one line per engine stage under the empty state, in the payload's order", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-7] lists one line per engine stage under the empty state, in the payload's order", () => {
     render(<ReplacementApprovalCard bundle={bundleOf([
       vac(1, { openSpot: true, side: "left", queue: [], emptyQueueReasons: [{ stage: "eligibility", count: 7 }, { stage: "excluded_by_coach", count: 2 }] }),
     ])} />);
@@ -129,7 +129,7 @@ describe("PAD-661 an empty queue says why", () => {
     expect(screen.getByTestId("approval-empty-reasons").children).toHaveLength(2);
   });
 
-  it("an older payload without reasons, or a non-empty queue, shows no reasons", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-7] an older payload without reasons, or a non-empty queue, shows no reasons", () => {
     render(<ReplacementApprovalCard bundle={bundleOf([
       vac(1, { openSpot: true, side: "left", queue: [] }),
       vac(2, { openSpot: true, side: "right", queue: q(2), emptyQueueReasons: [{ stage: "eligibility", count: 7 }] }),
@@ -142,13 +142,13 @@ describe("ReplacementApprovalCard — PAD-765 (rule 11)", () => {
   const resolved = (r: "filled" | "expired") =>
     ({ ...BUNDLE, vacancies: BUNDLE.vacancies.map((v) => ({ ...v, resolved: r })) }) as ApprovalBundle;
 
-  it("a message whose spot filled another way offers no buttons and says it is no longer needed", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-19] a message whose spot filled another way offers no buttons and says it is no longer needed", () => {
     render(<ReplacementApprovalCard bundle={resolved("filled")} />);
     expect(screen.queryByTestId("approve-invitations-now")).toBeNull();
     expect(screen.getByText("notificationsUi.replacementApproval.noLongerNeeded")).toBeTruthy();
   });
 
-  it("a live edit of the message takes the buttons away", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-19] a live edit of the message takes the buttons away", () => {
     const { rerender } = render(<ReplacementApprovalCard bundle={BUNDLE} />);
     expect(screen.getByTestId("approve-invitations-now")).toBeTruthy();
     rerender(<ReplacementApprovalCard bundle={resolved("expired")} />);
@@ -157,12 +157,12 @@ describe("ReplacementApprovalCard — PAD-765 (rule 11)", () => {
 });
 
 describe("PAD-770 (rule 12b): the message's queue says when it was built", () => {
-  it("shows the time when the conversation passes one", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-23] shows the time when the conversation passes one", () => {
     render(<ReplacementApprovalCard bundle={BUNDLE} queueAsOf="2026-10-27T20:41:00Z" />);
     expect(screen.getByTestId("approval-queue-as-of")).toBeTruthy();
   });
 
-  it("the class's card, live, shows none", () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-23] the class's card, live, shows none", () => {
     render(<ReplacementApprovalCard bundle={BUNDLE} allowDismiss />);
     expect(screen.queryByTestId("approval-queue-as-of")).toBeNull();
   });

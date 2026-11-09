@@ -15,7 +15,7 @@ describe("absenceBadge", () => {
   });
 
   // PAD-441 (attendance.absences rule 14): justified is amber, not a muted grey.
-  it("maps a justified absence to the warning (amber) badge", () => {
+  it("[ATTENDANCE-ABSENCES-11] maps a justified absence to the warning (amber) badge", () => {
     expect(absenceBadge("justified")).toEqual({
       justification: "justified",
       labelKey: "absences.justified",
@@ -23,7 +23,7 @@ describe("absenceBadge", () => {
     });
   });
 
-  it("maps an unjustified absence to the destructive badge", () => {
+  it("[ATTENDANCE-ABSENCES-11] maps an unjustified absence to the destructive badge", () => {
     expect(absenceBadge("unjustified")).toEqual({
       justification: "unjustified",
       labelKey: "absences.unjustified",

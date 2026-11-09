@@ -49,6 +49,7 @@ STARTS = [
 
 
 @pytest.mark.parametrize("argv", SKIPS)
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-28")
 def test_scheduler_does_not_start_in_cli_and_migration_processes(app, monkeypatch, fake_scheduler, argv):
     monkeypatch.setattr(scheduler_mod.sys, "argv", argv)
     scheduler_mod.init_scheduler(app)  # must return before constructing it
@@ -56,6 +57,7 @@ def test_scheduler_does_not_start_in_cli_and_migration_processes(app, monkeypatc
 
 
 @pytest.mark.parametrize("argv", STARTS)
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-28")
 def test_scheduler_starts_in_server_processes(app, monkeypatch, fake_scheduler, argv):
     monkeypatch.setattr(scheduler_mod.sys, "argv", argv)
     with pytest.raises(_Started):

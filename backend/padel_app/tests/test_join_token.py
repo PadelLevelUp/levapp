@@ -1,4 +1,5 @@
 """players.join-token — coach QR / link a signed-in student redeems (PAD-212)."""
+import pytest
 from datetime import timedelta
 
 from flask_jwt_extended import create_access_token
@@ -76,6 +77,7 @@ def _mint(client, app, coach_user_id):
 
 # --- Coach mints a token bound to their current club ----------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-2")
 def test_coach_mints_a_token_bound_to_their_current_club(app, client):
     _jwt_secret(app)
     coach_user, coach_id, club_id = _make_coach(app)
@@ -141,6 +143,7 @@ def test_pending_coach_cannot_mint(app, client):
 
 # --- Rotating retires the previous token ----------------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-3")
 def test_rotating_retires_the_previous_token(app, client):
     _jwt_secret(app)
     coach_user, _, _ = _make_coach(app)
@@ -160,6 +163,7 @@ def test_rotating_retires_the_previous_token(app, client):
 
 # --- Preview is public and reveals only coach and club --------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-4")
 def test_preview_is_public_and_reveals_only_coach_and_club(app, client):
     _jwt_secret(app)
     coach_user, _, _ = _make_coach(app)
@@ -179,6 +183,7 @@ def test_unknown_token_is_404(app, client):
 
 # --- Student joins the roster and the club --------------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-5")
 def test_student_joins_the_roster_and_the_club(app, client):
     from padel_app.models import (
         Association_CoachPlayer,
@@ -216,6 +221,7 @@ def test_student_joins_the_roster_and_the_club(app, client):
 
 # --- Accept is idempotent --------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-6")
 def test_accept_is_idempotent(app, client):
     from padel_app.models import Association_CoachPlayer, Association_PlayerClub
 
@@ -246,6 +252,7 @@ def test_accept_is_idempotent(app, client):
 
 # --- A coach account cannot join a roster ---------------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-7")
 def test_a_coach_account_cannot_join_a_roster(app, client):
     from padel_app.models import Association_CoachPlayer
 
@@ -271,6 +278,7 @@ def test_accept_requires_a_session(app, client):
 
 # --- Expired token is 410 ---------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-8")
 def test_expired_token_is_410_and_flipped_inactive(app, client):
     from padel_app.models import CoachJoinToken
 
@@ -299,6 +307,7 @@ def test_expired_token_is_410_and_flipped_inactive(app, client):
 
 # --- Acting player comes from the JWT only ---------------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-9")
 def test_acting_player_comes_from_the_jwt_only(app, client):
     from padel_app.models import Association_CoachPlayer
 
@@ -321,6 +330,7 @@ def test_acting_player_comes_from_the_jwt_only(app, client):
 
 # --- PAD-269: the token is stored only as a hash ---------------------------
 
+@pytest.mark.criterion("PLAYERS-JOIN-TOKEN-15")
 def test_token_is_stored_only_as_a_hash(app, client):
     import hashlib
 

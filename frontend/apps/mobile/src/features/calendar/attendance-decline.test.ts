@@ -101,7 +101,7 @@ describe("canCancelAttendance", () => {
     expect(canCancelAttendance({ ...student, ownPresence: undefined })).toBe(true);
   });
 
-  it("is hidden once the class has started (rule 9)", () => {
+  it("[ATTENDANCE-CONFIRM-21] is hidden once the class has started (rule 9)", () => {
     expect(
       canCancelAttendance({ ...student, date: "2026-09-06", startTime: "09:00" })
     ).toBe(false);
@@ -147,11 +147,11 @@ describe("hasClassStarted defaults to the club's clock (PAD-295)", () => {
     vi.useRealTimers();
   });
 
-  it("a class starting in 30 Lisbon minutes has not started on any device", () => {
+  it("[ATTENDANCE-CONFIRM-21] a class starting in 30 Lisbon minutes has not started on any device", () => {
     expect(hasClassStarted("2027-07-15", "10:30")).toBe(false);
   });
 
-  it("a class that started 30 Lisbon minutes ago has started on any device", () => {
+  it("[ATTENDANCE-CONFIRM-21] a class that started 30 Lisbon minutes ago has started on any device", () => {
     expect(hasClassStarted("2027-07-15", "09:30")).toBe(true);
   });
 });
@@ -166,7 +166,7 @@ describe("hasClassStarted on a Madrid device during its spring gap (PAD-295)", (
     vi.useRealTimers();
   });
 
-  it("a 03:15 class has not started at 02:30 Lisbon, whatever the device's gap", () => {
+  it("[ATTENDANCE-CONFIRM-21] a 03:15 class has not started at 02:30 Lisbon, whatever the device's gap", () => {
     expect(hasClassStarted("2027-03-28", "03:15")).toBe(false);
   });
 });

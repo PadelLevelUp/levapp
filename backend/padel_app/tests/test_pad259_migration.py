@@ -6,6 +6,7 @@ downgrades cleanly.
 Scratch SQLite with hand-made tables: the junction is created WITHOUT foreign
 keys so an orphan row (deleted player) can be seeded — the shape prod can hold
 because its create_all-era schema never had every constraint."""
+import pytest
 import importlib.util
 import logging
 import pathlib
@@ -74,6 +75,7 @@ def _rows(conn):
     ]
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-15")
 def test_backfill_inserts_stamps_skips_orphans_and_logs_its_counts(caplog):
     mod = _load()
     conn = _scratch()
@@ -112,6 +114,7 @@ def test_backfill_inserts_stamps_skips_orphans_and_logs_its_counts(caplog):
         )
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-16")
 def test_upgrade_fails_when_a_junction_row_is_left_without_a_presence():
     """A backfill that leaves a real (non-orphan) junction row uncovered must
     not let the upgrade finish: the code after it reads presences as truth."""

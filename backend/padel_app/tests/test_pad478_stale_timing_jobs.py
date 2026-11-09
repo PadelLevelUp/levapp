@@ -54,6 +54,7 @@ def _set_timing(coach_id, **fields):
     update_config(coach_id, fields)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-12")
 def test_baseline_a_future_time_replaces_the_job(armed):
     """Trigger absent: both values are in the future, the job moves."""
     _set_timing(armed["coach"], reminderTiming={"firstReminder": DAY_BEFORE_18})
@@ -63,6 +64,7 @@ def test_baseline_a_future_time_replaces_the_job(armed):
     assert _fire_time(armed["sched"], f"reminder_{armed['instance']}") == datetime(2027, 7, 10, 17, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-12")
 def test_a_reminder_time_moved_into_the_past_leaves_no_job_at_the_old_time(armed):
     job_id = f"reminder_{armed['instance']}"
     _set_timing(armed["coach"], reminderTiming={"firstReminder": DAY_BEFORE_18})
@@ -78,6 +80,7 @@ def test_a_reminder_time_moved_into_the_past_leaves_no_job_at_the_old_time(armed
     )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-17")
 def test_an_intermediate_value_does_not_survive_the_final_one(armed):
     """The web form saves per control: days 1 -> 2 (still 18:00), then the time 18:00 -> 09:00.
     The first save arms TODAY 17:00 UTC; the second is in the past and replaces nothing."""
@@ -92,6 +95,7 @@ def test_an_intermediate_value_does_not_survive_the_final_one(armed):
     )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-12")
 def test_an_invitation_start_moved_into_the_past_leaves_no_job_at_the_old_time(armed):
     job_id = f"invite_start_{armed['instance']}"
     _set_timing(armed["coach"], invitationStartTiming=DAY_BEFORE_18)
@@ -102,6 +106,7 @@ def test_an_invitation_start_moved_into_the_past_leaves_no_job_at_the_old_time(a
     assert _fire_time(armed["sched"], job_id) is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-12")
 def test_no_reminder_goes_out_at_a_time_the_current_configuration_does_not_imply(armed, monkeypatch):
     """The consequence, measured by running whatever is still armed at its own fire time:
     nothing in the reminder pass re-checks the coach's timing, so a surviving job SENDS."""
@@ -140,6 +145,7 @@ def _seed_lesson_without_instance(coach_id):
     return lesson.id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-12")
 def test_an_occurrence_job_does_not_survive_a_time_moved_into_the_past(armed):
     """Same class of defect one level up: `reminder_lesson_<lesson>_<date>` (scheduler.py,
     `schedule_lesson_reminder_jobs` skips a past time and leaves the job)."""
@@ -155,6 +161,7 @@ def test_an_occurrence_job_does_not_survive_a_time_moved_into_the_past(armed):
     assert _fire_time(armed["sched"], job_id) is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-12")
 def test_a_timing_of_type_none_leaves_no_job(armed):
     """`none` implies no job at all (`_fire_time_utc` returns None for it)."""
     _set_timing(armed["coach"], reminderTiming={"firstReminder": DAY_BEFORE_18})
@@ -215,12 +222,14 @@ def _first_reminder_then_retry(armed, monkeypatch, *, new_spacing_hours, new_cou
     return sent, still_armed
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_baseline_an_unchanged_spacing_sends_the_follow_up(armed, monkeypatch):
     """Trigger absent: the retry fires 2 h after the first reminder and sends the second."""
     sent, _armed = _first_reminder_then_retry(armed, monkeypatch, new_spacing_hours=None)
     assert sent == 2
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_raising_the_spacing_does_not_lose_a_pending_follow_up(armed, monkeypatch):
     """The opposite direction (B-250): `reschedule_all_future_jobs` never touches the retry
     jobs. The coach raises the spacing from 2 h to 6 h while a retry is pending. The retry
@@ -234,6 +243,7 @@ def test_raising_the_spacing_does_not_lose_a_pending_follow_up(armed, monkeypatc
     assert sent == 2, "the second reminder was never sent"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_lowering_the_spacing_brings_the_follow_up_forward_but_never_before_now(armed, monkeypatch):
     """First reminder 17:00, new spacing 1 h, changed at 18:00: 17:00 + 1 h is not in the
     future any more, so the follow-up goes a minute from now instead of at 19:00."""
@@ -242,6 +252,7 @@ def test_lowering_the_spacing_brings_the_follow_up_forward_but_never_before_now(
     assert sent == 2
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_lowering_the_count_to_what_was_sent_removes_the_follow_up(armed, monkeypatch):
     sent, still_armed = _first_reminder_then_retry(armed, monkeypatch, new_spacing_hours=None, new_count=1)
     assert armed["retimed_to"] == [], "no further reminder is owed, so no follow-up job may remain"
@@ -298,6 +309,7 @@ def _confirm(instance_id, player_id):
     db.session.commit()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_the_startup_and_daily_passes_leave_a_pending_follow_up_where_it_is(app, armed, monkeypatch):
     """Rule 10b: only a settings change re-times. A restart must neither move nor remove it."""
     from padel_app import scheduler
@@ -318,6 +330,7 @@ def test_the_startup_and_daily_passes_leave_a_pending_follow_up_where_it_is(app,
     assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 19, 0)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-21")
 def test_a_follow_up_that_fired_meanwhile_is_not_a_failed_reschedule(armed, monkeypatch):
     """Between listing the jobs and moving one, a follow-up can fire and vanish. That is the
     follow-up doing its job, not a failure to report to the coach."""
@@ -336,6 +349,7 @@ def test_a_follow_up_that_fired_meanwhile_is_not_a_failed_reschedule(armed, monk
     assert config.reschedule_failed is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_a_student_not_reminded_yet_keeps_the_follow_up(armed, monkeypatch):
     """A student who has had no reminder (added after the first pass, or blocked during it)
     is still owed one. With everyone else answered, the follow-up is what will reach them:
@@ -349,6 +363,7 @@ def test_a_student_not_reminded_yet_keeps_the_follow_up(armed, monkeypatch):
     assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 19, 0)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_a_follow_up_is_removed_when_everyone_has_answered(armed, monkeypatch):
     _after_first_reminder(armed, monkeypatch)
     _confirm(armed["instance"], armed["student"])
@@ -358,6 +373,7 @@ def test_a_follow_up_is_removed_when_everyone_has_answered(armed, monkeypatch):
     assert _follow_ups(armed["sched"]) == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_a_follow_up_with_no_room_before_the_class_is_removed(armed, monkeypatch):
     """The class starts 2027-07-12 17:00 UTC. 17:00 + 24 h is the start itself: never at or
     after it."""
@@ -368,6 +384,7 @@ def test_a_follow_up_with_no_room_before_the_class_is_removed(armed, monkeypatch
     assert _follow_ups(armed["sched"]) == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_one_follow_up_per_class_timed_from_the_newest_reminder_so_nobody_is_skipped(armed, monkeypatch):
     """Follow-ups are one job per CLASS. Two students owed one, the second reminded at 17:30
     (a manual send): the job goes to 17:30 + 6 h, when both are outside the spacing, and both
@@ -391,6 +408,7 @@ def test_one_follow_up_per_class_timed_from_the_newest_reminder_so_nobody_is_ski
     assert attempts.count_attempts(armed["instance"], second) == 2
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_twin_follow_ups_of_one_class_collapse_into_one(armed, monkeypatch):
     """B-161 left pairs of follow-ups for one class. Re-timing keeps one."""
     from apscheduler.triggers.date import DateTrigger
@@ -410,6 +428,7 @@ def test_twin_follow_ups_of_one_class_collapse_into_one(armed, monkeypatch):
     assert _follow_ups(armed["sched"]) == [datetime(2027, 7, 11, 23, 0)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-20")
 def test_quiet_hours_do_not_defer_a_re_timed_follow_up(armed, monkeypatch):
     """23:00 UTC is midnight in Lisbon, inside the default quiet hours. A follow-up armed by
     a reminder pass is not deferred by quiet hours either (only the late-arrival ask is)."""
@@ -449,6 +468,7 @@ def _plant_stale_reminder(armed):
     return job_id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-19")
 def test_the_startup_pass_removes_a_stale_job_and_sends_nothing(app, armed):
     from padel_app import scheduler
     from padel_app.services import reminder_attempt_service as attempts
@@ -461,6 +481,7 @@ def test_the_startup_pass_removes_a_stale_job_and_sends_nothing(app, armed):
     assert attempts.count_attempts(armed["instance"], armed["student"]) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-19")
 def test_the_daily_pass_removes_a_stale_job_and_sends_nothing(armed):
     from padel_app import scheduler
     from padel_app.services import reminder_attempt_service as attempts
@@ -475,6 +496,7 @@ def test_the_daily_pass_removes_a_stale_job_and_sends_nothing(armed):
 
 # ── overlapping saves, and a reschedule that hangs ──────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_two_overlapping_derivations_for_one_coach_run_one_after_the_other():
     """Two threads deriving jobs for the same primary coach: the second waits for the first.
     The derivation lock itself, with no database in the threads."""
@@ -509,6 +531,7 @@ def test_two_overlapping_derivations_for_one_coach_run_one_after_the_other():
     assert events == ["first in", "first out", "second in", "second out"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_a_reschedule_that_cannot_get_the_lock_is_reported_not_left_hanging(armed, monkeypatch):
     """A reschedule that hangs must not block the coach's later saves for ever: the wait is
     bounded, and the save that gave up is reported like any failed reschedule."""
@@ -541,6 +564,7 @@ def test_a_reschedule_that_cannot_get_the_lock_is_reported_not_left_hanging(arme
 
 # ── the implied job itself, merely due ──────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-18")
 def test_a_job_due_at_its_implied_time_is_left_to_fire(armed, monkeypatch):
     """A restart can land seconds after a reminder's instant, inside its grace time. The
     re-arm must not remove THAT job: it is the one the configuration implies."""
@@ -556,6 +580,7 @@ def test_a_job_due_at_its_implied_time_is_left_to_fire(armed, monkeypatch):
     assert _fire_time(armed["sched"], job_id) == datetime(2027, 7, 11, 17, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-19")
 def test_the_startup_and_daily_passes_send_nothing(armed, monkeypatch):
     """Deploying the fix: the re-arm removes what the configuration no longer implies and
     sends nothing, even for a class whose reminder time is past and who was never reminded."""
@@ -574,6 +599,7 @@ def test_the_startup_and_daily_passes_send_nothing(armed, monkeypatch):
 
 # ── any sequence of saves: the saved configuration alone decides ────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_a_reschedule_that_runs_late_arms_what_is_saved(armed):
     """Save A, then save B. A's reschedule running AFTER B's (requests overlap on threads)
     must still leave B's jobs: the reschedule takes no values from its caller, it reads the
@@ -588,6 +614,7 @@ def test_a_reschedule_that_runs_late_arms_what_is_saved(armed):
     assert _fire_time(armed["sched"], f"reminder_{armed['instance']}") == datetime(2027, 7, 11, 17, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-25")
 def test_every_derivation_runs_under_the_coachs_lock(armed, monkeypatch):
     """A save's per-class work and a pass's must not interleave on one class: each job is
     reconciled with the primary coach's lock held."""
@@ -609,6 +636,7 @@ def test_every_derivation_runs_under_the_coachs_lock(armed, monkeypatch):
 
 # ── a failed reschedule is reported ─────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-21")
 def test_a_failed_reschedule_is_reported_and_the_configuration_is_still_saved(armed, monkeypatch, caplog):
     import logging
 
@@ -627,6 +655,7 @@ def test_a_failed_reschedule_is_reported_and_the_configuration_is_still_saved(ar
     assert any("job store unreachable" in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-21")
 def test_a_successful_reschedule_is_not_reported_as_failed(armed):
     from padel_app.services.notification_service import update_config
 
@@ -634,6 +663,7 @@ def test_a_successful_reschedule_is_not_reported_as_failed(armed):
     assert getattr(config, "reschedule_failed", None) is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-21")
 def test_the_route_tells_the_client_when_the_reschedule_failed(app, armed, monkeypatch, client):
     from flask_jwt_extended import create_access_token
 

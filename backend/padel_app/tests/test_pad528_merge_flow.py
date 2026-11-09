@@ -72,6 +72,7 @@ def _alerts(monkeypatch):
     return sent
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-14")
 def test_a_roster_pick_merges_at_once_and_never_asks_or_warns_the_student(app, client, world, monkeypatch):
     """Rule 4d, owner decision 2026-10-08 (option B): the student is on Maria's roster, so the
     coach merges alone — the request is accepted in the same call, the student gets no request,
@@ -93,6 +94,7 @@ def test_a_roster_pick_merges_at_once_and_never_asks_or_warns_the_student(app, c
     assert client.get("/api/app/player-claim-requests", headers=_auth(app, world["st_user"])).json == []
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-14")
 def test_consent_is_needed_only_for_a_student_not_on_the_coachs_roster(app, world):
     """The one function of rule 4d."""
     from padel_app.models import Coach, Player, User
@@ -105,6 +107,7 @@ def test_consent_is_needed_only_for_a_student_not_on_the_coachs_roster(app, worl
         assert claim_consent_required(coach, placeholder, User.query.get(ou)) is True
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-12")
 def test_a_pick_outside_the_roster_is_404(app, client, world):
     from padel_app.models import PlayerClaimRequest
 
@@ -118,6 +121,7 @@ def test_a_pick_outside_the_roster_is_404(app, client, world):
 
 # ── rule 4c: the duplicate flag ─────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-13")
 def test_the_roster_flags_the_likely_duplicate_on_the_placeholder_row_only(app, client, world):
     cid, club = world["coach"], world["club"]
     _placeholder(app, cid, club, name="Ana  Silva")           # two spaces: normalises to ana's name
@@ -151,6 +155,7 @@ def _outsider_request(client, app, world):
     return res.json["id"], ou, op
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-16")
 def test_a_student_not_on_the_roster_is_asked_and_nothing_merges_until_they_accept(app, client, world, monkeypatch):
     from padel_app.models import Player, PlayerClaimRequest, PlayerMerge
 
@@ -166,6 +171,7 @@ def test_a_student_not_on_the_roster_is_asked_and_nothing_merges_until_they_acce
 
 # ── rule 5h: soft references ────────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-20")
 def test_soft_references_follow_the_merge(app, world):
     from padel_app.models import ClassRequest, NotificationConfig
     from padel_app.services.player_claim_service import merge_placeholder_player_into
@@ -230,6 +236,7 @@ def _coach_preview(client, app, world):
     return res.json
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-22")
 def test_the_preview_counts_what_the_merge_then_does(app, client, world):
     from padel_app.models import Player, PlayerMerge, Presence
 
@@ -273,6 +280,7 @@ def test_only_the_target_previews_a_request(app, client, world):
     assert client.get(f"/api/app/player-claim-requests/{req_id}/preview", headers=_auth(app, other)).status_code == 403
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-22")
 def test_the_students_preview_can_run_twice_and_their_accept_still_merges(app, client, world):
     """The savepoint rollback leaves the session usable; the student's preview counts what moves."""
     from padel_app.models import Player, PlayerMerge
@@ -330,6 +338,7 @@ def _merge_now(app, world):
         merge_placeholder_player_into(Player.query.get(world["ph_player"]), User.query.get(world["st_user"]))
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-17")
 def test_both_active_standing_entries_keep_the_students_active(app, client, world):
     """uq_standing_entries_active_coach_player: both hold an active standing entry with
     Maria. The merge used to 500; the student's stays active, the placeholder's moves inactive."""
@@ -350,6 +359,7 @@ def test_both_active_standing_entries_keep_the_students_active(app, client, worl
         assert [r.id for r in rows if r.is_active] == [mine]
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-18")
 def test_both_open_vacancies_on_one_class_keep_both_spots(app, client, world):
     """uq_vacancies_open_original_player: both left the same occurrence. The merge and the
     dry run used to 500; both spots stay open, the placeholder's loses only its attribution."""
@@ -416,6 +426,7 @@ def test_every_unique_key_the_merge_touches_is_accounted_for(app):
     assert all(MERGE_UNIQUE_KEYS_IMPOSSIBLE.values())
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-19")
 def test_a_placeholder_cannot_be_merged_into_another_placeholder(app, client, world):
     from padel_app.models import Player, User
     from padel_app.services.player_claim_service import merge_placeholder_player_into
@@ -495,6 +506,7 @@ def test_active_standing_entries_of_different_series_both_stay_active(app, world
         assert len(rows) == 2 and all(r.is_active for r in rows)
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-15")
 def test_a_placeholder_another_coach_also_holds_falls_back_to_the_students_accept(app, client, world, monkeypatch):
     """#563 review: P1 is also on coach Rui's roster. A coach-alone merge would move Rui's relation
     onto ana — ana joining Rui's roster unasked and Rui's record vanishing. So even though ana is on

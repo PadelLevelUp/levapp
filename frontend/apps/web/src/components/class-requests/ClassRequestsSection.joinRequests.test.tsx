@@ -107,7 +107,7 @@ afterEach(() => {
 });
 
 describe("the coach's list merges academy rows with private ones (rule 17)", () => {
-  it("shows an academy row, newest-first, between two private rows, with the badge, class title and time", async () => {
+  it("[CLASSES-JOIN-REQUESTS-15] shows an academy row, newest-first, between two private rows, with the badge, class title and time", async () => {
     requestsApi.listClassRequests.mockResolvedValue([
       privateRow({ id: 1, createdAt: "2026-10-06T14:00:00" }),
       privateRow({ id: 2, createdAt: "2026-10-06T08:00:00" }),
@@ -145,7 +145,7 @@ describe("the coach's list merges academy rows with private ones (rule 17)", () 
     await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, false));
   });
 
-  it("an ineligible 409 opens the confirm dialog, and confirming accepts with confirm: true", async () => {
+  it("[CLASSES-JOIN-REQUESTS-11] an ineligible 409 opens the confirm dialog, and confirming accepts with confirm: true", async () => {
     requestsApi.listClassRequests.mockResolvedValue([]);
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
     joinRequestsApi.acceptClassJoinRequest
@@ -163,7 +163,7 @@ describe("the coach's list merges academy rows with private ones (rule 17)", () 
   });
 
   // PAD-808 (rule 7a): the side part of the same 409.
-  it("a side-only 409 asks about the other side's spot, naming the student, and confirming accepts", async () => {
+  it("[CLASSES-JOIN-REQUESTS-9] a side-only 409 asks about the other side's spot, naming the student, and confirming accepts", async () => {
     requestsApi.listClassRequests.mockResolvedValue([]);
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
     joinRequestsApi.acceptClassJoinRequest
@@ -182,7 +182,7 @@ describe("the coach's list merges academy rows with private ones (rule 17)", () 
     await waitFor(() => expect(joinRequestsApi.acceptClassJoinRequest).toHaveBeenCalledWith(100, true));
   });
 
-  it("both parts come in one dialog: the bar's students and the side line", async () => {
+  it("[CLASSES-JOIN-REQUESTS-10] both parts come in one dialog: the bar's students and the side line", async () => {
     requestsApi.listClassRequests.mockResolvedValue([]);
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
     joinRequestsApi.acceptClassJoinRequest.mockRejectedValueOnce({
@@ -203,7 +203,7 @@ describe("the coach's list merges academy rows with private ones (rule 17)", () 
 });
 
 describe("the student's list shows and lets her withdraw her own academy request (rule 17)", () => {
-  it("shows withdraw on her pending academy row and calls withdrawClassJoinRequest on click", async () => {
+  it("[CLASSES-JOIN-REQUESTS-17] shows withdraw on her pending academy row and calls withdrawClassJoinRequest on click", async () => {
     requestsApi.listClassRequests.mockResolvedValue([]);
     joinRequestsApi.listClassJoinRequests.mockResolvedValue([academyRow({ id: 100 })]);
     joinRequestsApi.withdrawClassJoinRequest.mockResolvedValue(academyRow({ id: 100, status: "withdrawn" }));

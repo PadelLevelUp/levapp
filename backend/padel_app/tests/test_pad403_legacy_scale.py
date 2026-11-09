@@ -24,6 +24,7 @@ from padel_app.services.legacy_scale import to_legacy, to_stars
         (10, 5),
     ],
 )
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-1")
 def test_to_stars_is_pinned_value_by_value(score, stars):
     assert to_stars(score) == stars
 
@@ -38,6 +39,7 @@ def test_to_stars_is_pinned_value_by_value(score, stars):
         (5, 10),
     ],
 )
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-1")
 def test_to_legacy_is_pinned_value_by_value(stars, score):
     assert to_legacy(stars) == score
 

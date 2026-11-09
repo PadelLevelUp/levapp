@@ -5,7 +5,7 @@ import { MENU_PAGES, prefetchAppPages, resetPrefetchedPagesForTest, type PageNam
 describe("prefetchAppPages", () => {
   beforeEach(() => resetPrefetchedPagesForTest());
 
-  it("loads each menu page exactly once and no public page", async () => {
+  it("[CLIENT-ROUTE-LOADING-4] loads each menu page exactly once and no public page", async () => {
     const load = vi.fn((_name: PageName) => Promise.resolve({}));
     prefetchAppPages(load);
     prefetchAppPages(load);

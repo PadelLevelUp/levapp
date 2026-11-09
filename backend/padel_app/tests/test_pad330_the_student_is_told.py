@@ -63,6 +63,7 @@ def _club(app):
 
 # --- the coach's three doors ------------------------------------------------
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-2")
 def test_creating_a_class_with_a_student_tells_them(app):
     """And the push keeps the message shape — the binding constraint."""
     from padel_app.services.lesson_service import create_lesson_helper
@@ -95,6 +96,7 @@ def test_creating_a_class_with_a_student_tells_them(app):
     assert data["conversationId"] is not None
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-2")
 def test_adding_a_student_to_the_series_tells_them(app):
     """Built on a lesson created the way the app creates one, so it carries the
     lesson-level coach link that `edit_lesson_helper` resolves the coach from."""
@@ -126,6 +128,7 @@ def test_adding_a_student_to_the_series_tells_them(app):
     assert len(_added_messages(app, carol_uid)) == 1
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-2")
 def test_adding_a_student_to_one_occurrence_tells_them(app):
     from padel_app.models import LessonInstance
     from padel_app.services.lesson_service import enrol
@@ -142,6 +145,7 @@ def test_adding_a_student_to_one_occurrence_tells_them(app):
     assert len(_added_messages(app, carol_uid)) == 1
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-2")
 def test_putting_back_a_student_who_cancelled_tells_them(app):
     from padel_app.models import LessonInstance
     from padel_app.services.lesson_service import enrol
@@ -164,6 +168,7 @@ def test_putting_back_a_student_who_cancelled_tells_them(app):
 
 # --- the guards: who must NOT be told ---------------------------------------
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-3")
 def test_materialising_a_class_tells_nobody(app):
     """The noise guard, and the one that matters most.
 
@@ -209,6 +214,7 @@ def test_materialising_a_class_tells_nobody(app):
     )
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-4")
 def test_an_engine_fill_does_not_send_this_message(app):
     """Invitations, waiting-list placements and accepted requests send their own."""
     from padel_app.models import LessonInstance
@@ -227,6 +233,7 @@ def test_an_engine_fill_does_not_send_this_message(app):
 
 
 @pytest.mark.parametrize("source", ["walk_in", "import"])
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-4")
 def test_recording_a_class_that_already_happened_tells_nobody(app, source):
     from padel_app.models import LessonInstance
     from padel_app.services.lesson_service import enrol
@@ -303,6 +310,7 @@ def test_a_coach_can_use_the_same_placeholders_as_every_other_template(app):
     assert "Segunda 10h" in text, "the class title still reaches the student"
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-4")
 def test_accepting_a_students_own_class_request_does_not_tell_them_again(app):
     """They asked for this class and already get the acceptance message.
 

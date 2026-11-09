@@ -96,6 +96,7 @@ def _count(app, model_name, **filters):
 
 # ── AC: an eligible student sees open and full classes for fourteen days ─────
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-1")
 def test_open_and_full_classes_are_listed_with_their_state(app):
     ids = _setup(app)
     _add_class(app, ids, days=1, title="Open Tomorrow", max_players=6, filled=2)
@@ -114,6 +115,7 @@ def test_open_and_full_classes_are_listed_with_their_state(app):
     assert starts == sorted(starts)
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-3")
 def test_the_window_is_fourteen_club_local_days(app):
     ids = _setup(app)
     _add_class(app, ids, days=13, title="Day Thirteen", max_players=6)
@@ -127,6 +129,7 @@ def test_the_window_is_fourteen_club_local_days(app):
     assert "Day Thirteen" in titles and "Day Fifteen" not in titles
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-1")
 def test_the_read_materialises_nothing(app):
     ids = _setup(app)
     virtual = _add_class(app, ids, days=2, title="Weekly Virtual", max_players=6,
@@ -141,6 +144,7 @@ def test_the_read_materialises_nothing(app):
 
 # ── AC: ineligible, hidden, enrolled and out-of-window classes are not listed ─
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-3")
 def test_classes_the_student_may_not_join_are_not_listed(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.lesson_service import enrol
@@ -173,6 +177,7 @@ def test_the_coach_toggle_off_empties_the_list(app):
 
 # ── AC: a student not on the coach's roster is refused ───────────────────────
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-4")
 def test_a_student_not_on_the_roster_is_refused(app):
     from padel_app.models import User
     from padel_app.models.players import Player
@@ -193,6 +198,7 @@ def test_a_student_not_on_the_roster_is_refused(app):
 
 # ── AC: requesting an open class with a note ─────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-5")
 def test_a_request_carries_the_note_to_the_coach(app):
     from padel_app.models import ClassJoinRequest
     from padel_app.models.players import Player
@@ -247,6 +253,7 @@ def _join(app, ids, **target):
         return entry.lesson_instance_id, entry.is_active, entry.standing_entry_id, created
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-6")
 def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(app, monkeypatch):
     pushes = []
     events = []
@@ -282,6 +289,7 @@ def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(ap
     assert ("waiting_list_joined", [ids["coach_user_id"]]) in events
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-6")
 def test_joining_a_virtual_full_occurrence_materialises_it(app):
     from padel_app.models import Association_PlayerLesson
 
@@ -301,6 +309,7 @@ def test_joining_a_virtual_full_occurrence_materialises_it(app):
 
 # ── AC: the waiting list is only for a full class ────────────────────────────
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-7")
 def test_an_open_class_has_no_waiting_list(app):
     ids = _setup(app)
     open_class = _add_class(app, ids, days=1, title="Open Tomorrow", max_players=6, filled=1)
@@ -323,6 +332,7 @@ def test_the_waiting_list_join_rechecks_what_the_list_checks(app):
 
 # ── AC: leaving the waiting list ─────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-8")
 def test_leaving_deactivates_only_the_students_own_entry(app):
     from padel_app.models.players import Player
     from padel_app.services.academy_class_service import leave_class_waiting_list_service
@@ -426,6 +436,7 @@ def test_the_payload_says_whether_the_coach_advertises_open_spots(app):
     assert _list(app, ids)["openSpotsVisible"] is False
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-6")
 def test_a_double_tap_that_races_the_first_insert_is_the_idempotent_200(app, monkeypatch):
     """Cross-review F5 (Session A): two parallel first joins by the same student. The
     second request finds no row, the first commits one, and the second's insert hits

@@ -145,6 +145,7 @@ def world(app):
 
 # ── student side ─────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-20")
 def test_a_student_who_joined_one_coach_does_not_see_the_clubs_other_coaches(client, app, world):
     """The PAD-568 report: one join link, every coach of the club in the picker."""
     u = world["users"]
@@ -153,6 +154,7 @@ def test_a_student_who_joined_one_coach_does_not_see_the_clubs_other_coaches(cli
     assert u["coach_b"] not in ids
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-20")
 def test_a_student_cannot_start_a_conversation_with_a_club_only_coach(client, app, world):
     u = world["users"]
     assert _start(client, app, u["joined"], {"otherParticipants": [u["coach_b"]]}).status_code == 403
@@ -168,6 +170,7 @@ def test_a_club_only_student_has_an_empty_picker(client, app, world):
 
 # ── coach side ───────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-5")
 def test_a_coach_does_not_see_club_only_players(client, app, world):
     u = world["users"]
     ids = _picker(client, app, u["coach_b"])
@@ -175,6 +178,7 @@ def test_a_coach_does_not_see_club_only_players(client, app, world):
     assert u["joined"] not in ids  # on A's roster, in B's club: not B's student
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-5")
 def test_a_coach_cannot_start_a_conversation_with_a_club_only_player(client, app, world):
     u = world["users"]
     assert _start(client, app, u["coach_b"], {"otherParticipants": [u["clubonly"]]}).status_code == 403
@@ -182,6 +186,7 @@ def test_a_coach_cannot_start_a_conversation_with_a_club_only_player(client, app
     assert _start(client, app, u["coach_b"], {"otherUsername": "p568_clubonly"}).status_code == 201
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-6")
 def test_a_coach_reaches_students_of_a_class_that_is_not_over(client, app, world):
     """The coach side gains the live-class arm it never had, mirroring the student side."""
     u = world["users"]
@@ -191,12 +196,14 @@ def test_a_coach_reaches_students_of_a_class_that_is_not_over(client, app, world
     assert _start(client, app, u["coach_b"], {"otherParticipants": [u["inclass"]]}).status_code == 201
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-6")
 def test_a_class_that_is_over_does_not_link_a_coach_to_its_students(client, app, world):
     u = world["users"]
     assert u["past"] not in _picker(client, app, u["coach_b"])
     assert _start(client, app, u["coach_b"], {"otherParticipants": [u["past"]]}).status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-6")
 def test_a_cancelled_occurrence_stops_linking(client, app, world):
     from padel_app.models.lesson_instances import LessonInstance
 
@@ -215,6 +222,7 @@ PLAYERS = ["joined", "clubonly", "inclass", "inseries", "past", "declined", "can
            "oneoff", "nobody"]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-8")
 def test_the_two_directions_agree(client, app, world):
     """C is in a player's picker exactly when that player is in C's picker — for every link kind,
     including the tenses where two hand-written mirrors could diverge (cancelled occurrence, ended

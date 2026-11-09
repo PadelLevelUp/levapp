@@ -8,7 +8,7 @@ import { unavailableBeforeSave } from "./unavailable-check";
  * before saving. An empty answer means "save now".
  */
 describe("unavailableBeforeSave", () => {
-  it("returns the blocked students the lookup names", async () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-3] returns the blocked students the lookup names", async () => {
     const lookup = vi.fn().mockResolvedValue([{ name: "Ana" }]);
     await expect(unavailableBeforeSave({ acknowledged: false, playerIds: ["1"], lookup })).resolves.toEqual([
       { name: "Ana" },
@@ -21,13 +21,13 @@ describe("unavailableBeforeSave", () => {
     await expect(unavailableBeforeSave({ acknowledged: false, playerIds: ["1"], lookup })).resolves.toEqual([]);
   });
 
-  it("once acknowledged it does not ask again", async () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-3] once acknowledged it does not ask again", async () => {
     const lookup = vi.fn().mockResolvedValue([{ name: "Ana" }]);
     await expect(unavailableBeforeSave({ acknowledged: true, playerIds: ["1"], lookup })).resolves.toEqual([]);
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  it("with no students chosen it does not look", async () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-3] with no students chosen it does not look", async () => {
     const lookup = vi.fn().mockResolvedValue([{ name: "Ana" }]);
     await expect(unavailableBeforeSave({ acknowledged: false, playerIds: [], lookup })).resolves.toEqual([]);
     expect(lookup).not.toHaveBeenCalled();

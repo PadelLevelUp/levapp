@@ -42,7 +42,7 @@ function createHarness(over: Partial<{ conflict: boolean; ids: string[]; slot: b
 }
 
 describe("create: the save sequence (classes.create rule 10)", () => {
-  it("an unavailable chosen student is named, and nothing is saved until the coach confirms", async () => {
+  it("[CLASSES-CREATE-6] an unavailable chosen student is named, and nothing is saved until the coach confirms", async () => {
     const h = createHarness({ lookup: async () => [ANA] });
     await h.flow.start();
     expect(h.ui.askUnavailable).toHaveBeenCalledWith([ANA]);
@@ -110,7 +110,7 @@ function editHarness(draft: typeof base, ineligible: { playerId: string }[] = []
 }
 
 describe("edit: the save decision (classes.edit rule 9)", () => {
-  it("a participants-only edit is saved", async () => {
+  it("[CLASSES-EDIT-4] a participants-only edit is saved", async () => {
     const h = editHarness({ ...base, participants: [{ id: "1" }, { id: "2" }] });
     await h.run();
     expect(h.finalize).toHaveBeenCalledWith({ addPlayers: ["2"] });
@@ -126,7 +126,7 @@ describe("edit: the save decision (classes.edit rule 9)", () => {
     expect(hasClassEditChanges(base, structuredClone(base))).toBe(false);
   });
 
-  it("adding a student who fails the bar asks first, naming them, and does not save", async () => {
+  it("[CLASSES-EDIT-4] adding a student who fails the bar asks first, naming them, and does not save", async () => {
     const h = editHarness({ ...base, participants: [{ id: "1" }, { id: "2" }] }, [{ playerId: "2" }]);
     await h.run();
     expect(h.eligibility).toHaveBeenCalledWith(["2"]);

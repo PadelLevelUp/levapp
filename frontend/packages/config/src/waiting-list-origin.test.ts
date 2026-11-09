@@ -39,19 +39,19 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
       expect(waitingListScopeLabel({ scope: "standing", expiresOn: null }, fmt).params).toEqual({ date: "—" });
     });
 
-    it("marks only a coach-wide standing row as managed in Settings", () => {
+    it("[CALENDAR-EVENT-DETAIL-22] marks only a coach-wide standing row as managed in Settings", () => {
       expect(waitingListRowIsManagedInSettings({ scope: "standing" })).toBe(true);
       for (const scope of ["occurrence", "series", "period"] as const) expect(waitingListRowIsManagedInSettings({ scope })).toBe(false);
     });
 
-    it("tells the coach the date a whole-series entry will run to: the series' end, capped at 12 months (rule 19)", () => {
+    it("[CALENDAR-EVENT-DETAIL-23] tells the coach the date a whole-series entry will run to: the series' end, capped at 12 months (rule 19)", () => {
       expect(wholeSeriesEndPreview("2026-12-31", "2026-10-09")).toBe("2026-12-31");
       expect(wholeSeriesEndPreview("2028-01-15", "2026-10-09")).toBe("2027-10-09");
       expect(wholeSeriesEndPreview(null, "2026-10-09")).toBe("2027-10-09");
       expect(wholeSeriesEndPreview("2026-01-01", "2026-10-09")).toBe("2027-10-09");
     });
 
-    it("offers the series scopes only for a recurring class", () => {
+    it("[CALENDAR-EVENT-DETAIL-23] offers the series scopes only for a recurring class", () => {
       expect(waitingListScopeOptions(true)).toEqual(["occurrence", "series", "period"]);
       expect(waitingListScopeOptions(false)).toEqual(["occurrence"]);
     });
@@ -100,23 +100,23 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
     const ids = (q: string, chosen: string | null = null) =>
       waitingListPickerOptions(candidates, q, chosen).map((p) => String(p.playerId));
 
-    it("offers only the students whose name holds every typed word, in any order, ignoring accents", () => {
+    it("[CALENDAR-EVENT-DETAIL-25] offers only the students whose name holds every typed word, in any order, ignoring accents", () => {
       expect(ids("sousa alv")).toEqual(["1"]);
       expect(ids("ALVES")).toEqual(["3"]);
     });
 
-    it("offers everyone when the search is blank", () => {
+    it("[CALENDAR-EVENT-DETAIL-25] offers everyone when the search is blank", () => {
       expect(ids("")).toEqual(["1", "2", "3"]);
       expect(ids("   ")).toEqual(["1", "2", "3"]);
     });
 
-    it("keeps the chosen student listed, in roster order, even when the search no longer matches them", () => {
+    it("[CALENDAR-EVENT-DETAIL-25] keeps the chosen student listed, in roster order, even when the search no longer matches them", () => {
       expect(ids("pinto", "3")).toEqual(["2", "3"]);
       expect(ids("pinto", "2")).toEqual(["2"]);
     });
 
     // PAD-665 (players.search rule 5, 6): a typed search is ranked; the picker lists the best first.
-    it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
+    it("[PLAYERS-SEARCH-1] finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
       const roster = [
         { playerId: 1, name: "Rui Pedro Basto" },
         { playerId: 2, name: "André Nunes" },
@@ -125,7 +125,7 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
       expect(waitingListPickerOptions(roster, "andre", null).map((p) => p.playerId)).toEqual([2]);
     });
 
-    it("lists the best match first and a blank search in the given order", () => {
+    it("[PLAYERS-SEARCH-2] lists the best match first and a blank search in the given order", () => {
       const roster = [
         { playerId: 1, name: "Ana Rita" },
         { playerId: 2, name: "Rita Zé" },
@@ -134,7 +134,7 @@ describe("PAD-547 class waiting list (calendar.event-detail rules 19–20)", () 
       expect(waitingListPickerOptions(roster, "", null).map((p) => p.playerId)).toEqual([1, 2]);
     });
 
-    it("lists a chosen student the search no longer matches after the matches (was: roster order)", () => {
+    it("[CALENDAR-EVENT-DETAIL-25] lists a chosen student the search no longer matches after the matches (was: roster order)", () => {
       expect(ids("pinto", "1")).toEqual(["2", "1"]);
     });
 

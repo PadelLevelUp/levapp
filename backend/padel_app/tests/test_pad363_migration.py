@@ -143,6 +143,7 @@ def test_a_hand_applied_column_is_left_alone():
     assert _entry_record_ids(conn)[2] is not None  # the backfill still ran
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-10")
 def test_the_backfill_groups_by_coach_player_and_club_local_day():
     conn = _scratch()
     before = _untouched(conn)
@@ -174,6 +175,7 @@ def test_the_backfill_groups_by_coach_player_and_club_local_day():
     assert _untouched(conn) == before
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-10")
 def test_running_the_backfill_again_changes_nothing():
     conn = _scratch()
     _run(conn, "upgrade")
@@ -226,6 +228,7 @@ def test_an_orphan_entry_is_skipped_not_fatal():
     assert 999 not in {r[1] for r in _records(conn)}
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-3")
 def test_the_database_refuses_a_second_classless_record_for_the_day():
     conn = _scratch()
     _run(conn, "upgrade")
@@ -288,6 +291,7 @@ def test_downgrade_refuses_to_discard_what_only_the_new_schema_holds(monkeypatch
     assert "evaluation_records" not in sa.inspect(conn).get_table_names()
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-2")
 def test_the_migration_reads_the_day_off_the_same_zone_as_the_app():
     from padel_app.utils.dates import CLUB_TZ, utc_to_wall_naive
 

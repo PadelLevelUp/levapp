@@ -89,6 +89,7 @@ def _list(client, app, user_id):
     return client.get("/api/app/class-waiting-list", headers=_auth(app, user_id))
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-9")
 def test_the_student_sees_each_waiting_list_with_its_state(client, app, history):
     ids, classes = history
     resp = _list(client, app, _student_user_id(app, ids))
@@ -108,11 +109,13 @@ def test_the_student_sees_each_waiting_list_with_its_state(client, app, history)
     assert [r["lessonInstanceId"] for r in rows] == [classes[n] for n in ["Canceled", "Passed", "Left", "Placed", "Active"]]
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-10")
 def test_only_students_list_waiting_lists(client, app, history):
     ids, _ = history
     assert _list(client, app, ids["coach_user_id"]).status_code == 403
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-11")
 def test_a_coach_who_is_also_a_student_lists_their_own(client, app, history):
     """Join and leave accept any caller with a player profile; the list does too."""
     from padel_app.models.coaches import Coach
@@ -141,6 +144,7 @@ def test_another_students_entries_are_not_listed(client, app, history):
     assert _list(client, app, other_uid).get_json() == []
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-13")
 def test_leaving_moves_the_row_to_left_and_tells_both(client, app, history, monkeypatch):
     events = []
     monkeypatch.setattr("padel_app.realtime.publish", lambda event, recipients: events.append((event["type"], sorted(recipients))))
@@ -153,6 +157,7 @@ def test_leaving_moves_the_row_to_left_and_tells_both(client, app, history, monk
     assert ("waiting_list_changed", sorted([student_uid, ids["coach_user_id"]])) in events
 
 
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-13")
 def test_joining_tells_both(app, monkeypatch):
     events = []
     monkeypatch.setattr("padel_app.realtime.publish", lambda event, recipients: events.append((event["type"], sorted(recipients))))

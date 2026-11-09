@@ -98,13 +98,13 @@ async function mount() {
 describe("isNotifBlocksUnsaved (settings.unsaved-edits rule 2)", () => {
   const BASE = { blockAuto: false, blockManual: true, blockAll: false, reason: "travel" };
 
-  it("is false when equal, true the moment any field differs", () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] is false when equal, true the moment any field differs", () => {
     expect(isNotifBlocksUnsaved(BASE, BASE)).toBe(false);
     expect(isNotifBlocksUnsaved({ ...BASE, blockAuto: true }, BASE)).toBe(true);
     expect(isNotifBlocksUnsaved({ ...BASE, reason: "" }, BASE)).toBe(true);
   });
 
-  it("a hand-revert back to the saved value reads clean", () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] a hand-revert back to the saved value reads clean", () => {
     const edited = { ...BASE, blockAll: true };
     expect(isNotifBlocksUnsaved(edited, BASE)).toBe(true);
     expect(isNotifBlocksUnsaved({ ...edited, blockAll: BASE.blockAll }, BASE)).toBe(false);
@@ -112,7 +112,7 @@ describe("isNotifBlocksUnsaved (settings.unsaved-edits rule 2)", () => {
 });
 
 describe("StudentNotificationBlocksSection registers its unsaved state (PAD-394)", () => {
-  it("toggling a switch -> unsaved; toggling it back -> clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] toggling a switch -> unsaved; toggling it back -> clean", async () => {
     const { n, registry } = await mount();
     expect(registry().hasUnsaved()).toBe(false);
 
@@ -123,13 +123,13 @@ describe("StudentNotificationBlocksSection registers its unsaved state (PAD-394)
     expect(registry().hasUnsaved()).toBe(false);
   });
 
-  it("editing the reason text is unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] editing the reason text is unsaved", async () => {
     const { n, registry } = await mount();
     await n.changeText("student-notif-reason", "Injury recovery");
     expect(registry().hasUnsaved()).toBe(true);
   });
 
-  it("an edit is held until the screen's Save, which sends one PATCH and clears the flag", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] an edit is held until the screen's Save, which sends one PATCH and clears the flag", async () => {
     updateMe.mockResolvedValue({ ...ME, blockManualInvitations: true });
     const { n, registry } = await mount();
 
@@ -149,7 +149,7 @@ describe("StudentNotificationBlocksSection registers its unsaved state (PAD-394)
     expect(registry().hasUnsaved()).toBe(false);
   });
 
-  it("a failed save leaves the section unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed save leaves the section unsaved", async () => {
     updateMe.mockRejectedValue(new Error("network"));
     const { n, registry } = await mount();
 

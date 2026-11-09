@@ -70,6 +70,7 @@ def _event(app, model, instance_id, lesson_id):
 
 @pytest.mark.parametrize("model", ["LessonInstance", "Lesson"])
 @pytest.mark.parametrize("enabled", [True, False], ids=["switched-on", "switched-off"])
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-9")
 def test_this_and_following_from_a_later_occurrence_reaches_it_and_the_ones_after(app, model, enabled):
     """The prod shape: the edit starts on the second occurrence, so the series forks."""
     from padel_app.models.lessons import Lesson
@@ -86,6 +87,7 @@ def test_this_and_following_from_a_later_occurrence_reaches_it_and_the_ones_afte
 
 
 @pytest.mark.parametrize("model", ["LessonInstance", "Lesson"])
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-9")
 def test_this_and_following_from_the_first_occurrence_reaches_every_occurrence(app, model):
     """The same-lesson shape: the edit starts on the series' first date, so nothing forks (the
     coach's second save on lesson 158)."""
@@ -97,6 +99,7 @@ def test_this_and_following_from_the_first_occurrence_reaches_every_occurrence(a
     assert _flags(app, instance_ids) == [True, True, True]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-9")
 def test_an_edit_that_does_not_name_the_switch_leaves_the_occurrences_alone(app):
     """Both shells send only the fields that changed (`edit-class-diff.ts`): absent is untouched."""
     ids = _seed(app)

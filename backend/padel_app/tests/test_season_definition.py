@@ -53,6 +53,7 @@ SEP_JUL = dict(startDay=1, startMonth=9, endDay=31, endMonth=7)
 # Occurrence maths agree across sides (rules 3–4)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CALENDAR-SEASONS-1")
 def test_wrapping_definition_occurrences():
     assert season_wraps_year(9, 1, 7, 31) is True
     assert occurrence_containing(date(2026, 10, 15), 9, 1, 7, 31) == (date(2026, 9, 1), date(2027, 7, 31))
@@ -64,6 +65,7 @@ def test_wrapping_definition_occurrences():
     assert occurrence_containing(date(2027, 7, 31), 9, 1, 7, 31)[1] == date(2027, 7, 31)
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-1")
 def test_non_wrapping_definition_occurrences():
     assert season_wraps_year(2, 1, 6, 30) is False
     assert occurrence_containing(date(2026, 4, 1), 2, 1, 6, 30) == (date(2026, 2, 1), date(2026, 6, 30))
@@ -73,6 +75,7 @@ def test_non_wrapping_definition_occurrences():
     assert next_occurrence_after(date(2026, 4, 1), 2, 1, 6, 30) == (date(2027, 2, 1), date(2027, 6, 30))
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-1")
 def test_february_29_clamps_in_non_leap_years():
     assert clamp_day(2027, 2, 29) == date(2027, 2, 28)
     assert clamp_day(2028, 2, 29) == date(2028, 2, 29)
@@ -85,6 +88,7 @@ def test_occurrence_labels():
     assert occurrence_label(date(2026, 9, 1), date(2027, 7, 31), "Época") == "Época"
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-3")
 def test_validate_definition_rejects_bad_ranges():
     assert validate_definition(9, 1, 7, 31) is None
     assert validate_definition(2, 29, 6, 30) is None  # allowed, clamps
@@ -103,6 +107,7 @@ def test_get_season_is_null_without_a_definition(app, client):
     assert res.get_json() is None
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-2")
 def test_put_creates_then_replaces_the_single_definition(app, client):
     from padel_app.models import CoachSeason
 
@@ -156,6 +161,7 @@ def test_season_current_and_upcoming_follow_today(app, client):
         dict(startMonth=9, endDay=30, endMonth=6),
     ],
 )
+@pytest.mark.criterion("CALENDAR-SEASONS-3")
 def test_invalid_definition_is_rejected_and_writes_nothing(app, client, body):
     from padel_app.models import CoachSeason
 
@@ -204,6 +210,7 @@ def _flagged_class(client, headers, start="2026-10-05"):
     )
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-4")
 def test_saving_a_definition_recaps_flagged_classes(app, client):
     from datetime import timedelta
 
@@ -246,6 +253,7 @@ def test_saving_a_definition_recaps_flagged_classes(app, client):
         assert db.session.get(LessonInstance, pruned_id) is None
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-5")
 def test_removing_the_definition_keeps_history_and_fails_closed(app, client):
     from padel_app.models import Lesson
 
@@ -272,6 +280,7 @@ def test_removing_the_definition_keeps_history_and_fails_closed(app, client):
 # The legacy list still reads (rule 8)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CALENDAR-SEASONS-6")
 def test_legacy_seasons_list_shows_the_current_occurrence(app, client):
     coach_id = make_coach(app)
     headers = _auth(app, coach_id)
@@ -298,6 +307,7 @@ def test_legacy_seasons_list_shows_the_current_occurrence(app, client):
 # "Recurs until season end" snapshots the occurrence end (rules 9–10)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CALENDAR-SEASONS-7")
 def test_recurs_until_season_end_uses_the_occurrence(app, client):
     from padel_app.models import Lesson
 
@@ -336,6 +346,7 @@ def _load_migration():
     return mod, path.read_text()
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-8")
 def test_migration_is_guarded_and_uses_the_shared_maths():
     mod, src = _load_migration()
     assert mod.down_revision == "ad97ec649746"
@@ -352,6 +363,7 @@ def test_migration_is_guarded_and_uses_the_shared_maths():
     assert "seasons_legacy" in src and "coach_seasons" in src
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-8")
 def test_collapse_picks_the_most_recent_row_per_coach():
     mod, _ = _load_migration()
     rows = [
@@ -376,6 +388,7 @@ def test_collapse_flags_an_overlong_row_and_tolerates_an_inverted_one():
     assert out["B"] == dict(label="Inverted", start_day=1, start_month=6, end_day=1, end_month=1, needs_review=True)
 
 
+@pytest.mark.criterion("CALENDAR-SEASONS-8")
 def test_cap_for_unbounded_flagged_lesson_reads_a_late_start_as_the_coming_season():
     mod, _ = _load_migration()
     definition = dict(start_day=1, start_month=9, end_day=31, end_month=7)

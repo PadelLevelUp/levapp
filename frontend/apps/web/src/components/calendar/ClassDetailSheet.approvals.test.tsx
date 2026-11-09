@@ -79,7 +79,7 @@ beforeEach(() => {
 });
 
 describe("ClassDetailSheet — every pending approval prompt (PAD-765)", () => {
-  it("shows one card per pending bundle, oldest spot first", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-17] shows one card per pending bundle, oldest spot first", async () => {
     const older = bundle("b-14", 1, "Case 7");
     const newer = bundle("b-21", 2, "Case 8");
     api.getApprovalSuggestions.mockResolvedValue({ state: "pending", bundle: older, bundles: [older, newer] });
@@ -87,7 +87,7 @@ describe("ClassDetailSheet — every pending approval prompt (PAD-765)", () => {
     expect(await cardIds()).toEqual(["b-14", "b-21"]);
   });
 
-  it("an older server's single bundle still shows", async () => {
+  it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-17] an older server's single bundle still shows", async () => {
     api.getApprovalSuggestions.mockResolvedValue({ state: "pending", bundle: bundle("b-21", 2, "Case 8") });
     renderSheet();
     expect(await cardIds()).toEqual(["b-21"]);

@@ -86,7 +86,7 @@ describe("MessageBubble is memoised (PAD-592)", () => {
   });
   const renders = () => log.mock.calls.filter((c) => c[0] === "[render] bubble").length;
 
-  it("a parent re-render with the same props does not render the bubble again", async () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-1] a parent re-render with the same props does not render the bubble again", async () => {
     const onReply = vi.fn();
     const n = await mount(<Parent tick={1} onReply={onReply} />);
     const before = renders();
@@ -95,7 +95,7 @@ describe("MessageBubble is memoised (PAD-592)", () => {
     expect(renders()).toBe(before);
   });
 
-  it("a changed prop still renders it", async () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-1] a changed prop still renders it", async () => {
     const n = await mount(<Parent tick={1} onReply={vi.fn()} />);
     const before = renders();
     await n.rerender(wrap(<Parent tick={2} onReply={vi.fn()} />));

@@ -110,6 +110,7 @@ def test_search_is_case_insensitive_and_returns_all_matches(app, client, world):
     assert names == ["Alberto Basto", "Alice Andrade", "Alva Ghost"]
 
 
+@pytest.mark.criterion("PLAYERS-SEARCH-5")
 def test_search_is_scoped_to_the_calling_coach(app, client, world):
     res = client.get("/api/app/notify/player_search?q=Alice",
                      headers=_auth_header(app, world["coach_a_user_id"]))

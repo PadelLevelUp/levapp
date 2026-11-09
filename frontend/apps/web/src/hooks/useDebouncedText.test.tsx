@@ -7,7 +7,7 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("useDebouncedText", () => {
-  it("settles on the last text only, 200 ms after the last keystroke", () => {
+  it("[PLAYERS-SEARCH-8] settles on the last text only, 200 ms after the last keystroke", () => {
     const { result, rerender } = renderHook(({ text }: { text: string }) => useDebouncedText(text), {
       initialProps: { text: "" },
     });

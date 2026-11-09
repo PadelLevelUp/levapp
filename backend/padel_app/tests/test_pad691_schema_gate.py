@@ -90,6 +90,7 @@ def gate(engine, monkeypatch):
     return lambda: ss.main(["--require", "not_behind"], {"SCHEMA_GATE": "on", "SCHEMA_GATE_DB_WAIT": "0"})
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-14")
 def test_a_stale_image_refuses_to_boot_and_says_why(engine, gate, capsys):
     stamp(engine, OLDER)
     assert gate() == 1
@@ -98,21 +99,25 @@ def test_a_stale_image_refuses_to_boot_and_says_why(engine, gate, capsys):
     assert "@" not in out and "sqlite" not in out, "no URI, no secret"
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-14")
 def test_an_empty_database_refuses_to_boot(engine, gate):
     assert gate() == 1
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-14")
 def test_at_head_boots(engine, gate):
     stamp(engine, HEAD)
     assert gate() == 0
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-14")
 def test_ahead_boots_with_a_warning(engine, gate, capsys):
     stamp(engine, UNKNOWN)
     assert gate() == 0
     assert "WARNING schema ahead" in capsys.readouterr().out
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-14")
 def test_gate_off_never_connects(monkeypatch, capsys):
     def boom():
         raise AssertionError("must not connect")
@@ -179,6 +184,7 @@ def test_migrate_upgrades_an_empty_database(engine):
 
 
 @pytest.mark.parametrize("rev", ["head", "ahead"])
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-8")
 def test_migrate_does_nothing_at_head_or_ahead(engine, rev, capsys):
     stamp(engine, HEAD if rev == "head" else UNKNOWN)
     upgrade, calls = upgrade_to(engine, HEAD)
@@ -194,6 +200,7 @@ def test_a_failed_upgrade_is_the_exit_code(engine):
     assert mg.migrate(engine, lock_timeout=1, upgrade=upgrade) == 2
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-10")
 def test_an_upgrade_that_does_not_reach_head_fails(engine, capsys):
     stamp(engine, OLDER)
     upgrade, _ = upgrade_to(engine)  # exits 0, schema unchanged
@@ -215,6 +222,7 @@ def fake_clock():
     return (lambda: t["now"]), (lambda s: t.__setitem__("now", t["now"] + s))
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-9")
 def test_the_lock_wait_reports_and_gives_up(capsys):
     clock, sleep = fake_clock()
     held = mg.acquire_lock(FakeLockConn(free_after=10_000), timeout=65, clock=clock, sleep=sleep)
@@ -222,6 +230,7 @@ def test_the_lock_wait_reports_and_gives_up(capsys):
     assert capsys.readouterr().out.count("waiting for migrate lock") == 2
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-9")
 def test_the_lock_is_taken_once_free():
     clock, sleep = fake_clock()
     assert mg.acquire_lock(FakeLockConn(free_after=3), timeout=65, clock=clock, sleep=sleep) is True
@@ -233,6 +242,7 @@ def test_the_migrate_lock_is_not_the_scheduler_lock():
     assert mg.MIGRATE_LOCK_KEY != SCHEDULER_LOCK_KEY
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-9")
 def test_a_held_lock_times_out_with_exit_3_on_postgres(postgres_test_database_uri, capsys):
     if postgres_test_database_uri is None:
         pytest.skip("Postgres lane only (LEVAPP_TEST_DB=postgres)")
@@ -274,6 +284,7 @@ def gated(app, monkeypatch):
     frontend_api._schema_reading.update(at=None, value=None)
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-15")
 def test_livez_never_touches_the_database(client, monkeypatch):
     from padel_app.sql_db import db
 
@@ -286,6 +297,7 @@ def test_livez_never_touches_the_database(client, monkeypatch):
     assert client.get("/api/app/healthz").status_code == 503
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-15")
 def test_healthz_is_503_while_the_schema_is_behind(client, gated):
     gated(OLDER)
     r = client.get("/api/app/healthz")
@@ -293,6 +305,7 @@ def test_healthz_is_503_while_the_schema_is_behind(client, gated):
     assert client.get("/api/app/livez").status_code == 200
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-15")
 def test_healthz_is_ready_at_head_and_ahead(client, gated):
     gated(HEAD)
     assert client.get("/api/app/healthz").get_json() == {"status": "ok"}
@@ -308,6 +321,7 @@ def test_healthz_reads_the_schema_at_most_every_ten_seconds(client, gated):
     assert client.get("/api/app/healthz").status_code == 200
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-15")
 def test_without_the_gate_healthz_ignores_the_schema(client, monkeypatch):
     monkeypatch.delenv("SCHEMA_GATE", raising=False)
     assert client.get("/api/app/healthz").status_code == 200  # create_all, no alembic_version
@@ -349,6 +363,7 @@ def test_the_migrate_step_is_the_one_command_the_gate_lets_through(tmp_path):
         assert "GATE-RAN" in r.stdout and r.returncode == 1, cmd
 
 
+@pytest.mark.criterion("DELIVERY-ZERO-DOWNTIME-DEPLOY-14")
 def test_the_entrypoint_refuses_a_stale_database_end_to_end(tmp_path):
     """The real entrypoint, a real (SQLite) database behind head: exit 1 before the command runs."""
     db_file = tmp_path / "stale.db"

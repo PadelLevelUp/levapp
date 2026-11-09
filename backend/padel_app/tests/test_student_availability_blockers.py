@@ -15,6 +15,7 @@ Verifies:
 Run:
     pytest padel_app/tests/test_student_availability_blockers.py -v
 """
+import pytest
 
 import json
 from datetime import datetime, timedelta
@@ -167,6 +168,7 @@ def _setup(app, *, blocker=None):
     return get_eligible_students, instance, vacancy, cfg, coach.id, player.id
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-1")
 def test_overlapping_blocker_suppresses_auto_invite(app):
     with app.app_context():
         def make_blocker(user_id, instance):
@@ -179,6 +181,7 @@ def test_overlapping_blocker_suppresses_auto_invite(app):
         assert player_id not in {cp.player_id for cp in eligible}
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-2")
 def test_no_blocker_student_is_eligible(app):
     with app.app_context():
         get_eligible, instance, vacancy, cfg, coach_id, player_id = _setup(app)
@@ -186,6 +189,7 @@ def test_no_blocker_student_is_eligible(app):
         assert player_id in {cp.player_id for cp in eligible}
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-2")
 def test_non_overlapping_blocker_does_not_suppress(app):
     with app.app_context():
         def make_blocker(user_id, instance):
@@ -214,6 +218,7 @@ def test_blocker_without_flag_does_not_suppress(app):
         assert player_id in {cp.player_id for cp in eligible}
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-1")
 def test_recurring_weekly_blocker_suppresses_matching_weekday(app):
     with app.app_context():
         def make_blocker(user_id, instance):
@@ -288,6 +293,7 @@ def _setup_two_students(suffix):
     return coach, instance, (blocked, blocked_user), (free, free_user)
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-4")
 def test_pad107_manual_notify_skips_blocked_student(app):
     """No NotificationEvent, no Message and no push for a blocked student."""
     with app.app_context():
@@ -307,6 +313,7 @@ def test_pad107_manual_notify_skips_blocked_student(app):
         assert len(_messages_for_user(free_user.id)) == 1
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-4")
 def test_pad107_reminders_skip_blocked_student_but_reach_the_rest(app):
     """"Lembrar" reminds everyone except the unavailable student."""
     with app.app_context():
@@ -324,6 +331,7 @@ def test_pad107_reminders_skip_blocked_student_but_reach_the_rest(app):
         assert len(_messages_for_user(free_user.id)) == 1
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-5")
 def test_pad107_send_system_message_backstop_refuses_invite(app):
     """Even a direct call to the delivery choke point is refused."""
     with app.app_context():
@@ -344,6 +352,7 @@ def test_pad107_send_system_message_backstop_refuses_invite(app):
         assert _messages_for_user(blocked_user.id) == []
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-5")
 def test_pad107_backstop_does_not_block_plain_chat(app):
     """Unavailability silences class solicitations, not the coach's chat."""
     with app.app_context():
@@ -364,6 +373,7 @@ def test_pad107_backstop_does_not_block_plain_chat(app):
         assert len(_messages_for_user(blocked_user.id)) == 1
 
 
+@pytest.mark.criterion("CALENDAR-STUDENT-BLOCKERS-4")
 def test_pad107_blocked_players_for_instance_reports_names_only(app):
     """The coach-facing payload leaks no blocker detail."""
     with app.app_context():

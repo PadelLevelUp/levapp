@@ -39,6 +39,7 @@ def test_view_as_mints_a_short_read_only_token_and_is_audited(app, client):
 
 
 @pytest.mark.parametrize("role", ["support", "owner"])
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-11")
 def test_view_as_is_for_operators_only(app, client, role):
     maria = make_user(app, "maria", "maria@example.com")
     r = _view_as(client, app, maria, role=role)
@@ -46,6 +47,7 @@ def test_view_as_is_for_operators_only(app, client, role):
     assert [a["outcome"] for a in audit_rows(app, "user.view_as")] == ["denied"]
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-10")
 def test_reads_work_and_writes_are_refused(app, client):
     maria = make_user(app, "maria", "maria@example.com")
     token = _token_from(_view_as(client, app, maria))
@@ -61,6 +63,7 @@ def test_reads_work_and_writes_are_refused(app, client):
 
 
 @pytest.mark.parametrize("path", ["/api/app/conversations", "/api/app/messages/unread_count", "/api/app/messageable-users", "/api/app/conversation/1"])
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-10")
 def test_private_messages_are_never_shown(app, client, path):
     maria = make_user(app, "maria", "maria@example.com")
     token = _token_from(_view_as(client, app, maria))
@@ -75,6 +78,7 @@ def test_the_message_stream_is_refused_with_the_token_in_the_query(app, client):
     assert r.status_code == 403 and r.get_json() == {"error": "VIEW_AS_READ_ONLY"}
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-10")
 def test_a_get_that_writes_leaves_nothing_behind_and_sends_nothing(app, client, monkeypatch):
     """The rollback rule, on a GET that commits a row and fires every side-effect channel
     (the lazy materialisation of a recurring class is one such GET in the product)."""
@@ -107,6 +111,7 @@ def test_a_get_that_writes_leaves_nothing_behind_and_sends_nothing(app, client, 
     assert view_as.SUPPRESSED_LAST_REQUEST == {"email": 1, "webpush": 1, "expo": 1, "realtime": 1, "crm": 1}
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-10")
 def test_the_token_is_never_refreshed(app, client):
     from flask_jwt_extended import create_access_token
 

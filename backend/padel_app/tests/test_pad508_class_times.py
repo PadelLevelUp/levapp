@@ -24,6 +24,7 @@ IDS = ["empty", "blank", "null", "one-digit", "hour-25", "minute-60", "text", "t
 
 @pytest.mark.parametrize("field,column", [("startTime", "start_time"), ("endTime", "end_time")])
 @pytest.mark.parametrize("value", BAD, ids=IDS)
+@pytest.mark.criterion("CLASSES-CREATE-3")
 def test_add_class_with_a_time_that_is_not_hh_mm_is_refused(app, client, field, column, value):
     """Criterion "A class time that is not HH:MM is refused, not a 500"."""
     world = _class_world(app, client)
@@ -44,6 +45,7 @@ def test_add_class_takes_any_real_hh_mm(app, client, value):
 
 @pytest.mark.parametrize("field,column", [("startTime", "start_time"), ("endTime", "end_time")])
 @pytest.mark.parametrize("value", ["", None, "9", "25:00"], ids=["empty", "null", "one-digit", "hour-25"])
+@pytest.mark.criterion("CLASSES-CREATE-3")
 def test_edit_class_with_a_time_that_is_not_hh_mm_is_refused_and_nothing_is_written(app, client, field, column, value):
     world = _class_world(app, client)
     before = _class_row(app, world["lesson_id"])
