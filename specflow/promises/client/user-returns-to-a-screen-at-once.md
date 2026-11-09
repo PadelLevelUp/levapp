@@ -14,6 +14,6 @@ Moving around the app stops feeling like loading it again: a screen the user com
 - The web app and the phone app follow the same rule.
 - Nothing new is sent to the server to keep screens fresh: no polling, no background timers.
 - On the phone, a coach can pull a list down to reload it, and the spinner always comes down: a reload that fails or gets no answer says so (PAD-786).
-- A request the server never answers ends as an error after a short wait, in both apps (PAD-786).
+- A request the server never answers ends as an error after 20 seconds, in both apps (PAD-786). The live-updates connection and the import's long uploads are not bounded this way.
 
 It does not promise offline use, a cache kept across app launches, or any change to what a screen shows.

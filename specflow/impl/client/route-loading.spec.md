@@ -142,6 +142,12 @@ budget holds the gain.
   opens every menu page for a coach and a student through the menu and by URL, the role-only
   URLs and every public page, and sees the idle prefetch fetch pages nobody clicked
 
+#### CLIENT-ROUTE-LOADING-10: A menu page whose prefetch failed is fetched again on the next call (rule 3)
+- **Given** a prefetch in which the Calendar page's download failed and the other eight menu pages loaded
+- **When** `prefetchAppPages()` runs again
+- **Then** only the Calendar page's loader runs, once
+test: `frontend/apps/web/src/routes/lazyPages.test.ts` › `retries a page whose prefetch failed on the next call`
+
 ### Notes
 - **Web-only (R-024 exception).** The iOS app bundles its JavaScript inside the binary; there is
   no download to split, and its launch is PAD-587. Recorded in the PR body too.
@@ -162,3 +168,11 @@ budget holds the gain.
 - The nginx half of the PAD-571 bundle finding (gzip, immutable `/assets/`, HTTP/2) is PAD-584.
 - A data router (`createBrowserRouter` with route `lazy`) was not adopted: `BrowserRouter` with
   `React.lazy` gives the same split without migrating every route.
+
+### Open questions
+
+- **Rule 3 says each loader "runs at most once per page load"; a loader that failed runs again.**
+  - Rule 3: "Each loader runs at most once per page load."
+  - The code today: a page whose prefetch failed is not remembered as loaded, so the next `prefetchAppPages()` tries it again (`lazyPages.ts:110`; pinned by "a menu page whose prefetch failed is retried"). CLIENT-ROUTE-LOADING-10 is written to the code.
+  - Recommendation: keep the code and say "a loader that succeeded runs at most once per page load".
+- **P-CLIENT-2 said a user "never sees a broken screen" across a deploy; this spec's own GAP note says otherwise.** A chunk that fails twice within 10 seconds rethrows, and with no error boundary the app unmounts to a blank page. The promise was reworded tonight to what rule 4 delivers. Recommendation: build the error boundary the GAP note asks for, then restore the stronger sentence.
