@@ -207,7 +207,6 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_single_cla
 - **Given** a coach who shows open spots, a class with room and an eligible rostered student
 - **When** the student's calendar is requested with different `X-LevApp-Capabilities` values
 - **Then** `open-spots`, `Open-Spots` and ` later-thing ,open-spots ` each return the class as an open spot; `open-spots-v2`, `openspots` and an empty value return none
-- **And** a coach's own calendar never carries an open spot
 - **And** the shared API client sends no `X-LevApp-Capabilities` header when its shell declares nothing, and one header listing every declared token on every request when it does
 - **And** the web shell's requests declare `open-spots` and `evaluations`
 test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_route_appends_open_spots_for_students_only` (+5 more)

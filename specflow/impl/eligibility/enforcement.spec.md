@@ -219,10 +219,10 @@ a coach acts by hand. The coach's roster always wins.
 test: `backend/padel_app/tests/test_pad133_eligibility_reasons.py` › `test_fail_closed_cases_carry_a_reason_code` (+1 more)
 
 #### ELIGIBILITY-ENFORCEMENT-17: The check answers only the students who fail, each with their failures (rules 6, 7c)
-- **Given** a class at level `5`, students at `5`, at `5-` and at `4`, and a player id on nobody's roster
+- **Given** a class at level `5`, students on the coach's roster, and a player id on nobody's roster
 - **When** the coach's client asks which of them fail the bar
-- **Then** under `same_as_class` only the student at `5-` is listed, with their name and a failure whose `actual` is `5-`
-- **And** under `within_n_above_class` with N 1 the student at `4` passes and is not listed
+- **Then** under `same_as_class`, of students at `5` and at `5-`, only the one at `5-` is listed, with their name and a failure whose `actual` is `5-`
+- **And** under `within_n_above_class` with N 1, of students at `4` and at `5-`, the one at `4` passes and only the one at `5-` is listed
 - **And** the id outside the coach's roster is ignored
 test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_class_edit_warning_names_weaker_not_stronger` (+2 more)
 
@@ -232,7 +232,7 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_class_edit
 - **Then** when no selected student fails the bar the invitations are sent with no confirmation
 - **And** when the check itself fails the invitations are sent all the same
 - **And** with nobody selected nothing is checked and nothing is sent
-- **And** a second press while the check is running starts no second check, opens one confirmation and sends nothing until it is answered
+- **And** on iOS a second press while the check is running starts no second check, opens one confirmation and sends nothing until it is answered
 test: `frontend/apps/web/src/components/calendar/ManualNotificationModal.eligibility.test.tsx` › `sends at once when nobody fails, and when the check itself fails` (+4 more)
 
 #### ELIGIBILITY-ENFORCEMENT-19: The confirmation and the impact note are built the same way on both shells (rules 7d, 9b)
