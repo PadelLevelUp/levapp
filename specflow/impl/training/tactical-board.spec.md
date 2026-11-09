@@ -383,18 +383,18 @@ test: `frontend/packages/config/src/court-diagram.test.ts` › `a flat path is a
 test: `frontend/packages/config/src/board-logic.test.ts` › `pressing the player again later continues from its last leg, never replaces` (+2 more)
 
 #### TRAINING-TACTICAL-BOARD-28: Each action drawn takes the next place in its step's order (rules 23, 26)
-- **Given** a new game board, and a step saved before sequencing with one ball path and two movements
+- **Given** a new game board, and a step saved before sequencing with one ball path and one movement
 - **When** the coach draws a ball path, a movement and a second ball path, and then draws on the older step
 - **Then** on the new board the paths take places 0 and 2 and the movement place 1
 - **And** on the older step what was there is placed first, ball paths before movements, and the new action follows
 - **And** a step that carries no order numbers its ball paths 1 and 2 and leaves its movements unnumbered
 test: `frontend/packages/config/src/board-sequence.test.ts` › `numbers only the ball paths, as rule 23` (+2 more)
 
-#### TRAINING-TACTICAL-BOARD-29: Steps are added, deleted and selected, and drawing goes to the current one (rules 18, 19)
+#### TRAINING-TACTICAL-BOARD-29: Steps are added, deleted and selected, and drawing goes to the current one (rule 18)
 - **Given** a game board where A1 was moved to (20 %, 40 %) in the first step
 - **When** the coach adds a step, draws a ball path, steps back and forward, and deletes steps
 - **Then** the added step becomes the current one, it starts with A1 at (20 %, 40 %), and the ball path is written to it and not to the first step
-- **And** deleting the current step moves to the one before, and the step index never leaves the steps that exist
+- **And** deleting the last step moves to the one before it, and the step index never leaves the steps that exist
 - **And** a position asked for beyond the last step is the final position
 test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to the current step, and movements start from the previous step's end` (+5 more)
 
@@ -405,11 +405,11 @@ test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to t
 - **And** the fresh board counts as empty, so it has nothing to lose
 test: `frontend/packages/config/src/board-logic.test.ts` › `a fresh board has no content; a cone or a step counts as content` (+2 more)
 
-#### TRAINING-TACTICAL-BOARD-31: Undo goes back twenty changes and does nothing when there is none (rule 4)
-- **Given** a board with no change yet, and a board with twenty-five changes
+#### TRAINING-TACTICAL-BOARD-31: Undo keeps at least twenty changes and does nothing when there is none (rule 4)
+- **Given** a board with no change yet, and a board with five more changes than the undo depth, which is at least twenty
 - **When** the coach presses undo
 - **Then** on the first nothing changes
-- **And** on the second the twenty most recent changes can be undone and the five oldest cannot
+- **And** on the second the most recent changes can be undone, as many as the depth, and the five oldest cannot
 test: `frontend/packages/config/src/board-history.test.ts` › `keeps at most HISTORY_LIMIT entries, dropping the oldest` (+2 more)
 
 #### TRAINING-TACTICAL-BOARD-32: The cone, feeder and player tools place a piece where the coach taps (rules 11, 15)
@@ -473,5 +473,6 @@ the shared reducer carries the iOS behaviour coverage in unit tests.
 
 - **Rule 16 says free players are "labelled by placement order"; the code numbers them within their team.** Blue, red, amber placed in that order give A1, B1, A2 (`board-logic.ts:289-294`; pinned by "In magnetic mode Jogador places a free player..."). TRAINING-TACTICAL-BOARD-34 is written to the code. Recommendation: keep the code and say "numbered within their team" in rule 16.
 - **Rule 9 gives the lob's bow as "12 % of the surface width"; the code measures 12 in percent space on both axes.** On the 340 by 600 court that is not 12 % of the width for a path that is not vertical (`court-diagram.ts:229-239`). Recommendation: keep the code and reword rule 9 to "12 percentage points, perpendicular to the path".
-- **Two of the four PAD-289 blocks that got ids tonight are proved only in part.** TRAINING-TACTICAL-BOARD-22 says the numbers on the court swap and that undo brings a removed path back; its tests check the order of the paths and never press undo. TRAINING-TACTICAL-BOARD-24's two-card render is tested in `ExerciseCard.test.tsx`, which is tagged elsewhere. Recommendation: add the two assertions.
+- **Two of the four PAD-289 blocks that got ids tonight are proved only in part.** TRAINING-TACTICAL-BOARD-22 says the numbers on the court swap and that undo brings a removed path back; its tests check the order of the paths and never press undo. Its remove tests press ✕ on the first path, where the block says the second. TRAINING-TACTICAL-BOARD-23's "Passo still advances one whole step" is not asserted for a step with two paths. TRAINING-TACTICAL-BOARD-24's tests check the two helpers only: no unit test renders a card with two paths or opens and saves an older exercise, and the two-path thumbnail is checked only by the Playwright spec (`e2e/exercise-management/tactical-board.spec.ts:332`). Recommendation: add the missing assertions.
 - **Six tests assert less than their names say:** "a piece or a step counts as content" builds no step; "Jogador places the next player where tapped" does not check the position; "any piece can be deleted" deletes only a player; "a step's movements start from the previous step's end" is not asserted in `board-logic.test.ts`; the step-indicator test mocks the translation, so no step number is read; "A ball path can be reordered and removed" removes the wrong index for its block. Recommendation: tighten them when the tags are applied.
+- **Three behaviours stated tonight are in the code and in no rule.** A ball path shorter than 3 % of the court is not drawn (`court-diagram.ts:50`; TRAINING-TACTICAL-BOARD-26, whose test presses 1 % apart). Deleting a step keeps the index and clamps it, so deleting a middle step shows the one that followed (`board-logic.ts:130-135`; the test deletes the last step only). A position asked for beyond the last step is the final position (TRAINING-TACTICAL-BOARD-29). Recommendation: add the first to rule 9 and the other two to rule 18, and test a delete of a middle step.

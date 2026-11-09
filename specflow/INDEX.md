@@ -2653,9 +2653,9 @@ Untagged tests: 7552
   - **TRAINING-TACTICAL-BOARD-26** A ball path needs length, is straight when flat and bows when lob (rules 9, 20) · unverified
   - **TRAINING-TACTICAL-BOARD-27** A movement needs an armed player and continues from that player's last leg (rule 10) · unverified
   - **TRAINING-TACTICAL-BOARD-28** Each action drawn takes the next place in its step's order (rules 23, 26) · unverified
-  - **TRAINING-TACTICAL-BOARD-29** Steps are added, deleted and selected, and drawing goes to the current one (rules 18, 19) · unverified
+  - **TRAINING-TACTICAL-BOARD-29** Steps are added, deleted and selected, and drawing goes to the current one (rule 18) · unverified
   - **TRAINING-TACTICAL-BOARD-30** Switching mode on a board with content asks first, then starts that mode afresh (rule 3) · unverified
-  - **TRAINING-TACTICAL-BOARD-31** Undo goes back twenty changes and does nothing when there is none (rule 4) · unverified
+  - **TRAINING-TACTICAL-BOARD-31** Undo keeps at least twenty changes and does nothing when there is none (rule 4) · unverified
   - **TRAINING-TACTICAL-BOARD-32** The cone, feeder and player tools place a piece where the coach taps (rules 11, 15) · unverified
   - **TRAINING-TACTICAL-BOARD-33** What can be deleted depends on the mode (rules 7, 14, 16) · unverified
   - **TRAINING-TACTICAL-BOARD-34** Magnético places free pieces in the chosen colour and tidies a pen stroke (rule 16) · unverified

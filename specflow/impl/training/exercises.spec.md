@@ -75,7 +75,7 @@ test: `backend/padel_app/tests/test_training_players_role_authz.py` › `test_an
 #### TRAINING-EXERCISES-7: The exercise form refuses what rules 1 and 3 do not allow (rules 1, 3)
 - **Given** the exercise form with a name, the type `volley` and difficulty 3
 - **When** the coach submits it, and submits it again with a blank name, with a type outside the list, and with difficulty 0, 6 or 2.5
-- **Then** the first is accepted, and each of the others is refused before any request is sent
+- **Then** the form's schema accepts the first and refuses each of the others
 - **And** difficulty 1 and difficulty 5 are accepted
 test: `frontend/packages/validation/src/index.test.ts` › `parses valid input` (+3 more)
 
@@ -87,5 +87,5 @@ test: `frontend/packages/validation/src/index.test.ts` › `parses valid input` 
   - Recommendation: validate both on the server too, so rules 1 and 3 hold for every client.
 - **The promise said a coach "can give other coaches access"; nothing in the product grants the follower role.**
   - Rule 7: "Owner coach has full CRUD; follower coaches have read access".
-  - The code today: a follower row is honoured on read and on planning (`training_service.py:76`, `:110`; `frontend_api.py:558`), but no route or screen writes one. Only the retired data browser could.
+  - The code today: a follower row is honoured on read and on planning (`training_service.py:15-40`; `frontend_api.py:556-561`), but no route or screen writes one. Only the retired data browser could.
   - P-TRAINING-1 was reworded tonight to say the role exists and no screen grants it. Recommendation: decide whether sharing an exercise is wanted; if not, drop the follower role from rule 7 and from the promise.
