@@ -129,7 +129,7 @@ test: `frontend/apps/mobile/src/lib/native-locale.test.ts` › `maps the app's t
 - **When** the user saves the language `fr`, and the bundles are compared
 - **Then** the save answers 400
 - **And** no key exists in one bundle and not in the other
-- **And** every role label, and every string the attendance, absences and class-detail screens show, exists in both with its placeholders
+- **And** every role label exists in both, every key the attendance, absences and class-detail screens use resolves in both, and their interpolated subtitles keep their placeholders
 test: `backend/padel_app/tests/test_profile_update.py` › `test_patch_me_rejects_unsupported_language` (+5 more)
 
 ### Notes
