@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "4.0",
+  "visibility": {
+    "repo": "public",
+    "allow": []
+  },
+  "migration": {
+    "from": "3.3",
+    "accepted": null
+  }
+}

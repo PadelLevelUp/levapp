@@ -43,3 +43,4 @@ docs/
 
 # PAD-702: written by the GKE deploy workflow from GitHub variables, never committed
 infra/k8s/overlays/*/config/vars.env
+cortex/history/sources/raw/
