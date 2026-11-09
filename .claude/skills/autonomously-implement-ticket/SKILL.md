@@ -51,8 +51,8 @@ next skill. Follow its routing:
 
 | entry routes to | you then run |
 |---|---|
-| a spec gap / spec change / new behaviour | `specflow-spec-editor` — update or create the leaf (and its business spec if the promise changes). **Spec edits are their own commit**, before any code. |
-| "something is broken" | `specflow-bugs` — root-cause it and file it in `.cortex/compass/bugs/` first; its change plan names the spec to touch. |
+| a spec gap / spec change / new behaviour | `specflow-spec` — update or create the leaf (and its business spec if the promise changes). **Spec edits are their own commit**, before any code. |
+| "something is broken" | `specflow-bugs` — root-cause it and file it in `cortex/code/<area>/` (with `status: open`) first; its change plan names the spec to touch. |
 | no spec applies (standalone task) | say so explicitly in the PR body and proceed from the ticket text. |
 
 Before touching a file, query its insight (`cortex insight file <path>`) — the managed
@@ -72,7 +72,7 @@ Run `specflow-tests` for the leaf spec(s) from Step 1. For LevApp that means, co
   a vacuous flow).
 
 The test MUST fail before Step 4. **Never modify an assertion to make it pass** — if the test is
-wrong, the spec is wrong: go back to `specflow-spec-editor`, then fix the test.
+wrong, the spec is wrong: go back to `specflow-spec`, then fix the test.
 
 ## Step 3: Plan — `specflow-plan`
 
@@ -88,7 +88,7 @@ Run `specflow-develop` against the plan. LevApp conventions it must respect:
   migrations via Alembic (`flask db migrate`) — one head, always (`flask db heads`).
 - Web: `@/` alias, API calls through `@levelup/api`, shadcn/ui primitives, locale strings in
   `frontend/src/locales/{pt,en}` (pt is the default locale).
-- Compass rules (`.cortex/compass/rules/`) apply; the PreWrite hook warns when one matches.
+- Compass rules (`cortex/world/rules/`) apply; the PreWrite hook warns when one matches.
 
 ## Step 4b: Port it to iOS — the parity gate
 
