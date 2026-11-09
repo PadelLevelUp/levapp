@@ -64,6 +64,8 @@ Coaches view their player roster with search, sorting, filtering, and pagination
     chip, and keeps every badge it had (pending registration, the due marker of rule 9). Rows
     stay real controls (rule 8, R-026).
 
+11. A roster row's `validated` is true only once the player's account has a password; an account can be `active` and still not validated.
+
 ### Acceptance Criteria
 
 #### PLAYERS-LIST-1: The due marker on the roster (rule 9)
@@ -124,3 +126,35 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 - **And** after they remove the second player from the profile, the URL is `/players` and that
   row is gone from the list
 
+#### PLAYERS-LIST-10: The level sort holds with a search, and a level with no order is the weakest (rules 3, 4)
+- **Given** a coach's ladder of three ordered levels and one level with no order, and students at each and one with no level
+- **When** the roster is sorted by level, strongest first and weakest first, and searched while sorted
+- **Then** strongest first lists the three ordered levels, then the unordered one, then the student with no level
+- **And** weakest first starts with the unordered level and still ends with the student with no level
+- **And** a search keeps the level order among the students it matches
+test: `backend/padel_app/tests/test_pad521_level_order.py` › `test_an_unordered_level_is_the_weakest_in_both_directions` (+1 more)
+
+#### PLAYERS-LIST-11: A query with nothing to search for matches nobody (rule 3)
+- **Given** a roster that includes "Ana 100%_ Real"
+- **When** the roster and the type-ahead are searched with `%`, `_`, `!!` and a blank
+- **Then** each returns nobody
+- **And** `100% real` and `_ ana` each return that one player, and the type-ahead finds "sousa pedro" in any word order
+test: `backend/padel_app/tests/test_pad516_any_order_search.py` › `test_a_query_with_no_searchable_characters_matches_nobody` (+2 more)
+
+#### PLAYERS-LIST-12: The roster on screen survives a failed or a late answer (rule 6)
+- **Given** the web Players page showing two students
+- **When** a reload of the roster fails, and two searches answer out of order
+- **Then** after the failure the rows are still shown and a toast says the list could not load
+- **And** the answer for the older search does not replace the rows of the newer one
+test: `frontend/apps/web/src/pages/PlayersPage.masterDetail.test.tsx` › `(h) a roster fetch that fails after a successful page keeps the rows and shows the error toast` (+1 more)
+
+#### PLAYERS-LIST-13: A student is marked validated only once their account has a password (rule 11)
+- **Given** an active player whose account has no password
+- **When** the roster is read before and after the password is set
+- **Then** `validated` is false before and true after
+test: `backend/padel_app/tests/test_player_level.py` › `test_validated_reflects_password_completion`
+
+### Open questions
+
+- **Rule 3 says the roster search "matches against player name"; it also matches the nickname, the e-mail's local part and the phone.** `player_service.py:583-593` follows `players.search` rule 4. Recommendation: point rule 3 at `players.search` rule 4.
+- **One test of the wildcard rule cannot fail.** "Search wildcards stay literal in every word" would pass even if `%` or `_` acted as wildcards, because no other name on its roster holds the letters searched. Only the `%`, `_` and `!!` cases discriminate. Recommendation: add a second matching name to that fixture.

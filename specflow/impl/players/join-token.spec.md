@@ -184,9 +184,29 @@ serves a whole class and a leaked one can be retired. This is the student-initia
 - **Then** the sheet shows the code's expiry, the number of students who joined and "Generate new code"
 - **And** generating shows a new QR, and the earlier code is 410 from then on
 
+#### PLAYERS-JOIN-TOKEN-17: The join routes refuse whoever may not use them (rules 1, 2, 4, 5)
+- **Given** a coach awaiting approval, an approved coach with no club, and an approved coach with a club and no token yet
+- **When** each asks for a join token, and a token is previewed and accepted
+- **Then** the coach awaiting approval gets 403 `COACH_NOT_APPROVED`, and the coach with no club gets 409 `NO_CLUB`
+- **And** the coach with a club who never made a token reads `null`
+- **And** a token nobody issued answers 404, and accepting a token without a session answers 401
+test: `backend/padel_app/tests/test_join_token.py` › `test_pending_coach_cannot_mint` (+4 more)
+
+#### PLAYERS-JOIN-TOKEN-18: The join flow speaks of the coach's student base and names the coach (rule 9)
+- **Given** the join-by-link flow's Portuguese and English copy
+- **When** a student opens a coach's link
+- **Then** the explanation greets the student and names the coach's "base de alunos" ("student base")
+- **And** the success title and the already-a-member line name the coach
+- **And** no string of the flow says "plantel" or "roster"
+test: `frontend/apps/mobile/src/features/players/join-coach-copy.test.ts` › `%s: no string of the flow says the old word` (+2 more)
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 3;
   design lifted from PAD-127's proposal.
 - QR rendering libraries: web `qrcode.react` (or `qrcode` + canvas), iOS `react-native-qrcode-svg`.
   Both render from the URL string; nothing is stored server-side beyond the token's hash.
 - OPEN: tell the coach when someone joins (system message)? v1: no.
+
+### Open questions
+
+- **Rule 3a says the old `padellevelup.com` domain "still serves the app"; it now redirects.** `infra/k8s/overlays/prod/legacy-domain.yaml` serves only `/api/`, the events stream and `/.well-known/` there and answers every other path with a 301 to `levapp.app`. A link shared on the old domain still works, through the redirect. Recommendation: reword rule 3a.

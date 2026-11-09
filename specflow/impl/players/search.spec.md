@@ -123,6 +123,35 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
 - **Then** one request is made, for `rui`, 200 ms after the last letter
 - **And** while it is in flight `player-search-searching` is shown and the previous rows stay
 
+#### PLAYERS-SEARCH-9: The type-ahead answers a coach only, and nobody for an empty box (rules 7, 8)
+- **Given** coach A with students Alice Andrade, Alberto Basto and an inactive Alva Ghost, and coach B with Alice Mallory
+- **When** `GET /api/app/notify/player_search` is called
+- **Then** with no session it answers 401, and for a user who is not a coach 403
+- **And** `q=AL` lists A's three students, the inactive one included, and never B's
+- **And** each row's id is the player's id, not the account's
+- **And** a blank `q`, `%`, `_` and a text nobody matches each answer an empty list
+test: `backend/padel_app/tests/test_player_search.py` › `test_blank_or_wildcard_query_does_not_dump_the_roster` (+6 more)
+
+#### PLAYERS-SEARCH-10: A blank query keeps the whole list in its order, and a query with no letter or digit finds nobody (rule 3)
+- **Given** a list of people in the order its screen gives them
+- **When** it is searched with a blank text, and with `%` or `_`
+- **Then** the blank text returns everyone in the same order
+- **And** `%` and `_` return nobody
+test: `frontend/packages/config/src/player-search.test.ts` › `coach: a blank query keeps the order` (+4 more)
+
+#### PLAYERS-SEARCH-11: A student's conversation filter stays the plain one (rule 8)
+- **Given** a student's conversation list with "Ana Rita", "Rita Zé" and "Rui Pedro Basto"
+- **When** the student types "rita", then types "rui basto"
+- **Then** "rita" keeps the two Ritas in their original order
+- **And** "rui basto" finds nobody, because words are not matched in any order for a student
+test: `frontend/apps/web/src/components/messages/ConversationList.test.tsx` › `student: the substring match and the order stay as they were` (+1 more)
+
+#### PLAYERS-SEARCH-12: The Players tab finds a player by the digits of their phone (rule 4)
+- **Given** a student whose phone is "+351 912 345 678"
+- **When** the coach searches the Players tab for `345678`
+- **Then** that student is the only result
+test: `backend/padel_app/tests/test_pad665_player_search.py` › `test_players_tab_finds_by_phone_digits_it_already_carries`
+
 ### Notes
 - Prod Postgres is the official `postgres:15` image; `unaccent`/`pg_trgm` are not installed by any
   migration, so the rule runs in Python after the SQL scope, as PAD-516's did (decision 2026-10-14:
@@ -130,3 +159,12 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
 - Nickname hook agreed with la-1410-SessionC (PAD-660): the field is `nickname`, read from the
   requesting coach's own `Association_CoachPlayer` row. PAD-660 passes it on `coach_players_paginated`
   and `notify/player_search` (`players.nickname` rule 5).
+
+### Open questions
+
+- **Rule 3 says a blank query "matches everyone"; the type-ahead answers nobody.**
+  - Rule 3: a blank query "matches everyone and keeps the screen's own order".
+  - The code today: `GET /api/app/notify/player_search` returns an empty list for a blank query, so an empty box never lists the roster (`player_service.py:493-495`, PAD-109). PLAYERS-SEARCH-9 is written to the code.
+  - Recommendation: keep the code and name the type-ahead as the exception in rule 3.
+- **A comment in the presences filter says the opposite of the code.** Rule 6 says the presences table keeps its column sort, and it does: `presenceRows` sorts after the filter. The comment at `report-state.ts:122-125` says best match first, and the helper's own test asserts best-first for the unsorted helper. Recommendation: fix the comment; no behaviour changes.
+- **The type-ahead's id test would pass if a player and an account shared an id.** `test_search_returns_player_ids_not_user_ids` relies on the fixture giving them different ids. Recommendation: assert the two differ in the fixture.

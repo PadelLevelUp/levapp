@@ -336,6 +336,69 @@ asks by exact username and the student accepts.
 - **Then** it offers "Link this record to my account" and, on confirm, shows the merged success state
 - **And** the same screen exists on iOS (PAD-164's invite screen carries the option)
 
+#### PLAYERS-CLAIM-26: A claim request is made by the placeholder's coach, for a student, once (rule 4)
+- **Given** a placeholder on Maria's roster, a student `ana`, and a coach `joao` with no link to the placeholder
+- **When** each POSTs `/api/app/player/<placeholder>/claim-requests`
+- **Then** Maria naming `ANA` gets 201; `joao` gets 403 and a student gets 403; an unknown username, or a coach's username, gets 404
+- **And** two accounts whose usernames differ only by case are each found by their own spelling
+- **And** a second request while one is pending is 409
+- **And** only Maria revokes it: `joao` gets 403, Maria gets 200 `revoked`, and `ana` then has no request to answer
+test: `backend/padel_app/tests/test_pad799_usernames_are_lowercase.py` › `test_a_claim_by_username_finds_each_of_a_pair_by_its_spelling` (+4 more)
+
+#### PLAYERS-CLAIM-27: A merge that fails leaves no request and no audit row (rules 4d, 5i)
+- **Given** a placeholder and a student both on the coach's roster, and a merge that fails part-way
+- **When** the coach links the two
+- **Then** no claim request and no merge record exist afterwards, and the placeholder is still there
+test: `backend/padel_app/tests/test_pad528_merge_flow.py` › `test_consent_off_is_one_commit_a_failed_merge_leaves_no_request`
+
+#### PLAYERS-CLAIM-28: Only the coach and the request's target see a merge preview (rule 5j)
+- **Given** a placeholder and a student on Maria's roster, and a pending request aimed at another student
+- **When** the preview is asked for
+- **Then** Maria gets 200 with what would move, be kept and be merged, and no request is created
+- **And** a coach with no link to the placeholder gets 403, and a target who is not a candidate gets 404
+- **And** a student who is not the request's target gets 403
+test: `backend/padel_app/tests/test_pad528_merge_flow.py` › `test_the_coach_previews_before_sending` (+1 more)
+
+#### PLAYERS-CLAIM-29: The preview reads as a sentence of what moves and what is kept (rules 5i, 5j)
+- **Given** a merge plan with counts per table
+- **When** either shell words it for the student's banner or the coach's dialog
+- **Then** the counts are grouped as attendances, evaluations, notes and classes, joined with commas and one "and"; a record that is merged counts as moved
+- **And** bookkeeping tables are left out, and a table the app does not know counts under "other"
+- **And** when nothing collides nothing is said about what is kept, and the coach's dialog uses the coach's wording
+- **And** the banner asks for the preview of each request and says the link cannot be undone
+test: `frontend/packages/config/src/merge-plan.test.ts` › `joins with commas and the translated conjunction` (+7 more)
+
+#### PLAYERS-CLAIM-30: Everything else the placeholder held becomes the student's (rules 5a, 5b, 5d, 5e)
+- **Given** a placeholder with messages it sent, calendar blocks, blocked people, notification events, vacancies, replacement prompts, a level history and waiting-list entries
+- **When** it is merged into the student
+- **Then** each of those rows names the student afterwards
+- **And** where both held the same thing (a club membership, a push subscription, a device token) one remains, the student's
+- **And** standing waiting-list entries for different series both stay active
+- **And** when the student already has the coach, the student's relation is kept: it takes the placeholder's level and notes where it had none, and keeps its own side
+test: `backend/padel_app/tests/test_pad528_merge_flow.py` › `test_the_standing_pass_keys_on_coach_and_scope` (+9 more)
+
+#### PLAYERS-CLAIM-31: The candidates are the coach's own active students, namesakes first (rules 4b, 4c)
+- **Given** a placeholder "Ana S." on Maria's roster with students "Ana Silva", "Bruno Costa", a student named "ANA s." and a namesake whose account is inactive
+- **When** Maria GETs `/api/app/player/<placeholder>/claim-candidates`
+- **Then** the list holds her active students and not the placeholder; the student with the same name comes first with `sameName: true`
+- **And** `?search=bru` leaves only Bruno, and a coach with no link to the placeholder gets 403
+- **And** the inactive account is not listed, cannot be picked (404) and is not flagged as a possible duplicate
+test: `backend/padel_app/tests/test_pad528_merge_flow.py` › `test_an_inactive_account_is_neither_a_candidate_nor_a_pick_nor_a_flag` (+3 more)
+
+#### PLAYERS-CLAIM-32: The invite-link claim needs a session and a live token (rule 3)
+- **Given** an invitation link for a placeholder
+- **When** `POST /api/app/player-invitations/<token>/claim` is called
+- **Then** with no session it answers 401
+- **And** a token already used answers 410, and a token nobody issued 404
+test: `backend/padel_app/tests/test_player_claim_requests.py` › `test_claim_via_invite_rejects_used_or_unknown_tokens` (+1 more)
+
+#### PLAYERS-CLAIM-33: No table or unique key reaches the schema without the merge accounting for it (rules 5a, 5k)
+- **Given** the database schema
+- **When** its foreign keys to `players` and `coach_in_player`, and the unique keys of every table the merge writes, are listed
+- **Then** every such table is in the merge's own lists, and no list names a table that is gone
+- **And** every unique key is either handled by the merge or listed as impossible to collide, with a reason
+test: `backend/padel_app/tests/test_player_claim_merge.py` › `test_every_players_fk_is_covered_by_the_merge` (+2 more)
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 4.
 - PAD-528 (2026-10-07): rules 4b–4d, 5h–5j and B-361 came from the ticket "merge an inactive
@@ -351,3 +414,13 @@ asks by exact username and the student accepts.
   that has to change. B-361 is what happened when the second kind was forgotten.
 - OPEN: whether a placeholder that has *two* coaches (a second coach imported the same person)
   should be claimable in one go — v1: yes, all relations move.
+
+### Open questions
+
+- **Rule 4 says the username is an "exact match only, no search"; the code also takes the one match that differs only by case.**
+  - Rule 4: "Exact match only, no search".
+  - The code today: the exact spelling wins; failing that, a single case-insensitive match is taken (`player_claim_service.py:592-603`, following `auth.login` rule 2a, PAD-799). `ANA` finds `ana`. PLAYERS-CLAIM-26 is written to the code.
+  - Recommendation: keep the code and reword rule 4 to "the exact spelling, or else the only account that differs by case; never a search".
+- **The Entities list is behind the merge.** It names `Vacancy.absent_player_id`, a column that does not exist; the merge re-points `original_player_id` and `filled_by_player_id`. It omits `reminder_attempts`, `class_requests`, `class_join_requests`, `player_claim_requests` and `player_merges`, which the merge handles. Rule 5e lists messages and calendar blocks only; the merge also moves reactions, message reports and blocks. Recommendation: rewrite Entities and rule 5e from `MERGED_PLAYER_FK_TABLES`.
+- **A failed coach-alone merge surfaces as a raw exception.** `merge_placeholder_player_into` rolls back and re-raises, so the test of PLAYERS-CLAIM-27 sees the exception, not an HTTP status; in production that is a 500. Recommendation: decide whether the coach should get a worded error.
+- **The preview's wording is asserted as translation keys.** PLAYERS-CLAIM-29's banner tests use a translator that echoes keys, so neither the sentence nor the counts are checked on screen. Recommendation: accept.
