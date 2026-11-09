@@ -81,6 +81,13 @@ review D7).
 - **When** staff export it
 - **Then** the script exits 2 and prints nothing to stdout
 
+#### ADMIN-DATA-EXPORT-6: A push subscription is withheld and staff records are left out (rule 4)
+- **Given** a student with a stored web-push subscription (an endpoint and its two keys)
+- **When** they are exported
+- **Then** `push_subscriptions` lists the row with `subscription_json` printed as `"[withheld]"`, and the endpoint and keys appear nowhere in the output
+- **And** `tables` has no `admin_audit_log` and no `deletion_audit` key
+test: `backend/padel_app/tests/test_pad640_export_user_data.py` › `test_a_push_subscription_prints_withheld` (+1 more)
+
 ### Notes
 - Source: PAD-640 (privacy review PAD-602, D7). The 30-day deadline is GDPR article 12(3).
 - No console page: requests are rare and handled by the owner; a script plus a runbook is enough.

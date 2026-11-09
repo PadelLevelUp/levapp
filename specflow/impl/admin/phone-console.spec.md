@@ -96,6 +96,7 @@ with nothing lost: the same navigation, the same badges, the same actions.
     ids are unchanged at `md` and above; the existing vitest suites (`operations.test.tsx`,
     `clubs-and-switches.test.tsx`, `EngineHealthPage.test.tsx`, …) keep passing without edits
     other than new test ids.
+11. **Escape closes the drawer too**, beside the close control and the backdrop of rule 2.
 
 ### Acceptance Criteria
 
@@ -180,6 +181,12 @@ with nothing lost: the same navigation, the same badges, the same actions.
 - **Then** both files have the same key set and every new key (`admin.shell.menu`,
   `admin.shell.closeMenu`, any card caption) is present in both
 
+#### ADMIN-PHONE-CONSOLE-13: The drawer closes from its close control, its backdrop and Escape (rules 2, 11)
+- **Given** an operator at phone width with the drawer open
+- **When** they tap `admin-menu-close`, tap `admin-menu-backdrop`, or press Escape
+- **Then** `admin-nav-drawer` is gone each time
+test: `frontend/apps/admin/src/components/PhoneNav.test.tsx` › `the backdrop and the close control both close the drawer` (+1 more)
+
 ### Notes
 - Layout approach: Tailwind responsive classes (`md:` prefixes) on the existing `Shell`, a drawer
   state in `Shell` only (no router change), card/table dual rendering per page with the row
@@ -191,3 +198,21 @@ with nothing lost: the same navigation, the same badges, the same actions.
 - Why not reuse the product web app's `AppLayout` phone menu: the console must not import from
   `apps/web` (`admin.foundation` rule 14, guard test). The drawer is written in `apps/admin`.
 - OPEN: none. The owner's sign-in check on a phone (rule 6) is a manual step at release time.
+
+### Open questions
+
+- **Rule 2 and ADMIN-PHONE-CONSOLE-2 count twelve navigation links; the console has thirteen.**
+  - Spec: rule 2 says "twelve for an operator or the owner since PAD-631 and PAD-555; eleven for
+    support", and ADMIN-PHONE-CONSOLE-2 lists twelve links ending in Work.
+  - Test: `PhoneNav.test.tsx` › "a phone gets a top bar and a drawer with everything the sidebar
+    carried" asserts 13 links in the drawer for an operator.
+  - Code today: `Shell.tsx` builds thirteen items for an operator: PAD-742 added Finance
+    (`/finance`) for every console account (`FINANCE_ROLE` is `support`, `admin.finance` rule 1).
+    Support therefore has twelve (no Work). The comment in `PhoneNav.tsx` still says "eleven".
+  - Recommendation: amend the rule and the criterion to thirteen and twelve; the code is right.
+  - Proposed text for ADMIN-PHONE-CONSOLE-2's Then: "`admin-nav-drawer` is visible and contains
+    thirteen navigation links (Home, Approvals with the count "2", Users, Settings, Roles, Audit
+    log, Engine health, Clubs, Switches, Reports, Deletions, Work, Finance: Reports and Deletions
+    since PAD-631, Work since PAD-555, Finance since PAD-742), the session email, the "Operator"
+    role badge, the language select and `admin-sign-out`". Rule 2: "thirteen for an operator or the
+    owner; twelve for support, who has no "Trabalho"".

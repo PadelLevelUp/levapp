@@ -11,7 +11,7 @@ Everything the team does to run the platform day to day is a screen in one staff
 
 - Approving or rejecting a coach has exactly the effect it has today: the same status change, email and push to the coach, and CRM update.
 - The old Admin section in the coach app's Settings disappears from web and iPhone in the release that adds approvals to the console.
-- Support staff see everything the console shows and change nothing. Only the owner gives or takes a staff role, and only the owner switches a feature off for everyone.
+- Support staff see every page except the work page and change nothing outside finance. Only the owner gives or takes a staff role, and only the owner switches a feature off for everyone.
 - Seeing a user's app "as them" is read-only, never shows their private messages, is recorded every time, and is for the operator role only.
 - The engine health page only reads; nothing on it starts, stops or retries the engine.
 - Plans and what they include are recorded before any payment exists; charging money is a later decision.

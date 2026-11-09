@@ -149,6 +149,42 @@ through the backend; their tokens never reach the browser.
 - **Then** the lane shows latest 30, median 40, longest 50, `nearLimit` true; with no token `ci` is
   `not_configured` and GitHub's Actions API is never called
 
+#### ADMIN-WORK-DASHBOARD-11: Open pull requests and the latest deploys are answered (rules 3, 4)
+- **Given** one open draft PR #30 into `staging` on branch `PAD-30` with failing checks, a staging deploy run and a successful production run
+- **When** an operator GETs `/admin/api/work`
+- **Then** `github.open` holds that PR with its number, title, url, base `staging`, `draft` true, `checks` `failure` and tickets `["PAD-30"]`
+- **And** `github.deploys.staging` and `.production` list their runs with the short sha and the conclusion
+test: `backend/padel_app/tests/test_pad555_work_dashboard.py` › `test_open_prs_and_deploys`
+
+#### ADMIN-WORK-DASHBOARD-12: An open PR's checks are unknown, not wrong, when they cannot be read (rules 3, 5)
+- **Given** no `WORK_GITHUB_TOKEN`, or a checks query that answers with errors
+- **When** the dashboard is fetched
+- **Then** `github.status` is still `ok` and each open PR's `checks` is null
+- **And** with no token, no checks query is made and no GitHub request carries an `Authorization` header
+test: `backend/padel_app/tests/test_pad555_work_dashboard.py` › `test_without_a_github_token_checks_are_unknown` (+1 more)
+
+#### ADMIN-WORK-DASHBOARD-13: The page shows each source in its section and says when one cannot be shown (rule 8)
+- **Given** an operator on `/work` and an answer where every source is `ok`
+- **Then** the page shows the open ticket with its summary, the done ticket, each merged PR with where it is (production, staging), the open PR as a draft with failed checks, both deploy lists with a cancelled run shown as cancelled and not as failed, the TestFlight build with its version and What to Test, the open bug with its severity and the resolved count, and the CI lane with its failure rate and the "near the limit" mark
+- **Given** an answer where `linear` is `not_configured` (missing `LINEAR_API_KEY`) and `github` is `unavailable`
+- **Then** the tickets section names `LINEAR_API_KEY`, the GitHub section says the data could not be fetched, and the other sections still show
+- **And** a `testflight` source that is `not_configured` names its missing setting
+test: `frontend/apps/admin/src/pages/WorkPage.test.tsx` › `shows tickets with summaries, where each merged PR is, open PRs and deploys` (+3 more)
+
+#### ADMIN-WORK-DASHBOARD-14: The page asks the server to refresh only when told, and says when that fails (rule 7)
+- **Given** the page loaded
+- **Then** no request carried `refresh=1`
+- **When** the operator presses `admin-work-refresh`
+- **Then** exactly one request carries `refresh=1`
+- **And** when that request fails, `admin-work-refresh-error` is shown
+test: `frontend/apps/admin/src/pages/WorkPage.test.tsx` › `asks the server to refresh only when told` (+1 more)
+
+#### ADMIN-WORK-DASHBOARD-15: Support has no Work entry in the navigation (rule 6)
+- **Given** a `support` session, then an `operator` session
+- **When** the console's sidebar renders
+- **Then** it has no Work link for support and has it for the operator
+test: `frontend/apps/admin/src/pages/WorkPage.test.tsx` › `support has no Trabalho entry; an operator does`
+
 ### Notes
 - Shipped in v2 (PAD-646): TestFlight builds, the bug ledger by severity, CI lanes close to their
   limit. Still out: a "needs owner" view until a Linear label is agreed.

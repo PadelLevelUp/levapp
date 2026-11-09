@@ -227,18 +227,60 @@ database query or a log search, and failed sends are only in the logs.
 - **When** the guard test lists rules under `/admin/api/engine-health`
 - **Then** every rule allows only `GET`, `HEAD` and `OPTIONS`
 
+#### ADMIN-ENGINE-HEALTH-17: The incident table lists refused streams and dropped pushes (rule 9, PAD-689)
+- **Given** a summary whose last-24-hours counts carry `stream_refused: 3` and `push_dropped: 1`
+- **When** the engine-health page renders
+- **Then** the incident rows "Live updates refused (stream cap)" and "Push dropped (queue full or
+  provider paused)" show 3 and 1
+
+#### ADMIN-ENGINE-HEALTH-18: A reminder pass that finds its class already started is recorded (rule 3)
+- **Given** a class that started an hour ago, with notifications on
+- **When** its reminder pass runs
+- **Then** one `delivery_incidents` row of kind `reminder_skipped_past_due` names that occurrence
+test: `backend/padel_app/tests/test_pad534_engine_health.py` › `test_a_pass_that_finds_its_class_started_is_recorded`
+
+#### ADMIN-ENGINE-HEALTH-19: The peer token opens deploy identity only, and each use is audited (rule 5)
+- **Given** `ADMIN_PEER_INBOUND_TOKEN` set
+- **When** `GET /admin/api/deploy-identity` is called with `Authorization: Peer <that token>`
+- **Then** the answer is 200 with `gitSha` and `alembicHead` and nothing else, and one audit row `deploy_identity.peer_read` with the actor `peer` is written; a console session's own read writes none
+- **And** no header, a wrong token, an unset or empty token setting, any other route with the peer token, and a POST with it are all refused without a `gitSha`
+test: `backend/padel_app/tests/test_pad534_engine_health.py` › `test_the_peer_token_opens_deploy_identity_only_and_is_audited` (+1 more)
+
+#### ADMIN-ENGINE-HEALTH-20: A failed incident insert logs nothing of the send it was recording (rule 3, B-254)
+- **Given** a web push that fails with an error naming the push endpoint, and the incident insert failing too
+- **When** the send returns
+- **Then** it reports failure as before, and the log line says the incident could not be recorded without the endpoint or the provider's host
+test: `backend/padel_app/tests/test_pad534_engine_health.py` › `test_a_failing_insert_never_logs_the_send_failures_text`
+
+#### ADMIN-ENGINE-HEALTH-21: The failure report's platform decides its channel, and a signed-out caller is refused (rule 8b)
+- **Given** a signed-in user
+- **When** they POST `/api/notifications/registration-failure` with platform `web`
+- **Then** the answer is 204 and the incident's channel is `webpush`
+- **And** the same request with no session answers 401
+test: `backend/padel_app/tests/test_pad746_push_reach.py` › `test_a_web_failure_maps_to_webpush` (+1 more)
+
+#### ADMIN-ENGINE-HEALTH-22: The page shows the summary's blocks, leaves out one the answer lacks, and refreshes only when asked (rules 2, 5, 7, 8c)
+- **Given** support on `/engine-health` and a summary with counts, an overdue job, a missing singleton, an incident count, this deploy's commit and push receipts
+- **Then** each count shows in its place, the missing singleton is marked missing, and the receipts show by status with their errors by code
+- **And** a summary with no `pushReceipts` or no `push` block shows the page without that block
+- **And** whatever `deploy.other` holds (the text of an unconfigured or unreachable peer, null, a number, an identity with null fields), the deploy line says not configured, unreachable or unknown, and the rest of the page still shows
+- **And** the summary is fetched again only when `admin-eh-refresh` is pressed
+test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the engine's numbers, an overdue job, a missing singleton and an unconfigured peer` (+4 more)
+
+#### ADMIN-ENGINE-HEALTH-23: A client reports each failed push registration with closed fields only (rule 8d)
+- **Given** the web app or the iOS/Android app registering for push, and the save of the token failing with a 503
+- **When** the attempt fails, and again on each retry
+- **Then** one report is posted per failed attempt with `platform`, `phase`, `permission`, `build` and an `errorClass` such as `http_503`: never the error's message, the token or a class the server would refuse (those become `unknown`; a class is cut at 60 characters)
+- **And** a refused permission and a simulator report nothing; a report that fails is dropped, not retried; a reporter that throws does not stop the registration; a stopped reporter sends nothing
+- **And** the web's report goes with the user's own token, outside the API client
+test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answered 503 sends one report with the closed fields and the user's token` (+9 more)
+
 ### Not this spec
 - Retrying, re-arming or running the engine by hand (`process_rounds`, "send now") — never from the
   console in this spec.
 - Alerting (paging someone when a count crosses a threshold) — a later ticket if wanted.
 - Request logs and error tracking (nginx and container logs stay where they are).
 - Editing a coach's engine settings — the coach does that in the app (`notifications.config`).
-
-#### The incident table lists refused streams and dropped pushes (rule 9, PAD-689)
-- **Given** a summary whose last-24-hours counts carry `stream_refused: 3` and `push_dropped: 1`
-- **When** the engine-health page renders
-- **Then** the incident rows "Live updates refused (stream cap)" and "Push dropped (queue full or
-  provider paused)" show 3 and 1
 
 ### Notes
 - PAD-746 (rule 8): the reach definition and baseline are G's PAD-741 query (prod, read-only,

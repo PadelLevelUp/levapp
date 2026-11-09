@@ -171,6 +171,10 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
     specifies that layout. There is still no iOS or Android console.
 16. **Language.** The console's strings use the shared i18n setup with `pt` and `en`, defaulting to
     the browser language, falling back to `pt`.
+17. **An unknown signing key refetches Google's certificates, at most once a minute** (#581 review,
+    PAD-554). A token whose key id is not among the cached certificates of rule 12a triggers one
+    refetch; further unknown key ids within the next 60 seconds are refused from the cache, so a
+    burst of forged tokens cannot make the console hammer Google.
 
 ### Acceptance Criteria
 
@@ -294,6 +298,90 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 - **When** `apps/admin` is built
 - **Then** its bundle contains the console and no product route, and `apps/web`'s bundle contains no console string (a known console-only i18n key is absent)
 
+#### ADMIN-FOUNDATION-25: The audit log lists newest first, 50 a page, filtered by actor, action, target and date (rule 9)
+- **Given** 55 audit rows
+- **When** the owner GETs `/admin/api/audit`, then page 2
+- **Then** the first page holds the 50 newest with `hasMore` true, the second the other 5 with `hasMore` false, and each row carries its time in UTC, actor, role, action, target, before, after, request id and outcome
+- **And** `action`, `actorEmail`, `targetType` with `targetId`, `from` and `to` each narrow the list to the rows that match, and to none when nothing does
+- **And** the console's request leaves out a filter that is empty
+test: `backend/padel_app/tests/test_pad531_audit.py` › `test_the_audit_log_lists_newest_first_with_filters_and_pages` (+1 more)
+
+#### ADMIN-FOUNDATION-26: A write that is refused leaves one audit row saying so (rule 8)
+- **Given** the owner
+- **When** they POST a role for `rui@gmail.com`, which is refused with 400
+- **Then** exactly one `role.grant` audit row exists for the attempt, with the owner as actor and outcome `error`
+test: `backend/padel_app/tests/test_pad531_audit.py` › `test_a_service_error_is_rolled_back_and_recorded`
+
+#### ADMIN-FOUNDATION-27: Google sign-in is rate-limited per IP (rule 12a)
+- **Given** the limit set to 3 attempts in 60 seconds
+- **When** one client POSTs `/admin/api/auth/google` four times
+- **Then** the first three are answered on their merits and the fourth is 429
+- **And** the limit the code ships with is 10 attempts in 60 seconds
+test: `backend/padel_app/tests/test_pad531_hardening.py` › `test_google_sign_in_is_rate_limited_per_ip` (+1 more)
+
+#### ADMIN-FOUNDATION-28: Google's certificates are cached, and an unknown key id refetches them at most once a minute (rules 12a, 17)
+- **Given** Google's certificates answered with a max-age of an hour
+- **When** they are needed again within the hour, then after it
+- **Then** they are fetched once, then once more
+- **Given** a token signed with a key id the cache does not hold
+- **When** it is verified
+- **Then** the certificates are fetched again once, and the token verifies when the new set holds its key
+- **And** a burst of tokens with unknown key ids is refused with a single refetch, and the next refetch comes only a minute later
+test: `backend/padel_app/tests/test_pad531_hardening.py` › `test_google_certificates_are_fetched_once_while_fresh` (+3 more)
+
+#### ADMIN-FOUNDATION-29: A token stops working when its role is granted again or changed, and at logout (rules 4, 5)
+- **Given** an operator holding a valid token
+- **When** the owner revokes the role and grants that email a role again, or changes the role
+- **Then** the old token answers 401 and a token issued afterwards answers 200
+- **And** after `POST /admin/api/auth/logout` the same token answers 401
+test: `backend/padel_app/tests/test_pad531_hardening.py` › `test_a_token_issued_before_a_regrant_is_refused` (+2 more)
+
+#### ADMIN-FOUNDATION-30: A request with no valid admin token is refused (rule 3)
+- **Given** no `Authorization` header, or a bearer that is not a token
+- **When** any `/admin/api/*` route that needs a role is called
+- **Then** the answer is 401, with `{"error": "ADMIN_TOKEN_REQUIRED"}` when the header is missing, and nothing is readable
+test: `backend/padel_app/tests/test_pad531_plumbing.py` › `test_no_token_is_401` (+1 more)
+
+#### ADMIN-FOUNDATION-31: Granting, changing and revoking a role (rule 7)
+- **Given** the owner, and a revoked `operator` row for `rui@levapp.app`
+- **When** they grant `Rui@LevApp.app` the `support` role
+- **Then** the old row is active again as `support`, granted by the owner, and no second row exists
+- **And** a grant links the product account that has the same email, whatever its case
+- **And** an unknown role is refused as `INVALID_ROLE`, and a second active row for an email as 409
+- **And** a change and a revoke each write an audit row with the email and role before and after; a revoked row stays in the list as inactive; revoking it again answers 404
+test: `backend/padel_app/tests/test_pad531_roles.py` › `test_an_unknown_role_and_a_duplicate_are_refused` (+3 more)
+
+#### ADMIN-FOUNDATION-32: The sign-in page offers Google, posts the credential to the console alone and says why a person is refused (rules 1, 2, 3, 13)
+- **Given** a configured console and no stored session
+- **When** the console opens
+- **Then** `GET /admin/api/auth/config` answers the client id, `configured` true and the staff domain, and the page shows the Google button
+- **When** Google hands back a credential
+- **Then** it is posted to `/admin/api/auth/google` with nothing else in the body, and on success the session is stored for this tab
+- **And** `NOT_STAFF_DOMAIN` shows that only the company domain signs in, and `NO_ADMIN_ROLE` tells the person to ask an owner
+test: `backend/padel_app/tests/test_pad531_sign_in.py` › `test_auth_config_exposes_the_public_client_id` (+4 more)
+
+#### ADMIN-FOUNDATION-33: The console keeps its session in the tab and drops it on a 401 (rules 3, 4)
+- **Given** a stored, unexpired session
+- **When** the console opens and calls the API
+- **Then** the shell shows the session's email and role (support also reads as read-only), and each request carries the token as a bearer header and sets no cookie; the two unauthenticated routes carry no token
+- **When** any call answers 401
+- **Then** the stored session is removed and the sign-in page shows
+- **And** a refused sign-in keeps its error code and ends no session; a network failure is reported as `NETWORK`; a stored session past its expiry is not read back and is never renewed
+test: `frontend/apps/admin/src/App.test.tsx` › `opens the shell with the stored session's email and role, and support reads as read-only` (+7 more)
+
+#### ADMIN-FOUNDATION-34: The console speaks pt and en, by the browser's language (rule 16)
+- **Given** the console's two locale files
+- **Then** they hold the same keys, all under the `admin` namespace
+- **And** a browser in English gets `en`; any other language, or none, gets `pt`
+test: `frontend/apps/admin/src/i18n.test.ts` › `pt and en carry the same keys` (+2 more)
+
+#### ADMIN-FOUNDATION-35: The console's nginx sends the security headers on every location and refuses a token in the URL (rule 12a)
+- **Given** the tracked nginx configuration of the admin host, in both environments and in the image
+- **When** it is read
+- **Then** every location includes the security-headers snippet: a Content-Security-Policy that allows only the console itself and Google's sign-in script and frame, `frame-ancestors 'none'`, no referrer, no sniffing, and HSTS
+- **And** a request carrying `token`, `t` or `access_token` in its query string is answered 404 before any location is matched
+test: `backend/padel_app/tests/test_pad531_hardening.py` › `test_the_console_sends_its_security_headers_on_every_location` (+1 more)
+
 ### Not this spec
 - Coach approvals, the user directory, roles screens and "view as" — `admin.approvals-and-users`.
 - Clubs, courts, coach↔club links and platform switches — `admin.clubs-and-switches`.
@@ -325,3 +413,31 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 - Resolved 2026-10-09: the consent screen could not be "Internal" (the project is not in a
   Workspace organisation); it is External in Testing mode with one test user. Each new staff
   member must be added as a test user before they can sign in, until the app is published.
+
+### Open questions
+
+- **Rule 5 and ADMIN-FOUNDATION-10 say support writes nothing; finance lets support write.**
+  - Spec: rule 5, "`support`: every `GET` route. No write of any kind." ADMIN-FOUNDATION-10: a
+    support token on any non-`GET` route gets 403, the session routes excepted.
+  - Other spec: `admin.finance` rule 1 (owner's answer Q4, 2026-10-23) gives every finance route,
+    writes included, to `FINANCE_ROLE = "support"`.
+  - Code today: finance is the code's one exception. `test_pad531_plumbing.py` leaves the five
+    finance write routes out of the "support cannot write" walk (`SUPPORT_WRITES`), and
+    ADMIN-FINANCE-1 proves support creates a cost.
+  - Recommendation: keep the owner's finance answer and amend this rule and criterion to name the
+    exception.
+  - Proposed text for rule 5: "`support`: every `GET` route, and no write except finance
+    (`admin.finance` rule 1)." For ADMIN-FOUNDATION-10's When: "…except the session routes
+    `auth/google` and `auth/logout` and the finance routes of `admin.finance` rule 1".
+- **ADMIN-FOUNDATION-24 speaks of the built bundles; its tests read source files.**
+  - Spec: "its bundle contains the console and no product route, and `apps/web`'s bundle contains
+    no console string".
+  - Tests: `console-only.test.ts` scans the console's sources for product routes and clients, and
+    the product source trees for one console-only string. Nothing builds or reads a bundle.
+  - Recommendation: reword the criterion to the sources, which is what is checked on every run; a
+    bundle check would need a build in the test lane.
+  - Proposed Then: "the console's sources name no product route and no product API client, and no
+    product source file holds a console-only string (a known console-only i18n key is absent)".
+- **The header still says "Draft: no code exists" and `status: draft`.** The console is built (PAD-531
+  and its followers) and its criteria have tests. Recommendation: set the status to
+  `implemented` and drop that sentence. `admin.moderation` carries `status: draft` in the same way.

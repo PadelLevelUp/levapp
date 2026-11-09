@@ -75,6 +75,9 @@ switched off for everyone without a release. Every change is audited (`admin.fou
    (`admin-coach-approval-required`, `admin-coach-approval-required-switch`,
    `admin-coach-approval-source-env`) and `apps/web/e2e/settings/admin-coach-approval-switch.spec.ts`
    are replaced by console tests.
+8. **Switching `terms-acceptance` off asks first** (#585 review). Before it sends that switch-off the
+   page shows a native confirmation naming the effect (new accounts would be created without
+   accepting the Terms); declining sends nothing. No other switch asks.
 
 ### Acceptance Criteria
 
@@ -122,6 +125,40 @@ switched off for everyone without a release. Every change is audited (`admin.fou
 - **Given** a product superadmin token
 - **When** it calls `GET /api/app/admin/settings`
 - **Then** the response is 404
+
+#### ADMIN-CLUBS-AND-SWITCHES-10: Support reads clubs and switches and is offered no control (rules 1, 3, 6)
+- **Given** a `support` session
+- **When** it lists clubs, PATCHes a club's name, and POSTs a coach link
+- **Then** the list answers 200 with each club's counts, and both writes answer 403
+- **And** the switches page shows every capability with no toggle and the owner-only line, and a club page shows its courts with the name field disabled, no save and no unlink
+test: `frontend/apps/admin/src/pages/clubs-and-switches.test.tsx` › `shows support every capability with its effect and no control` (+2 more)
+
+#### ADMIN-CLUBS-AND-SWITCHES-11: The owner switches a capability off from the page with the typed reason (rules 6, 8)
+- **Given** the owner on `/switches` with `open-spots` and `terms-acceptance` on
+- **When** they type a reason beside `open-spots` and press its toggle
+- **Then** one PUT to that capability carries `{off: true, reason: <the text>}`, with no confirmation asked
+- **When** they do the same for `terms-acceptance` and decline the confirmation
+- **Then** nothing is sent; confirming sends the switch-off with the reason
+test: `frontend/apps/admin/src/pages/clubs-and-switches.test.tsx` › `lets the owner switch a capability off with the reason typed` (+2 more)
+
+#### ADMIN-CLUBS-AND-SWITCHES-12: Unlinking a coach's last club says so on the page (rule 3)
+- **Given** an operator on a club's page, and a coach whose only club it is
+- **When** they unlink that coach
+- **Then** the DELETE is sent and the page shows the notice that the coach now has no club
+test: `frontend/apps/admin/src/pages/clubs-and-switches.test.tsx` › `lets an operator unlink a coach's last club and says so`
+
+#### ADMIN-CLUBS-AND-SWITCHES-13: A blank club name is refused (rule 1)
+- **Given** an operator and a club
+- **When** they PATCH the club with a name of only spaces
+- **Then** the answer is 400 with code `invalid_club`
+test: `backend/padel_app/tests/test_pad533_clubs.py` › `test_a_club_name_is_validated`
+
+#### ADMIN-CLUBS-AND-SWITCHES-14: The switch screen lists every capability with its last change (rule 6)
+- **Given** the owner switched `evaluations` off with a reason, and no other switch was ever touched
+- **When** support GETs `/admin/api/settings/capabilities`
+- **Then** `items` holds one entry per capability the server knows, each with its kind (`feature` or `compat`); `evaluations` is off with that reason, the owner's email and the time; an untouched one is on with no change time
+- **And** every capability constant in the server's code is in that registry
+test: `backend/padel_app/tests/test_pad533_switches.py` › `test_every_capability_is_registered` (+1 more)
 
 ### Not this spec
 - Creating or deleting clubs, merging duplicate clubs, editing club logos.
