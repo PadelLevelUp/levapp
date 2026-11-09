@@ -447,13 +447,13 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **And** clearing the search shows all three again
 - **And** a student chosen before the search changed stays chosen and listed even when the search no longer matches them
 
-#### CALENDAR-EVENT-DETAIL-26: A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22)
+#### CALENDAR-EVENT-DETAIL-26: A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22; `classes.instance-enrollment` rule 13a)
 - **Given** a class with students in every attendance state, some of them not on the coach's roster
 - **When** the coach's participant list is built
 - **Then** `planned`, or no answer at all, is listed under pending; `coming` and `attended` under going; `not_coming` and `missed` under not going; each row keeps its stored state
 - **And** a row carries the initials of the first and last name, and `?` when there is no name
 - **And** side and level come from the coach's roster; a student who is not on it comes last with neither
-- **And** a student who plays both sides and was given the left reads "Amb → Esq"
+- **And** in a full class, a student who plays both sides and was given the left reads "Amb → Esq"
 - **And** a class with no capacity shows the count alone
 test: `frontend/apps/web/src/components/calendar/ParticipantGroups.test.tsx` › `a both player of a full class reads Ambos → esquerda (PAD-672 slice 3); without one, today's label` (+7 more)
 
@@ -487,7 +487,7 @@ test: `frontend/packages/config/src/invitation-outcome.test.ts` › `maps a live
 - **When** the coach opens the dialog to add, and to edit a row
 - **Then** the picker offers the roster's students who are neither in the class nor on its list
 - **And** an add opens on "this class only", and an edit opens on the row's own scope and end date
-- **And** this class sends `scope: "occurrence"`, the whole series `scope: "series"`, and a period either a number of classes from 1 to 52 or an end date from today on
+- **And** this class sends `scope: "occurrence"`, the whole series `scope: "series"`, and a period either a number of classes from 1 to 52 or an end date from today to 12 months ahead
 - **And** each row words where it came from (the standing list, the coach, the student's request) and its scope
 test: `frontend/packages/config/src/waiting-list-origin.test.ts` › `validates only a period: a count in 1..52, or a date inside the standing window` (+6 more)
 

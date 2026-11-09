@@ -79,6 +79,8 @@ fan-out reads `blocked_players_for_instance` (`notification_service.py:2754`).
     blocker still recurs is 400 `["endDate"]` (the shared builder never sends one — it defaults the
     end to three months on create).
 
+17. The conflict check answers only for students on the asking coach's roster: anyone else is left out of the answer, which is still 200. A check that fails never stops the save; the form goes on with no warning.
+
 ### Acceptance Criteria
 
 #### CALENDAR-STUDENT-BLOCKERS-1: Blocker suppresses auto-invitation
@@ -136,11 +138,11 @@ fan-out reads `blocked_players_for_instance` (`notification_service.py:2754`).
 - **When** the student saves
 - **Then** the sheet shows `availability.validation.end_before_start` (or `time_required`, or `end_date_before_start_date`) and no request is sent
 
-#### CALENDAR-STUDENT-BLOCKERS-11: The conflict check answers for the coach's own roster, and its failure never blocks the save (rules 8, 9)
+#### CALENDAR-STUDENT-BLOCKERS-11: The conflict check answers for the coach's own roster, and its failure never blocks the save (rule 17)
 - **Given** a blocked student on one coach's roster, and a second coach who does not coach them
 - **When** each coach asks `/api/app/notify/availability_conflicts` about that student, and a class is saved while the check is failing
 - **Then** the first coach is told the student is blocked; the second gets 200 with nobody listed
-- **And** when the check fails the class is saved with no warning
+- **And** when the check fails it returns no warning, so the form saves
 test: `frontend/apps/mobile/src/features/calendar/unavailable-check.test.ts` › `a failed lookup saves anyway` (+1 more)
 
 #### CALENDAR-STUDENT-BLOCKERS-12: The sheet turns what the student filled in into the block that is saved (rules 15, 16)
@@ -171,3 +173,4 @@ test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `te
 - **The Status section cites lines that have moved.** It gives `notification_engine_api.py:294` and `:253-269` and `notification_service.py:1744` and `:2754`; the code is now at the lines listed above. Recommendation: cite functions, not lines.
 - **A test's name says the opposite of what it asserts.** `test_a_students_unavailability_made_one_off_still_excludes_them...` asserts, since PAD-377, that the student is free again two weeks later. Recommendation: rename it.
 - **`availabilityBlockerSchema` has a test and no user.** Nothing outside its own file imports it. Recommendation: delete the schema and its test.
+- **"A failed check never stops the save" is proved on the helper only.** The iOS test shows the pre-check returns an empty list on an error; the web sheet's own catch (`AddClassSheet.tsx:376-379`) has no test. Recommendation: add a web test.

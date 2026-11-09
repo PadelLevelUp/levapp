@@ -697,7 +697,7 @@ Untagged tests: 7552
   - **CALENDAR-EVENT-DETAIL-23** The coach puts a student on the whole series, or for a period, from the class (rule 20, PAD-560) · unverified
   - **CALENDAR-EVENT-DETAIL-24** The coach changes a row's scope from the class (rules 19–20, PAD-560) · unverified
   - **CALENDAR-EVENT-DETAIL-25** The waiting-list picker searches by name (rule 20, PAD-558) · unverified
-  - **CALENDAR-EVENT-DETAIL-26** A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22) · unverified
+  - **CALENDAR-EVENT-DETAIL-26** A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22; `classes.instance-enrollment` rule 13a) · unverified
   - **CALENDAR-EVENT-DETAIL-27** A row shows one state word, read from the stored attendance state (rules 3a, 25) · unverified
   - **CALENDAR-EVENT-DETAIL-28** The cancellation and reminder lines show only while they still mean something (rules 3a, 23) · unverified
   - **CALENDAR-EVENT-DETAIL-29** An invitee row follows the live answer and says how it got there (rules 16, 17) · unverified
@@ -737,7 +737,7 @@ Untagged tests: 7552
   - **CALENDAR-MOBILE-VIEWS-30** Existing navigation ids still work · unverified
   - **CALENDAR-MOBILE-VIEWS-31** One rule decides a card's treatment, in a fixed order (rules 5, 7) · unverified
   - **CALENDAR-MOBILE-VIEWS-32** A card's colours come from the coach's colour so that its text always reads (rules 5, 6) · unverified
-  - **CALENDAR-MOBILE-VIEWS-33** A day's dot takes its colour from the class's state, and for a student from their relation (rules 5, 10) · unverified
+  - **CALENDAR-MOBILE-VIEWS-33** A day's dot takes its colour from the class's state, and for a student from their relation (rules 5, 10; `calendar.view` rule 23) · unverified
   - **CALENDAR-MOBILE-VIEWS-34** The Semana grid places what has a time and keeps the rest out (rule 13) · unverified
   - **CALENDAR-MOBILE-VIEWS-35** The calendar opens on today in Dia, and the selected day follows the paging (rules 1, 2, 11) · unverified
   - **CALENDAR-MOBILE-VIEWS-36** The month grid is whole Sunday-start weeks, four to six of them (rules 15, 16) · unverified
@@ -772,8 +772,8 @@ Untagged tests: 7552
   - **CALENDAR-VIEW-22** Calendar class card is reachable and activatable by keyboard · unverified
   - **CALENDAR-VIEW-23** The calendar hook waits for both ends of the range (PAD-348) · unverified
   - **CALENDAR-VIEW-24** A "this and future" edit reaches the other cards of the week without a reload (rule 18, PAD-526) · unverified
-  - **CALENDAR-VIEW-25** A card's count and level come from where the invitation engine reads them (rules 9, 10) · unverified
-  - **CALENDAR-VIEW-26** A bare date is a calendar day, whatever the device's time zone (rule 16) · unverified
+  - **CALENDAR-VIEW-25** A card's count and level come from where the invitation engine reads them (rules 8, 9) · unverified
+  - **CALENDAR-VIEW-26** A bare date is a calendar day (rule 24) · unverified
 
 ### P-CALENDAR-4: Student controls invitation availability
 
@@ -790,7 +790,7 @@ Untagged tests: 7552
   - **CALENDAR-STUDENT-BLOCKERS-8** The availability tab is two cards with no floating action (PAD-356) · unverified
   - **CALENDAR-STUDENT-BLOCKERS-9** A block is created from the sheet, single or recurring (PAD-356) · unverified
   - **CALENDAR-STUDENT-BLOCKERS-10** An end before the start is refused before any request (PAD-356) · unverified
-  - **CALENDAR-STUDENT-BLOCKERS-11** The conflict check answers for the coach's own roster, and its failure never blocks the save (rules 8, 9) · unverified
+  - **CALENDAR-STUDENT-BLOCKERS-11** The conflict check answers for the coach's own roster, and its failure never blocks the save (rule 17) · unverified
   - **CALENDAR-STUDENT-BLOCKERS-12** The sheet turns what the student filled in into the block that is saved (rules 15, 16) · unverified
   - **CALENDAR-STUDENT-BLOCKERS-13** A student's edit writes what was sent, and a blocker made one-off stops repeating (rule 3, and rule 12 "An edit writes what was sent") · unverified
 

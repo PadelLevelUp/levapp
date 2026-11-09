@@ -455,10 +455,10 @@ test: `frontend/packages/config/src/calendar-card.test.ts` › `a calendar block
 - **Then** the text on a solid card is white or the ink, whichever contrasts more, and both shells make the same choice
 - **And** a finished class keeps 22 % of its colour over the card's surface, in both themes
 - **And** the next class's label is the colour mixed 55 % toward the foreground, which reads at 4.5:1 on the card in both themes
-- **And** a class with no colour uses the primary colour, and a value that is not a colour falls back to the card's own tokens
+- **And** a class with no colour uses the primary colour, and for a value that is not a colour the label takes the card's own token and a faded or outlined card takes no colour from it
 test: `frontend/packages/config/src/calendar-status.test.ts` › `picks whichever of ink/white actually reads, for every swatch` (+26 more)
 
-#### CALENDAR-MOBILE-VIEWS-33: A day's dot takes its colour from the class's state, and for a student from their relation (rules 5, 10)
+#### CALENDAR-MOBILE-VIEWS-33: A day's dot takes its colour from the class's state, and for a student from their relation (rules 5, 10; `calendar.view` rule 23)
 - **Given** a day with classes in several states, seen by the coach and by a student
 - **When** the day's dots are drawn
 - **Then** for the coach a dot is the class's colour, red when canceled, muted for a block, faded when finished, and the primary colour when the class has none
@@ -467,9 +467,9 @@ test: `frontend/packages/config/src/calendar-status.test.ts` › `picks whicheve
 test: `frontend/apps/mobile/src/features/calendar/day-dots.test.ts` › `PAD-611: an invitation's dot is the class colour, a waiting place's is muted` (+7 more)
 
 #### CALENDAR-MOBILE-VIEWS-34: The Semana grid places what has a time and keeps the rest out (rule 13)
-- **Given** a week of classes that all fall between 07:00 and 23:00
+- **Given** a week whose classes run from 10:00 to 17:45, and a week whose classes run from 07:00 to 22:30
 - **When** the Semana grid is laid out
-- **Then** its range is 07:00 to 23:00
+- **Then** the first week's range is 09:00 to 19:00, a whole hour either side, and the second's is 07:00 to 23:00
 - **And** an event with no start and end time gets no block and does not widen the range
 - **And** a five-minute event keeps a block 18 px tall
 - **And** a class that ends at midnight sits beside the 23:00 class it overlaps
