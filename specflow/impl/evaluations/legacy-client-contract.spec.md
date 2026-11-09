@@ -220,9 +220,66 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
 - **When** `GET /player_profile/5` is called
 - **Then** `evaluations[0].evaluatedAt` is exactly `"2026-03-02T00:00:00"`
 
+#### EVALUATIONS-LEGACY-CLIENT-CONTRACT-10: Every score in a legacy save is checked before any is written (rule 10)
+- **Given** a coach with two legacy categories on 1–5 and no scores
+- **When** an old build posts a score of -3, 99, 0 or "0"
+- **Then** the answer is 400 `score_out_of_range`; a value that is not a number (`"abc"`, `true`, NaN) is 400 `score_invalid`
+- **And** a body holding one good score and one refused score writes neither
+- **And** a score that is not whole is raised to the next whole star before the check: 0.5, 1.2, 2.5 and 4.5 are stored as 1, 2, 3 and 5
+- **And** a fractional score already on file, posted back untouched, is equal to the latest and writes nothing
+test: `backend/padel_app/tests/test_pad362_evaluation_contract.py` › `test_3_the_server_enforces_the_1_5_range_before_writing` (+5 more)
+
+#### EVALUATIONS-LEGACY-CLIENT-CONTRACT-11: A body from a form still on 1–10 is converted whole, or refused whole (rule 10)
+- **Given** a legacy save whose body holds a value above 5
+- **When** every value lies in 0 to 10
+- **Then** each is stored as `max(1, ceil(v / 2))`: 7 and 6 become 4 and 3, 10 and 0 become 5 and 1
+- **And** a converted value equal to the category's latest score writes nothing
+- **And** when any value lies outside 0 to 10 the answer is 400 `score_out_of_range` and nothing in the body is written
+- **And** a body with no value above 5 is read as stars, unconverted
+test: `backend/padel_app/tests/test_pad362_evaluation_contract.py` › `test_3_a_stale_1_10_body_is_converted_whole_before_writing` (+2 more)
+
+#### EVALUATIONS-LEGACY-CLIENT-CONTRACT-12: The legacy upsert stores and echoes 1–5 whatever scale is sent (rules 5, 9)
+- **Given** a coach with Forehand and Volley
+- **When** an old build posts Forehand with scale 2–5 and a new Smash with scale 1–7
+- **Then** the answer lists both at `scaleMin` 1 and `scaleMax` 5, with no ids, and both are stored at 1–5
+- **And** Forehand is the same row as before, and Volley, left out of the body, still exists
+test: `backend/padel_app/tests/test_pad362_evaluation_contract.py` › `test_4_add_evaluation_categories_upserts_by_name_and_echoes_the_request`
+
+#### EVALUATIONS-LEGACY-CLIENT-CONTRACT-13: A switched-off legacy category keeps its score on the old profile (rules 2, 4)
+- **Given** a legacy category with a score, switched off afterwards in the new editor
+- **When** an old build reads the category list and the player's profile
+- **Then** the list leaves the category out, and the profile still carries its score
+test: `backend/padel_app/tests/test_pad363_legacy_freeze.py` › `test_r047_a_switched_off_legacy_category_keeps_its_score_on_the_old_profile`
+
+#### EVALUATIONS-LEGACY-CLIENT-CONTRACT-14: The legacy save compares with the latest score, whoever wrote it (rule 3)
+- **Given** Forehand scored 4 through the legacy save, then 5 through the new record API later the same day
+- **When** an old build posts Forehand 5, then Forehand 4
+- **Then** the 5 writes nothing and the 4 is appended
+- **And** a rating on a non-legacy competency the same day does not make an equal legacy score write again
+test: `backend/padel_app/tests/test_pad363_legacy_freeze.py` › `test_r047_a_competency_rating_does_not_disturb_the_legacy_skip_rules` (+1 more)
+
 ### Notes
 - Test trap: Playwright's raw `request` helpers send only the auth header. That is irrelevant
   here by design — rule 1 makes the answer the same with or without any header — and the first
   criterion proves it both ways.
 - The production counts (how many `scale_min = 0` rows B-136 has been eating) are pending; they
   bear on owner question Q1, not on this leaf.
+
+### Open questions
+
+- **EVALUATIONS-LEGACY-CLIENT-CONTRACT-1, -2, -7 and -8 keep numbers and pins from before rules 9 and 10.**
+  - Criteria: -1 lists Forehand and Volley at `"scaleMax": 10` and posts the values 8 and 6; -7
+    posts 9 and 6; -8 says the switched-off Volley's "`scale_max` is still 10"; -2 says "every
+    pin passes unchanged: … the non-atomic save, B-125, B-126 and B-136 as recorded in rule 7".
+  - Rules 9 and 10 of this spec: every legacy category is 1–5; a body with a value above 5 is
+    converted as a stale 1–10 form; rule 7 strikes out the non-atomic save and B-126.
+  - Code today: `test_pad363_legacy_freeze.py` ›
+    `test_r047_evaluation_categories_lists_legacy_categories_only` expects `"scaleMax": 5`;
+    `test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category` posts 5 and 4;
+    `test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legacy_category`
+    finds the row at `(1, 5, False)`.
+  - Recommendation: keep the four criteria and move their numbers onto 1–5, as the tests did.
+  - Proposed: in -1, `"scaleMax": 5` twice, values 5 and 4 for Forehand and Volley, "exactly one
+    entry is written (Volley 4)"; in -7, values 5 and 4 and "(Forehand 5)"; in -8, "Volley (id
+    2, 1–5)" and "its scale is still 1–5 and `is_active` is still false"; in -2, end the list at
+    "absent-category-not-deleted and B-125", and add "the atomic, range-checked save of rule 10".

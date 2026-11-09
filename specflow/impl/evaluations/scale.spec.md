@@ -129,6 +129,38 @@ without any existing score changing meaning. Partly reverses PAD-403's "1–5 st
 - **When** they set "Escala de avaliações" to 1–100 in Settings → Evaluations
 - **Then** both shells show a slider (1–100) for their competencies in the evaluation form
 
+#### EVALUATIONS-SCALE-10: The scale choice shows what is stored, is held until the tab's Save, and changes nothing else (rules 1, 2, 8; web and iOS)
+- **Given** a coach on the 1–5 scale
+- **When** the setting opens
+- **Then** 5 is the option selected, and 10, 20 and 100 are not
+- **When** the coach picks 10
+- **Then** nothing is sent and the tab is unsaved; the tab's Save sends exactly `{scaleMax: 10}` once, and the tab is clean
+- **And** a competency created afterwards, custom or from the catalogue, is on 1–10
+- **And** the reminder setting's answer is the same before and after the scale changes
+test: `frontend/apps/mobile/src/features/evaluations/evaluation-scale-setting.test.tsx` › `shows the server's scale` (+5 more)
+
+#### EVALUATIONS-SCALE-11: The input and the display follow the score's scale (rules 6, 7)
+- **Given** a competency on 1–5, whatever its group
+- **Then** it is rated with the five stars, a converted legacy category included, and a tap saves that star
+- **And** a competency on the coach's 1–10, 1–20 or 1–100 is rated with the slider
+- **And** a legacy category whose scale is not 1–5 keeps the stepper, and a history card shows such a score as a number, not as stars
+test: `frontend/apps/mobile/src/features/evaluations/history-card.scale.test.tsx` › `a scale that is not 1-5 stays a number` (+8 more)
+
+#### EVALUATIONS-SCALE-12: An unrated slider shows no value and no clear control; a rated one shows its score on its scale (rule 7; web and iOS)
+- **Given** a competency on 1–10 with no rating
+- **When** the slider renders
+- **Then** it shows no value and no clear control, and runs from 1 to 10 in steps of 1
+- **And** rated 7, it shows 7 out of 10 and the clear control
+test: `frontend/apps/mobile/src/features/evaluations/score-slider.test.tsx` › `an unrated competency shows no value until touched, and no clear control` (+3 more)
+
+#### EVALUATIONS-SCALE-13: A score is shown on the scale it was given on and compared on the current one (rules 3, 5, 6)
+- **Given** Bandeja rated 4 on 1–5 in August, the coach then moved to 1–10, and Bandeja rated 7 in September
+- **When** the history, the evolution and a share preview are read
+- **Then** each rating reads with its own scale: 4 on 1–5 and 7 on 1–10
+- **And** the evolution compares on 1–10: August's mean is 7.8, September's 7.0, and the change is -0.8
+- **And** a rating stored with no scale of its own reads on its competency's current scale
+test: `backend/padel_app/tests/test_pad423_scale_reads.py` › `test_an_entry_with_no_snapshot_reads_its_competency_scale` (+2 more)
+
 ### Notes
 
 - Evolution's chart axis runs on the current scale (rule 5); `evaluations.evolution` rule 10 is

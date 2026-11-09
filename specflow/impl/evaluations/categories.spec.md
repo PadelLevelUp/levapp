@@ -88,35 +88,55 @@ id-addressed delete: `evaluations.competencies` (draft). The routes in rule 3 th
 - **When** she switches the app language on the same screen, and back
 - **Then** the row is still there with the name she typed, and the server holds no new category
 
-### Acceptance Criteria — the contract as shipped, pinned by PAD-362
+### Acceptance Criteria: the contract as shipped, pinned by PAD-362
 
 Appended by PAD-362 (2026-09-21); same terms as the section of the same name in
 `evaluations.entries`. Tests: `backend/padel_app/tests/test_pad362_evaluation_contract.py`.
 
-#### The category list has exactly four keys per category
+#### EVALUATIONS-CATEGORIES-7: The category list has exactly four keys per category
 - **Given** a coach with two categories
 - **When** they read `GET /api/app/evaluation_categories`
 - **Then** they get a list of exactly `{id, name, scaleMin, scaleMax}` — `id` a JSON number — holding only their own categories
 - **And** a student gets 403
 
-#### The settings upsert is keyed on the name and echoes the request
+#### EVALUATIONS-CATEGORIES-8: The settings upsert is keyed on the name and echoes the request
 - **Given** a coach with Forehand (1–10) and Volley
 - **When** they post `[{Forehand, 2, 5}, {Smash, 1, 7}]` to `POST /api/app/add_evaluation_categories`
 - **Then** the response is the request body, without ids
 - **And** Forehand is the same row with scale 2–5, Smash is new, and Volley — left out of the body — still exists
 
-#### A rename is an insert (B-125 — today's behaviour)
+#### EVALUATIONS-CATEGORIES-9: A rename is an insert (B-125 — today's behaviour)
 - **Given** Forehand holds a score
 - **When** the coach posts the list with Forehand renamed to "Forehand drive"
 - **Then** the coach holds both Forehand and Forehand drive; the score, and the player profile, stay under Forehand
 
-#### A scale minimum of 0 is dropped (B-136 — today's behaviour)
+#### EVALUATIONS-CATEGORIES-10: A scale minimum of 0 is dropped (B-136 — today's behaviour)
 - **When** a coach posts a new category with `scaleMin: 0, scaleMax: 10`
 - **Then** the response says 0 and the category is stored and listed as 1–10
 - **And** an existing category posted with `scaleMin: 0` keeps its minimum while its maximum changes
 
-#### A delete with only an id (what iOS 1.1.0 sends)
+#### EVALUATIONS-CATEGORIES-11: A delete with only an id (what iOS 1.1.0 sends)
 - **Given** Forehand holds two scores and Volley one
 - **When** the coach posts `{id: Forehand}` to `POST /api/app/delete/evaluation_category` without reading the impact first
 - **Then** Forehand and its two scores are gone, Volley's score remains, and exactly one `deletion_audit` row names Forehand
 - **And** another coach's category id answers 403 and deletes nothing
+
+### Open questions
+
+- **EVALUATIONS-CATEGORIES-8 and -10 describe the upsert before every legacy category became 1–5.**
+  - Criteria: EVALUATIONS-CATEGORIES-8, "the response is the request body" and "Forehand is the
+    same row with scale 2–5". EVALUATIONS-CATEGORIES-10, "the response says 0 and the category
+    is stored and listed as 1–10".
+  - Other spec: `evaluations.legacy-client-contract` rule 9 (PAD-403): the upsert "stores **and
+    echoes** `scaleMin 1, scaleMax 5` for every item, whatever the body sends".
+  - Code today: `test_pad362_evaluation_contract.py` ›
+    `test_4_add_evaluation_categories_upserts_by_name_and_echoes_the_request` gets Forehand and
+    Smash back at 1–5; `test_4_a_scale_minimum_of_zero_is_dropped_and_the_echo_hides_it` gets 1–5
+    for a posted minimum of 0, stored and listed. EVALUATIONS-LEGACY-CLIENT-CONTRACT-12 and
+    EVALUATIONS-LEGACY-CONVERSION-5 state this.
+  - Recommendation: amend -8 and retire -10; the name-keyed upsert and "left out is not deleted"
+    still hold.
+  - Proposed Then for -8: "the response lists Forehand and Smash at `scaleMin` 1, `scaleMax` 5,
+    without ids", and "Forehand is the same row, stored at 1–5, Smash is new, and Volley — left
+    out of the body — still exists". Proposed for -10: remove it, or "Superseded by
+    EVALUATIONS-LEGACY-CONVERSION-5".

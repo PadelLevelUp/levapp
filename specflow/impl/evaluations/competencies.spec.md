@@ -474,6 +474,104 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 - **Then** the dialog says " Técnica " is now Técnica and Serviço was not moved, and Serviço still
   offers "Mover para…"
 
+#### EVALUATIONS-COMPETENCIES-35: Switching a default on creates its row once, and off it stays the coach's own (rules 5, 6, 7)
+- **Given** a coach with no Bandeja row
+- **When** they POST `{"catalogueKey": "bandeja"}`
+- **Then** the answer is 201 with the row, active, on the coach's scale, and `bandeja` leaves `catalogue`
+- **And** switching it off and posting the key again answers 200 with the same row, active again; an unknown key answers 400
+- **And** a default that is switched off, or given an order, keeps its name, stays out of `catalogue`, and is listed before the legacy rows
+test: `backend/padel_app/tests/test_pad364_competencies_api.py` › `test_switching_a_catalogue_competency_on_creates_its_row_once` (+1 more)
+
+#### EVALUATIONS-COMPETENCIES-36: Racing requests for the same row leave one (rules 4, 6)
+- **Given** two requests creating the same competency at once
+- **When** the second reaches the insert after the first committed
+- **Then** one row exists; a request by catalogue key answers 200 with that row, and one by name answers 409 `duplicate_name`
+- **And** a coach whose starting set was written by a concurrent request still has it exactly once
+test: `backend/padel_app/tests/test_pad364_competencies_api.py` › `test_a_lost_race_for_the_starting_set_does_not_double_it` (+3 more)
+
+#### EVALUATIONS-COMPETENCIES-37: A sub-category is created under a category, and a default sub-category finds its default parent (rule 15)
+- **Given** a coach with a custom category Grit and no Técnica row
+- **When** they create "Recuperação" with `parentId` Grit
+- **Then** the answer is 201 with that parent and the group `custom`
+- **And** switching on `bandeja` with no parent creates the default Técnica, active, and puts Bandeja under it
+- **And** putting a default category under another category answers 400
+test: `backend/padel_app/tests/test_pad431_categories_api.py` › `test_a_sub_category_is_created_under_a_category`
+
+#### EVALUATIONS-COMPETENCIES-38: A category's figures never take in its sub-categories' scores (rule 17)
+- **Given** one record rating Técnica 2 and its sub-category Víbora 5
+- **When** the monthly means are computed for each
+- **Then** Técnica's mean is 2 and Víbora's is 5
+test: `backend/padel_app/tests/test_pad431_categories_api.py` › `test_a_category_mean_never_takes_in_its_sub_categories`
+
+#### EVALUATIONS-COMPETENCIES-39: Text typed in the manager survives a change of language or a reload of the list (rule 11, PAD-399)
+- **Given** the iOS manager with a name typed in the add field, or in the delete confirmation
+- **When** the language settles or the list is read again
+- **Then** the typed text is still there and nothing was sent
+- **And** a successful add clears the add field
+test: `frontend/apps/mobile/src/features/evaluations/competency-manager/competency-manager.test.tsx` › `keeps a typed custom-competency name when the language settles afterwards` (+3 more)
+
+#### EVALUATIONS-COMPETENCIES-40: The manager lists each category with its sub-categories, in a fixed order (rules 5, 15; web and iOS)
+- **Given** a coach's competencies and the defaults they lack
+- **When** the manager lists them
+- **Then** each category heads a section holding its sub-categories and the default sub-categories still on offer, in the catalogue's order with held and offered rows interleaved and the coach's own sub-categories last
+- **And** a new coach sees the three default categories with their nine and five sub-categories; a coach's own category is a section of its own; legacy rows are kept apart from custom ones, and a switched-off row does not move
+- **And** a renamed default keeps its sub-categories while the default is offered again with what the coach lacks; a row whose category is missing from the list is shown on its own
+test: `frontend/apps/mobile/src/features/evaluations/competency-manager/competency-manager.test.tsx` › `each category heads its section, with its sub-categories and the defaults it lacks under it` (+11 more)
+
+#### EVALUATIONS-COMPETENCIES-41: The evaluation form groups sub-categories under their category and lists what can be rated (rules 15, 16)
+- **Given** categories with active sub-categories, a category with none, and a legacy row
+- **When** the form lists its rows
+- **Then** each category with active sub-categories is a heading over them, in the server's order, and is not itself a row
+- **And** a category scored directly, and a legacy row, sit under no heading; a category whose sub-categories are all off becomes a plain row
+- **And** an active sub-category is offered even when its category is switched off
+- **And** a switched-off competency is listed only when the record being edited already rates it
+test: `frontend/apps/mobile/src/features/evaluations/evaluation-categories-ui.test.tsx` › `a category heads the sub-categories offered under it` (+6 more)
+
+#### EVALUATIONS-COMPETENCIES-42: Each row shows only the controls its kind allows (rules 2, 8, 9)
+- **Given** the manager with a default row, a legacy row, a custom row and a default on offer
+- **Then** a held default has its switch on, a rename and a delete; a legacy row shows its scale with a rename and a delete; a custom row has a delete and no scale; an offered default has its switch off
+- **And** a row is a default when it has a catalogue key, legacy when it has no group, and custom otherwise
+test: `frontend/apps/mobile/src/features/evaluations/competency-manager/competency-manager.test.tsx` › `a default can be renamed and deleted (rules 8, 9)` (+2 more)
+
+#### EVALUATIONS-COMPETENCIES-43: The manager adds a category, or a sub-category under a held one, and keeps what was typed when refused (rules 6, 11, 15)
+- **Given** the manager
+- **When** the coach types a name in a held category's add field and submits
+- **Then** a sub-category is created with that name, trimmed, under that category; the top-level field creates a category with no parent; a default that is only on offer has no add field
+- **And** a duplicate name shows the refusal beside the field and keeps the typed text; an empty name is never sent; a successful add empties the field
+test: `frontend/apps/mobile/src/features/evaluations/competency-manager/competency-manager.test.tsx` › `adds a sub-category under a held category by parentId; an offered default has no field` (+4 more)
+
+#### EVALUATIONS-COMPETENCIES-44: The manager offers a row only the moves the two levels allow (rule 15; web and iOS)
+- **Given** a coach's tree with defaults, custom categories, sub-categories and a legacy row
+- **When** the coach opens a row's move panel
+- **Then** a sub-category is offered every other category, and the top level only when it is the coach's own; a top-level default sub-category is offered every category
+- **And** a legacy row, a default category, and a category that holds sub-categories offer no move
+- **And** choosing a target sends that `parentId` (null for the top level) and closes the panel; a refused move says so on the row and the panel stays
+test: `frontend/apps/mobile/src/features/evaluations/competency-manager/competency-manager.test.tsx` › `a catalogue sub-category offers the other categories, never the top level; picking one sends parentId` (+12 more)
+
+#### EVALUATIONS-COMPETENCIES-45: The conversion dialog says what happens, converts to the chosen default and moves the checked rows (rule 18; web and iOS)
+- **Given** a coach with a legacy row the manager offers to convert, and top-level default rows of that default's group
+- **When** the coach opens the conversion
+- **Then** the dialog warns about the old app, has the suggested default selected, and offers to move those rows under it, checked
+- **When** they confirm
+- **Then** the row is converted to that default and each checked row is moved under it; unchecked, nothing is moved; another default can be chosen as the target
+- **And** a refused conversion says why in the dialog and moves nothing
+- **And** no conversion is offered for a default the coach already holds, or for a row that is not legacy
+test: `frontend/apps/mobile/src/features/evaluations/competency-manager/competency-manager.test.tsx` › `the dialog says what happens, then converts and moves the checked strays under it` (+11 more)
+
+#### EVALUATIONS-COMPETENCIES-46: The manager says when no competency is active (rule 13)
+- **Given** a coach whose only row is switched off
+- **When** the manager opens
+- **Then** it says no competency is active; with one row on, it does not
+test: `frontend/apps/web/src/components/evaluations/competency-manager/CompetencyManager.test.tsx` › `says what it means when nothing is active (rule 13)` (+2 more)
+
+#### EVALUATIONS-COMPETENCIES-47: A change in flight locks its row, and a failed one rolls back and says so on that row (rule 11)
+- **Given** the manager with an active custom row
+- **When** the coach taps its switch twice while the first change is in flight
+- **Then** one change is sent, and the switch is disabled until the answer
+- **And** a change that fails puts the switch back and shows the failure on that row; a rename refused as a duplicate shows that on the row and can be retried
+- **And** rows keep their places while changes land, and each switch ends where its own answer put it
+test: `frontend/apps/web/src/components/evaluations/competency-manager/CompetencyManager.test.tsx` › `a second tap while the request is in flight sends nothing more, and the row is disabled meanwhile` (+4 more)
+
 ### Notes
 - ASSUMED by the building slice (PAD-373), none of them in the canvas: (1) "Técnica" and
   "Tática" as both a group and a competency get no disambiguation beyond the group heading;
@@ -491,3 +589,24 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
   Downgrade drops the column; rows the migration created stay (they are ordinary catalogue rows).
 - OPEN: storing the Portuguese label in `name` (rule 1) is a storage convenience; shells must
   display the i18n label by `key` and never the stored name for a catalogue row.
+
+### Open questions
+
+- **EVALUATIONS-COMPETENCIES-1 counts 17 catalogue entries for a coach who holds "Forehand", on a 1–10 scale.**
+  - Criterion: "coach Ana holding "Forehand" (1–10, 12 scores) … `scaleMax` 10 … **And**
+    `catalogue` holds all 17 entries".
+  - Other statements: rule 4 and EVALUATIONS-COMPETENCIES-3 hide a catalogue entry whose name the
+    coach already holds; `evaluations.legacy-conversion` rule 5 leaves no legacy category on 1–10.
+  - Code today: `test_pad364_competencies_api.py` ›
+    `test_the_list_carries_every_competency_and_the_catalogue_not_yet_switched_on` seeds Forehand
+    and Volley at 1–5 and gets a catalogue of 15, without `forehand` and `volley`.
+  - Recommendation: keep the criterion's point (a coach with categories is given no catalogue
+    row) and correct its numbers.
+  - Proposed Then: "`competencies` is one item: Forehand, `group: null`, `key: null`, `scaleMin`
+    1, `scaleMax` 5, `isActive: true`, `scoreCount` 12", and "`catalogue` holds the 16 entries
+    other than `forehand`, and no `evaluation_categories` row was created".
+- **A note still says a default cannot be renamed.** Notes, item (3): "rename is an inline edit on
+  the row … for custom and legacy rows only". Rule 8 (PAD-431 D4) says "**Any** row can be
+  renamed, a catalogue one included", EVALUATIONS-COMPETENCIES-8 proves it, and both managers show
+  the rename on a default row (EVALUATIONS-COMPETENCIES-42). Recommendation: delete "for custom
+  and legacy rows only" from the note.

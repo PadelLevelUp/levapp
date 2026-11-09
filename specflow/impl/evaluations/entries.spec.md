@@ -92,7 +92,7 @@ This endpoint's shape and rule 7 are frozen for App Store 1.0/1.1.0:
 - **When** a client posts `{"categoryId": Forehand, "value": 8}` and `{"categoryId": Volley, "value": null}`
 - **Then** no entry is written for either, and Forehand's `evaluatedAt` is unchanged
 
-### Acceptance Criteria — the contract as shipped, pinned by PAD-362
+### Acceptance Criteria: the contract as shipped, pinned by PAD-362
 
 Appended by PAD-362 (2026-09-21). These state what the code does at `origin/staging` `00e53375f`,
 because App Store iOS 1.0 and 1.1.0 call these endpoints in production and cannot change. Where a
@@ -100,7 +100,7 @@ criterion contradicts a rule above, the rule is the intent and the criterion is 
 the ledger entry says which endpoint will honour the rule. Tests:
 `backend/padel_app/tests/test_pad362_evaluation_contract.py`.
 
-#### The player profile's evaluation items have exactly six keys
+#### EVALUATIONS-ENTRIES-7: The player profile's evaluation items have exactly six keys
 - **Given** a coach with a player on their roster who has scores in two categories
 - **When** the coach reads `GET /api/app/player_profile/<player_id>`
 - **Then** the body has exactly `playerId` (a string), `evaluations`, `strengths`, `weaknesses`
@@ -108,30 +108,62 @@ the ledger entry says which endpoint will honour the rule. Tests:
 - **And** each strength and weakness is exactly `{id, text}`
 - **And** a student gets 403, and a coach without that player on their roster gets 404
 
-#### `evaluatedAt` is a naive ISO timestamp for every kind of row
+#### EVALUATIONS-ENTRIES-8: `evaluatedAt` is a naive ISO timestamp for every kind of row
 - **Given** a score saved through the API, one written by the import with `date: 2026-03-01`, and one whose `evaluated_at` was backfilled from `created_at` (PAD-273)
 - **Then** every `evaluatedAt` matches `YYYY-MM-DDTHH:MM:SS[.ffffff]` with no `Z` and no offset, and the imported one is exactly `2026-03-01T00:00:00`
 
-#### Saving answers `{status: "ok", playerId}` and writes only what changed
+#### EVALUATIONS-ENTRIES-9: Saving answers `{status: "ok", playerId}` and writes only what changed
 - **Given** Forehand's latest score is 5, recorded 30 days ago
 - **When** a client posts `value: 5` for it
 - **Then** no entry is written and its `evaluatedAt` does not move
 - **And** posting 5, then 3, then 5 writes three entries; `value: null` writes none
 - **And** strengths and weaknesses are add-only and deduplicated by text; an empty list removes nothing
 
-#### An old build's every-category body (rule 7)
+#### EVALUATIONS-ENTRIES-10: An old build's every-category body (rule 7)
 - **Given** Forehand's latest score is 7 and Volley (0–10) was never scored
 - **When** a client posts Forehand 7 and Volley 5 (the midpoint), with `strengths: []` and `weaknesses: []`
 - **Then** nothing is written for Forehand and a 5 is written for Volley — the known gap, asserted, not fixed
 - **And** the same body posted again writes nothing
 
-#### The server enforces no score range (B-126 — today's behaviour, not rule 4)
+#### EVALUATIONS-ENTRIES-11: The server enforces no score range (B-126 — today's behaviour, not rule 4)
 - **Given** a 0–10 category
 - **When** a client posts 99, then -3, then 2.5
 - **Then** each answers 200 and is written, and the profile serves 2.5
 
-#### A numeric score of 0 cannot be saved, and a save is not atomic (B-136)
+#### EVALUATIONS-ENTRIES-12: A numeric score of 0 cannot be saved, and a save is not atomic (B-136)
 - **Given** a category whose minimum is 0
 - **When** a client posts `value: 0` as a number
 - **Then** the request fails on the NOT NULL `score` column and nothing is written for it; the string `"0"` is written as 0
 - **And** a score posted before it in the same body stays written
+
+### Open questions
+
+- **Rule 4, EVALUATIONS-ENTRIES-11 and EVALUATIONS-ENTRIES-12 say the server checks no score; it has checked every score since PAD-366.**
+  - Spec: rule 4, "the server checks nothing (B-126): 99, −3 and 2.5 are stored as sent and a
+    non-numeric value is an unhandled error". EVALUATIONS-ENTRIES-11: posting 99, −3 and 2.5 "each
+    answers 200 and is written". EVALUATIONS-ENTRIES-12: a numeric 0 "fails on the NOT NULL
+    `score` column" and "a score posted before it in the same body stays written".
+  - Other spec: `evaluations.legacy-client-contract` rule 10 (PAD-366, rulings D120 and D121)
+    says every score is checked before any is written, and its rule 7 strikes out both pins.
+  - Code today: `test_pad362_evaluation_contract.py` ›
+    `test_3_the_server_enforces_the_1_5_range_before_writing` gets 400 `score_out_of_range` for
+    −3 and 99 and stores 2.5 as 3; `test_3_a_numeric_score_of_zero_cannot_be_saved` gets 400
+    for 0; `test_3_a_save_is_atomic_one_refused_score_writes_nothing` finds nothing written.
+    EVALUATIONS-LEGACY-CLIENT-CONTRACT-10 states this.
+  - Recommendation: retire the two pins and rewrite rule 4; the pin tests already follow the new
+    behaviour and are tagged to the legacy-client-contract criterion.
+  - Proposed rule 4: "The client controls keep a score in range (web slider, iOS stepper, both
+    step 1), and the server checks every score before writing any
+    (`evaluations.legacy-client-contract` rule 10)." Proposed for EVALUATIONS-ENTRIES-11 and -12:
+    remove both, or replace each body with "Superseded by EVALUATIONS-LEGACY-CLIENT-CONTRACT-10".
+- **EVALUATIONS-ENTRIES-10 keeps numbers from the 0–10 scale.**
+  - Criterion: "Forehand's latest score is 7 and Volley (0–10) was never scored … posts Forehand 7
+    and Volley 5 (the midpoint)".
+  - Code today: every legacy category is 1–5 (PAD-403) and a body with a value above 5 is
+    converted as a stale 1–10 form. The pin test
+    `test_3_an_old_build_body_is_harmless_for_scored_categories_and_writes_the_midpoint_for_unscored`
+    posts Forehand 4 and Volley 3, the 1–5 midpoint.
+  - Recommendation: keep the criterion, with the test's numbers.
+  - Proposed Given and When: "Forehand's latest score is 4 and Volley (1–5) was never scored" and
+    "a client posts Forehand 4 and Volley 3 (the midpoint)"; Then: "nothing is written for
+    Forehand and a 3 is written for Volley".
