@@ -139,7 +139,7 @@ until B8 has proven it.
 #### DELIVERY-WORKER-ROLE-11: Only the worker role runs the worker loop, and it says whether it leads (rule 2)
 - **Given** a process started with `ROLE=api`, and a worker process
 - **When** each is asked to run the worker loop, and the worker's `/livez` is read
-- **Then** the `api` process refuses, exits 2 and creates no app
+- **Then** the `api` process refuses and exits 2
 - **And** the worker answers `{"status": "alive", "leader": true, "split": "on"}` while it leads, with `leader: false` when it does not
 - **And** with the split off it answers `leader: false` and `split: "off"`
 test: `backend/padel_app/tests/test_pad695_worker_role.py` › `test_a_non_worker_role_refuses_the_worker_loop` (+2 more)

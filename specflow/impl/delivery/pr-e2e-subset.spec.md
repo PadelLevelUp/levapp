@@ -60,6 +60,8 @@ into the PR check.
    says "green alone: order dependency (or flake)" or "red alone too: a real failure". The check
    is red when the subset run is red.
 
+10. The selector reads the smoke, quarantine and spec-map lists from the workflow's own checkout and not from the pull request's head, so a head that predates a list is still checked against it.
+
 ### Acceptance Criteria
 
 #### DELIVERY-PR-E2E-SUBSET-1: The seeded tomorrow class keeps its pending set under the scheduler (rule 7a)
@@ -107,13 +109,13 @@ into the PR check.
 - **When** the job finishes
 - **Then** that file was re-run alone after a reset, and the summary labels it order dependency or real failure
 
-#### DELIVERY-PR-E2E-SUBSET-10: Each kind of change selects its own specs, and a broad one adds only the smoke set (rules 1, 3)
+#### DELIVERY-PR-E2E-SUBSET-10: Each kind of change selects its own specs, and a broad one adds only the smoke set (rules 3, 10)
 - **Given** a pull request that changes a spec, a helper, an English locale key, a file on the spec map, a module with no test ids, or a file every page uses
 - **When** the specs to run are selected
 - **Then** a changed spec selects itself, and a changed helper the specs that import it
 - **And** a changed locale key selects the specs that quote it, and a file on the spec map the specs listed for it
 - **And** a module with no ids selects through its few importers; a widely imported module, or a global file, adds the smoke set and never the whole suite
-- **And** an id built from a template prefix reaches the specs that use its instances, and ids shorter than four characters are ignored
+- **And** an id built from a template prefix reaches the specs that use its instances, and a literal or template id of fewer than four characters, a trailing dash not counted, is ignored
 - **And** component tests and the specs under `e2e/scripts` are never selected
 - **And** the smoke, quarantine and map lists are read from the workflow's own checkout, so a head that predates them is still checked
 test: `frontend/apps/web/e2e/scripts/test_select_pr_specs.py` › `test_a_changed_english_key_selects_the_specs_quoting_it` (+8 more)

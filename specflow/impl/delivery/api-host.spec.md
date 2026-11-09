@@ -73,7 +73,7 @@ allows exactly the listed web origins cross-origin. `levapp.app/api` keeps answe
 - **Given** the server's nginx configuration
 - **When** a request arrives through Cloudflare, or from anywhere else
 - **Then** nginx reads the client's address from `CF-Connecting-IP`, and only when the connection comes from one of Cloudflare's published ranges
-- **And** `X-Forwarded-For` is trusted nowhere
+- **And** the trusted-address configuration never names `X-Forwarded-For` as the source
 - **And** every location that proxies to the backend passes that address on as `X-Real-IP`
 test: `backend/padel_app/tests/test_pad554_real_ip.py` › `test_nginx_trusts_cf_connecting_ip_only_from_cloudflare` (+1 more)
 

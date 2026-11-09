@@ -238,6 +238,8 @@ gunicorn's boot path into the leadership thread.
 17. `rollout.sh --dry-run` prints the plan and each command it would run, for the API, the migrate step, the worker, the second copy and the drain, and changes nothing.
 18. **The migration history has one head.** Every pull request and every push to `staging` and `main` runs the head check (`migration-heads.yaml`): two heads, a revision id used twice, or a parent that does not exist fail it, and the failure says how to merge the heads.
 19. **Autogenerate leaves tables the app does not own.** Alembic's comparison ignores `apscheduler_jobs`, online and offline, so a generated migration never proposes dropping the scheduler's job store.
+20. The migrate step waits for a migrate container left running by an earlier run and never kills it, and when the upgrade fails the step exits with the upgrade's own exit code.
+21. **The E2E hold (PAD-610).** A test server started with `E2E_SCHEDULER_HELD` starts its scheduler paused and reschedules nothing at boot. The debug release route reschedules once and resumes it, and a second call releases nothing. The route answers 404 unless the E2E debug routes are on.
 
 ### Acceptance Criteria
 
@@ -418,11 +420,11 @@ gunicorn's boot path into the leadership thread.
 - **Then** no probe answers 5xx, and nginx's error.log for the window has no `reset by peer` and no
   `prematurely closed` against 5100 or 5102
 
-#### DELIVERY-ZERO-DOWNTIME-DEPLOY-32: The migrate step upgrades a schema that is behind and reports its own outcome (rules 4, 9)
+#### DELIVERY-ZERO-DOWNTIME-DEPLOY-32: The migrate step upgrades a schema that is behind and reports its own outcome (rules 4, 9, 20)
 - **Given** a database whose schema is behind the image, or empty
 - **When** the deploy runs with `--migrate`, and without it
 - **Then** the migrate step runs the upgrade once and exits 0 when the schema is at head
-- **And** an upgrade that fails gives the step its own exit code
+- **And** an upgrade that fails makes the step exit with the upgrade's exit code
 - **And** a migrate container still running from an earlier run is waited for, not killed
 - **And** the step's lock is not the scheduler's, so neither waits for the other
 - **And** without `--migrate` no migrate container runs
@@ -431,7 +433,7 @@ test: `backend/padel_app/tests/test_pad691_schema_gate.py` › `test_a_failed_up
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-33: The second copy is optional, off in production, and never left behind (rule 14)
 - **Given** the rollout script, the two environment files and the staging sync
 - **When** a deploy runs with `--copies`, a rollback uses a script that does not know the option, and the sync restores
-- **Then** `--copies` takes 1 or 2 and refuses anything else before running anything
+- **Then** `--copies` takes 1 or 2 and refuses anything else with exit 2
 - **And** staging's file sets one copy and production's sets none
 - **And** when the script cannot free the port, the workflow stops and removes the second copy itself
 - **And** the staging sync stops the second copy with the API and starts it after
@@ -441,20 +443,20 @@ test: `backend/padel_app/tests/test_pad704_second_copy.py` › `test_copies_is_o
 - **Given** a rollback to a release whose `rollout.sh` predates `--probe-host`, `--migrate`, `--worker` or `--copies`
 - **When** the workflow calls that script
 - **Then** each option the script does not know is left out, with a line saying so, and the rollout runs
-- **And** the current script is passed its options
+- **And** the current script is passed `--migrate` and `--probe-host`
 test: `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py` › `test_a_rollback_to_before_migrate_and_probe_host_still_rolls` (+3 more)
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-35: A dry run prints every step and changes nothing (rule 17)
 - **Given** a server with the API running
 - **When** `rollout.sh` is run with `--dry-run`, as a rolling deploy, a stop-first deploy, with the worker, with a second copy and with the drain
 - **Then** it prints the plan and each `docker` command it would run, the second copy's and the worker's included
-- **And** no container is started, stopped, renamed or removed, and nginx is not reloaded
+- **And** in the plain, the stop-first and the drain run no container is started, stopped, renamed or removed, and nginx is not reloaded
 test: `backend/padel_app/tests/test_pad704_second_copy.py` › `test_dry_run_prints_the_second_copy` (+4 more)
 
-#### DELIVERY-ZERO-DOWNTIME-DEPLOY-36: Under the E2E hold the scheduler starts paused until it is released (rule 1)
+#### DELIVERY-ZERO-DOWNTIME-DEPLOY-36: Under the E2E hold the scheduler starts paused until it is released (rules 1, 21)
 - **Given** the test server started with `E2E_SCHEDULER_HELD`, and without it
 - **When** it boots, and the debug release route is called twice
-- **Then** without the hold the scheduler starts running and reschedules at boot; with it the scheduler starts paused and reschedules nothing
+- **Then** on the test server without the hold the scheduler starts running and reschedules at boot; with it the scheduler starts paused and reschedules nothing
 - **And** the first release reschedules once and resumes it; the second answers that nothing was released
 - **And** the release route answers 404 unless the E2E debug routes are on
 test: `backend/padel_app/tests/test_pad610_scheduler_held_under_e2e.py` › `test_without_the_flag_the_scheduler_starts_running_and_reschedules_at_boot` (+4 more)
@@ -508,7 +510,8 @@ test: `backend/padel_app/tests/test_pad265_alembic_filters.py` › `test_without
   - Recommendation: reword the promise to what production does today. It was not changed.
   - Proposed text: "A release does not interrupt people using the app: the new version takes requests only once it is ready, and a request that is safe to repeat is retried on the copy that is up. Until the drain step measured on staging is switched on for production, a write sent at the instant of the switch can still fail."
 - **"Released with a short, announced stop" has no "announced" in any rule.** Rule 7 gives the `stop-first` choice and no step that tells anyone. Recommendation: drop the word or add the step.
-- **Rules 9 to 12 are marked "self-numbered, unconfirmed".** Criteria 5 to 13, 21 and 22 cite them, and three rules were added tonight as 17 to 19. Recommendation: confirm the numbers.
+- **Rules 9 to 12 are marked "self-numbered, unconfirmed".** Criteria 5 to 13, 21 and 22 cite them, and five rules were added tonight as 17 to 21. Recommendation: confirm the numbers.
 - **The expand/contract summary calls an unread file "expand-only".** A migration the guard cannot parse gets a warning, and the summary line still says "1 added migration(s), all expand-only"; with no added migration it says "0 added migration(s), all expand-only" (`check_expand_contract.py:107-113`). Recommendation: reword the summary.
 - **The health route's ten-second cache is asserted without moving the clock.** The test pointed at DELIVERY-ZERO-DOWNTIME-DEPLOY-15 shows a second reading comes from the cache, not that it expires. Recommendation: pin the clock.
+- **The dry run of the worker and of the second copy is checked by its printed lines only.** Their tests do not assert that no container changed, as the plain, stop-first and drain runs do. Recommendation: add the assertion.
 - **One test of the rollback filter checks two of its five options on the current script.** "gets every option" asserts `--migrate` and `--probe-host` only. Recommendation: assert all five.

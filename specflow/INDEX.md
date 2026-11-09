@@ -1249,11 +1249,11 @@ Untagged tests: 7552
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-29** A second copy stops and boots out of rotation (rules 14, 16) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-30** The helper edits one block of one allowed file (rule 16) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-31** No POST meets a reset across a real deploy (rule 16; owner host step, then staging-measured) · unverified
-  - **DELIVERY-ZERO-DOWNTIME-DEPLOY-32** The migrate step upgrades a schema that is behind and reports its own outcome (rules 4, 9) · unverified
+  - **DELIVERY-ZERO-DOWNTIME-DEPLOY-32** The migrate step upgrades a schema that is behind and reports its own outcome (rules 4, 9, 20) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-33** The second copy is optional, off in production, and never left behind (rule 14) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-34** A rollback's older rollout script is passed only the options it knows (rules 4, 13, 14) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-35** A dry run prints every step and changes nothing (rule 17) · unverified
-  - **DELIVERY-ZERO-DOWNTIME-DEPLOY-36** Under the E2E hold the scheduler starts paused until it is released (rule 1) · unverified
+  - **DELIVERY-ZERO-DOWNTIME-DEPLOY-36** Under the E2E hold the scheduler starts paused until it is released (rules 1, 21) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-37** The migration history has one head, and the check says how to fix it (rule 18) · unverified
   - **DELIVERY-ZERO-DOWNTIME-DEPLOY-38** A generated migration never proposes dropping the scheduler's job table (rule 19) · unverified
 
@@ -1308,7 +1308,7 @@ Untagged tests: 7552
   - **DELIVERY-PR-E2E-SUBSET-7** No driven spec is a green check that says so (rule 6) · unverified
   - **DELIVERY-PR-E2E-SUBSET-8** A red run costs its time once (rule 8) · unverified
   - **DELIVERY-PR-E2E-SUBSET-9** A red is re-run alone and labelled (rule 9) · unverified
-  - **DELIVERY-PR-E2E-SUBSET-10** Each kind of change selects its own specs, and a broad one adds only the smoke set (rules 1, 3) · unverified
+  - **DELIVERY-PR-E2E-SUBSET-10** Each kind of change selects its own specs, and a broad one adds only the smoke set (rules 3, 10) · unverified
   - **DELIVERY-PR-E2E-SUBSET-11** The subset runs on its own database, migrated and seeded before the first spec (rule 7) · unverified
 
 ### P-DELIVERY-5: Production starts clean for real use
