@@ -382,6 +382,25 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
   effective level was the root's WARNING, so the stats line and "LISTEN ready" never reached the
   container logs.)
 
+#### MESSAGING-SSE-REALTIME-36: The listener that carries events between processes delivers each one promptly and in order (rule 23)
+- **Given** two server processes on Postgres, one publishing and one holding a stream
+- **When** events are published while the listener is busy reading
+- **Then** an event that arrives during a read is delivered without waiting for the next poll
+- **And** events are delivered in the order they were announced, and one whose row is already gone is skipped
+- **And** the listener connects with every option of the server's own database address
+- **And** it works in a process that already holds more than a thousand open files
+test: `backend/padel_app/tests/test_pad692_realtime_broker.py` › `test_a_notify_that_arrives_during_a_listener_query_is_not_delayed` (+4 more)
+
+#### MESSAGING-SSE-REALTIME-37: The client's one connection opens only with a session and stops when nobody listens (rules 15, 16, 17)
+- **Given** the app's shared live connection
+- **When** the user is signed out, the last listener leaves, the app returns to the foreground, and the server sends something that is not an event
+- **Then** no connection is opened while there is no session
+- **And** when the last listener leaves, a retry that was waiting is cancelled
+- **And** returning to the foreground drops a waiting retry, connects at once and starts the back-off again
+- **And** a payload that is not an event is ignored, and a listener that throws does not keep the others from theirs
+- **And** retries are reported to the debug hook, never to the console
+test: `frontend/packages/api/src/sse.test.ts` › `does not reconnect once nobody is listening` (+4 more)
+
 ### Notes
 - The registry is in memory and nothing persists across restarts; with `postgres`, event rows live
   only `REALTIME_EVENTS_RETENTION_MINUTES` and are never replayed (rule 24)
@@ -401,3 +420,12 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
   rule 10 says when one process is required
 - Passing `user_ids=[]` delivers to nobody; that is a legitimate outcome (e.g. a
   conversation whose only participant was deleted), not a reason to broadcast
+
+### Open questions
+
+- **Two rules are numbered 19, and rules 19 to 25 are marked "rule number unconfirmed".** One is the echo that beats the POST (PAD-647), the other the resync on a re-open (PAD-616); criteria 14 and 16 to 19 all cite "rule 19". Recommendation: renumber, with the `Specflow-Amends:` trailers.
+- **MESSAGING-SSE-REALTIME-7's caps of 40 and 4 hold for the API role only.** In the events role the server-wide cap falls back to 1000 (`frontend_api.py:645-646`, PAD-697). Recommendation: name the role in rule 11 and the criterion.
+- **Rule 4 says every event is `{type, payload}`; the resync event has no payload.** It is `{"type": "resync"}` (`realtime.py:55`). Recommendation: add the exception.
+- **On a resync the two shells differ on "new messages below".** Rule 19 says the open thread flags them; the phone does so only when the reader is not at the bottom (`conversation/[id].tsx:418`), and the web handler has no such flag (`MessagesPage.tsx:233-255`). Recommendation: decide whether web needs it.
+- **The port's note that real time is "in-memory, single-server, with no per-user filtering" is out of date.** An event is published to named recipients only and put in those users' queues alone (`realtime.py:245-275`); with `SSE_BROKER=postgres`, which the Kubernetes manifests set for every role, a row and a NOTIFY carry it to the other processes (`realtime.py:293-308`, `:411-420`). Events are not replayed after a drop; the client resyncs instead. Nothing to decide.
+- **Four tests of the cross-process path run only on Postgres.** They are skipped on the default lane, so MESSAGING-SSE-REALTIME-24, 25 and 36 are partly proved only on the Postgres lane. Recommendation: accept.

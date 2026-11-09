@@ -353,3 +353,10 @@ through the history without the thread ever moving under the reader.
 - **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
   error
 
+### Open questions
+
+- **No new criterion was needed here: all 38 proposed titles are helper tests of criteria this spec already has.** They are pointed at MESSAGING-CONVERSATION-DETAIL-1, 4, 12 to 16, 19, 22, 24 and 27. Several prove a clause the criterion does not spell out (the reveal's time-out, a thread that fits the screen, the at-bottom threshold of 100 px, the English and past-year day labels, a failing haptics module). Recommendation: accept, or add those clauses to the criteria as Ands.
+- **Rule 4a is still marked "numbering unconfirmed".** MESSAGING-CONVERSATION-DETAIL-22 cites it as rule 4a. Recommendation: confirm it.
+- **Rule 6 says the role under the name is "capitalized"; the app shows a translated label.** `roleLabelKey` returns a translation key for coach, player and assistant, and callers fall back to the raw role for any other. Recommendation: reword rule 6.
+- **Reading a conversation you are not in is refused, and no criterion says so.** `GET /api/app/conversation/<id>` answers 403 to a non-participant (`messaging.messages` rule 10). Its test is pointed at MESSAGING-MESSAGES-13, which speaks of posting. Recommendation: add "or read" to that criterion.
+- **Two tests assert less than their names say.** "a rejected haptic never throws" does not check for an unhandled rejection; "a single message is serialized without a query" counts no queries. Recommendation: tighten them.

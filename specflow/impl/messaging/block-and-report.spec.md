@@ -118,6 +118,28 @@ reporting it is one tap away.
 - **Then** "Blocked users" lists `bruno` with Unblock, and unblocking removes the row
 - **And** the same list exists on iOS
 
+#### MESSAGING-BLOCK-AND-REPORT-10: The console shows what was reported after the message is deleted (rule 4a, PAD-639)
+- **Given** a student reported message "msg 3" through the app, and the author then deleted it
+- **When** staff open the report list and the report detail in the console
+- **Then** the reported message reads "msg 3" with `deleted: true`, and the messages around it read their own text
+- **And** a report with no copy (filed before the backfill) shows the message's own text
+
+#### MESSAGING-BLOCK-AND-REPORT-11: A block is set once, stops a new conversation, and is undone by unblocking (rules 1, 2)
+- **Given** two students with no conversation between them
+- **When** one blocks the other twice, lists their blocks, tries to start a conversation, unblocks, and tries again
+- **Then** both block requests answer 200, and the list holds the blocked person once
+- **And** starting a conversation while the block stands is 403
+- **And** after the unblock the conversation is created
+test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_blocked_user_prevents_new_conversation` (+3 more)
+
+#### MESSAGING-BLOCK-AND-REPORT-12: A person is a known contact through a shared club, a group, or a reply that still stands (rule 7)
+- **Given** a conversation in which the viewer has not written
+- **When** the viewer opens it
+- **Then** it is a known contact when the two share a club, as two students or as a coach and a student
+- **And** a group conversation is always a known contact
+- **And** a reply the viewer wrote and then deleted does not make the other person known
+test: `backend/padel_app/tests/test_messaging_known_contact.py` › `test_deleted_message_does_not_count_as_a_reply` (+3 more)
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 5.
 - Code today: `padel_app/services/messaging_service.py` (`block_user_service`,
@@ -126,8 +148,9 @@ reporting it is one tap away.
   `/messages/<id>/report`), tests `padel_app/tests/test_messaging_report_block_scope.py`.
 - OPEN: operator workflow beyond the editor (email on report, report counts). v1: none.
 
-#### The console shows what was reported after the message is deleted (rule 4a, PAD-639)
-- **Given** a student reported message "msg 3" through the app, and the author then deleted it
-- **When** staff open the report list and the report detail in the console
-- **Then** the reported message reads "msg 3" with `deleted: true`, and the messages around it read their own text
-- **And** a report with no copy (filed before the backfill) shows the message's own text
+### Open questions
+
+- **MESSAGING-BLOCK-AND-REPORT-10 got its id tonight and has no test.** It is the block "The console shows what was reported after the message is deleted (rule 4a, PAD-639)". No test in this area or in the admin console's was proposed for it. Recommendation: point the console's moderation test at it, or write one.
+- **Rule 2 says creating a conversation is refused on a block; that holds only for a pair with no conversation yet.** The check sits inside the "no conversation exists" branch (`messaging_service.py:874-878`), so a blocked pair that already has a conversation gets it back with no 403. Sending is checked separately (`:432`), so no message goes through. Recommendation: say so in rule 2.
+- **Rule 7 is narrower than the code in two ways.** It says "one of the viewer's coaches"; the code counts a roster link in either direction, so a coach reading their own student's message sees a known contact (`messaging_service.py:729`). It says "at least one non-system message"; the code counts only a text message that is not deleted (`:745-755`). P-MESSAGING "student reaches out and stays safe" repeats the narrower wording. Recommendation: amend rule 7 and the promise to the code.
+- **The promise says "blocking is silent"; a blocked sender can tell.** Rule 6 says the blocked person is not told. A blocked sender's message answers 403 "Cannot message a blocked user" (`messaging_service.py:432`) where an ordinary send answers 201; only the by-username path hides a block behind a 404. Recommendation: decide whether a blocked send should answer like a delivered one.

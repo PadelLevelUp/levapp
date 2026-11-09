@@ -139,6 +139,9 @@ Manage conversations between users (1:1 or group chats).
     the thread is its own screen, and the read row is gone from the list on return. With nothing
     unread the list says so ("Sem conversas por ler" / "No unread conversations").
 
+18. A row with no photo shows the person's initials: the first letters of the first two words of their name, and `?` when there is no name.
+19. A row shows when its last message was sent, in the viewer's language: the time for today, the word for yesterday, and a date before that.
+
 ### Acceptance Criteria
 
 #### MESSAGING-CONVERSATIONS-1: The conversation list carries the participant's photo (rule 5a, PAD-593)
@@ -343,3 +346,43 @@ Manage conversations between users (1:1 or group chats).
 - **Then** only the unread row shows; choosing "Todas" shows both again
 - **When** on web they open the unread conversation with "Não lidas" on
 - **Then** its row stays listed while the pane shows it
+
+#### MESSAGING-CONVERSATIONS-31: Starting a conversation answers its newest page, and three or more people make a group (rules 3, 6)
+- **Given** a coach and a student with no conversation, and a pair whose conversation holds 45 messages
+- **When** `POST /api/app/conversation` is called for each
+- **Then** the new one answers 201 with no messages and `hasMore: false`
+- **And** the existing one answers 201 with the same conversation, its newest 30 messages oldest first, `hasMore: true` and the id of the oldest one sent
+- **And** a conversation of two people is not a group, and one of three is
+test: `backend/padel_app/tests/test_pad93_boolean_blast_radius.py` › `test_one_to_one_conversation_is_not_a_group` (+3 more)
+
+#### MESSAGING-CONVERSATIONS-32: Who may be messaged is the same on the picker and on the start, in both directions (rules 7, 14, 15)
+- **Given** a student linked to some coaches and not to others, another student, a coach, and an account that is inactive
+- **When** each reads who they may message and tries to start conversations
+- **Then** a student starts a conversation with each coach they are linked to
+- **And** a start with another student, or one that names several people of whom one is not linked, is 403
+- **And** an inactive account is missing from the picker and refused, from either side
+- **And** a coach's picker holds no other coach, and a student with no coach gets an empty picker
+- **And** `GET /api/app/users` answers exactly the people on the picker, with no e-mail, phone or language
+- **And** an automatic message is delivered whatever the link
+test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_student_can_message_a_linked_coach` (+12 more)
+
+#### MESSAGING-CONVERSATIONS-33: A row shows initials when there is no photo, and when its last message was sent (rules 18, 19)
+- **Given** a conversation list whose rows have no photo and last messages from today, yesterday and earlier
+- **When** the list renders in Portuguese and in English
+- **Then** "Ana Beatriz Silva" shows `AB`, "Ana" shows `A`, and a row with no name shows `?`
+- **And** a message from today shows its time, and one from yesterday the word for yesterday
+- **And** an earlier message shows a date in the viewer's language: on the phone the day and month, with the year for an earlier year; on web a weekday within the last week and a short date before that
+test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `takes the first letter of the first two words, uppercased` (+13 more)
+
+### Open questions
+
+- **The link and block checks of rule 7 are skipped when the conversation already exists.**
+  - Rule 7 and MESSAGING-CONVERSATIONS-22: starting a conversation with an unlinked coach is 403.
+  - The code today: `create_conversation_service` runs the block and link checks only when no conversation with those participants exists (`messaging_service.py:872-874`); an existing one is returned to anyone in it. Rule 8 says an existing thread survives a removed link, for sending. MESSAGING-CONVERSATIONS-32 is written for a new conversation.
+  - Recommendation: say in rule 7 that the checks apply to a new conversation, as rule 8 implies.
+- **The web list and the phone list word an older date differently.** Web shows a weekday for 2 to 6 days ago and a short numeric date before that; the phone shows day and month, and adds the year for an earlier year. MESSAGING-CONVERSATIONS-33 states both as they are. Recommendation: pick one and align the other.
+- **Rule 7 says "active coach" for the student's side only; the coach's side also needs an active student.** `messaging_service.py:161`. Recommendation: say "active" for both.
+- **Rule 3 does not say when a conversation is a group.** The code sets `is_group` when there are more than two participants; its one effect found is that a group never shows the unknown-sender banner. Recommendation: say so in rule 3.
+- **Three race tests never run on the default test lane.** `test_pad411_first_message_race.py` is skipped unless the suite runs on Postgres, so the tests pointed at MESSAGING-CONVERSATIONS-3 and 26 from it are proved only there. Recommendation: accept, and note it on the criterion.
+- **One "automatic messages ignore the picker" test proves nothing.** Its student is on the coach's roster, so the message would be delivered anyway; its sibling test is the real proof. Recommendation: drop it or unlink the student.
+- **A test's list of public fields is short.** `test_pad500_user_list_scope.py` leaves out `avatarUrl` and `abbreviation`, which rule 15 and MESSAGING-CONVERSATIONS-17 require; `test_user_privacy.py` has the full list. Recommendation: share one list.
