@@ -139,7 +139,7 @@ Manage conversations between users (1:1 or group chats).
     the thread is its own screen, and the read row is gone from the list on return. With nothing
     unread the list says so ("Sem conversas por ler" / "No unread conversations").
 
-18. A row with no photo shows the person's initials: the first letters of the first two words of their name, and `?` when there is no name.
+18. A row with no photo shows the person's initials: the first letters of the first two words of their name. On the phone a row with no name shows `?`; on web it shows the initials of the deleted-user label.
 19. A row shows when its last message was sent, in the viewer's language: the time for today, the word for yesterday, and a date before that.
 
 ### Acceptance Criteria
@@ -369,7 +369,7 @@ test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_s
 #### MESSAGING-CONVERSATIONS-33: A row shows initials when there is no photo, and when its last message was sent (rules 18, 19)
 - **Given** a conversation list whose rows have no photo and last messages from today, yesterday and earlier
 - **When** the list renders in Portuguese and in English
-- **Then** "Ana Beatriz Silva" shows `AB`, "Ana" shows `A`, and a row with no name shows `?`
+- **Then** on the phone "Ana Beatriz Silva" shows `AB`, "Ana" shows `A`, and a row with no name shows `?`
 - **And** a message from today shows its time, and one from yesterday the word for yesterday
 - **And** an earlier message shows a date in the viewer's language: on the phone the day and month, with the year for an earlier year; on web a weekday within the last week and a short date before that
 test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `takes the first letter of the first two words, uppercased` (+13 more)
@@ -386,3 +386,4 @@ test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `takes the 
 - **Three race tests never run on the default test lane.** `test_pad411_first_message_race.py` is skipped unless the suite runs on Postgres, so the tests pointed at MESSAGING-CONVERSATIONS-3 and 26 from it are proved only there. Recommendation: accept, and note it on the criterion.
 - **One "automatic messages ignore the picker" test proves nothing.** Its student is on the coach's roster, so the message would be delivered anyway; its sibling test is the real proof. Recommendation: drop it or unlink the student.
 - **A test's list of public fields is short.** `test_pad500_user_list_scope.py` leaves out `avatarUrl` and `abbreviation`, which rule 15 and MESSAGING-CONVERSATIONS-17 require; `test_user_privacy.py` has the full list. Recommendation: share one list.
+- **Web's initials have no test and differ from the phone's.** Web splits the name on single spaces, so stray spaces change the letters, and a person who is gone shows the initials of the deleted-user label where the phone shows `?` (`ConversationList.tsx:45-66`). Recommendation: share the phone's helper.

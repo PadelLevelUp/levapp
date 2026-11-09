@@ -125,9 +125,10 @@ reporting it is one tap away.
 - **And** a report with no copy (filed before the backfill) shows the message's own text
 
 #### MESSAGING-BLOCK-AND-REPORT-11: A block is set once, stops a new conversation, and is undone by unblocking (rules 1, 2)
-- **Given** two students with no conversation between them
-- **When** one blocks the other twice, lists their blocks, tries to start a conversation, unblocks, and tries again
-- **Then** both block requests answer 200, and the list holds the blocked person once
+- **Given** two people with no conversation between them
+- **When** one blocks the other twice, tries to start a conversation, unblocks, and tries again
+- **Then** both block requests answer 200
+- **And** after one block the list of blocked people holds that person
 - **And** starting a conversation while the block stands is 403
 - **And** after the unblock the conversation is created
 test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_blocked_user_prevents_new_conversation` (+3 more)
@@ -150,7 +151,7 @@ test: `backend/padel_app/tests/test_messaging_known_contact.py` › `test_delete
 
 ### Open questions
 
-- **MESSAGING-BLOCK-AND-REPORT-10 got its id tonight and has no test.** It is the block "The console shows what was reported after the message is deleted (rule 4a, PAD-639)". No test in this area or in the admin console's was proposed for it. Recommendation: point the console's moderation test at it, or write one.
+- **MESSAGING-BLOCK-AND-REPORT-10 got its id tonight and has no test.** It is the block "The console shows what was reported after the message is deleted (rule 4a, PAD-639)". Three tests prove it (`test_pad639_console_reported_text.py`); the port proposed them under `admin.moderation`, which is not this half's area. Recommendation: point them here, or keep the criterion there and drop this one.
 - **Rule 2 says creating a conversation is refused on a block; that holds only for a pair with no conversation yet.** The check sits inside the "no conversation exists" branch (`messaging_service.py:874-878`), so a blocked pair that already has a conversation gets it back with no 403. Sending is checked separately (`:432`), so no message goes through. Recommendation: say so in rule 2.
 - **Rule 7 is narrower than the code in two ways.** It says "one of the viewer's coaches"; the code counts a roster link in either direction, so a coach reading their own student's message sees a known contact (`messaging_service.py:729`). It says "at least one non-system message"; the code counts only a text message that is not deleted (`:745-755`). P-MESSAGING "student reaches out and stays safe" repeats the narrower wording. Recommendation: amend rule 7 and the promise to the code.
 - **The promise says "blocking is silent"; a blocked sender can tell.** Rule 6 says the blocked person is not told. A blocked sender's message answers 403 "Cannot message a blocked user" (`messaging_service.py:432`) where an ordinary send answers 201; only the by-username path hides a block behind a 404. Recommendation: decide whether a blocked send should answer like a delivered one.

@@ -584,8 +584,8 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **And** with the flag and no file at the resolved path the prebuild fails with an error naming `google-services.json` and the path
 
 #### MESSAGING-PUSH-NOTIFICATIONS-32: A phone is registered only with permission, and unregistering touches the caller's row alone (rules 9, 15)
-- **Given** a phone on which the user signs in, a phone that denies notifications, a simulator, and two users of one phone
-- **When** each registers, and the users unregister
+- **Given** a phone on which the user signs in, a phone that denies notifications, a simulator, and a token that another user owns
+- **When** each registers, and a user unregisters their own token and the other user's
 - **Then** signing in asks for permission once; a phone that grants it stores its token once, with its user and platform
 - **And** a denial sends nothing, is never retried and reads `no-permission`
 - **And** a simulator sends nothing and reads `unsupported`, so no "not active" banner shows
@@ -593,7 +593,7 @@ Send browser push notifications when a new message arrives and the recipient isn
 test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › `a denial is not retried` (+5 more)
 
 #### MESSAGING-PUSH-NOTIFICATIONS-33: A push says where it leads, and both channels say the same (rules 3, 7)
-- **Given** a push that is about a message, about a screen of the app, and about a page outside the app
+- **Given** a push about a screen of the app, and one about a page outside the app
 - **When** it is sent, and tapped on the phone and in the browser
 - **Then** the phone's payload and the browser's link name the same destination
 - **And** on the phone a path of the app opens its screen, a path the app does not know opens nothing, and a full `https://` address opens in the system browser
@@ -601,13 +601,13 @@ test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › `a denia
 - **And** a push type the app does not know leads nowhere and does not crash
 test: `frontend/apps/mobile/src/lib/push-routing.test.ts` › `routes a plain in-app path through the app's one web-path mapper` (+10 more)
 
-#### MESSAGING-PUSH-NOTIFICATIONS-34: A push goes to every registered phone and browser, connected or not, with the reader's count and language (rules 4, 5, 14)
+#### MESSAGING-PUSH-NOTIFICATIONS-34: A push reaches a registered phone whether or not its owner is connected, with the reader's count and language (rules 4, 5, 14)
 - **Given** a recipient with a phone registered, who is connected to live updates, and one with no phone
 - **When** a message is sent to each
 - **Then** the connected recipient still gets one phone push
 - **And** the recipient with no phone gets none, and nothing is requested from Expo
 - **And** the push carries the recipient's unread total, the new message included; a count of 0 is sent as 0, and no count means no badge field
-- **And** its title is in the recipient's language ("Nova mensagem", "New message")
+- **And** the push of a notification-engine message is titled in the recipient's language ("Nova mensagem", "New message")
 test: `backend/padel_app/tests/test_native_push.py` › `test_direct_message_push_fires_while_recipient_is_connected_over_sse` (+5 more)
 
 #### MESSAGING-PUSH-NOTIFICATIONS-35: The outbox is off unless switched on, its drainer starts once, and done rows are cleared (rules 10, 10a, 16)
@@ -615,8 +615,8 @@ test: `backend/padel_app/tests/test_native_push.py` › `test_direct_message_pus
 - **When** pushes are sent and the drainer is started, stopped and started again
 - **Then** with the switch off a push goes through the in-memory sender and no outbox row is written
 - **And** with it on the drainer is one object however often it is asked for, a second start keeps the same thread, and it can be stopped twice and started again
-- **And** two drainers never send the same row
-- **And** a sender that throws is logged and swallowed the same way in both modes
+- **And** on Postgres two drainers never send the same row
+- **And** a sender that throws is logged and swallowed, on the in-memory sender's inline path and on its worker thread alike
 - **And** `sent` and `skipped` rows older than a day and `dead` rows older than thirty days are deleted, and `pending` rows are kept
 test: `backend/padel_app/tests/test_pad294_push_sender_review.py` › `test_inline_and_worker_paths_swallow_a_sender_exception_the_same_way` (+6 more)
 

@@ -383,7 +383,7 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
   container logs.)
 
 #### MESSAGING-SSE-REALTIME-36: The listener that carries events between processes delivers each one promptly and in order (rule 23)
-- **Given** two server processes on Postgres, one publishing and one holding a stream
+- **Given** a server process on Postgres that publishes events and listens for them
 - **When** events are published while the listener is busy reading
 - **Then** an event that arrives during a read is delivered without waiting for the next poll
 - **And** events are delivered in the order they were announced, and one whose row is already gone is skipped
@@ -393,10 +393,10 @@ test: `backend/padel_app/tests/test_pad692_realtime_broker.py` › `test_a_notif
 
 #### MESSAGING-SSE-REALTIME-37: The client's one connection opens only with a session and stops when nobody listens (rules 15, 16, 17)
 - **Given** the app's shared live connection
-- **When** the user is signed out, the last listener leaves, the app returns to the foreground, and the server sends something that is not an event
+- **When** the user is signed out, the last listener leaves, the connection is told to reconnect now, and the server sends something that is not an event
 - **Then** no connection is opened while there is no session
 - **And** when the last listener leaves, a retry that was waiting is cancelled
-- **And** returning to the foreground drops a waiting retry, connects at once and starts the back-off again
+- **And** a reconnect-now, which is what a return to the foreground asks for, drops a waiting retry, connects at once and starts the back-off again
 - **And** a payload that is not an event is ignored, and a listener that throws does not keep the others from theirs
 - **And** retries are reported to the debug hook, never to the console
 test: `frontend/packages/api/src/sse.test.ts` › `does not reconnect once nobody is listening` (+4 more)

@@ -1856,7 +1856,7 @@ Untagged tests: 7552
   - **MESSAGING-PUSH-NOTIFICATIONS-31** Firebase config only when asked for, and never missing when asked (rule 11e, PAD-355) · unverified
   - **MESSAGING-PUSH-NOTIFICATIONS-32** A phone is registered only with permission, and unregistering touches the caller's row alone (rules 9, 15) · unverified
   - **MESSAGING-PUSH-NOTIFICATIONS-33** A push says where it leads, and both channels say the same (rules 3, 7) · unverified
-  - **MESSAGING-PUSH-NOTIFICATIONS-34** A push goes to every registered phone and browser, connected or not, with the reader's count and language (rules 4, 5, 14) · unverified
+  - **MESSAGING-PUSH-NOTIFICATIONS-34** A push reaches a registered phone whether or not its owner is connected, with the reader's count and language (rules 4, 5, 14) · unverified
   - **MESSAGING-PUSH-NOTIFICATIONS-35** The outbox is off unless switched on, its drainer starts once, and done rows are cleared (rules 10, 10a, 16) · unverified
   - **MESSAGING-PUSH-NOTIFICATIONS-36** Staging sends no phone push (rule 10a) · unverified
 - spec **messaging.read-tracking** (`specflow/impl/messaging/read-tracking.spec.md`)

@@ -230,7 +230,7 @@ test: `backend/padel_app/tests/test_image_privacy.py` › `test_url_uses_a_signe
 
 #### MESSAGING-MESSAGES-22: Copy takes the text as written, and a deleted or empty message has nothing to copy (rule 12)
 - **Given** a message with leading spaces and a line break, a deleted message, and a message with no text
-- **When** the user copies each
+- **When** the user copies each on the phone
 - **Then** the first is copied unchanged
 - **And** nothing is copied for the other two, and the clipboard is left alone
 test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `copies the message content verbatim, inner whitespace included` (+3 more)
