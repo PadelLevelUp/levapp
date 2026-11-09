@@ -77,3 +77,12 @@ module.
 - **Given** Bruno names "diogo", who does not train with Ana
 - **When** Bruno asks availability with `participants=diogo`
 - **Then** the answer is `400 INVALID_PARTICIPANTS` with `{username: "diogo", ok: false, code: "USERNAME_NOT_FOUND"}` and no `freeWindows`
+
+#### CLASSES-AVAILABILITY-5: The module's edges: short leftovers, the weekday numbering, a missing date and the start grid (rule 1)
+- **Given** a working window of 08:00 to 10:00 with 08:20 to 09:45 busy
+- **When** the day's free windows are computed
+- **Then** none is offered: leftovers under 30 minutes are dropped, unless a shorter minimum is asked for
+- **And** a recurrence's dates count Monday as 1 and include both ends
+- **And** a date with no entry counts as fully busy in the weekly intersection
+- **And** starts are offered every 30 minutes for the chosen length, and never one whose end passes the window
+test: `frontend/packages/config/src/availability.test.ts` › `drops windows shorter than minMinutes (default 30)` (+5 more)

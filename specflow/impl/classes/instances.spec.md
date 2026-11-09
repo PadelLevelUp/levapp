@@ -121,3 +121,16 @@ Lesson instances are the actual scheduled occurrences of a class. For recurring 
 - **When** the duplicate is deleted and the migration upgrades again
 - **Then** `uq_lesson_instance_occurrence` exists and `ix_lesson_instances_lesson_id_occurrence_date` is gone
 - **And** a second upgrade changes nothing, a downgrade restores the plain index and removes the unique one, and an upgrade after that recreates it
+
+#### CLASSES-INSTANCES-9: Materialising an occurrence places standing waiting-list students on its list (rule 2)
+- **Given** a weekly class never materialised, and a student with an active standing waiting-list place with its coach
+- **When** an occurrence is materialised, on demand or by sending its reminders
+- **Then** the occurrence exists and the student has an active entry on its waiting list
+- **And** the caller's transaction is still open and commits afterwards
+test: `backend/padel_app/tests/test_pad117_savepoint_containment.py` › `test_healthy_sync_still_materializes_and_fans_out` (+1 more)
+
+#### CLASSES-INSTANCES-10: A moved occurrence is still the same occurrence (rules 3, 9)
+- **Given** an occurrence of a weekly class that a single edit moved to another time
+- **When** that date is materialised again
+- **Then** the same occurrence is answered, no second one is created, and a student's answer on it is kept
+test: `backend/padel_app/tests/test_pad85_duplicate_materialization.py` › `test_time_diverged_occurrence_is_not_re_materialized` (+1 more)

@@ -31,6 +31,9 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    the whole-class delete (`deleted`), never a truncation of a recurrence the class does not
    have (review round, 2026-09-16). Confirmed attendance is never lost without the coach being told: when attendance
    has been marked, the confirmation dialog says it is removed with the class
+8. **Cancelling an occurrence tells each enrolled student (PAD-75).** Every student enrolled on the
+   removed occurrence gets one message in their chat with the coach, sent as the coach and written
+   in the coach's language. An occurrence with nobody enrolled sends nothing.
 
 ### Acceptance Criteria
 
@@ -62,3 +65,24 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
 - **When** coach deletes the April 20 instance with scope `single`
 - **Then** only the April 20 instance is removed
 - **And** April 13 and 27 remain
+
+#### CLASSES-DELETE-6: A removal that fails part-way removes nothing (rules 5, 7)
+- **Given** a one-off class with a materialised occurrence and one validated presence
+- **When** its removal fails after the occurrence was deleted and before the class was
+- **Then** the occurrence, its presence and the class are all still there, and the calendar still shows the class with its confirmed count
+test: `backend/padel_app/tests/test_pad335_delete_materialised_one_off.py` › `test_a_failure_after_the_instance_delete_leaves_everything_in_place`
+
+#### CLASSES-DELETE-7: Cancelling a class tells each enrolled student in their chat with the coach (rule 8)
+- **Given** a class two days ahead with two enrolled students
+- **When** the coach removes that occurrence
+- **Then** each student gets one cancellation message from the coach, in their own conversation with the coach
+- **And** a Portuguese-speaking coach's message says the class was "cancelada"
+- **And** with nobody enrolled no message is sent
+test: `backend/padel_app/tests/test_notification_class_cancellation.py` › `test_cancel_class_notifies_every_enrolled_student` (+2 more)
+
+#### CLASSES-DELETE-8: Deleting takes the occurrences with it in the database, cancels their jobs and keeps the past (rules 1, 4)
+- **Given** a class with a past occurrence that has attendance, and three future ones
+- **When** its future occurrences are deleted
+- **Then** the three are gone in one statement, each one's scheduler job is cancelled, and the past occurrence and its attendance stay
+- **And** deleting the class itself removes every occurrence and presence through the database's cascade, without loading them one by one
+test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_deleting_a_lesson_does_not_load_every_child` (+1 more)

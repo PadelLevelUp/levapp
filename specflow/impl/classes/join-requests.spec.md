@@ -402,6 +402,128 @@ by a student's request — and whichever lands first wins.
 - **When** she taps it
 - **Then** the request is sent again with `side: "both"` and is `pending`
 
+#### CLASSES-JOIN-REQUESTS-22: A class the calendar would not show the student cannot be requested (rule 1)
+- **Given** an eligible student and a coach who does not advertise open spots
+- **When** the student requests the class
+- **Then** the request is refused with code `not_visible`
+- **And** with open spots advertised, a student below the class's bar is refused with code `ineligible`
+test: `backend/padel_app/tests/test_pad131_join_requests.py` › `test_server_refuses_what_the_calendar_would_not_show`
+
+#### CLASSES-JOIN-REQUESTS-23: Each side reads its own view of the requests, and only the coach decides (rules 5, 15)
+- **Given** a student who POSTed `/api/app/class-join-requests` for a class and got 201
+- **When** the student and the coach each read the class
+- **Then** the student's payload carries `myJoinRequest` and no `joinRequests`; the coach's carries `joinRequests` with the student's name
+- **And** the student's own accept of that request answers 403; the coach's answers 200 `accepted` and the student is enrolled
+test: `backend/padel_app/tests/test_pad131_join_requests.py` › `test_class_payload_carries_requests_per_role_and_routes_work`
+
+#### CLASSES-JOIN-REQUESTS-24: The request list is scoped to its reader and keeps decided requests (rule 17)
+- **Given** two students with one request each to the same coach, one of them accepted
+- **When** each GETs `/api/app/class-join-requests`
+- **Then** a student gets only their own request; the coach gets both, each with its status
+- **And** a user who is neither coach nor student gets 403, and `/api/app/class-requests` never carries a join request
+test: `backend/padel_app/tests/test_pad460_join_request_lists.py` › `test_a_student_lists_only_their_own` (+3 more)
+
+#### CLASSES-JOIN-REQUESTS-25: The requests list splits into open and closed, each in its own order (rule 17)
+- **Given** private and academy rows merged newest first, each tagged with its kind
+- **When** the list is split
+- **Then** an academy row is open only while `pending`, a private row while `pending` or `countered`; every other status is closed
+- **And** each half keeps the merged order
+test: `frontend/packages/config/src/class-request-list.test.ts` › `tags private rows with kind: 'private' and keeps academy rows' own kind: 'academy'` (+3 more)
+
+#### CLASSES-JOIN-REQUESTS-26: A request bubble shows nothing while its request loads, and the stored outcome when the request is gone (rule 18)
+- **Given** a chat message that carries a join request
+- **When** the live request is still loading, or the message carries no request
+- **Then** the bubble shows no state and no button
+- **And** when the request is no longer in the live list, the bubble shows the outcome stored on the message
+test: `frontend/packages/config/src/join-request-message.test.ts` › `falls back to the outcome when the request is not in the live list any more` (+1 more)
+
+#### CLASSES-JOIN-REQUESTS-27: Requests close when the class starts on the club's clock (rule 14)
+- **Given** a class at 10:00 club time in Lisbon
+- **When** it is 09:30 UTC on a summer day
+- **Then** the class has started and takes no request
+- **And** at 09:30 UTC on a winter day it has not, and still does
+test: `backend/padel_app/tests/test_pad256_class_over.py` › `test_join_requests_close_on_the_club_clock`
+
+#### CLASSES-JOIN-REQUESTS-28: A full class, or a date the series does not produce, does not open by id (rule 16)
+- **Given** an eligible student and a full class
+- **When** the student reads it by id with a client that declares `full-classes`, then with one that does not
+- **Then** the first answers 200 and the second 403
+- **Given** a class with no occurrence row yet
+- **When** the student reads it for its own day, for a day the series does not run, and after it has started
+- **Then** only the first answers 200; the other two answer 403
+test: `backend/padel_app/tests/test_pad664_full_classes.py` › `test_a_full_class_opens_by_id_only_for_a_client_declaring_full_classes` (+1 more)
+
+#### CLASSES-JOIN-REQUESTS-29: A request for a side with no open spot is refused as `side_full`; an older client is served as before (rule 20)
+- **Given** a class whose only open spot is on the right, and a client that declares `join-side`
+- **When** the student requests the left side
+- **Then** the answer is 409 `side_full` with `requestedSide` `left` and `sides` `["right"]`, and no request is stored
+- **And** a spot of the asked side, a spot with no side, a `both` request, or a class with no spot row is accepted with the side stored; joining the waiting list with that side answers 201 with it
+- **And** a client that does not declare `join-side` and sends no side gets 201, with the student's profile side recorded
+test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_an_old_client_without_side_is_taken_as_today_with_the_profile_side` (+4 more)
+
+#### CLASSES-JOIN-REQUESTS-30: The side sheet makes every student choose (rule 20)
+- **Given** a student opening the side sheet, whose profile side comes with the class payload as `profileSide`
+- **Then** the cards read right, left, both, in that order, and the profile side is the one selected, `both` included
+- **And** with no profile side nothing is selected, and sending is disabled until a side is chosen
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.tsx` › `with no profile side the question is mandatory` (+6 more)
+
+#### CLASSES-JOIN-REQUESTS-31: The sheet's other ways out: the waiting list, and a refusal it does not handle (rule 20)
+- **Given** the side sheet opened to join the waiting list
+- **When** the student sends
+- **Then** the waiting list is joined with the chosen side and no request is created
+- **Given** a request refused with 409 `side_full`
+- **When** the student chooses to stay waiting
+- **Then** they join the waiting list of the side they asked for, and no second request is sent; the open sides are offered right before left
+- **And** any other refusal closes the sheet and goes to its caller: only a 409 with code `side_full` and a requested side is read as side-full
+test: `frontend/apps/web/src/components/calendar/ClassSideChoice.test.tsx` › `in the waiting-list theme joins the list with the chosen side` (+5 more)
+
+#### CLASSES-JOIN-REQUESTS-32: A sent request shows its side to the student and to the coach, who can save it to the profile (rule 20)
+- **Given** a student with a pending request for the left side
+- **When** they open the class
+- **Then** it shows the side and the coach's first and last name, and a button to cancel the request
+- **When** the coach opens the class
+- **Then** the request's row shows a chip with the asked side
+- **And** for a student with no profile side who asked left or right, the row carries `suggestedProfileSide` and offers to save that side to the profile; saving removes the offer; a `both` request or a student with a profile side gets none
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.tsx` › `a request already sent shows its side and the coach, and can be cancelled` (+6 more)
+
+#### CLASSES-JOIN-REQUESTS-33: A coach can let eligible requests in at once (rule 21)
+- **Given** a coach with `auto_accept_join_requests` on, and a class with an open spot on the left
+- **When** an eligible student requests the left side
+- **Then** the answer is 201 with status `accepted` and the student is enrolled
+- **And** the student's app says they are in and reads the class again, instead of "request sent"
+- **And** with the setting off, for a student the coach excluded, or for an older client whose profile side has no open spot, the request is created `pending` and nobody is enrolled
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.joinSide.test.tsx` › `a 201 accepted answer says the student is in, and re-reads the class` (+5 more)
+
+#### CLASSES-JOIN-REQUESTS-34: Accepting fills the spot of the student's side (rules 6, 20)
+- **Given** a class with one open spot on each side
+- **When** the coach accepts a left student
+- **Then** the left spot is filled, the right one stays open, whichever is older, and the student's presence for that occurrence carries the side
+- **And** a `both` student fills the spot that leaves the class more balanced, and their presence carries `both`
+- **And** when two spots stood on one side, the one left open is re-counted to the side the class now lacks
+- **And** a student with no spot of their side takes a spot with no side first, else the oldest
+test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_the_accept_writes_the_side_on_the_presence` (+5 more)
+
+#### CLASSES-JOIN-REQUESTS-35: A pending request whose side lost its last spot moves to that side's waiting list (rule 20)
+- **Given** two pending requests for the left side and one open left spot
+- **When** the coach accepts one of them
+- **Then** the other closes as `superseded`, its student is on the class's waiting list for the left, and one message tells them so
+- **And** when the accepted request was for the right side, the left request stays `pending` and nothing is sent
+test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_a_pending_request_whose_side_spot_is_taken_moves_to_that_sides_waiting_list`
+
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
+
+### Open questions
+
+- **Rule 5 says nothing about a request is automatic; rule 21 accepts eligible requests automatically.**
+  - Rule 5: "Acceptance and rejection are the coach's alone; nothing about a request is automatic."
+  - Rule 21 (PAD-672 slice 2, D6): "With `notifications.config` rule 3a on, a new request is
+    accepted at creation through the coach's own accept path…".
+  - Code today: rule 21 is built. With the coach's `auto_accept_join_requests` on, an eligible
+    request with a spot of its side is answered 201 `accepted` and the student is enrolled
+    (`test_pad672_auto_accept_join_requests.py`, CLASSES-JOIN-REQUESTS-33). The setting is off by default.
+  - Recommendation: keep rule 21 and amend rule 5 to name it. The promise P-CLASSES-4 said "nothing
+    is accepted or rejected automatically"; its wording now follows rule 21, pending this answer.
+  - Proposed text for rule 5: "…Acceptance and rejection are the coach's alone, unless the coach
+    turned on rule 21's automatic acceptance; nothing is ever rejected automatically."

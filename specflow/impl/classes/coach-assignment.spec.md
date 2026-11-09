@@ -29,3 +29,9 @@ Assign coaches to classes and specific instances.
 - **When** `coaches_for(instance)` and the coach's calendar are read
 - **Then** the occurrence's coaches are [Ana] and Ana's calendar shows it
 - **And** after a substitute row is added for that occurrence, its coaches are [the substitute], the substitute's calendar shows it and Ana's does not
+
+#### CLASSES-COACH-ASSIGNMENT-2: With several coaches on an occurrence, the one assigned first is its coach everywhere (rule 4)
+- **Given** an occurrence with coach A, to which coach B is added later, each with a different reminder timing
+- **When** the occurrence's deadline is computed, its reminders are sent, and a student cancels
+- **Then** A's timing and settings are the ones used, A is the coach told of the cancellation, and the spot the cancellation opens belongs to A
+test: `backend/padel_app/tests/test_pad275_series_and_overrides.py` › `test_d2_two_coaches_resolve_to_the_same_primary_coach_everywhere`
