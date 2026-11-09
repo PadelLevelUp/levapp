@@ -105,7 +105,7 @@ Track player attendance for each class instance, including invitation, confirmat
 - **Then** a yes is stored as response `confirmed`, a no as `declined`, a cancellation as `cancelled` or `proactive_decline`, each with its time and recorded by the student
 - **And** the coach's mark writes the status and leaves the response as it was
 - **And** the payload carries `response`, `respondedAt` and `recordedBy`
-- **And** a student the coach has marked gets no further reminder
+- **And** a student who declined and was then marked by the coach gets no further reminder
 test: `backend/padel_app/tests/test_pad271_presence_response.py` › `test_a_reminder_yes_writes_response_confirmed_by_the_student` (+7 more)
 
 #### ATTENDANCE-PRESENCE-7: Marking an occurrence that does not exist yet creates it (rules 1, 3)

@@ -284,7 +284,7 @@ Untagged tests: 7552
   - **ATTENDANCE-CONFIRM-37** The ask is raised for the student alone, on a class that has not started, once its instant has passed (rules 27, 28) · unverified
   - **ATTENDANCE-CONFIRM-38** A coach marks presences only on their own class, for its students or their own roster (rule 17) · unverified
   - **ATTENDANCE-CONFIRM-39** A declined student is offered what the server's `comeBack` says (rule 28) · unverified
-  - **ATTENDANCE-CONFIRM-40** The app records an answer only when the server confirms or declines it, and explains every other answer (rules 4, 26, 27, 28) · unverified
+  - **ATTENDANCE-CONFIRM-40** The app records an answer only when the server confirms or declines it, and explains every other answer (rules 27, 28) · unverified
   - **ATTENDANCE-CONFIRM-41** One cancel action is offered to an enrolled student until the class starts (rules 9, 20, 25) · unverified
 - spec **attendance.presence** (`specflow/impl/attendance/presence.spec.md`)
   - **ATTENDANCE-PRESENCE-1** The presences list does not grow with the roster (rule 10, PAD-591) · unverified

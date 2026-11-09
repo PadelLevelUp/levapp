@@ -579,7 +579,7 @@ test: `backend/padel_app/tests/test_pad258_write_ownership.py` › `test_other_c
 - **And** the chat bubble offers "Afinal vou" only after a recorded no, on a class that has not started
 test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.comeBack.test.tsx` › `no comeBack field (older server) + not_coming: the PAD-570 hint, no come-back control` (+6 more)
 
-#### ATTENDANCE-CONFIRM-40: The app records an answer only when the server confirms or declines it, and explains every other answer (rules 4, 26, 27, 28)
+#### ATTENDANCE-CONFIRM-40: The app records an answer only when the server confirms or declines it, and explains every other answer (rules 27, 28)
 - **Given** a student who answers a reminder from the chat or the class detail
 - **When** the server's answer comes back
 - **Then** `confirmed` and `declined` are recorded on the row, with no message

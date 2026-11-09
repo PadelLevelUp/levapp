@@ -163,7 +163,7 @@ for every bucket and every history row.
 #### ATTENDANCE-HISTORY-11: The buckets follow the length of the range and leave no gap (rules 4, 5)
 - **Given** ranges of a week, a year and five years
 - **When** the history is bucketed
-- **Then** a range of thirty-one days or fewer is bucketed by day, up to 18 months by month, and beyond that by year
+- **Then** a range whose end is at most `31` days after its start is bucketed by day, one of at most `550` days by month, and a longer one by year
 - **And** every period in the range has a bucket, the empty ones included, across a year's end too
 - **And** the Presences trend is filled the same way
 test: `backend/padel_app/tests/test_attendance_history_buckets.py` › `test_a_full_month_is_still_daily` (+8 more)
