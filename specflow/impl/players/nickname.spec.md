@@ -242,3 +242,9 @@ test: `frontend/apps/mobile/src/features/players/player-nickname-form.test.tsx` 
   - Recommendation: keep the code and delete that sentence from rule 9.
 - **Eight iOS coach views are guarded only by reading their source.** The screens cannot be mounted in the unit harness, so their tests look for the display-name call in the file. They are proposed as plain unit tests; the web renders of the same views carry PLAYERS-NICKNAME-10 and 12. Most of those web tests replace the name hook with a stand-in, so they prove that the view asks for the name, while the hook itself is proved once. Recommendation: accept, and add one Maestro check of a nickname on an iOS coach screen.
 - **The field's warning text is asserted only as a translation key.** Rule 6 and PLAYERS-NICKNAME-4 quote "Visível só para ti..."; the tests check the key `players.nickname.warning`. Recommendation: accept.
+- **P-PLAYERS-4 keeps one of two statements the old business spec made.**
+  - The old business spec said the student never sees the nickname "in ... an export of their data", and also that a data request includes it.
+  - The promise as drafted: "a data request (the student's or the coach's) includes it", with "never sees it" limited to inside the app.
+  - This spec: rule 7 puts the nickname in both people's subject-access exports (owner, 2026-10-14, PAD-640), and PLAYERS-NICKNAME-9 proves it.
+  - The code today: `backend/scripts/export_user_data.py` copies every column of every row that points at the person, so the coach-student row carries the nickname in both exports (`test_pad660_coach_nickname.py:129`).
+  - Recommendation: the promise's wording holds; confirm it. The promise was not changed.
