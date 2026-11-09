@@ -18,6 +18,6 @@ A coach sets up a club as the home base for classes, players and calendar, and g
 - Only a member of a club can invite someone into it or revoke a pending invitation.
 - Accepting again never duplicates membership.
 - Nobody joins a club without a current member saying yes, by invitation or by approving a join request; both end in the same membership.
-- Any club can be found by name at sign-up, showing only its name, location and logo, never who belongs to it.
+- An approved coach can find any club by name, and sees only its name, location and logo, never who belongs to it.
 
-It does not promise how players join a roster, what a player does inside a club, account creation for an invited coach, or a push notification for a new join request (Settings → Club shows a badge).
+It does not promise how players join a roster, what a player does inside a club, account creation for an invited coach, or the push and email about a join request and its decision (that is P-NOTIFICATIONS-5; Settings → Club shows a badge).

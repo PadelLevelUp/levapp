@@ -185,6 +185,26 @@ shown on the card and the detail, and named by the `{court}` message placeholder
 - **Then** Settings → Club offers the Courts block, class creation offers the Court select, and the
   card and class detail show club and court
 
+#### CLUBS-COURTS-15: The class detail names the club and the court (rule 7)
+- **Given** a class at `Club One` on court `Campo 1`
+- **When** its class detail is built
+- **Then** it carries `clubName: "Club One"`, `courtId` of that court and `courtName: "Campo 1"`
+test: `backend/padel_app/tests/test_courts.py` › `test_class_detail_carries_club_and_court`
+
+#### CLUBS-COURTS-16: A split keeps the court, and a failed edit leaves it (rules 6, 9)
+- **Given** a weekly series on `Campo 1`, and a one-off class on `Campo 1`
+- **When** the series is edited "this and future" without `courtId`, and the one-off class is edited with `Campo 2` and a start time the server refuses
+- **Then** both halves of the split series are on `Campo 1`
+- **And** the refused edit leaves the one-off class on `Campo 1`
+test: `backend/padel_app/tests/test_courts.py` › `test_future_split_copies_the_court` (+1 more)
+
+#### CLUBS-COURTS-17: The iOS editor sends the court it shows (rules 7, 9)
+- **Given** the iOS class editor for a class on court 1
+- **When** the coach picks court 2, or "No court", and saves
+- **Then** the save carries `courtId: 2`, or `courtId: null`, and nothing else
+- **And** a class with no club is offered no courts, and no request is made to list any
+test: `frontend/packages/api/src/resources/courts.test.ts` › `B-266: a class with no club has no courts, and nothing is fetched` (+2 more)
+
 ### Notes
 - Source: PAD-194 (owner decision: minimal v1, 2026-09-09).
 - Known limits of rule 9 (PAD-513, accepted 2026-10-03):
@@ -199,3 +219,12 @@ shown on the card and the detail, and named by the `{court}` message placeholder
   managing their own courts without a coach, multiple clubs on one screen.
 - The coach's *current* club is what the class forms list courts for; a class always belongs to the
   club it was created in (`clubs.crud` rule 5), so the court list and the class agree.
+
+### Open questions
+
+- **CLUBS-COURTS-7 says 200 where the code answers 201, and two of its tests would pass on a 400.**
+  - The criterion: "the response is 200 and the occurrence's card and detail show "Campo 2"", and "the same holds for an occurrence not yet materialised (a `Lesson` event and its date)".
+  - The tests: `test_single_occurrence_court_on_a_materialised_instance` and `test_single_occurrence_court_before_materialisation` (`test_pad513_occurrence_court.py:59`, `:75`) accept either a 400 naming `courtId` or a success. They were written before rule 9 was decided. The strict tests in the same file assert 200 (`:128`, `:261`, `:286`) and, for the first edit of an occurrence not yet materialised, `200 or 201` (`:280`).
+  - The code today: a single-scope edit stores the court and answers 200 for a materialised occurrence (`lesson_service.py:1778`, `:1883`). For a `Lesson` event whose date has no occurrence yet it creates the occurrence and answers 201 (`lesson_service.py:1904`).
+  - Recommendation: amend the criterion to the code, and tighten the two early tests to 200 and 201.
+  - Proposed text for the Then: "the response is 200 (201 when the edit creates the occurrence) and the occurrence's card and detail show "Campo 2"; the series and its other occurrences show "Campo 1"".

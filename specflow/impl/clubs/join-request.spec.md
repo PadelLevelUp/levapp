@@ -110,6 +110,37 @@ coach invitation does.
 - **And** approving removes it from the list
 - **And** the same section exists on iOS
 
+#### CLUBS-JOIN-REQUEST-10: Search ignores case and needs two characters (rule 1)
+- **Given** clubs `Padel Academy` and `Padel Norte` and an approved coach
+- **When** the coach GETs `/api/app/clubs/search` with `q=NORTE`, with `q=p`, and with no `q`
+- **Then** the first answers `Padel Norte` alone, and the other two answer 200 with an empty list
+test: `backend/padel_app/tests/test_club_join_requests.py` › `test_search_is_case_insensitive_and_needs_two_chars`
+
+#### CLUBS-JOIN-REQUEST-11: A request is refused for a coach who may not ask (rule 2)
+- **Given** club `Padel Academy`, its member `maria`, an approved coach `rui`, and a coach whose account is still pending
+- **When** each POSTs `/api/app/club/<id>/join-requests`
+- **Then** `maria` asking for her own club is 409, `rui` asking for a club id that does not exist is 404, and the pending coach is 403 `COACH_NOT_APPROVED`
+test: `backend/padel_app/tests/test_club_join_requests.py` › `test_member_cannot_request_their_own_club_and_unknown_club_is_404` (+1 more)
+
+#### CLUBS-JOIN-REQUEST-12: Only a member lists, only the requester withdraws, and a decided request stays decided (rules 3, 4, 5)
+- **Given** a pending request from `rui` for a club where `maria` is a member and `joao` is not
+- **When** `joao` GETs the club's join requests, `maria` POSTs `.../withdraw`, `rui` POSTs `.../withdraw`, and then anyone approves or withdraws it again
+- **Then** `joao` and `maria` get 403; `rui` gets 200, the request is `withdrawn` and his `/api/auth/me` shows `pendingClubJoinRequest: null`; every later approve or withdraw is 410
+- **And** approving a request twice answers 200 then 410 and leaves exactly one `coach_in_club` row
+test: `backend/padel_app/tests/test_club_join_requests.py` › `test_non_member_cannot_list_requests` (+2 more)
+
+#### CLUBS-JOIN-REQUEST-13: `/api/auth/me` reports the newest pending request (rule 6)
+- **Given** a coach with no club who asked to join `Padel Academy` and then `Padel Norte`
+- **When** they GET `/api/auth/me`
+- **Then** `pendingClubJoinRequest` names `Padel Norte`
+test: `backend/padel_app/tests/test_club_join_requests.py` › `test_me_reports_most_recent_pending_request`
+
+#### CLUBS-JOIN-REQUEST-14: Creating a club keeps the pending request, and a later approval adds a second club (rule 7)
+- **Given** a coach with no club and a pending request for `Padel Academy`
+- **When** they create their own club, and a member of `Padel Academy` then approves the request
+- **Then** after the create, `/api/auth/me` lists the new club alone and still carries the pending request; after the approval it lists both clubs and `pendingClubJoinRequest` is null
+test: `backend/padel_app/tests/test_club_join_requests.py` › `test_creating_own_club_while_pending_keeps_request_and_later_approval_adds_second_club`
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 2.
 - Push + email for a new request and for the decision: `notifications.request-alerts` (PAD-232).
