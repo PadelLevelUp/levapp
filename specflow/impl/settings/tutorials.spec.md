@@ -189,6 +189,12 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `keys on the 
 - **And** a stage this build does not know reads "Not invited this time."
 test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a known stage and falls back to a generic line for one this build does not know` (+8 more)
 
+#### SETTINGS-TUTORIALS-13: The class row names the weekday in the user's language with the day/month (rule 3, PAD-517)
+- **Given** the occurrence date `2026-10-14`
+- **When** the class row is built for `pt`, `en` and `pt-PT`
+- **Then** the weekday reads `Qua`, `Wed` and (for `2026-10-11`) `Dom`, with the day as `14/10` or `11/10`
+- **And** a value that is not a calendar day, such as `soon`, is shown as it is with no weekday
+
 ### Notes
 - The Tutorials section is deliberately a registry so the next tutorial is one row and one
   screen, not a new Settings section.

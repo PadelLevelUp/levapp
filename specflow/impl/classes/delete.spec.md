@@ -30,7 +30,9 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    excluding the date, and `scope=future` on a one-off — which has no future beyond itself — is
    the whole-class delete (`deleted`), never a truncation of a recurrence the class does not
    have (review round, 2026-09-16). Confirmed attendance is never lost without the coach being told: when attendance
-   has been marked, the confirmation dialog says it is removed with the class
+   has been marked, the confirmation dialog says it is removed with the class. Attendance counts as
+   marked only once the coach validated a row (`hasRecordedAttendance`, PAD-335): an enrolment-only
+   row or a student's own answer does not count
 8. **Cancelling an occurrence tells each enrolled student (PAD-75).** Every student enrolled on the
    removed occurrence gets one message in their chat with the coach, sent as the coach and written
    in the coach's language. An occurrence with nobody enrolled sends nothing.
@@ -86,3 +88,9 @@ test: `backend/padel_app/tests/test_notification_class_cancellation.py` › `tes
 - **Then** the three are gone in one statement, each one's scheduler job is cancelled, and the past occurrence and its attendance stay
 - **And** deleting the class itself removes every occurrence and presence through the database's cascade, without loading them one by one
 test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_deleting_a_lesson_does_not_load_every_child` (+1 more)
+
+#### CLASSES-DELETE-9: Attendance counts as marked only once a row is validated (rule 7, PAD-335)
+- **Given** a class with no presences, with enrolment-only rows, or with a student's own `confirmed` answer and no validated row
+- **When** the client asks whether the class has recorded attendance
+- **Then** the answer is false
+- **And** it is true once any row is validated, present or absent

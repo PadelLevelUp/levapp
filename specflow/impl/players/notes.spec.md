@@ -30,6 +30,10 @@ Coaches record strengths and weaknesses notes for their players.
    (US-44, US-45) is the proof that the card works on its own.
 
 6. A note's text is required: a blank text answers 400 `text is required` and writes nothing.
+7. **A delete with an unusable id is refused, never a server error.** `POST /api/app/delete/coach_note`
+   with a missing or non-numeric `id` (a client-side temporary id such as `new-…`) answers 400
+   naming the problem and deletes nothing; an unknown numeric id answers 404. The guard is the one
+   `levels.coach-levels` rule 15 uses.
 
 ### Acceptance Criteria
 
@@ -50,3 +54,8 @@ Coaches record strengths and weaknesses notes for their players.
 - **Then** the blank one answers 400 and writes no note
 - **And** the second answers 200 with the note's text
 test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_add_coach_note_refuses_an_empty_text_itself`
+
+#### PLAYERS-NOTES-4: Deleting a note with an unusable id is refused, never a server error (rule 7)
+- **Given** a coach
+- **When** they POST `/api/app/delete/coach_note` with `{"id": "new-1753900000000"}`
+- **Then** the answer is 400 and no note is deleted
