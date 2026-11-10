@@ -52,7 +52,7 @@ onto that coach only, exactly once, with a rehearsal mode, a full undo and a his
       players (compared as in b) and appears once in that class.
    d. `max_players` is a positive integer and not below the class's number of players.
    e. `date` is a real date; `start_time` and `end_time` are `HH:MM` and the end is after the start
-      (an end of `00:00` is midnight at the end of the day, `classes.create` rule 8c). A weekly
+      (an end of `00:00` is midnight at the end of the day, `classes.create` rule 8d). A weekly
       class has `until`; an `until` date is not before `date`.
    f. `side`, when given, is `left`, `right` or `both`; `type` is `academy` or `private`.
    g. **No age confirmation is asked (owner decision, 2026-11-05).** An onboarding creates roster
