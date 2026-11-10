@@ -48,6 +48,10 @@ Invalidate the current JWT token so it cannot be reused.
    on a screen pushed over the tabs always returns to them. Web is unchanged: a browser renders one
    route at a time and its history holds URLs, not mounted screens; sign-out navigates to `/auth`
    and `ProtectedRoute` redirects a protected URL reached through Back.
+8. **A 401 ends the session on the client.** When any request answers 401, the shared client
+   removes the stored token, calls the shell's `onUnauthorized` hook when one is set, and rejects
+   the request; without a hook it still removes the token. Any other error leaves the token and
+   calls nothing.
 
 ### Acceptance Criteria
 
@@ -91,3 +95,10 @@ Invalidate the current JWT token so it cannot be reused.
   back
 - **Then** each back returns to the tabs, and after the sign-in the root stack is `[(tabs)]`
   (flow 308; wiring of `leaveToLogin` in `frontend/apps/mobile/src/auth/sign-out.test.ts`)
+
+#### AUTH-LOGOUT-8: A 401 removes the stored token and ends the session; any other error leaves it (rule 8)
+- **Given** the shared client with a stored token and an `onUnauthorized` hook
+- **When** a request answers 401
+- **Then** the token is removed once, the hook is called once, and the request rejects
+- **And** with no hook the token is still removed
+- **And** a 500 leaves the token in place and calls no hook

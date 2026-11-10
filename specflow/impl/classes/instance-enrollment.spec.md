@@ -278,6 +278,7 @@ three separate fields on it. Decision record:
 - **Then** the occurrence is materialised with the roster and Ana's presence has side right
 - **And** for an occurrence that has already ended the payload has `sideEditable` false, the change
   is 409, and nothing is materialised
+- **And** a student reading the same occurrence gets `sideEditable` false
 
 #### CLASSES-INSTANCE-ENROLLMENT-20: The override is the side the class counts (rule 13, PAD-551)
 - **Given** a class going 3 left (Ana among them) and 2 right, all regulars

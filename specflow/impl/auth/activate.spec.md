@@ -102,6 +102,11 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     the country stays as it was (null on a new account; PAD-630 asks for it later). Checked after the
     birth date; every refusal writes nothing. Web and iOS ask for it, required, default PT, from
     `COUNTRIES` (`@levelup/config`), as the sign-up form does, and declare the capability.
+11b. **The form layer never clears or stores a bare password (PAD-385).** Through the shared form
+    layer (`tools/input_tools` in present mode, and `update_with_dict` with `write_none`), a present
+    `password` that is empty, blank or null is dropped — never cleared, never hashed — and a present
+    password is stored as its hash; a collection sent as null is left alone too. Rule 11's 400 for
+    an empty password is decided before the layer is reached.
 12. **No proxy logs the secret (B-183, PAD-435).** The secret rides in URLs: the link's `?t=`
     and rule 4's `?token=`. Every nginx in front of the app (the VM's host nginx, `infra/nginx/`,
     and the web image's `frontend/apps/web/nginx.conf`) logs such a request with its query cut to
@@ -245,6 +250,13 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **Then** it is `<origin>/register/<id>?t=<secret>`, the secret percent-encoded, with exactly one slash between origin and path
 - **And** with no secret the link has no query; with no id it is the placeholder `/register/player`, which never carries a secret
 test: `frontend/apps/mobile/src/lib/web-links.test.ts` › `joins a base origin and a relative API path` (+10 more)
+
+#### AUTH-ACTIVATE-20: An empty password never clears or hashes the stored one; a sent password is stored hashed (rule 11b, PAD-385)
+- **Given** a user whose stored password hash is `hash`
+- **When** the form layer reads a body with `password` `""`, `null` or blank, in present mode or with `write_none`
+- **Then** nothing is written for `password` and the stored hash is still `hash`
+- **And** a body with `password` `s3cret` writes a hash that checks against `s3cret`
+- **And** a collection relationship sent as null keeps its members
 
 ### Notes
 - Why a derived token rather than a column: the fix had to ship without a migration in the

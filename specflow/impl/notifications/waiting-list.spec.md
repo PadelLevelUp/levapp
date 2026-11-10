@@ -585,6 +585,8 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 - **Then** Carla's row has side right and is asked only for a spot a right player can take
 - **And** adding her to the whole series with `side: "both"` gives the standing entry and every row
   it fans out side both
+- **And** the add dialog pre-selects Carla's profile side tagged "Habitual" and posts the side chosen; with no profile side nothing is pre-selected and the add waits for a side
+- **And** the class's list answers each row's `side`, both clients show it, and a row stored before sides shows none
 
 #### NOTIFICATIONS-WAITING-LIST-35: A student with no profile side needs a side (rule 18a)
 - **Given** Dinis, who has no profile side
