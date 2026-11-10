@@ -1,0 +1,52 @@
+id: 28
+title: vários alunos na waiting list para uma vaga
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [755, 770]}
+what_it_tests: >
+  depois dos lembretes, a waiting list segue a regra dos convites por vaga, e o primeiro Sim fica com a
+  vaga
+tags: [coach-list, waiting-list, aviso]
+depends_on: [U16, U26]
+corrections: []
+notes: >
+  Setup step at 1 Nov 19:00 (derived), when the class is full. The PDF does not say which of the three
+  says Sim first. All three are invited together, so W1 accepts first and W2 second; the choice does not
+  change the result. After the Aviso, W2 "continua na waiting list" (U26). W3 never answers, so it also
+  stays on the list. W1 is no longer on it: the PDF does not say so, but a student placed in the class
+  no longer waits for it (assumed; drop W1 from the check if the owner decides otherwise). W1 to W3 have no level (level null).
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: W1, level: null, side: R}
+  - {id: W2, level: null, side: R}
+  - {id: W3, level: null, side: R}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    derived: true
+    events:
+      - {coach_adds_to_waiting_list: W1, side: R}
+      - {coach_adds_to_waiting_list: W2, side: R}
+      - {coach_adds_to_waiting_list: W3, side: R}
+    expect: {invitations: none}
+  - at: 2026-11-02 18:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations:
+        - {who: W1, group: 1}
+        - {who: W2, group: 1}
+        - {who: W3, group: 1}
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 18:10
+    events: [{accepts: W1}]
+    expect:
+      placed: [{who: W1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 18:15
+    events: [{accepts: W2}]
+    expect:
+      messages: [{who: W2, kind: aviso}]
+      waiting_list: {coach: [W2, W3]}
+final:
+  roster: {L: 8, R: 8}

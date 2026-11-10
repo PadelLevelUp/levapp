@@ -1,0 +1,61 @@
+id: 36
+title: vaga reabre antes dos lembretes
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [904, 925]}
+what_it_tests: antes dos lembretes, a waiting list ocupa logo a vaga, à frente dos convites abertos
+tags: [waiting-list, aviso, reminders, tiebreak]
+depends_on: [U16, U25, U26]
+corrections: []
+notes: >
+  E1 to E5 carry participations 5..1, so the "mais participações" tiebreak picks E1, E2 and E3 as the
+  PDF says. After the Aviso, E2 joins the students' list for the left only (U26, the waiting-list route).
+  E3's invitation stays open after the class fills (glossary "Convite aberto"; U25). At 2 Nov 09:00 the
+  automatic entry beats it.
+
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+roster:
+  regulars: {L: 3, R: 4}
+students:
+  - {id: E1, level: 2, side: L, participations: 5}
+  - {id: E2, level: 2, side: L, participations: 4}
+  - {id: E3, level: 2, side: L, participations: 3}
+  - {id: E4, level: 2, side: L, participations: 2}
+  - {id: E5, level: 2, side: L, participations: 1}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: E1, side_named: null, group: 3}
+        - {who: E2, side_named: null, group: 3}
+        - {who: E3, side_named: null, group: 3}
+      missing: {L: 1, R: 0}
+  - at: 2026-11-01 19:05
+    events: [{accepts: E1}]
+    expect:
+      placed: [{who: E1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:10
+    events: [{accepts: E2}]
+    expect:
+      messages: [{who: E2, kind: aviso}]
+  - at: 2026-11-01 19:10
+    events: [{joins_waiting_list: E2, sides: own}]
+    expect:
+      waiting_list: {students: [E2]}
+      roster: {L: 4, R: 4}
+  - at: 2026-11-02 09:00
+    events: [{regular_no: L-1}]
+    expect:
+      placed: [{who: E2, side: L, how: auto_from_waiting_list}]
+      messages: [{who: E2, kind: added}]
+      invitations: none
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 09:20
+    events: [{accepts: E3}]
+    expect:
+      messages: [{who: E3, kind: aviso}]
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, E2], not_to: [E1]}
+final:
+  roster: {L: 4, R: 4}

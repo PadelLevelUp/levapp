@@ -1,0 +1,43 @@
+id: 20
+title: lado cheio primeiro, vaga depois
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [600, 618]}
+what_it_tests: a entrada automática acontece quando surge vaga no lado indicado, antes dos lembretes
+tags: [coach-list, waiting-list, reminders]
+depends_on: [U16]
+corrections: []
+notes: >
+  W1's place on the coach's list is the initial state; it is added at the 19:00 step, before the engine
+  runs. W1 has no level in the PDF (level null). The 2 Nov 10:00 No by a left regular is before the
+  12 h cutoff, but the PDF says nothing about the absence, so it is not checked.
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: W1, level: null, side: L}
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    events:
+      - {coach_adds_to_waiting_list: W1, side: L}
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      waiting_list: {coach: [W1], students: []}
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:20
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 10:00
+    events: [{regular_no: L-1}]
+    expect:
+      placed: [{who: W1, side: L, how: auto_from_waiting_list}]
+      messages: [{who: W1, kind: added}]
+      missing: {L: 0, R: 0}
+      invitations: none
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, W1], not_to: [r1]}
+final:
+  roster: {L: 8, R: 8}
