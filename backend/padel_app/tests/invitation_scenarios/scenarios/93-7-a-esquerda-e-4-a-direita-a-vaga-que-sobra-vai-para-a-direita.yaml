@@ -1,0 +1,59 @@
+id: 93
+title: "7 à esquerda e 4 à direita: a vaga que sobra vai para a direita"
+source: {section: "Cenários 91 a 95: limite de convites e equilíbrio dos lados", lines: [2021, 2041]}
+what_it_tests: se sobrar uma vaga na divisão, os convites vão para o lado com menos confirmados
+tags: [max-open, sides, rounds]
+depends_on: []
+corrections: []
+notes: >
+  The limit covers 4 spots: 3 to bring the right level with the left, the leftover to the right, the side with
+  fewer confirmed (lines 1969-1974). 19:10: accepted invitations leave the count (R10), so 3 places of the limit
+  go to the left; the PDF's "9 convites de direita abertos" is the pre-top-up state, so open_in_round after
+  the engine runs is 9 + 3 = 12. 19:20 is
+  the next round (X x 2 spots = 6, R11). No U tag: the analysis (C8) finds 93-95 agree with the plan. The 19:30
+  Aviso probe is derived from "Quem disser Sim depois vê o Aviso" (R9).
+
+roster:
+  regulars: {L: 7, R: 4}
+students:
+  - {cohort: L2R, count: 30, level: 2, side: R}
+  - {cohort: L2L, count: 10, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 12, side_named: null, group: 3}]
+      missing: {L: 1, R: 4}
+  - at: 2026-11-01 19:10
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: a1}}
+      - {accepts: {cohort: L2R, state: invited, as: a2}}
+      - {accepts: {cohort: L2R, state: invited, as: a3}}
+    expect:
+      placed:
+        - {who: a1, side: R, how: invitation}
+        - {who: a2, side: R, how: invitation}
+        - {who: a3, side: R, how: invitation}
+      missing: {L: 1, R: 1}
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+      open_in_round: 12
+  - at: 2026-11-01 19:20
+    expect:
+      invitations:
+        - {cohort: L2L, count: 3, side_named: null, group: 3}
+        - {cohort: L2R, count: 3, side_named: null, group: 3}
+  - at: 2026-11-01 19:25
+    events:
+      - {accepts: {cohort: L2L, state: invited, as: b1}}
+      - {accepts: {cohort: L2R, state: invited, as: b2}}
+    expect:
+      placed:
+        - {who: b1, side: L, how: invitation}
+        - {who: b2, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:30
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: c}}]
+    expect: {messages: [{who: c, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}

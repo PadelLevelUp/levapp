@@ -1,0 +1,41 @@
+id: 21
+title: aula cheia e aluno na waiting list dos alunos
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [619, 638]}
+what_it_tests: a waiting list dos alunos também entra automaticamente antes dos lembretes
+tags: [waiting-list, reminders]
+depends_on: [U16, U18]
+corrections: []
+notes: >
+  S1 is the PDF's unnamed student on the students' list who "só aceita a direita". The PDF gives no
+  natural side or level, so S1 is a right-sider (side R, sides: own) with level null. Joining the list
+  is the initial state, done at the 19:00 step. "Todos dizem Sim" is encoded for S1 only (`confirms`); regulars count as going by default.
+
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+roster:
+  regulars: {L: 4, R: 4}
+students:
+  - {id: S1, level: null, side: R}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    events:
+      - {joins_waiting_list: S1, sides: own}
+    expect:
+      invitations: none
+      waiting_list: {coach: [], students: [S1]}
+  - at: 2026-11-02 09:00
+    events: [{regular_no: R-1}]
+    expect:
+      placed: [{who: S1, side: R, how: auto_from_waiting_list}]
+      messages: [{who: S1, kind: added}]
+      invitations: none
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, S1]}
+  - at: 2026-11-02 17:00
+    events: [{confirms: S1}]
+    expect: {roster: {L: 4, R: 4}}
+final:
+  roster: {L: 4, R: 4}

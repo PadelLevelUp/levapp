@@ -1,0 +1,51 @@
+id: 79
+title: lado cheio e vaga no outro lado, depois dos lembretes
+source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1704, 1721]}
+what_it_tests: a mesma situação do cenário 32, mas depois dos lembretes, e por isso a waiting list recebe convite
+tags: [waiting-list, direct-join, sides, other-side, reminders, aviso]
+depends_on: [U16, U23, U24, U26]
+corrections: []
+notes: >
+  The regular is R-1 and the left-side level-2 student is E1, who "vê a aula" at 18:10 (event appears). Their
+  direct join is refused because the left is full (U24), expressed with refused. E1 joins the students' list for both sides, and since it is after the reminder hour, they
+  get an invitation naming the right instead of an automatic entry (R5, U16). As a waiting-list student they
+  are in group 2 for the side they accept (R13). The 18:20 step is a derived probe for "Os alunos de nível 2
+  de direita recebem o Aviso se disserem Sim" (R9). The absence kind of R-1's No is not stated and not
+  asserted.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {id: E1, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-02 18:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 18:10
+    events:
+      - {appears: E1}
+      - {joins_directly: E1}
+    expect:
+      refused: [{who: E1, action: direct_join}]
+      roster: {L: 8, R: 7}
+  - at: 2026-11-02 18:10
+    events: [{joins_waiting_list: E1, sides: both}]
+    expect:
+      invitations: [{who: E1, side_named: R, group: 2}]
+  - at: 2026-11-02 18:15
+    events: [{accepts: E1}]
+    expect:
+      placed: [{who: E1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 18:20
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      messages: [{who: r1, kind: aviso}]
+      roster: {L: 8, R: 8}
+final:
+  roster: {L: 8, R: 8}

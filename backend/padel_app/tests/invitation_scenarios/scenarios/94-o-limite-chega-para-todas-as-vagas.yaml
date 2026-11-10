@@ -1,0 +1,48 @@
+id: 94
+title: o limite chega para todas as vagas
+source: {section: "Cenários 91 a 95: limite de convites e equilíbrio dos lados", lines: [2042, 2059]}
+what_it_tests: a prioridade ao lado mais vazio só se aplica quando o limite não chega
+tags: [max-open, sides]
+depends_on: []
+corrections: []
+notes: >
+  A level-3 class of capacity 8 (4 per side) at the base time. 4 spots x 3 = 12, exactly M, so no side
+  priority. 19:10 the PDF says only that the right is full; nothing about new invitations, so none is checked.
+
+class:
+  level: 3
+  capacity: 8
+  start: 2026-11-03 10:30
+  created_at: null
+
+roster:
+  regulars: {L: 1, R: 3}
+students:
+  - {cohort: L2L, count: 10, level: 2, side: L}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L2L, count: 9, side_named: null, group: 3}
+        - {cohort: L2R, count: 3, side_named: null, group: 3}
+      missing: {L: 3, R: 1}
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 3, R: 0}
+  - at: 2026-11-01 19:15
+    events:
+      - {accepts: {cohort: L2L, state: invited, as: b1}}
+      - {accepts: {cohort: L2L, state: invited, as: b2}}
+      - {accepts: {cohort: L2L, state: invited, as: b3}}
+    expect:
+      placed:
+        - {who: b1, side: L, how: invitation}
+        - {who: b2, side: L, how: invitation}
+        - {who: b3, side: L, how: invitation}
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 4, R: 4}

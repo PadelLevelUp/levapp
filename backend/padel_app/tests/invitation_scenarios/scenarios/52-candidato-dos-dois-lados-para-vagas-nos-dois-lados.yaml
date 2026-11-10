@@ -1,0 +1,38 @@
+id: 52
+title: um candidato que joga dos dois lados para vagas nos dois lados
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1213, 1228]}
+what_it_tests: o aluno que joga dos dois lados conta só uma vez, e o seu lado adapta-se para encher a aula
+tags: [both-sides, groups, sides]
+depends_on: [U5]
+corrections: []
+notes: >
+  B1 is a label for the PDF's unnamed level-2 both-sides student. B1 covers one spot by heads. For the
+  other spot group 4 enters at once with the full X = 3 (R1; U5). B1's invitation names no side ("para
+  qualquer lado"). When the right fills, B1's Yes takes the left (R12: the both-sides student goes to the
+  spot that the lower groups cannot fill).
+
+roster:
+  regulars: {L: 7, R: 7}
+students:
+  - {id: B1, level: 2, side: both}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: B1, side_named: null, group: 3}
+        - {cohort: L3R, count: 3, side_named: null, group: 4}
+      invitations_total_sent: 4
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L3R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 1, R: 0}
+  - at: 2026-11-01 19:20
+    events: [{accepts: B1}]
+    expect:
+      placed: [{who: B1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

@@ -1,0 +1,36 @@
+id: 78
+title: dois alunos dizem Sim ao mesmo tempo
+source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1688, 1702]}
+what_it_tests: respostas simultâneas nunca fazem a aula ultrapassar a capacidade
+tags: [aviso]
+depends_on: []
+corrections: []
+notes: >
+  "No mesmo segundo" is two accepts in one step. File order is "o primeiro registado": D1 is applied first and
+  gets the spot, D2 gets the Aviso. The roster check pins "nunca 17 alunos". A true concurrency race is not
+  expressible in a sequential timeline; the runner applies events in order.
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: D1, level: 2, side: R}
+  - {id: D2, level: 2, side: R}
+  - {id: D3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: D1, side_named: null, group: 3}
+        - {who: D2, side_named: null, group: 3}
+        - {who: D3, side_named: null, group: 3}
+  - at: 2026-11-01 19:05
+    events:
+      - {accepts: D1}
+      - {accepts: D2}
+    expect:
+      placed: [{who: D1, side: R, how: invitation}]
+      messages: [{who: D2, kind: aviso}]
+      roster: {L: 8, R: 8}
+final:
+  roster: {L: 8, R: 8}

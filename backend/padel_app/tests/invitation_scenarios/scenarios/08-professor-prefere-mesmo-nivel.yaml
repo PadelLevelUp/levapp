@@ -1,0 +1,49 @@
+id: 8
+title: o professor prefere começar pelo mesmo nível
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [377, 394]}
+what_it_tests: a ordem dos convites segue os grupos definidos por cada professor
+tags: [groups, timers]
+depends_on: [U12, U13]
+corrections: []
+notes: >
+  The coach reorders groups 3 to 6; group numbers in `group:` are the reordered ones the PDF uses (3 =
+  same level, same side; 4 = one level above, same side). 20:20 is 60 min after group 3's last round at
+  19:20 (Method A), with 5 invitations still open for 1 spot (R3).
+
+settings:
+  groups:
+    - {list: coach, side: same}
+    - {list: students, side: same}
+    - {level: 0, side: same}
+    - {level: +1, side: same}
+    - {level: 0, side: other}
+    - {level: +1, side: other}
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L3R, count: 5, level: 3, side: R}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L3R, count: 2, side_named: null, group: 3}]
+      open_unanswered: 5
+  - at: 2026-11-01 20:00
+    expect:
+      invitations: none
+  - at: 2026-11-01 20:20
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 4}]
+      open_unanswered: 8
+  - at: 2026-11-01 20:30
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

@@ -1,0 +1,55 @@
+id: 27
+title: depois dos lembretes, a waiting list recebe convite
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [737, 754]}
+what_it_tests: a ordem dos grupos depois dos lembretes, com um aluno da waiting list a cobrir uma vaga sozinho
+tags: [coach-list, waiting-list, groups, timers, aviso]
+depends_on: [U16, U17, U13]
+corrections: []
+notes: >
+  Setup step at 1 Nov 19:00 (derived): the coach adds W1 and S1 joins the students' list, while the class
+  is full. W1 and S1 have no level (level null). At 19:00, group 1 (W1 alone) is exhausted and 60 minutes
+  have passed, so group 2 is called even though W1 still covers the spot by heads (R3; tagged U13).
+  At 19:10, everyone invited from group 2 has refused, so group 3 is called at once (cenarios.txt
+  172-173, R2). The 19:35 probe (derived) comes from "Os alunos de nível 2 recebem o Aviso se disserem
+  Sim" (R9).
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: W1, level: null, side: R}
+  - {id: S1, level: null, side: R}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    derived: true
+    events:
+      - {coach_adds_to_waiting_list: W1, side: R}
+      - {joins_waiting_list: S1, sides: own}
+    expect:
+      invitations: none
+      waiting_list: {coach: [W1], students: [S1]}
+  - at: 2026-11-02 18:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{who: W1, group: 1}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 19:00
+    expect:
+      invitations: [{who: S1, group: 2}]
+  - at: 2026-11-02 19:10
+    events: [{declines: S1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-02 19:30
+    events: [{accepts: W1}]
+    expect:
+      placed: [{who: W1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 19:35
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect:
+      messages: [{who: b, kind: aviso}]
+final:
+  roster: {L: 8, R: 8}

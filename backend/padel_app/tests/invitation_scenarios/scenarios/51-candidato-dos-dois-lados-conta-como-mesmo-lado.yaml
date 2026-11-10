@@ -1,0 +1,42 @@
+id: 51
+title: candidato que joga dos dois lados conta como mesmo lado
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1196, 1212]}
+what_it_tests: o aluno que joga dos dois lados entra no grupo "mesmo lado", sem esperar pelos grupos de lado diferente
+tags: [both-sides, groups, timers]
+depends_on: [U12]
+corrections: []
+notes: >
+  B1 is a label for the PDF's unnamed level-2 both-sides student. Group 3 has only B1 and the L2R, so
+  the round sends 2 (fewer than X = 3) and there is nothing to send at 19:20 (derived probe). 20:00 is
+  60 minutes after group 3's last round at 19:00 (Method A). B1's invitation is encoded with side_named
+  null: a both-sides student counts as same side (glossary), so the message names no side. The PDF only
+  says "(para a direita)". U12 is tagged because the times rest on the PDF's two timers.
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: B1, level: 2, side: both}
+  - {cohort: L2R, count: 1, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: B1, side_named: null, group: 3}
+        - {cohort: L2R, count: 1, side_named: null, group: 3}
+  - at: 2026-11-01 19:20
+    derived: true
+    expect:
+      invitations: none
+  - at: 2026-11-01 20:00
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+      open_unanswered: 5
+  - at: 2026-11-01 20:10
+    events: [{accepts: B1}]
+    expect:
+      placed: [{who: B1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

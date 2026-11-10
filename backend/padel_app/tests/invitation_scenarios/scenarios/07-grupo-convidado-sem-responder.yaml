@@ -1,0 +1,58 @@
+id: 7
+title: todo o grupo convidado fica sem responder
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [356, 376]}
+what_it_tests: todas as vagas passam para o grupo seguinte, mantendo abertos os convites antigos
+tags: [groups, timers]
+depends_on: [U5, U12, U13]
+corrections: []
+notes: >
+  Group 3 has one round (19:00) and no more candidates, so group 4 goes out 60 min after that round, at
+  20:00 (Method A), even though 8 invitations are still open for 4 spots (R3). Group 4 gets X x uncovered
+  spots = 8, capped at its 5 candidates (R1). The 20:20 Aviso probe is derived from "Quem disser Sim depois
+  recebe o Aviso" (R9).
+
+settings:
+  invites_per_spot: 2
+
+roster:
+  regulars: {L: 8, R: 4}
+students:
+  - {cohort: L2R, count: 8, level: 2, side: R}
+  - {cohort: L3R, count: 5, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 8, side_named: null, group: 3}]
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: none
+  - at: 2026-11-01 20:00
+    expect:
+      invitations: [{cohort: L3R, count: 5, side_named: null, group: 4}]
+      open_unanswered: 13
+  - at: 2026-11-01 20:10
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: a1}}
+      - {accepts: {cohort: L2R, state: invited, as: a2}}
+    expect:
+      placed:
+        - {who: a1, side: R, how: invitation}
+        - {who: a2, side: R, how: invitation}
+      missing: {L: 0, R: 2}
+  - at: 2026-11-01 20:15
+    events:
+      - {accepts: {cohort: L3R, state: invited, as: a3}}
+      - {accepts: {cohort: L3R, state: invited, as: a4}}
+    expect:
+      placed:
+        - {who: a3, side: R, how: invitation}
+        - {who: a4, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 20:20
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect:
+      messages: [{who: b, kind: aviso}]
+final:
+  roster: {L: 8, R: 8}

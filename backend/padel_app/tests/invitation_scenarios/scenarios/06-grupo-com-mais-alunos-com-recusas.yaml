@@ -1,0 +1,55 @@
+id: 6
+title: grupo com mais alunos do que vagas, com recusas
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [336, 355]}
+what_it_tests: o grupo seguinte só é convidado quando o atual já não consegue encher as vagas
+tags: [groups]
+depends_on: [U5]
+corrections: []
+notes: >
+  19:00: X=2 x 4 spots = 8 from group 3, which covers every spot by heads (R1), so none from group 4.
+  19:15: five Nos leave 3 open for 4 spots; group 3 has no uninvited candidate left, so group 4 gets X (2)
+  for the one uncovered spot (R1, R2). This is the plan's S1 with the opposite answer (C1, U5).
+  Invitations at 19:30 and 19:40 are not checked: the PDF is silent on group 4's next round.
+
+settings:
+  invites_per_spot: 2
+
+roster:
+  regulars: {L: 8, R: 4}
+students:
+  - {cohort: L2R, count: 8, level: 2, side: R}
+  - {cohort: L3R, count: 5, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 8, side_named: null, group: 3}]
+      missing: {L: 0, R: 4}
+  - at: 2026-11-01 19:15
+    events:
+      - {declines: {cohort: L2R, state: invited, as: d1}}
+      - {declines: {cohort: L2R, state: invited, as: d2}}
+      - {declines: {cohort: L2R, state: invited, as: d3}}
+      - {declines: {cohort: L2R, state: invited, as: d4}}
+      - {declines: {cohort: L2R, state: invited, as: d5}}
+    expect:
+      invitations: [{cohort: L3R, count: 2, side_named: null, group: 4}]
+      open_unanswered: 5
+  - at: 2026-11-01 19:30
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: a1}}
+      - {accepts: {cohort: L2R, state: invited, as: a2}}
+      - {accepts: {cohort: L2R, state: invited, as: a3}}
+    expect:
+      placed:
+        - {who: a1, side: R, how: invitation}
+        - {who: a2, side: R, how: invitation}
+        - {who: a3, side: R, how: invitation}
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:40
+    events: [{accepts: {cohort: L3R, state: invited, as: a4}}]
+    expect:
+      placed: [{who: a4, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

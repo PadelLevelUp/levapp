@@ -1,0 +1,50 @@
+id: 87
+title: vaga de última hora, com pouco tempo útil
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1880, 1900]}
+what_it_tests: "o Método B adapta-se ao tempo que falta: quanto mais tarde a vaga, mais curtas as esperas"
+tags: [method-b, timers, groups, other-side, last-invite, absences]
+depends_on: [U12, U28, U29]
+corrections: []
+notes: >
+  Method B, same people as 83. The regular's No at 07:30 on class day is after the 22:30 cutoff, so the PDF
+  calls it unjustified (U29: today the coach decides). 1 h of useful time split 9:8:7:6 = 18, 16, 14, 12 min.
+  08:30 is the last-invite hour, so group 6's 12 minutes end with no further send. tick_every 1m because the
+  expected instants are not on 5-minute marks.
+
+settings:
+  timing: {method: B}
+tick_every: 1m
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-03 07:30
+    events: [{regular_no: R-1}]
+    expect:
+      absences: [{who: R-1, kind: unjustified}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-03 07:48
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-03 08:04
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: R, group: 5}]
+  - at: 2026-11-03 08:18
+    expect:
+      invitations: [{cohort: L3L, count: 3, side_named: R, group: 6}]
+  - at: 2026-11-03 08:30
+    expect: {invitations: none}
+  - at: 2026-11-03 08:40
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}
