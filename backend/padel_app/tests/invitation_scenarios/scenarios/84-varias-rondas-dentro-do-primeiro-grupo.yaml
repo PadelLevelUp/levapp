@@ -1,0 +1,51 @@
+id: 84
+title: várias rondas dentro do primeiro grupo
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1811, 1834]}
+what_it_tests: o tempo do grupo divide-se por rondas decrescentes, e o último terço é o tempo de espera até ao grupo seguinte
+tags: [method-b, timers, rounds, groups]
+depends_on: [U12]
+corrections: []
+notes: >
+  Method B, same people as 83 plus 6 more level-2 right-siders. Group 3 gets 3 h in 3 rounds: 70 min, 50 min,
+  then the last third (60 min) as the wait to group 4. The 70/50 minutes are encoded as the PDF writes them
+  (E4, design 6.1): no stated formula gives them, and the document's own 9:8:7:6 family would give 72/48 (the
+  second round at 16:42 instead of 16:40). The 18:45 Aviso probe is derived from "Os outros convidados veem o
+  Aviso se disserem Sim" (R9). Regular R-1 stands for "o regular de direita".
+
+settings:
+  timing: {method: B}
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 9, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-02 15:30
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 16:40
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-02 17:30
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-02 18:30
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-02 18:40
+    events: [{accepts: {cohort: L3R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 18:45
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect: {messages: [{who: b, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}
