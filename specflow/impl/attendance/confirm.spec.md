@@ -20,7 +20,7 @@ Players confirm or decline their attendance in response to a reminder notificati
 5. Cancelling reverts the player to "not attending" and frees the spot using the exact same path as a reminder decline (`no`): it reuses the same vacancy-creation and invitation-engine logic — it does not fork a separate path. In automatic mode invitations are (re)triggered/pre-created; in semi-automatic mode the vacancy awaits coach approval before invitations are sent (see notifications.semi-auto-approval)
 6. The coach configures a cancellation deadline `cancellationDeadlineHours` (default 24) on their NotificationConfig (see notifications.config). The deadline is `cancellationDeadlineHours` real hours before the class's real start. The stored `start_datetime` is Lisbon wall-clock (R-023), so the deadline is computed on instants and holds across a daylight-saving change (PAD-256). A cancellation made at or after this deadline but still before class start is **allowed** (never blocked) but flagged as a **late cancellation** (`Presence.late_cancellation=True`). A cancellation before the deadline sets `late_cancellation=False`. The spot is freed and invitations (re)triggered identically regardless of lateness
 7. Whether a cancellation was late is recorded as `Presence.late_cancellation` until PAD-271 M5 lands, then derived from `response`/`responded_at` against the deadline (`attendance.presence` rule 7; decided 2026-09-11). Serialized presence payloads expose `lateCancellation`; the serialized class-instance payload exposes the effective `cancellationDeadlineHours` (and/or a deadline timestamp) so the frontend can render deadline-aware UX. `cancellationDeadline` is a naive ISO string on the club's wall clock, like every class time, and both clients compare it with the club's clock — `lisbonNow()` in `@levelup/config` — never with the device's, so the moment is right on a phone anywhere (PAD-256, PAD-295)
-8. When a player cancels attendance (`POST /api/app/notify/cancel_attendance`), the **coach is notified** with exactly one message per cancellation. The notification reuses the existing coach↔player direct conversation / system-message infrastructure (no new channel/model): a message is created in that conversation and its push notification is directed at the coach. The message identifies the **student** (name) and the **class instance** (title + start date/time). When the cancellation is late (`late_cancellation=True`), the notification is clearly marked as a late cancellation both in its human-readable text and via a machine-readable `msg_metadata` marker (`lateCancellation: true`, plus `lessonInstanceId`). Reminder declines (`respond_reminder` with `no`) do not emit this coach cancellation notification — it is specific to the `cancel_attendance` path, which is the only path that computes lateness. The single coach notification is in addition to (and does not replace) the existing student-facing acknowledgement message **PAD-288 (coordinator decision, 2026-09-11 — see rule 23): the message is sent for every cancellation; the coach's phone is pushed only for a LATE one (rule 6). Early cancellations are visible, not noisy.**
+8. When a player cancels attendance (`POST /api/app/notify/cancel_attendance`), the **coach is notified** with exactly one message per cancellation. The notification reuses the existing coach↔player direct conversation / system-message infrastructure (no new channel/model): a message is created in that conversation and its push notification is directed at the coach. The message identifies the **student** (name) and the **class instance** (title + start date/time). When the cancellation is late (`late_cancellation=True`), the notification is clearly marked as a late cancellation both in its human-readable text and via a machine-readable `msg_metadata` marker (`lateCancellation: true`, plus `lessonInstanceId`). Reminder declines (`respond_reminder` with `no`) do not emit this coach cancellation notification — it is specific to the `cancel_attendance` path, which is the only path that computes lateness. The single coach notification is in addition to (and does not replace) the existing student-facing acknowledgement message **PAD-288 (coordinator decision, 2026-09-11 — see rule 23): the message is sent for every cancellation; the coach's phone is pushed only for a LATE one (rule 6). Early cancellations are visible, not noisy. Confirmed by the owner, 2026-11-10.** One exception: in semi-automatic mode every cancellation, early included, pushes the coach "Replacement approval needed" (`replacement_approval_service.py`); that push is about the freed spot, not about the cancellation (see notifications.semi-auto-approval).
 9. A student can cancel attendance directly from an enrolled class in the calendar class-detail view (not only from a chat reminder). Both surfaces (the class-detail view and the reminder bubble) call the same `POST /api/app/notify/cancel_attendance` and render deadline-aware UX from the class-instance payload's `cancellationDeadline` / `cancellationDeadlineHours`: before the deadline a normal confirm, at/after the deadline a "late cancellation" warning that still allows the cancel. The action is hidden once the class has started; a 409 is handled gracefully with an error message. "Started" is judged on the club's clock: the stored start against Lisbon now, never UTC — on the server (`club_now_naive()`) and on both clients (`lisbonNow()`, PAD-295)
 
 #### Proactive decline (PAD-73)
@@ -98,9 +98,11 @@ Players confirm or decline their attendance in response to a reminder notificati
     row replaces it and validating the sheet ends the label, since the sheet's own state then
     speaks). Both shells show "cancelled by the student · <date time>" on that participant's row
     in the class detail (coach view) and under the student's own "not attending" state.
-24. **No undo, same rule for requested classes.** "No undo: the student asks the coach or books
-    again through a request. A class the student REQUESTED (PAD-282) follows exactly the same
-    rule." No endpoint reverses a cancellation; `classes.join-requests` is the way back.
+24. **No undo button; the way back is "Afinal vou" (amended by the owner, 2026-11-10; was "no undo",
+    PAD-282).** No endpoint reverses a cancellation as such. A student who cancelled, or said "Não vou",
+    comes back through rule 28's "Afinal vou" while the class has a free spot and has not started;
+    otherwise they are offered the waiting list. A class the student REQUESTED (PAD-282) follows exactly
+    the same rule. `classes.join-requests` stays the way to ask the coach for a class again.
 
 25. **One way to say "I am not coming", one state word (PAD-313; number self-assigned,
    unconfirmed; decided by the coordinator 2026-09-12 after a founder's TestFlight 20 report).**
@@ -136,6 +138,9 @@ Players confirm or decline their attendance in response to a reminder notificati
      validated, "Cancelado pelo aluno · <when>" is rendered as a **detail line in secondary text**,
      with clearly lesser weight than the state word — a quiet fact beside one status, never a
      second status. The student's own row never shows it: they know they cancelled.
+   - Code to follow: `frontend/apps/mobile/src/features/calendar/attendance-decline.ts` (lines 58 and 105)
+     and `app/class/[id].tsx` must gate the cancel action and the declined hint on `attendanceState`, not on
+     `status` or `justification`.
 
 26. **Superseded by rule 28: PAD-570 (2026-10-09) made "Não vou" final; PAD-684 (owner, 2026-10-21) restored this negotiation as rule 28's "Afinal vou", with the screen now showing the spot state (`comeBack`) first.** The text below is kept as the record of PAD-315. ~~A student who said "I am not coming" can say they can come after all (PAD-315; number
    self-assigned, unconfirmed). The client offers it; the SERVER decides it.~~ The negotiation
@@ -277,6 +282,10 @@ Players confirm or decline their attendance in response to a reminder notificati
    The PAD-570 hint ("Respondeste que não vais…", `calendar.detail.declinedFinalHint`) stays only
    for App Store builds that do not read `comeBack`; the server never answers `already_declined`
    to a come-back on a class that has not started.
+   - Code to follow: rename the test `has no way back after 'Não vou' (rule 28)` in
+     `vou-after-reminder-render.test.ts` and the test `not_coming is final (rule 28)` in
+     `reminder-answer.test.ts` so their names no longer say PAD-570's "final".
+
 29. **The coach's own mark stands (orchestrator relaying the owner, 2026-10-09).** When the coach
    marked the student present or absent before the reminder (`validated`, `attendance.presence`
    rule 7; such a student gets no reminder, `notifications.reminders` rule 23), the student is
@@ -378,15 +387,6 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Then** it contains `proactiveDeclineDeadline` (the ISO-8601 reminder instant) and `canDeclineProactively: true`
 - **And** for an instance inside the reminder window, `canDeclineProactively` is `false`
 
-#### ATTENDANCE-CONFIRM-14: Student proactively declines from the participants section
-- **Given** a student who opens a future class in the calendar class-detail view while the proactive window is open
-- **When** they use the "I can't attend" action on their own row in the participants section
-- **Then** `POST /api/app/notify/cancel_attendance` is called, their spot is freed, and their row shows a "not attending" state that persists across a reload
-- **And** the same action, hint and post-decline state are present on iOS (PAD-170 C5), reading the
-  same `canDeclineProactively` flag
-- **And** with the window closed on either shell the action is absent and only the plain
-  cancel-attendance action remains
-
 #### ATTENDANCE-CONFIRM-15: A non-enrolled student cannot decline someone else's class
 - **Given** a signed-in student who is NOT enrolled in instance 10
 - **When** they POST `/api/app/notify/cancel_attendance` with `{lessonInstanceId: 10}`
@@ -478,11 +478,6 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **When** the server answers `{"action": "confirmed"}`
 - **Then** their row reads `coming`, the class's filled count includes them again, and no client
   state was set before the server answered
-
-- **Given** that student taps it and the seat has been taken
-- **When** the server answers `{"action": "spot_filled"}`
-- **Then** the row still reads `not_coming` and the student is told plainly that their spot was
-  taken — not shown an error
 
 - **Given** a student who taps it twice
 - **When** the server answers `{"action": "confirmed", "duplicate": true}`
@@ -594,19 +589,3 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `r
 - **Then** it is offered whether or not the early-decline window is open, and also when the student has no presence row yet
 - **And** it is not offered once the student is absent, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
 test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` › `stays available after the proactive window closes` (+3 more)
-
-### Open questions
-
-- **P-ATTENDANCE-2 says "No" is final for the player; rule 28 and the code let the student come back.**
-  - P-ATTENDANCE-2: ""No" is final for the player: the buttons go everywhere, including the chat, and a note points to the coach's conversation; the coach puts them back by hand. The coach's own earlier mark stands." And: "There is no undo, also for a class the student requested."
-  - P-NOTIFICATIONS-7 (the other half's area): "Changing the answer (no, then yes) always goes through."
-  - Rules 26, 28 and 29 of this spec: PAD-684 (owner, 2026-10-21) supersedes PAD-570's "Não vou is final" of 2026-10-09. A student who said no taps "Afinal vou"; with a free spot they are seated again, without one the answer is `spot_filled` and the waiting list is offered; a coach's "Não vai" can be undone by the student before the class.
-  - The code today: `respond_to_reminder` with yes after a no re-checks capacity and confirms (`notification_service.py:4442-4446`, `:4731-4790`), answers `spot_filled` when the class is full (`:4762`), and `expired` once the class has started. `test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back` pins it and says in its docstring that PAD-684 superseded PAD-570. ATTENDANCE-CONFIRM-32 to 35 state it.
-  - Recommendation: the latest owner decision is PAD-684, so P-ATTENDANCE-2 is the stale one, and P-NOTIFICATIONS-7's "always" is too strong. Neither promise was changed.
-  - Proposed text for P-ATTENDANCE-2's bullet: "A player who said "no" can come back while the class has not started: with a free spot they are seated again, and without one they are offered the waiting list. A mark the coach made stands against a later "yes", except that a coach's "Não vai" can be undone by the student before the class (PAD-684)." Proposed text for its last bullet: "A cancellation has no undo button; coming back is the "Afinal vou" above."
-  - Proposed text for P-NOTIFICATIONS-7's sentence: "Changing the answer (no, then yes) goes through while the class has a free spot and has not started."
-- **"The coach's phone is pushed only for a late cancellation" matches the code, with one exception.** P-ATTENDANCE-2 states it (a coordinator decision of 2026-09-11, awaiting the owner). An early cancellation creates the coach's message and no push (`notification_service.py:2761`); a late one adds a web push and a phone push (`:2770`, `:2782`). In semi-automatic mode every cancellation, early included, pushes the coach "Replacement approval needed" (`replacement_approval_service.py:341`): that push is about the freed spot. Recommendation: confirm the decision and name the exception in rule 8.
-- **ATTENDANCE-CONFIRM-14 describes an action rule 25 retired.** It speaks of an "I can't attend" action that is absent while the window is closed, leaving "only the plain cancel-attendance action". Rule 25 made them one action, offered whether or not the window is open; ATTENDANCE-CONFIRM-41 states that. Recommendation: retire criterion 14.
-- **Rule 24 still says "undoing a cancellation is not offered".** Since rule 28 a student undoes their own cancellation with "Afinal vou" while a spot is free. ATTENDANCE-CONFIRM-26's third case (a plain message on `spot_filled`) is superseded by rule 28 and ATTENDANCE-CONFIRM-33 as well. Recommendation: amend rule 24 and trim criterion 26.
-- **The phone app still reads `status` and `justification` to decide what to show.** Rule 25 says clients no longer do. `attendance-decline.ts:58` and `:105` gate the cancel action and the declined hint on them (`app/class/[id].tsx:1118`). Recommendation: move both onto `attendanceState`.
-- **Two tests carry names from before PAD-684.** "no way back after 'Não vou'" and "not_coming is final" pass for other reasons. Recommendation: rename them.

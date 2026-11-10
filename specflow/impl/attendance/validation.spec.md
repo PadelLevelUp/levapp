@@ -30,7 +30,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 3. **Only classes that have already ended are listed.** `end_datetime <= now`.
    Canceled instances are excluded. Validating a future class is meaningless, and
    `attendance.confirm`'s vacancy/invitation side-effects only run for future
-   instances.
+   instances. This is a gate on the listing only (owner answer, 2026-11-10): the save route
+   (`POST /class_instance/presences/confirm`) accepts any class the coach owns, ended or not,
+   because the class detail's editor marks attendance on any class (rule 26).
 4. **A class is "ready to confirm" when every enrolled player has answered**, i.e.
    no row has `invited=True AND confirmed=False AND status IS NULL` — the same
    "awaiting an answer" predicate the dashboard already uses. Readiness is about
@@ -55,19 +57,20 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
    mid-run. The guard is the set of in-flight class ids, not a single id. Both shells: iOS
    already disables the whole sheet with one `busy` flag; web tracks the set.
 8. **A walk-in can be added to a past class**, and is marked present. This creates
-   both the missing `Presence` row **and** the `Association_PlayerLessonInstance`
-   row — `effective_filled_spots` counts instance associations, not presences, so
-   a presence-only walk-in would occupy a spot that the calendar badge, the
-   class-detail capacity field and the invitation engine all fail to see
+   the missing `Presence` row, which since PAD-301 is the enrolment itself
+   (`lesson_service.enrol`): `effective_filled_spots` counts it, so the calendar badge,
+   the class-detail capacity field and the invitation engine all see the seat
    (`calendar.view` rule 9 forbids patching that per-surface). It does NOT enrol
    the player in the parent lesson, so they are still counted as a guest
    (rule 10).
-8a. **(PAD-537; number unconfirmed) The walk-in picker is a search.** Adding a player to a past
+8a. **(PAD-537; number confirmed by the owner, 2026-11-10) The walk-in picker is a search.** Adding a player to a past
     class (rule 8), on both shells and both places the validate view offers it (a class card's
     "Adicionar jogador" and the drill-in's "Entrou algum jogador à última hora?"), lists the
-    players not yet in the class alphabetically (accents and case ignored, Portuguese order) and
-    narrows them as the coach types, with the app's one name rule: every typed word, in any
-    order (`nameMatchesQuery`, PAD-516). One helper, `walkInOptions(roster, query)` in
+    players not yet in the class alphabetically while the box is empty (accents and case ignored,
+    Portuguese order, by the name the coach reads) and narrows them as the coach types, with the
+    app's one name rule: every typed word, in any order (`nameMatchesQuery`, PAD-516), matching
+    the real name or the coach's nickname for the player. Once the coach has typed, the best
+    match is listed first (`players.search` rule 6), not alphabetical order. One helper, `walkInOptions(roster, query)` in
     `@levelup/config`. Before, web showed a plain dropdown in roster order with no way to type;
     iOS had a search that matched the typed text as one substring. Test ids
     `presences-walk-in-search`, `presences-walk-in-option-<playerId>` on web.
@@ -147,8 +150,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       player, so a round trip per keystroke would be slower and worse.
     - The exported CSV is **what the screen is showing**: the visible columns in
       display order, the filtered rows in the current sort order, every field
-      quoted and embedded quotes doubled, named `presences-YYYY-MM-DD.csv`.
-      Identical bytes on both shells for the same state.
+      quoted and embedded quotes doubled, named `presences-YYYY-MM-DD.csv` with the club's day
+      (rule 15), not the UTC date. Identical bytes on both shells for the same state.
     - The player column is pinned and cannot be hidden, on the list or in the
       CSV — the other columns are statements about it.
     - A blank filter field is **no bound**, and `0` is a real bound. Collapsing
@@ -164,6 +167,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     - Web's toolbar controls and sortable column headings become a compact
       button row plus two sheets (filters + sort, and the column chooser), which
       commit on Apply rather than live — the list is behind the sheet.
+    - Code to follow: the file name in `report-state.ts` (line 243) and in `PresencePlayersTable.tsx`
+      (line 145) must use the club's day instead of the UTC date.
 17a. **[DEC 2026-09-09, PAD-192] The charts follow the table's filters.** On web the three
     charts and the players table share one screen and read from the same roster payload; two
     views of the same data disagreeing side by side reads as a bug, not a choice. Decided:
@@ -242,8 +247,8 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     for the second writer, the attendance import (`import_service.bulk_create_presences`): a sheet
     row that says "present" is stored with no justification, whatever its justification cell holds. An ABSENT row is unchanged: a
     justification sent is written, an omitted one is left as it was. The stale rows themselves are
-    not rewritten by this rule. Un-marking attendance (`status: null`) is a separate, open product
-    question and is not decided here.
+    not rewritten by this rule. Un-marking attendance is answered by rule 26: a row is cleared with
+    `clear: true`, and `status: null` is still ignored by the route.
 22. **The queue shows the state after the latest action (PAD-413, B-177).** The validation queue
     (pending and "validated this week") always shows the server's answer to the most recent refresh.
     A refresh issued earlier never replaces one issued later, whatever order their responses arrive
@@ -276,8 +281,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       Presences tab badge and (through the same query) the iOS app icon badge all show this
       number; no client re-derives it.
     - **Tiers.** `validationTier(count)` in `@levelup/config`: `0` → `none` (no badge), `1`–`5` →
-      `attention` (yellow), more than `5` → `urgent` (red). Both shells render the badge with the
-      number in it, so the colour is never the only signal.
+      `attention` (yellow), more than `5` → `urgent` (red). A count that is not a finite number
+      is `none`, like a count of 0 or less. Both shells render the badge with the number in it, so
+      the colour is never the only signal; above 99 the badge text reads `99+`.
     - **Fresh.** The badge refreshes after a validate, a bulk validate or an undo, and when the app
       regains focus.
 
@@ -298,7 +304,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     holds; a class whose players all answered themselves still appears under "ready to confirm".
     Refreshing the queue after another write (rule 22) does not move it either, because the server's
     state for it has not changed.
-26. **(PAD-441) Each selected mark has its own colour.** `presenceMarkTone(mark)` in
+28. **(PAD-441; renumbered from 26 by the owner, 2026-11-10) Each selected mark has its own colour.** `presenceMarkTone(mark)` in
     `@levelup/config` is the one mapping: `present` → `positive` (green), `justified` → `warning`
     (amber, the design system's `warning` token — the colour the class sheet already gives a justified
     absence), `unjustified` → `negative` (red). An unselected option stays neutral grey. Colour is
@@ -308,7 +314,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     `accessibilityState.selected` on iOS). The amber of "Justificada" is a different hue from rule 24's yellow
     "needs a decision" flag, so a justified player never reads as one still to decide.
 
-27. **(PAD-538; rule number unconfirmed) Each class shows how many are present.** Beside a class's
+29. **(PAD-538; renumbered from 27 by the owner, 2026-11-10) Each class shows how many are present.** Beside a class's
     time and title in the validate view — its card in the list, its row under "validated this week"
     and the drill-in's title — both shells show one number: the players whose current mark is
     present. The mark is the one the row shows (`effectiveMark`: the coach's local mark, else
@@ -317,6 +323,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
     in `@levelup/config`. A single number, not "present / capacity". Zero has its own string
     ("0 presentes"), because pt's CLDR puts 0 in `one` (rule 14). Test id
     `presences-class-present-count` on both shells. Decided with the coordinator, 2026-10-07.
+    - Code to follow: remove the duplicate `presentCount` import from
+      `packages/config/src/presence-status.test.ts`
+      (lines 7 and 12), then check that the file's tests run.
 
 26. **A mark can be cleared back to "no answer" (PAD-567; rule number self-assigned by Session C on
     2026-10-09, unconfirmed).** The ticket's scenario: the coach marked a student present, the
@@ -368,8 +377,9 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
       send reminders by hand. (Supersedes the PAD-567 late ask through `arm_ask_for_student`,
       which shipped in #608 and was removed before promotion.)
     - **Semi-automatic mode.** Clearing creates no vacancy and no suggestion (nothing is freed).
-      When the cleared row was an absence and the coach is in semi-automatic mode, the server
-      runs `recompute_suggestions` (`notifications.semi-auto-approval` rule 12) after the write,
+      When the cleared row was an absence, the class has not started and the coach is in
+      semi-automatic mode, the server runs `recompute_suggestions`
+      (`notifications.semi-auto-approval` rule 12) after the write,
       so a suggestion born of that absence is withdrawn and the class's suggestion state is
       re-derived; the confirm reply's `approvalBundle` reflects it.
     - **The student is not told** (owner decision, 2026-10-10): the coach is
@@ -574,7 +584,7 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Given** Sara's only row is `present` still carrying `justified`
 - **Then** Sara is not in a "has make-ups" invitation group; with a real justified absence she is
 
-#### ATTENDANCE-VALIDATION-30: Each class shows how many are present (rule 27, PAD-538)
+#### ATTENDANCE-VALIDATION-30: Each class shows how many are present (rule 29, PAD-538)
 - **Given** a past class with Ana (confirmed), Bruno (declined) and Carla (no answer)
 - **When** the coach opens the validate view
 - **Then** the class reads "1 presente" beside its time and title
@@ -582,15 +592,15 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** it reads "2 presentes"
 
 #### ATTENDANCE-VALIDATION-31: The count is the whole backlog, not the shown week (rule 18, PAD-539)
-- **Given** a coach with three pending classes in the week before last and none in the current or
-  previous week
+- **Given** a coach with three pending classes in the week before last and one last week, and none in
+  the current week
 - **When** they open the Presences tab on the current week
-- **Then** the trigger reads "3 aulas por validar" and "Nada nesta semana"; `pendingTotal` is 3 and
+- **Then** the trigger reads "4 aulas por validar" and "Nada nesta semana"; `pendingTotal` is 4 and
   `pendingCount` is 0
 - **When** they move to the week before last
-- **Then** the trigger still reads "3 aulas por validar" and now "3 nesta semana"
+- **Then** the trigger still reads "4 aulas por validar" and now "3 na semana mostrada" (rule 18)
 
-#### ATTENDANCE-VALIDATION-32: One number on four surfaces (rules 18 and 23, PAD-539)
+#### ATTENDANCE-VALIDATION-32: One number from three readers (rules 18 and 23, PAD-539)
 - **Given** pending classes in three different weeks, one fully validated class and one class
   with no presence rows
 - **When** the count endpoint, the badge endpoint and the dashboard's needs-you block are read
@@ -604,10 +614,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** `count` is their number, `weekOffset` is -3 and `href` is `/presences?validate=1&week=-3`,
   and following it opens the tab on that week with the validate view open and those classes listed
 
-#### ATTENDANCE-VALIDATION-34: The walk-in picker sorts and searches (rule 8a, PAD-537)
+#### ATTENDANCE-VALIDATION-34: The walk-in picker lists alphabetically when empty and searches when typed (rule 8a, PAD-537)
 - **Given** a coach whose roster outside the class is "Zé Costa", "ana silva" and "Bruno Silva Ramos"
 - **When** they open "Adicionar jogador" on a past class
-- **Then** the list reads ana silva, Bruno Silva Ramos, Zé Costa
+- **Then** with the box empty the list reads ana silva, Bruno Silva Ramos, Zé Costa
 - **When** they type "silva ana"
 - **Then** only "ana silva" is listed
 
@@ -632,19 +642,20 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** Ana's row shows no mark, the "needs a decision" highlight returns and `presentCount` drops by one, on web and on iOS, and the same happens in the Presences validate view through `PresenceMarkToggle`
 
 #### ATTENDANCE-VALIDATION-38: Saving a cleared row writes the never-answered shape (PAD-567, rule 26)
-- **Given** Ana's row `status = "present"`, `validated = true`, `response = "confirmed"`, `responded_at` set, `recorded_by = "student"`
+- **Given** Ana said no to a reminder and the coach then marked her present, so her row reads `status = "present"`, `validated = true`, `response = "declined"`, `responded_at` set, `recorded_by = "coach"`
 - **When** the coach saves `{"playerId": <ana>, "clear": true}` through `POST /class_instance/presences/confirm`
 - **Then** the row reads `status = null`, `justification = null`, `validated = false`, `response = "none"`, `responded_at = null`, `recorded_by = null`, `confirmed = false`, its `attendanceState` is `planned`, and the reply lists her in `cleared`
 
 #### ATTENDANCE-VALIDATION-39: Clearing an absence reopens the seat and closes her vacancy (PAD-567, rule 26)
-- **Given** Ana absent on a 4-place class with 3 others coming, her open vacancy inviting Bea
+- **Given** Ana absent on a one-place class where she is the only student, her open vacancy inviting Bea
 - **When** the coach clears Ana's mark
-- **Then** `effective_filled_spots` is 4, Ana's vacancy is closed and Bea's invitation retired, and no new vacancy exists
+- **Then** `effective_filled_spots` is 1 again, Ana's vacancy is closed and Bea's invitation retired, and no new vacancy exists
 
 #### ATTENDANCE-VALIDATION-40: The freed spot was taken: warn and allow (PAD-567, rule 26)
-- **Given** Ana absent on a 4-place class where Bea has since taken the seat (4 coming)
+- **Given** Ana absent on a one-place class where Bea has since taken the seat
 - **When** the coach clears Ana's mark on the class detail
-- **Then** a dialog warns that the class goes to 5/4 before saving, and on confirm the server records the clear without refusing
+- **Then** a dialog warns that the class goes to 2/1 before saving, and on confirm the server records the clear without refusing, leaving the filled count at 2
+- Code to follow: add a web test that the over-capacity dialog shows before the clear is saved.
 
 #### ATTENDANCE-VALIDATION-41: A clear after the reminder instant sends nothing (PAD-567, rule 26, owner 2026-10-10)
 - **Given** a class whose first-reminder instant passed, where Ana was marked present before the pass (so rule 23 skipped her) and has no counted reminder
@@ -662,9 +673,10 @@ No new entities. Reads and writes `Presence` (`attendance.presence`) only.
 - **Then** that row's `validated` is false, the class is pending again in rule 18's count and rule 23's badge, and the other rows keep their marks
 
 #### ATTENDANCE-VALIDATION-44: A cleared absence withdraws its suggestion (PAD-567, rule 26)
-- **Given** a coach in semi-automatic mode with a pending replacement suggestion born of Ana's absence
+- **Given** a coach in semi-automatic mode and a class that has not started, with Ana absent
 - **When** the coach clears Ana's mark
-- **Then** `recompute_suggestions` runs, the suggestion for her seat is gone, and no new vacancy or suggestion was created
+- **Then** `recompute_suggestions` runs, so a suggestion born of her absence is withdrawn, and no new vacancy or suggestion is created
+- **And** on a class that has already started nothing is recomputed
 
 #### ATTENDANCE-VALIDATION-45: A class waits for validation once it has ended on the club's clock, is not canceled and has a row to validate (rules 3, 15, 18)
 - **Given** classes that are running, just ended, and canceled, each with a presence that is not validated
@@ -686,7 +698,7 @@ test: `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `ig
 #### ATTENDANCE-VALIDATION-47: The export is a file any spreadsheet reads (rule 17)
 - **Given** the Presences report with rows shown, and with none
 - **When** the coach exports
-- **Then** the file is named `presences-YYYY-MM-DD.csv`
+- **Then** the file is named `presences-YYYY-MM-DD.csv`, the date being the club's day
 - **And** every field is quoted and a quote inside a field is doubled
 - **And** with no rows the file holds the header line alone
 test: `frontend/apps/mobile/src/features/presences/report-state.test.ts` › `date-stamps the file so monthly exports do not collide` (+2 more)
@@ -743,21 +755,3 @@ test: `backend/padel_app/tests/test_presence_overview.py` › `test_roster_playe
   linked into the shipped binary (`apps/mobile/src/lib/api.ts` imports it at startup), so the
   export needed no native rebuild. This mirrors the trade `app/player/[playerId].tsx` already
   records for share/clipboard.
-
-### Open questions
-
-- **Sixteen blocks under Notes got ids tonight (ATTENDANCE-VALIDATION-29 to 44), text unchanged. Seven do not match what proves them.**
-  - ATTENDANCE-VALIDATION-31 says that after moving to another week the trigger reads "3 nesta semana". Rule 18 and the code read "na semana mostrada" for any week but the current one (`ValidateClassesDialog.tsx:313-314`). Its backing test also uses classes from last week and a total of 4, not "the week before last" and 3. Recommendation: amend the block to rule 18.
-  - ATTENDANCE-VALIDATION-32 says "four surfaces"; its tests compare three code paths (the listing, the count endpoint and the badge with the dashboard item). Recommendation: accept, or add the fourth.
-  - ATTENDANCE-VALIDATION-30 and 37 to 44 cite "rule 27" and "rule 26"; each number is used by two rules in this spec (27: PAD-538 and PAD-591; 26: PAD-441 and PAD-567). ATTENDANCE-VALIDATION-37's "on iOS" and its returning highlight are proved only by a Maestro flow. Recommendation: renumber the two rules.
-  - ATTENDANCE-VALIDATION-39 and 40 give numbers their tests do not use: a class of four with three others coming, where the fixtures hold one student and a class of one place. ATTENDANCE-VALIDATION-40's warning in the dialog has no test on web. Recommendation: restate the two blocks with the fixtures' numbers and add the web test.
-  - ATTENDANCE-VALIDATION-38's Given starts from a yes; its test starts from a student's no and then a coach's mark. Recommendation: align the Given.
-  - ATTENDANCE-VALIDATION-44 says a cleared absence withdraws its suggestion; the code does so only while the class has not started (`frontend_api.py:2754`), and its tests use a future class and check only that the recompute was called. Recommendation: say "on a class that has not started" in rule 26 and the criterion.
-- **Rule 8 says a walk-in creates an `Association_PlayerLessonInstance` row; that table is gone.** Since PAD-301 the presence row is the enrolment (`lesson_service.py:73-76`). The behaviour is intact and ATTENDANCE-VALIDATION-49 states it. Recommendation: fix the rule's mechanism.
-- **Rule 8a says the walk-in picker lists alphabetically; a typed search lists the best match first.** Alphabetical order holds only for an empty box (`walk-in-options.ts:8-21`, following `players.search` rule 6), and the coach's nickname changes both the order and the match. Recommendation: amend rule 8a and ATTENDANCE-VALIDATION-34.
-- **Rule 21 ends by calling un-marking "a separate, open product question"; rule 26 answered it.** A row is cleared with `clear: true`; `status: null` is still ignored by the route. Recommendation: replace the sentence with a pointer to rule 26.
-- **The export's file name uses the UTC date; rule 15 puts every date of this tab on the club's day.** Both shells use the UTC date (`report-state.ts:243`, `PresencePlayersTable.tsx:145`). After midnight UTC and before midnight at the club the name is a day ahead. Recommendation: use the club's day.
-- **The badge's "99+" cap and its answer for a bad count are in the code only.** Rule 23 gives the tiers 0, 1 to 5 and more than 5. Recommendation: add the cap to rule 23.
-- **Rule 8b's number is still marked unconfirmed.** Recommendation: confirm it.
-- **A shared test file may not compile.** `packages/config/src/presence-status.test.ts` imports `presentCount` twice (lines 7 and 12). The reader of this spec did not run it. Recommendation: remove the duplicate import, then check the file's tests run.
-- **P-ATTENDANCE-1 lost three statements that the rules do not make.** "A player who never answered shows ... as absent, justified" (rule 6: it is the player who declined), "Only classes that have ended can be validated" (rule 3 is about the listing; the save route accepts any class) and "locks" (rule 9: a validation can be reopened). Recommendation: decide whether the save route should refuse a class that has not ended.

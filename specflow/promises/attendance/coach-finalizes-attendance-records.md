@@ -7,9 +7,9 @@ status: draft
 
 ## Outcome
 
-After a class has run, the coach reviews who came and locks in the official attendance record in one place, pre-filled from each player's answer, instead of opening every class. Each player's row shows the same single state the class sheet shows (PAD-313), and the same numbers feed the invitation engine's metrics.
+After a class has run, the coach reviews who came and records the official attendance in one place, pre-filled from each player's answer, instead of opening every class. Each player's row shows the same single state the class sheet shows (PAD-313), and the same numbers feed the invitation engine's metrics.
 
-- The Presences tab lists only classes that have ended.
+- The Presences tab lists only classes that have ended. Saving a mark is not limited to those: a coach can record attendance on any class they own.
 - A class cannot be validated while an enrolled player is undecided; the pre-filled guess writes nothing until the coach confirms.
 - A player who declined shows, pre-filled, as "absent, justified"; a player who never answered shows as undecided.
 - Validating a batch validates only the classes that are ready; the rest stay listed with the reason.

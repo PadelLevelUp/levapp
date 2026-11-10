@@ -55,7 +55,3 @@ Calculate attendance statistics for players, used by the notification engine for
 - **Then** both are 0
 - **And** the other coach's rates for the same student are 0 attended of 2 and 2 justified of 2
 test: `backend/padel_app/tests/test_pad382_attendance_readers_are_coach_scoped.py` › `test_another_coachs_absences_leave_this_coachs_rates_at_zero` (+1 more)
-
-### Open questions
-
-- **Where this spec belongs was left open by the port.** It serves P-ATTENDANCE-1, and its numbers feed the invitation engine's groups and ranking; the old business spec's own note asked whether it belongs under an eligibility or notifications promise instead. Recommendation: keep it here, since the coach reads "classes owed" on the attendance screens, and cite it from `notifications.invitations`.

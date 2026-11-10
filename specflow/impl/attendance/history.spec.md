@@ -40,16 +40,18 @@ for every bucket and every history row.
    - any other caller is 403.
    The self case is resolved **before** the coach case so a user holding both profiles is never
    403'd on their own data.
-4. **Bucketing** is computed from `LessonInstance.start_datetime` in UTC. The server chooses the
+4. **Bucketing** is computed from `LessonInstance.start_datetime` on the club's calendar (stored times
+   are the club's wall clock). The server chooses the
    granularity when the client does not pin one, and **always echoes the granularity it used**
    in the response, so the frontend labels axes from the payload instead of re-deriving it:
    - span ≤ 31 days → `day`
-   - span ≤ 18 months → `month`
+   - span ≤ 550 days → `month`
    - longer → `year`
 5. The response contains a **contiguous, gap-filled** bucket series covering the whole requested
    range (empty buckets are present with `count: 0`), so the chart's x-axis is continuous rather
    than skipping periods with no attendance.
-6. The default range when no `from`/`to` is supplied is the current month on the club's clock (PAD-256).
+6. The default range is the current month on the club's clock (PAD-256). It applies unless both `from` and
+   `to` are supplied: a request with only one of the two silently gets the current month.
 7. The response also contains a `sessions[]` list of the attended classes in range, most recent
    first, each carrying the class title, its `startDatetime`, its `lessonInstanceId`, and an
    `href` deep link.
@@ -123,6 +125,8 @@ for every bucket and every history row.
 - **Then** the chart re-renders for that period with a granularity derived from its span
 - **And** a `Clear` control appears; activating it drops the custom period and restores the
   preset view
+- Code to follow: the web `AttendanceRangeControls.tsx` (lines 58 to 62) must use the shared custom-period
+  check that iOS uses, and that check needs a test.
 
 #### ATTENDANCE-HISTORY-4: Coach opens a roster player's attendance
 - **Given** a coach viewing the profile of a player on their roster
@@ -167,6 +171,8 @@ for every bucket and every history row.
 - **And** every period in the range has a bucket, the empty ones included, across a year's end too
 - **And** the Presences trend is filled the same way
 test: `backend/padel_app/tests/test_attendance_history_buckets.py` › `test_a_full_month_is_still_daily` (+8 more)
+- Code to follow: add two edge tests to `test_attendance_history_buckets.py`, one at 31 days against 32 and
+  one at 550 days against 551.
 
 #### ATTENDANCE-HISTORY-12: Ranges are counted on the club's calendar, whatever the device's time zone (rules 6, 10)
 - **Given** a device whose clock reads 23:30 UTC on a summer evening, when it is already the next day at the club
@@ -176,6 +182,8 @@ test: `backend/padel_app/tests/test_attendance_history_buckets.py` › `test_a_f
 - **And** with no range the server answers for the club's current month
 - **And** a class's date keeps its own calendar day when it is read and shown
 test: `frontend/apps/mobile/src/features/attendance/date-ranges.test.ts` › `round-trips a bare date` (+18 more)
+- Code to follow: in `date-ranges.test.ts` pin the process time zone away from UTC for `uses UTC, not the
+  device timezone` and the two tests that keep a class's own day.
 
 #### ATTENDANCE-HISTORY-13: The chart draws what the server sent, labelled in the app's language (rules 4, 5, 19)
 - **Given** a history answer with its buckets and the granularity the server chose
@@ -196,10 +204,3 @@ test: `frontend/apps/mobile/src/components/charts/chart-geometry.test.ts` › `s
 
 ### Notes
 - Source: ticket PAD-114. iOS parity: PAD-162 (from the PAD-152 parity audit, finding A1).
-
-### Open questions
-
-- **Rule 4 says the buckets are "computed from `start_datetime` in UTC"; the code buckets on the club's clock.** `attendance_history_service.py:50-61`; stored times are the club's wall clock. The service's own docstring still says UTC. Rule 4's "18 months" is the constant 550 days, and no test sits on the 31-day or the 550-day edge. Recommendation: say "on the club's calendar" and "550 days" in rule 4, and add the two edge tests.
-- **Rule 6 applies the default month "when no `from`/`to` is supplied"; the server applies it unless both are supplied.** A request with only one of the two silently gets the current month (`frontend_api.py:1463`). Recommendation: answer 400 for half a range, or say so in rule 6.
-- **Three tests cannot fail for the reason their names give.** "uses UTC, not the device timezone" checks a month start that is the same in both zones; the two "keeps its own day" tests never leave UTC arithmetic. Recommendation: pin the process time zone in those tests.
-- **The web custom-period check has no test.** iOS uses a shared helper (pointed at ATTENDANCE-HISTORY-3); web repeats the check inline in `AttendanceRangeControls.tsx:58-62`. Recommendation: use the helper on web.
