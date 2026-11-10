@@ -39,8 +39,8 @@ Exactly four on iOS: three account-creation entry points and the join link (PAD-
    `Content-Type: application/json`, with no redirect and no authentication. The file declares
    `appIDs: ["9K2J8D2ARR.com.padellevelup.app"]` and claims exactly the four paths above — no
    broader wildcard, which would swallow every link on the domain into the app. Android claims the
-   three account-creation paths (AUTH-MOBILE-UNIVERSAL-LINKS-2); whether it should claim the join
-   link too is open below.
+   same four paths, the join link included (rule 7, AUTH-MOBILE-UNIVERSAL-LINKS-2; owner decision
+   2026-11-10).
 3. Path→route mapping is a pure function (`apps/mobile/src/lib/universalLinks.ts`). It accepts a full
    URL, a rooted path or a bare path; it percent-decodes the token; it ignores the query string and
    fragment, except the `t` of a registration link, which is the activation secret (`auth.activate`
@@ -70,7 +70,10 @@ Exactly four on iOS: three account-creation entry points and the join link (PAD-
    `auth.mobile-account-creation`. (Until PAD-164 landed, the routes rendered a hand-off placeholder
    that reopened the equivalent web URL instead.)
 7. **Android App Links (PAD-216).** `android.intentFilters` in `apps/mobile/app.json` claims the
-   same three path prefixes on the same three hosts (`levapp.app`, `padellevelup.com`,
+   same four path prefixes as iOS, `/join/coach/` included, so a coach join link opens the app on
+   Android as on iPhone (owner decision 2026-11-10). Code to follow: the Android app is not built
+   yet and `app.json` claims only the three account-creation prefixes; the join prefix is added
+   when the Android app is. It claims them on the same three hosts (`levapp.app`, `padellevelup.com`,
    `www.padellevelup.com`) in one `VIEW` filter with `autoVerify: true` and the `BROWSABLE` and
    `DEFAULT` categories; the same pure mapping of rule 3 routes them. Android only verifies the
    claim against `/.well-known/assetlinks.json` on each host, carrying the SHA-256 of the release
@@ -93,10 +96,11 @@ Exactly four on iOS: three account-creation entry points and the join link (PAD-
 - **Then** the destination is whatever that route renders — for `/class/<id>`, a class resolved
   from the id (`calendar.event-detail` rule 15), not a "could not find" screen
 
-#### AUTH-MOBILE-UNIVERSAL-LINKS-2: Android declares the same three paths (PAD-216)
+#### AUTH-MOBILE-UNIVERSAL-LINKS-2: Android declares the same four paths as iOS (PAD-216; rule 7)
 - **Given** `apps/mobile/app.json`
 - **When** `expo prebuild --platform android` generates the manifest
-- **Then** the main activity has one `VIEW` intent filter with `android:autoVerify="true"`, the `BROWSABLE` and `DEFAULT` categories, scheme `https`, hosts `levapp.app`, `padellevelup.com`, `www.padellevelup.com`, and path prefixes `/invite/player/`, `/invite/coach/`, `/register/` — and no broader path
+- **Then** the main activity has one `VIEW` intent filter with `android:autoVerify="true"`, the `BROWSABLE` and `DEFAULT` categories, scheme `https`, hosts `levapp.app`, `padellevelup.com`, `www.padellevelup.com`, and path prefixes `/invite/player/`, `/invite/coach/`, `/register/`, `/join/coach/` — and no broader path
+- Code to follow: `app.json` still claims only the first three prefixes, and the test's `ENTRY_PATHS` checks only those three; `/join/coach/` is added to both when the Android app is built (owner decision 2026-11-10)
 
 #### AUTH-MOBILE-UNIVERSAL-LINKS-3: A player invite link opens the app at the right route
 - **Given** an iPhone with the app installed and the association file served from `levapp.app`
@@ -165,10 +169,4 @@ Verify against the exported `.ipa`, not the `.xcarchive`.
 `applinks:padellevelup.com` as covering the `www.` host; if www becomes the canonical link host the
 entitlement needs its own entry. Tracked in `docs/infra/universal-links.md`.
 - OPEN: Android `assetlinks.json` on `levapp.app` and `padellevelup.com` needs the release signing certificate's SHA-256 (owner prerequisite, PAD-216 store README).
-
-### Open questions
-
-- **Should Android claim `/join/coach/*` too?** iOS claims the join link (rule 2, decision
-  2026-11-10); Android's `intentFilters` in `app.json` claim only the three account-creation paths,
-  so today a join link opens the iOS app and the browser on Android. Recommendation: claim it on
-  Android as well, so the two platforms open the same links in the app. Pedro decides.
+- Decided 2026-11-10 (owner): Android claims `/join/coach/*` as iPhone does, so the two platforms open the same links in the app (rules 2 and 7). This closes the last open question in this spec.

@@ -750,7 +750,7 @@ Untagged tests: 4131
   - **AUTH-LOGIN-19** The throttle counts by the address the proxy reports, never by a header the caller sets (rule 7, PAD-554) · unverified
   - **AUTH-LOGIN-20** The limiter's store prunes itself, and when it cannot be used the request is served (rule 7) · unverified
   - **AUTH-LOGIN-21** The country prompt asks only a signed-in user, survives broken storage, and stays when the save fails (rule 14; web and iOS) · unverified
-  - **AUTH-LOGIN-22** The sign-in form refuses a username under 3 characters or a password under 8 before sending (rule 15) · unverified
+  - **AUTH-LOGIN-22** The sign-in form refuses a username under 3 characters or a password under 6 before sending, and sends an old 6-character password (rule 15) · unverified
 - spec **auth.logout** (`specflow/impl/auth/logout.spec.md`)
   - **AUTH-LOGOUT-1** One blocklist lookup per request (rule 5, PAD-591)
     - test: `backend/padel_app/tests/test_pad591_request_path.py` › test_one_blocklist_lookup_per_request
@@ -900,7 +900,7 @@ Untagged tests: 4131
   - **AUTH-MOBILE-ACCOUNT-CREATION-7** The three completion forms check each field before sending, and put a server refusal on its own field (rules 4, 5) · unverified
 - spec **auth.mobile-universal-links** (`specflow/impl/auth/mobile-universal-links.spec.md`)
   - **AUTH-MOBILE-UNIVERSAL-LINKS-1** A claimed-host path the parser does not handle (PAD-326) · unverified
-  - **AUTH-MOBILE-UNIVERSAL-LINKS-2** Android declares the same three paths (PAD-216)
+  - **AUTH-MOBILE-UNIVERSAL-LINKS-2** Android declares the same four paths as iOS (PAD-216; rule 7)
     - test: `frontend/apps/mobile/src/lib/app-links.test.ts` › [AUTH-MOBILE-UNIVERSAL-LINKS-2] Android verifies every account entry path on levapp.app and on both old hosts
   - **AUTH-MOBILE-UNIVERSAL-LINKS-3** A player invite link opens the app at the right route
     - test: `frontend/apps/mobile/src/lib/universalLinks.test.ts` › [AUTH-MOBILE-UNIVERSAL-LINKS-3] routes a player invite, keeping the token intact

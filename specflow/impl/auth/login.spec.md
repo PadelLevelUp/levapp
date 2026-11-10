@@ -92,11 +92,15 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     não" — and closing it any other way (Esc, a click outside, the close button, Android back) —
     hides it on that device for 30 days. It is never shown once a country is stored. App Store
     builds that predate it simply never show it; the server needs no capability.
-15. **The sign-in form checks lengths before it sends.** The shared sign-in schema refuses a
-    username under 3 characters and a password under 8 (owner decision 2026-11-10: 8 characters
-    everywhere). Sign-up asks for more (`auth.register` rule 4); this is only the sign-in form's
-    own check. Code to follow: `@levelup/validation`'s `passwordSchema` and `loginSchema` still
-    refuse under 6, and AUTH-LOGIN-22's tests pin 6 until the code follows.
+15. **The sign-in form checks lengths before it sends, and accepts old passwords.** The shared
+    sign-in schema refuses a username under 3 characters and a password under 6, the shortest any
+    account can hold: every sign-up form refused under 6 before the 8-character rule. Sign-in has
+    no password minimum beyond that (owner decision 2026-11-10): the 8 characters of
+    `auth.register` rule 4 bind new and changed passwords only (register, activate, recovery,
+    invites, account forms), never sign-in, so an older account's 6- or 7-character password keeps
+    signing in. `loginSchema` takes its password check from `passwordSchema` today; the change
+    that raises the other forms to 8 gives sign-in its own check of 6, or older accounts are
+    locked out.
 
 ### Acceptance Criteria
 
@@ -230,12 +234,11 @@ test: `backend/padel_app/tests/test_pad693_rate_limit_store.py` › `test_databa
 - **Then** the prompt shows an error and stays, on web and on iOS
 test: `frontend/packages/config/src/country-prompt.test.ts` › `a malformed, empty or future value counts as not dismissed` (+5 more)
 
-#### AUTH-LOGIN-22: The sign-in form refuses a username under 3 characters or a password under 8 before sending (rule 15)
+#### AUTH-LOGIN-22: The sign-in form refuses a username under 3 characters or a password under 6 before sending, and sends an old 6-character password (rule 15)
 - **Given** the sign-in form
-- **When** the username has two characters, or the password seven
+- **When** the username has two characters, or the password five
 - **Then** the form shows that field's error and sends nothing
-- **And** a username of three characters with a password of eight is sent
-- Code to follow: the schema still refuses under 6 and its tests pin that (`rejects a password shorter than 6 characters`); stale until the code follows (owner decision 2026-11-10)
+- **And** a username of three characters with a password of six or seven is sent, as one of eight is (owner decision 2026-11-10: sign-in accepts old passwords)
 test: `frontend/packages/validation/src/index.test.ts` › `parses valid credentials` (+4 more)
 
 ### Notes
