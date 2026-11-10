@@ -16,8 +16,6 @@ Plan which exercises will be used in a specific class instance.
 - **LessonInstanceTraining** (`lesson_instance_training`): lesson_instance_id, exercise_id (composite PK)
 
 ### Rules
-1. `POST /api/app/lesson_instance/{id}/training` with exercise_ids to link exercises
-2. `DELETE /api/app/lesson_instance/{id}/training/{exercise_id}` to unlink
 3. ClassDetailSheet shows `plannedExerciseIds` and a training planning section
 4. `confirmClassTraining()` API call saves the exercise selection
 5. `POST /api/app/class_instance/training/confirm` is **coach-only**. The acting coach is derived
@@ -26,14 +24,15 @@ Plan which exercises will be used in a specific class instance.
 6. The acting coach must own the target class — `require_owned_class(coach, "LessonInstance"|"Lesson", …)`
    on the same `originalId`/`parentClassId` shape the route already accepts. A non-owning coach gets
    **403**, not 404, and nothing is written or materialized.
-7. Every id in `exerciseIds` must be **accessible to the acting coach** — i.e. have an
-   `Association_CoachExercise` row for that coach, in either the `owner` or the `follower` role
-   (the same set `training.exercises` rule 7 grants read access to, and the same set
+7. Every id in `exerciseIds` must be **accessible to the acting coach**: owned by them
+   (`owner_coach_id`), or linked to them by an `Association_CoachExercise` row in either the `owner`
+   or the `follower` role (the same set `training.exercises` rule 7 grants read access to, and the same set
    `get_exercises_for_coach` returns). An id outside that set is **403** and the whole request is
    rejected atomically: no partial plan is written.
 8. All three checks run **before** `confirm_training_service` is called. A rejected request must
    leave `lesson_instance_training` byte-for-byte unchanged and must not lazily materialize a
-   `LessonInstance` for a recurring lesson.
+   `LessonInstance` for a recurring lesson. For the owning coach, planning an occurrence that has no
+   row yet creates it (`confirm_training_service` materialises it), and the plan is saved on it.
 
 9. The confirm body names the class and a list of numeric exercise ids: a body with no class, or with an id that is not a number, is 400. The list replaces the plan: an empty list clears it, and an id sent twice is stored once.
 
@@ -95,12 +94,9 @@ test: `backend/padel_app/tests/test_frontend_api_authz.py` › `test_confirm_tra
 - **Then** the answer is 200 and the plan holds it
 test: `backend/padel_app/tests/test_frontend_api_authz.py` › `test_confirm_training_allows_an_exercise_owned_without_an_association`
 
-### Open questions
-
-- **Rule 7 is narrower than the code: an exercise owned by `owner_coach_id` alone is accepted.**
-  - Rule 7: every id must "have an `Association_CoachExercise` row for that coach, in either the `owner` or the `follower` role".
-  - The code today: the confirm also accepts an exercise whose `owner_coach_id` is the acting coach and that has no association row; the same exercise owned by another coach is 403 (`test_confirm_training_rejects_a_foreign_orphan_exercise`). TRAINING-LESSON-PLANNING-9 is written to the code.
-  - Recommendation: keep the code and widen rule 7.
-  - Proposed text for rule 7's first sentence: "Every id in `exerciseIds` must be **accessible to the acting coach**: owned by them (`owner_coach_id`), or linked to them by an `Association_CoachExercise` row in either the `owner` or the `follower` role."
-- **Rules 1 and 2 name routes that do not exist.** `POST /api/app/lesson_instance/{id}/training` and `DELETE /api/app/lesson_instance/{id}/training/{exercise_id}` are not in `frontend_api.py`; the only route is `POST /api/app/class_instance/training/confirm` (`frontend_api.py:3427`), which replaces the whole plan. Recommendation: delete rules 1 and 2.
-- **An owner planning an occurrence that does not exist yet creates it.** Rule 8 forbids materialising only for a refused request. For the owning coach, `confirm_training_service` materialises the occurrence (`training_service.py:225-227`) and the web calendar sends that shape. P-TRAINING-2 said such planning "is rejected rather than creating it"; it was reworded tonight to rule 8. No test covers the owner's case. Recommendation: add the criterion and a test for it.
+#### TRAINING-LESSON-PLANNING-10: An owner planning an occurrence with no row yet creates it (rule 8)
+- **Given** a recurring lesson owned by coach A with no instance row for a given date, and an exercise A owns
+- **When** A confirms training for that lesson and date
+- **Then** the answer is 200 and a LessonInstance row exists for that lesson and date
+- **And** the plan on it holds that exercise
+- Code to follow: add the test for this criterion in `backend/padel_app/tests/test_frontend_api_authz.py`; none covers the owner's case today.

@@ -97,8 +97,9 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 9. Bola draws a ball path for the current step from a first tap/press to a second (or a drag)
    and **appends** it to the step's ordered list (`balls`; PAD-289 — it used to replace the one
    path). A round handle at each path's midpoint toggles that path's `style` between `flat`
-   (straight line) and `lob` (quadratic curve bowed 12 % of the surface width to the right of
-   travel, matching the canvas `M58,20 Q70,50 40,80`). Rule 23 says how several paths are
+   (straight line) and `lob` (quadratic curve bowed 12 percentage points, perpendicular to the path, to
+   the right of travel, matching the canvas `M58,20 Q70,50 40,80`). A path shorter than 3 % of the
+   court is not drawn. Rule 23 says how several paths are
    numbered, reordered and removed.
 10. Movimentação: tap a player then a destination → a dashed movement for that player in the
     current step. **(PAD-309) A player can follow several trajectories in one step.** After a
@@ -140,14 +141,17 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 16. Tools: Caneta (default), Selecionar, Cone, Bola, Jogador, plus five colour swatches
     (white, green, blue — default, red, amber). Caneta records freehand strokes in the selected
     colour as `stroke` pieces; Jogador places a free player (Team by colour: blue → A, red →
-    B, other colours → A) labelled by placement order. Cone/Bola take the selected colour.
+    B, other colours → A), numbered within their team (blue, red, amber placed in that order are
+    A1, B1, A2). Cone/Bola take the selected colour.
 17. A magnetic board is persisted with the exercise like any other diagram (no unsaved
     scratchpad). Steps may be empty.
 
 **Playback** — wave 4
 18. Steps: the board shows the current step index ("Passo 2 de 3"), lets the coach add a step
     (starting from the previous step's end position), delete the current step, and jump between
-    steps. Wave 1 ships exactly one implicit step; the step UI arrives in wave 4.
+    steps. Deleting a step keeps the current index and clamps it to the steps that remain, so
+    deleting a middle step shows the step that followed it. A position asked for beyond the last
+    step is the final position. Wave 1 ships exactly one implicit step; the step UI arrives in wave 4.
 19. **Passo** advances the board to the end state of the next step without animation and wraps
     to the starting position after the last step.
 20. **▶ AUTO** animates every step in order: the ball travels the step's paths **one after the
@@ -346,17 +350,20 @@ The legacy shape `{ elements: CourtElement[] }` (no `version`) remains readable 
 - **Then** it becomes path 1 and the numbers on the court swap
 - **When** the coach presses ✕ on path 2
 - **Then** one path remains, no number is shown, and undo brings the removed path back
+- Code to follow: the ▲ and ✕ tests must press ✕ on the second path, assert the numbers swap, and press undo and assert the removed path returns.
 
 #### TRAINING-TACTICAL-BOARD-23: Playback plays a step's paths in order (PAD-289)
 - **Given** a step with two flat paths
 - **When** the coach presses ▶ AUTO
 - **Then** the ball travels the first path and then the second, the step taking 1,600 ms, and Passo still advances one whole step
+- Code to follow: assert that Passo advances one whole step for a step with two ball paths.
 
 #### TRAINING-TACTICAL-BOARD-24: Thumbnails and older diagrams (PAD-289)
 - **Given** one exercise saved before PAD-289 (`ball` only) and one saved after (`balls` with two paths)
 - **When** the exercise list renders
 - **Then** the first card shows its one path and the second shows both
 - **And** opening the older exercise reads `ball` as the only path and saving it writes `balls` plus the mirrored `ball`
+- Code to follow: add a unit test that renders a card with two paths, and one that opens and saves an older exercise, so the two-path thumbnail is not proved only by `e2e/exercise-management/tactical-board.spec.ts`.
 
 #### TRAINING-TACTICAL-BOARD-25: The court and the starting positions are the canvas's (rules 5, 6, 7, 14)
 - **Given** a new board
@@ -397,6 +404,7 @@ test: `frontend/packages/config/src/board-sequence.test.ts` › `numbers only th
 - **And** deleting the last step moves to the one before it, and the step index never leaves the steps that exist
 - **And** a position asked for beyond the last step is the final position
 test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to the current step, and movements start from the previous step's end` (+5 more)
+- Code to follow: add a test that deletes a middle step and shows the step that followed; make the step-indicator test read a real step number instead of a mocked translation; assert in `board-logic.test.ts` that a step's movements start from the previous step's end.
 
 #### TRAINING-TACTICAL-BOARD-30: Switching mode on a board with content asks first, then starts that mode afresh (rule 3)
 - **Given** a game board with a cone on it, and a fresh game board
@@ -404,6 +412,7 @@ test: `frontend/packages/config/src/board-logic.test.ts` › `presses write to t
 - **Then** the board with the cone asks for confirmation and stays as it is until the coach confirms; after that it holds the new mode's starting position and no steps
 - **And** the fresh board counts as empty, so it has nothing to lose
 test: `frontend/packages/config/src/board-logic.test.ts` › `a fresh board has no content; a cone or a step counts as content` (+2 more)
+- Code to follow: the test `a fresh board has no content; a cone or a step counts as content` must build a step.
 
 #### TRAINING-TACTICAL-BOARD-31: Undo keeps at least twenty changes and does nothing when there is none (rule 4)
 - **Given** a board with no change yet, and a board with five more changes than the undo depth, which is at least twenty
@@ -419,6 +428,7 @@ test: `frontend/packages/config/src/board-history.test.ts` › `keeps at most HI
 - **And** the Alimentador tool moves the feeder to the tap
 - **And** the Jogador tool adds the next player, A3, at the tap and selects it
 test: `frontend/apps/web/src/components/training/board/TacticalBoard.test.tsx` › `Alimentador moves the feeder and Jogador places a player where tapped` (+3 more)
+- Code to follow: the test `Alimentador moves the feeder and Jogador places a player where tapped` (and the one named `Jogador places the next player where tapped`) must assert the placed position.
 
 #### TRAINING-TACTICAL-BOARD-33: What can be deleted depends on the mode (rules 7, 14, 16)
 - **Given** a selected player in game mode, in basket mode and in Magnético
@@ -427,6 +437,7 @@ test: `frontend/apps/web/src/components/training/board/TacticalBoard.test.tsx` �
 - **And** in basket mode the player is deleted while another remains, the last player stays, and the feeder is never deleted
 - **And** in Magnético the player is deleted
 test: `frontend/packages/config/src/board-logic.test.ts` › `removePlayer goes down to one player and never below` (+2 more)
+- Code to follow: the test of deleting any piece must delete a piece that is not a player.
 
 #### TRAINING-TACTICAL-BOARD-34: Magnético places free pieces in the chosen colour and tidies a pen stroke (rule 16)
 - **Given** the board in Magnético
@@ -468,11 +479,3 @@ the shared reducer carries the iOS behaviour coverage in unit tests.
   handle allows. Wave 1 ships the toggle only.
 - OPEN: the design-system skill readme still claims the navy redesign is not in production;
   `packages/config/src/tokens.ts` shows it is. Update the skill separately.
-
-### Open questions
-
-- **Rule 16 says free players are "labelled by placement order"; the code numbers them within their team.** Blue, red, amber placed in that order give A1, B1, A2 (`board-logic.ts:289-294`; pinned by "In magnetic mode Jogador places a free player..."). TRAINING-TACTICAL-BOARD-34 is written to the code. Recommendation: keep the code and say "numbered within their team" in rule 16.
-- **Rule 9 gives the lob's bow as "12 % of the surface width"; the code measures 12 in percent space on both axes.** On the 340 by 600 court that is not 12 % of the width for a path that is not vertical (`court-diagram.ts:229-239`). Recommendation: keep the code and reword rule 9 to "12 percentage points, perpendicular to the path".
-- **Two of the four PAD-289 blocks that got ids tonight are proved only in part.** TRAINING-TACTICAL-BOARD-22 says the numbers on the court swap and that undo brings a removed path back; its tests check the order of the paths and never press undo. Its remove tests press ✕ on the first path, where the block says the second. TRAINING-TACTICAL-BOARD-23's "Passo still advances one whole step" is not asserted for a step with two paths. TRAINING-TACTICAL-BOARD-24's tests check the two helpers only: no unit test renders a card with two paths or opens and saves an older exercise, and the two-path thumbnail is checked only by the Playwright spec (`e2e/exercise-management/tactical-board.spec.ts:332`). Recommendation: add the missing assertions.
-- **Six tests assert less than their names say:** "a piece or a step counts as content" builds no step; "Jogador places the next player where tapped" does not check the position; "any piece can be deleted" deletes only a player; "a step's movements start from the previous step's end" is not asserted in `board-logic.test.ts`; the step-indicator test mocks the translation, so no step number is read; "A ball path can be reordered and removed" removes the wrong index for its block. Recommendation: tighten them when the tags are applied.
-- **Three behaviours stated tonight are in the code and in no rule.** A ball path shorter than 3 % of the court is not drawn (`court-diagram.ts:50`; TRAINING-TACTICAL-BOARD-26, whose test presses 1 % apart). Deleting a step keeps the index and clamps it, so deleting a middle step shows the one that followed (`board-logic.ts:130-135`; the test deletes the last step only). A position asked for beyond the last step is the final position (TRAINING-TACTICAL-BOARD-29). Recommendation: add the first to rule 9 and the other two to rule 18, and test a delete of a middle step.
