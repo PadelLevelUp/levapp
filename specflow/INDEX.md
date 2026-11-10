@@ -4453,12 +4453,12 @@ Untagged tests: 4131
     - test: `frontend/apps/mobile/src/lib/android-back.test.ts` › [MOBILE-ANDROID-RUNTIME-4] a surface closed by other means is no longer in the registry
   - **MOBILE-ANDROID-RUNTIME-5** A raised day sheet drops back on back · unverified
   - **MOBILE-ANDROID-RUNTIME-6** A select option can be picked on Android · unverified
-  - **MOBILE-ANDROID-RUNTIME-7** A long select scrolls to its last option (rule 9b, PAD-655) · unverified
-  - **MOBILE-ANDROID-RUNTIME-8** A long select near the bottom of a form is reachable on Android (rule 9b, PAD-727)
+  - **MOBILE-ANDROID-RUNTIME-7** A long select scrolls to its last option (rule 9, PAD-655) · unverified
+  - **MOBILE-ANDROID-RUNTIME-8** A long select near the bottom of a form is reachable on Android (rule 9, PAD-727)
     - test: `frontend/apps/mobile/src/components/ui/select.safe-area.test.ts` › [MOBILE-ANDROID-RUNTIME-8] on Android, hands the popper the bars plus a gap, so it keeps the list above the navigation bar
     - test: `frontend/apps/mobile/src/components/ui/select.safe-area.test.ts` › [MOBILE-ANDROID-RUNTIME-8] keeps the cap on a phone with room for it
     - test: `frontend/apps/mobile/src/components/ui/select.safe-area.test.ts` › [MOBILE-ANDROID-RUNTIME-8] caps the list to the room between the bars on a short screen
-  - **MOBILE-ANDROID-RUNTIME-9** The class side sheet can be sent on Android (rule 9c, PAD-817)
+  - **MOBILE-ANDROID-RUNTIME-9** The class side sheet can be sent on Android (rule 10, PAD-817)
     - test: `frontend/apps/mobile/src/features/calendar/side-sheet-layout.test.ts` › [MOBILE-ANDROID-RUNTIME-9] leaves iOS as it was
     - test: `frontend/apps/mobile/src/features/calendar/side-sheet-layout.test.ts` › [MOBILE-ANDROID-RUNTIME-9] on Android, adds the navigation bar to the padding
     - test: `frontend/apps/mobile/src/features/calendar/side-sheet-layout.test.ts` › [MOBILE-ANDROID-RUNTIME-9] on Android with no inset, is the plain padding
@@ -4466,16 +4466,16 @@ Untagged tests: 4131
   - **MOBILE-ANDROID-RUNTIME-11** A dialog's content is visible when it opens on Android · unverified
   - **MOBILE-ANDROID-RUNTIME-12** Confirming the email code lands on the next screen on Android · unverified
   - **MOBILE-ANDROID-RUNTIME-13** Login and the calendar pass on the emulator lane · unverified
-  - **MOBILE-ANDROID-RUNTIME-14** A successful password recovery lands on a drawn dashboard (rule 10, PAD-717) · unverified
-  - **MOBILE-ANDROID-RUNTIME-15** The tab labels sit above Android's navigation buttons (rule 11)
+  - **MOBILE-ANDROID-RUNTIME-14** A successful password recovery lands on a drawn dashboard (rule 11, PAD-717) · unverified
+  - **MOBILE-ANDROID-RUNTIME-15** The tab labels sit above Android's navigation buttons (rule 12)
     - test: `frontend/apps/mobile/src/lib/bottom-inset.test.ts` › [MOBILE-ANDROID-RUNTIME-15] the tab bar takes Android's 3-button bar (48 dp) under its labels
     - test: `frontend/apps/mobile/src/lib/bottom-inset.test.ts` › [MOBILE-ANDROID-RUNTIME-15] iOS keeps the 24/84 it was tuned for, whatever the inset
-  - **MOBILE-ANDROID-RUNTIME-16** A stack screen ends above the navigation bar, padded once (rule 11) · unverified
-  - **MOBILE-ANDROID-RUNTIME-17** A screen that manages the keyboard keeps its own bottom handling (rule 11)
+  - **MOBILE-ANDROID-RUNTIME-16** A stack screen ends above the navigation bar, padded once (rule 12) · unverified
+  - **MOBILE-ANDROID-RUNTIME-17** A screen that manages the keyboard keeps its own bottom handling (rule 12)
     - test: `frontend/apps/mobile/src/lib/bottom-inset.test.ts` › [MOBILE-ANDROID-RUNTIME-17] every root-Stack screen with a KeyboardAvoidingView is left out of the root padding
-  - **MOBILE-ANDROID-RUNTIME-18** A dialog is never taller than the window between its safe areas (rule 12) · unverified
+  - **MOBILE-ANDROID-RUNTIME-18** A dialog is never taller than the window between its safe areas (rule 14) · unverified
   - **MOBILE-ANDROID-RUNTIME-19** Keyboard tracking uses each platform's own events, and a focused last field scrolls into view once the keyboard is up (rule 2) · unverified
-  - **MOBILE-ANDROID-RUNTIME-20** Dialogs fade on iOS and carry no layout animation on Android (rule 9) · unverified
+  - **MOBILE-ANDROID-RUNTIME-20** Dialogs fade on iOS and carry no layout animation on Android (rule 8) · unverified
 
 ### P-MOBILE-2: The store build reaches real users
 

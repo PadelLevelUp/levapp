@@ -74,7 +74,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 7. **System UI:** `userInterfaceStyle: light` and the splash are honoured through
    `expo-system-ui` and the Android prebuild (wave A, PAD-297).
 
-9. **A portalled surface must be reachable by touch and by accessibility.** Android neither
+8. **A portalled surface must be reachable by touch and by accessibility.** Android neither
    hit-tests nor exposes to the accessibility tree a child laid out outside its parent's
    bounds, while iOS does both — and Android still draws it, so the surface looks right and is
    inert. Anything rendered through `@rn-primitives/portal` (dialog, alert dialog, select,
@@ -93,7 +93,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    iteration 1 with the content node present at its full bounds and reported not visible to
    the user (run 35114681841). The same build without the entering animation passed 60 of 60
    (run 35114685284).
-9b. **A select's options scroll when they are taller than the list (PAD-655, B-549; number
+9. **A select's options scroll when they are taller than the list (PAD-655, B-549; number
    self-assigned, unconfirmed).** Both platforms, every select: the shared `SelectContent`
    caps the list box (max-h-96) and puts the options in a `ScrollView` that fits inside it,
    with `keyboardShouldPersistTaps="handled"` so a tap on an option is never spent dismissing
@@ -107,7 +107,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    between them. A list that has no room below its trigger moves up until it fits (the
    popper's `avoidCollisions`), and its last option is never under the navigation bar. iOS
    keeps the cap and the popper's own placement, unchanged.
-9c. **A bottom sheet's action row stays above the navigation bar (PAD-817, B-722).** On Android
+10. **A bottom sheet's action row stays above the navigation bar (PAD-817, B-722).** On Android
    the app draws edge to edge, so a bottom sheet in a `Modal` runs under the navigation bar. The
    class side sheet (`ClassSideSheet`, before a join request or a waiting-list join) adds the
    bottom safe-area inset to its bottom padding, so its Cancel / Send row
@@ -115,7 +115,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    row sat behind the 3-button bar, and a student could not send the request. iOS keeps its
    20 pt padding, unchanged.
 
-10. **A screen does not restyle itself in the commit that removes it.** On Android, Fabric can
+11. **A screen does not restyle itself in the commit that removes it.** On Android, Fabric can
    flatten a view whose style changes and reparent its children in one mount pass. If that commit
    also tears the screen down, the insert fails ("addViewAt: View already has a parent"), React
    Native destroys the surface, and the app goes blank. The verification screen did exactly this:
@@ -125,7 +125,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    therefore leaves its busy state as it is, and resets it only on failure, where it stays on
    screen. The password-recovery screen draws the same six cells and broke the same way after a
    successful recovery (B-602, PAD-717); it follows this rule too.
-11. **The navigation bar never covers the app (PAD-730).** Edge-to-edge draws the app under
+12. **The navigation bar never covers the app (PAD-730).** Edge-to-edge draws the app under
    Android's navigation bar (48 dp with 3-button navigation, about 24 dp with gestures), and
    that bar is transparent. So on Android the bottom inset is taken once, where it belongs:
    - the tab bar's bottom padding is the inset (at least 8 dp), and its height grows by it
@@ -147,13 +147,13 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
    (`android-store-screenshots.yaml`, pixel_2, 3-button navigation) shows it.
 
 #### Verification
-8. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
+13. **Green means green on the emulator.** A wave-B slice is done when the Maestro flows that
    cover it pass on the PAD-297 lane (`android-build.yaml`, `MAESTRO_FLOWS`); the unit tests
    here pin the decisions the lane cannot see (rules 2 and 3). Flow deltas for Android are
    recorded in `.maestro/README.md`: Select portals, keyboard dismissal, `- back` is now
    meaningful, no `simctl` push.
 
-12. **A dialog is never taller than the window it can be seen in (PAD-496), on both platforms.** The shared dialog caps its height at the window height minus twice the larger safe-area inset minus a 16 pt margin, and never below 240 pt. A caller that sets its own height keeps it.
+14. **A dialog is never taller than the window it can be seen in (PAD-496), on both platforms.** The shared dialog caps its height at the window height minus twice the larger safe-area inset minus a 16 pt margin, and never below 240 pt. A caller that sets its own height keeps it.
 
 ### Acceptance Criteria
 
@@ -196,14 +196,16 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **Then** the language changes and "Language preference saved." appears — Maestro flow
   `12-settings-language`, the same steps on both platforms
 
-#### MOBILE-ANDROID-RUNTIME-7: A long select scrolls to its last option (rule 9b, PAD-655)
+#### MOBILE-ANDROID-RUNTIME-7: A long select scrolls to its last option (rule 9, PAD-655)
 - **Given** the coach has 16 levels and opens a student's edit form on iOS
 - **When** they open the level select and swipe the list up
 - **Then** the last level comes into view, and tapping it chooses it and closes the list —
   Maestro flow `280-level-select-scrolls` (red on the code before the fix: six swipes and the
   last level never appeared)
+- Code to follow: tag the Maestro flow `280-level-select-scrolls` to this criterion, so a device
+  flow points at it.
 
-#### MOBILE-ANDROID-RUNTIME-8: A long select near the bottom of a form is reachable on Android (rule 9b, PAD-727)
+#### MOBILE-ANDROID-RUNTIME-8: A long select near the bottom of a form is reachable on Android (rule 9, PAD-727)
 - **Given** the coach has 16 levels and opens a student's edit form on the Android emulator
   (3-button navigation)
 - **When** they open the level select and swipe the list up
@@ -211,7 +213,7 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
   `280-level-select-scrolls` on the Android lane checks this: it was red before the fix, with
   levels 13–14 under the navigation bar. `select.safe-area.test.ts` pins the sizing.
 
-#### MOBILE-ANDROID-RUNTIME-9: The class side sheet can be sent on Android (rule 9c, PAD-817)
+#### MOBILE-ANDROID-RUNTIME-9: The class side sheet can be sent on Android (rule 10, PAD-817)
 - **Given** a student on the Android emulator (3-button navigation) asks to join an open academy
   class, or a full class's waiting list, from the booking wizard
 - **When** the side sheet opens and they choose a side
@@ -242,6 +244,8 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
   `addViewAt` mounting exception. Maestro flow `51-verify-transition-rate` walks this 10 times
   and `44-signup` once. Both failed at the first walk on the code before this change (B-089 face
   C) and pass after it
+- Code to follow: tag the Maestro flows `51-verify-transition-rate` and `44-signup` to this
+  criterion, so a device flow points at it.
 
 #### MOBILE-ANDROID-RUNTIME-13: Login and the calendar pass on the emulator lane
 - **Given** the PAD-297 lane with `MAESTRO_FLOWS` set to `01-login`, `31-week-view` and a
@@ -249,32 +253,32 @@ has no Android SDK or emulator (PAD-298, wave B of the 2026-09-11 Android scopin
 - **When** it runs on this branch
 - **Then** all three flows pass
 
-#### MOBILE-ANDROID-RUNTIME-14: A successful password recovery lands on a drawn dashboard (rule 10, PAD-717)
+#### MOBILE-ANDROID-RUNTIME-14: A successful password recovery lands on a drawn dashboard (rule 11, PAD-717)
 - **Given** the Android app on the recovery code step, with a valid code and a new password typed
 - **When** the coach taps recovery-submit and the server accepts the code
 - **Then** the dashboard is drawn (`screen-dashboard` visible) and logcat has no
   `addViewAt … View already has a parent`; `submitting` stays set on success and is reset only on
   a failure. Maestro flow 28 on the Android lane is the guard
 
-#### MOBILE-ANDROID-RUNTIME-15: The tab labels sit above Android's navigation buttons (rule 11)
+#### MOBILE-ANDROID-RUNTIME-15: The tab labels sit above Android's navigation buttons (rule 12)
 - **Given** Android with 3-button navigation (a 48 dp bottom inset) and a signed-in coach
 - **When** any tabbed screen shows
 - **Then** the tab bar's bottom padding is 48 and its height 108, so the labels (Painel,
   Calendário, …) are above the back/home/recent buttons; on iOS the bar stays 24/84
 
-#### MOBILE-ANDROID-RUNTIME-16: A stack screen ends above the navigation bar, padded once (rule 11)
+#### MOBILE-ANDROID-RUNTIME-16: A stack screen ends above the navigation bar, padded once (rule 12)
 - **Given** Android with a 48 dp bottom inset
 - **When** a player's screen is scrolled to its end, or settings is open
 - **Then** the last content (the player's "Pontos fortes e fracos", settings' logout row) is
   above the navigation bar, and settings adds no second inset of its own
 
-#### MOBILE-ANDROID-RUNTIME-17: A screen that manages the keyboard keeps its own bottom handling (rule 11)
+#### MOBILE-ANDROID-RUNTIME-17: A screen that manages the keyboard keeps its own bottom handling (rule 12)
 - **Given** Android, the login screen, and the keyboard open on the username field
 - **When** the user taps the password field
 - **Then** the field is above the keyboard (the screen gets no root padding), and every screen
   with a `KeyboardAvoidingView` is in `KEYBOARD_SCREENS` (`bottom-inset.test.ts`)
 
-#### MOBILE-ANDROID-RUNTIME-18: A dialog is never taller than the window between its safe areas (rule 12)
+#### MOBILE-ANDROID-RUNTIME-18: A dialog is never taller than the window between its safe areas (rule 14)
 - **Given** a window 844 pt tall with safe areas of 62 pt at the top and 34 pt at the bottom
 - **When** a dialog opens
 - **Then** its height is capped at 704 pt: the window, less twice the larger safe area, less 16 pt
@@ -290,7 +294,7 @@ test: `frontend/apps/mobile/src/components/ui/dialog.test.tsx` › `is never tal
 - **And** nothing listens after the screen is left
 test: `frontend/apps/mobile/src/lib/scroll-to-end-on-keyboard.test.tsx` › `scrolls to the end once the keyboard shows after the field is focused` (+9 more)
 
-#### MOBILE-ANDROID-RUNTIME-20: Dialogs fade on iOS and carry no layout animation on Android (rule 9)
+#### MOBILE-ANDROID-RUNTIME-20: Dialogs fade on iOS and carry no layout animation on Android (rule 8)
 - **Given** a dialog, an alert or a select list
 - **When** it opens and closes
 - **Then** on iOS it fades in and out over 150 ms
@@ -303,8 +307,3 @@ test: `frontend/apps/mobile/src/lib/dialog-motion.test.ts` › `fades in and out
 - Rule 2's Android value was decided by the first emulator run (padding); rule 6's pre-grant is
   a lane step owned by PAD-297 (`scripts/ci-android-maestro.sh`).
 - OPEN: none.
-
-### Open questions
-
-- **The rules are numbered 1 to 7, then 9, 9b, 9c, 10, 11, with 8 last.** A criterion that cites "rule 8" or "rule 9" is easy to misplace, and the new rule tonight took 12. Recommendation: renumber in one commit with the `Specflow-Amends:` trailers.
-- **Three source-reading tests are the only pin of a behaviour that a device flow is said to prove.** MOBILE-ANDROID-RUNTIME-7 (a long select scrolls) and 12 (the email code lands on the next screen) have no test pointed at them; the tests that guard their code read source text and are proposed as plain unit tests. Recommendation: tag the Maestro flows to those criteria.
