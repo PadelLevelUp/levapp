@@ -8,7 +8,7 @@ corrections: []
 notes: >
   J1 is a label for the PDF's unnamed level-3 right-sider. The 19:00 step expects nothing at all: the
   class is full and reminders start on 2 Nov. The direct-join window opening before first_invite is the
-  PDF's own "pressuposto ainda por validar" (cenarios.txt 2160), hence U23.
+  PDF's own "pressuposto ainda por validar" (cenarios.txt 2149), hence U23.
 
 roster:
   regulars: {L: 8, R: 7}
