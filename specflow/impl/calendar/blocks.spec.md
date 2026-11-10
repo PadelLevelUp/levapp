@@ -18,7 +18,10 @@ Users create personal calendar blocks to mark unavailability (breaks, holidays, 
 ### Rules
 1. Types: `break`, `holiday`, `off_work`, `personal`, `unavailable`
 2. Blocks can be recurring (same recurrence system as lessons)
-3. CRUD via: POST/PATCH/DELETE `/api/app/calendar_block/{id}`
+3. CRUD via: POST/PATCH/DELETE `/api/app/calendar_block/{id}`. The create body is the one the shells send:
+   `type`, `title`, `description`, `date`, `startTime`, `endTime`, `isRecurring`, `recurrenceRule`, `endDate`;
+   the server builds `start_datetime` and `end_datetime` from `date` with the two times
+   (`_build_payload` in `calendar_service.py`).
 4. Blocks have sub-events: `POST /api/app/calendar_block/{id}/event`
 5. Blocks can be rescheduled: `POST /api/app/reschedule_block/{id}` with `{occDate, newDate, newStartTime, newEndTime, scope}` (the route the two shells call; this rule used to name `/calendar_block/{id}/reschedule`, which does not exist — corrected in PAD-371)
 6. Reschedule supports scope: `single` (that occurrence only) or `future` (that occurrence and every later one)
@@ -45,9 +48,9 @@ Users create personal calendar blocks to mark unavailability (breaks, holidays, 
 
 #### CALENDAR-BLOCKS-1: Create calendar block
 - **Given** an authenticated coach
-- **When** they POST to `/api/app/calendar_block` with `{"type": "holiday", "title": "Easter Break", "start_datetime": "2026-04-05T00:00", "end_datetime": "2026-04-07T23:59"}`
-- **Then** a CalendarBlock record is created
-- **And** it appears on the calendar in the date range
+- **When** they POST to `/api/app/calendar_block` with `{"type": "holiday", "title": "Easter Break", "date": "2026-04-05", "startTime": "00:00", "endTime": "23:59"}`
+- **Then** a CalendarBlock record is created, starting 2026-04-05T00:00 and ending 2026-04-05T23:59
+- **And** it appears on the calendar on that day
 
 #### CALENDAR-BLOCKS-2: Reschedule block
 - **Given** a recurring block on Fridays
@@ -111,8 +114,9 @@ test: `backend/padel_app/tests/test_pad371_single_occurrence_keeps_series.py` �
 - **And** a save with repeat off sends no rule and no end date; with repeat on it sends the weekly rule with its days and the end date
 test: `frontend/apps/mobile/src/features/calendar/event-draft.test.ts` › `renders the weekday and month in the given locale` (+12 more)
 
-### Open questions
-
-- **P-CALENDAR-1 says a block "can suppress automatic invitations sent to its owner"; no coach can set that.** The flag is written only by the student's availability path (`student_availability_service.py:65`, `:77`). A coach's own block never carries it: the create and edit routes leave it out (`calendar_service.py:89-103`, `:167-168`), and CALENDAR-BLOCKS-7 pins that an edit cannot set it. Recommendation: say in the promise that it is the student's availability block that suppresses invitations (P-CALENDAR-4), or build the coach's switch. The promise was not changed tonight.
-- **Rule 3 and CALENDAR-BLOCKS-1 name `start_datetime` and `end_datetime` in the create body; the shells send `date`, `startTime` and `endTime`.** The reader of this spec did not locate the create route to confirm which the server reads. Recommendation: check the route and restate the criterion with the body the apps send.
-- **Rule 8 refuses dragging a live class-request hold with 409 `HOLD_OCCURRENCE_LOCKED`; no criterion states it and P-CALENDAR-3's dragging bullet omits it.** Recommendation: add the criterion.
+#### CALENDAR-BLOCKS-10: A live class-request hold cannot be moved or deleted from one occurrence on (rule 8)
+- **Given** the hold block of an open class request, which recurs weekly
+- **When** the coach moves or deletes one occurrence of it with scope `single`, or "this and following" with scope `future`
+- **Then** the answer is 409 `{"error": "HOLD_OCCURRENCE_LOCKED"}` and no block is split, cloned or changed
+- **And** deleting the whole hold is still allowed, and a hold whose request has closed is an ordinary block
+test: `backend/padel_app/tests/test_pad372_hold_occurrence_change_is_refused.py` › `test_a_scoped_change_to_a_live_hold_is_refused_and_changes_nothing` (+4 more)

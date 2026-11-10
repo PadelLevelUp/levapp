@@ -45,7 +45,9 @@ budget holds the gain.
    cached chunk shows no flash).
 3. **Background prefetch after the first signed-in screen.** When `AppLayout` mounts, it schedules
    `prefetchAppPages()` on idle (`requestIdleCallback` with a 5 s timeout, else a 1 s `setTimeout`; skipped under unit tests, covered by the E2E prefetch test), which calls the
-   loaders of every page reachable from the menu. Each loader runs at most once per page load.
+   loaders of every page reachable from the menu. A loader that succeeded runs at most once per
+   page load. A page whose prefetch failed is not remembered as loaded, so the next call tries it
+   again (CLIENT-ROUTE-LOADING-10).
    Public pages (landing, legal, invite, auth) are not prefetched.
 4. **A missing chunk reloads once.** Every lazy page goes through `lazyWithReload(loader)`: when
    the dynamic import rejects, and no reload happened in the last 10 s (`sessionStorage` key
@@ -81,6 +83,10 @@ budget holds the gain.
    **320 kB**, and fails if any single JS chunk exceeds 500 kB raw. CI runs build + check on every
    PR that touches `frontend/`. (300 kB until PAD-406: React 19 added ~15 kB to an entry the
    PAD-656 site had brought to ~288 kB; the owner raised the budget rather than trim the entry.)
+9. **A chunk that fails twice shows an error screen, not a blank page.** An error boundary above
+   the routes catches the rethrow of rule 4 and renders a screen with a reload action.
+   - Code to follow: add that error boundary above the routes in `App.tsx`; today the app unmounts
+     to a blank page when a chunk fails twice within 10 s.
 
 ### Acceptance Criteria
 
@@ -157,10 +163,8 @@ test: `frontend/apps/web/src/routes/lazyPages.test.ts` › `retries a page whose
   with the opened page's chunks, landing 273.71 kB, invite 279.54 kB, coach dashboard 300.71 kB,
   calendar 358.58 kB; English is one 40.52 kB gzip chunk fetched on demand; no chunk over
   500 kB raw. The 300 kB budget leaves ~37 kB of headroom on the entry.
-- GAP (NORMAL): the app has no error boundary above the routes, so a chunk that fails twice
-  within 10 s (rule 4 rethrows) unmounts the app to a blank page. Before this leaf the single
-  bundle failed the same way when its own download failed, so this is a narrower path, not a new
-  class. A boundary with a reload action is a follow-up leaf.
+- Before this leaf the single bundle failed the same way when its own download failed, so a
+  chunk that fails twice (rule 9) is a narrower path, not a new class.
 - Notes, not rules: the idle prefetch loads all nine menu pages whatever the role, so a student
   also fetches coach-only chunks once per deploy. `build.manifest` puts
   `dist/.vite/manifest.json` in the image, where nginx serves it; it lists chunk names that are
@@ -168,11 +172,3 @@ test: `frontend/apps/web/src/routes/lazyPages.test.ts` › `retries a page whose
 - The nginx half of the PAD-571 bundle finding (gzip, immutable `/assets/`, HTTP/2) is PAD-584.
 - A data router (`createBrowserRouter` with route `lazy`) was not adopted: `BrowserRouter` with
   `React.lazy` gives the same split without migrating every route.
-
-### Open questions
-
-- **Rule 3 says each loader "runs at most once per page load"; a loader that failed runs again.**
-  - Rule 3: "Each loader runs at most once per page load."
-  - The code today: a page whose prefetch failed is not remembered as loaded, so the next `prefetchAppPages()` tries it again (`lazyPages.ts:110`; pinned by "a menu page whose prefetch failed is retried"). CLIENT-ROUTE-LOADING-10 is written to the code.
-  - Recommendation: keep the code and say "a loader that succeeded runs at most once per page load".
-- **P-CLIENT-2 said a user "never sees a broken screen" across a deploy; this spec's own GAP note says otherwise.** A chunk that fails twice within 10 seconds rethrows, and with no error boundary the app unmounts to a blank page. The promise was reworded tonight to what rule 4 delivers. Recommendation: build the error boundary the GAP note asks for, then restore the stronger sentence.

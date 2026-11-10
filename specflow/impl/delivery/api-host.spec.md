@@ -34,7 +34,13 @@ allows exactly the listed web origins cross-origin. `levapp.app/api` keeps answe
    `levapp_events_staging` (PAD-697, delivery.events-role; prod follows after PAD-704). Every other
    path answers 404.
 2. **Same log protections.** The redacted access log (B-182), `error_log … crit` on the SSE and
-   activation locations (B-182, B-183), `X-Real-IP` on every proxied location (PAD-554). A
+   activation locations (B-182, B-183), `X-Real-IP` on every proxied location (PAD-554). The
+   address behind `X-Real-IP` is the client Cloudflare names in `CF-Connecting-IP`, trusted only
+   when the connecting peer is in Cloudflare's published ranges, listed in
+   `infra/nginx/conf.d/levapp-cloudflare-real-ip.conf` (fetched 2026-10-08); any other peer keeps
+   its socket address, and `X-Forwarded-For` is never read. The list is refreshed by hand: fetch
+   Cloudflare's two published lists, replace the `set_real_ip_from` lines and the copy in
+   `test_pad554_real_ip.py`, then `nginx -t` and reload. A
    port-80 `-http` file answers the http-01 challenge and redirects the rest (B-383 shape).
 3. **CORS: listed origins only.** `/api/*` grants CORS to the defaults (local dev, the VM's legacy
    address) plus `CORS_ALLOWED_ORIGINS` (prod: `https://levapp.app`, `https://www.levapp.app`;
@@ -85,9 +91,3 @@ test: `backend/padel_app/tests/test_pad554_real_ip.py` › `test_nginx_trusts_cf
 - **Admin console:** stays on its own host (`admin.levapp.app` → `/admin/api`); the admin
   blueprint checks the request's Host, so it does not move to the api host.
 - The switch order and the owner's DNS/certificate steps are on PAD-614.
-
-### Open questions
-
-- **P-DELIVERY-7 says "only LevApp's own websites may call the API from a browser on another address"; two defaults are always allowed too.** Rule 3 and `config.py:466` add a local development origin and one fixed server address to the listed origins, in production as well. Recommendation: drop the two defaults in production, or say so in the promise.
-- **The promise's "its own logs and limits" has no rule for limits.** Rule 2 states the logs; no rule gives the API host a rate or size limit. Recommendation: state the limit or drop the word.
-- **Rule 2 mentions `X-Real-IP` and not where the address comes from.** The Cloudflare trust list, with its 22 ranges fetched on 2026-10-08, is stated only by the test behind DELIVERY-API-HOST-4 and by `auth.login` rule 7. Recommendation: add a sentence to rule 2, and say how the list is refreshed.

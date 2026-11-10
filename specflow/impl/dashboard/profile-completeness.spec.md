@@ -87,6 +87,8 @@ classes are missing and lets them remind the coach.
 - **Given** student S joined coach C by link, so their link has no level and no side
 - **When** S opens the dashboard
 - **Then** the `profile_incomplete` block names C with missing level and side and `remindedToday: false`
+- Code to follow: in `profile-completeness.test.tsx`, give the student's fixture a class, so the next-class
+  hero exists and the card's place before it (DASHBOARD-BLOCKS-8) is checked.
 
 #### DASHBOARD-PROFILE-COMPLETENESS-4: A reminder reaches the coach once a day (rule 6)
 - **Given** that S
@@ -143,8 +145,5 @@ test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `'See all
 - **And** the coach account gets 403
 - **And** when the server answers 409 `already_reminded`, the student's card shows the reminder as sent today
 test: `frontend/apps/mobile/src/features/dashboard/profile-completeness.test.tsx` › `a second device's 409 already_reminded also lands on 'sent today'` (+2 more)
-
-### Open questions
-
-- **"The student's profile card comes before the next-class hero" is not proved.** The test's student has no class, so no hero exists and its order check never runs; it proves only that the card is present, and is pointed at DASHBOARD-PROFILE-COMPLETENESS-3. Recommendation: give the fixture a class, then state the order in DASHBOARD-BLOCKS-8 (see the open question there).
-- **The reminder's Portuguese text has no test.** DASHBOARD-PROFILE-COMPLETENESS-13 pins the English sentences only. Recommendation: add the Portuguese case.
+- Code to follow: add a test of the reminder's Portuguese text for a coach who reads Portuguese, for both
+  the level and the side case.

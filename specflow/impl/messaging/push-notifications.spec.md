@@ -10,12 +10,17 @@ governed_by: []
 
 
 ### Intent
-Send browser push notifications when a new message arrives and the recipient isn't actively viewing the conversation.
+Send browser push notifications when a new message arrives. Every recipient with a registered device gets
+one, even while connected to live updates (`MESSAGING-PUSH-NOTIFICATIONS-34`).
 
 ### Rules
 1. On message send, `send_push_notification()` called for each recipient
 2. Uses VAPID web push (pywebpush library)
-3. Notification includes: title (sender name), body (message text), URL (conversation link)
+3. Notification includes: title (sender name), body (message text), URL (conversation link, a
+   relative path of the app). One exception: the coach-approval alert carries the staff console's
+   full `https://` address in both channels (`request_alert_service.py` `destination`); the
+   browser opens it in a new window and the phone in the system browser
+   (`MESSAGING-PUSH-NOTIFICATIONS-33`).
 4. Only sent to users with a valid `push_subscriptions` record
 5. Native (Expo) message pushes carry `badge` = the recipient's unread message
    total at send time, so the iOS home-screen icon badge matches the in-app
@@ -47,7 +52,9 @@ Send browser push notifications when a new message arrives and the recipient isn
    class~~ (retired, see below), and **`{type: "path", path}` opens a plain
    in-app destination named by the SAME web path the push's web sibling
    carries** — for pushes that are backed by neither a message nor a class, such
-   as the request alerts of `notifications.request-alerts` rule 7. The client
+   as the request alerts of `notifications.request-alerts` rule 7. The coach-approval alert's `path`
+   is the staff console's full `https://` address rather than an in-app path, and the phone hands
+   it to the system browser instead of mapping it. The client
    maps that web path to a native route through the single mapper it already
    uses for server-emitted paths (`dashboard.blocks` rule 10); a path it cannot
    map routes nowhere and never crashes. The path is sent rather than derived
@@ -266,7 +273,8 @@ Send browser push notifications when a new message arrives and the recipient isn
    `data` is `{type: "message", conversationId, messageId}` and the web sibling's url is
    `/messages/<conversationId>?message=<messageId>`. This covers direct messages
    (`messaging_service.create_message_service`) and system messages
-   (`notification_service._send_system_message`) alike, and both pushes for one event name
+   (`notification_service._send_system_message`) alike, including the pushes to a coach for a join
+   request, a class request, a waiting-list join and a cancellation, and both pushes for one event name
    the same conversation **and** message (the PAD-324 parity guard). Opening the thread with
    a target message (`/conversation/<id>?message=<mid>` on iOS, `?message=<mid>` on web)
    lands on that message, not on the newest one: the initial pin-to-newest is skipped, older
@@ -291,7 +299,8 @@ Send browser push notifications when a new message arrives and the recipient isn
    (`messaging.conversation-detail` rule 9a). If the open's `GET` fails, the thread is not
    marked read and the screen shows its load error with Retry; the read mark follows when a
    later `GET` settles. A tap on the conversation already on screen opens a new instance of
-   the thread (`router.push`), so it is an open like any other. A landing scroll that must be
+   the thread (through `pushRoute`, which first returns to the Messages tab and then pushes the
+   thread), so it is an open like any other. A landing scroll that must be
    retried follows `messaging.conversation-detail` rule 9b. Web has no counterpart: its event
    stream is not suspended and it has no cached-thread open. Tests: `use-thread-open.test.tsx`
    mounts the screen's hook; the load error and the divider are tested as the open's phase and
@@ -322,8 +331,9 @@ Send browser push notifications when a new message arrives and the recipient isn
 15. **A granted permission registers without a restart, and a phone that is not registered says so
     (PAD-744, B-678).** Rule 9's launch and login registrations are not the only ones. On iOS and
     Android:
-    - **Only login, sign-up and the banner's tap ever prompt.** Every other registration first
-      reads the permission and stops, silently, unless it is granted.
+    - **Only login, sign-up, a restored session and the banner's tap ever prompt**, and only while
+      the permission is undetermined. Every other registration first reads the permission and
+      stops, silently, unless it is granted.
     - **The app registers without a prompt** when it returns to the foreground signed in and has
       not registered this session, and right after the Messages banner's tap grants permission.
       Granting in the system Settings is therefore enough: the next return to the app registers.
@@ -586,7 +596,7 @@ Send browser push notifications when a new message arrives and the recipient isn
 #### MESSAGING-PUSH-NOTIFICATIONS-32: A phone is registered only with permission, and unregistering touches the caller's row alone (rules 9, 15)
 - **Given** a phone on which the user signs in, a phone that denies notifications, a simulator, and a token that another user owns
 - **When** each registers, and a user unregisters their own token and the other user's
-- **Then** signing in asks for permission once; a phone that grants it stores its token once, with its user and platform
+- **Then** signing in, signing up and restoring a session each ask for permission once; a phone that grants it stores its token once, with its user and platform
 - **And** a denial sends nothing, is never retried and reads `no-permission`
 - **And** a simulator sends nothing and reads `unsupported`, so no "not active" banner shows
 - **And** unregistering removes the caller's own row and leaves the other user's; doing it twice still answers 200
@@ -626,12 +636,3 @@ test: `backend/padel_app/tests/test_pad294_push_sender_review.py` › `test_inli
 - **Then** staging's file sets `EXPO_PUSH_DISABLED=1` and production's does not name it
 - **And** with the flag set nothing is requested from Expo, and without it one request is made
 test: `backend/padel_app/tests/test_pad624_staging_sends_no_expo_push.py` › `test_staging_sets_the_flag_and_production_does_not` (+2 more)
-
-### Open questions
-
-- **Rule 15 says "only login, sign-up and the banner's tap ever prompt"; a restored session prompts too.** `AuthContext.tsx:115` calls the registrar on a silent session restore, and it asks for permission while it is undetermined. The test asserts one prompt for each of login, sign-up and restore. MESSAGING-PUSH-NOTIFICATIONS-32 says "signing in". Recommendation: decide whether a restore may prompt, then fix the rule or the code.
-- **Rule 3's "a web push never names a host" is false for one alert.** The coach-approval alert carries the staff console's full address in both channels (`request_alert_service.py:174-179`); the browser opens it in a new window and the phone in the system browser, which MESSAGING-PUSH-NOTIFICATIONS-33 states. The guard test checks only the table of relative paths. Rule 7 does not list the `https://` shape either. Recommendation: add the exception to rules 3 and 7.
-- **The Intent says a push goes out when the recipient "isn't actively viewing the conversation"; nothing checks that.** Rule 1 sends "for each recipient", and a connected recipient still gets the push (MESSAGING-PUSH-NOTIFICATIONS-34). P-MESSAGING "user manages unread and notifications" repeats the Intent: "and they are not in that conversation". Recommendation: decide whether a reader with the thread open should be spared the push; until then reword the Intent and the promise.
-- **MESSAGING-PUSH-NOTIFICATIONS-11 and 12 and rule 12 name direct and system messages only.** The pushes to a coach for a join request, a class request, a waiting-list join and a cancellation name their message the same way, by test only. Recommendation: list them in rule 12.
-- **Rule 12a says the tap navigates with `router.push`; it now goes through a helper.** `pushRoute` first returns to the Messages tab and then pushes the thread. Recommendation: reword.
-- **The outbox's retention had no rule until tonight.** Rule 16 was written from the code and its one test (a day for `sent` and `skipped`, 30 days for `dead`). Recommendation: confirm the two periods.

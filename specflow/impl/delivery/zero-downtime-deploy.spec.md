@@ -17,8 +17,8 @@ governed_by: [R-027, R-028]
 > PAD-691 + PAD-696 (wave 16, la-2110-SessionF, design reviewed by the architecture session and the
 > coordinator 2026-10-21): migrations leave the container entrypoint and become the deploy's migrate
 > step (rules 4, 7, 9); the image refuses to boot against a schema behind its head (rule 10);
-> `/healthz` is readiness and `/livez` liveness (rule 11); expand/contract (rule 12). Rules 9–12 are
-> self-numbered, unconfirmed.
+> `/healthz` is readiness and `/livez` liveness (rule 11); expand/contract (rule 12). Rules 9–12
+> were confirmed by the owner on 2026-11-10.
 
 ### Intent
 A deploy starts the new API container beside the old one, waits until it answers `/healthz`, and
@@ -324,6 +324,8 @@ gunicorn's boot path into the leadership thread.
 - **When** the schema is behind **Then** `/healthz` is 503 `schema_behind` and `/livez` is 200;
   **when** ahead **then** `/healthz` is 200 `schema_ahead`; **when** the database is unreachable
   **then** `/healthz` is 503 and `/livez` is still 200
+- **And** the schema reading is reused for ten seconds and read again after they pass
+- Code to follow: `test_healthz_reads_the_schema_at_most_every_ten_seconds` (`test_pad691_schema_gate.py`) shows the cached reading only; pin the clock and show the reading expires after ten seconds.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-16: The staging sync brings a restored prod copy to head (rules 9, 11)
 - **Given** a restore of prod's dump into the staging database
@@ -372,6 +374,9 @@ gunicorn's boot path into the leadership thread.
   tables and indexes, and whose `downgrade()` drops them
 - **When** the job runs **Then** it warns nothing, and the summary says the added migrations are
   expand-only; revisions the PR did not add are never read
+- **And** a revision file the guard could not read is warned about and never counted as
+  expand-only; with no added revision the summary says there was none to check
+- Code to follow: `check_expand_contract.py` prints "N added migration(s), all expand-only" even for a file it could not parse and for zero files; count only the files it read, and say "no added migration" for none.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-23: A vhost enabled by symlink counts (rule 6, B-662)
 - **Given** the upstream file and `sites-enabled/levapp` as a symlink to a vhost that proxies to it
@@ -443,15 +448,17 @@ test: `backend/padel_app/tests/test_pad704_second_copy.py` › `test_copies_is_o
 - **Given** a rollback to a release whose `rollout.sh` predates `--probe-host`, `--migrate`, `--worker` or `--copies`
 - **When** the workflow calls that script
 - **Then** each option the script does not know is left out, with a line saying so, and the rollout runs
-- **And** the current script is passed `--migrate` and `--probe-host`
+- **And** the current script is passed every option the workflow filters: `--migrate`, `--probe-host`, `--worker`, `--copies` and, on staging, `--drain`
 test: `backend/padel_app/tests/test_b666_rollback_runs_the_old_rollout.py` › `test_a_rollback_to_before_migrate_and_probe_host_still_rolls` (+3 more)
+- Code to follow: `test_the_current_rollout_gets_every_option` (`test_b666_rollback_runs_the_old_rollout.py`) asserts `--migrate` and `--probe-host` only; assert all five.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-35: A dry run prints every step and changes nothing (rule 17)
 - **Given** a server with the API running
 - **When** `rollout.sh` is run with `--dry-run`, as a rolling deploy, a stop-first deploy, with the worker, with a second copy and with the drain
 - **Then** it prints the plan and each `docker` command it would run, the second copy's and the worker's included
-- **And** in the plain, the stop-first and the drain run no container is started, stopped, renamed or removed, and nginx is not reloaded
+- **And** in every run no container is started, stopped, renamed or removed, and nginx is not reloaded
 test: `backend/padel_app/tests/test_pad704_second_copy.py` › `test_dry_run_prints_the_second_copy` (+4 more)
+- Code to follow: `test_dry_run_prints_the_worker_steps` (`test_pad695_worker_role.py`) and `test_dry_run_prints_the_second_copy` (`test_pad704_second_copy.py`) check the printed lines only; assert that no container changed, as the plain, stop-first and drain dry-run tests do.
 
 #### DELIVERY-ZERO-DOWNTIME-DEPLOY-36: Under the E2E hold the scheduler starts paused until it is released (rules 1, 21)
 - **Given** the test server started with `E2E_SCHEDULER_HELD`, and without it
@@ -501,17 +508,3 @@ test: `backend/padel_app/tests/test_pad265_alembic_filters.py` › `test_without
   rejected: in the stop edge a POST may already have run.
 - R-027 is unchanged: its rule is `--workers 1`; the overlap and the lock are recorded in the atlas
   decision `2026-10-10-deploy-overlap-and-scheduler-leader.md`.
-
-### Open questions
-
-- **P-DELIVERY-1's first sentence is stronger than the rules.**
-  - The promise: "A release never answers a request with a server error because the server is restarting."
-  - Rules 5 and 10: a port that is booting or stopping resets the request, and nginx retries only requests that are safe to repeat (B-663). Rule 16, the drain that closes that gap, is on for staging only: "prod does not until staging has measured it". Rule 6 falls back to stop-then-start when the server's nginx is not set up, and rule 15 drops every live stream once on an events deploy. DELIVERY-ZERO-DOWNTIME-DEPLOY-25 and 31 are checked by the owner on a real deploy, with no test.
-  - Recommendation: reword the promise to what production does today. It was not changed.
-  - Proposed text: "A release does not interrupt people using the app: the new version takes requests only once it is ready, and a request that is safe to repeat is retried on the copy that is up. Until the drain step measured on staging is switched on for production, a write sent at the instant of the switch can still fail."
-- **"Released with a short, announced stop" has no "announced" in any rule.** Rule 7 gives the `stop-first` choice and no step that tells anyone. Recommendation: drop the word or add the step.
-- **Rules 9 to 12 are marked "self-numbered, unconfirmed".** Criteria 5 to 13, 21 and 22 cite them, and five rules were added tonight as 17 to 21. Recommendation: confirm the numbers.
-- **The expand/contract summary calls an unread file "expand-only".** A migration the guard cannot parse gets a warning, and the summary line still says "1 added migration(s), all expand-only"; with no added migration it says "0 added migration(s), all expand-only" (`check_expand_contract.py:107-113`). Recommendation: reword the summary.
-- **The health route's ten-second cache is asserted without moving the clock.** The test pointed at DELIVERY-ZERO-DOWNTIME-DEPLOY-15 shows a second reading comes from the cache, not that it expires. Recommendation: pin the clock.
-- **The dry run of the worker and of the second copy is checked by its printed lines only.** Their tests do not assert that no container changed, as the plain, stop-first and drain runs do. Recommendation: add the assertion.
-- **One test of the rollback filter checks two of its five options on the current script.** "gets every option" asserts `--migrate` and `--probe-host` only. Recommendation: assert all five.

@@ -134,13 +134,14 @@ shown on the card and the detail, and named by the `{court}` message placeholder
 #### CLUBS-COURTS-7: One occurrence keeps its own court
 - **Given** a weekly series on "Campo 1" and its materialised occurrence of 2026-10-12
 - **When** the coach edits that occurrence only with `courtId` "Campo 2"
-- **Then** the response is 200 and the occurrence's card and detail show "Campo 2"; the series and
-  its other occurrences show "Campo 1"
+- **Then** the response is 200 (201 when the edit creates the occurrence) and the occurrence's card
+  and detail show "Campo 2"; the series and its other occurrences show "Campo 1"
 - **When** the coach edits it again with "Campo 1"
 - **Then** the occurrence has no court of its own and shows "Campo 1"
 - **When** the coach edits it with `courtId: null`
 - **Then** the response is 400 naming `courtId` and the occurrence still shows "Campo 1"
 - **And** the same holds for an occurrence not yet materialised (a `Lesson` event and its date)
+- Code to follow: `test_single_occurrence_court_on_a_materialised_instance` and `test_single_occurrence_court_before_materialisation` (`test_pad513_occurrence_court.py`) accept a 400 today; tighten them to 200 and 201.
 
 #### CLUBS-COURTS-8: A series court change reaches the occurrences from the boundary on
 - **Given** occurrences of 2026-10-12 and 2026-10-26, both on "Campo 2" of their own
@@ -219,12 +220,3 @@ test: `frontend/packages/api/src/resources/courts.test.ts` › `B-266: a class w
   managing their own courts without a coach, multiple clubs on one screen.
 - The coach's *current* club is what the class forms list courts for; a class always belongs to the
   club it was created in (`clubs.crud` rule 5), so the court list and the class agree.
-
-### Open questions
-
-- **CLUBS-COURTS-7 says 200 where the code answers 201, and two of its tests would pass on a 400.**
-  - The criterion: "the response is 200 and the occurrence's card and detail show "Campo 2"", and "the same holds for an occurrence not yet materialised (a `Lesson` event and its date)".
-  - The tests: `test_single_occurrence_court_on_a_materialised_instance` and `test_single_occurrence_court_before_materialisation` (`test_pad513_occurrence_court.py:59`, `:75`) accept either a 400 naming `courtId` or a success. They were written before rule 9 was decided. The strict tests in the same file assert 200 (`:128`, `:261`, `:286`) and, for the first edit of an occurrence not yet materialised, `200 or 201` (`:280`).
-  - The code today: a single-scope edit stores the court and answers 200 for a materialised occurrence (`lesson_service.py:1778`, `:1883`). For a `Lesson` event whose date has no occurrence yet it creates the occurrence and answers 201 (`lesson_service.py:1904`).
-  - Recommendation: amend the criterion to the code, and tighten the two early tests to 200 and 201.
-  - Proposed text for the Then: "the response is 200 (201 when the edit creates the occurrence) and the occurrence's card and detail show "Campo 2"; the series and its other occurrences show "Campo 1"".

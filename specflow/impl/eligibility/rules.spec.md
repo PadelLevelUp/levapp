@@ -50,8 +50,8 @@ answered for any future class whether or not a spot is currently open.
    rule 4c — never the raw `display_order`).
    **Direction, stated once:** the ladder is ordered strongest first, and a lower `display_order` is
    a HIGHER / stronger level (`backend/padel_app/services/level_ladder.py:6`). So "above the class"
-   means stronger, which is a LOWER ladder index (`notification_service.py:944`). Below, `class` is
-   the class's ladder index and `student` is the student's.
+   means stronger, which is a LOWER ladder index (`_group_rule_failures` in `notification_service.py`).
+   Below, `class` is the class's ladder index and `student` is the student's.
    - `same_as_class`: the student's level is the class's level.
    - `equal_or_above_class`: `student ≤ class` (the class's level or stronger).
    - `equal_or_below_class`: `student ≥ class` (the class's level or weaker).
@@ -206,6 +206,7 @@ test: `backend/padel_app/tests/test_pad128_eligibility.py` › `test_eligibility
 - **And** a value survives a change of operation only when the new operation takes one, and a change of attribute resets the operation and drops the value
 - **And** removing one rule leaves the other, and removing the last one stores `null`
 test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` › `starts on the first attribute's first operation, with no value` (+11 more)
+- Code to follow: web `EligibilitySection.tsx` moves its inline rule transitions onto the shared helper (or gains its own tests of add, change attribute, change operation and remove), so the web editor is proved too.
 
 #### ELIGIBILITY-RULES-16: Within N is one menu entry with a direction that changes only the operation (rules 6, 11; PAD-481)
 - **Given** the eligibility editor on web or iOS and a rule `within_n_of_class` with N 2
@@ -225,9 +226,3 @@ test: `frontend/apps/mobile/src/features/settings/eligibility-rules.test.ts` ›
   could have survived an operation switch unseen. Their invite tutorial shows a raw i18n key for the
   new operations; this is cosmetic, and they are released. App Store 1.0 and 1.1.0 have no iOS
   eligibility editor.
-
-### Open questions
-
-- **Rule 6 cites a line that has moved.** It gives `notification_service.py:944` for "above means a lower ladder index"; that line is now attendance-rate code, and the direction logic is at `notification_service.py:1335-1380`. Recommendation: cite the function (`_group_rule_failures`), not a line.
-- **The web editor's rule transitions have no test of their own.** iOS has `eligibility-rules.ts` with unit tests; web repeats the same logic inline in `EligibilitySection.tsx` (lines 83, 110, 135, 227, 241), and only its direction cases are tested. ELIGIBILITY-RULES-15 is stated for both shells and proved on iOS. Recommendation: move the web copy onto the shared helper, or add the missing web tests.
-- **The old business spec called this domain a draft (PAD-128, PAD-129); P-ELIGIBILITY-2 and the four specs here say implemented.** The code today has the rules, the cascade, the enforcement and the open-spot readers, and 66 tests were pointed at their criteria tonight. Recommendation: implemented holds; the draft note was stale.

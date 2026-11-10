@@ -27,7 +27,10 @@ web app has no launch overlay (auth.login rule 8).
    having resolved the session and issued its redirect (tabs, login, or a hold screen). **Never
    before the fonts are ready**, or the brand moment would hand over to unstyled text
    (`launch-overlay.ts`, unit-tested). On release the animation jumps to its final fade and stops
-   catching touches.
+   catching touches. The rule is `overlayMayRelease` (two booleans, no clock); the grace is a timer
+   in `app/_layout.tsx`, started once the rule says yes. A font error counts as "fonts ready" (the
+   app falls back to system type). The final fade takes 300 ms (`LaunchAnimation.tsx`), so the
+   overlay is gone about 600 ms after the first screen is ready.
 3. **Measured, not assumed.** Dev builds log `[launch] <milestone> t=<ms>` at fonts-ready,
    auth-restored, first-screen-ready, overlay-gone and dashboard-mounted, ms since the first app
    module evaluated; a change to the launch is proved with five cold launches before and after on
@@ -40,14 +43,18 @@ web app has no launch overlay (auth.login rule 8).
 #### MOBILE-LAUNCH-1: The overlay never ends before the fonts
 - **Given** the first screen became ready 10 s ago and the fonts are still loading
 - **When** the release rule is asked
-- **Then** it says no; with the fonts ready it says yes once the grace has passed, not before
+- **Then** it says no; with the fonts ready as well it says yes. The grace is a timer outside this
+  rule (rule 2), so the rule alone does not say when
 
 #### MOBILE-LAUNCH-2: The overlay ends with the app, not with the clock (PAD-587)
 - **Given** a signed-in session on the simulator and a cold launch
 - **When** five launches are timed on the instrumentation-only commit and five on the fix
-- **Then** `overlay-gone` on the fix comes within the grace of `first-screen-ready`, and the
-  median `overlay-gone` is earlier than on the control, which sits at ≈ 3.3 s
+- **Then** `overlay-gone` on the fix comes within the grace plus the final fade (about 600 ms) of
+  `first-screen-ready`, and the median `overlay-gone` is earlier than on the control, which sits at
+  ≈ 3.3 s
 - **And** `auth-restored` on the fix is no later than `fonts-ready` + the network round trip
+- Code to follow: tighten `frontend/apps/mobile/src/lib/launch-overlay.test.ts`, which allows a
+  grace of up to 500 ms, to assert the 300 ms of rule 2.
 
 #### MOBILE-LAUNCH-3: The session is restored once per launch, however many callers ask (rule 1)
 - **Given** a stored token and two callers that ask for the session at the same moment
@@ -55,12 +62,3 @@ web app has no launch overlay (auth.login rule 8).
 - **Then** the profile is requested once and both callers get the same result
 - **And** after a reset, the next caller restores afresh
 test: `frontend/apps/mobile/src/auth/session-restore.test.ts` › `two callers share one /auth/me` (+1 more)
-
-### Open questions
-
-- **MOBILE-LAUNCH-2 says the overlay is gone "within the grace" of the first screen; the code adds a fade after the grace.**
-  - The criterion: "`overlay-gone` on the fix comes within the grace of `first-screen-ready`".
-  - Rule 2: the grace is `LAUNCH_RELEASE_GRACE_MS`, 300 ms.
-  - The code today: 300 ms of grace (`launch-overlay.ts:7`), then a 300 ms final fade (`LaunchAnimation.tsx:158`), so about 600 ms, and the overlay catches touches until the release. The unit test allows a grace of up to 500 ms, which is looser than rule 2.
-  - Recommendation: keep the code; say "within the grace plus the final fade (about 600 ms)" in the criterion and in P-MOBILE-6, and tighten the test to 300 ms.
-- **MOBILE-LAUNCH-1 speaks of a grace the function it names cannot see.** "With the fonts ready it says yes once the grace has passed": `overlayMayRelease` takes two booleans and no clock; the grace is a timer in `app/_layout.tsx:104`. A font error counting as "fonts ready" (`_layout.tsx:99`) has no test. Recommendation: split the sentence between the rule (booleans) and the timer.

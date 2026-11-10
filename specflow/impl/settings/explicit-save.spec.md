@@ -19,23 +19,23 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 ### Entities
 - **READS/WRITES:** nothing new. Each setting keeps its own endpoint (`settings.profile`,
   `settings.language`, `notifications.request-alerts`, `levels.*`, `evaluations.reminders`,
-  `evaluations.scale`, the admin settings route, `notifications.config`, `calendar.seasons`,
+  `evaluations.scale`, `notifications.config`, `calendar.seasons`,
   `settings.coach-working-hours`, `notifications.student-block-preferences`); only *when* it is sent
   changes.
 
 ### Rules
 1. **Which tabs — every Settings tab with a setting.**
    - **Perfil:** name, abbreviation, email, phone.
-   - **Preferências:** language, class-request alerts, coach levels, evaluation frequency (with its
-     custom number) and evaluation scale.
-   - **Admin:** the coach-approval-required switch.
+   - **Preferências:** language, class-request alerts, the notification sound (iOS, sent in the same
+     request as the language), coach levels, evaluation frequency (with its custom number) and
+     evaluation scale.
    - **Notificações (coach, PR 2):** the notification engine — the automatic-notifications switch,
      invitation mode, reminder timing, eligibility rules, open spots visible, invitation groups,
      tiebreakers, restrictions and notification groups — and the message templates (web).
    - **Calendário (coach, PR 2):** the season definition and the weekly working hours (clearing the
      week is held too).
    - **As minhas notificações (student, PR 2):** the three notification blocks and the reason.
-   - **Before PAD-506**, language, request alerts, frequency, scale, the admin switch and every
+   - **Before PAD-506**, language, request alerts, frequency, scale and every
      engine control saved on every change; coach levels, seasons, working hours, the student's
      blocks and web's message templates had their own Save buttons.
 2. **Held, not applied.** A change to any of these is held on screen and sent only by the tab's Save.
@@ -46,7 +46,7 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
      a setting, and is disabled while nothing on the tab differs from what was loaded or saved.
    - **iOS:** each section screen with a setting has a footer **Guardar alterações**,
      `settings-<section>-save` (`settings-profile-save`, `settings-preferences-save`,
-     `settings-admin-save`, `settings-notifications-save`, `settings-calendar-save`,
+     `settings-notifications-save`, `settings-calendar-save`,
      `settings-myNotifications-save`).
    - **The engine is one part:** every engine field that changed goes in one
      `POST /api/app/notify/config` with only those fields; the message templates are their own
@@ -117,6 +117,7 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 - **When** they return to the section list and tap the header's back button
 - **Then** Settings closes with no "Descartar alterações?", and the header back is the native one again
   (rule 5: the app's own back only while something is held; flow 309)
+test: `frontend/apps/mobile/.maestro/flows/309-settings-back-after-save-does-not-ask.yaml`
 
 #### SETTINGS-EXPLICIT-SAVE-7: Changed and changed back is clean
 - **Given** a coach turned request alerts off and on again
@@ -138,10 +139,6 @@ student's "As minhas notificações". Since PR 2 no Settings control saves on ch
 #### SETTINGS-EXPLICIT-SAVE-10: Seasons, working hours and the student's blocks have no Save of their own (PR 2)
 - **Given** a coach changed the season's end month, or a student switched a block on
 - **Then** no section button saves it; the tab's Save sends it and leaving first asks
-
-#### SETTINGS-EXPLICIT-SAVE-11: Admin's switch is held
-- **Given** a superadmin turned "coach approval required" on
-- **Then** nothing is sent until Save; Save sends it once
 
 #### SETTINGS-EXPLICIT-SAVE-12: The engine's Save sends only what changed since the last one, and shows the server's answer (rules 2, 3)
 - **Given** the notification engine card with several controls changed and nothing saved yet
@@ -172,9 +169,3 @@ test: `frontend/apps/web/src/pages/SettingsPage.test.tsx` › `the header Save s
 - PR 2 removed the PAD-473 machinery: the sign, the serial saver, `SaveLedger`, the keepalive and
   background flushes, the reminders form's 600 ms pause (`notifications.config` rule 10d), and the
   spec `settings.save-on-change`. Ledger entries that cite it (B-242, B-243, B-244) are history.
-
-### Open questions
-
-- **Rules 1 and 3 and SETTINGS-EXPLICIT-SAVE-11 describe an Admin tab that no longer exists.** They name `settings-admin-save` and the "coach-approval-required" switch. Neither shell lists an admin tab among the tabs with a Save (`SettingsPage.tsx:642`, `app/settings.tsx:194`), and no `settings-admin*` id exists; Settings → Admin was removed with PAD-532 (`admin.approvals-and-users` rule 10). Recommendation: delete the Admin lines from rules 1 and 3 and retire criterion 11.
-- **Rule 1's Preferências list leaves out the notification sound.** iOS Preferences holds it and sends it in the same request as the language (`preferences-section.tsx:93-95`). Recommendation: add it to the list.
-- **SETTINGS-EXPLICIT-SAVE-6 has no test that runs the screen.** "After a save, leaving does not ask" is guarded by a regular expression over `app/settings.tsx` and by Maestro flow 309. The iOS Save in every unit test is a stand-in that swallows failures, so the screen's own handler and its failure toast are never mounted. Recommendation: tag flow 309 to the criterion.

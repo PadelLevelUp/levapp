@@ -64,7 +64,7 @@ out of scope (no backend support exists for them).
     on `field: "birthDate"`, and nothing in that PATCH is written. A stored date can be changed, never
     cleared. Web shows a date input and iOS sign-up's DD/MM/AAAA field, both in Perfil for every role;
     `UNDERAGE` shows "Esta app só aceita maiores de 18 anos." under the field.
-11. **Country (PAD-640).** Perfil also edits the country (the `COUNTRIES` list, `auth.login` rule 13's
+11. **Country (PAD-640).** Perfil also edits the country (the `COUNTRIES` list, `auth.login` rule 14's
     `PATCH /me` check: two letters, upper-cased, or 400 `INVALID_COUNTRY`; never cleared). Both fields
     save with the tab's one "Guardar alterações" (`settings.explicit-save`) and send only when changed
     (rule 8).
@@ -151,6 +151,8 @@ test: `backend/padel_app/tests/test_pad640_profile_birth_date.py` › `test_a_pa
 - **And** the bad email answers 400 and the stored email stays
 - **And** the long abbreviation is stored as `ABCD`
 test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_own_profile_an_empty_phone_clears_it` (+3 more)
+- Code to follow: `test_empty_phone_clears_it` in `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py`
+  asserts the stored phone `is None`, not `None` or `""`.
 
 #### SETTINGS-PROFILE-14: Once saved, the form follows the server again (rule 8)
 - **Given** the iOS profile form after the coach edited the phone and saved
@@ -164,7 +166,3 @@ test: `frontend/apps/mobile/src/features/settings/profile-section.test.tsx` › 
   `804cf5d`) precisely because it was fake; PAD-81 rebuilds it for real rather than leaving the gap.
 - Avatar upload, bio, and password change remain unbuilt — they were mocked and stay out of the UI until
   backend support exists (see `found_issues.md` item 1).
-
-### Open questions
-
-- **One test accepts an empty string where rule 6 says NULL.** `test_empty_phone_clears_it` passes if the stored phone is `None` or `""`; rule 6 says an empty phone "clears it to NULL", and the neighbouring test asserts `None`. Recommendation: tighten the test to `None`.

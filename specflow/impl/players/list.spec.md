@@ -17,8 +17,10 @@ Coaches view their player roster with search, sorting, filtering, and pagination
 2. `GET /api/app/coach_players_paginated` supports: page, per_page, search, sort_by, sort_dir, missing_level, missing_side, incomplete
 3. **(PAD-665) Search follows `players.search`** — the one rule shared by every coach-side player
    search: folding (B-531), word-start and typo tiers, relevance order applied before pagination.
-   PAD-516's rule below is its tier 2 and still holds. Search matches against player name (case-insensitive). **Every typed word must appear in the
-   name, in any order** (PAD-516): "pedro sousa" finds "Pedro Mesquita e Sousa". Words are split on
+   PAD-516's rule below is its tier 2 and still holds. The fields searched are those of
+   `players.search` rule 4 (name, nickname, the e-mail's local part and the phone),
+   case-insensitive. **Every typed word must appear in the name, in any order** (PAD-516):
+   "pedro sousa" finds "Pedro Mesquita e Sousa". Words are split on
    whitespace and each matches as a substring. Accents, case and punctuation are folded ("joao"
    finds "João"), with one rule on the server (`player_service.name_matches_query`, applied after
    the coach scope and the other filters, before pagination) and in the apps' local pickers
@@ -141,6 +143,7 @@ test: `backend/padel_app/tests/test_pad521_level_order.py` › `test_an_unordere
 - **Then** each returns nobody
 - **And** `100% real` and `_ ana` each return that one player, and the type-ahead finds "sousa pedro" in any word order
 test: `backend/padel_app/tests/test_pad516_any_order_search.py` › `test_a_query_with_no_searchable_characters_matches_nobody` (+2 more)
+- Code to follow: add a second name holding the searched letters to the roster fixture of `test_wildcards_stay_literal_in_every_word` in `test_pad516_any_order_search.py`, so it fails when `%` or `_` act as wildcards.
 
 #### PLAYERS-LIST-12: The roster on screen survives a failed or a late answer (rule 12)
 - **Given** the web Players page showing two students
@@ -154,8 +157,3 @@ test: `frontend/apps/web/src/pages/PlayersPage.masterDetail.test.tsx` › `(h) a
 - **When** the roster is read before and after the password is set
 - **Then** `validated` is false before and true after
 test: `backend/padel_app/tests/test_player_level.py` › `test_validated_reflects_password_completion`
-
-### Open questions
-
-- **Rule 3 says the roster search "matches against player name"; it also matches the nickname, the e-mail's local part and the phone.** `player_service.py:583-593` follows `players.search` rule 4. Recommendation: point rule 3 at `players.search` rule 4.
-- **One test of the wildcard rule cannot fail.** "Search wildcards stay literal in every word" would pass even if `%` or `_` acted as wildcards, because no other name on its roster holds the letters searched. Only the `%`, `_` and `!!` cases discriminate. Recommendation: add a second matching name to that fixture.

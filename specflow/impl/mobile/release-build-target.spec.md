@@ -45,9 +45,10 @@ It also makes the target visible inside the app.
    through with a warning, for PAD-467's own work. This rule is retired when the app adopts the
    UIScene lifecycle (the Expo SDK upgrade that follows PAD-467).
 3b. **No pod targets below the app's minimum (PAD-467).** The config plugin
-   `plugins/with-pod-deployment-floor.js` adds a block as the last step of the Podfile's `post_install` (after
-   `react_native_post_install`)
-   that lifts every pod build configuration whose `IPHONEOS_DEPLOYMENT_TARGET` is below 15.1 (the
+   `plugins/with-pod-deployment-floor.js` adds a block as the last step of the Podfile's
+   `post_install` (after `react_native_post_install`); the function that builds that block, and
+   that the tests call, is in `plugins/pod-deployment-floor.js`. The block
+   lifts every pod build configuration whose `IPHONEOS_DEPLOYMENT_TARGET` is below 15.1 (the
    app's own minimum) to 15.1. Xcode 27 rejects a pod below 15 (ReachabilitySwift at 12.0 via
    expo-updates, RNSVG at 12.4, on 2026-09-29). Under Xcode 26.6 only those targets' settings move.
    A Podfile with no `post_install` makes the prebuild fail rather than skip the floor.
@@ -78,7 +79,9 @@ It also makes the target visible inside the app.
 6. **Settings shows the build.** Below the section list, in every build, Settings shows a
    `settings-build-info` line: app version, build number and API host (for example `1.2.0 (23)
    · levapp.app`). When the host is not production's, the line also names it as a test server
-   (`settings-build-info-test-server`), in a warning style.
+   (`settings-build-info-test-server`), in a warning style. Only the host `levapp.app` is
+   production's, so the old host `padellevelup.com` reads as non-production and would be labelled a
+   test server (`describeApiTarget`); no new build points at it (rule 1).
 7. **The sign-in screen warns in a non-production release build.** In a release build (`!__DEV__`)
    whose API host is not production's, the login screen shows `login-test-server-notice`, naming
    the host and saying that data there is reset. Debug builds do not show it: they always point
@@ -158,16 +161,16 @@ test: `frontend/apps/mobile/src/lib/release-bundle-check.test.ts` › `refuses a
 - **Given** the phone app's API client set-up
 - **When** its capability list is read
 - **Then** it declares `open-spots`, `evaluations`, `student-relations`, `coach-invite-email`, `terms-acceptance` and `join-side`
+- **And** it declares all thirteen tokens: `open-spots`, `evaluations`,
+  `class-type-defaults`, `coach-invite-email`, `terms-acceptance`, `country-on-completion`,
+  `terms-on-completion`, `adult-roster-confirmation`, `student-relations`, `full-classes`,
+  `join-side`, `notification-sound` and `waiting-list-side`
 test: `frontend/apps/mobile/src/lib/api-capabilities.test.ts` › `found the initApi call and its known options before judging it (R-032)` (+6 more)
+- Code to follow: pin the whole list of thirteen tokens in one test in
+  `frontend/apps/mobile/src/lib/api-capabilities.test.ts`; today it names six.
 
 ### Notes
 - iOS-first by nature. The web has no counterpart: it calls `/api` on the host that serves it.
   Android (PAD-290) reuses the table and the checker when its release build exists.
 - Uploading to TestFlight is `scripts/testflight-upload.sh` (altool with the ASC API key, then
   attach to the Internal group). It uploads only an export that `ios-release.sh` produced.
-
-### Open questions
-
-- **A build that points at `padellevelup.com` is labelled a test server.** `describeApiTarget` treats only the host `levapp.app` as production, while P-MOBILE-2 says `padellevelup.com` "keeps serving production for App Store builds already installed". No new build uses that host, so nobody sees the label today. Recommendation: leave the code; say in rule 6 that the old host reads as non-production.
-- **Seven of the thirteen capabilities the phone app declares have no test.** `api.ts:57` declares thirteen tokens; MOBILE-RELEASE-BUILD-TARGET-11 and its tests name six. A token that goes missing withdraws its feature from that build with no error. Recommendation: pin the whole list in one test.
-- **Rule 3b names `plugins/with-pod-deployment-floor.js`; the function its tests call is in `plugins/pod-deployment-floor.js`.** Recommendation: name both files in the rule.

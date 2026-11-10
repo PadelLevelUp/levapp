@@ -28,7 +28,7 @@ through the history without the thread ever moving under the reader.
    `limit` takes the newest messages rather than the oldest
 3. Includes reaction data and reply chains
 4. Frontend renders as scrollable message list with chat bubbles
-4a. **A separator names each day, on web and iOS alike (PAD-676; numbering unconfirmed).** A centred
+4a. **A separator names each day, on web and iOS alike (PAD-676).** A centred
    pill sits above the first message of the thread and above every message whose day differs from
    the one before. The day is the message's date on the club's clock (Europe/Lisbon,
    `clubDateOfInstant`), never UTC, so a message at 00:30 belongs to the day it was sent. Labels,
@@ -40,7 +40,9 @@ through the history without the thread ever moving under the reader.
    (a new message, a refetch, a re-open). The separator carries `message-day-separator` (web
    `data-testid` with `data-day`; iOS `testID` with the date as its accessibility value).
 5. Conversation payload includes the other participant's role (`participantRole`: `"coach"` or `"player"`), derived from `User.role`. When there is no other participant to derive it from, the payload degrades exactly as `messaging.conversations` rule 10 prescribes — `participantRole: null` alongside `participantDeleted: true` — rather than failing (B-024)
-6. The chat header subtitle displays the participant's actual role (capitalized), not a hardcoded value
+6. The chat header subtitle displays the participant's actual role as a translated label, not a hardcoded value
+   (`roleLabelKey` returns a translation key for coach, player and assistant; callers fall back
+   to the raw role for any other)
 7. While the on-screen keyboard is open, the message composer stays docked directly above it with no gap, and the most recent message stays visible: when the keyboard opens while the reader is **at the bottom**, the thread rises with it and stays pinned to the newest message (the viewport shrank, so the list scrolls to its end — the same gate as rule 10's "content grew": at the bottom and not during a landing); away from the bottom the keyboard opening moves nothing (rule 10). Closing the keyboard restores the layout without a jump — the native scroll view clamps the offset; nothing scrolls. PAD-569, B-462. On the native shell the `KeyboardAvoidingView` offset must equal the real distance between that view's bottom edge and the bottom of the screen — 0 for a full-height stack route — never a hardcoded constant, since React Native adds the offset to the avoided height rather than subtracting it
 8. Reactions for a conversation's messages are loaded in **one** query for the whole thread
    (`selectinload`), not lazily per message. `serialize_message` reads `message.reactions` for
@@ -204,6 +206,7 @@ through the history without the thread ever moving under the reader.
 - **When** the thread loads
 - **Then** the deleted-class reminder shows `message-class-deleted` and no Yes/No; the live one shows its Yes/No and no note
 - **And** the conversation payload flags only the first (`classDeleted: true`), with one `lesson_instances` lookup for the page
+- Code to follow: the test "a single message is serialized without a query" must count the queries issued, not only the result.
 
 #### MESSAGING-CONVERSATION-DETAIL-6: Coach participant shown with correct role
 - **Given** a conversation whose other participant is a coach
@@ -352,11 +355,4 @@ through the history without the thread ever moving under the reader.
   preview opens when the finger lifts
 - **And** on a 1.1.2 binary (no native module) the same swipe sets the reply with no haptic and no
   error
-
-### Open questions
-
-- **No new criterion was needed here: all 38 proposed titles are helper tests of criteria this spec already has.** They are pointed at MESSAGING-CONVERSATION-DETAIL-1, 4, 12 to 16, 19, 22, 24 and 27. Several prove a clause the criterion does not spell out (the reveal's time-out, a thread that fits the screen, the at-bottom threshold of 100 px, the English and past-year day labels, a failing haptics module). Recommendation: accept, or add those clauses to the criteria as Ands.
-- **Rule 4a is still marked "numbering unconfirmed".** MESSAGING-CONVERSATION-DETAIL-22 cites it as rule 4a. Recommendation: confirm it.
-- **Rule 6 says the role under the name is "capitalized"; the app shows a translated label.** `roleLabelKey` returns a translation key for coach, player and assistant, and callers fall back to the raw role for any other. Recommendation: reword rule 6.
-- **Reading a conversation you are not in is refused, and no criterion says so.** `GET /api/app/conversation/<id>` answers 403 to a non-participant (`messaging.messages` rule 10). Its test is pointed at MESSAGING-MESSAGES-13, which speaks of posting. Recommendation: add "or read" to that criterion.
-- **Two tests assert less than their names say.** "a rejected haptic never throws" does not check for an unhandled rejection; "a single message is serialized without a query" counts no queries. Recommendation: tighten them.
+- Code to follow: the test "a rejected haptic never throws" must fail on an unhandled promise rejection, not only on a thrown error.

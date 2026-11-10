@@ -14,6 +14,8 @@ on the change that broke it, so releases are on time.
 - Production starts clean for real use.
 - Diagnostics keep personal data off GitHub.
 - Connections are always encrypted.
+- Production data can always be restored from a backup.
+- A developer's machine or a default setting never reaches production data.
 
 ## Why it's grouped this way
 

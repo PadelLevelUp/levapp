@@ -41,13 +41,13 @@ Coaches update player information, including level, side preference, and persona
 
 #### PLAYERS-EDIT-1: Edit player level
 - **Given** a player with id 3 associated with the authenticated coach
-- **When** they PATCH to `/api/app/player/3` with `{"level_id": 2, "side": "left"}`
+- **When** they POST `/api/app/edit_player` with `player: {"playerId": 3}` and `updates: {"levelId": 2, "side": "left"}` (rule 4)
 - **Then** the `coach_in_player` record is updated with the new level and side
 - **And** a `player_level_history` entry is created with the new level
 
 #### PLAYERS-EDIT-2: Set player side to "Both"
 - **Given** a player with id 3 associated with the authenticated coach
-- **When** they PATCH to `/api/app/player/3` with `{"side": "both"}`
+- **When** they POST `/api/app/edit_player` with `player: {"playerId": 3}` and `updates: {"side": "both"}` (rule 4)
 - **Then** the `coach_in_player` record persists `side = "both"`
 - **And** the player profile displays the side in the coach's active UI language
   (`en` → "Both", `pt` → "Ambos"), rendered from the shared `players.side*` i18n keys
@@ -55,7 +55,7 @@ Coaches update player information, including level, side preference, and persona
 
 #### PLAYERS-EDIT-3: Edit player personal info
 - **Given** a player with id 3
-- **When** they PATCH to `/api/app/player/3` with `{"name": "John Updated", "phone": "+351912345678"}`
+- **When** they POST `/api/app/edit_player` with `player: {"playerId": 3}` and `updates: {"name": "John Updated", "phone": "+351912345678"}` (rule 4)
 - **Then** the User record is updated with the new name and phone
 
 #### PLAYERS-EDIT-4: An emptied note or phone is cleared (rule 4)
@@ -99,7 +99,3 @@ Coaches update player information, including level, side preference, and persona
 - **And** the username, status, admin flags and password are unchanged
 - **And** the level comes back as a string id, and as null for a player with no level
 test: `backend/padel_app/tests/test_pad105_coach_never_sets_username.py` › `test_editing_a_player_cannot_change_their_username` (+4 more)
-
-### Open questions
-
-- **PLAYERS-EDIT-1, 2 and 3 are written against a route the apps do not call.** They use `PATCH /api/app/player/<id>`; rule 4 says the apps call `POST /api/app/edit_player`. Recommendation: restate the three against `edit_player`.

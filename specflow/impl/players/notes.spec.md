@@ -18,7 +18,9 @@ Coaches record strengths and weaknesses notes for their players.
 ### Rules
 1. Notes are scoped to a coach-player relationship (not global)
 2. Type is either `strength` or `weakness`
-3. Text max 500 characters
+3. Text max 500 characters: a longer text is refused with a 400 and writes nothing, and the
+   field in the apps is capped at 500.
+   - Code to follow: `add_coach_note_service` in `coach_service.py` answers 400 for a text over 500 characters, and the web and iOS note fields cap their input at 500.
 4. `POST /api/app/add_coach_note` to add, `POST /api/app/delete/coach_note` to remove
 5. **(PAD-374, `evaluations.history` rule 9) Where a coach edits them.** On web and on iOS alike,
    in the strengths-and-weaknesses card of the player's profile (web `PlayerStrengthsWeaknesses`,
@@ -33,7 +35,7 @@ Coaches record strengths and weaknesses notes for their players.
 
 #### PLAYERS-NOTES-1: Add strength note
 - **Given** a coach-player relationship for player "Alice"
-- **When** coach POSTs to `/api/app/coach/note` with `{"player_id": 5, "type": "strength", "text": "Excellent forehand"}`
+- **When** coach POSTs to `/api/app/add_coach_note` with `{"playerId": 5, "type": "strength", "text": "Excellent forehand"}` (rule 4)
 - **Then** a CoachPlayerNote is created
 - **And** it appears in the player's profile under strengths
 
@@ -48,8 +50,3 @@ Coaches record strengths and weaknesses notes for their players.
 - **Then** the blank one answers 400 and writes no note
 - **And** the second answers 200 with the note's text
 test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_add_coach_note_refuses_an_empty_text_itself`
-
-### Open questions
-
-- **PLAYERS-NOTES-1 names a route and a body that do not exist.** It posts to `/api/app/coach/note` with `player_id`; the route is `POST /api/app/add_coach_note` and the key is `playerId` (`frontend_api.py:1935`, `coach_service.py:302`), as rule 4 says. Recommendation: amend the criterion to rule 4.
-- **Rule 3's 500 characters are only the column's length.** The service does not check the length (`coach_service.py:300-326`) and no client caps the field, so a longer note is a database error, not a 400. P-PLAYERS still says "holds at most 500 characters". Recommendation: refuse a longer note with a 400 and cap the field.

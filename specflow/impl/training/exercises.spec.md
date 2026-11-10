@@ -17,9 +17,12 @@ Coaches create and manage a library of padel exercises with types, difficulty, c
 - **Association_CoachExercise** (`coach_exercise`): coach_id, exercise_id, role (owner|follower)
 
 ### Rules
-1. Types: attack, defense, serve, return, volley, transition, warm_up, footwork, custom
+1. Types: attack, defense, serve, return, volley, transition, warm_up, footwork, custom. The server
+   refuses a type outside this list, for every client.
+   - Code to follow: `POST` and `PUT /api/app/exercises` must answer 400 for a type outside the list; today only `exerciseFormSchema` checks it.
 2. `custom_type` used when type is "custom"
-3. Difficulty: 1 (Beginner) to 5 (Expert)
+3. Difficulty: 1 (Beginner) to 5 (Expert). The server refuses a difficulty outside 1 to 5, for every client.
+   - Code to follow: `POST` and `PUT /api/app/exercises` must answer 400 for a difficulty outside 1 to 5; today only `exerciseFormSchema` checks it.
 4. `level_ids`: JSON array of CoachLevel IDs this exercise targets
 5. `diagram`: opaque JSON owned by the board spec. Two shapes exist: legacy v1
    `{elements: [{id, type, x, y, endX, endY, label, curve, rotation}]}` (`training.court-diagram`)
@@ -27,7 +30,9 @@ Coaches create and manage a library of padel exercises with types, difficulty, c
    returns whichever it receives; the frontend upgrades v1 to v2 on read and writes v2.
 6. v1 element types: player_1, player_2, player_3, player_4, coach, cone, blocker, ball, arrow,
    movement. v2 piece kinds and step shape: see `training.tactical-board`.
-7. Owner coach has full CRUD; follower coaches have read access
+7. Owner coach has full CRUD; follower coaches have read access. Sharing an exercise with another
+   coach is wanted behaviour but **not built yet**: a follower row is honoured on read and on
+   planning, and no route or screen writes one today.
 8. CRUD: GET/POST/PUT/DELETE `/api/app/exercises/{id}`
 9. Every exercise endpoint is **coach-only** and returns **403** to a caller with no coach profile.
    The role check belongs on the route (`require_coach()`), not only in the service: today the 403
@@ -78,14 +83,3 @@ test: `backend/padel_app/tests/test_training_players_role_authz.py` › `test_an
 - **Then** the form's schema accepts the first and refuses each of the others
 - **And** difficulty 1 and difficulty 5 are accepted
 test: `frontend/packages/validation/src/index.test.ts` › `parses valid input` (+3 more)
-
-### Open questions
-
-- **Only the form checks an exercise's type and difficulty; the server stores what it is sent.**
-  - Rules 1 and 3: the nine types, and difficulty 1 to 5.
-  - The code today: `exerciseFormSchema` (`frontend/packages/validation/src/index.ts:117`) refuses a type outside the list and a difficulty outside 1 to 5. `POST /api/app/exercises` checks neither (a test posts type `drill` and it is stored).
-  - Recommendation: validate both on the server too, so rules 1 and 3 hold for every client.
-- **The promise said a coach "can give other coaches access"; nothing in the product grants the follower role.**
-  - Rule 7: "Owner coach has full CRUD; follower coaches have read access".
-  - The code today: a follower row is honoured on read and on planning (`training_service.py:15-40`; `frontend_api.py:556-561`), but no route or screen writes one. Only the retired data browser could.
-  - P-TRAINING-1 was reworded tonight to say the role exists and no screen grants it. Recommendation: decide whether sharing an exercise is wanted; if not, drop the follower role from rule 7 and from the promise.

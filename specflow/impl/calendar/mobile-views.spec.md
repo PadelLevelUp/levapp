@@ -69,7 +69,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
      coach colour via `readableInk`. **(B-533, PAD-675)** On iOS its lift is inline style, never a
      class the card gains when it becomes next: a card's className does not depend on its variant
      changing after mount (css-interop's upgrade warning crashed the debug build).
-   - `past` (completed): coach colour faded via `fadeColor`, muted text.
+   - `past` (completed, or its end has passed on the club's clock, whatever its status): coach colour
+     faded via `fadeColor`, muted text (CALENDAR-MOBILE-VIEWS-31).
    - `canceled`: solid `destructive` red surface, white title, the existing
      `calendar.eventCard.canceled` label as subtitle. Red means canceled and nothing else.
    - `block` (any `CalendarBlock` type): card surface with a 1.5px dashed `border`, title in
@@ -79,7 +80,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
      "Não vou" chip and no ✓; `invited` (a live invitation): card surface with a 1.5px **dashed**
      outline in the coach colour and readable ink, as an open spot, with a "Convite" chip;
      `waiting` (on the waiting list): card surface with a 1.5px **dotted** muted outline, muted text
-     and a "Lista de espera" chip — the lowest emphasis. Tapping any of them opens the class.
+     and an "Em lista de espera" chip — the lowest emphasis. Tapping any of them opens the class.
      `attended` keeps the faded `past` treatment with the ✓; `missed` the same without it.
    - `open-spot` (B-541, PAD-579; the event carries `openSpot`, `eligibility.open-spot-visibility`
      rule 11): card surface with a 1.5px **dashed** outline in the coach colour, title and time
@@ -125,8 +126,9 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     foreground number. The dot row shows up to three 5px dots, one per event in `startTime`
     order, coloured by rule 5's surface (coach colour, `muted` for a block, `destructive`
     for a canceled class, and the **outline** colour — the coach colour — for an outlined
-    treatment, `next`, `open-spot`, `invited` or `waiting`, whose surface is the white card, and
-    faded for `not-coming`); a day with more than
+    treatment, `next`, `open-spot` or `invited`, whose surface is the white card, `muted` for a
+    `waiting` class, and faded for `not-coming`; a student's dots follow `calendar.view` rule 23 and
+    CALENDAR-MOBILE-VIEWS-33); a day with more than
     three events still shows three. Tapping a
     column selects that day. The strip never renders title chips or a `+N` indicator —
     this supersedes `calendar.view` rule 14's strip on iOS and web's 4-chip strip.
@@ -151,13 +153,15 @@ canvas is silent (status treatments, coach colour, add controls, students) these
     gesture. Each event is an absolutely positioned block: top and height from
     its start and end minutes (minimum height 18px), 6px radius, surface per rule 5 (an
     open spot's dashed outline included), title clamped to two lines. Overlapping events in one column share the width side by side
-    (reuse `calendar-overlap.ts`). **(B-543, PAD-625) A busy day stays readable:** the shared
+    (`layoutDayColumn` in `calendar-grid.ts`). **(B-543, PAD-625) A busy day stays readable:** the shared
     `layoutDayColumn` (`@levelup/config`) packs a cluster of overlapping events into lanes — each
     event takes the first lane free at its start, so a cluster gets as many columns as events run
     *at once*, not one per event (22 classes an hour apart in a chain need two columns). When a
     cluster needs more than **two** lanes on a phone, the first lane renders and the second holds
     one "+N" marker spanning the hidden events' time; tapping it selects the day, whose sheet lists
     every class. The selected day's column is tinted `secondary`.
+   - Code to follow: delete `groupOverlappingEvents` and `layoutDayEvents` from `calendar-grid.ts`, which no
+     code calls, and their tests in `calendar-grid.test.ts`.
 14. **Tapping** a column's empty area selects that day. Tapping an event block opens its
     detail exactly as tapping its card does today (class → class detail; block → event
     detail).
@@ -165,7 +169,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 #### Mês
 15. **Month nav.** `‹`, the month and year in the active language ("Setembro 2026" /
     "September 2026"), `›`. Paging the month applies rule 2 to the selected day and refetches
-    the six-week range that covers the grid.
+    the range of whole weeks that touch the month, which is what the grid shows (four to six weeks).
 16. **Month grid.** A weekday header row, then Sunday-start cells (`calendar.view` rule 5a, PAD-682) for every week that touches
     the month. In-month cells show a 26px date circle using rule 10's states and the dot row
     from rule 10; out-of-month cells render at 32% opacity and are not tappable. **(PAD-437)** The grid is
@@ -254,7 +258,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 - **Given** a scheduled class with colour `#0D9488` on the selected day, and the same class
   completed yesterday
 - **When** the coach opens `Dia` for each day
-- **Then** today's card has a solid `#0D9488` surface with white text
+- **Then** today's card has a solid `#0D9488` surface with the ink as its text (the contrast rule of
+  CALENDAR-MOBILE-VIEWS-32 picks the ink on teal)
 - **And** yesterday's card has the faded `#0D9488` surface with muted text
 
 #### CALENDAR-MOBILE-VIEWS-4: Next class is outlined, not filled
@@ -291,7 +296,7 @@ canvas is silent (status treatments, coach colour, add controls, students) these
   class this week, on a client declaring `student-relations`
 - **When** the phone calendar renders their cards and grid blocks
 - **Then** the enrolled card is solid with the ✓; the "Não vou" card is faded with its chip and no
-  ✓; the invited card is dashed with "Convite"; the waiting card is dotted with "Lista de espera"
+  ✓; the invited card is dashed with "Convite"; the waiting card is dotted with "Em lista de espera"
 
 #### CALENDAR-MOBILE-VIEWS-9: Canceled is red and only red is canceled
 - **Given** a canceled occurrence on the selected day
@@ -397,8 +402,8 @@ canvas is silent (status treatments, coach colour, add controls, students) these
 #### CALENDAR-MOBILE-VIEWS-24: Month paging refetches and reselects
 - **Given** `Mês` on September 2026 with 10 September selected, today being 8 September
 - **When** the coach taps `›`
-- **Then** the grid shows October 2026, 1 October is selected, and the events for the six-week
-  range covering October were requested
+- **Then** the grid shows October 2026, 1 October is selected, and the events for the whole weeks
+  that touch October were requested
 
 #### CALENDAR-MOBILE-VIEWS-25: Legend is gone on phones and kept on desktop
 - **Given** the web calendar at 390px wide and at 1280px wide, and the iOS calendar
@@ -457,6 +462,8 @@ test: `frontend/packages/config/src/calendar-card.test.ts` › `a calendar block
 - **And** the next class's label is the colour mixed 55 % toward the foreground, which reads at 4.5:1 on the card in both themes
 - **And** a class with no colour uses the primary colour, and for a value that is not a colour the label takes the card's own token and a faded or outlined card takes no colour from it
 test: `frontend/packages/config/src/calendar-status.test.ts` › `picks whichever of ink/white actually reads, for every swatch` (+26 more)
+- Code to follow: `calendar-status.test.ts` builds its swatch list from `CLASS_COLOR_SWATCHES`, not from the
+  colours that were retired in PAD-246.
 
 #### CALENDAR-MOBILE-VIEWS-33: A day's dot takes its colour from the class's state, and for a student from their relation (rules 5, 10; `calendar.view` rule 23)
 - **Given** a day with classes in several states, seen by the coach and by a student
@@ -500,7 +507,7 @@ test: `frontend/packages/config/src/calendar-month.test.ts` › `August 2026 (st
   colour rules and the swatch remap; (2) Semana; (3) Mês. Until ticket 3 lands, the
   segmented control offers only the shipped modes.
 - Everything is fed by the existing `GET /api/app/calendar?from&to`; `Mês` widens the range
-  to the six visible weeks. No new endpoint.
+  to the whole weeks that touch the month. No new endpoint.
 - The design-system `ClassBlock` (five statuses, amber surface for "needs filling") was
   considered and not adopted: the owner chose the coach colour as the surface with amber on
   the bar only.
@@ -510,16 +517,3 @@ test: `frontend/packages/config/src/calendar-month.test.ts` › `August 2026 (st
   row with the day header as part of the drag surface, the `Mês` sheet travels over the month
   grid, and the iOS sheet gets the corners and shadow rule 3 always asked for (B-065).
 - OPEN: none.
-
-### Open questions
-
-- **CALENDAR-MOBILE-VIEWS-3 expects white text on `#0D9488`; the code chooses the ink.**
-  - The criterion: white text on the teal swatch.
-  - The code today: `contrastTextOn("#0D9488")` returns the ink, because the ink reads at 4.47:1 and white at 3.74:1 (`calendar-status.ts:219-223`). Of the eight shared colours, blue, indigo, violet, plum and slate get white; sky, cyan and teal get the ink. CALENDAR-MOBILE-VIEWS-32 states the rule.
-  - Recommendation: keep the code and amend the criterion's example to a colour that takes white, or to "the ink on `#0D9488`".
-- **Rule 10 says the dot of a `waiting` class is the coach's colour; the code draws it muted.** `DayStrip.tsx:50` and its test pin muted; rule 10 does not state the student's dot colours at all. CALENDAR-MOBILE-VIEWS-33 is written to the code. Recommendation: amend rule 10.
-- **Rule 15, CALENDAR-MOBILE-VIEWS-24 and the Notes speak of a "six-week" month range; the grid is four to six weeks.** September 2026 is 35 days (`calendar-month.ts:34-41`). Recommendation: say "the whole weeks that touch the month".
-- **Rule 5 and CALENDAR-MOBILE-VIEWS-8 name the waiting chip "Lista de espera"; the Portuguese copy is "Em lista de espera".** `locales/pt/calendar.json:597`. Recommendation: quote the copy as it is.
-- **Rule 5 calls past "(completed)"; a class whose end has passed is also past, whatever its status.** CALENDAR-MOBILE-VIEWS-31 states both. Recommendation: add the clock to rule 5.
-- **The contrast tests run on a retired colour list.** `calendar-status.test.ts:25-34` holds the colours from before PAD-246, five of which can no longer be picked, and omits five of the current eight. Every "for every swatch" assertion therefore proves the wrong set. Recommendation: point the list at `CLASS_COLOR_SWATCHES`.
-- **Rule 13 says overlap reuses `calendar-overlap.ts`; the grids use `layoutDayColumn` in `calendar-grid.ts`.** Two older helpers, `groupOverlappingEvents` and `layoutDayEvents`, have tests and no caller. Recommendation: delete the helpers and their tests, and fix the rule's file name.

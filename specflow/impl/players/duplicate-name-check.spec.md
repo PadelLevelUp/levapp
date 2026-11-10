@@ -27,7 +27,9 @@ students genuinely share a name).
    (`/api/app/check_field_available` + `useFieldAvailability`) via a warn-only variant so the
    duplicate name does not disable the submit button.
 5. `POST /api/app/check_field_available` accepts `("user", "name")` and matches
-   case-insensitively; unique fields (`username`, `email`) keep their existing exact match.
+   case-insensitively. `username` is also case-insensitive (`username_taken`, PAD-799: `Ana`
+   is taken when `ana` exists); `email` keeps its exact, case-sensitive match.
+   - Code to follow: add a mixed-case username test to `test_check_field_available.py`.
 6. Excel import preview flags each Players row whose name matches an existing player, showing a
    clear "Possible duplicate" indicator. Flagged rows can still be imported.
 
@@ -58,9 +60,11 @@ students genuinely share a name).
 - **Then** no duplicate warning is shown
 
 #### PLAYERS-DUPLICATE-NAME-CHECK-3: Backend name check is case-insensitive
-- **Given** an existing user named "John Doe"
+- **Given** the calling coach's roster holds a player named "John Doe"
 - **When** POST `/api/app/check_field_available` with `{"model": "user", "field": "name", "value": "JOHN DOE"}`
 - **Then** the response is 409 with a duplicate message
+- Code to follow: correct the docstring of the `check_field_available` route in `frontend_api.py`,
+  which says a missing `scope` skips the warning; the caller's own roster is used.
 
 #### PLAYERS-DUPLICATE-NAME-CHECK-4: Import preview flags duplicate names
 - **Given** a coach with an existing player "John Doe"
@@ -82,8 +86,3 @@ students genuinely share a name).
 - **And** a username or an e-mail already in use answers 409 whoever's roster it is on
 - **And** an anonymous caller gets 401, and a field outside the allowed pairs gets 400
 test: `backend/padel_app/tests/test_check_field_available.py` › `test_name_duplicate_in_other_coach_roster_does_not_warn` (+6 more)
-
-### Open questions
-
-- **PLAYERS-DUPLICATE-NAME-CHECK-3's Given no longer warns.** It has "a user named John Doe" who is on no roster; since PAD-92 the name check looks only at the calling coach's own roster, so that case answers 200. The route's docstring still says a missing `scope` skips the warning (`frontend_api.py:2897-2900`); the code uses the caller's roster. Recommendation: amend the criterion's Given to "on the calling coach's roster" and fix the docstring.
-- **Rule 5 says unique fields "keep the exact match"; the username check ignores case since PAD-799.** `username_taken` matches case-insensitively (`username_tools.py:62-70`); the e-mail check is still case-sensitive. The test pins a same-case value only. Recommendation: say so in rule 5 and add the mixed-case test.

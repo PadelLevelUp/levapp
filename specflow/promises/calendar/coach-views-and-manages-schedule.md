@@ -11,7 +11,7 @@ The coach has one weekly calendar with every class and personal block, opens any
 
 - A class's "X/Y" counts seats actually filled: a student who declined no longer counts; one who has not answered still does.
 - A class is completed once its end time has passed.
-- Dragging a recurring event asks whether the change is for that occurrence or every future one.
+- Dragging a recurring event asks whether the change is for that occurrence or every future one. The live hold of an open class request cannot be dragged from one occurrence on: it is refused as locked.
 - Creating from an empty slot is for coaches only, on desktop only; touch has no dragging.
 - A student with several invitations to one class appears once in the guest list.
 - Each invitee reads as accepted, declined, no answer yet, withdrawn, spot filled or expired. The coach can record an answer given another way: the student's chat then shows it answered "by the coach", with no buttons, and a later tap changes nothing (PAD-563). A withdrawn invitation shows "spot filled", cannot be taken, is not asked again for that class, and the next candidate is asked.

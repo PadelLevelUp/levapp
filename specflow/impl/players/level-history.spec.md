@@ -26,6 +26,10 @@ Track the history of level assignments for a player, providing an audit trail.
 3. History is per-coach — different coaches may assign different levels to the same player
 4. Setting the level a player already has writes no entry. Clearing a level writes no entry, and
    deleting a coach level deletes its entries (levels.coach-levels rule 11).
+5. Nothing reads the history yet: no route returns `player_level_history` and no screen shows it
+   (`players.profile` rule 2 does not list it). It is kept for a later screen.
+6. The history is the record of each level a coach sets, not a full log: a cleared level and a
+   deleted level need no trace (rule 4).
 
 ### Acceptance Criteria
 
@@ -45,8 +49,3 @@ Track the history of level assignments for a player, providing an audit trail.
   while the placeholder's has "Beginner"
 - **When** the claim merge keeps the claimant's link and borrows the level
 - **Then** the claimant's link is "Beginner" and the latest history entry for that coach is "Beginner"
-
-### Open questions
-
-- **Nothing reads the level history.** No route returns `player_level_history` and no screen shows it; `players.profile` rule 2 does not list it. P-PLAYERS "coach browses and reviews roster" promised "level over time" on the profile; that phrase was removed tonight. Recommendation: either build the read, or say here that the history is kept for a later screen.
-- **The history is not a full log.** Clearing a level writes no row (rule 4), and deleting one of the coach's levels deletes its history rows (`coach_service.py:530`). The two promises that said "full log" and "every level change" were reworded tonight to "each level a coach sets". Recommendation: confirm that a cleared level and a deleted level need no trace.

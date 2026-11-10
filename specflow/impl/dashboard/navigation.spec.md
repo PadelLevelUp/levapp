@@ -54,7 +54,7 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
     exist yet (PAD-76). `attendance.absences` creates the route, so rule 6 is now *satisfied*
     rather than waived, and the same reasoning that gave "Attended" an `href` applies unchanged.
 
-12. **(PAD-520, B-345; rule number unconfirmed) "Nova aula" opens the new-class sheet.** The coach
+12. **(PAD-520, B-345) "Nova aula" opens the new-class sheet.** The coach
     dashboard's "Nova aula" button links to `/calendar?new=1`. The calendar reads `new=1` once,
     opens the same new-class sheet as its own toolbar button (on today, desktop; on the selected
     day, phone width), and removes the param with a history replace, so closing the sheet or going
@@ -125,8 +125,5 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
 - **When** the iOS app maps it to a screen
 - **Then** it opens the evaluations screen
 test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `opens the evaluations page from the student dashboard block (PAD-402, evaluations.student-view rule 4)`
-
-### Open questions
-
-- **Rule 12 is still marked "rule number unconfirmed", and DASHBOARD-NAVIGATION-8 cites it as rule 12.** Recommendation: confirm the number and drop the note.
-- **The evaluations block's tap is proved on iOS only, and only as a route mapping.** DASHBOARD-NAVIGATION-9 has no web test and no test of the tap itself. Recommendation: add both.
+- Code to follow: add a web test for the `evaluations` block's link, and a test of the iOS tap itself (not
+  only the route mapping in `routes.test.ts`).

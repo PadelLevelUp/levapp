@@ -37,7 +37,9 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
    "esta / na próxima" wording sent to students (`notifications.message-templates` rule 18 keeps
    Monday-to-Sunday weeks) and recurrence weekday numbering (`daysOfWeek`, `weekdays`), which are
    conventions, not a week's first day. App Store builds 32/33 compute their grid on the device
-   and keep Monday until they update.
+   and keep Monday until they update. The backend's week helper is `padel_app/utils/dates.py`.
+   - Code to follow: the comment in `week-start.ts` points at `padel_app/utils/dates.py`, not at
+     `padel_app/utils/week.py`, which does not exist.
 6. Events are color-coded: academy classes, private classes, calendar block types. **(PAD-130)**
    an **open-spot class a player is not enrolled in uses a distinct colour** from that
    player's own classes — the two must never be mistaken for each other, since one is a commitment
@@ -53,7 +55,9 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 8. Class events expose `participantCount` / `maxPlayers`, rendered on the event card as `X/Y`. `participantCount` is the **effective filled spots** for the instance, NOT the raw enrolment count: enrolled players (the instance's `presences`, PAD-259) minus those whose presence status is `absent` (declined the invite or cancelled), floored at 0. Players who have not yet responded still count toward `X`
 9. Effective filled spots is computed in exactly one place — `LessonInstance.effective_filled_spots` on the backend model — and is the single source of truth shared by the calendar event card, the class-detail "capacity" field (calendar.event-detail), and the invitation engine's capacity checks (notifications.invitation-engine). No surface recomputes it independently
 10. Lesson templates (non-materialized recurrence occurrences with no instance row) have no presences, so their `participantCount` is the series roster count (`player_in_lesson`)
-11. Each event exposes a `status` of `completed` or `scheduled`. An event is `completed` once its **end datetime has passed** (compared against the current time on the club's clock: the stored end is Lisbon wall-clock, R-023, PAD-256), otherwise `scheduled`. The comparison uses the real end datetime — the event's date combined with its end time-of-day — NOT just the date. So a class that ended earlier **today** reads as `completed`, exactly like classes on previous days. For recurrence occurrences the end datetime is the occurrence date combined with the template's end time-of-day. "Now" uses the same naive-UTC clock (`utcnow_naive`) the scheduler uses to compare class datetimes
+   - Code to follow: the series-count test for this rule enrols students in the series and asserts the
+     number, instead of comparing 0 with 0.
+11. Each event exposes a `status` of `completed` or `scheduled`. An event is `completed` once its **end datetime has passed** (compared against the current time on the club's clock: the stored end is Lisbon wall-clock, R-023, PAD-256), otherwise `scheduled`. The comparison uses the real end datetime — the event's date combined with its end time-of-day — NOT just the date. So a class that ended earlier **today** reads as `completed`, exactly like classes on previous days. **Two cases read differently (`serializers/calendar_event.py`):** a class whose end is 00:00 after a later start ends at midnight at the END of its own day (PAD-553, `classes.create` rule 8c), so a 22:00–00:00 class reads `scheduled` while it runs; and any other class whose end is before its start keeps its old reading, the end time-of-day on its own day (B-294's typo). For recurrence occurrences the end datetime is the occurrence date combined with the template's end time-of-day. "Now" uses the same naive-UTC clock (`utcnow_naive`) the scheduler uses to compare class datetimes
 12. The week-range label (`useCalendar`'s `weekLabel`) is rendered in the **active UI language**, not a hardcoded English locale: month abbreviations follow the coach's `users.language` preference on web and on iOS alike (`pt` → "31 ago–6 set", `en` → "31 Aug–6 Sep"). `useCalendar` lives in `@levelup/hooks`, which must stay platform-neutral (no React DOM, no React Native, no Expo import), so the shell passes its active language in (`options.language`) and the hook derives the label from it. The language→`date-fns` `Locale` mapping lives in exactly one place, `resolveDateLocale` in `@levelup/config`, shared by both shells and by the hook; the fallback stays `pt` per settings.language rule 4. The label is *derived* from the stored language on every render, never frozen into state, so switching language in Settings re-renders it without a reload
 13. **(PAD-170 C4, decided 2026-09-04)** iOS carries the same colour-coding legend web has
     (`calendar.legend.done / event / fill / full / next`), explaining rule 6's colour coding. The
@@ -64,10 +68,10 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     so each sample uses a neutral stand-in and what it carries is the border, the fade and the
     dashed edge. The whole row is ONE accessibility element reading the five labels, because a
     legend is reference material and five VoiceOver stops between the nav and the grid would be
-    five stops in the way. **(PAD-578)** For a **student** viewer the desktop legend adds
-    `calendar.legend.enrolled` (a solid swatch with the ✓) and `calendar.legend.openSpots` (the
-    dashed outline) ahead of the shared items, so the two treatments rule 6 distinguishes are
-    explained where the legend exists; the coach's legend is unchanged. **(Superseded on phones by `calendar.mobile-views` rule 9 when that
+    five stops in the way. **(PAD-578)** For a **student** viewer the desktop legend is the student's own
+    (rule 23): it reads `calendar.legend.student.enrolled` (a solid swatch with the ✓) and
+    `calendar.legend.student.openSpot` (the dashed outline) among its items, so the two treatments rule 6
+    distinguishes are explained where the legend exists; the coach's legend is unchanged. **(Superseded on phones by `calendar.mobile-views` rule 9 when that
     leaf ships: the iOS legend is removed and web hides it below 768px; desktop web keeps it.)**
 
 14. **(PAD-172)** On iOS the week strip and the day-detail list are a `flex-1` / `flex-1` pair
@@ -147,8 +151,8 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
     the `student-relations` capability (`X-LevApp-Capabilities`, PAD-352's pattern) — an App Store
     build that predates them would draw them as bookings; an undeclared client gets exactly the
     calendar it got before (the field on its own events is harmless and ignored). The treatment is
-    `calendar.mobile-views` rule 5; desktop cards follow it, and the student's desktop legend adds
-    `calendar.legend.invited`, `calendar.legend.waiting` and `calendar.legend.notComing`.
+    `calendar.mobile-views` rule 5; desktop cards follow it, and the student's desktop legend lists
+    `calendar.legend.student.invited`, `.waiting` and `.notComing` among its items.
 23. **(PAD-664; rule number unconfirmed; orchestrator for the owner, 2026-10-14) A student's
     calendar is coloured by what each class is to them, shows the full classes they could wait
     for, and can be narrowed to their own.** For a **student** viewer only — the coach's calendar
@@ -176,7 +180,7 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       "Só as minhas" hides only the offers (`open_spot`, `full`); `enrolled`, `not_coming`,
       `attended`, `missed`, `invited` and `waiting` stay, so the filter never hides an invitation
       that needs an answer. The choice is remembered per student **on each device** (web
-      `localStorage`, iOS `AsyncStorage`, keyed by user id); it does not follow the student to
+      `localStorage`, iOS `expo-secure-store`, keyed by user id); it does not follow the student to
       another device (decision 2026-10-14: no server preference this wave).
     - **Legend.** The student's legend lists the states the filter leaves visible, in the same
       treatments (`calendar-legend`): on desktop as today, and on phones (web below 768px and
@@ -187,6 +191,8 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
       before (no `full` events); the colours are a client concern and change nothing on the wire.
 
 24. **A bare date is a calendar day (B-060).** A `YYYY-MM-DD` value typed into the new-class or new-event sheet is read as that calendar day and never as an instant: its weekday, and the date some months later, are worked out on the calendar, with the day clamped to the month's last.
+   - Code to follow: `dateOnly.test.ts` also runs under a time zone west of UTC, so a helper that drifts a
+     day west (B-060) fails it.
 
 ### Acceptance Criteria
 
@@ -223,7 +229,7 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **When** they view that week on desktop web
 - **Then** Monday's card and grid block carry `calendar-enrolled-mark` (✓, labelled
   `calendar.eventCard.enrolled`) and Tuesday's carry `calendar-open-spot-chip` and no ✓
-- **And** the legend lists `calendar.legend.enrolled` and `calendar.legend.openSpots`
+- **And** the legend lists `calendar.legend.student.enrolled` and `calendar.legend.student.openSpot`
 - **And** the coach who teaches both sees neither mark nor the two legend items
 
 #### CALENDAR-VIEW-6: Declined students do not count toward the calendar participant count
@@ -243,6 +249,8 @@ Display a unified calendar view showing lesson instances, calendar blocks, and a
 - **Then** that event's `status` is `completed`
 - **And** a class today that has not yet ended has `status` `scheduled`
 - **And** a class on a previous day has `status` `completed`
+- **And** a class today from 22:00 to 00:00, seen at 23:00, has `status` `scheduled`
+- **And** a class whose end is before its start, other than a 00:00 end, is judged by its end time on its own day
 
 #### CALENDAR-VIEW-9: Week-range label follows the coach's language
 - **Given** a coach whose `language` is `pt` viewing the week of 31 August 2026
@@ -379,12 +387,3 @@ test: `backend/padel_app/tests/test_calendar_participant_count.py` › `test_les
 - **Then** 13 July 2027 is a Tuesday
 - **And** one month after 31 January is 28 February, and three months after 13 July is 13 October
 test: `frontend/apps/web/src/lib/dateOnly.test.ts` › `the weekday of a bare date is that date's weekday` (+1 more)
-
-### Open questions
-
-- **Rule 11 and CALENDAR-VIEW-8 leave out two cases the code handles.** A class that ends at 00:00 is treated as ending at the end of its day, so it reads scheduled while it runs (PAD-553), and a class whose end is before its start keeps its old reading (`calendar_event.py:50-57`). Recommendation: add both to rule 11.
-- **Rule 13, rule 22 and CALENDAR-VIEW-5 name legend keys that were replaced.** They list `calendar.legend.enrolled`, `.openSpots`, `.invited`, `.waiting` and `.notComing`; the student's legend now reads `calendar.legend.student.*` (`calendar-card.ts:444-448`). Recommendation: update the three places.
-- **Rule 23 says iOS keeps the student's filter in `AsyncStorage`; it uses `expo-secure-store`.** `student-filter-store.ts:7`. Recommendation: fix the rule.
-- **Two tests cannot fail for the reason their names give.** The series-count test (rule 10) enrols nobody in the series, so it compares 0 with 0; no criterion was written from it. Recommendation: enrol students and assert the number.
-- **`week-start.ts` points at `padel_app/utils/week.py`, which does not exist.** The backend's week helper is `padel_app/utils/dates.py:30-36`; rule 5a's claim holds there. Recommendation: fix the comment.
-- **The bare-date test pins no time zone.** `dateOnly.test.ts` runs in whatever zone the machine has, so it would not catch a helper that drifted a day west of UTC, which is what B-060 was. Recommendation: run it under a zone west of UTC as well.

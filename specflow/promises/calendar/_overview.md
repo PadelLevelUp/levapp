@@ -12,7 +12,7 @@ student availability blocking, and season-bounded recurrence.
 - `calendar.coach-blocks-personal-time` — a coach marking out their own breaks, holidays, and
   personal time.
 - `calendar.student-controls-invitation-availability` — a student marking themself unavailable so
-  the invitation engine (and, when fully shipped, the coach) leaves them alone during that window.
+  the invitation engine and the coach's manual sends leave them alone during that window.
 - `calendar.coach-plans-classes-within-seasons` — named seasons that bound "recurs until season
   end" recurrence and stay overlap-free.
 

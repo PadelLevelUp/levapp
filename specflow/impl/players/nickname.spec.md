@@ -115,9 +115,9 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
      the coach's nickname in their search) and the duplicate hint's `displayName`
      (`player_claim_service`, `possible_duplicates_for`); the invite simulation's waiting-list rows,
      candidates and single-student verdict (`invite_simulation_service`).
-   - **New-conversation picker, rule 9b:** `GET messageable-users` is shared with students, so a
-     nickname is never put on it; a COACH viewer's rows for students on their roster gain
-     `playerId` (nothing a student reads), and web and iOS resolve through `useCoachDisplayName`
+   - **New-conversation picker, rule 9b:** `GET messageable-users` is shared with students, so it
+     keeps the public user shape (`messaging.conversations` rule 15): no nickname, no display name
+     and no `playerId`. Web and iOS resolve the name by user id through `useCoachDisplayName`
      (enabled for a coach only), search either name and sort by the name shown.
    - **Clients, web and iOS/Android:** the presence table / rows, chart labels, search and sort
      (search matches both names through `rosterSearchFields`), the walk-in picker (options print and
@@ -192,6 +192,7 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
 - **Then** each shows "Jorge chato" and never "Jorge Silva"
 - **And** each shows Ana Pinto under her own name
 test: `frontend/apps/web/src/pages/AbsencesPage.nickname.test.tsx` › `prints the nickname for one student and the real name for another` (+15 more)
+- Code to follow: add one Maestro flow that shows a nickname on an iOS coach screen.
 
 #### PLAYERS-NICKNAME-11: A student's own view keeps the real name and never asks for a roster (rules 4, 8)
 - **Given** a student looking at their own attendance row, class row and class requests
@@ -233,18 +234,3 @@ test: `backend/padel_app/tests/test_pad683_coach_push_names.py` › `test_a_stud
 - **And** the add-player form shows no nickname field, warning or switch
 - **And** the server reads the switch as on for `true` and `"true"`, and as off for `false`, `"false"`, 0 and null
 test: `frontend/apps/mobile/src/features/players/player-nickname-form.test.tsx` › `submits the nickname and the switch beside the unchanged real name` (+5 more)
-
-### Open questions
-
-- **Rule 9's delivery note says a coach's "people I may message" rows gain `playerId`; the code sends the public shape only.**
-  - Rule 9 (Delivery): "a COACH viewer's rows for students on their roster gain `playerId`".
-  - The code today: the route returns the public user shape with no `playerId` and no display name (`frontend_api.py:963-969`); the test asserts both are absent, and `messaging.conversations` rule 15 pins the public shape. Clients resolve the name by user id instead. PLAYERS-NICKNAME-13 is written to the code.
-  - Recommendation: keep the code and delete that sentence from rule 9.
-- **Eight iOS coach views are guarded only by reading their source.** The screens cannot be mounted in the unit harness, so their tests look for the display-name call in the file. They are proposed as plain unit tests; the web renders of the same views carry PLAYERS-NICKNAME-10 and 12. Most of those web tests replace the name hook with a stand-in, so they prove that the view asks for the name, while the hook itself is proved once. Recommendation: accept, and add one Maestro check of a nickname on an iOS coach screen.
-- **The field's warning text is asserted only as a translation key.** Rule 6 and PLAYERS-NICKNAME-4 quote "Visível só para ti..."; the tests check the key `players.nickname.warning`. Recommendation: accept.
-- **P-PLAYERS-4 keeps one of two statements the old business spec made.**
-  - The old business spec said the student never sees the nickname "in ... an export of their data", and also that a data request includes it.
-  - The promise as drafted: "a data request (the student's or the coach's) includes it", with "never sees it" limited to inside the app.
-  - This spec: rule 7 puts the nickname in both people's subject-access exports (owner, 2026-10-14, PAD-640), and PLAYERS-NICKNAME-9 proves it.
-  - The code today: `backend/scripts/export_user_data.py` copies every column of every row that points at the person, so the coach-student row carries the nickname in both exports (`test_pad660_coach_nickname.py:129`).
-  - Recommendation: the promise's wording holds; confirm it. The promise was not changed.

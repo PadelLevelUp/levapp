@@ -38,6 +38,13 @@ they have behaviour worth specifying.
   shards of 60 min each, plus a job that checks the shards run every test exactly once)
 - `delivery.android-nightly-lane` — implementing (PAD-710: the nightly Android Maestro suite as
   parallel shards cut by flow name, each under a watchdog that turns a slow flow into a named red)
+- `delivery.database-backup` — implemented (no ticket: the nightly `pg_dump` of both databases to
+  the bucket, the restore check and the cron install the deploy leaves in place)
+- `delivery.backend-config` — implemented (PAD-95, PAD-292: an unset host never points at
+  production, a migration refuses a production target outside production, production refuses
+  development secrets)
+- `delivery.application-logs` — implemented (B-254: a failed mail, push or model answer is logged by
+  its kind, never with the address, token or text involved)
 
 ## Why it's grouped this way
 

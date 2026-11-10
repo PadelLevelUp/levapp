@@ -31,8 +31,11 @@ reporting it is one tap away.
 1. `POST /api/app/users/<id>/block` creates a `BlockedUser(blocker=caller, blocked=id)`,
    idempotent; blocking yourself is 400. `DELETE` on the same path removes it, idempotent.
    `GET /api/app/blocked-users` lists the caller's blocks as `[{id, name}]`.
-2. A block is enforced **both ways** on the server: `create_conversation_service` and
-   `create_message_service` reject with 403 when either party has blocked the other.
+2. A block is enforced **both ways** on the server: `create_message_service` rejects with 403
+   when either party has blocked the other, and `create_conversation_service` does the same for
+   a pair with no conversation yet. A blocked pair that already has a conversation gets it back
+   with no 403 (an existing thread survives, `messaging.conversations` rule 8); no message goes
+   through, because sending is checked on its own.
 3. Blocked users (either direction) are excluded from `GET /api/app/messageable-users`.
 4. `POST /api/app/messages/<id>/report` `{reason?}` creates a `MessageReport`; only a
    participant of that message's conversation may report it (403 otherwise). Staff review and act
@@ -41,7 +44,8 @@ reporting it is one tap away.
 4a. **A report keeps what was reported (PAD-639).** The report row stores `message_text`, a copy
    of the message's text at the moment it is reported. Deleting the message later erases the
    message (`messaging.messages` rule 3) but never the report's copy, and an edit after the report
-   does not change it, so a moderator reviews what the reporter saw. Reports filed before PAD-639
+   does not change it, so a moderator reviews what the reporter saw (the console side is
+   `admin.moderation` ADMIN-MODERATION-8, which its tests cite). Reports filed before PAD-639
    were backfilled from the message row by its migration, before that migration erased the
    already-deleted messages. The staff console (`admin.moderation`) shows this copy as the
    reported message's text, in the list and in the detail's context, falling back to the
@@ -49,12 +53,16 @@ reporting it is one tap away.
 5. Thread UI on web and iOS offers **Block** / **Unblock** (conversation header menu) and
    **Report** (per-message action) with confirmation and a toast.
 6. A blocked conversation stays in the list; its composer is replaced by "You blocked {name}"
-   with Unblock. The blocked party is not told.
+   with Unblock. The blocked party gets no notice of the block, but a message they send into
+   that conversation is refused with 403 "Cannot message a blocked user" where an ordinary send
+   answers 201, so they can tell. Only the by-username path hides a block, behind a 404
+   (`messaging.direct-by-username`).
 7. **Unknown sender.** `GET /api/app/conversation/<id>` returns `isKnownContact` for the viewer:
-   `true` when the other participant is one of the viewer's coaches (`coach_in_player`), shares
-   at least one club with them (via `coach_in_club` / `player_in_club`), or the viewer has sent
-   at least one non-system message in the conversation; `false` otherwise. Group conversations
-   are always `true`.
+   `true` when the other participant and the viewer are linked on a coach's roster in either
+   direction (`Association_CoachPlayer`, so a coach reading their own student's message sees a
+   known contact), share at least one club (via `coach_in_club` / `player_in_club`), or the
+   viewer has sent at least one text message in the conversation that is not deleted; `false`
+   otherwise. Group conversations are always `true`.
 8. When `isKnownContact` is `false`, the thread renders a banner above the messages: "You don't
    share a club with {name}" with **Block** and **Report** actions. The banner disappears once
    the viewer sends a message or blocks. Web and iOS.
@@ -118,12 +126,6 @@ reporting it is one tap away.
 - **Then** "Blocked users" lists `bruno` with Unblock, and unblocking removes the row
 - **And** the same list exists on iOS
 
-#### MESSAGING-BLOCK-AND-REPORT-10: The console shows what was reported after the message is deleted (rule 4a, PAD-639)
-- **Given** a student reported message "msg 3" through the app, and the author then deleted it
-- **When** staff open the report list and the report detail in the console
-- **Then** the reported message reads "msg 3" with `deleted: true`, and the messages around it read their own text
-- **And** a report with no copy (filed before the backfill) shows the message's own text
-
 #### MESSAGING-BLOCK-AND-REPORT-11: A block is set once, stops a new conversation, and is undone by unblocking (rules 1, 2)
 - **Given** two people with no conversation between them
 - **When** one blocks the other twice, tries to start a conversation, unblocks, and tries again
@@ -148,10 +150,3 @@ test: `backend/padel_app/tests/test_messaging_known_contact.py` › `test_delete
   `padel_app/modules/frontend_api.py` (`/users/<id>/block`, `/blocked-users`,
   `/messages/<id>/report`), tests `padel_app/tests/test_messaging_report_block_scope.py`.
 - OPEN: operator workflow beyond the editor (email on report, report counts). v1: none.
-
-### Open questions
-
-- **MESSAGING-BLOCK-AND-REPORT-10 got its id tonight and has no test.** It is the block "The console shows what was reported after the message is deleted (rule 4a, PAD-639)". Three tests prove it (`test_pad639_console_reported_text.py`); the port proposed them under `admin.moderation`, which is not this half's area. Recommendation: point them here, or keep the criterion there and drop this one.
-- **Rule 2 says creating a conversation is refused on a block; that holds only for a pair with no conversation yet.** The check sits inside the "no conversation exists" branch (`messaging_service.py:874-878`), so a blocked pair that already has a conversation gets it back with no 403. Sending is checked separately (`:432`), so no message goes through. Recommendation: say so in rule 2.
-- **Rule 7 is narrower than the code in two ways.** It says "one of the viewer's coaches"; the code counts a roster link in either direction, so a coach reading their own student's message sees a known contact (`messaging_service.py:729`). It says "at least one non-system message"; the code counts only a text message that is not deleted (`:745-755`). P-MESSAGING "student reaches out and stays safe" repeats the narrower wording. Recommendation: amend rule 7 and the promise to the code.
-- **The promise says "blocking is silent"; a blocked sender can tell.** Rule 6 says the blocked person is not told. A blocked sender's message answers 403 "Cannot message a blocked user" (`messaging_service.py:432`) where an ordinary send answers 201; only the by-username path hides a block behind a 404. Recommendation: decide whether a blocked send should answer like a delivered one.

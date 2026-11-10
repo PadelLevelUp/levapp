@@ -48,10 +48,11 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
    class instances, backed by `GET /api/app/lesson_instances?from=&to=`. Every non-cancelled
    instance in the selected week is listed; instances already at capacity are shown but not
    selectable. The picker is **not** filtered by the player's level — a coach may add any player
-   to any class. **The week runs through its Sunday (B-192).** Every picker — web, iOS and the
-   App Store builds already installed — sends date-only bounds, `to=<Sunday>`; the route reads a
-   date-only `to` as the end of that day (a full timestamp keeps its exact meaning), so a class on
-   the week's Sunday is listed like any other day's
+   to any class. **The week runs from Sunday to Saturday (PAD-682, `WEEK_STARTS_ON = 0`; B-192).**
+   Every picker — web, iOS and the App Store builds already installed — sends date-only bounds,
+   `from=<Sunday>` and `to=<Saturday>`; the route reads a date-only `to` as the end of that day
+   (a full timestamp keeps its exact meaning), so a class on the week's last day is listed like
+   any other day's
 5a. **The picker never offers a class that has started (PAD-439; owner, 2026-09-24).** Classes
    whose start is at or before "now" on the club's clock are left out, today's included (a 12:00
    class at 23:00). Shared by web and iOS: `upcomingPickerClasses` in `@levelup/config`.
@@ -107,11 +108,12 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **Then** that class is not listed (the week shows its empty state), and "previous week" is disabled
 - **And** stepping to next week lists its classes, and from there "previous week" is enabled again
 
-#### PLAYERS-PROFILE-5: The picker offers the week's Sunday classes (B-192)
-- **Given** a coach with a one-off class on Sunday 4 Oct 2026 at 10:00 and a weekly Sunday series
-- **When** the picker asks for the week `from=2026-09-28&to=2026-10-04`
-- **Then** both Sunday classes are listed, and a class on Monday 5 Oct at 00:00 is not
-- **And** `to=2026-10-04T08:00:00` still ends at 08:00 (`test_b192_week_picker_includes_sunday.py`)
+#### PLAYERS-PROFILE-5: The picker offers the week's last-day classes (B-192)
+- **Given** a coach with a one-off class on Saturday 10 Oct 2026 at 10:00 and a weekly Saturday series
+- **When** the picker asks for the Sunday-to-Saturday week `from=2026-10-04&to=2026-10-10`
+- **Then** both Saturday classes are listed, and a class on Sunday 11 Oct at 00:00 is not
+- **And** `to=2026-10-10T08:00:00` still ends at 08:00 (`test_b192_week_picker_includes_sunday.py`)
+- Code to follow: restate `test_b192_week_picker_includes_sunday.py` with the Sunday-to-Saturday week bounds above.
 
 #### PLAYERS-PROFILE-6: A long week scrolls inside the picker (PAD-439, B-202)
 - **Given** a 1280×460 browser window and a week whose classes overflow the picker's list
@@ -151,10 +153,3 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **When** the coach opens the player's profile on the phone
 - **Then** the card shows "ana@example.pt" and "Sem telefone", each behind its icon, and no
   "Email:" or "Phone:" label
-
-### Open questions
-
-- **Rule 5 and PLAYERS-PROFILE-5 describe a Monday-to-Sunday picker week; the week starts on Sunday since PAD-682.**
-  - PLAYERS-PROFILE-5 uses `from=2026-09-28` (a Monday) and `to=2026-10-04`.
-  - The code today: `WEEK_STARTS_ON = 0` (`packages/config/src/week-start.ts:8`), and the picker's tests use Sunday week starts.
-  - Recommendation: restate rule 5 and the criterion with a Sunday-to-Saturday week.
