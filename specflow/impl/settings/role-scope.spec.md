@@ -156,6 +156,31 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 - **When** they `GET /api/auth/me` and `PATCH /api/auth/me` with `{"language": "en"}`
 - **Then** both succeed and the preference is persisted
 
+#### SETTINGS-ROLE-SCOPE-10: The avatar menu lands on its section even from inside Settings (PAD-447)
+- **Given** a coach on web who chose "Settings" from the avatar menu and is on Preferences
+- **When** they choose "My connections" from the same menu
+- **Then** the URL is `/settings?tab=connections` and My connections is shown
+- **And** choosing "Settings" again from the menu goes back to Preferences
+
+#### SETTINGS-ROLE-SCOPE-11: The avatar menu reopens on a press made during its close animation (PAD-462)
+- **Given** a coach on web who just chose "My connections" from the avatar menu, and the menu is still playing its close animation
+- **When** they press the avatar trigger again
+- **Then** the menu opens (`aria-expanded="true"`), and the press is not swallowed
+- **And** a press on the trigger of an open menu still closes it
+
+#### SETTINGS-ROLE-SCOPE-12: The menu still asks before dropping an unsaved edit (PAD-447)
+- **Given** a coach on Settings → Calendar with Sunday switched off and not saved
+- **When** they choose "My connections" from the avatar menu
+- **Then** the unsaved-changes question appears, and "Keep editing" leaves Calendar shown with Sunday still off
+- **And** the URL goes back to `/settings?tab=calendar`, so the address and the visible section agree (PAD-459)
+
+#### SETTINGS-ROLE-SCOPE-13: The routes a student needs stay open to a student (rule 9)
+- **Given** a student and a coach, each signed in
+- **When** the student GETs `/api/app/calendar`, `/api/app/dashboard` and `/api/app/availability_blockers`, and the coach GETs `/api/app/availability_blockers`
+- **Then** none of the student's three requests is refused or fails
+- **And** the student's blockers answer 200, and the coach, who has no player profile, gets 403
+test: `backend/padel_app/tests/test_settings_role_authz.py` › `test_student_can_still_manage_their_availability` (+1 more)
+
 ### Notes
 - **Admin section leaving (2026-10-06, PAD-532, draft):** `admin.approvals-and-users` rule 10
   removes the `admin` section from web and iOS; the `superadmin` audience then has no section.
@@ -190,21 +215,13 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
   `exercises`, `exercise-groups`, `players`, `coach_players*` and `player_profile` routes still use
   bare `current_coach()` and so 500 rather than 403 for a student caller.
 
-#### The avatar menu lands on its section even from inside Settings (PAD-447)
-- **Given** a coach on web who chose "Settings" from the avatar menu and is on Preferences
-- **When** they choose "My connections" from the same menu
-- **Then** the URL is `/settings?tab=connections` and My connections is shown
-- **And** choosing "Settings" again from the menu goes back to Preferences
+### Open questions
 
-#### The avatar menu reopens on a press made during its close animation (PAD-462)
-- **Given** a coach on web who just chose "My connections" from the avatar menu, and the menu is still playing its close animation
-- **When** they press the avatar trigger again
-- **Then** the menu opens (`aria-expanded="true"`), and the press is not swallowed
-- **And** a press on the trigger of an open menu still closes it
-
-#### The menu still asks before dropping an unsaved edit (PAD-447)
-- **Given** a coach on Settings → Calendar with Sunday switched off and not saved
-- **When** they choose "My connections" from the avatar menu
-- **Then** the unsaved-changes question appears, and "Keep editing" leaves Calendar shown with Sunday still off
-- **And** the URL goes back to `/settings?tab=calendar`, so the address and the visible section agree (PAD-459)
-
+- **SETTINGS-ROLE-SCOPE-1 and 3 list the sections without My connections.**
+  - Criterion 1: a student sees "Profile, Preferences, Notifications preferences and Account". Criterion 3's coach list omits Connections too.
+  - Rule 2 and both shells: My connections is offered to everyone (`SettingsPage.tsx:147`, `settings-sections.ts:138`). The iOS test expects exactly `profile, preferences, myNotifications, connections, account` for a student.
+  - Recommendation: amend both criteria to rule 2. Three tests proposed tonight are pointed at criterion 1 and prove the proposed text.
+  - Proposed text for criterion 1's Then: "they see Profile, Preferences, My notifications, My connections and Account, in that order, and no coach-only section".
+- **Rule 9 describes `/availability_blockers` as keeping a "`current_coach() is None` student branch"; the code checks for a player profile.** A coach is refused with 403 (`frontend_api.py:1876-1880`), which SETTINGS-ROLE-SCOPE-13 states. Recommendation: reword rule 9 to "requires a player profile".
+- **The Notes' "follow-ups found while auditing, NOT fixed here" are fixed.** `POST /api/app/class_instance/training/confirm` now checks the caller and the class's owner (`frontend_api.py:3427-3436`, PAD-115), and the exercise, group and roster routes answer a student with 403. Recommendation: delete the note.
+- **The three PAD-447 and PAD-462 blocks that got ids tonight are proved one level below what they say.** SETTINGS-ROLE-SCOPE-10 and 12 are tested by navigating to the URL, not by choosing from the avatar menu; SETTINGS-ROLE-SCOPE-11 is tested on the shared dropdown component with a faked exit animation. Recommendation: accept, or add one end-to-end check through the menu.

@@ -190,6 +190,27 @@ separate browse screen. A coach controls whether their open spots are advertised
   class they have a presence row in)
 - **Then** the server answers 403 and writes no Presence row
 
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-14: A class that has started on the club's clock is no longer offered (rule 7)
+- **Given** a visible class with room at 10:00 Lisbon time, and a rostered student at its level who is not enrolled
+- **When** the student's open spots are loaded at 09:30 UTC, in summer and in winter
+- **Then** in summer, when it is 10:30 in Lisbon, the class is not offered
+- **And** in winter, when it is 09:30 in Lisbon, it is
+test: `backend/padel_app/tests/test_pad256_class_over.py` › `test_a_class_under_way_is_not_offered_as_an_open_spot`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-15: Opening one advertised class applies the same bar as the calendar (rules 1, 6)
+- **Given** a visible class at level `5`, the bar `[{level, within_n_above_class, value: 1}]`, and students at `4` and at `5-`
+- **When** each asks to see that class as an open spot
+- **Then** the student at `4` may see it and the student at `5-` may not
+test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_single_class_open_spot_view_allows_stronger_not_weaker`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-16: The declaration is an exact token in a list, and a client sends it only when its shell declares one (rules 10, 12)
+- **Given** a coach who shows open spots, a class with room and an eligible rostered student
+- **When** the student's calendar is requested with different `X-LevApp-Capabilities` values
+- **Then** `open-spots`, `Open-Spots` and ` later-thing ,open-spots ` each return the class as an open spot; `open-spots-v2`, `openspots` and an empty value return none
+- **And** the shared API client sends no `X-LevApp-Capabilities` header when its shell declares nothing, and one header listing every declared token on every request when it does
+- **And** the web shell's requests declare `open-spots` and `evaluations`
+test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_route_appends_open_spots_for_students_only` (+5 more)
+
 ### Notes
 - **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:
   the visibility cascade reuses the tier walk and the class-sheet block that PAD-129 introduced.
@@ -202,3 +223,12 @@ separate browse screen. A coach controls whether their open spots are advertised
 - **Kill-switches (2026-10-06, PAD-533, draft):** `admin.clubs-and-switches` rule 5 lets staff
   switch a capability off server-side; `client_declares()` then answers false whatever the
   header says. The header and rule 12 above are unchanged.
+
+### Open questions
+
+- **A class starting exactly now is offered as an open spot but refuses a join request.**
+  - The open-spot loader drops a class only when its start is strictly before now on the club's clock (`calendar_helpers.py:351`, `<`).
+  - Join requests close at the start (`class_join_request_service.py:176`, `<=`).
+  - The code today: both, so for the instant of the start the student sees a spot they cannot ask for.
+  - Recommendation: make the loader use `<=`, so a spot is offered only while it can be requested. One line of code and one test.
+- **The "never for a coach" test would pass without the role check.** `test_calendar_route_appends_open_spots_for_a_student_and_never_for_a_coach` sends the coach's request with no `X-LevApp-Capabilities` header, so the capability gate alone hides the open spots. Recommendation: send the header on the coach's request too.

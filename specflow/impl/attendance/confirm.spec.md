@@ -551,3 +551,62 @@ Players confirm or decline their attendance in response to a reminder notificati
 - **Given** a student the coach validated present before the reminder instant
 - **When** the instant passes and they POST `respond_reminder` with `yes`
 - **Then** `pendingConfirmation` is `false`, the answer is `{"action": "already_marked"}` and the row stays `attended`
+
+#### ATTENDANCE-CONFIRM-37: The ask is raised for the student alone, on a class that has not started, once its instant has passed (rules 27, 28)
+- **Given** a class with reminders on, seen by its coach and by an enrolled student
+- **When** the class payload is built before the reminder instant, after it, and after the class has started
+- **Then** the student's `pendingConfirmation` is false before the instant and true after it
+- **And** once the class has started it is false, and a yes answers `expired`
+- **And** an occurrence that does not exist yet follows the same instant and the series' reminder switch
+- **And** when no reminder instant can be worked out it is false
+- **And** the coach's payload never carries `pendingConfirmation: true` or a `comeBack`
+test: `backend/padel_app/tests/test_pad570_vou_after_reminder.py` › `test_a_class_that_started_never_asks` (+4 more)
+
+#### ATTENDANCE-CONFIRM-38: A coach marks presences only on their own class, for its students or their own roster (rule 17)
+- **Given** coach Ana's class with Rui enrolled, her roster student Sara who is not enrolled, a coach Bruno, and a player Zed on nobody's list
+- **When** presences are confirmed for that class
+- **Then** Bruno is refused with 403 and nothing is marked
+- **And** Ana marking Zed is refused with 403, and the class still holds only Rui
+- **And** Ana marking Sara is accepted
+test: `backend/padel_app/tests/test_pad258_write_ownership.py` › `test_other_coach_cannot_confirm_presences` (+2 more)
+
+#### ATTENDANCE-CONFIRM-39: A declined student is offered what the server's `comeBack` says (rule 28)
+- **Given** a student whose state is `not_coming` on a class that has not started
+- **When** the class detail, the dashboard row and the reminder's chat bubble render
+- **Then** `rejoin`, `waiting_list` and `on_waiting_list` each show their own control or line, and `null` shows nothing
+- **And** a server that sends no `comeBack` gets the older hint and no control
+- **And** the dashboard row carries the same `comeBack` as the class payload
+- **And** the chat bubble offers "Afinal vou" only after a recorded no, on a class that has not started
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.comeBack.test.tsx` › `no comeBack field (older server) + not_coming: the PAD-570 hint, no come-back control` (+6 more)
+
+#### ATTENDANCE-CONFIRM-40: The app records an answer only when the server confirms or declines it, and explains every other answer (rules 27, 28)
+- **Given** a student who answers a reminder from the chat or the class detail
+- **When** the server's answer comes back
+- **Then** `confirmed` and `declined` are recorded on the row, with no message
+- **And** `spot_filled` records nothing and says the spot was taken, as information and not as an error
+- **And** `not_yet_asked` and `already_marked` record nothing and each gives its own explanation
+- **And** `expired`, and an answer the app does not know, record nothing and show an error
+test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `records nothing and names the refusal when the spot has gone (PAD-315)` (+13 more)
+
+#### ATTENDANCE-CONFIRM-41: One cancel action is offered to an enrolled student until the class starts (rules 9, 20, 25)
+- **Given** an enrolled student looking at a class on iOS
+- **When** the screen decides whether to offer "Não vou poder ir"
+- **Then** it is offered whether or not the early-decline window is open, and also when the student has no presence row yet
+- **And** it is not offered once the student is absent, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
+test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` › `stays available after the proactive window closes` (+3 more)
+
+### Open questions
+
+- **P-ATTENDANCE-2 says "No" is final for the player; rule 28 and the code let the student come back.**
+  - P-ATTENDANCE-2: ""No" is final for the player: the buttons go everywhere, including the chat, and a note points to the coach's conversation; the coach puts them back by hand. The coach's own earlier mark stands." And: "There is no undo, also for a class the student requested."
+  - P-NOTIFICATIONS-7 (the other half's area): "Changing the answer (no, then yes) always goes through."
+  - Rules 26, 28 and 29 of this spec: PAD-684 (owner, 2026-10-21) supersedes PAD-570's "Não vou is final" of 2026-10-09. A student who said no taps "Afinal vou"; with a free spot they are seated again, without one the answer is `spot_filled` and the waiting list is offered; a coach's "Não vai" can be undone by the student before the class.
+  - The code today: `respond_to_reminder` with yes after a no re-checks capacity and confirms (`notification_service.py:4442-4446`, `:4731-4790`), answers `spot_filled` when the class is full (`:4762`), and `expired` once the class has started. `test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back` pins it and says in its docstring that PAD-684 superseded PAD-570. ATTENDANCE-CONFIRM-32 to 35 state it.
+  - Recommendation: the latest owner decision is PAD-684, so P-ATTENDANCE-2 is the stale one, and P-NOTIFICATIONS-7's "always" is too strong. Neither promise was changed.
+  - Proposed text for P-ATTENDANCE-2's bullet: "A player who said "no" can come back while the class has not started: with a free spot they are seated again, and without one they are offered the waiting list. A mark the coach made stands against a later "yes", except that a coach's "Não vai" can be undone by the student before the class (PAD-684)." Proposed text for its last bullet: "A cancellation has no undo button; coming back is the "Afinal vou" above."
+  - Proposed text for P-NOTIFICATIONS-7's sentence: "Changing the answer (no, then yes) goes through while the class has a free spot and has not started."
+- **"The coach's phone is pushed only for a late cancellation" matches the code, with one exception.** P-ATTENDANCE-2 states it (a coordinator decision of 2026-09-11, awaiting the owner). An early cancellation creates the coach's message and no push (`notification_service.py:2761`); a late one adds a web push and a phone push (`:2770`, `:2782`). In semi-automatic mode every cancellation, early included, pushes the coach "Replacement approval needed" (`replacement_approval_service.py:341`): that push is about the freed spot. Recommendation: confirm the decision and name the exception in rule 8.
+- **ATTENDANCE-CONFIRM-14 describes an action rule 25 retired.** It speaks of an "I can't attend" action that is absent while the window is closed, leaving "only the plain cancel-attendance action". Rule 25 made them one action, offered whether or not the window is open; ATTENDANCE-CONFIRM-41 states that. Recommendation: retire criterion 14.
+- **Rule 24 still says "undoing a cancellation is not offered".** Since rule 28 a student undoes their own cancellation with "Afinal vou" while a spot is free. ATTENDANCE-CONFIRM-26's third case (a plain message on `spot_filled`) is superseded by rule 28 and ATTENDANCE-CONFIRM-33 as well. Recommendation: amend rule 24 and trim criterion 26.
+- **The phone app still reads `status` and `justification` to decide what to show.** Rule 25 says clients no longer do. `attendance-decline.ts:58` and `:105` gate the cancel action and the declined hint on them (`app/class/[id].tsx:1118`). Recommendation: move both onto `attendanceState`.
+- **Two tests carry names from before PAD-684.** "no way back after 'Não vou'" and "not_coming is final" pass for other reasons. Recommendation: rename them.

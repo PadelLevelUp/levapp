@@ -93,3 +93,17 @@ a surface that only exists off the phone app).
 - **Given** the student above with the account language `pt`, then `en`
 - **Then** the card reads "A LevApp também está na App Store" / "Ir para a App Store" /
   "Agora não", then "LevApp is on the App Store" / "Open the App Store" / "Not now"
+
+#### MOBILE-INSTALL-SUGGESTION-7: A student is anyone signed in who is not marked otherwise, on an iPhone-class browser (rule 1)
+- **Given** a signed-in user whose profile carries no roles, a visitor who is not signed in, and browsers on an iPhone, an iPod touch, an iPad, an Android phone and a desktop
+- **When** the page decides whether to suggest the app
+- **Then** the user with no roles is treated as a student, and the visitor who is not signed in sees nothing
+- **And** Safari and Chrome on an iPhone, and an iPod touch, count as an iPhone; an iPad, an Android phone, a desktop and a missing user agent do not
+test: `frontend/packages/config/src/install-suggestion.test.ts` › `a signed-in user with no roles field is treated as a student (rule 1)` (+2 more)
+
+#### MOBILE-INSTALL-SUGGESTION-8: A dismissal that cannot be read or stored never breaks the page (rule 3)
+- **Given** a stored dismissal that is not a number, is blank or lies in the future, and a browser whose storage throws or is missing
+- **When** the page reads the dismissal, and the student dismisses the card
+- **Then** the unreadable values count as not dismissed, so the card shows
+- **And** where storage fails the dismiss does not throw, and the card stays hidden until the page is left
+test: `frontend/packages/config/src/install-suggestion.test.ts` › `a malformed, empty or future value counts as not dismissed` (+2 more)

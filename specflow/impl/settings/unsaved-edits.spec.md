@@ -91,7 +91,29 @@ device. The server stays the one truth; the user decides at the moment of leavin
 - **When** the page is about to unload
 - **Then** a `beforeunload` handler is registered; with no unsaved section none is
 
+#### SETTINGS-UNSAVED-EDITS-8: A section is unsaved exactly while its content differs from what was last loaded or saved (rule 2)
+- **Given** a level list, a season and a week of working hours as loaded
+- **When** each is edited and compared with what was loaded
+- **Then** a level list is unsaved when a field, the order or the set of rows differs, and clean again when an added row is removed
+- **And** a season is unsaved when a field differs, and the default draft of a coach with no season is clean
+- **And** a week is unsaved when a day's off flag, or a window's start or end, differs
+- **And** equal content is clean even when it was rebuilt
+test: `frontend/apps/mobile/src/features/settings/coach-levels-section.test.tsx` › `is false for the identical list, true for an edited field` (+10 more)
+
+#### SETTINGS-UNSAVED-EDITS-9: The question is asked only when leaving would lose something (rules 3, 6)
+- **Given** web Settings on Calendar with Sunday switched off and not saved
+- **When** the coach presses the Calendar tab again, goes back to the section list on a narrow screen, and signs out
+- **Then** choosing the tab already shown asks nothing and keeps the edit
+- **And** going back to the list on a narrow screen asks nothing, and the section is still there with its edit when reopened
+- **And** signing out asks first; Discard signs out and saves nothing; with nothing held it signs out at once
+test: `frontend/apps/web/src/pages/SettingsPage.test.tsx` › `choosing the tab that is already active never asks` (+3 more)
+
 ### Notes
 - Ledger: B-157 (reserved by Session D on 2026-09-21 for this observation, cited in B-155).
 - Each section reports its own "unsaved" state to the page/screen that switches sections; the
   page asks. Sections keep their B-155 load guards unchanged.
+
+### Open questions
+
+- **The iOS back-row tests would stay green if the real screen broke.** They exercise a handler copied into `unsaved-registry.test.tsx`. The real screen's header back and swipe (`usePreventRemove`, `gestureEnabled: !hasUnsaved`) have no test. Recommendation: tag a Maestro flow to SETTINGS-UNSAVED-EDITS-2.
+- **Rule 1 still lists "Admin" among the sections.** Settings → Admin was removed with PAD-532. Recommendation: delete the word.

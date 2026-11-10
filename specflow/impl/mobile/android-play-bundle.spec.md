@@ -110,6 +110,13 @@ Firebase file ever committed. A bundle that is not fit for Play says so in its n
 - **Then** the artefact is `levapp-android-aab-NOT-FOR-PLAY-debug-signed`; with the key it is
   `levapp-android-aab-<version>-<versionCode>`, and a debug signer on it fails the job
 
+#### MOBILE-ANDROID-PLAY-BUNDLE-6: A store bundle never allows cleartext traffic (rule 4)
+- **Given** the Android prebuild, with `LEVAPP_CI_APK` set to `1`, set to anything else, and unset
+- **When** the manifest is written
+- **Then** only `LEVAPP_CI_APK=1` adds `android:usesCleartextTraffic="true"`; otherwise the manifest is left as it was
+- **And** the workflow's bundle job runs its prebuild without `LEVAPP_CI_APK`, and checks the manifest for cleartext traffic and for the signing marker
+test: `backend/padel_app/tests/test_pad355_android_play_bundle.py` › `test_the_store_prebuild_has_no_ci_flag_and_is_checked` (+4 more)
+
 ### Notes
 - Play App Signing: Google holds the app signing key; the upload key only proves the upload. A
   lost upload key is reset through Play Console support, not by re-publishing.

@@ -74,6 +74,9 @@ A coach who belongs to a club can invite another coach to join that club via a s
      (`auth.email-verification` rule 8). The club link exists at once (rule 4).
    - The authenticated existing-coach accept (rule 5) is unchanged. No client calls it today.
 
+10. The new-user accept needs `name`, `username` and `password` (400 without them) and a username nobody has (409 otherwise). Neither refusal uses the invitation: it stays pending.
+11. The accept is throttled per IP address with sign-up's limit (`register`): past it the answer is 429 `RATE_LIMITED`. A 409 does not use the invitation, so without the limit a pending link would tell anyone whether an email is registered.
+
 ### Acceptance Criteria
 
 #### CLUBS-COACH-INVITATION-1: An invited coach confirms their email (rule 9, PAD-477)
@@ -159,3 +162,73 @@ A coach who belongs to a club can invite another coach to join that club via a s
 - **Then** the new account records `terms_accepted_at`, `terms_version` and `privacy_version`
 - **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
 - **And** a client that does not declare the token completes as before, with the columns NULL
+
+#### CLUBS-COACH-INVITATION-15: The link resolves to its club for seven days (rules 2, 3, 6)
+- **Given** an invitation created at 2026-01-01 12:00 for club `Padel Academy`
+- **When** anyone GETs `/api/app/coach-invitations/<token>` without signing in
+- **Then** its `expires_at` is 2026-01-08 12:00, and the answer is 200 `{"clubName": "Padel Academy", "status": "pending"}`
+- **And** a token nobody issued is 404, and a revoked or expired one is 410
+- **And** an invitation found past its expiry is stored as `expired`
+test: `backend/padel_app/tests/test_coach_invitation.py` › `test_create_invitation_expires_in_7_days` (+4 more)
+
+#### CLUBS-COACH-INVITATION-16: Revoking and listing stop at the club's edge and at a used invitation (rules 1, 7)
+- **Given** a pending invitation for club 1, a member coach and a coach outside the club
+- **When** each POSTs `/api/app/coach-invitations/<token>/revoke`, or GETs `/api/app/club/1/coach-invitations`
+- **Then** the member's revoke is 200 and the invitation is `revoked`; the outsider's revoke and list are 403; an unknown token is 404
+- **And** revoking an invitation already accepted is 410 on the token route and on the by-id route
+- **And** revoking by id an invitation that belongs to another club is 404
+test: `backend/padel_app/tests/test_coach_invitation.py` › `test_revoke_as_member` (+6 more)
+
+#### CLUBS-COACH-INVITATION-17: The new-user accept needs its fields and a free username (rule 10)
+- **Given** a pending invitation and an existing user `taken_username`
+- **When** a visitor accepts with no name or password, or with username `taken_username`
+- **Then** the first is 400 and the second is 409
+- **And** the invitation is still pending after the 409
+test: `backend/padel_app/tests/test_coach_invitation.py` › `test_accept_with_missing_fields_400` (+1 more)
+
+#### CLUBS-COACH-INVITATION-18: An email is judged the same whatever the build declares (rules 8, 9)
+- **Given** a pending invitation
+- **When** a new user accepts with an email of spaces only, with `not-an-address`, with an address already registered, or, declaring no capability, with `Rita@Example.com`
+- **Then** spaces count as no email (400 from a client declaring `coach-invite-email`, the legacy 200 otherwise, and no code is mailed); the malformed one is 400 on `email`; the registered one is 409 on `email` and its body has no `code` key; the last is 200 with state `"pending"` and one code mailed to `rita@example.com`
+- **And** an under-18 `birthDate` with no email answers `UNDERAGE` on `birthDate`, not `EMAIL_REQUIRED`
+test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › `test_a_blank_email_counts_as_none` (+4 more)
+
+#### CLUBS-COACH-INVITATION-19: The first code follows the commit and cannot undo it (rule 4)
+- **Given** a new-user accept that carries an email
+- **When** the accept fails while the account is being written, or issuing the code fails after the commit
+- **Then** in the first case the answer is 500, no account exists and nothing is mailed
+- **And** in the second the answer is 200 with an `accessToken`, the account exists and the invitation is `accepted`
+test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › `test_a_failure_after_the_commit_still_answers_with_the_session` (+1 more)
+
+#### CLUBS-COACH-INVITATION-20: An existing coach who accepts is asked for nothing and gains only the membership (rules 5, 8a, 9)
+- **Given** a signed-in coach holding a pending invitation, whose client declares `coach-invite-email`, `terms-acceptance` and `country-on-completion`, or nothing
+- **When** they accept with an empty body
+- **Then** the answer is 200 `{"success": true}`, no code is mailed and their email verification state is unchanged
+- **And** when they already belong to the club the answer is still 200 and they hold exactly one membership of it
+test: `backend/padel_app/tests/test_coach_invitation.py` › `test_accept_as_existing_member_is_noop` (+2 more)
+
+#### CLUBS-COACH-INVITATION-21: The accept is throttled like sign-up (rule 11)
+- **Given** the `register` limit at 2 per 600 seconds and a pending invitation
+- **When** three accepts arrive from one IP address, then one from another
+- **Then** the third answers 429 `RATE_LIMITED` and the one from the other address is judged normally
+test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › `test_the_accept_is_throttled_like_sign_up`
+
+#### CLUBS-COACH-INVITATION-22: The web form checks before it sends and puts each refusal on its field (rules 8a, 8b, 9)
+- **Given** the web accept form at `/invite/coach/:token`
+- **When** the visitor presses Join
+- **Then** a valid form sends the email trimmed, `country: "PT"` when the select was left alone, and `termsAccepted: true`
+- **And** a malformed email or an unticked Terms box shows its error on that field and sends nothing
+- **And** a server 409 on `email`, `COUNTRY_REQUIRED` or `INVALID_COUNTRY`, and `TERMS_REQUIRED` each show on their own field
+- **And** when the accept succeeded and the profile read after it fails, the visitor moves on and sees no error
+test: `frontend/apps/web/src/pages/CoachInvitePage.test.tsx` › `an account that exists is never told the accept failed: a failed /me still moves on` (+8 more)
+
+### Open questions
+
+- **Rule 7 says the token revoke "still works for whoever holds the link"; the code refuses a coach outside the club.**
+  - Rule 7: "`POST /api/app/coach-invitations/<token>/revoke` still works for whoever holds the link."
+  - Rule 1: "Only a coach with a `coach_in_club` association for the club can create or revoke invitations for it."
+  - The code today: the token route answers 403 to a coach who is not a member of the invitation's club (`club_service.py:240-241`), 404 for an unknown token and 410 for an invitation that is no longer pending (`club_service.py:243-244`). `test_revoke_as_non_member_403` pins the 403. CLUBS-COACH-INVITATION-16 is written to the code.
+  - Recommendation: keep the code and rule 1, and amend rule 7's last sentence.
+  - Proposed text for rule 7's last sentence: "`POST /api/app/coach-invitations/<token>/revoke` still works for a member coach who holds the link (403 for a coach outside the club, 404 for an unknown token, 410 unless pending)."
+- **Reading an expired link writes to the invitation, and no rule says so.** `GET /api/app/coach-invitations/<token>` stores status `expired` on a pending invitation found past its `expires_at` (`club_service.py:85-89`; pinned by `test_resolve_expired_invitation_410`). CLUBS-COACH-INVITATION-15 states it because a test pins it. Recommendation: keep it and add the sentence to rule 6.
+- **The order of the accept's checks is stated only in part.** Rules 8a and 8b say the country and the Terms are checked after the birth date. The code checks, in order: missing name, username or password (400), birth date, country, Terms, email (blank or malformed), username taken (409), email taken (409) (`club_service.py:118-161`). CLUBS-COACH-INVITATION-18 pins birth date before email. Recommendation: state the whole order once, in rule 9.

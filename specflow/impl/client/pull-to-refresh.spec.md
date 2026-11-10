@@ -137,6 +137,13 @@ puts the keyboard away, so the walk-in search can never trap the coach behind it
 - **And** without a token both answer 401 and nothing waits (the route-map guard in
   `test_frontend_api_authz.py` holds every `/api/app` write to a JWT)
 
+#### CLIENT-PULL-TO-REFRESH-9: The stall switch refuses a malformed request and never waits past 120 seconds (rule 6)
+- **Given** the Flask test app with the E2E flag on and a valid token
+- **When** `POST /api/app/debug/stall` is called with no `path`, with a `path` outside `/api/`, with `seconds` that is not a number, and with `seconds` above 120
+- **Then** the first two answer 400 `PATH_REQUIRED` and the third 400 `SECONDS_INVALID`
+- **And** the last answers 200 and reports 120 seconds
+test: `backend/padel_app/tests/test_pad786_e2e_stall.py` › `test_a_stall_is_capped_and_needs_an_api_path`
+
 ### Notes
 - Web is untouched by this leaf (rule 1's surfaces are phone gestures); web's share of PAD-786 is
   the shared timeout (`client.request-timeout`). Written here and in the PR body (R-024).

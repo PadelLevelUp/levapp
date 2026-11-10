@@ -289,8 +289,31 @@ it does not exist.
   and the checksum annotation carry them; **given** one missing or with a `|` in it **Then**
   exit 1, nothing printed
 
+#### DELIVERY-K8S-MANIFESTS-20: Configuration comes from the template, with a short list of overrides (rule 8)
+- **Given** the rendered manifests and the files they are rendered from
+- **When** a Deployment sets an environment variable that the template also sets
+- **Then** it is one of `WORKER_SPLIT`, `SSE_BROKER`, `AUTH_RATE_LIMIT_STORE` or `POSTGRES_HOST`
+- **And** the api, events and worker Deployments set `AUTH_RATE_LIMIT_STORE` to `database`
+- **And** the per-environment `vars.env` is ignored by git, and the lint job renders with an empty one
+test: `infra/k8s/tests/test_pad702_config.py` › `test_overrides_are_the_listed_ones` (+3 more)
+
+#### DELIVERY-K8S-MANIFESTS-21: The GKE deploy is started by hand, proves who it is without a key, and ends with a smoke check (rule 11)
+- **Given** the GKE deploy workflow
+- **When** it is dispatched for staging or for production
+- **Then** it runs only on a manual dispatch, never cancels a deploy already running, and calls one shared deploy job
+- **And** that job runs as its environment and signs in by workload identity, with every identifier read from a variable and no key file
+- **And** the staging build pushes each image under the commit's own tag as well as the `staging` tag
+- **And** the smoke check fails, naming the check, when the health route is not 200 or the app-links file is not JSON; it passes a healthy environment and skips the signed-in checks when it is given no account
+test: `infra/k8s/tests/test_pad703_deploy.py` › `test_the_job_runs_as_the_environment_with_federated_identity` (+5 more)
+
 ### Notes
 - Autopilot rounds requests to its minimums and CPU:memory ratio; the tests read the rendered
   values, not what Autopilot will bill.
 - The legacy domain can become a Cloudflare redirect once its API count is zero for some weeks
   after the cutover (decision for then, on PAD-698).
+
+### Open questions
+
+- **The migrate Job's time limit is in the script only.** Rule 11 step 6 says the deploy "polls for Complete or Failed"; the script also gives up after 1,860 seconds and prints the Job's log, which the test pointed at DELIVERY-K8S-MANIFESTS-18 pins with a short limit. Recommendation: state the limit in rule 11.
+- **Four checks read less than their names say.** The lint-flag test and the image-tag test look for a substring anywhere in the workflow; the unset-keys test does not look at a Deployment's own env; the dispatch test does not assert the per-environment concurrency group. Recommendation: tighten them when the tags are applied.
+- **`unset-keys.txt` names a guard file that does not exist.** Line 3 cites `test_pad702_config_guard.py`; the file is `test_pad702_config.py`. Recommendation: fix the name.

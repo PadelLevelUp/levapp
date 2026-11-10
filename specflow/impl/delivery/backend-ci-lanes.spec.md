@@ -83,3 +83,8 @@ another hour, and a test that no lane runs is a test nobody runs.
   (range 46–73) against a 75 cap; two runs used 94–98% of it. The suite is 4241 tests in 402
   files, in one flat directory, so a split by directory was not possible.
 - No ruleset requires these checks by name, so renaming the Postgres job needed no owner step.
+
+### Open questions
+
+- **Rule 6 lists seven install sites; the guard counts eight.** The rule names six CI jobs and the Dockerfile; the guard also finds `android-store-screenshots` (`test_pad671_installs_come_from_the_lock.py:25`). Recommendation: add the job to rule 6.
+- **Four guards on how the code and its tests are written have no spec.** One vitest config per test file, no duplicate definitions in a module, no inherited git variables, and foreign keys enforced in the test database are proposed as plain unit tests. Recommendation: accept; they are repo rules (B-127, B-144, B-173, R-030), not delivery behaviour.

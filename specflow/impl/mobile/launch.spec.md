@@ -48,3 +48,19 @@ web app has no launch overlay (auth.login rule 8).
 - **Then** `overlay-gone` on the fix comes within the grace of `first-screen-ready`, and the
   median `overlay-gone` is earlier than on the control, which sits at ≈ 3.3 s
 - **And** `auth-restored` on the fix is no later than `fonts-ready` + the network round trip
+
+#### MOBILE-LAUNCH-3: The session is restored once per launch, however many callers ask (rule 1)
+- **Given** a stored token and two callers that ask for the session at the same moment
+- **When** both start the session restore
+- **Then** the profile is requested once and both callers get the same result
+- **And** after a reset, the next caller restores afresh
+test: `frontend/apps/mobile/src/auth/session-restore.test.ts` › `two callers share one /auth/me` (+1 more)
+
+### Open questions
+
+- **MOBILE-LAUNCH-2 says the overlay is gone "within the grace" of the first screen; the code adds a fade after the grace.**
+  - The criterion: "`overlay-gone` on the fix comes within the grace of `first-screen-ready`".
+  - Rule 2: the grace is `LAUNCH_RELEASE_GRACE_MS`, 300 ms.
+  - The code today: 300 ms of grace (`launch-overlay.ts:7`), then a 300 ms final fade (`LaunchAnimation.tsx:158`), so about 600 ms, and the overlay catches touches until the release. The unit test allows a grace of up to 500 ms, which is looser than rule 2.
+  - Recommendation: keep the code; say "within the grace plus the final fade (about 600 ms)" in the criterion and in P-MOBILE-6, and tighten the test to 300 ms.
+- **MOBILE-LAUNCH-1 speaks of a grace the function it names cannot see.** "With the fonts ready it says yes once the grace has passed": `overlayMayRelease` takes two booleans and no clock; the grace is a timer in `app/_layout.tsx:104`. A font error counting as "fonts ready" (`_layout.tsx:99`) has no test. Recommendation: split the sentence between the rule (booleans) and the timer.

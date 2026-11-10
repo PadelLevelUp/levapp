@@ -351,6 +351,8 @@ Send browser push notifications when a new message arrives and the recipient isn
       never the token (`admin.engine-health` rule 8). A denial and a simulator report nothing.
     - Web's counterpart is `auth.push-subscription` rule 9.
 
+16. Outbox rows that are done are deleted: `sent` and `skipped` rows after a day, `dead` rows after 30 days. A `pending` row is never deleted.
+
 ### Acceptance Criteria
 
 #### MESSAGING-PUSH-NOTIFICATIONS-1: The outbox is at least once (rule 10a)
@@ -580,3 +582,56 @@ Send browser push notifications when a new message arrives and the recipient isn
 - **Then** it has no `googleServicesFile`
 - **And** with `LEVAPP_ANDROID_FCM=1` and `GOOGLE_SERVICES_JSON=/tmp/gs.json` (present) it is `/tmp/gs.json`; with the flag and no variable it is the `docs/infra/` copy
 - **And** with the flag and no file at the resolved path the prebuild fails with an error naming `google-services.json` and the path
+
+#### MESSAGING-PUSH-NOTIFICATIONS-32: A phone is registered only with permission, and unregistering touches the caller's row alone (rules 9, 15)
+- **Given** a phone on which the user signs in, a phone that denies notifications, a simulator, and a token that another user owns
+- **When** each registers, and a user unregisters their own token and the other user's
+- **Then** signing in asks for permission once; a phone that grants it stores its token once, with its user and platform
+- **And** a denial sends nothing, is never retried and reads `no-permission`
+- **And** a simulator sends nothing and reads `unsupported`, so no "not active" banner shows
+- **And** unregistering removes the caller's own row and leaves the other user's; doing it twice still answers 200
+test: `frontend/apps/mobile/src/lib/push/expoPushRegistrar.test.ts` › `a denial is not retried` (+5 more)
+
+#### MESSAGING-PUSH-NOTIFICATIONS-33: A push says where it leads, and both channels say the same (rules 3, 7)
+- **Given** a push about a screen of the app, and one about a page outside the app
+- **When** it is sent, and tapped on the phone and in the browser
+- **Then** the phone's payload and the browser's link name the same destination
+- **And** on the phone a path of the app opens its screen, a path the app does not know opens nothing, and a full `https://` address opens in the system browser
+- **And** in the browser a path of the app moves the open tab, and an address on another origin opens a new window
+- **And** a push type the app does not know leads nowhere and does not crash
+test: `frontend/apps/mobile/src/lib/push-routing.test.ts` › `routes a plain in-app path through the app's one web-path mapper` (+10 more)
+
+#### MESSAGING-PUSH-NOTIFICATIONS-34: A push reaches a registered phone whether or not its owner is connected, with the reader's count and language (rules 4, 5, 14)
+- **Given** a recipient with a phone registered, who is connected to live updates, and one with no phone
+- **When** a message is sent to each
+- **Then** the connected recipient still gets one phone push
+- **And** the recipient with no phone gets none, and nothing is requested from Expo
+- **And** the push carries the recipient's unread total, the new message included; a count of 0 is sent as 0, and no count means no badge field
+- **And** the push of a notification-engine message is titled in the recipient's language ("Nova mensagem", "New message")
+test: `backend/padel_app/tests/test_native_push.py` › `test_direct_message_push_fires_while_recipient_is_connected_over_sse` (+5 more)
+
+#### MESSAGING-PUSH-NOTIFICATIONS-35: The outbox is off unless switched on, its drainer starts once, and done rows are cleared (rules 10, 10a, 16)
+- **Given** the server with `PUSH_QUEUE` unset, and then set to `outbox`
+- **When** pushes are sent and the drainer is started, stopped and started again
+- **Then** with the switch off a push goes through the in-memory sender and no outbox row is written
+- **And** with it on the drainer is one object however often it is asked for, a second start keeps the same thread, and it can be stopped twice and started again
+- **And** on Postgres two drainers never send the same row
+- **And** a sender that throws is logged and swallowed, on the in-memory sender's inline path and on its worker thread alike
+- **And** `sent` and `skipped` rows older than a day and `dead` rows older than thirty days are deleted, and `pending` rows are kept
+test: `backend/padel_app/tests/test_pad294_push_sender_review.py` › `test_inline_and_worker_paths_swallow_a_sender_exception_the_same_way` (+6 more)
+
+#### MESSAGING-PUSH-NOTIFICATIONS-36: Staging sends no phone push (rule 10a)
+- **Given** the environment files of staging and of production, and a server with `EXPO_PUSH_DISABLED=1`
+- **When** a phone push is due
+- **Then** staging's file sets `EXPO_PUSH_DISABLED=1` and production's does not name it
+- **And** with the flag set nothing is requested from Expo, and without it one request is made
+test: `backend/padel_app/tests/test_pad624_staging_sends_no_expo_push.py` › `test_staging_sets_the_flag_and_production_does_not` (+2 more)
+
+### Open questions
+
+- **Rule 15 says "only login, sign-up and the banner's tap ever prompt"; a restored session prompts too.** `AuthContext.tsx:115` calls the registrar on a silent session restore, and it asks for permission while it is undetermined. The test asserts one prompt for each of login, sign-up and restore. MESSAGING-PUSH-NOTIFICATIONS-32 says "signing in". Recommendation: decide whether a restore may prompt, then fix the rule or the code.
+- **Rule 3's "a web push never names a host" is false for one alert.** The coach-approval alert carries the staff console's full address in both channels (`request_alert_service.py:174-179`); the browser opens it in a new window and the phone in the system browser, which MESSAGING-PUSH-NOTIFICATIONS-33 states. The guard test checks only the table of relative paths. Rule 7 does not list the `https://` shape either. Recommendation: add the exception to rules 3 and 7.
+- **The Intent says a push goes out when the recipient "isn't actively viewing the conversation"; nothing checks that.** Rule 1 sends "for each recipient", and a connected recipient still gets the push (MESSAGING-PUSH-NOTIFICATIONS-34). P-MESSAGING "user manages unread and notifications" repeats the Intent: "and they are not in that conversation". Recommendation: decide whether a reader with the thread open should be spared the push; until then reword the Intent and the promise.
+- **MESSAGING-PUSH-NOTIFICATIONS-11 and 12 and rule 12 name direct and system messages only.** The pushes to a coach for a join request, a class request, a waiting-list join and a cancellation name their message the same way, by test only. Recommendation: list them in rule 12.
+- **Rule 12a says the tap navigates with `router.push`; it now goes through a helper.** `pushRoute` first returns to the Messages tab and then pushes the thread. Recommendation: reword.
+- **The outbox's retention had no rule until tonight.** Rule 16 was written from the code and its one test (a day for `sent` and `skipped`, 30 days for `dead`). Recommendation: confirm the two periods.

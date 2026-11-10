@@ -69,6 +69,14 @@ allows exactly the listed web origins cross-origin. `levapp.app/api` keeps answe
   `https://api.levapp.app/api/` **then** `https://api.levapp.app/api`; and no web module calls
   `fetch` with a literal `/api/` URL
 
+#### DELIVERY-API-HOST-4: The client's address is taken from Cloudflare alone and reaches the backend on every proxied location (rule 2; `auth.login` rule 7)
+- **Given** the server's nginx configuration
+- **When** a request arrives through Cloudflare, or from anywhere else
+- **Then** nginx reads the client's address from `CF-Connecting-IP`, and only when the connection comes from one of Cloudflare's published ranges
+- **And** the trusted-address configuration never names `X-Forwarded-For` as the source
+- **And** every location that proxies to the backend passes that address on as `X-Real-IP`
+test: `backend/padel_app/tests/test_pad554_real_ip.py` › `test_nginx_trusts_cf_connecting_ip_only_from_cloudflare` (+1 more)
+
 ### Notes
 - **iOS (R-024):** the app already reads its API from `EXPO_PUBLIC_API_URL`
   (`apps/mobile/src/lib/config.ts`, fallback `PRODUCTION_API_URL`). Pointing a build at the new
@@ -77,3 +85,9 @@ allows exactly the listed web origins cross-origin. `levapp.app/api` keeps answe
 - **Admin console:** stays on its own host (`admin.levapp.app` → `/admin/api`); the admin
   blueprint checks the request's Host, so it does not move to the api host.
 - The switch order and the owner's DNS/certificate steps are on PAD-614.
+
+### Open questions
+
+- **P-DELIVERY-7 says "only LevApp's own websites may call the API from a browser on another address"; two defaults are always allowed too.** Rule 3 and `config.py:466` add a local development origin and one fixed server address to the listed origins, in production as well. Recommendation: drop the two defaults in production, or say so in the promise.
+- **The promise's "its own logs and limits" has no rule for limits.** Rule 2 states the logs; no rule gives the API host a rate or size limit. Recommendation: state the limit or drop the word.
+- **Rule 2 mentions `X-Real-IP` and not where the address comes from.** The Cloudflare trust list, with its 22 ranges fetched on 2026-10-08, is stated only by the test behind DELIVERY-API-HOST-4 and by `auth.login` rule 7. Recommendation: add a sentence to rule 2, and say how the list is refreshed.

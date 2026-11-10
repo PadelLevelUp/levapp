@@ -211,8 +211,60 @@ a coach acts by hand. The coach's roster always wins.
 - **And** all 6 remain enrolled
 - **And** no notification is sent to any of them
 
+#### ELIGIBILITY-ENFORCEMENT-16: A failure record says why it failed and in which direction (rule 7a)
+- **Given** a class at level `5` in the ladder `4`, `5`, `5-` (strongest first) and the bar `[{level, same_as_class}]`
+- **When** the failures of a student with no level, and of a student at `4`, are computed
+- **Then** the student with no level has one record with `reason: "student_has_no_level"` and `threshold: "5"`
+- **And** the student at `4` has one record with `ladder_distance: -1`, the stronger side
+test: `backend/padel_app/tests/test_pad133_eligibility_reasons.py` › `test_fail_closed_cases_carry_a_reason_code` (+1 more)
+
+#### ELIGIBILITY-ENFORCEMENT-17: The check answers only the students who fail, each with their failures (rules 6, 7c)
+- **Given** a class at level `5`, students on the coach's roster, and a player id on nobody's roster
+- **When** the coach's client asks which of them fail the bar
+- **Then** under `same_as_class`, of students at `5` and at `5-`, only the one at `5-` is listed, with their name and a failure whose `actual` is `5-`
+- **And** under `within_n_above_class` with N 1, of students at `4` and at `5-`, the one at `4` passes and only the one at `5-` is listed
+- **And** the id outside the coach's roster is ignored
+test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_class_edit_warning_names_weaker_not_stronger` (+2 more)
+
+#### ELIGIBILITY-ENFORCEMENT-18: A manual invitation goes out at once when nobody fails, and the check never blocks it (rule 6a)
+- **Given** the invite modal on web or iOS with students selected
+- **When** the coach presses send
+- **Then** when no selected student fails the bar the invitations are sent with no confirmation
+- **And** when the check itself fails the invitations are sent all the same
+- **And** with nobody selected nothing is checked and nothing is sent
+- **And** on iOS a second press while the check is running starts no second check, opens one confirmation and sends nothing until it is answered
+test: `frontend/apps/web/src/components/calendar/ManualNotificationModal.eligibility.test.tsx` › `sends at once when nobody fails, and when the check itself fails` (+4 more)
+
+#### ELIGIBILITY-ENFORCEMENT-19: The confirmation and the impact note are built the same way on both shells (rules 7d, 9b)
+- **Given** the rows the server answers for a check, and for a stricter bar
+- **When** either shell builds the confirmation and the impact note from them
+- **Then** the confirmation has one block per failing student and one line per failed rule, each with its values (4 unjustified absences against a limit of 2)
+- **And** the impact note has one line per student and class, ordered by class start and then by name, and counts each student once; with no rows it has no lines and counts zero
+- **And** a row that carries the coach's nickname for the student shows it in place of the name (`players.nickname` rule 9a)
+test: `frontend/packages/config/src/eligibility-report.test.ts` › `describeIneligible and describeImpact print displayName when the row carries it` (+3 more)
+
+#### ELIGIBILITY-ENFORCEMENT-20: The stricter-bar report covers classes still to come, at their true instant (rule 9a)
+- **Given** a student at `5-` enrolled in a class five days ago and in a class to come, and the bar `[{level, same_as_class}]`
+- **When** the report for that bar is computed
+- **Then** it lists the class to come and not the past one
+- **And** `startDatetime` is the class's UTC instant: a class at 10:00 in Lisbon is `09:00:00+00:00` in summer and `10:00:00+00:00` in winter
+- **And** an unset bar, `null` or `[]`, reports nobody
+- **And** a student enrolled under a bar whose level operation is unknown is listed with reason `unknown_operation` (`eligibility.rules` rule 6)
+test: `backend/padel_app/tests/test_pad133_eligibility_reasons.py` › `test_report_is_empty_for_an_unset_bar` (+3 more)
+
 ### Notes
 - **[PAD-150, 2026-09-09]** Rules 7d and 9b are the client half of PAD-133 (backend landed in
   levelup_backend#89). Rendering reuses `describeEligibilityFailure` from the invite tutorial
   (`tutorials.eligibility.*` keys) so the reasons never fork between the tutorial, the dialog and
   the note.
+
+### Open questions
+
+- **Rule 7d still says the manual-invitation modal gets no eligibility prompt; rule 6a and the code give it one.**
+  - Rule 7d: "`ManualNotificationModal` is NOT this surface: it sends manual *notifications* and reports availability blockers (`calendar.student-blockers` rule 8); it does not enrol anyone and gets no eligibility prompt."
+  - Rule 6a (PAD-562; owner, 2026-10-09): "the client runs the same check ... BEFORE `POST /api/app/notify/manual` and opens the same confirmation".
+  - The code today: both modals run the check (`ManualNotificationModal.tsx:213-215`, `notify-modal.tsx:171-174`); ELIGIBILITY-ENFORCEMENT-12, 13 and 18 are written to it.
+  - Recommendation: rule 6a is the later owner decision; rewrite rule 7d's last sentence.
+  - Proposed text for rule 7d's last sentence: "`ManualNotificationModal` enrols nobody, and it runs the same check and opens the same dialog before a manual invitation (rule 6a); it also reports availability blockers (`calendar.student-blockers` rule 8)."
+- **A second check endpoint exists that no rule names.** `POST /api/app/standing_waiting_list/eligibility_check` (`notification_engine_api.py:719`) sits beside `POST /api/app/notify/eligibility_check` (rule 7c). Recommendation: name it in rule 7c, or say which spec owns it.
+- **Two tests assert less than their names say.** `ManualNotificationModal` › "sends at once when nobody fails the bar, and when the check itself fails" never makes the check fail (the failed check is proved only in `manual-invite-flow.test.ts`). Recommendation: add the failing-check case to the modal test.

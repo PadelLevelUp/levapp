@@ -98,8 +98,18 @@ deletes them. A coach may delete only a placeholder: a record that never activat
   `{"action": "delete", "notes": 0, "evaluations": 0, "presences": 0}`
 - **And** coach Bea asking about Rui gets 403
 
+#### PLAYERS-REMOVE-9: An unknown action is refused and nothing is removed (rule 6)
+- **Given** a coach and their student
+- **When** the coach POSTs `/api/app/remove_player` with `action: "purge"`
+- **Then** the answer is 400 and the student is still on the roster
+test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_an_unknown_action_is_refused`
+
 ### Notes
 - B-057 (PAD-274): before this, an active student removed by their only coach had their Player record
   deleted, and their presences and level history with it. That broke rule 3.
 - Tests: `backend/padel_app/tests/test_pad274_deletes.py`, and the Playwright spec
   `frontend/apps/web/e2e/players/player-removal.spec.ts`.
+
+### Open questions
+
+- **Rule 6's `INVALID_ACTION` code is asserted by no test.** The one test of an unknown action checks the 400 and that the link is kept. The client helper accepts the code too, and its test does not exercise it. Recommendation: assert the code in both.

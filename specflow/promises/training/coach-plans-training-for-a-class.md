@@ -11,6 +11,6 @@ A coach picks exercises from their library for a specific upcoming class, and th
 
 - A coach plans training only for a class they own.
 - Every exercise must be one the coach owns or follows; one inaccessible exercise rejects the whole request, with nothing partly applied.
-- Planning on a not-yet-materialised occurrence is rejected rather than creating it.
+- A refused request changes nothing: the plan stays as it was, and an occurrence that did not exist yet is not created.
 
 It does not promise building the library.

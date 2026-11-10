@@ -89,6 +89,8 @@ Send, edit, and delete messages within conversations, with support for replies a
     IntegrityError and an absent key a KeyError — a 500 either way. What text there is, is stored
     as sent, untrimmed: "0" and " spaced " are messages.
 
+12. **Copy copies the text as written (PAD-168).** Copying a message puts its content on the clipboard unchanged, spaces and line breaks included. A deleted message, or one with no text, offers nothing to copy.
+
 ### Acceptance Criteria
 
 #### MESSAGING-MESSAGES-1: Timestamp reflects viewer's local timezone
@@ -209,3 +211,37 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Then** the answer is 400 with `fields` `["text"]` and no message row exists (the edited one is unchanged)
 - **When** they POST `"text": "0"`
 - **Then** the message "0" is created
+
+#### MESSAGING-MESSAGES-20: A notice written in a student's name counts as automatic, and a deleted message never does (rule 6)
+- **Given** a join or class notice stored with the student as its sender and with metadata, and a message that was deleted
+- **When** each is serialized
+- **Then** the notice has `isAutomatic: true`
+- **And** the deleted message has `isAutomatic: false`
+test: `backend/padel_app/tests/test_pad492_automatic_marker.py` › `test_a_deleted_message_withholds_the_flag` (+1 more)
+
+#### MESSAGING-MESSAGES-21: An image is private unless marked public, and a signed address is reused only while it has time left (rule 5a)
+- **Given** a stored image, and one marked public
+- **When** their addresses are built
+- **Then** an image is private by default and gets a signed address; the public one gets its public address and is never signed
+- **And** a signed address taken from the cache has at least 10 minutes left
+- **And** on a server whose credentials hold no private key the address is signed through IAM instead
+- **And** the cache keeps a bounded number of addresses, the newest ones
+test: `backend/padel_app/tests/test_image_privacy.py` › `test_url_uses_a_signed_url_when_private` (+7 more)
+
+#### MESSAGING-MESSAGES-22: Copy takes the text as written, and a deleted or empty message has nothing to copy (rule 12)
+- **Given** a message with leading spaces and a line break, a deleted message, and a message with no text
+- **When** the user copies each on the phone
+- **Then** the first is copied unchanged
+- **And** nothing is copied for the other two, and the clipboard is left alone
+test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `copies the message content verbatim, inner whitespace included` (+3 more)
+
+### Open questions
+
+- **Rules 5, 5a and 5b and MESSAGING-MESSAGES-3 and 4 describe a photo attachment that no route produces.**
+  - P-MESSAGING "user and coach message in real time": "A message can carry a photo, or reply to an earlier message as a visible reply chain."
+  - The code today: `create_message_service` builds a message from its text, conversation, sender, time and reply only (`messaging_service.py:438-465`); nothing sets `attachment_id`, and the serializer sends no `attachmentUrl` (`serializers/message.py:86-110`). Only deletion and retention touch `attachment_id`. Profile photos and club logos use the same signing and are live; MESSAGING-MESSAGES-21 states that part.
+  - Recommendation: decide whether photos in messages are wanted. If not now, mark rules 5 to 5b and criteria 3 and 4 as not built, and drop the photo from the promise. Nothing was changed tonight.
+- **Rule 5a says a signed address lasts 60 minutes; the test allows 30.** `test_signed_urls_outlive_a_render` asserts a floor of 30. Recommendation: assert the rule's 60.
+- **The promise says "only the sender can edit or delete a message"; rule 3 gives staff a delete.** Rule 3 says the staff console's moderation delete calls the same erase (`admin.moderation` rule 4, a draft spec). Recommendation: say "from the app" in the promise once the console's delete is live.
+- **A comment on the signed-address cache describes a sweep the code does not do.** `model.py:39` says expired entries are swept first; the code drops only the oldest (`model.py:75-79`). Recommendation: fix the comment.
+- **The client's erased message keeps different fields from the server's.** Rule 3 names what the server keeps (sender, conversation, time, type, reply); the client copy keeps no type and clears the reply (test pointed at MESSAGING-MESSAGES-11). Recommendation: accept, and say so in rule 3.

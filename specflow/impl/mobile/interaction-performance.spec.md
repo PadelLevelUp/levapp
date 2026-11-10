@@ -113,3 +113,12 @@ mobile QueryClient also takes).
   `(tabs)/messages` / `(tabs)/players` row memoisation, the presences roster, the whole-day
   overlap query for students, `useAutoInviteEnabled`'s uncached fetch. Each is a follow-up
   ticket if the measurement says it matters.
+
+### Open questions
+
+- **MOBILE-INTERACTION-PERFORMANCE-3's last clause says `inactive` counts as backgrounded; the code and its test say it does not.**
+  - The criterion: "`inactive` and `background` are both "backgrounded" (`app-state-focus.test.ts`)".
+  - Rule 3: the app is focused again "only when the previous state was `background`".
+  - The code today: `isBackgrounded(next)` is true for `background` only (`app-state-focus.ts:18-20`), and the test named in the criterion asserts `isBackgrounded("inactive")` is false (`app-state-focus.test.ts:17`).
+  - Recommendation: the clause is stale; amend it to rule 3. Two tests proposed tonight are pointed at this criterion and prove the proposed text.
+  - Proposed text for the Then: "`isForegroundReturn` is false; from `background` it is true, and a first `active` with no earlier state counts as a return; only `background` counts as "backgrounded", `inactive` does not (`app-state-focus.test.ts`)".

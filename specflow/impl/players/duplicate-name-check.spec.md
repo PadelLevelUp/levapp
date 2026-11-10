@@ -73,3 +73,17 @@ students genuinely share a name).
 - **Given** a coach using the app in Portuguese, adding a player with an email that is already taken
 - **When** the availability check answers 409 with `message: "This email is already taken"`
 - **Then** the email field shows `common.fieldConflict.email_taken` in Portuguese, and the warning carries reason `email_taken`
+
+#### PLAYERS-DUPLICATE-NAME-CHECK-6: The check answers for the caller's own roster, and only for the fields it knows (rule 5)
+- **Given** coach A, and coach B whose roster holds "John Doe"
+- **When** A POSTs `/api/app/check_field_available` for the name "John Doe"
+- **Then** it answers 200 `available: true`, and 409 once A's own roster holds a John Doe, with or without a `scope`
+- **And** a `scope` naming another coach answers 403
+- **And** a username or an e-mail already in use answers 409 whoever's roster it is on
+- **And** an anonymous caller gets 401, and a field outside the allowed pairs gets 400
+test: `backend/padel_app/tests/test_check_field_available.py` › `test_name_duplicate_in_other_coach_roster_does_not_warn` (+6 more)
+
+### Open questions
+
+- **PLAYERS-DUPLICATE-NAME-CHECK-3's Given no longer warns.** It has "a user named John Doe" who is on no roster; since PAD-92 the name check looks only at the calling coach's own roster, so that case answers 200. The route's docstring still says a missing `scope` skips the warning (`frontend_api.py:2897-2900`); the code uses the caller's roster. Recommendation: amend the criterion's Given to "on the calling coach's roster" and fix the docstring.
+- **Rule 5 says unique fields "keep the exact match"; the username check ignores case since PAD-799.** `username_taken` matches case-insensitively (`username_tools.py:62-70`); the e-mail check is still case-sensitive. The test pins a same-case value only. Recommendation: say so in rule 5 and add the mixed-case test.

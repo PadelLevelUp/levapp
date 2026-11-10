@@ -176,3 +176,9 @@ signal (PAD-710).
   add it to `chains` or make it self-contained.
 - The 17 reds of 2026-10-21 are classified on PAD-710. Product defects are filed as their own
   tickets and are not fixed here.
+
+### Open questions
+
+- **Rule 7 says the lane check reads a failed shard's first error from the job log; it also reads a `setup-error.txt` from the shard's artifact.** The test pointed at DELIVERY-ANDROID-NIGHTLY-LANE-6 pins the artifact path. Recommendation: name both sources in rule 7.
+- **The summary's "reported N of M flows" line is in the code only.** A shard that reports fewer flows than it was given is red (neutral while the lane is experimental); rule 7 names the watchdog stops and not this. Recommendation: add it.
+- **The watchdog's tests prove the message, not the shard's exit.** Rule 4 says a stop prints an `::error` naming the running flow and the shard exits 1; the tests pointed at DELIVERY-ANDROID-NIGHTLY-LANE-7 check the line only. Recommendation: accept, since the exit is one shell line.

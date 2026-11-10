@@ -91,3 +91,15 @@ Coaches update player information, including level, side preference, and persona
 - **Given** App Store 1.1.0 sending the full form with the emptied note box OMITTED
 - **When** the request lands
 - **Then** the note is still there
+
+#### PLAYERS-EDIT-10: An edit reaches the name, e-mail, phone and the roster's own fields, and nothing else (rule 4)
+- **Given** a student with an account on the coach's roster
+- **When** the coach POSTs `/api/app/edit_player` with new notes, side and phone, and then with a username, a status, admin flags, a code and a password
+- **Then** the notes, side and phone are written
+- **And** the username, status, admin flags and password are unchanged
+- **And** the level comes back as a string id, and as null for a player with no level
+test: `backend/padel_app/tests/test_pad105_coach_never_sets_username.py` › `test_editing_a_player_cannot_change_their_username` (+4 more)
+
+### Open questions
+
+- **PLAYERS-EDIT-1, 2 and 3 are written against a route the apps do not call.** They use `PATCH /api/app/player/<id>`; rule 4 says the apps call `POST /api/app/edit_player`. Recommendation: restate the three against `edit_player`.

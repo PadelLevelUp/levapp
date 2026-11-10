@@ -110,3 +110,19 @@ Coach-side player creation therefore never asks for, nor accepts, a username.
 - **Then** the answer is 400 `ADULTS_CONFIRMATION_REQUIRED` and no player, user or roster row exists
 - **And** with `confirmsAdults: true` the player is created as before
 - **And** a client that does not declare the token creates as before
+
+#### PLAYERS-CREATE-9: A new placeholder has no password, a username of its own, and nothing where a field was left empty (rules 1, 4, 7)
+- **Given** a coach
+- **When** they create two players, sending empty strings or nothing for e-mail, phone, notes and side, and a third with real values
+- **Then** each account has no password and a different generated username
+- **And** the empty and the absent fields are stored as NULL, and the two players coexist
+- **And** the real values are stored as sent
+test: `backend/padel_app/tests/test_pad105_coach_never_sets_username.py` › `test_placeholder_accounts_have_no_password` (+4 more)
+
+#### PLAYERS-CREATE-10: The add-player form cannot save until the coach confirms the student is an adult (rule 10)
+- **Given** the add-player form on web or iOS with a name typed
+- **When** the coach presses save before and after ticking the confirmation
+- **Then** before the tick nothing is saved, and on web both the save and the save-and-invite buttons are disabled
+- **And** after the tick the save goes out with `confirmsAdults: true`
+- **And** the edit form shows no such box
+test: `frontend/apps/mobile/src/features/players/player-form-adults.test.tsx` › `does not save until the coach confirms the student is an adult` (+4 more)

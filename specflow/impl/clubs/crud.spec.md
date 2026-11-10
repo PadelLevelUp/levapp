@@ -45,3 +45,10 @@ Coaches create and manage clubs that serve as the organizational container for l
 - **When** the app resolves their current club (every club-scoped route, `GET /api/app/coach`)
 - **Then** it is club B, whichever order the memberships were inserted in
 - **And** a membership with no join time never outranks one that has one
+
+#### CLUBS-CRUD-4: No club means no current club, and a tie goes to the later membership (rule 3)
+- **Given** a coach with no club, and a coach who joined `First Club` and `Second Club` at the same instant, in that order
+- **When** the app resolves each one's current club
+- **Then** the first has none and `GET /api/app/coach` answers `club: null`
+- **And** the second is in `Second Club`, and `GET /api/app/coach` answers `club: {"id", "name"}` for a coach who has one
+test: `backend/padel_app/tests/test_coach_invitation.py` › `test_coach_detail_includes_club` (+3 more)

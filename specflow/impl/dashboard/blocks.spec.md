@@ -586,3 +586,121 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** a student signed up for a class from 10:45 to 11:45 and a class tomorrow, and the club clock at 11:15
 - **When** the student home is built
 - **Then** the hero is tomorrow's class with `inProgress` false, and the running class is not on the student's schedule
+
+#### DASHBOARD-BLOCKS-36: The coach home is built from one load whose cost does not grow with the classes (rule 8)
+- **Given** a coach with three classes in the window, then with thirteen, and a second coach with classes of their own
+- **When** the coach's dashboard is built
+- **Then** the classes are loaded once, and that load costs the same number of queries for three classes and for thirteen
+- **And** only that coach's classes are loaded, whether the coach is set on the class or on its series
+- **And** the blocks come in the order `next_class`, `needs_you`, `incomplete_players`, `schedule_7d`, `week_pulse`, and each of the four other than `incomplete_players` equals the block built on its own
+test: `backend/padel_app/tests/test_pad262_dashboard_pipeline.py` › `test_a_window_costs_a_fixed_number_of_statements` (+2 more)
+
+#### DASHBOARD-BLOCKS-37: The coach's hero is the soonest class, counted on the club's clock (rule 3)
+- **Given** a coach whose next class, B1, starts in 45 minutes with 2 of its 6 seats taken
+- **When** the `next_class` block is built
+- **Then** it carries the class's title, `filled: 2`, `capacity: 6`, `minutesUntil: 45`, `isToday: true` and the roster's initials
+- **And** the 45 minutes hold in summer and in winter, on the coach's home and on the student's
+- **And** `minutesUntil` is null when the class is more than two hours away
+- **And** a coach with nothing scheduled gets no `next_class` block
+test: `backend/padel_app/tests/test_dashboard_coach_home.py` › `test_hero_is_omitted_entirely_when_nothing_is_scheduled` (+4 more)
+
+#### DASHBOARD-BLOCKS-38: The coach's queue lists free seats, replies and the validation card, each with its link (rules 3, 10)
+- **Given** a coach with a class today that has free seats, students who wrote and were not answered, and a class last week still to validate
+- **When** the `needs_you` block is built
+- **Then** the free-seats item comes before the validation card, and `count` is the number of items
+- **And** the free-seats item links to `/calendar?classId=<id>&date=<day>&notify=1`, a reply links to `/messages/<conversation id>`, and the validation card links to `/presences?validate=1`, with `&week=<offset>` for an earlier week
+- **And** with six conversations waiting, three replies are listed, one per conversation, newest first, each previewing its newest message, read in one query
+- **And** a class that already ended this week is not offered
+- **And** a coach with nothing outstanding gets the block with `count: 0` and no items
+test: `backend/padel_app/tests/test_pad740_needs_you_current_week.py` › `test_a_class_that_already_ended_this_week_is_not_offered` (+6 more)
+
+#### DASHBOARD-BLOCKS-39: Snoozing a card again restarts its day (rule 3)
+- **Given** a free-seats card snoozed at 10:00
+- **When** the coach snoozes it again at 11:00
+- **Then** it returns 24 hours after the second snooze, not 48 hours after the first, and one snooze is stored
+test: `backend/padel_app/tests/test_dashboard_needs_you_snooze.py` › `test_snoozing_again_restarts_the_clock_instead_of_stacking`
+
+#### DASHBOARD-BLOCKS-40: The schedule carries its total, and only the coach's rows carry an invite link (rules 3, 10)
+- **Given** a coach with a class today, a full class tomorrow and a class three days ago
+- **When** the `schedule_7d` block is built for the coach, and for a student
+- **Then** the coach's block has `totalCount: 2` and the two coming classes in order, each with its day and its fill
+- **And** each coach row's `inviteHref` is its `href` plus `&notify=1`, the same link the queue's free-seats card for that class carries
+- **And** a student's rows carry no `inviteHref`
+test: `backend/padel_app/tests/test_pad425_schedule_invite_href.py` › `test_every_coach_schedule_row_links_to_the_invite_flow` (+3 more)
+
+#### DASHBOARD-BLOCKS-41: The week pulse carries its denominators, and a delta only when there is a week to compare (rule 3)
+- **Given** a coach with four players signed up to tomorrow's full class, and a coach with no classes
+- **When** the `week_pulse` block is built
+- **Then** the first has `players: {active: 4, total: 4, idle: 0}`, a seats percentage equal to filled over total, and a seven-day trend
+- **And** it reports a delta when the week before had a class
+- **And** the coach with no classes reads 0 %, 0 of 0, and a null delta
+test: `backend/padel_app/tests/test_dashboard_coach_home.py` › `test_week_pulse_carries_denominators_and_counts_active_players` (+2 more)
+
+#### DASHBOARD-BLOCKS-42: The nudge re-pushes tomorrow's unanswered invitations and creates nothing (rules 6, 7)
+- **Given** a class tomorrow on the club's clock with two students whose invitation is unanswered, one who confirmed and one whose invitation expired, and a class today with an unanswered invitation
+- **When** the coach sends the nudge
+- **Then** two pushes go out, each with that student's own invitation text and a link to it, and no message or invitation is created
+- **And** nudging twice leaves the student holding one live invitation
+- **And** a student who blocks notifications, or whose invitation message was deleted, gets no push
+- **And** "tomorrow" is the next calendar day on the club's clock: at 23:30 UTC on 14 August it is already the 15th in Lisbon, so tomorrow is the 16th
+test: `backend/padel_app/tests/test_dashboard_pending_confirmations.py` › `test_pending_targets_grouped_by_instance` (+8 more)
+
+#### DASHBOARD-BLOCKS-43: A student's row offers what the server's flag and the attendance state say (rule 3a)
+- **Given** a student's dashboard row or hero
+- **When** the shell decides which action to show
+- **Then** a row the server marks pending offers Yes and No
+- **And** a row that is not pending and is planned or coming offers the single "Avisar que não vou"
+- **And** a row that is `not_coming` offers neither Yes and No nor the single decline button, and what it offers instead is DASHBOARD-BLOCKS-45
+- **And** a row that is attended or missed offers nothing
+- **And** the settled state wins over a stale pending flag
+test: `frontend/packages/config/src/reminder-answer.test.ts` › `only 'Avisar que não vou' before the ask, and after a yes` (+4 more)
+
+#### DASHBOARD-BLOCKS-44: Student rows and the hero carry the flag and the id an answer needs (rules 3, 3a, 8)
+- **Given** a student with a class they signed up for and were never asked about, a class they were asked about and have not answered, and a class they answered
+- **When** their hero and schedule are built
+- **Then** only the unanswered class has `pendingConfirmation: true`, and every row and the hero carry `lessonInstanceId`
+- **And** the flag worked out for the whole home at once equals the one worked out class by class
+- **And** a class that has started on the club's clock no longer counts in the Invites tile
+test: `backend/padel_app/tests/test_pad256_dashboard_clock.py` › `test_kpi_to_confirm_uses_the_club_clock` (+2 more)
+
+#### DASHBOARD-BLOCKS-45: A declined class shows what the server's `comeBack` says (rule 3a)
+- **Given** a student's `not_coming` row on web carrying a `comeBack` value
+- **When** the row renders and the student presses its button
+- **Then** `rejoin` shows a button that answers yes and reloads; when that answer comes back `spot_filled` the row shows the spot-taken line and the waiting-list offer
+- **And** `waiting_list` shows the spot-taken line and a button that joins the waiting list for that occurrence
+- **And** `on_waiting_list` shows the state line and no button
+- **And** a server that sends no `comeBack` gets the hint, and a `comeBack` of null shows nothing
+test: `frontend/apps/web/src/components/dashboard/coach/ComeBackSlot.test.tsx` › `rejoin: the button answers yes for the item's instance, then the dashboard refetches` (+5 more)
+
+#### DASHBOARD-BLOCKS-46: The greeting and the dates follow the viewer's own day and language (rule 3a)
+- **Given** a viewer in English or Portuguese
+- **When** the dashboard renders its greeting and its dates
+- **Then** the greeting is the morning one until 11:59, the afternoon one until 18:59 and the evening one from 19:00, a full salutation with the name ("Good morning, {{name}}", "Bom dia, {{name}}")
+- **And** a date is read and written as the viewer's local calendar day: 00:30 local on 9 August is `2026-08-09`
+- **And** dates render in the active language (agosto, August), and the Portuguese column weekday is upper case with no full stop
+test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCAL date, not the UTC one` (+9 more)
+
+#### DASHBOARD-BLOCKS-47: The iOS app sends a card's link to its native screen, and nowhere for a path it does not know (rule 10)
+- **Given** the web paths the server puts on dashboard cards
+- **When** the iOS app maps one to a screen
+- **Then** `/settings?section=club` opens Settings on that section, `/dashboard` the dashboard tab and `/players` the Players tab
+- **And** `/calendar` with a class id that is not a dashboard id opens the calendar tab
+- **And** an unknown path maps to nothing, and the card goes nowhere
+test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `falls back to the calendar tab when the class id is not a dashboard id` (+4 more)
+
+### Open questions
+
+- **DASHBOARD-BLOCKS-3 describes the validation card as it was before PAD-539.**
+  - The criterion: with one class to validate this week and two last week, "the item has `count: 1`, `weekOffset: 0`"; with a class that ended three weeks ago, "there is no `validation` item"; and the first case's link is `/presences?week=-1`.
+  - Rule 3 (PAD-539) and the code today: the count is the whole backlog with no date bound (`presence_overview_service.py:343-360`), the link opens the most recent week that has work, however old (`coach_home.py:519-535`), every link carries `validate=1` (`coach_home.py:506-509`), and the card is left out only when nothing is pending. Tests: `count == 2` for the first case and `count == 3`, `weekOffset == -3` for the old backlog (`test_dashboard_coach_home.py:246-248`, `:290-292`).
+  - Recommendation: amend the criterion to rule 3. Four tests proposed tonight (whole backlog, old backlog, classes not presences, omitted when empty) are pointed at this criterion; they prove the proposed text, not today's.
+  - Proposed text: "**Given** a coach with one unvalidated class this week and two last week **Then** the `validation` item has `count: 3`, `weekOffset: 0` and `href: "/presences?validate=1"`. **Given** a coach whose only unvalidated classes ended three weeks ago **Then** the item counts them, with `weekOffset: -3` and `href: "/presences?validate=1&week=-3"`. **Given** two unvalidated presences on one class **Then** it counts once. **Given** nothing to validate **Then** there is no `validation` item." The e2e case stays as it is.
+- **DASHBOARD-BLOCKS-8 gives the student's block order without two blocks the code sends.**
+  - The criterion: "its blocks are, in order, `messages_overview`, `next_class`, `needs_you`, `schedule_7d`, `kpi_grid`".
+  - The code today: `messages_overview`, then `profile_incomplete` when the student's link lacks a level or a side (`player.py:36-38`), then `next_class` when a class is scheduled, `needs_you`, `schedule_7d`, `kpi_grid`, then `evaluations` when the client declares it and a card is shared (`player.py:50-59`). The one test of the order expects `profile_incomplete` second (`test_dashboard_player_home.py:498-505`).
+  - Recommendation: amend the criterion to name the two conditional blocks.
+  - Proposed text for the Then: "its blocks are, in order, `messages_overview`, `profile_incomplete` (only while a level or a side is missing), `next_class` (only when a class is scheduled), `needs_you`, `schedule_7d`, `kpi_grid`, `evaluations` (only for a client that declares it, when a card is shared)".
+- **DASHBOARD-BLOCKS-1's first case names blocks the coach no longer gets.** It lists `kpi_grid` (15 players) and `class_list` (3 classes). The coach's blocks are `messages_overview`, `next_class`, `needs_you`, `incomplete_players`, `schedule_7d`, `week_pulse` (`coach.py:29-51`); rule 3 (PAD-202) removed the other two. Recommendation: replace the first case with that list; DASHBOARD-BLOCKS-36 already states the order.
+- **DASHBOARD-BLOCKS-19 says a declined row shows the hint; since PAD-684 it shows what `comeBack` says.** Rule 3a keeps the hint only for a server that sends no `comeBack`. DASHBOARD-BLOCKS-45 states the current behaviour. Recommendation: amend 19 to "shows no Yes / No and no "Avisar que não vou", and shows what `comeBack` says (DASHBOARD-BLOCKS-45)".
+- **`count_pending_confirmations` is dead code with a test.** Nothing calls it since the `pending_confirmations` block was removed (PAD-167); only the nudge (`notify_pending_confirmations`) is live. Recommendation: delete the helper and its test.
+- **Five tests assert less than their names say:** "nothing once the coach's record stands or the row is unknown" expects the decline button for the unknown row; the queue-order test seeds no reply; the `totalCount` test never has more classes than rows; "count is the endpoint's number for its week" holds only while the whole backlog sits in one week; "always exactly one calendar day" checks only that the end is after the start. Recommendation: tighten them when the tags are applied.

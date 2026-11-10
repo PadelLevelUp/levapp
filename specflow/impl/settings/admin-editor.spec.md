@@ -101,3 +101,12 @@ directory (audit M9).
   model's form declares an unsupported `"String"` field type, so `/editor/display/devicetoken/<id>`
   raises, and it defines no list columns, so `/editor/display/devicetoken` raises too. Neither page
   ever rendered a token; `/api/editor/devicetoken` (the web data browser) works and redacts it.
+
+### Open questions
+
+- **This spec and P-SETTINGS-1 say an administrator's data browser exists; the admin specs say it is retired, and the code is deleted.**
+  - P-SETTINGS-1: "The administrator's data browser exists only where deliberately switched on (staging and local, never production by default), only the superadmin reaches it, and it never shows or changes a password, code or token."
+  - This spec: rule 1, "Switched on only where `EDITOR_ENABLED` is set ... Staging sets `EDITOR_ENABLED=1`", with status `draft` and five criteria; and its own banner, "Deprecated (PAD-550, 2026-10-11): the code is deleted" and "Retired (owner decision 2026-10-07, PAD-532) ... there is no replacement data browser".
+  - `admin.approvals-and-users` rule 10c: "The generic editor (`/editor`) is retired here (owner, 2026-10-07) ... PAD-550 then deleted the backend code".
+  - The code today: no `/editor` route or page, no editor module, no Admin tab in either shell; `test_pad550_editor_gone.py:32` asserts 404 for a superadmin on `/editor/`, `/api/editor/models` and `/api/query/user`.
+  - Recommendation: the owner's 2026-10-07 decision and the code agree. Set this spec to `retired` and drop the data-browser bullet from P-SETTINGS-1. Neither was changed tonight.

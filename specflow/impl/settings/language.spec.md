@@ -60,6 +60,8 @@ login (not only while the Settings screen is mounted).
    a `_zero` form with the plural text — i18next prefers `_zero` for a count of 0. A guard over the
    locale files (`apps/web/src/test/pt-plural-zero.test.ts`) fails any new pt plural pair without one.
 
+10. **The phone app carries every string in both languages.** Its bundler cannot load a language on demand, so each namespace is imported for Portuguese and for English; a key present in one language and missing in the other is a defect, because that screen would show the key.
+
 ### Acceptance Criteria
 
 #### SETTINGS-LANGUAGE-1: A count of zero reads in the plural in Portuguese (rule 9, B-545)
@@ -113,7 +115,30 @@ login (not only while the Settings screen is mounted).
 - **Then** the cache still holds `pt`
 - **And** no mobile file writes a save's answer into `["auth-me"]` except through `writeAuthMe`
 
+#### SETTINGS-LANGUAGE-10: Dates follow the app's language, and any other language reads as Portuguese (rules 3, 4)
+- **Given** the app's language set to `pt`, `pt-PT`, `en`, `en-GB`, `fr`, or not set
+- **When** a date is formatted, or handed to a native date or time picker
+- **Then** `pt` and `pt-PT` format in Portuguese, `en` and `en-GB` in English, and `fr` or no language in Portuguese
+- **And** the native pickers get `pt-PT` or `en-US`
+- **And** 15 October 2026 reads `15/10/2026` in Portuguese and `10/15/2026` in English, and a date is the same day in any time zone
+- **And** in iOS Settings the import history's timestamps and the invitations' expiry dates follow the app's language
+test: `frontend/apps/mobile/src/lib/native-locale.test.ts` › `maps the app's two languages to real region tags` (+12 more)
+
+#### SETTINGS-LANGUAGE-11: Only Portuguese and English exist, and the phone app has every string in both (rules 1, 10)
+- **Given** a signed-in user, and the phone app's two language bundles
+- **When** the user saves the language `fr`, and the bundles are compared
+- **Then** the save answers 400
+- **And** no key exists in one bundle and not in the other
+- **And** every role label exists in both, every key the attendance, absences and class-detail screens use resolves in both, and their interpolated subtitles keep their placeholders
+test: `backend/padel_app/tests/test_profile_update.py` › `test_patch_me_rejects_unsupported_language` (+5 more)
+
 ### Notes
 - Source: ticket PAD-39
 - Supersedes the PAD-38 tactical PT-weekday patch: locale-aware formatting is the root-cause fix.
 - Follow-up: PAD-40 localizes the rest of the app UI.
+
+### Open questions
+
+- **Rule 9 is still marked "rule number unconfirmed".** SETTINGS-LANGUAGE-1 cites it as rule 9. Recommendation: confirm the number and drop the note.
+- **Two helpers disagree on an upper-case code.** `nativeLocaleTag("EN")` answers `en-US`; `resolveDateLocale("EN")` falls back to Portuguese (`dateLocale.ts:38-39`). No screen passes an upper-case code today. Recommendation: make `resolveDateLocale` ignore case too.
+- **P-SETTINGS-1 says a user's language governs "the wording of notifications and reminders sent to them"; rule 5 speaks only of the recipient coach.** The renderer reads a coach's language (`notification_service.py:2294-2300`); the reader of this spec found no path that words a message in a student's language, and did not open `request_alert_service` or `class_request_service`. Recommendation: check those two, then either widen rule 5 or say "sent to a coach" in the promise.

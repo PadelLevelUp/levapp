@@ -158,3 +158,8 @@ that both apps import, so the two never drift.
   change, is what makes its badges cheap. A layout route is a later cleanup if wanted.
 - The test clock: a Playwright spec cannot wait 61 s per case. The E2E fakes the browser clock (`page.clock`) for the after-the-window case; no env override exists.
 - OPEN: none.
+
+### Open questions
+
+- **Two queries set their own stale time, and one comment cites a value no code sets.** `packages/hooks/src/evaluations.ts:275` and `apps/mobile/src/features/settings/understand-invites-tutorial.tsx:121` use `staleTime: 0`; `apps/mobile/src/features/messages/open-sequence.ts:5` and `:97` speak of a 30-second stale time for the thread query that nothing sets. Rule 2's one minute is the default, not a guarantee for every read. Recommendation: name the two exceptions in rule 2 and fix the comment.
+- **CLIENT-QUERY-CACHE-2 to 10 have no test pointed at them.** Nine of the eleven criteria are proved, if at all, by end-to-end specs that the port did not tag. Recommendation: tag those specs or mark the criteria as device-checked.

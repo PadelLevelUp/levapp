@@ -127,3 +127,24 @@ classes are missing and lets them remind the coach.
 - **Given** S's link lacks only the side
 - **When** S opens the dashboard
 - **Then** the card says the coach has not set the side and that S misses spots reserved for one side, and says nothing about level rules
+
+#### DASHBOARD-PROFILE-COMPLETENESS-12: The coach block shows five names, the full count, and a "See all" that lists the same students (rule 3)
+- **Given** a coach with seven active students who lack a level or a side, and one disabled student who lacks a level
+- **When** the coach's dashboard is built and "See all" is followed
+- **Then** the block has `count: 7` and five names
+- **And** `seeAllHref` is `/players?incomplete=true`, and that list holds exactly the students the block counts, with the same total
+- **And** on iOS the link opens the Players tab with the same filter, and the older `missing_level` and `missing_side` links keep theirs
+test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `'See all' keeps the missing-level or missing-side filter` (+3 more)
+
+#### DASHBOARD-PROFILE-COMPLETENESS-13: A reminder says what is missing, and only a student sends one (rules 6, 6d)
+- **Given** a coach who reads English, a student who lacks only a level and a student who lacks only a side
+- **When** each student sends the profile reminder, and a coach account tries to
+- **Then** the first message reads "Hi coach, my profile isn't complete yet (missing: level)." and the second "(missing: side)."
+- **And** the coach account gets 403
+- **And** when the server answers 409 `already_reminded`, the student's card shows the reminder as sent today
+test: `frontend/apps/mobile/src/features/dashboard/profile-completeness.test.tsx` › `a second device's 409 already_reminded also lands on 'sent today'` (+2 more)
+
+### Open questions
+
+- **"The student's profile card comes before the next-class hero" is not proved.** The test's student has no class, so no hero exists and its order check never runs; it proves only that the card is present, and is pointed at DASHBOARD-PROFILE-COMPLETENESS-3. Recommendation: give the fixture a class, then state the order in DASHBOARD-BLOCKS-8 (see the open question there).
+- **The reminder's Portuguese text has no test.** DASHBOARD-PROFILE-COMPLETENESS-13 pins the English sentences only. Recommendation: add the Portuguese case.

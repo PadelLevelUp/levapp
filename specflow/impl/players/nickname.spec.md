@@ -185,3 +185,66 @@ real name in their own views (PAD-660, approved by the owner 2026-10-14).
 - **When** Jorge's data is exported, then A's, then Jorge's account is deleted
 - **Then** both exports carry "Jorge chato" on the relation row, and after the deletion
   the relation's nickname is null
+
+#### PLAYERS-NICKNAME-10: Every coach view prints the coach's own name for the student (rule 8)
+- **Given** a coach who calls "Jorge Silva" "Jorge chato" with the switch on, and a student "Ana Pinto" with no nickname
+- **When** the coach opens the attendance and absences pages, a class's marking rows, the class waiting list and its dialogs, the standing waiting list, the class requests, the evaluations drawer, the excluded-players chips and the approval card
+- **Then** each shows "Jorge chato" and never "Jorge Silva"
+- **And** each shows Ana Pinto under her own name
+test: `frontend/apps/web/src/pages/AbsencesPage.nickname.test.tsx` › `prints the nickname for one student and the real name for another` (+15 more)
+
+#### PLAYERS-NICKNAME-11: A student's own view keeps the real name and never asks for a roster (rules 4, 8)
+- **Given** a student looking at their own attendance row, class row and class requests
+- **When** the view renders
+- **Then** it shows the student's real name
+- **And** no roster is requested
+test: `frontend/packages/hooks/src/useCoachDisplayName.test.tsx` › `never asks for the roster when disabled (a student's view) and returns the fallback` (+3 more)
+
+#### PLAYERS-NICKNAME-12: The name comes from the coach's own roster row, and is the real name whenever that row offers no other (rule 3)
+- **Given** a coach's roster with "Jorge Silva" nicknamed "Jorge chato" with the switch on, and "Bruno Costa" nicknamed "Bru" with the switch off
+- **When** the coach's list, profile, participant pop-up and conversation list are shown
+- **Then** the list shows "Jorge chato" and "Bruno Costa"
+- **And** Jorge's profile and pop-up show "Jorge chato" with "Jorge Silva" under it, and Bruno's show one line
+- **And** a student who is not on the roster, and a row from a server that sends no display name, show the real name
+- **And** the coach's conversation list names the student "Jorge chato", and the student's own list never contains it
+test: `frontend/packages/config/src/coach-display-name.test.ts` › `returns the roster row's display name for a player on the coach's roster` (+11 more)
+
+#### PLAYERS-NICKNAME-13: What the server builds for a coach carries that coach's name for the student, and nobody else's copy does (rules 2, 9a)
+- **Given** coach A's nickname "Jorge chato" for a student whom coach B also coaches
+- **When** presence statistics, the validation list, the dashboard's blocks, the invite simulation, the claim candidates and the duplicate hint are built for A, for B, and for no coach
+- **Then** A's rows carry the real `name` and `displayName: "Jorge chato"`, and the claim candidates are found by the nickname
+- **And** B's rows carry no nickname and the real name as `displayName`
+- **And** a payload built for no coach carries no `displayName`, and the list of people one may message carries neither a nickname nor a display name
+test: `backend/padel_app/tests/test_pad683_part2_payloads.py` › `test_claim_candidates_carry_the_display_name_and_are_found_by_the_nickname` (+7 more)
+
+#### PLAYERS-NICKNAME-14: A push or a prompt to the coach uses the nickname, and what the student receives never does (rules 4, 9c)
+- **Given** the nickname "Jorge chato" switched on, in a conversation between the coach and the student
+- **When** the student writes, the coach writes, and a replacement prompt is built for the coach
+- **Then** the push to the coach is titled "Jorge chato", and the push to the student carries the coach's own name
+- **And** the prompt names the student "Jorge chato" for that coach and by the real name for anyone else
+- **And** in a text for the coach only the first whole-word occurrence of the real name is replaced
+test: `backend/padel_app/tests/test_pad683_coach_push_names.py` › `test_a_student_message_pushes_to_the_coach_under_the_nickname` (+7 more)
+
+#### PLAYERS-NICKNAME-15: The edit form sends the nickname only when it changed, and the create form has none (rule 6)
+- **Given** the profile edit form for a student with a nickname, and the add-player form
+- **When** the coach saves untouched, saves a new nickname with the switch flipped, and saves a blank nickname
+- **Then** the untouched save sends no nickname and no switch; the changed one sends the trimmed nickname and the switch, with the real name unchanged
+- **And** a blank nickname is sent as an empty string, which clears it
+- **And** the add-player form shows no nickname field, warning or switch
+- **And** the server reads the switch as on for `true` and `"true"`, and as off for `false`, `"false"`, 0 and null
+test: `frontend/apps/mobile/src/features/players/player-nickname-form.test.tsx` › `submits the nickname and the switch beside the unchanged real name` (+5 more)
+
+### Open questions
+
+- **Rule 9's delivery note says a coach's "people I may message" rows gain `playerId`; the code sends the public shape only.**
+  - Rule 9 (Delivery): "a COACH viewer's rows for students on their roster gain `playerId`".
+  - The code today: the route returns the public user shape with no `playerId` and no display name (`frontend_api.py:963-969`); the test asserts both are absent, and `messaging.conversations` rule 15 pins the public shape. Clients resolve the name by user id instead. PLAYERS-NICKNAME-13 is written to the code.
+  - Recommendation: keep the code and delete that sentence from rule 9.
+- **Eight iOS coach views are guarded only by reading their source.** The screens cannot be mounted in the unit harness, so their tests look for the display-name call in the file. They are proposed as plain unit tests; the web renders of the same views carry PLAYERS-NICKNAME-10 and 12. Most of those web tests replace the name hook with a stand-in, so they prove that the view asks for the name, while the hook itself is proved once. Recommendation: accept, and add one Maestro check of a nickname on an iOS coach screen.
+- **The field's warning text is asserted only as a translation key.** Rule 6 and PLAYERS-NICKNAME-4 quote "Visível só para ti..."; the tests check the key `players.nickname.warning`. Recommendation: accept.
+- **P-PLAYERS-4 keeps one of two statements the old business spec made.**
+  - The old business spec said the student never sees the nickname "in ... an export of their data", and also that a data request includes it.
+  - The promise as drafted: "a data request (the student's or the coach's) includes it", with "never sees it" limited to inside the app.
+  - This spec: rule 7 puts the nickname in both people's subject-access exports (owner, 2026-10-14, PAD-640), and PLAYERS-NICKNAME-9 proves it.
+  - The code today: `backend/scripts/export_user_data.py` copies every column of every row that points at the person, so the coach-student row carries the nickname in both exports (`test_pad660_coach_nickname.py:129`).
+  - Recommendation: the promise's wording holds; confirm it. The promise was not changed.

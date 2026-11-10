@@ -92,6 +92,27 @@ for **one single class**. The most specific definition wins.
 - **Then** the change applies from 2026-09-01 forward
 - **And** occurrences before that date keep the previous bar
 
+#### ELIGIBILITY-CASCADE-6: With no override the coach's bar applies, and the class payload says where its bar comes from (rules 1, 7, 8)
+- **Given** a coach whose standard bar is `[{level, same_as_class}]`, and a class whose series and occurrence set none
+- **When** the effective bar is resolved and the class detail is built, before and after the occurrence is set to `[]`
+- **Then** before, the effective bar is the coach's with source `"coach"`, and the payload carries `eligibilityRules: null`, `effectiveEligibilityRules` equal to the coach's bar and `eligibilitySource: "coach"`
+- **And** after, the payload carries `eligibilityRules: []`, `effectiveEligibilityRules: []` and `eligibilitySource: "instance"`
+test: `backend/padel_app/tests/test_pad129_eligibility_cascade.py` › `test_null_tiers_fall_through_to_the_coach_bar` (+1 more)
+
+#### ELIGIBILITY-CASCADE-7: An edit of one occurrence writes that occurrence's bar only when it sends one (rules 5, 8)
+- **Given** a materialised occurrence with no bar of its own
+- **When** it is edited with scope `single` three times: with `eligibilityRules: []`, with a name change only, and with `eligibilityRules: null`
+- **Then** the occurrence holds `[]` after the first edit, still `[]` after the second, and no bar of its own after the third
+test: `backend/padel_app/tests/test_pad129_eligibility_cascade.py` › `test_edit_scope_single_writes_the_instance_tier_and_null_clears_it`
+
+#### ELIGIBILITY-CASCADE-8: The class sheet's three-way choice maps to the stored value both ways (rules 2, 9)
+- **Given** the class sheet's choice between the standard, everyone and custom rules
+- **When** a stored value is read into the choice, and a choice is turned back into a value
+- **Then** `null` reads as standard, `[]` as everyone and a non-empty list as custom
+- **And** standard stores `null` and everyone stores `[]`
+- **And** custom starts from the class's own rules, or else from a copy of the effective rules, or else from an empty list
+test: `frontend/packages/config/src/eligibility-tier.test.ts` › `maps null → standard, [] → everyone, a list → custom` (+2 more)
+
 ### Notes
 - **[PAD-129, 2026-09-09]** Rules 8–9 record the wire contract and the shell UI. The resolver is the
   Phase-1 `effective_eligibility()` with the two tiers added *inside* it, as Phase 1 promised.

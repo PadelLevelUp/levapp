@@ -55,3 +55,9 @@ Track which messages each participant has read, providing unread counts.
 - **Then**, without a reload, the row loses its pill and unread styling, the nav/tab badge drops by that conversation's count, and the app icon badge is written with the new total (cleared at 0)
 - **And** on iOS the same holds: opening the thread invalidates the unread count, and `useAppBadgeSync` writes the refetched total to the icon badge (push-notifications, PAD-147)
 
+#### MESSAGING-READ-TRACKING-4: What is read is judged from the reader's own row (rule 3)
+- **Given** a conversation of five messages between A and B
+- **When** A has read up to the third and B nothing, and later A has read all five and B only the first
+- **Then** in the first case A sees the first three as read and the last two as not
+- **And** in the second A sees all five as read and B only the first
+test: `backend/padel_app/tests/test_pad125_conversation_read_state.py` › `test_read_state_uses_user_id_not_participant_row_id` (+1 more)

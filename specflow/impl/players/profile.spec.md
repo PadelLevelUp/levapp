@@ -151,3 +151,10 @@ View a full player profile including evaluations, strengths, weaknesses, and lev
 - **When** the coach opens the player's profile on the phone
 - **Then** the card shows "ana@example.pt" and "Sem telefone", each behind its icon, and no
   "Email:" or "Phone:" label
+
+### Open questions
+
+- **Rule 5 and PLAYERS-PROFILE-5 describe a Monday-to-Sunday picker week; the week starts on Sunday since PAD-682.**
+  - PLAYERS-PROFILE-5 uses `from=2026-09-28` (a Monday) and `to=2026-10-04`.
+  - The code today: `WEEK_STARTS_ON = 0` (`packages/config/src/week-start.ts:8`), and the picker's tests use Sunday week starts.
+  - Recommendation: restate rule 5 and the criterion with a Sunday-to-Saturday week.

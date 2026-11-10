@@ -119,3 +119,14 @@ Dashboard blocks provide deep links to relevant pages for quick navigation.
 - **Then** the calendar opens with the new-class sheet open, and the URL has no `new` param
 - **When** they close the sheet
 - **Then** it stays closed
+
+#### DASHBOARD-NAVIGATION-9: The student's evaluations block opens the evaluations screen (rule 11b)
+- **Given** the link `/evaluations` on the student's `evaluations` block
+- **When** the iOS app maps it to a screen
+- **Then** it opens the evaluations screen
+test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `opens the evaluations page from the student dashboard block (PAD-402, evaluations.student-view rule 4)`
+
+### Open questions
+
+- **Rule 12 is still marked "rule number unconfirmed", and DASHBOARD-NAVIGATION-8 cites it as rule 12.** Recommendation: confirm the number and drop the note.
+- **The evaluations block's tap is proved on iOS only, and only as a route mapping.** DASHBOARD-NAVIGATION-9 has no web test and no test of the tap itself. Recommendation: add both.

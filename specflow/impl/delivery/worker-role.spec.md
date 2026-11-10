@@ -136,6 +136,14 @@ until B8 has proven it.
 - **Then** `extend_schedule_window_catchup` runs now, `extend_schedule_window` is back on its fixed
   minute, and no catch-up is added for a daily job that was not missed (nor on a first boot)
 
+#### DELIVERY-WORKER-ROLE-11: Only the worker role runs the worker loop, and it says whether it leads (rule 2)
+- **Given** a process started with `ROLE=api`, and a worker process
+- **When** each is asked to run the worker loop, and the worker's `/livez` is read
+- **Then** the `api` process refuses and exits 2
+- **And** the worker answers `{"status": "alive", "leader": true, "split": "on"}` while it leads, with `leader: false` when it does not
+- **And** with the split off it answers `leader: false` and `split: "off"`
+test: `backend/padel_app/tests/test_pad695_worker_role.py` › `test_a_non_worker_role_refuses_the_worker_loop` (+2 more)
+
 ### Notes
 - B8 (PAD-704) turns the flag on in prod after a week on staging; GKE runs the worker as its own
   Deployment with `livez` on 8081 (PAD-698).
@@ -143,3 +151,7 @@ until B8 has proven it.
   lock on its next try); up to about 65 s once, on the first deploy that turns the flag on (the
   old API leader stops at the API swap; the worker starts after it). Reminder jobs have a 300 s
   grace, `process_batches` coalesces.
+
+### Open questions
+
+- **Rule 1 does not say which values switch `WORKER_SPLIT` on, or how `ROLE` is read.** `on`, `1`, `true` and `yes` in any case are on; `ROLE` is trimmed and lower-cased and an unknown role is `api` (`roles.py:11-18`; pinned by the test pointed at DELIVERY-WORKER-ROLE-2). The Surfaces section places `process_role` in `scheduler.py`; it lives in `roles.py`. Recommendation: fix both.

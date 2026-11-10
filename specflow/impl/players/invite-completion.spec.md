@@ -140,3 +140,25 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 - **Then** the new account records `terms_accepted_at`, `terms_version` and `privacy_version`
 - **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
 - **And** a client that does not declare the token completes as before, with the columns NULL
+
+#### PLAYERS-INVITE-COMPLETION-11: The invitation link lives seven days, and only its hash is stored (rules 2, 7)
+- **Given** a coach who creates an incomplete player at 2026-01-01 12:00
+- **When** the invitation is stored and its link is opened
+- **Then** it expires at 2026-01-08 12:00
+- **And** the stored row holds the SHA-256 hash of the token and no token, and the link answers 200
+- **And** a token nobody issued answers 404
+test: `backend/padel_app/tests/test_player_invitation.py` › `test_create_incomplete_player_expires_in_7_days` (+2 more)
+
+#### PLAYERS-INVITE-COMPLETION-12: Only a signed-in coach creates an invitation, and only as themselves (rule 3)
+- **Given** two coaches
+- **When** `POST /api/app/incomplete_player` is called with no session, and by one coach with the other's `coachId`
+- **Then** the first answers 401 and the second 403
+test: `backend/padel_app/tests/test_player_invitation.py` › `test_incomplete_player_rejects_other_coachs_id` (+1 more)
+
+#### PLAYERS-INVITE-COMPLETION-13: The web completion form checks before it sends and shows each refusal on its field (rules 10a, 10b; `auth.register` rule 2a)
+- **Given** the web completion form at `/invite/player/:token`
+- **When** the visitor types and submits
+- **Then** a typed username is lowercased, and the field never capitalises or corrects it
+- **And** the country starts on Portugal and `country: "PT"` is sent; a server `COUNTRY_REQUIRED` or `INVALID_COUNTRY` shows on the country field
+- **And** an unticked Terms box shows its error and sends nothing; a ticked one sends `termsAccepted: true`; a server `TERMS_REQUIRED` shows on the box
+test: `frontend/apps/web/src/pages/PlayerInvitePage.test.tsx` › `shows the country field defaulted to Portugal and sends PT` (+5 more)

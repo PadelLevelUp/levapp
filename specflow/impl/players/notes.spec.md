@@ -27,6 +27,8 @@ Coaches record strengths and weaknesses notes for their players.
    replaced by the record form, which does not. `e2e/evaluation-tools/player-notes.spec.ts`
    (US-44, US-45) is the proof that the card works on its own.
 
+6. A note's text is required: a blank text answers 400 `text is required` and writes nothing.
+
 ### Acceptance Criteria
 
 #### PLAYERS-NOTES-1: Add strength note
@@ -39,3 +41,15 @@ Coaches record strengths and weaknesses notes for their players.
 - **Given** a strength note with id 10
 - **When** coach POSTs to `/api/app/delete/coach_note` with `{"note_id": 10}`
 - **Then** the note is deleted
+
+#### PLAYERS-NOTES-3: A note needs text (rules 4, 6)
+- **Given** a coach and a student on their roster
+- **When** the coach POSTs `/api/app/add_coach_note` with a blank text, and then with "Fast feet"
+- **Then** the blank one answers 400 and writes no note
+- **And** the second answers 200 with the note's text
+test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_add_coach_note_refuses_an_empty_text_itself`
+
+### Open questions
+
+- **PLAYERS-NOTES-1 names a route and a body that do not exist.** It posts to `/api/app/coach/note` with `player_id`; the route is `POST /api/app/add_coach_note` and the key is `playerId` (`frontend_api.py:1935`, `coach_service.py:302`), as rule 4 says. Recommendation: amend the criterion to rule 4.
+- **Rule 3's 500 characters are only the column's length.** The service does not check the length (`coach_service.py:300-326`) and no client caps the field, so a longer note is a database error, not a 400. P-PLAYERS still says "holds at most 500 characters". Recommendation: refuse a longer note with a 400 and cap the field.
