@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flask import abort
 from werkzeug.security import generate_password_hash
@@ -15,6 +15,7 @@ from padel_app.models import (
 from padel_app.sql_db import db
 from padel_app.tools.username_tools import unique_placeholder_username
 from padel_app.utils.emails import normalise_email
+from padel_app.utils.dates import utcnow_naive
 
 PLAYER_INVITATION_VALID_DAYS = 7
 
@@ -43,7 +44,7 @@ def reissue_player_invitation(user, now=None):
         token=token,
         invited_by_coach_id=coach_id,
         status="pending",
-        expires_at=(now or datetime.utcnow()) + timedelta(days=PLAYER_INVITATION_VALID_DAYS),
+        expires_at=(now or utcnow_naive()) + timedelta(days=PLAYER_INVITATION_VALID_DAYS),
     ))
     db.session.flush()
     return token
@@ -84,7 +85,7 @@ def create_incomplete_player_service(data, now=None):
         token=secrets.token_urlsafe(32),
         invited_by_coach_id=int(data["coachId"]),
         status="pending",
-        expires_at=(now or datetime.utcnow())
+        expires_at=(now or utcnow_naive())
         + timedelta(days=PLAYER_INVITATION_VALID_DAYS),
     )
     db.session.add(invitation)
@@ -98,7 +99,7 @@ def get_player_invitation_service(token, now=None):
         abort(404, "Invitation not found")
 
     if invitation.status == "pending" and invitation.expires_at < (
-        now or datetime.utcnow()
+        now or utcnow_naive()
     ):
         invitation.status = "expired"
         db.session.commit()
