@@ -1,0 +1,154 @@
+"""Invitation scenarios (PAD-845): Tomás's 95 scenarios as one engine-agnostic suite.
+
+Design: docs/plans/2026-11-10-scenario-harness-design.md (main checkout; docs/ is gitignored).
+
+Always on, no database:
+- every scenario file passes validate.py (the format contract);
+- validate.py and scenario.schema.json name the same vocabulary.
+
+Opt-in (design §8), because most scenarios fail on today's engine by design:
+- ``INVITATION_SCENARIOS=1``: run every scenario through the today adapter; a scenario
+  passes only if every checked expectation matched.
+- ``INVITATION_SCENARIOS=baseline``: compare each scenario with baseline-today.yaml; a
+  scenario that passed there and fails now fails the test, any other change is reported.
+- ``INVITATION_SCENARIOS_OUT=<dir>``: also write each scenario's normalized log there.
+"""
+import json
+import os
+from pathlib import Path
+
+import pytest
+import yaml
+
+from padel_app.tests.invitation_scenarios import validate
+from padel_app.tests.invitation_scenarios.runner import dump_log, run_scenario, scenario_paths
+
+HERE = Path(__file__).parent
+MODE = os.getenv("INVITATION_SCENARIOS", "").strip().lower()
+BASELINE = HERE / "baseline-today.yaml"
+
+
+def test_every_scenario_file_validates():
+    paths = scenario_paths()
+    assert paths, "no scenario files"
+    errors = []
+    for path in paths:
+        errors += validate.validate_file(path).errors
+    assert not errors, "\n".join(errors)
+
+
+def test_schema_and_validator_name_the_same_vocabulary():
+    schema = json.loads((HERE / "scenario.schema.json").read_text(encoding="utf-8"))
+    defs = schema["$defs"]
+    assert set(schema["properties"]) == validate.TOP_KEYS_REQUIRED | validate.TOP_KEYS_OPTIONAL
+    assert set(schema["required"]) == validate.TOP_KEYS_REQUIRED
+    assert set(defs["settings"]["properties"]) == validate.SETTINGS_KEYS
+    assert set(defs["expect"]["properties"]) - {"other_classes"} == validate.EXPECT_KEYS
+    events = {k for alt in defs["event"]["oneOf"] for k in alt["required"]} - {"sides", "side", "event"}
+    assert events == set(validate.EVENTS)
+    assert set(defs["who"]["oneOf"][1]["properties"]["state"]["enum"]) == validate.STATES
+    assert set(schema["properties"]["tags"]["x-known"]) == validate.TAGS
+
+
+def _baseline() -> dict:
+    if not BASELINE.exists():
+        return {}
+    return yaml.safe_load(BASELINE.read_text(encoding="utf-8")) or {}
+
+
+@pytest.mark.parametrize("path", scenario_paths(), ids=lambda p: p.stem)
+def test_scenario(path, request):
+    if MODE not in ("1", "baseline"):
+        pytest.skip("opt-in: set INVITATION_SCENARIOS=1 (or =baseline) to run the invitation scenarios")
+    request.getfixturevalue("app")
+    from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
+
+    result = run_scenario(path, TodayAdapter())
+    out = os.getenv("INVITATION_SCENARIOS_OUT")
+    if out:
+        dump_log(result, Path(out))
+    report = yaml.safe_dump(result.summary(), sort_keys=False, allow_unicode=True, width=120)
+
+    if MODE == "1":
+        assert result.outcome == "pass", report
+        return
+
+    was = _baseline().get(path.stem)
+    if was is None:
+        pytest.fail(f"{path.stem} is not in baseline-today.yaml\n{report}")
+    if was["outcome"] == "pass":
+        assert result.outcome == "pass", f"regression: passed in the baseline\n{report}"
+    elif result.outcome == "pass":
+        pytest.xfail(f"change to review: {path.stem} failed in the baseline ({was.get('class')}) and passes now")
+
+
+class _ScriptedEngine:
+    """A fake engine that does exactly what the PDF says for template 04, so the runner's
+    clock, `who` resolution and comparisons are tested without a database. `wrong=True`
+    makes it send the 20:20 round late, which must fail."""
+
+    name = "scripted"
+
+    def __init__(self, wrong=False):
+        self.wrong = wrong
+
+    def setup(self, sc):
+        from padel_app.tests.invitation_scenarios.runner import parse_local
+
+        self.sc, self.parse = sc, parse_local
+        self.roster = {p.id: p.side for p in sc.regulars()}
+        self.placed_at, self.open, self.pending = {}, [], []
+        self.plan = {
+            "2026-11-01 19:00": ["L2R-1", "L2R-2", "L2R-3"],
+            "2026-11-01 19:20": ["L2R-4"],
+            "2026-11-01 20:25" if self.wrong else "2026-11-01 20:20": ["L3R-1", "L3R-2", "L3R-3"],
+        }
+        return []
+
+    def tick(self, now):
+        from padel_app.tests.invitation_scenarios.runner import Record, fmt
+
+        for sid in self.plan.pop(fmt(now), []):
+            self.open.append((sid, None, now))
+            self.pending.append(Record("invited", sid, "A", now, {"side_named": None, "group": None}))
+
+    def apply(self, event, who, params, cls, now):
+        from padel_app.tests.invitation_scenarios.runner import Applied, Record
+
+        assert event == "accepts"
+        self.open = [o for o in self.open if o[0] != who]
+        self.pending.append(Record("answered", who, "A", now, {"answer": "yes", "on": "invitation"}))
+        if sum(1 for s in self.roster.values() if s == "R") < 8:
+            self.roster[who], self.placed_at[who] = "R", now
+            self.pending.append(Record("placed", who, "A", now, {"side": "R", "how": "invitation"}))
+        else:
+            self.pending.append(Record("message", who, "A", now, {"kind": "aviso"}))
+        return Applied()
+
+    def drain(self):
+        out, self.pending = self.pending, []
+        return out
+
+    def snapshot(self, cls):
+        from padel_app.tests.invitation_scenarios.runner import Snapshot
+
+        return Snapshot(dict(self.roster), dict(self.placed_at), open_invitations=list(self.open))
+
+    def unsupported(self, key, item=None):
+        return None
+
+    def teardown(self):
+        pass
+
+
+def test_runner_passes_a_correct_engine_and_fails_a_wrong_one():
+    path = HERE / "scenarios" / "04-grupo-esgota-se-sem-resposta.yaml"
+    good = run_scenario(path, _ScriptedEngine())
+    assert good.outcome == "pass", yaml.safe_dump(good.summary())
+    assert good.evaluated >= 8 and good.skipped == 0
+    a = next(r.student for r in good.log if r.kind == "placed")
+    assert a.startswith("L2R-"), "invited_at 19:00 must bind a member of the 19:00 round"
+
+    bad = run_scenario(path, _ScriptedEngine(wrong=True))
+    assert bad.outcome == "fail"
+    assert bad.first.at == "2026-11-01 20:20" and bad.first.key == "invitations"
