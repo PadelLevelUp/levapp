@@ -1,0 +1,69 @@
+id: 1
+title: exemplo completo
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [231, 262]}
+what_it_tests: o percurso completo, com entradas sem convite, grupos, Aviso, waiting list para o outro lado e lembretes
+tags: [groups, direct-join, coach-list, waiting-list, aviso, reminders]
+depends_on: [U16, U23, U26]
+corrections: [E5]
+notes: >
+  19:08 "entra diretamente à direita" is auto entry from the waiting list (E5). Groups 5 and 6 are empty
+  because the three L2L were already invited for the left (R8). 19:09 expects nothing because the group
+  has no one left and the left is full (R2).
+
+roster:
+  regulars: {L: 6, R: 2}
+students:
+  - {id: W1, level: 3, side: L}
+  - {id: J1, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+  - {cohort: L2R, count: 1, level: 2, side: R}
+  - {cohort: L3R, count: 1, level: 3, side: R}
+  - {id: K1, level: 4, side: R}        # not eligible: level 4 is below the class
+
+timeline:
+  - at: 2026-11-01 18:00
+    events:
+      - {coach_adds_to_waiting_list: W1, side: L}
+      - {joins_directly: J1}
+    expect:
+      placed:
+        - {who: W1, side: L, how: auto_from_waiting_list}
+        - {who: J1, side: R, how: direct}
+      messages: [{who: W1, kind: added}]
+      missing: {L: 1, R: 5}
+      invitations: none
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L2L, count: 3, side_named: null, group: 3}
+        - {cohort: L2R, count: 1, side_named: null, group: 3}
+        - {cohort: L3R, count: 1, side_named: null, group: 4}
+      invitations_total_sent: 5
+  - at: 2026-11-01 19:05
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect: {placed: [{who: r1, side: R, how: invitation}], missing: {L: 1, R: 4}}
+  - at: 2026-11-01 19:06
+    events: [{accepts: {cohort: L2L, state: invited, as: l1}}]
+    expect: {placed: [{who: l1, side: L, how: invitation}], missing: {L: 0, R: 4}}
+  - at: 2026-11-01 19:08
+    events: [{accepts: {cohort: L2L, state: invited, as: l2}}]
+    expect: {messages: [{who: l2, kind: aviso}]}
+  - at: 2026-11-01 19:08
+    events: [{joins_waiting_list: l2, sides: both}]
+    expect:
+      placed: [{who: l2, side: R, how: auto_from_waiting_list}]
+      messages: [{who: l2, kind: added}]
+      missing: {L: 0, R: 3}
+  - at: 2026-11-01 19:09
+    events: [{declines: {cohort: L2L, state: invited, as: l3}}]
+    expect: {invitations: none}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars, W1, J1, l2]
+        not_to: [r1, l1]
+  - at: 2026-11-02 18:00
+    events: [{accepts: {cohort: L3R, state: invited, as: r2}}]
+    expect: {placed: [{who: r2, side: R, how: invitation}], missing: {L: 0, R: 2}}
+final:
+  roster: {L: 8, R: 6}
