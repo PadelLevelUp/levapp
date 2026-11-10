@@ -13,6 +13,7 @@ import pytest
 from werkzeug.security import generate_password_hash
 
 from padel_app.sql_db import db
+from padel_app.tests.helpers import pin_clock
 
 T0 = datetime(2026, 10, 30, 10, 0, 0)
 STANDARD = {"ok": True, "expiresInSeconds": 900, "resendAvailableInSeconds": 60}
@@ -161,12 +162,15 @@ def test_an_unfinished_invite_with_no_invitation_row_uses_the_coach_link(app, ou
         assert PlayerInvitation.by_token(token).invited_by_coach_id == coach_id
 
 
-def test_the_fresh_link_completes_the_account(client, app, outbox):
+def test_the_fresh_link_completes_the_account(client, app, outbox, monkeypatch):
     coach_id = _coach(app)
     _invited_student(app, coach_id)
     _request(app, "invited782@example.com")
     token = re.search(r"/invite/player/([A-Za-z0-9_-]+)", outbox[0]["body"]).group(1)
 
+    # The link was minted at T0 and lives 7 days; the route takes no `now`, so pin the clock
+    # to T0 or the check reads the real date and the link is expired from T0 + 7 days on (PAD-852).
+    pin_clock(monkeypatch, T0)
     res = client.post(f"/api/app/player-invitations/{token}/accept",
                       json={"birthDate": "1990-01-01", "username": "ines782", "password": "Secret123!"})
     assert res.status_code == 200, res.get_json()
