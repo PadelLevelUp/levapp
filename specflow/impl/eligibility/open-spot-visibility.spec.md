@@ -50,7 +50,10 @@ separate browse screen. A coach controls whether their open spots are advertised
    materialized, merely because a student looked at their calendar.
 6. Only classes taught by a coach the student is on the roster of are ever shown. This feature never
    exposes classes from a coach the student has no relationship with.
-7. Classes that have started (judged on the club's clock, PAD-256) and classes with status `canceled` or `completed` are never shown as open spots.
+7. Classes that have started or start right now (judged on the club's clock, PAD-256) and classes with
+   status `canceled` or `completed` are never shown as open spots. A spot is offered only while a
+   join request for it can still be made (`class_join_request_service.py` refuses from the start, `<=`).
+   - Code to follow: the open-spot loader in `calendar_helpers.py` drops a class whose start is `<=` now, not only `<`, with one test for a class starting exactly now.
 8. A student's own availability blocker (`calendar.student-blockers`) suppresses *solicitations*, not
    *discovery*: a blocked window still shows open spots. The student initiates here, so the
    protection the blocker exists to give is not at stake.
@@ -210,6 +213,7 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_single_cla
 - **And** the shared API client sends no `X-LevApp-Capabilities` header when its shell declares nothing, and one header listing every declared token on every request when it does
 - **And** the web shell's requests declare `open-spots` and `evaluations`
 test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_route_appends_open_spots_for_students_only` (+5 more)
+- Code to follow: `test_calendar_route_appends_open_spots_for_a_student_and_never_for_a_coach` sends `X-LevApp-Capabilities: open-spots` on the coach's request too, so the role check is what hides the spots.
 
 ### Notes
 - **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:
@@ -223,12 +227,3 @@ test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_rou
 - **Kill-switches (2026-10-06, PAD-533, draft):** `admin.clubs-and-switches` rule 5 lets staff
   switch a capability off server-side; `client_declares()` then answers false whatever the
   header says. The header and rule 12 above are unchanged.
-
-### Open questions
-
-- **A class starting exactly now is offered as an open spot but refuses a join request.**
-  - The open-spot loader drops a class only when its start is strictly before now on the club's clock (`calendar_helpers.py:351`, `<`).
-  - Join requests close at the start (`class_join_request_service.py:176`, `<=`).
-  - The code today: both, so for the instant of the start the student sees a spot they cannot ask for.
-  - Recommendation: make the loader use `<=`, so a spot is offered only while it can be requested. One line of code and one test.
-- **The "never for a coach" test would pass without the role check.** `test_calendar_route_appends_open_spots_for_a_student_and_never_for_a_coach` sends the coach's request with no `X-LevApp-Capabilities` header, so the capability gate alone hides the open spots. Recommendation: send the header on the coach's request too.

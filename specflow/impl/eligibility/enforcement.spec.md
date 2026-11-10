@@ -68,7 +68,9 @@ a coach acts by hand. The coach's roster always wins.
    (`POST /api/app/notify/eligibility_check`), not a hook inside the class-edit save. Rule 6 warns
    and never blocks, so the save path is unchanged and a client that ignores the check cannot be
    prevented from enrolling anyone. It returns only the students who FAIL, so an empty list means
-   "no confirmation needed".
+   "no confirmation needed". The standing waiting list has its own check endpoint,
+   `POST /api/app/notify/standing_waiting_list/eligibility_check`, which `notifications.waiting-list`
+   owns (see its rule on the standing list).
 7e. **(B-619) Only the class's coach may ask.** `eligibility_check` resolves the class through the
    engine's owned resolver, before anything is written: another coach's class is 403, and a
    Lesson + date ref of another coach's class materialises no occurrence (before B-619 it did,
@@ -81,9 +83,9 @@ a coach acts by hand. The coach's roster always wins.
     **Confirm** proceeds with the save exactly as before; **Cancel** aborts the whole save and
     leaves the coach in the edit with their draft intact. An empty list saves without any prompt.
     A failed check (network error) never blocks the save either — the warning is a courtesy, the
-    enrolment is the coach's. `ManualNotificationModal` is NOT this surface: it sends manual
-    *notifications* and reports availability blockers (`calendar.student-blockers` rule 8); it does
-    not enrol anyone and gets no eligibility prompt.
+    enrolment is the coach's. `ManualNotificationModal` enrols nobody, and it runs the same check and
+    opens the same dialog before a manual invitation (rule 6a); it also reports availability
+    blockers (`calendar.student-blockers` rule 8).
 8. **Tightening the bar never removes anyone.** Eligibility governs *joining*, never *staying*. No
    retroactive evaluation, no auto-removal, no expiry of existing enrolments.
 9. **Saving a stricter bar reports who it would have excluded**, informationally: "3 enrolled
@@ -234,6 +236,8 @@ test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_class_edit
 - **And** with nobody selected nothing is checked and nothing is sent
 - **And** on iOS a second press while the check is running starts no second check, opens one confirmation and sends nothing until it is answered
 test: `frontend/apps/web/src/components/calendar/ManualNotificationModal.eligibility.test.tsx` › `sends at once when nobody fails, and when the check itself fails` (+4 more)
+- Code to follow: add the failing-check case to `ManualNotificationModal.eligibility.test.tsx`, so the
+  check itself fails in the modal test (today only `manual-invite-flow.test.ts` proves it).
 
 #### ELIGIBILITY-ENFORCEMENT-19: The confirmation and the impact note are built the same way on both shells (rules 7d, 9b)
 - **Given** the rows the server answers for a check, and for a stricter bar
@@ -257,14 +261,3 @@ test: `backend/padel_app/tests/test_pad133_eligibility_reasons.py` › `test_rep
   levelup_backend#89). Rendering reuses `describeEligibilityFailure` from the invite tutorial
   (`tutorials.eligibility.*` keys) so the reasons never fork between the tutorial, the dialog and
   the note.
-
-### Open questions
-
-- **Rule 7d still says the manual-invitation modal gets no eligibility prompt; rule 6a and the code give it one.**
-  - Rule 7d: "`ManualNotificationModal` is NOT this surface: it sends manual *notifications* and reports availability blockers (`calendar.student-blockers` rule 8); it does not enrol anyone and gets no eligibility prompt."
-  - Rule 6a (PAD-562; owner, 2026-10-09): "the client runs the same check ... BEFORE `POST /api/app/notify/manual` and opens the same confirmation".
-  - The code today: both modals run the check (`ManualNotificationModal.tsx:213-215`, `notify-modal.tsx:171-174`); ELIGIBILITY-ENFORCEMENT-12, 13 and 18 are written to it.
-  - Recommendation: rule 6a is the later owner decision; rewrite rule 7d's last sentence.
-  - Proposed text for rule 7d's last sentence: "`ManualNotificationModal` enrols nobody, and it runs the same check and opens the same dialog before a manual invitation (rule 6a); it also reports availability blockers (`calendar.student-blockers` rule 8)."
-- **A second check endpoint exists that no rule names.** `POST /api/app/standing_waiting_list/eligibility_check` (`notification_engine_api.py:719`) sits beside `POST /api/app/notify/eligibility_check` (rule 7c). Recommendation: name it in rule 7c, or say which spec owns it.
-- **Two tests assert less than their names say.** `ManualNotificationModal` › "sends at once when nobody fails the bar, and when the check itself fails" never makes the check fail (the failed check is proved only in `manual-invite-flow.test.ts`). Recommendation: add the failing-check case to the modal test.
