@@ -8,8 +8,8 @@ corrections: []
 notes: >
   M counts only unanswered invitations of the current round (R10); each round sends X x spots up to M without
   subtracting earlier rounds (R11), so 19:20 sends 12 more and 24 right-side invitations are open (stated at
-  lines 2169-2173). 19:25: the PDF's "8 convites abertos na ronda atual" is a current-round count, which the
-  format cannot check (open_unanswered counts all rounds); the step checks the 4 left invitations it causes.
+  lines 2169-2173). 19:25: the PDF's "8 convites abertos na ronda atual" (right side) is the state before the
+  top-up; open_in_round is checked after the engine runs, so it is those 8 plus the 4 left invitations = 12.
   The 2 right invitations above the ideal of 6 are not cancelled (lines 2188-2191). 19:40 is 20 minutes after
   the 19:20 round; the 19:25 top-up has no clock of its own (line 170). All 40 candidates are used.
 
@@ -42,6 +42,7 @@ timeline:
         - {who: a4, side: R, how: invitation}
       missing: {L: 2, R: 2}
       invitations: [{cohort: L2L, count: 4, side_named: null, group: 3}]
+      open_in_round: 12
   - at: 2026-11-01 19:40
     expect:
       invitations:

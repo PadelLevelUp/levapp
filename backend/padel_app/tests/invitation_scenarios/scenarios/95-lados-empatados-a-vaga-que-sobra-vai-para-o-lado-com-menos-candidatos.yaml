@@ -8,7 +8,8 @@ corrections: [E1]
 notes: >
   M is 9. 19:00: 3 spots covered, 1 per side, the leftover to the left (6 candidates against 16). 19:10: the
   accepted invitation leaves the count (R10), one place of the limit is free and goes to the right; the PDF's
-  "5 de esquerda e 3 de direita abertos" is the pre-top-up state and is not checked. 19:20 (E1, design 6.1):
+  "5 de esquerda e 3 de direita abertos" is the pre-top-up state, so open_in_round after the engine runs is
+  5 + 3 + 1 = 9. 19:20 (E1, design 6.1):
   the PDF says 3 left and 6 right, but only 6 left-siders exist and all 6 were invited at 19:00, so the round
   is 6 right-siders only. The left needs no other group: its 5 open invitations cover its 1 spot (R2).
   No U tag: the analysis (C8) finds 93-95 agree with the plan. The 19:30 Aviso probe is derived from "Quem
@@ -36,6 +37,7 @@ timeline:
       placed: [{who: a, side: L, how: invitation}]
       missing: {L: 1, R: 2}
       invitations: [{cohort: L2R, count: 1, side_named: null, group: 3}]
+      open_in_round: 9
   - at: 2026-11-01 19:20
     expect:
       invitations: [{cohort: L2R, count: 6, side_named: null, group: 3}]

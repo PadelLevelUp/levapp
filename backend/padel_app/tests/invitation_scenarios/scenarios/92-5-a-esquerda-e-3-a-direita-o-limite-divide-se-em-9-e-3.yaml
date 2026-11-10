@@ -7,8 +7,8 @@ depends_on: [U7]
 corrections: []
 notes: >
   The limit covers 4 spots: 2 to bring the right level with the left, the other 2 halved (lines 1969-1974).
-  19:15: the PDF's "7 de direita e 3 de esquerda abertos" is the state before the top-up and is not checked;
-  the step checks the 2 left invitations it causes (R10: accepted invitations leave the count). 19:20 is the
+  19:15: the PDF's "7 de direita e 3 de esquerda abertos" is the state before the top-up (R10: accepted
+  invitations leave the count); open_in_round is checked after the engine runs, so 7 + 3 + the 2 left = 12. 19:20 is the
   next round, 20 minutes after 19:00, sending X x 4 spots = 12 without subtracting earlier rounds (R11).
 
 roster:
@@ -34,6 +34,7 @@ timeline:
         - {who: a2, side: R, how: invitation}
       missing: {L: 3, R: 3}
       invitations: [{cohort: L2L, count: 2, side_named: null, group: 3}]
+      open_in_round: 12
   - at: 2026-11-01 19:20
     expect:
       invitations:

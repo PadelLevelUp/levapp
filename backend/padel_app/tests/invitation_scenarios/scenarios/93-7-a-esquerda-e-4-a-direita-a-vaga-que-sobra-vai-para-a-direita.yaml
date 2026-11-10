@@ -8,7 +8,8 @@ corrections: []
 notes: >
   The limit covers 4 spots: 3 to bring the right level with the left, the leftover to the right, the side with
   fewer confirmed (lines 1969-1974). 19:10: accepted invitations leave the count (R10), so 3 places of the limit
-  go to the left; the PDF's "9 convites de direita abertos" is the pre-top-up state and is not checked. 19:20 is
+  go to the left; the PDF's "9 convites de direita abertos" is the pre-top-up state, so open_in_round after
+  the engine runs is 9 + 3 = 12. 19:20 is
   the next round (X x 2 spots = 6, R11). No U tag: the analysis (C8) finds 93-95 agree with the plan. The 19:30
   Aviso probe is derived from "Quem disser Sim depois vê o Aviso" (R9).
 
@@ -35,6 +36,7 @@ timeline:
         - {who: a3, side: R, how: invitation}
       missing: {L: 1, R: 1}
       invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+      open_in_round: 12
   - at: 2026-11-01 19:20
     expect:
       invitations:
