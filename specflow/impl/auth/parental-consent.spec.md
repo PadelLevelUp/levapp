@@ -1,6 +1,6 @@
 ---
 id: auth.parental-consent
-status: implemented
+status: retired
 depends_on: [auth.register, auth.login, auth.email-verification]
 serves: [P-AUTH-3]
 governed_by: [R-022, R-024]
@@ -206,13 +206,6 @@ consent process" the 2026-09-06 privacy policy and terms of service describe and
 - **When** a minor signs up with a guardian email
 - **Then** the waiting card is shown with the resend countdown, and signing in before consent shows the same card
 
-#### AUTH-PARENTAL-CONSENT-13: The guardian-consent data and its `/me` key are gone (rule 13, PAD-644)
-- **Given** the application as built today
-- **Then** no model maps the two consent tables, `users` has no consent status column and keeps `birth_date` and `country`, and no terms-version setting exists
-- **And** a signed-in user's `GET /api/auth/me` has no `guardianConsent` key
-- **And** the migration drops the two tables and the column keeping every user row, its downgrade brings the structures back with the ten seeded ages, and each is safe to run twice
-test: `backend/padel_app/tests/test_pad644_guardian_consent_dropped.py` › `test_no_model_maps_the_consent_tables_or_the_status_column` (+4 more)
-
 ### Notes
 - Linear: PAD-198. Decisions: the eight defaults the coordinator confirmed on 2026-09-10 (see the
   business spec), a stored hash for every token from the start (PAD-269 lists plaintext tokens as a
@@ -220,19 +213,3 @@ test: `backend/padel_app/tests/test_pad644_guardian_consent_dropped.py` › `tes
   never be "activated" through the coach-created-account path (`auth.activate`).
 - OPEN: automatic deletion of a minor account whose guardian never answers.
 - OPEN: asking existing self-registered users for a birth date.
-
-### Open questions
-
-- **The spec is `implemented`, and its rules 1 to 12 and criteria 1 to 12 describe a flow that no longer exists.**
-  - Spec: frontmatter `status: implemented`; rule 11, "`/api/auth/me` carries `guardianConsent`
-    (`null` | `granted`)"; AUTH-PARENTAL-CONSENT-2 to -12 walk the guardian mails, pages and gates.
-  - Same spec, Intent: "DEPRECATED (PAD-457, owner 2026-09-25) … The guardian flow below is
-    REMOVED from the code … PAD-644 dropped the data … Kept as the record of what existed."
-  - Code today: no guardian-consent model, table, column or `/me` key
-    (`test_pad644_guardian_consent_dropped.py`; AUTH-PARENTAL-CONSENT-13 states it). Under-18s
-    are refused at sign-up and at activation (`auth.register` rule 18, `auth.activate` rule 13).
-  - Recommendation: set the status to `retired`, as the record it already says it is, so the
-    index stops listing twelve criteria nothing can prove. Its promise P-AUTH-3 is `deprecated`
-    and says the same; retire it with the spec.
-  - Proposed: `status: retired` on `auth.parental-consent` and on P-AUTH-3, and move
-    AUTH-PARENTAL-CONSENT-13 (the removal is complete) into `auth.register` beside rule 18.

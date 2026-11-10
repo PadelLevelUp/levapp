@@ -1,7 +1,7 @@
 ---
 id: P-AUTH-3
 title: "Minor signs up with a guardian's consent"
-status: deprecated
+status: retired
 ---
 # Minor signs up with a guardian's consent
 

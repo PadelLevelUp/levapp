@@ -104,7 +104,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
     `country` (ISO alpha-2), both required, and stored on the User. A `guardianEmail` is ignored
     (PAD-457: the guardian flow is gone; rule 18 decides who may sign up).
 17. **Retired (PAD-457).** A minor's sign-up used to wait for a guardian's consent
-    (`auth.parental-consent`, now deprecated). Rule 18 refuses everyone under 18 first, and the
+    (`auth.parental-consent`, now retired). Rule 18 refuses everyone under 18 first, and the
     guardian flow is removed. The number is kept because code and tests cite rule 18.
 18. **Only adults sign up (PAD-445, owner decision 2026-09-24).** Age is full years on the request's
     UTC date (`parental_consent_service.age_on`): someone whose 18th birthday is today is 18, and a
@@ -126,7 +126,7 @@ create one, or ask to join an existing one — happens right after approval (`cl
     declares the capability `terms-acceptance` (web, iOS 29+) sends `termsAccepted: true`; for such a
     client anything else answers 400 `{field: "terms", code: "TERMS_REQUIRED"}` and writes nothing. The
     User then records `terms_accepted_at` (the request's instant, UTC), `terms_version` and
-    `privacy_version` — the two pages' effective dates (Terms `2026-10-13` since PAD-642, Privacy `2026-10-13` since PAD-603 and PAD-634; `TERMS_VERSION`
+    `privacy_version` — the two pages' effective dates, the versions `auth.legal-pages` publishes (its Entities and rule 2; `TERMS_VERSION`
     and `PRIVACY_VERSION` in `registration_service.py`, each tied by a test to the version the legal
     page shows and to its text's "Effective date" line (`auth.legal-pages` rule 4) — change them together). **Any client that does not declare the capability**
     registers exactly as before, with the three columns NULL: today that is App Store 1.2.0 (27) and
@@ -204,8 +204,8 @@ create one, or ask to join an existing one — happens right after approval (`cl
 - **When** the newcomer taps Create account
 - **Then** "Para criar conta tens de aceitar…" shows under the box and no request is sent
 - **And** with the box ticked the request carries `termsAccepted: true`, and the new User has
-  `terms_accepted_at` = the request's instant, `terms_version` = `2026-10-13` and `privacy_version` =
-  `2026-10-13`
+  `terms_accepted_at` = the request's instant, and `terms_version` and `privacy_version` = the
+  versions in force (`auth.legal-pages` rule 2)
 
 #### AUTH-REGISTER-4: A declaring client that does not accept is refused (rule 19)
 - **Given** a request declaring `terms-acceptance` with `termsAccepted` absent, `false` or not a boolean
@@ -392,24 +392,16 @@ test: `backend/padel_app/tests/test_registration.py` › `test_validation_errors
 - **And** Germany reads "Alemanha" in Portuguese and "Germany" in English
 test: `frontend/packages/config/src/countries.test.ts` › `lists unique upper-case ISO codes with Portugal first` (+1 more)
 
+#### AUTH-REGISTER-34: The guardian-consent data and its `/me` key are gone (rules 17 and 18, PAD-644)
+- **Given** the application as built today
+- **Then** no model maps the two consent tables, `users` has no consent status column and keeps `birth_date` and `country`, and no terms-version setting exists
+- **And** a signed-in user's `GET /api/auth/me` has no `guardianConsent` key
+- **And** the migration drops the two tables and the column keeping every user row, its downgrade brings the structures back with the ten seeded ages, and each is safe to run twice
+test: `backend/padel_app/tests/test_pad644_guardian_consent_dropped.py` › `test_no_model_maps_the_consent_tables_or_the_status_column` (+4 more)
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, items 1–2
   and 7 (admin approval of coaches, added the same day).
 - Rate limiting: rule 15 (PAD-228).
 - Email verification: `auth.email-verification` (PAD-234), added 2026-09-07.
 - PAD-198: rules 16–17 and `auth.parental-consent` (rules numbered 16+ because PAD-228 takes 15).
-
-### Open questions
-
-- **Rule 19 and AUTH-REGISTER-3 record the privacy version `2026-10-13`; sign-up records `2026-10-21`.**
-  - Spec: rule 19, "Privacy `2026-10-13` since PAD-603 and PAD-634"; AUTH-REGISTER-3,
-    "`privacy_version` = `2026-10-13`".
-  - Other spec: `auth.legal-pages` Entities, "Privacy v2026-10-21 (PAD-638, owner decisions
-    2026-10-21; version change only…)".
-  - Code today: `registration_service.py` has `PRIVACY_VERSION = "2026-10-21"` and the web's
-    legal index says the same; `test_pad485_terms_acceptance.py` ›
-    `test_each_version_is_the_effective_date_its_page_states` keeps the three in step.
-  - Recommendation: amend the two dates; better, stop writing the date in this spec and say "the
-    version `auth.legal-pages` publishes", so the next policy version does not stale it again.
-  - Proposed text for AUTH-REGISTER-3: "`terms_version` and `privacy_version` = the versions in
-    force (`auth.legal-pages` rule 2)".

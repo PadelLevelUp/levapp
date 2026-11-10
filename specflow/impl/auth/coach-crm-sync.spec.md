@@ -33,9 +33,10 @@ them (PAD-471). Only the coach's own data leaves LevApp.
 3. **Account status** goes into the contact property named by `HUBSPOT_ACCOUNT_STATUS_PROPERTY`
    (`levapp_estado_conta`), mapped from `Coach.approval_status`: `pending` → `pendente`,
    `approved` → `aprovado`, `rejected` → `rejeitado`. With the variable unset, no status is sent.
-   If HubSpot answers 400 naming a property (e.g. `PROPERTY_DOESNT_EXIST` — the property was not
-   created), the write is retried once without the status and a warning names the property, so a
-   misconfiguration degrades to "contact without status", never "no contact".
+   If HubSpot answers 400 naming the status property (e.g. `PROPERTY_DOESNT_EXIST` — the property
+   was not created), the write is retried once without the status and a warning names the
+   property, so a misconfiguration degrades to "contact without status", never "no contact"; a
+   400 about anything else is not retried.
 4. **Upsert, on every trigger. LevApp fills what the CRM lacks and owns only the status.**
    - Look the contact up by email, or by phone when the User has one (`OR`). A self-registered
      coach gives no phone, so in practice the lookup is by email alone.
@@ -201,18 +202,3 @@ test: `backend/padel_app/tests/test_pad471_hubspot_coach_sync.py` › `test_sign
 - Web and iOS: no client change — the sync is server-side, behind the endpoints both apps already
   call.
 - Tests: `backend/padel_app/tests/test_pad471_hubspot_coach_sync.py`.
-
-### Open questions
-
-- **Rule 3 retries a 400 "naming a property"; the code retries only when it names the status property.**
-  - Spec: rule 3, "If HubSpot answers 400 naming a property (e.g. `PROPERTY_DOESNT_EXIST` — the
-    property was not created), the write is retried once without the status".
-  - Code today: `services/hubspot_sync.py` `_write` retries only when the 400's body names the
-    configured status property. `test_pad471_hubspot_coach_sync.py` ›
-    `test_a_400_that_names_no_status_property_is_not_retried` gets one write and the warning
-    "hubspot sync failed at create: HTTP 400" for a 400 naming `firstname`.
-  - Recommendation: amend the rule to the code. Dropping the status cannot cure a 400 about
-    another property, so a second write would fail the same way.
-  - Proposed text: "If HubSpot answers 400 naming the status property (e.g.
-    `PROPERTY_DOESNT_EXIST` — the property was not created), the write is retried once without
-    the status…; a 400 about anything else is not retried."

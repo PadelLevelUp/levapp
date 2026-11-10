@@ -89,7 +89,7 @@ stored record — the visitor's cookie choice, in localStorage key `levapp.cooki
     code (`frontend/apps/web/src/lib/hubspotConfig.ts`, which the tests import): the *tracking* hosts
     (the tracking script and everything it loads) and the *forms* hosts. One form serves every
     commercial contact button — every "Pedir demonstração" and "Falar connosco"; "Enviar ideia" (the
-    "others" audience) stays an email and the footer "Contacto" stays `/support`. It opens a dialog
+    "others" audience) stays an email and the footer "Contacto" opens the contact page (rule 17). It opens a dialog
     headed "Vamos falar!" with LevApp's own form (the design system's inputs, checkboxes and radio
     groups; one primary button "Enviar pedido"), in this order: Nome, Apelido, Telemóvel, Email, "Em
     que clube dás aulas?" (all text, required); "Como geres hoje as presenças, faltas e novos
@@ -469,15 +469,3 @@ test: `frontend/apps/web/src/site/SiteFrame.theme.test.tsx` › `paints <html> l
   `index.html` check in `landing-guards.test.ts` covers them.
 - Rule 13's order is tested by outcome: after Recusar the reloaded document reads `declined` and
   runs no tracker; a reload before the write would come back `accepted` and load it again.
-
-### Open questions
-
-- **Rule 10 sends the footer's "Contacto" to `/support`; rule 6 and the code send it to `/contacto`.**
-  - Rule 10: "the footer "Contacto" stays `/support`".
-  - Rule 6: "the footer's in-site link to `/contacto` is the one exception, in the layout"; rule 17
-    defines `/contacto` (PAD-656).
-  - Code today: `site/SiteLayout.tsx` renders the footer link `site-footer-contact` to
-    `/contacto`.
-  - Recommendation: rule 10's clause predates the contact page; amend it.
-  - Proposed text for rule 10: "…"Enviar ideia" (the "others" audience) stays an email, and the
-    footer "Contacto" opens the contact page (rule 17)."
