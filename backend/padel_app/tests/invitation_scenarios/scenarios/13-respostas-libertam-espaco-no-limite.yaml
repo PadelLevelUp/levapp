@@ -40,6 +40,7 @@ timeline:
       placed: [{who: a2, side: R, how: invitation}]
       invitations: none
       open_unanswered: 11
+      open_in_round: 11
       missing: {L: 0, R: 3}
   - at: 2026-11-01 19:15
     events:
