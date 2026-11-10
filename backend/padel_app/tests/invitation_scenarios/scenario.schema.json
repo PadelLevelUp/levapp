@@ -1,0 +1,1164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "levapp/invitation-scenario.schema.json",
+  "title": "Invitation scenario",
+  "description": "One of Tomás's 95 invitation scenarios as a clock-driven timeline. Contract: docs/plans/2026-11-10-scenario-harness-design.md §2-§6 (main checkout). validate.py enforces this schema plus the referential checks (who resolves, counts fit cohorts, aliases bind once, steps in time order); it does not need the jsonschema package.",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "source",
+    "what_it_tests",
+    "timeline",
+    "final"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "description": "PDF scenario number; P01-P33 for the redesign plan's scenarios. Must match the NN in the file name.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 95
+        },
+        {
+          "type": "string",
+          "pattern": "^P\\d{2}$"
+        }
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "section",
+        "lines"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "section": {
+          "type": "string"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "what_it_tests": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tags": {
+      "description": "Free vocabulary; values outside the §2.6 list are a warning, explained in notes.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "x-known": [
+        "groups",
+        "rounds",
+        "max-open",
+        "timers",
+        "method-b",
+        "method-c",
+        "quiet-hours",
+        "reminders",
+        "waiting-list",
+        "coach-list",
+        "direct-join",
+        "aviso",
+        "sides",
+        "both-sides",
+        "other-side",
+        "unbalanced",
+        "regulars",
+        "absences",
+        "cancellation",
+        "late-class",
+        "multi-class",
+        "last-invite",
+        "eligibility",
+        "tiebreak"
+      ]
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^U([1-9]|[12]\\d|3[01])$"
+      }
+    },
+    "corrections": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^E[1-6]$"
+      }
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tick_every": {
+      "$ref": "#/$defs/duration"
+    },
+    "settings": {
+      "$ref": "#/$defs/settings"
+    },
+    "class": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start": {
+          "$ref": "#/$defs/datetime"
+        },
+        "created_at": {
+          "description": "Late-created class: needs exactly one {class_created: true} event at this same instant.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/datetime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "other_classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "start"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/$defs/level"
+          },
+          "capacity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "start": {
+            "$ref": "#/$defs/datetime"
+          },
+          "regulars": {
+            "$ref": "#/$defs/regulars"
+          }
+        }
+      }
+    },
+    "roster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "regulars": {
+          "$ref": "#/$defs/regulars"
+        }
+      }
+    },
+    "students": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/student"
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "final": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/expect"
+        },
+        {
+          "type": "object",
+          "required": [
+            "roster"
+          ],
+          "not": {
+            "required": [
+              "other_class"
+            ]
+          },
+          "properties": {
+            "other_classes": {
+              "description": "Final rosters of the other classes, {B: {roster: {L: n, R: n}}}.",
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/expect"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "variant": {
+      "description": "Only for a scenario with two outcomes: two files NNa-/NNb- share one id, each with a distinct variant; a lone file carries none.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "datetime": {
+      "description": "Europe/Lisbon wall-clock, quoted or not but never with seconds or a T, so YAML keeps it a string.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$"
+    },
+    "hhmm": {
+      "description": "Always quoted: unquoted 19:00 is a base-60 integer in YAML 1.1.",
+      "type": "string",
+      "pattern": "^\\d{2}:\\d{2}$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^(?=\\d)(\\d+h)?(\\d+m)?$"
+    },
+    "level": {
+      "description": "The PDF's level: 1 is the best, 6 the worst.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
+    },
+    "side": {
+      "enum": [
+        "L",
+        "R"
+      ]
+    },
+    "sidesCount": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "L",
+            "R"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "L": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "R": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "total"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invites_per_spot": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_open": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timing": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "method"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "method": {
+                  "enum": [
+                    "A",
+                    "B"
+                  ]
+                },
+                "between_rounds": {
+                  "$ref": "#/$defs/duration"
+                },
+                "between_groups": {
+                  "$ref": "#/$defs/duration"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": [
+                "method",
+                "per_group"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "method": {
+                  "const": "C"
+                },
+                "per_group": {
+                  "type": "object",
+                  "propertyNames": {
+                    "pattern": "^[1-6]$"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "between_rounds": {
+                        "$ref": "#/$defs/duration"
+                      },
+                      "to_next_group": {
+                        "$ref": "#/$defs/duration"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "first_invite": {
+          "type": "object",
+          "required": [
+            "days_before",
+            "at"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "days_before": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "$ref": "#/$defs/hhmm"
+            }
+          }
+        },
+        "last_invite_before": {
+          "$ref": "#/$defs/duration"
+        },
+        "quiet_hours": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/hhmm"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reminders": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "days_before": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "at": {
+              "$ref": "#/$defs/hhmm"
+            },
+            "every": {
+              "$ref": "#/$defs/duration"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "absence_cutoff_before": {
+          "$ref": "#/$defs/duration"
+        },
+        "eligible_levels_above": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "tiebreak": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "list",
+                  "side"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "list": {
+                    "enum": [
+                      "coach",
+                      "students"
+                    ]
+                  },
+                  "side": {
+                    "enum": [
+                      "same",
+                      "other",
+                      "any"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "level",
+                  "side"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "level": {
+                    "type": "integer",
+                    "minimum": -5,
+                    "maximum": 5
+                  },
+                  "side": {
+                    "enum": [
+                      "same",
+                      "other",
+                      "any"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "regulars": {
+      "description": "Cohort form {L: n, R: n[, both: n]} gives ids L-1..L-n, R-1..R-n, B-1..B-n, which `who` may name directly.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "L",
+            "R"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "L": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "R": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "both": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "side"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "side": {
+                "enum": [
+                  "L",
+                  "R",
+                  "both"
+                ]
+              },
+              "plays": {
+                "const": "both"
+              },
+              "level": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/level"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "student": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "level",
+            "side"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "level": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/level"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "side": {
+              "enum": [
+                "L",
+                "R",
+                "both"
+              ]
+            },
+            "participations": {
+              "description": "Base tiebreak 'mais participações'; absent = 0.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "cohort",
+            "count",
+            "level",
+            "side"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cohort": {
+              "type": "string",
+              "pattern": "^L[1-6][LRB](-[a-z0-9]+(-[a-z0-9]+)*)?$"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "level": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/level"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "side": {
+              "enum": [
+                "L",
+                "R",
+                "both"
+              ]
+            },
+            "participations": {
+              "description": "One per member, in member order; length = count.",
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "who": {
+      "description": "A named id, a cohort-form regular (L-3), a bound alias, or a cohort member chosen by state (design §3).",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": [
+            "cohort",
+            "state"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cohort": {
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "uninvited",
+                "invited",
+                "accepted",
+                "declined",
+                "placed",
+                "on_waiting_list"
+              ]
+            },
+            "invited_at": {
+              "$ref": "#/$defs/datetime"
+            },
+            "as": {
+              "type": "string",
+              "minLength": 1
+            },
+            "side_named": {
+              "enum": [
+                "L",
+                "R",
+                null
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "accepts"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "accepts": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "declines"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "declines": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "confirms"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "confirms": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "appears"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "appears": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "joins_directly"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "joins_directly": {
+              "$ref": "#/$defs/who"
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "joins_waiting_list",
+            "sides"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "joins_waiting_list": {
+              "$ref": "#/$defs/who"
+            },
+            "sides": {
+              "enum": [
+                "own",
+                "other",
+                "both"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "leaves_waiting_list"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "leaves_waiting_list": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "coach_adds_to_waiting_list",
+            "side"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "coach_adds_to_waiting_list": {
+              "$ref": "#/$defs/who"
+            },
+            "side": {
+              "$ref": "#/$defs/side"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "coach_removes_from_waiting_list"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "coach_removes_from_waiting_list": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "regular_no"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "regular_no": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "regular_returns"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "regular_returns": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "cancels"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "cancels": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "no_show"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "no_show": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "class_created"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "class_created": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "coach_sets"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "coach_sets": {
+              "$ref": "#/$defs/settings"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "other_class",
+            "event"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "other_class": {
+              "type": "string"
+            },
+            "event": {
+              "$ref": "#/$defs/event"
+            }
+          }
+        }
+      ]
+    },
+    "whoRecord": {
+      "type": "object",
+      "required": [
+        "who"
+      ],
+      "properties": {
+        "who": {
+          "$ref": "#/$defs/who"
+        }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invitations": {
+          "description": "Invitations sent at this step (new since the previous step). Exhaustive: an invitation not listed fails the step. Counts are exact.",
+          "oneOf": [
+            {
+              "const": "none"
+            },
+            {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "who"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "who": {
+                        "$ref": "#/$defs/who"
+                      },
+                      "side_named": {
+                        "enum": [
+                          "L",
+                          "R",
+                          null
+                        ]
+                      },
+                      "group": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 6
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "cohort",
+                      "count"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "cohort": {
+                        "type": "string"
+                      },
+                      "count": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "side_named": {
+                        "enum": [
+                          "L",
+                          "R",
+                          null
+                        ]
+                      },
+                      "group": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 6
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "invitations_total_sent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_unanswered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "placed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "who",
+              "side",
+              "how"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "$ref": "#/$defs/who"
+              },
+              "side": {
+                "$ref": "#/$defs/side"
+              },
+              "how": {
+                "enum": [
+                  "invitation",
+                  "direct",
+                  "auto_from_waiting_list",
+                  "regular_returns"
+                ]
+              }
+            }
+          }
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "who",
+              "kind"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "$ref": "#/$defs/who"
+              },
+              "kind": {
+                "enum": [
+                  "aviso",
+                  "sorry",
+                  "added",
+                  "waiting_list_offer"
+                ]
+              }
+            }
+          }
+        },
+        "reminders": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "to": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/who"
+              },
+              "description": "`regulars` = all regulars still going"
+            },
+            "not_to": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/who"
+              }
+            }
+          }
+        },
+        "absences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "who",
+              "kind"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "$ref": "#/$defs/who"
+              },
+              "kind": {
+                "enum": [
+                  "justified",
+                  "unjustified",
+                  "none"
+                ]
+              }
+            }
+          }
+        },
+        "missing": {
+          "$ref": "#/$defs/sidesCount"
+        },
+        "roster": {
+          "$ref": "#/$defs/sidesCount"
+        },
+        "nothing_sent": {
+          "const": true
+        },
+        "waiting_list": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Membership in order; an absent list is not checked.",
+          "properties": {
+            "coach": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/who"
+              }
+            },
+            "students": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/who"
+              }
+            }
+          }
+        },
+        "other_class": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/expect"
+          }
+        },
+        "other_classes": {
+          "description": "Only valid in `final`.",
+          "type": "object"
+        },
+        "refused": {
+          "description": "An attempt the engine must refuse.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "who",
+              "action"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "$ref": "#/$defs/who"
+              },
+              "action": {
+                "enum": [
+                  "direct_join",
+                  "waiting_list"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/datetime"
+        },
+        "derived": {
+          "type": "boolean",
+          "description": "true when the step is a probe not in the PDF text"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "expect": {
+          "$ref": "#/$defs/expect"
+        }
+      }
+    }
+  }
+}
