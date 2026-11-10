@@ -64,7 +64,7 @@ out of scope (no backend support exists for them).
     on `field: "birthDate"`, and nothing in that PATCH is written. A stored date can be changed, never
     cleared. Web shows a date input and iOS sign-up's DD/MM/AAAA field, both in Perfil for every role;
     `UNDERAGE` shows "Esta app só aceita maiores de 18 anos." under the field.
-11. **Country (PAD-640).** Perfil also edits the country (the `COUNTRIES` list, `auth.login` rule 13's
+11. **Country (PAD-640).** Perfil also edits the country (the `COUNTRIES` list, `auth.login` rule 14's
     `PATCH /me` check: two letters, upper-cased, or 400 `INVALID_COUNTRY`; never cleared). Both fields
     save with the tab's one "Guardar alterações" (`settings.explicit-save`) and send only when changed
     (rule 8).
