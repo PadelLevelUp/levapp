@@ -706,7 +706,15 @@
           "additionalProperties": false,
           "properties": {
             "confirms": {
-              "$ref": "#/$defs/who"
+              "description": "`regulars` = every regular still going answers Yes.",
+              "oneOf": [
+                {
+                  "const": "regulars"
+                },
+                {
+                  "$ref": "#/$defs/who"
+                }
+              ]
             }
           }
         },

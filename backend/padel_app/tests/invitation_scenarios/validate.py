@@ -489,7 +489,9 @@ def check_event(ev, path: str, rep: Report, people: People, class_ids: set[str],
         if required and k not in ev:
             rep.err(path, f"`{name}` requires `{k}`")
     value = ev[name]
-    if name in WHO_EVENTS:
+    if name == "confirms" and value == "regulars":
+        pass  # every regular still going answers Yes to the reminder
+    elif name in WHO_EVENTS:
         check_who(value, p, rep, people)
     elif name == "class_created":
         if value is not True:
