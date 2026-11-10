@@ -9,9 +9,9 @@ notes: >
   Encoded exactly as written (design §6.1 E2): D2's and D3's invitations stay valid after the class filled at
   19:30, which contradicts scenario 72; U25. The cancel at 3 Nov 09:00 is after the 22:30 cutoff, so it is
   unjustified (U29). invitations_total_sent 3 at 09:00 checks that no L3R was ever invited. At 10:40 the class
-  has started and D3's Yes must change nothing. `refused` covers only direct_join and waiting_list, so the
-  step applies the late accept and checks by proxy: roster unchanged and nothing sent (no Aviso, no
-  placement). Proposed to H: `refused: [{who: D3, action: accept}]`.
+  has started and D3's Yes must change nothing. `refused` covers only direct_join and waiting_list; per H
+  (harness owner) the late accept is fired and checked as nothing sent plus an unchanged roster, and the
+  runner treats the engine's refusal as an observation, not an error.
 
 roster:
   regulars: {L: 8, R: 7}
