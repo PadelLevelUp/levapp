@@ -1,0 +1,878 @@
+# Baseline of the invitation scenarios against today's engine (PAD-846).
+# Run 2026-11-10 against 24f32ab2c (origin/staging 1bd3c160f + this branch), SQLite.
+# Classes per the reading rule (first failing step;
+# encoding > structural > decision > behavioural). Regenerate, never hand-edit counts.
+01-exemplo-completo:
+  outcome: fail
+  evaluated: 16
+  skipped: 4
+  depends_on:
+  - U16
+  - U23
+  - U26
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-01 18:00 placed[W1]
+02-aula-cheia-desde-o-inicio:
+  outcome: pass
+  evaluated: 10
+  skipped: 0
+03-uma-vaga-muitos-candidatos:
+  outcome: fail
+  evaluated: 15
+  skipped: 0
+  class: behavioural
+  note: 'behavioural: today retires the other invitations when a spot fills (rules 15/15a), so the later Yes has no open invitation'
+  first_failure: 2026-11-01 19:55 events.accepts
+04-grupo-esgota-se-sem-resposta:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U12
+  class: structural
+  note: 'structural: today has no between-groups timer; the next group starts when maxInactiveTime expires'
+  first_failure: 2026-11-01 20:00 invitations
+05-grupo-com-menos-alunos-do-que-vagas:
+  outcome: fail
+  evaluated: 14
+  skipped: 0
+  depends_on:
+  - U5
+  - U28
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
+  first_failure: 2026-11-01 19:30 invitations
+06-grupo-com-mais-alunos-com-recusas:
+  outcome: fail
+  evaluated: 11
+  skipped: 0
+  depends_on:
+  - U5
+  class: structural
+  note: 'structural: today''s rounds are per-spot batches of X, not a class-wide round of X per uncovered spot'
+  first_failure: 2026-11-01 19:15 invitations
+07-grupo-convidado-sem-responder:
+  outcome: fail
+  evaluated: 12
+  skipped: 0
+  depends_on:
+  - U5
+  - U12
+  - U13
+  class: structural
+  note: 'structural: today has no between-groups timer; the next group starts when maxInactiveTime expires'
+  first_failure: 2026-11-01 19:20 invitations
+08-professor-prefere-mesmo-nivel:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U12
+  - U13
+  class: structural
+  note: 'structural: today has no between-groups timer; the next group starts when maxInactiveTime expires'
+  first_failure: 2026-11-01 20:00 invitations
+09-professor-nao-aceita-outro-lado:
+  outcome: pass
+  evaluated: 5
+  skipped: 0
+  depends_on:
+  - U30
+10-nivel-vale-mais-do-que-lado:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U12
+  - U13
+  - U28
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
+  first_failure: 2026-11-01 19:00 invitations
+11-todos-recusam-outro-entra-sozinho:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+  - U28
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
+  first_failure: 2026-11-01 19:10 invitations
+12-limite-corta-primeiro-envio:
+  outcome: fail
+  evaluated: 16
+  skipped: 0
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+13-respostas-libertam-espaco-no-limite:
+  outcome: fail
+  evaluated: 17
+  skipped: 1
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+14-maximo-mais-baixo-que-convites-por-vaga:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+15-limite-prioriza-lado-com-mais-vagas:
+  outcome: fail
+  evaluated: 18
+  skipped: 0
+  depends_on:
+  - U7
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+16-dois-lados-mesmas-vagas:
+  outcome: fail
+  evaluated: 14
+  skipped: 0
+  depends_on:
+  - U7
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+17-limite-atingido-entre-dois-grupos:
+  outcome: fail
+  evaluated: 17
+  skipped: 0
+  depends_on:
+  - U5
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+18-aula-pequena-sem-regulares:
+  outcome: fail
+  evaluated: 11
+  skipped: 0
+  class: behavioural
+  note: 'behavioural: today retires the other invitations when a spot fills (rules 15/15a), so the later Yes has no open invitation'
+  first_failure: 2026-11-01 19:15 events.accepts
+19-professor-adiciona-aluno-ja-ha-vaga:
+  outcome: fail
+  evaluated: 6
+  skipped: 2
+  depends_on:
+  - U16
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-01 10:00 placed[W1]
+20-lado-cheio-primeiro-vaga-depois:
+  outcome: fail
+  evaluated: 10
+  skipped: 2
+  depends_on:
+  - U16
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-02 10:00 placed[W1]
+21-aula-cheia-aluno-na-waiting-list-dos-alunos:
+  outcome: fail
+  evaluated: 8
+  skipped: 2
+  depends_on:
+  - U16
+  - U18
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-02 09:00 placed[S1]
+22-ordem-das-entradas-automaticas:
+  outcome: fail
+  evaluated: 10
+  skipped: 4
+  depends_on:
+  - U16
+  - U17
+  - U18
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-02 09:00 placed[W1]
+23-mesmo-antes-e-mesmo-depois-dos-lembretes:
+  outcome: fail
+  evaluated: 11
+  skipped: 2
+  depends_on:
+  - U16
+  - U13
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-02 16:59 placed[W1]
+24-lembretes-mais-cedo-mudam-a-fronteira:
+  outcome: pass
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U16
+25-quem-recebe-lembretes:
+  outcome: fail
+  evaluated: 10
+  skipped: 2
+  depends_on:
+  - U16
+  - U23
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-01 10:00 placed[Ana]
+26-quem-entrou-automaticamente-diz-nao:
+  outcome: fail
+  evaluated: 9
+  skipped: 2
+  depends_on:
+  - U16
+  - U20
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-02 09:00 placed[W1]
+27-depois-dos-lembretes-waiting-list-recebe-convite:
+  outcome: fail
+  evaluated: 11
+  skipped: 0
+  depends_on:
+  - U16
+  - U17
+  - U13
+  class: structural
+  note: 'structural: one waiting list ranked by join time; the coach''s list is not asked first (S1 invited, W1 expected)'
+  first_failure: 2026-11-02 18:00 invitations
+28-varios-alunos-na-waiting-list-para-uma-vaga:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U16
+  - U26
+  class: behavioural
+  note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
+    is sent (notification_service.py ~6514/6533)'
+  first_failure: 2026-11-02 18:15 messages[W2]
+29-professor-adiciona-aluno-com-convites-abertos:
+  outcome: fail
+  evaluated: 7
+  skipped: 2
+  depends_on:
+  - U16
+  - U25
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-01 19:30 placed[W1]
+30-professor-adiciona-aluno-depois-dos-lembretes:
+  outcome: fail
+  evaluated: 11
+  skipped: 0
+  depends_on:
+  - U16
+  - U6
+  - U15
+  - U12
+  class: decision
+  note: 'decision U6: a waiting-list student added after the reminders is not invited at once while lower-group invitations
+    are open'
+  first_failure: 2026-11-02 18:30 invitations
+31-vaga-para-waiting-list-no-horario-de-silencio:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U16
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-03 00:20 absences[L-1]
+32-lado-cheio-mas-vaga-no-outro-lado:
+  outcome: fail
+  evaluated: 8
+  skipped: 2
+  depends_on:
+  - U16
+  - U18
+  - U23
+  - U24
+  class: decision
+  note: 'decision U24: a direct join to a full side is not refused; today leaves the join request pending for the coach'
+  first_failure: 2026-11-01 10:00 refused[X1]
+33-waiting-list-ambos-os-lados-vaga-abre-depois:
+  outcome: fail
+  evaluated: 5
+  skipped: 2
+  depends_on:
+  - U16
+  - U18
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-02 09:00 placed[S1]
+34-waiting-list-so-para-o-lado-contrario:
+  outcome: fail
+  evaluated: 8
+  skipped: 2
+  depends_on:
+  - U16
+  - U18
+  - U22
+  class: decision
+  note: 'decision U18: today invites S1 for the left spot although S1 joined the list for the right side only'
+  first_failure: 2026-11-02 09:00 invitations
+35-waiting-list-so-para-o-lado-cheio:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U18
+  - U22
+  class: decision
+  note: 'decision U18: today refuses the waiting-list join (the class still has a spot on the other side)'
+  first_failure: 2026-11-01 19:00 waiting_list.students
+36-vaga-reabre-antes-dos-lembretes:
+  outcome: fail
+  evaluated: 12
+  skipped: 2
+  depends_on:
+  - U16
+  - U25
+  - U26
+  class: behavioural
+  note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
+    is sent (notification_service.py ~6514/6533)'
+  first_failure: 2026-11-01 19:10 messages[E2]
+37-vaga-reabre-depois-dos-lembretes:
+  outcome: fail
+  evaluated: 12
+  skipped: 0
+  depends_on:
+  - U16
+  - U25
+  - U26
+  class: behavioural
+  note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
+    is sent (notification_service.py ~6514/6533)'
+  first_failure: 2026-11-01 19:10 messages[E2]
+38-aviso-e-nao-quer-ir-para-waiting-list:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U13
+  - U26
+  class: behavioural
+  note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
+    is sent (notification_service.py ~6514/6533)'
+  first_failure: 2026-11-01 19:10 messages[E2]
+39-depois-do-aviso-aceita-jogar-do-outro-lado:
+  outcome: fail
+  evaluated: 9
+  skipped: 2
+  depends_on:
+  - U16
+  - U18
+  - U26
+  class: behavioural
+  note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
+    is sent (notification_service.py ~6514/6533)'
+  first_failure: 2026-11-01 19:10 messages[E2]
+40-aluno-fora-dos-criterios-e-decisao-do-professor:
+  outcome: fail
+  evaluated: 10
+  skipped: 2
+  depends_on:
+  - U16
+  - U19
+  class: structural
+  note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
+  first_failure: 2026-11-01 10:00 placed[A]
+41-aluno-entra-antes-do-inicio-dos-convites:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+  class: behavioural
+  note: 'behavioural: a direct joiner is enrolled already confirmed, so today''s reminder skips them'
+  first_failure: 2026-11-02 17:00 reminders
+42-aluno-entra-com-convites-abertos:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+  - U26
+  class: behavioural
+  note: 'behavioural: today retires the other invitations when a spot fills (rules 15/15a), so the later Yes has no open invitation
+    (scenario not tagged U25; see report)'
+  first_failure: 2026-11-01 19:15 events.accepts
+43-elegivel-entra-mesmo-fora-dos-grupos:
+  outcome: pass
+  evaluated: 11
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+44-quem-recusou-muda-de-ideias:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+  class: behavioural
+  note: 'behavioural: a direct joiner is enrolled already confirmed, so today''s reminder skips them'
+  first_failure: 2026-11-02 17:00 reminders
+45-aluno-entra-antes-de-a-waiting-list-responder:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+  - U26
+  class: behavioural
+  note: 'behavioural: today''s waiting-list invitation names the spot''s side; the PDF''s names none'
+  first_failure: 2026-11-02 18:00 invitations
+46-entrada-direta-depois-do-ultimo-convite:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U23
+  - U24
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-03 09:00 absences[R-1]
+47-so-ha-candidatos-do-outro-lado:
+  outcome: fail
+  evaluated: 11
+  skipped: 0
+  depends_on:
+  - U12
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
+  first_failure: 2026-11-01 19:00 invitations
+48-os-dois-lados-precisam-dos-mesmos-alunos:
+  outcome: fail
+  evaluated: 13
+  skipped: 0
+  depends_on:
+  - U5
+  - U10
+  - U26
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
+  first_failure: 2026-11-01 19:00 invitations
+49-abre-vaga-no-lado-natural-de-quem-aceitou-o-outro:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U10
+  - U11
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
+  first_failure: 2026-11-01 19:00 invitations
+50a-regular-dos-dois-lados-cobre-o-lado-sem-candidatos:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U11
+  class: decision
+  note: 'decision U11: today assigns the both-sides regular a side and opens the spot on the other, so it invites left-siders;
+    the PDF treats it as a spot of either side (R7)'
+  first_failure: 2026-11-01 19:00 invitations
+50b-regular-dos-dois-lados-cobre-o-lado-sem-candidatos:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U11
+  class: decision
+  note: 'decision U11: today assigns the both-sides regular a side and opens the spot on the other, so it invites left-siders;
+    the PDF treats it as a spot of either side (R7)'
+  first_failure: 2026-11-01 19:00 invitations
+51-candidato-dos-dois-lados-conta-como-mesmo-lado:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U12
+  class: structural
+  note: 'structural: today has no between-groups timer; the next group starts when maxInactiveTime expires'
+  first_failure: 2026-11-01 19:20 invitations
+52-candidato-dos-dois-lados-para-vagas-nos-dois-lados:
+  outcome: pass
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U5
+53-varios-regulares-que-jogam-dos-dois-lados:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U11
+  - U26
+  class: decision
+  note: 'decision U11: the side of the open spots follows today''s both-sides assignment, not the PDF''s'
+  first_failure: 2026-11-01 19:00 invitations
+54-regular-que-joga-dos-dois-lados-diz-nao:
+  outcome: pass
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U11
+  - U29
+55-um-lado-tem-regulares-a-mais:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U9
+  - U11
+  - U26
+  class: behavioural
+  note: 'behavioural: today retires the other invitations when a spot fills (rules 15/15a), so the later Yes has no open invitation
+    (scenario not tagged U25; see report)'
+  first_failure: 2026-11-01 19:18 events.accepts
+56-aula-pequena-com-um-lado-muito-carregado:
+  outcome: pass
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U9
+  - U11
+57-regular-do-lado-com-excesso-diz-nao:
+  outcome: pass
+  evaluated: 11
+  skipped: 0
+  depends_on:
+  - U9
+  - U11
+58-regular-avisa-antes-do-inicio-dos-convites:
+  outcome: pass
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U29
+59-regular-diz-nao-de-madrugada:
+  outcome: fail
+  evaluated: 16
+  skipped: 0
+  depends_on:
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-03 00:20 absences[L-1]
+60-lembretes-e-regular-que-nunca-responde:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U29
+  class: decision
+  note: 'decision U29: no absence is recorded for a regular who never answered; the coach validates'
+  first_failure: 2026-11-03 10:30 absences[R-8]
+61-falta-justificada-e-injustificada:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-02 10:40 absences[R-2]
+62-regular-volta-atras-vaga-livre:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U29
+  - U25
+  class: decision
+  note: 'decision U25: invitations are retired when the class fills, so none is open when the spot reopens'
+  first_failure: 2026-11-02 12:10 events.accepts
+63-regular-volta-atras-vaga-ocupada:
+  outcome: fail
+  evaluated: 12
+  skipped: 2
+  depends_on:
+  - U26
+  - U16
+  - U29
+  class: decision
+  note: 'decision U26 (E6): a regular returning to a full side gets no Aviso; today has no such message'
+  first_failure: 2026-11-02 12:00 messages[R-1]
+64-convidado-aceita-e-cancela:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U25
+  - U29
+  class: decision
+  note: 'decision U25: today retired D2/D3''s invitations at the fill and re-invites them; the PDF keeps them valid'
+  first_failure: 2026-11-02 10:00 invitations
+65-cancelamento-depois-do-ultimo-convite:
+  outcome: fail
+  evaluated: 12
+  skipped: 0
+  depends_on:
+  - U25
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-03 09:00 absences[D1]
+66-tempo-de-espera-pausa-no-silencio:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-02 23:50 absences[R-1]
+67-respostas-durante-o-silencio:
+  outcome: fail
+  evaluated: 14
+  skipped: 0
+  depends_on:
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-02 23:55 absences[R-1]
+68-aula-criada-depois-do-inicio-dos-convites:
+  outcome: pass
+  evaluated: 7
+  skipped: 0
+69-ultimo-convite-durante-o-silencio:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-02 23:50 absences[R-1]
+70-inicio-dos-convites-durante-o-silencio:
+  outcome: pass
+  evaluated: 7
+  skipped: 0
+71-professor-define-so-1-lembrete:
+  outcome: pass
+  evaluated: 5
+  skipped: 0
+72-duas-aulas-a-mesma-hora:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U25
+  class: structural
+  note: 'structural: no rule across two classes at the same hour; today invites D1-D3 to both (noSameDayClass off, the PDF
+    never sets it)'
+  first_failure: 2026-11-01 19:00 invitations
+73-so-convida-quem-esta-num-grupo:
+  outcome: pass
+  evaluated: 5
+  skipped: 0
+  depends_on:
+  - U30
+74-desempate-dentro-do-grupo:
+  outcome: pass
+  evaluated: 6
+  skipped: 0
+75-aula-do-melhor-nivel:
+  outcome: pass
+  evaluated: 8
+  skipped: 0
+76-um-convite-por-vaga:
+  outcome: pass
+  evaluated: 10
+  skipped: 0
+77-muda-convites-por-vaga-e-tempo:
+  outcome: pass
+  evaluated: 9
+  skipped: 0
+78-dois-sim-ao-mesmo-tempo:
+  outcome: fail
+  evaluated: 5
+  skipped: 0
+  class: behavioural
+  note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
+    is sent (notification_service.py ~6514/6533)'
+  first_failure: 2026-11-01 19:05 messages[D2]
+79-lado-cheio-vaga-no-outro-lado-depois-dos-lembretes:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U16
+  - U23
+  - U24
+  - U26
+  class: decision
+  note: 'decision U24: a direct join to a full side is not refused; today leaves the join request pending for the coach'
+  first_failure: 2026-11-02 18:10 refused[E1]
+80-uma-recusa-a-meio-de-uma-ronda:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U12
+  - U13
+  class: decision
+  note: 'decision U13: today''s timer restarts on the No, so the 19:20 round does not come'
+  first_failure: 2026-11-01 19:20 invitations
+81-todo-o-grupo-recusa-antes-do-fim-do-tempo-entre-grupos:
+  outcome: fail
+  evaluated: 5
+  skipped: 0
+  depends_on:
+  - U12
+  class: structural
+  note: 'structural: today''s rounds are per-spot batches of X, not a class-wide round of X per uncovered spot'
+  first_failure: 2026-11-01 19:05 invitations
+82-so-falta-um-aluno-do-grupo-responder:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  depends_on:
+  - U12
+  - U13
+  class: decision
+  note: 'decision U13: today replaces the No at once from the next group (next-on-decline); the PDF waits for the clock'
+  first_failure: 2026-11-01 19:05 invitations
+83-quatro-grupos-com-menos-tempo-nos-ultimos:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U12
+  - U28
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side; Method B absent
+    too'
+  first_failure: 2026-11-02 21:10 invitations
+84-varias-rondas-dentro-do-primeiro-grupo:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U12
+  class: structural
+  note: 'structural: Method B absent; today has one per-spot inactivity timer'
+  first_failure: 2026-11-02 16:40 invitations
+85-um-grupo-sem-candidatos-nao-conta:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U12
+  - U28
+  class: structural
+  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side; Method B absent
+    too'
+  first_failure: 2026-11-02 22:50 invitations
+86-a-recusa-de-um-grupo-inteiro-recalcula-o-tempo-que-falta:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U12
+  - U28
+  class: structural
+  note: 'structural: today''s rounds are per-spot batches of X, not a class-wide round of X per uncovered spot; Method B absent
+    too'
+  first_failure: 2026-11-02 15:40 invitations
+87-vaga-de-ultima-hora-com-pouco-tempo-util:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  depends_on:
+  - U12
+  - U28
+  - U29
+  class: decision
+  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
+    coach decides'
+  first_failure: 2026-11-03 07:30 absences[R-1]
+88-cada-grupo-com-os-seus-tempos:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U12
+  class: structural
+  note: 'structural: Method C absent; today has one inactivity timer for every group'
+  first_failure: 2026-11-01 21:20 invitations
+89-tempos-curtos-para-as-waiting-lists:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  depends_on:
+  - U12
+  - U17
+  class: structural
+  note: 'structural: one waiting list by join time (SW1 before CW1), and Method C absent'
+  first_failure: 2026-11-02 18:00 invitations
+90-tempo-minimo-entre-rondas:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  depends_on:
+  - U12
+  - U14
+  class: structural
+  note: 'structural: Method C absent and today''s 15-minute floor (U14)'
+  first_failure: 2026-11-01 19:01 invitations
+91-6-a-esquerda-e-2-a-direita-todo-o-limite-vai-para-a-direita:
+  outcome: fail
+  evaluated: 17
+  skipped: 1
+  depends_on:
+  - U7
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+92-5-a-esquerda-e-3-a-direita-o-limite-divide-se-em-9-e-3:
+  outcome: fail
+  evaluated: 15
+  skipped: 1
+  depends_on:
+  - U7
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+93-7-a-esquerda-e-4-a-direita-a-vaga-que-sobra-vai-para-a-direita:
+  outcome: fail
+  evaluated: 13
+  skipped: 1
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations
+94-o-limite-chega-para-todas-as-vagas:
+  outcome: pass
+  evaluated: 9
+  skipped: 0
+95-lados-empatados-a-vaga-que-sobra-vai-para-o-lado-com-menos-candidatos:
+  outcome: fail
+  evaluated: 12
+  skipped: 1
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
+  first_failure: 2026-11-01 19:00 invitations

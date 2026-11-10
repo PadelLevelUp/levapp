@@ -207,7 +207,7 @@ class Record:
     # placed: side, how;  message: kind;  absence: kind;  left: reason;  refused: action
 
     def as_dict(self) -> dict:
-        return {"kind": self.kind, "student": self.student, "class": self.cls, "at": fmt(self.at), **self.data}
+        return {"record": self.kind, "student": self.student, "class": self.cls, "at": fmt(self.at), **self.data}
 
 
 UNKNOWN = "?"  # a field the adapter cannot observe; matches anything, counted as unsupported
