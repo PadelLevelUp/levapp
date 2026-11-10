@@ -21,7 +21,7 @@ import pytest
 import yaml
 
 from padel_app.tests.invitation_scenarios import validate
-from padel_app.tests.invitation_scenarios.runner import dump_log, run_scenario, scenario_paths
+from padel_app.tests.invitation_scenarios.runner import dump_log, dump_yaml, run_scenario, scenario_paths
 
 HERE = Path(__file__).parent
 MODE = os.getenv("INVITATION_SCENARIOS", "").strip().lower()
@@ -60,14 +60,14 @@ def _baseline() -> dict:
 def test_scenario(path, request):
     if MODE not in ("1", "baseline"):
         pytest.skip("opt-in: set INVITATION_SCENARIOS=1 (or =baseline) to run the invitation scenarios")
-    request.getfixturevalue("app")
+    app = request.getfixturevalue("app")
     from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
 
-    result = run_scenario(path, TodayAdapter())
+    result = run_scenario(path, TodayAdapter(app))
     out = os.getenv("INVITATION_SCENARIOS_OUT")
     if out:
         dump_log(result, Path(out))
-    report = yaml.safe_dump(result.summary(), sort_keys=False, allow_unicode=True, width=120)
+    report = dump_yaml(result.summary())
 
     if MODE == "1":
         assert result.outcome == "pass", report

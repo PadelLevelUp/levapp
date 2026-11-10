@@ -307,7 +307,11 @@ class Run:
 
     def resolve(self, who, cls: str = MAIN) -> str:
         if isinstance(who, str):
-            return self.aliases.get(who, who)
+            if who in self.aliases:
+                return self.aliases[who]
+            if who in self.sc.people:
+                return who
+            raise LookupError(f"alias {who!r} was never bound (its binding step found no member)")
         cohort, state = who["cohort"], who["state"]
         members = [m for m in self.sc.cohorts.get(cohort, []) if m not in self.bound]
         snap = self.ad.snapshot(cls)
@@ -614,10 +618,18 @@ def scenario_paths() -> list[Path]:
     return sorted(SCENARIOS_DIR.glob("*.yaml"))
 
 
+class _NoAliases(yaml.SafeDumper):
+    def ignore_aliases(self, data):
+        return True
+
+
+def dump_yaml(data) -> str:
+    return yaml.dump(data, Dumper=_NoAliases, sort_keys=False, allow_unicode=True, width=120)
+
+
 def dump_log(result: Result, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{result.key}.log.yaml"
-    path.write_text(yaml.safe_dump({"scenario": result.key, **result.summary(),
-                                    "log": [r.as_dict() for r in result.log]},
-                                   sort_keys=False, allow_unicode=True), encoding="utf-8")
+    path.write_text(dump_yaml({"scenario": result.key, **result.summary(),
+                               "log": [r.as_dict() for r in result.log]}), encoding="utf-8")
     return path
