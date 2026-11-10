@@ -1,0 +1,47 @@
+id: 30
+title: o professor adiciona um aluno depois dos lembretes
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [790, 811]}
+what_it_tests: depois dos lembretes não há entrada automática, e um grupo com mais prioridade trava os convites do grupo inferior
+tags: [coach-list, waiting-list, groups, rounds, timers]
+depends_on: [U16, U6, U15, U12]
+corrections: []
+notes: >
+  After the reminder hour, the coach's addition with an open spot produces an immediate invitation (R5)
+  and no automatic entry. W1's late group-1 invitation suspends group 3's rounds for the 60-minute
+  between-groups time, counted from W1's invitation (R4; U6, U15). So 18:40 sends nothing, and the last 2
+  level-2s go at 19:30. W1 has no level (level null).
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: W1, level: null, side: R}
+  - {cohort: L2R, count: 8, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 18:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 18:20
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      open_unanswered: 6
+  - at: 2026-11-02 18:30
+    events:
+      - {coach_adds_to_waiting_list: W1, side: R}
+    expect:
+      invitations: [{who: W1, group: 1}]
+      open_unanswered: 7
+  - at: 2026-11-02 18:40
+    expect: {invitations: none}
+  - at: 2026-11-02 19:30
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-02 19:40
+    events: [{accepts: {cohort: L2R, state: invited, invited_at: 2026-11-02 18:00, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

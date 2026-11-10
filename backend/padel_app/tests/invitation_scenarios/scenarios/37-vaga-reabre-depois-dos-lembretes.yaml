@@ -1,0 +1,61 @@
+id: 37
+title: vaga reabre depois dos lembretes
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [926, 942]}
+what_it_tests: depois dos lembretes, a waiting list recebe convite e o primeiro Sim fica com a vaga
+tags: [waiting-list, aviso, tiebreak]
+depends_on: [U16, U25, U26]
+corrections: []
+notes: >
+  Initial state and 19:00-19:10 as in scenario 36. E1 to E5 carry participations 5..1 so that the
+  tiebreak picks E1 to E3. At 2 Nov 18:00, after the reminder hour, E2 gets a new invitation from group 2.
+  That is the waiting-list exception to "não se convida o mesmo aluno duas vezes". E3's invitation stays
+  valid (U25). Open heads (E2 and E3) cover the one spot, so no further level-2 is invited (R1). After the
+  Aviso, E2 stays on the list (U26).
+
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+roster:
+  regulars: {L: 3, R: 4}
+students:
+  - {id: E1, level: 2, side: L, participations: 5}
+  - {id: E2, level: 2, side: L, participations: 4}
+  - {id: E3, level: 2, side: L, participations: 3}
+  - {id: E4, level: 2, side: L, participations: 2}
+  - {id: E5, level: 2, side: L, participations: 1}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: E1, side_named: null, group: 3}
+        - {who: E2, side_named: null, group: 3}
+        - {who: E3, side_named: null, group: 3}
+  - at: 2026-11-01 19:05
+    events: [{accepts: E1}]
+    expect:
+      placed: [{who: E1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:10
+    events: [{accepts: E2}]
+    expect:
+      messages: [{who: E2, kind: aviso}]
+  - at: 2026-11-01 19:10
+    events: [{joins_waiting_list: E2, sides: own}]
+    expect:
+      waiting_list: {students: [E2]}
+  - at: 2026-11-02 18:00
+    events: [{regular_no: L-1}]
+    expect:
+      invitations: [{who: E2, group: 2}]
+      missing: {L: 1, R: 0}
+  - at: 2026-11-02 18:20
+    events: [{accepts: E3}]
+    expect:
+      placed: [{who: E3, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 18:25
+    events: [{accepts: E2}]
+    expect:
+      messages: [{who: E2, kind: aviso}]
+      waiting_list: {students: [E2]}
+final:
+  roster: {L: 4, R: 4}

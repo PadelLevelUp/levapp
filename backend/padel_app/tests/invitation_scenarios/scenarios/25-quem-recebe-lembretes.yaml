@@ -1,0 +1,51 @@
+id: 25
+title: quem recebe lembretes
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [697, 715]}
+what_it_tests: >
+  recebem lembrete os regulares, quem entrou automaticamente e quem entrou diretamente; quem aceitou um
+  convite não recebe
+tags: [coach-list, waiting-list, direct-join, reminders]
+depends_on: [U16, U23]
+corrections: []
+notes: >
+  Ana's automatic entry and Bia's direct join both happen before the first invitation hour. That rests on
+  two "Pressupostos ainda por validar" (cenarios.txt 2149-2154): automatic entry before the invitations
+  start (U16) and the direct-join window (U23). Carlos is one of the three L2R and is bound by alias,
+  because the PDF does not say which L2R member he is. Ana has no level (level null).
+
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+roster:
+  regulars: {L: 3, R: 2}
+students:
+  - {id: Ana, level: null, side: L}
+  - {id: Bia, level: 3, side: R}
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 10:00
+    events:
+      - {coach_adds_to_waiting_list: Ana, side: L}
+    expect:
+      placed: [{who: Ana, side: L, how: auto_from_waiting_list}]
+      messages: [{who: Ana, kind: added}]
+      missing: {L: 0, R: 2}
+      invitations: none
+  - at: 2026-11-01 11:00
+    events: [{joins_directly: Bia}]
+    expect:
+      placed: [{who: Bia, side: R, how: direct}]
+      missing: {L: 0, R: 1}
+      invitations: none
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L2R, state: invited, as: carlos}}]
+    expect:
+      placed: [{who: carlos, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, Ana, Bia], not_to: [carlos]}
+final:
+  roster: {L: 4, R: 4}

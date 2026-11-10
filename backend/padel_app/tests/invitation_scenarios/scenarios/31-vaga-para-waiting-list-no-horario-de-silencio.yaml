@@ -1,0 +1,41 @@
+id: 31
+title: vaga para a waiting list durante o horário de silêncio
+source: {section: "Cenários 19 a 31: waiting list antes e depois dos lembretes", lines: [812, 830]}
+what_it_tests: >
+  o convite da waiting list espera pelo fim do silêncio, e depois dos lembretes continua a não haver
+  entrada automática
+tags: [coach-list, waiting-list, quiet-hours, absences]
+depends_on: [U16, U29]
+corrections: []
+notes: >
+  Setup step at 1 Nov 19:00 (derived), when the class is full. The 00:20 No is after the 22:30 cutoff,
+  so it is an unjustified absence (U29: decided by the cutoff, not by the coach). W1 has no level (level
+  null).
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: W1, level: null, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    derived: true
+    events:
+      - {coach_adds_to_waiting_list: W1, side: L}
+    expect: {invitations: none}
+  - at: 2026-11-03 00:20
+    events: [{regular_no: L-1}]
+    expect:
+      absences: [{who: L-1, kind: unjustified}]
+      nothing_sent: true
+      missing: {L: 1, R: 0}
+  - at: 2026-11-03 07:00
+    expect:
+      invitations: [{who: W1, group: 1}]
+  - at: 2026-11-03 07:10
+    events: [{accepts: W1}]
+    expect:
+      placed: [{who: W1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

@@ -1,0 +1,43 @@
+id: 34
+title: waiting list só para o lado contrário
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [869, 885]}
+what_it_tests: a aplicação respeita o lado escolhido na waiting list, mesmo que não seja o lado natural do aluno
+tags: [waiting-list, sides, other-side]
+depends_on: [U16, U18, U22]
+corrections: []
+notes: >
+  Setup step at 1 Nov 19:00 (derived): S1, a left-sider, joins the students' list for the other side
+  (right) only, while the class is full. S1 has no level (level null, so the class level). S1 is not a
+  candidate for the left spot by level either (R13; U22). Group 3 (L2L) covers the left spot anyway.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: S1, level: null, side: L}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    derived: true
+    events:
+      - {joins_waiting_list: S1, sides: other}
+    expect: {invitations: none}
+  - at: 2026-11-02 09:00
+    events: [{regular_no: L-1}]
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+      missing: {L: 1, R: 0}
+  - at: 2026-11-02 10:00
+    events: [{regular_no: R-1}]
+    expect:
+      placed: [{who: S1, side: R, how: auto_from_waiting_list}]
+      messages: [{who: S1, kind: added}]
+      invitations: none
+      missing: {L: 1, R: 0}
+  - at: 2026-11-02 10:10
+    events: [{accepts: {cohort: L2L, state: invited, as: l1}}]
+    expect:
+      placed: [{who: l1, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}
