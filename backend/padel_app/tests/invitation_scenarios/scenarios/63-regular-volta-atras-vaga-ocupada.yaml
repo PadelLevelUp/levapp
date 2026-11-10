@@ -1,0 +1,61 @@
+id: 63
+title: um regular volta atrás e a vaga já foi ocupada
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1410, 1430]}
+what_it_tests: quem já aceitou não perde o lugar para um regular que muda de ideias
+tags: [regulars, aviso, waiting-list, cancellation, absences, reminders]
+depends_on: [U26, U16, U29]
+corrections: []
+notes: >
+  The regular is R-1. At 12:00 the PDF says the regular "recebe o Aviso"; the glossary defines the Aviso only
+  for a Yes to an invitation (E6). Encoded as message aviso per design §6.1, which gives E6 no corrections
+  tag. The regular then joins the students' waiting list for their own side (direita). At 14:00 D1's cancel
+  is before the 22:30 cutoff, so it is justified (U29). Before the reminder hour the regular enters
+  automatically (U16) and the "added" notice follows (glossary); their absence disappears (kind none). The
+  10:00 absence kind is not asserted because the PDF does not state it.
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: D1, level: 2, side: R}
+  - {id: D2, level: 2, side: R}
+  - {id: D3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 10:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations:
+        - {who: D1, side_named: null, group: 3}
+        - {who: D2, side_named: null, group: 3}
+        - {who: D3, side_named: null, group: 3}
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 10:10
+    events: [{accepts: D1}]
+    expect:
+      placed: [{who: D1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 12:00
+    events: [{regular_returns: R-1}]
+    expect:
+      messages: [{who: R-1, kind: aviso}]
+      roster: {L: 8, R: 8}
+  - at: 2026-11-02 12:00
+    events: [{joins_waiting_list: R-1, sides: own}]
+    expect:
+      waiting_list: {students: [R-1]}
+  - at: 2026-11-02 14:00
+    events: [{cancels: D1}]
+    expect:
+      placed: [{who: R-1, side: R, how: auto_from_waiting_list}]
+      messages: [{who: R-1, kind: added}]
+      absences:
+        - {who: D1, kind: justified}
+        - {who: R-1, kind: none}
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars, R-1]
+        not_to: [D1]
+final:
+  roster: {L: 8, R: 8}
