@@ -45,6 +45,13 @@ that both apps import, so the two never drift.
    other `staleTime`/`retry` default exists in either app. A per-query override is allowed only
    with a comment naming the reason (today: `retry: false` on class-instance and class-evaluation
    reads, which must fail fast).
+   Two queries also set their own stale time: `staleTime: 0` on the evaluations query in
+   `packages/hooks/src/evaluations.ts` and on the invites tutorial query in
+   `apps/mobile/src/features/settings/understand-invites-tutorial.tsx`. Rule 2's minute is the
+   default, not a guarantee for every read.
+   - Code to follow: the comments in `apps/mobile/src/features/messages/open-sequence.ts` (lines 5
+     and 97) say the thread query has a 30 s `staleTime`; no code sets it, so they must say the
+     default applies.
 2. **Return within the stale window = cache, no request.** A query whose data is younger than
    `QUERY_STALE_TIME_MS` renders from cache on mount and on window focus (web) or app foreground
    (mobile) with no network request.
@@ -92,6 +99,8 @@ that both apps import, so the two never drift.
 - **When** they navigate back to `/players` 10 s later
 - **Then** the list is visible immediately (`players-list` with the same rows, no skeleton) and
   the request count for `coach_players_paginated` during that navigation is 0
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: back to players within the window makes no coach_players_paginated request`
+- Code to follow: tag the eight PAD-586 tests of `frontend/apps/web/e2e/client/query-cache.spec.ts` with CLIENT-QUERY-CACHE-2 to 9, one each as the `test:` lines say.
 
 #### CLIENT-QUERY-CACHE-3: Back after a minute: cache first, one refresh behind (rule 3)
 - **Given** the same coach, with `/players` data 61 s old (the test fakes the browser clock with
@@ -99,34 +108,40 @@ that both apps import, so the two never drift.
 - **When** they navigate back to `/players`
 - **Then** the list is visible immediately with the cached rows, exactly one
   `coach_players_paginated` request follows, and the rows update in place without the skeleton
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: back to players after the window shows the cached rows and refreshes once behind`
 
 #### CLIENT-QUERY-CACHE-4: Dashboard behaves the same (rules 2, 3)
 - **Given** a coach who opened `/` (one `GET /api/app/dashboard`) and then `/messages`
 - **When** they return to `/` within the window
 - **Then** `dashboard-kpis` is visible at once and no `dashboard` request is made
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: back to the dashboard within the window makes no dashboard request`
 
 #### CLIENT-QUERY-CACHE-5: Shared reads are fetched once (rule 7)
 - **Given** a coach who opens `/calendar`, then `/presences`, then `/calendar` within the window
 - **When** the requests are counted
 - **Then** `GET /api/app/coach_players` and `GET /api/app/coach_levels` each happened once, and
   `GET /api/app/messages/unread_count` at most once
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: calendar, presences, calendar fetches the roster and levels once and the unread count at most once`
 
 #### CLIENT-QUERY-CACHE-6: Range change keeps the previous week on screen (rule 5)
 - **Given** a coach on the calendar week view with events rendered
 - **When** they press next week
 - **Then** the current week's events remain visible until the next week's response arrives
   (no empty grid between), and then the new week renders
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: next week keeps the previous week's cards on screen until the response arrives`
 
 #### CLIENT-QUERY-CACHE-7: Presences requests the trend once (rule 8)
 - **Given** a coach opening `/presences`
 - **When** the page settles
 - **Then** `GET /api/app/presence_trend` was requested exactly once
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: presences requests the trend exactly once on load`
 
 #### CLIENT-QUERY-CACHE-8: A live message invalidates, it does not probe (rule 8)
 - **Given** the coach on `/messages` with the list loaded
 - **When** a `message_created` SSE event arrives for a listed conversation
 - **Then** the conversations list is refetched once (`GET /api/app/conversations`) and no
   `GET /api/app/conversation/<id>?limit=1` is made
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: a live message refetches the conversations list once and never probes the conversation`
 
 #### CLIENT-QUERY-CACHE-9: No polling (rule 4)
 - **Given** the web app source
@@ -134,12 +149,14 @@ that both apps import, so the two never drift.
   `packages/hooks/src`
 - **Then** no query sets `refetchInterval` (the two countdown timers and the tactical board are
   not queries)
+test: `frontend/apps/web/e2e/client/query-cache.spec.ts` › `PAD-586: no query polls (no refetchInterval in the web app or the shared hooks)`
 
 #### CLIENT-QUERY-CACHE-10: Mobile reads the same constants (rule 9)
 - **Given** `apps/mobile/app/_layout.tsx`
 - **When** it is read
 - **Then** its `QueryClient` is built from `queryClientDefaultOptions` and no numeric
   `staleTime` remains in the file
+- Device-checked: read by hand in `app/_layout.tsx`; no automated test is pointed at it.
 
 #### CLIENT-QUERY-CACHE-11: Defaults are unit-tested (rule 10)
 - **Given** `packages/hooks/src/queryDefaults.test.ts`
@@ -158,8 +175,3 @@ that both apps import, so the two never drift.
   change, is what makes its badges cheap. A layout route is a later cleanup if wanted.
 - The test clock: a Playwright spec cannot wait 61 s per case. The E2E fakes the browser clock (`page.clock`) for the after-the-window case; no env override exists.
 - OPEN: none.
-
-### Open questions
-
-- **Two queries set their own stale time, and one comment cites a value no code sets.** `packages/hooks/src/evaluations.ts:275` and `apps/mobile/src/features/settings/understand-invites-tutorial.tsx:121` use `staleTime: 0`; `apps/mobile/src/features/messages/open-sequence.ts:5` and `:97` speak of a 30-second stale time for the thread query that nothing sets. Rule 2's one minute is the default, not a guarantee for every read. Recommendation: name the two exceptions in rule 2 and fix the comment.
-- **CLIENT-QUERY-CACHE-2 to 10 have no test pointed at them.** Nine of the eleven criteria are proved, if at all, by end-to-end specs that the port did not tag. Recommendation: tag those specs or mark the criteria as device-checked.

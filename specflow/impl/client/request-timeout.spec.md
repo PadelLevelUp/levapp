@@ -36,6 +36,9 @@ client, for the web app and the iOS app alike.
    `timeout: LONG_REQUEST_TIMEOUT_MS` (120 000 ms) with a comment; no other request overrides the
    default. Streams that do not go through axios (the SSE connection, the import's `fetch`
    streams) are not affected.
+   Other raw `fetch` calls in the web app also have no timeout: `apps/web/src/api/import.ts` (two
+   calls), `utils/pushNotifications.ts` (three calls), `utils/pushFailureReport.ts` and
+   `lib/demoRequest.ts`. The 20 s bound is the shared client's; these calls are outside it.
 3. **A timeout is an ordinary failure.** It rejects with axios's `ECONNABORTED` and no
    `response`, so React Query treats it like any failed request: one retry (`QUERY_RETRY`), then
    the query's error state. A stalled read therefore ends within about 2 × 20 s + the retry's
@@ -70,7 +73,3 @@ client, for the web app and the iOS app alike.
 - Web and iOS: the timeout is shared code; both apps get it in PAD-786 (R-024).
 - Rule 3's bound is why `client.pull-to-refresh` bounds its spinner at 2 × 20 s + 5 s.
 - OPEN: none.
-
-### Open questions
-
-- **The 20-second bound does not cover every request the web app makes.** Rule 2 excludes the SSE connection and the import's streams. Other raw `fetch` calls have no timeout either: `apps/web/src/api/import.ts:64` and `:213`, `utils/pushNotifications.ts:9`, `:118`, `:177`, `utils/pushFailureReport.ts:39`, `lib/demoRequest.ts:77`. P-CLIENT-1 was reworded tonight to say the bound is the shared client's. Recommendation: list those calls in rule 2, or move them onto the shared client.
