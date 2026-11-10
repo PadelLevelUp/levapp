@@ -1,0 +1,59 @@
+id: 15
+title: o limite dá prioridade ao lado com mais vagas
+source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [505, 523]}
+what_it_tests: como os 12 convites se dividem entre os lados, e como o espaço passa de um lado para o outro
+tags: [max-open, sides]
+depends_on: [U7]
+corrections: []
+notes: >
+  Side split of M per "Divisão do limite entre lados" (cenarios.txt 2130-2134): the side with more spots
+  is covered first until the sides are equal. 19:00: R needs 18, L needs 6; covering R's 4 extra spots
+  takes all 12. 19:05: R keeps 9 open for 3 spots, and the 3 freed places go to L. 19:10: 11 open, L needs
+  3 and has 2, so 1 more for L (R10).
+
+roster:
+  regulars: {L: 6, R: 2}
+students:
+  - {cohort: L2L, count: 20, level: 2, side: L}
+  - {cohort: L2R, count: 20, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 12, side_named: null, group: 3}]
+      missing: {L: 2, R: 6}
+  - at: 2026-11-01 19:05
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: r1}}
+      - {accepts: {cohort: L2R, state: invited, as: r2}}
+      - {accepts: {cohort: L2R, state: invited, as: r3}}
+    expect:
+      placed:
+        - {who: r1, side: R, how: invitation}
+        - {who: r2, side: R, how: invitation}
+        - {who: r3, side: R, how: invitation}
+      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+      open_unanswered: 12
+      missing: {L: 2, R: 3}
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L2L, state: invited, as: l1}}]
+    expect:
+      placed: [{who: l1, side: L, how: invitation}]
+      invitations: [{cohort: L2L, count: 1, side_named: null, group: 3}]
+      open_unanswered: 12
+      missing: {L: 1, R: 3}
+  - at: 2026-11-01 19:15
+    events:
+      - {accepts: {cohort: L2L, state: invited, as: l2}}
+      - {accepts: {cohort: L2R, state: invited, as: r4}}
+      - {accepts: {cohort: L2R, state: invited, as: r5}}
+      - {accepts: {cohort: L2R, state: invited, as: r6}}
+    expect:
+      placed:
+        - {who: l2, side: L, how: invitation}
+        - {who: r4, side: R, how: invitation}
+        - {who: r5, side: R, how: invitation}
+        - {who: r6, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

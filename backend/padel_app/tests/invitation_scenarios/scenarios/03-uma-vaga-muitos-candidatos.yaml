@@ -1,0 +1,61 @@
+id: 3
+title: uma vaga e muitos candidatos no grupo
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [278, 296]}
+what_it_tests: a falta de resposta traz mais convites do mesmo grupo, sem passar ao grupo seguinte
+tags: [groups, rounds, timers, aviso]
+depends_on: []
+corrections: []
+notes: >
+  Each round sends X x spots (3) without subtracting the open invitations of earlier rounds (R11), and
+  rounds continue every 20 minutes regardless of open invitations (R3). The 19:55 Yes is from a member
+  invited for the right, which is full, so it gets the Aviso (R9). The 20:00 and 21:00 probes are
+  derived: 20:00 tests "param os convites", 21:00 (more than 60 min after the 19:40 round) tests
+  "Nenhum aluno de nível 3 é convidado".
+
+class:
+  level: 3
+  capacity: 8
+  start: 2026-11-03 10:30
+  created_at: null
+
+roster:
+  regulars: {L: 4, R: 3}
+students:
+  - {cohort: L2R, count: 20, level: 2, side: R}
+  - {cohort: L3R, count: 5, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      open_unanswered: 6
+  - at: 2026-11-01 19:40
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      open_unanswered: 9
+      invitations_total_sent: 9
+  - at: 2026-11-01 19:50
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:55
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect:
+      messages: [{who: b, kind: aviso}]
+      invitations: none
+  - at: 2026-11-01 20:00
+    derived: true
+    expect:
+      invitations: none
+  - at: 2026-11-01 21:00
+    derived: true
+    expect:
+      invitations: none
+      invitations_total_sent: 9
+final:
+  roster: {L: 4, R: 4}
