@@ -19,7 +19,14 @@ Settings (design §7.2). X -> ``maxSimultaneous``; M -> none (``maxTotal`` 999);
 -> ``minTimeBeforeClass``; quiet hours, reminders, absence cutoff -> their columns; eligibility ->
 ``within_n_above_class``; groups 3/4 -> ``invitation_groups`` (level one_above/same_as vacancy, side
 same_as_vacancy); groups 1/2 -> today's waiting-list group 0; participations -> the ``attendance``
-priority criterion, seeded as present/absent history so the rates keep the PDF's order.
+priority criterion (see below).
+
+Participations ("mais participações", the base tiebreak). Today ranks by ``attendance_rate`` =
+present / total presences over the coach's classes (``_attendance_stats_for``), a rate, not a count.
+Recipe: with K = max(participations) + 1, seed K past, completed classes of the coach; a student
+with n participations gets n presences ``present`` and K - n ``absent``/``unjustified`` (not
+justified, so ``makeups_owed`` stays 0). The rate n/K then orders students exactly as n does. The
+priority criteria are set to ``[level, attendance]`` so nothing else outranks it.
 What cannot be expressed is returned by ``setup`` as a gap (structural).
 
 Records, from the database after each step:

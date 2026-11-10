@@ -615,7 +615,11 @@ def run_scenario(path: Path, adapter: Adapter) -> Result:
 
 
 def scenario_paths() -> list[Path]:
-    return sorted(SCENARIOS_DIR.glob("*.yaml"))
+    """The suite's files; ``INVITATION_SCENARIOS_DIR`` points the opt-in run at another folder."""
+    import os
+
+    folder = Path(os.getenv("INVITATION_SCENARIOS_DIR") or SCENARIOS_DIR)
+    return sorted(folder.glob("*.yaml"))
 
 
 class _NoAliases(yaml.SafeDumper):
