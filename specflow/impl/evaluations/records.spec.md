@@ -147,7 +147,8 @@ what every writer — new, legacy and import — goes through.
     read or write through the shared form layer (`tools/input_tools.py` `Field.set_value`,
     `JsonRequestAdapter`, `model.update_with_dict`), which reads falsy as "not sent" (B-136).
     `ratings: {id: null}` clears; `note: ""` clears; an absent `note` or an absent competency
-    changes nothing; a legal `0` on a legacy category whose minimum is 0 is saved as 0.
+    changes nothing; a `0` is a value, not an absence, and is refused as out of range on a scale
+    that starts at 1 (EVALUATIONS-RECORDS-6).
     Strengths and weaknesses are not accepted here; an unknown key is ignored.
 15. **(AV-078) Ids and dates are the server's.** Dates on the wire are ISO (`evaluatedOn`:
     `YYYY-MM-DD`); the shells format them in the active locale.
@@ -208,11 +209,8 @@ what every writer — new, legacy and import — goes through.
 - **When** Ana sends `ratings {"21": 4, "12": 6}`, then `{"12": 2.5}`, then `{"12": "abc"}`
 - **Then** each answers 400 and nothing is written — not even Técnica 4
 
-#### EVALUATIONS-RECORDS-7: Clearing, empty strings and zeros mean what they say (rules 10, 14)
-- **Given** today's record for Rui holds Técnica 4 and the note "Boa sessão", and Ana's legacy
-  category "Resistência" (id 3) has scale 0–10
-- **When** she sends `{"playerId": 5, "classRef": null, "ratings": {"3": 0}}`
-- **Then** Resistência is saved with score 0, and Técnica and the note are unchanged
+#### EVALUATIONS-RECORDS-7: Clearing and empty strings mean what they say (rules 10, 14)
+- **Given** today's record for Rui holds Técnica 4, Resistência 3 and the note "Boa sessão"
 - **When** she sends `ratings {"21": null, "3": null}` with no `note` key
 - **Then** both ratings are gone and the note is still "Boa sessão"
 - **When** she sends `{"playerId": 5, "classRef": null, "ratings": {}, "note": ""}`
@@ -340,21 +338,3 @@ test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` ›
 - OPEN: the 2000-character note limit is this leaf's choice; the canvas has none (AV-078).
 - OPEN: `CLUB_TZ` is one zone for the whole app. If per-club or per-coach zones ever exist,
   rule 3 follows class times.
-
-### Open questions
-
-- **Rule 14 and EVALUATIONS-RECORDS-7 save a 0 on a category that starts at 0; no category starts at 0 since PAD-403.**
-  - Spec: rule 14, "a legal `0` on a legacy category whose minimum is 0 is saved as 0".
-    EVALUATIONS-RECORDS-7: "Ana's legacy category "Resistência" (id 3) has scale 0–10 … she sends
-    `"ratings": {"3": 0}` … Resistência is saved with score 0".
-  - Other spec: `evaluations.legacy-conversion` rule 5, "After conversion, no category is 1–10";
-    every legacy category is 1–5.
-  - Code today: `test_pad364_falsy_values.py` ›
-    `test_a_score_of_zero_is_saved_where_the_scale_starts_at_zero` now asserts 400
-    `score_out_of_range` for a 0 and that nothing is stored; its docstring says why. The rest of
-    the criterion (null clears, an empty note clears, an absent key changes nothing) still holds.
-  - Recommendation: drop the zero case from both; the rule's real point is that the endpoint tells
-    absent, null and falsy apart, and 0 is now simply out of range (EVALUATIONS-RECORDS-6).
-  - Proposed rule 14 ending: "…an absent `note` or an absent competency changes nothing; a `0` is
-    a value, not an absence, and is refused as out of range on a scale that starts at 1." Proposed
-    for EVALUATIONS-RECORDS-7: remove the Given's Resistência clause and the first When/Then pair.

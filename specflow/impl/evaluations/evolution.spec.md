@@ -125,10 +125,10 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
 - **Then** `competenciesWithData` is `[]` and the section shows only the empty state
   (`data-testid` `evolution-empty`)
 
-#### EVALUATIONS-EVOLUTION-8: A legacy category charts on its own scale (rule 10)
-- **Given** Ana's legacy "Forehand" (1–10) with 7 in January and 9 in September
-- **Then** `scaleMin` / `scaleMax` are 0 and 10, the means are 7.0 and 9.0, `delta.value` is 2.0,
-  and nothing is rescaled to 1–5
+#### EVALUATIONS-EVOLUTION-8: A competency charts on its own scale (rule 10)
+- **Given** Ana on the 1–10 scale (`evaluations.scale`) and her competency Bandeja with 7 in January and 9 in September
+- **Then** `scaleMin` / `scaleMax` are 1 and 10, the means are 7.0 and 9.0, `delta.value` is 2.0,
+  and nothing is drawn on 1–5
 
 #### EVALUATIONS-EVOLUTION-9: A record-less row does NOT count (Entities; Q29, R-048 point 3; corrected on PAD-375's review)
 - **Given** the backfill left Forehand 7 (2026-03-02 10:15) with `record_id` NULL beside
@@ -193,19 +193,3 @@ test: `frontend/apps/web/src/components/evaluations/EvaluationEvolution.test.tsx
   dated records, every date derived from `e2e/scripts/seed_dates.py` and a pinned "today" —
   never the wall clock.
 - Criteria quote Portuguese copy for the reader; tests locate by test id and `ui()`.
-
-### Open questions
-
-- **EVALUATIONS-EVOLUTION-8 charts a legacy category on 1–10, a scale no legacy category has since PAD-403.**
-  - Criterion: "Ana's legacy "Forehand" (1–10) with 7 in January and 9 in September … `scaleMin` /
-    `scaleMax` are 0 and 10 … and nothing is rescaled to 1–5".
-  - Other spec: `evaluations.legacy-conversion` rules 2 and 5 converted every legacy category and
-    its scores to 1–5 and keep any new one at 1–5: "After conversion, no category is 1–10."
-  - Code today: the only scales off 1–5 are the coach's own 1–10, 1–20 and 1–100
-    (`evaluations.scale`). `EvaluationEvolution.test.tsx` › "is drawn on the competency's OWN scale
-    and names itself" still renders a fixture with a maximum of 10, which the component draws as given.
-  - Recommendation: keep the criterion's point (a chart uses the competency's own scale) and state
-    it with a scale that can exist.
-  - Proposed text: "Given Ana on the 1–10 scale and her competency Bandeja with 7 in January and 9
-    in September, Then `scaleMin` / `scaleMax` are 1 and 10, the means are 7.0 and 9.0,
-    `delta.value` is 2.0, and nothing is drawn on 1–5".

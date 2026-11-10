@@ -19,9 +19,10 @@ Coaches record evaluation scores for players over time, tracking progress across
 1. Entries are scoped to a coach-player relationship + category
 2. Multiple entries per category over time (historical tracking)
 3. `current_evaluations` property: latest entry per category (deduplicated)
-4. The score range is enforced by client controls only (web slider, iOS stepper, both step 1); the
-   server checks nothing (B-126): 99, −3 and 2.5 are stored as sent and a non-numeric value is an
-   unhandled error. The import writes any float it reads.
+4. The client controls keep a score in range (web slider, iOS stepper, both step 1), and the
+   server checks every score before writing any (`evaluations.legacy-client-contract` rule 10:
+   400 `score_out_of_range`, nothing written). The import checks the same range
+   (`evaluations.bulk-import` rule 2c).
 5. `POST /api/app/add_evaluation_entry` (JWT, coach) adds scores: `{playerId, scores: [{categoryId,
    value}], strengths, weaknesses}` → `{status: "ok", playerId}`. Every write appends a row; nothing
    edits an entry in place. The only read is `GET /api/app/player_profile/<player_id>`, which
@@ -120,50 +121,7 @@ the ledger entry says which endpoint will honour the rule. Tests:
 - **And** strengths and weaknesses are add-only and deduplicated by text; an empty list removes nothing
 
 #### EVALUATIONS-ENTRIES-10: An old build's every-category body (rule 7)
-- **Given** Forehand's latest score is 7 and Volley (0–10) was never scored
-- **When** a client posts Forehand 7 and Volley 5 (the midpoint), with `strengths: []` and `weaknesses: []`
-- **Then** nothing is written for Forehand and a 5 is written for Volley — the known gap, asserted, not fixed
+- **Given** Forehand's latest score is 4 and Volley (1–5) was never scored
+- **When** a client posts Forehand 4 and Volley 3 (the midpoint), with `strengths: []` and `weaknesses: []`
+- **Then** nothing is written for Forehand and a 3 is written for Volley — the known gap, asserted, not fixed
 - **And** the same body posted again writes nothing
-
-#### EVALUATIONS-ENTRIES-11: The server enforces no score range (B-126 — today's behaviour, not rule 4)
-- **Given** a 0–10 category
-- **When** a client posts 99, then -3, then 2.5
-- **Then** each answers 200 and is written, and the profile serves 2.5
-
-#### EVALUATIONS-ENTRIES-12: A numeric score of 0 cannot be saved, and a save is not atomic (B-136)
-- **Given** a category whose minimum is 0
-- **When** a client posts `value: 0` as a number
-- **Then** the request fails on the NOT NULL `score` column and nothing is written for it; the string `"0"` is written as 0
-- **And** a score posted before it in the same body stays written
-
-### Open questions
-
-- **Rule 4, EVALUATIONS-ENTRIES-11 and EVALUATIONS-ENTRIES-12 say the server checks no score; it has checked every score since PAD-366.**
-  - Spec: rule 4, "the server checks nothing (B-126): 99, −3 and 2.5 are stored as sent and a
-    non-numeric value is an unhandled error". EVALUATIONS-ENTRIES-11: posting 99, −3 and 2.5 "each
-    answers 200 and is written". EVALUATIONS-ENTRIES-12: a numeric 0 "fails on the NOT NULL
-    `score` column" and "a score posted before it in the same body stays written".
-  - Other spec: `evaluations.legacy-client-contract` rule 10 (PAD-366, rulings D120 and D121)
-    says every score is checked before any is written, and its rule 7 strikes out both pins.
-  - Code today: `test_pad362_evaluation_contract.py` ›
-    `test_3_the_server_enforces_the_1_5_range_before_writing` gets 400 `score_out_of_range` for
-    −3 and 99 and stores 2.5 as 3; `test_3_a_numeric_score_of_zero_cannot_be_saved` gets 400
-    for 0; `test_3_a_save_is_atomic_one_refused_score_writes_nothing` finds nothing written.
-    EVALUATIONS-LEGACY-CLIENT-CONTRACT-10 states this.
-  - Recommendation: retire the two pins and rewrite rule 4; the pin tests already follow the new
-    behaviour and are tagged to the legacy-client-contract criterion.
-  - Proposed rule 4: "The client controls keep a score in range (web slider, iOS stepper, both
-    step 1), and the server checks every score before writing any
-    (`evaluations.legacy-client-contract` rule 10)." Proposed for EVALUATIONS-ENTRIES-11 and -12:
-    remove both, or replace each body with "Superseded by EVALUATIONS-LEGACY-CLIENT-CONTRACT-10".
-- **EVALUATIONS-ENTRIES-10 keeps numbers from the 0–10 scale.**
-  - Criterion: "Forehand's latest score is 7 and Volley (0–10) was never scored … posts Forehand 7
-    and Volley 5 (the midpoint)".
-  - Code today: every legacy category is 1–5 (PAD-403) and a body with a value above 5 is
-    converted as a stale 1–10 form. The pin test
-    `test_3_an_old_build_body_is_harmless_for_scored_categories_and_writes_the_midpoint_for_unscored`
-    posts Forehand 4 and Volley 3, the 1–5 midpoint.
-  - Recommendation: keep the criterion, with the test's numbers.
-  - Proposed Given and When: "Forehand's latest score is 4 and Volley (1–5) was never scored" and
-    "a client posts Forehand 4 and Volley 3 (the midpoint)"; Then: "nothing is written for
-    Forehand and a 3 is written for Volley".

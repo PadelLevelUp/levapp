@@ -83,7 +83,10 @@ that what the tutorial shows and what the engine does can never disagree.
    - `invitation_window` with `opensAt` (from `_compute_invite_start_dt`: a naive UTC instant the
      client formats in `Europe/Lisbon`, `notifications.invitations` rule 11), blocked while now is
      before it
-   - `quiet_hours` with `until` (next 07:00 club-local, `notifications.config` rule 6a)
+   - `quiet_hours` with `until` (the end of the coach's quiet window, club-local, `notifications.config`
+     rule 6a) and, while blocked, `untilAt` (that end as a UTC instant)
+   - `class_auto_invites_off` for a client that declares `class-type-defaults`
+     (`notifications.toggle-class`, NOTIFICATIONS-TOGGLE-CLASS-10)
    - `min_time_before_class` with `minutes`
    - `max_total_reached` with `sent` and `limit`
    A blocked gate means "nobody would be contacted right now". The queue is **still returned** so
@@ -173,7 +176,7 @@ that what the tutorial shows and what the engine does can never disagree.
 #### NOTIFICATIONS-INVITE-SIMULATION-6: Quiet hours are reported on the club wall clock (PAD-136 style)
 - **Given** a coach with `quietHours.enabled = true`
 - **When** the simulation is run at **22:30 club-local in summer** (21:30 UTC)
-- **Then** the `quiet_hours` gate is `blocked: true` with `until` at the next 07:00 club-local
+- **Then** the `quiet_hours` gate is `blocked: true` with `until` at the end of the coach's window (07:00 by default)
 - **And** the `rounds` are still returned with their candidates
 - **And** at **07:30 club-local** the same gate is `blocked: false`
 
@@ -272,22 +275,3 @@ test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `te
   answer — the owner chose this on 2026-09-06 over a clock-independent structural view.
 - OPEN: whether the tutorial should also expose the round *timing* (`maxInactiveTime`) as a gate
   entry. Left out of v1; `queued` covers the coach-facing meaning.
-
-### Open questions
-
-- **Rule 6 and NOTIFICATIONS-INVITE-SIMULATION-6 report quiet hours until "the next 07:00"; the coach sets the window since PAD-451.**
-  - Spec: rule 6, "`quiet_hours` with `until` (next 07:00 club-local, `notifications.config` rule
-    6a)"; NOTIFICATIONS-INVITE-SIMULATION-6, "`until` at the next 07:00 club-local".
-  - Other spec: `notifications.config` rule 6a (PAD-451), "The coach sets it: `quietHours` is
-    `{enabled, start, end}` … default **22:00–07:00**".
-  - Code today: `invite_simulation_service.py` answers `until` as the end of the coach's own
-    window ("06:00" for a 20:00 to 06:00 window) and, while blocked, `untilAt`, the instant that
-    end falls on.
-  - Recommendation: amend both to the coach's window; 07:00 is only the default.
-  - Proposed text: rule 6, "`quiet_hours` with `until` (the end of the coach's quiet window,
-    club-local, `notifications.config` rule 6a) and, while blocked, `untilAt` (that end as a UTC
-    instant)". Criterion 6, "…`blocked: true` with `until` at the end of the coach's window (07:00
-    by default)".
-- **Rule 6's list of gates lacks `class_auto_invites_off`.** The simulation reports it for a
-  client that declares `class-type-defaults` (NOTIFICATIONS-TOGGLE-CLASS-10). Recommendation: add
-  the gate to the list.

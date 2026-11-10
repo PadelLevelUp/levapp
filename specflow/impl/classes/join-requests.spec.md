@@ -30,7 +30,8 @@ by a student's request — and whichever lands first wins.
    the same class is idempotent rather than a duplicate.
 4. A student may **withdraw** their own pending request. Withdrawal is silent — no coach alert.
 5. **The coach is notified of every request** and accepts or rejects it. Acceptance and rejection are
-   the coach's alone; nothing about a request is automatic.
+   the coach's alone, unless the coach turned on rule 21's automatic acceptance; nothing is ever
+   rejected automatically.
 6. **On accept**, the student is enrolled exactly as any other enrolment: enrolment association plus
    presence, through the same path the invitation engine uses (`_add_player_to_instance`). Any
    vacancy for that spot is marked filled and attributed to the requesting student. **Which spot
@@ -513,17 +514,3 @@ test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py`
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
-
-### Open questions
-
-- **Rule 5 says nothing about a request is automatic; rule 21 accepts eligible requests automatically.**
-  - Rule 5: "Acceptance and rejection are the coach's alone; nothing about a request is automatic."
-  - Rule 21 (PAD-672 slice 2, D6): "With `notifications.config` rule 3a on, a new request is
-    accepted at creation through the coach's own accept path…".
-  - Code today: rule 21 is built. With the coach's `auto_accept_join_requests` on, an eligible
-    request with a spot of its side is answered 201 `accepted` and the student is enrolled
-    (`test_pad672_auto_accept_join_requests.py`, CLASSES-JOIN-REQUESTS-33). The setting is off by default.
-  - Recommendation: keep rule 21 and amend rule 5 to name it. The promise P-CLASSES-4 said "nothing
-    is accepted or rejected automatically"; its wording now follows rule 21, pending this answer.
-  - Proposed text for rule 5: "…Acceptance and rejection are the coach's alone, unless the coach
-    turned on rule 21's automatic acceptance; nothing is ever rejected automatically."

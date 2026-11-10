@@ -82,7 +82,8 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
    and its Assistant message marks that spot `resolved: "filled" | "expired"` (a live
    `message_edited`). Both clients count a resolved spot as stale (rule 7a's "N de M vagas já
    preenchidas ou expiradas"), and a message whose spots are all resolved shows no buttons. A
-   decision on it stays a no-op (`stale`). One `before_flush` listener on the vacancy's status
+   decision on it stays a no-op (`stale`), as does a decision once the class has started on the
+   club's clock (PAD-256, NOTIFICATIONS-SEMI-AUTO-APPROVAL-32). One `before_flush` listener on the vacancy's status
    (`replacement_approval_service`) is the only place this happens, so no route can forget it; a
    prompt no longer `pending` (decided, or released by a mode switch) is left as it is.
    The invitation tick (`process_invitation_batches`) also resolves, through the same
@@ -192,7 +193,7 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-11: Coach schedules approval for the invitation window
 - **Given** a pending prompt whose invitation window (per invitation_start_timing) has not yet opened
-- **Then** the prompt offers **"Yes, right now"**, **"Yes, at {window open time}"** (label showing the concrete window-open datetime), and **"No"**
+- **Then** the conversation's prompt offers **"Yes, right now"** and **"Yes, at {window open time}"** (label showing the concrete window-open datetime); the class's card also offers **"Ignorar"** (rule 8)
 - **When** the coach responds **"Yes, at {window open time}"**
 - **Then** the vacancy becomes approval_status "approved"
 - **And** invitations are sent when the invitation window opens, with eligibility recomputed at send time using the same rules (no one outside the shown list is invited unless their eligibility changed)
@@ -205,13 +206,13 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-13: Window already open: reduced button set
 - **Given** a pending prompt whose invitation window is already open
-- **Then** the prompt offers only **"Yes, right now"** and **"No"** (the scheduled option is not shown)
+- **Then** the prompt offers only **"Yes, right now"** (the scheduled option is not shown; the class's card also offers **"Ignorar"**)
 - **When** the coach responds **"Yes, right now"**
 - **Then** invitations are sent right away
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-14: Coach dismisses
 - **Given** a pending prompt for a vacancy
-- **When** the coach responds **"No"**
+- **When** the coach presses **"Ignorar"** on the class's card (action `dismiss`, rule 8)
 - **Then** the vacancy gets approval_status "dismissed" but Vacancy.status remains "open"
 - **And** the engine never sends invitations for it (batch processor and scheduler skip it)
 - **And** the coach can still send manual notifications for the instance
@@ -347,25 +348,3 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.te
 - **And** the card is stale only when the server refused every one of its spots as stale
 - **And** a yes that reached no spot tells the coach the spots were filled or expired, or that the list was recalculated
 test: `frontend/apps/mobile/src/features/notifications/approval-bundle.test.ts` › `accepts a bundle carrying an id and at least one vacancy` (+14 more)
-
-### Open questions
-
-- **Criteria 11, 13 and 14 put a "No" button on the prompt; rule 8 moved ignoring to the class's card.**
-  - Criteria: NOTIFICATIONS-SEMI-AUTO-APPROVAL-11, "the prompt offers "Yes, right now", "Yes, at
-    {window open time}" … and "No""; -13, "offers only "Yes, right now" and "No""; -14, "When the
-    coach responds "No"".
-  - Rule 8: the third action is ""Ignorar" (action `dismiss`)", and "When the invitation window is
-    already open, only "Yes, right now" is offered in the conversation (and "Ignorar" on the
-    class card)".
-  - Code today: the conversation's card renders no dismiss button; the class's card does
-    (`ReplacementApprovalCard.test.tsx`, NOTIFICATIONS-SEMI-AUTO-APPROVAL-35). The `dismiss`
-    action and its effect are as criterion 14 says.
-  - Recommendation: amend the three criteria to rule 8; the behaviour after a dismiss is unchanged.
-  - Proposed: in -11, "the conversation's prompt offers "Yes, right now" and "Yes, at {window open
-    time}"; the class's card also offers "Ignorar""; in -13, "the prompt offers only "Yes, right
-    now" (the class's card also "Ignorar")"; in -14, "When the coach presses "Ignorar" on the
-    class's card".
-- **Rules 11 and 12 do not name a started class as a reason an answer is stale.** The code treats
-  an answer as `stale` once the class has started on the club's clock
-  (`replacement_approval_service.py`, PAD-256; NOTIFICATIONS-SEMI-AUTO-APPROVAL-32).
-  Recommendation: add "or its class has started" to rule 11's list of what makes a decision a no-op.

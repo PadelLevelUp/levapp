@@ -41,7 +41,7 @@ with nothing lost: the same navigation, the same badges, the same actions.
    (`admin-sidebar`) is not rendered. In its place a top bar (`admin-topbar`) shows the console
    title, the pending-approvals count when non-zero (`admin-nav-approvals-count`) and a menu button
    (`admin-menu-button`). The button opens a drawer (`admin-nav-drawer`) holding, in this order,
-   the same navigation items as the sidebar (twelve for an operator or the owner since PAD-631 and PAD-555; eleven for support, who has no "Trabalho") (same labels, icons and `to`), the session email
+   the same navigation items as the sidebar (thirteen for an operator or the owner since PAD-631, PAD-555 and PAD-742; twelve for support, who has no "Trabalho") (same labels, icons and `to`), the session email
    (`admin-session-email`), the role badge (and the read-only badge for `support`), the language
    picker and sign-out (`admin-sign-out`). Choosing a navigation item navigates and closes the
    drawer; a close control (`admin-menu-close`, 44 px) and tapping the backdrop close it too. At
@@ -110,10 +110,10 @@ with nothing lost: the same navigation, the same badges, the same actions.
 #### ADMIN-PHONE-CONSOLE-2: The drawer carries everything the sidebar carried (rule 2)
 - **Given** a signed-in `operator` session with 2 pending coach approvals, at 375 × 667
 - **When** `admin-menu-button` is tapped
-- **Then** `admin-nav-drawer` is visible and contains twelve navigation links (Home, Approvals with
+- **Then** `admin-nav-drawer` is visible and contains thirteen navigation links (Home, Approvals with
   the count "2", Users, Settings, Roles, Audit log, Engine health, Clubs, Switches, Reports,
-  Deletions, Work — Reports and Deletions since PAD-631, Work since PAD-555), the session
-  email, the "Operator" role badge, the language select and `admin-sign-out`
+  Deletions, Work, Finance: Reports and Deletions since PAD-631, Work since PAD-555, Finance since
+  PAD-742), the session email, the "Operator" role badge, the language select and `admin-sign-out`
 - **When** the "Users" link is tapped
 - **Then** the URL is `/users` and `admin-nav-drawer` is hidden
 
@@ -198,21 +198,3 @@ test: `frontend/apps/admin/src/components/PhoneNav.test.tsx` › `the backdrop a
 - Why not reuse the product web app's `AppLayout` phone menu: the console must not import from
   `apps/web` (`admin.foundation` rule 14, guard test). The drawer is written in `apps/admin`.
 - OPEN: none. The owner's sign-in check on a phone (rule 6) is a manual step at release time.
-
-### Open questions
-
-- **Rule 2 and ADMIN-PHONE-CONSOLE-2 count twelve navigation links; the console has thirteen.**
-  - Spec: rule 2 says "twelve for an operator or the owner since PAD-631 and PAD-555; eleven for
-    support", and ADMIN-PHONE-CONSOLE-2 lists twelve links ending in Work.
-  - Test: `PhoneNav.test.tsx` › "a phone gets a top bar and a drawer with everything the sidebar
-    carried" asserts 13 links in the drawer for an operator.
-  - Code today: `Shell.tsx` builds thirteen items for an operator: PAD-742 added Finance
-    (`/finance`) for every console account (`FINANCE_ROLE` is `support`, `admin.finance` rule 1).
-    Support therefore has twelve (no Work). The comment in `PhoneNav.tsx` still says "eleven".
-  - Recommendation: amend the rule and the criterion to thirteen and twelve; the code is right.
-  - Proposed text for ADMIN-PHONE-CONSOLE-2's Then: "`admin-nav-drawer` is visible and contains
-    thirteen navigation links (Home, Approvals with the count "2", Users, Settings, Roles, Audit
-    log, Engine health, Clubs, Switches, Reports, Deletions, Work, Finance: Reports and Deletions
-    since PAD-631, Work since PAD-555, Finance since PAD-742), the session email, the "Operator"
-    role badge, the language select and `admin-sign-out`". Rule 2: "thirteen for an operator or the
-    owner; twelve for support, who has no "Trabalho"".

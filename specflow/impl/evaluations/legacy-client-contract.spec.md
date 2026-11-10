@@ -154,12 +154,12 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
   (id 13)
 - **When** a client sends, with no `X-LevApp-Capabilities` header, `GET /evaluation_categories`,
   then `POST /add_evaluation_entry` with `{"playerId": "5", "scores": [{"categoryId": 1, "value":
-  8}, {"categoryId": 2, "value": 6}, {"categoryId": 12, "value": 3}, {"categoryId": 13, "value":
+  5}, {"categoryId": 2, "value": 4}, {"categoryId": 12, "value": 3}, {"categoryId": 13, "value":
   3}], "strengths": [], "weaknesses": []}`, then `GET /player_profile/5`
-- **Then** the list is exactly `[{"id": 1, "name": "Forehand", "scaleMin": 1, "scaleMax": 10},
-  {"id": 2, "name": "Volley", "scaleMin": 1, "scaleMax": 10}]`
+- **Then** the list is exactly `[{"id": 1, "name": "Forehand", "scaleMin": 1, "scaleMax": 5},
+  {"id": 2, "name": "Volley", "scaleMin": 1, "scaleMax": 5}]`
 - **And** the save answers 200 `{"status": "ok", "playerId": "5"}`; exactly one entry is written
-  (Volley 6); no entry exists for id 12 or 13 with score 3 — no midpoint row reached a non-legacy
+  (Volley 4); no entry exists for id 12 or 13 with score 3 — no midpoint row reached a non-legacy
   competency — and Forehand's `evaluatedAt` did not move
 - **And** `evaluations[]` has items for Forehand and Volley only; Bandeja's 4 is not in it
 - **And** repeating all three calls with `X-LevApp-Capabilities: evaluations` gives the same answers
@@ -168,8 +168,8 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
 - **Given** Ana holds only Forehand and Volley
 - **When** the five endpoints are exercised by PAD-362's pinning tests
 - **Then** every pin passes unchanged: list shape, `playerId` string and echo, 404 for a roster
-  miss, 403 for a student, null and equal-to-latest skips, absent-category-not-deleted, the
-  non-atomic save, B-125, B-126 and B-136 as recorded in rule 7
+  miss, 403 for a student, null and equal-to-latest skips, absent-category-not-deleted and B-125
+  as recorded in rule 7, and the atomic, range-checked save of rule 10
 
 #### EVALUATIONS-LEGACY-CLIENT-CONTRACT-3: New endpoints, non-legacy competencies exist — they are reachable only here
 - **Given** the first criterion's competencies
@@ -202,17 +202,17 @@ Rui (player id 5); legacy categories Forehand (id 1, 1–10, Rui's latest 8) and
 - **Given** Ana switched her legacy category Volley (id 2, never scored) off in the new editor,
   and an App Store build still holds the list it fetched before that
 - **When** it posts `POST /add_evaluation_entry` with `{"playerId": "5", "scores": [{"categoryId":
-  1, "value": 9}, {"categoryId": 2, "value": 6}], "strengths": [], "weaknesses": []}`
+  1, "value": 5}, {"categoryId": 2, "value": 4}], "strengths": [], "weaknesses": []}`
 - **Then** the response is 200 `{"status": "ok", "playerId": "5"}`; exactly one entry is written
-  (Forehand 9); no entry exists for Volley
+  (Forehand 5); no entry exists for Volley
 - **And** `GET /evaluation_categories` afterwards lists Forehand only
 
 #### EVALUATIONS-LEGACY-CLIENT-CONTRACT-8: The legacy upsert does not touch or revive a switched-off legacy category (rule 5)
-- **Given** Ana's legacy category Volley (id 2, 1–10) is switched off
+- **Given** Ana's legacy category Volley (id 2, 1–5) is switched off
 - **When** a client posts `POST /add_evaluation_categories` with `[{"name": "Volley", "scaleMin":
   1, "scaleMax": 5}]`
 - **Then** the response is 200 echoing the body with every scale at 1/5 (rule 9); Ana still holds exactly one row named "Volley";
-  its `scale_max` is still 10 and `is_active` is still false; `GET /evaluation_categories` does
+  its scale is still 1–5 and `is_active` is still false; `GET /evaluation_categories` does
   not list it
 
 #### EVALUATIONS-LEGACY-CLIENT-CONTRACT-9: An imported row keeps its midnight timestamp (rule 4)
@@ -264,22 +264,3 @@ test: `backend/padel_app/tests/test_pad363_legacy_freeze.py` › `test_r047_a_co
   criterion proves it both ways.
 - The production counts (how many `scale_min = 0` rows B-136 has been eating) are pending; they
   bear on owner question Q1, not on this leaf.
-
-### Open questions
-
-- **EVALUATIONS-LEGACY-CLIENT-CONTRACT-1, -2, -7 and -8 keep numbers and pins from before rules 9 and 10.**
-  - Criteria: -1 lists Forehand and Volley at `"scaleMax": 10` and posts the values 8 and 6; -7
-    posts 9 and 6; -8 says the switched-off Volley's "`scale_max` is still 10"; -2 says "every
-    pin passes unchanged: … the non-atomic save, B-125, B-126 and B-136 as recorded in rule 7".
-  - Rules 9 and 10 of this spec: every legacy category is 1–5; a body with a value above 5 is
-    converted as a stale 1–10 form; rule 7 strikes out the non-atomic save and B-126.
-  - Code today: `test_pad363_legacy_freeze.py` ›
-    `test_r047_evaluation_categories_lists_legacy_categories_only` expects `"scaleMax": 5`;
-    `test_r047_a_stale_list_cannot_score_a_switched_off_legacy_category` posts 5 and 4;
-    `test_r047_the_category_upsert_never_revives_or_rescales_a_switched_off_legacy_category`
-    finds the row at `(1, 5, False)`.
-  - Recommendation: keep the four criteria and move their numbers onto 1–5, as the tests did.
-  - Proposed: in -1, `"scaleMax": 5` twice, values 5 and 4 for Forehand and Volley, "exactly one
-    entry is written (Volley 4)"; in -7, values 5 and 4 and "(Forehand 5)"; in -8, "Volley (id
-    2, 1–5)" and "its scale is still 1–5 and `is_active` is still false"; in -2, end the list at
-    "absent-category-not-deleted and B-125", and add "the atomic, range-checked save of rule 10".

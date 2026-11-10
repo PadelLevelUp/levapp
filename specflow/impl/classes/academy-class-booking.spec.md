@@ -76,8 +76,10 @@ point that composes them (PAD-358).
 9. **Wire contract (PAD-358).**
    - `GET /api/app/academy-classes?coachId=<coach id>` — student only; `403` when the student is not
      on that coach's roster, `400` without `coachId`. → `200 {from: "YYYY-MM-DD", to: "YYYY-MM-DD",
-     openSpotsVisible: boolean, classes: [...]}` sorted by start. `openSpotsVisible` is the coach's
-     standard toggle, so an empty list can say why (rule 2). Each class is the calendar event
+     openSpotsVisible: boolean, classes: [...], profileSide}` sorted by start. `openSpotsVisible` is
+     the coach's standard toggle, so an empty list can say why (rule 2); `profileSide` is the
+     student's side with that coach, or null (PAD-672, `classes.join-requests` rule 20). Each class
+     is the calendar event
      (`serialize_calendar_event`: `id`, `model`, `originalId`, `date`, `startTime`, `endTime`,
      `title`, `color`, `maxPlayers`, `participantCount`, `confirmedCount`, `club`, `court`,
      `classType`, `levelId`, `isRecurring`) plus `coachName`, `state` (`"open"` | `"full"`),
@@ -86,7 +88,8 @@ point that composes them (PAD-358).
    - `POST /api/app/class-join-requests` accepts an optional `note` (rule 5); a note over 500
      characters answers `400`. The coach's `joinRequests[]` items carry `note`.
    - `POST /api/app/class-waiting-list` `{model, originalId, date}` → `201 {lessonInstanceId,
-     onWaitingList: true}`, or `200` with the same body when the entry was already active. Refusals
+     onWaitingList: true, side}`, `side` being the side the entry was stored with, or null
+     (PAD-672), or `200` with the same body when the entry was already active. Refusals
      are `409` with a `code`: `already_enrolled`, `class_closed`, `not_visible`, `ineligible`,
      `has_spots` (the class has room: request it instead) — except for a student whose invitation to
      that class the engine withdrew for side balance, who may join while it has places
@@ -265,20 +268,3 @@ test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.wait
 - **[PAD-358 cross-review, Session A, 2026-09-17]** F5: a same-student double tap raced the
   read-then-insert into the unique index and answered 500; the loser now rolls back and returns
   the winner's row (rule 6). The coordinator's wording fix: "full" is filled, not confirmed (rule 3).
-
-### Open questions
-
-- **Rule 9's answer shapes lack the two keys PAD-672 added.**
-  - Spec: rule 9, "→ `200 {from: "YYYY-MM-DD", to: "YYYY-MM-DD", openSpotsVisible: boolean,
-    classes: [...]}`" and "→ `201 {lessonInstanceId, onWaitingList: true}`".
-  - Test: `test_pad358_academy_classes.py` › `test_routes_follow_the_wire_contract` asserts the
-    list's keys are exactly `from`, `to`, `openSpotsVisible`, `classes`, `profileSide`, and the
-    join's answer is `{"lessonInstanceId", "onWaitingList": true, "side": null}`.
-  - Code today: both keys are answered (PAD-672: the student's profile side for the side picker,
-    and the side stored on the waiting-list entry). `classes.join-requests` rule 20 describes
-    them; this rule was not updated.
-  - Recommendation: amend the rule to the answer the code gives. Additive, so rule 8 still holds.
-  - Proposed text: "→ `200 {from, to, openSpotsVisible, classes, profileSide}`" with
-    "`profileSide` is the student's side with that coach, or null", and "→ `201
-    {lessonInstanceId, onWaitingList: true, side}`, `side` being the side the entry was stored
-    with, or null".

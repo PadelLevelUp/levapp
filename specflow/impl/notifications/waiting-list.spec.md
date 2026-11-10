@@ -303,7 +303,7 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 19. **…or to the whole series, as a standing entry scoped to that series (PAD-547, PAD-560;
     numbering unconfirmed).** The same request with `scope: "series"` creates a standing entry
     whose `lesson_id` is the class's series, with **no credit limit** (`credits_total` NULL: a yes
-    spends nothing and never closes it, rule 15) and `whole_series` true, running to the series'
+    is counted and never closes it, rules 15 and 15a) and `whole_series` true, running to the series'
     end date (`recurrence_end`, inclusive) — or, when the series has no end or ends more than 12
     months out, to 12 months from today, rule 2's window (owner decision 2026-10-09 via the
     coordinator: never open-ended, renewable like any entry). The end is fixed at creation: a later
@@ -418,9 +418,9 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 - **Then** no WaitingListEntry exists for them on that instance
 - **And** the offer bubble shows the "declined" badge
 
-#### NOTIFICATIONS-WAITING-LIST-9: Only one active standing entry per coach and player
+#### NOTIFICATIONS-WAITING-LIST-9: Only one active standing entry per coach, player and scope
 - **Given** coach `maria` and player `rui` with one active standing entry, and two older inactive ones
-- **When** a second active entry for `maria` and `rui` is written directly
+- **When** a second active entry for `maria` and `rui` with the same scope (coach-wide, or the same series) is written directly
 - **Then** the database refuses it (integrity error); the inactive rows are unaffected
 - **And** `POST /api/app/notify/standing_waiting_list` for `rui` still works, because it deactivates the old entry first
 
@@ -672,29 +672,3 @@ test: `backend/padel_app/tests/test_pad547_coach_adds_to_class_waiting_list.py` 
   on the next load. Rule 1a is what the build added on the server for that; iOS also keeps the
   derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
   is not unit-testable there.
-
-### Open questions
-
-- **NOTIFICATIONS-WAITING-LIST-9 allows one active standing entry per coach and player; rule 19 allows one per scope.**
-  - Criterion: "a second active entry for `maria` and `rui` is written directly … the database
-    refuses it".
-  - Rule 19: a series entry "stays active beside" a coach-wide one; the Entities' index is per
-    coach, player and scope.
-  - Code today: the unique index `uq_standing_entries_active_coach_player_scope` (migration
-    `e22cb56a3aee`) admits a coach-wide entry and one per series for the same student;
-    `test_pad547_coach_adds_to_class_waiting_list.py` ›
-    `test_one_active_standing_entry_per_coach_player_and_scope` proves it.
-  - Recommendation: amend the criterion to the scope.
-  - Proposed title and When: "Only one active standing entry per coach, player and scope" and
-    "When a second active entry for `maria` and `rui` with the same scope (coach-wide, or the same
-    series) is written directly".
-- **Rule 19 says a yes on a whole-series entry "spends nothing"; the code counts it.**
-  - Rule 19: "no credit limit (`credits_total` NULL: a yes spends nothing and never closes it,
-    rule 15)". Rule 15a: the yes and the accepted join request "each spend one; a standing entry
-    with no credit limit … never runs out".
-  - Code today: `_settle_waiting_list_entry` adds one to `credits_used` for any standing entry
-    and only skips the close when there is no limit. Two yeses leave `credits_used` 2 and the
-    entry active (NOTIFICATIONS-WAITING-LIST-30).
-  - Recommendation: keep the code; the count is harmless and useful. Amend rule 19's wording.
-  - Proposed text: "no credit limit (`credits_total` NULL: a yes is counted and never closes it,
-    rules 15 and 15a)".

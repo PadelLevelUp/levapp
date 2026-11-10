@@ -40,8 +40,9 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 5. **`POST /api/app/activate/user/<id>` needs the token** (`token` in the JSON body). A missing or
    wrong token is 404 and writes nothing.
 6. With the right token, the POST is 410 unless the account is `inactive`, and writes nothing.
-7. **Activation writes exactly five fields:** `name`, `username`, `email`, `phone`, `password`, and
-   sets `status = active` — plus `birth_date` from rule 13 (PAD-457). Everything else in the body is ignored — `status`, `language`, the
+7. **Activation writes the five fields** `name`, `username`, `email`, `phone`, `password`, sets
+   `status = active`, and writes what rules 13, 13a and 13b add (the birth date, the country, the
+   Terms). Everything else in the body is ignored — `status`, `language`, the
    privilege flags (PAD-93) and any other column. The guard lives in `activate_user_service`, so
    it holds for any route that calls in.
 8. Frontend route: `/register/:userId` on web and iOS. Both read `t` from the link and pass it to
@@ -64,7 +65,11 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
     holds its generated `pending-…` placeholder (rule 10 blanks it in the form exactly so the
     student chooses one), or an empty or absent password, is answered
     `400 {"error": "invalid_fields", "fields": [...]}` naming every such field, and nothing is
-    written — the account stays `inactive`. The username is stored as checked: trimmed. A username another account holds is answered 409
+    written — the account stays `inactive`. A password shorter than 8 characters is refused the same
+    way (owner decision 2026-11-10: 8 characters everywhere; the server does not check the length
+    yet and the web and iOS forms refuse under 6 — Code to follow: `activate_user_service` refuses
+    under 8 with `invalid_fields`, and both forms refuse under 8). The username is stored as
+    checked: trimmed and lower-cased (`auth.register` rule 2a). A username another account holds is answered 409
     "Username already taken" (as `players.invite-completion` and self-signup do). The web and iOS
     screens already send every field, `""` when emptied (their own validation stops an empty name,
     username, e-mail or password before the request), so the one visible change is that an emptied
@@ -256,20 +261,3 @@ test: `frontend/apps/mobile/src/lib/web-links.test.ts` › `joins a base origin 
   only the person holding the coach's link can read the lookup, so it prefills their own contact
   details again. The public user shape still governs the users list and the messageable picker
   (`messaging.conversations` rule 15). Decided in the 2026-09-10 batch merge.
-
-### Open questions
-
-- **Rules 7 and 11 are narrower than the rules written after them.**
-  - Rule 7: "Activation writes exactly five fields: `name`, `username`, `email`, `phone`,
-    `password` … plus `birth_date` from rule 13". Rule 11: "The username is stored as checked:
-    trimmed."
-  - Later rules: rule 13a stores `country`, rule 13b records the Terms, and `auth.register` rule
-    2a says activation "trims and lowercases" the username.
-  - Code today: `services/user_service.py` lower-cases the trimmed username, writes the country
-    when sent and records the Terms acceptance. Nothing else in the body is written
-    (AUTH-ACTIVATE-4).
-  - Recommendation: amend the two sentences; no behaviour is in question.
-  - Proposed rule 7 opening: "Activation writes the five fields `name`, `username`, `email`,
-    `phone`, `password`, sets `status = active`, and writes what rules 13, 13a and 13b add (birth
-    date, country, the Terms)." Proposed rule 11 sentence: "The username is stored as checked:
-    trimmed and lower-cased (`auth.register` rule 2a)."

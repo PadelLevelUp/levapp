@@ -302,8 +302,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    "none"`, which the scheduler still schedules nothing for — the only shape whose backfill would
    otherwise change what students receive) and is logged, while any `reminderCount` /
    `hoursBetweenReminders` / `invitationStart` it does carry are kept. The coach turns reminders on
-   by picking a timing in Settings, as before. Booleans stored as `0`/`1` or `"true"`/`"false"` by an older client are read the
-   way the old truthiness check read them, not reset to the default.
+   by picking a timing in Settings, as before. Booleans stored as `0`/`1` or as the strings
+   `"true"`/`"false"` by an older client are read as the boolean they spell, not reset to the default.
 
 13. **(PAD-404) The evaluation reminder's two columns.** `evaluation_reminder_type varchar(16)
    NOT NULL DEFAULT 'never'` and `evaluation_reminder_value int NULL` live on this row because
@@ -316,7 +316,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
    config's behaviour, not this setting's).
 
 14. **(PAD-433) One restrictions section, on both clients.** Web (`RestrictionsPanel`) and iOS
-   (Settings → Auto-Invite Engine → Restrictions) show the same nine controls over the same
+   (Settings → Auto-Invite Engine → Restrictions) show the same ten controls over the same
    `restrictions` object of `GET|POST /api/app/notify/config`: `maxSimultaneous` 1–20 step 1,
    `maxTotal` 1–50 step 1, `maxInactiveTime` 15–1440 min step 15 (the server also clamps a saved
    value below 15 up to 15, PAD-495), `minTimeBeforeClass` 5–240 min
@@ -444,12 +444,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 
 #### NOTIFICATIONS-CONFIG-10: Get or create config
 - **Given** a coach with no existing config
-- **When** GET `/api/app/notification_config`
+- **When** GET `/api/app/notify/config`
 - **Then** a default config is created and returned
 
 #### NOTIFICATIONS-CONFIG-11: Update config
 - **Given** an existing config
-- **When** POST `/api/app/notification_config` with `{"auto_notify_enabled": true, "reminder_timing": {"type": "hours_before", "value": 24}}`
+- **When** POST `/api/app/notify/config` with `{"autoNotifyEnabled": true, "reminderTiming": {"type": "hours_before", "value": 24}}`
 - **Then** the config is updated
 - **And** scheduler jobs are rescheduled based on new timing
 
@@ -570,7 +570,7 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 
 #### NOTIFICATIONS-CONFIG-26: Update invitation mode
 - **Given** an existing config with `auto_notify_enabled: true`
-- **When** POST `/api/app/notification_config` with `{"invitation_mode": "semi_automatic"}`
+- **When** POST `/api/app/notify/config` with `{"invitationMode": "semi_automatic"}`
 - **Then** the config is updated
 - **And** subsequently created vacancies require coach approval before invitations are sent
 
@@ -610,10 +610,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
 - **When** the engine checks the occurrence again
 - **Then** one more invitation may be sent: `expired` (and `queued`) invitations do not count against `maxTotal`
 
-#### NOTIFICATIONS-CONFIG-33: iOS shows the same nine restriction controls as web (PAD-433)
+#### NOTIFICATIONS-CONFIG-33: iOS shows the same ten restriction controls as web (PAD-433)
 - **Given** a coach on iOS Settings with restrictions `maxSimultaneous {enabled: true, value: 3}`, `maxTotal {enabled: true, value: 10}`, `quietHours {enabled: true}` and `cancellationDeadlineHours` 24
 - **When** they open the Restrictions section of the Auto-Invite Engine card
-- **Then** the nine controls of rule 14 are shown, in web's order, with "3", "10" and "24" as the values and the quiet-hours switch on
+- **Then** the ten controls of rule 14 are shown, in web's order, with "3", "10" and "24" as the values and the quiet-hours switch on
 
 #### NOTIFICATIONS-CONFIG-34: A step clamps at the shared bounds (PAD-433)
 - **Given** `maxSimultaneous` at 20, `maxInactiveTime` at 15, and `cancellationDeadlineHours` at 0
@@ -716,38 +716,3 @@ test: `frontend/apps/mobile/src/features/settings/restrictions-i18n.test.ts` ›
 - **Then** the save answers 200 with the saved timing, no `pastDue`, and `pastDueUnknown: true`; the failure is logged with the coach
 - **And** the card says the check could not be made and asks nothing, also with the reminders section closed, on web and iOS; the line goes after the next timing save whose answer lacks the flag
 test: `backend/padel_app/tests/test_pad478_ask_before_sending.py` › `test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error` (+3 more)
-
-### Open questions
-
-- **NOTIFICATIONS-CONFIG-10, -11 and -26 name a route and body keys the API does not have.**
-  - The criteria: "GET `/api/app/notification_config`", "POST `/api/app/notification_config` with
-    `{"auto_notify_enabled": true, "reminder_timing": {...}}`" and "with `{"invitation_mode":
-    "semi_automatic"}`".
-  - Rule 12 and every later criterion: `GET|POST /api/app/notify/config`, camelCase.
-  - Code today: the only routes are `GET` and `POST /api/app/notify/config`
-    (`notification_engine_api.py`); the save reads `autoNotifyEnabled`, `reminderTiming` and
-    `invitationMode` and ignores the snake_case keys.
-  - Recommendation: the three criteria are stale; amend their When lines.
-  - Proposed: CONFIG-10 "When GET `/api/app/notify/config`"; CONFIG-11 "When POST
-    `/api/app/notify/config` with `{"autoNotifyEnabled": true, "reminderTiming": {"type":
-    "hours_before", "value": 24}}`"; CONFIG-26 "When POST `/api/app/notify/config` with
-    `{"invitationMode": "semi_automatic"}`".
-- **Rule 14 and NOTIFICATIONS-CONFIG-33 say nine restriction controls; the rule lists ten and both clients show ten.**
-  - Rule 14: "show the same nine controls", then names ten (the tenth, `noSameDayClass`, came with
-    rule 6e). NOTIFICATIONS-CONFIG-33: "the nine controls of rule 14 are shown".
-  - Code today: both sections render ten rows;
-    `frontend/apps/mobile/src/features/settings/restrictions-section.test.tsx` lists the ten and
-    names its group "the same ten restriction controls as web".
-  - Recommendation: the count is stale; say ten in the rule, and in the criterion's title and Then.
-- **Rule 12 says loose booleans are read "the way the old truthiness check read them"; the string "false" reads as off.**
-  - Rule 12: "Booleans stored as `0`/`1` or `"true"`/`"false"` by an older client are read the way
-    the old truthiness check read them, not reset to the default." By truthiness the string
-    `"false"` is true.
-  - NOTIFICATIONS-CONFIG-30: "the `1` reads as enabled and the `"false"` as disabled".
-  - Code today: `_bool_or` in `notification_config.py` reads the strings `true`, `1`, `yes`, `on`
-    as true and any other string as false; other values by truthiness.
-    `test_pad279_notification_config_columns.py` ›
-    `test_the_restrictions_setter_reads_loose_booleans_too` proves it.
-  - Recommendation: the criterion and the code agree; amend the rule's sentence.
-  - Proposed sentence: "Booleans stored as `0`/`1` or as the strings `"true"`/`"false"` by an older
-    client are read as the boolean they spell, not reset to the default."

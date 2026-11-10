@@ -81,7 +81,7 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     Flask-Login session with "". Flask-Login is removed with it (nothing else read its session),
     and no blueprint registers under `/auth/`.
 
-13. **The country, asked once after sign-in (PAD-630; Privacy Policy §1).** Accounts created before
+14. **The country, asked once after sign-in (PAD-630; Privacy Policy §1).** Accounts created before
     the country was asked, and accounts completed by an App Store build that predates PAD-604, have
     `country` null. When `GET /api/auth/me` answers `country: null`, web and iOS show a short,
     dismissible dialog over the signed-in app — "Em que país vives?" with the `COUNTRIES` list of
@@ -92,9 +92,11 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     não" — and closing it any other way (Esc, a click outside, the close button, Android back) —
     hides it on that device for 30 days. It is never shown once a country is stored. App Store
     builds that predate it simply never show it; the server needs no capability.
-14. **The sign-in form checks lengths before it sends.** The shared sign-in schema refuses a
-    username under 3 characters and a password under 6. Sign-up asks for more (`auth.register`
-    rule 4); this is only the sign-in form's own check.
+15. **The sign-in form checks lengths before it sends.** The shared sign-in schema refuses a
+    username under 3 characters and a password under 8 (owner decision 2026-11-10: 8 characters
+    everywhere). Sign-up asks for more (`auth.register` rule 4); this is only the sign-in form's
+    own check. Code to follow: `@levelup/validation`'s `passwordSchema` and `loginSchema` still
+    refuse under 6, and AUTH-LOGIN-22's tests pin 6 until the code follows.
 
 ### Acceptance Criteria
 
@@ -178,7 +180,7 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **When** they attempt to login
 - **Then** the response status is 401
 
-#### AUTH-LOGIN-15: An account without a country is asked once (rule 13, PAD-630)
+#### AUTH-LOGIN-15: An account without a country is asked once (rule 14, PAD-630)
 - **Given** a signed-in student whose `country` is null
 - **When** they sign in on the web or on iOS and no hold keeps them
 - **Then** the country prompt shows with PT selected; "Guardar" stores `PT` and the prompt never
@@ -218,7 +220,7 @@ test: `backend/padel_app/tests/test_auth_rate_limit.py` › `test_a_spoofed_forw
 - **And** on a database that is not Postgres the store is memory, with one warning; memory is also the default
 test: `backend/padel_app/tests/test_pad693_rate_limit_store.py` › `test_database_store_prunes_hits_older_than_the_longest_window` (+3 more)
 
-#### AUTH-LOGIN-21: The country prompt asks only a signed-in user, survives broken storage, and stays when the save fails (rule 13; web and iOS)
+#### AUTH-LOGIN-21: The country prompt asks only a signed-in user, survives broken storage, and stays when the save fails (rule 14; web and iOS)
 - **Given** nobody signed in
 - **Then** the prompt is not shown
 - **Given** a signed-in user with no country, and a stored dismissal that is unreadable, empty or in the future
@@ -228,20 +230,14 @@ test: `backend/padel_app/tests/test_pad693_rate_limit_store.py` › `test_databa
 - **Then** the prompt shows an error and stays, on web and on iOS
 test: `frontend/packages/config/src/country-prompt.test.ts` › `a malformed, empty or future value counts as not dismissed` (+5 more)
 
-#### AUTH-LOGIN-22: The sign-in form refuses a username under 3 characters or a password under 6 before sending (rule 14)
+#### AUTH-LOGIN-22: The sign-in form refuses a username under 3 characters or a password under 8 before sending (rule 15)
 - **Given** the sign-in form
-- **When** the username has two characters, or the password five
+- **When** the username has two characters, or the password seven
 - **Then** the form shows that field's error and sends nothing
-- **And** a username of three characters with a password of six is sent
+- **And** a username of three characters with a password of eight is sent
+- Code to follow: the schema still refuses under 6 and its tests pin that (`rejects a password shorter than 6 characters`); stale until the code follows (owner decision 2026-11-10)
 test: `frontend/packages/validation/src/index.test.ts` › `parses valid credentials` (+4 more)
 
 ### Notes
 - Rate limiting: rule 7 (PAD-228, closes B-001).
 - OPEN: No account lockout after failed attempts
-
-### Open questions
-
-- **Two rules are numbered 13.** "No route accepts an empty password (PAD-645)" and "The country,
-  asked once after sign-in (PAD-630)" share the number; AUTH-LOGIN-10 and AUTH-LOGIN-15 both cite
-  "rule 13". Recommendation: renumber the country rule 14 and update AUTH-LOGIN-15's and
-  AUTH-LOGIN-21's titles.

@@ -27,10 +27,10 @@ Automatically send class reminders to enrolled players at a configured time befo
     - The un-actioned reminder messages for that (player, instance) are marked `superseded = true` + `expired = true` and pushed to live clients via `message_edited`.
     - Clients also derive expiry from `msg_metadata.startsAt`, so reminders already sitting in message history stop offering Yes/No the moment their class passes, with no data backfill. `startsAt` (and `cancellationDeadline`) are naive club wall-clock strings, and the clients compare them with the club's clock (`lisbonNow()` in `@levelup/config`), never with the device's (PAD-295).
     - The invitation engine enforces the same rule independently: `trigger_invitations()` and the `_send_invitation_batch()` send chokepoint refuse to act for a class that has started, and expire any still-open Vacancy instead. This backstops every fan-out path (scheduler jobs, batch processor, round advance, decline-driven next-invite, and late responses to stale invite messages).
-11. A player's answer is always durably recorded (PAD-69). If no Presence row exists for the (player, instance) when they respond, one is created — otherwise the answer is dropped and the next reminder pass treats them as never having replied.
+11. A player's answer is always durably recorded (PAD-69). When the player has no Presence on that date (the coach took them off after the reminder went out), the answer is recorded on the reminder attempt as `not_enrolled` and nothing else is written: no Presence, no spot, no follow-up (`classes.instance-enrollment` rule 7).
 12. Responding is **idempotent** (PAD-94). Re-submitting the answer already on record for a (player, instance) is a no-op that returns the recorded action plus `"duplicate": True`. It sends no second `reminder_confirmed`/`reminder_declined` system message, creates no extra Vacancy, and does not re-drive the invitation engine — so N rapid taps on **No** produce exactly ONE decline message and ONE round of replacement invitations, not N.
     - "Already on record" means the Presence row still reflects that same answer **and** no un-actioned reminder message is pending for that (player, instance). A newer reminder (rule 9) is a fresh question and is always answerable, even with the same answer.
-    - Changing the answer (`yes` → `no`, or `no` → `yes`) is never suppressed.
+    - Changing yes to no always goes through. Changing no to yes goes through while the class has a spot (`attendance.confirm` rules 27 and 28); otherwise it answers `spot_filled` and records nothing.
     - The invitation engine enforces the same guarantee independently: the decline path does not re-trigger invitations when the player's spot already has an open Vacancy with live (`sent`/`queued`/`confirmed`) invitations out for it.
 13. **Answering is reading (PAD-202).** A reminder can be answered from outside the chat — the
     student dashboard offers Yes/No on the class row (`dashboard.blocks` rule 3a). When
@@ -300,7 +300,7 @@ Automatically send class reminders to enrolled players at a configured time befo
 #### NOTIFICATIONS-REMINDERS-20: Response is always recorded (PAD-69)
 - **Given** a player responding to a reminder for a future class with no Presence row for that (player, instance)
 - **When** they respond with action `no`
-- **Then** a Presence row is created recording the response
+- **Then** the answer is `not_enrolled`, recorded on the reminder's attempt; no Presence row is created and no spot opens
 - **And** the follow-up reminder is not sent on the next reminder pass
 
 #### NOTIFICATIONS-REMINDERS-21: Repeated identical responses are idempotent (PAD-94)
@@ -397,45 +397,3 @@ test: `backend/padel_app/tests/test_pad407_reminder_double_send.py` › `test_a_
 - **And** the student's tap shows at once; the answer stored is the one the server returned: confirmed stores yes, declined stores no, an expired or unknown answer stores nothing and says so
 - **And** a stored answer the app does not know reads as absent, never as confirmed
 test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `offers Yes/No on a fresh reminder for a future class` (+17 more)
-
-### Open questions
-
-- **Rule 11 and NOTIFICATIONS-REMINDERS-20 create a Presence for a student with none; the code answers `not_enrolled` and creates nothing.**
-  - Spec: rule 11, "If no Presence row exists for the (player, instance) when they respond, one is
-    created". NOTIFICATIONS-REMINDERS-20: "Then a Presence row is created recording the response".
-  - Other spec: `classes.instance-enrollment` rule 7 and CLASSES-INSTANCE-ENROLLMENT-13 (PAD-259,
-    owner's framing of 2026-09-11): an answer from a player with no row on that date creates
-    nothing.
-  - Code today: `respond_to_reminder` records `not_enrolled` on the reminder's attempt and
-    answers `{"action": "not_enrolled"}`; no Presence, no spot, no follow-up.
-    `test_notification_reminder_flow.py` ›
-    `test_decline_after_removal_is_recorded_without_reenrolling` proves it.
-  - Recommendation: the later rule holds; amend rule 11 and criterion 20. The answer is still
-    recorded, on the attempt, which is what PAD-69 wanted.
-  - Proposed rule 11: "A player's answer is always durably recorded (PAD-69). When the player
-    has no Presence on that date (the coach took them off after the reminder went out), the answer
-    is recorded on the reminder attempt as `not_enrolled` and nothing else is written
-    (`classes.instance-enrollment` rule 7)." Proposed Then for criterion 20: "the answer is
-    `not_enrolled`, recorded on the reminder's attempt; no Presence row is created and no spot opens".
-- **Rule 12 says a changed answer "is never suppressed"; a yes after a no goes through only while there is a spot.**
-  - Rule 12, third bullet: "Changing the answer (`yes` → `no`, or `no` → `yes`) is never suppressed."
-  - Other spec: `attendance.confirm` rule 28 (PAD-684, owner decision, superseding PAD-570's "Não
-    vou is final"): a student who said no "may come back while there is a spot; otherwise they may
-    join that occurrence's waiting list"; its rule 27: a yes is possible only once the student was
-    asked.
-  - Promises: P-NOTIFICATIONS-7 says "Changing the answer (no, then yes) always goes through";
-    P-ATTENDANCE-2 says ""No" is final for the player". Each contradicts the other and both miss
-    rule 28.
-  - Code today: a yes after a no re-reads the class under a lock; with a free spot the student is
-    seated again, with none the answer is `spot_filled` and nothing is recorded; a coach's mark or
-    a class not yet asked about refuses it too. A no after a yes always goes through.
-    `test_pad570_vou_after_reminder.py` ›
-    `test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back` proves the free-spot case.
-  - Recommendation: `attendance.confirm` rule 28 is the latest owner decision and the code follows
-    it; amend this bullet and both promises to it.
-  - Proposed bullet: "Changing yes to no always goes through. Changing no to yes goes through
-    while the class has a spot (`attendance.confirm` rules 27 and 28); otherwise it answers
-    `spot_filled` and records nothing." Proposed for P-NOTIFICATIONS-7: "Changing a yes to a no
-    always goes through; changing a no to a yes goes through while there is still a spot."
-    Proposed for P-ATTENDANCE-2: "A player who said no can come back while there is a spot;
-    after that they may join that class's waiting list."

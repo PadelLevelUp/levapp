@@ -74,7 +74,8 @@ own email in Settings.
 7. **The email.** Subject `O teu código LevApp: 123456` / `Your LevApp code: 123456`, in the
    user's `language`. Branded HTML (LevApp mark, the code in large tabular digits, "valid for 15
    minutes", "if this wasn't you, ignore this email") plus a plain-text alternative. pt-PT, *tu*,
-   no emoji. The sender is the configured `MAIL_USERNAME`; the mail is rendered by
+   no emoji. The sender is `MAIL_DEFAULT_SENDER`, or `MAIL_USERNAME` when no separate sender is
+   configured; the mail is rendered by
    `padel_app/tools/email_templates.py`, the same module that renders the coach-approval mail
    (`auth.coach-approval` rule 5). Every image and link in the mail is an absolute URL rooted at
    `PUBLIC_WEB_ORIGIN`, and every deployed environment sets that variable to its **own** origin
@@ -122,11 +123,11 @@ own email in Settings.
    *Verified* (success tone) or *Not verified* with a **Verify** action that opens the same code
    screen (as a route on web, a modal on iOS). Saving a new email address shows the code screen
    immediately after the save succeeds (`settings.profile` rule 9).
-10. **Admin.** `GET /api/app/admin/coach-approvals` rows gain `emailVerified: bool` (true only when
-    rule 2's state is `"verified"`, so an account with no email is never shown verified), and the
-    Settings → Admin list (web and iOS) marks an unverified email so the admin does not approve a
-    coach nobody can reach. The "coach waiting" admin email (`auth.coach-approval` rule 4) says
-    whether the email is verified.
+10. **Staff.** The rows of `GET /admin/api/coach-approvals` (`admin.approvals-and-users` rule 1)
+    carry `emailVerified: bool` (true only when rule 2's state is `"verified"`, so an account with
+    no email is never shown verified), and the console's approvals page marks an unverified email
+    so staff do not approve a coach nobody can reach. The "coach waiting" admin email
+    (`auth.coach-approval` rule 4) says whether the email is verified.
 11. **Test transport.** When `E2E_DEBUG_ENDPOINTS` is on (the flag the Playwright config and the
     Maestro runner already set, never the deploy workflows), `email_tools.send_email` records every
     message in an in-process outbox instead of using SMTP, and
@@ -310,10 +311,16 @@ own email in Settings.
 - **When** they save a different email
 - **Then** the code screen opens for the new address, and after verifying, Settings shows *Verified* again
 
-#### AUTH-EMAIL-VERIFICATION-24: Admin sees the verification state
+#### AUTH-EMAIL-VERIFICATION-24: Staff see the verification state (rule 10)
 - **Given** pending coach `rui` who has not verified
-- **When** the admin GETs `/api/app/admin/coach-approvals`
-- **Then** `rui`'s row has `emailVerified: false`, and the Admin list marks it on web and iOS
+- **When** staff GET `/admin/api/coach-approvals`
+- **Then** `rui`'s row has `emailVerified: false`, and the console's approvals page marks it
+
+#### AUTH-EMAIL-VERIFICATION-32: The mail is sent from the default sender, or from the login (rule 7)
+- **Given** a mail login (`MAIL_USERNAME`) and a default sender (`MAIL_DEFAULT_SENDER`)
+- **When** a mail is sent
+- **Then** it is sent from the default sender
+- **And** with only the login set it is sent from the login, and with neither the send fails as not configured
 
 #### AUTH-EMAIL-VERIFICATION-25: Verification is throttled per IP (PAD-269)
 - **Given** `AUTH_RATE_LIMIT_VERIFICATION` is `2/600`
@@ -383,28 +390,3 @@ test: `backend/padel_app/tests/test_email_verification.py` › `test_debug_route
   codes in URLs get logged, forwarded and cached.
 - OPEN: coach-created players keep an unverified email forever unless they change it; a
   "Verify" action in Settings covers the ones who care.
-
-### Open questions
-
-- **Rule 7 says the sender is `MAIL_USERNAME`; the code sends as `MAIL_DEFAULT_SENDER`.**
-  - Spec: rule 7, "The sender is the configured `MAIL_USERNAME`".
-  - Code today: `tools/email_tools.py` `_sender` answers `MAIL_DEFAULT_SENDER` when set and falls
-    back to `MAIL_USERNAME`: the app signs in to the mail server as a real mailbox and sends as a
-    no-reply alias. `test_email_sender.py` › `test_sender_prefers_the_configured_default` and
-    `test_sender_falls_back_to_the_login` prove both; they carry no criterion until this is
-    answered.
-  - Recommendation: amend the rule to the code.
-  - Proposed text: "The sender is `MAIL_DEFAULT_SENDER`, or `MAIL_USERNAME` when no separate
-    sender is configured." Proposed criterion: "Given a mail login and a default sender, When a
-    mail is sent, Then it is sent from the default sender; with only the login set, from the
-    login; with neither, the send fails as not configured."
-- **Rule 10 and AUTH-EMAIL-VERIFICATION-24 read the verification flag on the product's admin route, which is gone.**
-  - Spec: rule 10, "`GET /api/app/admin/coach-approvals` rows gain `emailVerified: bool` … and the
-    Settings → Admin list (web and iOS) marks an unverified email". AUTH-EMAIL-VERIFICATION-24:
-    "the admin GETs `/api/app/admin/coach-approvals` … and the Admin list marks it on web and iOS".
-  - Code today: PAD-532 moved the list to the staff console; `/api/app/admin/*` answers 404 and
-    neither app has an Admin list (see the same question in `auth.coach-approval`). The rows of
-    `GET /admin/api/coach-approvals` carry `emailVerified`.
-  - Recommendation: amend both to the console.
-  - Proposed text for -24's When and Then: "When staff GET `/admin/api/coach-approvals`, Then
-    `rui`'s row has `emailVerified: false`, and the console's approvals page marks it".
