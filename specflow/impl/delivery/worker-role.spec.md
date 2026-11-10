@@ -20,8 +20,9 @@ copies (PAD-704) and the worker can be sized and restarted on its own. The split
 until B8 has proven it.
 
 ### Surfaces
-- `backend/padel_app/scheduler.py` (`process_role`, `worker_split_enabled`, `scheduler_mode`,
-  `init_scheduler`, `_shutdown_quietly`), `backend/padel_app/worker.py` (new).
+- `backend/padel_app/roles.py` (`process_role`, `flag_enabled`),
+  `backend/padel_app/scheduler.py` (`worker_split_enabled`, `scheduler_mode`, `init_scheduler`,
+  `_shutdown_quietly`), `backend/padel_app/worker.py` (new).
 - `backend/scripts/rollout.sh` (`--worker`, zero-downtime-deploy rule 13),
   `backend/scripts/sync-staging-db.sh` (stops and starts the worker around a restore),
   `deploy-staging.yaml` / `deploy-prod.yaml`, `backend/.env.staging` (`WORKER_SPLIT=on`),
@@ -31,8 +32,9 @@ until B8 has proven it.
 ### Rules
 
 1. **Roles and the split.** `ROLE` is `api` (default), `worker` or `events` (PAD-697: the process
-   that holds the live-update streams); anything else is `api`. `WORKER_SPLIT` (default off) decides
-   the scheduler's mode in each process:
+   that holds the live-update streams), read trimmed and lower-cased; anything else is `api`.
+   `WORKER_SPLIT` (default off; on for `1`, `true`, `yes` or `on` in any case, `padel_app/roles.py`)
+   decides the scheduler's mode in each process:
 
    | | `WORKER_SPLIT` off | `WORKER_SPLIT` on |
    |---|---|---|
@@ -151,7 +153,3 @@ test: `backend/padel_app/tests/test_pad695_worker_role.py` › `test_a_non_worke
   lock on its next try); up to about 65 s once, on the first deploy that turns the flag on (the
   old API leader stops at the API swap; the worker starts after it). Reminder jobs have a 300 s
   grace, `process_batches` coalesces.
-
-### Open questions
-
-- **Rule 1 does not say which values switch `WORKER_SPLIT` on, or how `ROLE` is read.** `on`, `1`, `true` and `yes` in any case are on; `ROLE` is trimmed and lower-cased and an unknown role is `api` (`roles.py:11-18`; pinned by the test pointed at DELIVERY-WORKER-ROLE-2). The Surfaces section places `process_role` in `scheduler.py`; it lives in `roles.py`. Recommendation: fix both.

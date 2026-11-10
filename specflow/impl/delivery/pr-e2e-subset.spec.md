@@ -25,7 +25,8 @@ into the PR check.
    on pushes to `staging` or `main` (the release gate runs the full suite on those commits) nor on
    pull requests into `main`. A new push to the PR cancels the run in progress.
 2. **Advisory.** The check is not in the `staging` ruleset's required checks; red is a warning.
-   Making it required is the owner's decision (PAD-511 item 5).
+   Making it required is the owner's decision (PAD-511 item 5), taken after two weeks in which
+   the check raised no false alarm.
 3. **Selection** (`e2e/scripts/select_pr_specs.py`, git only, `base...head` where base is the merge
    base with `staging`):
    rank 0 a changed spec selects itself; rank 1 a changed web component selects every spec holding
@@ -35,7 +36,10 @@ into the PR check.
    specs quoting it; rank 4 a changed module with no test ids and at most 3 importers selects
    through its importers' ids; rank 5 a global, broad (more than 3 importers) or
    `frontend/packages/*` change adds the smoke set (`pr-subset/smoke.txt`). Component tests
-   (`*.test.tsx`) and `e2e/scripts/*.spec.ts` are never selected.
+   (`*.test.tsx`) and `e2e/scripts/*.spec.ts` are never selected. A test id matches as a plain
+   substring (`engine-toggle` also selects a spec that holds only `engine-toggle-2`) and a helper
+   by its file name alone (two helpers of one name in different folders select each other's
+   importers): the selector over-selects on purpose, never under-selects.
 4. **Quarantine.** A spec listed in `pr-subset/quarantine.txt` is left out unless the PR edits that
    spec. Every line cites the ledger entry (and ticket, when filed) that put it there, and at least
    one cited entry is still unresolved; the line is removed in the PR that fixes that entry.
@@ -44,7 +48,8 @@ into the PR check.
    chosen. Specs run in file order, one worker (they share one seeded database, B-101).
 6. **Empty.** No driven spec is a green check whose summary says "0 of N specs" and lists the
    changed components that drive no spec.
-7. **Stack.** A Postgres 15 service, the backend venv, the database migrated and seeded BEFORE
+7. **Stack.** A Postgres 15 service from LevApp's own mirror (`ghcr.io/padellevelup/ci-postgres:15`,
+   `delivery.ci-images`), the backend venv, the database migrated and seeded BEFORE
    Playwright starts (its web servers start before `globalSetup`), `E2E_DB_NAME`,
    `E2E_BACKEND_PORT` and `E2E_WEB_PORT` all set.
    7a. **Seed pinned against the engine (B-442).** The E2E backend runs the scheduler, so a
@@ -134,10 +139,3 @@ test: `frontend/apps/web/e2e/scripts/test_e2e_subset_workflow.py` › `test_the_
   pytest lane). Workflow-shape guard: `test_e2e_subset_workflow.py` beside it.
 - Not covered: backend-only changes (route-literal mapping is a possible v2), `packages/*` symbol
   tracing (v2).
-
-### Open questions
-
-- **P-DELIVERY-4 says the check becomes blocking "after two weeks with no false alarm"; rule 2 says only that it is the owner's decision.** No rule holds the two weeks. Recommendation: add the condition to rule 2 if it stands, or drop it from the promise.
-- **The promise's "about twenty minutes" is the cap on one step.** Rule 8 caps the subset at 20 minutes; the job allows 40, and the re-run of a red adds up to 15. Recommendation: say "the subset is cut at twenty minutes".
-- **The selector matches ids as plain substrings.** `engine-toggle` also selects a spec that holds only `engine-toggle-2`, and a helper is matched by its file name alone, so two helpers of the same name in different folders collide. Both select too much, never too little. Recommendation: accept, and say so in rule 3.
-- **Rule 7 says "a Postgres 15 service"; the image is LevApp's own mirror.** `ghcr.io/padellevelup/ci-postgres:15` (`delivery.ci-images`). Recommendation: name the mirror.

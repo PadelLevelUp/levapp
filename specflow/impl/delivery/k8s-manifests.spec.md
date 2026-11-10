@@ -153,7 +153,8 @@ it does not exist.
      purpose; the feature is off) or `template-unread`.
 
    Every `unset-keys.txt` line is a key the code reads (or, for `template-unread`, one it
-   doesn't), so no stale entries.
+   doesn't), so no stale entries. The guard is `infra/k8s/tests/test_pad702_config.py`.
+   - Code to follow: `infra/k8s/unset-keys.txt` line 3 names the guard `test_pad702_config_guard.py`; correct it to `test_pad702_config.py`.
 11. **The deploy workflow.** (PAD-703.) `deploy-gke.yaml` is dispatched by hand, with `environment`
    and `image_tag` (default: the commit). Pushes to staging join in PAD-705 and main in PAD-708.
    It calls `_deploy-gke.yaml`, which runs as the GitHub Environment of the same name with
@@ -174,7 +175,8 @@ it does not exist.
       malformed value, and fails if any placeholder is left;
    6. `migrate-job.sh` waits for a running Job (never deleting it while active), deletes and
       applies, and polls for `Complete` **or `Failed`** (fails fast; `kubectl wait` would sit
-      until its timeout on a failed Job). It always prints the Job's log. Nothing else is applied
+      until its timeout on a failed Job), and gives up after 1,860 seconds (the Job's own
+      `activeDeadlineSeconds` is 1,800). It always prints the Job's log. Nothing else is applied
       unless it completed;
    7. apply, then `rollout status` for the five Deployments. On a failed rollout the old pods
       keep serving (`maxUnavailable 0`);
@@ -244,6 +246,7 @@ it does not exist.
 - **Given** `k8s-lint.yaml` **Then** it renders the four kustomizations, runs kubeconform `-strict`
   without `-ignore-missing-schemas` against a commit-pinned CRD catalog, and runs the spec tests;
   a field unknown to a schema, or a kind with no schema, fails the job
+- Code to follow: `test_the_lint_workflow_validates_every_kustomization_with_schemas` (`test_pad698_k8s_manifests.py`) looks for the `-strict` flag anywhere in the workflow; assert it on the kubeconform step.
 
 #### DELIVERY-K8S-MANIFESTS-12: One ConfigMap name for the Job and the Deployments (rule 8)
 - **Given** an environment's overlay and its `migrate/` rendered separately **Then** each has one
@@ -267,6 +270,7 @@ it does not exist.
   Deployment's `env` or `unset-keys.txt`, for each environment
 - **Given** a mutant `os.getenv("PAD702_MUTANT_KEY")` in config.py **Then** the guard fails for
   both environments
+- Code to follow: `test_every_key_the_backend_reads_is_set_or_unset_on_purpose` (`test_pad702_config.py`) does not read a Deployment's own `env`; make it count those keys as set.
 
 #### DELIVERY-K8S-MANIFESTS-16: The deploy's guards (rule 11)
 - **Given** `_deploy-gke.yaml` **Then** after checkout the first step checks the tag is on the
@@ -305,15 +309,10 @@ test: `infra/k8s/tests/test_pad702_config.py` › `test_overrides_are_the_listed
 - **And** the staging build pushes each image under the commit's own tag as well as the `staging` tag
 - **And** the smoke check fails, naming the check, when the health route is not 200 or the app-links file is not JSON; it passes a healthy environment and skips the signed-in checks when it is given no account
 test: `infra/k8s/tests/test_pad703_deploy.py` › `test_the_job_runs_as_the_environment_with_federated_identity` (+5 more)
+- Code to follow: in `test_pad703_deploy.py`, `test_staging_builds_push_the_commit_tag` looks for the tag as a substring anywhere in the workflow (assert it on the push step), and `test_dispatch_only_never_cancelled_and_one_reusable_job` does not assert the per-environment concurrency group (assert it).
 
 ### Notes
 - Autopilot rounds requests to its minimums and CPU:memory ratio; the tests read the rendered
   values, not what Autopilot will bill.
 - The legacy domain can become a Cloudflare redirect once its API count is zero for some weeks
   after the cutover (decision for then, on PAD-698).
-
-### Open questions
-
-- **The migrate Job's time limit is in the script only.** Rule 11 step 6 says the deploy "polls for Complete or Failed"; the script also gives up after 1,860 seconds and prints the Job's log, which the test pointed at DELIVERY-K8S-MANIFESTS-18 pins with a short limit. Recommendation: state the limit in rule 11.
-- **Four checks read less than their names say.** The lint-flag test and the image-tag test look for a substring anywhere in the workflow; the unset-keys test does not look at a Deployment's own env; the dispatch test does not assert the per-environment concurrency group. Recommendation: tighten them when the tags are applied.
-- **`unset-keys.txt` names a guard file that does not exist.** Line 3 cites `test_pad702_config_guard.py`; the file is `test_pad702_config.py`. Recommendation: fix the name.

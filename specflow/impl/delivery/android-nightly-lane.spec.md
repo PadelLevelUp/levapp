@@ -81,12 +81,15 @@ signal (PAD-710).
      - `success` when every flow passed in every shard;
      - `neutral` while the lane is experimental and something is red;
      - `failure` once the lane is strict. A failure also fails the run.
-     - The check's summary names each red flow with its reason, each watchdog stop, and each shard
-       that reported nothing.
+     - The check's summary names each red flow with its reason, each watchdog stop, each shard
+       that reported nothing, and each shard that reported fewer flows than it was given
+       ("reported N of M flows"): that shard is red, neutral while the lane is experimental.
    - **A shard where no flow ran is a setup failure, never a success (PAD-757).**
      - "No flow ran" means its artifact has no verdict, or its verdict finished 0 flows.
      - For a shard with no junit report, `lane-result` reads the first error line of that job's
-       emulator step from the job log. If that step never started, it reads the job's first error.
+       emulator step from the job log and writes it as `setup-error.txt` into the shard's artifact.
+       If that step never started, it reads the job's first error. The check reads the error from
+       that file.
      - The check names that error in its summary, as a warning annotation at the emulator step, and
        as a run annotation. Its title says "setup failed in N job(s), no flow ran" and never
        "0 flow(s) red".
@@ -176,9 +179,3 @@ signal (PAD-710).
   add it to `chains` or make it self-contained.
 - The 17 reds of 2026-10-21 are classified on PAD-710. Product defects are filed as their own
   tickets and are not fixed here.
-
-### Open questions
-
-- **Rule 7 says the lane check reads a failed shard's first error from the job log; it also reads a `setup-error.txt` from the shard's artifact.** The test pointed at DELIVERY-ANDROID-NIGHTLY-LANE-6 pins the artifact path. Recommendation: name both sources in rule 7.
-- **The summary's "reported N of M flows" line is in the code only.** A shard that reports fewer flows than it was given is red (neutral while the lane is experimental); rule 7 names the watchdog stops and not this. Recommendation: add it.
-- **The watchdog's tests prove the message, not the shard's exit.** Rule 4 says a stop prints an `::error` naming the running flow and the shard exits 1; the tests pointed at DELIVERY-ANDROID-NIGHTLY-LANE-7 check the line only. Recommendation: accept, since the exit is one shell line.

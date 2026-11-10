@@ -11,7 +11,7 @@ When a change breaks one of the web app's tested flows, whoever opened the chang
 
 - The check is advisory: a failure shows on the change and never blocks the merge. Making it blocking is the owner's decision, after two weeks with no false alarm.
 - It never replaces the full suite at the release gate.
-- A typical change runs in a few minutes, the largest in about twenty.
+- A typical change runs in a few minutes; the subset is cut at twenty minutes, and a second look at a red spec can add up to fifteen more.
 - A test known to fail for an unrelated, recorded bug is left out until that bug is fixed, unless the change edits that test.
 
 It does not promise this check for backend-only changes or the iOS and Android apps, which have their own lanes.

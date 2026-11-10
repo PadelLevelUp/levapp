@@ -61,7 +61,9 @@ live fallback (architecture review, 2026-10-22).
    3. a later deploy sets `EVENTS_SPLIT=on`.
 
    Rollback is the reverse. Turning `EVENTS_ROLE` off removes the container, so the host must route
-   the path back first.
+   the path back first. The events upstream lists its two loopback ports with
+   `max_fails=1 fail_timeout=5s`, like the API's: a port that refused is skipped for five seconds,
+   which is how long the rollout waits before it trusts the switch.
 9. **Staging only in this ticket.** Prod's events role waits for PAD-704's two-copies proof and for
    PAD-692's prod `SSE_BROKER=postgres` (rule 4).
 10. **The staging sync stops the events container with the API.** `sync-staging-db.sh` stops
@@ -83,6 +85,8 @@ live fallback (architecture review, 2026-10-22).
 - **Given** `ROLE=api`
 - **When** `/api/app/events` is requested with `EVENTS_SPLIT=on`, and without it
 - **Then** 410 `{"error": "EVENTS_MOVED"}`, and 401 (served as before)
+- **And** `/api/app/events/` with a trailing slash is 410 the same way, and on `ROLE=events` it is served, never `NOT_ON_EVENTS`
+- Code to follow: `test_a_trailing_slash_does_not_slip_past_the_guard_or_the_410` (`test_pad697_events_role.py`) asserts the events role's status too, not only that the error is not `NOT_ON_EVENTS`.
 
 #### DELIVERY-EVENTS-ROLE-3: The events role is never ready on the memory broker (rule 4)
 - **Given** `ROLE=events` and `SSE_BROKER=memory`
@@ -129,8 +133,3 @@ live fallback (architecture review, 2026-10-22).
 - **Given** a `padelapp_staging_events` container
 - **When** the sync restores
 - **Then** it stops the events container before the restore and starts it after the API; without one, it touches none
-
-### Open questions
-
-- **Three tests pointed at DELIVERY-EVENTS-ROLE-10 read the workflow and the nginx file as text.** They pin that a leftover events container is kept, with a warning, while a vhost still routes to it; that `EVENTS_SPLIT` is never on in an env template without `EVENTS_ROLE`; and the upstream's two ports with `max_fails=1 fail_timeout=5s`. Rule 8 states the first two; the `fail_timeout` value is in no rule, though the rollout reads it to know how long to wait. Recommendation: state the value in rule 8.
-- **The trailing-slash test proves half of its name.** On the events role it asserts only that the answer is not `NOT_ON_EVENTS`, with no status. Recommendation: assert the status.
