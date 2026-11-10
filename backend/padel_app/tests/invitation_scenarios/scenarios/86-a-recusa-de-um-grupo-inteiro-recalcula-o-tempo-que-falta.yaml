@@ -1,0 +1,50 @@
+id: 86
+title: a recusa de um grupo inteiro recalcula o tempo que falta
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1856, 1879]}
+what_it_tests: o tempo libertado por uma recusa é redistribuído pelos grupos que faltam
+tags: [method-b, timers, groups, other-side]
+depends_on: [U12, U28]
+corrections: []
+notes: >
+  Method B, same people as 83. 15:40 all of group 3 refused, so group 4 comes at once (line 172, R2) and the
+  remaining 9h50 is split 6:5:4 over 3 groups: 3h56, 3h17, 2h37 (the PDF notes 33% would give 3h15; lines
+  2174-2180). tick_every 1m because the expected instants are not on 5-minute marks.
+
+settings:
+  timing: {method: B}
+tick_every: 1m
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-02 15:30
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 15:40
+    events:
+      - {declines: {cohort: L2R, state: invited, as: n1}}
+      - {declines: {cohort: L2R, state: invited, as: n2}}
+      - {declines: {cohort: L2R, state: invited, as: n3}}
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-02 19:36
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: R, group: 5}]
+  - at: 2026-11-02 22:53
+    expect:
+      invitations: [{cohort: L3L, count: 3, side_named: R, group: 6}]
+  - at: 2026-11-02 23:00
+    events: [{accepts: {cohort: L3L, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

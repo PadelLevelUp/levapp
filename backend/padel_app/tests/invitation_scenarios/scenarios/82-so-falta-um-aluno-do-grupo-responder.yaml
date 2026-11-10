@@ -1,0 +1,42 @@
+id: 82
+title: só falta um aluno do grupo responder
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1763, 1780]}
+what_it_tests: basta um convidado sem resposta para o tempo entre grupos continuar a contar
+tags: [groups, timers]
+depends_on: [U12, U13]
+corrections: []
+notes: >
+  Method A from the base profile. 19:05 the two Nos are not replaced: group 3 has no uninvited candidate left,
+  and one open invitation still covers the one spot, so group 4 waits (R2). 20:00 is 60 minutes after group 3's
+  only round at 19:00 (R3, timers beat heads). The 20:15 Aviso probe is derived from "Os alunos de nível 3 veem
+  o Aviso se disserem Sim" (R9).
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:05
+    events:
+      - {declines: {cohort: L2R, state: invited, as: n1}}
+      - {declines: {cohort: L2R, state: invited, as: n2}}
+    expect: {invitations: none}
+  - at: 2026-11-01 20:00
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-01 20:10
+    events: [{accepts: {cohort: L2R, state: invited, invited_at: 2026-11-01 19:00, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 20:15
+    derived: true
+    events: [{accepts: {cohort: L3R, state: invited, as: b}}]
+    expect: {messages: [{who: b, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}

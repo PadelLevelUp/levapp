@@ -1,0 +1,50 @@
+id: 83
+title: quatro grupos, com menos tempo nos últimos
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1781, 1810]}
+what_it_tests: o tempo útil exclui o silêncio e é distribuído de forma decrescente pelos grupos
+tags: [method-b, timers, groups, quiet-hours, other-side, last-invite]
+depends_on: [U12, U28]
+corrections: []
+notes: >
+  Method B. The setting carries only the method; the split is the expected result, not an input. 10 h of
+  useful time (15:30-00:00 and 07:00-08:30) split 9:8:7:6 over the 4 groups with candidates: 3h, 2h40, 2h20,
+  2h (lines 2174-2180). Each group has one round, so the whole group time is the wait to the next group (PDF
+  assumption, lines 2158-2160). Group 6's 2 h run 23:30-00:00 and 07:00-08:30, paused in quiet hours. Groups
+  5 and 6 invite left-siders to play right (side_named R). Regular R-1 stands for "um regular de direita".
+  The absence kind is not stated and is not checked.
+
+settings:
+  timing: {method: B}
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-02 15:30
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 18:30
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 4}]
+  - at: 2026-11-02 21:10
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: R, group: 5}]
+  - at: 2026-11-02 23:30
+    expect:
+      invitations: [{cohort: L3L, count: 3, side_named: R, group: 6}]
+  - at: 2026-11-03 08:30
+    expect: {invitations: none}
+  - at: 2026-11-03 08:40
+    events: [{accepts: {cohort: L3L, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

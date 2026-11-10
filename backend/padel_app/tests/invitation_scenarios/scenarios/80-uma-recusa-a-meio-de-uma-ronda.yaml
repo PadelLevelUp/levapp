@@ -1,0 +1,45 @@
+id: 80
+title: uma recusa a meio de uma ronda
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1727, 1746]}
+what_it_tests: as rondas seguem o relógio do grupo; uma substituição não tem tempo próprio
+tags: [rounds, timers]
+depends_on: [U12, U13]
+corrections: []
+notes: >
+  Method A from the base profile. 19:05 the No is replaced at once from the same group, which still has
+  uninvited candidates (R2, "Uma recusa é substituída logo", line 170). The 19:25 probe is derived: if the
+  replacement had its own 20-minute clock a round would leave at 19:25; the PDF says the round ends at 19:20
+  for everyone. The 19:40 Aviso probe is derived from "Os outros convidados veem o Aviso se disserem Sim" (R9).
+  Today's engine restarts the clock on every No (U13).
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 9, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:05
+    events: [{declines: {cohort: L2R, state: invited, as: d1}}]
+    expect:
+      invitations: [{cohort: L2R, count: 1, side_named: null, group: 3}]
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:25
+    derived: true
+    expect: {invitations: none}
+  - at: 2026-11-01 19:35
+    events: [{accepts: {cohort: L2R, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:40
+    derived: true
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect: {messages: [{who: b, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}

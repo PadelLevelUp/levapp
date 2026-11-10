@@ -1,0 +1,57 @@
+id: 89
+title: tempos curtos para as waiting lists
+source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1924, 1944]}
+what_it_tests: os tempos próprios de cada grupo aplicam-se também às waiting lists
+tags: [method-c, timers, groups, waiting-list, coach-list]
+depends_on: [U12, U17]
+corrections: []
+notes: >
+  Method C with only the times to the next group for groups 1 and 2, as the PDF gives them; each group has one
+  candidate and so one round. The PDF names neither waiting-list student: CW1 stands for the one on the coach's
+  list, SW1 for the one on the students' list (own side, the PDF says only "de direita"). Their list membership
+  is applied at the first step before the regular's No, so the order of entry is explicit (design 2.2). 18:00
+  is after the reminder hour, so the coach's list gets an invitation, not an automatic entry. Regular R-1
+  stands for "um regular de direita". The 18:55 Aviso probe is derived from "Os outros convidados veem o Aviso
+  se disserem Sim" (R9).
+
+settings:
+  timing:
+    method: C
+    per_group:
+      1: {to_next_group: 15m}
+      2: {to_next_group: 30m}
+tick_every: 1m
+
+roster:
+  regulars: {L: 8, R: 8}
+students:
+  - {id: CW1, level: null, side: R}
+  - {id: SW1, level: null, side: R}
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 18:00
+    events:
+      - {coach_adds_to_waiting_list: CW1, side: R}
+      - {joins_waiting_list: SW1, sides: own}
+      - {regular_no: R-1}
+    expect:
+      invitations: [{who: CW1, group: 1}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 18:15
+    expect:
+      invitations: [{who: SW1, group: 2}]
+  - at: 2026-11-02 18:45
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-02 18:50
+    events: [{accepts: CW1}]
+    expect:
+      placed: [{who: CW1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 18:55
+    derived: true
+    events: [{accepts: SW1}]
+    expect: {messages: [{who: SW1, kind: aviso}]}
+final:
+  roster: {L: 8, R: 8}
