@@ -1,0 +1,43 @@
+id: 68
+title: aula criada depois da hora de início dos convites
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1509, 1524]}
+what_it_tests: uma aula criada em cima da hora começa a convidar sem esperar por outro ciclo
+tags: [late-class, rounds, reminders]
+depends_on: []
+corrections: []
+notes: >
+  The class carries created_at and a class_created event at the same instant (format question 5 to H: one or
+  both). The 17:00 reminder goes to the regulars and not to the student who accepted (glossary "Lembrete").
+
+class:
+  level: 3
+  capacity: 8
+  start: 2026-11-03 10:30
+  created_at: 2026-11-02 12:00
+
+roster:
+  regulars: {L: 4, R: 3}
+students:
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-02 12:00
+    events: [{class_created: true}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 12:20
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-02 12:30
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars]
+        not_to: [r1]
+final:
+  roster: {L: 4, R: 4}

@@ -1,0 +1,50 @@
+id: 74
+title: desempate dentro do grupo
+source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1619, 1635]}
+what_it_tests: os critérios do professor decidem quem é convidado primeiro, e o primeiro Sim fica com a vaga
+tags: [tiebreak, rounds]
+depends_on: []
+corrections: []
+notes: >
+  Students are named by participation count (P12 has 12). The tiebreak is the base criterion, set explicitly
+  because the PDF lists it under "Definições diferentes". The Yes from P1, last in the ranking, takes the spot:
+  "O desempate não dá prioridade na resposta".
+
+settings:
+  tiebreak: participations
+class:
+  level: 3
+  capacity: 4
+  start: 2026-11-03 10:30
+
+roster:
+  regulars: {L: 2, R: 1}
+students:
+  - {id: P12, level: 2, side: R, participations: 12}
+  - {id: P9, level: 2, side: R, participations: 9}
+  - {id: P7, level: 2, side: R, participations: 7}
+  - {id: P5, level: 2, side: R, participations: 5}
+  - {id: P3, level: 2, side: R, participations: 3}
+  - {id: P1, level: 2, side: R, participations: 1}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: P12, side_named: null, group: 3}
+        - {who: P9, side_named: null, group: 3}
+        - {who: P7, side_named: null, group: 3}
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:20
+    expect:
+      invitations:
+        - {who: P5, side_named: null, group: 3}
+        - {who: P3, side_named: null, group: 3}
+        - {who: P1, side_named: null, group: 3}
+  - at: 2026-11-01 19:30
+    events: [{accepts: P1}]
+    expect:
+      placed: [{who: P1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 2, R: 2}

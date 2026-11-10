@@ -1,0 +1,57 @@
+id: 64
+title: um convidado aceita e depois cancela
+source: {section: "Cenários 58 a 71: respostas, faltas, cancelamentos e horários", lines: [1432, 1447]}
+what_it_tests: o cancelamento de um convidado segue as mesmas regras de falta e reabre a vaga
+tags: [cancellation, absences, rounds, timers]
+depends_on: [U25, U29]
+corrections: []
+notes: >
+  Encoded exactly as written (design §6.1 E2): D2's and D3's invitations stay valid after the class filled at
+  19:05, which contradicts scenario 72 freeing them; U25. D4 and D5 go out at 10:00 although D2 and D3 still
+  cover the single spot by heads, because the round timer kept running while the class was full and the
+  reopened spot resumes where the clock is (R3, R11); the new round is X=3 capped by the 2 uninvited
+  candidates. D1 is not invited again (glossary "Convite"). The cancel is before the 22:30 cutoff, so it is
+  justified (U29).
+
+class:
+  level: 3
+  capacity: 8
+  start: 2026-11-03 10:30
+
+roster:
+  regulars: {L: 4, R: 3}
+students:
+  - {id: D1, level: 2, side: R}
+  - {id: D2, level: 2, side: R}
+  - {id: D3, level: 2, side: R}
+  - {id: D4, level: 2, side: R}
+  - {id: D5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: D1, side_named: null, group: 3}
+        - {who: D2, side_named: null, group: 3}
+        - {who: D3, side_named: null, group: 3}
+  - at: 2026-11-01 19:05
+    events: [{accepts: D1}]
+    expect:
+      placed: [{who: D1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 10:00
+    events: [{cancels: D1}]
+    expect:
+      absences: [{who: D1, kind: justified}]
+      invitations:
+        - {who: D4, side_named: null, group: 3}
+        - {who: D5, side_named: null, group: 3}
+      open_unanswered: 4
+      missing: {L: 0, R: 1}
+  - at: 2026-11-02 10:10
+    events: [{accepts: D4}]
+    expect:
+      placed: [{who: D4, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 4, R: 4}
