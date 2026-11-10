@@ -134,16 +134,6 @@ due. It is a marker inside the app, never a message to anyone.
 - **Then** the first two answer `{"reminder": "every_n_classes", "everyN": 3}` and the third
   answers 400 leaving 3 stored
 
-#### EVALUATIONS-REMINDERS-7: A typed number is saved however the coach leaves it (rule 1, B-242)
-- **Given** coach `e2e-coach` on iOS with "Personalizado" chosen (stored `everyN` 4)
-- **When** they type 7 and send the app to the background with the field still focused, then type
-  9 and follow a link to the players list with the field still focused
-- **Then** `GET /api/app/evaluation_settings` answers `everyN` 7 after the first and 9 after the
-  second. Maestro flow 128 shows the number survives leaving on a device; Maestro cannot leave
-  inside the 600 ms delay (one typed character takes ~950 ms), so which path sent it is pinned by
-  the web and iOS unit tests: the delay (not earlier, once per pause), the flush on unmount and on
-  background, a radio choice dropping a pending number, and invalid input never sent
-
 #### EVALUATIONS-REMINDERS-8: The reminder never leaves the app (rule 5)
 - **Given** any frequency and any due player
 - **Then** no `Message`, push, e-mail or scheduler job is created by this leaf
@@ -196,20 +186,3 @@ test: `backend/padel_app/tests/test_pad404_evaluation_reminder.py` › `test_an_
   it opens Players by link; the search is cleared before typing). **Not yet run:** the full backend
   suite. The status stays `implementing` until it has run and PAD-402's parent revision is on
   staging.
-
-### Open questions
-
-- **EVALUATIONS-REMINDERS-7 describes the save-while-typing that rule 1 says PAD-506 replaced.**
-  - Criterion: a typed number "is saved however the coach leaves it": 7 saved on going to the
-    background, 9 on following a link, pinned by "the delay … the flush on unmount and on
-    background".
-  - Rule 1: "(PAD-506) The choice and a typed number are held until the tab's Save … (B-242's
-    save-after-typing, on blur and on leaving, belonged to the save-on-change model PAD-506
-    replaced.)"
-  - Code today: nothing is sent until the tab's Save, on web and on iOS
-    (`EvaluationReminderSetting.test.tsx` and `evaluation-reminder-setting.test.tsx`;
-    EVALUATIONS-REMINDERS-11 states it).
-  - Recommendation: retire the criterion; leaving with an unsaved number is now the unsaved-edits
-    prompt of `settings.explicit-save`.
-  - Proposed text: remove EVALUATIONS-REMINDERS-7, or replace its body with "Superseded by
-    EVALUATIONS-REMINDERS-11 (PAD-506)".

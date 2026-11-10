@@ -264,11 +264,11 @@ before). Since PAD-431 the set is a **two-level tree**: categories, some holding
 ### Acceptance Criteria
 
 #### EVALUATIONS-COMPETENCIES-1: A coach with categories keeps them and gets no catalogue row (rules 2, 4)
-- **Given** coach Ana holding "Forehand" (1–10, 12 scores) when the migration runs
+- **Given** coach Ana holding "Forehand" (1–5, 12 scores) when the migration runs
 - **When** she calls `GET /api/app/evaluation_competencies`
 - **Then** `competencies` is one item: Forehand, `group: null`, `key: null`, `scaleMin` 1,
-  `scaleMax` 10, `isActive: true`, `scoreCount` 12
-- **And** `catalogue` holds all 17 entries and no `evaluation_categories` row was created
+  `scaleMax` 5, `isActive: true`, `scoreCount` 12
+- **And** `catalogue` holds the 16 entries other than `forehand` (rule 4), and no `evaluation_categories` row was created
 
 #### EVALUATIONS-COMPETENCIES-2: A coach with nothing starts with the three general competencies (rule 4) — superseded
 - **Superseded by PAD-431:** see "A new coach starts with the whole default tree" below.
@@ -576,8 +576,7 @@ test: `frontend/apps/web/src/components/evaluations/competency-manager/Competenc
 - ASSUMED by the building slice (PAD-373), none of them in the canvas: (1) "Técnica" and
   "Tática" as both a group and a competency get no disambiguation beyond the group heading;
   (2) reordering (`sortOrder`) has no UI — the API accepts it, the manager never sends it;
-  (3) rename is an inline edit on the row (pencil → field → save or Enter), for custom and
-  legacy rows only.
+  (3) rename is an inline edit on the row (pencil → field → save or Enter), on any row (rule 8).
 - RESOLVED by PAD-431 (D150, 2026-09-26): AV-020's "Técnica"/"Tática" as both a group and a
   competency is now a parent link — the group word names the default category (rule 1, rule 15).
 - **PAD-431 migration (D2).** Adds `parent_id` (guarded DDL, idempotent) and, per coach, sets each
@@ -589,24 +588,3 @@ test: `frontend/apps/web/src/components/evaluations/competency-manager/Competenc
   Downgrade drops the column; rows the migration created stay (they are ordinary catalogue rows).
 - OPEN: storing the Portuguese label in `name` (rule 1) is a storage convenience; shells must
   display the i18n label by `key` and never the stored name for a catalogue row.
-
-### Open questions
-
-- **EVALUATIONS-COMPETENCIES-1 counts 17 catalogue entries for a coach who holds "Forehand", on a 1–10 scale.**
-  - Criterion: "coach Ana holding "Forehand" (1–10, 12 scores) … `scaleMax` 10 … **And**
-    `catalogue` holds all 17 entries".
-  - Other statements: rule 4 and EVALUATIONS-COMPETENCIES-3 hide a catalogue entry whose name the
-    coach already holds; `evaluations.legacy-conversion` rule 5 leaves no legacy category on 1–10.
-  - Code today: `test_pad364_competencies_api.py` ›
-    `test_the_list_carries_every_competency_and_the_catalogue_not_yet_switched_on` seeds Forehand
-    and Volley at 1–5 and gets a catalogue of 15, without `forehand` and `volley`.
-  - Recommendation: keep the criterion's point (a coach with categories is given no catalogue
-    row) and correct its numbers.
-  - Proposed Then: "`competencies` is one item: Forehand, `group: null`, `key: null`, `scaleMin`
-    1, `scaleMax` 5, `isActive: true`, `scoreCount` 12", and "`catalogue` holds the 16 entries
-    other than `forehand`, and no `evaluation_categories` row was created".
-- **A note still says a default cannot be renamed.** Notes, item (3): "rename is an inline edit on
-  the row … for custom and legacy rows only". Rule 8 (PAD-431 D4) says "**Any** row can be
-  renamed, a catalogue one included", EVALUATIONS-COMPETENCIES-8 proves it, and both managers show
-  the rename on a default row (EVALUATIONS-COMPETENCIES-42). Recommendation: delete "for custom
-  and legacy rows only" from the note.
