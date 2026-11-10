@@ -8,7 +8,7 @@ corrections: []
 notes: >
   Automatic entry at 10:00 on 1 Nov, before the first invitation hour, rests on the PDF's "Pressupostos
   ainda por validar" (cenarios.txt 2152-2154, no U-number of its own; tagged U16). W1 has no level in the
-  PDF (level null). "Todos dizem Sim" is encoded for W1 only (`confirms`); regulars count as going by default.
+  PDF (level null). "Todos dizem Sim" is `confirms` for the regulars and W1.
 
 roster:
   regulars: {L: 8, R: 7}
@@ -31,7 +31,9 @@ timeline:
     expect:
       reminders: {to: [regulars, W1]}
   - at: 2026-11-02 17:00
-    events: [{confirms: W1}]
+    events:
+      - {confirms: regulars}
+      - {confirms: W1}
     expect: {roster: {L: 8, R: 8}}
 final:
   roster: {L: 8, R: 8}
