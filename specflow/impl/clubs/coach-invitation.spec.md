@@ -78,7 +78,8 @@ A coach who belongs to a club can invite another coach to join that club via a s
      the country (rule 8a); the Terms (rule 8b); the email, blank or malformed (400); a username
      already taken (409, rule 10); an email already registered (409).
 
-10. The new-user accept needs `name`, `username` and `password` (400 without them) and a username nobody has (409 otherwise). Neither refusal uses the invitation: it stays pending.
+10. The new-user accept needs `name`, `username` and `password` (400 without them) and a username nobody has (409 otherwise). Neither refusal uses the invitation: it stays pending. The password is at least 8 characters, the sign-up minimum (`auth.register` rule 4; owner decision 2026-11-10: 8 everywhere, server and forms), refused with 400 on `password` by the accept and before sending by the web and iOS forms.
+    - Code to follow: the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only), and the web `CoachInvitePage` and the shared `coachInviteAcceptSchema` move from 6 to 8.
 11. The accept is throttled per IP address with sign-up's limit (`register`): past it the answer is 429 `RATE_LIMITED`. A 409 does not use the invitation, so without the limit a pending link would tell anyone whether an email is registered.
 
 ### Acceptance Criteria
