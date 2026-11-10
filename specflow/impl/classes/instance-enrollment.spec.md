@@ -196,7 +196,6 @@ three separate fields on it. Decision record:
 - **Given** a recurring lesson with Alice and Bob on its roster
 - **When** the occurrence for April 20 is materialised
 - **Then** two `Presence` rows exist with `invited=True`, `enrolment_source="roster"`
-- **And** `reconcile_enrolment()` is empty
 
 #### CLASSES-INSTANCE-ENROLLMENT-8: A coach adds a player to one occurrence
 - **Given** a materialised instance 10 with Alice and a coach who owns it
@@ -241,12 +240,15 @@ three separate fields on it. Decision record:
 
 #### CLASSES-INSTANCE-ENROLLMENT-15: Backfill creates the missing presences and logs its counts
 - **Given** a database at the parent revision with three junction rows lacking a presence, one of
-  them pointing at a deleted player, and one presence with no junction row
+  them pointing at a deleted player, a fourth that duplicates one of the pairs, and one presence
+  with no junction row
 - **When** the migration upgrades
 - **Then** two presences are inserted (`invited=True`, `enrolment_source` `roster` or `coach`), the
-  orphan junction row is skipped, the pre-existing presence keeps `enrolment_source="unknown"`
-- **And** the log carries `junction_without_presence_before=3`, `presences_inserted=2`,
-  `junction_without_presence_after=1` (the orphan), and a second upgrade inserts nothing
+  orphan junction row is skipped, the duplicate pair becomes one presence, the pre-existing
+  presence keeps `enrolment_source="unknown"`
+- **And** the log carries `junction_without_presence_before=4`, `presences_inserted=2`,
+  `junction_without_presence_after=1` (the orphan), `junction_duplicate_pairs=1` and
+  `capacity_changes=1`, and a second upgrade inserts nothing
 
 #### CLASSES-INSTANCE-ENROLLMENT-16: The drop refuses while any junction pair has no presence (PAD-301)
 - **Given** a database where one `player_in_lesson_instance` row has no matching presence
@@ -344,29 +346,3 @@ test: `backend/padel_app/tests/test_pad259_enrolment.py` › `test_enrol_survive
   player-claim and account-deletion entries and the dev seed entry removed. `Player.lesson_instances`
   now reads presences. Downgrade recreates the table and refills it from presences.
 - Rule numbers assigned by Session H on 2026-09-11, unconfirmed by the coordinator.
-
-### Open questions
-
-- **CLASSES-INSTANCE-ENROLLMENT-7 still calls `reconcile_enrolment()`, which rule 9 says is gone.**
-  - Criterion: "**And** `reconcile_enrolment()` is empty".
-  - Rule 9: "With the table gone the function and its test are gone too" (PAD-301).
-  - Code today: no `reconcile_enrolment` exists in `backend/padel_app`.
-  - Recommendation: drop the criterion's last line; the rest holds.
-  - Proposed text: the criterion as it is, without the "And `reconcile_enrolment()` is empty" line.
-- **CLASSES-INSTANCE-ENROLLMENT-15 states counts the migration test no longer seeds.**
-  - Criterion: three junction rows lacking a presence, and the log line
-    `junction_without_presence_before=3`.
-  - Test: `test_pad259_migration.py` ›
-    `test_backfill_inserts_stamps_skips_orphans_and_logs_its_counts` also seeds a duplicate pair
-    and asserts `junction_without_presence_before=4`, `capacity_changes=1`,
-    `junction_duplicate_pairs=1` and "orphan junction rows skipped=1".
-  - Code today: the migration logs all of those counts; the duplicate counts twice in `before`
-    and becomes one presence.
-  - Recommendation: amend the criterion to the test's fixture. The backfill has already run
-    everywhere (PAD-301 has since dropped the junction it read), so this is a record, not a
-    behaviour to change.
-  - Proposed Given: "…three junction rows lacking a presence, one of them pointing at a deleted
-    player, a fourth that duplicates one of the pairs, and one presence with no junction row".
-    Proposed And: "the log carries `junction_without_presence_before=4`, `presences_inserted=2`,
-    `junction_without_presence_after=1` (the orphan), `junction_duplicate_pairs=1` and
-    `capacity_changes=1`, and a second upgrade inserts nothing".

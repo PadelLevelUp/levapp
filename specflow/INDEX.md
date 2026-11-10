@@ -1969,7 +1969,7 @@ Untagged tests: 4131
   - **CLASSES-CREATE-13** Picking a student from a search clears it (rule 10, PAD-518)
     - test: `frontend/apps/mobile/src/features/calendar/player-selector.test.tsx` › [CLASSES-CREATE-13] PAD-518: picking a student from search results clears the search; unticking does not
     - test: `frontend/apps/web/src/components/calendar/PlayerSelector.pad518.test.tsx` › [CLASSES-CREATE-13] clears and keeps focus after ticking a search result, and keeps the text after unticking
-  - **CLASSES-CREATE-14** A class that ends at midnight ends the next day (rule 8c, PAD-553)
+  - **CLASSES-CREATE-14** A class that ends at midnight ends the next day (rule 8d, PAD-553)
     - test: `backend/padel_app/tests/test_pad553_midnight_end.py` › test_the_helper_moves_only_a_midnight_end
     - test: `backend/padel_app/tests/test_pad553_midnight_end.py` › test_a_class_created_22_to_midnight_ends_the_next_day
     - test: `backend/padel_app/tests/test_pad553_midnight_end.py` › test_a_backwards_end_is_left_for_b294

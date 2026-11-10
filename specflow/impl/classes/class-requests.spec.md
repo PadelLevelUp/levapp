@@ -75,8 +75,9 @@ held on the coach's calendar while the request is open.
    `metadata.classRequest {id, status, kind, slot}`, and while the request's live status is
    still `countered` at that slot the proposal bubble on web and iOS offers Accept / Decline /
    Propose another time (the last opens the student's Availability section on that request).
-   Once the status or the slot has moved on, the bubble shows the outcome instead, and a late
-   answer degrades to the `409 not_countered` refusal, never an error page. The push for a
+   Once the request has moved to another slot or stage and is still open, the bubble reads as
+   replaced by a newer proposal; once it is decided, the bubble shows the outcome. Neither offers
+   actions, and a late answer degrades to the `409 not_countered` refusal, never an error page. The push for a
    proposal deep-links to the conversation, so it lands on those actions.
 7. **Requests for the past are refused**, and a slot that is no longer free (another request or a
    class landed meanwhile) answers `409 slot_taken`.
@@ -111,8 +112,9 @@ held on the coach's calendar while the request is open.
     Propose another time while the request's live status (`GET /app/class-requests`) is still
     `pending` at that message's slot, exactly like rule 10's counter-proposal bubble:
     - Propose opens the inbox on that request.
-    - A late answer degrades to the same refusal, never an error page. Once the status or the
-      slot has moved on, the bubble shows the outcome.
+    - A late answer degrades to the same refusal, never an error page. Once the request has moved
+      to another slot or stage and is still open, the bubble reads as replaced by a newer proposal;
+      once it is decided, the bubble shows the outcome. Neither offers actions.
     - The student's own `requested` bubble shows that it's waiting, with no actions.
 11. **The booking form opens on the first day with a free block (PAD-302; rule number
     self-assigned, unconfirmed).** Once the student has picked a coach, the form's date
@@ -531,18 +533,3 @@ test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `te
 - **And** the other coach's student, the placeholder and the unknown name each answer `USERNAME_NOT_FOUND`, in the same shape
 - **And** the requester's own username answers `SELF_INVITE`, and a name given twice `DUPLICATE_INVITEE`
 test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `test_participants_resolve_one_at_a_time_without_an_oracle`
-
-### Open questions
-
-- **Rules 6 and 10a say a bubble "shows the outcome" once the slot moved on; the code shows a second state.**
-  - Spec: rule 6, "Once the status or the slot has moved on, the bubble shows the outcome
-    instead"; rule 10a, "Once the status or the slot has moved on, the bubble shows the outcome".
-  - Code today: `packages/config/src/class-request-message.ts` answers `superseded` while the
-    request is still open at another slot or stage (shown as "Replaced by a newer proposal"),
-    and `outcome` only once the request is accepted, declined or withdrawn, or is gone from the
-    reader's list. CLASSES-CLASS-REQUESTS-35 states both.
-  - Recommendation: amend the two rules to name both states; the code's distinction is the
-    clearer one for the reader of an old bubble.
-  - Proposed text: "Once the request has moved to another slot or stage and is still open, the
-    bubble reads as replaced by a newer proposal; once it is decided, the bubble shows the
-    outcome. Neither offers actions."

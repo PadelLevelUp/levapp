@@ -59,8 +59,9 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 8b. **The desktop class-time field (PAD-508, owner decision 2026-10-03).** On web, the new-class
    sheet's start and end times — and the class editor's (`classes.edit` rule 7b) — are one field
    each that the coach can type into or pick from a list:
-   - **Typing:** written as spoken — "930", "9:30", "9h30", "21.15" — and read as `HH:MM` on Enter
-     or on leaving the field. Any time can be typed, quarter hours or not ("09:10").
+   - **Typing:** written as spoken — "930", "9:30", "9h30", "21.15" — and read as `HH:MM`: a
+     complete `HH:MM` or `H:MM` at once (so a Save that waits for a change enables), shorthand on
+     Enter or on leaving the field. Any time can be typed, quarter hours or not ("09:10").
    - **List:** a click opens every quarter hour from 06:00 to 23:45, scrolled to the current time.
      Choosing one sets it and closes the list.
    - **End:** its list starts after the start time and shows each option's class length beside it
@@ -138,7 +139,7 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
      (macOS Safari engine), the iOS app on the simulator, the Android emulator lane. Windows
      (Chrome, Edge) cannot be tested on this machine: the orchestrator arranges an owner check
      before promotion; the PR says so.
-8c. **(PAD-553, B-346; number unconfirmed) A class that ends at midnight ends the next day.** An end
+8d. **(PAD-553, B-346) A class that ends at midnight ends the next day.** An end
    of exactly 00:00 after a later start is 00:00 of the NEXT day, on every path that writes a class
    or an occurrence (create, materialisation, an edit, the import), and the calendar's
    "completed" status reads it the same way. It was stored at 00:00 of the
@@ -281,7 +282,7 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **When** the coach searches "Ana" again and unticks her
 - **Then** the search still reads "Ana"
 
-#### CLASSES-CREATE-14: A class that ends at midnight ends the next day (rule 8c, PAD-553)
+#### CLASSES-CREATE-14: A class that ends at midnight ends the next day (rule 8d, PAD-553)
 - **Given** a coach creating a class on 5 Nov from 22:00 to 00:00
 - **Then** it is stored ending at 00:00 on 6 Nov, and its occurrences end an hour after they start
 - **Given** a class typed from 18:00 to 17:00
@@ -362,21 +363,3 @@ test: `frontend/packages/validation/src/index.test.ts` › `parses a one-off cla
 - **Then** the value is 09:30 or 07:00 at once; "07:0" changes nothing yet, and "930" becomes 09:30 on Enter
 - **And** on iOS "9", "930", "9:30", "9h30", "21.15" and "2359" read as 09:00, 09:30, 09:30, 09:30, 21:15 and 23:59, and "", "abc", "25", "2460" and "9:7" are refused
 test: `frontend/apps/web/src/components/ui/time-select.test.tsx` › `a fully typed %s reaches onChange at once as %s, so a Save watching for a change enables` (+4 more)
-
-### Open questions
-
-- **Rule 8b says a typed time is read "on Enter or on leaving the field"; a complete time is read at once.**
-  - Spec: rule 8b, "written as spoken — "930", "9:30", "9h30", "21.15" — and read as `HH:MM` on
-    Enter or on leaving the field".
-  - Test: `time-select.test.tsx` › "a fully typed %s reaches onChange at once as %s, so a Save
-    watching for a change enables" ("09:30" and "7:00"), beside "a shorthand does not commit
-    until Enter or leaving the field".
-  - Code today: the web field commits a complete `HH:MM` or `H:MM` as it is typed, so a Save
-    that waits for a change enables; shorthand still waits for Enter or blur.
-    CLASSES-CREATE-25 states both.
-  - Recommendation: amend the rule to the code.
-  - Proposed text: "…read as `HH:MM`: a complete `HH:MM` or `H:MM` at once, shorthand on Enter
-    or on leaving the field".
-- **Two rules are numbered 8c.** The time field of PAD-559 and the midnight end of PAD-553 (which
-  says "number unconfirmed") share the number, and criteria cite "rule 8c" for both.
-  Recommendation: renumber the midnight rule 8d and update CLASSES-CREATE-14's title.

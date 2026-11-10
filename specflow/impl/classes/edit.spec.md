@@ -13,8 +13,10 @@ governed_by: []
 Edit a class or a specific instance. Supports editing single occurrences or all future occurrences of a recurring class.
 
 ### Rules
-1. `PATCH /api/app/class/{lesson_id}` edits the parent lesson template
-2. `PATCH /api/app/lesson_instance/{instance_id}` edits a specific instance
+1. `POST /api/app/edit_class` `{event, scope, updates}` edits a class: the series when `scope` is
+   `future`, one occurrence when it is `single` (rule 7 says what is written).
+2. (Folded into rule 1, decision 2026-11-10: there is no PATCH route; the old `POST /lesson/<id>`
+   went with PAD-92.)
 3. Scope parameter: `single` (just this occurrence) or `future` (this and all future)
 4. **Instance overrides are nullable columns; NULL inherits (PAD-275, audit M1b).** A materialised occurrence stores only what differs from its lesson: `overwrite_title` is written only when the value differs from `lesson.title` (materialisation leaves it NULL, so a series rename reaches every occurrence that was not renamed on its own); `level_id` NULL inherits `default_level_id` (as today); `max_players_override` NULL inherits `lesson.max_players` through `LessonInstance.effective_max_players` (HELD: the column and its migration wait for the owner's decisions 9–11 of the 2026-09-11 list — until then `max_players` stays the copied column); start and end times stay copied, because an occurrence's time is its own fact once a single edit moves it. `overriddenFields` in the class-instance payload is **derived** from the non-NULL overrides; the `overridden_fields` text column is never written and is dropped with the migration
 5. Changing lesson time reschedules all future reminder/invitation jobs
@@ -169,9 +171,8 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 
 #### CLASSES-EDIT-8: Edit single instance
 - **Given** a recurring class with an instance on April 20
-- **When** coach PATCHes the instance with `{"overwrite_title": "Special Session"}`
-- **Then** only the April 20 instance shows "Special Session"
-- **And** `overridden_fields` tracks which fields differ from the parent
+- **When** the coach edits that date with scope `single` and `updates: {"name": "Special Session"}`
+- **Then** only the April 20 occurrence shows "Special Session", and its `overriddenFields` is `["title"]`
 
 #### CLASSES-EDIT-9: Edit future occurrences
 - **Given** a recurring class starting at 10:00
@@ -267,20 +268,3 @@ test: `backend/padel_app/tests/test_pad515_future_edit_reaches_the_current_occur
 - **Then** that occurrence is edited, its attendance is kept, and no second occurrence exists for the date
 - **And** on a date with no occurrence yet, the edit creates exactly one, carrying the override
 test: `backend/padel_app/tests/test_edit_single_on_materialised_date.py` › `test_single_edit_on_a_materialised_date_edits_that_instance` (+1 more)
-
-### Open questions
-
-- **Rules 1 and 2 and CLASSES-EDIT-8 name PATCH routes that do not exist.**
-  - Spec: rule 1 "`PATCH /api/app/class/{lesson_id}` edits the parent lesson template"; rule 2
-    "`PATCH /api/app/lesson_instance/{instance_id}` edits a specific instance"; CLASSES-EDIT-8
-    "coach PATCHes the instance with `{"overwrite_title": "Special Session"}`".
-  - Other statement: rule 7 of this spec says `POST /api/app/edit_class` writes the edit.
-  - Code today: `modules/frontend_api.py` has one edit route, `POST /edit_class`, taking
-    `{event, scope, updates}`; the only PATCH in the module is for courts, and the old
-    `POST /lesson/<id>` was removed by PAD-92. Every test edits through `/edit_class`.
-  - Recommendation: amend the three items to the route that exists.
-  - Proposed rule 1: "`POST /api/app/edit_class` `{event, scope, updates}` edits a class: the
-    series when `scope` is `future`, one occurrence when it is `single`." Proposed rule 2: drop
-    it (rule 3 already states the scopes). Proposed CLASSES-EDIT-8 When: "the coach edits that
-    date with scope `single` and `updates: {"name": "Special Session"}`", Then: "only the April
-    20 occurrence shows "Special Session", and its `overriddenFields` is `["title"]`".
