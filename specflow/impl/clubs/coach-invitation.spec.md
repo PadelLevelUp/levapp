@@ -22,8 +22,8 @@ A coach who belongs to a club can invite another coach to join that club via a s
    the link on the public web origin, on web and iOS (`players.join-token` rule 3a, PAD-595)
 4. Accepting as a new user creates a User and Coach (status `active`), the coach's default level ladder, and the `coach_in_club` association, and marks the invitation accepted. **All of this is one transaction (PAD-476, B-246):** a failure at any step leaves no User, Coach, level or club link, the invitation stays pending, and accepting it again succeeds. The first email-verification code (rule 9) is sent only after that transaction has committed, and never when it rolls back.
 5. Accepting while authenticated as an existing coach: only creates the `coach_in_club` association (no-op if already a member)
-6. Used, revoked, or expired tokens are rejected (410)
-7. Inviter can list and revoke pending invitations for their club. `GET /api/app/club/<clubId>/coach-invitations` returns each pending invitation's `id`, `email`, `expiresAt` and `createdAt`, never its token (PAD-269: the list used to hand every coach of the club every live link). Revoking from the list is `POST /api/app/club/<clubId>/coach-invitations/<id>/revoke` (403 for a non-member, 404 for an id outside the club, 410 unless pending). `POST /api/app/coach-invitations/<token>/revoke` still works for whoever holds the link.
+6. Used, revoked, or expired tokens are rejected (410). Reading a pending invitation found past its `expires_at` stores status `expired` on it before answering 410.
+7. Inviter can list and revoke pending invitations for their club. `GET /api/app/club/<clubId>/coach-invitations` returns each pending invitation's `id`, `email`, `expiresAt` and `createdAt`, never its token (PAD-269: the list used to hand every coach of the club every live link). Revoking from the list is `POST /api/app/club/<clubId>/coach-invitations/<id>/revoke` (403 for a non-member, 404 for an id outside the club, 410 unless pending). `POST /api/app/coach-invitations/<token>/revoke` still works for a member coach who holds the link (403 for a coach outside the club, 404 for an unknown token, 410 unless pending).
 
 8. **A new coach account is adults-only (PAD-457).** The new-user branch of the accept creates a
    login, so it takes `birthDate` and refuses exactly as sign-up does (`auth.register` rule 18, one
@@ -73,6 +73,10 @@ A coach who belongs to a club can invite another coach to join that club via a s
      Web and iOS hold them on Verify your email before the club or the dashboard
      (`auth.email-verification` rule 8). The club link exists at once (rule 4).
    - The authenticated existing-coach accept (rule 5) is unchanged. No client calls it today.
+   - **Order of the checks.** The new-user accept checks, in this order, and stops at the first
+     refusal: a missing `name`, `username` or `password` (400, rule 10); the birth date (rule 8);
+     the country (rule 8a); the Terms (rule 8b); the email, blank or malformed (400); a username
+     already taken (409, rule 10); an email already registered (409).
 
 10. The new-user accept needs `name`, `username` and `password` (400 without them) and a username nobody has (409 otherwise). Neither refusal uses the invitation: it stays pending.
 11. The accept is throttled per IP address with sign-up's limit (`register`): past it the answer is 429 `RATE_LIMITED`. A 409 does not use the invitation, so without the limit a pending link would tell anyone whether an email is registered.
@@ -221,14 +225,3 @@ test: `backend/padel_app/tests/test_pad477_invited_coach_confirms_email.py` › 
 - **And** a server 409 on `email`, `COUNTRY_REQUIRED` or `INVALID_COUNTRY`, and `TERMS_REQUIRED` each show on their own field
 - **And** when the accept succeeded and the profile read after it fails, the visitor moves on and sees no error
 test: `frontend/apps/web/src/pages/CoachInvitePage.test.tsx` › `an account that exists is never told the accept failed: a failed /me still moves on` (+8 more)
-
-### Open questions
-
-- **Rule 7 says the token revoke "still works for whoever holds the link"; the code refuses a coach outside the club.**
-  - Rule 7: "`POST /api/app/coach-invitations/<token>/revoke` still works for whoever holds the link."
-  - Rule 1: "Only a coach with a `coach_in_club` association for the club can create or revoke invitations for it."
-  - The code today: the token route answers 403 to a coach who is not a member of the invitation's club (`club_service.py:240-241`), 404 for an unknown token and 410 for an invitation that is no longer pending (`club_service.py:243-244`). `test_revoke_as_non_member_403` pins the 403. CLUBS-COACH-INVITATION-16 is written to the code.
-  - Recommendation: keep the code and rule 1, and amend rule 7's last sentence.
-  - Proposed text for rule 7's last sentence: "`POST /api/app/coach-invitations/<token>/revoke` still works for a member coach who holds the link (403 for a coach outside the club, 404 for an unknown token, 410 unless pending)."
-- **Reading an expired link writes to the invitation, and no rule says so.** `GET /api/app/coach-invitations/<token>` stores status `expired` on a pending invitation found past its `expires_at` (`club_service.py:85-89`; pinned by `test_resolve_expired_invitation_410`). CLUBS-COACH-INVITATION-15 states it because a test pins it. Recommendation: keep it and add the sentence to rule 6.
-- **The order of the accept's checks is stated only in part.** Rules 8a and 8b say the country and the Terms are checked after the birth date. The code checks, in order: missing name, username or password (400), birth date, country, Terms, email (blank or malformed), username taken (409), email taken (409) (`club_service.py:118-161`). CLUBS-COACH-INVITATION-18 pins birth date before email. Recommendation: state the whole order once, in rule 9.
