@@ -19,9 +19,11 @@ Clicking a calendar event opens a detail sheet showing full information and avai
    rule 22's grouped list under "Participantes" / "N/M inscritos"), presence list
 3a. **(PAD-199, B-017; amended by PAD-313, 2026-09-12; amended by PAD-659, 2026-10-14)** Since
    PAD-659 this rule governs the rows of the STUDENT's view and of the coach's "Editar
-   presenças" marking mode; the coach's read view is rule 22's compact list, which carries no
-   state word per row (the group title says it) and moves the two detail lines below into the
-   player pop-up (rule 23). A participant row shows exactly ONE
+   presenças" marking mode. The coach's read view is rule 22's compact list, which carries no
+   state word per row (the group title says it) and none of the two detail lines below. Those
+   lines (the cancellation and the reminder) are shown in the student's view, in the coach's
+   marking mode and in the player pop-up (rule 23), and nowhere else;
+   CALENDAR-EVENT-DETAIL-28 says to whom and when. A participant row shows exactly ONE
    state word: the single `attendanceState` of `attendance.presence` rule 9, read through the
    shared helper in `@levelup/config` (`attendance-state`), exposed as
    `data-testid="attendance-state"` with `data-state="planned" | "coming" | "not_coming" |
@@ -77,8 +79,10 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     renders without a round trip. What changes is that a route carrying only an id — a push, a
     universal link from an email, a message's `lessonInstanceId` — is no longer a dead end.
     - **Three states, never one.** An incomplete route with no usable id is "could not find"
-      (nothing to ask about); a resolvable id that 404s is **"this class no longer exists"**,
-      permanent and offered without a Retry, because retrying a deleted class is pointless; a
+      (nothing to ask about); a resolvable id that answers 404 or 403 is **"this class no longer
+      exists"**, permanent and offered without a Retry, because retrying a deleted class is pointless.
+      The 403 reads the same as the 404 on purpose: a distinct "not allowed" would tell a stranger
+      that the class exists; a
       transient failure keeps "could not load" WITH Retry. Collapsing these is what made
       yesterday's founder report unreadable — the screen said "could not find" for a route it
       had never asked about, which is indistinguishable from a class that is genuinely gone.
@@ -221,6 +225,10 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     "Editar presenças" (web, and now iOS/Android, where marking used to be always on) switches the
     section to the marking rows of rule 3a; saving or cancelling returns to the grouped list. The
     toggle on mobile has the web's test id, `attendance-edit`.
+    A student's initials are the same on every row that shows them: the grouped list, the pop-up and
+    the marking row all take the first and the last name's initials, and `?` when there is no name.
+   - Code to follow: the marking row (`AttendanceRow.tsx` and its iOS twin) uses the one initials helper of
+     the grouped list and the pop-up, with its `?` fallback.
 
 23. **The player pop-up (PAD-659).** Tapping a row's name or avatar opens that player's profile
     over the class: a dialog on web (`role="dialog"`, focus trapped, focus returned to the
@@ -270,7 +278,12 @@ Clicking a calendar event opens a detail sheet showing full information and avai
     attendance validation: the validation dialog (`ValidateClassesDialog`, web; the Presences
     tab, mobile) and the coach's mark buttons ("Presente", "Ausente", "Justificada",
     "Injustificada"), which do not change. The calendar cards' relation chips and the dashboard
-    attendance counts already say "Não vou" / "Presenças" / "Faltas" and are unchanged.
+    attendance counts already say "Não vou" / "Presenças" / "Faltas" and are unchanged. A row is
+    always told whether its class has ended: `classEnded` is a required prop, with no default, so a
+    caller that leaves it out does not compile instead of wording an unfinished class as "Presente"
+    or "Faltou".
+   - Code to follow: make `classEnded` a required prop of web `AttendanceRow.tsx` and iOS `ParticipantRow`,
+     and pass it from every caller.
 
 ### Acceptance Criteria
 
@@ -288,6 +301,8 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **When** the coach opens it on web or iOS
 - **Then** the participants header reads "12/16 · 4 vagas", the 4 stay listed under "Não vão"
 - **And** with all 16 coming it reads "16/16 · completa"
+- Code to follow: the test that counts the listed students compares with the number of students set up, not
+  the literal 1.
 
 #### CALENDAR-EVENT-DETAIL-3: A student invited again shows the new invite (rules 8, 16, PAD-773)
 - **Given** case 11 was invited by hand to the class's last spot, and case 12's request to join
@@ -325,6 +340,7 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **And** after each close the class detail is still open at the same scroll position and focus
   is back on that player's name
 - **And** clicking the side chip opens nothing
+- Code to follow: `ParticipantPopup.test.tsx` presses the pop-up's actions instead of only reading two labels.
 
 #### CALENDAR-EVENT-DETAIL-8: A student's answer regroups the open class live (rule 24)
 - **Given** the coach has a class open with Ana in "POR RESPONDER"
@@ -364,14 +380,19 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Then** it fetches that instance and renders the class, rather than reporting that the class
   could not be found
 
-- **Given** the same route, and the instance no longer exists
-- **Then** the screen says the class no longer exists and offers no Retry
+- **Given** the same route, and the instance no longer exists (the fetch answers 404) or is not the
+  caller's to see (403)
+- **Then** the screen says the class no longer exists and offers no Retry, with the same words for
+  both
 
 - **Given** a route carrying the full params
 - **Then** the screen renders from them without fetching by id
 
 - **Given** a route with neither usable params nor a usable id
 - **Then** the screen says the class could not be found, as before
+- Code to follow: tag Maestro flows 170 and 219 (`frontend/apps/mobile/.maestro/flows/`) to this criterion
+  and to CALENDAR-EVENT-DETAIL-22, 23, 24 and 25, as the proof of the iOS class screen; the nine
+  source-reading unit tests of that screen stop standing in for it.
 
 
 #### CALENDAR-EVENT-DETAIL-14: Deep link opens the class in its own week
@@ -446,6 +467,8 @@ Clicking a calendar event opens a detail sheet showing full information and avai
 - **Then** only Álvaro Sousa's row is shown, and there is no other control listing the candidates (B-421)
 - **And** clearing the search shows all three again
 - **And** a student chosen before the search changed stays chosen and listed even when the search no longer matches them
+- Code to follow: `class-waiting-list-search.test.ts` shows that only the candidates the caller passed are
+  offered, with a query that matches someone, not a query that matches nobody.
 
 #### CALENDAR-EVENT-DETAIL-26: A grouped row says who the student is on this coach's roster and where their answer puts them (rules 5, 22; `classes.instance-enrollment` rule 13a)
 - **Given** a class with students in every attendance state, some of them not on the coach's roster
@@ -465,6 +488,8 @@ test: `frontend/apps/web/src/components/calendar/ParticipantGroups.test.tsx` ›
 - **And** until the class ends a coach's mark is worded as the intent, and afterwards as the record; `planned`, `coming` and `not_coming` read the same before and after
 - **And** a class that ends at 24:00 ends with its day on the club's clock, and a class whose end time cannot be read counts as not ended
 test: `frontend/packages/config/src/participant-groups.test.ts` › `a midnight end (24:00) is the end of that day, and an unreadable time is not ended` (+11 more)
+- Code to follow: the validated-row test in `AttendanceRow.test.tsx` asserts the word shown as well as
+  `data-state`.
 
 #### CALENDAR-EVENT-DETAIL-28: The cancellation and reminder lines show only while they still mean something (rules 3a, 23)
 - **Given** a student who cancelled, and a student who was sent a reminder
@@ -504,12 +529,3 @@ test: `backend/padel_app/tests/test_pad560_deeplink_recurring.py` › `test_the_
 - **And** the open class reloads when the event names its occurrence, whether the id arrives as a number or as text, and by series and date when the occurrence did not exist yet
 - **And** an event for another class, or of another type, is ignored
 test: `backend/padel_app/tests/test_pad659_presence_changed_event.py` › `test_a_cancellation_tells_the_coach` (+5 more)
-
-### Open questions
-
-- **Rule 15 and CALENDAR-EVENT-DETAIL-13 say a 404 on the id fetch means "no longer exists"; the screen treats a 403 the same way.** The iOS class screen shows the same "gone" message, with no Retry, for 403 and 404, on purpose: a distinct "not allowed" would tell a stranger the class exists. Recommendation: add the 403 to rule 15 and the criterion.
-- **Rule 3a still reads as the coach's view of the rows; rule 22 replaced that view with the grouped list.** The cancellation and reminder lines now show in the student's view, in the coach's marking mode and in the pop-up only. Recommendation: rewrite rule 3a's first paragraph to say where each line is shown.
-- **Two rows of the same student can show different initials.** The grouped list and the pop-up take the first and last name's initials, with `?` for no name; the marking row has its own helper that takes the first two words and has no fallback. Recommendation: use one helper.
-- **A row that is not told whether the class has ended assumes it has.** `classEnded` defaults to true in the web and the iOS row, so a caller that forgets it words an unfinished class as "Presente" or "Faltou". Recommendation: make the prop required.
-- **Nine iOS tests of the class screen read its source.** The screen cannot be mounted in the unit harness; Maestro flows 170 and 219 are named as the real proof. They are proposed as plain unit tests. Recommendation: tag those flows to CALENDAR-EVENT-DETAIL-13, 22 to 25.
-- **Four tests assert less than their names say:** the validated row checks only `data-state`; the pop-up test reads two labels and presses neither; "offers only the candidates the caller passed" checks that a query matching nobody is empty; the listed-student count is compared with the literal 1. Recommendation: tighten them when the tags are applied.

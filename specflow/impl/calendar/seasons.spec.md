@@ -84,7 +84,8 @@ season each September.
     guarded (prod carries unmigrated drift). It snapshots `seasons` into `seasons_legacy`; for each
     coach with rows picks the one with the greatest `start_date` (the most recent intent — never a
     union of ranges), derives day/month from it, keeps `name` as `label`, and sets `needs_review`
-    when the coach had more than one row or the row spanned more than 400 days; coaches with no
+    when the coach had more than one row, or the row spanned more than 400 days, or the row was
+    inverted (its span is negative); coaches with no
     row get no definition. Then, for flagged lessons whose `recurrence_end` is NULL and whose coach
     now has a definition, it caps at the containing occurrence's end — unless the start is in a gap or
     within 30 days of that end, in which case the next occurrence's end: the two production rows start
@@ -102,8 +103,11 @@ season each September.
 13. **Class creation (web and iOS).** "Recurs until season end" is one of the three ways a series
     ends (`classes.create` rule 9, PAD-463: a date, N classes, or the season). It keeps its hint, and iOS
     keeps warning before the round trip by asking the definition whether an occurrence contains the
-    chosen date (rule 4's shared function). Web renders the backend's `no_season_covers_date`
-    rejection in place as before. The message now says "Define your season in Settings → Calendar".
+    chosen date (rule 4's shared function). That client-side answer is a hint, never a gate: the shared helper
+    reads a timestamp by its day and treats a half-typed date as no answer, and the server has no twin of
+    those two cases. Web renders the backend's `no_season_covers_date` rejection in place as before. The message now says "Define your season in Settings → Calendar".
+   - Code to follow: the header of `season-coverage.test.ts` stops saying that the same cases pin the Python
+     twin.
 14. **Stats by season (web and iOS).** The attendance and absence history views gain a **Época /
     Season** range preset next to 1W / 1M / 1Y, shown only to a coach whose definition has a
     current occurrence; picking it re-queries `/attendance_history` or `/absence_history` with the
@@ -164,6 +168,10 @@ season each September.
 - **Then** the lesson is created with `recurrence_end` = 2027-07-31
 - **When** they create one starting 2026-08-10
 - **Then** the response is 400 `no_season_covers_date` and no lesson exists
+- **When** they create a recurring class with `recursUntilSeasonEnd: false` and `endDate` 2026-12-31
+- **Then** the lesson's `recurrence_end` is 2026-12-31, the date they typed
+- Code to follow: `test_toggle_off_still_honours_an_explicit_end_date` in `test_recurs_until_season_end.py`
+  asserts the end date equals 2026-12-31, not only that it is not None.
 
 #### CALENDAR-SEASONS-8: Migration collapses the old rows
 - **Given** the migration source
@@ -224,9 +232,3 @@ test: `frontend/packages/config/src/season-coverage.test.ts` › `treats both bo
 - The old `seasons` table had no constraint of any kind; the generic-editor write paths (PAD-88)
   now hit `UNIQUE(coach_id)` and the rule-2 checks live in the service, so a semantically wrong
   editor row is still possible — the same caveat as before, one table narrower.
-
-### Open questions
-
-- **Rule 11 flags a collapsed row that spanned more than 400 days; the code also flags an inverted row.** The migration helper sets `needs_review` when the span is negative too (pinned by the test pointed at CALENDAR-SEASONS-8). Recommendation: add the inverted case to rule 11.
-- **The client's date hints have no server twin.** The shared season helper reads a timestamp by its day and treats a half-typed date as no answer; the test file says the same cases pin the Python twin, and they do not exist there. Recommendation: accept, since the client's answer is "a hint, never a gate", and fix the test's header.
-- **"With recurs-until-season-end off, a class keeps its typed end date" is not what the test checks.** It asserts that the end date is not empty, not that it equals the date typed. Recommendation: assert the date.

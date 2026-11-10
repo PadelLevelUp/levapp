@@ -21,10 +21,10 @@ filtering of automatic invitation candidates (rule 5, `filter_blocked_coach_play
 
 The **PAD-107** half (rules 4, 8, 9, 10 and 11) is also shipped (`de39e76b6`, 2026-08-04). The 2026-08-07
 note that it "never landed" was wrong (corrected 2026-10-01, PAD-474):
-`POST /api/app/notify/availability_conflicts` is at `notification_engine_api.py:294`; `/notify/manual` skips
-blocked students (`notification_engine_api.py:253-269`); the delivery backstop
-`instance_window_is_blocked_for_user` guards `notification_service.py:1744`; and the reminder
-fan-out reads `blocked_players_for_instance` (`notification_service.py:2754`).
+`POST /api/app/notify/availability_conflicts` is served by the availability-conflicts view in
+`notification_engine_api.py`; `/notify/manual` skips blocked students in the manual-send view of the same
+file; the delivery backstop `instance_window_is_blocked_for_user` guards `_send_system_message`; and the
+reminder fan-out reads `blocked_players_for_instance` in `notification_service.py`.
 
 ### Entities
 - **CalendarBlock** (reused): student blockers are rows with type `unavailable` and `blocks_auto_invitations=true`.
@@ -74,7 +74,7 @@ fan-out reads `blocked_players_for_instance` (`notification_service.py:2754`).
     start date's weekday, and a missing end date means start date + 3 months (the previous
     behaviour of both shells).
 
-12. **An edit writes what was sent (PAD-386).** `PUT /api/app/availability_blockers/{id}` follows
+17. **An edit writes what was sent (PAD-386).** `PUT /api/app/availability_blockers/{id}` follows
     `calendar.blocks` rule 11: an emptied reason (`title: null`) is cleared; a `null` end while the
     blocker still recurs is 400 `["endDate"]` (the shared builder never sends one — it defaults the
     end to three months on create).
@@ -138,12 +138,14 @@ fan-out reads `blocked_players_for_instance` (`notification_service.py:2754`).
 - **When** the student saves
 - **Then** the sheet shows `availability.validation.end_before_start` (or `time_required`, or `end_date_before_start_date`) and no request is sent
 
-#### CALENDAR-STUDENT-BLOCKERS-11: The conflict check answers for the coach's own roster, and its failure never blocks the save (rule 17)
+#### CALENDAR-STUDENT-BLOCKERS-11: The conflict check answers for the coach's own roster, and its failure never blocks the save (rules 8, 9)
 - **Given** a blocked student on one coach's roster, and a second coach who does not coach them
 - **When** each coach asks `/api/app/notify/availability_conflicts` about that student, and a class is saved while the check is failing
 - **Then** the first coach is told the student is blocked; the second gets 200 with nobody listed
 - **And** when the check fails it returns no warning, so the form saves
 test: `frontend/apps/mobile/src/features/calendar/unavailable-check.test.ts` › `a failed lookup saves anyway` (+1 more)
+- Code to follow: add a web test that a failed conflict check never stops the save, covering the catch in
+  `AddClassSheet.tsx`, as the iOS `unavailable-check.test.ts` does for its helper.
 
 #### CALENDAR-STUDENT-BLOCKERS-12: The sheet turns what the student filled in into the block that is saved (rules 15, 16)
 - **Given** the Criar bloqueio sheet
@@ -153,24 +155,16 @@ test: `frontend/apps/mobile/src/features/calendar/unavailable-check.test.ts` ›
 - **And** with no weekday chosen it repeats on the start date's weekday, and with no end date it ends three months after the start
 - **And** an existing block opens in the sheet with its own values
 test: `frontend/packages/config/src/blocker-draft.test.ts` › `builds a recurring block from its weekdays and end date` (+3 more)
+- Code to follow: delete `availabilityBlockerSchema` from `frontend/packages/validation/src/index.ts` and
+  its test in `index.test.ts`; nothing imports it, and `blockerDraftError` is the shared validation (rule
+  16).
 
-#### CALENDAR-STUDENT-BLOCKERS-13: A student's edit writes what was sent, and a blocker made one-off stops repeating (rule 3, and rule 12 "An edit writes what was sent")
+#### CALENDAR-STUDENT-BLOCKERS-13: A student's edit writes what was sent, and a blocker made one-off stops repeating (rule 3, and rule 17 "An edit writes what was sent")
 - **Given** a student's weekly blocker on Mondays with a reason
 - **When** the student empties the reason, sends a null end date while it still repeats, and then makes it a one-off
 - **Then** the emptied reason is cleared, and the null end date is 400 naming `endDate`, with the end date unchanged
 - **And** once it is a one-off the student is blocked on that Monday only, and free two Mondays later
 test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_a_students_blocker_edit_clears_an_emptied_title_and_refuses_a_null_end_while_recurring` (+2 more)
-
-### Open questions
-
-- **P-CALENDAR-4 says "only the automatic half is shipped"; this spec's Status section and the code say the rest shipped too.**
-  - The promise: "A block is meant to suppress every class-slot solicitation (automatic and manual invitations, reminders, waiting-list offers), not automatic invitations alone. Only the automatic half is shipped."
-  - This spec, Status (corrected 2026-10-01): "The PAD-107 half (rules 4, 8, 9, 10 and 11) is also shipped".
-  - The code today: the conflict check is `POST /api/app/notify/availability_conflicts` (`notification_engine_api.py:394`); the manual send skips blocked students and reports them (`:301`, `:331-334`); reminders skip them (`notification_service.py:3785-3787`); and the delivery backstop refuses invitations, reminders and waiting-list offers inside a block (`notification_service.py:2515-2528`).
-  - Recommendation: the promise is stale; reword its third bullet, set it to `implemented`, and drop "when fully shipped" from the area overview. The port's summary left this wording for the owner, so the promise was not changed.
-  - Proposed text for the bullet: "A block suppresses every class-slot solicitation for a class inside its window, not automatic invitations alone: manual invitations, reminders and waiting-list offers are held back too, and a coach who sends by hand is told which students were skipped (PAD-107)."
-- **Two rules are numbered 12.** One is the class-window rule, the other "An edit writes what was sent (PAD-386)". CALENDAR-STUDENT-BLOCKERS-13 cites the second by its title. Recommendation: renumber the second to 17.
-- **The Status section cites lines that have moved.** It gives `notification_engine_api.py:294` and `:253-269` and `notification_service.py:1744` and `:2754`; the code is now at the lines listed above. Recommendation: cite functions, not lines.
-- **A test's name says the opposite of what it asserts.** `test_a_students_unavailability_made_one_off_still_excludes_them...` asserts, since PAD-377, that the student is free again two weeks later. Recommendation: rename it.
-- **`availabilityBlockerSchema` has a test and no user.** Nothing outside its own file imports it. Recommendation: delete the schema and its test.
-- **"A failed check never stops the save" is proved on the helper only.** The iOS test shows the pre-check returns an empty list on an error; the web sheet's own catch (`AddClassSheet.tsx:376-379`) has no test. Recommendation: add a web test.
+- Code to follow: rename
+  `test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week` in
+  `test_pad367_falsy_values_at_the_route.py` to say the student is free again two weeks later.
