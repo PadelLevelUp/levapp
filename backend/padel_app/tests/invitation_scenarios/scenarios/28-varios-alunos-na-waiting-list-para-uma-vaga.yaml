@@ -11,7 +11,8 @@ notes: >
   Setup step at 1 Nov 19:00 (derived), when the class is full. The PDF does not say which of the three
   says Sim first. All three are invited together, so W1 accepts first and W2 second; the choice does not
   change the result. After the Aviso, W2 "continua na waiting list" (U26). W3 never answers, so it also
-  stays on the list. W1 to W3 have no level (level null).
+  stays on the list. W1 is no longer on it: the PDF does not say so, but a student placed in the class
+  no longer waits for it (assumed; drop W1 from the check if the owner decides otherwise). W1 to W3 have no level (level null).
 
 roster:
   regulars: {L: 8, R: 8}
