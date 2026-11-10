@@ -1,0 +1,41 @@
+id: 53
+title: vários regulares que jogam dos dois lados
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1229, 1247]}
+what_it_tests: com vagas aparentes nos dois lados, a aplicação não ultrapassa os alunos em falta nem a capacidade
+tags: [both-sides, regulars, unbalanced, aviso, tiebreak]
+depends_on: [U11, U26]
+corrections: []
+notes: >
+  One student missing from either side (R7): groups 3 and 4 merge both sides, so the 3 invitations go to
+  the first 3 L2 students by tiebreak, from either side. The PDF does not fix who those 3 are. The
+  encoder sets participations so that they are L2L-1 (5), L2R-1 (4) and L2L-2 (3), which makes the
+  scenario's second Yes come "do outro lado". The left-sider placed at 19:10 is checked on their natural
+  side; the PDF leaves the final split to the class (U11), so the final roster is total 16.
+
+roster:
+  regulars: {L: 5, R: 5, both: 5}
+students:
+  - {cohort: L2L, count: 5, level: 2, side: L, participations: [5, 3, 0, 0, 0]}
+  - {cohort: L2R, count: 5, level: 2, side: R, participations: [4, 0, 0, 0, 0]}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L2L, count: 2, side_named: null, group: 3}
+        - {cohort: L2R, count: 1, side_named: null, group: 3}
+      invitations_total_sent: 3
+      missing: {total: 1}
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L2L, state: invited, as: a}}]
+    expect:
+      placed: [{who: a, side: L, how: invitation}]
+      missing: {total: 0}
+      roster: {total: 16}
+  - at: 2026-11-01 19:20
+    events: [{accepts: {cohort: L2R, state: invited, as: b}}]
+    expect:
+      messages: [{who: b, kind: aviso}]
+      invitations: none
+final:
+  roster: {total: 16}

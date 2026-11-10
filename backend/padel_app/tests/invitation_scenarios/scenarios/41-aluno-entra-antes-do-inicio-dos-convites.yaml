@@ -1,0 +1,35 @@
+id: 41
+title: um aluno entra antes do início dos convites
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [1006, 1022]}
+what_it_tests: com vaga no seu lado, o aluno entra sozinho, mesmo antes do início dos convites
+tags: [direct-join, reminders]
+depends_on: [U23, U24]
+corrections: []
+notes: >
+  J1 is a label for the PDF's unnamed level-3 right-sider. The 19:00 step expects nothing at all: the
+  class is full and reminders start on 2 Nov. The direct-join window opening before first_invite is the
+  PDF's own "pressuposto ainda por validar" (cenarios.txt 2160), hence U23.
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: J1, level: 3, side: R}
+  - {cohort: L2R, count: 5, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 10:00
+    events: [{joins_directly: J1}]
+    expect:
+      placed: [{who: J1, side: R, how: direct}]
+      missing: {L: 0, R: 0}
+      invitations: none
+  - at: 2026-11-01 19:00
+    expect:
+      nothing_sent: true
+      invitations_total_sent: 0
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars, J1]
+final:
+  roster: {L: 8, R: 8}
