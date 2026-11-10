@@ -94,11 +94,14 @@ about anyone who is missing. Web and iOS ship it together (R-024).
    `frontend/CLAUDE.md` — or every string renders as its key. Every `stage`, gate `code`,
    `sendStatus` and priority key from the simulation has a translation entry; an unknown code
    renders a neutral fallback, never the raw code.
+   - Code to follow: `describeGate` and `describeSendStatus` in `frontend/packages/config/src/invite-simulation.ts`
+     fall back to a neutral line for an unknown code, as `describeStage` does, each with a test.
 7. Web uses the shadcn primitives (R-015) and `@/` imports (R-011). iOS mirrors the drill-in
    pattern of the existing settings sections (section list → section → tutorial) and carries a
    `testID` on the section row, each step's picker and the results container for Maestro.
 8. Changing the class resets the player step and clears the results; changing the player re-runs
-   the simulation; the results header shows `evaluatedAt` as "as of HH:MM" in the club timezone.
+   the simulation; the results header shows `evaluatedAt` as "as of HH:MM" in Lisbon time
+   (`Europe/Lisbon`, which every club has today; the tutorial does not read the club's zone).
    A simulation in flight is replaced, not appended, when the selection changes.
 9. The tutorial explains; it does not act. It offers no button to send, approve, place or exclude
    anyone. Links to the relevant Settings → Notifications sections are allowed.
@@ -140,7 +143,7 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 - **And** under it the roster line gives 8 left and 4 right going and 0 left and 4 right open, so 8 + 0 and 4 + 4 give the projection
 
 #### SETTINGS-TUTORIALS-6: A blocked gate is shown above the queue
-- **Given** the coach has `quietHours` enabled and the tutorial is run at 22:30 club-local
+- **Given** the coach has `quietHours` enabled and the tutorial is run at 22:30 Lisbon time
 - **When** the results render
 - **Then** a gate line "Quiet hours — invitations resume at 07:00" appears above the rounds
 - **And** the rounds are still listed below it
@@ -193,9 +196,3 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a know
   classes" must be the same classes the coach sees on their calendar.
 - OPEN: the copy for each gate, stage and badge is drafted at plan time in pt first
   (`settings.language` rule: Portuguese is the default and the fallback).
-
-### Open questions
-
-- **The tutorial formats every time in Europe/Lisbon; rule 8 and SETTINGS-TUTORIALS-6 say the club's time zone.** `invite-simulation.ts:41` and `:82` hardcode the zone, and SETTINGS-TUTORIALS-11's example is a Lisbon time. A club elsewhere would read the wrong hour. Recommendation: pass the club's zone, or say "Lisbon" in rule 8 until a club outside Portugal exists.
-- **Rule 6 promises a neutral fallback for an unknown stage, gate code, send status and priority; two of the four have none.** `describeStage` and the priority wording fall back; `describeGate` and `describeSendStatus` build a key from the raw code. Recommendation: add the two fallbacks.
-- **The tutorial's wording is asserted as translation keys and parameters, not as sentences.** SETTINGS-TUTORIALS-3, 4, 8 and 12 are proved through a translator that echoes the key. Recommendation: accept, since the copy lives in the locale files.

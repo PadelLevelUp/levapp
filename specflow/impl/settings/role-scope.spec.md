@@ -90,15 +90,16 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
    both roles and must not be swept up by the coach check.
 9. Student-facing endpoints that branch on role (`/calendar`, `/dashboard`, `/class_instance`,
    `/lesson_instance/<id>/presences`, `/calendar_event`, `/availability_blockers`) keep their
-   existing `current_coach() is None` student branch — they are not coach-only and must not be
-   hardened with `require_coach()`.
+   existing student branch, which requires a player profile (`/availability_blockers` refuses a coach
+   with 403, SETTINGS-ROLE-SCOPE-13) — they are not coach-only and must not be hardened with
+   `require_coach()`.
 
 ### Acceptance Criteria
 
 #### SETTINGS-ROLE-SCOPE-1: Student sees only student-relevant sections
 - **Given** an authenticated student on `/settings` (web) or the Settings tab (iOS)
 - **When** the page renders
-- **Then** the section list offers only Profile, Preferences, Notifications preferences and Account
+- **Then** they see Profile, Preferences, My notifications, My connections and Account, in that order, and no coach-only section
 - **And** no Calendar/Seasons, notification-engine, Import or Club section is offered
 - **And** the Preferences panel shows language and theme but no skill-levels, no "Avaliações"
   heading and no entry to the competency manager
@@ -114,7 +115,8 @@ them. Cross-coach ownership (coach A vs coach B) is already covered by PAD-92 an
 #### SETTINGS-ROLE-SCOPE-3: Coach still sees every section
 - **Given** an authenticated coach on `/settings`
 - **When** the page renders
-- **Then** Profile, Preferences, Calendar, Notifications, Tutorials, Import, Club and Account are all offered
+- **Then** Profile, Preferences, Calendar, Notifications, Tutorials, Import, Club, My connections and Account
+  are all offered
 - **And** the Preferences panel still shows skill levels and the entry that opens "Definir categorias de avaliação"
 
 #### SETTINGS-ROLE-SCOPE-4: A coach's evaluation settings sit under one heading (PAD-431)
@@ -210,18 +212,3 @@ test: `backend/padel_app/tests/test_settings_role_authz.py` › `test_student_ca
   `myNotifications` simply did not exist in `settings-sections.ts`, so a student could be opted out
   of class-vacancy invitations with no way to change it from the phone. PAD-169 ported the panel
   and widened mobile's gating from a `COACH_ONLY_SECTIONS` list to the `audience` field of rule 4.
-- Follow-ups found while auditing, NOT fixed here (each is outside the Settings surface):
-  `POST /api/app/class_instance/training/confirm` carries no coach/ownership check at all, and the
-  `exercises`, `exercise-groups`, `players`, `coach_players*` and `player_profile` routes still use
-  bare `current_coach()` and so 500 rather than 403 for a student caller.
-
-### Open questions
-
-- **SETTINGS-ROLE-SCOPE-1 and 3 list the sections without My connections.**
-  - Criterion 1: a student sees "Profile, Preferences, Notifications preferences and Account". Criterion 3's coach list omits Connections too.
-  - Rule 2 and both shells: My connections is offered to everyone (`SettingsPage.tsx:147`, `settings-sections.ts:138`). The iOS test expects exactly `profile, preferences, myNotifications, connections, account` for a student.
-  - Recommendation: amend both criteria to rule 2. Three tests proposed tonight are pointed at criterion 1 and prove the proposed text.
-  - Proposed text for criterion 1's Then: "they see Profile, Preferences, My notifications, My connections and Account, in that order, and no coach-only section".
-- **Rule 9 describes `/availability_blockers` as keeping a "`current_coach() is None` student branch"; the code checks for a player profile.** A coach is refused with 403 (`frontend_api.py:1876-1880`), which SETTINGS-ROLE-SCOPE-13 states. Recommendation: reword rule 9 to "requires a player profile".
-- **The Notes' "follow-ups found while auditing, NOT fixed here" are fixed.** `POST /api/app/class_instance/training/confirm` now checks the caller and the class's owner (`frontend_api.py:3427-3436`, PAD-115), and the exercise, group and roster routes answer a student with 403. Recommendation: delete the note.
-- **The three PAD-447 and PAD-462 blocks that got ids tonight are proved one level below what they say.** SETTINGS-ROLE-SCOPE-10 and 12 are tested by navigating to the URL, not by choosing from the avatar menu; SETTINGS-ROLE-SCOPE-11 is tested on the shared dropdown component with a faked exit animation. Recommendation: accept, or add one end-to-end check through the menu.

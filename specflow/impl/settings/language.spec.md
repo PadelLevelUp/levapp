@@ -35,9 +35,11 @@ login (not only while the Settings screen is mounted).
    **Flask-Babel**. Formatting is never manually string-built from English day/month names.
 4. Fallback locale is `pt`: any missing translation key or unresolvable locale falls back to Portuguese —
    no broken strings, no raw English tokens, no unresolved placeholders in delivered output.
-5. Auto-generated notification and reminder messages are rendered in the **recipient coach's** locale:
-   the notification renderer resolves the recipient's `language` and formats weekday, date, time, and
-   template strings accordingly.
+5. Auto-generated notification and reminder messages are rendered in the **recipient's** locale: the
+   notification renderer resolves the recipient's `language` and formats weekday, date, time, and
+   template strings accordingly. The recipient is not always a coach: a class-request message to a
+   student (`class_request_service._tell_student`) and a request alert (`request_alert_service`, whose
+   recipients also include coaches of other clubs and superadmins) use the recipient's own `language`.
 6. Weekday, date, and time tokens in notification/reminder templates render in the resolved locale
    (e.g. `pt` → "quarta-feira"; `en` → "Wednesday"), using Flask-Babel, not hardcoded name tables.
 7. **A choice survives the page's own profile load (B-184, PAD-453).** The web Settings page reads the
@@ -54,7 +56,7 @@ login (not only while the Settings screen is mounted).
    landed after it put the old value back. The picker, which follows the cache, showed the old
    language while the server and i18n held the new one.
 
-9. **(B-545, PAD-629; rule number unconfirmed) Portuguese plurals are European.** A count of zero
+9. **(B-545, PAD-629) Portuguese plurals are European.** A count of zero
    reads in the plural ("0 aulas", not "0 aula"). i18next resolves plurals with
    `Intl.PluralRules("pt")`, which is Brazilian (0 = one), so every pt `_one`/`_other` pair carries
    a `_zero` form with the plural text — i18next prefers `_zero` for a count of 0. A guard over the
@@ -120,9 +122,12 @@ login (not only while the Settings screen is mounted).
 - **When** a date is formatted, or handed to a native date or time picker
 - **Then** `pt` and `pt-PT` format in Portuguese, `en` and `en-GB` in English, and `fr` or no language in Portuguese
 - **And** the native pickers get `pt-PT` or `en-US`
+- **And** an upper-case code reads as its lower-case (`EN` as `en`) in both helpers
 - **And** 15 October 2026 reads `15/10/2026` in Portuguese and `10/15/2026` in English, and a date is the same day in any time zone
 - **And** in iOS Settings the import history's timestamps and the invitations' expiry dates follow the app's language
 test: `frontend/apps/mobile/src/lib/native-locale.test.ts` › `maps the app's two languages to real region tags` (+12 more)
+- Code to follow: `resolveDateLocale` in `frontend/packages/config/src/dateLocale.ts` and
+  `frontend/apps/web/src/lib/dateLocale.ts` lower-cases the code, as `nativeLocaleTag` does, with a test for `EN`.
 
 #### SETTINGS-LANGUAGE-11: Only Portuguese and English exist, and the phone app has every string in both (rules 1, 10)
 - **Given** a signed-in user, and the phone app's two language bundles
@@ -136,9 +141,3 @@ test: `backend/padel_app/tests/test_profile_update.py` › `test_patch_me_reject
 - Source: ticket PAD-39
 - Supersedes the PAD-38 tactical PT-weekday patch: locale-aware formatting is the root-cause fix.
 - Follow-up: PAD-40 localizes the rest of the app UI.
-
-### Open questions
-
-- **Rule 9 is still marked "rule number unconfirmed".** SETTINGS-LANGUAGE-1 cites it as rule 9. Recommendation: confirm the number and drop the note.
-- **Two helpers disagree on an upper-case code.** `nativeLocaleTag("EN")` answers `en-US`; `resolveDateLocale("EN")` falls back to Portuguese (`dateLocale.ts:38-39`). No screen passes an upper-case code today. Recommendation: make `resolveDateLocale` ignore case too.
-- **P-SETTINGS-1 says a user's language governs "the wording of notifications and reminders sent to them"; rule 5 speaks only of the recipient coach.** The renderer reads a coach's language (`notification_service.py:2294-2300`); the reader of this spec found no path that words a message in a student's language, and did not open `request_alert_service` or `class_request_service`. Recommendation: check those two, then either widen rule 5 or say "sent to a coach" in the promise.

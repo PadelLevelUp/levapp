@@ -27,7 +27,7 @@ device. The server stays the one truth; the user decides at the moment of leavin
 ### Rules
 1. **Which sections.** Since PAD-506 (`settings.explicit-save`) every setting on every Settings tab
    waits for the tab's one Save, so every section with a setting can hold unsaved edits: Perfil,
-   Preferências (language, class-request alerts, coach levels, evaluation frequency and scale), Admin,
+   Preferências (language, class-request alerts, coach levels, evaluation frequency and scale),
    Notificações (the notification engine and web's message templates), Calendário (seasons, working
    hours) and the student's "As minhas notificações". Theme is a device preference and never asks;
    commands (`settings.explicit-save` rule 4) hold nothing and never ask.
@@ -65,6 +65,8 @@ device. The server stays the one truth; the user decides at the moment of leavin
 - **When** they tap the back row
 - **Then** "Descartar alterações?" appears and the section stays open with the new number;
   **Descartar** returns to the section list
+test: `frontend/apps/mobile/.maestro/flows/102-settings-unsaved-edits.yaml`,
+`frontend/apps/mobile/.maestro/flows/158-settings-swipe-back-asks.yaml`
 
 #### SETTINGS-UNSAVED-EDITS-3: Nothing unsaved, nothing asked
 - **Given** a coach opened working hours and changed nothing, or changed Sunday off and back on
@@ -112,8 +114,3 @@ test: `frontend/apps/web/src/pages/SettingsPage.test.tsx` › `choosing the tab 
 - Ledger: B-157 (reserved by Session D on 2026-09-21 for this observation, cited in B-155).
 - Each section reports its own "unsaved" state to the page/screen that switches sections; the
   page asks. Sections keep their B-155 load guards unchanged.
-
-### Open questions
-
-- **The iOS back-row tests would stay green if the real screen broke.** They exercise a handler copied into `unsaved-registry.test.tsx`. The real screen's header back and swipe (`usePreventRemove`, `gestureEnabled: !hasUnsaved`) have no test. Recommendation: tag a Maestro flow to SETTINGS-UNSAVED-EDITS-2.
-- **Rule 1 still lists "Admin" among the sections.** Settings → Admin was removed with PAD-532. Recommendation: delete the word.

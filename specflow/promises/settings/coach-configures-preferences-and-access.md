@@ -18,7 +18,6 @@ Every signed-in user has one Settings screen for their identity and preferences,
 - A blank name is refused; an email must be valid and unused; values are trimmed before checking.
 - Everyone can correct their own date of birth and country in Profile; a date under 18 is refused with the sign-up message, and neither can be erased (PAD-640).
 - An abbreviation defaults to the first letters of the first two words of the name and can be overridden with up to 4 characters.
-- The administrator's data browser exists only where deliberately switched on (staging and local, never production by default), only the superadmin reaches it, and it never shows or changes a password, code or token.
 - The default language is Portuguese, and a missing translation falls back to Portuguese.
 - A user's language governs the interface and the wording of notifications and reminders sent to them.
 - The theme preference has no visible effect on iOS, which is light-only.
