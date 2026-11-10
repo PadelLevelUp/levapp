@@ -103,6 +103,16 @@ account yet cannot complete.
 - **When** the person taps "Privacy Policy" or "Terms of Service"
 - **Then** the hosted page opens in the system browser
 
+#### AUTH-MOBILE-ACCOUNT-CREATION-7: The three completion forms check each field before sending, and put a server refusal on its own field (rules 4, 5)
+- **Given** the player-invite, coach-invite and activation forms in the app
+- **When** a form is submitted with a name of one character, a username of two, a password of five, a repeat that differs, or an email that is not an address where one is asked
+- **Then** each field shows its own error, named by a translation key, and nothing is sent
+- **And** each form asks for a birth date typed day/month/year and refuses an empty, unreal or under-18 date; asks for a country, Portugal by default; and requires the Terms box
+- **When** the form is valid
+- **Then** the request carries the chosen country, the birth date as `YYYY-MM-DD`, `termsAccepted: true`, and on the coach invite the email trimmed
+- **And** a server refusal that names `country`, `terms` or `email` is shown on that field: a taken email on the email field, not as a taken username
+test: `frontend/apps/mobile/src/features/auth/account-setup.test.ts` › `accepts a valid form` (+33 more)
+
 ### Notes
 Everything a screen decides before rendering — param → token, form → error codes, HTTP status →
 outcome — lives in `apps/mobile/src/features/auth/account-setup.ts`, a pure module, because mobile's
@@ -115,3 +125,24 @@ are removed by this change — the screens it stood in for now exist.
 Not verifiable without hardware: a real universal-link tap needs a physical device, a signed build
 carrying the associated-domains entitlement, and the association file actually served. See
 `auth.mobile-universal-links`.
+
+### Open questions
+
+- **Rules 4, 6 and 7 describe the forms before the later tickets changed them.**
+  - Rule 4: "name ≥ 2 characters …, username ≥ 3, password ≥ 6, repeat password must match, and
+    register additionally requires a valid email". Rule 6: "409 → "username taken", shown under
+    the form". Rule 7: "Both invite screens end signed in … replaces the route with the dashboard".
+  - Other specs: `auth.activate` rules 13, 13a and 13b, `players.invite-completion` and
+    `clubs.coach-invitation` add the birth date, the country, the Terms and the coach's email to
+    these forms; `auth.activate` rule 11a answers a taken email with 409 on `email`.
+  - Code today: `features/auth/account-setup.ts` requires all of those on the three forms; a 409
+    whose `field` is `email` is shown on the email field; and `coachInviteLanding` sends a coach
+    whose email is not verified to `/verify-email` before the dashboard.
+    AUTH-MOBILE-ACCOUNT-CREATION-7 states the forms as they are.
+  - Recommendation: amend the three rules to the code; each change was a decided ticket
+    (PAD-457, PAD-604, PAD-637, PAD-761, PAD-477).
+  - Proposed rule 4 addition: "…Every form also asks for an adult birth date, a country and the
+    Terms; the coach invite asks for an email." Proposed rule 6: "409 → the field the answer
+    names is taken (the username, or the email), shown on that field and recoverable in place…".
+    Proposed rule 7: "Both invite screens end signed in, on the dashboard, or on the email-code
+    screen first when the new coach's email is not verified."

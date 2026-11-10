@@ -172,6 +172,34 @@ leaving it. Today the only entry point is the player's page.
 - **Then** every row is collapsed and no note text is shown; Rui's record for class 88 holds
   "Boa sessão"
 
+#### EVALUATIONS-CLASS-PANEL-9: The panel lists who the coach can rate, in the server's order, one row open at a time (rule 4)
+- **Given** an occurrence with three present students, one absent, and a guest with no link to the coach
+- **When** the coach opens the panel
+- **Then** the guest is not listed; the rows come in the order the server gave, the absent student marked
+- **And** every row starts closed; opening one closes the other
+- **And** while a row is open the order does not change, even if a student is marked absent meanwhile; it follows the server once the row closes
+test: `backend/padel_app/tests/test_pad364_evolution_and_class_api.py` › `test_a_participant_the_coach_cannot_rate_is_left_out_of_the_class_roster` (+3 more)
+
+#### EVALUATIONS-CLASS-PANEL-10: The Avaliações action follows the server's answer about the occurrence (rules 1, 10)
+- **Given** the class detail
+- **Then** the action is not rendered for a student, for an event that is not a class, or when the read is refused with 403
+- **And** it is disabled with no explanation while the read loads, and opens the panel once the server says the occurrence can be rated
+- **And** a read that fails any other way shows an error with a retry instead of the action; a failure after a good read keeps the action
+test: `frontend/apps/web/src/components/evaluations/ClassEvaluationsAction.test.tsx` › `renders nothing for a student, a non-class event or a class the coach does not own` (+7 more)
+
+#### EVALUATIONS-CLASS-PANEL-11: The panel names its class, goes back to it, and reaches the competency manager from two places (rules 2, 7)
+- **Given** the panel opened from the class "Aula 5" on a date
+- **Then** its title carries the class's name, the read is for that dated occurrence, and back returns to the class detail
+- **And** the competency manager is reachable beside the heading and under the list
+test: `frontend/apps/web/src/components/evaluations/ClassEvaluationsPanel.test.tsx` › `is titled with the class, reads that dated occurrence, and goes back to the class detail` (+1 more)
+
+#### EVALUATIONS-CLASS-PANEL-12: Every tap is one save for that player, carrying the panel's class (rule 6)
+- **Given** an open row in the panel
+- **When** the coach taps a star
+- **Then** one save is sent for that player with that rating and the panel's class; it carries the record's id only when the row's record is today's
+- **And** "Concluir avaliação" closes the row
+test: `frontend/apps/web/src/components/evaluations/ClassEvaluationsPanel.test.tsx` › `every tap is a PUT for THAT player carrying the panel's class` (+2 more)
+
 ### Runs cited for `implemented` (PAD-376, #370)
 - Web, Playwright `evaluation-tools/class-evaluations.spec.ts` (US-376a–d), `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports:
   **4 passed** at `557b509a1`, 2026-09-22 12:42:59–12:43:50 UTC (42.8 s). US-376a: rate from today's class → one PUT with the panel's

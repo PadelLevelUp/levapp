@@ -168,6 +168,26 @@ them (PAD-471). Only the coach's own data leaves LevApp.
 - **When** a student registers, or a 16-year-old's coach registration is refused
 - **Then** no request is made to HubSpot
 
+#### AUTH-COACH-CRM-SYNC-16: An unset stage or status variable switches that part off (rules 3, 5)
+- **Given** `HUBSPOT_DEAL_STAGE_EM_TESTE` unset, and a contact with an open deal
+- **When** a coach registers
+- **Then** no deal is read or moved
+- **And** with `HUBSPOT_ACCOUNT_STATUS_PROPERTY` unset, the contact is created with its name, email and the two origin properties, and no status
+test: `backend/padel_app/tests/test_pad471_hubspot_coach_sync.py` › `test_without_a_stage_configured_no_deal_is_read` (+1 more)
+
+#### AUTH-COACH-CRM-SYNC-17: Each HubSpot call waits at most 10 seconds, and a busy answer is retried once (rule 6)
+- **Given** HubSpot answering 429 or 503 to every call
+- **When** a sync runs
+- **Then** the call is made twice and the sync gives up
+- **And** every call of a sync, the deal calls included, carries a 10-second timeout
+test: `backend/padel_app/tests/test_pad471_hubspot_coach_sync.py` › `test_a_5xx_is_retried_once` (+2 more)
+
+#### AUTH-COACH-CRM-SYNC-18: Each sync runs only after its trigger's transaction has committed (rule 1)
+- **Given** a coach who registers, is approved or rejected by staff, or asks again after a rejection
+- **When** the sync for that action is called
+- **Then** it is called once, after the commit, and sees the status that action stored
+test: `backend/padel_app/tests/test_pad471_hubspot_coach_sync.py` › `test_signup_syncs_only_after_its_commit` (+2 more)
+
 ### Notes
 - PAD-471, 2026-10-01. Decisions by the coordinator (levapp-67) the same day: email-only lookup
   at self-sign-up (a phone added later is not a trigger here); the status follows approve / reject
@@ -181,3 +201,18 @@ them (PAD-471). Only the coach's own data leaves LevApp.
 - Web and iOS: no client change — the sync is server-side, behind the endpoints both apps already
   call.
 - Tests: `backend/padel_app/tests/test_pad471_hubspot_coach_sync.py`.
+
+### Open questions
+
+- **Rule 3 retries a 400 "naming a property"; the code retries only when it names the status property.**
+  - Spec: rule 3, "If HubSpot answers 400 naming a property (e.g. `PROPERTY_DOESNT_EXIST` — the
+    property was not created), the write is retried once without the status".
+  - Code today: `services/hubspot_sync.py` `_write` retries only when the 400's body names the
+    configured status property. `test_pad471_hubspot_coach_sync.py` ›
+    `test_a_400_that_names_no_status_property_is_not_retried` gets one write and the warning
+    "hubspot sync failed at create: HTTP 400" for a 400 naming `firstname`.
+  - Recommendation: amend the rule to the code. Dropping the status cannot cure a 400 about
+    another property, so a second write would fail the same way.
+  - Proposed text: "If HubSpot answers 400 naming the status property (e.g.
+    `PROPERTY_DOESNT_EXIST` — the property was not created), the write is retried once without
+    the status…; a 400 about anything else is not retried."

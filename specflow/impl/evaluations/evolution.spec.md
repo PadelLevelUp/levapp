@@ -137,6 +137,40 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
   (the server joins entries to records; `test_pad375_history_seed.py` pins that record-less
   rows are shown nowhere)
 
+#### EVALUATIONS-EVOLUTION-10: A rating's month is the club's month, and a half rounds up (rules 5, 9)
+- **Given** ratings of 2 at 23:30 UTC on 31 July, which is 1 August in Lisbon, and of 3, 2 and 2 on three days of August
+- **When** the evolution is read
+- **Then** the series is one point, August, with mean 2.3: the late rating counts in August, and 2.25 rounds up
+- **And** a mean is shown with its one decimal ("4.0", "3.7"), and a dash when there is none
+test: `backend/padel_app/tests/test_pad364_evolution_and_class_api.py` › `test_a_month_is_the_clubs_month_and_a_half_rounds_up` (+1 more)
+
+#### EVALUATIONS-EVOLUTION-11: The evolution of a category that is not the coach's own is refused (rule 2)
+- **Given** a coach, one of their players, and another coach's category
+- **When** the coach asks for that player's evolution with that category's id
+- **Then** the answer is 403
+- **And** a `categoryId` that is missing or not a number answers 400
+test: `backend/padel_app/tests/test_pad364_evolution_and_class_api.py` › `test_evolution_needs_a_category_of_the_coachs_own`
+
+#### EVALUATIONS-EVOLUTION-12: The section follows the chosen pill, and holds still while the evaluation form is open (rules 3, 12)
+- **Given** the evolution section with two competencies that have data
+- **When** the coach presses the second pill
+- **Then** the server is asked for that competency and its pill is the pressed one
+- **Given** the evaluation form open
+- **When** the server's figures change, or a competency gains its first data
+- **Then** the section keeps the pills and figures it had; another pill can still be chosen and shows its own figures
+- **And** when the form closes, the section shows the server's latest
+- **And** a section that had nothing loaded when the form opened still shows its first load
+test: `frontend/apps/web/src/components/evaluations/EvaluationEvolution.test.tsx` › `switching the pill asks the server for that competency` (+8 more)
+
+#### EVALUATIONS-EVOLUTION-13: The chart states its values without hover (rules 6, 11)
+- **Given** a series from January to September
+- **When** the section renders
+- **Then** a table beside the chart lists each month with its mean
+- **And** the month labels are the short month in the active language, with the year once the series spans two calendar years
+- **And** the three means sit under their heading, each named by its window
+- **And** on iOS the tapped month's point is the one shown, and the last point when none is tapped or the tapped month has left the series
+test: `frontend/apps/web/src/components/evaluations/EvaluationEvolution.test.tsx` › `every value is reachable without hover: a table of the series sits beside the picture` (+6 more)
+
 ### Runs cited for `implemented` (PAD-375, #359)
 - Web, Playwright `evaluation-tools/evaluation-evolution.spec.ts`, `~/levapp-wt-j`, `--workers=1`, isolated DB and ports: **1 passed** at
   `b10db81cf`, 2026-09-22 09:49:52–09:51:39 UTC (and at `5df49f51c`, 00:04:14–00:04:37 UTC).
@@ -159,3 +193,19 @@ Dataset (the canvas's seed): coach Ana's player João Silva (id 9), competency B
   dated records, every date derived from `e2e/scripts/seed_dates.py` and a pinned "today" —
   never the wall clock.
 - Criteria quote Portuguese copy for the reader; tests locate by test id and `ui()`.
+
+### Open questions
+
+- **EVALUATIONS-EVOLUTION-8 charts a legacy category on 1–10, a scale no legacy category has since PAD-403.**
+  - Criterion: "Ana's legacy "Forehand" (1–10) with 7 in January and 9 in September … `scaleMin` /
+    `scaleMax` are 0 and 10 … and nothing is rescaled to 1–5".
+  - Other spec: `evaluations.legacy-conversion` rules 2 and 5 converted every legacy category and
+    its scores to 1–5 and keep any new one at 1–5: "After conversion, no category is 1–10."
+  - Code today: the only scales off 1–5 are the coach's own 1–10, 1–20 and 1–100
+    (`evaluations.scale`). `EvaluationEvolution.test.tsx` › "is drawn on the competency's OWN scale
+    and names itself" still renders a fixture with a maximum of 10, which the component draws as given.
+  - Recommendation: keep the criterion's point (a chart uses the competency's own scale) and state
+    it with a scale that can exist.
+  - Proposed text: "Given Ana on the 1–10 scale and her competency Bandeja with 7 in January and 9
+    in September, Then `scaleMin` / `scaleMax` are 1 and 10, the means are 7.0 and 9.0,
+    `delta.value` is 2.0, and nothing is drawn on 1–5".

@@ -20,6 +20,10 @@ Assign a skill level to a player within a coach-player relationship. Level assig
    (retired in PAD-270)
 4. Same player can have different levels from different coaches
 5. Notification engine uses levels for matching (same-level preference)
+6. **A class has one level, resolved one way** (PAD-86, PAD-270). It is the occurrence's own level,
+   else its lesson's default level, else none. The notification engine and the calendar both read it
+   through `effective_level_id` (`services/level_service.py`); "none" means nobody qualifies by
+   level, never that the level filter is off.
 
 ### Acceptance Criteria
 
@@ -34,7 +38,9 @@ Assign a skill level to a player within a coach-player relationship. Level assig
 - **When** the coach reads the roster
 - **Then** the player's `levelId` is "Intermediate", and so is the latest history entry by `assigned_at`
 
-### Notes
-- A class's level resolves through one helper, `effective_level_id` (`services/level_service.py`):
-  the occurrence's own level, else its lesson's default (PAD-86). The notification engine and the
-  calendar serializer both use it (PAD-270).
+#### LEVELS-PLAYER-ASSIGNMENT-3: A class's level is its occurrence's own, else its lesson's default, else none (rule 6)
+- **Given** a lesson whose default level is `B`
+- **When** the level of one of its occurrences is resolved
+- **Then** it is the occurrence's own level when it has one, and `B` when it has none
+- **And** a lesson is resolved to its default level, and a class with no level anywhere to none
+test: `backend/padel_app/tests/test_effective_level_resolution.py` › `test_instance_level_wins` (+3 more)

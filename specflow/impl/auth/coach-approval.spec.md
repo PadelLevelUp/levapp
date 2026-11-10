@@ -178,6 +178,21 @@ it is designed to be switched off later without a data change.
 - **When** `admin` approves `rui`
 - **Then** the response is still 200 and the approval is persisted
 
+#### AUTH-COACH-APPROVAL-14: The admin is emailed on a coach's sign-up only when an address is configured (rule 4)
+- **Given** `ADMIN_NOTIFY_EMAIL` unset
+- **When** a coach registers
+- **Then** no mail goes to an admin address
+- **And** with it set, exactly one mail goes to that address for the next coach who registers
+test: `backend/padel_app/tests/test_coach_approval.py` › `test_admin_notified_on_signup_only_when_configured`
+
+#### AUTH-COACH-APPROVAL-15: The approval mail is branded, in the coach's language, and its button opens the sign-in page (rule 5)
+- **Given** a pending coach with an email and `language` `pt`
+- **When** staff approve the coach
+- **Then** one mail goes to the coach with the subject `A tua conta de treinador foi aprovada`, an HTML part carrying the LevApp mark, and a text part
+- **And** a coach whose language is `en` gets `Your coach account is approved`
+- **And** the button and the text link point at `/auth` on `PUBLIC_WEB_ORIGIN`, or on `https://levapp.app` when none is configured; a configured origin leaves no production link in the mail
+test: `backend/padel_app/tests/test_coach_approval.py` › `test_coach_is_emailed_on_approval` (+3 more)
+
 ### Notes
 - Decision: `.cortex/atlas/decisions/2026-09-06-open-registration-and-connections.md`, item 7.
 - Mail sender: prod runs `MAIL_USERNAME=admin@levapp.app` and sends as
@@ -201,3 +216,39 @@ it is designed to be switched off later without a data change.
   and iOS; the approval rules themselves are unchanged and the console calls the same services.
   See `admin.approvals-and-users` (approvals) and `admin.clubs-and-switches` rule 4 (the gate).
   Until that ships, the rules above describe production.
+
+### Open questions
+
+- **Rules 2, 3, 7 and 9 and criteria 2, 3, 8, 11 and 12 describe the product's Admin section, which PAD-532 removed.**
+  - Spec: rule 2, "`GET /api/app/admin/coach-approvals` — caller must be `is_superadmin` (403
+    otherwise…)"; rule 7, "Settings gains an **Admin** section … Web and iOS"; rule 9, "`GET|PUT
+    /api/app/admin/settings`"; AUTH-COACH-APPROVAL-8, "each response is 403";
+    AUTH-COACH-APPROVAL-12, "an ordinary coach gets 403 on both endpoints". Notes: "Until that
+    ships, the rules above describe production."
+  - Other spec: `admin.approvals-and-users` rules 1, 2, 10 and 10b moved the list, the decisions
+    and the gate to the staff console and removed Settings → Admin from web and iOS.
+  - Code today: it shipped. `modules/frontend_api.py` says "`/api/app/admin/*` is gone (404), with
+    no compatibility route". `test_pad238_app_settings.py` ›
+    `test_a_support_role_reads_but_cannot_flip_and_the_product_route_is_gone` and
+    `test_coach_approval.py` › `test_student_cannot_approve` get 404 on the product routes and
+    401 on the console for a product token.
+  - Recommendation: keep here what a coach lives through (rules 1, 4 to 6, 8, 10 to 13) and point
+    the staff side at `admin.approvals-and-users`.
+  - Proposed: rules 2, 3 and 7 become one line, "Staff list, approve and reject pending coaches in
+    the staff console (`admin.approvals-and-users` rules 1 and 2); the product has no admin route
+    or screen." Rule 9 keeps the `app_settings` fallback and says the switch is
+    `admin.approvals-and-users` rule 10b. Criteria 2, 3, 8, 11 and 12: retire in favour of
+    ADMIN-APPROVALS-AND-USERS-1 to -4, -12 and -14. Drop the note's last sentence.
+- **Rule 5 sends the approval mail's button to the site root; the code sends it to `/auth`.**
+  - Spec: rule 5, "one primary button "Abrir a LevApp" pointing at `PUBLIC_WEB_ORIGIN` or
+    `https://levapp.app`".
+  - Code today: `tools/email_templates.py` builds `href = f"{web_origin()}/auth"`, because an
+    approved coach still has to sign in and a universal link opens the app at the path it is given.
+    `test_email_templates_brand.py` › `test_the_approval_button_goes_to_sign_in` proves it
+    (AUTH-COACH-APPROVAL-15).
+  - Recommendation: amend the rule to the code.
+  - Proposed text: "…one primary button "Abrir a LevApp" pointing at `/auth` on `PUBLIC_WEB_ORIGIN`
+    or on `https://levapp.app`…".
+- **AUTH-COACH-APPROVAL-12 ends with a block about the approval mail.** Its last Given/When/Then
+  (a pending coach with `language = pt` … the subject in each language) belongs to rule 5, not to
+  the gate. AUTH-COACH-APPROVAL-15 now states it. Recommendation: remove that block from -12.

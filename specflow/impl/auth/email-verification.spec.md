@@ -336,6 +336,36 @@ own email in Settings.
 - **And** after he saves an address and confirms the code, the banner is gone
 - **And** a coach with an email, and any player, never sees it
 
+#### AUTH-EMAIL-VERIFICATION-28: A code verifies only the address it was mailed to (rule 3, PAD-498)
+- **Given** a user with a code just mailed to `ana@example.com`
+- **When** the address changes to another one before the code is confirmed
+- **Then** the confirm is refused and the new address stays unverified
+- **And** rewriting the same address in another letter case does not spoil the code
+test: `backend/padel_app/tests/test_pad498_recovery_code_and_email_change.py` › `test_a_verification_code_issued_while_the_address_changes_does_not_verify_the_new_one` (+1 more)
+
+#### AUTH-EMAIL-VERIFICATION-29: The coach-waiting mail tells the admin whether the coach's email is verified (rule 10)
+- **Given** `ADMIN_NOTIFY_EMAIL` set, and a coach who registers and has not verified
+- **When** the admin is told a coach is waiting
+- **Then** the mail says the email is not verified
+- **And** a coach with no email reads as not verified too, whatever an older verification time says
+test: `backend/padel_app/tests/test_pad482_clearing_the_email.py` › `test_the_admin_mail_says_unverified_for_a_coach_with_no_email` (+1 more)
+
+#### AUTH-EMAIL-VERIFICATION-30: The verification mail is in the user's language, with the code as one token under the brand header (rule 7)
+- **Given** a Portuguese user who signs up
+- **When** the code is mailed
+- **Then** the subject starts `O teu código LevApp:` and the text says the code lasts 15 minutes
+- **And** the HTML shows the six digits as one selectable token, spaced by letter-spacing and never by inserted spaces
+- **And** the header is the LevApp lockup image, with the alternative text "LevApp", at an absolute https address
+test: `backend/padel_app/tests/test_email_templates_brand.py` › `test_the_code_is_one_selectable_token` (+4 more)
+
+#### AUTH-EMAIL-VERIFICATION-31: The test transport's last-code route exists only behind the E2E flag (rule 11)
+- **Given** `E2E_DEBUG_ENDPOINTS` on
+- **When** a signed-in user GETs `/api/auth/email-verification/debug/last-code`
+- **Then** they get their own latest code, not another user's
+- **And** with `?email=` and no session the route serves that mailbox, in any letter case, and 404 for an address with no mail; with neither it answers 401
+- **And** with the flag off every form answers 404
+test: `backend/padel_app/tests/test_email_verification.py` › `test_debug_route_returns_only_the_callers_code` (+2 more)
+
 ### Notes
 - Linear: PAD-234 (this), PAD-231 (mail sender: prod already has `MAIL_USERNAME` +
   `MAIL_PASSWORD`; only `ADMIN_NOTIFY_EMAIL` was missing), PAD-187 (move the sender to
@@ -353,3 +383,28 @@ own email in Settings.
   codes in URLs get logged, forwarded and cached.
 - OPEN: coach-created players keep an unverified email forever unless they change it; a
   "Verify" action in Settings covers the ones who care.
+
+### Open questions
+
+- **Rule 7 says the sender is `MAIL_USERNAME`; the code sends as `MAIL_DEFAULT_SENDER`.**
+  - Spec: rule 7, "The sender is the configured `MAIL_USERNAME`".
+  - Code today: `tools/email_tools.py` `_sender` answers `MAIL_DEFAULT_SENDER` when set and falls
+    back to `MAIL_USERNAME`: the app signs in to the mail server as a real mailbox and sends as a
+    no-reply alias. `test_email_sender.py` › `test_sender_prefers_the_configured_default` and
+    `test_sender_falls_back_to_the_login` prove both; they carry no criterion until this is
+    answered.
+  - Recommendation: amend the rule to the code.
+  - Proposed text: "The sender is `MAIL_DEFAULT_SENDER`, or `MAIL_USERNAME` when no separate
+    sender is configured." Proposed criterion: "Given a mail login and a default sender, When a
+    mail is sent, Then it is sent from the default sender; with only the login set, from the
+    login; with neither, the send fails as not configured."
+- **Rule 10 and AUTH-EMAIL-VERIFICATION-24 read the verification flag on the product's admin route, which is gone.**
+  - Spec: rule 10, "`GET /api/app/admin/coach-approvals` rows gain `emailVerified: bool` … and the
+    Settings → Admin list (web and iOS) marks an unverified email". AUTH-EMAIL-VERIFICATION-24:
+    "the admin GETs `/api/app/admin/coach-approvals` … and the Admin list marks it on web and iOS".
+  - Code today: PAD-532 moved the list to the staff console; `/api/app/admin/*` answers 404 and
+    neither app has an Admin list (see the same question in `auth.coach-approval`). The rows of
+    `GET /admin/api/coach-approvals` carry `emailVerified`.
+  - Recommendation: amend both to the console.
+  - Proposed text for -24's When and Then: "When staff GET `/admin/api/coach-approvals`, Then
+    `rui`'s row has `emailVerified: false`, and the console's approvals page marks it".

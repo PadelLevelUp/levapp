@@ -451,3 +451,98 @@ held on the coach's calendar while the request is open.
 - **When** instead Ana deletes the hold whole, or retitles it, or the same gestures land on a block no open request points at
 - **Then** they are allowed exactly as before (rules 3 and 18; `calendar.blocks` rules 8–9)
 
+#### CLASSES-CLASS-REQUESTS-29: Whatever closes or deletes a request releases its hold, and touches nothing else (rule 18)
+- **Given** a student with an open request and its hold on the coach's calendar
+- **When** the student's account is deleted
+- **Then** the request closes as withdrawn and the hold is gone, also when the request was `countered` or weekly
+- **And** a malformed invitee list on someone else's request does not stop the deletion: the student is taken off it and what cannot be read is left
+- **When** the import that created the student is reverted, or the request row is closed or deleted by a direct edit
+- **Then** the hold is gone too; an edit that leaves the request open keeps it; the coach's own blocks are untouched
+- **And** deleting one coach's account closes only the requests to that coach
+- **And** a coach disconnecting the student leaves the open request and its hold in place
+test: `backend/padel_app/tests/test_pad360_request_hold_release.py` › `test_disconnecting_the_student_keeps_the_open_request_and_its_hold` (+8 more)
+
+#### CLASSES-CLASS-REQUESTS-30: A hold the coach made their own stays when its request lets go of it (rules 3, 18; PAD-378)
+- **Given** a request whose hold the coach retitled, in any letter case
+- **When** the request is withdrawn, declined, accepted, counter-proposed, closed or deleted by a direct edit, or goes with its student or with a reverted import
+- **Then** the retitled block stays on the coach's calendar as their own, and the request no longer points at it; a counter-proposal holds its new slot with a new block
+- **And** a hold that is untouched, or only moved, goes on every one of those paths
+test: `backend/padel_app/tests/test_pad360_request_hold_release.py` › `test_a_later_edit_of_an_already_closed_request` (+10 more)
+
+#### CLASSES-CLASS-REQUESTS-31: A request's own hold is free time for its student, and a clone of it is not (rules 1, 18)
+- **Given** a weekly request with its recurring hold, and one occurrence of that hold already cloned to another time
+- **When** free blocks are read for that request's student
+- **Then** the hold's own slot is offered back, and the clone's slot is busy
+test: `backend/padel_app/tests/test_pad372_existing_clone_is_busy_for_its_own_student.py` › `test_the_requests_own_hold_is_not_busy_for_its_student` (+1 more)
+
+#### CLASSES-CLASS-REQUESTS-32: Every request transition tells both sides' open apps, which refresh what shows requests (rule 19)
+- **Given** a coach and a student with their apps open
+- **When** a request is created, accepted, declined, proposed or withdrawn
+- **Then** `class_request_changed` goes to the coach and the student, and to every person a group request names
+- **And** a decision on a join request sends `join_request_decided` to the coach and the student
+- **And** on a request event, and on no other, the app marks its calendar, request lists, open class and dashboard stale, and nothing else
+test: `backend/padel_app/tests/test_pad488_request_tells_both_calendars.py` › `test_a_coach_decision_tells_the_coach_too` (+6 more)
+
+#### CLASSES-CLASS-REQUESTS-33: A counter-proposal and an accept are checked against the request as it stands (rules 5, 7, 10)
+- **Given** a request the coach countered to another time
+- **When** the student counter-proposes
+- **Then** the new slot is held, the request is `pending` again, and the slot may overlap the request's own old hold
+- **And** it is refused, and nothing moves, when the request is not `countered` (`not_countered`), the caller is another student or the coach (403), the date is past (`in_the_past`), the slot is too short (400) or taken (`slot_taken`)
+- **And** a coach's accept that names a slot the request no longer has answers 409 `slot_changed`
+- **And** free blocks read with `excludeRequestId` leave that request's hold out; an id that is not the caller's own request answers 403
+test: `backend/padel_app/tests/test_pad281_counter_proposal.py` › `test_counter_proposal_may_overlap_its_own_hold` (+3 more)
+
+#### CLASSES-CLASS-REQUESTS-34: Requests run on the club's clock and store their instants in UTC (rule 8)
+- **Given** a club in Lisbon at 09:30 UTC on a summer day
+- **When** today's free blocks are read
+- **Then** the first one starts at 10:30; on a winter day at 09:30
+- **And** a request decided at 10:00 club time on a summer day stores `decided_at` 09:00 UTC
+test: `backend/padel_app/tests/test_pad256_request_slots.py` › `test_the_module_clock_is_the_club_clock` (+2 more)
+
+#### CLASSES-CLASS-REQUESTS-35: A request's chat bubble shows its actions, that it waits, that it was replaced, or the outcome (rules 6, 10, 10a)
+- **Given** a chat message that carries a request, a proposal or a counter-proposal
+- **When** the request still stands at that message's slot and awaits the reader
+- **Then** the bubble offers the reader's answers; on the sender's own copy it reads as waiting
+- **When** the request is still open at another slot or stage
+- **Then** the bubble reads as replaced and offers nothing
+- **When** the request was accepted, declined or withdrawn, or is no longer in the reader's list
+- **Then** the bubble shows that outcome
+- **And** a proposal from before slots were stored stays answerable while the request is `countered`; while the request is loading, or on a message that carries none, nothing is added
+test: `frontend/packages/config/src/class-request-message.test.ts` › `shows the coach their own proposal as waiting` (+8 more)
+
+#### CLASSES-CLASS-REQUESTS-36: The class count can be retyped: empty while typing, and back to the last valid count on leaving (rule 14a)
+- **Given** the wizard on "after N classes" with a weekday chosen
+- **When** the student clears the field and types 3
+- **Then** the field reads empty, then 3, and the last date follows the count
+- **And** leaving the field empty puts the last valid count back
+test: `frontend/apps/web/src/components/class-requests/wizard/PrivateClassStep.endMode.test.tsx` › `clearing the field and typing 3 gives 3, not 13` (+1 more)
+
+#### CLASSES-CLASS-REQUESTS-37: A request is refused as `slot_taken` when an invitee or a later occurrence is not free (rules 7, 13, 15)
+- **Given** an invitee whose own calendar is blocked on Tuesday 18:00 to 19:00
+- **When** the requester asks for that slot with her
+- **Then** the request is refused with code `slot_taken`; an hour later it is created
+- **And** a weekly request whose third occurrence meets a class of the coach is refused with `slot_taken` and that occurrence's date
+test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `test_an_invitees_calendar_refuses_a_slot_they_cannot_make` (+1 more)
+
+#### CLASSES-CLASS-REQUESTS-38: An invitee's username resolves alone, and one that cannot be invited reads the same whatever the reason (rule 12)
+- **Given** a requester, a student on the same coach's roster, another coach's student, a placeholder account and a name nobody has
+- **When** the usernames are resolved for that coach
+- **Then** the rostered student resolves to their player, in any letter case
+- **And** the other coach's student, the placeholder and the unknown name each answer `USERNAME_NOT_FOUND`, in the same shape
+- **And** the requester's own username answers `SELF_INVITE`, and a name given twice `DUPLICATE_INVITEE`
+test: `backend/padel_app/tests/test_pad357_availability_and_requests.py` › `test_participants_resolve_one_at_a_time_without_an_oracle`
+
+### Open questions
+
+- **Rules 6 and 10a say a bubble "shows the outcome" once the slot moved on; the code shows a second state.**
+  - Spec: rule 6, "Once the status or the slot has moved on, the bubble shows the outcome
+    instead"; rule 10a, "Once the status or the slot has moved on, the bubble shows the outcome".
+  - Code today: `packages/config/src/class-request-message.ts` answers `superseded` while the
+    request is still open at another slot or stage (shown as "Replaced by a newer proposal"),
+    and `outcome` only once the request is accepted, declined or withdrawn, or is gone from the
+    reader's list. CLASSES-CLASS-REQUESTS-35 states both.
+  - Recommendation: amend the two rules to name both states; the code's distinction is the
+    clearer one for the reader of an old bubble.
+  - Proposed text: "Once the request has moved to another slot or stage and is still open, the
+    bubble reads as replaced by a newer proposal; once it is decided, the bubble shows the
+    outcome. Neither offers actions."

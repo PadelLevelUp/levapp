@@ -255,7 +255,106 @@ what every writer — new, legacy and import — goes through.
 - **Then** the pending step is sent as one `PUT` before anything else happens, and nothing is sent twice
 - **And** a form with nothing pending sends nothing on those events
 
+#### EVALUATIONS-RECORDS-13: A rating given again the same day is changed in place (rule 8)
+- **Given** Forehand rated 4 in today's record
+- **When** the coach rates it 5 three hours later
+- **Then** the record still holds one Forehand rating, now 5, with the time of the second tap
+test: `backend/padel_app/tests/test_pad363_record_service.py` › `test_a_rating_is_upserted_in_place` (+1 more)
+
+#### EVALUATIONS-RECORDS-14: Another coach's category, player or record is refused, and nothing is written (rule 8)
+- **Given** coach Ana with a stored record, and another coach with a category and a roster of their own
+- **When** the other coach reads Ana's player's history or evolution, or writes a record for that player
+- **Then** each answers 404
+- **And** deleting Ana's record, or changing or deleting her competency, answers 403, and both are as they were
+- **And** Ana writing a rating in the other coach's category answers 403 and writes nothing
+test: `backend/padel_app/tests/test_pad363_record_service.py` › `test_a_rating_in_another_coachs_category_is_refused` (+1 more)
+
+#### EVALUATIONS-RECORDS-15: The import groups its rows into class-less records by player and date (rule 12)
+- **Given** import rows for one player: two dated 5 March, each rating Forehand, and one dated 2 April
+- **When** the import runs
+- **Then** two class-less records exist, one per date; the later Forehand of 5 March holds the record's place and the earlier one is kept outside it; each `evaluated_at` is midnight of its date
+test: `backend/padel_app/tests/test_pad363_record_service.py` › `test_the_import_groups_its_rows_into_records_by_player_and_date`
+
+#### EVALUATIONS-RECORDS-16: Concurrent writes for one day's place all land (rules 7, 12)
+- **Given** two writers reaching the same player, competency and day at once: two legacy saves, an import and a save, or two ratings in the new form
+- **When** both commit
+- **Then** every score sent through the legacy save or the import is stored, one of them holding the record's place
+- **And** two ratings from the new form end as one row, the later value
+test: `backend/padel_app/tests/test_pad363_slot_race.py` › `test_two_legacy_saves_racing_for_one_slot_both_land` (+3 more)
+
+#### EVALUATIONS-RECORDS-17: A write with nothing to write creates nothing, and a record left empty is removed (rules 4, 10)
+- **Given** a class whose occurrence today has no row, and no record
+- **When** the coach's write clears a rating that does not exist, names a switched-off competency, names an unknown record, or carries an out-of-range score
+- **Then** the answers are 200, 409, 404 and 400, and no occurrence, presence, record or message is created
+- **And** a class-less write with only a null rating and an empty note answers `{"deleted": true}` and creates no record
+- **And** a record emptied by the deletion of its only rated category is removed
+test: `backend/padel_app/tests/test_pad364_evolution_and_class_api.py` › `test_a_put_that_writes_nothing_never_materialises_the_class` (+2 more)
+
+#### EVALUATIONS-RECORDS-18: A write the server cannot apply is refused by name, never dropped (rules 8, 14)
+- **Given** a coach writing a record
+- **When** the body has no `playerId`, a `ratings` that is not an object or has a key that is not an id, a `note` that is not text or is over 2000 characters, or a `classRef` that is not a class reference
+- **Then** each answers 400
+- **And** a `recordId` that belongs to another class or player answers 400 `record_mismatch`
+- **And** a new rating in a switched-off competency answers 409, while one already in today's record can still be changed
+test: `backend/padel_app/tests/test_pad364_evolution_and_class_api.py` › `test_a_record_id_of_another_player_or_class_is_a_mismatch` (+2 more)
+
+#### EVALUATIONS-RECORDS-19: Taps are saved one at a time, each carrying what the last answer returned (rules 7, 10, 11)
+- **Given** the evaluation form with no record yet
+- **When** the coach taps a star
+- **Then** one save is sent with that competency alone; tapping the lit star sends `null` for it
+- **And** a tap made while a save is in flight waits, then goes with the record id the first answer returned; after an answer of `{"deleted": true}` the next save carries no record id
+- **And** taps are applied in the order they were made
+- **And** a rating edited on a class record carries that record's id and its class
+test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` › `one tap is one save, carrying only that competency` (+7 more)
+
+#### EVALUATIONS-RECORDS-20: A failed save is visible, and nothing typed is lost (rule 7)
+- **Given** a record with Técnica at 3, and saves that fail
+- **When** the coach taps 5
+- **Then** the stars go back to 3 and the form says the save failed; a newer tap made meanwhile is kept and sent
+- **When** a note fails to save
+- **Then** the text stays in the field marked as unsaved, and "retry" sends it
+test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` › `a failed save is visible and the star rolls back` (+4 more)
+
+#### EVALUATIONS-RECORDS-21: A note is saved after a pause or on leaving the field, and an emptied note is sent as empty (rules 7, 10, 14)
+- **Given** a record with a note
+- **When** the coach edits the note and stops typing
+- **Then** one save carries the note after the quiet period; leaving the field saves at once
+- **And** a note emptied by the coach is sent as `""`, not left out
+test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` › `is saved after the quiet period, and an emptied note is sent as ""` (+2 more)
+
+#### EVALUATIONS-RECORDS-22: A form left open past midnight says the day has passed and stops sending (rule 11)
+- **Given** a form open on yesterday's record
+- **When** a save answers 409 `record_not_editable`
+- **Then** the rating goes back, the form says the day has passed, and no further tap or note is sent
+- **And** any other 409 is an ordinary failure and the form keeps working
+test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` › `a 409 record_not_editable (the form stayed open past midnight) shows the day-passed message, not 'try again', and stops sending` (+2 more)
+
+#### EVALUATIONS-RECORDS-23: Consecutive steps on one competency are one save after the quiet period (rule 7)
+- **Given** a competency rated with a stepper, at 5
+- **When** the coach presses plus three times within the quiet period
+- **Then** the value shows 8 at once and one save carries 8 once the period passes; another competency's steps are saved separately
+- **And** an unrated competency starts at the middle of its scale, and a step never leaves the scale
+test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` › `consecutive steps are one save, after the quiet period` (+5 more)
+
 ### Notes
 - OPEN: the 2000-character note limit is this leaf's choice; the canvas has none (AV-078).
 - OPEN: `CLUB_TZ` is one zone for the whole app. If per-club or per-coach zones ever exist,
   rule 3 follows class times.
+
+### Open questions
+
+- **Rule 14 and EVALUATIONS-RECORDS-7 save a 0 on a category that starts at 0; no category starts at 0 since PAD-403.**
+  - Spec: rule 14, "a legal `0` on a legacy category whose minimum is 0 is saved as 0".
+    EVALUATIONS-RECORDS-7: "Ana's legacy category "Resistência" (id 3) has scale 0–10 … she sends
+    `"ratings": {"3": 0}` … Resistência is saved with score 0".
+  - Other spec: `evaluations.legacy-conversion` rule 5, "After conversion, no category is 1–10";
+    every legacy category is 1–5.
+  - Code today: `test_pad364_falsy_values.py` ›
+    `test_a_score_of_zero_is_saved_where_the_scale_starts_at_zero` now asserts 400
+    `score_out_of_range` for a 0 and that nothing is stored; its docstring says why. The rest of
+    the criterion (null clears, an empty note clears, an absent key changes nothing) still holds.
+  - Recommendation: drop the zero case from both; the rule's real point is that the endpoint tells
+    absent, null and falsy apart, and 0 is now simply out of range (EVALUATIONS-RECORDS-6).
+  - Proposed rule 14 ending: "…an absent `note` or an absent competency changes nothing; a `0` is
+    a value, not an absence, and is refused as out of range on a scale that starts at 1." Proposed
+    for EVALUATIONS-RECORDS-7: remove the Given's Resistência clause and the first When/Then pair.

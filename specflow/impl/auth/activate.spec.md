@@ -178,6 +178,69 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
 - **And** without it the answer is 400 `TERMS_REQUIRED`, and the account is not created or activated
 - **And** a client that does not declare the token completes as before, with the columns NULL
 
+#### AUTH-ACTIVATE-10: An emptied pre-filled phone or e-mail is cleared; an omitted one is kept (rule 11)
+- **Given** an inactive account the coach created with an e-mail and a phone
+- **When** the student activates with the right token, a name, a username, a password, `"email": ""` and `"phone": ""`
+- **Then** the account is `active` and both are NULL
+- **When** instead the body mentions neither
+- **Then** both are still what the coach entered
+
+#### AUTH-ACTIVATE-11: A blank name, username or password is refused (rule 11)
+- **Given** the same inactive account
+- **When** the body carries `"name": "   "` and `"password": ""`
+- **Then** the answer is 400 with `fields` `["name", "password"]`, the account is still `inactive`, and its phone is untouched
+- **When** the body carries no `password` at all
+- **Then** the answer is 400 with `fields` `["password"]`
+- **When** the body carries no `username` and the account still holds its `pending-…` placeholder
+- **Then** the answer is 400 with `fields` `["username"]` — a user who already chose a username may omit it
+
+#### AUTH-ACTIVATE-12: A taken username is refused (rules 9, 11)
+- **Given** another account holds the username `taken-one`
+- **When** the student activates with `"username": "taken-one"`
+- **Then** the answer is 409 "Username already taken" and the account is still `inactive`
+
+#### AUTH-ACTIVATE-13: An email another account holds is refused, in any case (rule 11a, PAD-761)
+- **Given** an active account holds `taken@example.com` and coach-created user 5 is `inactive`
+- **When** the student activates user 5 with `"email": "Taken@Example.COM"`
+- **Then** the answer is 409 with `field` `email` and `code` `EMAIL_TAKEN`, user 5 is still
+  `inactive` with no password and its old email, and the web and iOS screens show
+  `auth.register.emailHasAccount` under the email field
+
+#### AUTH-ACTIVATE-14: Activation refuses someone under 18 and leaves the account inactive (PAD-457)
+- **Given** coach-created user 5 `inactive`, with its secret, and today 2026-09-25 (UTC)
+- **When** POST `/api/app/activate/user/5` with the token, a password, username `bruno` and `birthDate` `2008-09-26`
+- **Then** the response is 400 with `field: "birthDate"`, `code: "UNDERAGE"`, and user 5 is still `inactive` with no password set
+
+#### AUTH-ACTIVATE-15: Activation of someone who turns 18 today stores the date (PAD-457)
+- **Given** the same user and day
+- **When** POST with `birthDate` `2008-09-25`
+- **Then** the account is `active` and `users.birth_date` is 2008-09-25
+
+#### AUTH-ACTIVATE-16: An activation without a birth date is refused (PAD-457)
+- **Given** the same user
+- **When** POST without `birthDate` (an older app)
+- **Then** 400 `BIRTH_DATE_REQUIRED` with the "update the app" text; nothing is written
+
+#### AUTH-ACTIVATE-17: Activation stores the country (rule 13a, PAD-604)
+- **Given** an inactive coach-created player and a client declaring `country-on-completion`
+- **When** they activate with a valid adult `birthDate` and `country: "es"`
+- **Then** the account is active and `users.country` is `ES`
+- **And** the same request with no `country` is 400 `COUNTRY_REQUIRED` and the account stays inactive
+- **And** `country: "Spain"` is 400 `INVALID_COUNTRY`
+- **And** with no capability declared and no `country`, activation succeeds and `users.country` stays null
+
+#### AUTH-ACTIVATE-18: Both activation screens ask for the birth date (PAD-457)
+- **Given** the activation link opened on web and on iOS
+- **When** the player fills the form with a birth date 17 years and 364 days ago and submits
+- **Then** no request is sent and the birth-date field shows the under-18 message; with an adult date the account is activated
+
+#### AUTH-ACTIVATE-19: The link the iOS app shares is the web's register link, with the secret as `t` (rule 2)
+- **Given** the web origin and an inactive player's id and activation secret
+- **When** the iOS app builds the link to share
+- **Then** it is `<origin>/register/<id>?t=<secret>`, the secret percent-encoded, with exactly one slash between origin and path
+- **And** with no secret the link has no query; with no id it is the placeholder `/register/player`, which never carries a secret
+test: `frontend/apps/mobile/src/lib/web-links.test.ts` › `joins a base origin and a relative API path` (+10 more)
+
 ### Notes
 - Why a derived token rather than a column: the fix had to ship without a migration in the
   2026-09-09 overnight wave (three sibling Alembic heads already open), and a stateless HMAC gives
@@ -194,59 +257,19 @@ the account's numeric id alone opens nothing (B-034, PAD-254).
   details again. The public user shape still governs the users list and the messageable picker
   (`messaging.conversations` rule 15). Decided in the 2026-09-10 batch merge.
 
-#### An emptied pre-filled phone or e-mail is cleared; an omitted one is kept (rule 11)
-- **Given** an inactive account the coach created with an e-mail and a phone
-- **When** the student activates with the right token, a name, a username, a password, `"email": ""` and `"phone": ""`
-- **Then** the account is `active` and both are NULL
-- **When** instead the body mentions neither
-- **Then** both are still what the coach entered
+### Open questions
 
-#### A blank name, username or password is refused (rule 11)
-- **Given** the same inactive account
-- **When** the body carries `"name": "   "` and `"password": ""`
-- **Then** the answer is 400 with `fields` `["name", "password"]`, the account is still `inactive`, and its phone is untouched
-- **When** the body carries no `password` at all
-- **Then** the answer is 400 with `fields` `["password"]`
-- **When** the body carries no `username` and the account still holds its `pending-…` placeholder
-- **Then** the answer is 400 with `fields` `["username"]` — a user who already chose a username may omit it
-
-#### A taken username is refused (rules 9, 11)
-- **Given** another account holds the username `taken-one`
-- **When** the student activates with `"username": "taken-one"`
-- **Then** the answer is 409 "Username already taken" and the account is still `inactive`
-
-#### An email another account holds is refused, in any case (rule 11a, PAD-761)
-- **Given** an active account holds `taken@example.com` and coach-created user 5 is `inactive`
-- **When** the student activates user 5 with `"email": "Taken@Example.COM"`
-- **Then** the answer is 409 with `field` `email` and `code` `EMAIL_TAKEN`, user 5 is still
-  `inactive` with no password and its old email, and the web and iOS screens show
-  `auth.register.emailHasAccount` under the email field
-
-#### Activation refuses someone under 18 and leaves the account inactive (PAD-457)
-- **Given** coach-created user 5 `inactive`, with its secret, and today 2026-09-25 (UTC)
-- **When** POST `/api/app/activate/user/5` with the token, a password, username `bruno` and `birthDate` `2008-09-26`
-- **Then** the response is 400 with `field: "birthDate"`, `code: "UNDERAGE"`, and user 5 is still `inactive` with no password set
-
-#### Activation of someone who turns 18 today stores the date (PAD-457)
-- **Given** the same user and day
-- **When** POST with `birthDate` `2008-09-25`
-- **Then** the account is `active` and `users.birth_date` is 2008-09-25
-
-#### An activation without a birth date is refused (PAD-457)
-- **Given** the same user
-- **When** POST without `birthDate` (an older app)
-- **Then** 400 `BIRTH_DATE_REQUIRED` with the "update the app" text; nothing is written
-
-#### Activation stores the country (rule 13a, PAD-604)
-- **Given** an inactive coach-created player and a client declaring `country-on-completion`
-- **When** they activate with a valid adult `birthDate` and `country: "es"`
-- **Then** the account is active and `users.country` is `ES`
-- **And** the same request with no `country` is 400 `COUNTRY_REQUIRED` and the account stays inactive
-- **And** `country: "Spain"` is 400 `INVALID_COUNTRY`
-- **And** with no capability declared and no `country`, activation succeeds and `users.country` stays null
-
-#### Both activation screens ask for the birth date (PAD-457)
-- **Given** the activation link opened on web and on iOS
-- **When** the player fills the form with a birth date 17 years and 364 days ago and submits
-- **Then** no request is sent and the birth-date field shows the under-18 message; with an adult date the account is activated
-
+- **Rules 7 and 11 are narrower than the rules written after them.**
+  - Rule 7: "Activation writes exactly five fields: `name`, `username`, `email`, `phone`,
+    `password` … plus `birth_date` from rule 13". Rule 11: "The username is stored as checked:
+    trimmed."
+  - Later rules: rule 13a stores `country`, rule 13b records the Terms, and `auth.register` rule
+    2a says activation "trims and lowercases" the username.
+  - Code today: `services/user_service.py` lower-cases the trimmed username, writes the country
+    when sent and records the Terms acceptance. Nothing else in the body is written
+    (AUTH-ACTIVATE-4).
+  - Recommendation: amend the two sentences; no behaviour is in question.
+  - Proposed rule 7 opening: "Activation writes the five fields `name`, `username`, `email`,
+    `phone`, `password`, sets `status = active`, and writes what rules 13, 13a and 13b add (birth
+    date, country, the Terms)." Proposed rule 11 sentence: "The username is stored as checked:
+    trimmed and lower-cased (`auth.register` rule 2a)."

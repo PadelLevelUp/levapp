@@ -190,6 +190,10 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
     results, the search empties so the next name can be typed at once; on web the cursor stays in
     the field. Unticking a student leaves the search as it was. The same picker serves the class
     editor (`classes.edit` rule 9), so both get it, on both shells.
+11. **An overlap is a warning, never a refusal (PAD-99, PAD-159).** Before a class is saved, on
+    create and on edit, web and iOS, the form warns when the coach already has an event that day
+    whose time intersects the class's. Back-to-back is not an overlap, and the class being edited
+    does not clash with itself. The coach may save anyway (`calendar.slot-click`).
 
 ### Acceptance Criteria
 
@@ -307,3 +311,72 @@ Coaches create classes (lessons) that can be one-off or recurring. Classes are t
 - **Given** a coach whose calendar holds classes of 90, 90 and 60 minutes
 - **When** they open the new-class sheet and set the start to "18:00"
 - **Then** the end reads "19:30"; a coach with no classes gets "19:00"
+
+#### CLASSES-CREATE-20: The class form warns of an event on the same day whose time intersects the class's (rule 11)
+- **Given** a class being set for 10:00 to 11:00 on a day with other events
+- **When** the form looks for an overlap
+- **Then** an event from 10:30 to 11:30 that day is found, and the first one when several intersect
+- **And** an event that ends at 10:00 or starts at 11:00, an event on another day, the event being edited, and an event with no times are not
+- **And** a class with no date, no start, or an end at or before its start finds nothing
+test: `frontend/packages/config/src/calendar-overlap.test.ts` › `finds an event whose interval intersects the candidate` (+9 more)
+
+#### CLASSES-CREATE-21: On iOS the create save asks in order and is never blocked by a check that fails (rule 10)
+- **Given** a coach saving a new class with chosen students
+- **When** the class overlaps another event
+- **Then** the overlap warning comes first, and the unavailable-students lookup runs only after the coach goes on
+- **And** a student found unavailable is asked about once: after the coach confirms, the next save goes straight through
+- **And** a lookup that fails saves the class anyway
+- **And** with no students, or no complete slot, no lookup runs; create runs no eligibility check and no capacity check
+test: `frontend/apps/mobile/src/features/calendar/class-save-flow.test.ts` › `the overlap warning comes first; the unavailable lookup runs only after it is confirmed` (+5 more)
+
+#### CLASSES-CREATE-22: The iOS student picker filters by level, searches across levels, counts and never caps (rule 10)
+- **Given** the picker with the coach's students
+- **When** a level is chosen and nothing is searched
+- **Then** only that level's students are listed; a search lists matches of every level
+- **And** ticking a student adds them and ticking again removes them, whether ids arrive as numbers or text
+- **And** five students can be chosen for any capacity, and the chosen tab shows the count
+- **And** while the roster loads the chosen tab says loading, and "no participants" only once it has loaded
+test: `frontend/apps/mobile/src/features/calendar/player-selector-logic.test.ts` › `filters by level when not searching` (+8 more)
+
+#### CLASSES-CREATE-23: The form sends the chosen end: a date, the last class of a count, or the season (rule 9)
+- **Given** a weekly class being created
+- **When** the end is a date
+- **Then** that date is sent, and a missing one is an error on the date
+- **When** the end is a count
+- **Then** a count from 1 to 52 with a weekday chosen is accepted; any other count, or no weekday, is an error on the count
+- **When** the end is the season
+- **Then** no date is sent and `recursUntilSeasonEnd` is true
+- **And** on iOS the three choices are one control with one selected, showing only that choice's input
+test: `frontend/apps/mobile/src/features/calendar/recurrence-end-choice.test.tsx` › `offers the three ways a series ends, the chosen one selected` (+6 more)
+
+#### CLASSES-CREATE-24: The shared form check needs a date, and for a weekly class its weekdays and an end (rules 2, 3, 9)
+- **Given** the class form's shared schema, as iOS uses it
+- **Then** a one-off class with a date passes, and an empty date fails on the date
+- **And** a weekly class with no weekday, or with a weekday outside 0 to 6, fails on the weekdays
+- **And** a weekly class with no end date fails on the end date, which the form waives when the season ends the series
+test: `frontend/packages/validation/src/index.test.ts` › `parses a one-off class with only a date` (+4 more)
+
+#### CLASSES-CREATE-25: A typed time is read as HH:MM, at once when it is complete (rules 8b, 8c; web and iOS)
+- **Given** the time field on web
+- **When** the coach types "09:30" or "7:00"
+- **Then** the value is 09:30 or 07:00 at once; "07:0" changes nothing yet, and "930" becomes 09:30 on Enter
+- **And** on iOS "9", "930", "9:30", "9h30", "21.15" and "2359" read as 09:00, 09:30, 09:30, 09:30, 21:15 and 23:59, and "", "abc", "25", "2460" and "9:7" are refused
+test: `frontend/apps/web/src/components/ui/time-select.test.tsx` › `a fully typed %s reaches onChange at once as %s, so a Save watching for a change enables` (+4 more)
+
+### Open questions
+
+- **Rule 8b says a typed time is read "on Enter or on leaving the field"; a complete time is read at once.**
+  - Spec: rule 8b, "written as spoken — "930", "9:30", "9h30", "21.15" — and read as `HH:MM` on
+    Enter or on leaving the field".
+  - Test: `time-select.test.tsx` › "a fully typed %s reaches onChange at once as %s, so a Save
+    watching for a change enables" ("09:30" and "7:00"), beside "a shorthand does not commit
+    until Enter or leaving the field".
+  - Code today: the web field commits a complete `HH:MM` or `H:MM` as it is typed, so a Save
+    that waits for a change enables; shorthand still waits for Enter or blur.
+    CLASSES-CREATE-25 states both.
+  - Recommendation: amend the rule to the code.
+  - Proposed text: "…read as `HH:MM`: a complete `HH:MM` or `H:MM` at once, shorthand on Enter
+    or on leaving the field".
+- **Two rules are numbered 8c.** The time field of PAD-559 and the midnight end of PAD-553 (which
+  says "number unconfirmed") share the number, and criteria cite "rule 8c" for both.
+  Recommendation: renumber the midnight rule 8d and update CLASSES-CREATE-14's title.

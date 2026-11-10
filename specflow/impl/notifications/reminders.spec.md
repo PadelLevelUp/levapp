@@ -360,3 +360,82 @@ Automatically send class reminders to enrolled players at a configured time befo
 - **When** the app factory runs
 - **Then** APScheduler is not started and no reminder job is rescheduled
 - **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it
+
+#### NOTIFICATIONS-REMINDERS-29: No timing arms no reminder, and a follow-up is never armed at or after the class's start (rule 15)
+- **Given** a coach whose reminder timing is missing, has no type, or has a type the engine does not know
+- **When** a class's reminder time is computed
+- **Then** there is none, and no job is armed
+- **And** after a pass that leaves students unanswered, the follow-up is armed only when it would fall before the class starts on the club's clock
+test: `backend/padel_app/tests/test_pad256_reminder_clock.py` › `test_fire_time_is_none_without_a_timing` (+5 more)
+
+#### NOTIFICATIONS-REMINDERS-30: A student is reminded up to the coach's count, a set time apart, until they answer (rules 12, 18, 19)
+- **Given** a coach who sends up to three reminders two hours apart, and a student who never answers
+- **When** the passes run two hours apart
+- **Then** the student gets reminders numbered 1, 2 and 3, each pass saying whether more are due, and a fourth pass sends nothing
+- **And** a student who answers yes or no gets no further reminder for that class
+test: `backend/padel_app/tests/test_notification_reminder_flow.py` › `test_sends_up_to_reminder_count_then_stops` (+4 more)
+
+#### NOTIFICATIONS-REMINDERS-31: Only a student enrolled in the class can answer its reminder (rule 17)
+- **Given** a class with Rui enrolled, and Zed who is not
+- **When** Zed answers the class's reminder with no
+- **Then** the answer is 403, the class's presences are unchanged and no spot opens
+- **And** Rui's own answer is accepted
+test: `backend/padel_app/tests/test_pad258_write_ownership.py` › `test_unenrolled_student_cannot_answer_a_reminder` (+1 more)
+
+#### NOTIFICATIONS-REMINDERS-32: A scheduled pass respects the spacing between reminders; the coach's own send does not (rule 21)
+- **Given** a class whose students were reminded a moment ago by a scheduled pass
+- **When** a second scheduled pass runs at once
+- **Then** it sends nothing and arms no follow-up; once the coach's spacing has passed, the next scheduled pass sends the second reminder
+- **And** the coach's manual send sends the next reminder at once
+test: `backend/padel_app/tests/test_pad407_reminder_double_send.py` › `test_a_scheduled_pass_right_after_another_sends_nothing` (+2 more)
+
+#### NOTIFICATIONS-REMINDERS-33: The reminder bubble shows what the student can still do, judged on the club's clock (rules 9, 10, 12; iOS)
+- **Given** a reminder for a class that has not started, unanswered
+- **Then** the bubble offers Yes and No; a reminder with no start time on it is answerable too
+- **And** answered yes it shows confirmed and offers cancel until the class starts, flagging a cancellation after the coach's deadline as late; answered no it shows absent with no buttons
+- **And** whether the class has started, and whether the deadline has passed, is read on the club's clock whatever the device's own
+- **And** the student's tap shows at once; the answer stored is the one the server returned: confirmed stores yes, declined stores no, an expired or unknown answer stores nothing and says so
+- **And** a stored answer the app does not know reads as absent, never as confirmed
+test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `offers Yes/No on a fresh reminder for a future class` (+17 more)
+
+### Open questions
+
+- **Rule 11 and NOTIFICATIONS-REMINDERS-20 create a Presence for a student with none; the code answers `not_enrolled` and creates nothing.**
+  - Spec: rule 11, "If no Presence row exists for the (player, instance) when they respond, one is
+    created". NOTIFICATIONS-REMINDERS-20: "Then a Presence row is created recording the response".
+  - Other spec: `classes.instance-enrollment` rule 7 and CLASSES-INSTANCE-ENROLLMENT-13 (PAD-259,
+    owner's framing of 2026-09-11): an answer from a player with no row on that date creates
+    nothing.
+  - Code today: `respond_to_reminder` records `not_enrolled` on the reminder's attempt and
+    answers `{"action": "not_enrolled"}`; no Presence, no spot, no follow-up.
+    `test_notification_reminder_flow.py` ›
+    `test_decline_after_removal_is_recorded_without_reenrolling` proves it.
+  - Recommendation: the later rule holds; amend rule 11 and criterion 20. The answer is still
+    recorded, on the attempt, which is what PAD-69 wanted.
+  - Proposed rule 11: "A player's answer is always durably recorded (PAD-69). When the player
+    has no Presence on that date (the coach took them off after the reminder went out), the answer
+    is recorded on the reminder attempt as `not_enrolled` and nothing else is written
+    (`classes.instance-enrollment` rule 7)." Proposed Then for criterion 20: "the answer is
+    `not_enrolled`, recorded on the reminder's attempt; no Presence row is created and no spot opens".
+- **Rule 12 says a changed answer "is never suppressed"; a yes after a no goes through only while there is a spot.**
+  - Rule 12, third bullet: "Changing the answer (`yes` → `no`, or `no` → `yes`) is never suppressed."
+  - Other spec: `attendance.confirm` rule 28 (PAD-684, owner decision, superseding PAD-570's "Não
+    vou is final"): a student who said no "may come back while there is a spot; otherwise they may
+    join that occurrence's waiting list"; its rule 27: a yes is possible only once the student was
+    asked.
+  - Promises: P-NOTIFICATIONS-7 says "Changing the answer (no, then yes) always goes through";
+    P-ATTENDANCE-2 says ""No" is final for the player". Each contradicts the other and both miss
+    rule 28.
+  - Code today: a yes after a no re-reads the class under a lock; with a free spot the student is
+    seated again, with none the answer is `spot_filled` and nothing is recorded; a coach's mark or
+    a class not yet asked about refuses it too. A no after a yes always goes through.
+    `test_pad570_vou_after_reminder.py` ›
+    `test_nao_vou_is_not_final_a_later_yes_with_a_spot_comes_back` proves the free-spot case.
+  - Recommendation: `attendance.confirm` rule 28 is the latest owner decision and the code follows
+    it; amend this bullet and both promises to it.
+  - Proposed bullet: "Changing yes to no always goes through. Changing no to yes goes through
+    while the class has a spot (`attendance.confirm` rules 27 and 28); otherwise it answers
+    `spot_filled` and records nothing." Proposed for P-NOTIFICATIONS-7: "Changing a yes to a no
+    always goes through; changing a no to a yes goes through while there is still a spot."
+    Proposed for P-ATTENDANCE-2: "A player who said no can come back while there is a spot;
+    after that they may join that class's waiting list."

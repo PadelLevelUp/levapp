@@ -102,6 +102,21 @@ coach previewed it.
 - **When** Ana later switches Técnica off and rates Rui again
 - **Then** Rui's card still shows Técnica 4 and +1.0
 
+#### EVALUATIONS-STUDENT-VIEW-6: The dashboard block shows the newest three cards and links to the full list (rule 4; web and iOS)
+- **Given** a student with four shared evaluations, on a client that declares `evaluations`
+- **When** they read their dashboard
+- **Then** the `evaluations` block carries the three most recently shared, newest first
+- **And** the block renders one card per entry it is given and never more than three, on web and on iOS, and its "see all" goes to `/evaluations`
+test: `backend/padel_app/tests/test_pad402_student_view_api.py` › `test_the_dashboard_block_caps_at_three_newest_first` (+5 more)
+
+#### EVALUATIONS-STUDENT-VIEW-7: The card shows what its snapshot carries, and nothing for what it lacks (rule 6)
+- **Given** a shared card with a coach, a class, two ratings, a note, a shared-on time and an evolution line per competency
+- **When** the card renders
+- **Then** it shows the coach's name, the class, each rating as sent (4/5, 3/5), the note and the shared-on line
+- **And** each evolution line shows its signed change: a rise with the plus sign and the positive colour, a fall with the minus, no change with "="
+- **And** a card with no class, note, shared-on time or evolution shows no element for them
+test: `frontend/apps/web/src/components/evaluations/EvaluationCard.test.tsx` › `renders the card exactly as sent: coach, date, class, every rating` (+3 more)
+
 ### Notes
 - Test trap: Playwright's raw `request` helpers send only the auth header, so a raw read of the
   dashboard gets the undeclared shape (no block). A spec asserting the block drives the browser

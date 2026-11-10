@@ -9,8 +9,8 @@ status: implemented
 
 A coach shapes the invitation engine for their academy from one settings surface: when it starts inviting, how many it contacts at once, quiet hours and daily limits, who it asks first, and what invitations and reminders say. They switch it on or off, off for one class, and read back what it sent.
 
-- The configuration is one per coach, created the first time they touch it.
-- The engine is off, fully automatic or semi-automatic; switching modes changes no other setting.
+- The configuration is one per coach. A new coach starts with the engine on and LevApp's reference settings (PAD-815); a coach from before that gets theirs, engine off, the first time they touch it.
+- The engine is off, fully automatic or semi-automatic; switching modes changes no other setting, except that semi-automatic switches off automatic acceptance of join requests and tells the coach (PAD-672).
 - Quiet hours (22:00–07:00 by default, may cross midnight) and the daily per-student cap use the coach's club-local clock. An invitation inside quiet hours is held and goes out when they end.
 - Changing timing reschedules every future engine job at once.
 - Reminder and invitation-start timing can be set from the phone and the web with the same choices and effects, and either asks before reminders now past due go out (PAD-776).

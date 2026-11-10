@@ -162,6 +162,32 @@ shipped evaluation form (`AddEvaluationSheet` on web, `add-evaluation-form` on i
 - **Then** Ana can add and delete a strength for João on web and on iOS, and all three notes are
   still shown on both
 
+#### EVALUATIONS-HISTORY-8: A competency's latest rating is the newest one inside a record, a tie going to the newer row (rule 1)
+- **Given** two ratings of the same competency in two records, written at the same instant, and a later rating that belongs to no record
+- **When** the latest rating per competency is read
+- **Then** it is the one with the greater id of the two; the rating outside any record is not counted
+test: `backend/padel_app/tests/test_pad364_records_api.py` › `test_latest_is_the_greatest_evaluated_at_then_id`
+
+#### EVALUATIONS-HISTORY-9: "Nova avaliação" waits for its data, says when there is nothing to rate, and nothing above it moves while it is open (rules 4, 5, 11)
+- **Given** the history drawer while the competencies or the history are still loading
+- **Then** "Nova avaliação" is disabled, and pressing it opens nothing
+- **Given** a coach whose only competency is switched off
+- **When** the form opens
+- **Then** it shows the empty state with a way into the competency manager, not a note-only form
+- **Given** the form open on an empty history, and the first rating saved
+- **Then** the new card appears below, and the evolution section keeps its empty state until the form is closed
+test: `frontend/apps/web/src/components/evaluations/EvaluationForm.test.tsx` › `with nothing to list it is an empty state with a way into the competency manager — never a note-only form` (+3 more)
+
+#### EVALUATIONS-HISTORY-10: The drawer lists one card per record, offers edit only today, and asks before deleting (rules 6, 7, 8)
+- **Given** a player with a class record, a class-less record of today and a record of an earlier day
+- **When** the coach opens the history drawer
+- **Then** the cards come newest first; the class record shows its class name and its note, the class-less one no class
+- **And** edit is offered on today's card only; delete and share on every card
+- **When** the coach presses delete on the earlier record
+- **Then** a confirmation names its date, and the record is deleted only after they confirm
+- **And** a player with no record sees the empty line, the empty evolution state and "Nova avaliação"
+test: `frontend/apps/web/src/components/evaluations/PlayerEvaluationsDrawer.test.tsx` › `is one card per record, newest first, the class one carrying its class name` (+3 more)
+
 ### Runs cited for `implemented` (PAD-374, #358)
 - Web, Playwright, `~/levapp-wt-j4`, `--workers=1`, isolated DB and ports: the five files (`evaluation-tools/` ×4 +
   `player-management/add-player`) **10 passed** at the tree of `be628e897`, 2026-09-21 21:14:27–21:15:25 UTC.

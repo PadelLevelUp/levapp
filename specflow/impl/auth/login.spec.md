@@ -92,6 +92,9 @@ Allow users to authenticate with username/email and password, receiving a JWT to
     não" — and closing it any other way (Esc, a click outside, the close button, Android back) —
     hides it on that device for 30 days. It is never shown once a country is stored. App Store
     builds that predate it simply never show it; the server needs no capability.
+14. **The sign-in form checks lengths before it sends.** The shared sign-in schema refuses a
+    username under 3 characters and a password under 6. Sign-up asks for more (`auth.register`
+    rule 4); this is only the sign-in form's own check.
 
 ### Acceptance Criteria
 
@@ -199,6 +202,46 @@ Allow users to authenticate with username/email and password, receiving a JWT to
 - **When** they sign in through `POST /api/auth/login` (and an admin through `POST /admin/api/auth/google`)
 - **Then** no response carries a `Set-Cookie` header named `session`
 
+#### AUTH-LOGIN-19: The throttle counts by the address the proxy reports, never by a header the caller sets (rule 7, PAD-554)
+- **Given** a limit of one login a minute
+- **When** two logins arrive with the same `X-Real-IP` and different `X-Forwarded-For` values
+- **Then** the second answers 429
+- **And** another `X-Real-IP` has its own budget
+- **And** with no `X-Real-IP` the connection's own address is the key, whatever `X-Forwarded-For` says
+test: `backend/padel_app/tests/test_auth_rate_limit.py` › `test_a_spoofed_forwarded_for_does_not_change_the_key` (+3 more)
+
+#### AUTH-LOGIN-20: The limiter's store prunes itself, and when it cannot be used the request is served (rule 7)
+- **Given** the database store on Postgres
+- **When** it prunes
+- **Then** hits older than an hour are removed and newer ones stay
+- **And** when the store raises, the login is answered on its merits and a warning says the store is unavailable
+- **And** on a database that is not Postgres the store is memory, with one warning; memory is also the default
+test: `backend/padel_app/tests/test_pad693_rate_limit_store.py` › `test_database_store_prunes_hits_older_than_the_longest_window` (+3 more)
+
+#### AUTH-LOGIN-21: The country prompt asks only a signed-in user, survives broken storage, and stays when the save fails (rule 13; web and iOS)
+- **Given** nobody signed in
+- **Then** the prompt is not shown
+- **Given** a signed-in user with no country, and a stored dismissal that is unreadable, empty or in the future
+- **Then** the prompt counts as not dismissed
+- **And** when storage throws or is missing, the prompt still works and a dismissal lasts for the page
+- **When** saving the chosen country fails
+- **Then** the prompt shows an error and stays, on web and on iOS
+test: `frontend/packages/config/src/country-prompt.test.ts` › `a malformed, empty or future value counts as not dismissed` (+5 more)
+
+#### AUTH-LOGIN-22: The sign-in form refuses a username under 3 characters or a password under 6 before sending (rule 14)
+- **Given** the sign-in form
+- **When** the username has two characters, or the password five
+- **Then** the form shows that field's error and sends nothing
+- **And** a username of three characters with a password of six is sent
+test: `frontend/packages/validation/src/index.test.ts` › `parses valid credentials` (+4 more)
+
 ### Notes
 - Rate limiting: rule 7 (PAD-228, closes B-001).
 - OPEN: No account lockout after failed attempts
+
+### Open questions
+
+- **Two rules are numbered 13.** "No route accepts an empty password (PAD-645)" and "The country,
+  asked once after sign-in (PAD-630)" share the number; AUTH-LOGIN-10 and AUTH-LOGIN-15 both cite
+  "rule 13". Recommendation: renumber the country rule 14 and update AUTH-LOGIN-15's and
+  AUTH-LOGIN-21's titles.

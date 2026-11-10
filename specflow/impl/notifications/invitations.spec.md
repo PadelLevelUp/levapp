@@ -803,6 +803,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    approval (`semi-auto-approval`) refuse the same way. Nothing here changed in PAD-798: the rule
    states, beside `notifications.manual` rule 10 (manual sends refused with 409 `CLASS_STARTED`),
    what the owner decided for every path, and its criteria pin it.
+21. **One failure does not stop the tick (PAD-526, PAD-558).** `process_invitation_batches` handles each open spot on its own: a spot whose start or batch raises is rolled back, logged and skipped for that tick, and the scan for never-filled places has a guard of its own. The tick's other spots are processed as usual.
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-INVITATIONS-1: An empty round logs its stage counts (rule 3d)
@@ -1489,3 +1490,93 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
   invite nobody
 - **And** for a vacancy whose first batch went out at 19:29, the tick at 19:45 sends no further
   invitation, expires the vacancy, and expires the invitation still out
+
+#### NOTIFICATIONS-INVITATIONS-108: The invitation window and the minimum time before class are counted on the club's clock (rule 11, PAD-256)
+- **Given** a class at 14:00 Lisbon with the invitation start `24` hours before, in summer and in winter
+- **When** the window's opening is computed
+- **Then** it is 13:00 UTC the day before in summer and 14:00 UTC the day before in winter; "the day before at 18:00" for a 23:30 class is 18:00 Lisbon the day before in both
+- **And** with `minTimeBeforeClass` on at `60`, a send `30` real minutes before the class is held and one `90` minutes before is allowed, in summer and in winter; with the limit off, how close the class is does not matter
+test: `backend/padel_app/tests/test_pad256_invite_window.py` › `test_invitation_window_opens_on_the_club_clock` (+4 more)
+
+#### NOTIFICATIONS-INVITATIONS-109: Only a superadmin runs the rounds by hand (rule 5, PAD-258)
+- **Given** a coach and a superadmin, both signed in
+- **When** each calls `POST /api/app/notify/process_rounds`
+- **Then** the coach gets 403 and the superadmin 200
+test: `backend/padel_app/tests/test_pad258_write_ownership.py` › `test_process_rounds_is_superadmin_only`
+
+#### NOTIFICATIONS-INVITATIONS-110: One failure does not stop the tick (rule 21)
+- **Given** a class with two open spots, the first of which raises when it is started
+- **When** the tick runs
+- **Then** no error escapes and the second spot is started
+- **And** a scan for never-filled places that raises does not stop an existing open spot from getting its first batch
+test: `backend/padel_app/tests/test_pad495_answers_and_sends.py` › `test_r6_one_vacancy_failing_does_not_skip_the_rest_of_the_tick` (+1 more)
+
+#### NOTIFICATIONS-INVITATIONS-111: A fill is one commit, and its edits are published only after it (rules 10, 15)
+- **Given** an open spot with live invitations, and an enrolment that fails
+- **When** a student says yes, the coach records a yes, a waiting-list student says yes, or a join request is accepted
+- **Then** nothing is changed: the invitation is still live and unanswered, the spot open, nobody enrolled, the others' invitations live, the waiting-list entry active and the request pending; the same answer given again succeeds
+- **And** when a fill succeeds, the edit of each retired invitation's message is published only after the commit that made it real, on every path that closes a spot: a student's or a coach's yes, a waiting-list yes, a join accept, a reconcile, the coach putting a student back
+- **And** after a rollback, or a commit that fails, nothing is published
+test: `backend/padel_app/tests/test_pad499_accept_lock_ends_early.py` › `test_cell_b_an_enrolment_that_raises_after_the_close_leaves_no_confirmed_but_absent_winner` (+13 more)
+
+#### NOTIFICATIONS-INVITATIONS-112: Withdrawing an invitation that is not live changes nothing (rule 19)
+- **Given** two students invited to a class
+- **When** a coach with no tie to the class withdraws one of the invitations
+- **Then** the answer is 403
+- **When** the class's coach withdraws the same invitation twice
+- **Then** both answers are `withdrawn` and the second changes nothing
+- **When** they withdraw an invitation the student has already accepted
+- **Then** the answer is `confirmed` and the student stays enrolled
+- **And** after the class is over the answer is `expired`, and no withdrawal is recorded
+test: `backend/padel_app/tests/test_pad548_coach_withdraws_invitation.py` › `test_a_withdrawal_that_is_not_live_writes_nothing` (+1 more)
+
+#### NOTIFICATIONS-INVITATIONS-113: A coach's edit brings the class's spots in line at once (rule 13a)
+- **Given** a class inside its invitation window with one open spot and two live invitations
+- **When** the coach lowers the capacity so that no place is free
+- **Then** the spot is closed and its invitations are retired in the same request, without a tick
+- **When** an edit frees a place, by a higher capacity or by taking a student off
+- **Then** the place opens and invites at once; in semi-automatic mode it asks the coach and sends nothing; a "this and following" edit opens the place on every occurrence it reaches
+- **And** before the window opens the edit creates nothing
+- **And** an edit that frees no place, or that switches automatic invitations or notifications off in the same save, sends nothing
+- **And** a capacity drop racing a student's yes finishes without a deadlock and leaves no live invitation for a place that is gone (Postgres)
+test: `backend/padel_app/tests/test_pad552_capacity_edit_follows_vacancies.py` › `test_a_lower_capacity_retires_the_offers_at_once` (+9 more)
+
+#### NOTIFICATIONS-INVITATIONS-114: A live invitation moves to a sibling spot when its own closes (rule 18a, PAD-679)
+- **Given** a class with two open spots, three students asked for the first, and the second waiting only on those offers
+- **When** one of them says yes, or the coach records it
+- **Then** the other two invitations stay live, now on the second spot: the same bubble, not answered, with no new message and no new invitation
+- **And** each records the spot it came from and when, and the coach's class payload carries `movedAt` for them
+- **And** the second spot keeps the first's clock: its inactivity time counts from when the students were asked, the moved invitations are its current batch, and the next ticks send nothing more
+- **And** a moved student's later yes takes the second spot
+- **And** an invitation ends as before, and does not move, when the student does not fit the other spot's side, when that spot has a live invitation of its own, awaits approval or has its window still ahead, or beyond `maxSimultaneous` moved into one spot
+- **And** a waiting-list invitation moves only to a spot of the same side, or to any spot when its own had no side
+- **And** with several open spots the one with the lowest id takes them
+- **And** an invitation withdrawn for balance moves the same way when another spot now asks that side
+test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py` › `test_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second` (+14 more)
+
+### Open questions
+
+- **Rule 1c says the catch-up is armed "unless the job is already armed"; a job armed by an earlier timing is replaced.**
+  - Rule 1c: "now arms `invite_start_lesson_<lesson>_<date>` for the **catch-up**: two minutes
+    after the derivation (`INVITE_START_CATCH_UP`), not at the past time, unless the job is already
+    armed."
+  - Code today: `_invite_start_fire_time` in `scheduler.py` keeps only a catch-up still pending
+    from an earlier derivation. A job armed for any other time came from an earlier timing and is
+    replaced by a fresh catch-up; so is a catch-up that never fired.
+    `test_pad661_semi_auto_never_filled_suggestions.py` ›
+    `test_a_job_from_an_earlier_timing_is_replaced_by_the_catch_up` proves it.
+  - Recommendation: the code is right (a coach who moves the start earlier must not wait for the
+    old far-off job); amend the sentence's last clause.
+  - Proposed clause: "unless a catch-up from an earlier derivation is still pending, which stays
+    where it is; a job armed for any other time came from an earlier timing and is replaced."
+- **Rule 6 names a route that does not exist, and two rules cite "rule 9's stale sweep".**
+  - Rule 6: "Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no".
+    Rule 1b already writes `/notify/respond`.
+  - Rules 5 and 15: "the class starts (rule 9's stale sweep)". Rule 9 is the coach's recorded
+    answer; the engine stopping at the class's start, and the tick expiring what is still out, is
+    rule 20.
+  - Code today: the route is `POST /api/app/notify/respond` with
+    `{notificationEventId, action: "yes" | "no"}` (`notification_engine_api.py`).
+  - Recommendation: both are stale text; amend them.
+  - Proposed rule 6: "Player responds: `POST /api/app/notify/respond` with `{notificationEventId,
+    action: "yes" | "no"}`". Proposed reference in rules 5 and 15: "(rule 20)".

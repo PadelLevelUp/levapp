@@ -98,6 +98,55 @@ of destructive deletes (`deletion_audit`). Until now both tables were written an
 - **And** with `ADMIN_NOTIFY_EMAIL` unset, or the mailer failing, the report is stored and no error
   reaches the reporter
 
+#### ADMIN-MODERATION-6: The open reports count is answered and shown in the navigation (rule 5)
+- **Given** one open report
+- **When** support GETs `/admin/api/reports/summary`
+- **Then** the answer is `{"open": 1}`
+- **And** the console's navigation shows the count beside the reports entry when it is above zero, and no badge at zero
+test: `backend/padel_app/tests/test_pad631_moderation.py` › `test_the_summary_counts_open_reports` (+2 more)
+
+#### ADMIN-MODERATION-7: The detail names every sender, and an unknown report is not found (rule 3)
+- **Given** a reported message in a thread between a coach and a student, and the coach has since left the conversation
+- **When** support GETs the report
+- **Then** every message in `context` carries its sender's name, the coach's included
+- **And** a report id that does not exist answers 404
+test: `backend/padel_app/tests/test_pad631_moderation.py` › `test_an_unknown_report_is_404` (+1 more)
+
+#### ADMIN-MODERATION-8: The console shows the reported text after the message is erased (rules 2, 3; PAD-639)
+- **Given** a report on a message, and the author deletes the message afterwards, or an operator deletes it from the report
+- **When** support reads the list and the detail
+- **Then** the report's `message` still carries the reported text with `deleted` true, and the other messages of the context read as before
+- **And** a report stored before the text was copied shows the message's own text
+test: `backend/padel_app/tests/test_pad639_console_reported_text.py` › `test_the_console_shows_the_reported_text_after_the_author_deletes_it` (+2 more)
+
+#### ADMIN-MODERATION-9: A refused or redundant action leaves a true record (rule 4)
+- **Given** a report an operator already dismissed
+- **When** the operator tries to delete its message
+- **Then** the answer is 409 and one `report.delete_message` audit row exists for that report, with an outcome that is not `ok`
+- **Given** an open report and a disable the users service refuses
+- **When** the operator posts `disable-author`
+- **Then** the answer is a 4xx, not a 500, and the report stays open
+- **Given** an open report whose message is already deleted
+- **When** the operator posts `delete-message`
+- **Then** the report closes as `message_deleted` and no second live event is published
+test: `backend/padel_app/tests/test_pad631_moderation.py` › `test_a_refused_action_still_audits_the_report` (+2 more)
+
+#### ADMIN-MODERATION-10: Without a console URL the report email carries no link (rule 8)
+- **Given** `ADMIN_NOTIFY_EMAIL` set and `ADMIN_CONSOLE_URL` empty
+- **When** a report is filed
+- **Then** one email is sent that names the staff console and holds no `/reports` path
+test: `backend/padel_app/tests/test_pad631_moderation.py` › `test_without_a_console_url_the_email_names_the_console_without_a_bare_path`
+
+#### ADMIN-MODERATION-11: The report pages ask before acting and show what happened (rules 4, 7)
+- **Given** an operator or the owner on a report's page
+- **When** they press dismiss, delete message or disable author
+- **Then** nothing is sent until they confirm; cancelling, or Escape, closes the confirmation, sends nothing and gives the focus back to the button
+- **And** confirming posts to that action's own route, and the page then shows the closed report with its outcome and no action
+- **And** disable author cannot be confirmed with an empty note, and sends the note trimmed
+- **And** a 409 `REPORT_CLOSED` shows that the report was already handled and reloads it
+- **And** support sees the report with no action button, and each row of the list links to its detail
+test: `frontend/apps/admin/src/pages/moderation.test.tsx` › `links a row to its detail` (+7 more)
+
 ### Notes
 - Out of scope: automated moderation, telling the reporter what happened.
 - Rule 8's quiet window is per burst: a steady trickle (one report every ten minutes) sends only the

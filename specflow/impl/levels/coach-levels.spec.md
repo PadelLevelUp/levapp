@@ -69,6 +69,10 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
     baixo", then the same three for 3, 4, 5 and 6, then `7+` "Nivel 7 alto" and `7` "Iniciação"
     (display_order 1…17). It replaces L1/L2/L3. The labels are the reference's own, as they read
     in its Settings. The helper stays idempotent: a coach who already has levels keeps them.
+15. **The delete route refuses an id it cannot use before it looks anything up** (PAD-92, PAD-101).
+    `POST /api/app/delete/coach_level` never answers 500 for a bad id: a client's temporary row id is
+    a bad request, and an id that names no level is not found.
+16. **Every level has a code.** The settings section does not send a row whose code is blank.
 
 ### Acceptance Criteria
 
@@ -129,3 +133,37 @@ Each coach defines their own skill level hierarchy (e.g., Beginner, Intermediate
 - **When** the levels list is displayed
 - **Then** helper text near the list states that the first (top) level is the highest skill level
   and the last is the lowest
+
+#### LEVELS-COACH-LEVELS-11: The default ladder is written once (rule 14)
+- **Given** a coach who already has the reference ladder
+- **When** the default ladder is created for that coach again, inside a transaction or outside one
+- **Then** the coach still has exactly the 17 levels, and the call answers those 17
+test: `backend/padel_app/tests/test_pad476_registration_is_one_transaction.py` › `test_the_levels_helper_inside_a_unit_returns_its_levels_and_stays_idempotent` (+1 more)
+
+#### LEVELS-COACH-LEVELS-12: Levels sharing a display_order still form a one-step ladder (rule 10)
+- **Given** a coach with levels `4` (display_order 1), `5` (display_order 2) and `5-` (display_order 2), created in that order
+- **When** the engine asks which level is one above `5`, and which is one above `5-`
+- **Then** it gets `4` for `5` and `5` for `5-`: equal orders are ranked by id
+test: `backend/padel_app/tests/test_level_ladder_ordering.py` › `test_duplicate_display_orders_do_not_widen_adjacency`
+
+#### LEVELS-COACH-LEVELS-13: Deleting a level with an unusable id is refused, never a server error (rule 15)
+- **Given** a coach, and no level with id 999999
+- **When** they POST `/api/app/delete/coach_level` with `{"id": "new-1753900000000"}`, with `{}`, or with `{"id": 999999}`
+- **Then** the first two answer 400 and the third answers 404
+- **And** an anonymous caller gets 401 whatever the id
+test: `backend/padel_app/tests/test_delete_nonnumeric_id_guard.py` › `test_delete_coach_level_rejects_nonnumeric_id` (+3 more)
+
+#### LEVELS-COACH-LEVELS-14: A level edit is held until the tab's Save (rule 7; settings.explicit-save rule 2)
+- **Given** a coach on Settings → Coach Levels with one stored level
+- **When** they remove the row
+- **Then** the row leaves the list, nothing is deleted yet and the tab is unsaved
+- **When** they press the tab's Save
+- **Then** the level is deleted and the tab is clean
+- **And** the section has no Save button of its own
+test: `frontend/apps/web/src/components/settings/CoachLevelsSection.test.tsx` › `removing a stored row is held: nothing is deleted until the Save, which deletes it` (+1 more)
+
+#### LEVELS-COACH-LEVELS-15: A level row without a code is not sent (rule 16)
+- **Given** a coach who emptied a stored level's code
+- **When** they press the tab's Save
+- **Then** the save fails naming the levels part and `settings.coachLevels.validationErrorDescription`, no level request is sent, and the part stays unsaved
+test: `frontend/apps/web/src/components/settings/CoachLevelsSection.test.tsx` › `a row without a code is refused with the reason, nothing is sent, and it stays unsaved (#550 review F2)`

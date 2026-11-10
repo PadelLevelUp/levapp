@@ -161,6 +161,23 @@ due. It is a marker inside the app, never a message to anyone.
 - **Then** the marker is present on the due player and absent on the others; setting "Nunca"
   clears it
 
+#### EVALUATIONS-REMINDERS-11: The frequency shows what is stored and is held until the tab's Save (rules 1, 2; web and iOS)
+- **Given** a coach whose stored frequency is `never`, every 4 classes, or every 7 classes
+- **When** the setting opens
+- **Then** "Nunca", "A cada 4 aulas", or "Personalizado" with 7 in its field is the option selected
+- **When** the coach picks another option, or types another number
+- **Then** nothing is sent and the tab is unsaved; the tab's Save sends exactly `{reminder}`, with `everyN` only for `every_n_classes`, and the tab is clean
+- **And** a typed number outside 1 to 99 shows an error in place, is not sent by Save, and the setting stays unsaved; typing the stored number again clears the error and the tab is clean
+test: `frontend/apps/mobile/src/features/evaluations/evaluation-reminder-setting.test.tsx` › `choosing monthly sends nothing; the Save sends {reminder: 'monthly'} and the section is clean` (+10 more)
+
+#### EVALUATIONS-REMINDERS-12: An invalid setting is refused and nothing is stored (rule 2)
+- **Given** a coach with nothing stored
+- **When** they PUT `/api/app/evaluation_settings` with an unknown `reminder`, with `every_n_classes` and no `everyN`, or with an `everyN` of 100, `"2"`, `true` or `null`, or with an empty body
+- **Then** each answers 400 and the setting still reads `{"reminder": "never"}`
+- **And** `never` sent with an `everyN` answers `{"reminder": "never"}`, without it
+- **And** saving the frequency leaves the class reminder timing as it was
+test: `backend/padel_app/tests/test_pad404_evaluation_reminder.py` › `test_an_invalid_setting_is_400_and_nothing_is_stored` (+2 more)
+
 ### Notes
 - Build defaults taken with Q4 (not the owner's words; may be revisited): "N aulas" counts
   occurrences the player attended (`present`), not enrolled; every occurrence counts, so two
@@ -179,3 +196,20 @@ due. It is a marker inside the app, never a message to anyone.
   it opens Players by link; the search is cleared before typing). **Not yet run:** the full backend
   suite. The status stays `implementing` until it has run and PAD-402's parent revision is on
   staging.
+
+### Open questions
+
+- **EVALUATIONS-REMINDERS-7 describes the save-while-typing that rule 1 says PAD-506 replaced.**
+  - Criterion: a typed number "is saved however the coach leaves it": 7 saved on going to the
+    background, 9 on following a link, pinned by "the delay … the flush on unmount and on
+    background".
+  - Rule 1: "(PAD-506) The choice and a typed number are held until the tab's Save … (B-242's
+    save-after-typing, on blur and on leaving, belonged to the save-on-change model PAD-506
+    replaced.)"
+  - Code today: nothing is sent until the tab's Save, on web and on iOS
+    (`EvaluationReminderSetting.test.tsx` and `evaluation-reminder-setting.test.tsx`;
+    EVALUATIONS-REMINDERS-11 states it).
+  - Recommendation: retire the criterion; leaving with an unsaved number is now the unsaved-edits
+    prompt of `settings.explicit-save`.
+  - Proposed text: remove EVALUATIONS-REMINDERS-7, or replace its body with "Superseded by
+    EVALUATIONS-REMINDERS-11 (PAD-506)".

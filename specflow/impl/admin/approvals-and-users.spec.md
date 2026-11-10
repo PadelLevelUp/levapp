@@ -208,6 +208,75 @@ removed from web and iOS in the same ticket.
 - **Then** each answers 404 in every environment (no `EDITOR_ENABLED` switch exists), and no web route
   renders `/editor`
 
+#### ADMIN-APPROVALS-AND-USERS-16: The approvals page lists, decides and says what happened (rules 1, 2)
+- **Given** an operator on `/approvals` with one pending coach whose email is not verified
+- **Then** the row shows the coach's name and the unverified mark
+- **When** they approve
+- **Then** the approve request is sent and the list is fetched again
+- **And** rejecting sends the typed reason as `{"reason": <text>}`
+- **And** a 410 on a decision, whatever its body, shows that the coach was already decided and fetches the list again
+- **And** support sees the list with no approve and no reject button
+test: `frontend/apps/admin/src/pages/operations.test.tsx` › `lists the pending coach; an operator approves and the list refetches` (+3 more)
+
+#### ADMIN-APPROVALS-AND-USERS-17: User search answers 50 at a time and continues by cursor (rule 4)
+- **Given** 55 users matching `pager`
+- **When** support GETs `/admin/api/users?q=pager`, then the same with the answer's `nextCursor`
+- **Then** the first answer holds 50 users and a cursor, the second the other 5 and no cursor, and no user is in both
+- **And** a cursor that is not one the server issued answers 400 `{"error": "BAD_CURSOR"}`
+- **And** on the page each result links to `/users/<id>`, "more" asks with the cursor and disappears at the end, and a `QUERY_TOO_SHORT` answer shows that two characters are needed
+test: `frontend/apps/admin/src/pages/operations.test.tsx` › `a 1-character query shows the too-short message` (+3 more)
+
+#### ADMIN-APPROVALS-AND-USERS-18: The user page disables with a reason, says when a resend is too soon, and offers support nothing (rules 5, 6, 7)
+- **Given** an operator on an active user's page
+- **When** they choose to disable
+- **Then** the confirmation stays disabled until a reason is typed, the request carries `{"reason": <text>}`, and the user is fetched again
+- **And** a resend answered 429 `RESEND_TOO_SOON` shows the seconds to wait from `retryAfterSeconds`
+- **And** support sees the account's details with no disable, enable or resend button
+test: `frontend/apps/admin/src/pages/operations.test.tsx` › `disable needs a reason and POSTs it` (+2 more)
+
+#### ADMIN-APPROVALS-AND-USERS-19: View as opens a read-only tab kept apart from the normal session (rule 9)
+- **Given** an operator on a user's page in the console
+- **When** they press "view as"
+- **Then** the console posts to that user's `view-as` route and opens the answered URL in a new tab that has no opener; the button is not shown to the owner or to support
+- **When** the web app opens on `/view-as#<token>`
+- **Then** it takes the token from the fragment and keeps it for this tab only: the stored normal session is neither replaced nor refreshed, and leaving view-as gives the normal session back
+- **And** a banner names the viewed user, says read-only and holds one button; an ordinary session shows no banner
+test: `frontend/apps/admin/src/pages/UserPage.viewAs.test.tsx` › `an operator opens a read-only tab on the product` (+7 more)
+
+#### ADMIN-APPROVALS-AND-USERS-20: A view-as token is short-lived, tied to its operator and never minted for staff (rule 9)
+- **Given** an operator and a product user
+- **When** the operator POSTs `/admin/api/users/<id>/view-as`
+- **Then** the answer's `url` is the product web origin's `/view-as#<token>`; the token is a product token for that user with `view_as` true, the operator's email as `actor` and under 30 minutes to live; one `user.view_as` audit row is written
+- **And** once the operator's role is revoked or is no longer `operator`, the token's next request answers 401 (`VIEW_AS_REVOKED` when the role changed)
+- **And** a target who is a product superadmin, or who holds an active console role, is refused with 403 `VIEW_AS_TARGET_STAFF`
+test: `backend/padel_app/tests/test_pad532_view_as.py` › `test_view_as_mints_a_short_read_only_token_and_is_audited` (+2 more)
+
+#### ADMIN-APPROVALS-AND-USERS-21: A console write whose audit row cannot be written sends nothing (admin.foundation rule 8)
+- **Given** the audit insert failing
+- **When** an operator approves a pending coach, or resends a user's verification code
+- **Then** the answer is 500, the coach is still pending and the user's code time is unchanged, and no email, push or CRM sync went out
+test: `backend/padel_app/tests/test_pad532_approvals.py` › `test_side_effects_wait_for_the_audit_commit` (+1 more)
+
+#### ADMIN-APPROVALS-AND-USERS-22: Without a console URL no pending-coach alert carries a broken link (rules 3, 10)
+- **Given** `ADMIN_CONSOLE_URL` empty and `ADMIN_NOTIFY_EMAIL` set
+- **When** a coach registers and is pending
+- **Then** no push is sent, the only email goes to `ADMIN_NOTIFY_EMAIL` and holds no `/approvals` path, and a warning naming `ADMIN_CONSOLE_URL` is logged
+test: `backend/padel_app/tests/test_pad532_approvals.py` › `test_no_console_url_means_no_wrong_link`
+
+#### ADMIN-APPROVALS-AND-USERS-23: The user view shows the account's audit trail and its console role (rule 5)
+- **Given** a coach an operator approved, and a user with an active `support` role who was disabled
+- **When** an operator GETs each user
+- **Then** the first's `audit` holds the `coach.approve` row, and the second's holds its `user.disable` row and `adminRole.role` is `support`
+test: `backend/padel_app/tests/test_pad532_users.py` › `test_a_coach_view_lists_its_approval_rows` (+1 more)
+
+#### ADMIN-APPROVALS-AND-USERS-24: The E2E clean-up routes work only behind the E2E flag and a session, on allow-listed tables (rule 10c)
+- **Given** `E2E_DEBUG_ENDPOINTS` on and a signed-in user
+- **When** they GET `/api/app/notify/debug/rows/club`, then DELETE one of the ids twice
+- **Then** the ids are listed, the first delete answers 200, the second 404, and the other rows stay
+- **And** `user`, `coach`, `tokenblocklist` and `adminrole` answer 404 on both verbs and lose no row
+- **And** with no session the answer is 401, and with the flag off every such route is 404
+test: `backend/padel_app/tests/test_pad550_e2e_cleanup_rows.py` › `test_off_the_flag_both_routes_are_404` (+3 more)
+
 ### Not this spec
 - How approval itself works (statuses, emails, the gate, re-application) — `auth.coach-approval`,
   unchanged except for where the screen lives.
@@ -235,3 +304,19 @@ removed from web and iOS in the same ticket.
 - The view-as banner is the one visible product-web change this epic adds; it carries no staff
   action, only "read-only" and a close button (business rule 6 of
   `staff-act-under-the-company-identity-and-leave-a-trail` names it as the exception).
+
+### Open questions
+
+- **Rule 6 says enable sets the status to `active`; the code enables only a disabled account.**
+  - Spec: rule 6, "`…/disable` `{reason}` and `…/enable` (`operator`) set `users.status` to
+    `disabled` / `active`".
+  - Test: `test_pad532_users.py` › `test_enable_only_undoes_a_disable`
+    posts `enable` for an `inactive` user and asserts 200 with the status still `inactive`.
+  - Code today: `services/admin/users_service.py` `enable` sets `active` only when the status is
+    `disabled` ("Rule 6 undoes a disable, nothing else"): an account a coach created and its
+    owner never activated stays inactive. The audit row is written either way.
+  - Recommendation: keep the code and amend the rule; activating a never-activated account from
+    the console would skip the student's own activation.
+  - Proposed text for rule 6: "…`enable` sets a `disabled` account back to `active` and leaves
+    any other status as it is". Proposed criterion: "Given an `inactive` user, When an operator
+    POSTs `…/enable`, Then the answer is 200 and the status is still `inactive`."

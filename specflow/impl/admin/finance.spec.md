@@ -178,6 +178,11 @@ and category, with month totals and the running total since the start.
     the screen.
 13. **Web only (R-024 exception).** As `admin.foundation` rule 15: a staff page with no coach or
     student user; no iOS or Android counterpart.
+14. **What finance cannot read fails closed.** A `from` or `to` that is not `YYYY-MM` is 400
+    `{"error": "INVALID_MONTH", "field": <the parameter>}`. A `startsOn` that is not a `YYYY-MM-DD`
+    date is `INVALID_COST` on `startsOn`. A `FINANCE_GCP_BILLING_TABLE` that is not a plain table id
+    is never sent to BigQuery: the run ends `BIGQUERY_ERROR`. A `FINANCE_GCP_MAX_BYTES` that is not a
+    positive integer falls back to 1 GiB. The import reads every page of the query's result.
 
 ### Acceptance Criteria
 
@@ -318,6 +323,72 @@ and category, with month totals and the running total since the start.
 - **When** the R-036 guard scans tracked files
 - **Then** no tracked env template sets `FINANCE_GCP_BILLING_TABLE`, prod takes it only from the deploy variable, the config guard (`infra/k8s/tests/test_pad702_config.py`) accounts for it in both environments, and no fixture holds a real project, dataset or billing-account id
 
+#### ADMIN-FINANCE-28: A one-off cost charges once, in its month (rule 3)
+- **Given** a `once` cost starting 2026-08-10 and another starting 2026-11-01
+- **When** the charges up to October 2026 are derived
+- **Then** the first charges in `2026-08` only, and the second does not charge yet
+test: `backend/padel_app/tests/test_pad742_finance_charges.py` › `test_a_one_off_cost_charges_once_and_a_future_one_not_yet`
+
+#### ADMIN-FINANCE-29: A euro cost with no euro amount takes its amount (rule 2)
+- **Given** a cost in `EUR` with `amount` `12.30` and no `amountEur`
+- **When** it is created
+- **Then** the answer is 201 and `amountEur` is `12.30`
+test: `backend/padel_app/tests/test_pad742_finance_costs.py` › `test_a_euro_cost_copies_its_amount_when_no_euro_amount_is_given`
+
+#### ADMIN-FINANCE-30: A request finance cannot read is refused naming the field (rules 5, 14)
+- **Given** an otherwise valid cost
+- **When** it is posted with an amount of three decimals or below zero, a lower-case currency, an unknown category or recurrence, a blank vendor, an end before its start, an end on a `once` cost, `gcpInvoice` on a cost that is not a one-off infrastructure cost, or a start that is not an ISO date
+- **Then** each answers 400 `{"error": "INVALID_COST", "field": <that field>}` and nothing is created
+- **And** a summary asked `from=2026-13` answers 400 `{"error": "INVALID_MONTH", "field": "from"}`
+test: `backend/padel_app/tests/test_pad742_finance_costs.py` › `test_invalid_fields_are_named` (+1 more)
+
+#### ADMIN-FINANCE-31: No finance audit row carries a value (rule 5a)
+- **Given** a cost that was created, edited and deleted
+- **When** the `finance.*` rows of the console audit log are read
+- **Then** there are three, each with `before` empty and `after` holding nothing but `changedFields` and `runId`
+test: `backend/padel_app/tests/test_pad742_finance_costs.py` › `test_every_finance_audit_row_carries_no_values`
+
+#### ADMIN-FINANCE-32: Google Cloud lines show their net, and a month is rounded once, after summing (rules 6, 10)
+- **Given** imported lines for 2026-09: Compute Engine cost `40.123456` with credits `-5.000000`, and Cloud Storage cost `0.004000`
+- **When** the summary is read
+- **Then** September's infrastructure is `35.13`: the sum's net rounded once, not each line rounded
+- **And** `GET /admin/api/finance/gcp?month=2026-09` lists each line with its project, service, currency, cost, credits and net to two places
+test: `backend/padel_app/tests/test_pad742_finance_summary.py` › `test_imported_google_cloud_counts_its_net_in_infrastructure` (+1 more)
+
+#### ADMIN-FINANCE-33: With no costs the summary is empty and says the import is not set up (rules 4, 9)
+- **Given** no manual cost and no imported line
+- **When** the summary is read
+- **Then** `start` is null, `months` is empty and `importStatus.configured` is false
+test: `backend/padel_app/tests/test_pad742_finance_summary.py` › `test_no_costs_means_no_months`
+
+#### ADMIN-FINANCE-34: The import reads every page, and a bad setting never reaches BigQuery (rules 7, 11, 14)
+- **Given** a query whose result comes in two pages
+- **When** the import runs
+- **Then** it follows the page token and stores the rows of both pages
+- **Given** a billing table setting that carries SQL after the table id
+- **When** the import runs
+- **Then** the run ends in error `BIGQUERY_ERROR` and no request was sent
+- **And** a byte cap that is unset, zero, negative or not a whole number is read as 1 GiB
+test: `backend/padel_app/tests/test_pad742_gcp_import.py` › `test_every_page_is_read` (+2 more)
+
+#### ADMIN-FINANCE-35: A run still running after 30 minutes is reported as stuck (rules 7, 9)
+- **Given** a scheduled run that started 31 minutes ago and is still `running`
+- **When** the import status is read
+- **Then** its last run reads as outcome `error` with code `STUCK`
+test: `backend/padel_app/tests/test_pad742_gcp_import.py` › `test_a_stuck_run_reports_an_error`
+
+#### ADMIN-FINANCE-36: The page says what happened: import not set up, the refused field, delete asks first, an import already running (rule 12)
+- **Given** the owner on `/finance`
+- **When** the summary says the import is not configured
+- **Then** a neutral notice says so, and the red banner is not shown
+- **When** saving a cost is refused on `amountEur`
+- **Then** the form stays open naming that field, and a second save that succeeds closes it
+- **When** they press delete on a cost
+- **Then** the row asks for confirmation, and the DELETE is sent only after they confirm
+- **When** "Importar agora" answers 409 `IMPORT_RUNNING`
+- **Then** the page says an import is already running
+test: `frontend/apps/admin/src/pages/FinancePage.test.tsx` › `says when the import is not set up` (+3 more)
+
 ### Notes
 - Billing export to BigQuery, not the Cloud Billing API: the Cloud Billing API manages billing
   accounts, project links and the public price catalogue; it has no endpoint that returns what was
@@ -333,3 +404,14 @@ and category, with month totals and the running total since the start.
   and uses finance, reads and writes, with the audit recording who did what.
 - Implementation also edits `delivery.worker-role` rule 4 and `admin.engine-health` rule 2 to list
   `finance_gcp_import`.
+
+### Open questions
+
+- **Rule 12 says a cost is deleted "in a dialog"; the page confirms inline.**
+  - Spec: rule 12, "the manual list with create, edit and delete in a dialog".
+  - Code today: delete shows an inline confirmation on the row (`finance-cost-<id>-confirm`,
+    then `finance-cost-<id>-confirm-delete`); only create and edit open the dialog. Proven by
+    `FinancePage.test.tsx` › "asks before deleting a cost" (ADMIN-FINANCE-36).
+  - Recommendation: amend the rule to the code; nothing depends on the dialog.
+  - Proposed text: "the manual list with create and edit in a dialog, and delete behind an inline
+    confirmation on the row".

@@ -166,5 +166,43 @@ stays private.
 - **Given** Ana opens step 1, clears one box and uses the cancel control
 - **Then** no request was sent and the record's `share` is unchanged
 
+#### EVALUATIONS-SHARING-10: A record has at most one share, and the share goes with its record (rule 9)
+- **Given** a shared record
+- **When** a second share is written for it
+- **Then** the database refuses it
+- **When** the record is deleted
+- **Then** its share is gone with it
+test: `backend/padel_app/tests/test_pad402_migration_walk.py` › `test_the_migration_walks_down_and_up_with_the_unique_index_and_fk_cascade` (+1 more)
+
+#### EVALUATIONS-SHARING-11: A share request that is incomplete, or names what the record lacks, is refused (rules 6, 11)
+- **Given** a record rated in Forehand only
+- **When** the coach previews or shares it with `categoryIds` that is not a list, or that names a competency the record does not rate
+- **Then** the answer is 400 `category_ids_invalid` and the record stays unshared
+- **And** an `evolution` that is missing or not one of the periods answers 400 `evolution_invalid`
+- **And** an `includeNote` that is missing or not a boolean answers 400 `include_note_required`
+test: `backend/padel_app/tests/test_pad402_sharing_api.py` › `test_category_ids_invalid_when_not_a_list_or_an_id_is_not_rated_in_the_record` (+2 more)
+
+#### EVALUATIONS-SHARING-12: Only the record's own coach can preview, share or un-share it (rule 12)
+- **Given** a record of coach A
+- **When** coach B calls the preview, the share or the un-share on it
+- **Then** each answers 403 `not_your_record`
+- **And** an id that names no record answers 404 on all three
+test: `backend/padel_app/tests/test_pad402_sharing_api.py` › `test_403_when_the_record_belongs_to_another_coach` (+1 more)
+
+#### EVALUATIONS-SHARING-13: The preview is what gets shared, and it writes nothing (rules 3, 4, 7)
+- **Given** the share flow open on a record rated in two competencies, both ticked
+- **When** the coach unticks one and asks for the preview
+- **Then** the preview is asked with exactly that selection, the card it answers is shown, and no share, message, live event or push exists yet
+- **And** going back keeps the selection; ticking or unticking changes only that competency, and the list stays in the coach's order
+- **And** sharing is disabled until the preview has answered; one press then sends the previewed selection once and closes the flow
+test: `backend/padel_app/tests/test_pad402_sharing_api.py` › `test_preview_writes_nothing` (+9 more)
+
+#### EVALUATIONS-SHARING-14: The history card's share controls follow the record's share state (rules 7, 9, 10; web and iOS)
+- **Given** a record's history card, for a player
+- **Then** the share action is always offered; a card with no player has none
+- **And** an unshared record shows no status and no un-share; a shared one shows when it was shared and offers un-share, which un-shares that record
+- **And** a share made stale by a later edit also offers "update", which sends the record's stored selection again without reopening the flow
+test: `frontend/apps/mobile/src/features/evaluations/history-card.test.tsx` › `always renders the share button (rule 10), and it opens the share flow with the record and player` (+11 more)
+
 ### Notes
 - Criteria quote Portuguese copy for the reader; tests locate by test id and `ui()`.

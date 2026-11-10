@@ -230,3 +230,57 @@ Edit a class or a specific instance. Supports editing single occurrences or all 
 - **Then** Ana is off the series roster and her validated presence on today's occurrence stays
 - **Given** two materialised occurrences, when the coach adds Bruno with scope `future`
 - **Then** Bruno receives one "added to class" message
+
+#### CLASSES-EDIT-17: An edit writes only what changed (rule 7)
+- **Given** a weekly class with a level, a colour, a capacity and an end date
+- **When** the coach edits it with `updates` holding only a new name
+- **Then** the name is written and every other field, the recurrence included, is as it was
+- **And** the iOS save sends only the fields whose value changed, a cleared one as `null` and the automatic-invitations choice as true, false or null; with nothing changed it sends nothing and says so
+test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_edit_class_absent_keys_are_kept` (+11 more)
+
+#### CLASSES-EDIT-18: On iOS, ticks follow the roster, a removal asks nothing, and neither a failed check nor capacity stops the save (rule 9)
+- **Given** a coach editing a class's students on iOS
+- **When** they tick a student of their roster, or untick one
+- **Then** the draft gains or loses that student; unticking and ticking again leaves nothing to send, and an id that is not on the roster is not added
+- **And** a save that only removes students runs no eligibility check
+- **And** when the eligibility check itself fails, the save goes ahead
+- **And** adding a student beyond `maxPlayers` is sent like any other
+test: `frontend/apps/mobile/src/features/calendar/class-save-flow.test.ts` › `a removal alone runs no eligibility check` (+6 more)
+
+#### CLASSES-EDIT-19: An occurrence inherits what it does not override, and lists exactly its overrides (rule 4)
+- **Given** a materialised occurrence of a weekly class
+- **When** the series is renamed, or its default level changes
+- **Then** the occurrence reads the new title and level, and `overriddenFields` is empty
+- **When** a single-occurrence edit sets a title, a level or a capacity that differs from the series
+- **Then** `overriddenFields` names that field; setting it back to the series' value, or the series taking that value, clears the override
+test: `backend/padel_app/tests/test_pad275_series_and_overrides.py` › `test_c1_materialising_does_not_copy_the_title_so_a_rename_reaches_the_instance` (+4 more)
+
+#### CLASSES-EDIT-20: A series edit leaves an ended or cancelled occurrence alone (rule 9, PAD-515)
+- **Given** a weekly class with two materialised occurrences, the first already ended or cancelled
+- **When** the coach adds a student with scope `future` from the first one's date
+- **Then** the student is on the later occurrence and not on the ended or cancelled one
+test: `backend/padel_app/tests/test_pad515_future_edit_reaches_the_current_occurrence.py` › `test_a_series_edit_leaves_an_ended_occurrence_alone` (+1 more)
+
+#### CLASSES-EDIT-21: A single edit lands on the date's one occurrence, existing or new (rule 3)
+- **Given** a class whose date already has an occurrence with confirmed attendance
+- **When** the coach edits that date with scope `single`
+- **Then** that occurrence is edited, its attendance is kept, and no second occurrence exists for the date
+- **And** on a date with no occurrence yet, the edit creates exactly one, carrying the override
+test: `backend/padel_app/tests/test_edit_single_on_materialised_date.py` › `test_single_edit_on_a_materialised_date_edits_that_instance` (+1 more)
+
+### Open questions
+
+- **Rules 1 and 2 and CLASSES-EDIT-8 name PATCH routes that do not exist.**
+  - Spec: rule 1 "`PATCH /api/app/class/{lesson_id}` edits the parent lesson template"; rule 2
+    "`PATCH /api/app/lesson_instance/{instance_id}` edits a specific instance"; CLASSES-EDIT-8
+    "coach PATCHes the instance with `{"overwrite_title": "Special Session"}`".
+  - Other statement: rule 7 of this spec says `POST /api/app/edit_class` writes the edit.
+  - Code today: `modules/frontend_api.py` has one edit route, `POST /edit_class`, taking
+    `{event, scope, updates}`; the only PATCH in the module is for courts, and the old
+    `POST /lesson/<id>` was removed by PAD-92. Every test edits through `/edit_class`.
+  - Recommendation: amend the three items to the route that exists.
+  - Proposed rule 1: "`POST /api/app/edit_class` `{event, scope, updates}` edits a class: the
+    series when `scope` is `future`, one occurrence when it is `single`." Proposed rule 2: drop
+    it (rule 3 already states the scopes). Proposed CLASSES-EDIT-8 When: "the coach edits that
+    date with scope `single` and `updates: {"name": "Special Session"}`", Then: "only the April
+    20 occurrence shows "Special Session", and its `overriddenFields` is `["title"]`".

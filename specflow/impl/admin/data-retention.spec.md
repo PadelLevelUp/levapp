@@ -138,3 +138,18 @@ of data, so the Privacy Policy (§11, "Retention and account deletion") states r
 #### ADMIN-DATA-RETENTION-8: One failing item does not stop the others (rule 2)
 - **Given** two items enabled and the first raises
 - **Then** the second still runs
+
+#### ADMIN-DATA-RETENTION-9: An item that fails part-way reports what it removed and frees only what it committed (rules 2, 3, 4)
+- **Given** three due placeholder students, and the removal of the second one raising
+- **When** the sweep runs
+- **Then** the item reports `removed` 1 with the error's text, and the next item runs with no error
+- **Given** two deleted messages with an image each, a batch size of 1, and the second batch's commit failing
+- **When** the sweep runs
+- **Then** the item reports `removed` 1 with the error, and only the first image's stored object was deleted: the failed batch's object stays, because its row still points at it
+test: `backend/padel_app/tests/test_pad638_data_retention.py` › `test_a_placeholder_sweep_that_fails_midway_reports_what_it_removed` (+1 more)
+
+#### ADMIN-DATA-RETENTION-10: A failed audit sweep still gives back its permission to delete (rule 5)
+- **Given** an `admin_audit_log` row past its period, and the audit item's delete failing
+- **When** the sweep runs
+- **Then** the item reports the error, the row is still there, and the session's `retention_sweep` flag is off afterwards
+test: `backend/padel_app/tests/test_pad638_retention_periods.py` › `test_the_flag_is_cleared_when_the_audit_sweep_fails`

@@ -85,5 +85,12 @@ coach-only information about other players.
 - **And** `invitations` does not reveal notifications sent to other players
 - **And** Alice can still see the class name, coach, date/time and her own status
 
+#### CLASSES-DETAIL-VISIBILITY-5: An unknown class is not found before any scoping, and no session reads nothing (rules 1, 5)
+- **Given** a coach of another club
+- **When** they GET `/api/app/lesson_instance/999999`, an id that does not exist
+- **Then** the answer is 404, not 403
+- **And** `GET /api/app/lesson_instance/<id>/presences` with no token answers 401
+test: `backend/padel_app/tests/test_pad257_class_read_scope.py` › `test_unknown_instance_is_404_before_any_scoping` (+1 more)
+
 ### Notes
 - Source: ticket PAD-36 (privacy leak — student sees restricted class info).

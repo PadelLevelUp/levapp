@@ -207,6 +207,13 @@ cut a student off from their coach.
 - **When** they inspect the calendar UI
 - **Then** no toggle, button or shortcut for these notification preferences is offered there
 
+#### NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-15: The delivery backstop refuses invitations, reminders and waiting-list offers to a student who blocked everything (rule 8)
+- **Given** a student who blocked all notifications
+- **When** an invitation, a reminder or a waiting-list offer is about to be delivered to them
+- **Then** no message is created for any of the three
+- **And** a student who blocked automatic and manual invitations, and not everything, still receives one that reaches this point
+test: `backend/padel_app/tests/test_student_notification_block_preferences.py` › `test_backstop_suppresses_every_class_slot_solicitation` (+1 more)
+
 ### Notes
 - Source: ticket PAD-112 (reported by `tomasmpacheco` via Discord). PAD-142 narrowed the panel's
   audience from everyone to students only; PAD-169 ported it to iOS (finding S1 of the PAD-152

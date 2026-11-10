@@ -300,9 +300,73 @@ three separate fields on it. Decision record:
 - **Then** the right spot is `filled`, Sofia's request is `superseded`, and she holds an active
   right waiting-list entry
 
+#### CLASSES-INSTANCE-ENROLLMENT-23: The coach changes a regular's side for one class from the participant row (rule 13; web and iOS)
+- **Given** a coach on a class's participant list, and a regular whose row says the side is editable
+- **When** they pick the other side on that row
+- **Then** the app PUTs `/app/class_instance/presences/side` with the occurrence, the player and that side, and the row shows the side's tag with that choice selected
+- **When** they pick "usual" again
+- **Then** the app sends `side: null` and the tag goes
+- **And** a row that is not editable shows the tag and no control, and a row with no side data shows neither
+test: `frontend/apps/web/src/components/calendar/AttendanceRow.side.test.tsx` › `has no side control without side props` (+8 more)
+
+#### CLASSES-INSTANCE-ENROLLMENT-24: A "both" player's side is worked out when the class is full, and kept from its start (rule 13a)
+- **Given** a full class of ten with four left, four right and two `both` players
+- **When** the class is read
+- **Then** the first `both` player by enrolment reads `assignedSide` `left` and the second `right`: each goes to the side with fewer players, a tie to the left; with five left and three right both go right
+- **And** a player whose presence says `both` for this class is treated the same, whatever their profile side
+- **And** while the class has a place, or once an absence opens one, `assignedSide` is null and nothing is stored
+- **When** the class has started and the engine's tick runs
+- **Then** each `both` player's side is stored, a later absence does not change it, and no message is sent
+test: `backend/padel_app/tests/test_pad672_both_players_side_when_full.py` › `test_a_full_class_gives_its_both_players_a_side_each_in_enrolment_order` (+5 more)
+
+#### CLASSES-INSTANCE-ENROLLMENT-25: The worked-out side reads "Ambos → side" wherever the player is listed (rule 13a)
+- **Given** a `both` player whose `assignedSide` for the class is `left`
+- **When** the participant list, the participant sheet or the student's own class view shows them
+- **Then** the side reads "Ambos → esquerda" in Portuguese and "Both → left" in English
+- **And** a player who is not `both`, or a class that still has a place, reads as before and the student's own line is not shown
+test: `frontend/apps/mobile/src/features/calendar/class-s23-render.test.ts` › `the labels read Ambos → esquerda / direita in pt and Both → left / right in en` (+6 more)
+
+#### CLASSES-INSTANCE-ENROLLMENT-26: A coach's re-add into a class that has since filled is not refused (rule 10)
+- **Given** a class of one whose student cancelled, and another student who then took the spot
+- **When** the coach adds the first student back
+- **Then** the enrolment is made, and the class reads two players on a capacity of one
+test: `backend/padel_app/tests/test_pad316_coach_return_doors.py` › `test_a_coach_cannot_seat_someone_the_class_no_longer_has_room_for`
+
+#### CLASSES-INSTANCE-ENROLLMENT-27: Two enrolments of the same player at once leave one (rule 4)
+- **Given** a player a concurrent writer has just enrolled on the occurrence
+- **When** `enrol()` runs for the same player, having read no row
+- **Then** it answers the existing enrolment, the pair still has one presence, and the transaction stays usable
+test: `backend/padel_app/tests/test_pad259_enrolment.py` › `test_enrol_survives_a_concurrent_insert_of_the_same_pair`
+
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the
   shadow writes, the `players_relations` / `lesson_instances_relations` relationships, the
   player-claim and account-deletion entries and the dev seed entry removed. `Player.lesson_instances`
   now reads presences. Downgrade recreates the table and refills it from presences.
 - Rule numbers assigned by Session H on 2026-09-11, unconfirmed by the coordinator.
+
+### Open questions
+
+- **CLASSES-INSTANCE-ENROLLMENT-7 still calls `reconcile_enrolment()`, which rule 9 says is gone.**
+  - Criterion: "**And** `reconcile_enrolment()` is empty".
+  - Rule 9: "With the table gone the function and its test are gone too" (PAD-301).
+  - Code today: no `reconcile_enrolment` exists in `backend/padel_app`.
+  - Recommendation: drop the criterion's last line; the rest holds.
+  - Proposed text: the criterion as it is, without the "And `reconcile_enrolment()` is empty" line.
+- **CLASSES-INSTANCE-ENROLLMENT-15 states counts the migration test no longer seeds.**
+  - Criterion: three junction rows lacking a presence, and the log line
+    `junction_without_presence_before=3`.
+  - Test: `test_pad259_migration.py` ›
+    `test_backfill_inserts_stamps_skips_orphans_and_logs_its_counts` also seeds a duplicate pair
+    and asserts `junction_without_presence_before=4`, `capacity_changes=1`,
+    `junction_duplicate_pairs=1` and "orphan junction rows skipped=1".
+  - Code today: the migration logs all of those counts; the duplicate counts twice in `before`
+    and becomes one presence.
+  - Recommendation: amend the criterion to the test's fixture. The backfill has already run
+    everywhere (PAD-301 has since dropped the junction it read), so this is a record, not a
+    behaviour to change.
+  - Proposed Given: "…three junction rows lacking a presence, one of them pointing at a deleted
+    player, a fourth that duplicates one of the pairs, and one presence with no junction row".
+    Proposed And: "the log carries `junction_without_presence_before=4`, `presences_inserted=2`,
+    `junction_without_presence_after=1` (the orphan), `junction_duplicate_pairs=1` and
+    `capacity_changes=1`, and a second upgrade inserts nothing".

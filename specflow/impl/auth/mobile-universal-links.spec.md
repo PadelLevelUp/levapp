@@ -127,6 +127,14 @@ Exactly three, all account-creation entry points:
 - **Then** the conversation opens as before; the universal-link parser claims neither
   `/conversation/:id` nor `/class/:id`
 
+#### AUTH-MOBILE-UNIVERSAL-LINKS-9: The path parser maps each claimed path to its route, and nothing else (rule 3; auth.activate rule 8)
+- **Given** a link on a claimed host, as a full URL, a rooted path or a bare path
+- **When** the app parses it
+- **Then** `/invite/player/<token>`, `/invite/coach/<token>` and `/register/<id>` each give their route, with the token percent-decoded, its letter case kept, and a trailing slash ignored; the host is matched in any case, with or without `www.`
+- **And** the query string and fragment are ignored, except that a registration link keeps its `t` as the activation secret, a blank `t` reading as none
+- **And** an unclaimed or lookalike host, an unknown path, a missing or blank token, or an extra segment gives nothing
+test: `frontend/apps/mobile/src/lib/universalLinks.test.ts` › `routes a coach invite` (+15 more)
+
 ### Notes
 The host nginx that terminates TLS in front of the frontend container lives in no repository. The
 container-level content-type block is in `apps/web/nginx.conf`; the VM-level step, the verification
@@ -147,3 +155,34 @@ Verify against the exported `.ipa`, not the `.xcarchive`.
 `applinks:padellevelup.com` as covering the `www.` host; if www becomes the canonical link host the
 entitlement needs its own entry. Tracked in `docs/infra/universal-links.md`.
 - OPEN: Android `assetlinks.json` on `levapp.app` and `padellevelup.com` needs the release signing certificate's SHA-256 (owner prerequisite, PAD-216 store README).
+
+### Open questions
+
+- **The spec claims exactly three paths; the iOS association file claims four, and Android three.**
+  - Spec: "Claimed paths — Exactly three"; rule 2, "claims exactly the three paths above";
+    AUTH-MOBILE-UNIVERSAL-LINKS-2, "Android declares the same three paths".
+  - Code today: `apps/web/public/.well-known/apple-app-site-association` lists
+    `/invite/player/*`, `/invite/coach/*`, `/register/*` and `/join/coach/*`, and the app has the
+    route `app/join/coach/[token].tsx` (a student joining a coach from the coach's QR or link,
+    PAD-212). `apple-app-site-association.test.ts` › "claims exactly the four deep-linked paths"
+    pins the four. Android's `intentFilters` in `app.json` claim only the first three, on each
+    host. The path parser of rule 3 does not handle `/join/coach/`.
+  - Recommendation: amend the spec to four paths on iOS, and decide whether Android should claim
+    the join link too; today a join link opens the iOS app and the browser on Android.
+  - Proposed: a fourth row in "Claimed paths", "`/join/coach/:token` | `players.join-token`", and
+    rule 2 reading "claims exactly the four paths above". The Android half is the owner's call.
+- **Rule 1 names two associated domains; the app declares three.**
+  - Spec: rule 1, "`applinks:levapp.app`, `applinks:padellevelup.com`".
+  - Code today: `app.json` also declares `applinks:www.padellevelup.com`; `app-links.test.ts` ›
+    "iOS associates levapp.app and keeps both old hosts" pins the three.
+  - Recommendation: amend the rule to the code; a link on `www.` would otherwise open the browser.
+  - Proposed text: "…`applinks:levapp.app`, `applinks:padellevelup.com`,
+    `applinks:www.padellevelup.com`".
+- **Rule 3 says the parser ignores the query string; a registration link keeps its `t`.**
+  - Spec: rule 3, "it ignores query string and fragment".
+  - Other spec: `auth.activate` rule 8, "Both read `t` from the link and pass it to both API calls."
+  - Code today: the parser returns the `t` of a `/register/<id>` link as the activation secret
+    and ignores every other query parameter (AUTH-MOBILE-UNIVERSAL-LINKS-9).
+  - Recommendation: amend rule 3 to name the exception.
+  - Proposed text: "…it ignores the query string and fragment, except the `t` of a registration
+    link, which is the activation secret (`auth.activate` rule 8)…".

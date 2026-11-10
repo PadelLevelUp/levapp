@@ -80,3 +80,15 @@ owner, 2026-10-07: one ticket for web and iOS, no decomposition, because the cre
 - **Given** a one-off class with Ana and Bruno, Bruno not coming
 - **When** the coach clones it
 - **Then** the form has Ana only
+
+#### CLASSES-CLONE-5: A series clone copies the series roster, cancellations included (rule 3)
+- **Given** a weekly class with Bruno on its roster, who cancelled the occurrence the coach is cloning from
+- **When** the coach asks for the clone template from that occurrence
+- **Then** Bruno is among the template's students
+test: `backend/padel_app/tests/test_pad524_clone_template.py` › `test_a_student_who_cancelled_one_occurrence_is_still_copied_from_the_roster`
+
+#### CLASSES-CLONE-6: Only a coach who can read the class can clone it (rule 6a)
+- **Given** a class, one of its students, and a coach with no link to the class or its club
+- **When** each asks for the clone template
+- **Then** both get 403
+test: `backend/padel_app/tests/test_pad524_clone_template.py` › `test_the_template_is_coach_only` (+1 more)

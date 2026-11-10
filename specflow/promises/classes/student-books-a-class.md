@@ -14,7 +14,7 @@ A student asks their coach for a class at a time the coach is free, and the coac
 - A weekly request is one request, and approving it creates one weekly series with the given end date.
 - People the student names accept nothing: the coach's approval enrols them, and they are told they were added.
 - A pending request holds its slot on the coach's calendar until decided or withdrawn. A hold the coach renamed has become the coach's own event and stays.
-- Only the coach books the class or refuses outright; either side may propose another time, and the other side always answers.
+- A request becomes a class only with the coach's agreement: the coach accepts it, or the student accepts a time the coach proposed. Either side may propose another time, and the other side always answers.
 - Every state change reaches the other side through the existing notification channels.
 - Every change to a request shows straight away on the calendars and home screens of the coach and its students, on every open device, with no reload; an offline device catches up on its next reload of that screen (PAD-488).
 - When the coach proposes another time, moving the start moves the end, keeping the class's length; the coach can still change the end (PAD-491).

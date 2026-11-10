@@ -185,6 +185,27 @@ Customize the text of notification messages sent to players.
 - **Then** the message reads "Olá Carla, adicionei-te a Segunda 10h na segunda-feira às 10:00. Até já! 🎾" — no `dd/mm`
 - **And** when the coach adds her to the single occurrence of 2027-04-19 instead, it reads "… adicionei-te a Segunda 10h no dia 19/04 (segunda-feira) às 10:00. …"
 
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-14: A spot going to someone else sends no "spot filled" message (rule 15, PAD-501)
+- **Given** a coach whose `spot_filled` text is "Desculpa já não tenho vaga! Se abrir outra aviso-te", and a class with one open spot offered to students A and B
+- **When** A takes the spot, B then answers "yes", and a third student's come-back to the now-full class is refused
+- **Then** no chat message with that text is created for B or the third student
+- **And** B's invitation shows "Vaga preenchida", B's "yes" is answered `spot_filled_waiting_list_offered` and no waiting-list offer message is sent (PAD-621), and the come-back is answered `spot_filled`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-15: A join request closed by a full class still gets the message (rule 15)
+- **Given** the same coach and a pending join request from student C for that class
+- **When** the class fills
+- **Then** C's request is `superseded` and C receives the `spot_filled` text once
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-16: A stored text wins, anything missing or blank resolves to the coach's default, and nothing blank is sent (rules 2, 8, 9, 10)
+- **Given** a coach who stored a text for one template and nothing, or only spaces, for the others
+- **When** the templates are resolved
+- **Then** the stored text is used for its key, and every other key, one added after the coach last saved included, resolves to the default in the coach's language; every message type has a default
+- **And** the settings read answers the resolved texts, never a blank one, and leaves what is stored as it was
+- **And** a stored value that is not a set of templates resolves to the defaults; a key with no default resolves to nothing; a key of the coach's own is kept
+- **And** the reminder and its follow-up reach the student in the coach's own texts
+- **And** a message whose text is blank is not created, while one with text is
+test: `backend/padel_app/tests/test_pad330_the_student_is_told.py` › `test_a_coach_whose_templates_predate_the_key_still_gets_text` (+25 more)
+
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
   reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
@@ -192,14 +213,3 @@ Customize the text of notification messages sent to players.
 - PAD-430 is web-only in the client: iOS has no message-template editor (the templates are edited on
   the web settings page only), so there is no iOS surface to port. The rendering is server-side and
   reaches iOS recipients unchanged.
-
-#### A spot going to someone else sends no "spot filled" message (rule 15, PAD-501)
-- **Given** a coach whose `spot_filled` text is "Desculpa já não tenho vaga! Se abrir outra aviso-te", and a class with one open spot offered to students A and B
-- **When** A takes the spot, B then answers "yes", and a third student's come-back to the now-full class is refused
-- **Then** no chat message with that text is created for B or the third student
-- **And** B's invitation shows "Vaga preenchida", B's "yes" is answered `spot_filled_waiting_list_offered` and no waiting-list offer message is sent (PAD-621), and the come-back is answered `spot_filled`
-
-#### A join request closed by a full class still gets the message (rule 15)
-- **Given** the same coach and a pending join request from student C for that class
-- **When** the class fills
-- **Then** C's request is `superseded` and C receives the `spot_filled` text once

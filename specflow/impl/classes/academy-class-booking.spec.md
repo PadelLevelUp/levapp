@@ -205,6 +205,51 @@ point that composes them (PAD-358).
 - **When** each request completes
 - **Then** a `waiting_list_changed` event reaches S and A's coach
 
+#### CLASSES-ACADEMY-CLASS-BOOKING-14: The step groups classes by day and gives each one action, or what the student already did (rules 7, 10)
+- **Given** the classes a student may join, across several days
+- **When** the step lists them
+- **Then** they are grouped by day, days and classes in time order
+- **And** an open class offers a request and a full one the waiting list
+- **And** a class with the student's pending request shows that request, and one they already wait on shows that, instead of an action; a request that was rejected, withdrawn or superseded can be asked again
+test: `frontend/packages/config/src/academy-classes.test.ts` › `offers a request on an open class and the waiting list on a full one` (+4 more)
+
+#### CLASSES-ACADEMY-CLASS-BOOKING-15: A coach who does not advertise open spots lists nothing, and the answer says why (rules 2, 9)
+- **Given** a coach with one open class the student could join
+- **When** the coach's open-spots setting is off
+- **Then** `classes` is empty and `openSpotsVisible` is false
+- **And** with it on, `openSpotsVisible` is true
+test: `backend/padel_app/tests/test_pad358_academy_classes.py` › `test_the_coach_toggle_off_empties_the_list` (+1 more)
+
+#### CLASSES-ACADEMY-CLASS-BOOKING-16: The three routes answer as the wire contract says (rules 8, 9)
+- **Given** a student on a coach's roster, an open class and a full one
+- **When** the student GETs `/api/app/academy-classes?coachId=<id>`
+- **Then** the answer is 200 with the window, `openSpotsVisible`, the classes with their state, spots left, own request and waiting-list flag, and the student's profile side; without `coachId` it is 400, and for a caller who is not a student 403
+- **And** a join request with a note is created with it, and a note over 500 characters answers 400
+- **And** joining the full class's waiting list answers 201, joining again 200, and joining the open class 409 `has_spots`; leaving answers 200 once and 404 after
+test: `backend/padel_app/tests/test_pad358_academy_classes.py` › `test_a_note_over_500_characters_is_refused` (+1 more)
+
+#### CLASSES-ACADEMY-CLASS-BOOKING-17: Joining a waiting list passes the same checks as a request (rules 2, 6)
+- **Given** a full class above the student's bar, and a full class the coach hid
+- **When** the student joins each one's waiting list
+- **Then** the first is refused with code `ineligible` and the second with `not_visible`
+- **And** a student who passes the bar is placed on the list
+test: `backend/padel_app/tests/test_pad358_academy_classes.py` › `test_the_waiting_list_join_rechecks_what_the_list_checks` (+1 more)
+
+#### CLASSES-ACADEMY-CLASS-BOOKING-18: A standing place shows on the class, and leaving the class keeps it (rule 7)
+- **Given** a student with a standing waiting-list place with the coach, placed from it on a full class's list
+- **When** the list is read, then the student leaves that class's list
+- **Then** the class reads `onWaitingList` true before and false after, and the standing place is still active
+test: `backend/padel_app/tests/test_pad358_academy_classes.py` › `test_a_standing_list_place_is_listed_and_can_be_left_for_that_class`
+
+#### CLASSES-ACADEMY-CLASS-BOOKING-19: The student's card shows each waiting-list place with its state, and leaving never leaves it stale (rule 11)
+- **Given** a student's request card on web
+- **Then** an active place shows the day it was joined, read on the club's clock, and a leave button; a place that was filled, left, passed or cancelled sits in the history with its state and no button
+- **When** they confirm leaving and the server answers 404 because the place is already gone
+- **Then** the list is read again and the confirmation closes with no error
+- **And** any other failure says so and still reads the list again
+- **And** a coach's request card never asks for waiting lists
+test: `frontend/apps/web/src/components/class-requests/ClassRequestsSection.waitingList.test.tsx` › `history places carry their state and no action` (+4 more)
+
 ### Notes
 - **[PAD-358, 2026-09-17]** Coordinator decisions: "eligible" is the PAD-352 open-spot eligibility
   unchanged; the window is club-local days from today; full is `effective_filled_spots ≥
@@ -220,3 +265,20 @@ point that composes them (PAD-358).
 - **[PAD-358 cross-review, Session A, 2026-09-17]** F5: a same-student double tap raced the
   read-then-insert into the unique index and answered 500; the loser now rolls back and returns
   the winner's row (rule 6). The coordinator's wording fix: "full" is filled, not confirmed (rule 3).
+
+### Open questions
+
+- **Rule 9's answer shapes lack the two keys PAD-672 added.**
+  - Spec: rule 9, "→ `200 {from: "YYYY-MM-DD", to: "YYYY-MM-DD", openSpotsVisible: boolean,
+    classes: [...]}`" and "→ `201 {lessonInstanceId, onWaitingList: true}`".
+  - Test: `test_pad358_academy_classes.py` › `test_routes_follow_the_wire_contract` asserts the
+    list's keys are exactly `from`, `to`, `openSpotsVisible`, `classes`, `profileSide`, and the
+    join's answer is `{"lessonInstanceId", "onWaitingList": true, "side": null}`.
+  - Code today: both keys are answered (PAD-672: the student's profile side for the side picker,
+    and the side stored on the waiting-list entry). `classes.join-requests` rule 20 describes
+    them; this rule was not updated.
+  - Recommendation: amend the rule to the answer the code gives. Additive, so rule 8 still holds.
+  - Proposed text: "→ `200 {from, to, openSpotsVisible, classes, profileSide}`" with
+    "`profileSide` is the student's side with that coach, or null", and "→ `201
+    {lessonInstanceId, onWaitingList: true, side}`, `side` being the side the entry was stored
+    with, or null".

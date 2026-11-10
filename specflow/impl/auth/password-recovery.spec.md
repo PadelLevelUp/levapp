@@ -319,6 +319,13 @@ back at all.
 - **When** the user taps **Forgot your password?**, submits the seeded coach's email, types the code from the debug route and a new password
 - **Then** they land on the dashboard, and the seeded password is restored by the flow so later flows still sign in
 
+#### AUTH-PASSWORD-RECOVERY-28: The email-normalising migration rewrites only the rows that differ, and can be undone (rule 12)
+- **Given** users whose emails are padded, mixed-case, already normal, blank or empty, and one whose lower-case form another account holds
+- **When** the migration runs
+- **Then** only the padded and the mixed-case rows change, to their trimmed lower-case form; the row whose form is taken is left alone
+- **And** a second run changes nothing; the downgrade puts back every original it changed, except an address changed since
+test: `backend/padel_app/tests/test_pad781_email_normalising_migration.py` › `test_upgrade_normalises_the_rows_that_differ_and_nothing_else` (+3 more)
+
 ### Notes
 - Linear: PAD-139. Decision: a mailed code, not a link, for the reason `auth.email-verification`
   records — the person is on the device they will use, and a link opens a browser and loses the
