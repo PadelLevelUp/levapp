@@ -170,7 +170,8 @@ and category, with month totals and the running total since the start.
 12. **The page.** Nav item "Financeiro" / "Finance" for `FINANCE_ROLE`, route `/finance`, three
     tabs: **Resumo** (months × categories table, month totals, cumulative, a stacked bar chart drawn
     with inline SVG — no chart dependency — and the CSV download), **Custos** (the manual list with
-    create, edit and delete in a dialog, and "Importar lista": a text box or a CSV file, "Verificar"
+    create and edit in a dialog, and delete behind an inline confirmation on the row, and
+    "Importar lista": a text box or a CSV file, "Verificar"
     showing every line as it would be created or with its error, and "Criar N custos" enabled only
     when every line is valid; editing the text clears the check), **Google Cloud** (a month picker, the month's lines, the
     latest runs and "Importar agora"). Strings in `pt` and `en` (`admin.foundation` rule 16).
@@ -404,14 +405,3 @@ test: `frontend/apps/admin/src/pages/FinancePage.test.tsx` › `says when the im
   and uses finance, reads and writes, with the audit recording who did what.
 - Implementation also edits `delivery.worker-role` rule 4 and `admin.engine-health` rule 2 to list
   `finance_gcp_import`.
-
-### Open questions
-
-- **Rule 12 says a cost is deleted "in a dialog"; the page confirms inline.**
-  - Spec: rule 12, "the manual list with create, edit and delete in a dialog".
-  - Code today: delete shows an inline confirmation on the row (`finance-cost-<id>-confirm`,
-    then `finance-cost-<id>-confirm-delete`); only create and edit open the dialog. Proven by
-    `FinancePage.test.tsx` › "asks before deleting a cost" (ADMIN-FINANCE-36).
-  - Recommendation: amend the rule to the code; nothing depends on the dialog.
-  - Proposed text: "the manual list with create and edit in a dialog, and delete behind an inline
-    confirmation on the row".

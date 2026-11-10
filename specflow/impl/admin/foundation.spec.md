@@ -1,6 +1,6 @@
 ---
 id: admin.foundation
-status: draft
+status: implemented
 depends_on: [auth.login, auth.token-refresh]
 serves: [P-ADMIN-2]
 governed_by: [R-005, R-022, R-023, R-024, R-036]
@@ -8,7 +8,7 @@ governed_by: [R-005, R-022, R-023, R-024, R-036]
 
 # admin.foundation
 
-> Linear: PAD-531 (this spec), epic PAD-530. Owner decisions 2026-10-06. Draft: no code exists.
+> Linear: PAD-531 (this spec), epic PAD-530. Owner decisions 2026-10-06.
 > Every other `admin.*` leaf builds on this one.
 
 ### Intent
@@ -75,7 +75,7 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 5. **Role matrix.** Each route declares the lowest role it needs; the order is
    `support < operator < owner`. A request below the route's role answers 403
    `{"error": "ADMIN_ROLE_TOO_LOW"}` and writes an audit row with `outcome = denied`.
-   - `support`: every `GET` route. No write of any kind.
+   - `support`: every `GET` route, and no write except finance (`admin.finance` rule 1).
    - `operator`: everything `support` can do, plus every write except role management and the
      capability kill-switches.
    - `owner`: everything, plus `POST|DELETE /admin/api/roles/*` (grant, change, revoke a role) and
@@ -225,7 +225,7 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 
 #### ADMIN-FOUNDATION-10: Support cannot write (rule 5)
 - **Given** a `support` token
-- **When** it posts to any non-`GET` route of the blueprint (each one, enumerated from the URL map, except the session routes `auth/google` and `auth/logout`)
+- **When** it posts to any non-`GET` route of the blueprint (each one, enumerated from the URL map, except the session routes `auth/google` and `auth/logout` and the finance routes of `admin.finance` rule 1)
 - **Then** every response is 403 `ADMIN_ROLE_TOO_LOW` and every target row is unchanged
 
 #### ADMIN-FOUNDATION-11: Only the owner manages roles (rules 5, 7)
@@ -295,8 +295,8 @@ Today the only staff power is the `users.is_superadmin` flag, exercised from ins
 
 #### ADMIN-FOUNDATION-24: The console builds alone (rules 14, 16)
 - **Given** the npm workspace
-- **When** `apps/admin` is built
-- **Then** its bundle contains the console and no product route, and `apps/web`'s bundle contains no console string (a known console-only i18n key is absent)
+- **When** the console's and the product apps' sources are scanned (`console-only.test.ts`)
+- **Then** the console's sources name no product route and no product API client, and no product source file holds a console-only string (a known console-only i18n key is absent)
 
 #### ADMIN-FOUNDATION-25: The audit log lists newest first, 50 a page, filtered by actor, action, target and date (rule 9)
 - **Given** 55 audit rows
@@ -413,31 +413,3 @@ test: `backend/padel_app/tests/test_pad531_hardening.py` › `test_the_console_s
 - Resolved 2026-10-09: the consent screen could not be "Internal" (the project is not in a
   Workspace organisation); it is External in Testing mode with one test user. Each new staff
   member must be added as a test user before they can sign in, until the app is published.
-
-### Open questions
-
-- **Rule 5 and ADMIN-FOUNDATION-10 say support writes nothing; finance lets support write.**
-  - Spec: rule 5, "`support`: every `GET` route. No write of any kind." ADMIN-FOUNDATION-10: a
-    support token on any non-`GET` route gets 403, the session routes excepted.
-  - Other spec: `admin.finance` rule 1 (owner's answer Q4, 2026-10-23) gives every finance route,
-    writes included, to `FINANCE_ROLE = "support"`.
-  - Code today: finance is the code's one exception. `test_pad531_plumbing.py` leaves the five
-    finance write routes out of the "support cannot write" walk (`SUPPORT_WRITES`), and
-    ADMIN-FINANCE-1 proves support creates a cost.
-  - Recommendation: keep the owner's finance answer and amend this rule and criterion to name the
-    exception.
-  - Proposed text for rule 5: "`support`: every `GET` route, and no write except finance
-    (`admin.finance` rule 1)." For ADMIN-FOUNDATION-10's When: "…except the session routes
-    `auth/google` and `auth/logout` and the finance routes of `admin.finance` rule 1".
-- **ADMIN-FOUNDATION-24 speaks of the built bundles; its tests read source files.**
-  - Spec: "its bundle contains the console and no product route, and `apps/web`'s bundle contains
-    no console string".
-  - Tests: `console-only.test.ts` scans the console's sources for product routes and clients, and
-    the product source trees for one console-only string. Nothing builds or reads a bundle.
-  - Recommendation: reword the criterion to the sources, which is what is checked on every run; a
-    bundle check would need a build in the test lane.
-  - Proposed Then: "the console's sources name no product route and no product API client, and no
-    product source file holds a console-only string (a known console-only i18n key is absent)".
-- **The header still says "Draft: no code exists" and `status: draft`.** The console is built (PAD-531
-  and its followers) and its criteria have tests. Recommendation: set the status to
-  `implemented` and drop that sentence. `admin.moderation` carries `status: draft` in the same way.

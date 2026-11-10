@@ -25,10 +25,10 @@ removed from web and iOS in the same ticket.
 - **CREATES:** nothing new beyond `admin.foundation`'s tables
 
 ### Rules
-1. **Approvals list.** `GET /admin/api/coach-approvals` (`support`) answers what
-   `GET /api/app/admin/coach-approvals` answers today (`auth.coach-approval` rule 2): pending
-   coaches oldest first as `{coachId, userId, name, username, email, emailVerified,
-   requestedAt}`. The console shows the count in its navigation.
+1. **Approvals list.** `GET /admin/api/coach-approvals` (`support`) answers the pending coaches
+   oldest first as `{coachId, userId, name, username, email, emailVerified, requestedAt}`
+   (`emailVerified` per `auth.email-verification` rule 10; the shape the product's own route
+   answered before PAD-532). The console shows the count in its navigation.
 2. **Approve and reject reuse the services.** `POST /admin/api/coach-approvals/<coach_id>/approve`
    and `.../reject` `{reason?}` (`operator`) call `approve_coach_service` and
    `reject_coach_service` in `services/coach_approval_service.py` and nothing else, so status,
@@ -56,8 +56,10 @@ removed from web and iOS in the same ticket.
    `push_subscriptions.subscription_json` or any invitation / join token (the list
    `settings.admin-editor` rule 3 kept until PAD-550 deleted that editor; the user view builds its
    own field list and never reads those columns).
-6. **Disable and enable.** `POST /admin/api/users/<user_id>/disable` `{reason}` and `.../enable`
-   (`operator`) set `users.status` to `disabled` / `active`. Disabling uses the same state as
+6. **Disable and enable.** `POST /admin/api/users/<user_id>/disable` `{reason}` (`operator`) sets
+   `users.status` to `disabled`; `.../enable` (`operator`) sets a `disabled` account back to
+   `active` and leaves any other status as it is (an `inactive` account its owner never activated
+   stays `inactive`; the audit row is written either way). Disabling uses the same state as
    account deletion and rejection, so the JWT blocklist loader refuses every product token of
    that user and they are signed out everywhere on their next request. Enabling never changes a
    coach's `approval_status`: a rejected coach is re-approved through rule 2, not here. Both are
@@ -170,6 +172,11 @@ removed from web and iOS in the same ticket.
 - **Given** rejected coach `rui` (`users.status = disabled`)
 - **When** an operator POSTs `.../enable`
 - **Then** `users.status = active` and the Coach's `approval_status` is still `rejected`
+
+#### ADMIN-APPROVALS-AND-USERS-25: Enable leaves an account that was never activated as it is (rule 6)
+- **Given** an `inactive` user (created by a coach, never activated)
+- **When** an operator POSTs `.../enable`
+- **Then** the answer is 200 and the status is still `inactive`
 
 #### ADMIN-APPROVALS-AND-USERS-9: Resend verification follows the product's limits (rule 7)
 - **Given** unverified user `rita` and a captured mail transport
@@ -304,19 +311,3 @@ test: `backend/padel_app/tests/test_pad550_e2e_cleanup_rows.py` › `test_off_th
 - The view-as banner is the one visible product-web change this epic adds; it carries no staff
   action, only "read-only" and a close button (business rule 6 of
   `staff-act-under-the-company-identity-and-leave-a-trail` names it as the exception).
-
-### Open questions
-
-- **Rule 6 says enable sets the status to `active`; the code enables only a disabled account.**
-  - Spec: rule 6, "`…/disable` `{reason}` and `…/enable` (`operator`) set `users.status` to
-    `disabled` / `active`".
-  - Test: `test_pad532_users.py` › `test_enable_only_undoes_a_disable`
-    posts `enable` for an `inactive` user and asserts 200 with the status still `inactive`.
-  - Code today: `services/admin/users_service.py` `enable` sets `active` only when the status is
-    `disabled` ("Rule 6 undoes a disable, nothing else"): an account a coach created and its
-    owner never activated stays inactive. The audit row is written either way.
-  - Recommendation: keep the code and amend the rule; activating a never-activated account from
-    the console would skip the student's own activation.
-  - Proposed text for rule 6: "…`enable` sets a `disabled` account back to `active` and leaves
-    any other status as it is". Proposed criterion: "Given an `inactive` user, When an operator
-    POSTs `…/enable`, Then the answer is 200 and the status is still `inactive`."

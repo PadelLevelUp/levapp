@@ -1,6 +1,6 @@
 ---
 id: admin.moderation
-status: draft
+status: implemented
 depends_on: [admin.foundation, admin.approvals-and-users, messaging.block-and-report, messaging.messages]
 serves: [P-ADMIN-3]
 governed_by: [R-005, R-022, R-024]
