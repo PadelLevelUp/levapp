@@ -121,7 +121,9 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
      still ahead on the club's clock, with an invitation timing that is not `none` and an
      invite-start time already past, now arms `invite_start_lesson_<lesson>_<date>` for the
      **catch-up**: two minutes after the derivation (`INVITE_START_CATCH_UP`), not at the past
-     time, unless the job is already armed. The runner is the same, so every gate above holds
+     time, unless a catch-up from an earlier derivation is still pending, which stays where it is;
+     a job armed for any other time came from an earlier timing and is replaced. The runner is the
+     same, so every gate above holds
      (semi-automatic approval, the restrictions and the quiet-hours hold, the start-once claim,
      the class lock), materialising still removes the job, and a later derivation finds the date
      materialised and arms no second catch-up. Reminder jobs are untouched: a past reminder time
@@ -328,9 +330,8 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
    - After maxInactiveTime without a yes, sends the next batch or round. **An invitation never
      expires because nobody answered it (PAD-609; owner, 2026-10-10):** while its spot is open it
      stays live and can be accepted; it ends only when the spot is filled (rule 15, "spot_filled"),
-     the student answers, the coach withdraws it (rule 19) or the class starts (rule 9's stale
-     sweep).
-6. Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no
+     the student answers, the coach withdraws it (rule 19) or the class starts (rule 20).
+6. Player responds: `POST /api/app/notify/respond` with `{notificationEventId, action: "yes" | "no"}`
 7. If confirmed: Vacancy.status = "filled", player added to instance
 8. If all decline, or maxInactiveTime passes with no yes: moves to next round, and the earlier
    rounds' invitations stay live alongside it (PAD-609) â€” the first yes wins. A player invited for
@@ -553,7 +554,7 @@ multi-round matching. The rounds are an **ordering** â€” who gets asked first â€
     over one another answer holds (that answer finds the class full and records `spot_filled`
     itself). The tick and a class edit retire none: a coach may invite by hand to a class that is
     already full, and that invitation stays live (its late yes reads `spot_filled`).
-    `"expired"` stays for the class starting (rule 9's stale sweep) and the coach's withdrawal
+    `"expired"` stays for the class starting (rule 20) and the coach's withdrawal
     (rule 19). A student who held an invitation to the class (one with its message), neither
     answered "no" nor withdrawn by the coach, may join its
     waiting list from the bubble even when the coach's open spots are hidden (`classes.academy-class-booking`
@@ -1553,30 +1554,3 @@ test: `backend/padel_app/tests/test_pad552_capacity_edit_follows_vacancies.py` â
 - **And** with several open spots the one with the lowest id takes them
 - **And** an invitation withdrawn for balance moves the same way when another spot now asks that side
 test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py` â€º `test_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second` (+14 more)
-
-### Open questions
-
-- **Rule 1c says the catch-up is armed "unless the job is already armed"; a job armed by an earlier timing is replaced.**
-  - Rule 1c: "now arms `invite_start_lesson_<lesson>_<date>` for the **catch-up**: two minutes
-    after the derivation (`INVITE_START_CATCH_UP`), not at the past time, unless the job is already
-    armed."
-  - Code today: `_invite_start_fire_time` in `scheduler.py` keeps only a catch-up still pending
-    from an earlier derivation. A job armed for any other time came from an earlier timing and is
-    replaced by a fresh catch-up; so is a catch-up that never fired.
-    `test_pad661_semi_auto_never_filled_suggestions.py` â€º
-    `test_a_job_from_an_earlier_timing_is_replaced_by_the_catch_up` proves it.
-  - Recommendation: the code is right (a coach who moves the start earlier must not wait for the
-    old far-off job); amend the sentence's last clause.
-  - Proposed clause: "unless a catch-up from an earlier derivation is still pending, which stays
-    where it is; a job armed for any other time came from an earlier timing and is replaced."
-- **Rule 6 names a route that does not exist, and two rules cite "rule 9's stale sweep".**
-  - Rule 6: "Player responds: `POST /api/app/notification/{event_id}/respond` with yes/no".
-    Rule 1b already writes `/notify/respond`.
-  - Rules 5 and 15: "the class starts (rule 9's stale sweep)". Rule 9 is the coach's recorded
-    answer; the engine stopping at the class's start, and the tick expiring what is still out, is
-    rule 20.
-  - Code today: the route is `POST /api/app/notify/respond` with
-    `{notificationEventId, action: "yes" | "no"}` (`notification_engine_api.py`).
-  - Recommendation: both are stale text; amend them.
-  - Proposed rule 6: "Player responds: `POST /api/app/notify/respond` with `{notificationEventId,
-    action: "yes" | "no"}`". Proposed reference in rules 5 and 15: "(rule 20)".

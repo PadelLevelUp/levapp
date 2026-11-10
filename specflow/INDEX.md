@@ -5059,7 +5059,7 @@ Untagged tests: 4131
     - test: `backend/padel_app/tests/test_waiting_list_offer_response.py` › test_no_settles_the_offer_without_queueing
     - test: `frontend/apps/mobile/src/features/messages/waiting-list-state.test.ts` › [NOTIFICATIONS-WAITING-LIST-8] shows declined once the student answered no
     - test: `frontend/apps/mobile/src/features/messages/waiting-list-state.test.ts` › [NOTIFICATIONS-WAITING-LIST-8] records a no when the server took the decline
-  - **NOTIFICATIONS-WAITING-LIST-9** Only one active standing entry per coach and player
+  - **NOTIFICATIONS-WAITING-LIST-9** Only one active standing entry per coach, player and scope
     - test: `backend/padel_app/tests/test_notification_reminder_flow.py` › test_add_deactivates_existing_active_entry
   - **NOTIFICATIONS-WAITING-LIST-10** The coach picks the end date, up to 12 months (rule 2, PAD-507)
     - test: `backend/padel_app/tests/test_pad507_standing_end_date.py` › test_an_entry_runs_to_the_end_date_the_coach_picks
@@ -5277,7 +5277,7 @@ Untagged tests: 4131
     - test: `backend/padel_app/tests/test_pad432_max_total_budget.py` › test_send_invitation_batch_trims_to_the_remaining_shared_budget
   - **NOTIFICATIONS-CONFIG-32** An expired invitation gives its place back (PAD-432)
     - test: `backend/padel_app/tests/test_pad432_max_total_budget.py` › test_expired_invitation_gives_its_place_back_to_the_budget
-  - **NOTIFICATIONS-CONFIG-33** iOS shows the same nine restriction controls as web (PAD-433)
+  - **NOTIFICATIONS-CONFIG-33** iOS shows the same ten restriction controls as web (PAD-433)
     - test: `frontend/apps/mobile/src/features/settings/restrictions-section.test.tsx` › [NOTIFICATIONS-CONFIG-33] renders every row of rule 14, in web's order
     - test: `frontend/apps/mobile/src/features/settings/restrictions-section.test.tsx` › [NOTIFICATIONS-CONFIG-33] shows the stored values and switch states
   - **NOTIFICATIONS-CONFIG-34** A step clamps at the shared bounds (PAD-433)
