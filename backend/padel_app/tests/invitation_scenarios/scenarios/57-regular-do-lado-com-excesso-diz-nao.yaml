@@ -1,0 +1,45 @@
+id: 57
+title: regular do lado com excesso diz Não
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1298, 1312]}
+what_it_tests: uma falta no lado com excesso abre vaga para o lado que continua em falta
+tags: [unbalanced, regulars]
+depends_on: [U9, U11]
+corrections: []
+notes: >
+  10 left regulars is over half, so the missing count is for the whole class and every invitation goes to
+  the under-filled right (R6). After L-1's No the left still holds 9 (over half), so the new opening is
+  also filled from the right, and the 5 L2L are ignored on purpose. The invitations lists are exhaustive,
+  so any L2L invitation fails the step. The absence kind of L-1's No is not stated and is not checked.
+  No one is moved to another side (U11).
+
+roster:
+  regulars: {L: 10, R: 4}
+students:
+  - {cohort: L2R, count: 20, level: 2, side: R}
+  - {cohort: L2L, count: 5, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 6, side_named: null, group: 3}]
+      missing: {total: 2}
+  - at: 2026-11-01 19:10
+    events: [{regular_no: L-1}]
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+      missing: {total: 3}
+      roster: {L: 9, R: 4}
+  - at: 2026-11-01 19:15
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: r1}}
+      - {accepts: {cohort: L2R, state: invited, as: r2}}
+      - {accepts: {cohort: L2R, state: invited, as: r3}}
+    expect:
+      placed:
+        - {who: r1, side: R, how: invitation}
+        - {who: r2, side: R, how: invitation}
+        - {who: r3, side: R, how: invitation}
+      missing: {total: 0}
+      roster: {L: 9, R: 7}
+final:
+  roster: {L: 9, R: 7}
