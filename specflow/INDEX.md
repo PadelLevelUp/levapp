@@ -2580,7 +2580,7 @@ Untagged tests: 4131
     - test: `backend/padel_app/tests/test_dashboard_needs_you_snooze.py` › test_snooze_endpoint_hides_the_card_for_the_calling_coach
     - test: `backend/padel_app/tests/test_dashboard_needs_you_snooze.py` › test_snooze_endpoint_rejects_students_and_garbage_ids
   - **DASHBOARD-BLOCKS-2** The validation card carries its tier (rule 11, PAD-443) · unverified
-  - **DASHBOARD-BLOCKS-3** Validation card counts classes for the tab's week (PAD-190 / PAD-201)
+  - **DASHBOARD-BLOCKS-3** Validation card counts the whole backlog of classes (rule 3, PAD-190 / PAD-201 / PAD-539)
     - test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › [DASHBOARD-BLOCKS-3] opens the Presences tab on the week, with the validate view when asked (PAD-283)
   - **DASHBOARD-BLOCKS-4** A reply card opens the conversation (PAD-284, B-078)
     - test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › [DASHBOARD-BLOCKS-4] opens THAT conversation for a reply, not the messages tab (PAD-284)
@@ -2612,7 +2612,7 @@ Untagged tests: 4131
   - **DASHBOARD-BLOCKS-17** Upcoming lessons is the schedule's count (PAD-235)
     - test: `backend/padel_app/tests/test_dashboard_player_home.py` › test_upcoming_lessons_is_the_schedules_count
   - **DASHBOARD-BLOCKS-18** Before the first reminder the dashboard offers only "Avisar que não vou" (PAD-570) · unverified
-  - **DASHBOARD-BLOCKS-19** After "Não vou" the dashboard row shows the hint, not buttons (PAD-570)
+  - **DASHBOARD-BLOCKS-19** After "Não vou" the dashboard row shows no buttons, only what `comeBack` says (PAD-570, PAD-684)
     - test: `frontend/apps/mobile/src/features/calendar/vou-after-reminder-render.test.ts` › [DASHBOARD-BLOCKS-19] a settled state beats a stale flag in the shared row action
   - **DASHBOARD-BLOCKS-20** Student answers a reminder from the dashboard (PAD-202 correction) · unverified
   - **DASHBOARD-BLOCKS-21** Student sees classes beyond the coming week (PAD-202 correction)

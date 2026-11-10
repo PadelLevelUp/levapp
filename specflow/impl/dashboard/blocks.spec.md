@@ -133,6 +133,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
      home** — "Unread messages: 0" as the largest card on the screen is the flaw the redesign
      removed; an unread message reaches the user as a `reply` queue item instead.
    - **(PAD-167)** `notification_activity` and `pending_confirmations` were removed as dead.
+     - Code to follow: delete the unused `count_pending_confirmations` helper and its test; only
+       `notify_pending_confirmations` stays.
    - **(PAD-202)** `class_list` and `grid` were removed. The student payload was the last emitter;
      the student's "Your upcoming lessons" is now `schedule_7d` and "Invites to confirm" is the
      `invite` kind of `needs_you`. The old "Invites to confirm" list could never populate: it
@@ -315,9 +317,10 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 ### Acceptance Criteria
 
 #### DASHBOARD-BLOCKS-1: Coach dashboard
-- **Given** an authenticated coach with 15 players, 3 classes this week, 2 unread messages
+- **Given** an authenticated coach
 - **When** they GET `/api/app/dashboard`
-- **Then** the response includes blocks: messages_overview (2 unread), kpi_grid (15 players), class_list (3 classes)
+- **Then** the response includes blocks, in order: `messages_overview`, `next_class`, `needs_you`,
+  `incomplete_players`, `schedule_7d`, `week_pulse` (the order is stated in DASHBOARD-BLOCKS-36)
 
 - **Given** an authenticated coach whose queue lists an `empty_seats` item for class B1 (2 of 6
   seats taken, starting in 45 minutes) and a validation item
@@ -347,20 +350,20 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** the validation card reads "Tens 7 aulas por validar" in the red tier, and the Presences
   badge reads 7
 
-#### DASHBOARD-BLOCKS-3: Validation card counts classes for the tab's week (PAD-190 / PAD-201)
-- **Given** a coach with two classes ended last week that still have an unvalidated presence,
-  and nothing ended this week
+#### DASHBOARD-BLOCKS-3: Validation card counts the whole backlog of classes (rule 3, PAD-190 / PAD-201 / PAD-539)
+- **Given** a coach with one unvalidated class this week and two last week
 - **When** they GET `/api/app/dashboard`
-- **Then** the queue's `validation` item has `count: 2`, `weekOffset: -1` and
-  `href: "/presences?week=-1"`, and `GET /api/app/class_instances/pending_validation/count`
-  for last week's Monday–Sunday bounds answers `pendingCount: 2`
+- **Then** the `validation` item has `count: 3`, `weekOffset: 0` and `href: "/presences?validate=1"`
 
-- **Given** a coach with one such class this week and two last week
+- **Given** a coach whose only unvalidated classes ended three weeks ago
 - **When** they GET `/api/app/dashboard`
-- **Then** the item has `count: 1`, `weekOffset: 0` and `href: "/presences?validate=1"` — the
-  current week wins whenever it has work
+- **Then** the item counts them, with `weekOffset: -3` and `href: "/presences?validate=1&week=-3"`
 
-- **Given** a coach whose only unvalidated class ended three weeks ago
+- **Given** two unvalidated presences on one class
+- **When** they GET `/api/app/dashboard`
+- **Then** the item counts it once
+
+- **Given** nothing to validate
 - **When** they GET `/api/app/dashboard`
 - **Then** there is no `validation` item
 
@@ -369,6 +372,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Then** they land on `/presences?validate=1…` (never the 404 page), the validate view is
   already open on that week, and the tab's trigger shows the same number of classes the card
   showed
+- Code to follow: tighten the "count is the endpoint's number for its week" test in
+  `test_dashboard_coach_home.py` so it also covers a backlog spread over more than one week.
 
 #### DASHBOARD-BLOCKS-4: A reply card opens the conversation (PAD-284, B-078)
 - **Given** the seeded `e2e-coach` with an unread message from `e2e-student`
@@ -396,8 +401,10 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **Given** an authenticated player enrolled in 2 classes this week
 - **When** they GET `/api/app/dashboard`
 - **Then** the response `id` is `player_default_v1` and its blocks are, in order,
-  `messages_overview`, `next_class`, `needs_you`, `schedule_7d`, `kpi_grid` — no `class_list`,
-  no `grid` — and `schedule_7d` lists both classes
+  `messages_overview`, `profile_incomplete` (only while a level or a side is missing), `next_class`
+  (only when a class is scheduled), `needs_you`, `schedule_7d`, `kpi_grid`, `evaluations` (only for
+  a client that declares it, when a card is shared) — no `class_list`, no `grid` — and
+  `schedule_7d` lists both classes
 
 #### DASHBOARD-BLOCKS-9: The student home runs the pipeline once (rule 8, PAD-583)
 - **Given** a student enrolled in 13 classes over the next 90 days, 3 of them in the next 30
@@ -488,10 +495,10 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 - **When** they GET `/api/app/dashboard`
 - **Then** the row and the hero carry `pendingConfirmation: false`, `attendanceState: "planned"` and a `declineTarget`; `needs_you` has no `invite` for it; the Invites tile does not count it; both shells render one "Avisar que não vou" button and no Yes / No
 
-#### DASHBOARD-BLOCKS-19: After "Não vou" the dashboard row shows the hint, not buttons (PAD-570)
+#### DASHBOARD-BLOCKS-19: After "Não vou" the dashboard row shows no buttons, only what `comeBack` says (PAD-570, PAD-684)
 - **Given** a student whose `attendanceState` is `not_coming` on an upcoming class
 - **When** they open `/`
-- **Then** the row shows no Yes / No and no "Avisar que não vou", and shows the hint (the chat shortcut is on the class detail the row opens)
+- **Then** the row shows no Yes / No and no "Avisar que não vou", and shows what `comeBack` says (DASHBOARD-BLOCKS-45)
 
 #### DASHBOARD-BLOCKS-20: Student answers a reminder from the dashboard (PAD-202 correction)
 - **Given** the seeded `e2e-student` with a reminder sent for a class in two days (`Presence`
@@ -613,6 +620,8 @@ test: `backend/padel_app/tests/test_dashboard_coach_home.py` › `test_hero_is_o
 - **And** a class that already ended this week is not offered
 - **And** a coach with nothing outstanding gets the block with `count: 0` and no items
 test: `backend/padel_app/tests/test_pad740_needs_you_current_week.py` › `test_a_class_that_already_ended_this_week_is_not_offered` (+6 more)
+- Code to follow: make the queue-order test seed a reply, so the order of free seats, replies and validation
+  is proved with all three present.
 
 #### DASHBOARD-BLOCKS-39: Snoozing a card again restarts its day (rule 3)
 - **Given** a free-seats card snoozed at 10:00
@@ -627,6 +636,8 @@ test: `backend/padel_app/tests/test_dashboard_needs_you_snooze.py` › `test_sno
 - **And** each coach row's `inviteHref` is its `href` plus `&notify=1`, the same link the queue's free-seats card for that class carries
 - **And** a student's rows carry no `inviteHref`
 test: `backend/padel_app/tests/test_pad425_schedule_invite_href.py` › `test_every_coach_schedule_row_links_to_the_invite_flow` (+3 more)
+- Code to follow: make the `totalCount` test seed more classes than the rows it lists, so the total is shown
+  to exceed the rows.
 
 #### DASHBOARD-BLOCKS-41: The week pulse carries its denominators, and a delta only when there is a week to compare (rule 3)
 - **Given** a coach with four players signed up to tomorrow's full class, and a coach with no classes
@@ -654,6 +665,8 @@ test: `backend/padel_app/tests/test_dashboard_pending_confirmations.py` › `tes
 - **And** a row that is attended or missed offers nothing
 - **And** the settled state wins over a stale pending flag
 test: `frontend/packages/config/src/reminder-answer.test.ts` › `only 'Avisar que não vou' before the ask, and after a yes` (+4 more)
+- Code to follow: in `reminder-answer.test.ts`, make "nothing once the coach's record stands or the row is
+  unknown" expect no decline button for the unknown row.
 
 #### DASHBOARD-BLOCKS-44: Student rows and the hero carry the flag and the id an answer needs (rules 3, 3a, 8)
 - **Given** a student with a class they signed up for and were never asked about, a class they were asked about and have not answered, and a class they answered
@@ -679,6 +692,8 @@ test: `frontend/apps/web/src/components/dashboard/coach/ComeBackSlot.test.tsx` �
 - **And** a date is read and written as the viewer's local calendar day: 00:30 local on 9 August is `2026-08-09`
 - **And** dates render in the active language (agosto, August), and the Portuguese column weekday is upper case with no full stop
 test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCAL date, not the UTC one` (+9 more)
+- Code to follow: make the "always exactly one calendar day" test check that the end is exactly one calendar
+  day after the start, not only after it.
 
 #### DASHBOARD-BLOCKS-47: The iOS app sends a card's link to its native screen, and nowhere for a path it does not know (rule 10)
 - **Given** the web paths the server puts on dashboard cards
@@ -687,20 +702,3 @@ test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCA
 - **And** `/calendar` with a class id that is not a dashboard id opens the calendar tab
 - **And** an unknown path maps to nothing, and the card goes nowhere
 test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `falls back to the calendar tab when the class id is not a dashboard id` (+4 more)
-
-### Open questions
-
-- **DASHBOARD-BLOCKS-3 describes the validation card as it was before PAD-539.**
-  - The criterion: with one class to validate this week and two last week, "the item has `count: 1`, `weekOffset: 0`"; with a class that ended three weeks ago, "there is no `validation` item"; and the first case's link is `/presences?week=-1`.
-  - Rule 3 (PAD-539) and the code today: the count is the whole backlog with no date bound (`presence_overview_service.py:343-360`), the link opens the most recent week that has work, however old (`coach_home.py:519-535`), every link carries `validate=1` (`coach_home.py:506-509`), and the card is left out only when nothing is pending. Tests: `count == 2` for the first case and `count == 3`, `weekOffset == -3` for the old backlog (`test_dashboard_coach_home.py:246-248`, `:290-292`).
-  - Recommendation: amend the criterion to rule 3. Four tests proposed tonight (whole backlog, old backlog, classes not presences, omitted when empty) are pointed at this criterion; they prove the proposed text, not today's.
-  - Proposed text: "**Given** a coach with one unvalidated class this week and two last week **Then** the `validation` item has `count: 3`, `weekOffset: 0` and `href: "/presences?validate=1"`. **Given** a coach whose only unvalidated classes ended three weeks ago **Then** the item counts them, with `weekOffset: -3` and `href: "/presences?validate=1&week=-3"`. **Given** two unvalidated presences on one class **Then** it counts once. **Given** nothing to validate **Then** there is no `validation` item." The e2e case stays as it is.
-- **DASHBOARD-BLOCKS-8 gives the student's block order without two blocks the code sends.**
-  - The criterion: "its blocks are, in order, `messages_overview`, `next_class`, `needs_you`, `schedule_7d`, `kpi_grid`".
-  - The code today: `messages_overview`, then `profile_incomplete` when the student's link lacks a level or a side (`player.py:36-38`), then `next_class` when a class is scheduled, `needs_you`, `schedule_7d`, `kpi_grid`, then `evaluations` when the client declares it and a card is shared (`player.py:50-59`). The one test of the order expects `profile_incomplete` second (`test_dashboard_player_home.py:498-505`).
-  - Recommendation: amend the criterion to name the two conditional blocks.
-  - Proposed text for the Then: "its blocks are, in order, `messages_overview`, `profile_incomplete` (only while a level or a side is missing), `next_class` (only when a class is scheduled), `needs_you`, `schedule_7d`, `kpi_grid`, `evaluations` (only for a client that declares it, when a card is shared)".
-- **DASHBOARD-BLOCKS-1's first case names blocks the coach no longer gets.** It lists `kpi_grid` (15 players) and `class_list` (3 classes). The coach's blocks are `messages_overview`, `next_class`, `needs_you`, `incomplete_players`, `schedule_7d`, `week_pulse` (`coach.py:29-51`); rule 3 (PAD-202) removed the other two. Recommendation: replace the first case with that list; DASHBOARD-BLOCKS-36 already states the order.
-- **DASHBOARD-BLOCKS-19 says a declined row shows the hint; since PAD-684 it shows what `comeBack` says.** Rule 3a keeps the hint only for a server that sends no `comeBack`. DASHBOARD-BLOCKS-45 states the current behaviour. Recommendation: amend 19 to "shows no Yes / No and no "Avisar que não vou", and shows what `comeBack` says (DASHBOARD-BLOCKS-45)".
-- **`count_pending_confirmations` is dead code with a test.** Nothing calls it since the `pending_confirmations` block was removed (PAD-167); only the nudge (`notify_pending_confirmations`) is live. Recommendation: delete the helper and its test.
-- **Five tests assert less than their names say:** "nothing once the coach's record stands or the row is unknown" expects the decline button for the unknown row; the queue-order test seeds no reply; the `totalCount` test never has more classes than rows; "count is the endpoint's number for its week" holds only while the whole backlog sits in one week; "always exactly one calendar day" checks only that the end is after the start. Recommendation: tighten them when the tags are applied.
