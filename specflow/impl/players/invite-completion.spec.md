@@ -42,7 +42,10 @@ This reuses the coach-invitation token mechanism (`clubs.coach-invitation`): a r
 3. Only the coach associated with the player may create or revoke a player invitation.
 4. Frontend route: `/invite/player/:token` — a public (unauthenticated) profile-completion form.
 5. The completion form lets the player set their own username (unique across users), password, and
-   optional email/phone.
+   optional email/phone. The password is at least 8 characters, the sign-up minimum
+   (`auth.register` rule 4; owner decision 2026-11-10: 8 everywhere, server and forms), refused
+   with 400 on `password` by the accept route and before sending by the web and app forms.
+   - Code to follow: the accept service checks `PASSWORD_MIN_LENGTH` as sign-up does (today it checks presence only), and the web `PlayerInvitePage` and the shared `playerInviteAcceptSchema` and `passwordSchema` move from 6 to 8.
 6. Accepting the invitation: updates the player's User with the chosen username/password/details, sets
    `users.status` to `active`, marks the invitation `accepted`, and returns an access token so the
    player is logged in.
