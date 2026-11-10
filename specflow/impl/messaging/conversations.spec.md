@@ -33,7 +33,9 @@ Manage conversations between users (1:1 or group chats).
    (rule 6) creates through the same helper, so a double submit answers `201` with the existing
    conversation in the same shape as a fresh create, on every client including the App Store
    builds, never a 500.
-3. `is_group=True` allows group_name display
+3. `is_group=True` allows group_name display. A conversation is a group when it has more than two
+   participants; the one effect found is that a group never shows the unknown-sender banner
+   (`messaging.block-and-report` rule 7).
 4. `last_read_at` per participant tracks read status
 5. `GET /api/app/conversations` returns all user's conversations
 5a. Each list entry's `participantAvatar` is the other participant's photo URL (`Image.url()`,
@@ -46,8 +48,8 @@ Manage conversations between users (1:1 or group chats).
    plus `hasMore` and `oldestMessageId` for walking back. A found conversation with a long
    history is therefore never returned whole; a freshly created one has `messages: []`,
    `hasMore: false`, `oldestMessageId: null`
-7. A coach may start a conversation with a player who is **linked** to them, and a student (everyone
-   else) with an active coach they are **linked** to. A link is one of two things, read the same way
+7. A coach may start a conversation with an active player who is **linked** to them, and a student
+   (everyone else) with an active coach they are **linked** to. A link is one of two things, read the same way
    from both sides: the coach has the player on their **roster** (`coach_in_player`), or the coach
    teaches a class the player is in that is **not yet over** — an occurrence (`coach_in_lesson_instance` × `presences`) that has not ended
    and is not cancelled, or a series (`coach_in_lesson` × `player_in_lesson`) with an occurrence
@@ -70,6 +72,8 @@ Manage conversations between users (1:1 or group chats).
    username — placeholder accounts and users without a password never match
    (`messaging.direct-by-username` rules 2–3, decision 2026-09-06 item 5) — and any automatic
    message, which never consults the set (system sends create their own direct conversation).
+   The link and block checks apply to a **new** conversation only: when a conversation with those
+   participants already exists it is returned to anyone in it, as rule 8 implies.
 8. The scope in rule 7 governs **starting** a conversation only. It never restricts sending inside
    a conversation that already exists.
 9. A conversation and **all** of its `ConversationParticipant` rows are written in one
@@ -139,8 +143,14 @@ Manage conversations between users (1:1 or group chats).
     the thread is its own screen, and the read row is gone from the list on return. With nothing
     unread the list says so ("Sem conversas por ler" / "No unread conversations").
 
-18. A row with no photo shows the person's initials: the first letters of the first two words of their name. On the phone a row with no name shows `?`; on web it shows the initials of the deleted-user label.
-19. A row shows when its last message was sent, in the viewer's language: the time for today, the word for yesterday, and a date before that.
+18. A row with no photo shows the person's initials: the first letters of the first two words of their
+    name, uppercased, words split on any run of spaces. A row with no name, including a person who is
+    gone, shows `?`. Web and phone alike.
+    - Code to follow: web `ConversationList.tsx` must use the phone's `initialsOf` helper instead of its own initials code.
+19. A row shows when its last message was sent, in the viewer's language: the time for today, the word
+    for yesterday, and the day and month before that, with the year when it is not this year. Web and
+    phone alike.
+    - Code to follow: web `ConversationList.tsx` must show the day and month (with the year for an earlier year) instead of a weekday and a short numeric date.
 
 ### Acceptance Criteria
 
@@ -161,6 +171,7 @@ Manage conversations between users (1:1 or group chats).
 - **Given** a conversation already exists between users 1 and 5
 - **When** user 5 tries to create a conversation with user 1
 - **Then** the existing conversation is returned (no duplicate)
+- Proved on the Postgres lane only: `test_pad411_first_message_race.py` is skipped unless the suite runs on Postgres.
 
 #### MESSAGING-CONVERSATIONS-4: Coach messages a player they added in the app
 - **Given** coach C added player P through the app, so P has a `coach_in_player` row for C and no
@@ -258,6 +269,7 @@ Manage conversations between users (1:1 or group chats).
 - **Then** every entry has `id`, `name`, `username`, `role`, `avatarUrl`, `abbreviation` and no `email`, `phone` or `language` key
 - **When** C GETs the same two routes
 - **Then** the entries have the same public shape, while `GET /api/app/players` still carries the roster's `email` and `phone` for C
+- Code to follow: `test_pad500_user_list_scope.py` must share the full public-field list of `test_user_privacy.py` (with `avatarUrl` and `abbreviation`) instead of its own short one.
 
 #### MESSAGING-CONVERSATIONS-18: Students are not discoverable
 - **Given** an authenticated student
@@ -318,6 +330,7 @@ Manage conversations between users (1:1 or group chats).
 - **When** two system messages to that student are sent at the same moment (Postgres)
 - **Then** exactly one conversation exists, with both of them as participants
 - **And** both messages are in it
+- Proved on the Postgres lane only: `test_pad411_first_message_race.py` is skipped unless the suite runs on Postgres.
 
 #### MESSAGING-CONVERSATIONS-27: Unread rows are bold and the count caps at 9+ (PAD-414)
 - **Given** Maria's list holds a conversation with 3 unread, one with 12 unread and one read
@@ -365,25 +378,12 @@ test: `backend/padel_app/tests/test_pad93_boolean_blast_radius.py` › `test_one
 - **And** `GET /api/app/users` answers exactly the people on the picker, with no e-mail, phone or language
 - **And** an automatic message is delivered whatever the link
 test: `backend/padel_app/tests/test_messaging_report_block_scope.py` › `test_student_can_message_a_linked_coach` (+12 more)
+- Code to follow: `test_automatic_messages_ignore_the_picker_scope` in `test_pad483_student_coach_scope.py` must use a student who is not linked to the coach, or be dropped, since its sibling test is the proof.
 
 #### MESSAGING-CONVERSATIONS-33: A row shows initials when there is no photo, and when its last message was sent (rules 18, 19)
 - **Given** a conversation list whose rows have no photo and last messages from today, yesterday and earlier
 - **When** the list renders in Portuguese and in English
-- **Then** on the phone "Ana Beatriz Silva" shows `AB`, "Ana" shows `A`, and a row with no name shows `?`
+- **Then** on web and on the phone "Ana Beatriz Silva" shows `AB`, "Ana" shows `A`, and a row with no name shows `?`
 - **And** a message from today shows its time, and one from yesterday the word for yesterday
-- **And** an earlier message shows a date in the viewer's language: on the phone the day and month, with the year for an earlier year; on web a weekday within the last week and a short date before that
+- **And** an earlier message shows the day and month in the viewer's language, with the year for an earlier year, on web and on the phone
 test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `takes the first letter of the first two words, uppercased` (+13 more)
-
-### Open questions
-
-- **The link and block checks of rule 7 are skipped when the conversation already exists.**
-  - Rule 7 and MESSAGING-CONVERSATIONS-22: starting a conversation with an unlinked coach is 403.
-  - The code today: `create_conversation_service` runs the block and link checks only when no conversation with those participants exists (`messaging_service.py:872-874`); an existing one is returned to anyone in it. Rule 8 says an existing thread survives a removed link, for sending. MESSAGING-CONVERSATIONS-32 is written for a new conversation.
-  - Recommendation: say in rule 7 that the checks apply to a new conversation, as rule 8 implies.
-- **The web list and the phone list word an older date differently.** Web shows a weekday for 2 to 6 days ago and a short numeric date before that; the phone shows day and month, and adds the year for an earlier year. MESSAGING-CONVERSATIONS-33 states both as they are. Recommendation: pick one and align the other.
-- **Rule 7 says "active coach" for the student's side only; the coach's side also needs an active student.** `messaging_service.py:161`. Recommendation: say "active" for both.
-- **Rule 3 does not say when a conversation is a group.** The code sets `is_group` when there are more than two participants; its one effect found is that a group never shows the unknown-sender banner. Recommendation: say so in rule 3.
-- **Three race tests never run on the default test lane.** `test_pad411_first_message_race.py` is skipped unless the suite runs on Postgres, so the tests pointed at MESSAGING-CONVERSATIONS-3 and 26 from it are proved only there. Recommendation: accept, and note it on the criterion.
-- **One "automatic messages ignore the picker" test proves nothing.** Its student is on the coach's roster, so the message would be delivered anyway; its sibling test is the real proof. Recommendation: drop it or unlink the student.
-- **A test's list of public fields is short.** `test_pad500_user_list_scope.py` leaves out `avatarUrl` and `abbreviation`, which rule 15 and MESSAGING-CONVERSATIONS-17 require; `test_user_privacy.py` has the full list. Recommendation: share one list.
-- **Web's initials have no test and differ from the phone's.** Web splits the name on single spaces, so stray spaces change the letters, and a person who is gone shows the initials of the deleted-user label where the phone shows `?` (`ConversationList.tsx:45-66`). Recommendation: share the phone's helper.

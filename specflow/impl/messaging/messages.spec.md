@@ -10,7 +10,7 @@ governed_by: []
 
 
 ### Intent
-Send, edit, and delete messages within conversations, with support for replies and attachments.
+Send, edit, and delete messages within conversations, with support for replies (attachments are not built yet, see rule 5).
 
 ### Entities
 - **Message** (`messages`): text, sent_at, sender_id, conversation_id, attachment_id (FK → images), reply_to_id (self-referential), edited (bool), is_deleted (bool), message_type (text|notification|system), msg_metadata (JSON)
@@ -32,10 +32,15 @@ Send, edit, and delete messages within conversations, with support for replies a
    destroys moderation evidence. A message deleted before PAD-639 is erased by its migration
    the same way. The clients drop the content from their caches on delete as well: on web and
    iOS, a message the user deleted or a `message_deleted` event names keeps no text, metadata,
-   attachment or reactions in memory, and a reply quoting it shows "Message deleted"
+   attachment or reactions in memory, and a reply quoting it shows "Message deleted". The
+   client's erased copy keeps fewer fields than the server's row: it keeps no type and clears
+   the reply link, where the server keeps both
 4. Messages can reply to another message (`reply_to_id`)
-5. Messages can have image attachments (`attachment_id`)
-5a. An attachment is **private**. It is stored in a bucket with no public ACL and
+5. **Not built.** Messages can have image attachments (`attachment_id`). No route sets
+   `attachment_id` yet and the serializer sends no `attachmentUrl`; only deletion and retention
+   touch the column. Rules 5a and 5b below describe how a photo would be served; today they hold
+   for profile photos and club logos (`MESSAGING-MESSAGES-21`).
+5a. **Not built for message photos; live for avatars and logos.** An attachment is **private**. It is stored in a bucket with no public ACL and
     served as a short-lived signed URL, never as a durable public link. A signed URL
     lives `SIGNED_URL_MINUTES` (60) and is **reused per object key for
     `SIGNED_URL_REUSE_MINUTES` (50) within a process** (PAD-593): an image costs one signing
@@ -43,7 +48,8 @@ Send, edit, and delete messages within conversations, with support for replies a
     same URL within the window so browsers and the iOS image cache hit, and a reused URL always
     has at least 10 minutes left; its storage key carries a random segment so it cannot be guessed
     from the sender, the send time or the original filename (B-047)
-5b. **A signer that is missing or failing degrades to "no image", never to an error** (B-018).
+    - Code to follow: `test_signed_urls_outlive_a_render` in `test_image_privacy.py` must assert the rule's 60 minutes, not a floor of 30.
+5b. **Not built for message photos; live for avatars and logos.** **A signer that is missing or failing degrades to "no image", never to an error** (B-018).
     When no uploads bucket is configured, or the runtime cannot mint a signed URL (no
     `iam.serviceAccountTokenCreator` on the service account, storage unreachable), the
     attachment URL — and every other image URL built the same way: avatars, club logos —
@@ -105,14 +111,14 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **Then** the message counts as unread for that participant
 - **And** the same holds anywhere inside the same wall-clock second
 
-#### MESSAGING-MESSAGES-3: Attachment is not publicly readable
+#### MESSAGING-MESSAGES-3: Attachment is not publicly readable (not built: no route attaches a photo)
 - **Given** a message with an image attachment
 - **When** the message payload is serialized for a participant
 - **Then** the attachment URL is a signed URL that expires
 - **And** fetching the underlying object without that signature is refused
 - **And** the storage key cannot be derived from the sender, timestamp or filename
 
-#### MESSAGING-MESSAGES-4: An attachment that cannot be signed is omitted, not an error (B-018)
+#### MESSAGING-MESSAGES-4: An attachment that cannot be signed is omitted, not an error (B-018; message photo not built, avatar and logo live)
 - **Given** a message with a private image attachment
 - **And** a runtime with no uploads bucket configured, or whose signer raises
 - **When** the message payload is serialized
@@ -172,11 +178,12 @@ Send, edit, and delete messages within conversations, with support for replies a
 - **When** user 5 tries to PATCH or DELETE
 - **Then** the request is rejected (403)
 
-#### MESSAGING-MESSAGES-13: A non-participant cannot post into a conversation (B-026)
+#### MESSAGING-MESSAGES-13: A non-participant cannot post into or read a conversation (B-026)
 - **Given** a conversation between users 1 and 5
 - **And** user 9 who is not a participant of it
 - **When** user 9 POSTs to `/api/app/message` with that `conversationId`
 - **Then** the response is 403
+- **And** user 9 GETting `/api/app/conversation/<id>` is also 403
 - **And** no Message row is created
 - **And** no SSE event is published and no push notification is sent
 
@@ -227,6 +234,7 @@ test: `backend/padel_app/tests/test_pad492_automatic_marker.py` › `test_a_dele
 - **And** on a server whose credentials hold no private key the address is signed through IAM instead
 - **And** the cache keeps a bounded number of addresses, the newest ones
 test: `backend/padel_app/tests/test_image_privacy.py` › `test_url_uses_a_signed_url_when_private` (+7 more)
+- Code to follow: the comment at `padel_app/model.py:39` must say the cache drops only the oldest addresses, not that expired ones are swept first.
 
 #### MESSAGING-MESSAGES-22: Copy takes the text as written, and a deleted or empty message has nothing to copy (rule 12)
 - **Given** a message with leading spaces and a line break, a deleted message, and a message with no text
@@ -234,14 +242,3 @@ test: `backend/padel_app/tests/test_image_privacy.py` › `test_url_uses_a_signe
 - **Then** the first is copied unchanged
 - **And** nothing is copied for the other two, and the clipboard is left alone
 test: `frontend/apps/mobile/src/features/messages/utils.test.ts` › `copies the message content verbatim, inner whitespace included` (+3 more)
-
-### Open questions
-
-- **Rules 5, 5a and 5b and MESSAGING-MESSAGES-3 and 4 describe a photo attachment that no route produces.**
-  - P-MESSAGING "user and coach message in real time": "A message can carry a photo, or reply to an earlier message as a visible reply chain."
-  - The code today: `create_message_service` builds a message from its text, conversation, sender, time and reply only (`messaging_service.py:438-465`); nothing sets `attachment_id`, and the serializer sends no `attachmentUrl` (`serializers/message.py:86-110`). Only deletion and retention touch `attachment_id`. Profile photos and club logos use the same signing and are live; MESSAGING-MESSAGES-21 states that part.
-  - Recommendation: decide whether photos in messages are wanted. If not now, mark rules 5 to 5b and criteria 3 and 4 as not built, and drop the photo from the promise. Nothing was changed tonight.
-- **Rule 5a says a signed address lasts 60 minutes; the test allows 30.** `test_signed_urls_outlive_a_render` asserts a floor of 30. Recommendation: assert the rule's 60.
-- **The promise says "only the sender can edit or delete a message"; rule 3 gives staff a delete.** Rule 3 says the staff console's moderation delete calls the same erase (`admin.moderation` rule 4, a draft spec). Recommendation: say "from the app" in the promise once the console's delete is live.
-- **A comment on the signed-address cache describes a sweep the code does not do.** `model.py:39` says expired entries are swept first; the code drops only the oldest (`model.py:75-79`). Recommendation: fix the comment.
-- **The client's erased message keeps different fields from the server's.** Rule 3 names what the server keeps (sender, conversation, time, type, reply); the client copy keeps no type and clears the reply (test pointed at MESSAGING-MESSAGES-11). Recommendation: accept, and say so in rule 3.

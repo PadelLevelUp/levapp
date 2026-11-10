@@ -20,7 +20,8 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
    `postgres` (LISTEN/NOTIFY, any number of processes)
 3. Events published: `message_created`, `message_edited`, `message_deleted`, `message_reaction`,
    plus the notification-engine events `notification_responded` and `notify_sent`
-4. Each event is JSON with `{type, payload}`
+4. Each event is JSON with `{type, payload}`, except the resync event, which is `{"type": "resync"}` with
+   no payload (`realtime.py`)
 5. Frontend `EventSource` consumes the stream and updates UI optimistically
 6. On disconnect, client queue is cleaned up
 7. A subscription is **keyed by the authenticated user id taken from the JWT** — the
@@ -45,7 +46,8 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
    privacy boundary
 11. **Server-wide stream cap** (PAD-277, audit M19). Production runs one gunicorn worker with
     64 threads, and every open stream holds one thread for its whole life. At most
-    `SSE_MAX_STREAMS` streams are open at once (env, default **40**), which leaves 24 threads for
+    `SSE_MAX_STREAMS` streams are open at once (env, default **40** in the API role; in the events role the server-wide cap falls back to
+    **1000**, PAD-697), which leaves 24 threads for
     ordinary API requests. The value comes from `sse_stream_limits()` in `padel_app/config.py`; a
     missing, non-numeric or non-positive value falls back to the default
 12. **Per-user stream cap**: at most `SSE_MAX_STREAMS_PER_USER` streams per user (env, default
@@ -93,14 +95,7 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     `metadata` into the cached message, and never `isRead` or `status`, which the viewer-less
     payload does not know. Both shells merged only `content` and forced `edited: true` before
     this rule, so no bubble changed live until a refetch.
-19. **A sent message shows once, whichever answer lands first (PAD-647).** The sender's own
-    `message_created` echo can arrive before the POST that created it answers. The echo is
-    appended under the saved id; when the POST then answers, a saved id already in the thread
-    drops the optimistic row instead of replacing it. Both shells settle the send through one
-    shared helper, `reconcileSentMessage` in `@levelup/hooks`. Before this rule only iOS checked;
-    web replaced the optimistic row with the saved message and showed it twice.
-
-19. **(PAD-616, B-546; rule number unconfirmed) A re-open resyncs what is live.** An event the
+19. **(PAD-616, B-546) A re-open resyncs what is live.** An event the
     server published while a client's stream was down (a network blip, an app back from the
     background, a deploy overlapping two API containers) never arrives. So when the hub's stream
     opens after its first open, the hub delivers a local `{ type: "resync" }` to every listener
@@ -119,13 +114,21 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     the shared `mergeNewestPage` — missed messages appended, changed ones (edited, deleted,
     reacted) replaced, older pages and pending sends kept; never an invalidation of the thread's
     entry, which would drop the loaded older pages — and, when someone else's message was missed,
-    marks the thread read and flags "new below" as an arrival would.
+    marks the thread read and, on the phone and only when the reader is not at the bottom, flags
+    "new below" as an arrival would (the web handler has no such flag).
 
-20. **(PAD-692; rule number unconfirmed) Broker switch.** `SSE_BROKER` is `memory` (default) or
+19a. **A sent message shows once, whichever answer lands first (PAD-647).** The sender's own
+    `message_created` echo can arrive before the POST that created it answers. The echo is
+    appended under the saved id; when the POST then answers, a saved id already in the thread
+    drops the optimistic row instead of replacing it. Both shells settle the send through one
+    shared helper, `reconcileSentMessage` in `@levelup/hooks`. Before this rule only iOS checked;
+    web replaced the optimistic row with the saved message and showed it twice.
+
+20. **(PAD-692) Broker switch.** `SSE_BROKER` is `memory` (default) or
     `postgres`; anything else is `memory`. On a database that is not Postgres (the SQLite unit lane)
     `postgres` falls back to `memory` with one WARNING at startup. `publish()` keeps its signature,
     its required `user_ids` (rule 8) and its view-as suppression in both modes.
-21. **(PAD-692; unconfirmed) A publish reaches the broker only after the publisher's data is
+21. **(PAD-692) A publish reaches the broker only after the publisher's data is
     committed.** Publishers call `publish()` after their own commit (or from `on_commit`). With
     `postgres`, `publish()` writes on its **own** short transaction, never on the request's session
     (a NOTIFY there would be rolled back by the request teardown): one `realtime_events` row
@@ -134,11 +137,11 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     block, where `create()`/`save()` only flush, `publish()` defers itself to `on_commit`. The
     publish uses its own small connection pool with a 2 s checkout timeout; a publish that cannot
     get a connection, or fails, is logged and dropped. A live event never fails or stalls the request.
-22. **(PAD-692; unconfirmed) The NOTIFY carries an id, never a body.** NOTIFY payloads are limited
+22. **(PAD-692) The NOTIFY carries an id, never a body.** NOTIFY payloads are limited
     to 8,000 bytes and a message body has no length limit, so the body lives in the row and the
     listener reads it. What a client receives is byte-for-byte what `memory` delivers: the client
     contract (rules 4, 18, 19) is the same in both modes.
-23. **(PAD-692; unconfirmed) One listener per process.** The first stream a process accepts starts
+23. **(PAD-692) One listener per process.** The first stream a process accepts starts
     one listener thread on a **dedicated** database connection outside the SQLAlchemy pool
     (`application_name=levapp-realtime-listener`), which runs `LISTEN levapp_events`. It must never
     go through a transaction-mode connection pooler (PgBouncer transaction mode breaks LISTEN).
@@ -146,7 +149,7 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     and delivered to the local registry in that order, with the same scoping as rule 8. The
     process's own publishes come back the same way. Processes that never accept a stream (CLI,
     migrations, a worker) never start a listener.
-24. **(PAD-692; unconfirmed) NOTIFY is not durable; a gap ends in a resync.** If the listener's
+24. **(PAD-692) NOTIFY is not durable; a gap ends in a resync.** If the listener's
     connection drops, the listener reconnects with back-off (1 s doubling to 30 s, jittered), runs
     `LISTEN` again, and then puts `{"type": "resync"}` into **every** open local stream. The
     same holds for the **first** LISTEN of a process: the stream that started the listener was
@@ -160,7 +163,7 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
     readiness while the API and the streams share a process (a LISTEN outage degrades live updates,
     it does not make the API unready).
 
-25. **(PAD-689; rule number unconfirmed) The cap is observable.** Every process that holds streams
+25. **(PAD-689) The cap is observable.** Every process that holds streams
     logs one INFO line every 60 s, in both broker modes:
     `SSE streams: open=<n> max_per_user=<n> cap=<n> refused=<n> push_queue=<depth>/<max> pushes_dropped=<n>`
     (`realtime.stats_line()`; the first stream starts the logger, like the listener). The texts an
@@ -219,8 +222,8 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** A opens a new stream and user C tries to open one
 - **Then** A's new stream gets `200` (A's old one is evicted) and C's gets `503` with `"scope": "total"`
 
-#### MESSAGING-SSE-REALTIME-7: The caps default to 40 and 4, the keep-alive to 5 s
-- **Given** no `SSE_*` variables
+#### MESSAGING-SSE-REALTIME-7: In the API role the caps default to 40 and 4, the keep-alive to 5 s
+- **Given** no `SSE_*` variables, in the API role (in the events role the server-wide cap falls back to 1000, PAD-697)
 - **When** one user opens five streams and 35 other users open one each, then two more users try
 - **Then** all five of the first user's streams get `200` and that user keeps four (the first is evicted); the 40th stream gets `200` and the 41st `503`
 - **And** `sse_stream_limits({"SSE_MAX_STREAMS": "0", "SSE_MAX_STREAMS_PER_USER": "nope"})` is `(40, 4)` and `sse_keepalive_seconds({})` is `5`
@@ -258,7 +261,7 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **Then** the cached message's `metadata` is replaced by the payload's, its `content` and `edited` follow the payload, and its `isRead` and `status` are untouched
 - **And** the bubble re-renders without a reload
 
-#### MESSAGING-SSE-REALTIME-14: The echo that beats the POST leaves one bubble (rule 19, PAD-647)
+#### MESSAGING-SSE-REALTIME-14: The echo that beats the POST leaves one bubble (rule 19a, PAD-647)
 - **Given** a coach on web with a conversation open, whose send POST is held until the `message_created` echo has rendered
 - **When** the POST answers with the same saved message
 - **Then** the thread shows the message exactly once
@@ -318,11 +321,13 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **When** a service creates a message and publishes inside the block
 - **Then** no `realtime_events` row and no notify exist before the block commits, and both exist after it
 - **And** a block that rolls back publishes nothing
+- Proved in part on the Postgres lane only: the cross-process tests are skipped on the default lane.
 
 #### MESSAGING-SSE-REALTIME-25: A publish never stalls the request (rule 21)
 - **Given** the publish pool is exhausted
 - **When** a request publishes
 - **Then** `publish()` returns within 2 s, logs the drop, and the request answers normally
+- Proved in part on the Postgres lane only: the cross-process tests are skipped on the default lane.
 
 #### MESSAGING-SSE-REALTIME-26: Old event rows are pruned (rule 24)
 - **Given** `realtime_events` rows 11 and 5 minutes old and `REALTIME_EVENTS_RETENTION_MINUTES=10`
@@ -390,6 +395,7 @@ Deliver real-time message updates to connected clients via Server-Sent Events.
 - **And** the listener connects with every option of the server's own database address
 - **And** it works in a process that already holds more than a thousand open files
 test: `backend/padel_app/tests/test_pad692_realtime_broker.py` › `test_a_notify_that_arrives_during_a_listener_query_is_not_delayed` (+4 more)
+- Proved in part on the Postgres lane only: the cross-process tests are skipped on the default lane.
 
 #### MESSAGING-SSE-REALTIME-37: The client's one connection opens only with a session and stops when nobody listens (rules 15, 16, 17)
 - **Given** the app's shared live connection
@@ -420,12 +426,3 @@ test: `frontend/packages/api/src/sse.test.ts` › `does not reconnect once nobod
   rule 10 says when one process is required
 - Passing `user_ids=[]` delivers to nobody; that is a legitimate outcome (e.g. a
   conversation whose only participant was deleted), not a reason to broadcast
-
-### Open questions
-
-- **Two rules are numbered 19, and rules 19 to 25 are marked "rule number unconfirmed".** One is the echo that beats the POST (PAD-647), the other the resync on a re-open (PAD-616); criteria 14 and 16 to 19 all cite "rule 19". Recommendation: renumber, with the `Specflow-Amends:` trailers.
-- **MESSAGING-SSE-REALTIME-7's caps of 40 and 4 hold for the API role only.** In the events role the server-wide cap falls back to 1000 (`frontend_api.py:645-646`, PAD-697). Recommendation: name the role in rule 11 and the criterion.
-- **Rule 4 says every event is `{type, payload}`; the resync event has no payload.** It is `{"type": "resync"}` (`realtime.py:55`). Recommendation: add the exception.
-- **On a resync the two shells differ on "new messages below".** Rule 19 says the open thread flags them; the phone does so only when the reader is not at the bottom (`conversation/[id].tsx:418`), and the web handler has no such flag (`MessagesPage.tsx:233-255`). Recommendation: decide whether web needs it.
-- **The port's note that real time is "in-memory, single-server, with no per-user filtering" is out of date.** An event is published to named recipients only and put in those users' queues alone (`realtime.py:245-275`); with `SSE_BROKER=postgres`, which the Kubernetes manifests set for every role, a row and a NOTIFY carry it to the other processes (`realtime.py:293-308`, `:411-420`). Events are not replayed after a drop; the client resyncs instead. Nothing to decide.
-- **Four tests of the cross-process path run only on Postgres.** They are skipped on the default lane, so MESSAGING-SSE-REALTIME-24, 25 and 36 are partly proved only on the Postgres lane. Recommendation: accept.

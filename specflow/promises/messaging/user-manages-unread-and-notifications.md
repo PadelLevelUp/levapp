@@ -7,7 +7,7 @@ status: implemented
 
 ## Outcome
 
-A user always knows what they have not read, through a badge on the Messages tab and on the app icon, and is notified outside the app when a message arrives and they are not in that conversation. Opening a conversation clears its count, and the badge never stays stuck.
+A user always knows what they have not read, through a badge on the Messages tab and on the app icon, and is notified outside the app when a message arrives. Opening a conversation clears its count, and the badge never stays stuck.
 
 - "Unread" means messages sent after the user last opened that conversation.
 - A push carries the recipient's real current unread total, not an increment, so the badge corrects itself on the next push.
