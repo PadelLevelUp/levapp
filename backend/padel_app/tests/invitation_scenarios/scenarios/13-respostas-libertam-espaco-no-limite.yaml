@@ -1,0 +1,56 @@
+id: 13
+title: as respostas libertam espaço no limite
+source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [469, 485]}
+what_it_tests: o número de convites é recalculado a cada resposta, tanto a um Sim como a um Não
+tags: [max-open]
+depends_on: []
+corrections: []
+notes: >
+  M counts only unanswered invitations of the current round, replacements included; answers leave the
+  count (R10). 19:03: 10 open, need min(15, 12) = 12, send 2. 19:05: 4 missing need 12, 11 open, send 1.
+  19:08: 3 missing need 9, 11 open, send none. A No is replaced at once from the same group (R2).
+
+roster:
+  regulars: {L: 8, R: 3}
+students:
+  - {cohort: L2R, count: 30, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 12, side_named: null, group: 3}]
+      missing: {L: 0, R: 5}
+  - at: 2026-11-01 19:03
+    events:
+      - {declines: {cohort: L2R, state: invited, as: d1}}
+      - {declines: {cohort: L2R, state: invited, as: d2}}
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+      open_unanswered: 12
+  - at: 2026-11-01 19:05
+    events: [{accepts: {cohort: L2R, state: invited, as: a1}}]
+    expect:
+      placed: [{who: a1, side: R, how: invitation}]
+      invitations: [{cohort: L2R, count: 1, side_named: null, group: 3}]
+      open_unanswered: 12
+      missing: {L: 0, R: 4}
+  - at: 2026-11-01 19:08
+    events: [{accepts: {cohort: L2R, state: invited, as: a2}}]
+    expect:
+      placed: [{who: a2, side: R, how: invitation}]
+      invitations: none
+      open_unanswered: 11
+      missing: {L: 0, R: 3}
+  - at: 2026-11-01 19:15
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: a3}}
+      - {accepts: {cohort: L2R, state: invited, as: a4}}
+      - {accepts: {cohort: L2R, state: invited, as: a5}}
+    expect:
+      placed:
+        - {who: a3, side: R, how: invitation}
+        - {who: a4, side: R, how: invitation}
+        - {who: a5, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

@@ -1,0 +1,56 @@
+id: 18
+title: aula pequena sem regulares, mesmo no limite
+source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [560, 575]}
+what_it_tests: uma aula sem regulares, com os dois lados a encher em separado e exatamente 12 convites
+tags: [max-open, sides, aviso]
+depends_on: []
+corrections: []
+notes: >
+  X x spots = 6 per side, 12 in total, exactly M. The 19:15 Aviso probe is derived from "os outros de
+  esquerda recebem o Aviso se disserem Sim" (R9).
+
+class:
+  level: 3
+  capacity: 4
+  start: 2026-11-03 10:30
+  created_at: null
+
+roster:
+  regulars: {L: 0, R: 0}
+students:
+  - {cohort: L2L, count: 6, level: 2, side: L}
+  - {cohort: L2R, count: 6, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L2L, count: 6, side_named: null, group: 3}
+        - {cohort: L2R, count: 6, side_named: null, group: 3}
+      invitations_total_sent: 12
+      missing: {L: 2, R: 2}
+  - at: 2026-11-01 19:10
+    events:
+      - {accepts: {cohort: L2L, state: invited, as: l1}}
+      - {accepts: {cohort: L2L, state: invited, as: l2}}
+    expect:
+      placed:
+        - {who: l1, side: L, how: invitation}
+        - {who: l2, side: L, how: invitation}
+      missing: {L: 0, R: 2}
+  - at: 2026-11-01 19:15
+    derived: true
+    events: [{accepts: {cohort: L2L, state: invited, as: l3}}]
+    expect:
+      messages: [{who: l3, kind: aviso}]
+  - at: 2026-11-01 19:30
+    events:
+      - {accepts: {cohort: L2R, state: invited, as: r1}}
+      - {accepts: {cohort: L2R, state: invited, as: r2}}
+    expect:
+      placed:
+        - {who: r1, side: R, how: invitation}
+        - {who: r2, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 2, R: 2}

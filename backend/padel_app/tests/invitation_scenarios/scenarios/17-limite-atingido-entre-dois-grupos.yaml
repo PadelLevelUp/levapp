@@ -1,0 +1,58 @@
+id: 17
+title: o limite é atingido entre dois grupos
+source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [539, 559]}
+what_it_tests: o grupo prioritário entra primeiro e o grupo seguinte fica com o espaço que sobra no limite
+tags: [max-open, groups, rounds, timers]
+depends_on: [U5]
+corrections: []
+notes: >
+  19:00 is one round across two groups: group 3 covers 2 spots by heads and group 4 gets X for the 6
+  uncovered spots (18), capped at the 10 places left under M (R1). 19:20: a new round sends X x spots
+  without subtracting the 12 open (R11), capped at the 10 remaining candidates. 20:20 is 60 min after the
+  last round; no group has candidates, so nothing goes out and 22 stay open.
+
+roster:
+  regulars: {L: 8, R: 0}
+students:
+  - {cohort: L2R, count: 2, level: 2, side: R}
+  - {cohort: L3R, count: 20, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L2R, count: 2, side_named: null, group: 3}
+        - {cohort: L3R, count: 10, side_named: null, group: 4}
+      invitations_total_sent: 12
+      missing: {L: 0, R: 8}
+  - at: 2026-11-01 19:20
+    expect:
+      invitations: [{cohort: L3R, count: 10, side_named: null, group: 4}]
+      open_unanswered: 22
+  - at: 2026-11-01 20:20
+    expect:
+      invitations: none
+      open_unanswered: 22
+  - at: 2026-11-01 20:30
+    events:
+      - {accepts: {cohort: L3R, state: invited, as: a1}}
+      - {accepts: {cohort: L3R, state: invited, as: a2}}
+      - {accepts: {cohort: L3R, state: invited, as: a3}}
+      - {accepts: {cohort: L3R, state: invited, as: a4}}
+      - {accepts: {cohort: L3R, state: invited, as: a5}}
+      - {accepts: {cohort: L3R, state: invited, as: a6}}
+      - {accepts: {cohort: L3R, state: invited, as: a7}}
+      - {accepts: {cohort: L3R, state: invited, as: a8}}
+    expect:
+      placed:
+        - {who: a1, side: R, how: invitation}
+        - {who: a2, side: R, how: invitation}
+        - {who: a3, side: R, how: invitation}
+        - {who: a4, side: R, how: invitation}
+        - {who: a5, side: R, how: invitation}
+        - {who: a6, side: R, how: invitation}
+        - {who: a7, side: R, how: invitation}
+        - {who: a8, side: R, how: invitation}
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}
