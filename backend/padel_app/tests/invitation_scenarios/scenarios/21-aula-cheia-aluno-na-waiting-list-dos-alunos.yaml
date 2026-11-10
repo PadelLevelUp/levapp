@@ -8,7 +8,7 @@ corrections: []
 notes: >
   S1 is the PDF's unnamed student on the students' list who "só aceita a direita". The PDF gives no
   natural side or level, so S1 is a right-sider (side R, sides: own) with level null. Joining the list
-  is the initial state, done at the 19:00 step. "Todos dizem Sim" is `confirms` for the regulars and S1.
+  is the initial state, done at the 19:00 step. "Todos dizem Sim" is encoded for S1 only (`confirms`); regulars count as going by default.
 
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 roster:
@@ -35,9 +35,7 @@ timeline:
     expect:
       reminders: {to: [regulars, S1]}
   - at: 2026-11-02 17:00
-    events:
-      - {confirms: regulars}
-      - {confirms: S1}
+    events: [{confirms: S1}]
     expect: {roster: {L: 4, R: 4}}
 final:
   roster: {L: 4, R: 4}
