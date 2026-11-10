@@ -89,7 +89,7 @@ WHO_EVENTS = set(EVENTS) - {"class_created", "coach_sets", "other_class"}
 EXPECT_KEYS = {
     "invitations", "invitations_total_sent", "open_unanswered", "placed", "messages",
     "reminders", "absences", "missing", "roster", "nothing_sent", "waiting_list", "other_class",
-    "refused",
+    "refused", "open_in_round",
 }
 REFUSED_ACTIONS = {"direct_join", "waiting_list"}
 
@@ -521,7 +521,7 @@ def check_expect(node, path: str, rep: Report, people: People, class_ids: set[st
         p = f"{path}.{k}"
         if k == "invitations":
             check_invitations(v, p, rep, people, invited_so_far)
-        elif k in ("invitations_total_sent", "open_unanswered"):
+        elif k in ("invitations_total_sent", "open_unanswered", "open_in_round"):
             check_int(v, p, rep)
         elif k == "placed":
             check_records(v, p, rep, people, {"who", "side", "how"}, {"side": SIDES, "how": HOW})

@@ -1132,6 +1132,11 @@
               }
             }
           }
+        },
+        "open_in_round": {
+          "description": "Unanswered invitations of the current round only (the PDF's 'abertos na ronda atual', R10); open_unanswered counts all rounds.",
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
