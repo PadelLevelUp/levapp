@@ -5752,7 +5752,7 @@ Untagged tests: 4131
     - test: `frontend/packages/config/src/class-picker.test.ts` › [PLAYERS-PROFILE-4] drops every class that has started on the club's clock, today's included
     - test: `frontend/packages/config/src/class-picker.test.ts` › [PLAYERS-PROFILE-4] cannot step back from the current week
     - test: `frontend/packages/config/src/class-picker.test.ts` › [PLAYERS-PROFILE-4] can step back from a later week, to the current one
-  - **PLAYERS-PROFILE-5** The picker offers the week's Sunday classes (B-192)
+  - **PLAYERS-PROFILE-5** The picker offers the week's last-day classes (B-192)
     - test: `backend/padel_app/tests/test_b192_week_picker_includes_sunday.py` › test_a_one_off_class_on_the_weeks_sunday_is_listed
     - test: `backend/padel_app/tests/test_b192_week_picker_includes_sunday.py` › test_a_recurring_classs_sunday_occurrence_is_listed
     - test: `backend/padel_app/tests/test_b192_week_picker_includes_sunday.py` › test_the_inclusive_end_stops_at_the_end_of_that_day

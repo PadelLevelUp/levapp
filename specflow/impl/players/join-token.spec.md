@@ -37,8 +37,10 @@ serves a whole class and a leaked one can be retired. This is the student-initia
    staging), served publicly by `GET /api/app/public-web-origin` → `{webOrigin}` (`null` when
    unset). Web builds the join QR and link, the player invite link (`players.invite-completion`),
    the activation link (`auth.activate`) and the coach invitation link (`clubs.coach-invitation`)
-   on it, never on `window.location.origin` — the old padellevelup.com domain still serves the
-   app, so a coach browsing there handed out old-domain links. While the origin is being read no
+   on it, never on `window.location.origin` — the old padellevelup.com domain only redirects to
+   levapp.app (it serves `/api/`, the events stream and `/.well-known/`, and answers every other
+   path with a 301), so a coach browsing there would have handed out old-domain links, which still
+   work through the redirect. While the origin is being read no
    QR is drawn; when the server has none, or the read fails, the browser's own origin is used, so
    rolling back is changing the variable. iOS builds the same links on its configured
    `WEB_APP_URL` (levapp.app), the coach invitation link included. The old domain keeps
@@ -206,7 +208,3 @@ test: `frontend/apps/mobile/src/features/players/join-coach-copy.test.ts` › `%
 - QR rendering libraries: web `qrcode.react` (or `qrcode` + canvas), iOS `react-native-qrcode-svg`.
   Both render from the URL string; nothing is stored server-side beyond the token's hash.
 - OPEN: tell the coach when someone joins (system message)? v1: no.
-
-### Open questions
-
-- **Rule 3a says the old `padellevelup.com` domain "still serves the app"; it now redirects.** `infra/k8s/overlays/prod/legacy-domain.yaml` serves only `/api/`, the events stream and `/.well-known/` there and answers every other path with a 301 to `levapp.app`. A link shared on the old domain still works, through the redirect. Recommendation: reword rule 3a.

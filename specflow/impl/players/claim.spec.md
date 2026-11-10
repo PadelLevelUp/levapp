@@ -27,12 +27,14 @@ asks by exact username and the student accepts.
   trigger (`invite_link` | `coach_request`), counts (JSON: the dry-run counters of rule 5j as
   they were executed), created_at. Investigation only; it enables no undo.
 - **READS:** User, Player, Coach, PlayerInvitation
-- **WRITES (merge):** every table with a FK to `players.id` — Association_CoachPlayer,
-  Association_PlayerClub, Association_PlayerLesson, Association_PlayerLessonInstance, Presence,
+- **WRITES (merge):** every table with a FK to `players.id` (`MERGED_PLAYER_FK_TABLES`) —
+  Association_CoachPlayer, Association_PlayerClub, Association_PlayerLesson, Presence,
   PlayerLevelHistory, PlayerInvitation, StandingWaitingListEntry, WaitingListEntry, Vacancy
-  (`filled_by_player_id`, `absent_player_id`), NotificationEvent, ReplacementApprovalPrompt —
-  and the user-keyed rows of the placeholder User: ConversationParticipant, Message (sender),
-  CalendarBlock. **And every table with a FK to `coach_in_player.id`** (B-361, PAD-528):
+  (`original_player_id`, `filled_by_player_id`), NotificationEvent, ReplacementApprovalPrompt,
+  ReminderAttempt, ClassRequest, ClassJoinRequest, PlayerClaimRequest and PlayerMerge
+  (`target_player_id` of earlier merges) — and the user-keyed rows of the placeholder User:
+  ConversationParticipant, Message (sender), MessageReaction, MessageReport (reporter),
+  BlockedUser, CalendarBlock, PushSubscription, DeviceToken. **And every table with a FK to `coach_in_player.id`** (B-361, PAD-528):
   EvaluationRecord, EvaluationEntry, CoachPlayerNote (EvaluationShare follows its record). The
   placeholder User is then disabled.
 
@@ -51,7 +53,8 @@ asks by exact username and the student accepts.
 4. **Trigger B — coach asks by username.** Player detail (a claimable player only) → "Link to
    existing account" → exact username → `POST /api/app/player/<player_id>/claim-requests`
    `{"username"}` by a coach who has a `coach_in_player` relation with that player (403
-   otherwise). Exact match only, no search; unknown or non-student username → 404; a pending
+   otherwise). The username is the exact spelling, or else the only account that differs by case
+   (`auth.login` rule 2a); never a search. An unknown or non-student username → 404; a pending
    request for this player → 409. The target student sees pending requests via
    `GET /api/app/player-claim-requests` (theirs only), as a dashboard banner and under Settings →
    Account: "{coachName} ({clubName}) wants to link the record '{placeholder name}' to your
@@ -126,13 +129,19 @@ asks by exact username and the student accepts.
       original player); when both left the same occurrence, both spots stay open and the
       placeholder's keeps its spot with `original_player_id` NULL, as deleting the player would.
       `PlayerLevelHistory`, `NotificationEvent`, `Vacancy.filled_by_player_id`,
-      `ReplacementApprovalPrompt.*_player_id`, `PlayerInvitation`: re-point (invitations become
+      `ReplacementApprovalPrompt.*_player_id`, `ReminderAttempt`, `ClassRequest`,
+      `PlayerMerge.target_player_id`: re-point. `ClassJoinRequest`: re-point, deleting the
+      placeholder's row where the claimant already has one for the same instance.
+      `PlayerInvitation` and `PlayerClaimRequest` re-point too (a pending one becomes
       `accepted`).
    e. `ConversationParticipant` rows of the placeholder User: re-point `user_id`; recompute
       `participant_key` (R-017). If a conversation with the resulting key already exists (the
       coach already chatted with the claimant), move the placeholder conversation's messages
       and reactions into the existing conversation and delete the emptied conversation. Keep
-      the earlier `last_read_at`. `Message.sender_id`, `CalendarBlock.user_id`: re-point.
+      the earlier `last_read_at`. `Message.sender_id`, `CalendarBlock.user_id`,
+      `MessageReport.reporter_id`: re-point. `MessageReaction` (unique per message and emoji)
+      and `BlockedUser` (both directions; a self-block is deleted): re-point, dropping the
+      duplicates.
       `PushSubscription` (one per user) and `DeviceToken` (unique per user and token): the
       claimant's row is kept and the placeholder's duplicate dropped.
    f. Delete the placeholder Player row; disable the placeholder User the way
@@ -174,6 +183,8 @@ asks by exact username and the student accepts.
    the placeholder `playerId` now yields the claimant's `playerId`; clients invalidate their
    caches (the 60-second roster LRU of `players.list` rule 6) on the response.
 7. Both triggers and the student-side inbox ship on web and iOS (R-024).
+8. A merge that fails part-way rolls back and re-raises; the coach is given no worded error, so
+   through the API the failure is a server error (PLAYERS-CLAIM-27 sees the exception).
 
 ### Acceptance Criteria
 
@@ -414,13 +425,3 @@ test: `backend/padel_app/tests/test_player_claim_merge.py` › `test_every_playe
   that has to change. B-361 is what happened when the second kind was forgotten.
 - OPEN: whether a placeholder that has *two* coaches (a second coach imported the same person)
   should be claimable in one go — v1: yes, all relations move.
-
-### Open questions
-
-- **Rule 4 says the username is an "exact match only, no search"; the code also takes the one match that differs only by case.**
-  - Rule 4: "Exact match only, no search".
-  - The code today: the exact spelling wins; failing that, a single case-insensitive match is taken (`player_claim_service.py:592-603`, following `auth.login` rule 2a, PAD-799). `ANA` finds `ana`. PLAYERS-CLAIM-26 is written to the code.
-  - Recommendation: keep the code and reword rule 4 to "the exact spelling, or else the only account that differs by case; never a search".
-- **The Entities list is behind the merge.** It names `Vacancy.absent_player_id`, a column that does not exist; the merge re-points `original_player_id` and `filled_by_player_id`. It omits `reminder_attempts`, `class_requests`, `class_join_requests`, `player_claim_requests` and `player_merges`, which the merge handles. Rule 5e lists messages and calendar blocks only; the merge also moves reactions, message reports and blocks. Recommendation: rewrite Entities and rule 5e from `MERGED_PLAYER_FK_TABLES`.
-- **A failed coach-alone merge surfaces as a raw exception.** `merge_placeholder_player_into` rolls back and re-raises, so the test of PLAYERS-CLAIM-27 sees the exception, not an HTTP status; in production that is a 500. Recommendation: decide whether the coach should get a worded error.
-- **The preview's wording is asserted as translation keys.** PLAYERS-CLAIM-29's banner tests use a translator that echoes keys, so neither the sentence nor the counts are checked on screen. Recommendation: accept.

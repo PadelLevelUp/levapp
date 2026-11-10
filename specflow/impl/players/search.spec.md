@@ -30,7 +30,9 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    lower-cased, every character that is neither a Unicode letter, a digit nor a space dropped
    (PAD-516: "Ana-Rita O'Neil" folds to "anarita oneil"), spaces collapsed. Letters of any script are kept — "Łukasz" folds to "lukasz", never "ukasz".
 3. **Words.** The query is split into words. A blank query matches everyone and keeps the screen's
-   own order; a query with text but no letter or digit ("%", "!!") matches nobody.
+   own order, except in the type-ahead `notify/player_search`, which answers an empty list for a
+   blank query so an empty box never lists the roster (PAD-109); a query with text but no letter
+   or digit ("%", "!!") matches nobody.
 4. **Fields.** A player is searched across a list of fields: `name`, then `nickname` when the screen
    has one (null is skipped), then `email` and `phone` **only on screens whose payload already
    carries them** — the rule never adds a field to a payload. **An email is searched by its local
@@ -48,7 +50,9 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
    Tiers only add: anyone PAD-516 found is still found.
 6. **Order — an explicit sort wins** (decision 2026-10-14 (a)). Where a list has a sort of its
    own, the rule only filters and that sort stands: the **Players tab** (always by name or level;
-   PAD-521's "a search keeps the level order" holds) and the **presences table** (its column sort).
+   PAD-521's "a search keeps the level order" holds) and the **presences table** (its column sort;
+   `presenceRows` sorts after the filter).
+   - Code to follow: correct the comment at `report-state.ts:122-125`, which says best match first for the presences table; the sort wins.
    Where a list has no sort of its own, non-blank queries order by tier, then name (folded, then as
    written), then id: the type-ahead `notify/player_search` (applied **before** its limit of 20),
    the claim candidates (a same-name candidate still first, then tier), the class pickers, the
@@ -131,6 +135,7 @@ who can appear (PAD-665; inventory and technique confirmed by the owner, 2026-10
 - **And** each row's id is the player's id, not the account's
 - **And** a blank `q`, `%`, `_` and a text nobody matches each answer an empty list
 test: `backend/padel_app/tests/test_player_search.py` › `test_blank_or_wildcard_query_does_not_dump_the_roster` (+6 more)
+- Code to follow: `test_search_returns_player_ids_not_user_ids` asserts that the player's id and the account's id differ in its fixture.
 
 #### PLAYERS-SEARCH-10: A blank query keeps the whole list in its order, and a query with no letter or digit finds nobody (rule 3)
 - **Given** a list of people in the order its screen gives them
@@ -159,12 +164,3 @@ test: `backend/padel_app/tests/test_pad665_player_search.py` › `test_players_t
 - Nickname hook agreed with la-1410-SessionC (PAD-660): the field is `nickname`, read from the
   requesting coach's own `Association_CoachPlayer` row. PAD-660 passes it on `coach_players_paginated`
   and `notify/player_search` (`players.nickname` rule 5).
-
-### Open questions
-
-- **Rule 3 says a blank query "matches everyone"; the type-ahead answers nobody.**
-  - Rule 3: a blank query "matches everyone and keeps the screen's own order".
-  - The code today: `GET /api/app/notify/player_search` returns an empty list for a blank query, so an empty box never lists the roster (`player_service.py:493-495`, PAD-109). PLAYERS-SEARCH-9 is written to the code.
-  - Recommendation: keep the code and name the type-ahead as the exception in rule 3.
-- **A comment in the presences filter says the opposite of the code.** Rule 6 says the presences table keeps its column sort, and it does: `presenceRows` sorts after the filter. The comment at `report-state.ts:122-125` says best match first, and the helper's own test asserts best-first for the unsorted helper. Recommendation: fix the comment; no behaviour changes.
-- **The type-ahead's id test would pass if a player and an account shared an id.** `test_search_returns_player_ids_not_user_ids` relies on the fixture giving them different ids. Recommendation: assert the two differ in the fixture.
