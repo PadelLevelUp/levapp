@@ -39,7 +39,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
    play left counts for the left type only. Because types are recomputed every run (D8), an offer is
    matched against the types of each run, never stored as a type.
 5. **The run (§6 step 2, D5, D9).** Spot types are taken **hardest first**: fewest candidates per
-   uncovered spot, ties by rule 13. For each type, the tiers are walked in order:
+   uncovered spot, a type's candidates counted at its ideal tier (rule 6). A tie goes to the type whose
+   ideal tier comes earlier in the order; with the same ideal tier, rule 13. For each type, the tiers
+   are walked in order:
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
       counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
       open invitation answered "sorry" (`notifications.engine-answers` rule 4) and fit the type.
@@ -78,7 +80,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
 12. **Why this waits for the better tier (D9).** A spot is covered once one distinct candidate holds a
     counting invitation for it; the next tier gets it only when it is uncovered.
 13. **Ties in "hardest first" when M binds (coordinator ruling 2026-11-11, U7).** When two side types
-    tie on candidates per uncovered spot and M cannot give both their budgets: the side with more
+    tie on candidates per uncovered spot, have the same ideal tier, and M cannot give both their
+    budgets: the side with more
     uncovered spots is served first until the sides' uncovered spots are equal; the rest of M is split
     in halves; an odd leftover goes to the side with fewer going students, then to the side with fewer
     candidates in the tier. Without a tie, rule 5's order stands.
