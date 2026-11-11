@@ -135,12 +135,20 @@ class TableStore:
         from padel_app.models import EngineSession
         from padel_app.models.lesson_instances import LessonInstance
 
+        from padel_app.models.notification_config import NotificationConfig
+        from padel_app.services.notification_service import effective_auto_invites
+
         since = utc_to_wall_naive(self.clock() - AFTER_CLASS)
-        rows = (db.session.query(EngineSession.lesson_instance_id)
+        rows = (db.session.query(EngineSession.coach_id, LessonInstance)
                 .join(LessonInstance, LessonInstance.id == EngineSession.lesson_instance_id)
-                .filter(LessonInstance.start_datetime >= since, LessonInstance.status != "canceled")
+                .filter(LessonInstance.start_datetime >= since, LessonInstance.status != "canceled",
+                        LessonInstance.notifications_enabled.is_(True))
                 .order_by(LessonInstance.start_datetime, LessonInstance.id).all())
-        return tuple(str(r[0]) for r in rows)
+        coaches = {coach_id for coach_id, _ in rows}
+        # notifications.config rule 19 (CONFIG-54): the coach's switch and the class's own are the app's.
+        on = {c.coach_id for c in NotificationConfig.query.filter(
+            NotificationConfig.coach_id.in_(coaches or [-1]), NotificationConfig.auto_notify_enabled.is_(True)).all()}
+        return tuple(str(inst.id) for coach_id, inst in rows if coach_id in on and effective_auto_invites(inst))
 
     def has_session(self, session: str) -> bool:
         from padel_app.models import EngineSession
