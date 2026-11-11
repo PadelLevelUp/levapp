@@ -113,6 +113,9 @@ class SessionSnapshot:
     # last time the engine moved their side; a missing key in ``last_moved_at`` means never moved.
     joined_at: dict[str, datetime] = field(default_factory=dict)
     last_moved_at: dict[str, datetime] = field(default_factory=dict)
+    # Per student, naive UTC: when each attendance request went out (engine-timeline rule 2), so
+    # ``messages.due`` sends each one once.
+    attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)
