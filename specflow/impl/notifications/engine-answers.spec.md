@@ -40,7 +40,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
 4. **No room for them (§7, D4; ruling (a)).** const:KIND_SORRY: "sorry", with the offer to join the
    session's waiting list. The invitation stays open but **does not count** toward coverage or M, and
    the student cannot take a spot with it until a re-offer. **When a spot they fit reopens, the engine
-   re-offers it** (rule 3; ruling (1)), and from then it counts again.
+   re-offers it** (rule 3; ruling (1)), and from then it counts again. It stays open (D4) except as
+   rule 10 closes it.
 5. **No is final for this session (§7)**: a gate for automatic invitations from then on
    (`notifications.engine-tiers` rule 3). The engine runs again at once.
 6. **Cancels after accepting (§7).** The same absence rules as a regular
@@ -49,6 +50,13 @@ Stated as observable records; storage is the engine package's (PAD-902).
    last spot, exactly one is placed and the other gets rule 4 (or rule 3 when another spot fits).
 8. **An accept with no open invitation (ruling (4)).** Refused: nothing placed, nothing sent.
 9. **Accepting fills a spot for that session only (§8).** It does not enrol the student in the class.
+10. **Never two sessions at the same hour (Tomás's point 2; owner ruling 2026-11-11; D4's exception).**
+    Any placement — a Yes to an invitation, a direct join, automatic entry, a coach's add — closes the
+    student's other open invitations for other sessions at the same hour: nothing is sent for them and
+    they no longer count. An accept for a session at an hour where the student is already placed is
+    refused: nothing placed, nothing sent. This is the safety rule; the run's efficiency rule, which
+    does not invite a student holding a counting invitation that club day, is
+    `notifications.engine-tiers` rule 10.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -132,6 +140,17 @@ tier admitting right-siders for it, when a second of the first 3 says Yes, then 
 const:KIND_REOFFER for the left, not a place.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P20a-side-limit]`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-13: A Yes to one of two same-hour sessions closes the other invitation (rule 10; Tomás)
+Given a student holding counting invitations to sessions A and B at the same hour, when they say Yes to
+A, then they are placed in A and their invitation to B is closed: it no longer counts and B's next run
+treats them as busy at that hour.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P34-same-hour-yes-closes-the-other]`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-14: A second placement at the same hour is refused (rule 10)
+Given a student going to session A, when an accept arrives for their open invitation to session B at the
+same hour, then it is refused: nobody is placed and no message is sent.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_second_same_hour_placement_is_refused`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -141,6 +160,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    reopened spot), `adapters/new.py` (`sorry` logged as `aviso`).
 3. (Swap) ANSWERS-10 — a table-backed `SessionStore`, out of scope for PAD-899 (`store.py`); at the
    engine swap.
+4. (PAD-911) ANSWERS-13, ANSWERS-14 — `invitation_engine/answers.py` (a placement closes the other
+   same-hour invitations; a second same-hour placement refused), `invitation_engine/store.py`.
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule

@@ -36,6 +36,13 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
      quiet hours excluded). Every invitation of that send gets that share as T. A tier that drops out
      (a whole tier refuses) re-splits the remaining time over the rest
      (`invitation_engine/timeline.py`, `method_b_t`).
+     **The same parts set the rounds inside one tier (Tomás, 2026-11-11):** "os tempos descem em linha
+     reta e o último recebe dois terços do primeiro". The tier's share is fixed at its first send; its
+     last round waits the last third of the share (the wait to the next tier), and the rounds before
+     it split the other two thirds by const:METHOD_B_PART with n = rounds − 1 (2 rounds before the
+     last: 3:2). A tier with one round waits its whole share; with two, two thirds then one third. The
+     number of rounds is the tier's candidates for the type over its budget per round, rounded up
+     (our inference: Tomás's answer does not say how the rounds are counted).
    Each value is at least const:ENGINE_T_FLOOR; a lower value is refused when saved.
 3. **`auto-entry`** (`auto_entry_before_attendance_request`, default off). When on, before
    `attendance_request_at` — the invitation window not required — a waiting-list member is **placed**
@@ -67,8 +74,7 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
 
 ### Not this spec
 - A settings screen on web or iOS (brief §1: backend only in this wave).
-- A between-groups clock that overrides coverage (contradicts D9, D16), and Method B's decreasing
-  rounds inside one tier (scenario 84, `deferred` on H's sheet).
+- A between-groups clock that overrides coverage (contradicts D9, D16).
 
 ### Today
 - X is `maxSimultaneous` per vacancy; there is no M (only `maxTotal`, `_check_restrictions`,
@@ -108,7 +114,9 @@ test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_tim
 Given n tiers taking part, the sending tier at rank r and a remaining useful time R at the send, when T
 is computed, then T is R × parts[r] / sum(parts[r:]) with parts[i] = 3(n−1) − i (4 tiers: 9:8:7:6), R
 for n = 1; with no tier dropping out the shares equal the 9:8:7:6 split of the whole useful time, and
-the last tier's share is two thirds of the first's.
+the last tier's share is two thirds of the first's; and inside one tier of k > 1 rounds the last
+round waits a third of the tier's share and the k − 1 rounds before it split the rest by the same
+parts with n = k − 1.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_method_b_parts`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-5: Method B with four tiers (rule 2)
@@ -132,6 +140,12 @@ test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test
 Given Method B and a spot that opens shortly before `last_invite_at`, when its tiers send, then each T is
 its share of the useful time from that opening to `last_invite_at`, quiet hours excluded.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[87-vaga-de-ultima-hora-com-pouco-tempo-util]`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-18: Method B's rounds inside one tier descend by the same parts (rule 2; scenario 84)
+Given scenario 84 (Method B, the first tier's share 3 h from 15:30, 9 candidates and a budget of 3, so
+3 rounds), when nobody answers, then the rounds go out at 15:30, 16:42 and 17:30 (72 and 48 minutes,
+3:2 of two hours) and the next tier at 18:30 (the last third, one hour).
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[84-varias-rondas-dentro-do-primeiro-grupo]`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-6: Automatic entry places before the reminder hour and invites after it (rule 3)
 Given `auto-entry` on and a waiting-list member, when a spot they can take opens before
@@ -194,6 +208,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 4. (W8) SETTINGS-9, SETTINGS-10 — `invitation_engine/answers.py` (direct join and its refusal).
 5. (W8, last) SETTINGS-14 — `adapters/new.py` (a defaults mode: each coach rule on only for scenarios
    that use it).
+6. (PAD-911) SETTINGS-4's inner rounds, SETTINGS-18 — `invitation_engine/timeline.py` (the rounds of
+   a tier inside its Method B share), `invitation_engine/planner.py` (the tier's rounds at send).
 
 ### Open questions
 - Is an automatically placed student's No also the "said No for this session" gate? — decision (owner
