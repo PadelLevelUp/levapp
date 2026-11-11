@@ -1221,7 +1221,7 @@ P23-waiting-list-ignores-side-and-level:
   first_failure: 2026-11-02 18:00 invitations
 P24-waiting-list-placement:
   outcome: fail
-  evaluated: 6
+  evaluated: 7
   skipped: 0
   derived_from:
   - S24
