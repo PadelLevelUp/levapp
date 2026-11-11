@@ -46,7 +46,7 @@ The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's 
 | 16 | `notifications.engine-planning` rule 10 | no spot to hold; invitations stay open until the class starts (D4) |
 | 18a | `notifications.engine-answers` rule 3 | nothing moves between spots; a filled offer is re-offered (D1, Q6) |
 
-Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept, the plan silent: rule 18c (one live offer per club day, the postpone of D15, which says it keeps today's behaviour; closing the student's other same-day offers on a Yes is the "same time slot" gate applied to them, not a revocation under D4) and rule 19 (a coach withdraws an invitation by hand: D4 binds the engine, not the coach).
+Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept, the plan silent, as amended by PAD-911 (owner ruling 2026-11-11 on Tomás's point 2): rule 18c (the postpone of D15: only a counting invitation for another class that club day postpones, `notifications.engine-tiers` rule 10; a placement closes only the student's other offers at the same hour, `notifications.engine-answers` rule 10, D4's one exception) and rule 19 (a coach withdraws an invitation by hand: D4 binds the engine, not the coach).
 
 ### Entities
 - **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
@@ -769,7 +769,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     second spot is locked by its own answer, so nothing moves into it, and its invitations end as
     before.
 
-18c. *(Kept when PAD-899's engine ships: closing the other same-day offers on a Yes is the "same time slot" gate, not a revocation.)* **One live offer per student per club day (PAD-775; owner, 2026-10-27).**
+18c. *(Amended for PAD-899's engine by PAD-911: only a counting invitation postpones, `notifications.engine-tiers` rule 10; a placement closes only the other offers at the same hour, `notifications.engine-answers` rule 10, as D4's one exception.)* **One live offer per student per club day (PAD-775; owner, 2026-10-27).**
     - **Automatic paths skip.** A student holding a live invitation (sent/queued, unanswered) for
       another class on the same club-local day as this class (R-023 wall date, with any coach, the
       same day as config rule 6e) is skipped by every automatic path: automatic rounds, the

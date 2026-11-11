@@ -46,8 +46,8 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
 
 ### Not this spec
 - The class's start stopping everything: kept as `notifications.invitations` rule 20.
-- A clock that hands a spot to the next tier while it is covered (contradicts D9, D16), and Method B's
-  decreasing rounds inside one tier (scenario 84): the disposition sheet's `deferred`.
+- A clock that hands a spot to the next tier while it is covered (contradicts D9, D16). Method B's
+  rounds inside one tier are `notifications.engine-settings` rule 2 (PAD-911).
 
 ### Today
 - Pacing is `maxInactiveTime` per vacancy batch, restarted on every No (the code stamps

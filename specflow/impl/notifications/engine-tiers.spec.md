@@ -35,7 +35,10 @@ the coach's list).
    and the mapping from the coach's stored config are the engine swap's.
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
-   block on automatic invitations, already in the session, in another session at the same time,
+   block on automatic invitations, already in the session, in another session at the same time
+   (**the same hour**: sessions with the same start, Tomás's "mesma hora"; overlapping sessions with
+   different starts are an open question; engine-answers rule 10, engine-planning rule 10 and rule 10
+   here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
@@ -56,11 +59,16 @@ the coach's list).
    (`EngineSettings.ordering`), closest level first when the group's level rule is a range. On the
    waiting lists, `joined_at` breaks the ties the criteria leave.
 9. **Candidates are recomputed on every run (D8).**
-10. **Postpone (D15).** A student blocked by the daily invitation cap, or holding a live offer for
-    another class that club day (`notifications.invitations` rule 18c, kept), is **not a candidate this
-    run**: they count for no type, so they neither cover a spot nor make their tier the ideal one, and
-    the next tier goes ahead. Their return once free is `notifications.engine-planning` rule 7, the one
-    rule for it.
+10. **Postpone (D15).** A student blocked by the daily invitation cap, or holding a **counting**
+    invitation for another session that club day, the same hour (rule 3) included
+    (`notifications.invitations` rule 18c, as amended by PAD-911; Tomás calls a counting invitation
+    "ativo"), is **not a candidate this run**. For this gate an invitation counts when it counts by
+    `notifications.engine-planning` rule 3 (open, not sorry, before its counting-until instant) **and**
+    its offer counts toward a current spot type of its own session by rule 4; so an invitation to a
+    full session counts for nothing. An open invitation that does not count stays valid (D4) but
+    postpones nobody (owner ruling 2026-11-11 on Tomás's point 2). A postponed student counts for no
+    type, so they neither cover a spot nor make their tier the ideal one, and the next tier goes
+    ahead. Their return once free is `notifications.engine-planning` rule 7, the one rule for it.
 11. **One evaluator (recorded decision "invite simulation shares the engine pipeline", 2026-09-06).**
     The verdict that admits or drops a student and its explanation come from the same evaluator. When
     the engine ships, the invite simulation (`notifications.invite-simulation`) and the semi-automatic
@@ -133,6 +141,12 @@ other offer resolves, the group-1 student is invited on the next run if the type
 and the session below M.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P31-postponed-better-group-student]`
 
+#### NOTIFICATIONS-ENGINE-TIERS-10: An invitation to a full class postpones nobody (rule 10; scenario 72)
+Given scenario 72 (sessions A and B at the same hour, D1–D3 invited to A, D4 and D5 to B), when D1's Yes
+fills A, then D2's and D3's invitations to A stay open but no longer count, and B's next run invites D2;
+D2's Yes in B places them there and closes their invitation to A.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[72-duas-aulas-a-mesma-hora]`
+
 #### NOTIFICATIONS-ENGINE-TIERS-9: The simulation's verdict for a student equals the engine's (rule 11)
 Given each P01–P33 snapshot and each student in it, when the invite simulation explains the student and
 the engine plans the session, then one admits the student exactly when the other does, at the same tier.
@@ -146,6 +160,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 2. (W7) TIERS-2, TIERS-3, TIERS-5, TIERS-6, TIERS-8 — scenario pins after planning W5 and answers W3.
 3. (Swap) TIERS-9 — `invite_simulation_service.py`, `replacement_approval_service.py`; at the engine
    swap, not in this ticket (brief §1). Tier criteria and the stored-config mapping (rule 2) too.
+4. (PAD-911) TIERS-10 — `invitation_engine/store.py` and `invitation_engine/planner.py` (`postponed`
+   from invitations that count by planning rule 3 and whose offer counts toward a current spot type of
+   their own session by rule 4: `timeline.counting` and the session's open spots together).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision
@@ -154,3 +171,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - A student with no level on a waiting list or in the pool (scenarios 23, 26, 34): the eligibility bar
   treats a missing level as the class's level, as the harness does (design §2.2) — decision (owner
   away), because no scenario expects such a student to be gated.
+- Sessions that overlap without sharing a start (one at 10:00 for 90 minutes, one at 10:30): the same
+  hour or not? (PAD-911; rule 3) — decision (owner away): not, for now; "the same hour" is the same
+  start, which is Tomás's "mesma hora", the owner's words and the code (`store.py`, `busy_same_time`).
+  An overlap rule needs the session's end time in the engine's snapshot, which it does not carry yet.

@@ -640,7 +640,7 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
     if isinstance(sid, bool) or not (
         (isinstance(sid, int) and 1 <= sid <= 95) or (isinstance(sid, str) and re.match(r"^P\d{2}$", sid))
     ):
-        rep.err("id", f"expected the PDF scenario number 1..95 (or P01..P33), got {sid!r}")
+        rep.err("id", f"expected the PDF scenario number 1..95 (or P01..P33, then P34 on), got {sid!r}")
     elif filename is not None:
         m = FILE_RE.match(filename)
         expected = f"{sid:02d}" if isinstance(sid, int) else sid

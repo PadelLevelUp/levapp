@@ -40,7 +40,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
 4. **No room for them (§7, D4; ruling (a)).** const:KIND_SORRY: "sorry", with the offer to join the
    session's waiting list. The invitation stays open but **does not count** toward coverage or M, and
    the student cannot take a spot with it until a re-offer. **When a spot they fit reopens, the engine
-   re-offers it** (rule 3; ruling (1)), and from then it counts again.
+   re-offers it** (rule 3; ruling (1)), and from then it counts again. It stays open (D4) except as
+   rule 10 closes it.
 5. **No is final for this session (§7)**: a gate for automatic invitations from then on
    (`notifications.engine-tiers` rule 3). The engine runs again at once.
 6. **Cancels after accepting (§7).** The same absence rules as a regular
@@ -49,6 +50,15 @@ Stated as observable records; storage is the engine package's (PAD-902).
    last spot, exactly one is placed and the other gets rule 4 (or rule 3 when another spot fits).
 8. **An accept with no open invitation (ruling (4)).** Refused: nothing placed, nothing sent.
 9. **Accepting fills a spot for that session only (§8).** It does not enrol the student in the class.
+10. **Never two sessions at the same hour (Tomás's point 2: "nunca se quebra"; owner ruling 2026-11-11;
+    D4's exception).** The same hour is `notifications.engine-tiers` rule 3's. Any placement — a Yes to
+    an invitation, a direct join, automatic entry — closes the student's other open invitations for
+    other sessions at the same hour: nothing is sent for them and they no longer count. **Every engine
+    placement path refuses a second placement at the same hour:** an accept is refused with nothing
+    placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
+    student. The rule binds the engine's paths; the coach's add is not one of them and is covered at
+    the engine swap. This is the safety rule; the run's efficiency rule, which does not invite a
+    student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -132,6 +142,33 @@ tier admitting right-siders for it, when a second of the first 3 says Yes, then 
 const:KIND_REOFFER for the left, not a place.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P20a-side-limit]`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-13: A Yes to one of two same-hour sessions closes the other invitation (rule 10; Tomás)
+Given a student holding counting invitations to sessions A and B at the same hour, when they say Yes to
+A, then they are placed in A and their invitation to B is closed: it no longer counts and B's next run
+treats them as busy at that hour.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P34-same-hour-yes-closes-the-other]`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-14: A second placement at the same hour is refused (rule 10)
+Given a student going to session A, when an accept arrives for their open invitation to session B at the
+same hour, then it is refused: nobody is placed and no message is sent.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_second_same_hour_placement_is_refused`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-15: Automatic entry closes the other same-hour invitations (rule 10)
+Given `auto-entry` on, a waiting-list member of session A holding an open invitation to session B at the
+same hour, when a spot they can take opens in A before `attendance_request_at`, then they are placed in
+A and their invitation to B is closed.
+test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_closes_the_same_hour_invitation`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-16: A direct join at an hour the student already plays is refused (rule 10)
+Given `direct-join` on and a student going to session A, when they try to join session B at the same
+hour, which has a spot on their side, then the join is refused and nothing is placed.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_direct_join_at_a_busy_hour_is_refused`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-17: Automatic entry skips a student already placed at the same hour (rule 10)
+Given `auto-entry` on and a waiting-list member of session B going to session A at the same hour, when a
+spot they could take opens in B before `attendance_request_at`, then they are not placed in B.
+test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_skips_a_student_busy_at_that_hour`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -141,7 +178,12 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    reopened spot), `adapters/new.py` (`sorry` logged as `aviso`).
 3. (Swap) ANSWERS-10 — a table-backed `SessionStore`, out of scope for PAD-899 (`store.py`); at the
    engine swap.
+4. (PAD-911) ANSWERS-13 to ANSWERS-17 — `invitation_engine/answers.py` (a placement closes the other
+   same-hour invitations; a second same-hour placement refused), `invitation_engine/store.py`.
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
   2's measure, because it is D6's rule for an either-side Yes.
+- A coach's add to a session at an hour where the student is already placed (rule 10) — not an
+  engine path; covered at the engine swap (refused with the reason, Tomás's "nunca se quebra"; the
+  owner may want a coach override, review pack).

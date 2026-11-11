@@ -16,6 +16,12 @@ notes: >
   invitation. A's spot opens at 20:00: X1 is postponed (D15), so group 2 gets X. X1 declines B at 20:10; A's
   spot already holds X counting, so X1 is invited at 21:00, when group 2's stop counting.
 
+  Re-timed (PAD-911, owner ruling 2026-11-11 on Tomás's point 2): only a counting invitation postpones
+  (engine-tiers rule 10). X1's B invitation, sent 19:00 with T 60m, stops counting at 20:00, the very minute
+  A's spot opened, so X1 would no longer be postponed. A's spot now opens at 19:30, while it still counts; X1
+  declines B at 19:40, and is invited at 20:30, when group 2's invitation stops counting. Same outcome, 30
+  minutes earlier.
+
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
   groups:
@@ -42,14 +48,14 @@ timeline:
       other_class:
         B:
           invitations: [{who: X1, side_named: null, group: 3}]
-  - at: 2026-11-01 20:00
+  - at: 2026-11-01 19:30
     events: [{regular_no: R-1}]
     expect:
       invitations: [{cohort: L3L, count: 1, side_named: R, group: 4}]
-  - at: 2026-11-01 20:10
+  - at: 2026-11-01 19:40
     events: [{other_class: B, event: {declines: X1}}]
     expect: {invitations: none}
-  - at: 2026-11-01 21:00
+  - at: 2026-11-01 20:30
     expect:
       invitations: [{who: X1, side_named: null, group: 3}]
 final:
