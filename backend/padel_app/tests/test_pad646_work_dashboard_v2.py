@@ -161,14 +161,16 @@ def test_testflight_lists_builds_with_a_signed_token_and_never_echoes_it(client,
     assert token not in dumped and "PRIVATE KEY" not in dumped and GITHUB_TOKEN not in dumped
 
 
-# ── rule 10: open bugs ────────────────────────────────────────────────────────
+# ── rule 10: bugs, retired ────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-9")
 def test_the_bugs_panel_is_retired_and_fetches_nothing(client, operator, calls):
     """PAD-905: the 4.0 store has no ledger index, so the source answers `retired` without a call."""
     assert _work(client, operator)["bugs"] == {"status": "retired"}
     assert not [url for _, url, _ in calls if "bugs" in url or "cortex" in url]
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-9")
 def test_the_bugs_panel_is_retired_without_a_repository_too(client, app, operator, calls):
     app.config["WORK_GITHUB_REPO"] = ""
     assert _work(client, operator)["bugs"] == {"status": "retired"}

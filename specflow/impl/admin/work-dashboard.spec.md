@@ -27,8 +27,8 @@ through the backend; their tokens never reach the browser.
 
 ### Rules
 1. **One endpoint.** `GET /admin/api/work` answers `{fetchedAt, linear, github, testflight, bugs, ci}`. Each source is
-   `{status: "ok" | "not_configured" | "unavailable", ...}` on its own, so one source failing or
-   unset never hides the other.
+   `{status: "ok" | "not_configured" | "unavailable" | "retired", ...}` on its own, so one source
+   failing, unset or retired never hides the other.
 2. **Tickets (Linear).** With `LINEAR_API_KEY` set: `open` (state type backlog, unstarted or
    started) ordered by state (in progress, to do, backlog), then priority (urgent first, none last), each with id, title,
    state, priority, assignee, `createdAt`, url and a `summary`; and `done` (completed in the last
@@ -73,13 +73,12 @@ through the backend; their tokens never reach the browser.
    text, at most 200 characters) as what changed. Until all four are set, `testflight` is
    `not_configured` naming the first missing one (the owner provisions the key in App Store Connect →
    Users and Access → Integrations, role Developer). The key and the token never leave the server.
-10. **Open bugs (the ledger, PAD-646).** With `WORK_GITHUB_REPO` set, the ledger index
-   `.cortex/compass/bugs/_index.md` on `staging` is read through GitHub's contents API (one call).
-   Each line `- [B-NNN](file) — title (type, severity, status…)` is a bug. `open` lists those whose
-   status is neither `resolved` nor `wontfix` nor `duplicate`, grouped by severity (critical, high,
-   medium, low, then anything else), each with id, title, type, status and its GitHub url;
-   `counts` gives open per severity and the resolved total. A line that does not parse is counted
-   in `unparsed`, never dropped silently.
+10. **Bugs: retired (PAD-905; was the ledger, PAD-646).** The panel read the 3.x bug ledger index
+   (`.cortex/compass/bugs/_index.md`). The Cortex 4.0 store replaced it with one file per incident
+   under `cortex/history/incidents/` and no index, so `bugs` answers `{status: "retired"}`, with or
+   without `WORK_GITHUB_REPO`, and fetches nothing. The page shows the bugs card as "No longer
+   shown" / "Já não é mostrado" in place of its sections (rule 1). A bugs panel reading the 4.0
+   store is a new request, not this rule (owner flag, D-E15).
 11. **CI lanes (PAD-646).** Needs `WORK_GITHUB_TOKEN` (about 30 calls a refresh, more than the
    anonymous allowance): without it `ci` is `not_configured`. For each CI workflow
    (`backend-tests.yaml`, `checks-frontend.yaml`, `e2e-subset.yaml`, `admin-e2e.yaml`,
@@ -138,10 +137,11 @@ through the backend; their tokens never reach the browser.
 - **Then** the build is listed with those fields, the request carried a Bearer token signed ES256
   for `appstoreconnect-v1`, and the answer contains neither the key nor the token
 
-#### ADMIN-WORK-DASHBOARD-9: Open bugs by severity (rule 10)
-- **Given** an index with B-1 (high, open), B-2 (low, triaged), B-3 (high, resolved in PAD-9) and a
-  line without a parenthesis
-- **Then** `open` is B-1 then B-2, `counts` is high 1 / low 1 / resolved 1, and `unparsed` is 1
+#### ADMIN-WORK-DASHBOARD-9: The bugs panel is retired and fetches nothing (rule 10)
+- **Given** an operator, with `WORK_GITHUB_REPO` set or empty
+- **When** `GET /admin/api/work` is answered
+- **Then** `bugs` is `{status: "retired"}` and no request names a bugs or `cortex` path
+test: `backend/padel_app/tests/test_pad646_work_dashboard_v2.py` › `test_the_bugs_panel_is_retired_and_fetches_nothing`
 
 #### ADMIN-WORK-DASHBOARD-10: CI lanes near their limit (rule 11)
 - **Given** the token, a `backend-tests.yaml` whose sqlite job has `timeout-minutes: 60`, and its
@@ -186,8 +186,8 @@ test: `frontend/apps/admin/src/pages/WorkPage.test.tsx` › `asks the server to 
 test: `frontend/apps/admin/src/pages/WorkPage.test.tsx` › `support has no Trabalho entry; an operator does`
 
 ### Notes
-- Shipped in v2 (PAD-646): TestFlight builds, the bug ledger by severity, CI lanes close to their
-  limit. Still out: a "needs owner" view until a Linear label is agreed.
+- Shipped in v2 (PAD-646): TestFlight builds, the bug ledger by severity (retired by PAD-905 with the
+  3.x store), CI lanes close to their limit. Still out: a "needs owner" view until a Linear label is agreed.
 - TestFlight "target (staging or production)" from the ticket is not shown: the app has one bundle
   and builds carry no environment; "what changed" is the build's own What to Test text.
 - Web only: the staff console has no iOS app (R-024 exception recorded in `admin.foundation`).
