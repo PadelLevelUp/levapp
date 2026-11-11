@@ -160,6 +160,7 @@ def test_each_ordering_id_ranks_in_its_direction():
     assert on_list({"A": None, "B": 4, "C": 2}) == ["C", "B", "A"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-13")
 def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     """Swap plan §4 (PAD-915, engine-tiers rule 11): ``evaluate`` is ``plan`` with nothing applied,
     plus each student's verdict per open type and the type's queue, for the simulation and the

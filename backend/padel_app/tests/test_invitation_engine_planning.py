@@ -5,6 +5,8 @@ scenario-pinned criteria of W2 (PLANNING-6, -11, -16) run in the scenario suite.
 """
 from datetime import datetime, timedelta
 
+import pytest
+
 from padel_app.invitation_engine import EngineSettings, MemoryStore
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.planner import plan
@@ -127,6 +129,7 @@ def test_a_flexible_invitation_counts_for_both_types():
 
 # --- wave W7: the coach alert ------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-27")
 def test_coach_alert_once_per_type_until_its_count_changes():
     settings = EngineSettings(tiers=PLAN_TIERS)
     store = _store(4, 3)                                    # one right spot, nobody in the pool
