@@ -780,6 +780,12 @@ Given a new-engine coach with `autoNotifyEnabled` off, and another with one clas
 when the store lists sessions, then none of the first coach's sessions and not that class's are listed.
 test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_sessions_turned_off_are_not_listed`
 
+#### NOTIFICATIONS-CONFIG-55: A new-engine coach's ordering is the enabled priority criteria, then the enabled tiebreakers (rule 19)
+Given a coach with priority criteria and tiebreakers, some off, each list in the coach's order, when
+the store builds the coach's `EngineSettings`, then `ordering` holds the enabled priority criteria in
+their order followed by the enabled tiebreakers in theirs, and nothing that is off.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_ordering_is_the_enabled_priority_criteria_then_the_enabled_tiebreakers`
+
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
   15-minute floor drops to the engine's one minute with the new timing controls
