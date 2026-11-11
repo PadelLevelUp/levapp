@@ -6,22 +6,28 @@ and the re-offer (D4, Q6), the said-No gate (§3), joining and leaving the two l
 student's side choice, direct join when the setting is on, and the refusals of each.
 
 Waves (specflow/impl/notifications/_overview.md, "Engine waves"): W3 placement within the offer and
-the refusals (engine-answers rules 1, 2, 5, 6, 8); W6 "sorry" and the re-offer (rules 3, 4, 7).
+the refusals (engine-answers rules 1, 2, 5, 6, 8); W6 "sorry" and the re-offer (rules 3, 4, 7). The
+last spot (rule 7) is claimed once because the engine handles one request at a time and every Yes
+reads a fresh snapshot; on Postgres a table-backed store does it in one transaction (ANSWERS-10).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 
-from padel_app.invitation_engine import absences, planner
+from padel_app.invitation_engine import absences, planner, timeline
+from padel_app.invitation_engine.constants import KIND_REOFFER, KIND_SORRY
 from padel_app.invitation_engine.effects import (
     Absence,
     Answered,
     Effect,
     Left,
     LeftReason,
+    Message,
     Placed,
     Refused,
+    Reoffered,
+    Sorry,
     WaitingListJoined,
     WaitingListLeft,
 )
@@ -57,7 +63,8 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
     if isinstance(request, NoShow):                       # after the class (§8 step 7)
         if snapshot.placement(request.student) is None:
             return Outcome()
-        return Outcome(_leave(snapshot, settings, request.student, "no_show", now))
+        # The class has happened: the absence is recorded and the roster stays as it was (P16, 60, 71).
+        return Outcome(absences.record(snapshot, settings, request.student, "no_show", now))
     if now >= wall_to_utc_naive(snapshot.start):          # the class has started (invitations rule 20)
         return Outcome()
     if isinstance(request, Answer):
@@ -117,9 +124,46 @@ def _answer(snapshot: SessionSnapshot, settings: EngineSettings, request: Answer
     if invitation.sorry_at is not None:
         return ()                                          # rule 4: no spot with it until a re-offer
     side = _place_side(snapshot, settings, sid, invitation.offer, invitation.side_named, now)
-    if side is None:
-        return ()                                          # W6: "sorry" or the re-offer
-    return _placed(snapshot, sid, side, "invitation", now, answered=True)
+    if side is not None:
+        return _placed(snapshot, sid, side, "invitation", now, answered=True)
+    return _reoffer(snapshot, settings, sid, invitation.offer, now) or (
+        Sorry(snapshot.id, now, sid), Message(snapshot.id, now, sid, KIND_SORRY))   # rule 4
+
+
+def _reoffer(snapshot: SessionSnapshot, settings: EngineSettings, sid: str, tried: frozenset[SpotType],
+             now: datetime) -> tuple[Effect, ...]:
+    """Rule 3: the Yes could not be placed within the offer, but an open spot of another side
+    remains that some tier admits the student for: the same invitation is re-offered for it (the
+    hardest such side by rule 2's measure), with a new T fixed now. Not a final answer; one
+    invitation still (D1). Empty when no such spot exists."""
+    student = snapshot.students.get(sid)
+    if student is None:
+        return ()
+    counts = planner.spot_counts(snapshot)
+    tried_sides = {t.side for t in tried}
+    fits: dict[Side, int] = {}
+    for v in sorted(open_sides(snapshot) - tried_sides):
+        t = planner.tier_for(student, SpotType(v, snapshot.level), counts, snapshot, settings)
+        if t is not None:
+            fits[v] = t
+    if not fits:
+        return ()
+    side = _hardest(snapshot, settings, sid, frozenset(fits), now)
+    tier = fits[side]
+    spot_type = SpotType(side, snapshot.level)
+    run = _run(snapshot, settings, now)
+    run.used.add(sid)
+    buckets = run.buckets(spot_type)
+    others_left = bool(buckets.get(tier) and buckets[tier].fresh)
+    share = None
+    if settings.timing.method == "progressive":
+        taking_part = planner._method_b_tiers(run, spot_type, sorted(set(buckets) | {tier}))
+        share = timeline.method_b_t(snapshot, settings, now, len(taking_part), taking_part.index(tier))
+    t_send = timeline.t_at_send(settings, tier, others_left, share)
+    offer = frozenset({side})
+    return (Reoffered(snapshot.id, now, sid, frozenset({spot_type}), planner.side_named(offer, student), tier,
+                      timeline.counts_until(settings, now, t_send)),
+            Message(snapshot.id, now, sid, KIND_REOFFER))
 
 
 def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime, *,
@@ -168,15 +212,19 @@ def _per_open_spot(snapshot: SessionSnapshot, settings: EngineSettings, sid: str
                    now: datetime) -> float:
     """D6's measure for one side: its candidates (engine-planning rule 5.1, at the type's ideal tier,
     the answering student left out) per open spot."""
-    counts = planner.spot_counts(snapshot)
-    latest = {i.student: i for i in snapshot.invitations}
-    people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list} | set(latest),
-                    key=planner._natural)
-    run = planner._Run(snapshot, settings, now, counts, latest, people)
+    run = _run(snapshot, settings, now)
     run.used.add(sid)
     buckets = run.buckets(SpotType(side, snapshot.level))
     candidates = buckets[min(buckets)].size if buckets else 0
-    return candidates / max(1, counts.open[side])
+    return candidates / max(1, run.counts.open[side])
+
+
+def _run(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> planner._Run:
+    """A planning run's view of the candidates (engine-planning rule 5.1), to measure with."""
+    latest = {i.student: i for i in snapshot.invitations}
+    people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list} | set(latest),
+                    key=planner._natural)
+    return planner._Run(snapshot, settings, now, planner.spot_counts(snapshot), latest, people)
 
 
 # --- regulars, waiting lists, direct join ----------------------------------------------------
