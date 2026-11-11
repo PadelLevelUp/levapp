@@ -17,12 +17,26 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 > Rule 1's client wiring landed with the PAD-124 build (decided 2026-09-04). Everything else in
 > this spec is implemented, rules 3a/4a-4d included (they landed with PAD-128).
 
+### Replaced when PAD-899's engine ships
+The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's ruling of 2026-11-11) replaces these rules. They stay in force until it ships; each is marked inline too.
+
+| Rule | Replaced by | Why |
+|---|---|---|
+| 1 | `notifications.engine-answers` rule 4 | a late Yes gets "sorry" with the waiting-list offer; nothing is retired at the fill (D4) |
+| 4 | `notifications.engine-tiers` rules 5, 6, 8 and `notifications.engine-planning` rule 5 | two tiers (coach's, students'), paced by X, M and T like any tier (D12, Q4, Q7) |
+| 4e | `notifications.engine-tiers` rule 6 and `notifications.engine-settings` rule 4 | group 0 has no side rules unless the coach turns side-bound lists on |
+| 13 | `notifications.engine-answers` rule 7 | one claim per session, as every Yes |
+| 16 | `notifications.engine-planning` rule 9 | a side is named only when it is outside the student's subset (D11) |
+| 16a | `notifications.engine-answers` rule 3 | nothing moves between spots (D1) |
+
+Kept, the plan silent: rule 15b (the last standing credit withdraws the offers it paid for: a credit rule, not the engine's coverage) and rule 18a (the coach names the side a student waits for: the coach's decision, `notifications.engine-tiers` rule 6).
+
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
 - **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active. Unique: one **active** entry per (coach_id, player_id), via the partial unique index `uq_standing_entries_active_coach_player` (PAD-273). `add_standing_waiting_list_entry` deactivates the previous active entry before creating the new one; inactive rows keep the history and may repeat
 
 ### Rules
-1. **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
+1. *(Replaced by `notifications.engine-answers` rule 4 when PAD-899's engine ships.)* **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
    `POST /api/app/notify/respond_waiting_list`. The offer is sent by `_offer_waiting_list()`
    only on the "sorry, that spot was just filled" path (`respond_to_waiting_list()` upserts a
    `WaitingListEntry` for that same instance on "yes", sends `waiting_list_confirm` back, and is a
@@ -103,7 +117,7 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
    level and absence record change over time, so a bar evaluated at fan-out would be stale by the
    time it mattered. `activeClassCount` therefore reports how many classes the entry is queued for,
    not how many the student could actually be invited to.
-4. **The waiting list is invitation group 0 (PAD-446, owner decision 2026-10-03; rule numbering
+4. *(Replaced by `notifications.engine-tiers` rules 5, 6, 8 and `notifications.engine-planning` rule 5 when PAD-899's engine ships.)* **The waiting list is invitation group 0 (PAD-446, owner decision 2026-10-03; rule numbering
    unconfirmed).** When a spot opens, every batch the engine sends for it asks the class's
    waiting-list students **first**, before the coach's invitation groups (`notifications.invitations`
    rule 8a). There is no automatic placement any more: a waiting-list student is enrolled only by
@@ -148,7 +162,7 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
    or not an eligibility bar is defined.
 4d. *(Retired with PAD-446: "placement is silent enrolment". Nothing on the waiting-list path adds a
    student without their yes.)*
-4e. **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
+4e. *(Replaced by `notifications.engine-tiers` rule 6 and `notifications.engine-settings` rule 4 when PAD-899's engine ships.)* **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
     numbering unconfirmed).** A `left` (or `right`) entry is group 0 only for a vacancy whose side is
     `left` (or `right`), `both` or none; a `both` entry, or one with no side (every entry before
     PAD-672), for any vacancy. The join order is unchanged. A standing entry's side is chosen when it
@@ -216,7 +230,7 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
     to the place, not to the class, so it is not rule 18's invitation "no". Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates the
     student's active entry for that class whatever its origin; a standing entry (rule 10) itself
     stays active for its other classes.
-13. **Under the lock, as every invitation (PAD-261, PAD-495).** A waiting-list invitation is
+13. *(Replaced by `notifications.engine-answers` rule 7 when PAD-899's engine ships.)* **Under the lock, as every invitation (PAD-261, PAD-495).** A waiting-list invitation is
     decided exactly as the batch decides any student (`notifications.invitations` rules 3(a) and 18):
     under the vacancy lock, re-reading the spot (still open), the class (still room) and the student
     (still on the list, not in the class, no live offer for it and no "no" to it). The yes that
@@ -249,12 +263,12 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
     no waiting-list join offer, its edit published after the commit. Otherwise a student holding two
     offers could take a second class with no credit left. Offers from the student's own class
     entries (not this standing entry) are untouched.
-16. **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
+16. *(Replaced by `notifications.engine-planning` rule 9 when PAD-899's engine ships.)* **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado
     esquerdo", "right side" / "lado direito"); for a `both` or empty side it renders nothing, and the
     message says nothing about sides.
-16a. **A waiting-list invitation can move to a sibling spot of the same side (PAD-679; numbering
+16a. *(Replaced by `notifications.engine-answers` rule 3 when PAD-899's engine ships.)* **A waiting-list invitation can move to a sibling spot of the same side (PAD-679; numbering
     unconfirmed).** When its spot closes or flips side, a live group-0 invitation moves to another
     open spot of the class under `notifications.invitations` rule 18a, and only to one of the same
     side as its own (or any, when its own had none), since its message named the side.

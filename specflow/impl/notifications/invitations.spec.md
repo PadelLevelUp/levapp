@@ -14,13 +14,47 @@ When a spot opens in a class (player drops out), the invitation engine invites s
 multi-round matching. The rounds are an **ordering** — who gets asked first — inside the floor set by
 `eligibility.rules`. They decide priority; they never decide permission.
 
+### Replaced when PAD-899's engine ships
+The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's ruling of 2026-11-11) replaces these rules. They stay in force until it ships; each is marked inline too.
+
+| Rule | Replaced by | Why |
+|---|---|---|
+| 1 | `notifications.engine-planning` rules 1, 2 | a run plans the whole session; no Vacancy is created (D1) |
+| 1b | `notifications.engine-planning` rule 1 | no per-vacancy start to claim; the run is per session |
+| 1c | `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 1 | a run per session from first_invite_at opens every spot; no per-place start job |
+| 1d | `notifications.engine-spots` rule 6 | free seats become class_empty and must/either counts (§4) |
+| 2 | `notifications.engine-spots` rule 8 | a spot's level is the class's, never the leaver's (D3) |
+| 2b | `notifications.engine-spots` rules 6, 7 | sides come from the quota counts, not a balancing side per spot (D19) |
+| 2c | `notifications.engine-spots` rules 6, 7 | a freed spot is counted like any other (§4) |
+| 2d | `notifications.engine-spots` rule 6 and `notifications.engine-planning` rule 10 | counts are recomputed every run; nothing is withdrawn for balance (D4) |
+| 3 | `notifications.engine-tiers` rules 5, 7 | tiers per spot type, waiting lists first (§5) |
+| 3c | `notifications.engine-planning` rule 5.4 | an empty tier costs no time; the next tier goes in the same run (S9) |
+| 3e | `notifications.engine-planning` rule 8 | M caps counting invitations of the session (D16); the new engine does not read maxTotal (decision in `notifications.engine-planning`, U4) |
+| 4a | `notifications.engine-spots` rule 3 and `notifications.engine-tiers` rule 2 | side is a category; a student holds a subset (D18) |
+| 4b | `notifications.engine-answers` rule 2 and `notifications.engine-planning` rule 5.2 | own side first on Yes, flexible students used where scarce (D6, D7) |
+| 4d | `notifications.engine-spots` rule 8 | a class with no level applies no level rule (D3; open at approval) |
+| 5 | `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 4 | a run every minute and on every change; T replaces maxInactiveTime batches |
+| 7 | `notifications.engine-answers` rules 1, 2 | Yes places the student within the invitation's offer (D20) |
+| 8 | `notifications.engine-planning` rules 6, 12 and `notifications.engine-timeline` rule 4 | the next tier gets a spot only when it is uncovered (D9, D17) |
+| 8a | `notifications.engine-tiers` rules 5, 6 | two waiting lists, coach's first, no spot-type rules (D12, Q7) |
+| 10 | `notifications.engine-answers` rule 7 | the last spot of the session is claimed in one transaction (§7) |
+| 13 | `notifications.engine-spots` rules 6, 10 | spots are counts, not rows to reconcile (§4) |
+| 13a | `notifications.engine-spots` rules 6, 10 and `notifications.engine-planning` rule 1 | an edit triggers a run; counts follow capacity |
+| 14 | `notifications.engine-spots` rule 10 | there are no vacancy rows (D1) |
+| 15 | `notifications.engine-planning` rule 10 | invitations are never revoked at a fill (D4) |
+| 15a | `notifications.engine-answers` rule 4 | "sorry" and the waiting-list offer answer the Yes (D4) |
+| 16 | `notifications.engine-planning` rule 10 | no spot to hold; invitations stay open until the class starts (D4) |
+| 18a | `notifications.engine-answers` rule 3 | nothing moves between spots; a filled offer is re-offered (D1, Q6) |
+
+Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept, the plan silent: rule 18c (one live offer per club day, the postpone of D15, which says it keeps today's behaviour; closing the student's other same-day offers on a Yes is the "same time slot" gate applied to them, not a revocation under D4) and rule 19 (a coach withdraws an invitation by hand: D4 binds the engine, not the coach).
+
 ### Entities
 - **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
 - **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued), answer (yes|no|null — the student's answer, rule 18), retired_reason (null|"side_balanced" — rule 2d, PAD-581) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
 
 ### Rules
-1. `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
-1b. **Starting is once per vacancy (PAD-493, ledger B-259).** `trigger_invitations` only ever
+1. *(Replaced by `notifications.engine-planning` rules 1, 2 when PAD-899's engine ships.)* `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
+1b. *(Replaced by `notifications.engine-planning` rule 1 when PAD-899's engine ships.)* **Starting is once per vacancy (PAD-493, ledger B-259).** `trigger_invitations` only ever
    *starts* a vacancy: it sends the first batch to a sendable open vacancy that has never started
    (`last_activity_at` is null — no batch sent, no round deferred). A vacancy that has started is
    left to `process_invitation_batches` (rule 5), which alone sends later batches and advances
@@ -85,7 +119,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    process the prompt is built inline, as before. The coach's attendance sheet
    (`POST /class_instance/presences/confirm`) still builds its prompt in the request: its reply
    carries `approvalBundle`, which web's class detail shows at once.
-1c. **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
+1c. *(Replaced by `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 1 when PAD-899's engine ships.)* **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
    An absence opens its vacancy the moment it is recorded, and the tick (rule 5) starts it once
    the window is open. A place nobody ever filled has no such moment, and before this rule it was
    opened only by the one-shot `invite_start_<instance>` job, which exists only for a materialised
@@ -133,7 +167,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    The tick opens every such class it can see, so a deploy or a save that lands inside open
    windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
    measured on staging before merge). A save still sends nothing itself (config rule 10).
-1d. **A free seat is a seat nobody holds (PAD-763, ledger B-701; numbering unconfirmed).** A
+1d. *(Replaced by `notifications.engine-spots` rule 6 when PAD-899's engine ships.)* **A free seat is a seat nobody holds (PAD-763, ledger B-701; numbering unconfirmed).** A
    class's free seats are its capacity minus the seats held: the players going plus those who have
    not answered (`effective_filled_spots`, the same count as the participants header's "K vagas",
    `calendar.event-detail` rule 5). A filled spot is not counted again: the student who filled it
@@ -148,13 +182,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    its balancing side (rule 2b); rule 18's "no is final for that class" and rule 18c's one live offer
    per student per day apply unchanged, and the filler, being in the class, is never asked. A class that holds such a seat when this
    rule ships is opened by the first tick after it, once its window is open; no data repair.
-2. Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side in that occurrence (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
+2. *(Replaced by `notifications.engine-spots` rule 8 when PAD-899's engine ships.)* Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side in that occurrence (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
    **A player's side, wherever rules 2–2d count or start from one, is their side in that
    occurrence (PAD-551):** the presence's override when the coach set one, else the coach–player
    link's side (`classes.instance-enrollment` rule 13). Candidate ranking and round 1's "same
    side" filter (rules 4a, 5) keep reading an invitee's usual side, since an invitee has no
    presence yet.
-2b. **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
+2b. *(Replaced by `notifications.engine-spots` rules 6, 7 when PAD-899's engine ships.)* **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
    class as close to even as possible. The count is the players holding a spot (`effective_filled_spots`'s predicate: an
    absent player gave theirs up; `left` / `right`, with `both` and no side flexible and counted on
@@ -169,7 +203,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    not rewritten. There is no per-class or coach-wide opt-out: the owner's words ("invite players in a
    way that makes the class simetrical if possible") named none, so balancing is the default for
    every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
-2c. **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
+2c. *(Replaced by `notifications.engine-spots` rules 6, 7 when PAD-899's engine ships.)* **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
    option A; counting corrected by PAD-565; owner, 2026-10-09, option A).** When a player's
    cancellation opens a vacancy, the vacancy's side is the side the class needs, not automatically
    the leaver's. The count is **the players going**: the players still holding a spot
@@ -195,7 +229,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    never an eligibility bar. Open vacancies created before this rule keep their side. The invite
    simulation shows the side this rule would choose and the numbers it used
    (`notifications.invite-simulation` rule 9), so a tutorial never recounts them.
-2d. **The sides re-balance as the class fills (PAD-581; owner, 2026-10-10, via the coordinator,
+2d. *(Replaced by `notifications.engine-spots` rule 6 and `notifications.engine-planning` rule 10 when PAD-899's engine ships.)* **The sides re-balance as the class fills (PAD-581; owner, 2026-10-10, via the coordinator,
    option C with the proposal's defaults except Q3).** A spot's side is no longer fixed at creation:
    it is **re-counted** — the count of rule 2b for a never-filled spot (players going plus the sides
    of the class's other open spots), of rule 2c for a freed one (players going plus the other open
@@ -251,7 +285,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    instance carries no level of its own. A structural vacancy (no departing player) snapshots the
    class's effective level; a vacancy created from a departing player snapshots that player's
    level, falling back to the class's effective level when the player has none.
-3. Multi-round matching based on `invitation_groups` config:
+3. *(Replaced by `notifications.engine-tiers` rules 5, 7 when PAD-899's engine ships.)* Multi-round matching based on `invitation_groups` config:
    - Round 1: Exact match (same level + same side)
    - Round 2: Same level only
    - Round 3: Open to all eligible
@@ -265,7 +299,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    is a round criterion (rules 4a/4b) and is deliberately **not** an eligibility parameter
    (`eligibility.rules` rule 4). Removing side from the bar must not remove it from the rounds:
    `both`-side handling and its acceptance criteria below are unaffected by this work.
-3c. **An empty round never cascades (PAD-87).** When the current group/round yields no
+3c. *(Replaced by `notifications.engine-planning` rule 5.4 when PAD-899's engine ships.)* **An empty round never cascades (PAD-87).** When the current group/round yields no
    eligible candidate, the engine advances the round counter and **stops** — it does not send
    the next round in the same call. The next round goes out on the next
    `process_invitation_batches()` tick (rule 5, every 2 minutes), one round per tick, so eight
@@ -281,7 +315,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    carries stage names and counts only, never a student id or name. It is what explains a vacancy
    that runs out of rounds with nobody invited. Like every container log it does not survive a
    redeploy, so it is read before the next rollout.
-3e. **A class at its budget holds its spots (PAD-801).** `_send_invitation_batch` asks the
+3e. *(Replaced by `notifications.engine-planning` rule 8 when PAD-899's engine ships.)* **A class at its budget holds its spots (PAD-801).** `_send_invitation_batch` asks the
    class's remaining `maxTotal` budget (`notifications.config` rule 6c) before it reads the
    waiting list or evaluates anyone. With nothing left it sends nothing and returns: the spot keeps
    its round, an empty round is not deferred (rule 3c) and a last round does not expire (rule 16).
@@ -295,12 +329,12 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    used up for good (every counted invitation accepted) holds until the class starts (rule 20),
    as the tick already did.
 4. Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
-4a. Side eligibility with "both" (eligibility is symmetric and inclusive):
+4a. *(Replaced by `notifications.engine-spots` rule 3 and `notifications.engine-tiers` rule 2 when PAD-899's engine ships.)* Side eligibility with "both" (eligibility is symmetric and inclusive):
    - A `both` player is eligible for a vacancy of ANY side (`left`, `right`, or `both`).
    - A `left`/`right` player is eligible for a `both` vacancy (a both-side vacancy accepts any player).
    - A `null`-side vacancy accepts any player (no side constraint).
    - Formally, a candidate passes a "same side" criterion when: `vacancy.side is None` OR `cp.side == vacancy.side` OR `cp.side == "both"` OR `vacancy.side == "both"`.
-4b. Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them). **A vacancy with no side ranks every side equally (PAD-420):** the tiebreaker contributes the same value for `left`, `right`, `both` and unset players, so it never favours a side; the remaining criteria decide.
+4b. *(Replaced by `notifications.engine-answers` rule 2 and `notifications.engine-planning` rule 5.2 when PAD-899's engine ships.)* Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them). **A vacancy with no side ranks every side equally (PAD-420):** the tiebreaker contributes the same value for `left`, `right`, `both` and unset players, so it never favours a side; the remaining criteria decide.
 4c. Level rules are evaluated against the coach's **level ladder position**, never against the
    raw `display_order` integer. The ladder is the coach's levels ordered by the convention in
    levels.coach-levels rule 3 (lower `display_order` = stronger; unset order sorts last). Given
@@ -314,13 +348,13 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    Because adjacency is positional, a level that is two or more steps away in the coach's ladder
    can never satisfy a "one level above/below" rule, regardless of what integers the levels
    happen to carry. A candidate whose level is not in the coach's ladder never passes a level rule.
-4d. Level rules fail **closed**. When a vacancy has no effective level at all (neither the
+4d. *(Replaced by `notifications.engine-spots` rule 8 when PAD-899's engine ships.)* Level rules fail **closed**. When a vacancy has no effective level at all (neither the
    instance nor its parent lesson defines one), every level rule in an invitation group evaluates
    to "no candidate passes" — a level-only group invites nobody. A missing level is never read as
    "the level filter is switched off", which would silently widen a level-restricted group to the
    coach's entire roster. (The legacy `rounds` vocabulary was removed by PAD-279; an empty
    `invitation_groups` list resolves to the built-in groups — `notifications.config` rule 12.)
-5. `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
+5. *(Replaced by `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 4 when PAD-899's engine ships.)* `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
    `POST /api/app/notify/process_rounds` is **superadmin-only** (PAD-258): any JWT holder used to
    be able to run the batch processor concurrently with the scheduler.
    Details:
@@ -332,15 +366,15 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
      stays live and can be accepted; it ends only when the spot is filled (rule 15, "spot_filled"),
      the student answers, the coach withdraws it (rule 19) or the class starts (rule 20).
 6. Player responds: `POST /api/app/notify/respond` with `{notificationEventId, action: "yes" | "no"}`
-7. If confirmed: Vacancy.status = "filled", player added to instance
-8. If all decline, or maxInactiveTime passes with no yes: moves to next round, and the earlier
+7. *(Replaced by `notifications.engine-answers` rules 1, 2 when PAD-899's engine ships.)* If confirmed: Vacancy.status = "filled", player added to instance
+8. *(Replaced by `notifications.engine-planning` rules 6, 12 and `notifications.engine-timeline` rule 4 when PAD-899's engine ships.)* If all decline, or maxInactiveTime passes with no yes: moves to next round, and the earlier
    rounds' invitations stay live alongside it (PAD-609) — the first yes wins. A player invited for
    a vacancy is not invited for it again while that invitation is live, in that round or a later
    one (rule 18's one-offer skip); in that round, whatever they answered, a decline and a
    still-open invitation both count. The next round applies its own criteria (B-056), within the
    class-wide exclusions of rule 18: a student who said "no" is never asked again for the class,
    in any round.
-8a. **The waiting list is group 0 (PAD-446; numbering unconfirmed).** Every batch for a vacancy
+8a. *(Replaced by `notifications.engine-tiers` rules 5, 6 when PAD-899's engine ships.)* **The waiting list is group 0 (PAD-446; numbering unconfirmed).** Every batch for a vacancy
    first asks the class's waiting-list students who have not yet been invited for it, in the order
    they joined, up to the batch size (`notifications.waiting-list` rules 4–4c, 16). Their
    invitations carry `round_number = 0` and use the `waiting_list_invite` template; the vacancy's
@@ -366,7 +400,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    coach's "no" answers `declined` and enrols nobody (rule 18), a "no" or "yes" after the
    coach's "yes" answers `confirmed` and the student keeps the spot (rule 17). "Eliminar
    convite" (rule 19) already shows "Vaga preenchida" at once, the same way.
-10. **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
+10. *(Replaced by `notifications.engine-answers` rule 7 when PAD-899's engine ships.)* **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
     waited on the lock past the start (or across a move to start now) is expired exactly as the early
@@ -473,7 +507,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    (at most one tick later), not from the next spot of the same run. Measured with
    `backend/scripts/opening_cost_probe.py`; its statement count must not regress.
 
-13. **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
+13. *(Replaced by `notifications.engine-spots` rules 6, 10 when PAD-899's engine ships.)* **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
    2026-09-11, unconfirmed).** A `Vacancy` is a promise that a spot is open; capacity
    (`LessonInstance.effective_filled_spots`, `calendar.view` rule 9) is the truth it follows.
    - **Every enrolment closes a vacancy.** `enrol()` (`classes.instance-enrollment` rule 4) is
@@ -495,7 +529,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
      decline, cancellation and structural paths, and (rule 13a) a coach's edit.
 
-13a. **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
+13a. *(Replaced by `notifications.engine-spots` rules 6, 10 and `notifications.engine-planning` rule 1 when PAD-899's engine ships.)* **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
    numbering unconfirmed).** `edit_class_service` (`POST /edit_class`), once the WHOLE edit is
    written — capacity, the roster, and the class's own flags (automatic invitations, notifications,
    eligibility) on every occurrence it reached — runs `vacancies_after_class_edit` on each of the
@@ -517,7 +551,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
    and also closes that spot under its own locks, so the other offers for the missing seat are
    retired at once. Before PAD-552 the tick closed it.
 
-14. **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
+14. *(Replaced by `notifications.engine-spots` rule 10 when PAD-899's engine ships.)* **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
     B-046 step 5 / B-051; numbered 14 after PAD-271's 13 and before PAD-317's 15).** `vacancies` has a partial unique index
     `uq_vacancies_open_original_player` on `(lesson_instance_id, original_player_id)` where
     `status = 'open' AND original_player_id IS NOT NULL`. Filled and expired rows and structural
@@ -527,7 +561,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     vacancies exist — zero on the staging copy of prod on 2026-09-11 — and its downgrade drops the
     index.
 
-15. **A vacancy is closed in exactly one place, and closing retires every live invitation
+15. *(Replaced by `notifications.engine-planning` rule 10 when PAD-899's engine ships.)* **A vacancy is closed in exactly one place, and closing retires every live invitation
     (PAD-317, ledger B-081; numbered 15 because 14 is taken by PAD-303 on PR #228, which is
     open and merges first).** `_close_vacancy` is the only writer of `Vacancy.status =
     "filled"`: it stamps `filled_by_player_id` and `filled_at`, expires every
@@ -559,7 +593,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     answered "no" nor withdrawn by the coach, may join its
     waiting list from the bubble even when the coach's open spots are hidden (`classes.academy-class-booking`
     rule 6's `not_visible` does not apply to them: the invitation already showed them the class).
-15a. **A retired invitation offers the waiting list (PAD-577).** When a student's invitation
+15a. *(Replaced by `notifications.engine-answers` rule 4 when PAD-899's engine ships.)* **A retired invitation offers the waiting list (PAD-577).** When a student's invitation
     reads "Vaga preenchida" because someone else took the spot (`response: "spot_filled"`), the
     bubble — web and iOS, the chat and anywhere else the invitation is shown — adds "Juntar-me à
     lista de espera" / "Join the waiting list". Pressing it puts the student on **that
@@ -579,7 +613,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     without the separate waiting-list offer message it used to post.
     `spot_filled` is written on every fill (rule 15, PAD-609), and a student who held the invitation
     is not refused `not_visible` (rule 15). Manual invitations carry `startsAt` too.
-16. **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
+16. *(Replaced by `notifications.engine-planning` rule 10 when PAD-899's engine ships.)* **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
     still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
     its last round, and a "yes" in that window is accepted as on any open vacancy. A held vacancy
@@ -688,7 +722,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     recording a "yes" on that invitation; removing the student and adding them back does not clear
     it. The coach recording the same answer twice changes nothing (rule 17).
 
-18a. **A live invitation moves to a sibling spot instead of ending (PAD-679; owner's decisions
+18a. *(Replaced by `notifications.engine-answers` rule 3 when PAD-899's engine ships.)* **A live invitation moves to a sibling spot instead of ending (PAD-679; owner's decisions
     2026-10-21, recorded on the ticket; numbering unconfirmed).** Before PAD-679 a class with two open
     spots told the students asked for the first "Vaga preenchida" when someone took it, and the
     second spot, which had been waiting only on their offers (rule 18), asked them again at the
@@ -735,7 +769,7 @@ multi-round matching. The rounds are an **ordering** — who gets asked first �
     second spot is locked by its own answer, so nothing moves into it, and its invitations end as
     before.
 
-18c. **One live offer per student per club day (PAD-775; owner, 2026-10-27).**
+18c. *(Kept when PAD-899's engine ships: closing the other same-day offers on a Yes is the "same time slot" gate, not a revocation.)* **One live offer per student per club day (PAD-775; owner, 2026-10-27).**
     - **Automatic paths skip.** A student holding a live invitation (sent/queued, unanswered) for
       another class on the same club-local day as this class (R-023 wall date, with any coach, the
       same day as config rule 6e) is skipped by every automatic path: automatic rounds, the
