@@ -106,8 +106,8 @@ class _ScriptedEngine:
 
     name = "scripted"
 
-    def __init__(self, wrong=False):
-        self.wrong = wrong
+    def __init__(self, wrong=False, alert_at=None):
+        self.wrong, self.alert_at = wrong, alert_at
 
     def setup(self, sc):
         from padel_app.tests.invitation_scenarios.runner import parse_local
@@ -128,6 +128,8 @@ class _ScriptedEngine:
         for sid in self.plan.pop(fmt(now), []):
             self.open.append((sid, None, now))
             self.pending.append(Record("invited", sid, "A", now, {"side_named": None, "group": None}))
+        if fmt(now) == self.alert_at:
+            self.pending.append(Record("alert", "", "A", now, {"reason": "no_tier"}))
 
     def apply(self, event, who, params, cls, now):
         from padel_app.tests.invitation_scenarios.runner import Applied, Record
@@ -169,3 +171,25 @@ def test_runner_passes_a_correct_engine_and_fails_a_wrong_one():
     bad = run_scenario(path, _ScriptedEngine(wrong=True))
     assert bad.outcome == "fail"
     assert bad.first.at == "2026-11-01 20:20" and bad.first.key == "invitations"
+
+
+def test_coach_alert_true_needs_an_alert_record_and_false_needs_none(tmp_path):
+    text = (HERE / "scenarios" / "04-grupo-esgota-se-sem-resposta.yaml").read_text(encoding="utf-8")
+    text = text.replace("  - at: 2026-11-01 20:00\n    expect: {invitations: none}",
+                        "  - at: 2026-11-01 20:00\n    expect: {invitations: none, coach_alert: true}")
+    text = text.replace("  - at: 2026-11-01 19:00\n    expect: {invitations:",
+                        "  - at: 2026-11-01 19:00\n    expect: {coach_alert: false, invitations:")
+    assert text.count("coach_alert") == 2
+    path = tmp_path / "04-grupo-esgota-se-sem-resposta.yaml"
+    path.write_text(text, encoding="utf-8")
+
+    good = run_scenario(path, _ScriptedEngine(alert_at="2026-11-01 20:00"))
+    assert good.outcome == "pass", yaml.safe_dump(good.summary())
+
+    late = run_scenario(path, _ScriptedEngine(alert_at="2026-11-01 20:05"))
+    assert late.outcome == "fail" and late.first.key == "coach_alert"
+    assert late.first.at == "2026-11-01 20:00"
+
+    early = run_scenario(path, _ScriptedEngine(alert_at="2026-11-01 19:00"))
+    assert early.outcome == "fail" and early.first.key == "coach_alert"
+    assert early.first.at == "2026-11-01 19:00"

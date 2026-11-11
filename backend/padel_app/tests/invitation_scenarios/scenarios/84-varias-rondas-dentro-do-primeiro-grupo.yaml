@@ -12,6 +12,10 @@ notes: >
   second round at 16:42 instead of 16:40). The 18:45 Aviso probe is derived from "Os outros convidados veem o
   Aviso se disserem Sim" (R9). Regular R-1 stands for "o regular de direita".
 
+  Disposition (PAD-900, 2026-11-11): setting. Method B is the engine's per-tier duration computed at send:
+  with n tiers, tier i (0-based) gets 3(n-1) - i parts and share = part / sum (coordinator ruling), fixed
+  per invitation at send and never overriding coverage. Expectations stand as encoded.
+
 settings:
   timing: {method: B}
 

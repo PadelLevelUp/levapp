@@ -197,7 +197,7 @@ def load_scenario(path: Path) -> Scenario:
 
 @dataclass
 class Record:
-    kind: str        # invited | answered | placed | message | reminder | absence | left | refused
+    kind: str        # invited | answered | placed | message | reminder | absence | left | refused | alert
     student: str
     cls: str
     at: datetime     # local
@@ -532,6 +532,10 @@ class Run:
     def _x_open_in_round(self, exp, recs, snap, spec, step, at, gap):
         n = snap.open_in_round
         self._note(step, at, "open_in_round", exp, n, n == exp, gap or (None if n is not None else "no rounds"))
+
+    def _x_coach_alert(self, exp, recs, snap, spec, step, at, gap):
+        alerts = [r.as_dict() for r in recs if r.kind == "alert"]
+        self._note(step, at, "coach_alert", exp, alerts or "no alert", bool(alerts) == exp, gap)
 
     def _x_placed(self, exp, recs, snap, spec, step, at, gap):
         placed = [(r.student, r.data.get("side"), r.data.get("how")) for r in recs if r.kind == "placed"]

@@ -3,7 +3,7 @@ title: duas aulas à mesma hora disputam os mesmos alunos
 source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1583, 1601]}
 what_it_tests: um aluno só tem um convite aberto por horário, e fica livre quando a aula que o convidou enche
 tags: [multi-class, rounds, tiebreak]
-depends_on: [U25]
+derived_from: [D4, D15]
 corrections: []
 notes: >
   Encoded exactly as written (design §6.1 E2): when A fills at 19:10, D2 and D3 are freed, which contradicts
@@ -11,6 +11,11 @@ notes: >
   B is the other class. Participations 5..1 rank D1 > D2 > ... > D5, so D2 (not D3) is the one B invites at
   19:10. B invites D2 at once, inside its current round (R14). A freed student is invited for B's spot by the
   "same side" group 3.
+
+  Re-derived under the plan (PAD-900, 2026-11-11): When A fills at 19:10, D2 and D3 keep their open
+  invitations to A (D4, never revoked), so they still hold an offer that day and B skips them (D15). B's
+  19:15 accept by D2 has no open invitation: an engine refusal, observed as nothing placed (coordinator F5).
+  B stays one short.
 
 roster:
   regulars: {L: 8, R: 7}
@@ -42,15 +47,15 @@ timeline:
       missing: {L: 0, R: 0}
       other_class:
         B:
-          invitations: [{who: D2, side_named: null, group: 3}]
+          invitations: none
   - at: 2026-11-01 19:15
     events: [{other_class: B, event: {accepts: D2}}]
     expect:
       other_class:
         B:
-          placed: [{who: D2, side: R, how: invitation}]
-          missing: {L: 0, R: 0}
+          roster: {L: 8, R: 7}
+          missing: {L: 0, R: 1}
 final:
   roster: {L: 8, R: 8}
   other_classes:
-    B: {roster: {L: 8, R: 8}}
+    B: {roster: {L: 8, R: 7}}

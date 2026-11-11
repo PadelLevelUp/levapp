@@ -3,7 +3,7 @@ title: waiting list só para o lado que está cheio
 source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [886, 903]}
 what_it_tests: a waiting list só é chamada para o lado indicado, mesmo havendo falta de candidatos
 tags: [waiting-list, coach-list, sides, groups]
-depends_on: [U18, U22]
+derived_from: [§5]
 corrections: []
 notes: >
   W1 (coach's list, left) and S1 (students' list, left only) join at the 19:00 step, before the engine
@@ -11,6 +11,11 @@ notes: >
   for the right spot. R13 excludes waiting-list students from groups 3 to 6 (U22), so nobody after the 2
   L2R is invited. 20:00 is 60 minutes after group 3's only round, and groups 4 to 6 have no candidates.
   No automatic entry occurs, so U16 is not tagged.
+
+  Re-derived under the plan (PAD-900, 2026-11-11): A student's tier is the first group whose rules they pass
+  (§5); the own-side waiting-list choice limits only auto-entry and group 0 (coordinator, N2). W1 and S1 are
+  level-3 left-siders, so group 6 invites them for the right at 20:00, when the 2 L2R stop counting (60m:
+  their round exhausted the tier).
 
 roster:
   regulars: {L: 8, R: 7}
@@ -28,7 +33,10 @@ timeline:
       invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
       waiting_list: {coach: [W1], students: [S1]}
   - at: 2026-11-01 20:00
-    expect: {invitations: none}
+    expect:
+      invitations:
+        - {who: W1, side_named: R, group: 6}
+        - {who: S1, side_named: R, group: 6}
   - at: 2026-11-01 20:15
     events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
     expect:

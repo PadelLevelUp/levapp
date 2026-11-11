@@ -3,12 +3,16 @@ title: aula pequena com um lado muito carregado
 source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1283, 1297]}
 what_it_tests: a aplicação ajuda a equilibrar com os convites, sem impor o lado de cada aluno no fim
 tags: [unbalanced, regulars]
-depends_on: [U9, U11]
+derived_from: [§8 step 6, S18]
 corrections: []
 notes: >
   Capacity 8 (4 per side). 5 right regulars is over half, so the missing count is for the whole class
   (2) and the invitations go to the under-filled left (R6): 2 × 3 = 6. No one is moved to another side
   (U11).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): At last_invite_at one right regular over the quota moves
+  left and is notified (§8 step 6, S18; coordinator F2); on a tie, the regular who joined most recently
+  (R-5). The added 08:30 step is an observation.
 
 class:
   level: 3
@@ -36,5 +40,11 @@ timeline:
         - {who: l2, side: L, how: invitation}
       missing: {total: 0}
       roster: {L: 3, R: 5}
+  - at: 2026-11-03 08:30
+    derived: true
+    derived_from: [§8 step 6, S18]
+    expect:
+      roster: {L: 4, R: 4}
+      messages: [{who: R-5, kind: side_moved}]
 final:
-  roster: {L: 3, R: 5}
+  roster: {L: 4, R: 4}

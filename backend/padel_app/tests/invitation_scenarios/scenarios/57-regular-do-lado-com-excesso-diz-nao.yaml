@@ -3,7 +3,7 @@ title: regular do lado com excesso diz Não
 source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1298, 1312]}
 what_it_tests: uma falta no lado com excesso abre vaga para o lado que continua em falta
 tags: [unbalanced, regulars]
-depends_on: [U9, U11]
+derived_from: [§8 step 6, S18]
 corrections: []
 notes: >
   10 left regulars is over half, so the missing count is for the whole class and every invitation goes to
@@ -11,6 +11,10 @@ notes: >
   also filled from the right, and the 5 L2L are ignored on purpose. The invitations lists are exhaustive,
   so any L2L invitation fails the step. The absence kind of L-1's No is not stated and is not checked.
   No one is moved to another side (U11).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): At last_invite_at one left regular over the quota moves
+  right and is notified (§8 step 6, S18; coordinator F2); on a tie, the regular who joined most recently
+  (L-10). The added 08:30 step is an observation.
 
 roster:
   regulars: {L: 10, R: 4}
@@ -41,5 +45,11 @@ timeline:
         - {who: r3, side: R, how: invitation}
       missing: {total: 0}
       roster: {L: 9, R: 7}
+  - at: 2026-11-03 08:30
+    derived: true
+    derived_from: [§8 step 6, S18]
+    expect:
+      roster: {L: 8, R: 8}
+      messages: [{who: L-10, kind: side_moved}]
 final:
-  roster: {L: 9, R: 7}
+  roster: {L: 8, R: 8}
