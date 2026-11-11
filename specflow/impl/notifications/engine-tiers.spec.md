@@ -36,8 +36,9 @@ the coach's list).
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
    block on automatic invitations, already in the session, in another session at the same time
-   (**the same hour**: sessions whose times overlap, the same start included; the overlap reading is
-   ours, PAD-911; engine-answers rule 10, engine-planning rule 10 and rule 10 here use this one),
+   (**the same hour**: sessions with the same start, Tomás's "mesma hora"; overlapping sessions with
+   different starts are an open question; engine-answers rule 10, engine-planning rule 10 and rule 10
+   here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
@@ -170,3 +171,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - A student with no level on a waiting list or in the pool (scenarios 23, 26, 34): the eligibility bar
   treats a missing level as the class's level, as the harness does (design §2.2) — decision (owner
   away), because no scenario expects such a student to be gated.
+- Sessions that overlap without sharing a start (one at 10:00 for 90 minutes, one at 10:30): the same
+  hour or not? (PAD-911; rule 3) — decision (owner away): not, for now; "the same hour" is the same
+  start, which is Tomás's "mesma hora", the owner's words and the code (`store.py`, `busy_same_time`).
+  An overlap rule needs the session's end time in the engine's snapshot, which it does not carry yet.

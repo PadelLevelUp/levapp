@@ -83,8 +83,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
     run, fill, roster change or settings change withdraws it or edits its message. **One exception
     (Tomás's point 2, owner ruling 2026-11-11):** when the student is placed in another session at the
     same hour (`notifications.engine-tiers` rule 3), their open invitations for other sessions at that
-    hour close
-    (`notifications.engine-answers` rule 10); a student cannot play two sessions at once.
+    hour close (`notifications.engine-answers` rule 10); a student cannot play two sessions at once.
 11. **Nobody left (§6 step 4).** When a spot type has uncovered spots and **no candidate in any tier**
     (no counting invitation counts for it and no uninvited student fits it), the run emits a
     const:COACH_ALERT for the session naming the type. The store keeps one alert per session and type

@@ -143,8 +143,8 @@ its share of the useful time from that opening to `last_invite_at`, quiet hours 
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[87-vaga-de-ultima-hora-com-pouco-tempo-util]`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-18: Method B's rounds inside one tier descend by the same parts (rule 2; scenario 84)
-Given scenario 84 (Method B, the share of group 3, the first tier taking part, 3 h from 15:30, 9 candidates and a budget of 3, so
-3 rounds), when nobody answers, then the rounds go out at 15:30, 16:42 and 17:30 (72 and 48 minutes,
+Given scenario 84 (Method B, the share of group 3, the first tier taking part, 3 h from 15:30, 9
+candidates and a budget of 3, so 3 rounds), when nobody answers, then the rounds go out at 15:30, 16:42 and 17:30 (72 and 48 minutes,
 3:2 of two hours) and the next tier at 18:30 (the last third, one hour).
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[84-varias-rondas-dentro-do-primeiro-grupo]`
 

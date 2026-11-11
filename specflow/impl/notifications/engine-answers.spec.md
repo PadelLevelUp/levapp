@@ -52,13 +52,13 @@ Stated as observable records; storage is the engine package's (PAD-902).
 9. **Accepting fills a spot for that session only (§8).** It does not enrol the student in the class.
 10. **Never two sessions at the same hour (Tomás's point 2: "nunca se quebra"; owner ruling 2026-11-11;
     D4's exception).** The same hour is `notifications.engine-tiers` rule 3's. Any placement — a Yes to
-    an invitation, a direct join, automatic entry, a coach's add — closes the student's other open
-    invitations for other sessions at the same hour: nothing is sent for them and they no longer
-    count. **Every placement path refuses a second placement at the same hour**, the coach's add
-    included: an accept is refused with nothing placed and nothing sent (rule 8's form); automatic
-    entry skips the student; a direct join is refused; a coach's add is refused with the reason shown
-    to the coach. This is the safety rule; the run's efficiency rule, which does not invite a student
-    holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
+    an invitation, a direct join, automatic entry — closes the student's other open invitations for
+    other sessions at the same hour: nothing is sent for them and they no longer count. **Every engine
+    placement path refuses a second placement at the same hour:** an accept is refused with nothing
+    placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
+    student. The rule binds the engine's paths; the coach's add is not one of them and is covered at
+    the engine swap. This is the safety rule; the run's efficiency rule, which does not invite a
+    student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -159,6 +159,16 @@ same hour, when a spot they can take opens in A before `attendance_request_at`, 
 A and their invitation to B is closed.
 test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_closes_the_same_hour_invitation`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-16: A direct join at an hour the student already plays is refused (rule 10)
+Given `direct-join` on and a student going to session A, when they try to join session B at the same
+hour, which has a spot on their side, then the join is refused and nothing is placed.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_direct_join_at_a_busy_hour_is_refused`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-17: Automatic entry skips a student already placed at the same hour (rule 10)
+Given `auto-entry` on and a waiting-list member of session B going to session A at the same hour, when a
+spot they could take opens in B before `attendance_request_at`, then they are not placed in B.
+test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_skips_a_student_busy_at_that_hour`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -168,12 +178,12 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    reopened spot), `adapters/new.py` (`sorry` logged as `aviso`).
 3. (Swap) ANSWERS-10 — a table-backed `SessionStore`, out of scope for PAD-899 (`store.py`); at the
    engine swap.
-4. (PAD-911) ANSWERS-13, ANSWERS-14, ANSWERS-15 — `invitation_engine/answers.py` (a placement closes the other
+4. (PAD-911) ANSWERS-13 to ANSWERS-17 — `invitation_engine/answers.py` (a placement closes the other
    same-hour invitations; a second same-hour placement refused), `invitation_engine/store.py`.
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
   2's measure, because it is D6's rule for an either-side Yes.
-- A coach's add to a session at an hour where the student is already placed (rule 10) — decision
-  (owner away, PAD-911): refused with the reason, because Tomás's safety rule "nunca se quebra"; the
-  owner may want a coach override (review pack).
+- A coach's add to a session at an hour where the student is already placed (rule 10) — not an
+  engine path; covered at the engine swap (refused with the reason, Tomás's "nunca se quebra"; the
+  owner may want a coach override, review pack).
