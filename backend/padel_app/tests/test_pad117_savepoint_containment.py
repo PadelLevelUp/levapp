@@ -229,6 +229,7 @@ def _materialized_instance_id(lesson_id, occ_date):
 # The regression: commit-then-raise must be contained
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLASSES-INSTANCES-4")
 def test_commit_then_raise_inside_savepoint_is_contained(app, client, world, caplog):
     """A guarded-block failure that CLOSES the transaction must not escape as a
     500, and the reminder must still actually be delivered."""
@@ -269,6 +270,7 @@ def test_commit_then_raise_inside_savepoint_is_contained(app, client, world, cap
 # Pin the shape that already worked, so the fix does not regress it
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLASSES-INSTANCES-3")
 def test_plain_exception_inside_savepoint_is_still_contained(app, client, world):
     """The plain-exception row of the ticket's table: was already 200, must stay
     200 — and must still deliver."""
@@ -313,6 +315,7 @@ def test_healthy_sync_still_materializes_and_fans_out(app, client, world):
 # The masking bug: begin_nested() must not be inside the try
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("CLASSES-INSTANCES-5")
 def test_failure_opening_savepoint_surfaces_its_own_cause(app, world):
     """If opening the SAVEPOINT itself fails, the caller must see THAT failure —
     never an UnboundLocalError from a handler referencing a savepoint that was

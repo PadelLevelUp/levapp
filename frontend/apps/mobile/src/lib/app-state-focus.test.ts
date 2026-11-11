@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { isBackgrounded, isForegroundReturn, settleAppState } from "./app-state-focus";
 
 describe("foreground return (PAD-592)", () => {
-  it("background → active is a return", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-3] background → active is a return", () => {
     expect(isForegroundReturn("background", "active")).toBe(true);
   });
-  it("inactive → active (Control Centre, Face ID, the switcher) is not", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-3] inactive → active (Control Centre, Face ID, the switcher) is not", () => {
     expect(isForegroundReturn("inactive", "active")).toBe(false);
   });
   it("the first active after launch counts", () => {

@@ -178,6 +178,7 @@ def _delete(app, client, ids):
 
 # ── rule 2: the account itself is gone ───────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-1")
 def test_the_account_row_is_scrubbed_and_unusable(app, client):
     from padel_app.models import User
 
@@ -197,6 +198,7 @@ def test_the_account_row_is_scrubbed_and_unusable(app, client):
 # The legacy session login and Flask-Login are deleted (PAD-645), so a JWT is the only
 # session there is.
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-1")
 def test_a_deleted_students_token_and_password_stop_working(app, client):
     ids = _world(app)
     headers = _auth(app, ids["rita_user_id"])
@@ -209,6 +211,7 @@ def test_a_deleted_students_token_and_password_stop_working(app, client):
 
 # ── rule 4: pushes stop ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-4")
 def test_device_tokens_and_push_subscriptions_are_deleted(app, client):
     from padel_app.models.device_token import DeviceToken
     from padel_app.models.push_subscriptions import PushSubscription
@@ -236,6 +239,7 @@ def test_blocks_both_ways_and_calendar_blocks_are_deleted(app, client):
 
 # ── rule 6: a student leaves the future, silently ────────────────────────────
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-5")
 def test_the_student_leaves_future_classes_only_and_silently(app, client):
     from padel_app.models import (
         Association_PlayerLesson,
@@ -259,6 +263,7 @@ def test_the_student_leaves_future_classes_only_and_silently(app, client):
         assert (Vacancy.query.count(), NotificationEvent.query.count()) == (vacancies, events), "silent"
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-6")
 def test_waiting_list_credits_stop_being_spent(app, client):
     from padel_app.models import StandingWaitingListEntry, WaitingListEntry
 
@@ -271,6 +276,7 @@ def test_waiting_list_credits_stop_being_spent(app, client):
 
 # ── rule 7: the engine never picks a deleted account ─────────────────────────
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-7")
 def test_a_deleted_student_on_a_roster_consumes_no_invite_round(app, client):
     from padel_app.models import LessonInstance, NotificationEvent, Vacancy
     from padel_app.services.account_service import delete_account_service
@@ -321,6 +327,7 @@ def test_a_deleted_student_on_a_roster_consumes_no_invite_round(app, client):
 
 # ── rule 8: the coach's records are kept ─────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-11")
 def test_the_coachs_records_and_sent_messages_are_kept(app, client):
     from padel_app.models import Association_CoachPlayer, Presence, User
     from padel_app.models.evaluation_entry import EvaluationEntry
@@ -343,6 +350,7 @@ def _names(payload):
     return sorted(p.get("name") for p in payload)
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-8")
 def test_roster_lists_and_pickers_hide_a_deleted_student(app, client):
     from padel_app.models import User
     from padel_app.services.messaging_service import get_messageable_users_service
@@ -397,6 +405,7 @@ def test_a_deleting_coach_keeps_their_classes(app, client):
 
 # ── owner decision (a): the Presences page drops the account and stays consistent ─
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-10")
 def test_presences_table_drops_a_deleted_student_and_the_charts_still_agree(app, client):
     """Rule 8: /presence_stats is a roster list, so a deleted student leaves it;
     the no-filter trend counts the same player set, so the KPI tile, the sum of
@@ -417,6 +426,7 @@ def test_presences_table_drops_a_deleted_student_and_the_charts_still_agree(app,
 
 # ── rule 8: the coach home counts a deleted account nowhere forward-looking ──
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-9")
 def test_the_week_pulse_does_not_count_a_deleted_student(app):
     from datetime import datetime
 
@@ -438,6 +448,7 @@ def test_the_week_pulse_does_not_count_a_deleted_student(app):
     assert players == {"active": 3, "total": 3, "idle": 0}
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-9")
 def test_the_reply_queue_skips_a_deleted_sender(app):
     from datetime import datetime
 

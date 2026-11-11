@@ -21,6 +21,7 @@ def _attempts(app, iid, player_id):
         return ReminderAttempt.query.filter_by(lesson_instance_id=iid, player_id=player_id).count()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-2")
 def test_a_clear_after_an_answer_does_not_bring_back_the_question(app, world, monkeypatch):
     from padel_app.services.notification_service import get_or_create_config, respond_to_reminder, send_class_reminders
 
@@ -47,6 +48,7 @@ def test_a_clear_after_an_answer_does_not_bring_back_the_question(app, world, mo
     assert _attempts(app, iid, ids["student_id"]) == 1, "she answered: no second question"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-2")
 def test_a_clear_on_a_student_who_never_answered_still_gets_the_next_reminder(app, world, monkeypatch):
     """PIN (PAD-567, rule 23): a student who was asked, did NOT answer, and whose mark the coach
     cleared is asked again by the next pass — only an answer stops the questions."""

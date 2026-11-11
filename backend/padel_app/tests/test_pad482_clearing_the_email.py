@@ -51,6 +51,7 @@ def _verification_columns(app, username="rui"):
 
 
 @pytest.mark.parametrize("cleared", ["", "   ", None])
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-26")
 def test_clearing_the_email_of_a_verified_coach_leaves_it_unverified(app, client, outbox, cleared):
     """Criterion "An account with no email is not verified" — /auth/me and the admin list."""
     headers = _verified_coach(app, client, outbox)
@@ -68,6 +69,7 @@ def test_clearing_the_email_of_a_verified_coach_leaves_it_unverified(app, client
     assert client.get("/api/app/admin/coach-approvals", headers=headers).status_code == 404
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-26")
 def test_clearing_the_email_while_a_code_is_pending_drops_the_code(app, client, outbox):
     _register(client, role="coach", username="rui", email="rui@example.com")
     headers = _auth(app, _user(app, "rui").id)
@@ -93,6 +95,7 @@ def test_a_patch_without_the_email_key_changes_nothing_about_it(app, client, out
     assert _verification_columns(app) == before
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-14")
 def test_a_save_that_re_sends_the_same_email_changes_nothing(app, client, outbox):
     """Every client sends only the changed fields today; a request that re-sends the stored address (in
     another case) alongside other fields must still leave its verification alone."""
@@ -108,6 +111,7 @@ def test_a_save_that_re_sends_the_same_email_changes_nothing(app, client, outbox
     assert len(outbox) == 1, "no new code was mailed"
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-14")
 def test_adding_an_email_back_starts_verification_again(app, client, outbox):
     headers = _verified_coach(app, client, outbox)
     assert client.patch("/api/auth/me", json={"email": ""}, headers=headers).status_code == 200
@@ -118,6 +122,7 @@ def test_adding_an_email_back_starts_verification_again(app, client, outbox):
     assert outbox[-1]["recipients"] == ["rui@example.com"]
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-26")
 def test_a_row_left_with_no_email_and_a_timestamp_reads_unverified_everywhere(app, client, outbox):
     """A row cleared before B-262 was fixed still holds `email_verified_at`: the state is derived from
     the email first, so /auth/me and the admin list say unverified without any data change."""

@@ -1,0 +1,399 @@
+---
+id: notifications.reminders
+status: implemented
+depends_on: [notifications.config, classes.instances, attendance.presence]
+serves: [P-NOTIFICATIONS-7]
+governed_by: []
+---
+
+# notifications.reminders
+
+
+### Intent
+Automatically send class reminders to enrolled players at a configured time before the class.
+
+### Rules
+1. Scheduler creates a DateTrigger job per lesson occurrence: `reminder_lesson_{lesson_id}_{date}`
+2. At trigger time: materializes instance (if not exists), calls `send_class_reminders()`
+3. Reminders sent to all presences for the instance
+4. Players respond: confirm (yes) or decline (no) via `respond_to_reminder()`
+5. Confirmation updates Presence.confirmed
+6. Decline may trigger a vacancy for the invitation engine; in semi-automatic mode, the vacancy awaits coach approval before any invitations are sent (see notifications.semi-auto-approval)
+7. Reminders sent via in-app messaging (system message in conversation)
+8. Push notification also sent
+9. Only the latest reminder for a given (player, instance) is actionable (PAD-49). When a newer reminder is sent for the same (player, instance), every prior reminder message for that pair that the player has NOT yet actioned is marked **superseded** (`msg_metadata.superseded = true`). A superseded reminder renders its action area as a disabled "expired" indicator instead of live Yes/No buttons; responding to it is a no-op. Reminders the player already actioned (confirmed/declined) keep their existing status badge and are never marked superseded. Superseding is idempotent and is delivered to live clients via a `message_edited` event so the buttons update without a reload.
+10. A reminder is **expired** once its class has started, or the instance is canceled/completed (PAD-68). "Started" is judged on the club's clock: the stored start is Lisbon wall-clock (R-023), compared with Lisbon now by `_instance_is_over` (PAD-256). The class is closed: nothing about its roster can still usefully change.
+    - `respond_to_reminder()` on an expired reminder is a no-op returning `{"action": "expired"}`. It does NOT update Presence (the coach's attendance record for a class that happened is authoritative), does NOT create a Vacancy, and does NOT trigger replacement invitations.
+    - The un-actioned reminder messages for that (player, instance) are marked `superseded = true` + `expired = true` and pushed to live clients via `message_edited`.
+    - Clients also derive expiry from `msg_metadata.startsAt`, so reminders already sitting in message history stop offering Yes/No the moment their class passes, with no data backfill. `startsAt` (and `cancellationDeadline`) are naive club wall-clock strings, and the clients compare them with the club's clock (`lisbonNow()` in `@levelup/config`), never with the device's (PAD-295).
+    - The invitation engine enforces the same rule independently: `trigger_invitations()` and the `_send_invitation_batch()` send chokepoint refuse to act for a class that has started, and expire any still-open Vacancy instead. This backstops every fan-out path (scheduler jobs, batch processor, round advance, decline-driven next-invite, and late responses to stale invite messages).
+11. A player's answer is always durably recorded (PAD-69). When the player has no Presence on that date (the coach took them off after the reminder went out), the answer is recorded on the reminder attempt as `not_enrolled` and nothing else is written: no Presence, no spot, no follow-up (`classes.instance-enrollment` rule 7).
+12. Responding is **idempotent** (PAD-94). Re-submitting the answer already on record for a (player, instance) is a no-op that returns the recorded action plus `"duplicate": True`. It sends no second `reminder_confirmed`/`reminder_declined` system message, creates no extra Vacancy, and does not re-drive the invitation engine — so N rapid taps on **No** produce exactly ONE decline message and ONE round of replacement invitations, not N.
+    - "Already on record" means the Presence row still reflects that same answer **and** no un-actioned reminder message is pending for that (player, instance). A newer reminder (rule 9) is a fresh question and is always answerable, even with the same answer.
+    - Changing yes to no always goes through. Changing no to yes goes through while the class has a spot (`attendance.confirm` rules 27 and 28); otherwise it answers `spot_filled` and records nothing.
+    - The invitation engine enforces the same guarantee independently: the decline path does not re-trigger invitations when the player's spot already has an open Vacancy with live (`sent`/`queued`/`confirmed`) invitations out for it.
+13. **Answering is reading (PAD-202).** A reminder can be answered from outside the chat — the
+    student dashboard offers Yes/No on the class row (`dashboard.blocks` rule 3a). When
+    `respond_to_reminder()` (or `respond_to_notification()` for an invite) records a **fresh**
+    answer, it advances the player's `ConversationParticipant.last_read_at` in that conversation
+    to the moment of the answer — never backwards. The reminder, everything before it, and the
+    `reminder_confirmed` / `reminder_declined` acknowledgement the answer itself produces (the
+    echo of the player's own action, not news) stop counting as unread; anything sent after the
+    answer still does. A duplicate answer (rule 12) or an expired reminder (rule 10) does not
+    touch the marker. (The read state is one watermark per conversation, so "read up to the
+    answer" is the finest grain the model allows.)
+14. **Reminder state has its own table (PAD-207, audit M6).** Every reminder sent is one row of
+    `reminder_attempts` (`lesson_instance_id`, `player_id`, `presence_id`, `number`, `message_id`,
+    `sent_at`, `responded_at`, `response`, `superseded`, `expired`). Every read that asks "how many
+    reminders has this player had for this class", "which reminder is still pending" or "the
+    latest reminder to mark answered" goes through that table — never through a scan of the
+    conversation's messages. The message keeps being the delivery record the clients render, so
+    `msg_metadata` (`responded`, `response`, `superseded`, `expired`, `reminderNumber`) is written
+    in step with the row and nothing the clients see changes. The migration is idempotent and
+    backfills one row per existing `notification_reminder` message from its metadata.
+15. **When a reminder fires, and when a class has started (PAD-256).** A class's `start_datetime`
+    is the Lisbon wall-clock time the coach typed (R-023; decision
+    `2026-09-10-class-time-storage`, option B). The scheduler turns it into a UTC instant before
+    it arms a job:
+    - `hours_before: N` fires N real hours before the class's real start, even across a
+      daylight-saving change;
+    - `days_before: D, time: "HH:MM"` fires at HH:MM on the club's clock, on the class's own date
+      minus D days.
+
+    For reminders, "has the class started" compares the class's wall time with the club's clock,
+    never with UTC. That covers the send guard (rule 10) and the follow-up pass, which is never
+    armed at or after the start. Before PAD-256, every reminder fired an hour late from April to
+    October, and a class at 23:00 or later got its day-before reminder a day late.
+15a. **A class that moves drops its pending follow-ups (PAD-623; PAD-612 R6).** A follow-up reminder
+   job (`reminder_<id>_retry_<ts>`) is armed `hoursBetweenReminders` after a pass, on the class's
+   schedule at that moment. When an edit changes the occurrence's start, its pending follow-ups are
+   removed (`drop_pending_followups`) before the base job is re-armed for the new time (PAD-478); the
+   re-armed pass then sends whatever reminder is still owed, with the count and the spacing as
+   always. Only an edit that moves the class does this: startup, the daily pass and a settings save
+   (which re-times follow-ups, `notifications.config` rule 10b) leave the chain alone. The jobs are
+   found by the id prefixes read from the occurrence before the edit (both id forms; the date in a
+   lesson-occurrence id is the old one), and the drop is best-effort after the edit's commit, like
+   the re-arm: a scheduler failure is logged and the edit stands. Not covered yet: a "this and
+   future" edit that forks the series re-parents the occurrence before the edit runs, so a
+   lesson-form follow-up keyed on the OLD lesson is not found (follow-up noted on PAD-623).
+16. **The scheduler never starts in a CLI or migration process (PAD-264, audit H12).**
+    `init_scheduler` returns without starting APScheduler when the process is a migration
+    (`config.is_migration_invocation`: any `db` sub-command) or any Flask CLI command other than
+    `run`. That holds whether the process was launched as the `flask` console script or as
+    `python -m flask`, which is how production runs `db upgrade` (the deploy's migrate step,
+    `padel_app.migrate`, since PAD-691; the container entrypoint before it). Server processes (gunicorn, `flask run`, including `flask --app app.py
+    run`) start it as before. Before this, `python -m flask … db upgrade` put `sys.argv[0]` at
+    `flask/__main__.py`, the guard missed it, and every deploy's migration started the
+    scheduler: jobs could fire against a half-migrated schema and the startup reschedule ran
+    twice.
+    *(Numbered 16 in batch 2: PAD-207 holds 14, PAD-256 15 and PAD-258 17.)*
+
+17. **Only an enrolled student can answer (PAD-258, audit H4).** `respond_to_reminder` requires
+    the acting player to hold an `Association_PlayerLessonInstance` or an existing `Presence` for
+    the instance, or an `Association_PlayerLesson` for its lesson; otherwise 403 and nothing is
+    written. Before this, any student could "decline" any class: a stray absent Presence was
+    created, which lowered `effective_filled_spots`, opened a phantom Vacancy and fanned out
+    replacement invitations for a spot that was never theirs.
+
+18. **A late arrival is asked (PAD-331, PAD-318; rule numbers self-assigned, unconfirmed).** Reminder passes are a chain: a pass schedules the next one only while it reports `more_due`. With the default `reminderCount` of 1 the first pass reports `false` — everyone has had their reminder — so **the chain ends after one pass** and the occurrence's job is spent. Anyone who joins the class after that was therefore never asked by anything: a coach's fresh add, a coach re-adding someone who had cancelled, any late arrival, with no cancellation anywhere in the story.
+    So enrolling a student **arms one pass for them** when, and only when, the ordinary reminder has already come and gone. While that reminder is still ahead it asks them at the coach's configured moment, and arming here would ask a student the instant they were added — three weeks early for a class three weeks out, which is exactly what the configured timing exists to prevent.
+    Nothing is armed when the student has already answered, when a reminder of theirs is still live and unanswered (asking again is the noise `notifications.reminders` removed in PAD-49 and PAD-94), when the class is over or cancelled, or when the earliest permitted moment falls at or after the class starts.
+    **Quiet hours defer it forward, never back.** Outside the permitted window the ask is scheduled for the next permitted instant — the end of quiet hours on the club's clock. It is deliberately *not* deferred to the occurrence's configured fire time, which is in the past for exactly the cases this rule exists for; deferring to it would reinstate the bug on the path hardest to test.
+    A pass is armed rather than a bespoke message sent: `send_class_reminders` already skips everyone who has answered or exhausted their reminders, so one pass reaches precisely the people who still owe an answer and nobody else.
+    **Told, then asked (with PAD-330).** On a coach's add after the chain has stopped the student receives two messages in that order: the `added_to_class` message, sent synchronously inside the enrolment, then the reminder when the armed pass runs — at once, or at the end of quiet hours. A coach's add *before* the ordinary reminder is told only; the ordinary reminder asks later, as it always has.
+    **An accepted class request is not told, but it is asked (deliberate).** Accepting a student's own request stays silent on "told" (`add_class_service(..., notify_students=False)`, PAD-330). "Asked" follows this rule like any other enrolment: a request accepted for a class whose reminder time is still ahead is asked by the ordinary reminder, as before; one accepted *inside* the reminder window — tomorrow's class — is asked once, when its occurrence first materialises (the one-off's instance is created lazily and enrols through `enrol()` as `roster`). Before PAD-331 that student was asked by nothing: the ordinary job is skipped when its fire time has passed. Treating a request as the student's own confirmation (recording them `coming` rather than asking) would silence both cases and is a separate product decision, not taken here.
+    **Reading the coach's timing creates nothing.** Arming runs inside every enrolment, so it reads the coach's `NotificationConfig` and, when there is none, answers with the defaults an unsaved row carries — the timing the reminder pass would create and use. It never inserts the row (the PAD-330 lesson: an enrolment that creates settings collides with the row its caller makes next).
+19. **The cap counts the seat a student holds now (PAD-318).** A student who cancelled and was put back by their coach has a new seat; the reminders from before the cancellation asked about a seat they no longer held, so they no longer count toward `reminderCount` and their bubbles are retired — an un-actioned Yes/No about a surrendered seat must not stay tappable. `superseded` alone is not the discriminator: every new reminder supersedes the previous one, so a cap that ignored superseded attempts would uncap reminders entirely. A voided round is also excluded from `reminderSentAt` (`attendance.presence` rule 1a), so the class sheet does not tell a coach a reminder is outstanding for a student who is about to be asked for the first time about the seat they now hold
+20. **One reminder job per occurrence (PAD-347, B-097; rule number self-assigned, unconfirmed).**
+    Rule 1's `reminder_lesson_{lesson_id}_{date}` job exists only while the occurrence is NOT
+    materialised. Once a `LessonInstance` exists, `reminder_{instance_id}` is the occurrence's
+    only reminder job: arming it cancels the occurrence job, and the lesson-occurrence scheduler
+    (class creation, future edits, the startup re-arm, the daily window extension, a settings
+    save) hands a date that already has an instance to `schedule_instance_jobs` instead of
+    arming its own job — a canceled or completed instance gets no job at all. The instance job
+    is the truth because its `start_datetime` survives a single-occurrence edit; the occurrence
+    job's fire time is derived from the template. Second and later reminders still arrive
+    `hours_between_reminders` apart through the instance runner's chain (rule 18); only the
+    duplicate goes, never the feature.
+21. **A reminder is sent once, however many passes run at the same moment (PAD-407; rule
+    number self-assigned, unconfirmed).** Since PAD-331 the occurrence job's materialisation
+    enrolled the roster, each enrolment armed an ask pass due "now", and those passes ran
+    `send_class_reminders` beside the job's own pass; a count-then-insert guard let every one
+    of them send (prod, 2026-09-16 → the fix: 2–3 copies per student), and each sender re-armed
+    its own retry chain. Three parts, none a schema change:
+    (a) **one pass at a time per occurrence** — `send_class_reminders` holds a Postgres
+    session-level advisory lock keyed on the instance for the whole pass, on a connection of its
+    own (the pass commits several times, so a transaction's row lock would be released half-way);
+    a second pass waits, then counts what the first sent;
+    (b) **a scheduled pass respects the spacing** — the scheduler's passes skip a student whose
+    latest counted reminder is younger than `hoursBetweenReminders` (5-minute tolerance), and
+    report no `more_due` for them, so the twin of a duplicate chain — including the doubled
+    chains already stored in `apscheduler_jobs` — sends nothing and ends. The coach's manual
+    send (`POST /send_reminders`) keeps rule 3's behaviour;
+    (c) **the occurrence job arms no ask passes while it materialises** — its own pass asks the
+    roster a moment later. Every other enrolment still arms rule 18's ask pass — so an
+    occurrence whose job misfired (never ran) is still asked by the ask passes of whatever
+    materialises it later. Ledger: B-161.
+
+22. **A class created after its reminder time: its students are counted as coming (PAD-489;
+    owner, 2026-10-02).** When a coach creates a class whose first-reminder time, under the
+    coach's timing, has already passed when the class is created, the students put on it are
+    recorded as coming at that moment, without being asked: the occurrence is materialised at
+    creation, each presence is answered yes with `recorded_by = "system"`, and no late ask (rule
+    18) is armed for them. Only a class CREATED late: a student added later to a class that
+    already exists keeps rule 18 and is asked; a student who cancelled and is put back by the
+    coach is asked (PAD-318); the ordinary reminder of a class whose time is still ahead is
+    unchanged. A student's own class request accepted late (`class_request_service`, which
+    creates the class through the same path) is counted as coming too, and not asked; the
+    people they invited to it did not ask for it, so they are told and asked like anyone added
+    to a class (review of #535). A class whose notifications are off is never counted: no
+    reminder would have asked, so no reminder moment passed. The cutoff for "already started"
+    is the club's clock. For a recurring series created late, only the occurrences whose reminder time has already passed
+    are counted; later occurrences get the ordinary reminder. The students are told: the
+    "added to class" message of such a class is the `added_to_class_coming` template ("your
+    presence is already confirmed; if you cannot come, tell me in the app"), which carries no
+    question. Saying no afterwards works as for any confirmed student, and after the class the
+    presence is validated like every other: coming is not present. A class whose students are
+    all counted as coming has nobody still owed a reminder, so `notifications.config` rule 10f's
+    dialog never lists it.
+
+23. **No reminder for a student the coach already marked (PAD-546; numbering unconfirmed).** A
+    reminder pass skips a student whose attendance the coach has already recorded, present or
+    absent (justified or not): `Presence.status` is set, which only the coach's attendance mark
+    writes (`attendance.presence` rule 7). It is read by `_reminder_recipients` when the pass runs,
+    not when the job is armed, so it applies to every pass of the chain (the first reminder and each
+    follow-up), and a mark the coach clears before a pass brings that student's reminder back. The
+    late ask (rule 18) is not armed for a marked student either. A student's own answer already
+    stops reminders (`confirmed`, rule 3); a "no" sets `status` too, which changes nothing. The
+    past-due listing (`notifications.config` rule 10f) reads the same list, so a class whose only
+    owed students are marked is not listed.
+    **An answer survives a cleared mark (PAD-622; PAD-612 R5).** A student who answered one of the
+    occurrence's reminders is not asked again by a later pass, even after the coach marks them and
+    clears the mark (PAD-567's clear resets `confirmed`, not the answer they gave): the pass skips a
+    student with an answered (`yes`/`no`), counted `ReminderAttempt`, on every pass including the
+    coach's manual send, and the late ask (rule 18) is not armed for them. A student who was asked
+    and never answered is asked again as before; voided attempts (a returning student, rule 19) do
+    not count, and neither does a `not_enrolled` outcome (a stale reminder tapped while off the
+    date): a student the coach re-adds is asked.
+
+### Acceptance Criteria
+
+#### NOTIFICATIONS-REMINDERS-1: Moving a class drops the follow-up armed on the old schedule (rule 15a, PAD-623)
+- **Given** a class with 2 reminders 2 hours apart; reminder 1 went out and the follow-up is armed for 2 hours later
+- **When** the coach moves the class a week later
+- **Then** that follow-up is no longer armed, and the base reminder is armed for the new time
+- **And** an edit that keeps the class's time (a new title) leaves the follow-up armed
+
+#### NOTIFICATIONS-REMINDERS-2: A cleared mark does not bring the question back to a student who answered (rule 23, PAD-622)
+- **Given** a class with 2 reminders; Ana answered reminder 1; the coach marked her present and then cleared the mark
+- **When** the next scheduled pass runs after the spacing
+- **Then** Ana gets no second reminder
+- **And** Bruno, who got reminder 1, never answered, and whose mark was cleared the same way, does get reminder 2
+
+#### NOTIFICATIONS-REMINDERS-3: A student the coach marked present or absent is not reminded (rule 23)
+- **Given** a class 48 h out with three enrolled students, the coach having marked Ana present and
+  Bruno absent (justified), Carla unmarked
+- **When** the reminder pass runs
+- **Then** only Carla receives a reminder
+
+#### NOTIFICATIONS-REMINDERS-4: The mark is read at send time (rule 23)
+- **Given** the same class with the reminder count 2, after the first pass reminded Carla only
+- **When** the coach clears Bruno's mark and marks Carla present, and the follow-up pass runs
+- **Then** Bruno receives his first reminder and Carla none
+
+
+#### NOTIFICATIONS-REMINDERS-5: A class created after its reminder time counts its students as coming (PAD-489)
+- **Given** a coach with the default timing (48 h before) and a student
+- **When** the coach creates a class six hours ahead with that student on it
+- **Then** the occurrence exists, the student's presence is answered yes and recorded by the system, no ask job is armed, and the student receives one message, the "counted as coming" text, with no question
+- **And** a class created five days ahead is unchanged: no occurrence, the ordinary message, the ordinary reminder job
+- **And** a weekly series created with its first occurrence tomorrow counts tomorrow's students as coming and leaves next week's occurrence to the ordinary reminder
+- **And** a student added later to an existing class whose reminder time has passed is still asked (rule 18)
+- **And** a student who cancelled and is put back late is still asked
+- **And** a student whose own request is accepted six hours before the class is counted as coming and not asked
+- **And** `POST /app/notify/config` with a timing save lists no such class in `pastDue.reminders`
+- **And** the invitees of a request accepted six hours before the class are not counted: told the ordinary message and asked by rule 18
+- **And** a class created six hours ahead with notifications off is not counted and gets the ordinary message
+- **And** a class that started half an hour ago on the club's clock is not counted
+- **And** a series with one occurrence twenty hours ahead and the next sixty-eight hours ahead counts exactly the first
+
+#### NOTIFICATIONS-REMINDERS-6: Two passes at once send one reminder each (PAD-407)
+- **Given** a materialised class with three unanswered students and `reminderCount` 1 or 3
+- **When** two reminder passes run at the same moment (Postgres)
+- **Then** each student has exactly one reminder (one message, one `reminder_attempts` row)
+
+#### NOTIFICATIONS-REMINDERS-7: The doubled retry chains already stored send the follow-up once (PAD-407)
+- **Given** each student has had their first reminder `hoursBetweenReminders` ago, and both `reminder_<instance>_retry_*` and `reminder_lesson_<lesson>_<date>_retry_*` are due at the same second
+- **When** both run at once
+- **Then** each student receives exactly one second reminder, and only one retry chain goes on
+
+#### NOTIFICATIONS-REMINDERS-8: The occurrence job asks the roster once (PAD-407)
+- **Given** a one-off class not yet materialised, with three students on its roster
+- **When** its `reminder_lesson_<lesson>_<date>` job runs
+- **Then** no ask pass is armed and each student receives exactly one reminder
+- **And** a student added after that pass is still asked (rule 18)
+
+#### NOTIFICATIONS-REMINDERS-9: Materialising an occurrence leaves one reminder job (PAD-347)
+- **Given** a one-off class with its `reminder_lesson_<lesson>_<date>` job armed
+- **When** the occurrence materialises (attendance confirmed, a single edit, the runner itself)
+- **Then** `reminder_<instance>` is armed and `reminder_lesson_<lesson>_<date>` is gone
+
+#### NOTIFICATIONS-REMINDERS-10: The re-arm does not bring the pair back (PAD-347)
+- **Given** a materialised occurrence with only `reminder_<instance>` armed
+- **When** the startup re-arm or the daily window extension schedules the lesson's occurrences again
+- **Then** the occurrence still has exactly one reminder job
+
+#### NOTIFICATIONS-REMINDERS-11: Two reminders are two passes, not one minute (PAD-347)
+- **Given** a coach with `reminderCount` 2 and a materialised occurrence with one enrolled, unanswered student
+- **When** every armed reminder job runs once
+- **Then** the student receives exactly one reminder, and a retry job is armed `hoursBetweenReminders` later
+- **And** when that retry runs, the student receives the second reminder
+
+#### NOTIFICATIONS-REMINDERS-12: A student added after the chain has stopped is still asked (PAD-331)
+- **Given** a class whose reminder pass has already run, so nothing is armed for it
+- **When** the coach adds a student who was not on the list
+- **Then** one pass is armed for that class
+- **And** adding a student while the ordinary reminder is still ahead arms nothing — that reminder will ask them
+
+#### NOTIFICATIONS-REMINDERS-13: A re-added student is asked about the seat they now hold (PAD-318)
+- **Given** a student who answered, cancelled, and was put back by the coach
+- **Then** their earlier reminders no longer count toward the cap, their old bubble is retired, and one pass is armed
+- **And** the class sheet does not show "reminder sent" for them until the new one goes out
+
+#### NOTIFICATIONS-REMINDERS-14: Quiet hours defer the ask to the morning
+- **Given** a coach with quiet hours enabled and a student added at 02:00 on the club's clock
+- **Then** the ask is scheduled for the end of quiet hours, never for a time already past
+- **And** nothing is armed at all when the earliest permitted moment is at or after the class start
+
+#### NOTIFICATIONS-REMINDERS-15: Reminder job fires
+- **Given** a recurring lesson on Mondays at 10:00 with reminder timing "24 hours before"
+- **When** the scheduler fires at Sunday 10:00
+- **Then** the Monday instance is materialized (if needed)
+- **And** reminder messages are sent to all enrolled players
+
+#### NOTIFICATIONS-REMINDERS-16: Player confirms reminder
+- **Given** player received a reminder for instance 10
+- **When** they respond with action `yes`
+- **Then** their Presence.confirmed = True
+
+#### NOTIFICATIONS-REMINDERS-17: Player declines reminder
+- **Given** player received a reminder for instance 10
+- **When** they respond with action `no`
+- **Then** their presence is updated
+- **And** a Vacancy is created (if auto_notify_enabled)
+- **And** if `invitation_mode` is `semi_automatic`, the vacancy is created with approval_status "pending" and no invitations are sent until the coach approves
+
+#### NOTIFICATIONS-REMINDERS-18: Late response to a reminder for a class that already happened (PAD-68)
+- **Given** a player who received a reminder for instance 10 and never answered it
+- **And** instance 10's start time has now passed
+- **When** they respond with action `no`
+- **Then** the call returns `{"action": "expired"}`
+- **And** no Vacancy is created and no replacement invitations are sent to any other player
+- **And** their Presence attendance record is left untouched
+- **And** the stale reminder message is marked `superseded = true` / `expired = true` so its Yes/No buttons are replaced by the "reminder expired" indicator
+
+#### NOTIFICATIONS-REMINDERS-19: Invitation engine ignores classes that already started (PAD-68)
+- **Given** an open Vacancy on an instance whose start time has passed
+- **When** the invitation engine is asked to send a batch for it (by any caller)
+- **Then** no invitation is sent and the Vacancy is marked `expired`
+
+#### NOTIFICATIONS-REMINDERS-20: Response is always recorded (PAD-69)
+- **Given** a player responding to a reminder for a future class with no Presence row for that (player, instance)
+- **When** they respond with action `no`
+- **Then** the answer is `not_enrolled`, recorded on the reminder's attempt; no Presence row is created and no spot opens
+- **And** the follow-up reminder is not sent on the next reminder pass
+
+#### NOTIFICATIONS-REMINDERS-21: Repeated identical responses are idempotent (PAD-94)
+- **Given** a player who received a reminder for instance 10 and has already responded `no`
+- **When** they respond with action `no` twice more (impatient re-tapping)
+- **Then** the 2nd and 3rd calls return `{"action": "declined", "duplicate": True}`
+- **And** exactly ONE `reminder_declined` system message exists for that (player, instance)
+- **And** exactly ONE Vacancy exists for their spot
+- **And** exactly ONE round of replacement invitations was fanned out (no candidate is invited twice)
+- **And** the same holds for repeated `yes` (one `reminder_confirmed` message)
+- **And** answering `yes` after `no` (a genuine change) is still processed normally
+
+#### NOTIFICATIONS-REMINDERS-22: Answering from the dashboard marks the reminder read (PAD-202)
+- **Given** a player whose direct conversation with the coach holds an unread reminder for
+  instance 10 and an unread coach message sent after it
+- **When** they respond `yes` through `respond_to_reminder()`
+- **Then** nothing in that conversation counts as unread any more (the reminder, the coach
+  message and the `reminder_confirmed` acknowledgement are all before the answer), and a coach
+  message sent **after** the answer counts as unread again
+
+#### NOTIFICATIONS-REMINDERS-23: Newer reminder supersedes older reminder buttons (PAD-49)
+- **Given** a player who received a first reminder (with live Yes/No buttons) for instance 10 and has not yet responded
+- **When** a second reminder for instance 10 is sent to the same player
+- **Then** the first reminder message is marked superseded (`msg_metadata.superseded = true`) and its action area renders as a disabled "expired" indicator (no live Yes/No buttons)
+- **And** only the second (latest) reminder shows actionable Yes/No buttons
+- **And** if the player had already confirmed/declined the first reminder, it keeps its status badge and is NOT marked superseded
+
+#### NOTIFICATIONS-REMINDERS-24: Reminder state is read from reminder_attempts (PAD-207)
+- **Given** a player who was sent two reminders for instance 10 and answered the second
+- **Then** `reminder_attempts` holds rows 1 and 2 for that (player, instance), row 1 `superseded`, row 2 `responded_at` set with `response: "yes"`, and each message's `msg_metadata` mirrors its row
+- **Given** a reminder message whose `msg_metadata` still says pending while its row says responded
+- **When** the pending reminder is looked up
+- **Then** nothing is pending — the table, not the metadata, is the source of truth
+- **Given** the migration source
+- **Then** the table is created only if absent and the backfill inserts only messages without a row
+
+#### NOTIFICATIONS-REMINDERS-25: Reminders fire at the club's time in summer and in winter (PAD-256)
+- **Given** a class stored at 14:00 on 2026-07-14 (Lisbon summer, UTC+1) and a reminder timing of
+  24 hours before
+- **When** the scheduler arms the reminder
+- **Then** it fires at 13:00 UTC on 2026-07-13, which is 14:00 in Lisbon
+- **And** for the same class on 2026-01-13 (winter, UTC+0) it fires at 14:00 UTC on 2026-01-12
+
+#### NOTIFICATIONS-REMINDERS-26: A late class's day-before reminder lands on the day before (PAD-256)
+- **Given** a class stored at 23:30 on 2026-07-14 and a timing of 1 day before at 18:00
+- **When** the scheduler arms the reminder
+- **Then** it fires at 17:00 UTC on 2026-07-13 (18:00 Lisbon), not on 2026-07-14
+
+#### NOTIFICATIONS-REMINDERS-27: A class that has started gets no reminder (PAD-256)
+- **Given** a class stored at 10:00 on 2026-07-14
+- **When** the reminder pass runs at 09:30 UTC, which is 10:30 in Lisbon
+- **Then** no reminder is sent
+- **And** for a class stored at 10:00 on 2026-01-13, a pass at 09:30 UTC (09:30 Lisbon) sends it
+
+#### NOTIFICATIONS-REMINDERS-28: The scheduler does not start inside a migration (PAD-264)
+- **Given** the production migrate step running `python -m flask --app app.py db upgrade`
+- **When** the app factory runs
+- **Then** APScheduler is not started and no reminder job is rescheduled
+- **And** gunicorn and `flask run` (including `flask --app app.py run`) still start it
+
+#### NOTIFICATIONS-REMINDERS-29: No timing arms no reminder, and a follow-up is never armed at or after the class's start (rule 15)
+- **Given** a coach whose reminder timing is missing, has no type, or has a type the engine does not know
+- **When** a class's reminder time is computed
+- **Then** there is none, and no job is armed
+- **And** after a pass that leaves students unanswered, the follow-up is armed only when it would fall before the class starts on the club's clock
+test: `backend/padel_app/tests/test_pad256_reminder_clock.py` › `test_fire_time_is_none_without_a_timing` (+5 more)
+
+#### NOTIFICATIONS-REMINDERS-30: A student is reminded up to the coach's count, a set time apart, until they answer (rules 12, 18, 19)
+- **Given** a coach who sends up to three reminders two hours apart, and a student who never answers
+- **When** the passes run two hours apart
+- **Then** the student gets reminders numbered 1, 2 and 3, each pass saying whether more are due, and a fourth pass sends nothing
+- **And** a student who answers yes or no gets no further reminder for that class
+test: `backend/padel_app/tests/test_notification_reminder_flow.py` › `test_sends_up_to_reminder_count_then_stops` (+4 more)
+
+#### NOTIFICATIONS-REMINDERS-31: Only a student enrolled in the class can answer its reminder (rule 17)
+- **Given** a class with Rui enrolled, and Zed who is not
+- **When** Zed answers the class's reminder with no
+- **Then** the answer is 403, the class's presences are unchanged and no spot opens
+- **And** Rui's own answer is accepted
+test: `backend/padel_app/tests/test_pad258_write_ownership.py` › `test_unenrolled_student_cannot_answer_a_reminder` (+1 more)
+
+#### NOTIFICATIONS-REMINDERS-32: A scheduled pass respects the spacing between reminders; the coach's own send does not (rule 21)
+- **Given** a class whose students were reminded a moment ago by a scheduled pass
+- **When** a second scheduled pass runs at once
+- **Then** it sends nothing and arms no follow-up; once the coach's spacing has passed, the next scheduled pass sends the second reminder
+- **And** the coach's manual send sends the next reminder at once
+test: `backend/padel_app/tests/test_pad407_reminder_double_send.py` › `test_a_scheduled_pass_right_after_another_sends_nothing` (+2 more)
+
+#### NOTIFICATIONS-REMINDERS-33: The reminder bubble shows what the student can still do, judged on the club's clock (rules 9, 10, 12; iOS)
+- **Given** a reminder for a class that has not started, unanswered
+- **Then** the bubble offers Yes and No; a reminder with no start time on it is answerable too
+- **And** answered yes it shows confirmed and offers cancel until the class starts, flagging a cancellation after the coach's deadline as late; answered no it shows absent with no buttons
+- **And** whether the class has started, and whether the deadline has passed, is read on the club's clock whatever the device's own
+- **And** the student's tap shows at once; the answer stored is the one the server returned: confirmed stores yes, declined stores no, an expired or unknown answer stores nothing and says so
+- **And** a stored answer the app does not know reads as absent, never as confirmed
+test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `offers Yes/No on a fresh reminder for a future class` (+17 more)

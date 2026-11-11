@@ -47,6 +47,7 @@ def _coach_state(app, coach_id):
         return coach.approval_status, coach.approved_by_user_id, coach.rejection_reason, coach.user.status
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-1")
 def test_the_console_lists_and_approves_a_pending_coach_with_the_full_side_effects(app, client, captured):
     _, rui = _coach(app, "rui")
     ana = admin_token(app, make_role(app, "ana@levapp.app", "operator"))
@@ -67,6 +68,7 @@ def test_the_console_lists_and_approves_a_pending_coach_with_the_full_side_effec
     assert (row[0]["targetType"], row[0]["targetId"]) == ("coach", str(rui))
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-1")
 def test_an_operator_with_a_linked_account_is_the_approver(app, client, captured):
     _, rui = _coach(app, "rui")
     boss = make_user(app, "boss", "boss@levapp.app")
@@ -75,6 +77,7 @@ def test_an_operator_with_a_linked_account_is_the_approver(app, client, captured
     assert _coach_state(app, rui)[1] == boss
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-2")
 def test_rejection_behaves_as_in_the_product(app, client, captured):
     from flask_jwt_extended import create_access_token
 
@@ -93,6 +96,7 @@ def test_rejection_behaves_as_in_the_product(app, client, captured):
     assert captured["mail"] == []  # the product sends no rejection mail either
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-3")
 def test_a_decided_coach_answers_410(app, client, captured):
     _, maria = _coach(app, "maria", status="approved")
     op = admin_token(app, make_role(app, "ana@levapp.app", "operator"))
@@ -103,6 +107,7 @@ def test_a_decided_coach_answers_410(app, client, captured):
     assert captured["crm"] == []
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-4")
 def test_support_cannot_approve(app, client, captured):
     _, rui = _coach(app, "rui")
     sup = admin_token(app, make_role(app, "sup@levapp.app", "support"))
@@ -131,6 +136,7 @@ def test_side_effects_wait_for_the_audit_commit(app, client, captured, monkeypat
     assert captured == {"mail": [], "web": [], "expo": [], "crm": []}
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-12")
 def test_the_product_admin_routes_are_gone(app, client):
     boss = make_user(app, "boss", "boss@levapp.app", superadmin=True)
     from flask_jwt_extended import create_access_token
@@ -143,6 +149,7 @@ def test_the_product_admin_routes_are_gone(app, client):
     assert client.put("/api/app/admin/settings", headers=headers, json={"coachApprovalRequired": False}).status_code == 404
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-14")
 def test_the_approval_gate_is_in_the_console(app, client, captured):
     sup = admin_token(app, make_role(app, "sup@levapp.app", "support"))
     op = admin_token(app, make_role(app, "ana@levapp.app", "operator"))
@@ -162,6 +169,7 @@ def test_the_approval_gate_is_in_the_console(app, client, captured):
     assert ok[0]["before"] == {"coachApprovalRequired": True} and ok[0]["after"] == {"coachApprovalRequired": False}
 
 
+@pytest.mark.criterion("ADMIN-APPROVALS-AND-USERS-13")
 def test_the_pending_coach_alert_points_at_the_console(app, captured):
     """Rule 10 + decision 2026-10-07: owners and operators with a linked account, plus the
     superadmins during the transition; never support; the destination is the console."""

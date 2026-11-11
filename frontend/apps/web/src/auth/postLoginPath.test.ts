@@ -11,16 +11,16 @@ const me = (over: Partial<MeResponse>): MeResponse =>
 afterEach(() => legalCatchUpSession.reset());
 
 describe("postLoginLanding — the next-login catch-up", () => {
-  it("lands on the catch-up when the Terms are pending", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] lands on the catch-up when the Terms are pending", () => {
     expect(postLoginLanding(me({ legalPending: { terms: true, birthDate: false } }))).toBe("/legal-catch-up");
   });
 
-  it("lands as usual when nothing is pending or the server predates the field", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] lands as usual when nothing is pending or the server predates the field", () => {
     expect(postLoginLanding(me({ legalPending: { terms: false, birthDate: false } }))).toBe("/dashboard");
     expect(postLoginLanding(me({}))).toBe("/dashboard");
   });
 
-  it("lands as usual after a skip this session", () => {
+  it("[AUTH-LEGAL-CATCH-UP-5] lands as usual after a skip this session", () => {
     legalCatchUpSession.skip(7);
     expect(postLoginLanding(me({ legalPending: { terms: true, birthDate: true } }))).toBe("/dashboard");
   });

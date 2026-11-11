@@ -1,0 +1,170 @@
+---
+id: calendar.student-blockers
+status: implemented
+depends_on: [calendar.blocks, notifications.invitations]
+serves: [P-CALENDAR-4]
+governed_by: []
+---
+
+# calendar.student-blockers
+
+
+### Intent
+Students set availability blockers (one-time or recurring) so the smart notification
+engine does NOT send them AUTOMATIC class invitations during times they are unavailable.
+Reuses the existing CalendarBlock model (type `unavailable`, `blocks_auto_invitations=true`)
+rather than a separate table.
+
+### Status (corrected 2026-10-01)
+The **PAD-28** half of this spec is implemented: blocker CRUD (rules 1–3) and eligibility-time
+filtering of automatic invitation candidates (rule 5, `filter_blocked_coach_players`).
+
+The **PAD-107** half (rules 4, 8, 9, 10 and 11) is also shipped (`de39e76b6`, 2026-08-04). The 2026-08-07
+note that it "never landed" was wrong (corrected 2026-10-01, PAD-474):
+`POST /api/app/notify/availability_conflicts` is served by the availability-conflicts view in
+`notification_engine_api.py`; `/notify/manual` skips blocked students in the manual-send view of the same
+file; the delivery backstop `instance_window_is_blocked_for_user` guards `_send_system_message`; and the
+reminder fan-out reads `blocked_players_for_instance` in `notification_service.py`.
+
+### Entities
+- **CalendarBlock** (reused): student blockers are rows with type `unavailable` and `blocks_auto_invitations=true`.
+
+### Rules
+1. Students manage blockers from a dedicated `/availability` page (player-only nav item).
+2. Blocker CRUD (student-scoped): `GET`/`POST` `/api/app/availability_blockers`, `PUT`/`DELETE` `/api/app/availability_blockers/{id}`. Non-student users get 403.
+3. Both one-time and recurring (weekly) blockers are supported, using the same recurrence machinery as calendar blocks. A recurring blocker edited to one-time stops suppressing on every later week: the edit clears the recurrence rule the engine (rule 5) reads, not only the flag (`calendar.blocks` rule 10; PAD-377 — before it, a student who reduced a weekly "away" to one day went on being skipped for invitations every week).
+4. Scope of suppression (PAD-107): a blocker suppresses EVERY class-slot solicitation during its window — automatic invitations, manual invitations, reminders and waiting-list offers. A coach may still ADD the student to a class in that window (enrolment is a coach decision), but only after explicitly confirming a warning, and the student is never notified about it.
+5. The auto-invitation eligibility engine (`get_eligible_students` and `_get_eligible_students_for_group`) filters out any candidate whose owning user has a blocker occurrence overlapping the class instance window.
+6. Timezone: datetimes stored as UTC; recurring occurrences evaluated against the club / Lisbon timezone.
+7. The student's availability view clearly indicates each blocker (title, one-time date or recurring days, time window, and an "unavailable / won't receive auto-invitations" indication).
+8. Conflict pre-check (PAD-107): `POST /api/app/notify/availability_conflicts` with `{date, startTime, endTime, playerIds}` returns `{blocked: [{playerId, name}]}` — the subset of those players whose owning user has a blocker overlapping the proposed window. Coach-only (403 otherwise). It returns player names ONLY; blocker titles, descriptions and times are the student's private calendar and are never exposed to the coach.
+9. Scheduling warning (PAD-107): when a coach schedules a class whose window overlaps a selected student's blocker, the UI warns before creating and requires explicit confirmation ("O aluno (nome) marcou-se como indisponível nesta hora. Tem a certeza que pretende avançar com ele na aula? Não poderá enviar-lhe notificações neste período por ele estar marcado como indisponível e não querer ser incomodado."). Cancelling aborts the create; confirming creates the class normally. For a recurring class the check is evaluated on the first occurrence.
+10. Send-time block (PAD-107): `POST /api/app/notify/manual` and `POST /api/app/notify/send_reminders` SKIP blocked students, still deliver to everyone else, and return `{sent, blocked: [{playerId, name}]}`. The UI surfaces "Não pode enviar notificações ao aluno (nome) neste horário, pois ele marcou-se como indisponível."
+11. Hard backstop (PAD-107): `_send_system_message` refuses to deliver any `notification_invite`, `notification_reminder` or `waiting_list_offer` bound to a lesson instance whose window overlaps a blocker of the recipient. This is the single delivery choke point, so it also covers the APScheduler reminder job, the auto-invitation rounds and the waiting-list cascade — not just the coach-facing buttons. Neither the chat message nor the web/Expo push is created.
+12. The window compared is always the CLASS INSTANCE window (`start_datetime`/`end_datetime`), never the moment the notification is sent.
+13. Mobile-responsive (PAD-119): the `/availability` page fits within the viewport at small screen widths (≥320px) — the document never scrolls horizontally, and every control, notably the "Add blocker" action, is fully visible without horizontal scrolling. The page header stacks vertically below the `sm` breakpoint rather than forcing the title and the action button onto one row.
+
+14. **(PAD-356) The student's availability tab is two cards, each with an explanation and its own
+    call to action, on web and iOS. There is no floating "+".**
+    - **Indisponibilidade** (`availability-blockers-card`): an explanation of what a block does,
+      a **Criar bloqueio** CTA (`availability-create-blocker`), and the student's blocks listed
+      inside the card (`blocker-card-<id>`, with edit `blocker-edit-<id>` and delete
+      `blocker-delete-<id>` → `blocker-delete-confirm`). The empty state is
+      `availability-blockers-empty`.
+    - **Pedidos de aula** (`class-requests`): `classes.class-requests` (rules 1–11) re-homed as
+      the second card, with its explanation, a **Marcar aula** CTA (`class-request-book`; until
+      PAD-357 it opens today's booking form), and the student's open requests with their state
+      ("À espera do treinador" for `pending`) and **Retirar** (`class-request-withdraw`).
+15. **(PAD-356) Blocks are created and edited in a bottom sheet** (`blocker-sheet`) with a
+    **single / recurring** choice (`blocker-mode-single` | `blocker-mode-recurring`).
+    - Single: a date, start and end time, and a reason.
+    - Recurring: weekdays (`blocker-day-<n>`, JS `getDay`), a start date and an end date, start
+      and end time, and a reason.
+
+    The reason is the existing optional `title` field, labelled "Motivo (opcional)"; no new
+    column. Save is `blocker-save` and cancel is `blocker-cancel`.
+16. **(PAD-356) Block validation is shared and runs before any request.**
+    `blockerDraftError(draft)` in `@levelup/config` returns `date_required` (no date),
+    `time_required` (a start or end time that is empty or not HH:MM, e.g. a cleared time input),
+    `end_before_start` (end time not after start time), `end_date_before_start_date` (recurring
+    end date before the start date), or `null`. Both shells render
+    `availability.validation.<code>` on the error element (web `blocker-error` with
+    `data-reason`; iOS `blocker-error-<code>`) and do not submit.
+    `blockerDraftToInput(draft)` builds the payload: a recurring block with no weekday uses the
+    start date's weekday, and a missing end date means start date + 3 months (the previous
+    behaviour of both shells).
+
+17. **An edit writes what was sent (PAD-386).** `PUT /api/app/availability_blockers/{id}` follows
+    `calendar.blocks` rule 11: an emptied reason (`title: null`) is cleared; a `null` end while the
+    blocker still recurs is 400 `["endDate"]` (the shared builder never sends one — it defaults the
+    end to three months on create).
+
+17. The conflict check answers only for students on the asking coach's roster: anyone else is left out of the answer, which is still 200. A check that fails never stops the save; the form goes on with no warning.
+
+### Acceptance Criteria
+
+#### CALENDAR-STUDENT-BLOCKERS-1: Blocker suppresses auto-invitation
+- **Given** a student with an `unavailable` blocker overlapping a class instance window
+- **When** the invitation engine computes eligibility for that instance's vacancy
+- **Then** the student is NOT in the eligible list
+
+#### CALENDAR-STUDENT-BLOCKERS-2: Non-overlapping blocker does not suppress
+- **Given** a student whose only blocker does not overlap the class window
+- **When** eligibility is computed
+- **Then** the student IS eligible
+
+#### CALENDAR-STUDENT-BLOCKERS-3: Coach is warned when scheduling into a blocked window
+- **Given** a coach creating a class at a time overlapping a selected student's blocker
+- **When** they submit the class
+- **Then** a confirmation warning names the student and states that notifications cannot be sent in that period
+- **And** cancelling aborts the create; confirming creates the class with that student enrolled
+
+#### CALENDAR-STUDENT-BLOCKERS-4: Manual notification to a blocked student is refused
+- **Given** an enrolled student with a blocker overlapping the class window
+- **When** the coach clicks "Lembrar" or manually notifies that student
+- **Then** no message, web push or Expo push reaches that student
+- **And** the response reports them under `blocked` and the UI shows the "cannot send notifications" warning
+- **And** other enrolled students who are not blocked still receive their notification
+
+#### CALENDAR-STUDENT-BLOCKERS-5: Blocked student is never reached by any class-slot notification
+- **Given** a student with a blocker overlapping a class instance window
+- **When** any path fires (auto invitation round, scheduler reminder, waiting-list offer, manual send)
+- **Then** no `Message` is created for that student for that instance and no push is dispatched
+
+#### CALENDAR-STUDENT-BLOCKERS-6: Student manages blockers
+- **Given** an authenticated student
+- **When** they open `/availability`
+- **Then** they can create, edit, and delete one-time and recurring blockers
+- **And** each blocker is clearly shown as an unavailable window
+
+#### CALENDAR-STUDENT-BLOCKERS-7: Availability page fits the mobile viewport
+- **Given** an authenticated student on a mobile-width viewport (375px)
+- **When** they open `/availability`, with and without the blocker form expanded
+- **Then** the document does not scroll horizontally (`documentElement.scrollWidth <= clientWidth`)
+- **And** the "Add blocker" button is fully inside the viewport (its right edge is within the viewport width)
+
+#### CALENDAR-STUDENT-BLOCKERS-8: The availability tab is two cards with no floating action (PAD-356)
+- **Given** an authenticated student
+- **When** they open the availability tab on web or iOS
+- **Then** the Indisponibilidade card (explanation, Criar bloqueio, the student's blocks) and the Pedidos de aula card (explanation, Marcar aula, open requests with state and Retirar) are shown, and there is no floating "+"
+
+#### CALENDAR-STUDENT-BLOCKERS-9: A block is created from the sheet, single or recurring (PAD-356)
+- **Given** the Criar bloqueio sheet
+- **When** the student saves a single block with a reason, or a recurring block on chosen weekdays with a start and end date
+- **Then** the block is created and listed in the Indisponibilidade card with its reason
+
+#### CALENDAR-STUDENT-BLOCKERS-10: An end before the start is refused before any request (PAD-356)
+- **Given** the sheet with an end time at or before the start time (or a cleared start or end time, or, recurring, an end date before the start date)
+- **When** the student saves
+- **Then** the sheet shows `availability.validation.end_before_start` (or `time_required`, or `end_date_before_start_date`) and no request is sent
+
+#### CALENDAR-STUDENT-BLOCKERS-11: The conflict check answers for the coach's own roster, and its failure never blocks the save (rules 8, 9)
+- **Given** a blocked student on one coach's roster, and a second coach who does not coach them
+- **When** each coach asks `/api/app/notify/availability_conflicts` about that student, and a class is saved while the check is failing
+- **Then** the first coach is told the student is blocked; the second gets 200 with nobody listed
+- **And** when the check fails it returns no warning, so the form saves
+test: `frontend/apps/mobile/src/features/calendar/unavailable-check.test.ts` › `a failed lookup saves anyway` (+1 more)
+- Code to follow: add a web test that a failed conflict check never stops the save, covering the catch in
+  `AddClassSheet.tsx`, as the iOS `unavailable-check.test.ts` does for its helper.
+
+#### CALENDAR-STUDENT-BLOCKERS-12: The sheet turns what the student filled in into the block that is saved (rules 15, 16)
+- **Given** the Criar bloqueio sheet
+- **When** the student saves a single block, a recurring block, and reopens an existing one
+- **Then** a single block is saved with its date, its times and the reason as its title, and with no title when the reason is blank
+- **And** a recurring block is saved weekly on the chosen weekdays until its end date
+- **And** with no weekday chosen it repeats on the start date's weekday, and with no end date it ends three months after the start
+- **And** an existing block opens in the sheet with its own values
+test: `frontend/packages/config/src/blocker-draft.test.ts` › `builds a recurring block from its weekdays and end date` (+3 more)
+- Code to follow: delete `availabilityBlockerSchema` from `frontend/packages/validation/src/index.ts` and
+  its test in `index.test.ts`; nothing imports it, and `blockerDraftError` is the shared validation (rule
+  16).
+
+#### CALENDAR-STUDENT-BLOCKERS-13: A student's edit writes what was sent, and a blocker made one-off stops repeating (rule 3, and rule 17 "An edit writes what was sent")
+- **Given** a student's weekly blocker on Mondays with a reason
+- **When** the student empties the reason, sends a null end date while it still repeats, and then makes it a one-off
+- **Then** the emptied reason is cleared, and the null end date is 400 naming `endDate`, with the end date unchanged
+- **And** once it is a one-off the student is blocked on that Monday only, and free two Mondays later
+test: `backend/padel_app/tests/test_pad367_falsy_values_at_the_route.py` › `test_a_students_blocker_edit_clears_an_emptied_title_and_refuses_a_null_end_while_recurring` (+2 more)
+- Code to follow: rename
+  `test_a_students_unavailability_made_one_off_still_excludes_them_from_invitations_every_week` in
+  `test_pad367_falsy_values_at_the_route.py` to say the student is free again two weeks later.

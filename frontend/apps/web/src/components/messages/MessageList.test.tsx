@@ -45,7 +45,7 @@ function message(id: string | number, overrides: Partial<Message> = {}): Message
 const noop = () => {};
 
 describe("MessageList — the first-unread divider", () => {
-  it("renders 'Unread messages' directly above the frozen first-unread message", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] renders 'Unread messages' directly above the frozen first-unread message", () => {
     const messages = [message(44), message(45), message(46), message(47)];
     const { container } = render(
       <MessageList
@@ -67,7 +67,7 @@ describe("MessageList — the first-unread divider", () => {
     expect(divider.nextElementSibling).toBe(target);
   });
 
-  it("shows no divider when nothing is unread", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] shows no divider when nothing is unread", () => {
     const messages = [message(44), message(45)];
     render(
       <MessageList
@@ -84,7 +84,7 @@ describe("MessageList — the first-unread divider", () => {
     expect(screen.queryByTestId("unread-divider")).toBeNull();
   });
 
-  it("is gone once a re-open reports nothing unread, even with the same messages loaded", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] is gone once a re-open reports nothing unread, even with the same messages loaded", () => {
     const messages = [message(44), message(46)];
     const { rerender } = render(
       <MessageList
@@ -117,7 +117,7 @@ describe("MessageList — the first-unread divider", () => {
 });
 
 describe("MessageList — opening target (rule 9a)", () => {
-  it("scrolls to and highlights an explicit target over the first unread", async () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-20] scrolls to and highlights an explicit target over the first unread", async () => {
     const messages = [message(44), message(46), message(58)];
     const { container } = render(
       <MessageList
@@ -139,7 +139,7 @@ describe("MessageList — opening target (rule 9a)", () => {
     });
   });
 
-  it("anchors at the first unread with no explicit target, and does not highlight it", async () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] anchors at the first unread with no explicit target, and does not highlight it", async () => {
     const messages = [message(44), message(46), message(58)];
     const { container } = render(
       <MessageList
@@ -163,7 +163,7 @@ describe("MessageList — opening target (rule 9a)", () => {
 });
 
 describe("MessageList — day separators (rule 4a, PAD-676)", () => {
-  it("puts one separator above each Lisbon day, with the shared labels", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-22] puts one separator above each Lisbon day, with the shared labels", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-21T19:00:00Z")); // a Wednesday evening in Lisbon
     try {

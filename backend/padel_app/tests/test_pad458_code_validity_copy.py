@@ -8,6 +8,7 @@ validity, so the only number on it was the 60-second resend cooldown (rule 4).
 The copy is pinned to the constant here, so changing CODE_TTL without the words that
 describe it goes red. It reads the shared locale files that both clients load.
 """
+import pytest
 import json
 import pathlib
 
@@ -22,16 +23,19 @@ def _verify_copy(lang):
     return json.loads((LOCALES / lang / "auth.json").read_text(encoding="utf-8"))["auth"]["verifyEmail"]
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-18")
 def test_email_states_the_code_ttl():
     assert f"{MINUTES} minut" in email_templates._VERIFY["pt"]["valid"]
     assert f"{MINUTES} minut" in email_templates._VERIFY["en"]["valid"]
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-18")
 def test_verify_screen_hint_states_the_code_ttl_in_both_languages():
     assert f"{MINUTES} minutos" in _verify_copy("pt")["hint"]
     assert f"{MINUTES} minutes" in _verify_copy("en")["hint"]
 
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-18")
 def test_resend_countdown_reads_as_when_a_new_code_can_be_asked_for():
     # Not "<Send a new code> (54s)": the seconds follow "em"/"in", naming when the
     # button comes back, and the cooldown is never phrased as the code's validity.

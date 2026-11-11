@@ -102,6 +102,7 @@ def _make_invitation(app, club_id, coach_id, **overrides):
 # Create invitation
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-5")
 def test_create_invitation_as_member(client, app):
     user_id, coach_id, club_id = _make_coach_with_club(app)
 
@@ -138,6 +139,7 @@ def test_create_invitation_expires_in_7_days(app):
         assert invitation.expires_at == now + timedelta(days=7)
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-6")
 def test_create_invitation_as_non_member_403(client, app):
     _, _, club_id = _make_coach_with_club(app)
     outsider_user_id, _ = _make_coach_without_club(app)
@@ -199,6 +201,7 @@ def test_resolve_revoked_invitation_410(client, app):
 # Accept — new user
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-7")
 def test_accept_as_new_user_creates_active_coach(client, app):
     _, coach_id, club_id = _make_coach_with_club(app)
     token = _make_invitation(app, club_id, coach_id)
@@ -231,6 +234,7 @@ def test_accept_as_new_user_creates_active_coach(client, app):
         assert invitation.status == "accepted"
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-9")
 def test_accept_twice_410(client, app):
     _, coach_id, club_id = _make_coach_with_club(app)
     token = _make_invitation(app, club_id, coach_id)
@@ -276,6 +280,7 @@ def test_accept_with_duplicate_username_409(client, app):
         assert invitation.status == "pending"
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-9")
 def test_accept_expired_invitation_410(client, app):
     _, coach_id, club_id = _make_coach_with_club(app)
     token = _make_invitation(
@@ -294,6 +299,7 @@ def test_accept_expired_invitation_410(client, app):
 # Accept — existing coach
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-8")
 def test_accept_as_existing_coach_creates_association_only(client, app):
     _, inviter_coach_id, club_id = _make_coach_with_club(app)
     outsider_user_id, outsider_coach_id = _make_coach_without_club(app)
@@ -401,6 +407,7 @@ def test_revoke_accepted_invitation_410(client, app):
 # List pending invitations
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-10")
 def test_list_pending_invitations(client, app):
     user_id, coach_id, club_id = _make_coach_with_club(app)
     pending_token = _make_invitation(app, club_id, coach_id, email="a@b.com")
@@ -458,6 +465,7 @@ def test_coach_detail_without_club(client, app):
 # PAD-269: hashed tokens, revoke from the list by id
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-10")
 def test_invitation_token_is_stored_only_as_a_hash(client, app):
     import hashlib
 
@@ -477,6 +485,7 @@ def test_invitation_token_is_stored_only_as_a_hash(client, app):
     assert client.get(f"/api/app/coach-invitations/{token}").status_code == 200
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-11")
 def test_revoke_by_id_as_member(client, app):
     user_id, coach_id, club_id = _make_coach_with_club(app)
     token = _make_invitation(app, club_id, coach_id)
@@ -492,6 +501,7 @@ def test_revoke_by_id_as_member(client, app):
     assert client.get(f"/api/app/coach-invitations/{token}").status_code == 410
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-11")
 def test_revoke_by_id_as_non_member_403(client, app):
     _, coach_id, club_id = _make_coach_with_club(app)
     outsider_user_id, _ = _make_coach_without_club(app)

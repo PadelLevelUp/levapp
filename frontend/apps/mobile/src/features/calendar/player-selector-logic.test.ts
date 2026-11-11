@@ -23,7 +23,7 @@ const jose = player("3", "José", undefined);
 const all = [ana, bruno, jose];
 
 describe("filterPlayers", () => {
-  it("search ignores accents and case", () => {
+  it("[PLAYERS-SEARCH-1] search ignores accents and case", () => {
     expect(filterPlayers(all, { search: "alvares", levelId: null })).toEqual([ana]);
     expect(filterPlayers(all, { search: "JOSE", levelId: null })).toEqual([jose]);
   });
@@ -51,32 +51,32 @@ describe("filterPlayers search (PAD-665)", () => {
   ];
   const ids = (search: string) => filterPlayers(people, { search, levelId: null }).map((p) => p.playerId);
 
-  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
+  it("[PLAYERS-SEARCH-1] finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André'", () => {
     expect(ids("rui basto")).toEqual(["3"]);
     expect(ids("andre")).toEqual(["4"]);
   });
 
-  it("lists the best match first: 'rita' → 'Rita Zé' before 'Ana Rita'", () => {
+  it("[PLAYERS-SEARCH-2] lists the best match first: 'rita' → 'Rita Zé' before 'Ana Rita'", () => {
     expect(ids("rita")).toEqual(["2", "1"]);
   });
 
-  it("keeps the original order for a blank search and never adds a student", () => {
+  it("[PLAYERS-SEARCH-5] keeps the original order for a blank search and never adds a student", () => {
     expect(ids("")).toEqual(["1", "2", "3", "4"]);
     expect(ids("zzzz-nobody")).toEqual([]);
   });
 });
 
 describe("isOutOfLevel", () => {
-  it("marks a student whose level is not the class's", () => {
+  it("[CLASSES-CREATE-2] marks a student whose level is not the class's", () => {
     expect(isOutOfLevel(bruno, "10")).toBe(true);
     expect(isOutOfLevel(jose, "10")).toBe(true);
   });
 
-  it("does not mark a student at the class's level, compared as strings", () => {
+  it("[CLASSES-CREATE-2] does not mark a student at the class's level, compared as strings", () => {
     expect(isOutOfLevel(ana, 10 as unknown as string)).toBe(false);
   });
 
-  it("marks nobody when the class has no level", () => {
+  it("[CLASSES-CREATE-2] marks nobody when the class has no level", () => {
     expect(isOutOfLevel(bruno, null)).toBe(false);
     expect(isOutOfLevel(bruno, "")).toBe(false);
   });
@@ -102,7 +102,7 @@ describe("togglePlayerId", () => {
 describe("filterPlayers matches every word in any order (PAD-516)", () => {
   const pedro = player("9", "Pedro Mesquita e Sousa");
   const alves = player("10", "Pedro Alves");
-  it("finds the name with the words out of order and skips one missing a word", () => {
+  it("[PLAYERS-SEARCH-1] finds the name with the words out of order and skips one missing a word", () => {
     expect(filterPlayers([pedro, alves], { search: "pedro sousa", levelId: null })).toEqual([pedro]);
     expect(filterPlayers([pedro, alves], { search: "sousa pedro", levelId: null })).toEqual([pedro]);
   });

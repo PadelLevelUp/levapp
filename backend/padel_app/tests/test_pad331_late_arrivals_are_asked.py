@@ -9,6 +9,7 @@ job is spent. Every later arrival is silent: a coach's fresh add, a re-add
 These tests assert something is ASKED to send, not that the service sends when
 called by hand — the distinction that hid this (ledger B-083).
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -28,6 +29,7 @@ def _world(app, hours=24):
     return ids, _seed_instance(app, ids["coach_id"], ids["student_id"], start_offset_hours=hours)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-12")
 def test_the_chain_really_does_stop_after_one_pass(app):
     """The premise, pinned — if this ever stops being true, the fix is moot."""
     from padel_app.services.notification_service import send_class_reminders
@@ -42,6 +44,7 @@ def test_the_chain_really_does_stop_after_one_pass(app):
     )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-12")
 def test_a_student_added_after_the_chain_stopped_is_asked(app, live_scheduler):
     """The case with no cancellation anywhere in it."""
     from padel_app.models import LessonInstance
@@ -63,6 +66,7 @@ def test_a_student_added_after_the_chain_stopped_is_asked(app, live_scheduler):
         )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-13")
 def test_a_re_added_student_is_asked(app, live_scheduler):
     from padel_app.models import LessonInstance
     from padel_app.services.lesson_service import enrol
@@ -132,6 +136,7 @@ def test_a_student_who_answered_is_not_asked_again(app):
         assert next_ask_time(db.session.get(LessonInstance, iid), ids["student_id"]) is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-14")
 def test_quiet_hours_defer_to_the_morning_and_never_to_a_past_time(app):
     """The correction the coordinator made: defer FORWARD, to the next permitted
     instant — never back to the occurrence's configured fire time, which is in

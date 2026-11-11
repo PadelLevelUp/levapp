@@ -59,7 +59,7 @@ const textColor = (n: ReturnType<typeof renderNative> extends Promise<infer N> ?
 };
 
 describe("an open-spot card on the day panel (rule 11)", () => {
-  it("writes its title, time and chip in the readable class colour, not the solid surface's white", async () => {
+  it("[ELIGIBILITY-OPEN-SPOT-VISIBILITY-3] writes its title, time and chip in the readable class colour, not the solid surface's white", async () => {
     const n = await renderNative(<EventCard event={openSpot()} onPress={() => undefined} />);
     const ink = readableInkNative(BLUE, SURFACES);
     expect(ink).not.toBe("#FFFFFF");
@@ -70,7 +70,7 @@ describe("an open-spot card on the day panel (rule 11)", () => {
 });
 
 describe("an open-spot block on the week grid (rules 11, 13)", () => {
-  it("is the dashed outline on the card surface, like the panel card", async () => {
+  it("[ELIGIBILITY-OPEN-SPOT-VISIBILITY-3] is the dashed outline on the card surface, like the panel card", async () => {
     const day = new Date(2026, 9, 19);
     const n = await renderNative(
       <TimeGrid

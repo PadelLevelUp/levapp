@@ -17,7 +17,7 @@ function idOf(target: UniversalLinkTarget | null): string | undefined {
 }
 
 describe("parseUniversalLink — the three claimed paths", () => {
-  it("routes a player invite, keeping the token intact", () => {
+  it("[AUTH-MOBILE-UNIVERSAL-LINKS-3] routes a player invite, keeping the token intact", () => {
     expect(parseUniversalLink("https://levapp.app/invite/player/abc123")).toEqual({
       kind: "player-invite",
       token: "abc123",
@@ -150,7 +150,7 @@ describe("parseUniversalLink — what it refuses", () => {
     expect(parseUniversalLink(input)).toBeNull();
   });
 
-  it("returns null for the routes push notifications own, so the two cannot collide", () => {
+  it("[AUTH-MOBILE-UNIVERSAL-LINKS-8] returns null for the routes push notifications own, so the two cannot collide", () => {
     // usePushNotificationRouting emits these; nothing here should claim them.
     expect(parseUniversalLink("/conversation/7")).toBeNull();
     expect(parseUniversalLink("/class/12")).toBeNull();

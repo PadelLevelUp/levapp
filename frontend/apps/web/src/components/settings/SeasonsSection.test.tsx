@@ -98,7 +98,7 @@ describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(unsavedIds()).toBe("");
   });
 
-  it("is clean again after a successful save", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-4] is clean again after a successful save", async () => {
     saveSeason.mockResolvedValue({ ...SEASON, label: "Epoca nova" });
     render(
       <SettingsUnsavedTestHarness>
@@ -116,7 +116,7 @@ describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(screen.getByTestId("save-failed")).toHaveTextContent("");
   });
 
-  it("stays unsaved after a failed save", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] stays unsaved after a failed save", async () => {
     saveSeason.mockRejectedValue(new Error("nope"));
     render(
       <SettingsUnsavedTestHarness>
@@ -153,7 +153,7 @@ describe("SeasonsSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(unsavedIds()).toBe("seasons");
   });
 
-  it("there is no section Save button any more", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] there is no section Save button any more", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <SeasonsSection />

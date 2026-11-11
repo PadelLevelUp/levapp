@@ -113,7 +113,7 @@ describe("useCalendar month", () => {
     expect(result.current.monthDays).toHaveLength(35);
   });
 
-  it("paging to a month without today selects its 1st and moves the week with it", () => {
+  it("[CALENDAR-MOBILE-VIEWS-24] paging to a month without today selects its 1st and moves the week with it", () => {
     const { result } = renderHook(() => useCalendar([], { language: "en" }));
     act(() => result.current.selectDay(new Date("2026-09-10T00:00:00")));
     act(() => result.current.navigateMonth("next"));
@@ -122,7 +122,7 @@ describe("useCalendar month", () => {
     expect(day(result.current.weekStart)).toBe("2026-09-27");
   });
 
-  it("week start for Wednesday 2026-10-21 is Sunday 2026-10-18 (PAD-682)", () => {
+  it("[CALENDAR-VIEW-1] week start for Wednesday 2026-10-21 is Sunday 2026-10-18 (PAD-682)", () => {
     vi.setSystemTime(new Date("2026-10-21T10:00:00"));
     const { result } = renderHook(() => useCalendar([]));
     expect(day(result.current.weekStart)).toBe("2026-10-18");
@@ -175,12 +175,12 @@ describe("useCalendar today is the club's today (PAD-295)", () => {
     vi.useRealTimers();
   });
 
-  it("starts on the club's today", () => {
+  it("[CALENDAR-VIEW-12] starts on the club's today", () => {
     const { result } = renderHook(() => useCalendar([]));
     expect(day(result.current.selectedDay)).toBe("2026-09-10");
   });
 
-  it("goToToday reselects the club's today", () => {
+  it("[CALENDAR-VIEW-12] goToToday reselects the club's today", () => {
     const { result } = renderHook(() => useCalendar([]));
     act(() => result.current.selectDay(new Date(2026, 8, 3)));
     act(() => result.current.goToToday());

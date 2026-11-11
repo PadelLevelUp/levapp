@@ -199,6 +199,7 @@ def _race(app, targets):
 
 @POSTGRES_ONLY
 @pytest.mark.parametrize("reminder_count", [1, 3])
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-6")
 def test_two_passes_at_once_send_each_student_one_reminder(app, monkeypatch, reminder_count):
     from padel_app.services.notification_service import send_class_reminders
 
@@ -212,6 +213,7 @@ def test_two_passes_at_once_send_each_student_one_reminder(app, monkeypatch, rem
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-6")
 def test_without_the_lock_the_same_race_double_sends(app, monkeypatch):
     """The OLD cell: the harness has teeth — no lock, no spacing, and both passes send."""
     from padel_app.services import notification_service
@@ -227,6 +229,7 @@ def test_without_the_lock_the_same_race_double_sends(app, monkeypatch):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-7")
 def test_the_doubled_retry_chains_already_in_prod_send_the_follow_up_once(app, monkeypatch, live_scheduler):
     """Prod holds `reminder_<inst>_retry_*` AND `reminder_lesson_<L>_<date>_retry_*` for the
     same second. Both fire together: one follow-up each, and only one chain goes on."""
@@ -300,6 +303,7 @@ def test_the_coachs_manual_send_is_unchanged(app):
 # ── the arming: the occurrence job arms no ask passes; a late add still does ─
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-8")
 def test_the_occurrence_job_arms_no_ask_passes_and_sends_once(app, live_scheduler):
     from padel_app import scheduler as sched
 
@@ -315,6 +319,7 @@ def test_the_occurrence_job_arms_no_ask_passes_and_sends_once(app, live_schedule
     assert _attempts(app, iid) == {(pid, 1): 1 for pid in ids["player_ids"]}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-8")
 def test_a_student_added_after_the_chain_stopped_is_still_asked(app, live_scheduler):
     """PAD-331 stands: outside the occurrence job, an enrolment arms its ask pass."""
     from padel_app.models import LessonInstance
@@ -336,6 +341,7 @@ def test_a_student_added_after_the_chain_stopped_is_still_asked(app, live_schedu
     assert _attempts(app, iid).get((late, 1)) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-13")
 def test_a_returning_student_reminded_minutes_ago_is_still_asked(app, live_scheduler):
     """PAD-318 stands: the spacing reads only COUNTED attempts. A student re-added after
     cancelling had their earlier reminder voided a moment ago; the scheduled pass asks them."""

@@ -45,6 +45,7 @@ def _make_student_user(app):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("TRAINING-GROUPS-1")
 def test_exercises_endpoint_does_not_500_for_student(app, client):
     student_user_id = _make_student_user(app)
 
@@ -56,6 +57,7 @@ def test_exercises_endpoint_does_not_500_for_student(app, client):
     assert response.status_code != 500
 
 
+@pytest.mark.criterion("TRAINING-GROUPS-1")
 def test_exercise_groups_endpoint_does_not_500_for_student(app, client):
     student_user_id = _make_student_user(app)
 
@@ -99,6 +101,7 @@ def test_exercise_groups_endpoint_still_works_for_coach(app, client):
     assert response.get_json() == []
 
 
+@pytest.mark.criterion("TRAINING-GROUPS-1")
 def test_create_exercise_endpoint_does_not_500_for_student(app, client):
     """The write path (`create_exercise_service`) has the same `coach.id`
     dereference as the GET path — guard it the same way for consistency."""
@@ -114,6 +117,7 @@ def test_create_exercise_endpoint_does_not_500_for_student(app, client):
     assert response.status_code != 500
 
 
+@pytest.mark.criterion("TRAINING-GROUPS-1")
 def test_create_exercise_group_endpoint_does_not_500_for_student(app, client):
     student_user_id = _make_student_user(app)
 

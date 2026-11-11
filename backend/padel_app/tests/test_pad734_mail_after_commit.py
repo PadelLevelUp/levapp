@@ -128,6 +128,7 @@ def _incidents():
 
 # ── the SMTP timeout ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-EMAIL-VERIFICATION-9")
 def test_a_silent_mail_server_times_out_and_is_recorded(app, silent_smtp):
     from padel_app.tools import email_tools
 
@@ -142,6 +143,7 @@ def test_a_silent_mail_server_times_out_and_is_recorded(app, silent_smtp):
 
 # ── the response never waits for the mail ────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-11")
 def test_signup_answers_while_the_mail_server_hangs(client, app, stalled_mail):
     started = time.monotonic()
     res = _register(client)
@@ -156,6 +158,7 @@ def test_signup_answers_while_the_mail_server_hangs(client, app, stalled_mail):
         assert user is not None and user.email_verification_code_hash is not None
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-14")
 def test_recovery_answers_while_the_mail_server_hangs(client, app, ana, stalled_mail, commits):
     commits["n"] = 0
     started = time.monotonic()
@@ -171,6 +174,7 @@ def test_recovery_answers_while_the_mail_server_hangs(client, app, ana, stalled_
 
 # ── a mail that times out leaves the account and clears the code ─────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-11")
 def test_a_timed_out_signup_mail_keeps_the_account_and_clears_the_code(client, app, silent_smtp):
     res = _register(client)
 
@@ -182,6 +186,7 @@ def test_a_timed_out_signup_mail_keeps_the_account_and_clears_the_code(client, a
         assert [i.user_id for i in _incidents()] == [user.id]
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-14")
 def test_a_timed_out_recovery_mail_still_answers_200_and_clears_the_code(client, app, ana, silent_smtp):
     res = _recover(client)
 
@@ -194,6 +199,7 @@ def test_a_timed_out_recovery_mail_still_answers_200_and_clears_the_code(client,
         assert [i.user_id for i in _incidents()] == [ana]
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-15")
 def test_a_failed_mail_does_not_clear_a_newer_code(client, app, ana, monkeypatch):
     """The cleanup clears only the code its own mail carried."""
     from sqlalchemy import update

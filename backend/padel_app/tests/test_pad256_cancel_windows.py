@@ -95,6 +95,7 @@ def _seed(wall_start, *, cancellation_hours=None):
     # 09:30 UTC on 01-12 is 09:30 Lisbon: 24.5 h before a 10:00 class on 01-13.
     (at(WINTER, 10), datetime(2026, 1, 12, 9, 30), False),
 ])
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-7")
 def test_late_cancellation_flag_uses_the_club_clock(app, wall_start, utc_now, late):
     from padel_app.models.presences import Presence
     from padel_app.services.notification_service import cancel_attendance
@@ -118,6 +119,7 @@ def test_late_cancellation_flag_uses_the_club_clock(app, wall_start, utc_now, la
     # 09:30 UTC is 09:30 Lisbon in January: it has not.
     (at(WINTER, 10), datetime(2026, 1, 13, 9, 30), False),
 ])
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-7")
 def test_started_class_cannot_be_cancelled_on_the_club_clock(app, wall_start, utc_now, refused):
     from padel_app.services.notification_service import cancel_attendance
 
@@ -140,6 +142,7 @@ def test_started_class_cannot_be_cancelled_on_the_club_clock(app, wall_start, ut
     # In January it closes at 10:00 UTC two days earlier; 09:30 UTC is before it.
     (at(WINTER, 10), datetime(2026, 1, 11, 9, 30), True),
 ])
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-7")
 def test_proactive_window_uses_the_club_clock(app, wall_start, utc_now, open_):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.notification_service import proactive_decline_window_is_open
@@ -159,6 +162,7 @@ def test_proactive_window_uses_the_club_clock(app, wall_start, utc_now, open_):
     # No change in between: 48 h before is 10:00 on the club's clock.
     (at(WINTER, 10), "2026-01-11T10:00:00", "2026-01-11T10:00:00"),
 ])
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-7")
 def test_payload_deadlines_are_on_the_club_wall_clock(app, wall_start, cancellation_deadline, proactive_deadline):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.serializers.lesson import serialize_class_instance

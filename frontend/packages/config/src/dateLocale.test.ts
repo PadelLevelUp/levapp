@@ -41,13 +41,13 @@ describe("formatWeekRangeLabel", () => {
   // carries the abbreviation (kept short for a 375px header).
   const sameMonthWeekStart = new Date(2026, 6, 6);
 
-  it("renders a cross-month week in Portuguese", () => {
+  it("[CALENDAR-VIEW-9] renders a cross-month week in Portuguese", () => {
     expect(formatWeekRangeLabel(crossMonthWeekStart, resolveDateLocale("pt"))).toBe(
       "31 ago–6 set"
     );
   });
 
-  it("renders a cross-month week in English", () => {
+  it("[CALENDAR-VIEW-9] renders a cross-month week in English", () => {
     expect(formatWeekRangeLabel(crossMonthWeekStart, resolveDateLocale("en"))).toBe(
       "31 Aug–6 Sep"
     );

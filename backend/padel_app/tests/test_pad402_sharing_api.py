@@ -104,6 +104,7 @@ def _quiet_share(client, record_id, headers, body):
 # ── nothing shared by default (rule 1) ───────────────────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-1")
 def test_nothing_is_shared_by_default(app, client):
     ids = _seed(app)
     record_id = _rated(app, ids, ids["forehand_id"], 4, dt.datetime(2026, 9, 21, 9, 0))
@@ -117,6 +118,7 @@ def test_nothing_is_shared_by_default(app, client):
 # ── sharing nothing is refused (rule 6) ──────────────────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-5")
 def test_sharing_with_no_competency_chosen_is_refused_and_share_stays_null(app, client):
     ids = _seed(app)
     record_id = _rated(app, ids, ids["forehand_id"], 7, dt.datetime(2026, 9, 21, 9, 0))
@@ -219,6 +221,7 @@ def test_404_when_the_record_does_not_exist(app, client):
 # ── one line per chosen competency, over the chosen period (rules 3, 5) ─────
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-3")
 def test_one_evolution_line_per_chosen_competency_over_last_in_competency_order(app, client):
     ids = _three_competencies(app, _seed(app))
     # the earlier record (2026-09-14): Técnica 3, Tática 3 — no Consistência yet
@@ -247,6 +250,7 @@ def test_one_evolution_line_per_chosen_competency_over_last_in_competency_order(
     ]  # Consistência has a rating and no line — nothing earlier to compare
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-4")
 def test_the_joao_silva_card_over_six_months_deltas_half_a_point(app, client):
     """evaluations/sharing.spec.md "The João Silva card over six months": the
     evolution.spec.md dataset (also test_pad364_evolution_and_class_api.LEAF_DATASET) —
@@ -273,6 +277,7 @@ def test_the_joao_silva_card_over_six_months_deltas_half_a_point(app, client):
 # ── sharing stores an instant and sends one message, no push (rules 7, 8) ───
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-6")
 def test_sharing_stores_the_instant_and_sends_exactly_one_system_message_no_push(app, client, monkeypatch):
     from padel_app.models import EvaluationShare, Message
 
@@ -370,6 +375,7 @@ def test_record_share_is_populated_from_the_row_after_sharing(app, client):
 # ── un-share is silent (rule 9) ──────────────────────────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-8")
 def test_unsharing_is_silent(app, client):
     """Seeds the share directly through the ORM (the model/migration already
     exist) so this test's RED, if any, is about DELETE .../share alone —
@@ -444,6 +450,7 @@ def test_deleting_a_shared_record_removes_the_share(app, client):
 # entirely on the real wall clock, with short sleeps to guarantee ordering.
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-7")
 def test_stale_is_false_right_after_sharing_and_true_after_an_edit(app, client):
     """Seeded directly through the ORM (see module docstring): isolates the
     READ side (`serialize_record`'s future `share.stale`) from the also-missing
@@ -477,6 +484,7 @@ def test_stale_is_false_right_after_sharing_and_true_after_an_edit(app, client):
     assert _record_share(app, client, ids, record_id)["stale"] is True
 
 
+@pytest.mark.criterion("EVALUATIONS-SHARING-7")
 def test_resharing_moves_sharedat_updates_the_card_and_clears_staleness_with_no_second_message(app, client):
     from padel_app.models import EvaluationShare, Message
 

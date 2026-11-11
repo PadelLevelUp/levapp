@@ -360,6 +360,7 @@ P256DH = "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1Xbjhaz
 AUTH = "tBHItJI5svbpez7KI4CCXg"
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-3")
 def test_the_incident_rows_hold_no_endpoint_address_or_token(app, monkeypatch):
     """admin.engine-health rule 3 under B-254: every failure path that now writes a
     `delivery_incidents` row is driven with an exception or receipt quoting the secret it must not

@@ -87,6 +87,7 @@ def _delete(app, client, ids):
     assert res.status_code == 200, res.get_json()
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-9")
 def test_deleting_erases_text_metadata_attachment_and_reactions(app, client):
     from padel_app.model import Image
     from padel_app.models import Message
@@ -113,6 +114,7 @@ def test_deleting_erases_text_metadata_attachment_and_reactions(app, client):
     blob.return_value.delete.assert_called_once()
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-10")
 def test_an_attachment_something_else_uses_survives_the_erase(app, client):
     from padel_app.model import Image
     from padel_app.models import Message
@@ -152,6 +154,7 @@ def test_soft_delete_message_is_the_one_shared_erase(app):
         assert (msg.is_deleted, msg.text, msg.msg_metadata, msg.attachment_id) == (True, "", None, None)
 
 
+@pytest.mark.criterion("MESSAGING-BLOCK-AND-REPORT-4")
 def test_a_report_outlives_the_messages_edit_and_deletion(app, client):
     from padel_app.models import Message
     from padel_app.models.message_report import MessageReport
@@ -178,6 +181,7 @@ def _list_row(app, client, ids):
     return next(r for r in rows if r["id"] == ids["conv"])
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-28")
 def test_a_live_last_message_shows_its_text_in_the_list(app, client):
     ids = _world(app)
     row = _list_row(app, client, ids)
@@ -185,6 +189,7 @@ def test_a_live_last_message_shows_its_text_in_the_list(app, client):
     assert row["lastMessageDeleted"] is False
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-28")
 def test_a_deleted_last_message_shows_no_text_in_the_list(app, client):
     ids = _world(app)
     _delete(app, client, ids)

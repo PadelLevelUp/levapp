@@ -131,11 +131,11 @@ describe("undecidedCount", () => {
 });
 
 describe("validationGroup (PAD-442)", () => {
-  it("groups by the server's state: a silent player means needs-input", () => {
+  it("[ATTENDANCE-VALIDATION-6] groups by the server's state: a silent player means needs-input", () => {
     expect(validationGroup([player({ playerId: 1, response: "none" })])).toBe("needsInput");
   });
 
-  it("a class whose players all answered is ready", () => {
+  it("[ATTENDANCE-VALIDATION-5] a class whose players all answered is ready", () => {
     expect(
       validationGroup([
         player({ playerId: 1, response: "confirmed" }),

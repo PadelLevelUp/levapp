@@ -49,17 +49,20 @@ def _terms_refusal(res):
 
 # ── coach invite (clubs.coach-invitation rule 8b) ─────────────────────────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-23")
 def test_coach_invite_records_the_terms(client, app):
     res = _accept_coach(client, app, DECLARING, "c637", country="PT", termsAccepted=True)
     assert res.status_code == 200, res.get_json()
     assert _terms(app, "c637")["current"]
 
 
+@pytest.mark.criterion("AUTH-REGISTER-23")
 def test_coach_invite_without_the_terms_creates_no_account(client, app):
     _terms_refusal(_accept_coach(client, app, DECLARING, "c637b", country="PT"))
     assert _terms(app, "c637b") is None
 
 
+@pytest.mark.criterion("AUTH-REGISTER-23")
 def test_coach_invite_from_a_current_store_build_completes_without_a_record(client, app):
     res = _accept_coach(client, app, CURRENT_BUILD, "c637c", country="PT")
     assert res.status_code == 200, res.get_json()
@@ -68,6 +71,7 @@ def test_coach_invite_from_a_current_store_build_completes_without_a_record(clie
 
 # ── player invite (players.invite-completion rule 10b) ────────────────────────────
 
+@pytest.mark.criterion("AUTH-REGISTER-23")
 def test_player_invite_records_the_terms(client, app):
     token = _player_invite(client, app)
     res = _accept_player(client, token, DECLARING, "p637", country="PT", termsAccepted=True)
@@ -75,12 +79,14 @@ def test_player_invite_records_the_terms(client, app):
     assert _terms(app, "p637")["current"]
 
 
+@pytest.mark.criterion("AUTH-REGISTER-23")
 def test_player_invite_without_the_terms_stays_pending(client, app):
     token = _player_invite(client, app)
     _terms_refusal(_accept_player(client, token, DECLARING, "p637b", country="PT", termsAccepted=False))
     assert _terms(app, "p637b") is None  # no username was written
 
 
+@pytest.mark.criterion("AUTH-REGISTER-23")
 def test_player_invite_from_a_current_store_build_completes_without_a_record(client, app):
     token = _player_invite(client, app)
     res = _accept_player(client, token, CURRENT_BUILD, "p637c", country="PT")
@@ -90,6 +96,7 @@ def test_player_invite_from_a_current_store_build_completes_without_a_record(cli
 
 # ── activation (auth.activate rule 13b) ───────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-ACTIVATE-9")
 def test_activation_records_the_terms(client, app):
     uid = _inactive_user(app)
     res = _activate(client, app, uid, DECLARING, country="PT", termsAccepted=True)
@@ -97,12 +104,14 @@ def test_activation_records_the_terms(client, app):
     assert _terms(app, user_id=uid)["current"]
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-9")
 def test_activation_without_the_terms_keeps_the_account_inactive(client, app):
     uid = _inactive_user(app)
     _terms_refusal(_activate(client, app, uid, DECLARING, country="PT"))
     assert _terms(app, user_id=uid) == {"status": "inactive", "recorded": (False, None, None), "current": False}
 
 
+@pytest.mark.criterion("AUTH-ACTIVATE-9")
 def test_activation_from_a_current_store_build_completes_without_a_record(client, app):
     uid = _inactive_user(app)
     res = _activate(client, app, uid, CURRENT_BUILD, country="PT")
@@ -148,6 +157,7 @@ def _catch_up(client, app, uid, body):
     return client.post("/api/auth/me/legal", json=body, headers=_auth_header(app, uid))
 
 
+@pytest.mark.criterion("AUTH-LEGAL-CATCH-UP-1")
 def test_me_says_what_is_pending(client, app):
     both = _legacy_user(app)
     neither = _legacy_user(app, birth_date=date(1990, 1, 1), terms=True)
@@ -155,6 +165,7 @@ def test_me_says_what_is_pending(client, app):
     assert _me(client, app, neither)["legalPending"] == {"terms": False, "birthDate": False}
 
 
+@pytest.mark.criterion("AUTH-LEGAL-CATCH-UP-2")
 def test_saving_records_only_what_was_pending(client, app):
     uid = _legacy_user(app, birth_date=date(1990, 1, 1))
     res = _catch_up(client, app, uid, {"termsAccepted": True, "birthDate": "2001-01-01"})
@@ -164,6 +175,7 @@ def test_saving_records_only_what_was_pending(client, app):
     assert _me(client, app, uid)["birthDate"] == "1990-01-01"  # never overwritten
 
 
+@pytest.mark.criterion("AUTH-LEGAL-CATCH-UP-3")
 def test_a_missing_part_is_refused_and_nothing_is_written(client, app):
     uid = _legacy_user(app)
     res = _catch_up(client, app, uid, {"termsAccepted": True})
@@ -177,6 +189,7 @@ def test_unticked_terms_are_refused(client, app):
     _terms_refusal(res)
 
 
+@pytest.mark.criterion("AUTH-LEGAL-CATCH-UP-4")
 def test_under_18_is_refused_and_nothing_is_written(client, app):
     uid = _legacy_user(app)
     seventeen = date.today().replace(year=date.today().year - 17).isoformat()

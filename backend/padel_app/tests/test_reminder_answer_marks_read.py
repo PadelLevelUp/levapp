@@ -8,6 +8,7 @@ forever. ``respond_to_reminder`` now moves the marker to the moment of a fresh
 answer: the reminder, anything before it and the acknowledgement the answer
 produces are read; anything sent after the answer is not.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -53,6 +54,7 @@ def _coach_text_after(conv, coach_user_id, sent_at):
     return msg
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-22")
 def test_answer_marks_the_conversation_read_up_to_the_answer(app):
     from padel_app.helpers.dashboard.messages import compute_message_overview
     from padel_app.services.notification_service import respond_to_reminder, send_class_reminders

@@ -10,6 +10,7 @@ competency_group IS NULL AND (scale_min <> 1 OR scale_max <> 5)`` is 0. Since PA
 LEGACY categories only: a coach may put their non-legacy competencies on 1-10/20/100
 (evaluations.scale rule 2), and every legacy category stays 1-5.
 """
+import pytest
 import sqlalchemy as sa
 
 from padel_app.sql_db import db
@@ -30,6 +31,7 @@ def _count_not_1_5(app):
         return db.session.execute(sa.text(NOT_1_5)).scalar()
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_the_migration_leaves_no_legacy_category_off_1_5():
     conn = _scratch()  # Forehand 1-10, Volley 0-10, Technique 1-5
     assert conn.exec_driver_sql(NOT_1_5).scalar() == 2
@@ -37,6 +39,7 @@ def test_the_migration_leaves_no_legacy_category_off_1_5():
     assert conn.exec_driver_sql(NOT_1_5).scalar() == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_the_frozen_upsert_creates_and_updates_only_1_5(app, client):
     ids = _seed(app)
     res = client.post("/api/app/add_evaluation_categories", json=[
@@ -49,6 +52,7 @@ def test_the_frozen_upsert_creates_and_updates_only_1_5(app, client):
     assert _count_not_1_5(app) == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_the_import_creates_only_1_5(app):
     from padel_app.models import Coach
     from padel_app.services.import_service import bulk_create_evaluation_categories
@@ -65,6 +69,7 @@ def test_the_import_creates_only_1_5(app):
     assert _count_not_1_5(app) == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-5")
 def test_a_category_created_with_no_scale_is_1_5(app):
     from padel_app.models import EvaluationCategory
 

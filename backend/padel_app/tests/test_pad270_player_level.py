@@ -83,6 +83,7 @@ def _edit(app, client, world, updates, level_before):
 
 # --- players.edit rule 2 / players.level-history rule 1 ----------------------
 
+@pytest.mark.criterion("PLAYERS-LEVEL-HISTORY-1")
 def test_editing_the_level_records_it_in_history_and_the_roster(app, client, world):
     res = _edit(app, client, world, {"levelId": str(world["level_b"])}, world["level_a"])
     assert res.status_code == 200, res.get_data(as_text=True)
@@ -91,6 +92,7 @@ def test_editing_the_level_records_it_in_history_and_the_roster(app, client, wor
         assert _history(world) == [world["level_b"], world["level_a"]], "an edit wrote no history (B-061)"
 
 
+@pytest.mark.criterion("PLAYERS-LEVEL-HISTORY-2")
 def test_an_edit_that_keeps_the_level_writes_no_history(app, client, world):
     res = _edit(app, client, world, {"notes": "keeps working on the volley", "levelId": str(world["level_a"])},
                 world["level_a"])
@@ -99,6 +101,7 @@ def test_an_edit_that_keeps_the_level_writes_no_history(app, client, world):
         assert _history(world) == [world["level_a"]]
 
 
+@pytest.mark.criterion("PLAYERS-LEVEL-HISTORY-2")
 def test_the_writer_records_a_change_once(app, world):
     from padel_app.models import Association_CoachPlayer
     from padel_app.services.level_service import set_roster_level
@@ -114,6 +117,7 @@ def test_the_writer_records_a_change_once(app, world):
         assert _history(world) == [world["level_b"], world["level_a"]]
 
 
+@pytest.mark.criterion("PLAYERS-LEVEL-HISTORY-3")
 def test_the_claim_merge_records_a_borrowed_level(app, world):
     from padel_app.models import Association_CoachPlayer, Player, User
     from padel_app.services.player_claim_service import _merge_coach_relations

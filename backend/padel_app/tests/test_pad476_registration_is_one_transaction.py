@@ -45,6 +45,7 @@ def _fail_after_real_levels(monkeypatch):
 # --- Self-registration (auth.register rule 12) ---------------------------------------
 
 
+@pytest.mark.criterion("AUTH-REGISTER-16")
 def test_coach_signup_failing_after_the_levels_leaves_no_account(client, app, monkeypatch):
     from padel_app.models import Coach, CoachLevel, User
 
@@ -55,6 +56,7 @@ def test_coach_signup_failing_after_the_levels_leaves_no_account(client, app, mo
     assert (_count(app, User), _count(app, Coach), _count(app, CoachLevel)) == (0, 0, 0)
 
 
+@pytest.mark.criterion("AUTH-REGISTER-16")
 def test_a_failed_coach_signup_can_be_retried(client, app, monkeypatch):
     from padel_app.models import Coach, CoachLevel, User
 
@@ -68,6 +70,7 @@ def test_a_failed_coach_signup_can_be_retried(client, app, monkeypatch):
     assert (_count(app, User), _count(app, Coach), _count(app, CoachLevel)) == (1, 1, LADDER)
 
 
+@pytest.mark.criterion("AUTH-REGISTER-16")
 def test_a_failed_coach_signup_sends_no_mail_no_admin_notice_and_no_sync(client, app, monkeypatch):
     """Outside effects run only after the transaction commits, never when it rolls back."""
     from padel_app.services import coach_approval_service, email_verification_service, hubspot_sync
@@ -82,6 +85,7 @@ def test_a_failed_coach_signup_sends_no_mail_no_admin_notice_and_no_sync(client,
     assert sent == []
 
 
+@pytest.mark.criterion("AUTH-REGISTER-16")
 def test_a_coach_signup_failing_at_its_commit_sends_nothing(client, app, monkeypatch):
     """The latest failure point inside the unit: its own commit. An admin notice (or code, or
     sync) moved inside the unit would already have gone out by then; it must not have."""
@@ -106,6 +110,7 @@ def test_a_coach_signup_failing_at_its_commit_sends_nothing(client, app, monkeyp
     assert (_count(app, User), _count(app, Coach)) == (0, 0)
 
 
+@pytest.mark.criterion("AUTH-REGISTER-16")
 def test_a_successful_coach_signup_sends_them_after_the_commit(client, app, monkeypatch):
     """The other half: the same spies see all three on a good sign-up, so the test above is not
     green because the spies are wired wrong. (That they run after the commit is pinned by
@@ -146,6 +151,7 @@ def _accept_body():
     return {"birthDate": "1990-01-01", "name": "New Coach", "username": "new_coach", "password": "Secret123!"}
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-4")
 def test_invited_coach_failing_after_the_levels_leaves_no_account(client, app, monkeypatch):
     from padel_app.models import Association_CoachClub, Coach, CoachLevel, User
 
@@ -214,6 +220,7 @@ def test_invited_coach_failing_while_writing_the_coach_leaves_no_account(client,
         assert _inv(token).one().status == "pending"
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-4")
 def test_a_failed_invitation_accept_can_be_retried(client, app, monkeypatch):
     from padel_app.models import CoachLevel, User
 

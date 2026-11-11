@@ -42,12 +42,14 @@ def _post(client, app, path, body, caps):
 # ── create (players.create rule 10) ──────────────────────────────────────────────
 
 @pytest.mark.parametrize("path", ["/api/app/add_player", "/api/app/incomplete_player"])
+@pytest.mark.criterion("PLAYERS-CREATE-8")
 def test_creating_a_player_without_the_confirmation_is_refused(client, app, path):
     _refusal(_post(client, app, path, {"name": "Minor Maybe"}, DECLARING))
     assert _players_named(app, "Minor Maybe") == 0
 
 
 @pytest.mark.parametrize("path", ["/api/app/add_player", "/api/app/incomplete_player"])
+@pytest.mark.criterion("PLAYERS-CREATE-8")
 def test_creating_a_player_with_the_confirmation_works(client, app, path):
     res = _post(client, app, path, {"name": "Adult Ana", "confirmsAdults": True}, DECLARING)
     assert res.status_code in (200, 201), res.get_json()
@@ -55,6 +57,7 @@ def test_creating_a_player_with_the_confirmation_works(client, app, path):
 
 
 @pytest.mark.parametrize("path", ["/api/app/add_player", "/api/app/incomplete_player"])
+@pytest.mark.criterion("PLAYERS-CREATE-8")
 def test_a_current_store_build_creates_as_before(client, app, path):
     res = _post(client, app, path, {"name": "Legacy Leo"}, CURRENT_BUILD)
     assert res.status_code in (200, 201), res.get_json()
@@ -67,23 +70,27 @@ PLAYERS = {"Players": [{"name": "Imported Ines"}, {"name": "Imported Igor"}]}
 
 
 @pytest.mark.parametrize("path", ["/api/app/import/confirm", "/api/app/import/confirm/stream"])
+@pytest.mark.criterion("IMPORT-CONFIRM-2")
 def test_importing_players_without_the_confirmation_imports_nothing(client, app, path):
     _refusal(_post(client, app, path, PLAYERS, DECLARING))
     assert _players_named(app, "Imported Ines") == 0
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-2")
 def test_importing_players_with_the_confirmation_works(client, app):
     res = _post(client, app, "/api/app/import/confirm", {**PLAYERS, "confirmsAdults": True}, DECLARING)
     assert res.status_code == 200, res.get_json()
     assert _players_named(app, "Imported Ines") == 1
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-2")
 def test_an_import_from_a_current_store_build_runs_as_before(client, app):
     res = _post(client, app, "/api/app/import/confirm", PLAYERS, CURRENT_BUILD)
     assert res.status_code == 200, res.get_json()
     assert _players_named(app, "Imported Igor") == 1
 
 
+@pytest.mark.criterion("IMPORT-CONFIRM-2")
 def test_an_import_with_no_players_needs_no_confirmation(client, app):
     res = _post(client, app, "/api/app/import/confirm", {"Classes": []}, DECLARING)
     assert res.status_code == 200, res.get_json()

@@ -45,7 +45,7 @@ function renderList(onOpen = vi.fn()) {
 }
 
 describe("ParticipantGroups (rule 22)", () => {
-  it("renders the non-empty groups in order with their counts", () => {
+  it("[CALENDAR-EVENT-DETAIL-5] renders the non-empty groups in order with their counts", () => {
     renderList();
     const groups = screen.getAllByTestId("participant-group");
     expect(groups.map((g) => g.getAttribute("data-group"))).toEqual(["going", "not_going"]);
@@ -53,7 +53,7 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(within(groups[1]).getByText("calendar.participants.group.not_going:1")).toBeTruthy();
   });
 
-  it("orders a group by side and keeps the stored state on the row", () => {
+  it("[CALENDAR-EVENT-DETAIL-1] orders a group by side and keeps the stored state on the row", () => {
     renderList();
     const going = screen.getAllByTestId("participant-group")[0];
     const rows = within(going).getAllByTestId(/^participant-row-/);
@@ -61,7 +61,7 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(rows[0].getAttribute("data-state")).toBe("attended");
   });
 
-  it("shows the side chip with its long form as the tooltip, and no level or state word", () => {
+  it("[CALENDAR-EVENT-DETAIL-1] shows the side chip with its long form as the tooltip, and no level or state word", () => {
     renderList();
     const row = screen.getByTestId("participant-row-1");
     const chip = within(row).getByTestId("participant-side");
@@ -91,7 +91,7 @@ describe("ParticipantGroups (rule 22)", () => {
     expect(left.textContent).toBe("calendar.participants.sideShort.left");
   });
 
-  it("opens the pop-up from the name or avatar button, not from the chip", () => {
+  it("[CALENDAR-EVENT-DETAIL-7] opens the pop-up from the name or avatar button, not from the chip", () => {
     const onOpen = renderList();
     fireEvent.click(within(screen.getByTestId("participant-row-1")).getByTestId("participant-side"));
     expect(onOpen).not.toHaveBeenCalled();

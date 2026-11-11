@@ -37,6 +37,7 @@ def _user(player_id):
     return Player.query.get(player_id).user_id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_item_4_a_losing_students_repeated_yes_sends_nothing_more(app, monkeypatch):
     """Two students asked for one spot; A takes it. B's "yes" is told the spot is filled (since PAD-621
     the bubble offers the list; no offer message). B's second "yes" must send nothing: no second
@@ -59,6 +60,7 @@ def test_item_4_a_losing_students_repeated_yes_sends_nothing_more(app, monkeypat
         assert Message.query.count() == messages
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_item_2_the_coach_recording_yes_twice_keeps_the_invitation_confirmed(app, monkeypatch):
     """The coach records a student's "yes" (rule 9), then records it again (double click, retry):
     the student keeps the spot and the invitation stays confirmed."""
@@ -95,6 +97,7 @@ def _failing_second_send(monkeypatch):
     return real
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_item_8_a_failed_send_leaves_no_live_invitation_without_its_message(app, monkeypatch):
     """A batch whose second message fails: the second student must not be left holding a live
     invitation they never received (a phantom, excluded from the retry as already invited)."""
@@ -322,6 +325,7 @@ def test_r2_the_batch_stops_when_the_spot_is_taken_mid_batch(app, monkeypatch):
         assert len(_live_events(instance_id)) == 1, "invitations went out for a spot already taken"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_r3_a_student_who_said_no_meanwhile_is_not_invited_by_the_batch(app, monkeypatch):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.services.notification_service import trigger_invitations

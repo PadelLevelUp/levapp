@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import { firstUnreadDividerIndex, isFirstUnreadMessage } from "./unread-divider";
 
 describe("isFirstUnreadMessage (PAD-415)", () => {
-  it("matches the frozen first-unread id, string vs numeric alike", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] matches the frozen first-unread id, string vs numeric alike", () => {
     expect(isFirstUnreadMessage(46, 46)).toBe(true);
     expect(isFirstUnreadMessage("46", 46)).toBe(true);
     expect(isFirstUnreadMessage(46, "46")).toBe(true);
   });
 
-  it("is false for any other message", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] is false for any other message", () => {
     expect(isFirstUnreadMessage(45, 46)).toBe(false);
   });
 
-  it("is false once nothing is unread (null)", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] is false once nothing is unread (null)", () => {
     expect(isFirstUnreadMessage(46, null)).toBe(false);
     expect(isFirstUnreadMessage(46, undefined)).toBe(false);
   });
@@ -21,11 +21,11 @@ describe("isFirstUnreadMessage (PAD-415)", () => {
 describe("firstUnreadDividerIndex (PAD-415)", () => {
   const messages = [{ id: 44 }, { id: 45 }, { id: 46 }, { id: 47 }];
 
-  it("finds the loaded row directly below where the divider renders", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] finds the loaded row directly below where the divider renders", () => {
     expect(firstUnreadDividerIndex(messages, 46)).toBe(2);
   });
 
-  it("is -1 when nothing is unread", () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-18] is -1 when nothing is unread", () => {
     expect(firstUnreadDividerIndex(messages, null)).toBe(-1);
   });
 

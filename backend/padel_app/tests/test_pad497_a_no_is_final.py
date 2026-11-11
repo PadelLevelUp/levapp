@@ -64,6 +64,7 @@ def _tick(monkeypatch, minutes):
 
 # ── one spot ─────────────────────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_one_spot_declined_a_later_round_does_not_ask_again(app, monkeypatch):
     """OLD-RED. Two rounds, one offer at a time: both students decline round 1; round 2 used to ask
     the first decliner again (rule 8 allowed it in a later round)."""
@@ -84,6 +85,7 @@ def test_one_spot_declined_a_later_round_does_not_ask_again(app, monkeypatch):
         assert _vacancies(instance_id)[0][1] == "expired"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_one_spot_not_declined_a_student_who_said_no_to_another_class_is_still_asked(app, monkeypatch):
     """Green before and after: the key is the class occurrence. A "no" to one class says nothing
     about another (here, the same students on a second class of the same coach)."""
@@ -112,6 +114,7 @@ def test_one_spot_not_declined_a_student_who_said_no_to_another_class_is_still_a
         assert NotificationEvent.query.filter_by(lesson_instance_id=b.id, player_id=candidates[0]).count() == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_a_coach_recorded_no_is_final_too(app, monkeypatch):
     """OLD-RED. The coach records the student's "no" (rule 9); round 2 must not ask them again."""
     from padel_app.models.notification_event import NotificationEvent
@@ -129,6 +132,7 @@ def test_a_coach_recorded_no_is_final_too(app, monkeypatch):
         assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_a_yes_after_the_students_own_no_enrols_nobody(app, monkeypatch):
     """OLD-RED. The late yes used to enrol the decliner while the spot was open."""
     from padel_app.services.notification_service import trigger_invitations
@@ -146,6 +150,7 @@ def test_a_yes_after_the_students_own_no_enrols_nobody(app, monkeypatch):
         assert _vacancies(instance_id)[0][1] == "open"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_the_coach_can_still_invite_a_decliner_by_hand(app, monkeypatch):
     """Green before and after: a manual invite is the coach's decision, not the engine's."""
     from padel_app.services.notification_service import send_manual_notifications, trigger_invitations
@@ -160,6 +165,7 @@ def test_the_coach_can_still_invite_a_decliner_by_hand(app, monkeypatch):
         assert len(sent) == 1 and sent[0].type == "manual"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_the_automatic_waiting_list_fill_skips_a_decliner(app, monkeypatch):
     """OLD-RED. The student said no to the invitation and is on the class's waiting list: the next
     automatic fill must not place them."""
@@ -182,6 +188,7 @@ def test_the_automatic_waiting_list_fill_skips_a_decliner(app, monkeypatch):
 
 # ── two spots ────────────────────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-64")
 def test_two_spots_not_declined_one_live_offer_per_student(app, monkeypatch):
     """OLD-RED (PAD-494). Two spots, the same three students: nobody holds two live invitations."""
     from padel_app.services.notification_service import trigger_invitations
@@ -195,6 +202,7 @@ def test_two_spots_not_declined_one_live_offer_per_student(app, monkeypatch):
         assert len(players) == len(set(players)) == 3
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_two_spots_declined_the_sibling_spot_never_asks_them(app, monkeypatch):
     """OLD-RED. Three students, two spots: the first spot asks all three, the second (skipping
     them while their offers are live) waits. Two decline; the third takes the first spot. The second
@@ -216,6 +224,7 @@ def test_two_spots_declined_the_sibling_spot_never_asks_them(app, monkeypatch):
         assert {p for v, p, _ in _events(instance_id) if v == second_spot} & {asked[0], asked[1]} == set()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-64")
 def test_two_spots_a_student_whose_spot_is_taken_keeps_their_invitation_for_the_other_spot(app, monkeypatch):
     """The starvation cell (PAD-494), rewritten for PAD-679 (rule 18a). Two spots; the only other
     student holds an offer for the first spot, so the second waits. Someone else takes the first
@@ -244,6 +253,7 @@ def test_two_spots_a_student_whose_spot_is_taken_keeps_their_invitation_for_the_
 
 # ── what the coach sees ──────────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-63")
 def test_the_explanation_names_both_skips_and_the_picker_marks_the_decliner(app, monkeypatch):
     """Rule 18: the invite explanation gives `declined_this_class` for the student who said no and
     `offered_another_spot` for one holding a live offer for another spot; the manual picker marks
@@ -274,6 +284,7 @@ def test_the_explanation_names_both_skips_and_the_picker_marks_the_decliner(app,
 
 
 @pytest.mark.parametrize("max_inactive", [True, False])
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-64")
 def test_a_started_spot_waiting_on_a_sibling_offer_is_asked_again_on_the_next_tick(app, monkeypatch, max_inactive):
     """Starvation, started spot. Two spots, three students, one offer at a time: the first spot
     asks A, the second asks B. B and then C decline the second spot, whose only remaining
@@ -319,6 +330,7 @@ def test_a_started_spot_waiting_on_a_sibling_offer_is_asked_again_on_the_next_ti
         assert _live_events(instance_id) == [(second, a)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-75")
 def test_a_spot_held_up_in_an_early_round_moves_on_to_the_next_group(app, monkeypatch):
     """Rule 18's wait must not hold a spot in an early invitation group: students who only a later
     group admits would never be asked while the early group's candidates sit on another spot's
@@ -381,6 +393,7 @@ def _sided_class(app, *, spots, groups, sides, max_sim=1, exclude=()):
     return instance_id, coach_id, players, [r.id for r in rows]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-75")
 def test_s1_two_spots_nobody_answers_a_later_group_student_is_still_asked(app, monkeypatch):
     """S1. Two spots; round 1 admits the left players A and B, round 2 everyone (C is right-side);
     one offer at a time; nobody answers. Each spot asks one of A/B; once the inactivity interval
@@ -399,6 +412,7 @@ def test_s1_two_spots_nobody_answers_a_later_group_student_is_still_asked(app, m
         assert c in [p for _, p in _live_events(instance_id)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-76")
 def test_s2_an_excluded_student_with_a_manual_invite_does_not_hold_round_1(app, monkeypatch):
     """S2. One spot; round 1 admits A and B (left), round 2 everyone. The coach excluded B from
     automatic invitations and invited B by hand. A declines: round 1 has nobody it would ask (B is
@@ -420,6 +434,7 @@ def test_s2_an_excluded_student_with_a_manual_invite_does_not_hold_round_1(app, 
         assert c in [p for v, p in _live_events(instance_id) if v is not None]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-76")
 def test_s3_one_group_an_excluded_holder_does_not_hold_the_spot_open(app, monkeypatch):
     """S3. One spot, ONE invitation group (round 1 is the last). B is excluded and holds a manual
     invitation; A is asked and declines. Nobody the round would ask is left, and B is someone it
@@ -444,6 +459,7 @@ def test_s3_one_group_an_excluded_holder_does_not_hold_the_spot_open(app, monkey
     __import__("os").getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="a lock is only visible with two real connections",
 )
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_f3_a_no_racing_a_yes_waits_for_its_lock(app, monkeypatch):
     """#513 review F3. The yes path committed (the invite message's save) before it took rule 10's
     lock, and a "no" landing in that gap had to win. PAD-499 closed the gap: a "yes" holds the
@@ -502,6 +518,7 @@ def test_f3_a_no_racing_a_yes_waits_for_its_lock(app, monkeypatch):
         assert (event.status, event.answer) == ("confirmed", "yes")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_f2_a_failed_send_leaves_no_phantom_to_hold_the_class(app, monkeypatch):
     """#513 review F2 (PAD-495 item 8, landed here): a batch whose second message fails must not
     leave that student holding a live invitation they never received — under rule 18 such a phantom
@@ -546,6 +563,7 @@ def _live_without_message(instance_id):
     ).count()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_r1_a_manual_invitation_whose_message_fails_leaves_nothing_behind(app, monkeypatch):
     """Re-review item 1: the coach's manual invitation is committed with its message, never before
     it, so a failed send cannot leave a live invitation that holds the student (and a spot)."""
@@ -566,6 +584,7 @@ def test_r1_a_manual_invitation_whose_message_fails_leaves_nothing_behind(app, m
         assert _live_without_message(instance_id) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_r2_an_automatic_invitation_whose_message_is_withheld_is_discarded(app, monkeypatch):
     """Re-review item 2: `_send_system_message` returns None without raising when a backstop
     withholds the message (empty body PAD-67, availability PAD-107, block-all PAD-112). The
@@ -592,6 +611,7 @@ def test_r2_an_automatic_invitation_whose_message_is_withheld_is_discarded(app, 
         assert len(_live_events(instance_id)) == 2
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_r2_an_empty_invitation_body_sends_nothing_and_leaves_nothing(app, monkeypatch):
     """The PAD-67 backstop for real: a template that renders to nothing withholds the message."""
     from padel_app.services import notification_service as ns
@@ -605,6 +625,7 @@ def test_r2_an_empty_invitation_body_sends_nothing_and_leaves_nothing(app, monke
         assert _live_without_message(instance_id) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-78")
 def test_r3_a_manual_invitation_counts_for_the_skip(app, monkeypatch):
     """Re-review item 3 (mutant M4): a student already holding the coach's manual invitation for
     the class is not sent an automatic one on top."""
@@ -637,6 +658,7 @@ def _manual_invitation(app):
 
 
 @_POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_r5_a_double_no_on_a_manual_invitation_is_answered_once(app, monkeypatch):
     """Re-review item 5 (mutant M8b): a manual invitation has no vacancy, so its answer locks the
     invitation row. Two "no" at once: the coach is told once."""
@@ -673,6 +695,7 @@ def test_r5_a_double_no_on_a_manual_invitation_is_answered_once(app, monkeypatch
 
 
 @_POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_r5_a_no_racing_a_manual_yes_waits_for_its_lock(app, monkeypatch):
     """F3 for a manual invitation (no vacancy: the "yes" locks the invitation row itself). Since
     PAD-499 there is no gap: the "no" waits for the "yes" and finds it confirmed."""
@@ -739,6 +762,7 @@ def _message_factory_failing_on(monkeypatch, nth_invite):
     monkeypatch.setattr(models, "Message", factory)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_a1_a_message_failing_after_the_conversation_step_leaves_no_phantom(app, monkeypatch):
     from padel_app.services import notification_service as ns
     from padel_app.tests.helpers import pin_clock
@@ -753,6 +777,7 @@ def test_a1_a_message_failing_after_the_conversation_step_leaves_no_phantom(app,
         assert _live_without_message(instance_id) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_a1_a_manual_message_failing_after_the_conversation_step_leaves_no_phantom(app, monkeypatch):
     from padel_app.services import notification_service as ns
     from padel_app.tests.helpers import pin_clock
@@ -767,6 +792,7 @@ def test_a1_a_manual_message_failing_after_the_conversation_step_leaves_no_phant
         assert _live_without_message(instance_id) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-79")
 def test_a2_a_publish_failing_after_the_commit_leaves_the_invitation_with_its_message_id(app, monkeypatch):
     """The commit happened; delivery (the live event, the push) failed. The invitation must still
     point at its message, so it can be answered and later retired."""

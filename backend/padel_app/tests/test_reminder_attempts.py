@@ -4,6 +4,7 @@ delivery record and their metadata mirrors the row (no behaviour change).
 
 Fixtures are the reminder-flow ones (same seed, same IO patches).
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -23,6 +24,7 @@ def _send(instance_id, now):
         return send_class_reminders(instance_id, now=now)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-24")
 def test_each_reminder_is_one_attempt_row_and_the_message_mirrors_it(app):
     from padel_app.models import Message, ReminderAttempt
 
@@ -51,6 +53,7 @@ def test_each_reminder_is_one_attempt_row_and_the_message_mirrors_it(app):
             assert bool(msg.msg_metadata.get("superseded")) is r.superseded
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-24")
 def test_answering_marks_the_attempt_and_the_message(app):
     from padel_app.models import Message, ReminderAttempt
     from padel_app.services.notification_service import respond_to_reminder
@@ -86,6 +89,7 @@ def test_expiring_marks_the_attempt_superseded_and_expired(app):
         assert msg.msg_metadata.get("superseded") is True and msg.msg_metadata.get("expired") is True
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-24")
 def test_the_table_not_the_metadata_decides_what_is_pending(app):
     from padel_app.models import Message, ReminderAttempt
     from padel_app.services.notification_service import _pending_reminder_message
@@ -129,6 +133,7 @@ def test_the_reminder_count_reads_the_table(app):
         assert [r.number for r in rows] == [1]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-24")
 def test_migration_is_guarded_and_backfills_from_metadata():
     import importlib.util
     import pathlib

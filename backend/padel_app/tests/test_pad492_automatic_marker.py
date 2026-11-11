@@ -100,6 +100,7 @@ def _marks_itself(call: ast.Call, helpers=frozenset()) -> bool:
     return False
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-17")
 def test_every_automatic_writer_marks_its_message():
     sites = _message_constructions()
     assert len(sites) >= 8, f"the scan found too few Message( sites to be real: {sites}"
@@ -122,6 +123,7 @@ def test_every_automatic_writer_marks_its_message():
     )
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-17")
 def test_the_system_send_helper_is_scanned_and_its_callers_exist():
     """Every caller of `_send_system_message` is marked through the helper's own
     `msg_metadata or {}`; make sure the scan really saw that write and that it has callers."""
@@ -193,6 +195,7 @@ def _messages(client, app, user_id, conversation_id):
     return resp.get_json()["messages"]
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-16")
 def test_a_typed_message_is_never_automatic(client, app, pair):
     from padel_app.models import Message
 
@@ -221,6 +224,7 @@ def test_a_typed_message_is_never_automatic(client, app, pair):
     assert msg["isAutomatic"] is False
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-18")
 def test_a_template_reply_with_no_type_or_metadata_is_automatic(client, app, pair):
     from padel_app.services.notification_service import _send_system_message
 

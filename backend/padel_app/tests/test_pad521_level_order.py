@@ -42,10 +42,12 @@ def _order(client, maria, direction):
     return [r["name"] for r in res.json["items"]]
 
 
+@pytest.mark.criterion("PLAYERS-LIST-6")
 def test_level_high_to_low_lists_the_strongest_first(client, maria):
     assert _order(client, maria, "desc") == ["Zé", "Ana", "Rita", "Bia"]
 
 
+@pytest.mark.criterion("PLAYERS-LIST-6")
 def test_level_low_to_high_is_the_reverse_with_no_level_last(client, maria):
     assert _order(client, maria, "asc") == ["Rita", "Ana", "Zé", "Bia"]
 
@@ -63,6 +65,7 @@ def test_an_unordered_level_is_the_weakest_in_both_directions(app, client, maria
     assert _order(client, maria, "asc") == ["Ugo", "Rita", "Ana", "Zé", "Bia"]
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-2")
 def test_the_levels_list_comes_strongest_first(client, maria):
     res = client.get("/api/app/coach_levels", headers=maria["headers"])
     assert res.status_code == 200

@@ -15,6 +15,7 @@ own vacancy, so a decline during a running job runs its own.
 The scheduler as production runs it (started, the API's own thread), with the first job held
 inside its queue build while the second student cancels.
 """
+import pytest
 import threading
 import time
 
@@ -29,6 +30,7 @@ from padel_app.tests.test_pad733_fan_out_off_the_request import (  # noqa: F401 
 )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-105")
 def test_a_decline_during_a_running_approval_job_still_gets_its_prompt(app, client, running_scheduler, monkeypatch):
     from padel_app.services import replacement_approval_service as approvals
     from padel_app.tests.helpers import pin_clock

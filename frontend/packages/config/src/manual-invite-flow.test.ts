@@ -21,7 +21,7 @@ describe("runManualInviteFlow", () => {
     expect(ask).not.toHaveBeenCalled();
   });
 
-  it("asks once with every failing student and sends nothing until confirmed", async () => {
+  it("[ELIGIBILITY-ENFORCEMENT-13] asks once with every failing student and sends nothing until confirmed", async () => {
     const send = vi.fn(async () => {});
     let proceed: (() => Promise<void>) | null = null;
     const ask = vi.fn((f: typeof failing, p: () => Promise<void>) => { proceed = p; });

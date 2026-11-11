@@ -49,14 +49,14 @@ const props = {
 };
 
 describe("invite picker: the coach's display name (PAD-683)", () => {
-  it("a group row reads the nickname, never the real name", async () => {
+  it("[PLAYERS-NICKNAME-5] a group row reads the nickname, never the real name", async () => {
     render(<ManualNotificationModal {...props} coachPlayers={roster} />);
     fireEvent.click(await screen.findByTestId("notify-group-all_students"));
     expect(await screen.findByText("Rita Tiger")).toBeInTheDocument();
     expect(screen.queryByText("Rita Decliner")).toBeNull();
   });
 
-  it("a search row reads the nickname, and searching the real name finds it", async () => {
+  it("[PLAYERS-NICKNAME-5] a search row reads the nickname, and searching the real name finds it", async () => {
     render(<ManualNotificationModal {...props} coachPlayers={roster} />);
     await screen.findByText("All students");
     fireEvent.change(screen.getByPlaceholderText("calendar.notify.searchPlaceholder"), {
@@ -66,7 +66,7 @@ describe("invite picker: the coach's display name (PAD-683)", () => {
     expect(screen.queryByText("Rita Decliner")).toBeNull();
   });
 
-  it("with the switch off the search row reads the real name", async () => {
+  it("[PLAYERS-NICKNAME-5] with the switch off the search row reads the real name", async () => {
     const off = roster.map((r) => ({ ...r, nicknameAsName: false, displayName: r.name })) as CoachPlayer[];
     render(<ManualNotificationModal {...props} coachPlayers={off} />);
     await screen.findByText("All students");

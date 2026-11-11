@@ -96,6 +96,7 @@ def _conversations(app, key):
         return len(rows), participants
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-26")
 def test_two_first_system_messages_at_once_make_one_conversation_and_both_arrive(app):
     from padel_app.models import Conversation, Message
     from padel_app.services.notification_service import _send_system_message

@@ -66,6 +66,7 @@ def _lines(caplog, needle):
 
 # --- Rule 3a: a sent recovery mail logs one INFO line, the user id only ----------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-16")
 def test_a_sent_recovery_mail_logs_the_user_id(app, outbox, caplog):
     uid = _user(app)
     with caplog.at_level(logging.INFO):
@@ -83,6 +84,7 @@ def test_a_sent_recovery_mail_logs_the_user_id(app, outbox, caplog):
     ("no_password", {"password": None, "status": "inactive"}, "ana781@example.com"),
     ("disabled", {"status": "disabled"}, "ana781@example.com"),
 ])
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-18")
 def test_a_request_matching_no_recoverable_user_logs_the_reason(app, outbox, caplog, reason, fields, email):
     if fields is not None:
         _user(app, **fields)
@@ -94,6 +96,7 @@ def test_a_request_matching_no_recoverable_user_logs_the_reason(app, outbox, cap
     assert not any(email in r.getMessage() for r in caplog.records)
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-18")
 def test_a_request_inside_the_cooldown_logs_cooldown(app, outbox, caplog):
     _user(app)
     _request(app, "ana781@example.com", now=T0)
@@ -106,6 +109,7 @@ def test_a_request_inside_the_cooldown_logs_cooldown(app, outbox, caplog):
 
 # --- Rule 3: a failed send clears the code but keeps the attempt's time -----------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-17")
 def test_a_failed_send_keeps_the_attempt_time_and_clears_the_code(app, monkeypatch):
     from padel_app.models import User
     from padel_app.tools import email_tools
@@ -124,6 +128,7 @@ def test_a_failed_send_keeps_the_attempt_time_and_clears_the_code(app, monkeypat
         assert user.password_reset_sent_at == T0
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-17")
 def test_a_request_after_a_failed_send_and_the_cooldown_issues_a_new_code(app, outbox, monkeypatch):
     """The kept time only holds the 60-second cooldown; it never blocks the retry after it."""
     from padel_app.models import User
@@ -148,6 +153,7 @@ def test_a_request_after_a_failed_send_and_the_cooldown_issues_a_new_code(app, o
 
 # --- Rule 12: every writer stores an email trimmed and lower-cased ----------------------------
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-19")
 def test_normalise_email_trims_and_lowercases_and_empties_to_none():
     from padel_app.utils.emails import normalise_email
 
@@ -199,6 +205,7 @@ def test_an_invitation_accept_stores_the_normalised_email(client, app):
         assert User.query.filter_by(username="accepting781").one().email == "accepting@example.com"
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-19")
 def test_a_padded_mixed_case_address_recovers_end_to_end(client, app, outbox):
     """Coach creates the student with a padded address, the student accepts, then recovers."""
     user_id, coach_id = _make_coach(app)

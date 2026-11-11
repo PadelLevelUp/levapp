@@ -6,6 +6,7 @@ limit exceeded", four times on 2026-10-22). mirror-ci-images.yaml now copies ngi
 postgres:15, and the lane pulls it with the run's GITHUB_TOKEN; until the package exists it falls
 back to the old anonymous pull. Covers delivery.ci-images rules 1 and 5.
 """
+import pytest
 import pathlib
 
 import yaml
@@ -27,6 +28,7 @@ def _step(job, name):
     return next(s for s in job["steps"] if s.get("name") == name)
 
 
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-1")
 def test_the_mirror_copies_nginx_beside_postgres():
     job = _load("mirror-ci-images.yaml")["jobs"]["mirror"]
     pairs = {(e["image"], e["dest"]) for e in job["strategy"]["matrix"]["include"]}
@@ -36,6 +38,7 @@ def test_the_mirror_copies_nginx_beside_postgres():
     assert '"public.ecr.aws/docker/library/$IMAGE" "docker.io/library/$IMAGE"' in copy
 
 
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-4")
 def test_the_lane_pulls_the_mirror_with_the_run_token():
     job = _lane()
     assert job["env"]["NGINX_IMAGE"] == MIRROR
@@ -46,6 +49,7 @@ def test_the_lane_pulls_the_mirror_with_the_run_token():
     assert login["if"] == "steps.nginx-image.outputs.cache-hit != 'true'"
 
 
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-5")
 def test_the_lane_falls_back_to_the_public_image_under_the_mirror_name():
     job = _lane()
     assert job["env"]["NGINX_FALLBACK"] == FALLBACK
@@ -55,6 +59,7 @@ def test_the_lane_falls_back_to_the_public_image_under_the_mirror_name():
     assert 'docker save -o /tmp/nginx-image.tar "$NGINX_IMAGE"' in load
 
 
+@pytest.mark.criterion("DELIVERY-CI-IMAGES-4")
 def test_both_checks_run_the_one_image():
     job = _lane()
     web = _step(job, "Web image nginx (frontend/apps/web/nginx.conf)")

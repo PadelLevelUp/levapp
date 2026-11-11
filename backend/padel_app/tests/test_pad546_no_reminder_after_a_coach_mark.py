@@ -3,6 +3,7 @@ PAD-546 — a reminder pass skips a student the coach already marked present or 
 (notifications.reminders rule 23). `Presence.status` is the coach's record only (attendance.presence
 rule 7) and is read when each pass runs, so clearing a mark brings the reminder back.
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -80,6 +81,7 @@ def _reminded(instance_id):
             for p in Presence.query.filter_by(lesson_instance_id=instance_id).all()}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-3")
 def test_a_student_the_coach_marked_is_not_reminded(app):
     from padel_app.services.notification_service import send_class_reminders
 
@@ -92,6 +94,7 @@ def test_a_student_the_coach_marked_is_not_reminded(app):
         assert sent == {ids["ana"][0]: 0, ids["bruno"][0]: 0, ids["carla"][0]: 1}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-3")
 def test_an_unjustified_absence_mark_also_skips(app):
     from padel_app.services.notification_service import send_class_reminders
 
@@ -102,6 +105,7 @@ def test_an_unjustified_absence_mark_also_skips(app):
         assert _reminded(instance_id)[ids["bruno"][0]] == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-4")
 def test_the_mark_is_read_at_send_time_on_every_pass(app):
     from padel_app.services.notification_service import send_class_reminders
 

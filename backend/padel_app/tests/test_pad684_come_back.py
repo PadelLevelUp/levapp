@@ -140,6 +140,7 @@ def clock(monkeypatch):
     return pin_clock(monkeypatch, NOW)
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-32")
 def test_afinal_vou_with_a_spot_seats_the_student_and_tells_the_coach(app, clock):
     from padel_app.models import Message, Vacancy
     from padel_app.models.notification_event import NotificationEvent
@@ -182,6 +183,7 @@ def test_afinal_vou_with_a_spot_seats_the_student_and_tells_the_coach(app, clock
             assert _yes(ids, "ana") == {"action": "confirmed", "duplicate": True}
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-33")
 def test_no_spot_the_waiting_list_and_a_yes_records_nothing(app, clock):
     from padel_app.models import WaitingListEntry
     from padel_app.services.academy_class_service import join_class_waiting_list_service
@@ -212,6 +214,7 @@ def test_no_spot_the_waiting_list_and_a_yes_records_nothing(app, clock):
         assert _come_back(ids, "ana") == "on_waiting_list"
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-35")
 def test_the_coachs_nao_vai_can_be_undone_by_the_student(app, clock):
     with app.app_context():
         ids = _seed()
@@ -229,6 +232,7 @@ def test_the_coachs_nao_vai_can_be_undone_by_the_student(app, clock):
         assert row.status is None and row.justification is None and row.validated is False
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-36")
 def test_a_coach_mark_present_still_answers_already_marked(app, clock):
     with app.app_context():
         ids = _seed()
@@ -241,6 +245,7 @@ def test_a_coach_mark_present_still_answers_already_marked(app, clock):
         assert _row(ids, "ana").attendance_state == "attended"
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-35")
 def test_once_the_class_has_started_nothing_is_offered_and_the_yes_is_refused(app, monkeypatch):
     started = START + timedelta(minutes=5)
     pin_clock(monkeypatch, started)
@@ -294,6 +299,7 @@ def test_a_pending_approval_prompt_for_the_vacancy_goes_stale(app, clock):
         assert prompt.status == "stale" and prompt.decided_at is not None
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-32")
 def test_only_this_occurrence_comes_back(app, clock):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.presences import Presence
@@ -323,6 +329,7 @@ def test_only_this_occurrence_comes_back(app, clock):
     os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
     reason="needs two real connections",
 )
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-34")
 def test_two_students_one_spot_exactly_one_is_seated(app, monkeypatch):
     """Both POST yes at once. The hold is placed right AFTER each thread reads the class's
     filled count, so both have counted one free place before either records. The lock makes the

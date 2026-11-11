@@ -75,7 +75,7 @@ beforeEach(() => {
 });
 
 describe("the student's calendar (PAD-664)", () => {
-  it("desktop: the filter is at the top, 'mine' hides only the offers, and the choice is remembered", () => {
+  it("[CALENDAR-VIEW-20] desktop: the filter is at the top, 'mine' hides only the offers, and the choice is remembered", () => {
     renderPage();
     expect(screen.getByTestId("calendar-student-filter")).toBeTruthy();
     expect(screen.getByTestId("grid").getAttribute("data-ids")).toBe("own,spot,full,wait");
@@ -84,7 +84,7 @@ describe("the student's calendar (PAD-664)", () => {
     expect(window.localStorage.getItem("levapp.calendar.studentFilter.5")).toBe("mine");
   });
 
-  it("phone: the filter and ONE legend row under it, narrowed by the filter", () => {
+  it("[CALENDAR-VIEW-20] phone: the filter and ONE legend row under it, narrowed by the filter", () => {
     state.mobile = true;
     renderPage();
     expect(screen.getByTestId("calendar-student-filter")).toBeTruthy();
@@ -97,7 +97,7 @@ describe("the student's calendar (PAD-664)", () => {
 });
 
 describe("the coach's calendar (PAD-664 changes nothing)", () => {
-  it("phone: no filter and no legend", () => {
+  it("[CALENDAR-MOBILE-VIEWS-25] phone: no filter and no legend", () => {
     state.roles = ["coach"];
     state.mobile = true;
     renderPage();
@@ -106,7 +106,7 @@ describe("the coach's calendar (PAD-664 changes nothing)", () => {
     expect(screen.getByTestId("phone").getAttribute("data-ids")).toBe("own,spot,full,wait");
   });
 
-  it("desktop: no filter, the toolbar legend stays", () => {
+  it("[CALENDAR-MOBILE-VIEWS-25] desktop: no filter, the toolbar legend stays", () => {
     state.roles = ["coach"];
     renderPage();
     expect(screen.queryByTestId("calendar-student-filter")).toBeNull();

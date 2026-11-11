@@ -6,6 +6,7 @@ invisible there for six days. The older spot was then filled by an accepted join
 prompt stayed `pending` with the Assistant message still asking (rule 11 only applied at decision
 time). Students are cases 7-13.
 """
+import pytest
 from datetime import datetime
 
 from padel_app.sql_db import db
@@ -25,6 +26,7 @@ def _two_declines(prefix, **world_kw):
     return world, first, second
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-17")
 def test_the_class_shows_every_pending_prompt_in_decline_order(app):
     from padel_app.services.replacement_approval_service import instance_suggestions
 
@@ -39,6 +41,7 @@ def test_the_class_shows_every_pending_prompt_in_decline_order(app):
         assert state["bundle"]["bundleId"] == b1["bundleId"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-18")
 def test_the_class_shows_the_queue_as_it_is_now(app):
     """Rule 12 (PAD-765): the queue is computed when shown; a student enrolled since the prompt was
     built is not offered as a candidate."""
@@ -64,6 +67,7 @@ def _message_for(prompt):
     return db.session.get(Message, prompt.message_id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-19")
 def test_a_spot_filled_another_way_resolves_its_prompt_and_message(app):
     """Rule 11 (PAD-765): filling the spot through `_close_vacancy` (every fill route's one closer)
     marks the pending prompt stale at once and the Assistant message says that spot is taken."""
@@ -86,6 +90,7 @@ def test_a_spot_filled_another_way_resolves_its_prompt_and_message(app):
         assert [b["bundleId"] for b in state["bundles"]] == [b2["bundleId"]]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-19")
 def test_a_coach_add_that_fills_the_class_resolves_the_prompt(app):
     """The route the sheet uses: the coach adds a student, the class is full, the spot closes."""
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
@@ -104,6 +109,7 @@ def test_a_coach_add_that_fills_the_class_resolves_the_prompt(app):
         assert db.session.get(ReplacementApprovalPrompt, prompt.id).status == "stale"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-19")
 def test_a_spot_that_expires_resolves_its_prompt(app):
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
     from padel_app.services.replacement_approval_service import resolve_prompts_for
@@ -143,6 +149,7 @@ def test_one_spot_of_a_two_spot_bundle_filling_keeps_the_other_asking(app):
         assert db.session.get(Vacancy, vacs[1].id).approval_status == "pending"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-19")
 def test_an_accepted_join_request_resolves_the_prompt_of_the_spot_it_fills(app):
     """The prod shape: the older spot's prompt waits; the coach accepts a student's request to join;
     the spot fills and its prompt is resolved, its message says so, and the class lists the rest."""

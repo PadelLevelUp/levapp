@@ -19,7 +19,7 @@ import {
  */
 
 describe("ELIGIBILITY_ATTRIBUTES", () => {
-  it("offers level and absence criteria only — no side, no payments", () => {
+  it("[ELIGIBILITY-RULES-12] offers level and absence criteria only — no side, no payments", () => {
     // eligibility.rules 4 and 5: side is a WAVE criterion (who is asked
     // first), never an eligibility one; and no payment state exists to read.
     expect(ELIGIBILITY_ATTRIBUTES.map((a) => a.id)).toEqual([

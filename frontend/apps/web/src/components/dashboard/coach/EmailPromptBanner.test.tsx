@@ -33,12 +33,12 @@ function mount(user: MeResponse) {
 afterEach(() => emailPromptSession.reset());
 
 describe("EmailPromptBanner (rule 14, PAD-482)", () => {
-  it("asks a coach with no email", () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] asks a coach with no email", () => {
     mount(me({ email: null }));
     expect(screen.getByTestId("email-prompt")).toHaveTextContent("dashboard.emailPrompt.text");
   });
 
-  it("never shows for a coach with an email, or for a player", () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] never shows for a coach with an email, or for a player", () => {
     const { unmount } = mount(me({ email: "rui@example.com" }));
     expect(screen.queryByTestId("email-prompt")).toBeNull();
     unmount();
@@ -46,13 +46,13 @@ describe("EmailPromptBanner (rule 14, PAD-482)", () => {
     expect(screen.queryByTestId("email-prompt")).toBeNull();
   });
 
-  it("Adicionar email opens Settings → Perfil on the email field", () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] Adicionar email opens Settings → Perfil on the email field", () => {
     mount(me({ email: null }));
     fireEvent.click(screen.getByTestId("email-prompt-add"));
     expect(screen.getByTestId("where")).toHaveTextContent("/settings?tab=profile&focus=email");
   });
 
-  it("Agora não hides it for the session: a remount keeps it hidden, a sign-out brings it back", () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] Agora não hides it for the session: a remount keeps it hidden, a sign-out brings it back", () => {
     const { unmount } = mount(me({ email: null }));
     fireEvent.click(screen.getByTestId("email-prompt-dismiss"));
     expect(screen.queryByTestId("email-prompt")).toBeNull();

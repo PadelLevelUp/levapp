@@ -6,6 +6,7 @@ the occurrence reads the court back (calendar card and class detail). Both the
 materialised (LessonInstance) and the not-yet-materialised (Lesson + date)
 single-scope paths are covered.
 """
+import pytest
 from datetime import date
 
 from padel_app.tests.test_courts import _class_payload, _jwt_secret, world  # noqa: F401 (fixtures)
@@ -56,6 +57,7 @@ def _assert_refused_or_kept(res, client, lesson_id, court2):
     assert _occurrence_court(client, lesson_id) == (court2, court2)
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_single_occurrence_court_on_a_materialised_instance(client, world):
     from padel_app.models import Lesson
     from padel_app.services.lesson_service import get_or_materialize_instance
@@ -72,6 +74,7 @@ def test_single_occurrence_court_on_a_materialised_instance(client, world):
     _assert_refused_or_kept(res, client, lesson_id, court2)
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_single_occurrence_court_before_materialisation(client, world):
     from padel_app.models import Lesson
 
@@ -122,6 +125,7 @@ def _shown(client, instance_id):
         return (serialize_calendar_event(LessonInstance.query.get(instance_id))["court"] or {}).get("id")
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_choosing_the_series_court_is_not_an_override(client, world):
     event, court1, court2 = _series_with_court(client, world)
     _lesson_id, instance_id = _materialise(client, "Series", OCCURRENCE)
@@ -133,6 +137,7 @@ def test_choosing_the_series_court_is_not_an_override(client, world):
     assert _shown(client, instance_id) == court1
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_no_court_for_one_occurrence_of_a_series_with_a_court_is_refused(client, world):
     event, court1, _court2 = _series_with_court(client, world)
     _lesson_id, instance_id = _materialise(client, "Series", OCCURRENCE)
@@ -142,6 +147,7 @@ def test_no_court_for_one_occurrence_of_a_series_with_a_court_is_refused(client,
     assert _shown(client, instance_id) == court1
 
 
+@pytest.mark.criterion("CLUBS-COURTS-5")
 def test_a_court_of_another_club_is_refused_for_one_occurrence(client, world):
     event, _court1, _court2 = _series_with_court(client, world)
     other = client.post(f"/api/app/club/{world['club2']}/courts", json={"name": "Outro"}, headers=world["b"]).get_json()["id"]
@@ -152,6 +158,7 @@ def test_a_court_of_another_club_is_refused_for_one_occurrence(client, world):
     assert _override(client, instance_id) is None
 
 
+@pytest.mark.criterion("CLUBS-COURTS-8")
 def test_a_future_court_edit_clears_overrides_from_the_boundary_on(client, world):
     c1, h = world["club1"], world["a"]
     event, court1, court2 = _series_with_court(client, world)
@@ -169,6 +176,7 @@ def test_a_future_court_edit_clears_overrides_from_the_boundary_on(client, world
     assert _override(client, after) is None and _shown(client, after) == court3
 
 
+@pytest.mark.criterion("CLUBS-COURTS-8")
 def test_a_future_edit_without_a_court_keeps_the_overrides(client, world):
     event, _court1, court2 = _series_with_court(client, world)
     _lesson_id, instance_id = _materialise(client, "Series", "2026-10-26")
@@ -178,6 +186,7 @@ def test_a_future_edit_without_a_court_keeps_the_overrides(client, world):
     assert _override(client, instance_id) == court2
 
 
+@pytest.mark.criterion("CLUBS-COURTS-9")
 def test_deleting_the_occurrence_court_falls_back_to_the_series(client, world):
     event, court1, court2 = _series_with_court(client, world)
     _lesson_id, instance_id = _materialise(client, "Series", OCCURRENCE)
@@ -187,6 +196,7 @@ def test_deleting_the_occurrence_court_falls_back_to_the_series(client, world):
     assert _shown(client, instance_id) == court1
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_the_class_detail_shows_the_occurrence_court(client, world):
     from padel_app.models import LessonInstance
     from padel_app.serializers.lesson import serialize_class_instance
@@ -199,6 +209,7 @@ def test_the_class_detail_shows_the_occurrence_court(client, world):
         assert (detail["courtId"], detail["courtName"]) == (court2, "Campo 2")
 
 
+@pytest.mark.criterion("CLUBS-COURTS-11")
 def test_migration_is_guarded():
     import pathlib
 
@@ -210,6 +221,7 @@ def test_migration_is_guarded():
     assert 'ondelete="SET NULL"' in src
 
 
+@pytest.mark.criterion("CLUBS-COURTS-10")
 def test_a_one_off_class_edited_from_the_editor_sets_and_clears_its_court(client, world):
     """Both editors send scope "single" for a class that does not recur
     (ClassDetailSheet.tsx, class/[id].tsx): the court is the class's own."""
@@ -250,6 +262,7 @@ def _occurrence_of(client, lesson_id, day=OCCURRENCE):
         ).one().id
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_one_occurrence_on_its_own_court_leaves_the_series_and_its_other_occurrences(client, world):
     from padel_app.models import Lesson
     from padel_app.serializers.calendar_event import serialize_calendar_event
@@ -267,6 +280,7 @@ def test_one_occurrence_on_its_own_court_leaves_the_series_and_its_other_occurre
         assert serialize_calendar_event(lesson)["court"]["id"] == court1
 
 
+@pytest.mark.criterion("CLUBS-COURTS-7")
 def test_before_materialisation_the_court_is_stored_cleared_and_refused_the_same_way(client, world):
     from padel_app.models import Lesson
 
@@ -290,6 +304,7 @@ def test_before_materialisation_the_court_is_stored_cleared_and_refused_the_same
     assert res.status_code == 400 and res.get_json()["fields"] == ["courtId"]
 
 
+@pytest.mark.criterion("CLUBS-COURTS-8")
 def test_message_placeholders_name_the_occurrence_court(client, world):
     """notifications.message-templates rule 14: {court} is the court the class is on."""
     from padel_app.models import LessonInstance

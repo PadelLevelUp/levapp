@@ -79,6 +79,7 @@ def _world(app):
 
 # ── rule 22: created late → counted as coming ─────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_class_created_six_hours_ahead_counts_its_student_as_coming(app, live_scheduler):
     ids, club_id = _world(app)
 
@@ -93,6 +94,7 @@ def test_a_class_created_six_hours_ahead_counts_its_student_as_coming(app, live_
     assert _ask_jobs(live_scheduler) == [], "nobody is asked"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_the_student_is_told_they_are_counted_as_coming(app, live_scheduler):
     ids, club_id = _world(app)
 
@@ -106,6 +108,7 @@ def test_the_student_is_told_they_are_counted_as_coming(app, live_scheduler):
     assert msgs[0].msg_metadata.get("countedAsComing") is True
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_class_created_five_days_ahead_is_unchanged(app, live_scheduler):
     ids, club_id = _world(app)
 
@@ -118,6 +121,7 @@ def test_a_class_created_five_days_ahead_is_unchanged(app, live_scheduler):
     assert any(j.startswith("reminder_lesson_") for j in jobs), "the ordinary reminder job is armed"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_series_created_late_counts_only_the_occurrences_already_past_their_reminder_time(app, live_scheduler):
     ids, club_id = _world(app)
 
@@ -133,6 +137,7 @@ def test_a_series_created_late_counts_only_the_occurrences_already_past_their_re
 
 # ── what stays as it was ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_student_added_late_to_an_existing_class_is_still_asked(app, live_scheduler):
     """Rule 18 is untouched: only a class CREATED late counts as coming (owner's decision a)."""
     from padel_app.models import LessonInstance
@@ -154,6 +159,7 @@ def test_a_student_added_late_to_an_existing_class_is_still_asked(app, live_sche
     assert len(_ask_jobs(live_scheduler)) == 1, "a late ask is armed for the newcomer"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_student_who_cancelled_and_is_put_back_late_is_still_asked(app, live_scheduler):
     """Owner's decision c: PAD-318 stays."""
     from padel_app.models import LessonInstance
@@ -180,6 +186,7 @@ def test_a_student_who_cancelled_and_is_put_back_late_is_still_asked(app, live_s
     assert len(_ask_jobs(live_scheduler)) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_students_own_request_accepted_late_is_counted_as_coming_and_not_asked(app, live_scheduler):
     """Owner's decision b. The accept path creates the class through add_class_service with
     notify_students=False (PAD-330): the acceptance message is the whole story, and the
@@ -276,6 +283,7 @@ def _accept(app, ids, rid):
 REQUEST_NOW = datetime(2026, 11, 10, 11, 0)  # a Tuesday; Lisbon is UTC+0 in November
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_request_accepted_late_through_the_real_path_counts_the_requester(app, live_scheduler, monkeypatch):
     """Review of #535, finding 1: the request path, not add_class_service by hand."""
     from padel_app.tests.helpers import pin_clock
@@ -354,6 +362,7 @@ def test_the_started_boundary_is_the_clubs_clock(app, live_scheduler):
     assert _ask_jobs(live_scheduler) == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-5")
 def test_a_series_counts_only_the_occurrence_whose_reminder_time_has_passed(app, live_scheduler):
     """Review of #535, mutant M1: two occurrences inside the look-ahead, only the first late."""
     from padel_app.models import Club, Coach

@@ -101,7 +101,7 @@ afterEach(() => {
 });
 
 describe("the coach answers a brand new private request from its bubble (rule 10a, PAD-461)", () => {
-  it("offers Accept / Decline / Propose while the request is live pending at that slot", async () => {
+  it("[CLASSES-CLASS-REQUESTS-10] offers Accept / Decline / Propose while the request is live pending at that slot", async () => {
     classRequestsApi.listClassRequests.mockResolvedValue([
       { id: 55, status: "pending", date: "2026-10-06", startTime: "18:00", endTime: "19:00" },
     ]);
@@ -123,7 +123,7 @@ describe("the coach answers a brand new private request from its bubble (rule 10
     }));
   });
 
-  it("the student's own copy of the message never offers actions", async () => {
+  it("[CLASSES-CLASS-REQUESTS-10] the student's own copy of the message never offers actions", async () => {
     classRequestsApi.listClassRequests.mockResolvedValue([
       { id: 55, status: "pending", date: "2026-10-06", startTime: "18:00", endTime: "19:00" },
     ]);
@@ -139,7 +139,7 @@ describe("the coach answers a brand new private request from its bubble (rule 10
 });
 
 describe("the coach answers an academy join-request ask from its bubble (rule 18, PAD-461)", () => {
-  it("offers Accept / Decline while the request is live pending", async () => {
+  it("[CLASSES-JOIN-REQUESTS-18] offers Accept / Decline while the request is live pending", async () => {
     classJoinRequestsApi.listClassJoinRequests.mockResolvedValue([
       { id: 77, status: "pending" },
     ]);
@@ -153,7 +153,7 @@ describe("the coach answers an academy join-request ask from its bubble (rule 18
     expect(screen.getByTestId("join-request-bubble-decline")).toBeTruthy();
   });
 
-  it("an ineligible 409 on accept opens the confirm dialog, and confirming accepts with confirm: true", async () => {
+  it("[CLASSES-JOIN-REQUESTS-11] an ineligible 409 on accept opens the confirm dialog, and confirming accepts with confirm: true", async () => {
     classJoinRequestsApi.listClassJoinRequests.mockResolvedValue([
       { id: 77, status: "pending" },
     ]);

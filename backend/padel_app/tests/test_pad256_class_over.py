@@ -40,6 +40,7 @@ CASES = [(at(SUMMER, 10), at(SUMMER, 9, 30), True), (at(WINTER, 10), at(WINTER, 
 
 
 @pytest.mark.parametrize("wall_start, utc_now, started", CASES)
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-19")
 def test_instance_is_over_uses_the_club_clock(wall_start, utc_now, started):
     from padel_app.services.notification_service import _instance_is_over
 
@@ -60,6 +61,7 @@ def test_join_requests_close_on_the_club_clock(wall_start, utc_now, started):
     (SUMMER, at(SUMMER, 10, 30), "completed"),
     (WINTER, at(WINTER, 10, 30), "scheduled"),
 ])
+@pytest.mark.criterion("CALENDAR-VIEW-8")
 def test_calendar_status_uses_the_club_clock(day, utc_now, status):
     from padel_app.serializers.calendar_event import _compute_status
 
@@ -67,6 +69,7 @@ def test_calendar_status_uses_the_club_clock(day, utc_now, status):
 
 
 @pytest.mark.parametrize("wall_start, utc_now, started", CASES)
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-19")
 def test_open_vacancies_expire_when_the_class_starts(app, wall_start, utc_now, started):
     from test_pad256_invite_window import _world_at
     from test_semi_auto_approval import _patched_io

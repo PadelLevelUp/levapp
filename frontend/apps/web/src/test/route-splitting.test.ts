@@ -13,13 +13,13 @@ const read = (rel: string) => readFileSync(path.join(src, rel), "utf8");
 const STATIC_PAGE_IMPORT = /^import\s[^;]*from\s+["'](?:\.\/|@\/)pages\/[^"']+["'];?/m;
 
 describe("route splitting", () => {
-  it.each(["App.tsx", "auth/HomeRoute.tsx"])("%s imports no page module statically", (file) => {
+  it.each(["App.tsx", "auth/HomeRoute.tsx"])("[CLIENT-ROUTE-LOADING-1] %s imports no page module statically", (file) => {
     const source = read(file);
     expect(source).toContain('from "@/routes/lazyPages"');
     expect(source.match(STATIC_PAGE_IMPORT)?.[0]).toBeUndefined();
   });
 
-  it("every page App.tsx renders comes from lazyPages, each built with lazyWithReload", () => {
+  it("[CLIENT-ROUTE-LOADING-1] every page App.tsx renders comes from lazyPages, each built with lazyWithReload", () => {
     const app = read("App.tsx");
     const block = /import \{([^}]+)\} from "@\/routes\/lazyPages";/.exec(app);
     expect(block).not.toBeNull();
@@ -33,7 +33,7 @@ describe("route splitting", () => {
     }
   });
 
-  it("lazyPages is the only module with a dynamic import of a page", () => {
+  it("[CLIENT-ROUTE-LOADING-1] lazyPages is the only module with a dynamic import of a page", () => {
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {

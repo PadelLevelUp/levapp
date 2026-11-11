@@ -25,15 +25,15 @@ const birthIssues = (birthDate: string) => {
 };
 
 describe("signUpSchema — adults only (PAD-445)", () => {
-  it("refuses a day short of 18 on the birth-date field", () => {
+  it("[AUTH-REGISTER-22] refuses a day short of 18 on the birth-date field", () => {
     expect(birthIssues(yearsAgo(18, 1))).toEqual(["birthDateUnderage"]);
   });
 
-  it("accepts an 18th birthday today", () => {
+  it("[AUTH-REGISTER-22] accepts an 18th birthday today", () => {
     expect(signUpSchema.safeParse({ ...base, birthDate: yearsAgo(18) }).success).toBe(true);
   });
 
-  it("refuses a 10-year-old too: the age refusal is the only issue", () => {
+  it("[AUTH-REGISTER-22] refuses a 10-year-old too: the age refusal is the only issue", () => {
     const r = signUpSchema.safeParse({ ...base, birthDate: yearsAgo(10) });
     expect(r.success).toBe(false);
     expect(r.success ? [] : r.error.errors.map((e) => `${String(e.path[0])}:${e.message}`)).toEqual([
@@ -47,7 +47,7 @@ describe("signUpSchema — adults only (PAD-445)", () => {
 });
 
 describe("the server's UNDERAGE (PAD-445)", () => {
-  it("maps UNDERAGE to the birth-date message", () => {
+  it("[AUTH-REGISTER-22] maps UNDERAGE to the birth-date message", () => {
     expect(CODE_KEYS.UNDERAGE).toBe("birthDateUnderage");
   });
 });

@@ -56,6 +56,7 @@ def _auth_header(app, user_id):
 # Create incomplete player
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-1")
 def test_create_incomplete_player_creates_invitation_and_inactive_user(client, app):
     user_id, coach_id = make_coach(app)
 
@@ -110,6 +111,7 @@ def test_create_incomplete_player_expires_in_7_days(app):
 # Resolve invitation (public)
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-2")
 def test_resolve_valid_invitation_returns_player_name(client, app):
     user_id, coach_id = make_coach(app)
 
@@ -136,6 +138,7 @@ def test_resolve_unknown_token_404(client, app):
 # Accept
 # -------------------------------------------------------------------
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-3")
 def test_accept_sets_credentials_and_activates_user(client, app):
     user_id, coach_id = make_coach(app)
 
@@ -164,6 +167,7 @@ def test_accept_sets_credentials_and_activates_user(client, app):
         assert invitation.status == "accepted"
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-5")
 def test_accept_with_duplicate_username_409(client, app):
     user_id, coach_id = make_coach(app, username="taken_username")
 
@@ -187,6 +191,7 @@ def test_accept_with_duplicate_username_409(client, app):
         assert invitation.status == "pending"
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-4")
 def test_accept_expired_invitation_410(app):
     from padel_app.services.player_invitation_service import (
         create_incomplete_player_service,

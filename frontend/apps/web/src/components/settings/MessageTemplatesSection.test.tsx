@@ -126,7 +126,7 @@ describe("MessageTemplatesSection — placeholder hints (PAD-430, message-templa
   const CLASS_KEYS = ["invite", "reminder", "reminder_followup", "waiting_list_invite"] as const;
   const EXPECTED = ["{name}", "{level}", "{weekday}", "{time}", "{type}", "{date}", "{court}"];
 
-  it.each(CLASS_KEYS)("offers all seven placeholders on %s", (key) => {
+  it.each(CLASS_KEYS)("[NOTIFICATIONS-MESSAGE-TEMPLATES-10] offers all seven placeholders on %s", (key) => {
     render(
       <SettingsUnsavedTestHarness>
         <Wrapper />
@@ -174,7 +174,7 @@ describe("MessageTemplatesSection explains templates and previews them (PAD-549)
     }));
   });
 
-  it("lists every field with its meaning and the server's example", async () => {
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-4] lists every field with its meaning and the server's example", async () => {
     render(<Wrapper />);
     expect(screen.getByTestId("template-help-field-day").textContent).toContain("settings.templates.help.fields.day");
     await waitFor(() => expect(screen.getByTestId("template-help-example-day").textContent).toBe("amanhã"));
@@ -186,7 +186,7 @@ describe("MessageTemplatesSection explains templates and previews them (PAD-549)
     expect(within(screen.getByTestId("template-row-invite")).getByText("{day}")).toBeTruthy();
   });
 
-  it("previews a class template through the server's formatter", async () => {
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-4] previews a class template through the server's formatter", async () => {
     render(<Wrapper />);
     const row = screen.getByTestId("template-row-invite");
     fireEvent.change(within(row).getByRole("textbox"), { target: { value: "vaga para {day}, {name}" } });
@@ -209,7 +209,7 @@ describe("MessageTemplatesSection — every placeholder in every field (PAD-670,
     }));
   });
 
-  it.each(ALL_KEYS)("offers the whole vocabulary and a preview on %s", async (key) => {
+  it.each(ALL_KEYS)("[NOTIFICATIONS-MESSAGE-TEMPLATES-2] offers the whole vocabulary and a preview on %s", async (key) => {
     render(<Wrapper />);
     const badges = screen.getByTestId(`template-variables-${key}`);
     for (const token of VOCABULARY) expect(within(badges).getByText(token)).toBeTruthy();
@@ -218,7 +218,7 @@ describe("MessageTemplatesSection — every placeholder in every field (PAD-670,
     expect(within(badges).queryByText("{side}") !== null).toBe(key === "waiting_list_invite");
   });
 
-  it("inserting {day} into reminder_declined shows the server's preview, amanhã", async () => {
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-2] inserting {day} into reminder_declined shows the server's preview, amanhã", async () => {
     render(<Wrapper />);
     fireEvent.click(within(screen.getByTestId("template-variables-reminder_declined")).getByText("{day}"));
     const area = within(screen.getByTestId("template-row-reminder_declined")).getByRole("textbox") as HTMLTextAreaElement;

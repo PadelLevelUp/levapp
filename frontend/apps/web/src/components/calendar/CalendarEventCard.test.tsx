@@ -26,21 +26,21 @@ const block = (extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
 });
 
 describe('CalendarEventCard drag on a class-request hold', () => {
-  it('is draggable for an ordinary block', () => {
+  it('[CLASSES-CLASS-REQUESTS-28] is draggable for an ordinary block', () => {
     render(<CalendarEventCard event={block()} />);
     const card = screen.getByTestId('calendar-event-card');
     expect(card.getAttribute('draggable')).toBe('true');
     expect(card.getAttribute('data-request-hold')).toBe('false');
   });
 
-  it('is not draggable for a live hold', () => {
+  it('[CLASSES-CLASS-REQUESTS-28] is not draggable for a live hold', () => {
     render(<CalendarEventCard event={block({ requestHoldOf: 42 })} />);
     const card = screen.getByTestId('calendar-event-card');
     expect(card.getAttribute('draggable')).toBe('false');
     expect(card.getAttribute('data-request-hold')).toBe('true');
   });
 
-  it('treats an explicit null the same as an ordinary block', () => {
+  it('[CLASSES-CLASS-REQUESTS-28] treats an explicit null the same as an ordinary block', () => {
     render(<CalendarEventCard event={block({ requestHoldOf: null })} />);
     expect(screen.getByTestId('calendar-event-card').getAttribute('draggable')).toBe('true');
   });

@@ -1,4 +1,5 @@
 """PAD-742 admin.finance rules 3, 4, 6, 10: the month × category summary and its running total."""
+import pytest
 from datetime import date, datetime
 
 from padel_app.sql_db import db
@@ -39,6 +40,7 @@ def _summary(client, headers, query=""):
     return client.get(f"/admin/api/finance/summary{query}", headers=headers).get_json()
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-12")
 def test_recurring_costs_charge_every_period_until_they_end(app, client, monkeypatch):
     pin_clock(monkeypatch, NOW)
     headers = _owner(app)
@@ -56,6 +58,7 @@ def test_recurring_costs_charge_every_period_until_they_end(app, client, monkeyp
     assert months["2026-03"] == {}
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-13")
 def test_the_cumulative_total_runs_from_the_start_whatever_the_window(app, client, monkeypatch):
     pin_clock(monkeypatch, NOW)
     headers = _owner(app)
@@ -78,6 +81,7 @@ def test_imported_google_cloud_counts_its_net_in_infrastructure(app, client, mon
     assert september["byCategory"] == {"infrastructure": "35.13"}  # 35.127456 rounded once, after summing
 
 
+@pytest.mark.criterion("ADMIN-FINANCE-20")
 def test_google_cloud_is_counted_once(app, client, monkeypatch):
     pin_clock(monkeypatch, NOW)
     headers = _owner(app)

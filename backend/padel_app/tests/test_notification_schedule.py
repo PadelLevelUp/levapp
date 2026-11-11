@@ -60,12 +60,14 @@ class TestFireTimeUtc:
     # PAD-256: these pinned the legacy `_compute_timing_dt`, which read the
     # stored wall-clock start as UTC. `_fire_time_utc` replaced it; only the
     # `hours_before` expectations move (real hours before the real start).
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-25")
     def test_hours_before(self):
         start = datetime(2025, 6, 10, 14, 0)
         cfg = {"type": "hours_before", "value": 24}
         result = _fire_time_utc(start, cfg)
         assert result == datetime(2025, 6, 9, 13, 0)   # 14:00 WEST is 13:00 UTC
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-25")
     def test_hours_before_fractional(self):
         start = datetime(2025, 6, 10, 10, 0)
         cfg = {"type": "hours_before", "value": 3}
@@ -135,6 +137,7 @@ class TestFireTimeUtc:
         assert isinstance(result, datetime)
         assert result.tzinfo is None  # still naive UTC for the scheduler
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-25")
     def test_hours_before_counts_real_hours_in_every_season(self):
         """PAD-256 (notifications.reminders rule 15): `hours_before` counts real
         hours before the class's real start. The stored start is on the club's
@@ -228,16 +231,19 @@ class TestCheckRestrictions:
     # through Portuguese summer time the effective window was 23:00–08:00
     # local. These two cases are exactly the consequences the ticket names.
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-31")
     def test_reported_case_2230_local_in_summer_is_suppressed(self):
         """21:30 UTC == 22:30 WEST. Pre-fix this was SENT (UTC hour 21 < 22)."""
         r = _restrictions(quietHours={"enabled": True})
         assert self._call(datetime(2025, 8, 14, 21, 30), r) is False
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-31")
     def test_reported_case_0730_local_in_summer_is_allowed(self):
         """06:30 UTC == 07:30 WEST. Pre-fix this was SUPPRESSED (UTC hour 6 < 7)."""
         r = _restrictions(quietHours={"enabled": True})
         assert self._call(datetime(2025, 8, 14, 6, 30), r) is True
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-32")
     def test_same_utc_instant_differs_between_summer_and_winter(self):
         """The discriminating test — a constant offset cannot produce this.
 
@@ -381,18 +387,21 @@ class TestDailyLimit:
             ]
             return bounds
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-35")
     def test_window_starts_at_club_local_midnight_in_summer(self, app):
         """August is WEST: the local day starts at 23:00 UTC the day before."""
         assert self._captured_day_start(
             app, datetime(2025, 8, 14, 10, 0)
         ) == datetime(2025, 8, 13, 23, 0)
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-35")
     def test_window_starts_at_utc_midnight_in_winter(self, app):
         """January is WET (UTC+0), so local midnight and UTC midnight agree."""
         assert self._captured_day_start(
             app, datetime(2025, 1, 14, 10, 0)
         ) == datetime(2025, 1, 14, 0, 0)
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-34")
     def test_first_local_hour_of_the_day_counts_against_the_new_day(self, app):
         """23:30 UTC in summer is 00:30 local the NEXT day.
 
@@ -404,6 +413,7 @@ class TestDailyLimit:
             app, datetime(2025, 8, 14, 23, 30)
         ) == datetime(2025, 8, 14, 23, 0)
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-35")
     def test_same_utc_instant_yields_different_windows_across_dst(self, app):
         """Discriminating evidence of a real timezone conversion.
 
@@ -463,6 +473,7 @@ class TestSendClassRemindersGuard:
             # query.get was called — guard didn't abort before it
             MockLI.query.get.assert_called_once_with(1)
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-27")
     def test_past_instance_returns_without_sending(self):
         from padel_app.services.notification_service import send_class_reminders
         now = datetime(2025, 6, 10, 16, 0)
@@ -618,6 +629,7 @@ class TestProcessInvitationBatches:
             mock_send.assert_not_called()
             assert count == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-REMINDERS-19")
     def test_past_class_vacancy_is_expired(self):
         from padel_app.services.notification_service import process_invitation_batches
 

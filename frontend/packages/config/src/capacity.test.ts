@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { effectiveFilledSpots, effectiveFilledSpotsOf, participantsHeader } from "./capacity";
 
 describe("effectiveFilledSpots (PAD-71)", () => {
-  it("subtracts declined students from the enrolment count", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-9] subtracts declined students from the enrolment count", () => {
     // Ticket example: 6 enrolled, 3 declined -> 3 filled spots.
     const presences = [
       { status: "absent" },
@@ -15,13 +15,13 @@ describe("effectiveFilledSpots (PAD-71)", () => {
     expect(effectiveFilledSpots(6, presences)).toBe(3);
   });
 
-  it("counts students who have not answered yet", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-9] counts students who have not answered yet", () => {
     expect(effectiveFilledSpots(4, [])).toBe(4);
     expect(effectiveFilledSpots(4, undefined)).toBe(4);
     expect(effectiveFilledSpots(4, null)).toBe(4);
   });
 
-  it("counts students marked present", () => {
+  it("[CLASSES-INSTANCE-ENROLLMENT-9] counts students marked present", () => {
     expect(
       effectiveFilledSpots(3, [
         { status: "present" },
@@ -49,7 +49,7 @@ describe("effectiveFilledSpotsOf (calendar.event-detail rule 5, B-240)", () => {
     expect(effectiveFilledSpotsOf([{ id: "1" }, { id: "2" }], presences)).toBe(1);
   });
 
-  it("does not subtract a declined student who is no longer listed (an edit's unticked student)", () => {
+  it("[CALENDAR-EVENT-DETAIL-12] does not subtract a declined student who is no longer listed (an edit's unticked student)", () => {
     expect(effectiveFilledSpotsOf([{ id: "2" }], presences)).toBe(1);
   });
 
@@ -63,14 +63,14 @@ describe("effectiveFilledSpotsOf (calendar.event-detail rule 5, B-240)", () => {
 });
 
 describe("participantsHeader (PAD-771, calendar.event-detail rule 5)", () => {
-  it("counts the filled spots and names the open ones: 16 enrolled, 4 not coming", () => {
+  it("[CALENDAR-EVENT-DETAIL-2] counts the filled spots and names the open ones: 16 enrolled, 4 not coming", () => {
     expect(participantsHeader(12, 16)).toEqual({
       key: "calendar.participants.open",
       values: { current: 12, max: 16, count: 4 },
     });
   });
 
-  it("reads full when no spot is open", () => {
+  it("[CALENDAR-EVENT-DETAIL-2] reads full when no spot is open", () => {
     expect(participantsHeader(16, 16)).toEqual({ key: "calendar.participants.full", values: { current: 16, max: 16 } });
     expect(participantsHeader(17, 16).key).toBe("calendar.participants.full");
   });

@@ -8,7 +8,7 @@ vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ b
 import { KEYBOARD_SCREENS, rootContentBottomPadding, screenBottomInset, tabBarBottom } from "./bottom-inset";
 
 describe("PAD-730: content stays out from under the Android navigation bar", () => {
-  it("the tab bar takes Android's 3-button bar (48 dp) under its labels", () => {
+  it("[MOBILE-ANDROID-RUNTIME-15] the tab bar takes Android's 3-button bar (48 dp) under its labels", () => {
     expect(tabBarBottom("android", 48)).toEqual({ paddingBottom: 48, height: 108 });
   });
 
@@ -17,7 +17,7 @@ describe("PAD-730: content stays out from under the Android navigation bar", () 
     expect(tabBarBottom("android", 0)).toEqual({ paddingBottom: 8, height: 68 });
   });
 
-  it("iOS keeps the 24/84 it was tuned for, whatever the inset", () => {
+  it("[MOBILE-ANDROID-RUNTIME-15] iOS keeps the 24/84 it was tuned for, whatever the inset", () => {
     expect(tabBarBottom("ios", 34)).toEqual({ paddingBottom: 24, height: 84 });
     expect(tabBarBottom("ios", 0)).toEqual({ paddingBottom: 24, height: 84 });
   });
@@ -32,7 +32,7 @@ describe("PAD-730: content stays out from under the Android navigation bar", () 
     expect(screenBottomInset("ios", 34)).toBe(34);
   });
 
-  it("every root-Stack screen with a KeyboardAvoidingView is left out of the root padding", () => {
+  it("[MOBILE-ANDROID-RUNTIME-17] every root-Stack screen with a KeyboardAvoidingView is left out of the root padding", () => {
     const app = join(__dirname, "../../app");
     const files: string[] = [];
     const walk = (dir: string) => {

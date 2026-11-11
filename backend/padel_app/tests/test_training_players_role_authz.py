@@ -152,6 +152,7 @@ def _routes(r):
     ]
 
 
+@pytest.mark.criterion("TRAINING-GROUPS-1")
 def test_every_converted_route_rejects_a_student_with_403(app, client, roles):
     """The whole matrix in one assertion, so a miss names the offending route."""
     offenders = {}
@@ -167,6 +168,7 @@ def test_every_converted_route_rejects_a_student_with_403(app, client, roles):
     )
 
 
+@pytest.mark.criterion("TRAINING-GROUPS-1")
 def test_no_converted_route_500s_for_a_student(app, client, roles):
     """Stated separately from the 403 check because it is the regression that
     actually shipped: a 500 here is an unhandled AttributeError, not a decision.
@@ -186,6 +188,7 @@ def test_no_converted_route_500s_for_a_student(app, client, roles):
     "label",
     ["players.list", "players.coach_players", "players.paginated", "players.profile"],
 )
+@pytest.mark.criterion("PLAYERS-LIST-2")
 def test_the_four_players_routes_are_the_real_fix(app, client, roles, label):
     """Pinned individually: these are the four that genuinely 500'd on main.
 

@@ -98,7 +98,7 @@ describe("held until the tab's Save (settings.explicit-save rules 2-3)", () => {
     );
   });
 
-  it("choosing an option and back is clean (settings.unsaved-edits rule 2)", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] choosing an option and back is clean (settings.unsaved-edits rule 2)", async () => {
     await openOn({ reminder: "never" }, "never");
 
     fireEvent.click(option("monthly"));
@@ -107,7 +107,7 @@ describe("held until the tab's Save (settings.explicit-save rules 2-3)", () => {
     expect(unsavedIds()).toBe("");
   });
 
-  it("a failed Save keeps the choice held and unsaved", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the choice held and unsaved", async () => {
     api.putEvaluationSettings.mockRejectedValue(new Error("offline"));
     await openOn({ reminder: "never" }, "never");
 

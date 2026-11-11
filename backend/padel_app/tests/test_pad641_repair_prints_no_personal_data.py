@@ -6,6 +6,7 @@ e-mails (psycopg2 inlines query parameters), so the log tail stays in an owner-o
 VM and only counts and exception class names are printed; Postgres activity is shown by
 `query_id` and wait events.
 """
+import pytest
 import re
 from pathlib import Path
 
@@ -25,6 +26,7 @@ def _commands(script):
     return [l.strip() for l in script.splitlines() if l.strip() and not l.strip().startswith("#")]
 
 
+@pytest.mark.criterion("DELIVERY-REPAIR-DIAGNOSTICS-1")
 def test_the_app_log_tail_goes_to_a_file_on_the_vm_never_to_stdout():
     lines = [l for l in _commands(_script()) if "docker logs" in l]
     assert lines, "the repair workflow no longer reads the app log at all"
@@ -33,6 +35,7 @@ def test_the_app_log_tail_goes_to_a_file_on_the_vm_never_to_stdout():
     assert "umask 077" in _script() and "mkdir -p -m 700" in _script()
 
 
+@pytest.mark.criterion("DELIVERY-REPAIR-DIAGNOSTICS-2")
 def test_the_saved_log_is_only_counted_never_printed():
     for line in _commands(_script()):
         if "$LOGF" in line and "docker logs" not in line and not line.startswith("LOGF="):
@@ -41,6 +44,7 @@ def test_the_saved_log_is_only_counted_never_printed():
             assert not re.search(r"\b(cat|tail|head|less|more)\b[^|]*\$LOGF", line), line
 
 
+@pytest.mark.criterion("DELIVERY-REPAIR-DIAGNOSTICS-3")
 def test_postgres_activity_shows_query_ids_never_query_text():
     script = _script()
     sql = re.findall(r"SELECT .*?;", script)

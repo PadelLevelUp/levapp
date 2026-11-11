@@ -1,6 +1,8 @@
+import pytest
 from padel_app.tests.test_pad815_new_coach_starts_from_the_reference import REFERENCE_LADDER
 
 
+@pytest.mark.criterion("LEVELS-COACH-LEVELS-1")
 def test_new_coach_gets_default_levels_via_service(app):
     """A coach created through create_coach_service gets the default ladder (levels rule 14, PAD-815)."""
     from padel_app.sql_db import db

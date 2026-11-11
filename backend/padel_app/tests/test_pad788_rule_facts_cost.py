@@ -11,6 +11,7 @@ per wave on a 166-student roster, for every spot of the class and every group, i
 
 The verdicts must not change: each student's stage is the one the per-student evaluator gives.
 """
+import pytest
 from sqlalchemy import event
 
 from padel_app.sql_db import db
@@ -76,6 +77,7 @@ def _waves(app, ids):
     return counter.n, verdicts
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-55")
 def test_a_wave_with_fact_rules_costs_the_same_for_a_big_roster(app):
     with app.app_context():
         small = _seed(20)
@@ -93,6 +95,7 @@ def test_a_wave_with_fact_rules_costs_the_same_for_a_big_roster(app):
     assert n_big < 30 * len(GROUPS), n_big
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-55")
 def test_the_verdicts_are_the_per_student_evaluators(app):
     """Each student's stage is what the per-student path (no shared facts) says."""
     from padel_app.models.lesson_instances import LessonInstance

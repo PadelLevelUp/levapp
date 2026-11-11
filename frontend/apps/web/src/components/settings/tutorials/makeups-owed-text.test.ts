@@ -17,11 +17,11 @@ type T = Awaited<ReturnType<typeof tFor>>;
 const owed = (t: T) => (n: number) => resolveText(t, describePriority({ id: "justified_misses", owed: n, rate: 0 }));
 
 describe("PAD-505: classes owed, in words", () => {
-  it("pt", async () => {
+  it("[NOTIFICATIONS-INVITE-SIMULATION-15] pt", async () => {
     expect([0, 1, 2].map(owed(await tFor("pt")))).toEqual(["nenhuma aula por repor", "1 aula por repor", "2 aulas por repor"]);
   });
 
-  it("en", async () => {
+  it("[NOTIFICATIONS-INVITE-SIMULATION-15] en", async () => {
     expect([0, 1, 2].map(owed(await tFor("en")))).toEqual(["no classes to make up", "1 class to make up", "2 classes to make up"]);
   });
 

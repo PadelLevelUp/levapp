@@ -8,6 +8,7 @@ migration (that file's harness is not Postgres-only — it loads the migration
 module and drives ``upgrade()``/``downgrade()`` directly against a scratch
 ``sqlite://`` connection, no Flask app or real Alembic environment needed).
 """
+import pytest
 import importlib.util
 import pathlib
 
@@ -101,6 +102,7 @@ def _snapshot(conn):
     return (_categories(conn), _entries(conn))
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-2")
 def test_upgrade_converts_the_legacy_category_and_its_entries_only():
     conn = _scratch()
     seed = _snapshot(conn)
@@ -152,6 +154,7 @@ def test_upgrade_converts_the_legacy_category_and_its_entries_only():
     assert _snapshot(conn) == after_first_upgrade
 
 
+@pytest.mark.criterion("EVALUATIONS-LEGACY-CONVERSION-2")
 def test_a_second_upgrade_is_a_no_op():
     conn = _scratch()
     _run(conn, "upgrade")

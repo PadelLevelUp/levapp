@@ -109,6 +109,7 @@ def _send(app, trio, sender_user_id, text="hello"):
 # B-004 — publish() delivers only to the user ids it was given
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-1")
 def test_publish_delivers_only_to_the_named_recipients(app):
     """messaging.sse-realtime rule 8 — an event names its recipients."""
     from padel_app import realtime
@@ -126,6 +127,7 @@ def test_publish_delivers_only_to_the_named_recipients(app):
         assert bystander.empty(), "an unaddressed subscriber received someone else's event"
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-2")
 def test_publish_without_recipients_is_a_type_error(app):
     """The pre-B-004 broadcast must not be reachable by omitting the argument."""
     from padel_app import realtime
@@ -141,6 +143,7 @@ def test_publish_without_recipients_is_a_type_error(app):
         assert listener.empty()
 
 
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-3")
 def test_every_queue_of_the_same_user_is_served(app):
     """Two tabs, or web + phone: one user id, several queues."""
     from padel_app import realtime
@@ -174,6 +177,7 @@ def test_unsubscribe_removes_only_that_queue(app):
         assert drop.empty()
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-15")
 def test_message_created_reaches_participants_only(app, trio):
     """messaging.messages criterion: an SSE event only reaches the participants."""
     from padel_app import realtime
@@ -245,6 +249,7 @@ def test_event_shape_is_unchanged(app, trio):
 # B-026 — every message operation requires participation
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-13")
 def test_non_participant_cannot_send_message(client, app, trio):
     """messaging.messages rule 10 — 403, no row, no event, no push."""
     from padel_app.models import Message
@@ -267,6 +272,7 @@ def test_non_participant_cannot_send_message(client, app, trio):
         assert Message.query.filter_by(conversation_id=trio["conversation_id"]).count() == 0
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-13")
 def test_participant_can_still_send_message(client, app, trio):
     """The guard must not lock out the people the conversation is for."""
     with patch("padel_app.services.messaging_service.send_push_notification"), \
@@ -281,6 +287,7 @@ def test_participant_can_still_send_message(client, app, trio):
     assert resp.get_json()["content"] == "hi"
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-14")
 def test_non_participant_cannot_react(client, app, trio):
     """messaging.messages rule 10 / messaging.reactions rule 6."""
     from padel_app.models import MessageReaction
@@ -299,6 +306,7 @@ def test_non_participant_cannot_react(client, app, trio):
         assert MessageReaction.query.filter_by(message_id=message_id).count() == 0
 
 
+@pytest.mark.criterion("MESSAGING-REACTIONS-1")
 def test_participant_can_still_react(client, app, trio):
     from padel_app.models import MessageReaction
 
@@ -316,6 +324,7 @@ def test_participant_can_still_react(client, app, trio):
         assert MessageReaction.query.filter_by(message_id=message_id).count() == 1
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-12")
 def test_non_participant_cannot_edit_or_delete(client, app, trio):
     """Already excluded by the sender check — pinned so it stays true under rule 10."""
     with app.app_context():

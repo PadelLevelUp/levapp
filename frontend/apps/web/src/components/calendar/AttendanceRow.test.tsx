@@ -101,7 +101,7 @@ describe("one state word per row", () => {
 });
 
 describe("the cancellation line is provenance, not a second state", () => {
-  it("shows who cancelled and when, as secondary text on the coach's row", () => {
+  it("[ATTENDANCE-CONFIRM-23] shows who cancelled and when, as secondary text on the coach's row", () => {
     row(CANCELLED);
     const detail = screen.getByTestId("attendance-cancelled-by-student");
     expect(detail).toHaveTextContent("calendar.detail.cancelledByStudentAt");
@@ -178,7 +178,7 @@ describe("PAD-663: intent words until the class ends", () => {
     return screen.getAllByTestId("attendance-state").at(-1)!;
   }
 
-  it("before the end, a validated present reads Vai and keeps data-state attended", () => {
+  it("[CALENDAR-EVENT-DETAIL-6] before the end, a validated present reads Vai and keeps data-state attended", () => {
     const badge = rowAt("attended", false);
     expect(badge.textContent).toBe("calendar.attendanceState.coming.coach");
     expect(badge.getAttribute("data-state")).toBe("attended");

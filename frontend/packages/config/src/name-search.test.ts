@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import { nameMatchesQuery, searchWords } from "./name-search";
 
 describe("nameMatchesQuery (PAD-516, players.list rule 3)", () => {
-  it("finds a name whose words are typed out of order or with words between", () => {
+  it("[PLAYERS-LIST-5] finds a name whose words are typed out of order or with words between", () => {
     expect(nameMatchesQuery("Pedro Mesquita e Sousa", "pedro sousa")).toBe(true);
     expect(nameMatchesQuery("Pedro Mesquita e Sousa", "sousa pedro")).toBe(true);
     expect(nameMatchesQuery("Pedro Mesquita e Sousa", "mesq sou")).toBe(true);
   });
 
-  it("needs every word", () => {
+  it("[PLAYERS-LIST-5] needs every word", () => {
     expect(nameMatchesQuery("Pedro Alves", "pedro sousa")).toBe(false);
   });
 
-  it("folds accents, case and punctuation, and ignores extra spaces", () => {
+  it("[PLAYERS-LIST-5] folds accents, case and punctuation, and ignores extra spaces", () => {
     expect(nameMatchesQuery("João Álvares", "  joao   ALVARES ")).toBe(true);
     expect(nameMatchesQuery("Ana-Rita O'Neil", "oneil anarita")).toBe(true);
   });
@@ -35,7 +35,7 @@ import cases from "./name-search.cases.json";
 import { foldSearchText, rankPlayerMatch, searchPlayers } from "./name-search";
 
 describe("players.search shared cases (PAD-665, B-531)", () => {
-  it.each(cases.fold as [string, string][])("folds %j to %j", (input, out) => {
+  it.each(cases.fold as [string, string][])("[PLAYERS-SEARCH-4] folds %j to %j", (input, out) => {
     expect(foldSearchText(input)).toBe(out);
   });
 
@@ -63,7 +63,7 @@ describe("searchPlayers (PAD-665, players.search rule 6)", () => {
     { id: 2, name: "Ana Rita" },
     { id: 4, name: "Bruno Dias" },
   ];
-  it("ranks by tier, then name; drops non-matches", () => {
+  it("[PLAYERS-SEARCH-2] ranks by tier, then name; drops non-matches", () => {
     expect(searchPlayers(roster, "ana", (p) => p).map((p) => p.name)).toEqual([
       "Ana Rita",
       "Joana Anacleto",

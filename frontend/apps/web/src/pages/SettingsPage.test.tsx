@@ -211,7 +211,7 @@ async function openOnCalendarAndToggleSunday() {
 }
 
 describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () => {
-  it("asks before a desktop-nav tab switch with an unsaved edit, and stays on the current tab", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-1] asks before a desktop-nav tab switch with an unsaved edit, and stays on the current tab", async () => {
     await openOnCalendarAndToggleSunday();
 
     fireEvent.click(screen.getByTestId("settings-nav-preferences"));
@@ -222,7 +222,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(screen.queryByTestId("settings-request-alerts")).not.toBeInTheDocument();
   });
 
-  it("Keep editing: closes the dialog, stays on the current tab, edit intact", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-1] Keep editing: closes the dialog, stays on the current tab, edit intact", async () => {
     await openOnCalendarAndToggleSunday();
     fireEvent.click(screen.getByTestId("settings-nav-preferences"));
     expect(dialog()).toBeInTheDocument();
@@ -234,7 +234,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(sunday()).toHaveAttribute("data-state", "off");
   });
 
-  it("Discard: switches to the chosen tab, and the section unmounts (a later return reloads fresh)", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-1] Discard: switches to the chosen tab, and the section unmounts (a later return reloads fresh)", async () => {
     await openOnCalendarAndToggleSunday();
     fireEvent.click(screen.getByTestId("settings-nav-preferences"));
     fireEvent.click(screen.getByTestId("settings-unsaved-discard"));
@@ -253,7 +253,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(sunday()).toHaveAttribute("data-state", "working");
   });
 
-  it("nothing unsaved: switches at once, no dialog", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] nothing unsaved: switches at once, no dialog", async () => {
     goto("/settings?tab=calendar");
     renderSettings();
     await screen.findByTestId("working-hours-works-sun");
@@ -264,7 +264,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(screen.getByTestId("settings-request-alerts")).toBeInTheDocument();
   });
 
-  it("an edit undone by hand: no dialog (rule 2, not 'was touched')", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] an edit undone by hand: no dialog (rule 2, not 'was touched')", async () => {
     await openOnCalendarAndToggleSunday();
     fireEvent.click(screen.getByTestId("working-hours-works-sun")); // back on
     expect(sunday()).toHaveAttribute("data-state", "working");
@@ -275,7 +275,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(screen.getByTestId("settings-request-alerts")).toBeInTheDocument();
   });
 
-  it("a successful save: no dialog", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-4] a successful save: no dialog", async () => {
     putCoachWorkingHours.mockImplementation((value: unknown) => Promise.resolve({ workingHours: value }));
     await openOnCalendarAndToggleSunday();
 
@@ -288,7 +288,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(dialog()).not.toBeInTheDocument();
   });
 
-  it("PAD-506: a held request-alerts change asks before leaving the tab, and nothing was sent", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-4] PAD-506: a held request-alerts change asks before leaving the tab, and nothing was sent", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     const toggle = await screen.findByTestId("settings-request-alerts");
@@ -311,7 +311,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(sunday()).toHaveAttribute("data-state", "off");
   });
 
-  it("the mobile-width nav also goes through the guard", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-1] the mobile-width nav also goes through the guard", async () => {
     await openOnCalendarAndToggleSunday();
 
     fireEvent.click(screen.getByTestId("settings-mobile-nav-preferences"));
@@ -344,7 +344,7 @@ describe("SettingsPage — unsaved-edits tab-switch guard (PAD-394, B-157)", () 
     expect(getCoachWorkingHours).toHaveBeenCalledTimes(1);
   });
 
-  it("registers beforeunload only while a section is unsaved, and removes it once clean", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-7] registers beforeunload only while a section is unsaved, and removes it once clean", async () => {
     const addSpy = vi.spyOn(window, "addEventListener");
     const removeSpy = vi.spyOn(window, "removeEventListener");
     await openOnCalendarAndToggleSunday();
@@ -438,7 +438,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
   }
   const shownLanguage = () => screen.getByLabelText("settings.language").getAttribute("data-value");
 
-  it("a language change is held: nothing is sent and the app keeps its language until Save", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-1] a language change is held: nothing is sent and the app keeps its language until Save", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     await waitFor(() => expect(getMe).toHaveBeenCalled());
@@ -460,7 +460,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     await waitFor(() => expect(headerSave()).toBeDisabled());
   });
 
-  it("language and request alerts go in one PATCH", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-2] language and request alerts go in one PATCH", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     const toggle = await screen.findByTestId("settings-request-alerts");
@@ -474,7 +474,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(updateMe).toHaveBeenCalledWith({ language: "pt", requestAlerts: false });
   });
 
-  it("a failed Save keeps the change held and unsaved, and the app keeps its language", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a failed Save keeps the change held and unsaved, and the app keeps its language", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     await waitFor(() => expect(shownLanguage()).toBe("en"));
@@ -493,7 +493,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(dialog()).toBeInTheDocument();
   });
 
-  it("a mixed result: the part that failed stays unsaved, the part that saved is clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] a mixed result: the part that failed stays unsaved, the part that saved is clean", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     await waitFor(() => expect(shownLanguage()).toBe("en"));
@@ -514,7 +514,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     evaluationApi.putEvaluationScale.mockClear();
   });
 
-  it("changed and changed back is clean: Save disabled, nothing asked", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-7] changed and changed back is clean: Save disabled, nothing asked", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     const toggle = await screen.findByTestId("settings-request-alerts");
@@ -550,7 +550,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(maybeSave()).not.toBeInTheDocument();
   });
 
-  it("a late opening read does not replace a held language", async () => {
+  it("[SETTINGS-LANGUAGE-8] a late opening read does not replace a held language", async () => {
     let land!: (me: typeof ME) => void;
     getMe.mockReset().mockReturnValueOnce(new Promise((resolve) => { land = resolve; }));
     goto("/settings?tab=preferences");
@@ -562,7 +562,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(headerSave()).toBeEnabled();
   });
 
-  it("frequency and scale are held, sent by the one Save, and then clean", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-2] frequency and scale are held, sent by the one Save, and then clean", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     fireEvent.click(await screen.findByTestId("settings-evaluation-scale-option-10"));
@@ -579,7 +579,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(dialog()).not.toBeInTheDocument();
   });
 
-  it("an in-app link out of Settings asks while something is held; Discard follows it (rule 5)", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-4] an in-app link out of Settings asks while something is held; Discard follows it (rule 5)", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     const toggle = await screen.findByTestId("settings-request-alerts");
@@ -625,7 +625,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
     expect(dialog()).not.toBeInTheDocument();
   });
 
-  it("with nothing held, an in-app link leaves at once", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] with nothing held, an in-app link leaves at once", async () => {
     goto("/settings?tab=preferences");
     renderSettings();
     await screen.findByTestId("settings-request-alerts");
@@ -637,7 +637,7 @@ describe("SettingsPage — one Save per tab (settings.explicit-save, PAD-506)", 
 });
 
 describe("SettingsPage — a coach with no email (PAD-482, auth.email-verification rule 14)", () => {
-  it("the coach home's link lands on Perfil with the empty email field focused and the reason under it", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] the coach home's link lands on Perfil with the empty email field focused and the reason under it", async () => {
     getMe.mockResolvedValue({ ...ME, email: null, emailVerification: "unverified" });
     goto("/settings?tab=profile&focus=email");
     renderSettings();
@@ -647,7 +647,7 @@ describe("SettingsPage — a coach with no email (PAD-482, auth.email-verificati
     expect(document.activeElement).toBe(field);
   });
 
-  it("a coach with an email sees no reason line, and the field is not focused without ?focus=email", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] a coach with an email sees no reason line, and the field is not focused without ?focus=email", async () => {
     goto("/settings?tab=profile");
     renderSettings();
 
@@ -661,7 +661,7 @@ describe("SettingsPage — a coach with no email (PAD-482, auth.email-verificati
 // B-263 (PAD-482): typing before /auth/me lands used to skip hydration for EVERY field, so a save sent
 // `name: ""` and was refused. Only the fields the coach touched keep what they typed.
 describe("SettingsPage — typing before the profile has loaded (B-263)", () => {
-  it("the untouched fields still fill in, and the save sends only the typed one", async () => {
+  it("[SETTINGS-PROFILE-8] the untouched fields still fill in, and the save sends only the typed one", async () => {
     let land!: (me: object) => void;
     getMe.mockReturnValue(new Promise((resolve) => { land = resolve; }));
     goto("/settings?tab=profile&focus=email");
@@ -718,7 +718,7 @@ describe("SettingsPage — date of birth and country in Perfil (PAD-640, setting
     return `${t.getFullYear() - 17}-${String(t.getMonth() + 1).padStart(2, "0")}-01`;
   };
 
-  it("shows the stored date and country, and saves both when changed", async () => {
+  it("[SETTINGS-PROFILE-10] shows the stored date and country, and saves both when changed", async () => {
     goto("/settings?tab=profile");
     renderSettings();
     await waitFor(() => expect(birth().value).toBe("1990-05-01"));
@@ -731,7 +731,7 @@ describe("SettingsPage — date of birth and country in Perfil (PAD-640, setting
     await waitFor(() => expect(updateMe).toHaveBeenCalledWith({ birthDate: "1991-06-02", country: "ES" }));
   });
 
-  it("an under-18 date is refused on the field and nothing is sent", async () => {
+  it("[SETTINGS-PROFILE-11] an under-18 date is refused on the field and nothing is sent", async () => {
     goto("/settings?tab=profile");
     renderSettings();
     await waitFor(() => expect(birth().value).toBe("1990-05-01"));
@@ -745,7 +745,7 @@ describe("SettingsPage — date of birth and country in Perfil (PAD-640, setting
     expect(updateMe).not.toHaveBeenCalled();
   });
 
-  it("the server's UNDERAGE lands on the field too", async () => {
+  it("[SETTINGS-PROFILE-11] the server's UNDERAGE lands on the field too", async () => {
     updateMe.mockRejectedValueOnce({ response: { status: 400, data: { code: "UNDERAGE", field: "birthDate" } } });
     goto("/settings?tab=profile");
     renderSettings();

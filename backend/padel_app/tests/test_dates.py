@@ -4,9 +4,11 @@ Regression coverage for PAD-33: chat timestamps were serialized without a
 timezone offset, causing clients to render them 1 hour behind local time.
 `to_utc_iso` must always emit a UTC-aware ISO 8601 string.
 """
+import pytest
 from datetime import datetime, timezone, timedelta
 
 
+@pytest.mark.criterion("MESSAGING-MESSAGES-1")
 def test_to_utc_iso_attaches_utc_offset_to_naive_datetime():
     from padel_app.utils.dates import to_utc_iso
 
@@ -46,6 +48,7 @@ def test_to_utc_iso_returns_none_for_none():
 # ===========================================================================
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-35")
 def test_club_day_start_winter_matches_utc_midnight():
     """January is WET (UTC+0), so the local day boundary *is* UTC midnight."""
     from padel_app.utils.dates import club_day_start_utc
@@ -53,6 +56,7 @@ def test_club_day_start_winter_matches_utc_midnight():
     assert club_day_start_utc(datetime(2025, 1, 14, 23, 30)) == datetime(2025, 1, 14, 0, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-35")
 def test_club_day_start_summer_is_an_hour_before_utc_midnight():
     """August is WEST (UTC+1): 00:00 local == 23:00 UTC the previous day."""
     from padel_app.utils.dates import club_day_start_utc
@@ -62,6 +66,7 @@ def test_club_day_start_summer_is_an_hour_before_utc_midnight():
     assert club_day_start_utc(datetime(2025, 8, 14, 10, 0)) == datetime(2025, 8, 13, 23, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-33")
 def test_club_day_start_late_utc_instant_belongs_to_the_next_local_day():
     """23:30 UTC in summer is 00:30 local the NEXT day — the reported bug.
 
@@ -75,6 +80,7 @@ def test_club_day_start_late_utc_instant_belongs_to_the_next_local_day():
     assert club_day_start_utc(datetime(2025, 8, 14, 23, 30)) == datetime(2025, 8, 14, 23, 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-35")
 def test_same_utc_instant_lands_on_different_local_days_in_summer_and_winter():
     """The discriminating assertion: a naive-UTC boundary makes these agree.
 

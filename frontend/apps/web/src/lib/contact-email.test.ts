@@ -25,16 +25,16 @@ const FILES = [
 const OLD = ["padellevelup2026@gmail.com", "admin@levapp.pt"];
 
 describe("the site's contact email (PAD-599)", () => {
-  it("is the owner's address", () => {
+  it("[AUTH-LANDING-PAGE-28] is the owner's address", () => {
     expect(CONTACT_EMAIL).toBe("admin@levapp.app");
   });
 
-  it.each(FILES)("%s carries no old address", (file) => {
+  it.each(FILES)("[AUTH-LANDING-PAGE-28] %s carries no old address", (file) => {
     const text = fs.readFileSync(path.isAbsolute(file) ? file : path.join(WEB, file), "utf8");
     for (const old of OLD) expect(text, old).not.toContain(old);
   });
 
-  it("the static support page and the locale copy show the address itself", () => {
+  it("[AUTH-LANDING-PAGE-28] the static support page and the locale copy show the address itself", () => {
     expect(fs.readFileSync(path.join(WEB, "public/support.html"), "utf8")).toContain(`mailto:${CONTACT_EMAIL}`);
     for (const lang of ["pt", "en"]) {
       expect(fs.readFileSync(path.join(LOCALES, lang, "landing.json"), "utf8")).toContain(CONTACT_EMAIL);

@@ -35,6 +35,7 @@ def _io():
         yield
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-88")
 def test_an_accept_and_a_sender_on_one_spot_never_deadlock(app, monkeypatch):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.notification_config import NotificationConfig

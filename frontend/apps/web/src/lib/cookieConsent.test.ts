@@ -32,17 +32,17 @@ describe("cookie consent", () => {
     expect(readConsent(NOW)).toBe("declined");
   });
 
-  it("treats a choice older than 12 months as no choice", () => {
+  it("[AUTH-LANDING-PAGE-20] treats a choice older than 12 months as no choice", () => {
     writeConsent("accepted", new Date("2025-10-01T11:59:59Z"));
     expect(readConsent(NOW)).toBeNull();
   });
 
-  it("keeps a choice younger than 12 months", () => {
+  it("[AUTH-LANDING-PAGE-20] keeps a choice younger than 12 months", () => {
     writeConsent("accepted", new Date("2025-10-01T12:00:01Z"));
     expect(readConsent(NOW)).toBe("accepted");
   });
 
-  it("drops an expired choice and the HubSpot cookies it allowed", () => {
+  it("[AUTH-LANDING-PAGE-20] drops an expired choice and the HubSpot cookies it allowed", () => {
     writeConsent("accepted", new Date("2025-09-30T12:00:00Z"));
     document.cookie = "hubspotutk=u; path=/";
     document.cookie = "__hstc=a; path=/";
@@ -53,7 +53,7 @@ describe("cookie consent", () => {
     expect(localStorage.getItem(CONSENT_STORAGE_KEY)).toBeNull();
   });
 
-  it("leaves a live choice and its cookies alone", () => {
+  it("[AUTH-LANDING-PAGE-20] leaves a live choice and its cookies alone", () => {
     writeConsent("accepted", new Date("2025-10-15T12:00:00Z"));
     document.cookie = "hubspotutk=u; path=/";
 
@@ -71,7 +71,7 @@ describe("cookie consent", () => {
     expect(readConsent(NOW)).toBeNull();
   });
 
-  it("expires HubSpot's cookies and leaves the others", () => {
+  it("[AUTH-LANDING-PAGE-16] expires HubSpot's cookies and leaves the others", () => {
     document.cookie = "hubspotutk=u; path=/";
     document.cookie = "__hstc=a; path=/";
     document.cookie = "__hssc=b; path=/";
@@ -84,7 +84,7 @@ describe("cookie consent", () => {
     expect(document.cookie).toBe("theme=dark");
   });
 
-  it("expires them on the host and every parent domain", () => {
+  it("[AUTH-LANDING-PAGE-16] expires them on the host and every parent domain", () => {
     const writes: string[] = [];
     const fake = {
       location: { hostname: "staging.levapp.app" },

@@ -59,6 +59,7 @@ def test_the_job_runs_as_the_environment_with_federated_identity():
     assert all(v.startswith("${{ vars.") for v in creds["with"].values())
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-16")
 def test_the_order_of_the_steps():
     first = index_of(lambda s: s.get("name") == "The tag is on the environment's branch")
     login = index_of(lambda s: s.get("name") == "Log in to Docker Hub")
@@ -75,6 +76,7 @@ def test_the_order_of_the_steps():
 
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-16")
 def test_each_environment_maps_its_own_github_names(env):
     block = step(f"Secrets and variables ({env})")
     assert block["if"] == f"inputs.environment == '{env}'"
@@ -87,6 +89,7 @@ def test_each_environment_maps_its_own_github_names(env):
     assert block["run"].startswith(f"bash infra/k8s/write-config.sh {env} ")
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-16")
 def test_no_secret_is_written_into_a_script():
     for s in steps():
         assert "${{ secrets." not in s.get("run", ""), s.get("name")
@@ -102,6 +105,7 @@ def test_staging_builds_push_the_commit_tag():
 # --- pull credentials --------------------------------------------------------------------------
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-17")
 def test_every_pod_pulls_with_the_registry_secret(env):
     main, _ = render(f"overlays/{env}")
     job, _ = render(f"overlays/{env}/migrate")
@@ -129,6 +133,7 @@ GOOD = {"REGISTRY": "docker.io/someone", "IMAGE_TAG": "0123abc", "GSA_BACKEND": 
 
 
 @pytest.mark.parametrize("env", list(ENVS))
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-19")
 def test_render_fills_every_placeholder(env):
     r = run_render(env, "app", **GOOD)
     assert r.returncode == 0, r.stderr
@@ -145,11 +150,13 @@ def test_render_fills_every_placeholder(env):
 
 
 @pytest.mark.parametrize("missing", ["REGISTRY", "IMAGE_TAG", "GSA_BACKEND", "SECRETS_SHA256"])
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-19")
 def test_render_refuses_a_missing_value(missing):
     r = run_render("staging", "app", **{k: v for k, v in GOOD.items() if k != missing})
     assert r.returncode == 1 and missing in r.stderr and r.stdout == ""
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-19")
 def test_render_refuses_a_value_that_could_break_the_substitution():
     r = run_render("staging", "app", **{**GOOD, "IMAGE_TAG": "abc|rm"})
     assert r.returncode == 1 and "IMAGE_TAG is malformed" in r.stderr
@@ -206,6 +213,7 @@ def first(calls, text):
     return next(i for i, c in enumerate(calls) if text in c)
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-18")
 def test_a_complete_job_passes_and_its_log_is_printed(stub):
     r, calls = stub()
     assert r.returncode == 0, r.stdout
@@ -213,6 +221,7 @@ def test_a_complete_job_passes_and_its_log_is_printed(stub):
     assert "[migrate] stub log" in r.stdout and "complete" in r.stdout
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-18")
 def test_a_failed_job_fails_at_once_with_its_log(stub):
     r, calls = stub(STUB_OUTCOME="Failed")
     assert r.returncode == 1
@@ -220,6 +229,7 @@ def test_a_failed_job_fails_at_once_with_its_log(stub):
     assert not [c for c in calls if c.startswith("sleep")], "Failed is seen on the first poll, not after a timeout"
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-18")
 def test_a_running_job_is_waited_for_never_deleted_while_active(stub):
     (stub.dir / "job").write_text("active")
     r, calls = stub(STUB_ACTIVE_FOR="3")
@@ -228,6 +238,7 @@ def test_a_running_job_is_waited_for_never_deleted_while_active(stub):
     assert first(calls, "sleep") < first(calls, "delete job migrate")
 
 
+@pytest.mark.criterion("DELIVERY-K8S-MANIFESTS-18")
 def test_a_job_running_too_long_is_left_alone(stub):
     (stub.dir / "job").write_text("active")
     r, calls = stub(STUB_ACTIVE_FOR="999", ACTIVE_WAIT="15")

@@ -1,0 +1,129 @@
+---
+id: dashboard.navigation
+status: implemented
+depends_on: [dashboard.blocks]
+serves: [P-DASHBOARD-1]
+governed_by: []
+---
+
+# dashboard.navigation
+
+
+### Intent
+Dashboard blocks provide deep links to relevant pages for quick navigation.
+
+### Rules
+1. Each block item can have an `href` field linking to the detail page
+2. Messages overview links to `/messages`
+3. KPI items link to `/players`, `/calendar`, etc.
+4. Class list items link to `/calendar` (with event selection)
+5. Frontend route: `/` or `/dashboard`
+6. `href` is optional on KPI items. It MUST only be set when a matching frontend route exists —
+   a dashboard item must never link to a route that resolves to the 404 page
+7. A KPI item without an `href` renders as a plain, non-interactive card: no button role, no
+   pointer cursor, no click/keyboard navigation
+8. Every `class_list` item `href` is a calendar DEEP LINK, not a bare `/calendar`. It carries both
+   the calendar event id and the occurrence date:
+   `/calendar?classId=<calendar-event-id>&date=<YYYY-MM-DD>`
+   - `classId` is the same id the calendar endpoint emits for that occurrence (`lessoninstance-<id>`
+     for a materialised instance, `lesson-<id>-<date>` for a virtual one), so the two surfaces
+     always agree
+   - `date` is required because a materialised instance id does not encode its own date, and an
+     upcoming class often falls outside the currently displayed week
+9. Rule 8 applies to every class-carrying item on every dashboard — `schedule_7d` rows,
+   `next_class`, and the `empty_seats` / `invite` kinds of `needs_you` — for coach and student
+   alike. **(PAD-202)** `class_list` no longer exists; the student's "Your upcoming lessons" is
+   their `schedule_7d` and "Invites to confirm" is the `invite` kind of `needs_you`, and both
+   keep the same deep-link shape.
+9a. **(PAD-201, B-045)** The `validation` kind of `needs_you` links to the Presences tab —
+    `/presences`, with `?week=<offset>` when the counted week is not the current one — and the
+    tab honours `week` as its initial week. `/validations` never existed; rule 6 applies to queue
+    items exactly as it does to KPI tiles.
+10. Schedule rows and queue cards are keyboard reachable: each is exposed as a button and
+    activates with Enter/Space, not only with a pointer click
+11. The student "Attended" KPI links to the attendance history page (`href: /attendance`, see
+    `attendance.history`). It is the student-side entry point to that page.
+11a. **(PAD-141)** The student "Missed" KPI links to the absence history page
+    (`href: /absences`, see `attendance.absences`), and is the student-side entry point to it.
+11b. **(PAD-402)** The student `evaluations` block links to the full list of shared evaluations:
+    web route `/evaluations` (student-only; a coach or an anonymous visitor is redirected as the
+    other student routes are), and on iOS a pushed screen `evaluations` in the native route map.
+    The route exists in the same ticket as the block, so rule 6 holds from the first release.
+    This **supersedes** the previous rule that "Missed" stays inert. That rule was never about
+    "Missed" being undeserving of a destination — it was rule 6 applied to a route that did not
+    exist yet (PAD-76). `attendance.absences` creates the route, so rule 6 is now *satisfied*
+    rather than waived, and the same reasoning that gave "Attended" an `href` applies unchanged.
+
+12. **(PAD-520, B-345) "Nova aula" opens the new-class sheet.** The coach
+    dashboard's "Nova aula" button links to `/calendar?new=1`. The calendar reads `new=1` once,
+    opens the same new-class sheet as its own toolbar button (on today, desktop; on the selected
+    day, phone width), and removes the param with a history replace, so closing the sheet or going
+    back does not reopen it. A non-coach ignores it. Before PAD-520 the calendar never read the
+    param and the coach landed on the calendar with nothing open. **Web only:** the iOS coach
+    dashboard has no "Nova aula" control (its calendar tab's own add button is the way in), so
+    there is nothing to fix there; adding the control to iOS would be a new feature, not this bug.
+
+### Acceptance Criteria
+
+#### DASHBOARD-NAVIGATION-1: KPI item with a destination
+- **Given** an authenticated player on the dashboard
+- **When** they click the "Upcoming lessons" KPI card (which has `href: /calendar`)
+- **Then** they navigate to the calendar page
+
+#### DASHBOARD-NAVIGATION-2: Attended KPI opens the attendance history
+- **Given** an authenticated student on the dashboard
+- **When** they click the "Attended" KPI card
+- **Then** they navigate to `/attendance` and see their attendance history page
+
+#### DASHBOARD-NAVIGATION-3: KPI item without a destination
+- **Given** an authenticated player on the dashboard and a KPI for which no matching frontend
+  route exists (today: "Invites" — there is no `/invites` page)
+- **When** the dashboard renders that KPI card
+- **Then** the card has no `href`, is not exposed as a button, and clicking it does not navigate
+  anywhere (the player stays on the dashboard and never sees the 404 page)
+- **Note (PAD-141)**: "Missed" was this criterion's example until `/absences` existed. The rule
+  being tested is rule 6 ("only link where a route exists"), not anything specific to "Missed",
+  so the example moved to the KPI that still has no route rather than the criterion being deleted.
+
+#### DASHBOARD-NAVIGATION-4: Missed KPI opens the absence history (PAD-141)
+- **Given** an authenticated student on the dashboard
+- **When** they click the "Missed" KPI card
+- **Then** they navigate to `/absences` and see their absence history page
+
+#### DASHBOARD-NAVIGATION-5: Upcoming class opens that exact class
+- **Given** an authenticated coach whose next scheduled class is on a day in a LATER week than the
+  one the calendar shows by default
+- **When** they click that class in the dashboard's "Upcoming classes" list
+- **Then** they land on `/calendar`, the calendar is showing the week that contains the class, and
+  the class detail sheet for that exact occurrence is already open — they never have to page
+  through weeks or hunt for the event
+- *Test note (PAD-343):* `upcoming-class-deeplink.spec.ts` reads the seed's "E2E Upcoming
+  Class", which meets this Given on six weekdays. On a Monday before 10:00 nothing inside the
+  coach's 7-day list can be in a later week, so that run checks the same click on a class in the
+  current week; `test_seed_dates.py` pins both halves.
+
+#### DASHBOARD-NAVIGATION-6: Student upcoming lesson opens that exact class
+- **Given** an authenticated student with an upcoming lesson
+- **When** they click its row in "NEXT 7 DAYS"
+- **Then** the calendar opens on that lesson's week with its detail sheet open
+
+#### DASHBOARD-NAVIGATION-7: Student invite opens that exact class (PAD-202)
+- **Given** an authenticated student with a pending invite in the "NEEDS YOU" queue
+- **When** they activate the invite card's "Open" action
+- **Then** the calendar opens on that class's week with its detail sheet open, where the
+  student can confirm or decline
+
+#### DASHBOARD-NAVIGATION-8: "Nova aula" on the dashboard opens the new-class sheet (rule 12, PAD-520)
+- **Given** a coach on the dashboard
+- **When** they press "Nova aula"
+- **Then** the calendar opens with the new-class sheet open, and the URL has no `new` param
+- **When** they close the sheet
+- **Then** it stays closed
+
+#### DASHBOARD-NAVIGATION-9: The student's evaluations block opens the evaluations screen (rule 11b)
+- **Given** the link `/evaluations` on the student's `evaluations` block
+- **When** the iOS app maps it to a screen
+- **Then** it opens the evaluations screen
+test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `opens the evaluations page from the student dashboard block (PAD-402, evaluations.student-view rule 4)`
+- Code to follow: add a web test for the `evaluations` block's link, and a test of the iOS tap itself (not
+  only the route mapping in `routes.test.ts`).

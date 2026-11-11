@@ -35,6 +35,7 @@ def _empty_password_user(app):
 
 
 @pytest.mark.parametrize("path", ["/auth/", "/auth/login", "/auth/register", "/auth/logout"])
+@pytest.mark.criterion("AUTH-LOGIN-10")
 def test_the_legacy_auth_routes_are_gone(app, client, path):
     _empty_password_user(app)
 
@@ -43,6 +44,7 @@ def test_the_legacy_auth_routes_are_gone(app, client, path):
     assert res.status_code == 404, (path, res.status_code)
 
 
+@pytest.mark.criterion("AUTH-LOGIN-10")
 def test_the_api_login_refuses_an_empty_password(app, client):
     _empty_password_user(app)
 
@@ -52,6 +54,7 @@ def test_the_api_login_refuses_an_empty_password(app, client):
     assert "accessToken" not in (res.get_json() or {})
 
 
+@pytest.mark.criterion("AUTH-LOGIN-10")
 def test_no_blueprint_registers_under_auth(app):
     assert "auth" not in app.blueprints
     legacy = [r.rule for r in app.url_map.iter_rules() if r.rule == "/auth" or r.rule.startswith("/auth/")]

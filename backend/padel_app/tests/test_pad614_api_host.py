@@ -17,6 +17,7 @@ NGINX = ROOT / "infra" / "nginx" / "sites-available"
 BACKEND = ROOT / "backend"
 
 
+@pytest.mark.criterion("DELIVERY-API-HOST-2")
 def test_the_allowed_origins_are_the_defaults_plus_the_environment():
     env = {"CORS_ALLOWED_ORIGINS": " https://levapp.app/, https://www.levapp.app,,https://levapp.app, * "}
     assert cors_allowed_origins(env) == [*DEFAULT_CORS_ORIGINS, "https://levapp.app", "https://www.levapp.app"]
@@ -53,6 +54,7 @@ def _preflight(client, origin):
     )
 
 
+@pytest.mark.criterion("DELIVERY-API-HOST-2")
 def test_a_listed_web_origin_may_call_the_api_cross_origin(cors_app):
     response = _preflight(cors_app.test_client(), "https://levapp.app")
     assert response.headers.get("Access-Control-Allow-Origin") == "https://levapp.app"
@@ -62,6 +64,7 @@ def test_a_listed_web_origin_may_call_the_api_cross_origin(cors_app):
     assert response.headers.get("Access-Control-Max-Age") == "600"
 
 
+@pytest.mark.criterion("DELIVERY-API-HOST-2")
 def test_a_foreign_origin_gets_no_cors_grant(cors_app):
     response = _preflight(cors_app.test_client(), "https://evil.example")
     assert response.headers.get("Access-Control-Allow-Origin") is None
@@ -73,6 +76,7 @@ def test_a_foreign_origin_gets_no_cors_grant(cors_app):
      # PAD-697: staging's stream goes to the events process (prod after PAD-704).
      ("levapp-api-staging", "api.staging.levapp.app", "levapp_api_staging", "levapp_events_staging")],
 )
+@pytest.mark.criterion("DELIVERY-API-HOST-1")
 def test_the_api_host_serves_only_the_api_with_the_log_protections(name, host, upstream, events_upstream):
     https = (NGINX / name).read_text()
     assert f"server_name {host};" in https

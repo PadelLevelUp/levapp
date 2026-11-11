@@ -85,7 +85,7 @@ describe("presences name search (PAD-665)", () => {
   const names = (query: string) =>
     filterPlayers(roster, { ...EMPTY_FILTERS, query }).map((p) => p.name);
 
-  it("finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André Nunes'", () => {
+  it("[PLAYERS-SEARCH-1] finds 'rui basto' → 'Rui Pedro Basto' and 'andre' → 'André Nunes'", () => {
     expect(names("rui basto")).toEqual(["Rui Pedro Basto"]);
     expect(names("andre")).toEqual(["André Nunes"]);
   });
@@ -102,7 +102,7 @@ describe("presences name search (PAD-665)", () => {
   });
 
   // Decision 2026-10-14 (a): the table always has a sort of its own, so a typed name only filters.
-  it("presenceRows: a typed name filters and the table's sort stands", () => {
+  it("[PLAYERS-SEARCH-2] presenceRows: a typed name filters and the table's sort stands", () => {
     const typed = { ...EMPTY_FILTERS, query: "rita" };
     expect(presenceRows(roster, typed, { key: "total", direction: "desc" }).map((p) => p.name)).toEqual([
       "Ana Rita",
@@ -146,7 +146,7 @@ describe("filterPlayers", () => {
     ).toEqual(["Ana Ribeiro", "Bruno Silva"]);
   });
 
-  it("treats maxUnjustified as an inclusive ceiling, and 0 as a real one", () => {
+  it("[ATTENDANCE-VALIDATION-20] treats maxUnjustified as an inclusive ceiling, and 0 as a real one", () => {
     // The bug this pins: coercing "" and "0" to the same number would make a
     // cleared field mean "nobody with any unjustified absence".
     expect(
@@ -249,7 +249,7 @@ describe("toggleColumn", () => {
     ]);
   });
 
-  it("refuses to hide the pinned player column", () => {
+  it("[ATTENDANCE-VALIDATION-21] refuses to hide the pinned player column", () => {
     // Without the name every row is anonymous numbers, and so is the CSV.
     expect(toggleColumn(DEFAULT_VISIBLE_COLUMNS, "name")).toEqual(
       DEFAULT_VISIBLE_COLUMNS
@@ -270,7 +270,7 @@ describe("toggleColumn", () => {
 describe("buildPresencesCsv", () => {
   const label = (key: PresenceColumnKey) => `L:${key}`;
 
-  it("exports the visible columns, in display order, for the given rows", () => {
+  it("[ATTENDANCE-VALIDATION-18] exports the visible columns, in display order, for the given rows", () => {
     const csv = buildPresencesCsv(
       [ANA, BRUNO],
       visibleColumns(["name", "total", "unjustified"]),
@@ -389,7 +389,7 @@ describe("presences: the coach's nickname (PAD-683)", () => {
     player("Ana Rita", { playerId: 2 }),
   ];
 
-  it("search finds the student by either name", () => {
+  it("[PLAYERS-NICKNAME-3] search finds the student by either name", () => {
     expect(filterPlayers(rows, { ...EMPTY_FILTERS, query: "tigre" }).map((p) => p.playerId)).toEqual([1]);
     expect(filterPlayers(rows, { ...EMPTY_FILTERS, query: "rui basto" }).map((p) => p.playerId)).toEqual([1]);
   });

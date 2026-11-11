@@ -66,13 +66,13 @@ describe("a row the record already rates keeps that rating's scale (D149)", () =
   const garra = competency({ id: 4, group: "custom", scaleMin: 1, scaleMax: 10 }); // the coach moved to 1-10
   const rated = record({ ratings: [{ categoryId: 4, name: "Garra", key: null, score: 4, scaleMin: 1, scaleMax: 5 }] });
 
-  it("draws an earlier 4/5 on its own 1-5 (stars), never as 4 on the new 1-10", () => {
+  it("[EVALUATIONS-SCALE-3] draws an earlier 4/5 on its own 1-5 (stars), never as 4 on the new 1-10", () => {
     const row = rowOnItsOwnScale(garra, rated);
     expect([row.scaleMin, row.scaleMax]).toEqual([1, 5]);
     expect(ratingInputKind(row)).toBe("stars");
   });
 
-  it("a competency the record does not rate yet uses its current scale", () => {
+  it("[EVALUATIONS-SCALE-3] a competency the record does not rate yet uses its current scale", () => {
     expect(rowOnItsOwnScale(garra, record({ ratings: [] }))).toBe(garra);
     expect(rowOnItsOwnScale(garra, null)).toBe(garra);
     expect(ratingInputKind(rowOnItsOwnScale(garra, null))).toBe("slider");
@@ -89,13 +89,13 @@ describe("what the form lists", () => {
     expect(formCompetencies([offRatedToday, active, off], today).map((c) => c.id)).toEqual([3, 1]);
   });
 
-  it("lists only the active ones when there is no record yet", () => {
+  it("[EVALUATIONS-COMPETENCIES-4] lists only the active ones when there is no record yet", () => {
     expect(formCompetencies([offRatedToday, active, off], null).map((c) => c.id)).toEqual([1]);
   });
 });
 
 describe("today's class-less record", () => {
-  it("is the editable record with no class — the server says which day is today", () => {
+  it("[EVALUATIONS-HISTORY-4] is the editable record with no class — the server says which day is today", () => {
     const records = [
       record({ id: 9, classInstanceId: 88, className: "Aula 5" }),
       record({ id: 8 }),
@@ -150,7 +150,7 @@ describe("the debounced writer (a stepper's consecutive steps are one input)", (
     expect(write.mock.calls).toEqual([["7", 6], ["9", 3]]);
   });
 
-  it("flush writes everything pending at once — blur, 'Concluir avaliação', close and unmount call it", () => {
+  it("[EVALUATIONS-RECORDS-12] flush writes everything pending at once — blur, 'Concluir avaliação', close and unmount call it", () => {
     const write = vi.fn();
     const writer = createDebouncedWriter(write, 400);
     writer.schedule("7", 8);
@@ -180,18 +180,18 @@ describe("formCompetencies over categories and sub-categories (PAD-431)", () => 
   const smashOff = competency({ id: 12, key: "smash", group: "technique", parentId: 10, isActive: false });
   const consistency = competency({ id: 20, key: "consistency", group: "general", parentId: null });
 
-  it("offers the sub-categories, not a category that has an active one", () => {
+  it("[EVALUATIONS-COMPETENCIES-12] offers the sub-categories, not a category that has an active one", () => {
     expect(formCompetencies([technique, vibora, smashOff, consistency], null).map((c) => c.id)).toEqual([11, 20]);
   });
 
-  it("toggles with its sub-categories: all off → the category is offered; one back on → hidden again", () => {
+  it("[EVALUATIONS-COMPETENCIES-13] toggles with its sub-categories: all off → the category is offered; one back on → hidden again", () => {
     const viboraOff = { ...vibora, isActive: false };
     expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);
     const smashOn = { ...smashOff, isActive: true };
     expect(formCompetencies([technique, viboraOff, smashOn], null).map((c) => c.id)).toEqual([12]);
   });
 
-  it("offers a category directly once none of its sub-categories is active", () => {
+  it("[EVALUATIONS-COMPETENCIES-13] offers a category directly once none of its sub-categories is active", () => {
     const viboraOff = { ...vibora, isActive: false };
     expect(formCompetencies([technique, viboraOff, smashOff], null).map((c) => c.id)).toEqual([10]);
   });
@@ -202,7 +202,7 @@ describe("formCompetencies over categories and sub-categories (PAD-431)", () => 
     expect(formCompetencies([techniqueOff, vibora, consistency], null).map((c) => c.id)).toEqual([11, 20]);
   });
 
-  it("keeps whatever the record being edited already rates — a history score included", () => {
+  it("[EVALUATIONS-COMPETENCIES-12] keeps whatever the record being edited already rates — a history score included", () => {
     const today = record({ ratings: [{ categoryId: 10, name: "Técnica", key: "technique", score: 4, scaleMin: 1, scaleMax: 5 }] });
     expect(formCompetencies([technique, vibora, consistency], today).map((c) => c.id)).toEqual([10, 11, 20]);
   });

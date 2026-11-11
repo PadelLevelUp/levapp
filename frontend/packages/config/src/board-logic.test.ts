@@ -35,7 +35,7 @@ const a1 = GAME_START_POSITION[0];
 const b2 = GAME_START_POSITION[3];
 
 describe("boardPress — Bola", () => {
-  it("first press starts a path, second press finishes a flat one", () => {
+  it("[TRAINING-TACTICAL-BOARD-2] first press starts a path, second press finishes a flat one", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "ball" };
     const r1 = boardPress(game(), state, { x: 58, y: 20 }, null);
     expect(r1.diagram).toBeUndefined();
@@ -53,7 +53,7 @@ describe("boardPress — Bola", () => {
     expect(r2.state.pending?.from).toEqual({ x: 59, y: 20 });
   });
 
-  it("toggling the style flips flat and lob", () => {
+  it("[TRAINING-TACTICAL-BOARD-2] toggling the style flips flat and lob", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "ball" };
     const r = boardPress(game(), boardPress(game(), state, { x: 58, y: 20 }, null).state, { x: 40, y: 80 }, null);
     const lob = boardToggleBallStyle(r.diagram!);
@@ -63,7 +63,7 @@ describe("boardPress — Bola", () => {
 });
 
 describe("boardPress — Movimentação", () => {
-  it("pressing a player then the court records that player's movement", () => {
+  it("[TRAINING-TACTICAL-BOARD-3] pressing a player then the court records that player's movement", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "movement" };
     const r1 = boardPress(game(), state, { x: 32, y: 26 }, a1);
     expect(r1.diagram).toBeUndefined();
@@ -75,7 +75,7 @@ describe("boardPress — Movimentação", () => {
   });
 
   // PAD-309 (rule 10): a player can follow several trajectories in one step.
-  it("each further press on the court appends a leg that starts where the last one ended", () => {
+  it("[TRAINING-TACTICAL-BOARD-4] each further press on the court appends a leg that starts where the last one ended", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "movement" };
     const r1 = boardPress(game(), state, { x: 32, y: 26 }, a1);
     const r2 = boardPress(game(), r1.state, { x: 20, y: 40 }, null);
@@ -114,7 +114,7 @@ describe("boardPress — Movimentação", () => {
 });
 
 describe("boardPress — Selecionar", () => {
-  it("selects a piece, then tap-to-moves it", () => {
+  it("[TRAINING-TACTICAL-BOARD-9] selects a piece, then tap-to-moves it", () => {
     const r1 = boardPress(game(), INITIAL_BOARD_STATE, { x: 62, y: 70 }, b2);
     expect(r1.state.selectedId).toBe("b2");
     expect(r1.dragId).toBe("b2");
@@ -123,7 +123,7 @@ describe("boardPress — Selecionar", () => {
     expect(r2.state.selectedId).toBe("b2");
   });
 
-  it("a drag end moves the piece to where it was released", () => {
+  it("[TRAINING-TACTICAL-BOARD-9] a drag end moves the piece to where it was released", () => {
     const d = boardDragEnd(game(), "a2", { x: 70, y: 30 });
     expect(d.pieces.find((p) => p.id === "a2")).toMatchObject({ x: 70, y: 30 });
   });
@@ -153,7 +153,7 @@ describe("basket start position (rule 14)", () => {
     expect(BASKET_START_POSITION[2]).toMatchObject({ kind: "feeder", x: 46, y: 55 });
   });
 
-  it("addPlayer appends A3 then A4 on Team A and then refuses", () => {
+  it("[TRAINING-TACTICAL-BOARD-15] addPlayer appends A3 then A4 on Team A and then refuses", () => {
     expect(MAX_BASKET_PLAYERS).toBe(4);
     const d3 = addPlayer(basket());
     expect(d3.pieces.find((p) => p.id === "a3")).toMatchObject({ kind: "player", team: "A", label: "A3" });
@@ -171,7 +171,7 @@ describe("basket start position (rule 14)", () => {
 });
 
 describe("boardPress — basket tools (rule 15)", () => {
-  it("Bola runs from the feeder to the tapped point in one press", () => {
+  it("[TRAINING-TACTICAL-BOARD-14] Bola runs from the feeder to the tapped point in one press", () => {
     const state: BoardState = { ...INITIAL_BOARD_STATE, tool: "ball" };
     const r = boardPress(basket(), state, { x: 30, y: 18 }, null);
     expect(r.diagram?.steps[0].ball).toMatchObject({ from: { x: feeder().x, y: feeder().y }, to: { x: 30, y: 18 }, style: "flat" });
@@ -236,7 +236,7 @@ describe("simplifyStroke (Ramer–Douglas–Peucker)", () => {
 });
 
 describe("Magnético pieces (rule 16)", () => {
-  it("a finished pen stroke becomes a stroke piece in the current colour", () => {
+  it("[TRAINING-TACTICAL-BOARD-16] a finished pen stroke becomes a stroke piece in the current colour", () => {
     const state = boardSetColor({ ...INITIAL_BOARD_STATE, tool: "pen" }, "red");
     expect(state.color).toBe("red");
     const d = boardStrokeEnd(magnetic(), [{ x: 10, y: 10 }, { x: 20, y: 12 }, { x: 30, y: 30 }], state.color);

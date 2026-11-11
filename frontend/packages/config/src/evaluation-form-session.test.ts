@@ -171,7 +171,7 @@ describe("a stepper's consecutive steps are one input; the note is debounced; fl
     expect(calls[1].input).toEqual({ ratings: { "3": 5 }, recordId: 40 });
   });
 
-  it("flush sends what is pending now, and an untouched form sends nothing", async () => {
+  it("[EVALUATIONS-RECORDS-12] flush sends what is pending now, and an untouched form sends nothing", async () => {
     const { calls, save } = server();
     const untouched = createEvaluationFormSession({ record: null, save });
     untouched.flush();

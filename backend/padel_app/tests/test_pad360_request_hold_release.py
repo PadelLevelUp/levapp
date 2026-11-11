@@ -93,6 +93,7 @@ def _update_request(app, rid, **values):
 
 # ── controls: the transitions that always released the hold ──────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-13")
 def test_control_withdraw_releases_the_hold(app):
     from padel_app.services.class_request_service import withdraw_class_request_service
 
@@ -105,6 +106,7 @@ def test_control_withdraw_releases_the_hold(app):
     assert not _block_exists(app, hold)
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-13")
 def test_control_decline_releases_the_hold(app):
     ids = _setup(app)
     rid = _request(app, ids)
@@ -113,6 +115,7 @@ def test_control_decline_releases_the_hold(app):
     assert not _block_exists(app, hold)
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-3")
 def test_control_accept_releases_the_hold(app):
     ids = _setup(app)
     rid = _request(app, ids)
@@ -123,6 +126,7 @@ def test_control_accept_releases_the_hold(app):
 
 # ── the row is deleted ───────────────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-14")
 def test_deleting_the_request_releases_the_hold_and_nothing_else(app):
     from padel_app.models import ClassRequest
 
@@ -139,6 +143,7 @@ def test_deleting_the_request_releases_the_hold_and_nothing_else(app):
     assert _blocks_of_coach(app, ids) == 1, "only the hold goes; the coach's own block stays"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-14")
 def test_deleting_a_closed_request_still_works(app):
     """Trigger absent: a request with no hold left deletes as before."""
     from padel_app.models import ClassRequest
@@ -155,6 +160,7 @@ def test_deleting_a_closed_request_still_works(app):
 
 # ── the row is cascaded away ─────────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-15")
 def test_deleting_the_player_releases_the_hold(app):
     from padel_app.models.players import Player
 
@@ -168,6 +174,7 @@ def test_deleting_the_player_releases_the_hold(app):
     assert not _block_exists(app, hold), "hold block outlived its request"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-15")
 def test_deleting_the_coach_releases_the_hold(app):
     """The Coach row goes; the coach's user — who owns the block — does not."""
     ids = _setup(app)
@@ -183,6 +190,7 @@ def test_deleting_the_coach_releases_the_hold(app):
 
 # ── the person deletes their account ─────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_student_account_deletion_withdraws_silently_and_releases_the_hold(app):
     ids = _setup(app)
     rid = _request(app, ids)
@@ -197,6 +205,7 @@ def test_student_account_deletion_withdraws_silently_and_releases_the_hold(app):
     assert _messages(app) == sent, "silent: no notification in either direction"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_coach_account_deletion_declines_silently(app):
     ids = _setup(app)
     rid = _request(app, ids)
@@ -211,6 +220,7 @@ def test_coach_account_deletion_declines_silently(app):
     assert _messages(app) == sent, "silent: no notification in either direction"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_a_deleted_student_leaves_other_peoples_open_requests(app):
     from padel_app.models import ClassRequest
 
@@ -231,6 +241,7 @@ def test_a_deleted_student_leaves_other_peoples_open_requests(app):
     assert not state["invitees"], "an accept must never enrol a deleted account"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_account_deletion_leaves_closed_requests_alone(app):
     """Trigger absent: history is not rewritten."""
     ids = _setup(app)
@@ -245,6 +256,7 @@ def test_account_deletion_leaves_closed_requests_alone(app):
     assert (_state(app, accepted)["status"], _state(app, accepted)["by"]) == ("accepted", "coach")
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_account_deletion_without_requests_is_unchanged(app):
     """Trigger absent: a student who never asked for a class deletes as before."""
     from padel_app.models import User
@@ -270,6 +282,7 @@ def test_the_silent_close_refuses_to_run_unscoped(app):
     assert _state(app, rid)["status"] == "pending"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_the_silent_close_touches_only_the_named_student(app):
     ids = _setup(app)
     with app.app_context():
@@ -446,6 +459,7 @@ def test_F7_an_edit_that_leaves_a_request_open_keeps_its_hold(app):
     assert _block_exists(app, hold)
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-16")
 def test_F6_silent_means_no_channel_at_all(app, monkeypatch):
     ids = _setup(app)
     rid = _request(app, ids)
@@ -499,6 +513,7 @@ def test_F6_a_weekly_requests_recurring_hold_is_released_by_account_deletion(app
     assert _blocks_of_coach(app, ids) == 0
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-28")
 def test_F2_a_moved_occurrence_of_a_weekly_hold_is_refused_so_nothing_outlives_the_request(app):
     """Review F2, closed by PAD-372 (B-138). This pin used to record the defect: moving one
     occurrence of a recurring hold went through `calendar_service._clone_block`, the

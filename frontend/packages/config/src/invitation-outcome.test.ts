@@ -18,7 +18,7 @@ describe("PAD-548 invitee outcomes (calendar.event-detail rules 16–18)", () =>
     expect(INVITATION_OUTCOME_KEY.pending).toBe("calendar.detail.outcomePending");
   });
 
-  it("offers actions only where rule 17 says", () => {
+  it("[CALENDAR-EVENT-DETAIL-19] offers actions only where rule 17 says", () => {
     expect(inviteeActionsFor("pending")).toEqual(["accept", "decline", "delete"]);
     expect(inviteeActionsFor("declined")).toEqual(["accept"]);
     for (const outcome of ["accepted", "withdrawn", "spot_filled", "expired"] as const) {
@@ -34,7 +34,7 @@ describe("PAD-548 invitee outcomes (calendar.event-detail rules 16–18)", () =>
     expect(outcomeAfterResponse("something_new")).toBeNull();
   });
 
-  it("maps a coach action's answer to the row's outcome", () => {
+  it("[CALENDAR-EVENT-DETAIL-19] maps a coach action's answer to the row's outcome", () => {
     expect(outcomeAfterCoachAction("confirmed")).toBe("accepted");
     expect(outcomeAfterCoachAction("declined")).toBe("declined");
     expect(outcomeAfterCoachAction("withdrawn")).toBe("withdrawn");

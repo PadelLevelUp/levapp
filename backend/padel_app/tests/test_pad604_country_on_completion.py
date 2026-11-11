@@ -90,6 +90,7 @@ def _accept_player(client, token, headers, username, **extra):
     return client.post(f"/api/app/player-invitations/{token}/accept", json=body, headers=headers)
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-8")
 def test_player_invite_stores_the_country(client, app):
     token = _player_invite(client, app)
     res = _accept_player(client, token, CAPABLE, "p604", country="BR")
@@ -97,6 +98,7 @@ def test_player_invite_stores_the_country(client, app):
     assert _user(app, "p604") == {"status": "active", "country": "BR"}
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-8")
 def test_player_invite_without_a_country_is_refused_and_stays_pending(client, app):
     token = _player_invite(client, app)
     _refusal(_accept_player(client, token, CAPABLE, "p604b"), "COUNTRY_REQUIRED")
@@ -106,6 +108,7 @@ def test_player_invite_without_a_country_is_refused_and_stays_pending(client, ap
     assert res.status_code == 200, res.get_json()
 
 
+@pytest.mark.criterion("PLAYERS-INVITE-COMPLETION-8")
 def test_player_invite_from_a_legacy_build_needs_no_country(client, app):
     token = _player_invite(client, app)
     res = _accept_player(client, token, LEGACY, "p604c")
@@ -129,17 +132,20 @@ def _accept_coach(client, app, headers, username, **extra):
     return client.post(f"/api/app/coach-invitations/{token}/accept", json=body, headers=headers)
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-12")
 def test_coach_invite_stores_the_country(client, app):
     res = _accept_coach(client, app, CAPABLE, "c604", country="pt")
     assert res.status_code == 200, res.get_json()
     assert _user(app, "c604")["country"] == "PT"
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-12")
 def test_coach_invite_without_a_country_creates_no_account(client, app):
     _refusal(_accept_coach(client, app, CAPABLE, "c604b"), "COUNTRY_REQUIRED")
     assert _user(app, "c604b") is None
 
 
+@pytest.mark.criterion("CLUBS-COACH-INVITATION-12")
 def test_coach_invite_from_a_legacy_build_needs_no_country(client, app):
     res = _accept_coach(client, app, LEGACY, "c604c")
     assert res.status_code == 200, res.get_json()

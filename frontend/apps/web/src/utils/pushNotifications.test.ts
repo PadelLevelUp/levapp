@@ -37,7 +37,7 @@ describe("subscribeToPush in-flight dedupe", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends one save when sign-in asks twice at once", async () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-5] sends one save when sign-in asks twice at once", async () => {
     const first = requestAndSubscribe("tok-1");
     const second = requestAndSubscribe("tok-1");
     await vi.waitFor(() => expect(savesSent(fetchMock)).toBe(1));
@@ -47,7 +47,7 @@ describe("subscribeToPush in-flight dedupe", () => {
     expect(savesSent(fetchMock)).toBe(1);
   });
 
-  it("sends a new save once the earlier one has finished", async () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-5] sends a new save once the earlier one has finished", async () => {
     const first = subscribeToPush("tok-1");
     await vi.waitFor(() => expect(savesSent(fetchMock)).toBe(1));
     releaseSave();
@@ -59,7 +59,7 @@ describe("subscribeToPush in-flight dedupe", () => {
     await expect(again).resolves.toBe(true);
   });
 
-  it("does not share a save across different tokens", async () => {
+  it("[AUTH-PUSH-SUBSCRIPTION-5] does not share a save across different tokens", async () => {
     const a = subscribeToPush("tok-1");
     await vi.waitFor(() => expect(savesSent(fetchMock)).toBe(1));
     const b = subscribeToPush("tok-2");

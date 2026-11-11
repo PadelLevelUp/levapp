@@ -113,6 +113,7 @@ def _assert_reference(coach_id):
     assert [l.display_order for l in levels] == list(range(1, 18))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-1")
 def test_a_coach_made_by_the_service_starts_from_the_reference(app):
     """RED before the fix: no config row, and the L1/L2/L3 ladder."""
     from padel_app.models import User
@@ -126,6 +127,7 @@ def test_a_coach_made_by_the_service_starts_from_the_reference(app):
         _assert_reference(coach.id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-1")
 def test_a_coach_who_signs_up_starts_from_the_reference(client, app):
     """RED before the fix: no config row, and the L1/L2/L3 ladder."""
     from padel_app.models import Coach, User
@@ -141,6 +143,7 @@ def test_a_coach_who_signs_up_starts_from_the_reference(client, app):
         _assert_reference(Coach.query.filter_by(user_id=user.id).one().id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-1")
 def test_a_coach_who_accepts_a_club_invitation_starts_from_the_reference(client, app, outbox):
     """RED before the fix: no config row, and the L1/L2/L3 ladder."""
     from padel_app.models import Coach, User
@@ -157,6 +160,7 @@ def test_a_coach_who_accepts_a_club_invitation_starts_from_the_reference(client,
         _assert_reference(Coach.query.filter_by(user_id=user.id).one().id)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-2")
 def test_a_coach_created_before_the_rule_reads_as_before(app):
     """Control: a coach with no row gets rule 1's engine-off default on first read, not the reference."""
     from padel_app.models import Coach, User

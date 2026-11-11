@@ -1,0 +1,204 @@
+---
+id: settings.tutorials
+status: implemented
+depends_on: [settings.role-scope, notifications.invite-simulation, calendar.view, classes.instances]
+serves: [P-NOTIFICATIONS-4]
+governed_by: [R-001, R-011, R-012, R-015, R-024]
+---
+
+# settings.tutorials
+
+
+### Intent
+A coach-only Settings section, **Tutorials**, that hosts interactive walkthroughs of the app's
+non-obvious behaviour. Its first (and, in v1, only) tutorial is **Understand invites**: pick a
+class, pick the player who "cancels", read exactly who the engine would invite and why, and ask
+about anyone who is missing. Web and iOS ship it together (R-024).
+
+### Entities
+- **READS:** the coach's upcoming classes (the existing calendar feed), a class instance's enrolled
+  players, the simulation and explain responses of `notifications.invite-simulation`, the player
+  search of `notifications.waiting-list` rule 7.
+- **WRITES:** nothing. Selecting a non-materialized occurrence materializes it through the
+  sanctioned path (rule 3), which is the same side effect opening the class has.
+
+### Rules
+1. `tutorials` is added to the **single section registry** of each app — web `SettingsPage.tsx`
+   with `audience: "coach"`, mobile `settings-sections.ts` also with `audience: "coach"`
+   (PAD-169 replaced mobile's `COACH_ONLY_SECTIONS` list with the same field web uses) — placed
+   directly after **Notifications**. Students never see it (`settings.role-scope` rules 2–5); no
+   backend endpoint is added by this leaf, so the authorization boundary is the simulation's own
+   `require_coach()`.
+2. The section lists tutorials as rows (title + one-line description). v1 has exactly one row,
+   **Understand invites**. The list is a static registry in code, mirrored on both apps, not
+   server data.
+3. **Understand invites** is a three-step flow on one screen:
+   - **Pick a class** — the coach's upcoming classes for the next 4 weeks (each row names the class
+     and its weekday, day/month and time — "Qua, 14/10 às 18:00", PAD-517), read from the existing
+     calendar feed (`calendar.view`), including non-materialized occurrences, filtered to those
+     with at least one enrolled player. Selecting an occurrence resolves it to a `LessonInstance`
+     through `get_or_materialize_instance` (R-001, `classes.instances` rule 1), exactly as opening
+     the class does — the tutorial never creates instance rows any other way.
+   - **Pick the missing player** — the enrolled players of that instance.
+   - **Results** — fetched from `POST /api/app/notify/invite_simulation` through `@levelup/api`
+     (R-012); never a direct HTTP call from a component or screen.
+4. Results render in this order, mirroring the engine's own order:
+   1. **Gates**, blocked ones first, each in plain words with the moment it clears when the
+      response gives one ("The engine is switched off", "Quiet hours — invitations resume at
+      07:00", "Invitations open at 16:00", "This class is too close to start").
+   2. **Approval note** when `approvalRequired` — "You would be asked to approve this list first".
+   3. **Waiting list, asked first (PAD-446)** when `waitingList` is not empty — "Asked first, from
+      the waiting list:" and the students in their order, each marked "(standing entry)" when
+      `standing`. Nothing is shown for an empty list.
+   4. **The spot** — side and level and where the level came from ("a left-side, level 5 spot —
+      level taken from the player") and, under it (PAD-566), why that side, in the engine's own
+      numbers from `spot.sideCounts` (`notifications.invite-simulation` rule 9; the client never
+      recounts — two places counting sides is how PAD-541 started). **The counts are a projection,
+      and the sentence says so (PAD-825, PAD-822):** they are the players going without the leaver
+      plus the class's open spots on their reserved side, which a coach read as the roster. Every
+      sentence with counts opens "Contando quem vai e as vagas abertas (cada uma no lado a que está
+      reservada), …" / "Counting who is going plus the open spots on their reserved side, …";
+      when one side has fewer, "… a aula fica com {{left}} de esquerda e {{right}} de direita.
+      Convidamos <lado> …"; on a tie with a sided leaver, "… e faltou
+      um jogador de <lado>, por isso damos prioridade a <lado> para manter a aula equilibrada.";
+      on a tie with no side to keep, "A aula já está equilibrada ({{left}} + {{right}}) … o lado não
+      influenciou esta escolha."; with no counts (no sided player on the roster), "… a vaga mantém
+      o lado de quem faltou." The words follow `sideCounts.chosen`, the engine's own side — the
+      client never recounts or re-decides; `chosen` of `both`/none reads as "the side did not
+      influence" whatever the counts (`describeSideReasoning` in `@levelup/config`;
+      `tutorials.sideReason.*`, pt/en; both shells; the Playwright spec asserts the line against the
+      locale's sentences, numbers wild). **Under it, the roster as the coach sees it (PAD-825):**
+      "Agora vão {{goingLeft}} de esquerda e {{goingRight}} de direita (sem quem falta); vagas
+      abertas: {{openLeft}} de esquerda e {{openRight}} de direita." from `sideCounts.going` and
+      `sideCounts.open`, so the two lines add up at a glance (`describeSideRoster`,
+      `tutorials.sideRoster`, test id `tutorial-spot-side-roster`). Not shown with no counts, or
+      from a server that does not send `going`/`open`.
+   5. **The rounds**, in order. Each round is headed by its rules rendered in words ("Same level
+      and balance the class sides", "Same level", "Everyone eligible"; the side words are PAD-564's,
+      `notifications.groups` rule 6). Each candidate row shows
+      rank, name, level, side, the enabled priority values in the coach's configured order
+      ("level: same", "attendance 92%", "2 classes to make up" (PAD-505: a count, `attendance.stats` rule 3), "side: exact match"), and a
+      send-status badge: **first batch**, **waiting**, or **over today's limit**. A round with no
+      candidates says so explicitly rather than disappearing.
+5. Below the rounds, a **"Why isn't … invited?"** search backed by the existing
+   `GET /api/app/notify/player_search`; picking a result calls the explain endpoint. The verdict
+   renders as **one sentence for the stage**, and when the stage is `eligibility` the structured
+   failure records render through **one shared, platform-neutral formatter**
+   (`@levelup/config` `describeEligibilityFailure`, record → locale key + params) that both shells
+   call — the tutorial and the PAD-133 manual-add warning (`eligibility.enforcement` rule 7) must
+   say the same thing about the same student. Neither app had a renderer for those records before
+   this leaf; the warning adopts this one when it is built. A student who *is* invited gets "Invited in round 2, position 3 —
+   waiting" rather than a reason.
+6. All copy lives in a new i18n namespace **`tutorials`** in both languages (pt, en). On mobile
+   the namespace must be **statically imported** in `src/lib/i18n.ts` — the static-import trap in
+   `frontend/CLAUDE.md` — or every string renders as its key. Every `stage`, gate `code`,
+   `sendStatus` and priority key from the simulation has a translation entry; an unknown code
+   renders a neutral fallback, never the raw code.
+   - Code to follow: `describeGate` and `describeSendStatus` in `frontend/packages/config/src/invite-simulation.ts`
+     fall back to a neutral line for an unknown code, as `describeStage` does, each with a test.
+7. Web uses the shadcn primitives (R-015) and `@/` imports (R-011). iOS mirrors the drill-in
+   pattern of the existing settings sections (section list → section → tutorial) and carries a
+   `testID` on the section row, each step's picker and the results container for Maestro.
+8. Changing the class resets the player step and clears the results; changing the player re-runs
+   the simulation; the results header shows `evaluatedAt` as "as of HH:MM" in Lisbon time
+   (`Europe/Lisbon`, which every club has today; the tutorial does not read the club's zone).
+   A simulation in flight is replaced, not appended, when the selection changes.
+9. The tutorial explains; it does not act. It offers no button to send, approve, place or exclude
+   anyone. Links to the relevant Settings → Notifications sections are allowed.
+
+### Acceptance Criteria
+
+#### SETTINGS-TUTORIALS-1: Coach sees Tutorials, student does not — web
+- **Given** an authenticated coach on `/settings`
+- **When** the section list renders
+- **Then** **Tutorials** is offered directly after **Notifications**
+- **And** an authenticated student on `/settings` is not offered it, and opening
+  `/settings?tab=tutorials` as a student falls back to a permitted section
+
+#### SETTINGS-TUTORIALS-2: Coach sees Tutorials, student does not — iOS
+- **Given** an authenticated coach on the Settings tab
+- **When** the section list renders
+- **Then** a row with `testID="settings-nav-tutorials"` is offered after Notifications
+- **And** for an authenticated student that row is absent
+
+#### SETTINGS-TUTORIALS-3: Picking a class then a player shows the ordered rounds
+- **Given** a coach with `maxSimultaneous` enabled at 2 and an upcoming class "Terça 19:00" with
+  enrolled players Alice, Bob and Carol, and five eligible students on the roster
+- **When** the coach opens Tutorials → Understand invites, picks "Terça 19:00", then picks Alice
+- **Then** the results show the spot line, then round 1 with its candidates numbered from 1
+- **And** the first two candidates carry the **first batch** badge and the rest carry **waiting**
+- **And** neither Alice, Bob nor Carol is listed
+
+#### SETTINGS-TUTORIALS-4: The spot says why its side was chosen (rule 4.4, PAD-566)
+- **Given** a class with 6 left-side and 2 right-side students going and a left-side student who cancels, on web and on iOS
+- **When** the coach picks that class and student in the tutorial
+- **Then** under the spot line it reads "A aula tem 5 de esquerda e 2 de direita a ir. Para equilibrar os lados, damos prioridade a jogadores de direita." — the same numbers `spot.sideCounts` carries
+- **And** for a class of 2 + 2 losing a left-side student it reads that left is kept to stay balanced
+- **And** for a class of 3 + 3 losing a student with no set side it reads that the side did not influence the choice
+
+#### SETTINGS-TUTORIALS-5: The side counts read as a projection, next to the roster (rule 4.4, PAD-825)
+- **Given** a class with 8 left-side and 5 right-side students going, 4 open right spots freed by absences, and a right-side student who cancels (PAD-822's class), on web and on iOS
+- **When** the coach picks that class and student in the tutorial
+- **Then** the side line opens "Contando quem vai e as vagas abertas…" and gives 8 left and 8 right, the projection `spot.sideCounts` carries
+- **And** under it the roster line gives 8 left and 4 right going and 0 left and 4 right open, so 8 + 0 and 4 + 4 give the projection
+
+#### SETTINGS-TUTORIALS-6: A blocked gate is shown above the queue
+- **Given** the coach has `quietHours` enabled and the tutorial is run at 22:30 Lisbon time
+- **When** the results render
+- **Then** a gate line "Quiet hours — invitations resume at 07:00" appears above the rounds
+- **And** the rounds are still listed below it
+
+#### SETTINGS-TUTORIALS-7: The lookup explains a student below the bar
+- **Given** the coach's bar is `[{level, within_n_of_class, value: 1}]`, the class is level `4`,
+  and Eve is level `5-` (two steps away)
+- **When** the coach types "Eve" in "Why isn't … invited?" and picks her
+- **Then** the verdict says she is below the eligibility bar
+- **And** the failed rule renders as "2 levels below this class", identical to what the manual-add
+  warning shows for Eve on this class
+
+#### SETTINGS-TUTORIALS-8: The lookup explains an invited student's position
+- **Given** the simulation lists Hugo third in round 1 with `sendStatus` `queued`
+- **When** the coach looks Hugo up
+- **Then** the verdict reads "Invited in round 1, position 3 — waiting"
+
+#### SETTINGS-TUTORIALS-9: Switching class clears the results
+- **Given** results are showing for "Terça 19:00" / Alice
+- **When** the coach picks a different class
+- **Then** the player step is reset, the results area is empty, and no simulation runs until a
+  player is picked
+
+#### SETTINGS-TUTORIALS-10: The tutorial changes nothing
+- **Given** a coach in semi-automatic mode runs the tutorial for a class
+- **When** they later open the Assistant conversation and the class's notification activity
+- **Then** no approval prompt, invitation or activity entry was created by the tutorial
+
+#### SETTINGS-TUTORIALS-11: The tutorial lists blocked gates first and the waiting list in the server's order (rule 4)
+- **Given** a simulation with four gates, two of them blocked, a gate that opens later, and a waiting list of two students
+- **When** the tutorial renders
+- **Then** the blocked gates come first, and each group keeps the engine's order
+- **And** the gate that opens later says when: `2026-07-15T15:00:00` reads `15/07 16:00`
+- **And** the waiting-list students are named in the server's order, and a server that sends no waiting list shows none
+test: `frontend/packages/config/src/invite-simulation.test.ts` › `keys on the gate code and formats the window-open instant on the club clock` (+3 more)
+
+#### SETTINGS-TUTORIALS-12: The lookup puts every verdict the engine can give into words (rules 5, 6)
+- **Given** the engine's answer for a student who was not invited
+- **When** the lookup renders it
+- **Then** a failed level rule reads as a number of levels below or above the class, with its own wording for one level
+- **And** a class with no level, a student with no level, a level outside the ladder and an unknown operation each have their own sentence, and an absence rule names the count and the limit
+- **And** a student no round matched gets each round's reasons, prefixed with the round
+- **And** a stage this build does not know reads "Not invited this time."
+test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a known stage and falls back to a generic line for one this build does not know` (+8 more)
+
+#### SETTINGS-TUTORIALS-13: The class row names the weekday in the user's language with the day/month (rule 3, PAD-517)
+- **Given** the occurrence date `2026-10-14`
+- **When** the class row is built for `pt`, `en` and `pt-PT`
+- **Then** the weekday reads `Qua`, `Wed` and (for `2026-10-11`) `Dom`, with the day as `14/10` or `11/10`
+- **And** a value that is not a calendar day, such as `soon`, is shown as it is with no weekday
+
+### Notes
+- The Tutorials section is deliberately a registry so the next tutorial is one row and one
+  screen, not a new Settings section.
+- The class picker reuses the calendar feed rather than a new endpoint: the tutorial's "upcoming
+  classes" must be the same classes the coach sees on their calendar.
+- OPEN: the copy for each gate, stage and badge is drafted at plan time in pt first
+  (`settings.language` rule: Portuguese is the default and the fallback).

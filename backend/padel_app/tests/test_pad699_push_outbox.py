@@ -68,6 +68,7 @@ def test_outside_a_unit_of_work_the_row_is_written_at_once(outbox_app):
         assert len(rows) == 1 and rows[0]["status"] == "pending" and rows[0]["channel"] == "expo"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-3")
 def test_inside_a_unit_of_work_a_rollback_sends_nothing(outbox_app):
     from padel_app.tools.unit_of_work import unit_of_work
 
@@ -83,6 +84,7 @@ def test_inside_a_unit_of_work_a_rollback_sends_nothing(outbox_app):
         assert len(_rows()) == 1
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-3")
 def test_the_senders_enqueue_what_not_where(outbox_app):
     from padel_app.models import DeviceToken
     from padel_app.utils.expo_push import send_expo_push_to_user
@@ -124,6 +126,7 @@ def _enqueue(n=1, uid=None):
     return uid
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-2")
 def test_sent_rows_lose_their_message(outbox_app):
     with outbox_app.app_context():
         _enqueue(2)
@@ -136,6 +139,7 @@ def test_sent_rows_lose_their_message(outbox_app):
     assert len(sends.seen) == 2
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-2")
 def test_skip_is_terminal_without_an_incident(outbox_app):
     from padel_app.models.delivery_incident import DeliveryIncident
 
@@ -148,6 +152,7 @@ def test_skip_is_terminal_without_an_incident(outbox_app):
         assert DeliveryIncident.query.count() == 0
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-2")
 def test_a_retry_backs_off_and_the_last_attempt_is_dead_with_an_incident(outbox_app):
     from padel_app.models.delivery_incident import DeliveryIncident
 
@@ -172,6 +177,7 @@ def test_a_retry_backs_off_and_the_last_attempt_is_dead_with_an_incident(outbox_
         assert incident.kind == "push_failed" and "outbox dead after 6 attempts" in incident.detail
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-3")
 def test_a_stopping_drainer_puts_its_claims_back(outbox_app):
     with outbox_app.app_context():
         _enqueue(3)
@@ -183,6 +189,7 @@ def test_a_stopping_drainer_puts_its_claims_back(outbox_app):
         assert all(r["claimed_by"] is None for r in _rows())
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-1")
 def test_killed_before_the_send_it_is_delivered_once_after_the_restart(outbox_app):
     """Ticket done-when: insert, kill the worker before the send, restart → delivered once."""
     with outbox_app.app_context():
@@ -201,6 +208,7 @@ def test_killed_before_the_send_it_is_delivered_once_after_the_restart(outbox_ap
         assert _rows()[0]["status"] == "sent"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-1")
 def test_killed_after_the_accept_before_the_commit_it_is_redelivered_at_most_once(outbox_app):
     with outbox_app.app_context():
         _enqueue()
@@ -308,6 +316,7 @@ def _expo_response(*receipts):
     ([{"status": "error", "details": {"error": "DeviceNotRegistered"}}], "skip"),
     ([{"status": "error", "details": {"error": "MessageRateExceeded"}}], "retry"),
 ])
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-2")
 def test_expo_outcomes(app, monkeypatch, receipts, expected):
     from padel_app.utils import expo_push
 
@@ -317,6 +326,7 @@ def test_expo_outcomes(app, monkeypatch, receipts, expected):
         assert expo_push.send_expo_push_outcome(tokens, "t", "b")[0] == expected
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-2")
 def test_an_expo_transport_failure_is_a_retry(app, monkeypatch):
     import requests
 
@@ -329,6 +339,7 @@ def test_an_expo_transport_failure_is_a_retry(app, monkeypatch):
 
 
 @pytest.mark.parametrize("status,expected", [(410, "skip"), (404, "skip"), (500, "retry"), (429, "retry")])
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-2")
 def test_web_push_outcomes(app, status, expected):
     from pywebpush import WebPushException
 
@@ -353,6 +364,7 @@ def test_the_drainer_follows_the_flag_and_is_one_per_process(app):
     sched_mod.stop_push_drainer(app)  # never started: harmless
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-1")
 def test_a_drainer_whose_lease_was_taken_over_cannot_overwrite_the_row(outbox_app):
     """A slow drainer finishing after its lease ran out and another drainer reclaimed the row must
     not mark it sent under the new holder."""
@@ -369,6 +381,7 @@ def test_a_drainer_whose_lease_was_taken_over_cannot_overwrite_the_row(outbox_ap
         assert row["status"] == "sending" and row["claimed_by"] == "new-holder"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-NOTIFICATION-SOUND-4")
 def test_the_drainer_makes_pad680s_sound_decision_when_it_sends(outbox_app, monkeypatch):
     """#760 (PAD-680, PAD-743): with the user's switch on, every iOS device gets `sound`, an older
     build's too; an Android device without the capability stays silent. The outbox row carries no
@@ -402,6 +415,7 @@ def test_the_drainer_makes_pad680s_sound_decision_when_it_sends(outbox_app, monk
         assert _rows()[0]["status"] == "sent"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-NOTIFICATION-SOUND-4")
 def test_a_user_who_switched_sound_off_gets_silent_pushes(outbox_app, monkeypatch):
     from padel_app.models import DeviceToken, User
     from padel_app.utils import expo_push

@@ -68,6 +68,7 @@ def _report(app, rid):
 
 # ── rules 1–2: the list ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-MODERATION-1")
 def test_a_report_is_listed_open_with_its_message_and_people(client, app, staff):
     t = _thread(app)
     res = client.get("/admin/api/reports?status=open", headers=staff["support"])
@@ -90,6 +91,7 @@ def test_the_summary_counts_open_reports(client, app, staff):
 
 # ── rule 3: the detail ──────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-MODERATION-2")
 def test_the_detail_shows_two_before_and_two_after_and_the_participants(client, app, staff):
     t = _thread(app)
     res = client.get(f"/admin/api/reports/{t['report']}", headers=staff["support"])
@@ -107,6 +109,7 @@ def test_an_unknown_report_is_404(client, app, staff):
 
 # ── rule 4: acting ──────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-MODERATION-3")
 def test_dismiss_closes_the_report_and_is_audited(client, app, staff):
     t = _thread(app)
     res = client.post(f"/admin/api/reports/{t['report']}/dismiss", json={}, headers=staff["operator"])
@@ -117,6 +120,7 @@ def test_dismiss_closes_the_report_and_is_audited(client, app, staff):
     assert row["targetType"] == "message_report" and row["targetId"] == str(t["report"])
 
 
+@pytest.mark.criterion("ADMIN-MODERATION-3")
 def test_delete_message_soft_deletes_it_and_tells_the_participants(client, app, staff, published):
     from padel_app.models import Message
 
@@ -132,6 +136,7 @@ def test_delete_message_soft_deletes_it_and_tells_the_participants(client, app, 
     assert recipients == sorted([t["coach"], t["student"]])
 
 
+@pytest.mark.criterion("ADMIN-MODERATION-3")
 def test_disable_author_disables_them_and_needs_no_body(client, app, staff):
     from padel_app.models import User
 
@@ -173,6 +178,7 @@ def test_without_a_token_nothing_is_readable(client, app):
 
 # ── rule 6: deletion audit ──────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-MODERATION-4")
 def test_the_deletion_audit_is_listed_and_filtered(client, app, staff):
     from padel_app.models import User
     from padel_app.models.deletion_audit import DeletionAudit
@@ -278,6 +284,7 @@ def _report_now(app, t, index=2, reason="insultos graves"):
         return report_message_service(t["student"], t["messages"][index], reason).id
 
 
+@pytest.mark.criterion("ADMIN-MODERATION-5")
 def test_a_new_report_emails_the_admin_with_a_console_link_and_no_message_text(app, mail):
     t = _quiet_thread(app)
     _report_now(app, t)
@@ -290,6 +297,7 @@ def test_a_new_report_emails_the_admin_with_a_console_link_and_no_message_text(a
         assert private not in subject + body
 
 
+@pytest.mark.criterion("ADMIN-MODERATION-5")
 def test_a_burst_of_reports_sends_one_email(app, mail):
     t = _quiet_thread(app)
     for i in (1, 2, 4, 5):
@@ -297,6 +305,7 @@ def test_a_burst_of_reports_sends_one_email(app, mail):
     assert len(mail) == 1
 
 
+@pytest.mark.criterion("ADMIN-MODERATION-5")
 def test_a_report_after_the_quiet_window_emails_again(app, mail):
     from padel_app.models import MessageReport
 
@@ -342,6 +351,7 @@ def test_without_a_console_url_the_email_names_the_console_without_a_bare_path(a
     assert "staff console" in body
 
 
+@pytest.mark.criterion("ADMIN-MODERATION-5")
 def test_two_reports_at_the_same_instant_still_email_once(app, mail):
     """A tie on created_at: the lower id is the first of the burst, so exactly one of the two mails."""
     from padel_app.models import MessageReport

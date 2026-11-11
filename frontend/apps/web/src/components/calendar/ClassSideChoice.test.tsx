@@ -44,7 +44,7 @@ beforeEach(() => {
 });
 
 describe("the side sheet", () => {
-  it("lists Direita, Esquerda, Ambos and pre-selects the profile side, tagged Habitual", () => {
+  it("[CLASSES-JOIN-REQUESTS-20] lists Direita, Esquerda, Ambos and pre-selects the profile side, tagged Habitual", () => {
     renderSheet({ profileSide: "left" });
     expect(screen.getAllByRole("radio").map((r) => r.getAttribute("data-testid"))).toEqual([
       "class-side-right",
@@ -73,7 +73,7 @@ describe("the side sheet", () => {
     expect(send.disabled).toBe(false);
   });
 
-  it("sends the request with the chosen side and the note, then reports it", async () => {
+  it("[CLASSES-JOIN-REQUESTS-20] sends the request with the chosen side and the note, then reports it", async () => {
     const props = renderSheet({ profileSide: "left", note: "chego cedo" });
     fireEvent.click(screen.getByTestId("class-side-right"));
     fireEvent.click(screen.getByTestId("class-side-send"));
@@ -101,7 +101,7 @@ describe("the side sheet", () => {
 });
 
 describe("409 side_full", () => {
-  it("replaces the body with the two choices, naming the sides", async () => {
+  it("[CLASSES-JOIN-REQUESTS-21] replaces the body with the two choices, naming the sides", async () => {
     api.createClassJoinRequest.mockRejectedValueOnce(sideFull(["right"], "left"));
     renderSheet({ profileSide: "left" });
     fireEvent.click(screen.getByTestId("class-side-send"));
@@ -117,7 +117,7 @@ describe("409 side_full", () => {
     expect(screen.getByTestId("class-side-stay-waiting").textContent).toBe("Ficar na lista de espera da esquerda");
   });
 
-  it("'Estou disposto a jogar em ambos' resends the same request with side both", async () => {
+  it("[CLASSES-JOIN-REQUESTS-21] 'Estou disposto a jogar em ambos' resends the same request with side both", async () => {
     api.createClassJoinRequest.mockRejectedValueOnce(sideFull(["right"], "left"));
     api.createClassJoinRequest.mockResolvedValueOnce({ id: 2, status: "pending", side: "both" });
     const props = renderSheet({ profileSide: "left", note: "n" });

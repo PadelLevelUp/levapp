@@ -73,6 +73,7 @@ def _assert_public(entries):
         assert not (PRIVATE_KEYS & set(e)), f"private key leaked: {e}"
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-17")
 def test_student_never_receives_another_users_contact_details(client, app, world):
     hdr = _auth(app, world["student_user"])
     res = client.get("/api/app/messageable-users", headers=hdr)
@@ -86,6 +87,7 @@ def test_student_never_receives_another_users_contact_details(client, app, world
     assert not any(e["username"] == "tomas" for e in body)
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-17")
 def test_coach_lists_are_public_but_roster_keeps_contact_details(client, app, world):
     hdr = _auth(app, world["coach_user"])
     for path in ("/api/app/messageable-users", "/api/app/users"):
@@ -105,6 +107,7 @@ def test_coach_own_profile_keeps_contact_details(client, app, world):
     assert res.get_json()["user"]["email"] == "carla@example.com"
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-17")
 def test_public_shape_has_role(client, app, world):
     res = client.get("/api/app/messageable-users", headers=_auth(app, world["student_user"]))
     roles = {e["username"]: e["role"] for e in res.get_json()}

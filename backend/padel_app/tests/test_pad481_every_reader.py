@@ -63,6 +63,7 @@ def _refusal_code(exc_info):
     return exc_info.value.response.get_json()["code"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-38")
 def test_invitation_recipients_group_admits_stronger_not_weaker(app):
     """Reader: invitation recipients, `_get_eligible_students_for_group`.
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
@@ -115,6 +116,7 @@ def test_invitation_recipients_evaluate_candidates_tags_weaker_ineligible(app):
         assert verdicts[weak].stage == "eligibility"
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-8")
 def test_waiting_list_asks_stronger_not_weaker(app):
     """Reader: the waiting list's group 0, `_waiting_list_candidates` (PAD-446).
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
@@ -149,6 +151,7 @@ def test_waiting_list_asks_stronger_not_weaker(app):
         assert picked == [strong]
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-4")
 def test_open_spot_calendar_shows_stronger_not_weaker(app):
     """Reader: open-spot visibility on the calendar, `load_open_spot_events_for_player`.
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
@@ -183,6 +186,7 @@ def test_single_class_open_spot_view_allows_stronger_not_weaker(app):
         assert student_may_view_open_spot(_player(weak), instance) is False
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-1")
 def test_join_request_creation_admits_stronger_refuses_weaker(app):
     """Reader: join request creation, `create_join_request_service`.
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
@@ -203,6 +207,7 @@ def test_join_request_creation_admits_stronger_refuses_weaker(app):
         assert _refusal_code(e) == "ineligible"
 
 
+@pytest.mark.criterion("CLASSES-JOIN-REQUESTS-11")
 def test_join_request_accept_flags_weaker_not_stronger(app):
     """Reader: join request accept, `decide_join_request_service` (the `confirm` flag).
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
@@ -274,6 +279,7 @@ def test_class_edit_warning_names_weaker_not_stronger(app):
         assert out[0]["failures"]
 
 
+@pytest.mark.criterion("ELIGIBILITY-ENFORCEMENT-4")
 def test_config_save_scan_names_enrolled_weaker_not_stronger(app):
     """Reader: the config-save impact scan, `students_failing_eligibility_bar`.
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""
@@ -290,6 +296,7 @@ def test_config_save_scan_names_enrolled_weaker_not_stronger(app):
         assert [a["playerId"] for a in affected] == [weak]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-10")
 def test_invite_simulation_explain_invites_stronger_flags_weaker(app):
     """Reader: invite simulation (explain mode), `explain_player`.
     PAD-481 / eligibility.rules rule 7 (one evaluator)."""

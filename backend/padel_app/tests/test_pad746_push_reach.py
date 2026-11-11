@@ -62,6 +62,7 @@ def _incidents():
     return DeliveryIncident.query.filter_by(kind="push_registration_failed").all()
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-11")
 def test_the_summary_counts_active_students_by_push_channel(app, client):
     # The real clock: the admin gate checks its token against it, so the summary is not pinned.
     now = utcnow_naive()
@@ -84,6 +85,7 @@ def test_the_summary_counts_active_students_by_push_channel(app, client):
     }
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-12")
 def test_a_student_in_two_read_conversations_counts_once(app, client):
     from padel_app.models import Conversation, ConversationParticipant
 
@@ -101,6 +103,7 @@ def test_a_student_in_two_read_conversations_counts_once(app, client):
     assert body["push"]["activeStudents7d"]["total"] == 1
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-13")
 def test_a_reported_failure_is_logged_recorded_and_counted(app, client, caplog):
     with app.app_context():
         uid = _user("p746reporter")
@@ -142,6 +145,7 @@ def test_a_web_failure_maps_to_webpush(app, client):
     {"token": "ExponentPushToken[abc]"},         # an extra field is refused, never stored
     {"build": None},
 ])
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-14")
 def test_anything_but_the_closed_fields_is_refused(app, client, change):
     with app.app_context():
         uid = _user(f"p746bad{abs(hash(str(change))) % 10_000}")
@@ -158,6 +162,7 @@ def test_the_report_needs_a_signed_in_user(client):
     assert client.post("/api/notifications/registration-failure", json=VALID).status_code == 401
 
 
+@pytest.mark.criterion("ADMIN-ENGINE-HEALTH-15")
 def test_a_user_adds_at_most_twenty_rows_a_day(app, client, monkeypatch):
     pin_clock(monkeypatch, NOW)
     with app.app_context():

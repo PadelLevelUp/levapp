@@ -12,7 +12,7 @@ const record = {
 };
 
 describe("initialShareSelection (rule 2: Step 1's defaults)", () => {
-  it("pre-selects every competency rated in the record, in the record's own order", () => {
+  it("[EVALUATIONS-SHARING-2] pre-selects every competency rated in the record, in the record's own order", () => {
     expect(initialShareSelection(record).categoryIds).toEqual([3, 1, 7]);
   });
 
@@ -20,11 +20,11 @@ describe("initialShareSelection (rule 2: Step 1's defaults)", () => {
     expect(initialShareSelection(record).evolution).toBe("last");
   });
 
-  it("starts the include-note toggle OFF — never pre-ticked, even when the record has a note", () => {
+  it("[EVALUATIONS-SHARING-2] starts the include-note toggle OFF — never pre-ticked, even when the record has a note", () => {
     expect(initialShareSelection(record).includeNote).toBe(false);
   });
 
-  it("pre-selects nothing for a record with no ratings", () => {
+  it("[EVALUATIONS-SHARING-2] pre-selects nothing for a record with no ratings", () => {
     expect(initialShareSelection({ ratings: [] }).categoryIds).toEqual([]);
   });
 });

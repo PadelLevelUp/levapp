@@ -17,6 +17,7 @@ the class. One number drives all three:
 
 Covered spec: attendance.stats rule 3; notifications.invite-simulation rule 11.
 """
+import pytest
 from datetime import timedelta
 
 from padel_app.sql_db import db
@@ -73,6 +74,7 @@ def _accepted(ids, s, days_ago, *, attended=True):
     _accepted_invitation(ids, s, inst)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-1")
 def test_owed_is_justified_absences_minus_accepted_invitations(app):
     def record(ids, s):
         for d in (40, 39, 38):
@@ -82,6 +84,7 @@ def test_owed_is_justified_absences_minus_accepted_invitations(app):
     assert _owed(app, record) == (2, True)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-2")
 def test_an_accepted_invitation_the_student_then_missed_still_counts_as_a_makeup_taken(app):
     """Owner, PAD-505 Q2: the acceptance is the make-up, whatever happened at the class."""
     def record(ids, s):
@@ -91,6 +94,7 @@ def test_an_accepted_invitation_the_student_then_missed_still_counts_as_a_makeup
     assert _owed(app, record) == (0, False)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-3")
 def test_a_class_attended_without_an_accepted_invitation_is_not_a_makeup_taken(app):
     """A fill reached through the student's own join request leaves no invitation."""
     def record(ids, s):
@@ -100,6 +104,7 @@ def test_a_class_attended_without_an_accepted_invitation_is_not_a_makeup_taken(a
     assert _owed(app, record) == (1, True)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-4")
 def test_owed_never_goes_below_zero(app):
     def record(ids, s):
         _justified(ids, s, 40)
@@ -109,6 +114,7 @@ def test_owed_never_goes_below_zero(app):
     assert _owed(app, record) == (0, False)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-5")
 def test_a_justification_left_on_a_present_row_is_not_owed(app):
     """PAD-381: a corrected "absent, justified" kept its justification on a PRESENT row."""
     def record(ids, s):
@@ -117,6 +123,7 @@ def test_a_justification_left_on_a_present_row_is_not_owed(app):
     assert _owed(app, record) == (0, False)
 
 
+@pytest.mark.criterion("ATTENDANCE-STATS-6")
 def test_another_coachs_invitation_does_not_pay_this_coachs_debt(app):
     """PAD-382 scoping: both sides of the count belong to this coach."""
     from padel_app.tests.test_pad382_attendance_readers_are_coach_scoped import _second_coach_with_rui
@@ -131,6 +138,7 @@ def test_another_coachs_invitation_does_not_pay_this_coachs_debt(app):
 
 # ── the tiebreaker and the simulation ────────────────────────────────────────
 
+@pytest.mark.criterion("ATTENDANCE-STATS-7")
 def test_the_justified_misses_tiebreaker_ranks_by_classes_owed_and_the_simulation_shows_the_count(app):
     """Ana: 2 justified absences in 10 classes (20 %), 2 owed. Bruno: 1 justified absence in
     2 classes (50 %), 1 owed. By the rate Bruno went first; by classes owed Ana does, and the

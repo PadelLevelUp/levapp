@@ -21,7 +21,7 @@ import { hhmmOf, minutesOf } from "./class-request-slots";
 const W = (startTime: string, endTime: string) => ({ startTime, endTime });
 
 describe("workingWindowsFor", () => {
-  it("falls back to the default window when nothing is set, per day", () => {
+  it("[CLASSES-AVAILABILITY-2] falls back to the default window when nothing is set, per day", () => {
     expect(workingWindowsFor(null, 1)).toEqual([DEFAULT_WORKING_WINDOW]);
     expect(workingWindowsFor({}, 3)).toEqual([DEFAULT_WORKING_WINDOW]);
     expect(DEFAULT_WORKING_WINDOW).toEqual(W("08:00", "22:00"));
@@ -37,7 +37,7 @@ describe("workingWindowsFor", () => {
 });
 
 describe("subtractIntervals", () => {
-  it("cuts busy time out of the windows, half-open", () => {
+  it("[CLASSES-AVAILABILITY-1] cuts busy time out of the windows, half-open", () => {
     expect(subtractIntervals([W("08:00", "22:00")], [W("10:00", "11:00"), W("14:00", "16:00")])).toEqual([
       W("08:00", "10:00"),
       W("11:00", "14:00"),
@@ -52,7 +52,7 @@ describe("subtractIntervals", () => {
 });
 
 describe("freeWindowsForDay", () => {
-  it("is working time minus everyone's busy time, dropping short leftovers (spec criterion 1)", () => {
+  it("[CLASSES-AVAILABILITY-1] is working time minus everyone's busy time, dropping short leftovers (spec criterion 1)", () => {
     const working = [W("09:00", "13:00"), W("15:00", "21:00")];
     const coach = [W("10:00", "11:00"), W("16:00", "17:00")];
     const bruno = [W("12:00", "13:00")];
@@ -88,7 +88,7 @@ describe("occurrenceDates", () => {
 });
 
 describe("weeklyIntersection", () => {
-  it("keeps only the time free on every occurrence (spec criterion 3)", () => {
+  it("[CLASSES-AVAILABILITY-3] keeps only the time free on every occurrence (spec criterion 3)", () => {
     const byDate = {
       "2026-10-06": [W("18:00", "20:00")], // Tue week 1
       "2026-10-08": [W("18:00", "20:00")], // Thu week 1
@@ -110,7 +110,7 @@ describe("weeklyIntersection", () => {
     expect(weeklyIntersection(byDate, rec).windows).toEqual([]);
   });
 
-  it("intersects split windows across days", () => {
+  it("[CLASSES-AVAILABILITY-3] intersects split windows across days", () => {
     const byDate = {
       "2026-10-06": [W("09:00", "12:00"), W("14:00", "18:00")],
       "2026-10-13": [W("10:00", "15:00")],
@@ -128,19 +128,19 @@ describe("slotStarts", () => {
 });
 
 describe("addWorkingWindow (settings.coach-working-hours rule 5, PAD-361)", () => {
-  it("REVIEW #347 F1: reads the whole day, not the last row — rows are never sorted in the editor", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-5] REVIEW #347 F1: reads the whole day, not the last row — rows are never sorted in the editor", () => {
     // A day the server accepts, with the early window typed last. Appending after the
     // LAST ROW gave 08:00–22:00 over both other windows → 400 "windows overlap".
     const day = addWorkingWindow([["08:00", "13:00"], ["14:00", "17:30"], ["06:00", "07:00"]]);
     expect(day).toEqual([["06:00", "07:00"], ["08:00", "13:00"], ["14:00", "17:30"], ["18:30", "22:00"]]);
   });
 
-  it("REVIEW #347 F2: an evening-only coach gets a morning window, not a disabled button", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-5] REVIEW #347 F2: an evening-only coach gets a morning window, not a disabled button", () => {
     expect(addWorkingWindow([["20:00", "22:00"]])).toEqual([["08:00", "19:00"], ["20:00", "22:00"]]);
     expect(addWorkingWindow([["18:00", "22:00"]])).toEqual([["08:00", "17:00"], ["18:00", "22:00"]]);
   });
 
-  it("takes the largest gap, and never fills the break it has just made", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-5] takes the largest gap, and never fills the break it has just made", () => {
     expect(addWorkingWindow([["08:00", "09:00"], ["12:00", "13:00"], ["21:00", "22:00"]])).toEqual([
       ["08:00", "09:00"], ["12:00", "13:00"], ["14:00", "20:00"], ["21:00", "22:00"],
     ]);
@@ -156,7 +156,7 @@ describe("addWorkingWindow (settings.coach-working-hours rule 5, PAD-361)", () =
     expect(addWorkingWindow([["08:07", "22:00"]])).toBeNull();
   });
 
-  it("splits an untouched day around the lunch break instead of adding 22:00–22:00 (B-140)", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-5] splits an untouched day around the lunch break instead of adding 22:00–22:00 (B-140)", () => {
     expect(addWorkingWindow([["08:00", "22:00"]])).toEqual([
       ["08:00", "13:00"],
       ["14:00", "22:00"],
@@ -179,7 +179,7 @@ describe("addWorkingWindow (settings.coach-working-hours rule 5, PAD-361)", () =
     ]);
   });
 
-  it("answers null when no window of an hour fits: the control is disabled, never a refused value", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-5] answers null when no window of an hour fits: the control is disabled, never a refused value", () => {
     // Full of short windows: no gap leaves an hour, none is long enough to split.
     expect(addWorkingWindow([["08:00", "10:00"], ["10:30", "13:00"], ["13:30", "16:00"], ["16:30", "19:00"], ["19:30", "22:00"]])).toBeNull();
     expect(addWorkingWindow([["18:00", "17:00"]])).toBeNull();
@@ -189,7 +189,7 @@ describe("addWorkingWindow (settings.coach-working-hours rule 5, PAD-361)", () =
     expect(addWorkingWindow([])).toEqual([["08:00", "22:00"]]);
   });
 
-  it("never returns a day the server refuses, from single, multi-window and unsorted days alike", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-5] never returns a day the server refuses, from single, multi-window and unsorted days alike", () => {
     const valid = (day: [string, string][]) => {
       const m = day.map(([s, e]) => [minutesOf(s), minutesOf(e)]).sort((a, b) => a[0] - b[0]);
       return m.every(([s, e]) => s % 15 === 0 && e % 15 === 0 && s >= 0 && s < e && e <= 1440) &&
@@ -219,18 +219,18 @@ describe("addWorkingWindow (settings.coach-working-hours rule 5, PAD-361)", () =
 });
 
 describe("snapToGrid (settings.coach-working-hours rule 6, PAD-369)", () => {
-  it("brings a time to the nearest quarter hour (B-141: 22:07 and 22:01 were refused)", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-6] brings a time to the nearest quarter hour (B-141: 22:07 and 22:01 were refused)", () => {
     expect(snapToGrid("22:07")).toBe("22:00");
     expect(snapToGrid("22:08")).toBe("22:15");
     expect(snapToGrid("22:01")).toBe("22:00");
     expect(snapToGrid("08:53")).toBe("09:00");
   });
 
-  it("leaves a time already on the grid alone", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-6] leaves a time already on the grid alone", () => {
     for (const t of ["00:00", "08:15", "13:30", "23:45"]) expect(snapToGrid(t)).toBe(t);
   });
 
-  it("never rounds past the last point a time field can show", () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-6] never rounds past the last point a time field can show", () => {
     expect(snapToGrid("23:53")).toBe("23:45");
     expect(snapToGrid("23:59")).toBe("23:45");
   });

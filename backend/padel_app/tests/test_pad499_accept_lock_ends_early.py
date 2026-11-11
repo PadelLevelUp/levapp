@@ -78,6 +78,7 @@ def _enrolled(app, instance_id):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-51")
 def test_cell_a_a_second_yes_on_another_spot_cannot_overfill_the_class(app, monkeypatch):
     from padel_app.services import notification_service as ns
     from padel_app.services.notification_service import respond_to_notification
@@ -281,6 +282,7 @@ def test_coach_a_failed_enrolment_changes_nothing_and_the_coach_can_retry(app, m
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-51")
 def test_coach_a_coach_yes_and_a_student_yes_on_two_spots_cannot_overfill(app, monkeypatch):
     """#527 review item 2: the coach records X's yes on V1 while Y answers yes on V2, one place left.
     Forced: the coach pauses before enrolling until Y's answer has finished. With the class lock in
@@ -326,6 +328,7 @@ def test_coach_a_coach_yes_and_a_student_yes_on_two_spots_cannot_overfill(app, m
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-51")
 def test_join_an_accepted_join_request_and_a_student_yes_cannot_overfill(app, monkeypatch):
     """#527 review item 2: the coach accepts Z's join request while Y answers yes on V2, one place
     left. Forced: the join path pauses before enrolling until Y's answer has finished. With rule 10's

@@ -71,14 +71,14 @@ async function header(enrolled: number, absent: number) {
 }
 
 describe("the coach's participants header (PAD-771)", () => {
-  it("counts a not-coming student's spot as open", async () => {
+  it("[CALENDAR-EVENT-DETAIL-2] counts a not-coming student's spot as open", async () => {
     const text = await header(16, 4);
     expect(text).toContain("12/16");
     expect(text).toContain("4");
     expect(text).not.toContain("16/16");
   });
 
-  it("reads full when every spot is taken", async () => {
+  it("[CALENDAR-EVENT-DETAIL-2] reads full when every spot is taken", async () => {
     expect(await header(16, 0)).toContain("16/16");
   });
 });

@@ -91,6 +91,7 @@ def world(app):
 
 # ── a. coach relations and club ─────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-1")
 def test_coach_relation_moves_with_level_side_notes(app, world):
     from padel_app.models import Association_CoachPlayer, Player, User
 
@@ -132,6 +133,7 @@ def test_club_membership_moves_without_duplicates(app, world):
 
 # ── b. enrolments and waiting lists ─────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-1")
 def test_lesson_enrolments_move(app, world):
     # PAD-301: the instance half of this test (the shadow junction) is gone;
     # per-occurrence enrolments are presences, covered below.
@@ -165,6 +167,7 @@ def test_waiting_list_entries_move(app, world):
 
 # ── c. presences ────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-1")
 def test_presences_move(app, world):
     from padel_app.models import Presence
 
@@ -178,6 +181,7 @@ def test_presences_move(app, world):
         assert p.player_id == world["st_player"] and p.status == "present"
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-8")
 def test_duplicate_presence_resolves_to_the_claimants(app, world):
     """Spec: 'Duplicate presence resolves to the claimant's'."""
     from padel_app.models import Presence
@@ -241,6 +245,7 @@ def test_replacement_prompts_move(app, world):
         assert r.declined_player_id == world["st_player"] and r.waiting_list_player_id == world["st_player"]
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-1")
 def test_pending_invitation_moves_and_is_accepted(app, world):
     from padel_app.models import PlayerInvitation
 
@@ -277,6 +282,7 @@ def _say(app, conv_id, sender_id, text, when):
         return m.id
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-2")
 def test_chat_history_follows_the_claim(app, world):
     """Spec: 'Chat history follows the claim' — no prior thread with the claimant."""
     from padel_app.models import Conversation, ConversationParticipant, Message
@@ -293,6 +299,7 @@ def test_chat_history_follows_the_claim(app, world):
         assert ConversationParticipant.query.filter_by(user_id=world["ph_user"]).count() == 0
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-2")
 def test_chat_collision_merges_into_the_existing_thread(app, world):
     """Spec: coach already chatted with the claimant → one thread, all messages, right key."""
     from padel_app.models import Conversation, ConversationParticipant, Message, MessageReaction
@@ -342,6 +349,7 @@ def test_messages_sent_calendar_blocks_and_blocks_move(app, world):
 
 # ── f/g. retirement and identity ────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-1")
 def test_placeholder_user_is_retired_and_claimant_untouched(app, world):
     from padel_app.models import Player, User
     from padel_app.tools.username_tools import is_placeholder_username
@@ -361,6 +369,7 @@ def test_placeholder_user_is_retired_and_claimant_untouched(app, world):
 
 # ── guards ──────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("PLAYERS-CLAIM-6")
 def test_activated_player_is_not_claimable(app, world):
     from werkzeug.exceptions import Conflict
     from padel_app.models import User
@@ -371,6 +380,7 @@ def test_activated_player_is_not_claimable(app, world):
         _merge(app, world["ph_player"], world["st_user"])
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-7")
 def test_coach_account_cannot_claim(app, world):
     from werkzeug.exceptions import Forbidden
 
@@ -428,6 +438,7 @@ def _relation(app, coach_id, player_id, **kw):
         return rel.id
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-9")
 def test_b361_evaluations_and_notes_survive_when_the_claimant_already_has_the_coach(app, world):
     """The PAD-528 case: the student scanned the coach's QR (so already has a
     relation with that coach) and the coach then links the placeholder. The
@@ -453,6 +464,7 @@ def test_b361_evaluations_and_notes_survive_when_the_claimant_already_has_the_co
         assert EvaluationRecord.query.filter_by(coach_player_id=st_rel).count() == 1
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-10")
 def test_b361_same_day_records_merge_into_the_claimants(app, world):
     """Both sides evaluated on the same club day without a class: the two
     class-less records collide on (coach_player_id, evaluated_on). The
@@ -520,6 +532,7 @@ def _shared(app, record_id):
         return share.id
 
 
+@pytest.mark.criterion("PLAYERS-CLAIM-24")
 def test_b361_a_share_follows_its_record_unless_the_kept_record_is_shared(app, world):
     """Rule 5a: the dropped record's share moves to the kept record when that one
     is unshared; when both are shared, the kept record's share wins and the

@@ -33,6 +33,7 @@ class _Event:
         return f"_Event(id={self.id}, player={self.player_id}, status={self.status})"
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-15")
 def test_dedupe_keeps_one_row_per_student():
     from padel_app.serializers.lesson import dedupe_invitation_events
 
@@ -78,6 +79,7 @@ def test_dedupe_preserves_first_appearance_order():
         (["sent", "queued"], "queued"),
     ],
 )
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-16")
 def test_dedupe_prefers_an_accepted_invite_then_the_newest(statuses, expected):
     from padel_app.serializers.lesson import dedupe_invitation_events
 
@@ -253,6 +255,7 @@ def repeat_invite_scenario(app):
         }
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-15")
 def test_class_detail_lists_each_invited_student_once(
     client, app, repeat_invite_scenario
 ):

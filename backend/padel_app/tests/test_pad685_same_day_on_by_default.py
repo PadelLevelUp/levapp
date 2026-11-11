@@ -1,5 +1,6 @@
 """PAD-685 (notifications.config rule 6e): "do not invite a student who already has a class that day"
 is ON by default, and migration PAD-685 switches every existing coach on once (idempotently)."""
+import pytest
 import importlib.util
 import pathlib
 
@@ -8,6 +9,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-6")
 def test_a_fresh_config_serializes_the_restriction_on(app):
     from padel_app.models.notification_config import DEFAULT_RESTRICTIONS, NotificationConfig
 
@@ -15,6 +17,7 @@ def test_a_fresh_config_serializes_the_restriction_on(app):
     assert NotificationConfig().restrictions["noSameDayClass"] == {"enabled": True}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-6")
 def test_a_save_without_the_key_keeps_a_stored_off(app):
     from padel_app.models.notification_config import NotificationConfig
 
@@ -56,6 +59,7 @@ def _flags(conn):
         "SELECT id, no_same_day_class_enabled FROM notification_configs ORDER BY id").fetchall()]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-7")
 def test_migration_switches_existing_rows_on_and_a_second_run_changes_nothing():
     conn = _scratch()
     assert _flags(conn) == [(1, False), (2, False)]

@@ -17,6 +17,7 @@ def _post(client, credential="cred"):
     return client.post(URL, json={"credential": credential})
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-1")
 def test_a_company_account_with_a_role_signs_in(app, client, monkeypatch):
     make_role(app, "ana@levapp.app", "operator")
     stub_verifier(monkeypatch, google_claims("ana@levapp.app"))
@@ -33,6 +34,7 @@ def test_a_company_account_with_a_role_signs_in(app, client, monkeypatch):
     assert len(rows) == 1 and rows[0]["outcome"] == "ok" and rows[0]["actorEmail"] == "ana@levapp.app"
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-2")
 def test_a_personal_google_account_is_refused(app, client, monkeypatch):
     stub_verifier(monkeypatch, google_claims("ana@gmail.com", hd=None))
     r = _post(client)
@@ -49,6 +51,7 @@ def test_a_personal_google_account_is_refused(app, client, monkeypatch):
     ],
     ids=["hd-other", "suffix-spoof"],
 )
+@pytest.mark.criterion("ADMIN-FOUNDATION-3")
 def test_a_spoofed_domain_is_refused(app, client, monkeypatch, claims):
     make_role(app, "ana@levapp.app", "operator")
     stub_verifier(monkeypatch, claims)
@@ -66,6 +69,7 @@ def test_a_spoofed_domain_is_refused(app, client, monkeypatch, claims):
     ],
     ids=["signature", "audience", "issuer"],
 )
+@pytest.mark.criterion("ADMIN-FOUNDATION-4")
 def test_a_token_that_does_not_verify_is_refused(app, client, monkeypatch, setup):
     make_role(app, "ana@levapp.app", "operator")
     stub_verifier(monkeypatch, setup.get("claims"), setup.get("exc"))
@@ -75,6 +79,7 @@ def test_a_token_that_does_not_verify_is_refused(app, client, monkeypatch, setup
     assert len(rows) == 1 and rows[0]["outcome"] == "denied"
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-5")
 def test_an_unverified_email_is_refused(app, client, monkeypatch):
     make_role(app, "ana@levapp.app", "operator")
     stub_verifier(monkeypatch, google_claims("ana@levapp.app", email_verified=False))
@@ -82,6 +87,7 @@ def test_an_unverified_email_is_refused(app, client, monkeypatch):
     assert r.status_code == 403 and r.get_json() == {"error": "NOT_STAFF_DOMAIN"}
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-7")
 def test_a_domain_account_without_a_role_is_refused(app, client, monkeypatch):
     stub_verifier(monkeypatch, google_claims("rui@levapp.app"))
     r = _post(client)
@@ -90,6 +96,7 @@ def test_a_domain_account_without_a_role_is_refused(app, client, monkeypatch):
     assert len(rows) == 1 and rows[0]["outcome"] == "denied" and rows[0]["actorEmail"] == "rui@levapp.app"
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-7")
 def test_a_revoked_role_does_not_sign_in(app, client, monkeypatch):
     make_role(app, "rui@levapp.app", "owner", revoked=True)
     stub_verifier(monkeypatch, google_claims("rui@levapp.app"))
@@ -103,6 +110,7 @@ def test_the_verifier_is_called_with_the_configured_client_id(app, client, monke
     assert calls == [("the-credential", CLIENT_ID)]
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-6")
 def test_sign_in_degrades_when_the_client_id_is_empty(app_with_config, monkeypatch):
     app = signing(app_with_config({"ADMIN_GOOGLE_CLIENT_ID": ""}))
     calls = stub_verifier(monkeypatch, google_claims("ana@levapp.app"))

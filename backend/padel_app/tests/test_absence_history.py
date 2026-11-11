@@ -14,6 +14,7 @@ isolation — a chart, some bars, a plausible list — while showing a smaller
 number than the card the student clicked to get there. So every test below
 seeds BOTH a justified and an unjustified absence.
 """
+import pytest
 
 from datetime import datetime, timedelta
 
@@ -98,6 +99,7 @@ _WINDOW = (datetime(2026, 3, 1), datetime(2026, 3, 31, 23, 59, 59))
 
 
 class TestAbsenceHistory:
+    @pytest.mark.criterion("ATTENDANCE-ABSENCES-5")
     def test_returns_only_absences(self, app):
         """Rule: the absence page never shows attended classes."""
         from padel_app.services.attendance_history_service import build_absence_history
@@ -113,6 +115,7 @@ class TestAbsenceHistory:
         assert payload["total"] == 2
         assert len(payload["sessions"]) == 2
 
+    @pytest.mark.criterion("ATTENDANCE-ABSENCES-5")
     def test_attendance_and_absence_histories_are_disjoint(self, app):
         """The two pages partition the data — no class appears on both.
 
@@ -140,6 +143,7 @@ class TestAbsenceHistory:
         assert attended_ids.isdisjoint(missed_ids)
         assert attended["total"] == 2 and missed["total"] == 2
 
+    @pytest.mark.criterion("ATTENDANCE-ABSENCES-3")
     def test_total_matches_the_dashboard_missed_kpi(self, app):
         """Spec rule 2 — the page and the KPI that links to it cannot disagree.
 
@@ -162,6 +166,7 @@ class TestAbsenceHistory:
 
         assert payload["total"] == kpis.lessons_missed == 2
 
+    @pytest.mark.criterion("ATTENDANCE-ABSENCES-4")
     def test_justified_absences_are_included_not_filtered(self, app):
         """Spec rule 3 — both justifications count toward the total."""
         from padel_app.services.attendance_history_service import build_absence_history
@@ -209,6 +214,7 @@ class TestAbsenceHistory:
         # Empty days are present rather than skipped.
         assert any(b["count"] == 0 for b in payload["buckets"])
 
+    @pytest.mark.criterion("ATTENDANCE-ABSENCES-8")
     def test_sessions_carry_the_calendar_deep_link(self, app):
         """Rule 5 — always the materialized `lessoninstance-<id>` form."""
         from padel_app.services.attendance_history_service import build_absence_history

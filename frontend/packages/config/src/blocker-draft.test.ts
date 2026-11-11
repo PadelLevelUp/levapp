@@ -25,20 +25,20 @@ describe("blockerDraftError", () => {
     expect(blockerDraftError(single({ date: "" }))).toBe("date_required");
   });
 
-  it("requires both times: a cleared time input is not a time", () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-10] requires both times: a cleared time input is not a time", () => {
     expect(blockerDraftError(single({ startTime: "" }))).toBe("time_required");
     expect(blockerDraftError(single({ endTime: "" }))).toBe("time_required");
     expect(blockerDraftError(recurring({ startTime: "", endTime: "" }))).toBe("time_required");
     expect(blockerDraftError(single({ startTime: "9" }))).toBe("time_required");
   });
 
-  it("refuses an end time at or before the start time", () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-10] refuses an end time at or before the start time", () => {
     expect(blockerDraftError(single({ startTime: "18:00", endTime: "18:00" }))).toBe("end_before_start");
     expect(blockerDraftError(single({ startTime: "18:00", endTime: "17:30" }))).toBe("end_before_start");
     expect(blockerDraftError(recurring({ startTime: "09:00", endTime: "08:59" }))).toBe("end_before_start");
   });
 
-  it("refuses a recurring end date before the start date, but not the same day", () => {
+  it("[CALENDAR-STUDENT-BLOCKERS-10] refuses a recurring end date before the start date, but not the same day", () => {
     expect(blockerDraftError(recurring({ endDate: "2026-09-20" }))).toBe("end_date_before_start_date");
     expect(blockerDraftError(recurring({ endDate: "2026-09-21" }))).toBeNull();
     // a single block ignores any leftover end date

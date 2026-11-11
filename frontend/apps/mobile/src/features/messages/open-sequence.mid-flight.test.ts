@@ -66,7 +66,7 @@ function openOverCache(explicitTarget: string | null, staleCache = false) {
 }
 
 describe("a live write while this open's GET is in flight (B-222)", () => {
-  it("neither freezes the cached first unread nor marks read before the GET answers", async () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-4] neither freezes the cached first unread nor marks read before the GET answers", async () => {
     const open = openOverCache(null);
     await flush();
     open.liveWrite(); // message_created arrives mid-flight; the SSE handler writes the entry
@@ -87,7 +87,7 @@ describe("a live write while this open's GET is in flight (B-222)", () => {
     open.unsubscribe();
   });
 
-  it("control: without the live write the open waits for its GET the same way", async () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-4] control: without the live write the open waits for its GET the same way", async () => {
     const open = openOverCache(null);
     await flush();
     const mid = open.view();
@@ -100,7 +100,7 @@ describe("a live write while this open's GET is in flight (B-222)", () => {
 });
 
 describe("a push-target open on an OLDER message over a fresh cache (B-222, loadOlder's page merge)", () => {
-  it("makes no GET, marks read at once, and a later page merge never freezes the cached first unread", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-17] makes no GET, marks read at once, and a later page merge never freezes the cached first unread", async () => {
     const open = openOverCache("555");
     await flush();
     expect(open.fetches()).toBe(0);

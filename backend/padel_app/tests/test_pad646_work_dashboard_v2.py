@@ -134,12 +134,14 @@ def _work(client, headers):
 
 # ── rule 9: TestFlight ────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-8")
 def test_testflight_is_not_configured_until_the_key_exists(client, operator, calls):
     body = _work(client, operator)
     assert body["testflight"] == {"status": "not_configured", "missing": "ASC_KEY_ID"}
     assert not any("appstoreconnect" in url for _, url, _ in calls)
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-8")
 def test_testflight_lists_builds_with_a_signed_token_and_never_echoes_it(client, app, operator, calls):
     app.config.update(ASC_KEY_ID="KEY646", ASC_ISSUER_ID="issuer-646", ASC_PRIVATE_KEY=ASC_PEM, ASC_APP_ID="6740000000")
     body = _work(client, operator)
@@ -174,6 +176,7 @@ def test_the_bugs_panel_is_retired_without_a_repository_too(client, app, operato
 
 # ── rule 11: CI lanes ─────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-10")
 def test_ci_lanes_timing_against_their_limit(client, operator, calls):
     ci = _work(client, operator)["ci"]
     assert ci["status"] == "ok"
@@ -190,6 +193,7 @@ def test_ci_lanes_timing_against_their_limit(client, operator, calls):
     assert len(jobs_calls) == 5
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-10")
 def test_ci_needs_the_token_and_never_calls_actions_without_it(client, app, operator, calls):
     app.config["WORK_GITHUB_TOKEN"] = ""
     assert _work(client, operator)["ci"] == {"status": "not_configured", "missing": "WORK_GITHUB_TOKEN"}

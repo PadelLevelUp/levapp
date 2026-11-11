@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { nativeRouteForWebPath } from "./routes";
 
 describe("nativeRouteForWebPath (dashboard.blocks rule 10, shared with push routing since PAD-327 — where a needs-you item lands on iOS)", () => {
-  it("opens a class deep link on the class screen, and with Notificar open when asked (PAD-285)", () => {
+  it("[DASHBOARD-BLOCKS-5] opens a class deep link on the class screen, and with Notificar open when asked (PAD-285)", () => {
     const plain = nativeRouteForWebPath("/calendar?classId=lessoninstance-42&date=2026-09-20", { title: "B1", timeLabel: "18:00" });
     expect(plain).toMatchObject({ pathname: "/class/[id]", params: { id: "lessoninstance-42", originalId: "42", date: "2026-09-20", title: "B1", startTime: "18:00" } });
     expect(plain && "params" in plain ? plain.params : {}).not.toHaveProperty("notify");
@@ -15,20 +15,20 @@ describe("nativeRouteForWebPath (dashboard.blocks rule 10, shared with push rout
     expect(nativeRouteForWebPath("/calendar")).toEqual({ pathname: "/(tabs)/calendar" });
   });
 
-  it("opens THAT conversation for a reply, not the messages tab (PAD-284)", () => {
+  it("[DASHBOARD-BLOCKS-4] opens THAT conversation for a reply, not the messages tab (PAD-284)", () => {
     expect(nativeRouteForWebPath("/messages/17")).toEqual({ pathname: "/conversation/[id]", params: { id: "17" } });
     // The pre-PAD-284 shape still lands on the conversation.
     expect(nativeRouteForWebPath("/messages?conversationId=17")).toEqual({ pathname: "/conversation/[id]", params: { id: "17" } });
     expect(nativeRouteForWebPath("/messages")).toEqual({ pathname: "/(tabs)/messages" });
   });
 
-  it("opens the Presences tab on the week, with the validate view when asked (PAD-283)", () => {
+  it("[DASHBOARD-BLOCKS-3] opens the Presences tab on the week, with the validate view when asked (PAD-283)", () => {
     expect(nativeRouteForWebPath("/presences")).toEqual({ pathname: "/(tabs)/presences", params: { week: "0" } });
     expect(nativeRouteForWebPath("/presences?week=-1")).toEqual({ pathname: "/(tabs)/presences", params: { week: "-1" } });
     expect(nativeRouteForWebPath("/presences?validate=1&week=-1")).toEqual({ pathname: "/(tabs)/presences", params: { week: "-1", validate: "1" } });
   });
 
-  it("keeps the student KPI destinations", () => {
+  it("[DASHBOARD-NAVIGATION-2] keeps the student KPI destinations", () => {
     expect(nativeRouteForWebPath("/players")).toEqual({ pathname: "/(tabs)/players" });
     expect(nativeRouteForWebPath("/attendance")).toEqual({ pathname: "/attendance" });
     expect(nativeRouteForWebPath("/absences")).toEqual({ pathname: "/absences" });
@@ -61,7 +61,7 @@ describe("PAD-327: the request alerts' destinations", () => {
 });
 
 describe("PAD-486: the incomplete-profiles block's destinations", () => {
-  it("a player's href opens that player", () => {
+  it("[DASHBOARD-PROFILE-COMPLETENESS-7] a player's href opens that player", () => {
     expect(nativeRouteForWebPath("/players/42")).toEqual({
       pathname: "/player/[playerId]",
       params: { playerId: "42" },

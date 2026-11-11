@@ -109,6 +109,7 @@ def _windows(payload, day):
 
 # ── settings.coach-working-hours ─────────────────────────────────────────────
 
+@pytest.mark.criterion("SETTINGS-COACH-WORKING-HOURS-2")
 def test_working_hours_are_validated_stored_and_cleared(app):
     ids = _world(app)
     stored = _put_hours(app, ids, {"mon": [["09:00", "13:00"], ["15:00", "21:00"]], "tue": []})
@@ -143,6 +144,7 @@ def test_participants_resolve_one_at_a_time_without_an_oracle(app):
     assert upper[0]["ok"] is True and upper[0]["playerId"] == str(ids["carla"]), "usernames resolve case-insensitively"
 
 
+@pytest.mark.criterion("CLASSES-AVAILABILITY-1")
 def test_free_windows_are_working_time_minus_everyones_calendars(app):
     """Spec criterion 1: Ana works Tue 09:00–13:00 and 15:00–21:00; she has a
     class 10:00–11:00 and a hold 16:00–17:00; Bruno has a class 12:00–13:00;
@@ -169,6 +171,7 @@ def test_free_windows_are_working_time_minus_everyones_calendars(app):
     assert out["participants"] == [{"username": "carla", "ok": True, "playerId": str(ids["carla"]), "name": "carla"}]
 
 
+@pytest.mark.criterion("CLASSES-AVAILABILITY-2")
 def test_the_default_window_applies_until_the_coach_sets_hours(app):
     ids = _world(app)
     out = _availability(app, ids, THU, THU)
@@ -176,6 +179,7 @@ def test_the_default_window_applies_until_the_coach_sets_hours(app):
     assert _windows(out, THU) == [("08:00", "22:00")]
 
 
+@pytest.mark.criterion("CLASSES-AVAILABILITY-4")
 def test_a_stranger_is_refused_and_no_windows_are_computed(app):
     ids = _world(app)
     with pytest.raises(HTTPException) as exc:
@@ -196,6 +200,7 @@ def _create(app, ids, **data):
     return create_class_request_service(_player(ids["bruno"]), {**base, **data})
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-18")
 def test_a_group_request_names_only_people_who_train_with_the_coach(app):
     from padel_app.services.class_request_service import serialize_class_request
 
@@ -231,6 +236,7 @@ def test_an_invitees_calendar_refuses_a_slot_they_cannot_make(app):
         assert _create(app, ids, participants=["carla"], startTime="19:00", endTime="20:00").status == "pending"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-22")
 def test_a_weekly_request_holds_every_occurrence_and_accept_creates_one_series(app):
     from padel_app.models import ClassRequest, Message
     from padel_app.models.lessons import Lesson
@@ -300,6 +306,7 @@ def _series_class(app, ids, day, start, end, *, player_ids, weeks=3):
         return lesson.id
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-24")
 def test_an_unmaterialised_series_occurrence_is_busy_for_its_member(app):
     """F1 / rule 13: series membership counts on every occurrence, materialised or not."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -324,6 +331,7 @@ def test_an_unmaterialised_series_occurrence_is_busy_for_its_member(app):
         assert _create(app, ids, date=second_tue.isoformat(), startTime="19:00", endTime="20:00", participants=["carla"]).status == "pending"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-25")
 def test_free_blocks_and_proposals_follow_the_coach_working_hours(app):
     """F2 / rule 1: one working-time answer for free-blocks, a plain request, a proposal."""
     from padel_app.services.class_request_service import decide_class_request_service, free_blocks
@@ -345,6 +353,7 @@ def test_free_blocks_and_proposals_follow_the_coach_working_hours(app):
                                             data={"date": TUE.isoformat(), "startTime": "11:00", "endTime": "12:00"}).status == "countered"
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-26")
 def test_a_proposal_on_a_weekly_request_stays_on_its_weekdays_and_rechecks_everyone(app):
     """F3 / rule 16: off the weekday set → off_series; on it → the series re-anchors and every
     occurrence is re-validated for every person."""
@@ -389,6 +398,7 @@ def test_a_proposal_on_a_weekly_request_stays_on_its_weekdays_and_rechecks_every
         assert db.session.get(ClassRequest, rid).recurrence["weekdays"] == [2, 4]
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-27")
 def test_accepting_a_weekly_request_after_its_first_occurrence_starts_at_the_next_one(app):
     """F4 / rule 17: past occurrences are skipped; in_the_past only when none remain."""
     from padel_app.models import ClassRequest

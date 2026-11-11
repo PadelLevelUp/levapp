@@ -55,7 +55,7 @@ describe("visibleSections(isCoach = false) — the student", () => {
     ]);
   });
 
-  it("still hides every coach-only section", () => {
+  it("[SETTINGS-ROLE-SCOPE-1] still hides every coach-only section", () => {
     // The regression PAD-169 must not re-open: widening the gating from a
     // coach-only list to an audience field has to leave these hidden.
     const ids = idsFor(false);
@@ -72,13 +72,13 @@ describe("visibleSections(isCoach = false) — the student", () => {
 });
 
 describe("visibleSections(isCoach = true) — the coach", () => {
-  it("does NOT offer the student's own notification preferences", () => {
+  it("[SETTINGS-ROLE-SCOPE-2] does NOT offer the student's own notification preferences", () => {
     // A coach never receives a class-vacancy invitation, so the controls
     // could not affect their account (web made the same call in PAD-142).
     expect(idsFor(true)).not.toContain("myNotifications");
   });
 
-  it("offers every other section, in registry order", () => {
+  it("[SETTINGS-ROLE-SCOPE-3] offers every other section, in registry order", () => {
     expect(idsFor(true)).toEqual([
       "profile",
       "preferences",

@@ -62,7 +62,7 @@ function pickStart(value: string) {
 }
 
 describe("a clone is the ordinary create, prefilled (PAD-524)", () => {
-  it("opens with the start empty and Create disabled until one is chosen; the end follows the length", async () => {
+  it("[CLASSES-CLONE-1] opens with the start empty and Create disabled until one is chosen; the end follows the length", async () => {
     conflicts.mockResolvedValue([]);
     const onSave = vi.fn();
     renderSheet(onSave);
@@ -83,7 +83,7 @@ describe("a clone is the ordinary create, prefilled (PAD-524)", () => {
     });
   });
 
-  it("still asks before scheduling over another class (PAD-99)", async () => {
+  it("[CLASSES-CLONE-3] still asks before scheduling over another class (PAD-99)", async () => {
     conflicts.mockResolvedValue([]);
     const onSave = vi.fn();
     renderSheet(onSave, [OTHER_CLASS]);
@@ -94,7 +94,7 @@ describe("a clone is the ordinary create, prefilled (PAD-524)", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("still asks before booking a student who marked themselves unavailable (PAD-107)", async () => {
+  it("[CLASSES-CLONE-3] still asks before booking a student who marked themselves unavailable (PAD-107)", async () => {
     conflicts.mockResolvedValue([{ playerId: "7", name: "Ana" }]);
     const onSave = vi.fn();
     renderSheet(onSave);
@@ -107,7 +107,7 @@ describe("a clone is the ordinary create, prefilled (PAD-524)", () => {
 });
 
 describe("the notifications switch (classes.create rule 6b, PAD-793)", () => {
-  it("is shown with the coach's engine off, and a clone's save sends what the coach set", async () => {
+  it("[CLASSES-CREATE-1] is shown with the coach's engine off, and a clone's save sends what the coach set", async () => {
     conflicts.mockResolvedValue([]);
     const onSave = vi.fn();
     renderSheet(onSave);
@@ -122,7 +122,7 @@ describe("the notifications switch (classes.create rule 6b, PAD-793)", () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ notificationsEnabled: false });
   });
 
-  it("starts off on a new class", () => {
+  it("[CLASSES-CREATE-1] starts off on a new class", () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <AddClassSheet open onClose={() => {}} onSave={vi.fn()} players={[]} levels={[]} />

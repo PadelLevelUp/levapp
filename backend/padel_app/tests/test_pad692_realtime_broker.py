@@ -41,6 +41,7 @@ def _rows(app):
 # --- rule 20 ------------------------------------------------------------------------------------
 
 @pytest.mark.skipif(ON_POSTGRES, reason="the fallback is for a non-Postgres database")
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-27")
 def test_postgres_broker_falls_back_to_memory_without_postgres(app_with_config, caplog):
     with caplog.at_level(logging.WARNING, logger="padel_app.realtime"):
         app = app_with_config({"SSE_BROKER": "postgres"})
@@ -61,6 +62,7 @@ def test_unknown_broker_value_is_memory(app_with_config):
 # --- rule 21 ------------------------------------------------------------------------------------
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-24")
 def test_publish_inside_unit_of_work_waits_for_the_commit(pg_app):
     from padel_app.tools.unit_of_work import unit_of_work
 
@@ -75,6 +77,7 @@ def test_publish_inside_unit_of_work_waits_for_the_commit(pg_app):
 
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-24")
 def test_publish_inside_a_rolled_back_unit_of_work_publishes_nothing(pg_app):
     from padel_app.tools.unit_of_work import unit_of_work
 
@@ -101,6 +104,7 @@ def test_publish_outside_unit_of_work_writes_row_on_its_own_transaction(pg_app):
 
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-25")
 def test_publish_never_stalls_when_its_pool_is_exhausted(pg_app, caplog):
     engine = realtime._publish_engine()
     held = [engine.connect() for _ in range(engine.pool.size() + engine.pool._max_overflow)]
@@ -129,6 +133,7 @@ def test_an_id_whose_row_is_gone_is_skipped():
 
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-22")
 def test_listener_delivers_to_local_streams_with_scoping(pg_app):
     q_u = realtime.subscribe(1)
     q_v = realtime.subscribe(2)
@@ -149,6 +154,7 @@ def test_listener_delivers_to_local_streams_with_scoping(pg_app):
 # --- rule 24 ------------------------------------------------------------------------------------
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-26")
 def test_prune_keeps_only_rows_inside_the_retention(pg_app):
     with pg_app.app_context():
         db.session.execute(text(
@@ -176,6 +182,7 @@ def _wait(predicate, timeout):
 # --- review round 1 (missing-test signals) ------------------------------------------------------
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-28")
 def test_a_stream_open_before_the_first_listen_gets_a_resync(pg_app, monkeypatch):
     """The first stream starts the listener, so it is registered before LISTEN returns; an event
     published in that window reaches nobody. The stream must be told to resync (rule 24)."""
@@ -197,6 +204,7 @@ def test_a_stream_open_before_the_first_listen_gets_a_resync(pg_app, monkeypatch
 
 
 @needs_postgres
+@pytest.mark.criterion("MESSAGING-SSE-REALTIME-29")
 def test_a_failing_prune_does_not_reconnect_or_resync(pg_app, monkeypatch, caplog):
     monkeypatch.setattr(realtime, "_PRUNE_SQL", "DELETE FROM realtime_events_no_such_table")
     q = realtime.subscribe(1)

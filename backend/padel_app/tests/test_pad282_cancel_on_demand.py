@@ -63,6 +63,7 @@ def _cancellation_messages(app, ids):
 
 # ── criterion: student cancels a class they requested that is still virtual (PAD-282) ──
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-16")
 def test_cancel_by_model_and_date_materialises_the_requested_class(app):
     from padel_app.models import LessonInstance, Presence
     from padel_app.services.notification_service import cancel_attendance
@@ -94,6 +95,7 @@ def test_cancel_by_model_and_date_materialises_the_requested_class(app):
     assert len(_cancellation_messages(app, ids)) == 1
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-16")
 def test_the_endpoint_accepts_the_event_triple(app, client):
     from flask_jwt_extended import create_access_token
     from padel_app.models import LessonInstance
@@ -120,6 +122,7 @@ def test_the_endpoint_accepts_the_event_triple(app, client):
 
 # ── criterion: the class-detail payload offers the action on a virtual occurrence ──
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-18")
 def test_class_instance_payload_carries_deadlines_for_a_virtual_occurrence(app, client):
     from flask_jwt_extended import create_access_token
 
@@ -179,6 +182,7 @@ def _recurring_roster_class(app, ids, first_day, *, roster):
         return lesson.id
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-17")
 def test_cancel_ten_days_out_is_proactive_and_holds_invitations(app):
     from padel_app.models import LessonInstance, NotificationEvent, Presence, Vacancy
     from padel_app.services.notification_service import cancel_attendance, get_or_create_config
@@ -213,6 +217,7 @@ def test_cancel_ten_days_out_is_proactive_and_holds_invitations(app):
 
 # ── criterion: off the roster → 403 and nothing created ──
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-19")
 def test_a_student_off_the_roster_cannot_materialise_by_cancelling(app):
     from padel_app.models import LessonInstance, Presence, Vacancy
     from padel_app.services.notification_service import cancel_attendance
@@ -237,6 +242,7 @@ def test_a_student_off_the_roster_cannot_materialise_by_cancelling(app):
 
 # ── criterion: a date the recurrence does not produce → 404, nothing materialised ──
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-20")
 def test_a_date_outside_the_recurrence_is_refused(app):
     from padel_app.models import LessonInstance
     from padel_app.services.notification_service import cancel_attendance

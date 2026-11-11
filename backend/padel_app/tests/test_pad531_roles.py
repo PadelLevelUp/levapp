@@ -1,8 +1,10 @@
 """PAD-531 admin.foundation rules 5, 7: only the owner manages roles; there is always an owner;
 roles only for the company domain; a revoked email's row is re-activated on grant."""
+import pytest
 from padel_app.tests.admin_helpers import admin_token, audit_rows, bearer, make_role, make_user
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-11")
 def test_only_the_owner_manages_roles(app, client):
     owner = make_role(app, "boss@levapp.app", "owner")
     operator = make_role(app, "ana@levapp.app", "operator")
@@ -21,6 +23,7 @@ def test_only_the_owner_manages_roles(app, client):
     assert len(denied) == 1 and denied[0]["actorEmail"] == "ana@levapp.app"
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-12")
 def test_the_last_owner_cannot_be_removed(app, client):
     owner = make_role(app, "boss@levapp.app", "owner")
     token = admin_token(app, owner)
@@ -37,6 +40,7 @@ def test_the_last_owner_cannot_be_removed(app, client):
     assert client.post(f"/admin/api/roles/{owner}", headers=bearer(token), json={"role": "operator"}).status_code == 200
 
 
+@pytest.mark.criterion("ADMIN-FOUNDATION-13")
 def test_roles_only_for_the_company_domain(app, client):
     owner = make_role(app, "boss@levapp.app", "owner")
     r = client.post("/admin/api/roles", headers=bearer(admin_token(app, owner)), json={"email": "someone@gmail.com", "role": "support"})

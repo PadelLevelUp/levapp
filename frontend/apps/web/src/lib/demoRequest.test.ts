@@ -33,7 +33,7 @@ const reply = (status: number, json?: unknown) =>
 describe("sendDemoRequest", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("posts JSON to the public endpoint and maps 200 to ok", async () => {
+  it("[AUTH-LANDING-PAGE-21] posts JSON to the public endpoint and maps 200 to ok", async () => {
     const f = reply(200, { ok: true });
     vi.stubGlobal("fetch", f);
     expect(await sendDemoRequest(body)).toEqual({ ok: true });

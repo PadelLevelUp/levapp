@@ -9,22 +9,22 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 const variants = () => screen.getAllByTestId("calendar-legend-item").map((i) => i.getAttribute("data-variant"));
 
 describe("the student legend", () => {
-  it("'eligible' lists all six states", () => {
+  it("[CALENDAR-VIEW-20] 'eligible' lists all six states", () => {
     render(<CalendarViewerProvider viewer="student"><CalendarLegend studentFilter="eligible" /></CalendarViewerProvider>);
     expect(variants()).toEqual(["scheduled", "invited", "waiting", "not-coming", "open-spot", "full"]);
   });
-  it("defaults to the eligible list", () => {
+  it("[CALENDAR-VIEW-20] defaults to the eligible list", () => {
     render(<CalendarViewerProvider viewer="student"><CalendarLegend /></CalendarViewerProvider>);
     expect(variants()).toHaveLength(6);
   });
-  it("'mine' drops the two offers", () => {
+  it("[CALENDAR-VIEW-20] 'mine' drops the two offers", () => {
     render(<CalendarViewerProvider viewer="student"><CalendarLegend studentFilter="mine" /></CalendarViewerProvider>);
     expect(variants()).toEqual(["scheduled", "invited", "waiting", "not-coming"]);
   });
 });
 
 describe("the coach legend", () => {
-  it("is unchanged: no student items, the coach keys and the fill key", () => {
+  it("[CALENDAR-VIEW-5] is unchanged: no student items, the coach keys and the fill key", () => {
     render(<CalendarLegend studentFilter="mine" />);
     expect(screen.queryAllByTestId("calendar-legend-item")).toHaveLength(0);
     const text = screen.getByTestId("calendar-legend").textContent ?? "";

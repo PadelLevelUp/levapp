@@ -17,6 +17,7 @@ Pinned clock (`NOW`, the class tomorrow 09:00, the window open). The seed: a cla
 enrolled; one of them gave the place up and a candidate filled it, so 3 seats are held (2 + the
 filler), one filled vacancy, and one seat is free.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -56,6 +57,7 @@ def _spots(instance_id, status="open"):
     return Vacancy.query.filter_by(lesson_instance_id=instance_id, status=status).all()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-6")
 def test_the_invitation_start_opens_the_free_seat_beside_a_filled_spot(app, monkeypatch):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.notification_service import trigger_invitations
@@ -70,6 +72,7 @@ def test_the_invitation_start_opens_the_free_seat_beside_a_filled_spot(app, monk
         assert invited and invited <= set(rest), "the free seat is offered, never to the filler"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-7")
 def test_the_tick_reaches_a_class_whose_only_spot_is_filled(app, monkeypatch):
     from padel_app.services.notification_service import process_invitation_batches
 
@@ -84,6 +87,7 @@ def test_the_tick_reaches_a_class_whose_only_spot_is_filled(app, monkeypatch):
         assert len(_spots(instance_id)) == 1, "and opens it once"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-8")
 def test_the_waiting_list_is_offered_the_free_seat_first(app, monkeypatch):
     """Who gets it: the never-filled spot's own order, the waiting list first (rule 8a)."""
     from datetime import timedelta
@@ -98,6 +102,7 @@ def test_the_waiting_list_is_offered_the_free_seat_first(app, monkeypatch):
         assert _invites(instance_id)[0] == (rest[-1], 0)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-10")
 def test_a_full_class_with_a_filled_spot_opens_nothing(app, monkeypatch):
     from padel_app.services.notification_service import process_invitation_batches
 
@@ -109,6 +114,7 @@ def test_a_full_class_with_a_filled_spot_opens_nothing(app, monkeypatch):
         assert _live_events(instance_id) == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-9")
 def test_an_expired_spot_stays_closed_and_the_other_free_seats_open(app, monkeypatch):
     """The coordinator's case (instance 532 on prod): a freed spot ran out of rounds and expired
     while two seats had never been filled. Rule 1c keeps the expired spot closed; the class's other

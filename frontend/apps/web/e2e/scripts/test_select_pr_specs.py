@@ -60,6 +60,7 @@ def test_ids_in_reads_literals_template_prefixes_and_testid_props():
     assert ids_in(src) == {"engine-card", "history-row-", "plain-id", "engine-sign"}
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-3")
 def test_a_changed_component_selects_the_specs_holding_its_test_ids(world):
     world.write(WEB + "src/components/Engine.tsx", '<div data-testid="engine-toggle"/>')
     world.write(E2E + "settings/engine.spec.ts", 'getByTestId("engine-toggle")')
@@ -129,6 +130,7 @@ def test_a_global_or_packages_change_adds_the_smoke_set_never_the_full_suite(wor
     assert _names(sel) == ["auth/login.spec.ts"]
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-4")
 def test_a_quarantined_spec_is_left_out_unless_the_change_edits_it(world):
     world.write(WEB + "src/components/Slow.tsx", '<div data-testid="slow-thing"/>')
     world.write(E2E + "flaky/slow.spec.ts", 'getByTestId("slow-thing")')
@@ -150,6 +152,7 @@ def test_the_map_covers_a_page_no_spec_reaches_by_test_id(world):
     assert sel.silent_components == []  # no ids at all is the map's case, not a silent component
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-6")
 def test_over_the_cap_the_best_ranked_are_kept_in_file_order_and_it_says_truncated(world):
     world.write(WEB + "src/components/Big.tsx", '<div data-testid="big-thing"/>')
     for i in range(5):
@@ -164,6 +167,7 @@ def test_over_the_cap_the_best_ranked_are_kept_in_file_order_and_it_says_truncat
     assert "truncated: 3 of 5 driven" in summary_md(sel, "")
 
 
+@pytest.mark.criterion("DELIVERY-PR-E2E-SUBSET-7")
 def test_an_empty_subset_is_a_result_that_names_the_components_driving_nothing(world):
     world.write(WEB + "src/components/Lonely.tsx", '<div data-testid="lonely-thing"/>')
     base = world.commit()

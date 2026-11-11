@@ -10,6 +10,7 @@ Now each install site installs a hashed export of the lock first, then the packa
 - the exports name exactly the lock's packages, versions and hashes;
 - the guard found the sites it guards (R-032).
 """
+import pytest
 import pathlib
 import re
 import shlex
@@ -124,6 +125,7 @@ def test_a_continued_or_chained_bare_install_is_seen(tmp_path):
     assert [(n, "--no-deps" in s) for n, s in statements] == [(2, False), (3, False)]
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-3")
 def test_no_backend_install_resolves_from_pyproject_ranges():
     offenders = [
         f"{p.relative_to(ROOT)}:{n}: {s.strip()}"
@@ -133,6 +135,7 @@ def test_no_backend_install_resolves_from_pyproject_ranges():
     assert offenders == [], "install the backend with --no-deps after the hashed lock export"
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-3")
 def test_each_install_site_installs_the_hashed_lock_export_first():
     missing = []
     for path in SITES:
@@ -151,6 +154,7 @@ def test_each_install_site_installs_the_hashed_lock_export_first():
     assert missing == []
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-3")
 def test_the_main_export_is_the_locks_main_group():
     exported = _requirements(BACKEND / "requirements.txt")
     assert len(exported) > 50
@@ -158,12 +162,14 @@ def test_the_main_export_is_the_locks_main_group():
     assert exported["py-vapid"][0] == "1.9.4"
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-3")
 def test_the_dev_export_is_the_whole_lock():
     exported = _requirements(BACKEND / "requirements-dev.txt")
     assert exported == _lock(None)
     assert "pytest-split" in exported
 
 
+@pytest.mark.criterion("DELIVERY-BACKEND-CI-LANES-3")
 def test_every_exported_requirement_carries_a_hash():
     for name in ("requirements.txt", "requirements-dev.txt"):
         unhashed = [n for n, (_, hashes) in _requirements(BACKEND / name).items() if not hashes]

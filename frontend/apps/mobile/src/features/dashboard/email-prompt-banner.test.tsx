@@ -22,25 +22,25 @@ beforeEach(() => nav.push.mockReset());
 afterEach(() => emailPromptSession.reset());
 
 describe("EmailPromptBanner on iOS (rule 14, PAD-482)", () => {
-  it("asks a coach with no email", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] asks a coach with no email", async () => {
     const n = await renderNative(createElement(EmailPromptBanner, { user: coach(null) }));
     expect(n.queryByTestId("email-prompt")).not.toBeNull();
   });
 
-  it("never shows for a coach with an email, or for a player", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] never shows for a coach with an email, or for a player", async () => {
     const withEmail = await renderNative(createElement(EmailPromptBanner, { user: coach("rui@example.com") }));
     expect(withEmail.queryByTestId("email-prompt")).toBeNull();
     const player = await renderNative(createElement(EmailPromptBanner, { user: { id: 8, roles: ["player"], email: null } }));
     expect(player.queryByTestId("email-prompt")).toBeNull();
   });
 
-  it("Adicionar email opens Settings → Perfil on the email field", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] Adicionar email opens Settings → Perfil on the email field", async () => {
     const n = await renderNative(createElement(EmailPromptBanner, { user: coach(null) }));
     await n.press("email-prompt-add");
     expect(nav.push).toHaveBeenCalledWith({ pathname: "/settings", params: { section: "profile", focus: "email" } });
   });
 
-  it("Agora não hides it for the session; a sign-out brings it back", async () => {
+  it("[AUTH-EMAIL-VERIFICATION-27] Agora não hides it for the session; a sign-out brings it back", async () => {
     const n = await renderNative(createElement(EmailPromptBanner, { user: coach(null) }));
     await n.press("email-prompt-dismiss");
     expect(n.queryByTestId("email-prompt")).toBeNull();

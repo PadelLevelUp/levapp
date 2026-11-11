@@ -94,6 +94,7 @@ def _call(app, client, world, who, route):
 
 
 @pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-1")
 def test_owner_and_club_colleague_can_read(app, client, world, route):
     for who in ("ana", "carla"):
         res = _call(app, client, world, who, route)
@@ -101,6 +102,7 @@ def test_owner_and_club_colleague_can_read(app, client, world, route):
 
 
 @pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-1")
 def test_other_club_coach_and_unenrolled_student_get_403_without_a_payload(app, client, world, route):
     for who in ("bruno", "sara"):
         res = _call(app, client, world, who, route)
@@ -110,6 +112,7 @@ def test_other_club_coach_and_unenrolled_student_get_403_without_a_payload(app, 
 
 
 @pytest.mark.parametrize("route", ["detail", "presences", "class_instance"])
+@pytest.mark.criterion("CLASSES-DETAIL-VISIBILITY-1")
 def test_enrolled_student_reads_only_their_own_presence(app, client, world, route):
     res = _call(app, client, world, "rui", route)
     assert res.status_code == 200, res.get_json()

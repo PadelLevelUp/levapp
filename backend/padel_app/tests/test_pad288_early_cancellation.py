@@ -5,6 +5,7 @@ frees through the engine's own rules, the coach is PUSHED only for a late
 cancellation (the chat message stays for every one), and a serialized presence
 says "cancelled by the student" with the time.
 """
+import pytest
 from datetime import datetime
 from unittest.mock import patch
 
@@ -47,6 +48,7 @@ def _coach_messages(app):
         return [m for m in Message.query.all() if (m.msg_metadata or {}).get("cancellation") is True]
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-23")
 def test_a_cancellation_a_month_ahead_frees_the_spot_messages_the_coach_and_does_not_push(app):
     from padel_app.models import LessonInstance, Presence, Vacancy
     from padel_app.serializers.presence import serialize_presence
@@ -74,6 +76,7 @@ def test_a_cancellation_a_month_ahead_frees_the_spot_messages_the_coach_and_does
         assert db.session.get(LessonInstance, instance_id).effective_filled_spots == 0
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-24")
 def test_a_late_cancellation_still_pushes_the_coach_once(app):
     ids = _seed_coach_and_student(app)
     instance_id = _seed(app, ids, 2)
@@ -86,6 +89,7 @@ def test_a_late_cancellation_still_pushes_the_coach_once(app):
     assert len(messages) == 1 and messages[0].msg_metadata["lateCancellation"] is True
 
 
+@pytest.mark.criterion("ATTENDANCE-CONFIRM-25")
 def test_a_coach_marked_justified_absence_is_not_cancelled_by_the_student(app):
     from padel_app.models import Presence
     from padel_app.serializers.presence import serialize_presence

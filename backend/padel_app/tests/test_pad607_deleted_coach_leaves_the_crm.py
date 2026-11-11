@@ -78,6 +78,7 @@ def _delete(app, client, user_id):
     assert res.status_code == 200, res.get_json()
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-13")
 def test_a_deleting_coachs_contact_is_archived_and_a_phone_only_lead_is_not(app, client, hubspot):
     from padel_app.models import User
 
@@ -103,6 +104,7 @@ def test_no_contact_nothing_archived(app, client, hubspot):
 
 
 @pytest.mark.parametrize("failure", ["500", "network"])
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-13")
 def test_hubspot_failing_never_blocks_the_deletion(app, client, hubspot, caplog, failure):
     from padel_app.models import User
 
@@ -121,6 +123,7 @@ def test_hubspot_failing_never_blocks_the_deletion(app, client, hubspot, caplog,
     assert warnings and not any(EMAIL in w for w in warnings)
 
 
+@pytest.mark.criterion("AUTH-COACH-CRM-SYNC-13")
 def test_a_deleting_student_causes_no_request(app, client, hubspot):
     hubspot.contacts = {"1": {"email": EMAIL}}
     _delete(app, client, _account(app, coach=False))
@@ -134,6 +137,7 @@ def test_no_token_no_traffic(app, client, hubspot, monkeypatch):
     assert hubspot.calls == []
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-3")
 def test_the_archive_runs_after_the_deletion_is_committed(app, client, hubspot, monkeypatch, commits):
     """Criterion: after the commit, with the email captured before anonymising (a second
     connection is no witness here — see the PAD-471 `commits` fixture)."""

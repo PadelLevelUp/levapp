@@ -54,6 +54,7 @@ def _register_coach(client, username):
     return res.get_json()
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-12")
 def test_the_env_flag_is_the_fallback_when_no_row_exists(app):
     from padel_app.services.app_settings_service import (
         admin_settings_payload,
@@ -68,6 +69,7 @@ def test_the_env_flag_is_the_fallback_when_no_row_exists(app):
         assert coach_approval_required() is False
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-12")
 def test_a_stored_row_wins_over_the_env_flag(app):
     from padel_app.models import AppSetting
     from padel_app.services.app_settings_service import (
@@ -93,6 +95,7 @@ def test_a_stored_row_wins_over_the_env_flag(app):
         assert admin_settings_payload()["source"] == "environment"
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-12")
 def test_registration_honours_the_stored_setting(client, app):
     from padel_app.models import Coach
     from padel_app.services.app_settings_service import set_coach_approval_required
@@ -111,6 +114,7 @@ def test_registration_honours_the_stored_setting(client, app):
         assert Coach.query.join(Coach.user).filter_by(username="rui_off").one().approval_status == "approved"
 
 
+@pytest.mark.criterion("AUTH-COACH-APPROVAL-12")
 def test_operator_reads_and_flips_the_setting_over_the_console(client, app):
     _, admin_id = _user(app, "admin", superadmin=True)
     operator = _console(app, admin_id)

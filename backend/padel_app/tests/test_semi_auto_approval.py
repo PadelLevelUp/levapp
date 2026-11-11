@@ -220,6 +220,7 @@ class TestInvitationModeConfig:
             cfg = get_config_dict(coach.id)
         assert cfg["invitationMode"] == "automatic"
 
+    @pytest.mark.criterion("NOTIFICATIONS-CONFIG-26")
     def test_update_and_roundtrip_semi_automatic(self, app):
         from padel_app.services.notification_service import get_config_dict, update_config
         with app.app_context():
@@ -247,6 +248,7 @@ class TestInvitationModeConfig:
 
 class TestReminderDeclineSemiAuto:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-4")
     def test_decline_creates_pending_vacancy_prompt_and_message_no_invites(self, app):
         from padel_app.models import Message
         from padel_app.models.notification_event import NotificationEvent
@@ -327,6 +329,7 @@ class TestReminderDeclineSemiAuto:
 
 class TestConfirmPresencesBundle:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-5")
     def test_two_absents_one_bundle_one_message(self, app, client):
         from flask_jwt_extended import create_access_token
         from padel_app.models import Message
@@ -393,6 +396,7 @@ class TestConfirmPresencesBundle:
 
 class TestPromptIdempotency:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-28")
     def test_retrigger_does_not_duplicate_prompts_or_messages(self, app):
         from padel_app.models import Message
         from padel_app.models.notification_event import NotificationEvent
@@ -416,6 +420,7 @@ class TestPromptIdempotency:
             assert Message.query.filter_by(message_type="replacement_approval").count() == 1
             assert NotificationEvent.query.count() == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-28")
     def test_create_approval_prompts_returns_existing_bundle(self, app):
         from padel_app.services.replacement_approval_service import create_approval_prompts
 
@@ -438,6 +443,7 @@ class TestPromptIdempotency:
 
 class TestBatchProcessorGating:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-24")
     def test_skips_pending_and_dismissed_vacancies(self, app):
         from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.vacancy import Vacancy
@@ -474,6 +480,7 @@ class TestBatchProcessorGating:
 
 class TestYesNow:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-12")
     def test_yes_now_approves_and_sends(self, app):
         from padel_app.models import Message
         from padel_app.models.notification_event import NotificationEvent
@@ -517,6 +524,7 @@ class TestYesNow:
 
 class TestYesAtWindow:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-11")
     def test_holds_until_window_then_sends(self, app):
         from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.vacancy import Vacancy
@@ -590,6 +598,7 @@ class TestYesAtWindow:
 
 class TestDismiss:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-14")
     def test_dismiss_never_sends_but_manual_flow_still_works(self, app):
         from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.vacancy import Vacancy
@@ -679,6 +688,7 @@ class TestStale:
 
 class TestWaitingListGating:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-30")
     def test_waiting_list_heads_the_queue_and_waits_for_approval(self, app):
         """PAD-446 (semi-auto-approval rules 5 and 10): the waiting-list student opens the prompt's
         queue, marked as such, with no "added directly" disclosure; nothing goes out before the
@@ -730,6 +740,7 @@ class TestWaitingListGating:
 
 class TestAutomaticModeUnchanged:
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-29")
     def test_automatic_mode_sends_without_prompts(self, app):
         from padel_app.models import Message
         from padel_app.models.notification_event import NotificationEvent
@@ -764,6 +775,7 @@ class TestAutomaticModeUnchanged:
             assert events[0].player_id == candidate.id
             assert events[0].status == "sent"
 
+    @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-29")
     def test_reminder_decline_automatic_mode_unchanged(self, app):
         from padel_app.models.notification_event import NotificationEvent
         from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt

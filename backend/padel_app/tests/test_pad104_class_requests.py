@@ -127,6 +127,7 @@ def _refusal(exc_info):
 
 # ── AC: free blocks are what the coach's calendar leaves open ────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-1")
 def test_free_blocks_are_the_day_minus_classes_and_blocks(app):
     from datetime import time
 
@@ -135,6 +136,7 @@ def test_free_blocks_are_the_day_minus_classes_and_blocks(app):
     assert _free(app, ids) == [("08:00", "10:00"), ("11:00", "14:00"), ("16:00", "22:00")]
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-1")
 def test_an_empty_day_is_one_free_block_and_the_past_is_never_offered(app):
     ids = _setup(app)
     assert _free(app, ids) == [("08:00", "22:00")]
@@ -144,6 +146,7 @@ def test_an_empty_day_is_one_free_block_and_the_past_is_never_offered(app):
 
 # ── AC: a request holds its slot ─────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-2")
 def test_a_request_holds_its_slot_on_the_coach_calendar(app):
     from padel_app.models import CalendarBlock
 
@@ -171,6 +174,7 @@ def test_a_request_holds_its_slot_on_the_coach_calendar(app):
 
 # ── AC: accept creates the class and releases the hold ───────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-3")
 def test_accept_creates_a_private_class_with_the_student_and_releases_the_hold(app):
     from padel_app.models import CalendarBlock
     from padel_app.models.lessons import Lesson
@@ -195,6 +199,7 @@ def test_accept_creates_a_private_class_with_the_student_and_releases_the_hold(a
 
 # ── AC: counter-proposal round-trips ─────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-6")
 def test_counter_proposal_moves_the_hold_and_the_student_accepts(app):
     from padel_app.services.class_request_service import answer_proposal_service
 
@@ -217,6 +222,7 @@ def test_counter_proposal_moves_the_hold_and_the_student_accepts(app):
     assert _messages(app, ids)[-1] == ("accepted", True)
 
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-13")
 def test_student_declines_a_proposal(app):
     from padel_app.services.class_request_service import answer_proposal_service
 
@@ -231,6 +237,7 @@ def test_student_declines_a_proposal(app):
 
 # ── AC: decline and withdraw release the hold ────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-13")
 def test_decline_and_withdraw_release_the_hold(app):
     from padel_app.services.class_request_service import withdraw_class_request_service
 
@@ -249,6 +256,7 @@ def test_decline_and_withdraw_release_the_hold(app):
 
 # ── AC: refusals ─────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("CLASSES-CLASS-REQUESTS-17")
 def test_refusals(app):
     from datetime import time
     from padel_app.services.class_request_service import create_class_request_service

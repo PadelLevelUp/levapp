@@ -82,6 +82,7 @@ def test_delete_me_anonymizes_and_disables_user(client, app, target_user):
         assert user.user_image_id is None
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-1")
 def test_reused_jwt_after_deletion_is_rejected(client, app, target_user):
     headers = _auth_header(app, target_user)
 
@@ -107,6 +108,7 @@ def test_deleted_user_hidden_from_app_users(client, app, target_user, other_user
     assert target_user not in user_ids
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-DELETION-11")
 def test_message_from_deleted_user_still_resolves_with_anonymized_name(
     client, app, target_user, other_user
 ):

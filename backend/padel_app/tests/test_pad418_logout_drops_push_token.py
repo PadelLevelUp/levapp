@@ -4,6 +4,7 @@ cannot stay on the old account's pushes because an unregister DELETE lost the
 race with the revocation. Optional and backward compatible: a logout with no
 body (App Store 1.0/1.1.0) behaves exactly as before. messaging.push-notifications
 rule 9 stands: only the CALLER's (user, token) row is ever touched."""
+import pytest
 from werkzeug.security import generate_password_hash
 
 from padel_app.sql_db import db
@@ -36,6 +37,7 @@ def _register(client, app, user_id, token=TOKEN):
     assert res.status_code == 200
 
 
+@pytest.mark.criterion("AUTH-LOGOUT-4")
 def test_logout_with_the_push_token_removes_the_callers_row(client, app, coach):
     _register(client, app, coach)
     assert _rows(app) == [coach]  # the subject exists before the act (R-032)
@@ -44,6 +46,7 @@ def test_logout_with_the_push_token_removes_the_callers_row(client, app, coach):
     assert _rows(app) == []
 
 
+@pytest.mark.criterion("AUTH-LOGOUT-5")
 def test_logout_without_a_body_leaves_the_row_as_before(client, app, coach):
     # App Store 1.0/1.1.0 post /auth/logout with no body: nothing changes for them.
     _register(client, app, coach)
@@ -63,6 +66,7 @@ def _seed_row(app, user_id, token=TOKEN):
         db.session.commit()
 
 
+@pytest.mark.criterion("AUTH-LOGOUT-4")
 def test_logout_never_touches_another_users_row_for_the_same_token(client, app, coach):
     other = _other_user(app)
     _seed_row(app, coach)
@@ -72,6 +76,7 @@ def test_logout_never_touches_another_users_row_for_the_same_token(client, app, 
     assert _rows(app) == [other]
 
 
+@pytest.mark.criterion("AUTH-LOGOUT-4")
 def test_logout_cannot_delete_a_token_the_caller_never_registered(client, app, coach):
     other = _other_user(app)
     _register(client, app, other)

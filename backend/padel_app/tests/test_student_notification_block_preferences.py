@@ -171,6 +171,7 @@ def _world(app, suffix=""):
 # Defaults
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-1")
 def test_defaults_are_receives_everything(app):
     from padel_app.services.student_notification_preferences import (
         get_user_block_preferences,
@@ -187,6 +188,7 @@ def test_defaults_are_receives_everything(app):
 # AUTO — eligibility engine
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-7")
 def test_auto_block_removes_student_from_eligibility(app):
     from padel_app.services.notification_service import get_eligible_students
     with app.app_context():
@@ -205,6 +207,7 @@ def test_auto_block_removes_student_from_eligibility(app):
         assert {cp.player_id for cp in after} == {w["p2"].id}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-7")
 def test_block_all_also_removes_student_from_eligibility(app):
     from padel_app.services.notification_service import get_eligible_students
     with app.app_context():
@@ -217,6 +220,7 @@ def test_block_all_also_removes_student_from_eligibility(app):
         assert {cp.player_id for cp in after} == {w["p2"].id}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-5")
 def test_manual_only_block_does_not_touch_auto_eligibility(app):
     """The three levels are independent — blocking MANUAL leaves AUTO alone."""
     from padel_app.services.notification_service import get_eligible_students
@@ -234,6 +238,7 @@ def test_manual_only_block_does_not_touch_auto_eligibility(app):
 # MANUAL — no orphan NotificationEvent
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-8")
 def test_manual_block_skips_student_without_creating_an_event(app):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.models.messages import Message
@@ -256,6 +261,7 @@ def test_manual_block_skips_student_without_creating_an_event(app):
         assert len(texts) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-8")
 def test_manual_block_reports_the_student_and_their_reason(app):
     from padel_app.services.student_notification_preferences import (
         preference_blocked_players,
@@ -279,6 +285,7 @@ def test_manual_block_reports_the_student_and_their_reason(app):
         }]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-5")
 def test_auto_only_block_does_not_stop_a_manual_invitation(app):
     """Independence in the other direction — the coach can still hand-pick."""
     from padel_app.services.notification_service import send_manual_notifications
@@ -297,6 +304,7 @@ def test_auto_only_block_does_not_stop_a_manual_invitation(app):
 # ALL — reminders
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-10")
 def test_block_all_silences_reminders_but_not_the_rest_of_the_class(app):
     from padel_app.services.notification_service import send_class_reminders
     with app.app_context():
@@ -314,6 +322,7 @@ def test_block_all_silences_reminders_but_not_the_rest_of_the_class(app):
         assert result["blocked"][0]["reason"] == "Vou estar fora"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-10")
 def test_invitation_only_block_leaves_reminders_alone(app):
     """A reminder is about a class you are already in, not an invitation."""
     from padel_app.services.notification_service import send_class_reminders
@@ -351,6 +360,7 @@ def test_backstop_suppresses_every_class_slot_solicitation(app):
             assert msg is None, f"{message_type} must be suppressed"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-11")
 def test_backstop_never_cuts_the_student_off_from_their_coach(app):
     """Plain chat, cancellation notices and 'you got the spot' still arrive."""
     from padel_app.services.notification_service import _send_system_message
@@ -387,6 +397,7 @@ def test_backstop_leaves_an_unblocked_student_alone(app):
 # PATCH /api/auth/me — partial updates and the boolean trap
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-4")
 def test_profile_update_sets_and_clears_each_flag(app):
     from padel_app.services.user_service import update_own_profile_service
     with app.app_context():
@@ -401,6 +412,7 @@ def test_profile_update_sets_and_clears_each_flag(app):
         assert u.notif_block_all is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-5")
 def test_profile_update_is_partial_and_independent(app):
     from padel_app.services.user_service import update_own_profile_service
     with app.app_context():
@@ -453,6 +465,7 @@ def test_profile_update_rejects_a_non_boolean_flag(app):
         assert u.notif_block_all is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-1")
 def test_me_route_round_trips_the_preferences(app, client):
     from flask_jwt_extended import create_access_token
     app.config["JWT_SECRET_KEY"] = "test-jwt-secret"
@@ -486,6 +499,7 @@ def test_me_route_round_trips_the_preferences(app, client):
 # Coach visibility — both serializers
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-13")
 def test_both_coach_facing_serializers_carry_the_signal(app):
     from padel_app.services.player_service import _serialize_coach_player_relation
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer

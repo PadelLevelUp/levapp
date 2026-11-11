@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 
 describe("calendarApi.deleteCalendarBlock", () => {
-  it("sends an empty JSON body when no scope is given (one-off event)", async () => {
+  it("[CALENDAR-EVENT-DETAIL-17] sends an empty JSON body when no scope is given (one-off event)", async () => {
     const seen = installSingleton();
 
     // PAD-160 / bug B-021: with `{ data: undefined }` axios sends no body and

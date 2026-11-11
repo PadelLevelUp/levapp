@@ -53,6 +53,7 @@ def test_an_adult_changes_their_birth_date_and_country(client, app):
     assert _stored(app, uid)[:2] == (date(1991, 6, 2), "ES")
 
 
+@pytest.mark.criterion("SETTINGS-PROFILE-11")
 def test_an_under_18_date_is_refused_and_nothing_in_the_patch_is_written(client, app):
     uid, headers = _user(app)
     res = client.patch("/api/auth/me", json={"birthDate": _seventeen_today(), "name": "Outra"}, headers=headers)

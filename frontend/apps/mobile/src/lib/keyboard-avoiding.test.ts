@@ -9,7 +9,7 @@ import { keyboardAvoidingBehavior } from "./keyboard-avoiding";
  * left the login button under the keyboard (rule changed, spec commit).
  */
 describe("keyboardAvoidingBehavior", () => {
-  it("is padding on iOS and on Android alike", () => {
+  it("[MOBILE-ANDROID-RUNTIME-2] is padding on iOS and on Android alike", () => {
     Platform.OS = "ios";
     expect(keyboardAvoidingBehavior()).toBe("padding");
     Platform.OS = "android";

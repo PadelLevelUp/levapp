@@ -45,7 +45,7 @@ const cls = (extra: Partial<CalendarEvent> = {}): CalendarEvent =>
   }) as CalendarEvent;
 
 describe("desktop card ✓ (PAD-578)", () => {
-  it("a student's enrolled class is ticked, with an accessible label", () => {
+  it("[CALENDAR-VIEW-5] a student's enrolled class is ticked, with an accessible label", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <CalendarEventCard event={cls()} />
@@ -56,7 +56,7 @@ describe("desktop card ✓ (PAD-578)", () => {
     expect(screen.getByTestId("calendar-event-card").getAttribute("draggable")).toBe("true");
   });
 
-  it("an open spot carries the chip and no tick; a canceled class no tick", () => {
+  it("[CALENDAR-VIEW-5] an open spot carries the chip and no tick; a canceled class no tick", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <CalendarEventCard event={cls({ openSpot: true })} />
@@ -67,7 +67,7 @@ describe("desktop card ✓ (PAD-578)", () => {
     expect(screen.getByTestId("calendar-open-spot-chip")).toBeTruthy();
   });
 
-  it("a coach (default viewer) sees no tick", () => {
+  it("[CALENDAR-VIEW-5] a coach (default viewer) sees no tick", () => {
     render(<CalendarEventCard event={cls()} />);
     expect(screen.queryByTestId("calendar-enrolled-mark")).toBeNull();
   });
@@ -75,7 +75,7 @@ describe("desktop card ✓ (PAD-578)", () => {
 
 describe("desktop legend for a student (rule 13)", () => {
   // PAD-664 (rule 23) supersedes PAD-578's student legend: the shared student items, in order.
-  it("lists the student's states (enrolled first, open spot after the own ones)", () => {
+  it("[CALENDAR-VIEW-20] lists the student's states (enrolled first, open spot after the own ones)", () => {
     render(
       <CalendarViewerProvider viewer="student">
         <CalendarLegend />
@@ -89,7 +89,7 @@ describe("desktop legend for a student (rule 13)", () => {
     expect(items[0].textContent).toBe("calendar.legend.student.enrolled");
   });
 
-  it("the coach legend is unchanged", () => {
+  it("[CALENDAR-VIEW-5] the coach legend is unchanged", () => {
     render(<CalendarLegend />);
     expect(screen.queryByTestId("calendar-legend-enrolled")).toBeNull();
     expect(screen.queryByTestId("calendar-legend-open-spots")).toBeNull();

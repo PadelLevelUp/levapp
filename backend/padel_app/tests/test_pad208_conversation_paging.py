@@ -100,6 +100,7 @@ def _texts(payload):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-12")
 def test_limit_returns_the_newest_page_ascending_with_paging_metadata(app, client):
     """
     AC — "The newest page comes back first, and `before` walks backwards", part 1.
@@ -133,6 +134,7 @@ def test_limit_returns_the_newest_page_ascending_with_paging_metadata(app, clien
     assert payload["oldestMessageId"] == payload["messages"][0]["id"]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-12")
 def test_before_walks_backwards_and_reports_the_end_of_the_history(app, client):
     """
     AC — "The newest page comes back first, and `before` walks backwards", part 2.
@@ -164,6 +166,7 @@ def test_before_walks_backwards_and_reports_the_end_of_the_history(app, client):
     ], "`before` is exclusive — a repeated message would render twice"
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-12")
 def test_no_limit_still_returns_the_whole_history(app, client):
     """
     AC — "…and a GET with no `limit` still returns all 60 messages".
@@ -216,6 +219,7 @@ def test_paged_payload_keeps_the_conversation_summary_and_reactions(app, client)
     ]
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATION-DETAIL-12")
 def test_a_short_thread_reports_no_more_pages(app, client):
     """A thread shorter than one page has nothing older behind it."""
     conv_id, ana_id, _ = _seed_thread(app, "pad208_short", count=3)

@@ -20,13 +20,13 @@ const text = (n: ReactTestInstance): string =>
   n.children.map((c) => (typeof c === "string" ? c : text(c))).join("");
 
 describe("PlayerContactRows (PAD-731)", () => {
-  it("shows the email and phone as they are", async () => {
+  it("[PLAYERS-PROFILE-11] shows the email and phone as they are", async () => {
     const n = await renderNative(createElement(PlayerContactRows, { email: "ana@example.pt", phone: "+351 912 345 678" }));
     expect(text(n.byTestId("player-info-email"))).toBe("ana@example.pt");
     expect(text(n.byTestId("player-info-phone"))).toBe("+351 912 345 678");
   });
 
-  it("falls back to the translated empty labels, not a dash", async () => {
+  it("[PLAYERS-PROFILE-11] falls back to the translated empty labels, not a dash", async () => {
     const n = await renderNative(createElement(PlayerContactRows, { email: "", phone: null }));
     expect(text(n.byTestId("player-info-email"))).toBe("players.noEmail");
     expect(text(n.byTestId("player-info-phone"))).toBe("players.noPhone");

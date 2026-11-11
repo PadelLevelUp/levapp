@@ -8,6 +8,7 @@ an off class are a separate open question: the reminder path does not read the s
 
     pytest padel_app/tests/test_pad732_manual_invite_on_a_notifications_off_class.py -v
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.tests.test_notification_integration import PATCHES
@@ -32,6 +33,7 @@ def _events(app, ids):
         ]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-7")
 def test_a_manual_invitation_on_an_off_class_is_sent_and_recorded(app):
     from padel_app.services.notification_service import send_manual_notifications
 
@@ -43,6 +45,7 @@ def test_a_manual_invitation_on_an_off_class_is_sent_and_recorded(app):
     assert _events(app, ids) == [(ids["candidate_id"], "manual", "sent", True)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-7")
 def test_an_off_class_still_gets_no_automatic_invitation(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.notification_service import trigger_invitations

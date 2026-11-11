@@ -9,6 +9,7 @@ Covered specs:
 Run:
     pytest padel_app/tests/test_b266_class_editor_courts.py -v
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_courts import _class_payload, _jwt_secret, world  # noqa: F401  (fixtures)
 
@@ -20,6 +21,7 @@ def _join_newer_club(client, world):
     return res.get_json()["id"]
 
 
+@pytest.mark.criterion("CLUBS-COURTS-5")
 def test_the_class_detail_names_its_own_club_even_when_the_coach_has_a_newer_one(client, world):
     from padel_app.models import Lesson
     from padel_app.serializers.lesson import serialize_class_instance
@@ -34,6 +36,7 @@ def test_the_class_detail_names_its_own_club_even_when_the_coach_has_a_newer_one
     assert detail["clubId"] == c1  # …the class did not
 
 
+@pytest.mark.criterion("CLUBS-COURTS-5")
 def test_the_older_clubs_court_saves_and_the_newer_ones_is_refused_naming_the_field(client, world):
     from padel_app.models import Lesson
 
@@ -55,6 +58,7 @@ def test_the_older_clubs_court_saves_and_the_newer_ones_is_refused_naming_the_fi
         assert Lesson.query.filter_by(title="Court Class").first().court_id == old_court
 
 
+@pytest.mark.criterion("CLUBS-COURTS-5")
 def test_add_class_names_the_field_too(client, world):
     c2 = world["club2"]
     other = client.post(f"/api/app/club/{c2}/courts", json={"name": "Outro"}, headers=world["b"]).get_json()["id"]

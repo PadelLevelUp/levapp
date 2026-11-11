@@ -30,6 +30,7 @@ def build_sort_key():
     return _build_sort_key
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-40")
 def test_side_criterion_ranks_every_side_equal_for_a_vacancy_with_no_side(build_sort_key):
     key = build_sort_key(SIDE_ONLY, {}, SimpleNamespace(side=None, coach_id=None))
 
@@ -38,6 +39,7 @@ def test_side_criterion_ranks_every_side_equal_for_a_vacancy_with_no_side(build_
     assert len(set(keys.values())) == 1, keys
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-40")
 def test_a_right_side_player_listed_first_stays_first_for_a_vacancy_with_no_side(build_sort_key):
     key = build_sort_key(SIDE_ONLY, {}, SimpleNamespace(side=None, coach_id=None))
     right, left = _player(1, "right"), _player(2, "left")
@@ -47,6 +49,7 @@ def test_a_right_side_player_listed_first_stays_first_for_a_vacancy_with_no_side
     assert [cp.player_id for cp in ranked] == [1, 2]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-40")
 def test_a_sided_vacancy_still_prefers_the_exact_side(build_sort_key):
     key = build_sort_key(SIDE_ONLY, {}, SimpleNamespace(side="right", coach_id=None))
     left, both, right = _player(1, "left"), _player(2, "both"), _player(3, "right")

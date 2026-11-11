@@ -55,14 +55,14 @@ const open = (record: EvaluationRecord = RECORD, onOpenChange = vi.fn()) =>
   render(<ShareEvaluationDialog open record={record} playerId="9" playerName="João Silva" onOpenChange={onOpenChange} />);
 
 describe("step 1 — choose what to show", () => {
-  it("pre-selects every rated competency, and defaults evolution to 'last'", () => {
+  it("[EVALUATIONS-SHARING-2] pre-selects every rated competency, and defaults evolution to 'last'", () => {
     open();
     expect((screen.getByTestId("share-category-3") as HTMLInputElement).getAttribute("data-state")).toBe("checked");
     expect((screen.getByTestId("share-category-5") as HTMLInputElement).getAttribute("data-state")).toBe("checked");
     expect(screen.getByTestId("share-evolution-last").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("offers the note switch, off by default, only when the record has a note", () => {
+  it("[EVALUATIONS-SHARING-2] offers the note switch, off by default, only when the record has a note", () => {
     const withNote = open();
     expect(screen.getByTestId("share-include-note").getAttribute("data-state")).toBe("unchecked");
     withNote.unmount();
@@ -78,7 +78,7 @@ describe("step 1 — choose what to show", () => {
     expect((screen.getByTestId("share-preview") as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("writes nothing when cancelled", () => {
+  it("[EVALUATIONS-SHARING-9] writes nothing when cancelled", () => {
     const onOpenChange = vi.fn();
     open(RECORD, onOpenChange);
     fireEvent.click(screen.getByTestId("share-category-5")); // untick one, then abandon

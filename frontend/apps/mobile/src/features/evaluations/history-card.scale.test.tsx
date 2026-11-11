@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 
 describe("HistoryCard draws each rating from its own scale", () => {
-  it("a converted legacy category is stars", async () => {
+  it("[EVALUATIONS-SCALE-7] a converted legacy category is stars", async () => {
     const n = await mount(<HistoryCard record={RECORD} />);
     expect(n.queryByTestId("evaluation-stars-3-3")).not.toBeNull();
     expect(n.queryByTestId("evaluation-stepper-3-value-3")).toBeNull();

@@ -1,0 +1,229 @@
+---
+id: eligibility.open-spot-visibility
+status: implemented
+depends_on: [eligibility.cascade, calendar.view]
+serves: [P-ELIGIBILITY-3]
+governed_by: []
+---
+
+# eligibility.open-spot-visibility
+
+
+### Intent
+Students discover classes they could join **inside the calendar they already have** — not through a
+separate browse screen. A coach controls whether their open spots are advertised at all.
+
+### Entities
+- **NotificationConfig**, **Lesson** and **LessonInstance** each gain
+  **`open_spots_visible`** (boolean, nullable) — the coach standard and its two override tiers.
+
+### Rules
+1. A student's calendar shows, in addition to the classes they are enrolled in, any **future** class
+   that is **visible** (rule 3), has an **empty spot** (rule 4), and for which the student is
+   **eligible** (`eligibility.cascade`).
+1a. **(PAD-664) Full classes, for a client that declares `full-classes`.** The same conditions
+    as rule 1 except the empty spot: an eligible, visible, future class of a roster coach that is
+    **full** is also appended, flagged `openSpot: true` with `studentRelation` `full`, `state`
+    `"full"` and `spotsLeft` 0 (the PAD-358 shape, `classes.academy-class-booking` rule 3) — so the
+    student can join its waiting list (`calendar.view` rule 23). With the token present, open ones
+    carry `state` `"open"` and `spotsLeft` too. Without the token a full class is never sent.
+2. Open-spot classes render in a **distinct colour** from the student's own enrolled classes, so the
+   two are never confused. They are visibly "available", not "yours".
+3a. **A private class resolves to hidden before the coach standard (PAD-429).** When neither the
+    instance nor the lesson sets `open_spots_visible`, a lesson of `type` `private` resolves to
+    `false` with source `type`; only an `academy` lesson falls through to the coach standard. The
+    default is read-time resolution from `Lesson.type`: no row is written, so private lessons that
+    already exist get it too, and an explicit lesson or instance value is kept (coordinator,
+    2026-09-25, option a). Everything gated on `effective_open_spots_visible` follows: calendar
+    discovery, the "Marcar Aula" academy step (`classes.academy-class-booking` rule 2) and join
+    requests (`classes.join-requests`).
+3. **Visibility is a coach toggle that cascades exactly like eligibility** — coach standard,
+   overridable per recurring group and per single class, most specific wins, tiers do not merge
+   (`eligibility.cascade` rules 1–3). Coach-facing label: "make empty spots for future classes
+   visible to eligible students (they can request to join)".
+4. **"Has an empty spot" is the class's existing capacity measure**, not a new one:
+   `effective_filled_spots < max_players` (`calendar.view` rules 8–9). For a **non-materialized**
+   recurrence occurrence there are no presences, so it is the enrolment count against `max_players`
+   (`calendar.view` rule 10). Both cases must be handled — future recurring occurrences are most of
+   a student's forward calendar.
+5. Visibility is computed at read time from the current state. No row is created, and no class is
+   materialized, merely because a student looked at their calendar.
+6. Only classes taught by a coach the student is on the roster of are ever shown. This feature never
+   exposes classes from a coach the student has no relationship with.
+7. Classes that have started or start right now (judged on the club's clock, PAD-256) and classes with
+   status `canceled` or `completed` are never shown as open spots. A spot is offered only while a
+   join request for it can still be made (`class_join_request_service.py` refuses from the start, `<=`).
+   - Code to follow: the open-spot loader in `calendar_helpers.py` drops a class whose start is `<=` now, not only `<`, with one test for a class starting exactly now.
+8. A student's own availability blocker (`calendar.student-blockers`) suppresses *solicitations*, not
+   *discovery*: a blocked window still shows open spots. The student initiates here, so the
+   protection the blocker exists to give is not at stake.
+9. With the toggle off — at whichever tier resolves — the student's calendar is exactly what it is
+   today: their enrolled classes only.
+10. **(PAD-130) Wire contract.** `open_spots_visible` is a tri-state at the lesson and instance
+    tiers (`NULL` = inherit, `true`/`false` = override) and a boolean at the coach tier (default
+    off), resolved by `effective_open_spots_visible()` — the same instance → lesson → coach walk
+    as `eligibility.cascade` rule 1. The coach tier is `openSpotsVisible` on the notification
+    config; a class edit sends `updates.openSpotsVisible` (absent = untouched, `null` = inherit,
+    boolean = override) and the class payload carries `openSpotsVisible`,
+    `effectiveOpenSpotsVisible` and `openSpotsSource`. A student's `GET /calendar` appends the
+    discoverable classes to their own events, each flagged `openSpot: true` and carrying
+    `coachName`; an event without the flag is one of theirs. Discovery reuses the calendar's own
+    loaders and `serialize_calendar_event` — no second projection of occurrences.
+11. **(PAD-130) Both shells render the flag, not a colour of their own choosing:** an open-spot
+    card keeps the class's colour as an outline on a plain surface with a dashed edge and an
+    "Open spot" chip, so it reads as an offer beside the filled cards that are the student's
+    own. **(B-541)** The treatment is one shared `open-spot` card variant
+    (`calendar.mobile-views` rule 5): title, time and chip in the readable form of the class
+    colour — never the white ink of the solid surface — and the week-grid block and the day's
+    dot follow the same variant, so the grid and the day panel never disagree about one class. Tapping it opens the same class detail the student already has (their own data only,
+    `classes.detail-visibility`), where `classes.join-requests` adds the request action.
+12. **(PAD-352) Only a client that says it understands open spots is sent them. It fails
+    closed.**
+    - **The declaration:** a request declares its capabilities in the `X-LevApp-Capabilities`
+      header, a comma-separated list of tokens (case-insensitive, surrounding whitespace ignored).
+    - **The gate:** rule 10's open-spot events are appended to a student's calendar only when that
+      list contains `open-spots`. With no header, or without that token, the calendar is exactly
+      rule 9's (the student's enrolled classes only) whatever the coach's toggle says. The same
+      declaration gates the open-spot read exception in `classes.detail-visibility` rule 5.
+    - **Why:** the App Store builds live since August, 1.0 (`6f5d0c1ce`) and 1.1.0 (`6b48f79e3`),
+      predate rule 10's flag. They send only `Authorization` and draw every calendar event as the
+      student's own class, so to them an open spot looks like a booking that doesn't exist.
+    - **Who declares:** each shell passes its capabilities to the shared API client explicitly.
+      Web and mobile both render the flag (rule 11), so both declare `open-spots`. The client's
+      default is none, so a shell never inherits a promise it can't keep. The next App Store build
+      (PAD-351) declares it because it is built from the mobile source.
+    - **The list has two tokens (PAD-402):** `open-spots` (this rule) and `evaluations`, which
+      gates the student dashboard's `evaluations` block and nothing else
+      (`evaluations.student-view` rule 5). Both shells declare both; the same fail-closed reading
+      applies to each token independently.
+    - **A third token, `class-type-defaults` (PAD-429):** `openSpotsSource` may be `type`
+      (rule 3a). A client that doesn't declare `class-type-defaults` is sent `coach` in its place. The resolved value is the same;
+      only the label of where it came from differs, because a build that predates rule 3a looks
+      the label up by source and would show a missing key. Both shells declare it.
+    - **A fourth token, `full-classes` (PAD-664):** gates rule 1a. A build that declares only
+      `open-spots` would draw a full class as a joinable open spot whose detail then refuses it,
+      so full classes reach only a client that declares this. Both shells declare it.
+    - **Retirement:** once no App Store build that predates the declaration is still in use, serve
+      open spots regardless of the header and delete this rule and its check. The header itself
+      stays for later capabilities.
+
+### Acceptance Criteria
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-1: An edit that changes only the open-spot toggle is saved, on every edit path (rule 10, B-219)
+- **Given** a class, and a coach whose client sends only the fields that changed
+- **When** the coach edits it with `updates` holding only `openSpotsVisible: false`, whether a single
+  occurrence (materialised or not yet) or this and the following ones, from an occurrence or from the series
+- **Then** re-reading the class from the database shows `open_spots_visible` false on the edited tier
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-2: An eligible student sees an open spot in a visible class
+- **Given** a coach with the visibility toggle on and eligibility `[{level, same_as_class}]`
+- **And** a future class at the student's level with 5 of 6 spots filled
+- **When** the student loads their calendar
+- **Then** that class appears, visually distinct from their enrolled classes
+- **And** it is marked as having an open spot
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-3: An open-spot card is legible and the grid agrees with it (rule 11, B-541)
+- **Given** a student eligible for a visible class coloured `#1355DC`, 12 of 16 filled
+- **When** their calendar renders it on the phone (web or iOS), in the day panel and the week grid
+- **Then** the card and the grid block are the card surface with a 1.5px dashed `#1355DC`
+  outline, title and time in `readableInk(#1355DC)`, the "Open spot" chip on the card
+- **And** the day's dot is `#1355DC`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-4: An ineligible student sees nothing
+- **Given** the same class and a student two levels below it
+- **When** they load their calendar
+- **Then** the class does not appear
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-5: A full class is not advertised to a client that does not declare `full-classes`
+- **Given** a visible class at the student's level with all 6 spots filled
+- **When** the student loads their calendar from a client that does not declare `full-classes`
+- **Then** the class does not appear
+- **And** from a client that declares it (PAD-664, rule 1a) it appears once, with
+  `studentRelation` `full`, `state` `"full"` and `spotsLeft` 0
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-6: A future recurring occurrence with room is advertised
+- **Given** a visible recurring class that has never been materialized for next Tuesday, with 4
+  enrolled players and `max_players` 6
+- **When** an eligible student loads a calendar range covering next Tuesday
+- **Then** the occurrence appears as an open spot
+- **And** no LessonInstance row is created by the read
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-7: A single class can be hidden inside a visible series
+- **Given** a recurring class with visibility on, and one occurrence overridden to off
+- **When** an eligible student loads a range covering that occurrence
+- **Then** that occurrence does not appear, and the other occurrences still do
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-8: A private class is hidden unless the coach makes it visible (PAD-429)
+- **Given** coach Ana's standard `open_spots_visible` is `true`, a private weekly lesson with room
+  and no lesson or instance override, and an eligible student Bruno on her roster
+- **When** Bruno reads his calendar, and Ana reads the class
+- **Then** no open spot for the private class is in Bruno's calendar
+- **And** the class reports `effectiveOpenSpotsVisible` `false` with `openSpotsSource` `type`
+- **And** after Ana sets the lesson's `openSpotsVisible` to `true`, Bruno's calendar shows it
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-9: An academy class still follows the coach standard (PAD-429)
+- **Given** coach Ana's standard `open_spots_visible` is `true` and an academy lesson with room and no override
+- **When** the class is read
+- **Then** `effectiveOpenSpotsVisible` is `true` with `openSpotsSource` `coach`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-10: A client without `class-type-defaults` never sees the `type` source (PAD-429)
+- **Given** the private lesson above, read by a request whose `X-LevApp-Capabilities` lacks `class-type-defaults`
+- **When** the class is serialised
+- **Then** `effectiveOpenSpotsVisible` is `false` and `openSpotsSource` is `coach`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-11: The toggle off restores today's behaviour
+- **Given** a coach with the visibility toggle off
+- **When** any student of theirs loads their calendar
+- **Then** only the classes that student is enrolled in appear
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-12: Open spots need both the coach's toggle and the client's declaration (PAD-352)
+- **Given** a future class at an eligible student's level with 5 of 6 spots filled, the student not
+  enrolled in it, and its coach's visibility toggle either on or off
+- **When** the student loads a calendar range covering it, once with
+  `X-LevApp-Capabilities: open-spots` and once with no `X-LevApp-Capabilities` header
+- **Then** the class appears, flagged `openSpot: true`, only when the toggle is on **and** the header
+  declares `open-spots`
+- **And** in the other three cases the calendar holds exactly the student's enrolled classes, and no
+  event carries `openSpot`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-13: An old client cannot take an attendance action on an open spot (PAD-352)
+- **Given** that advertised class and the same student, not enrolled in it
+- **When** they send `POST /api/app/notify/cancel_attendance` for it, which is the only attendance
+  action the student's class screen offers in App Store 1.0 and 1.1.0 (and it is shown only for a
+  class they have a presence row in)
+- **Then** the server answers 403 and writes no Presence row
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-14: A class that has started on the club's clock is no longer offered (rule 7)
+- **Given** a visible class with room at 10:00 Lisbon time, and a rostered student at its level who is not enrolled
+- **When** the student's open spots are loaded at 09:30 UTC, in summer and in winter
+- **Then** in summer, when it is 10:30 in Lisbon, the class is not offered
+- **And** in winter, when it is 09:30 in Lisbon, it is
+test: `backend/padel_app/tests/test_pad256_class_over.py` › `test_a_class_under_way_is_not_offered_as_an_open_spot`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-15: Opening one advertised class applies the same bar as the calendar (rules 1, 6)
+- **Given** a visible class at level `5`, the bar `[{level, within_n_above_class, value: 1}]`, and students at `4` and at `5-`
+- **When** each asks to see that class as an open spot
+- **Then** the student at `4` may see it and the student at `5-` may not
+test: `backend/padel_app/tests/test_pad481_every_reader.py` › `test_single_class_open_spot_view_allows_stronger_not_weaker`
+
+#### ELIGIBILITY-OPEN-SPOT-VISIBILITY-16: The declaration is an exact token in a list, and a client sends it only when its shell declares one (rules 10, 12)
+- **Given** a coach who shows open spots, a class with room and an eligible rostered student
+- **When** the student's calendar is requested with different `X-LevApp-Capabilities` values
+- **Then** `open-spots`, `Open-Spots` and ` later-thing ,open-spots ` each return the class as an open spot; `open-spots-v2`, `openspots` and an empty value return none
+- **And** the shared API client sends no `X-LevApp-Capabilities` header when its shell declares nothing, and one header listing every declared token on every request when it does
+- **And** the web shell's requests declare `open-spots` and `evaluations`
+test: `backend/padel_app/tests/test_pad130_open_spots.py` › `test_calendar_route_appends_open_spots_for_students_only` (+5 more)
+- Code to follow: `test_calendar_route_appends_open_spots_for_a_student_and_never_for_a_coach` sends `X-LevApp-Capabilities: open-spots` on the coach's request too, so the role check is what hides the spots.
+
+### Notes
+- **[PAD-130, 2026-09-09]** Rules 10–11 record the wire contract and the card. Stacked on PAD-129:
+  the visibility cascade reuses the tier walk and the class-sheet block that PAD-129 introduced.
+- **[PAD-352, 2026-09-15]** Rule 12 is a compatibility rule. It exists only because App Store
+  1.0/1.1.0 can't be changed, and the rule itself says when to retire it. The marker
+  (`X-LevApp-Capabilities: open-spots`) is the one PAD-351's next App Store build must send. The
+  surfaces were found by tracing every use of the open-spot machinery: the calendar append (rule 10)
+  and the class-detail read exception (`classes.detail-visibility` rule 5). The dashboard, push and
+  SSE carry no open-spot events.
+- **Kill-switches (2026-10-06, PAD-533, draft):** `admin.clubs-and-switches` rule 5 lets staff
+  switch a capability off server-side; `client_declares()` then answers false whatever the
+  header says. The header and rule 12 above are unchanged.

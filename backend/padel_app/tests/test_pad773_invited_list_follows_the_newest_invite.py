@@ -6,6 +6,7 @@ waiting-list student again at 21:18. The class listed them as "Expirou" (the 20:
 new invite waited, and the chat said "Vaga preenchida" for the invite the list called "Expirou".
 Students are cases 7-13.
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -34,6 +35,7 @@ def _manual_invite_lost_to_a_join(prefix):
     return world, case11, case12, first
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-3")
 def test_a_manual_invite_lost_to_a_full_class_reads_spot_filled_like_its_bubble(app):
     from padel_app.models import Message, NotificationEvent
     from padel_app.serializers.lesson import invitation_outcome
@@ -46,6 +48,7 @@ def test_a_manual_invite_lost_to_a_full_class_reads_spot_filled_like_its_bubble(
         assert invitation_outcome(event) == "spot_filled"
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-3")
 def test_a_student_invited_again_shows_the_new_invite(app):
     from padel_app.models import NotificationEvent
     from padel_app.serializers.lesson import dedupe_invitation_events, invitation_outcome
@@ -64,6 +67,7 @@ def test_a_student_invited_again_shows_the_new_invite(app):
         assert invitation_outcome(shown) == "pending"
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-4")
 def test_a_batch_the_tick_sends_tells_the_coachs_open_class(app):
     """A later batch (the tick, a decline's follow-up) publishes `notify_sent`, on which both
     clients re-read the class, so the new invite shows without reopening it."""

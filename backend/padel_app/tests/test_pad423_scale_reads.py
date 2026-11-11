@@ -68,6 +68,7 @@ def _bandeja_ratings(history, ids):
     }
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-2")
 def test_history_shows_each_score_on_its_own_scale(app, client):
     ids = _world(app)
     history = _get(app, client, ids, "evaluations")
@@ -86,6 +87,7 @@ def test_an_entry_with_no_snapshot_reads_its_competency_scale(app, client):
     assert _bandeja_ratings(history, ids)["2026-09-25"] == (7, 1, 10)
 
 
+@pytest.mark.criterion("EVALUATIONS-SCALE-2")
 def test_the_mean_places_each_score_on_the_current_scale(app, client):
     """The criterion's 7.375: 4 on 1–5 is 7.75 on 1–10; with the new 7 the month's mean is 7.375."""
     from padel_app.services.evaluation_api_service import monthly_means

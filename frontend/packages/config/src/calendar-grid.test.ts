@@ -33,12 +33,12 @@ const ev = (id: string, startTime: string, endTime: string, date = "2026-09-08")
 });
 
 describe("resolveHourRange", () => {
-  it("runs from one hour before the earliest start to one hour after the latest end", () => {
+  it("[CALENDAR-MOBILE-VIEWS-14] runs from one hour before the earliest start to one hour after the latest end", () => {
     const range = resolveHourRange([ev("a", "10:00", "11:30"), ev("b", "16:15", "17:45")]);
     expect(range).toEqual({ startHour: 9, endHour: 19 });
   });
 
-  it("rounds to whole hours outward", () => {
+  it("[CALENDAR-MOBILE-VIEWS-14] rounds to whole hours outward", () => {
     expect(resolveHourRange([ev("a", "10:30", "11:15")])).toEqual({ startHour: 9, endHour: 13 });
   });
 
@@ -46,19 +46,19 @@ describe("resolveHourRange", () => {
     expect(resolveHourRange([ev("a", "07:00", "22:30")])).toEqual({ startHour: 7, endHour: 23 });
   });
 
-  it("never cuts a class: one outside 07:00–23:00 widens the grid to its whole hours (B-544)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-16] never cuts a class: one outside 07:00–23:00 widens the grid to its whole hours (B-544)", () => {
     expect(resolveHourRange([ev("a", "06:00", "23:00")])).toEqual({ startHour: 6, endHour: 23 });
     expect(resolveHourRange([ev("a", "05:30", "06:30")])).toEqual({ startHour: 5, endHour: 8 });
   });
 
-  it("a class ending at midnight ends at 24:00, not 00:00 (B-544, PAD-553)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-16] a class ending at midnight ends at 24:00, not 00:00 (B-544, PAD-553)", () => {
     expect(resolveHourRange([ev("a", "09:00", "10:00"), ev("late", "22:30", "00:00")])).toEqual({
       startHour: 8,
       endHour: 24,
     });
   });
 
-  it("an empty week shows 08:00–20:00", () => {
+  it("[CALENDAR-MOBILE-VIEWS-15] an empty week shows 08:00–20:00", () => {
     expect(resolveHourRange([])).toEqual({ startHour: 8, endHour: 20 });
   });
 
@@ -71,14 +71,14 @@ describe("resolveHourRange", () => {
 });
 
 describe("eventBlockGeometry", () => {
-  it("top and height come from start and end minutes", () => {
+  it("[CALENDAR-MOBILE-VIEWS-14] top and height come from start and end minutes", () => {
     expect(eventBlockGeometry(ev("a", "10:00", "11:30"), { startHour: 8, rowHeight: 40 })).toEqual({
       top: 80,
       height: 60,
     });
   });
 
-  it("a class ending at midnight runs to the bottom of 23:00, not above its start (B-544)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-16] a class ending at midnight runs to the bottom of 23:00, not above its start (B-544)", () => {
     expect(eventBlockGeometry(ev("late", "22:30", "00:00"), { startHour: 7, rowHeight: 60 })).toEqual({
       top: 930,
       height: 90,
@@ -129,14 +129,14 @@ describe("layoutDayEvents — a dense day (PAD-625, B-543)", () => {
     return ev(`d${i}`, hhmm(start), hhmm(start + 60));
   });
 
-  it("packs a chain of overlaps into as many columns as run at once", () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] packs a chain of overlaps into as many columns as run at once", () => {
     const laid = layoutDayEvents(chain, { startHour: 7, rowHeight: 60 });
     expect(laid).toHaveLength(22);
     expect(Math.max(...laid.map((l) => l.columns))).toBe(2);
     expect(laid.map((l) => l.column)).toEqual(chain.map((_, i) => i % 2));
   });
 
-  it("a lane freed by an ended class is reused", () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] a lane freed by an ended class is reused", () => {
     const laid = layoutDayEvents(
       [ev("a", "09:00", "11:00"), ev("b", "09:30", "10:00"), ev("c", "10:00", "10:30")],
       { startHour: 7, rowHeight: 60 }
@@ -157,7 +157,7 @@ describe("layoutDayColumn — the cap and its '+N' marker (B-543)", () => {
     ev("d", "18:30", "19:30"),
   ];
 
-  it("over the cap: the first lanes render and the last column holds one marker with the rest", () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] over the cap: the first lanes render and the last column holds one marker with the rest", () => {
     const { blocks, overflow } = layoutDayColumn(four, { startHour: 7, rowHeight: 60, maxColumns: 3 });
     expect(blocks.map((b) => [b.event.id, b.column, b.columns])).toEqual([
       ["a", 0, 3],
@@ -170,13 +170,13 @@ describe("layoutDayColumn — the cap and its '+N' marker (B-543)", () => {
     expect([overflow[0].top, overflow[0].height]).toEqual([660, 90]);
   });
 
-  it("at or under the cap nothing is hidden", () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] at or under the cap nothing is hidden", () => {
     const { blocks, overflow } = layoutDayColumn(four.slice(0, 3), { startHour: 7, rowHeight: 60, maxColumns: 3 });
     expect(blocks).toHaveLength(3);
     expect(overflow).toEqual([]);
   });
 
-  it("the 22-class chain needs no marker even at a cap of two", () => {
+  it("[CALENDAR-MOBILE-VIEWS-7] the 22-class chain needs no marker even at a cap of two", () => {
     const chain = Array.from({ length: 22 }, (_, i) => {
       const start = 7 * 60 + 40 * i;
       const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -200,12 +200,12 @@ describe("layoutDayColumn — the cap and its '+N' marker (B-543)", () => {
 });
 
 describe("desktopHourRange — the desktop week (B-544, calendar.view rule 21)", () => {
-  it("07:00–22:00 while every class fits", () => {
+  it("[CALENDAR-VIEW-14] 07:00–22:00 while every class fits", () => {
     expect(desktopHourRange([ev("a", "09:00", "10:00"), ev("b", "20:00", "21:30")])).toEqual({ startHour: 7, endHour: 22 });
     expect(desktopHourRange([])).toEqual({ startHour: 7, endHour: 22 });
   });
 
-  it("widens to the whole hours of a class outside it, midnight included", () => {
+  it("[CALENDAR-VIEW-14] widens to the whole hours of a class outside it, midnight included", () => {
     expect(desktopHourRange([ev("early", "05:30", "06:30"), ev("late", "22:30", "00:00")])).toEqual({
       startHour: 5,
       endHour: 24,
@@ -214,7 +214,7 @@ describe("desktopHourRange — the desktop week (B-544, calendar.view rule 21)",
 });
 
 describe("sheetTopBounds / clampSheetTop", () => {
-  it("min leaves one hour row visible, max shows the header only, initial is 60% down", () => {
+  it("[CALENDAR-MOBILE-VIEWS-18] min leaves one hour row visible, max shows the header only, initial is 60% down", () => {
     expect(sheetTopBounds(420, { rowHeight: 40, collapsedHeight: 94 })).toEqual({
       min: 40,
       max: 326,
@@ -230,7 +230,7 @@ describe("sheetTopBounds / clampSheetTop", () => {
     });
   });
 
-  it("clamps a drag to the bounds", () => {
+  it("[CALENDAR-MOBILE-VIEWS-18] clamps a drag to the bounds", () => {
     const b = { min: 40, max: 326 };
     expect(clampSheetTop(10, b)).toBe(40);
     expect(clampSheetTop(400, b)).toBe(326);
@@ -246,18 +246,18 @@ describe("sheetTopBounds / clampSheetTop", () => {
 describe("isSheetRaised", () => {
   const b = { min: 44, max: 241, initial: 201 };
 
-  it("is false at the resting height and below it", () => {
+  it("[CALENDAR-MOBILE-VIEWS-28] is false at the resting height and below it", () => {
     expect(isSheetRaised(201, b)).toBe(false);
     expect(isSheetRaised(230, b)).toBe(false);
     expect(isSheetRaised(241, b)).toBe(false);
   });
 
-  it("is true once the sheet is dragged above its resting height", () => {
+  it("[CALENDAR-MOBILE-VIEWS-28] is true once the sheet is dragged above its resting height", () => {
     expect(isSheetRaised(200, b)).toBe(true);
     expect(isSheetRaised(44, b)).toBe(true);
   });
 
-  it("with no room to rest above the collapsed height, only a drag up counts", () => {
+  it("[CALENDAR-MOBILE-VIEWS-28] with no room to rest above the collapsed height, only a drag up counts", () => {
     const tight = { min: 44, max: 60, initial: 60 };
     expect(isSheetRaised(60, tight)).toBe(false);
     expect(isSheetRaised(50, tight)).toBe(true);
@@ -270,14 +270,14 @@ describe("isSheetRaised", () => {
  * starts inside it. Criterion: "The Mês sheet rises past half of the screen".
  */
 describe("sheetTopBounds with a month grid above the day grid (gridTop)", () => {
-  it("rests right under the month grid, filling everything below it (PAD-436)", () => {
+  it("[CALENDAR-MOBILE-VIEWS-23] rests right under the month grid, filling everything below it (PAD-436)", () => {
     // 574pt container: 300pt of month grid, the sheet takes the other 274pt at rest. There is no
     // day grid under it any more (rule 17): the owner saw the selected day twice.
     const b = sheetTopBounds(574, { rowHeight: 44, collapsedHeight: 104, gridTop: 300 });
     expect(b.initial).toBe(300);
   });
 
-  it("rises to one hour row below the top of the month grid, so it covers more than half a phone", () => {
+  it("[CALENDAR-MOBILE-VIEWS-20] rises to one hour row below the top of the month grid, so it covers more than half a phone", () => {
     const b = sheetTopBounds(574, { rowHeight: 44, collapsedHeight: 104, gridTop: 300 });
     expect(b.min).toBe(44);
     expect(b.max).toBe(574 - 104);
@@ -304,7 +304,7 @@ describe("sheetTopBounds with a month grid above the day grid (gridTop)", () => 
  * both shells, so this pin is the whole guarantee.
  */
 describe("the Mês sheet's maximum leaves the weekday header visible", () => {
-  it("one grid row is taller than the weekday header row", () => {
+  it("[CALENDAR-MOBILE-VIEWS-20] one grid row is taller than the weekday header row", () => {
     expect(MONTH_WEEKDAY_HEADER_HEIGHT).toBeLessThan(GRID_ROW_HEIGHT);
     const b = sheetTopBounds(574, { rowHeight: GRID_ROW_HEIGHT, collapsedHeight: SHEET_COLLAPSED_HEIGHT, gridTop: 300 });
     expect(b.min).toBeGreaterThan(MONTH_WEEKDAY_HEADER_HEIGHT);
@@ -322,16 +322,16 @@ describe("the Mês sheet's maximum leaves the weekday header visible", () => {
  * buttons' clearance. Criterion "The last hour clears the sheet".
  */
 describe("gridBottomInset (PAD-790)", () => {
-  it("is the part of the grid the sheet covers, at rest", () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] is the part of the grid the sheet covers, at rest", () => {
     // 700 tall, sheet resting at 60% (420): it covers 280.
     expect(gridBottomInset(700, 420, 168)).toBe(280);
   });
 
-  it("follows a raised sheet", () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] follows a raised sheet", () => {
     expect(gridBottomInset(700, GRID_ROW_HEIGHT, 168)).toBe(700 - GRID_ROW_HEIGHT);
   });
 
-  it("never drops below the floating buttons' clearance with the sheet lowered", () => {
+  it("[CALENDAR-MOBILE-VIEWS-17] never drops below the floating buttons' clearance with the sheet lowered", () => {
     expect(gridBottomInset(700, 700 - SHEET_COLLAPSED_HEIGHT, 168)).toBe(168);
   });
 

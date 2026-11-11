@@ -173,6 +173,7 @@ class TestTriggerInvitations:
         # Should have attempted to fill structural vacancies (may return [] if no eligible students)
         assert len(vacancies) >= 1 or result == []  # vacancies created or early return
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-28")
     def test_creates_vacancy_for_absent_player(self, app):
         """Absent player in presences causes a Vacancy to be created."""
         from padel_app.services.notification_service import trigger_invitations
@@ -206,6 +207,7 @@ class TestTriggerInvitations:
             ).first()
             assert vacancy is not None
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-107")
     def test_skips_when_class_already_in_past(self, app):
         """trigger_invitations with a past class returns [] due to restriction check."""
         from padel_app.services.notification_service import trigger_invitations
@@ -258,6 +260,7 @@ class TestRespondToNotification:
         event.create()
         return vacancy, event
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-30")
     def test_yes_adds_player_to_instance_and_confirms_presence(self, app):
         """Responding 'yes' enrols the player (a Presence row) and sets event status=confirmed."""
         from padel_app.services.notification_service import respond_to_notification
@@ -290,6 +293,7 @@ class TestRespondToNotification:
         assert updated_event.status == "confirmed"
         assert enrolled is not None
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-30")
     def test_yes_marks_vacancy_filled(self, app):
         """Responding 'yes' sets vacancy.status='filled' and records filled_by_player_id."""
         from padel_app.services.notification_service import respond_to_notification
@@ -316,6 +320,7 @@ class TestRespondToNotification:
             assert updated_vacancy.status == "filled"
             assert updated_vacancy.filled_by_player_id == student_id
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-58")
     def test_yes_expires_competing_invites(self, app):
         """When one player accepts, all other 'sent' events for the same vacancy become 'expired'."""
         from padel_app.services.notification_service import respond_to_notification
@@ -611,6 +616,7 @@ class TestPastClassInvitationExpiry:
             assert "response" not in msg.msg_metadata
             assert Vacancy.query.get(ids["vacancy_id"]).status == "open"
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-30")
     def test_timely_yes_still_confirms(self, app):
         """And a normal, in-time acceptance is unaffected."""
         from padel_app.services.notification_service import respond_to_notification

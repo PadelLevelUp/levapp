@@ -22,6 +22,7 @@ named functions:
     join)
   - `class_request_service._tell_coach` (a class request)
 """
+import pytest
 from unittest.mock import patch
 
 from padel_app.sql_db import db
@@ -38,6 +39,7 @@ def _register_ios_token(user_id, token):
 # Direct messages — messaging_service.create_message_service
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_direct_message_native_push_carries_the_message_id(app):
     """create_message_service's Expo `data` names the message it announces."""
     from padel_app.services.messaging_service import create_message_service
@@ -90,6 +92,7 @@ def test_direct_message_web_push_url_names_the_message(app):
 # System messages — notification_service._send_system_message
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_system_message_native_push_carries_the_message_id(app):
     """_send_system_message's own Expo push names the Message row it just
     wrote — this covers every system message (invitations, reminders, spot
@@ -144,6 +147,7 @@ def test_system_message_web_push_url_names_the_message(app):
         )
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_system_message_pushes_name_the_same_conversation_and_message(app):
     """PAD-324 parity, extended by PAD-408: both channels must agree on the
     conversation AND the message, for one event."""
@@ -213,6 +217,7 @@ def test_join_request_coach_push_carries_the_message_id(app):
     )
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_cancellation_notice_native_push_carries_the_message_id(app):
     """notification_service._notify_coach_of_cancellation: a student's late
     cancellation pushes the coach with the Message row's id."""

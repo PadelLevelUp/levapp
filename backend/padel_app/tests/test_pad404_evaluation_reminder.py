@@ -174,6 +174,7 @@ def _panel_with_everyone(app, ids):
 # ── rule 2 / 8: the setting ──────────────────────────────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-6")
 def test_a_coach_without_a_config_row_reads_the_default_and_no_row_is_created(app, client):
     ids = _world(app)
     assert _config_rows(app, ids["coach_id"]) == 0
@@ -185,6 +186,7 @@ def test_a_coach_without_a_config_row_reads_the_default_and_no_row_is_created(ap
     assert _config_rows(app, ids["coach_id"]) == 0, "a GET must not upsert a notification_configs row"
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-6")
 def test_the_setting_round_trips_and_a_zero_is_refused_not_dropped(app, client):
     ids = _world(app)
 
@@ -243,6 +245,7 @@ def test_the_setting_leaves_the_class_reminder_alone(app, client):
         assert (row.reminder_type, row.reminder_value) == ("hours_before", 48)
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-9")
 def test_a_student_cannot_read_or_write_the_setting(app, client):
     ids = _world(app)
     student = _headers(app, ids["student_user_id"])
@@ -254,6 +257,7 @@ def test_a_student_cannot_read_or_write_the_setting(app, client):
 # ── rule 3 / 4: the marker, on both surfaces ────────────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-1")
 def test_monthly_marks_the_players_not_evaluated_in_30_days(app, client):
     ids = _world(app)
     _record(app, ids["rui"]["rel_id"], _day(32))     # 2026-08-20 → due
@@ -267,6 +271,7 @@ def test_monthly_marks_the_players_not_evaluated_in_30_days(app, client):
     assert _due_by_name(ids, _roster_page(app, client, ids)) == expected
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-1")
 def test_monthly_counts_today_inclusive_and_only_this_coachs_records(app, client):
     from padel_app.models import Association_CoachPlayer, User
     from padel_app.models.coaches import Coach
@@ -294,6 +299,7 @@ def test_monthly_counts_today_inclusive_and_only_this_coachs_records(app, client
     assert _due_by_name(ids, _panel(app, client, ids, occ)) == {"rui": True, "sara": True, "tiago": False}
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-2")
 def test_every_n_classes_counts_attendance_since_the_newest_record(app, client):
     ids = _world(app)
     _record(app, ids["rui"]["rel_id"], _day(20))     # 2026-09-01
@@ -328,6 +334,7 @@ def test_every_n_classes_never_counts_an_occurrence_that_has_not_happened_yet(ap
     assert _due_by_name(ids, _roster(app, client, ids)) == expected
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-2")
 def test_every_n_classes_ignores_occurrences_before_the_record_and_unmarked_rows(app, client):
     ids = _world(app)
     before = _occurrence(app, ids["coach_id"], _day(25))    # before Rui's record: does not count
@@ -341,6 +348,7 @@ def test_every_n_classes_ignores_occurrences_before_the_record_and_unmarked_rows
     assert _due_by_name(ids, _panel(app, client, ids, occ))["rui"] is False
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-2")
 def test_every_n_classes_counts_two_occurrences_in_one_week_as_two(app, client):
     ids = _world(app)
     _record(app, ids["rui"]["rel_id"], _day(20))
@@ -354,6 +362,7 @@ def test_every_n_classes_counts_two_occurrences_in_one_week_as_two(app, client):
     assert _due_by_name(ids, _panel(app, client, ids, occ))["rui"] is True
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-3")
 def test_never_marks_nobody_including_the_never_evaluated(app, client):
     ids = _world(app)
     occ = _panel_with_everyone(app, ids)
@@ -363,6 +372,7 @@ def test_never_marks_nobody_including_the_never_evaluated(app, client):
     assert _due_by_name(ids, _roster(app, client, ids)) == {"rui": False, "sara": False, "tiago": False}
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-4")
 def test_a_coach_who_never_set_anything_reads_the_never_answer_without_a_row(app, client):
     """Rule 7 — the 2×2's fourth cell: today's behaviour (no marker) for every existing coach."""
     ids = _world(app)
@@ -399,6 +409,7 @@ def _statements(app, fn):
 
 
 @pytest.mark.parametrize("reminder", ["monthly", "every_n_classes"])
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-5")
 def test_the_marker_costs_the_same_for_three_players_as_for_twenty_five(app, client, reminder):
     ids = _world(app)
     _record(app, ids["rui"]["rel_id"], _day(32))
@@ -433,6 +444,7 @@ def test_the_marker_costs_the_same_for_three_players_as_for_twenty_five(app, cli
 # ── rule 5: never leaves the app ────────────────────────────────────────────
 
 
+@pytest.mark.criterion("EVALUATIONS-REMINDERS-8")
 def test_the_reminder_never_leaves_the_app(app, client, monkeypatch):
     from padel_app.models import Message
 

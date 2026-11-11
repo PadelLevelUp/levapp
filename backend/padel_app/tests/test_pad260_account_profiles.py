@@ -45,6 +45,7 @@ def _profile_model(profile):
 # ── rule 1 ───────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("profile", ["player", "coach"])
+@pytest.mark.criterion("AUTH-ACCOUNT-PROFILES-1")
 def test_a_user_has_at_most_one_profile_of_each_kind(app, profile):
     model = _profile_model(profile)
     user_id = _user(app, f"one_{profile}")
@@ -58,6 +59,7 @@ def test_a_user_has_at_most_one_profile_of_each_kind(app, profile):
 
 
 @pytest.mark.parametrize("profile", ["player", "coach"])
+@pytest.mark.criterion("AUTH-ACCOUNT-PROFILES-1")
 def test_a_profile_always_has_an_account(app, profile):
     model = _profile_model(profile)
     with app.app_context():
@@ -68,6 +70,7 @@ def test_a_profile_always_has_an_account(app, profile):
 
 
 @pytest.mark.parametrize("table", ["players", "coaches"])
+@pytest.mark.criterion("AUTH-ACCOUNT-PROFILES-2")
 def test_the_schema_declares_cascade_unique_and_not_null(app, table):
     with app.app_context():
         column = db.metadata.tables[table].c.user_id
@@ -87,6 +90,7 @@ def test_the_user_relationships_leave_deletes_to_the_database(app):
 
 # ── rule 3 ───────────────────────────────────────────────────────────────────
 
+@pytest.mark.criterion("AUTH-ACCOUNT-PROFILES-3")
 def test_no_route_deletes_a_user_row(app, client):
     """account-profiles criterion "No route deletes a user row" (PAD-550): the generic
     delete routes are gone, so both old paths answer 404 and the row survives."""
@@ -101,6 +105,7 @@ def test_no_route_deletes_a_user_row(app, client):
         assert db.session.get(User, victim) is not None
 
 
+@pytest.mark.criterion("AUTH-ACCOUNT-PROFILES-4")
 def test_removing_a_never_activated_player_still_deletes_the_placeholder_account(app):
     """players.remove: the one domain path that removes a placeholder account."""
     from padel_app.models import Association_CoachPlayer, User

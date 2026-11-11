@@ -15,6 +15,7 @@ level and was read as "one above" the top of the ladder.
 Run:
     pytest padel_app/tests/test_level_ladder_ordering.py -v
 """
+import pytest
 
 from padel_app.sql_db import db
 
@@ -81,6 +82,7 @@ class _FakeVacancy:
 
 class TestLadderAdjacency:
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-42")
     def test_one_above_is_the_adjacent_level_not_two_steps_away(self, app):
         """Ticket ladder 4 -> 5 -> 5-: only `4` is one level above a `5` vacancy."""
         from padel_app.services.notification_service import _level_ids_one_above
@@ -113,6 +115,7 @@ class TestLadderAdjacency:
             # The bottom of the ladder has nothing below it.
             assert _level_ids_one_below(lv5m, coach.id) == set()
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-43")
     def test_unset_display_order_sorts_last_not_first(self, app):
         """A level with NULL/0 order must not masquerade as the strongest level."""
         from padel_app.services.notification_service import (
@@ -172,6 +175,7 @@ class TestLadderAdjacency:
 
 class TestGroupLevelRules:
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-43")
     def test_two_steps_away_student_fails_one_above_rule(self, app):
         """The reported bug: a `5-` student invited for a `4` vacancy."""
         from padel_app.services.notification_service import _passes_group_rules
@@ -197,6 +201,7 @@ class TestGroupLevelRules:
             assert _passes_group_rules(rules, cp_5, vacancy, coach.id) is False
             assert _passes_group_rules(rules, cp_4, vacancy, coach.id) is False
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-42")
     def test_one_above_admits_only_the_adjacent_level(self, app):
         from padel_app.services.notification_service import _passes_group_rules
 
@@ -248,6 +253,7 @@ class TestGroupLevelRules:
 
 class TestDisplayOrderNormalisation:
 
+    @pytest.mark.criterion("LEVELS-COACH-LEVELS-5")
     def test_upsert_renumbers_levels_contiguously(self, app):
         from padel_app.services.coach_service import upsert_coach_levels
         from padel_app.models.coach_levels import CoachLevel
@@ -267,6 +273,7 @@ class TestDisplayOrderNormalisation:
                       for lv in CoachLevel.query.filter_by(coach_id=coach.id).all()}
             assert levels == {"4": 1, "5": 2, "5-": 3}
 
+    @pytest.mark.criterion("LEVELS-COACH-LEVELS-5")
     def test_single_level_create_appends_to_the_bottom(self, app):
         from padel_app.services.coach_service import create_coach_level_service
         from padel_app.models.coach_levels import CoachLevel
@@ -283,6 +290,7 @@ class TestDisplayOrderNormalisation:
             created = CoachLevel.query.filter_by(coach_id=coach.id, code="5-").first()
             assert created.display_order == 3
 
+    @pytest.mark.criterion("LEVELS-COACH-LEVELS-5")
     def test_bulk_import_without_order_column_appends_in_row_order(self, app):
         from padel_app.services.import_service import bulk_create_coach_levels
         from padel_app.models.coach_levels import CoachLevel

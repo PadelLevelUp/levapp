@@ -5,6 +5,7 @@ recently joined one.
 descending order while SQLite sorts them last, so these tests pin the rule
 independently of the relationship's database order.
 """
+import pytest
 from datetime import datetime
 
 from padel_app.sql_db import db
@@ -49,16 +50,19 @@ def _current(app, coach_id):
         return club.name if club else None
 
 
+@pytest.mark.criterion("CLUBS-CRUD-3")
 def test_the_most_recently_joined_club_is_current(app):
     coach_id, _ = _coach_with_clubs(app, [("Old Club", datetime(2026, 1, 1)), ("New Club", datetime(2026, 9, 1))])
     assert _current(app, coach_id) == "New Club"
 
 
+@pytest.mark.criterion("CLUBS-CRUD-3")
 def test_join_time_decides_not_insertion_order(app):
     coach_id, _ = _coach_with_clubs(app, [("New Club", datetime(2026, 9, 1)), ("Old Club", datetime(2026, 1, 1))])
     assert _current(app, coach_id) == "New Club"
 
 
+@pytest.mark.criterion("CLUBS-CRUD-3")
 def test_a_membership_with_no_join_time_counts_as_oldest(app):
     coach_id, _ = _coach_with_clubs(app, [("Dated Club", datetime(2026, 1, 1)), ("Legacy Club", None)])
     assert _current(app, coach_id) == "Dated Club"
@@ -70,6 +74,7 @@ def test_equal_join_times_go_to_the_later_membership(app):
     assert _current(app, coach_id) == "Second Club"
 
 
+@pytest.mark.criterion("CLUBS-CRUD-3")
 def test_the_answer_does_not_depend_on_how_the_database_orders_nulls(app):
     """Hand the property the order Postgres produces (NULLs first in DESC)."""
     from padel_app.models import Association_CoachClub, Club
@@ -90,6 +95,7 @@ def test_a_coach_with_no_club_has_no_current_club(app):
     assert _current(app, coach_id) is None
 
 
+@pytest.mark.criterion("CLUBS-CRUD-3")
 def test_club_scoped_routes_resolve_the_current_club(app, client):
     from flask_jwt_extended import create_access_token
 

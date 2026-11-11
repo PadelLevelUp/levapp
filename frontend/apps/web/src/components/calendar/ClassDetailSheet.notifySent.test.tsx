@@ -78,7 +78,7 @@ async function openSheet() {
 const readIds = () => api.getClassInstance.mock.calls.map(([ev]) => Number((ev as { originalId: unknown }).originalId));
 
 describe("notify_sent re-reads the open class only (PAD-773)", () => {
-  it("a batch for this class re-reads its invited list", async () => {
+  it("[CALENDAR-EVENT-DETAIL-4] a batch for this class re-reads its invited list", async () => {
     await openSheet();
     await act(async () => {
       live.handler!({ type: "notify_sent", payload: { lessonInstanceId: 7, count: 2, type: "auto" } });
@@ -86,7 +86,7 @@ describe("notify_sent re-reads the open class only (PAD-773)", () => {
     await waitFor(() => expect(readIds()).toContain(7));
   });
 
-  it("a batch for another class leaves this list alone", async () => {
+  it("[CALENDAR-EVENT-DETAIL-4] a batch for another class leaves this list alone", async () => {
     await openSheet();
     await act(async () => {
       live.handler!({ type: "notify_sent", payload: { lessonInstanceId: 8, count: 2, type: "auto" } });

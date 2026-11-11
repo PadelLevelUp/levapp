@@ -5,6 +5,7 @@ address whatever order the writes land in; a `set` listener on `User.email` also
 recovery code at once, as defence in depth. A recovery started and finished on the same address is
 unchanged.
 """
+import pytest
 from flask_jwt_extended import create_access_token
 
 from padel_app.sql_db import db
@@ -38,6 +39,7 @@ def _pending_code(app, user_id):
     return (user.password_reset_code_hash, user.password_reset_expires_at, user.password_reset_sent_at)
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-1")
 def test_a_code_does_not_survive_a_change_of_address(client, app, ana, outbox):
     """Criterion "A recovery code does not survive an email change"."""
     code = _code_for_ana(client, outbox)
@@ -52,6 +54,7 @@ def test_a_code_does_not_survive_a_change_of_address(client, app, ana, outbox):
     assert client.post("/api/auth/login", json={"username": "ana.silva", "password": OLD}).status_code == 200
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-1")
 def test_a_code_does_not_survive_clearing_the_address_and_adding_another(client, app, ana, outbox):
     code = _code_for_ana(client, outbox)
     headers = _auth(app, ana)
@@ -64,6 +67,7 @@ def test_a_code_does_not_survive_clearing_the_address_and_adding_another(client,
     assert _user(app, ana).email_verified_at is None
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-3")
 def test_re_saving_the_same_address_keeps_the_code(client, app, ana, outbox):
     """Not a change: the same address in another case leaves a pending recovery alone."""
     code = _code_for_ana(client, outbox)
@@ -75,6 +79,7 @@ def test_re_saving_the_same_address_keeps_the_code(client, app, ana, outbox):
     assert _user(app, ana).email_verified_at is not None
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-3")
 def test_a_recovery_on_an_unchanged_address_works_as_before(client, app, ana, outbox):
     """Criterion "A recovery on an unchanged address is unchanged": it resets the password and, as it
     always did, marks that address verified."""
@@ -148,6 +153,7 @@ def _change_email_from_another_session(user_id, address):
         other.commit()
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-2")
 def test_a_recovery_code_issued_while_the_address_changes_does_not_confirm_on_the_new_one(client, app, ana, outbox, monkeypatch):
     """Criterion "A code is bound to the address it was issued for" (rule 11)."""
     from padel_app.services import password_recovery_service as svc
@@ -194,6 +200,7 @@ def test_a_verification_code_issued_while_the_address_changes_does_not_verify_th
         assert user.email == NEW_ADDRESS and user.email_verified_at is None
 
 
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-3")
 def test_a_mixed_case_rewrite_of_the_same_address_through_the_orm_keeps_the_code(client, app, ana, outbox):
     """Writers that do not lower-case (activation, the admin editor) reach the listener's case branch, and
     the code still confirms: the address is normalised on the confirm side too (#518 second read)."""

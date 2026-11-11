@@ -33,12 +33,14 @@ class TestSideEligible:
         assert eligible("left", "right") is False
         assert eligible("right", "left") is False
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-39")
     def test_both_player_eligible_for_any_specific_side(self, helpers):
         eligible, _ = helpers
         assert eligible("both", "left") is True
         assert eligible("both", "right") is True
         assert eligible("both", "both") is True
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-41")
     def test_specific_player_eligible_for_both_vacancy(self, helpers):
         eligible, _ = helpers
         assert eligible("left", "both") is True
@@ -61,11 +63,13 @@ class TestSideEligible:
 
 
 class TestSidePreferenceRank:
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-39")
     def test_exact_match_ranks_first(self, helpers):
         _, rank = helpers
         assert rank("left", "left") == 0
         assert rank("right", "right") == 0
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-39")
     def test_both_fallback_ranks_after_exact(self, helpers):
         _, rank = helpers
         # For a left vacancy: exact left (0) < both (1) < wrong side (2)
@@ -78,6 +82,7 @@ class TestSidePreferenceRank:
         # a left player is a "both" fallback for a both vacancy
         assert rank("left", "both") == 1
 
+    @pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-40")
     def test_no_vacancy_side_is_neutral(self, helpers):
         _, rank = helpers
         assert rank("left", None) == 0

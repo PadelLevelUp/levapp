@@ -86,6 +86,7 @@ def _end_of(day: date):
 
 # --- POST: an end date, at most 12 months ahead -------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-10")
 def test_an_entry_runs_to_the_end_date_the_coach_picks(app, client):
     w = _seed(app)
     end = _today() + timedelta(days=20)
@@ -97,6 +98,7 @@ def test_an_entry_runs_to_the_end_date_the_coach_picks(app, client):
 
 
 @pytest.mark.parametrize("offset", ["today", "twelve_months"])
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-10")
 def test_the_end_date_may_be_today_or_twelve_months_ahead(app, client, offset):
     w = _seed(app)
     end = _today() if offset == "today" else _today() + relativedelta(months=12)
@@ -105,6 +107,7 @@ def test_the_end_date_may_be_today_or_twelve_months_ahead(app, client, offset):
 
 
 @pytest.mark.parametrize("value", ["past", "beyond", "2026-13-01", "", None, "soon"])
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-10")
 def test_an_end_date_out_of_bounds_or_not_a_date_is_refused_and_nothing_is_written(app, client, value):
     w = _seed(app)
     if value == "past":
@@ -142,6 +145,7 @@ def _add(client, w, end):
     return res.get_json()["id"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-11")
 def test_renewing_moves_the_end_date_and_keeps_the_credits_used(app, client):
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
 
@@ -159,6 +163,7 @@ def test_renewing_moves_the_end_date_and_keeps_the_credits_used(app, client):
     assert _entries(app, w["coach_id"]) == [(True, _end_of(new_end), 2)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-11")
 def test_an_expired_entry_still_listed_can_be_renewed(app, client):
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
 
@@ -183,6 +188,7 @@ def test_renewing_is_bounded_like_adding(app, client):
     assert _entries(app, w["coach_id"])[0][1] == _end_of(_today() + timedelta(days=5))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-11")
 def test_only_the_entrys_coach_renews_it(app, client):
     w = _seed(app)
     entry_id = _add(client, w, _today() + timedelta(days=5))
@@ -230,6 +236,7 @@ def _rows(app, instance_id, player_id):
         return [r.is_active for r in WaitingListEntry.query.filter_by(lesson_instance_id=instance_id, player_id=player_id)]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-12")
 def test_an_entry_is_not_queued_for_classes_after_its_end(app, client):
     w = _seed(app, class_in_days=(3, 10))
     _add(client, w, _today() + timedelta(days=5))
@@ -237,6 +244,7 @@ def test_an_entry_is_not_queued_for_classes_after_its_end(app, client):
     assert _rows(app, w["instances"][1], w["player_id"]) == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-12")
 def test_renewing_reaches_the_classes_the_new_end_covers_and_shortening_leaves_the_rest(app, client):
     w = _seed(app, class_in_days=(3, 10))
     entry_id = _add(client, w, _today() + timedelta(days=5))
@@ -249,6 +257,7 @@ def test_renewing_reaches_the_classes_the_new_end_covers_and_shortening_leaves_t
     assert _rows(app, w["instances"][0], w["player_id"]) == [True]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-12")
 def test_a_new_class_after_the_end_or_of_an_expired_entry_gets_no_row(app, client):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry

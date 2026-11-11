@@ -12,6 +12,7 @@ spot opened in automatic mode gets it (invitations rule 11); a window already pa
 Pinned clock (`NOW`, the class tomorrow 09:00 Lisbon = 08:00 UTC). "24 h before" is already open;
 "6 h before" opens at 02:00 UTC tomorrow.
 """
+import pytest
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -39,6 +40,7 @@ def _timing_behind_the_engine(coach_id, timing):
     update_config(coach_id, {"invitationStartTiming": timing})
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-1")
 def test_a_spot_released_by_the_switch_waits_for_a_window_still_ahead(app, monkeypatch):
     from padel_app.services.notification_service import update_config
 
@@ -57,6 +59,7 @@ def test_a_spot_released_by_the_switch_waits_for_a_window_still_ahead(app, monke
         assert len(_live_events(instance_id)) == 3, "the window opens and the spot starts"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-1")
 def test_a_spot_released_by_the_sweep_waits_for_a_window_still_ahead(app, monkeypatch):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]):
         instance_id, coach_id = _semi_spot_with_prompt(monkeypatch)
@@ -72,6 +75,7 @@ def test_a_spot_released_by_the_sweep_waits_for_a_window_still_ahead(app, monkey
         assert len(_live_events(instance_id)) == 3
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-2")
 def test_a_spot_released_after_its_window_opened_sends_at_once(app, monkeypatch):
     """The suite's default timing (24 h before) opened at 08:00 UTC today: no window to wait for."""
     from padel_app.services.notification_service import update_config
@@ -102,6 +106,7 @@ def _windowless_automatic_spot(monkeypatch, timing):
     return instance_id, coach_id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-21")
 def test_the_tick_stamps_a_missing_window_still_ahead_and_holds_the_spot(app, monkeypatch):
     """A spot that never had a window pauses like rule 11a's later save: no new round before the
     window, the invitations already out stay live."""
@@ -114,6 +119,7 @@ def test_the_tick_stamps_a_missing_window_still_ahead_and_holds_the_spot(app, mo
         assert _live_events(instance_id) == live, "paused: nothing new, nothing retired"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-21")
 def test_the_tick_leaves_a_spot_whose_window_has_passed(app, monkeypatch):
     from padel_app.tests.test_pad776_window_follows_saved_timing import OPEN
 
@@ -124,6 +130,7 @@ def test_the_tick_leaves_a_spot_whose_window_has_passed(app, monkeypatch):
         assert _spot(instance_id).invite_not_before is None, "a past window is not stored"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-21")
 def test_the_tick_leaves_a_yes_right_now_spot_alone(app, monkeypatch):
     """Rule 11a's exemption: approved with no window means the coach said "send now"."""
     from padel_app.models.vacancy import Vacancy
@@ -137,6 +144,7 @@ def test_the_tick_leaves_a_yes_right_now_spot_alone(app, monkeypatch):
         assert _spot(instance_id).invite_not_before is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-3")
 def test_one_save_that_switches_and_moves_the_window_uses_the_saved_window(app, monkeypatch):
     from padel_app.services.notification_service import update_config
 

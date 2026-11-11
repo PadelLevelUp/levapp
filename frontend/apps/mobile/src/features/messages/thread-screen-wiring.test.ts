@@ -22,13 +22,13 @@ function between(source: string, from: string, to: string): string {
 }
 
 describe("one list invalidation per incoming message (rule 2)", () => {
-  it("the thread screen's message_created handler leaves the list refetch to the tabs layout", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-2] the thread screen's message_created handler leaves the list refetch to the tabs layout", () => {
     const handler = between(thread, 'evt.type === "message_created"', 'evt.type === "message_edited"');
     expect(handler).not.toMatch(/invalidateMessagesLists\(/);
     expect(handler).not.toMatch(/invalidateQueries\(/);
   });
 
-  it("the tabs layout is where the list and the unread count are invalidated", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-2] the tabs layout is where the list and the unread count are invalidated", () => {
     expect(tabs).toMatch(/invalidateQueries\(\{\s*queryKey:\s*\["conversations"\]/);
   });
 });
@@ -43,14 +43,14 @@ describe("the composer owns the draft (rule 1)", () => {
 });
 
 describe("a calendar range keeps the previous one on screen (rule 5)", () => {
-  it("passes keepPreviousData to useCalendarEvents", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-7] passes keepPreviousData to useCalendarEvents", () => {
     const call = between(calendarScreen, "useCalendarEvents(", "});");
     expect(call).toMatch(/placeholderData:\s*keepPreviousData/);
   });
 });
 
 describe("the courts query waits for the class's club (rule 6)", () => {
-  it("is enabled only once the instance names a club", () => {
+  it("[MOBILE-INTERACTION-PERFORMANCE-8] is enabled only once the instance names a club", () => {
     expect(classScreen).toMatch(/enabled:\s*isCoach\s*&&\s*!!instance\?\.clubId/);
   });
 });

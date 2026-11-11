@@ -70,6 +70,7 @@ def _make_conversation(app):
     return coach_user.id, student_user.id, conversation.id
 
 
+@pytest.mark.criterion("MESSAGING-READ-TRACKING-1")
 def test_unread_clears_after_reading_freshly_sent_message(app, force_utc_plus_2, monkeypatch):
     from padel_app.models import User
     from padel_app.services import messaging_service

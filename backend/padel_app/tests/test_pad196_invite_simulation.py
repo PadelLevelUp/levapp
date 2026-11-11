@@ -207,6 +207,7 @@ def _jwt_secret(app):
 # Agreement with the engine (rule 5)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-1")
 def test_matches_engine_unset_bar(app):
     """AC "The simulation invites exactly who the engine invites — unset bar"."""
     ids = _seed(app, eligibility_rules=None, max_players=1)
@@ -226,6 +227,7 @@ def test_matches_engine_unset_bar(app):
         assert simulated_round_1, "the fixture must produce at least one round-1 candidate"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-2")
 def test_matches_engine_level_bar(app):
     """AC "The simulation invites exactly who the engine invites — level bar"."""
     bar = [{"attribute": "level", "operation": "within_n_of_class", "value": 1}]
@@ -247,6 +249,7 @@ def test_matches_engine_level_bar(app):
         assert two_steps_away not in engine_first
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-3")
 def test_matches_engine_empty_groups(app):
     """AC "The simulation invites exactly who the engine invites — empty groups"
     (PAD-279): `[]` is the built-in three groups, for the engine and the simulation."""
@@ -272,6 +275,7 @@ def test_matches_engine_empty_groups(app):
 # No writes (rule 3)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-4")
 def test_simulation_writes_nothing(app):
     """AC "The simulation writes nothing"."""
     from padel_app.models import Message
@@ -325,6 +329,7 @@ def test_simulation_writes_nothing(app):
 # Who is never a candidate
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-5")
 def test_departing_and_enrolled_never_candidates(app):
     """AC "The missing player and the players still in the class are never candidates"."""
     ids = _seed(app, eligibility_rules=None, max_players=3)
@@ -355,6 +360,7 @@ def _gate(simulation, code):
     return next(g for g in simulation["gates"] if g["code"] == code)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-6")
 def test_quiet_hours_gate_club_wall_clock(app):
     """AC "Quiet hours are reported on the club wall clock (PAD-136 style)"."""
     from padel_app.models.notification_config import DEFAULT_RESTRICTIONS
@@ -380,6 +386,7 @@ def test_quiet_hours_gate_club_wall_clock(app):
         assert _gate(clear, "quiet_hours")["blocked"] is False
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-7")
 def test_invitation_window_reported_not_applied(app):
     """AC "The invitation window is reported, not applied"."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -410,6 +417,7 @@ def test_invitation_window_reported_not_applied(app):
 # Semi-automatic mode (rule 7)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-8")
 def test_semi_auto_reports_approval_with_prompt_list(app):
     """AC "Semi-automatic mode reports the approval step with the prompt's list"."""
     ids = _seed(app, eligibility_rules=None, max_players=1)
@@ -428,6 +436,7 @@ def test_semi_auto_reports_approval_with_prompt_list(app):
 # Waiting list (rule 8)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-9")
 def test_waiting_list_members_are_asked_first_in_join_order(app):
     """AC "A waiting-list member who passes the bar is asked first" (PAD-446, rule 8)."""
     from padel_app.models.standing_waiting_list_entry import StandingWaitingListEntry
@@ -465,6 +474,7 @@ def test_waiting_list_members_are_asked_first_in_join_order(app):
 # Explain (rules 2, 12, 13)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-10")
 def test_explain_names_eligibility_rule(app):
     """AC "Explain names the eligibility rule, in PAD-133's records"."""
     bar = [{"attribute": "level", "operation": "within_n_of_class", "value": 1}]
@@ -488,6 +498,7 @@ def test_explain_names_eligibility_rule(app):
         assert record["ladder_distance"] == 2
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-11")
 def test_explain_reports_blocker(app):
     """AC "Explain reports an availability blocker"."""
     from padel_app.models import Player
@@ -518,6 +529,7 @@ def test_explain_reports_blocker(app):
         assert str(frank) not in _queue_ids(_simulate(ids, alice))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-12")
 def test_explain_reports_auto_invites_off(app):
     """AC "Explain reports a switched-off student"."""
     from padel_app.models import Player, User
@@ -534,6 +546,7 @@ def test_explain_reports_auto_invites_off(app):
         assert _explain(ids, alice, gina)["stage"] == "auto_invites_off"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-13")
 def test_explain_reports_position_and_send_status(app):
     """AC "Explain reports the position of an invited student"."""
     from padel_app.models.notification_config import DEFAULT_RESTRICTIONS
@@ -565,6 +578,7 @@ def test_explain_reports_position_and_send_status(app):
         assert {int(c["playerId"]) for c in round_1} == set(candidates)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-14")
 def test_daily_quota_marks_candidate(app):
     """AC "Explain reports the daily quota"."""
     from padel_app.models.notification_config import DEFAULT_RESTRICTIONS
@@ -612,6 +626,7 @@ def _route_body(ids, departing, **extra):
     }
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-16")
 def test_student_caller_gets_403(app, client):
     """AC "A student caller is refused"."""
     from padel_app.models import Player

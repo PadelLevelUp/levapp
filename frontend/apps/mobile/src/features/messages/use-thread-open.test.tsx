@@ -58,14 +58,14 @@ beforeEach(() => {
 });
 
 describe("useThreadOpen: the override the thread query is given (rule 12a)", () => {
-  it("a push target newer than the cached thread forces the open's own GET", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-18] a push target newer than the cached thread forces the open's own GET", async () => {
     await seed({ messages: rows(1, 2) });
     await mount("3");
     expect(refetchOnMount()).toEqual("always");
     expect(api.getConversation).toHaveBeenCalledTimes(1);
   });
 
-  it("a push target the cached thread holds keeps the cache", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-17] a push target the cached thread holds keeps the cache", async () => {
     await seed({ messages: rows(1, 2) });
     await mount("2");
     expect(refetchOnMount()).toBeUndefined();
@@ -92,7 +92,7 @@ describe("useThreadOpen: the phase comes from the thread's own isFetching and is
 });
 
 describe("useThreadOpen: the target step (rule 12b)", () => {
-  it("waits while the open's GET is in flight, then finds the target in its answer", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-20] waits while the open's GET is in flight, then finds the target in its answer", async () => {
     await seed({ messages: rows(1, 2), hasMore: true });
     await mount("3");
     expect(open.targetStep("3", 0)).toEqual({ kind: "wait" });
@@ -100,7 +100,7 @@ describe("useThreadOpen: the target step (rule 12b)", () => {
     expect(open.targetStep("3", 0)).toEqual({ kind: "scroll", index: 2 });
   });
 
-  it("walks older pages for a target older than the cached page, with no GET in flight (flow 103)", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-17] walks older pages for a target older than the cached page, with no GET in flight (flow 103)", async () => {
     await seed({ messages: rows(16, 17, 45), hasMore: true });
     await mount("3");
     expect(open.targetStep("3", 0)).toEqual({ kind: "load-older" });
@@ -108,7 +108,7 @@ describe("useThreadOpen: the target step (rule 12b)", () => {
 });
 
 describe("useThreadOpen: a retried landing scroll (conversation-detail rule 9b)", () => {
-  it("finds the row by message id in the list as it is now, not at its old index", async () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-3] finds the row by message id in the list as it is now, not at its old index", async () => {
     const before = rows(...Array.from({ length: 51 }, (_, i) => 2 + i)); // ids 2..52, index 50 = 52
     await seed({ messages: before });
     await mount(null);
@@ -117,7 +117,7 @@ describe("useThreadOpen: a retried landing scroll (conversation-detail rule 9b)"
     expect(open.retryIndex()).toBe(29);
   });
 
-  it("drops the retry when the message is no longer loaded", async () => {
+  it("[MESSAGING-CONVERSATION-DETAIL-3] drops the retry when the message is no longer loaded", async () => {
     await seed({ messages: rows(1, 2, 3) });
     await mount(null);
     open.scrollStarted(1);

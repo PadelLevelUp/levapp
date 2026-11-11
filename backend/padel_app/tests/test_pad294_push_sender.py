@@ -60,6 +60,7 @@ def test_under_the_test_config_the_sender_runs_inline(app):
     assert seen == [threading.current_thread().name]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-28")
 def test_a_submitted_job_runs_on_the_worker_thread_and_flush_waits(app, async_sender):
     seen = []
     with app.app_context():
@@ -71,6 +72,7 @@ def test_a_submitted_job_runs_on_the_worker_thread_and_flush_waits(app, async_se
 # The queue-full policy (drop the OLDEST, pause after consecutive provider
 # timeouts) is pinned in test_pad294_push_sender_review.py.
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-28")
 def test_expo_push_is_looked_up_on_the_caller_and_sent_on_the_worker(app, async_sender):
     from padel_app.utils.expo_push import send_expo_push_to_user
 
@@ -91,6 +93,7 @@ def test_expo_push_is_looked_up_on_the_caller_and_sent_on_the_worker(app, async_
     assert payload[0]["to"] == "ExponentPushToken[t1]" and payload[0]["badge"] == 2
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-28")
 def test_the_worker_deletes_a_device_token_expo_reports_unregistered(app, async_sender):
     from padel_app.models import DeviceToken
     from padel_app.utils.expo_push import send_expo_push_to_user
@@ -107,6 +110,7 @@ def test_the_worker_deletes_a_device_token_expo_reports_unregistered(app, async_
         assert DeviceToken.query.filter_by(token="ExponentPushToken[stale]").count() == 0
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-28")
 def test_web_push_is_looked_up_on_the_caller_and_sent_on_the_worker(app, async_sender, monkeypatch):
     from padel_app.models import PushSubscription, User
     from padel_app.utils.push_notifications import send_push_notification
@@ -132,6 +136,7 @@ def test_web_push_is_looked_up_on_the_caller_and_sent_on_the_worker(app, async_s
     assert json.loads(calls[0][1]["data"])["url"] == "/messages/1"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-28")
 def test_a_system_message_returns_before_the_push_round_trip(app, async_sender):
     """The criterion: a slow push service does not hold the engine.
 

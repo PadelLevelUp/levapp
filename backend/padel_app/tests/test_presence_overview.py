@@ -174,6 +174,7 @@ def test_presence_stats_counts_per_player(app, coach_world):
     assert payload["totals"]["activePlayers"] == 3
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-15")
 def test_guest_is_not_counted_as_enrolled(app, coach_world):
     """A guest is identified by having no enrolment in the parent lesson.
 
@@ -247,6 +248,7 @@ def test_trend_buckets_are_gap_filled(app, coach_world):
     assert any(c == 0 for c in counts), "range is wider than the activity"
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-19")
 def test_trend_can_follow_a_player_filter(app, coach_world):
     """attendance.validation rule 17a (PAD-192): playerIds narrows the series."""
     from padel_app.services.presence_overview_service import build_presence_trend
@@ -271,6 +273,7 @@ def test_trend_can_follow_a_player_filter(app, coach_world):
     assert nobody["total"] == 0 and all(b["count"] == 0 for b in nobody["buckets"])
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-19")
 def test_trend_route_parses_player_ids(app, client, coach_world):
     from flask_jwt_extended import create_access_token
     from padel_app.models.coaches import Coach
@@ -290,6 +293,7 @@ def test_trend_route_parses_player_ids(app, client, coach_world):
     assert bad.status_code == 400
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-6")
 def test_pending_validation_splits_ready_from_needs_input(app, coach_world):
     """`ready` means everyone answered — not that the coach decided anything."""
     from padel_app.services.presence_overview_service import list_pending_validation
@@ -314,6 +318,7 @@ def test_pending_validation_splits_ready_from_needs_input(app, coach_world):
     assert private["players"][0]["response"] == "none"
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-2")
 def test_count_pending_validation_is_the_listings_count(app, coach_world):
     """attendance.validation rule 18: the count is `len(pending)`, never a second query."""
     from padel_app.services.presence_overview_service import (
@@ -333,6 +338,7 @@ def test_count_pending_validation_is_the_listings_count(app, coach_world):
     assert counted == listed["pendingCount"] == 2
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-2")
 def test_count_endpoint_is_coach_only_and_echoes_the_listing(app, client, coach_world):
     """attendance.validation rule 18: 403 for a student, the listing's count for the coach."""
     from flask_jwt_extended import create_access_token
@@ -372,6 +378,7 @@ def test_count_endpoint_is_coach_only_and_echoes_the_listing(app, client, coach_
     assert counted.get_json()["from"] == listed.get_json()["from"]
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-22")
 def test_future_class_is_not_listed(app, coach_world):
     """Validating a class that has not happened yet is meaningless."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -395,6 +402,7 @@ def test_future_class_is_not_listed(app, coach_world):
     assert "Academy Beginners" in titles
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-10")
 def test_fully_validated_class_moves_to_validated_bucket(app, coach_world):
     """A class is validated when every one of its presences is."""
     from padel_app.models.presences import Presence
@@ -417,6 +425,7 @@ def test_fully_validated_class_moves_to_validated_bucket(app, coach_world):
     assert "Academy Beginners" not in [c["title"] for c in payload["pending"]]
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-13")
 def test_unvalidate_reopens_without_erasing_what_was_recorded(app, coach_world):
     """Undo clears `validated` only — status/justification survive."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -437,6 +446,7 @@ def test_unvalidate_reopens_without_erasing_what_was_recorded(app, coach_world):
         assert statuses == ["absent", "present", "present"], "records preserved"
 
 
+@pytest.mark.criterion("ATTENDANCE-VALIDATION-23")
 def test_another_coachs_classes_are_invisible(app, coach_world):
     """Scoping runs through Association_CoachLesson, not the roster."""
     from padel_app.tests.helpers import make_coach

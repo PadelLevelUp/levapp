@@ -103,6 +103,7 @@ def _create_conversation(client, app, user_id, other_user_id):
     )
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-4")
 def test_roster_only_player_is_messageable_by_their_coach(client, app, roster_scenario):
     resp = client.get(
         "/api/app/messageable-users",
@@ -113,6 +114,7 @@ def test_roster_only_player_is_messageable_by_their_coach(client, app, roster_sc
     assert roster_scenario["roster_user_id"] in ids
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-4")
 def test_coach_can_start_conversation_with_roster_only_player(
     client, app, roster_scenario
 ):
@@ -125,6 +127,7 @@ def test_coach_can_start_conversation_with_roster_only_player(
     assert resp.status_code == 201
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-5")
 def test_club_player_without_roster_row_is_not_messageable(client, app, roster_scenario):
     """PAD-568 / B-461: the seed-only club shape is not a link any more."""
     resp = client.get(
@@ -139,6 +142,7 @@ def test_club_player_without_roster_row_is_not_messageable(client, app, roster_s
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-7")
 def test_player_on_neither_roster_nor_club_is_not_messageable(
     client, app, roster_scenario
 ):
@@ -150,6 +154,7 @@ def test_player_on_neither_roster_nor_club_is_not_messageable(
     assert roster_scenario["stranger_user_id"] not in ids
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-7")
 def test_conversation_with_unrelated_player_is_still_403(client, app, roster_scenario):
     resp = _create_conversation(
         client,
@@ -160,6 +165,7 @@ def test_conversation_with_unrelated_player_is_still_403(client, app, roster_sce
     assert resp.status_code == 403
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-17")
 def test_messageable_payload_carries_only_picker_fields(client, app, roster_scenario):
     """PAD-205 must not widen the picker payload (data-model audit H3), and
     PAD-227 narrowed it to the public shape (messaging.conversations rule 15)."""

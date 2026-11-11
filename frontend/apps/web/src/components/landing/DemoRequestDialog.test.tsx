@@ -97,7 +97,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.getAllByRole("button", { name: "landing.demo.submit" })).toHaveLength(1);
   });
 
-  it("hides the marketing box without a subscription and shows it, unticked, with one", () => {
+  it("[AUTH-LANDING-PAGE-24] hides the marketing box without a subscription and shows it, unticked, with one", () => {
     renderDialog();
     expect(screen.queryByTestId("demo-marketing")).toBeNull();
     cleanup();
@@ -105,7 +105,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.getByTestId("demo-marketing")).toHaveAttribute("data-state", "unchecked");
   });
 
-  it("blocks an empty submit and shows an error per required field", () => {
+  it("[AUTH-LANDING-PAGE-23] blocks an empty submit and shows an error per required field", () => {
     renderDialog({ showMarketing: true });
     submit();
     expect(sendDemoRequest).not.toHaveBeenCalled();
@@ -117,14 +117,14 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.queryByTestId("demo-marketing-error")).toBeNull();
   });
 
-  it("moves focus to the first invalid field", async () => {
+  it("[AUTH-LANDING-PAGE-23] moves focus to the first invalid field", async () => {
     renderDialog();
     type("demo-firstname", "Rita");
     submit();
     await waitFor(() => expect(screen.getByTestId("demo-lastname")).toHaveFocus());
   });
 
-  it.each(["123", "812345678", "+351 812 345 678", "abc"])("refuses the phone %s", (phone) => {
+  it.each(["123", "812345678", "+351 812 345 678", "abc"])("[AUTH-LANDING-PAGE-23] refuses the phone %s", (phone) => {
     renderDialog();
     fillValid();
     type("demo-phone", phone);
@@ -143,7 +143,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.getByTestId("demo-tempo-1_3h")).toHaveAttribute("aria-describedby", "demo-tempo-error");
   });
 
-  it("refuses an invalid email and an unticked consent", () => {
+  it("[AUTH-LANDING-PAGE-23] refuses an invalid email and an unticked consent", () => {
     renderDialog();
     fillValid();
     type("demo-email", "rita@");
@@ -154,7 +154,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.getByTestId("demo-consent-error")).toBeInTheDocument();
   });
 
-  it("sends the exact body: internal values, normalised phone, no hutk without consent", async () => {
+  it("[AUTH-LANDING-PAGE-21] sends the exact body: internal values, normalised phone, no hutk without consent", async () => {
     document.cookie = "hubspotutk=0123456789abcdef0123456789abcdef; path=/";
     sendDemoRequest.mockResolvedValue({ ok: true });
     renderDialog({ pedido: "demonstracao" });
@@ -184,7 +184,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect("hutk" in body).toBe(false);
   });
 
-  it("sends hutk once the visitor accepted cookies, and the marketing box as ticked", async () => {
+  it("[AUTH-LANDING-PAGE-22] sends hutk once the visitor accepted cookies, and the marketing box as ticked", async () => {
     writeConsent("accepted");
     document.cookie = "hubspotutk=0123456789abcdef0123456789abcdef; path=/";
     sendDemoRequest.mockResolvedValue({ ok: true });
@@ -199,7 +199,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect("pedido" in body).toBe(false);
   });
 
-  it("sends no hutk after a decline even if the cookie lingers", async () => {
+  it("[AUTH-LANDING-PAGE-22] sends no hutk after a decline even if the cookie lingers", async () => {
     writeConsent("declined");
     document.cookie = "hubspotutk=0123456789abcdef0123456789abcdef; path=/";
     sendDemoRequest.mockResolvedValue({ ok: true });
@@ -220,7 +220,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(screen.getByTestId("demo-submit")).toBeEnabled();
   });
 
-  it.each([502, 503, 429, 0])("offers a retry and the mailto on %i", async (status) => {
+  it.each([502, 503, 429, 0])("[AUTH-LANDING-PAGE-21] offers a retry and the mailto on %i", async (status) => {
     sendDemoRequest.mockResolvedValue({ ok: false, status });
     renderDialog();
     fillValid();
@@ -233,7 +233,7 @@ describe("DemoRequestDialog (PAD-617, PAD-650)", () => {
     expect(sendDemoRequest).toHaveBeenCalledTimes(2);
   });
 
-  it("shows the thank-you without a promised delay on 200", async () => {
+  it("[AUTH-LANDING-PAGE-21] shows the thank-you without a promised delay on 200", async () => {
     sendDemoRequest.mockResolvedValue({ ok: true });
     renderDialog();
     fillValid();

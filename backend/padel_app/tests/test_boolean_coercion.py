@@ -269,6 +269,7 @@ class TestAddPresencesPreservesReminderState:
             assert presence.status == "absent"
             assert presence.justification == "justified"
 
+    @pytest.mark.criterion("ATTENDANCE-VALIDATION-10")
     def test_confirm_attendance_sets_validated_true(self, app):
         """`add_presences` hardcodes validated=True — it must actually persist."""
         from padel_app.models.presences import Presence

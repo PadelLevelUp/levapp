@@ -135,6 +135,7 @@ def test_the_dict_properties_decompose_into_columns_and_compose_back(app):
         assert cfg.reminder_count == 2  # untouched by a flat first-reminder write
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-29")
 def test_empty_invitation_groups_mean_the_built_in_groups(app):
     from padel_app.models.notification_config import DEFAULT_INVITATION_GROUPS, NotificationConfig
     from padel_app.services.notification_service import invitation_waves
@@ -165,6 +166,7 @@ def _coach(app):
         return {"Authorization": f"Bearer {create_access_token(identity=str(user.id))}"}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-28")
 def test_the_config_api_keeps_its_shape_and_drops_rounds(client, app):
     headers = _coach(app)
     res = client.get("/api/app/notify/config", headers=headers)
@@ -283,6 +285,7 @@ def test_backfill_keeps_defaults_for_a_blob_that_does_not_parse():
     assert any("reminder_timing" in p for p in problems)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-30")
 def test_backfill_keeps_the_counts_of_a_timing_the_scheduler_could_not_fire_and_reads_loose_booleans():
     """Review findings 1 and 2 on PR #208: the degenerate dict is logged, not silent,
     and its counts survive; 0/1 and "true"/"false" booleans are read, not reset."""

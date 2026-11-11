@@ -10,6 +10,7 @@ this-and-following.
 Each cell drops the session before reading (`db.session.remove()`): an uncommitted attribute is
 still visible through the identity map, which would hide exactly this defect.
 """
+import pytest
 import json
 from datetime import timedelta
 
@@ -46,6 +47,7 @@ def _fresh(app, model, pk, column):
         return getattr(db.session.get(model, pk), column)
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-1")
 def test_instance_single_occurrence_saves_visibility_alone(app):
     from padel_app.models.lesson_instances import LessonInstance
 
@@ -57,6 +59,7 @@ def test_instance_single_occurrence_saves_visibility_alone(app):
     assert _fresh(app, LessonInstance, ids["instance_id"], "open_spots_visible") is False
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-1")
 def test_instance_this_and_following_saves_visibility_alone(app):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.lessons import Lesson
@@ -70,6 +73,7 @@ def test_instance_this_and_following_saves_visibility_alone(app):
     assert _fresh(app, Lesson, result["id"], "open_spots_visible") is False
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-1")
 def test_lesson_single_occurrence_with_an_instance_saves_visibility_alone(app):
     from padel_app.models.lesson_instances import LessonInstance
 
@@ -80,6 +84,7 @@ def test_lesson_single_occurrence_with_an_instance_saves_visibility_alone(app):
     assert _fresh(app, LessonInstance, result["id"], "open_spots_visible") is False
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-1")
 def test_lesson_single_occurrence_materialised_now_saves_visibility_alone(app):
     from padel_app.models.lesson_instances import LessonInstance
 
@@ -91,6 +96,7 @@ def test_lesson_single_occurrence_materialised_now_saves_visibility_alone(app):
     assert _fresh(app, LessonInstance, result["id"], "open_spots_visible") is False
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-1")
 def test_lesson_this_and_following_saves_visibility_alone(app):
     from padel_app.models.lessons import Lesson
 
@@ -101,6 +107,7 @@ def test_lesson_this_and_following_saves_visibility_alone(app):
     assert _fresh(app, Lesson, result["id"], "open_spots_visible") is False
 
 
+@pytest.mark.criterion("ELIGIBILITY-OPEN-SPOT-VISIBILITY-1")
 def test_auto_invites_alone_and_eligibility_alone_are_saved_too(app):
     """The same shape for the two neighbours: each has its own save (controls)."""
     from padel_app.models.lesson_instances import LessonInstance

@@ -51,7 +51,7 @@ beforeEach(() => {
 const sunday = () => screen.getByTestId("working-hours-day-sun");
 
 describe("WorkingHoursSection — a late load never undoes an edit (PAD-392)", () => {
-  it("keeps a day switched off when the language settles afterwards", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-4] keeps a day switched off when the language settles afterwards", async () => {
     const view = render(<WorkingHoursSection />);
     fireEvent.click(await screen.findByTestId("working-hours-works-sun"));
     expect(sunday()).toHaveAttribute("data-state", "off");
@@ -68,7 +68,7 @@ describe("WorkingHoursSection — a late load never undoes an edit (PAD-392)", (
     expect(sunday()).toHaveAttribute("data-state", "off");
   });
 
-  it("loads the week once, however often the language changes", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-4] loads the week once, however often the language changes", async () => {
     const view = render(<WorkingHoursSection />);
     await screen.findByTestId("working-hours-works-sun");
     for (let i = 0; i < 3; i++) {
@@ -81,7 +81,7 @@ describe("WorkingHoursSection — a late load never undoes an edit (PAD-392)", (
     expect(getCoachWorkingHours).toHaveBeenCalledTimes(1);
   });
 
-  it("still shows what the server holds when nothing was touched", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-4] still shows what the server holds when nothing was touched", async () => {
     getCoachWorkingHours.mockResolvedValue({ workingHours: { mon: [["09:00", "13:00"]], tue: [], wed: [["08:00", "22:00"]], thu: [["08:00", "22:00"]], fri: [["08:00", "22:00"]], sat: [["08:00", "22:00"]], sun: [] } });
     render(<WorkingHoursSection />);
     await screen.findByTestId("working-hours-works-sun");
@@ -100,7 +100,7 @@ describe("WorkingHoursSection — a late load never undoes an edit (PAD-392)", (
 describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
   const unsavedIds = () => screen.getByTestId("unsaved-ids").textContent;
 
-  it("reports unsaved after an edit, and clean again once undone by hand", async () => {
+  it("[SETTINGS-UNSAVED-EDITS-3] reports unsaved after an edit, and clean again once undone by hand", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <WorkingHoursSection />
@@ -137,7 +137,7 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(screen.getByTestId("save-failed")).toHaveTextContent("");
   });
 
-  it("stays unsaved after a failed save, and is listed as failed", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-3] stays unsaved after a failed save, and is listed as failed", async () => {
     putCoachWorkingHours.mockRejectedValue(new Error("nope"));
     render(
       <SettingsUnsavedTestHarness>
@@ -154,7 +154,7 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(unsavedIds()).toBe("workingHours");
   });
 
-  it("a refusal naming a day shows that day's error and the part stays unsaved", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-2] a refusal naming a day shows that day's error and the part stays unsaved", async () => {
     putCoachWorkingHours.mockRejectedValue({ response: { data: { code: "INVALID_WORKING_HOURS", day: "sun" } } });
     render(
       <SettingsUnsavedTestHarness>
@@ -169,7 +169,7 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     expect(unsavedIds()).toBe("workingHours");
   });
 
-  it("clearing is held and sent as null by the Save", async () => {
+  it("[SETTINGS-COACH-WORKING-HOURS-3] clearing is held and sent as null by the Save", async () => {
     getCoachWorkingHours.mockResolvedValue({ workingHours: { mon: [["09:00", "13:00"]], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] } });
     putCoachWorkingHours.mockResolvedValue({ workingHours: null });
     render(
@@ -186,7 +186,7 @@ describe("WorkingHoursSection — reports unsaved by rule 2 (PAD-394)", () => {
     await waitFor(() => expect(unsavedIds()).toBe(""));
   });
 
-  it("there is no section Save button any more", async () => {
+  it("[SETTINGS-EXPLICIT-SAVE-10] there is no section Save button any more", async () => {
     render(
       <SettingsUnsavedTestHarness>
         <WorkingHoursSection />

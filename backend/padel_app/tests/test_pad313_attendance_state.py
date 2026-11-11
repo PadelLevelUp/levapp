@@ -23,16 +23,19 @@ def _row(**flags):
 
 # --- the five states, on the model -----------------------------------------
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_on_the_list_and_silent_is_planned(app):
     with app.app_context():
         assert _row().attendance_state == "planned"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_answered_yes_is_coming(app):
     with app.app_context():
         assert _row(confirmed=True).attendance_state == "coming"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_a_cancellation_is_not_coming_never_coming(app):
     """The defect B-073 records: the decline shape also carries confirmed=True."""
     with app.app_context():
@@ -40,11 +43,13 @@ def test_a_cancellation_is_not_coming_never_coming(app):
         assert cancelled.attendance_state == "not_coming"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_the_coach_validating_present_is_attended(app):
     with app.app_context():
         assert _row(confirmed=True, status="present", validated=True).attendance_state == "attended"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_an_unvalidated_absence_is_not_coming_whatever_its_justification(app):
     """`missed` asserts a coach's record; an unvalidated row has none, so the
     justification column does not change the state (agreed with Session J,
@@ -55,12 +60,14 @@ def test_an_unvalidated_absence_is_not_coming_whatever_its_justification(app):
         assert _row(status="absent").attendance_state == "not_coming"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_the_coach_validating_absent_is_missed(app):
     with app.app_context():
         row = _row(confirmed=True, status="absent", justification="unjustified", validated=True)
         assert row.attendance_state == "missed"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_a_cancellation_the_coach_then_validated_reports_the_coach(app):
     """Once validated, the coach's record replaces the student's intent."""
     with app.app_context():
@@ -68,6 +75,7 @@ def test_a_cancellation_the_coach_then_validated_reports_the_coach(app):
         assert row.attendance_state == "missed"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_validated_with_no_status_falls_back_to_intent(app):
     """Decided 2026-09-12: never invent an absence the coach did not state."""
     with app.app_context():
@@ -77,6 +85,7 @@ def test_validated_with_no_status_falls_back_to_intent(app):
 
 # --- both surfaces serve it ------------------------------------------------
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_the_class_detail_payload_carries_it(app):
     from padel_app.serializers.presence import serialize_presence
 
@@ -85,6 +94,7 @@ def test_the_class_detail_payload_carries_it(app):
         assert serialize_presence(row)["attendanceState"] == "not_coming"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_the_presences_rows_agree_with_the_class_detail(app):
     """One computation, not two: the validation tab cannot disagree with the sheet."""
     from padel_app.serializers.presence import serialize_presence
@@ -97,6 +107,7 @@ def test_the_presences_rows_agree_with_the_class_detail(app):
         assert _response_state(cancelled) == "declined"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-2")
 def test_a_real_cancellation_through_the_service_reports_not_coming(app):
     """End to end, not a hand-built row: the path the founder actually took."""
     from padel_app.models.presences import Presence

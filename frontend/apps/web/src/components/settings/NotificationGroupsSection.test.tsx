@@ -19,12 +19,12 @@ const engine = (lang: "en" | "pt") =>
   JSON.parse(readFileSync(join(LOCALES, lang, "settings.json"), "utf8")).settings.engine;
 
 describe("Manual invite groups say what they are (PAD-448)", () => {
-  it("the section opens with the manual-invite hint", () => {
+  it("[NOTIFICATIONS-GROUPS-2] the section opens with the manual-invite hint", () => {
     render(<NotificationGroupsSection groups={[]} onChange={() => undefined} />);
     expect(screen.getByTestId("notify-groups-hint").textContent).toBe("settings.engine.notifyGroupsHint");
   });
 
-  it("the copy names the two settings apart, in both languages", () => {
+  it("[NOTIFICATIONS-GROUPS-2] the copy names the two settings apart, in both languages", () => {
     expect(engine("en").notifyGroups).toBe("Manual invite groups");
     expect(engine("pt").notifyGroups).toBe("Grupos do convite manual");
     expect(engine("en").notifyGroupsHint).toBe(

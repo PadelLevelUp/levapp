@@ -66,6 +66,7 @@ def _evolution(app, client, ids, category_id):
                       headers=_coach_headers(app, ids))
 
 
+@pytest.mark.criterion("EVALUATIONS-EVOLUTION-1")
 def test_the_evolution_of_the_canvas_example(app, client):
     ids = _seed(app)
     bandeja = _bandeja(app, ids)
@@ -82,6 +83,7 @@ def test_the_evolution_of_the_canvas_example(app, client):
     }
 
 
+@pytest.mark.criterion("EVALUATIONS-EVOLUTION-5")
 def test_one_month_has_no_delta_and_an_empty_window_no_mean(app, client):
     from padel_app.models import EvaluationEntry
 
@@ -169,6 +171,7 @@ def test_the_class_roster_lists_participants_absent_last_with_their_most_recent_
     assert _class(app, client, ids, f"model=LessonInstance&id={instance_id}").get_json()["participants"][0]["absent"] is True
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-3")
 def test_a_class_less_record_and_a_class_record_of_one_day_are_two_records(app, client):
     from padel_app.models import EvaluationRecord
 
@@ -210,6 +213,7 @@ def _recurring_lesson(app, ids, start):
         return lesson.id
 
 
+@pytest.mark.criterion("EVALUATIONS-CLASS-PANEL-1")
 def test_the_class_read_never_materialises_an_occurrence(app, client):
     from padel_app.models import LessonInstance
 
@@ -230,6 +234,7 @@ def test_the_class_read_never_materialises_an_occurrence(app, client):
         assert LessonInstance.query.count() == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-5")
 def test_rating_in_a_past_unmaterialised_class_is_409_and_enrols_nobody(app, client):
     """Slice 1 read `get_or_materialize_instance`: for a past date it still creates
     the instance, enrols the whole roster as unmarked presences and fans the
@@ -250,6 +255,7 @@ def test_rating_in_a_past_unmaterialised_class_is_409_and_enrols_nobody(app, cli
         assert LessonInstance.query.count() == 0 and Presence.query.count() == 0
 
 
+@pytest.mark.criterion("EVALUATIONS-RECORDS-4")
 def test_rating_in_todays_unmaterialised_class_materialises_it_once(app, client):
     from padel_app.models import LessonInstance
 
@@ -274,6 +280,7 @@ def _student_headers(app, ids):
     return _headers(app, ids["student_user_id"])
 
 
+@pytest.mark.criterion("EVALUATIONS-CLASS-PANEL-7")
 def test_a_student_is_refused_everywhere(app, client):
     ids = _seed(app)
     h = _student_headers(app, ids)
@@ -349,6 +356,7 @@ def _leaf_bandeja(app, ids, extra=()):
         return bandeja.id
 
 
+@pytest.mark.criterion("EVALUATIONS-EVOLUTION-1")
 def test_the_leafs_dataset_monthly_means_rolling_means_and_delta(app, client):
     ids = _seed(app)
     bandeja = _leaf_bandeja(app, ids)
@@ -362,6 +370,7 @@ def test_the_leafs_dataset_monthly_means_rolling_means_and_delta(app, client):
     }
 
 
+@pytest.mark.criterion("EVALUATIONS-EVOLUTION-2")
 def test_the_boundary_day_is_inside_the_window_and_the_hour_does_not_matter(app, client, monkeypatch):
     ids = _seed(app)
     bandeja = _leaf_bandeja(app, ids, extra=((5, "2026-03-21"),))
@@ -419,6 +428,7 @@ def test_a_put_that_writes_nothing_never_materialises_the_class(app, client):
     assert ok.status_code == 200 and _class_rows(app)[0] == before[0] + 1  # the write, and only the write, materialises
 
 
+@pytest.mark.criterion("EVALUATIONS-EVOLUTION-1")
 def test_the_delta_is_the_difference_of_the_two_points_the_coach_sees(app, client):
     """F2 (evolution rule 9): delta = round1(round1(last) - round1(first)). With
     thirds the raw difference rounds differently: 2.333 -> 2.3, 3.667 -> 3.7, the

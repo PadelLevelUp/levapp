@@ -20,14 +20,14 @@ describe("presetRange", () => {
   // Wednesday 2026-09-16, 23:30 UTC.
   const now = new Date(Date.UTC(2026, 8, 16, 23, 30));
 
-  it("1w is Sunday through Saturday of the current week (PAD-682)", () => {
+  it("[ATTENDANCE-HISTORY-2] 1w is Sunday through Saturday of the current week (PAD-682)", () => {
     expect(presetRange("1w", now)).toEqual({
       from: "2026-09-13",
       to: "2026-09-19",
     });
   });
 
-  it("1w on a Sunday starts the week that Sunday opens", () => {
+  it("[ATTENDANCE-HISTORY-2] 1w on a Sunday starts the week that Sunday opens", () => {
     // 2026-09-20 is a Sunday; getUTCDay() === 0 is the first day of the week.
     const sunday = new Date(Date.UTC(2026, 8, 20, 12));
     expect(presetRange("1w", sunday)).toEqual({
@@ -36,7 +36,7 @@ describe("presetRange", () => {
     });
   });
 
-  it("1w spanning a month boundary rolls the month over", () => {
+  it("[ATTENDANCE-HISTORY-2] 1w spanning a month boundary rolls the month over", () => {
     // Tuesday 2026-12-01 — its Sunday is in November.
     const dec1 = new Date(Date.UTC(2026, 11, 1, 8));
     expect(presetRange("1w", dec1)).toEqual({
@@ -45,21 +45,21 @@ describe("presetRange", () => {
     });
   });
 
-  it("1m is the whole current calendar month", () => {
+  it("[ATTENDANCE-HISTORY-2] 1m is the whole current calendar month", () => {
     expect(presetRange("1m", now)).toEqual({
       from: "2026-09-01",
       to: "2026-09-30",
     });
   });
 
-  it("1m ends on the 29th in a leap February", () => {
+  it("[ATTENDANCE-HISTORY-2] 1m ends on the 29th in a leap February", () => {
     expect(presetRange("1m", new Date(Date.UTC(2028, 1, 10)))).toEqual({
       from: "2028-02-01",
       to: "2028-02-29",
     });
   });
 
-  it("1y is the whole current calendar year", () => {
+  it("[ATTENDANCE-HISTORY-2] 1y is the whole current calendar year", () => {
     expect(presetRange("1y", now)).toEqual({
       from: "2026-01-01",
       to: "2026-12-31",

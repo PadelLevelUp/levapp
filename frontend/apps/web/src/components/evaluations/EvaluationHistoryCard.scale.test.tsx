@@ -34,7 +34,7 @@ const RECORD: EvaluationRecord = {
 };
 
 describe("EvaluationHistoryCard draws each rating from its own scale", () => {
-  it("a converted legacy category is stars", () => {
+  it("[EVALUATIONS-SCALE-7] a converted legacy category is stars", () => {
     render(<EvaluationHistoryCard record={RECORD} />);
     expect(screen.getByTestId("evaluation-stars-3").getAttribute("data-score")).toBe("3");
     expect(screen.queryByTestId("evaluation-stepper-3-value")).toBeNull();

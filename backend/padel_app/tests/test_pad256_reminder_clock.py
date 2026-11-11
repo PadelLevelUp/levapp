@@ -78,6 +78,7 @@ def test_club_now_is_utc_now_on_the_club_clock(monkeypatch, utc_now, wall_now):
     (at(SUMMER, 0, 30), {"type": "days_before_at_time", "days": 1, "time": "18:00"}, datetime(2026, 7, 13, 17, 0)),
     (at(WINTER, 0, 30), {"type": "days_before_at_time", "days": 1, "time": "18:00"}, datetime(2026, 1, 12, 18, 0)),
 ])
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-25")
 def test_reminder_fire_time_is_on_the_club_clock(wall_start, timing, fires_utc):
     from padel_app.scheduler import _fire_time_utc
 
@@ -141,6 +142,7 @@ def _seed(app, wall_start):
     (at(SUMMER, 14), datetime(2026, 7, 13, 13, 0)),
     (at(WINTER, 14), datetime(2026, 1, 12, 14, 0)),
 ])
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-25")
 def test_schedule_instance_jobs_arms_the_reminder_on_the_club_clock(app, live_scheduler, wall_start, fires_utc):
     scheduler = live_scheduler
     config = SimpleNamespace(
@@ -171,6 +173,7 @@ PATCHES = (
     # 09:30 UTC is 09:30 Lisbon in January: the 10:00 class has not.
     (at(WINTER, 10), datetime(2026, 1, 13, 9, 30), 1),
 ])
+@pytest.mark.criterion("NOTIFICATIONS-REMINDERS-27")
 def test_send_guard_uses_the_club_clock(app, wall_start, utc_now, expect_sent):
     from padel_app.models.presences import Presence
     from padel_app.services.notification_service import send_class_reminders

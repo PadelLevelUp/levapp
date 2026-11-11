@@ -30,7 +30,7 @@ function Holder() {
 }
 
 describe("PAD-518: the picker's search clears after a pick", () => {
-  it("clears and keeps focus after ticking a search result, and keeps the text after unticking", () => {
+  it("[CLASSES-CREATE-13] clears and keeps focus after ticking a search result, and keeps the text after unticking", () => {
     render(<Holder />);
     fireEvent.mouseDown(screen.getByTestId("player-selector-tab-all"));
     fireEvent.click(screen.getByTestId("player-selector-tab-all"));

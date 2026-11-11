@@ -110,6 +110,7 @@ def _work(client, headers, query=""):
     return res.get_json()
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-1")
 def test_tickets_have_a_plain_summary_and_are_sorted(client, operator, calls):
     linear = _work(client, operator)["linear"]
     assert linear["status"] == "ok"
@@ -122,6 +123,7 @@ def test_tickets_have_a_plain_summary_and_are_sorted(client, operator, calls):
     assert [t["id"] for t in linear["done"]] == ["PAD-5"]
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-2")
 def test_where_a_merged_pr_is(client, operator, calls):
     merged = {p["number"]: p for p in _work(client, operator)["github"]["merged"]}
     assert merged[10]["where"] == "production"
@@ -140,6 +142,7 @@ def test_open_prs_and_deploys(client, operator, calls):
     assert github["deploys"]["production"][0]["conclusion"] == "success"
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-3")
 def test_not_configured_and_no_token_in_the_answer(client, app, operator, calls):
     app.config["LINEAR_API_KEY"] = ""
     body = _work(client, operator)
@@ -148,6 +151,7 @@ def test_not_configured_and_no_token_in_the_answer(client, app, operator, calls)
     assert LINEAR_KEY not in json.dumps(body) and GITHUB_TOKEN not in json.dumps(body)
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-3")
 def test_github_without_a_repository_is_not_configured_and_never_called(client, app, operator, calls):
     app.config["WORK_GITHUB_REPO"] = ""
     body = _work(client, operator)
@@ -163,6 +167,7 @@ def test_without_a_github_token_checks_are_unknown(client, app, operator, calls)
     assert all("Authorization" not in h for _, url, h in calls if "github" in url)
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-4")
 def test_a_source_down_leaves_the_other(client, operator, calls, monkeypatch):
     from padel_app.services.admin import work_service
 
@@ -179,6 +184,7 @@ def test_a_source_down_leaves_the_other(client, operator, calls, monkeypatch):
     assert body["linear"]["status"] == "ok"
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-5")
 def test_support_cannot_see_it(client, app, calls):
     support = bearer(admin_token(app, make_role(app, "sup555@levapp.app", "support")))
     assert client.get("/admin/api/work", headers=support).status_code == 403
@@ -195,6 +201,7 @@ def test_a_checks_query_error_leaves_github_ok(client, operator, calls):
     assert github["open"][0]["checks"] is None
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-6")
 def test_a_refresh_right_after_a_cold_load_is_not_a_second_fetch(client, operator, calls):
     _work(client, operator)
     first = len(calls)
@@ -202,6 +209,7 @@ def test_a_refresh_right_after_a_cold_load_is_not_a_second_fetch(client, operato
     assert len(calls) == first
 
 
+@pytest.mark.criterion("ADMIN-WORK-DASHBOARD-6")
 def test_cached_and_refresh_at_most_once_a_minute(client, operator, calls, monkeypatch):
     from padel_app.services.admin import work_service
 

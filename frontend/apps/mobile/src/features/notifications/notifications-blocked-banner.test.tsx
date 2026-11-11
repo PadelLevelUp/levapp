@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 describe("NotificationsBlockedBanner (rule 15)", () => {
-  it("a grant from the banner registers the phone, without a second prompt, and the banner goes", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-5] a grant from the banner registers the phone, without a second prompt, and the banner goes", async () => {
     const view = await renderNative(<NotificationsBlockedBanner />);
     await view.flush();
     expect(view.byTestId("notifications-banner-enable")).toBeTruthy();
@@ -74,7 +74,7 @@ describe("NotificationsBlockedBanner (rule 15)", () => {
     expect(registrar.registerIfPermitted).not.toHaveBeenCalled();
   });
 
-  it("granted but failed shows 'not active' with a button that registers again", async () => {
+  it("[MESSAGING-PUSH-NOTIFICATIONS-10] granted but failed shows 'not active' with a button that registers again", async () => {
     permission.current = { status: "granted" };
     const view = await renderNative(<NotificationsBlockedBanner />);
     await view.flush();

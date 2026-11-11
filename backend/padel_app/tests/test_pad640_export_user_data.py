@@ -61,6 +61,7 @@ def _run(script, app, uid):
     return code, out.getvalue(), err.getvalue()
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-1")
 def test_one_users_data_and_only_theirs(script, app):
     uid, pid = _people(app)
     code, out, _ = _run(script, app, uid)
@@ -74,6 +75,7 @@ def test_one_users_data_and_only_theirs(script, app):
     assert "carla640x" not in out
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-2")
 def test_secrets_are_withheld(script, app):
     uid, _ = _people(app)
     _, out, _ = _run(script, app, uid)
@@ -83,6 +85,7 @@ def test_secrets_are_withheld(script, app):
     assert "SECRET-HASH" not in out and "CODE-HASH-640" not in out
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-3")
 def test_nothing_is_written(script, app, monkeypatch):
     from padel_app.models import User
 
@@ -100,6 +103,7 @@ def test_nothing_is_written(script, app, monkeypatch):
         assert db.session.get(User, uid).updated_at == before
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-5")
 def test_an_unknown_id_exits_2_and_prints_nothing(script, app):
     code, out, err = _run(script, app, 999999)
     assert code == 2
@@ -123,6 +127,7 @@ def test_a_push_subscription_prints_withheld(script, app):
         assert leaked not in out
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-4")
 def test_who_blocked_them_is_not_exported(script, app):
     """Their own blocks are theirs; someone else's block of them is not (rule 3)."""
     from padel_app.models import User
@@ -144,6 +149,7 @@ def test_who_blocked_them_is_not_exported(script, app):
     assert all(r["blocker_id"] != other_id for r in rows)
 
 
+@pytest.mark.criterion("ADMIN-DATA-EXPORT-3")
 def test_the_postgres_transaction_refuses_writes(script, app):
     """Rule 2 on the database itself: on Postgres the export's transaction is READ ONLY. (SQLite has
     no such mode; the CI Postgres lane runs this.)"""

@@ -2,9 +2,11 @@
 open. A spot a student freed carries the student; a spot the class never filled is ``openSpot``
 with no name and its side; the persisted Assistant text makes the same split.
 """
+import pytest
 from padel_app.tests.test_semi_auto_approval import _mark_absent, _patched_io, _seed_world
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-6")
 def test_a_never_filled_spot_is_an_open_spot_and_a_freed_spot_names_the_student(app):
     from padel_app.models import Message
     from padel_app.services.notification_service import _create_structural_vacancies, _ensure_vacancy_for_player

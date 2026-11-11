@@ -65,6 +65,7 @@ def test_register_device_token_creates_row(client, app):
         assert row.platform == "ios"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-24")
 def test_a_second_user_registering_the_same_token_removes_the_first_users_row(client, app):
     """messaging.push-notifications rule 9 (D137, superseding PAD-269): the latest login owns
     the phone. When a second user registers a device token, every OTHER user's row for that
@@ -98,6 +99,7 @@ def test_a_second_user_registering_the_same_token_removes_the_first_users_row(cl
         assert [(r.user_id, r.platform) for r in rows] == [(user_b_id, "android")]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-24")
 def test_taking_a_token_leaves_the_previous_users_other_devices_alone(client, app):
     """D137 only moves the ONE token being registered; the previous owner's other devices keep
     their rows (their pushes still reach those phones)."""
@@ -120,6 +122,7 @@ def test_taking_a_token_leaves_the_previous_users_other_devices_alone(client, ap
         assert a_tokens == ["ExponentPushToken[a-ipad]"]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-24")
 def test_reregistering_own_token_keeps_one_row(client, app):
     """Rule 9: the same user posting the same token twice leaves one row."""
     from padel_app.models import DeviceToken
@@ -227,6 +230,7 @@ def _mock_response(payload):
     return resp
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-30")
 def test_send_expo_push_builds_correct_request_body(app):
     from padel_app.services import notification_service  # ensure models loaded
     from padel_app.utils.expo_push import send_expo_push
@@ -332,6 +336,7 @@ def test_send_expo_push_noop_when_no_tokens(app):
 # Delivery-path wiring
 # ---------------------------------------------------------------------------
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_class_reminder_pushes_expo_with_message_payload(app):
     """PAD-240 — send_class_reminders, for a player with a registered
     DeviceToken, calls the Expo sender with a MESSAGE payload that names the
@@ -413,6 +418,7 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
         assert kwargs["badge"] == get_unread_count(player_user.id) >= 1
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_coach_cancellation_pushes_expo_with_message_payload(app):
     """PAD-240 — a student's cancellation notice to the coach is a message in
     their thread, so its push routes to the conversation, not the class.
@@ -473,6 +479,7 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
         assert kwargs["badge"] == get_unread_count(coach_user.id) >= 1
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_direct_message_pushes_expo_with_message_payload(app):
     """create_message_service, for a recipient with a registered DeviceToken,
     calls the Expo sender with {"type": "message", "conversationId": ...}."""
@@ -635,6 +642,7 @@ def _dm_fixture(sender_name, recipient_name, slug):
     return sender, recipient, conversation
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-11")
 def test_direct_message_posts_expo_push_body_to_exp_host(app):
     """End-to-end through the real Expo sender: sending a DM posts exactly one
     message to exp.host carrying the recipient's token, the sender's name as
@@ -721,6 +729,7 @@ def test_direct_message_push_fires_while_recipient_is_connected_over_sse(app):
         assert mock_post.call_args.kwargs["json"][0]["to"] == "ExponentPushToken[pad118sse]"
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-4")
 def test_an_ok_ticket_is_kept_and_its_receipt_redeemed_later(app):
     """PAD-118's blind spot, closed by PAD-745 (rule 10b).
 

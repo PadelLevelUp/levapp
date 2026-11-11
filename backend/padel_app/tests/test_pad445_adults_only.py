@@ -48,6 +48,7 @@ def _nothing_written(app, username):
         assert User.query.filter_by(username=username).first() is None
 
 
+@pytest.mark.criterion("AUTH-REGISTER-18")
 def test_a_day_short_of_18_is_refused_and_nothing_is_written(client, app, outbox, monkeypatch):
     pin_clock(monkeypatch, datetime(2026, 9, 25, 12, 0))
     res = client.post("/api/auth/register", json=_body("2008-09-26", guardianEmail="mae@example.com"))
@@ -61,6 +62,7 @@ def test_a_day_short_of_18_is_refused_and_nothing_is_written(client, app, outbox
     assert outbox == []
 
 
+@pytest.mark.criterion("AUTH-REGISTER-19")
 def test_turning_18_today_signs_up(client, app, outbox, monkeypatch):
     from padel_app.models import User
 
@@ -73,6 +75,7 @@ def test_turning_18_today_signs_up(client, app, outbox, monkeypatch):
 
 
 @pytest.mark.parametrize("today, status", [(datetime(2026, 2, 28, 12, 0), 400), (datetime(2026, 3, 1, 12, 0), 201)])
+@pytest.mark.criterion("AUTH-REGISTER-20")
 def test_a_29_february_birth_is_18_on_1_march(client, app, outbox, monkeypatch, today, status):
     pin_clock(monkeypatch, today)
     res = client.post("/api/auth/register", json=_body("2008-02-29", username="leap"))
@@ -81,6 +84,7 @@ def test_a_29_february_birth_is_18_on_1_march(client, app, outbox, monkeypatch, 
         assert res.get_json()["code"] == "UNDERAGE"
 
 
+@pytest.mark.criterion("AUTH-REGISTER-21")
 def test_the_bar_ignores_the_country_consent_age(client, app, outbox, monkeypatch):
     """A 16-year-old in DE is past DE's digital-consent age, and in PT a 14-year-old is past PT's
     13: neither signs up, with or without a guardian's email."""

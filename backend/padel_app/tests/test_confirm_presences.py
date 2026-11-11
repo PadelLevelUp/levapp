@@ -154,6 +154,7 @@ def test_confirm_presences_stale_lesson_event_with_parent_class_id(app, recurrin
         assert presence is not None and presence.status == "present"
 
 
+@pytest.mark.criterion("ATTENDANCE-PRESENCE-5")
 def test_confirm_presences_materialized_instance_event(app, recurring_lesson):
     """A genuine materialized-instance event (`id` = `lessoninstance-<id>`,
     `originalId` = instance id) still records on that instance."""

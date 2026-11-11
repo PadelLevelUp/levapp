@@ -8,6 +8,7 @@ hero and the schedule row carry `inProgress` (the row without `inviteHref`).
 
 The seed's B1 Class runs 10:45-11:45 with 2 of 6 seats taken; A2 Class is tomorrow, full.
 """
+import pytest
 from datetime import datetime, timedelta
 
 from padel_app.tests.test_dashboard_coach_home import _seed
@@ -39,6 +40,7 @@ def _empty_seat_titles(needs_you):
     return [i["classTitle"] for i in needs_you["data"]["items"] if i["kind"] == "empty_seats"]
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-30")
 def test_before_its_start_the_class_still_needs_the_coach(app):
     hero, needs_you, schedule = _coach_home(app, B1_START - timedelta(minutes=1))
 
@@ -48,12 +50,14 @@ def test_before_its_start_the_class_still_needs_the_coach(app):
     assert first["title"] == "B1 Class" and first["inProgress"] is False and "inviteHref" in first
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-30")
 def test_at_its_start_time_the_empty_seats_card_is_gone(app):
     _, needs_you, _ = _coach_home(app, B1_START)
 
     assert _empty_seat_titles(needs_you) == []
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-31")
 def test_a_running_class_is_in_progress_on_the_hero_and_the_schedule(app):
     hero, needs_you, schedule = _coach_home(app, RUNNING)
 
@@ -69,12 +73,14 @@ def test_a_running_class_is_in_progress_on_the_hero_and_the_schedule(app):
     assert "inviteHref" in tomorrow
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-31")
 def test_once_it_ends_the_hero_moves_to_the_next_class(app):
     hero, _, _ = _coach_home(app, B1_START + timedelta(hours=1))
 
     assert hero["data"]["title"] == "A2 Class" and hero["data"]["inProgress"] is False
 
 
+@pytest.mark.criterion("DASHBOARD-BLOCKS-35")
 def test_at_its_start_time_the_student_hero_moves_to_the_next_class(app):
     """The student home loads its classes from `now` (calendar_helpers: start_datetime >= start), so
     a running class never reaches it: at the start time the hero is the next class, not in progress.

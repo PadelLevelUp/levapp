@@ -43,13 +43,13 @@ afterEach(() => {
 });
 
 describe("TwoPhoneDemo (PAD-656)", () => {
-  it("does not advance before the section intersects", () => {
+  it("[AUTH-LANDING-PAGE-9] does not advance before the section intersects", () => {
     render(<TwoPhoneDemo />);
     tick(STEP_MS * 3);
     expect(step()).toBe("0");
   });
 
-  it("advances 0 -> 1 after STEP_MS once on screen", () => {
+  it("[AUTH-LANDING-PAGE-9] advances 0 -> 1 after STEP_MS once on screen", () => {
     render(<TwoPhoneDemo />);
     intersect();
     tick(STEP_MS - 1);
@@ -58,7 +58,7 @@ describe("TwoPhoneDemo (PAD-656)", () => {
     expect(step()).toBe("1");
   });
 
-  it("a click on a step jumps there and stops autoplay", () => {
+  it("[AUTH-LANDING-PAGE-9] a click on a step jumps there and stops autoplay", () => {
     render(<TwoPhoneDemo />);
     intersect();
     fireEvent.click(screen.getByTestId("site-demo-step-3"));
@@ -69,7 +69,7 @@ describe("TwoPhoneDemo (PAD-656)", () => {
     expect(step()).toBe("3");
   });
 
-  it("under reduced motion nothing advances on a clock, but the user can still step and play", () => {
+  it("[AUTH-LANDING-PAGE-9] under reduced motion nothing advances on a clock, but the user can still step and play", () => {
     stubMotion(true);
     render(<TwoPhoneDemo />);
     intersect();
@@ -83,7 +83,7 @@ describe("TwoPhoneDemo (PAD-656)", () => {
     expect(step()).toBe("3");
   });
 
-  it("stops after the last step and offers the replay", () => {
+  it("[AUTH-LANDING-PAGE-9] stops after the last step and offers the replay", () => {
     render(<TwoPhoneDemo />);
     intersect();
     expect(screen.getByTestId("site-demo-toggle")).toHaveTextContent("site.coaches.demo.pause");

@@ -26,7 +26,7 @@ const PREFIX = {
 
 describe("PAD-825: the side counts read as a projection, next to the roster", () => {
   for (const lng of ["pt", "en"] as const) {
-    it(`${lng}: every side sentence with counts names the projection`, async () => {
+    it(`[SETTINGS-TUTORIALS-5] ${lng}: every side sentence with counts names the projection`, async () => {
       const t = await tFor(lng);
       for (const [leaverSide, chosen] of [["right", "right"], ["left", "left"], [null, null]] as const) {
         const spot = { sideCounts: { ...pad822, leaverSide, chosen } };
@@ -38,14 +38,14 @@ describe("PAD-825: the side counts read as a projection, next to the roster", ()
     });
   }
 
-  it("pt: the roster line", async () => {
+  it("[SETTINGS-TUTORIALS-5] pt: the roster line", async () => {
     const roster = describeSideRoster({ sideCounts: pad822 });
     expect(roster && resolveText(await tFor("pt"), roster)).toBe(
       "Agora vão 8 de esquerda e 4 de direita (sem quem falta); vagas abertas: 0 de esquerda e 4 de direita.",
     );
   });
 
-  it("en: the roster line", async () => {
+  it("[SETTINGS-TUTORIALS-5] en: the roster line", async () => {
     const roster = describeSideRoster({ sideCounts: pad822 });
     expect(roster && resolveText(await tFor("en"), roster)).toBe(
       "Now 8 left and 4 right going (without the student who cancels); open spots: 0 left and 4 right.",

@@ -4,6 +4,7 @@
 - EXPO_ACCESS_TOKEN adds a bearer header only when set and non-empty.
 - POST /api/notifications/device validates `platform` (ios|android) and records it.
 """
+import pytest
 from unittest.mock import MagicMock, patch
 
 from flask_jwt_extended import create_access_token
@@ -55,6 +56,7 @@ def _send(app, monkeypatch, token_env):
     return kwargs
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-30")
 def test_payload_carries_android_channel_and_high_priority(app, monkeypatch):
     kwargs = _send(app, monkeypatch, None)
     assert kwargs["json"] == [
@@ -84,6 +86,7 @@ def test_bearer_header_when_access_token_set(app, monkeypatch):
     assert kwargs["json"] == _send(app, monkeypatch, None)["json"]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-30")
 def test_platform_android_is_recorded_and_refreshed(client, app):
     from padel_app.models import DeviceToken
 
@@ -104,6 +107,7 @@ def test_platform_android_is_recorded_and_refreshed(client, app):
         assert [r.platform for r in rows] == ["ios"]
 
 
+@pytest.mark.criterion("MESSAGING-PUSH-NOTIFICATIONS-30")
 def test_platform_missing_or_unknown_is_rejected(client, app):
     from padel_app.models import DeviceToken
 

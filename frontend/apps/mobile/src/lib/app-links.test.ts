@@ -18,7 +18,7 @@ describe("app links (PAD-595)", () => {
     expect(appJson.ios.associatedDomains).toEqual(HOSTS.map((h) => `applinks:${h}`));
   });
 
-  it("Android verifies every account entry path on levapp.app and on both old hosts", () => {
+  it("[AUTH-MOBILE-UNIVERSAL-LINKS-2] Android verifies every account entry path on levapp.app and on both old hosts", () => {
     const filter = appJson.android.intentFilters.find(
       (f: { action: string; autoVerify?: boolean }) => f.action === "VIEW" && f.autoVerify
     );

@@ -43,6 +43,7 @@ def _attempts(app, ids):
         return ReminderAttempt.query.filter_by(lesson_instance_id=ids["instance_id"]).count()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-8")
 def test_an_off_class_gets_no_automatic_reminder(app):
     ids = _a_class(app, "pad736-off", on=False)
 
@@ -53,6 +54,7 @@ def test_an_off_class_gets_no_automatic_reminder(app):
     assert _attempts(app, ids) == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-8")
 def test_the_coachs_own_send_on_an_off_class_goes_out(app):
     """Rule 3 (coordinator for the owner, 2026-10-22): "Enviar lembretes" is an explicit send."""
     ids = _a_class(app, "pad736-coach-send", on=False)
@@ -61,6 +63,7 @@ def test_the_coachs_own_send_on_an_off_class_goes_out(app):
     assert _attempts(app, ids) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-8")
 def test_an_on_class_still_gets_its_reminder(app):
     ids = _a_class(app, "pad736-on", on=True)
 
@@ -68,6 +71,7 @@ def test_an_on_class_still_gets_its_reminder(app):
     assert _attempts(app, ids) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-7")
 def test_a_manual_invitation_on_the_off_class_still_goes_out(app):
     """Rule 3b (PAD-732): the switch governs the engine's sends, not the coach's invitation."""
     from padel_app.services.notification_service import send_manual_notifications
@@ -81,6 +85,7 @@ def test_a_manual_invitation_on_the_off_class_still_goes_out(app):
 
 # ── the past-due listing (notifications.config rule 10f) ────────────────────
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-8")
 def test_a_past_due_off_class_is_not_offered(klass):
     from padel_app.models.lesson_instances import LessonInstance
 
@@ -91,6 +96,7 @@ def test_a_past_due_off_class_is_not_offered(klass):
     assert _listed(klass["coach"])["reminders"] == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-TOGGLE-CLASS-8")
 def test_a_past_due_off_lesson_not_materialised_yet_is_not_offered(klass):
     from padel_app.models.Association_CoachLesson import Association_CoachLesson
     from padel_app.models.Association_PlayerLesson import Association_PlayerLesson

@@ -7,6 +7,7 @@ Before PAD-659 a student's reminder answer only edited the reminder message, and
 reached the coach's open class for a cancellation without a reminder or for the coach's own
 marks from another tab.
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_pad128_eligibility import _add_student
 from padel_app.tests.test_pad358_academy_classes import _add_class, _setup
@@ -62,6 +63,7 @@ def _expected(c, ids):
             [c["coach_user_id"]])
 
 
+@pytest.mark.criterion("CALENDAR-EVENT-DETAIL-8")
 def test_a_reminder_answer_tells_the_coach(app, monkeypatch):
     from padel_app.services.notification_service import respond_to_reminder, send_class_reminders
 

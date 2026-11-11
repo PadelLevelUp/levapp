@@ -11,6 +11,7 @@ invitation window opens 24 h before):
 Run:
     pytest padel_app/tests/test_pad493_invitations_run_twice.py -v -s
 """
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -114,6 +115,7 @@ def _live_events(instance_id):
     ]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_a_second_trigger_leaves_a_pending_vacancy_alone_and_never_reinvites(app, monkeypatch):
     """Session-A's probe as a test: one spot, one eligible student, three calls."""
     from padel_app.models.lesson_instances import LessonInstance
@@ -139,6 +141,7 @@ def test_a_second_trigger_leaves_a_pending_vacancy_alone_and_never_reinvites(app
         assert len(_vacancies(instance_id)) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-59")
 def test_two_declines_minutes_apart_leave_the_first_spot_alone(app, monkeypatch):
     """Two enrolled students decline five minutes apart. The second decline must not advance,
     expire or re-batch the first spot while its invitations are pending, and no student may hold
@@ -170,6 +173,7 @@ def test_two_declines_minutes_apart_leave_the_first_spot_alone(app, monkeypatch)
         assert len(pairs) == len(set(pairs))
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_b260_a_repeated_no_on_one_invitation_invites_nobody_else(app, monkeypatch):
     """B-260: a student answers "no" to the same invitation twice (double tap, retry). The second
     answer must not invite another student: only the first decline frees an offer slot."""
@@ -196,6 +200,7 @@ def test_b260_a_repeated_no_on_one_invitation_invites_nobody_else(app, monkeypat
         assert NotificationEvent.query.filter_by(lesson_instance_id=instance_id).count() == total_after_first_no
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_b260_a_repeated_yes_keeps_the_spot_and_its_confirmation(app, monkeypatch):
     """B-260: a student who won the spot answers "yes" a second time (double tap, retry). They keep
     the spot, the invitation stays confirmed, and nobody is told the spot was filled."""
@@ -235,6 +240,7 @@ def _one_spot_one_student_started(app_monkeypatch_now):
     return instance_id, coach_id, event.id, Player.query.get(event.player_id).user_id
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-61")
 def test_rounds_that_run_out_under_a_live_invitation_hold_the_spot_and_accept_a_yes(app, monkeypatch):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.services.notification_service import (
@@ -266,6 +272,7 @@ def test_rounds_that_run_out_under_a_live_invitation_hold_the_spot_and_accept_a_
         assert _vacancies(instance_id)[0][1] == "filled"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-61")
 def test_a_held_spot_expires_when_its_last_live_invitation_is_declined(app, monkeypatch):
     from padel_app.services.notification_service import process_invitation_batches, respond_to_notification
     from padel_app.tests.helpers import pin_clock
@@ -284,6 +291,7 @@ def test_a_held_spot_expires_when_its_last_live_invitation_is_declined(app, monk
         assert _live_events(instance_id) == []
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-62")
 def test_b260_a_no_on_a_confirmed_invitation_changes_nothing(app, monkeypatch):
     """B-260 (rule 17): a "no" after winning the spot is not a way out. The invitation stays
     confirmed, the student keeps the spot, and nobody else is invited; leaving the class goes

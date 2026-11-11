@@ -22,7 +22,7 @@ class FakeSource implements SseSourceLike {
 }
 
 describe("drop, publish, re-open: the screen catches up (PAD-616)", () => {
-  it("the unread count on screen shows what was published while the stream was down", async () => {
+  it("[MESSAGING-SSE-REALTIME-19] the unread count on screen shows what was published while the stream was down", async () => {
     let serverUnread = 0;
     const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: false } } });
     const sources: FakeSource[] = [];

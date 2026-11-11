@@ -31,6 +31,7 @@ def _second_class(instance_id, coach_id, *, level_id=None):
 
 
 @pytest.mark.parametrize("eligible", [True, False])
+@pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-14")
 def test_a_standing_student_is_asked_only_where_they_pass_the_bar(app, monkeypatch, eligible):
     from padel_app.models.coach_levels import CoachLevel
     from padel_app.models.notification_config import NotificationConfig

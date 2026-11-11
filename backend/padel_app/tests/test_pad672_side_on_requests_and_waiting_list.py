@@ -124,6 +124,7 @@ def test_a_capable_client_joins_its_sides_waiting_list_while_the_other_side_has_
 
 @pytest.mark.parametrize("headers,body", [(OLD_CLIENT, {}), (CAPABLE, {"side": "left"})],
                          ids=["old-client", "capable-own-side-open"])
+@pytest.mark.criterion("CLASSES-ACADEMY-CLASS-BOOKING-7")
 def test_has_spots_still_refuses_where_it_did(app, client, headers, body):
     """An old client on a class with room, and a capable one whose own side has a spot."""
     ids = _world(app, spot_sides=("left",) if body else ("right",))

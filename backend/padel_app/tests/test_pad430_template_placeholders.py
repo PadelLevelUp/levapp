@@ -146,6 +146,7 @@ class TestEmptyCourtLeavesNoBrokenText:
         ("No {court}, às {time}.", "Às 19:00."),
         ("{court}: aula às {time}", "Aula às 19:00"),
     ])
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-9")
     def test_empty_court_goes_with_its_connector(self, template, expected):
         from padel_app.services.notification_service import _format_template
 
@@ -164,6 +165,7 @@ class TestEmptyCourtLeavesNoBrokenText:
 
         assert _format_template(template, name="Rui", time="19:00", court=court) == expected
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-8")
     def test_a_named_court_keeps_its_connector(self):
         from padel_app.services.notification_service import _format_template
 
@@ -175,6 +177,7 @@ class TestEmptyCourtLeavesNoBrokenText:
 class TestNewPlaceholdersRender:
     """Rules 12-14 on the real send paths."""
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-8")
     def test_invite_renders_type_date_and_court_in_pt(self, app):
         ids = _seed(app, language="pt", lesson_type="private", court_name="Campo 2", enrol_student=False)
         _set_templates(app, ids["coach_id"], {"invite": INVITE_PT})
@@ -183,6 +186,7 @@ class TestNewPlaceholdersRender:
             "Olá Ana, abriu uma vaga numa aula privada no dia 23/02 às 19:00 no Campo 2."
         ]
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-9")
     def test_invite_without_a_court_leaves_no_dangling_connector(self, app):
         ids = _seed(app, language="pt", lesson_type="academy", enrol_student=False)
         _set_templates(app, ids["coach_id"], {"invite": INVITE_PT})
@@ -191,6 +195,7 @@ class TestNewPlaceholdersRender:
             "Olá Ana, abriu uma vaga numa aula academia no dia 23/02 às 19:00."
         ]
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-8")
     def test_reminder_renders_type_in_the_coach_locale_en(self, app):
         ids = _seed(app, language="en", lesson_type="academy", court_name="Court 1")
         _set_templates(app, ids["coach_id"], {
@@ -201,12 +206,14 @@ class TestNewPlaceholdersRender:
             "Hi Ana, your academy class on 23/02 at 19:00 is on Court 1. Coming?"
         ]
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-9")
     def test_reminder_private_en(self, app):
         ids = _seed(app, language="en", lesson_type="private")
         _set_templates(app, ids["coach_id"], {"reminder": "Your {type} class ({court}) on {date}."})
 
         assert _remind(app, ids["instance_id"]) == ["Your private class on 23/02."]
 
+    @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-8")
     def test_no_raw_token_survives_on_any_class_template(self, app):
         """Every class-describing key substitutes the new tokens (rule 5)."""
         ids = _seed(app, language="pt", lesson_type="academy", court_name="Campo 1")

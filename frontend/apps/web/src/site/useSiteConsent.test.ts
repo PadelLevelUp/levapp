@@ -18,13 +18,13 @@ describe("useSiteConsent", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("opens the banner with no stored choice and loads nothing", () => {
+  it("[AUTH-LANDING-PAGE-12] opens the banner with no stored choice and loads nothing", () => {
     const { result } = renderHook(() => useSiteConsent());
     expect(result.current.bannerOpen).toBe(true);
     expect(loadTrackingScript).not.toHaveBeenCalled();
   });
 
-  it("accepting stores the choice, closes the banner and loads tracking once", () => {
+  it("[AUTH-LANDING-PAGE-15] accepting stores the choice, closes the banner and loads tracking once", () => {
     const { result } = renderHook(() => useSiteConsent());
     act(() => result.current.accept());
     expect(readConsent()).toBe("accepted");
@@ -32,14 +32,14 @@ describe("useSiteConsent", () => {
     expect(loadTrackingScript).toHaveBeenCalledTimes(1);
   });
 
-  it("a stored acceptance keeps the banner closed and loads tracking", () => {
+  it("[AUTH-LANDING-PAGE-15] a stored acceptance keeps the banner closed and loads tracking", () => {
     writeConsent("accepted");
     const { result } = renderHook(() => useSiteConsent());
     expect(result.current.bannerOpen).toBe(false);
     expect(loadTrackingScript).toHaveBeenCalledTimes(1);
   });
 
-  it("declining with no prior acceptance stores it and does not reload", () => {
+  it("[AUTH-LANDING-PAGE-14] declining with no prior acceptance stores it and does not reload", () => {
     const { result } = renderHook(() => useSiteConsent());
     act(() => result.current.decline());
     expect(readConsent()).toBe("declined");
@@ -48,7 +48,7 @@ describe("useSiteConsent", () => {
     expect(loadTrackingScript).not.toHaveBeenCalled();
   });
 
-  it("revoking after an acceptance stores the decline before reloading (rule 13)", () => {
+  it("[AUTH-LANDING-PAGE-16] revoking after an acceptance stores the decline before reloading (rule 13)", () => {
     writeConsent("accepted");
     const { result } = renderHook(() => useSiteConsent());
     act(() => result.current.reopen());

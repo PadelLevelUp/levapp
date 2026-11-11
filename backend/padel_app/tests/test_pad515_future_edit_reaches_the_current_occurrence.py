@@ -9,6 +9,7 @@ series roster only, so the student appeared from the next virtual occurrence on 
 the coach was looking at stayed as it was. The `LessonInstance` path already walked the
 materialised occurrences from the boundary; this makes the `Lesson` path do the same.
 """
+import pytest
 import json
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -55,6 +56,7 @@ def _setup(app):
     return ids["student_id"], bruno, lesson_id, day
 
 
+@pytest.mark.criterion("CLASSES-EDIT-16")
 def test_future_add_on_the_series_reaches_the_materialised_current_occurrence(app):
     """The ticket: the occurrence the coach is on is already materialised, the client names
     the series, scope future — the student must be on THIS occurrence too."""
@@ -68,6 +70,7 @@ def test_future_add_on_the_series_reaches_the_materialised_current_occurrence(ap
         assert ana in _presences(instance_id)
 
 
+@pytest.mark.criterion("CLASSES-EDIT-16")
 def test_future_add_on_the_series_reaches_later_materialised_occurrences_too(app):
     ana, bruno, lesson_id, day = _setup(app)
     current = _materialise(app, lesson_id, day)
@@ -79,6 +82,7 @@ def test_future_add_on_the_series_reaches_later_materialised_occurrences_too(app
         assert bruno in _presences(next_week)
 
 
+@pytest.mark.criterion("CLASSES-EDIT-16")
 def test_future_add_on_a_later_series_occurrence_leaves_earlier_materialised_ones_alone(app):
     ana, bruno, lesson_id, day = _setup(app)
     first = _materialise(app, lesson_id, day)
@@ -94,6 +98,7 @@ def test_future_add_on_a_later_series_occurrence_leaves_earlier_materialised_one
         assert bruno in _roster(result["id"])
 
 
+@pytest.mark.criterion("CLASSES-EDIT-16")
 def test_future_remove_on_the_series_reaches_the_materialised_current_occurrence(app):
     ana, bruno, lesson_id, day = _setup(app)
     instance_id = _materialise(app, lesson_id, day)
@@ -122,6 +127,7 @@ def test_the_instance_path_still_reaches_the_current_occurrence(app):
 # ── #564 review: what a series edit must NOT do to the occurrences it walks ──
 
 
+@pytest.mark.criterion("CLASSES-EDIT-16")
 def test_a_series_removal_keeps_a_validated_presence(app):
     """The coach's validated record on an occurrence is theirs to change on the attendance
     sheet; a "this and future" removal does not delete it."""
@@ -168,6 +174,7 @@ def test_a_series_edit_leaves_a_canceled_occurrence_alone(app):
         assert bruno not in _presences(canceled)
 
 
+@pytest.mark.criterion("CLASSES-EDIT-16")
 def test_a_series_add_tells_the_student_once(app):
     """PAD-330: added to the series, told once — not once more per materialised occurrence."""
     from padel_app.tests.test_pad330_the_student_is_told import _added_messages

@@ -47,6 +47,7 @@ def _both_threads_reach_the_message_insert(app):
         event.remove(engine, "before_cursor_execute", _hold)
 
 
+@pytest.mark.criterion("DASHBOARD-PROFILE-COMPLETENESS-10")
 def test_two_reminders_at_once_send_one(app):
     from padel_app.models import Message, User
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer

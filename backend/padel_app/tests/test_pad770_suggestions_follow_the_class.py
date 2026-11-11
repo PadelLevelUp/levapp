@@ -5,6 +5,7 @@ declined, were still in the class's suggested queue, and its spot count was one 
 class view now computes the queue when shown (PAD-765), and a "yes" re-checks every student when it
 sends. These pin the three cases the ticket names. Students are cases 7-13.
 """
+import pytest
 from padel_app.sql_db import db
 from padel_app.tests.test_semi_auto_approval import _create_pending_prompt, _patched_io, _seed_world
 
@@ -49,6 +50,7 @@ def _class_with_a_decline_and_a_join(prefix):
     return world, first, second, decliner, joiner
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-21")
 def test_a_student_who_joined_leaves_the_queue_and_the_spots_drop_by_one(app):
     from padel_app.models.vacancy import Vacancy
 
@@ -60,12 +62,14 @@ def test_a_student_who_joined_leaves_the_queue_and_the_spots_drop_by_one(app):
         assert all(joiner not in queue for queue in _shown(world).values())
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-22")
 def test_a_student_who_declined_is_not_suggested_again(app):
     with app.app_context():
         world, _first, _second, decliner, _joiner = _class_with_a_decline_and_a_join("q770b")
         assert all(decliner not in queue for queue in _shown(world).values())
 
 
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-23")
 def test_approving_an_old_list_invites_neither_and_no_more_spots_than_open(app):
     from padel_app.models import NotificationEvent
     from padel_app.models.vacancy import Vacancy

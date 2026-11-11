@@ -135,6 +135,7 @@ def _run(sched, job_id):
     job.func(*job.args)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-2")
 def test_cell_1_a_window_that_opens_before_the_reminder_still_invites(app, live_scheduler, monkeypatch):
     """Invitations start 72 h before, the first reminder 48 h before, the occurrence not materialised.
     Before rule 1c nothing fired at 72 h and the reminder at 48 h materialised the occurrence with
@@ -179,6 +180,7 @@ def test_cell_1_a_window_that_opens_before_the_reminder_still_invites(app, live_
         assert _invites_for_class(instance.id) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-3")
 def test_cell_2_a_class_materialised_inside_its_window_is_opened_by_the_tick(app, live_scheduler, monkeypatch):
     """Default timings (reminder 48 h, invitations 24 h). The occurrence is materialised 12 h before
     the class (created late, reminders rule 22, or opened by the coach): the invite time is past, so
@@ -228,6 +230,7 @@ def test_the_tick_waits_for_the_window(app, live_scheduler, monkeypatch):
         assert _vacancies_for_class(instance.id) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-13")
 def test_control_3_the_engine_opens_the_place_when_something_calls_it(app, live_scheduler, monkeypatch):
     """The same class as cell 2, with `trigger_invitations` called by hand inside the window: the
     structural vacancy is created and the free student is invited. The engine is fine; what is
@@ -278,6 +281,7 @@ def test_control_4_reminder_before_the_window_arms_the_start_and_invites(app, li
         assert _invites_for_class(instance.id) == 1
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-4")
 def test_materialising_leaves_one_start_job(app, live_scheduler, monkeypatch):
     """Rule 1c, the reminders rule 20 shape: once the occurrence exists, `invite_start_<instance>` is
     its only start job; the lesson-level one is removed, so the two never both fire. Cancelling the
@@ -305,6 +309,7 @@ def test_materialising_leaves_one_start_job(app, live_scheduler, monkeypatch):
         assert _jobs(live_scheduler, "invite_start_") == [f"invite_start_{instance.id}"]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-12")
 def test_with_reminders_off_the_window_asks_nobody_on_the_roster(app, live_scheduler, monkeypatch):
     """Rule 1c: the lesson-level start job materialises the occurrence, and materialising enrols the
     roster, which arms a late ask per student when no reminder is ahead (PAD-331). With reminders
@@ -330,6 +335,7 @@ def test_with_reminders_off_the_window_asks_nobody_on_the_roster(app, live_sched
         )
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-4")
 def test_cancelling_and_moving_the_series_jobs_takes_both_families(app, live_scheduler, monkeypatch):
     with app.app_context(), patch(PATCHES[0]), patch(PATCHES[1]), patch(PATCHES[2]):
         ids = _seed(invite_hours=24, reminder_hours=48, tag="mv")
@@ -346,6 +352,7 @@ def test_cancelling_and_moving_the_series_jobs_takes_both_families(app, live_sch
         assert occ  # the original ids are gone with the move
 
 
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-5")
 def test_the_tick_does_not_reopen_a_class_whose_vacancy_expired(app, live_scheduler, monkeypatch):
     """"No vacancy of any status": a place whose vacancy ran out of rounds stays closed (rule 16's
     hold and rule 13 decide its fate, not this scan)."""
@@ -417,6 +424,7 @@ def _both_counted_before_the_lock(monkeypatch):
 
 
 @POSTGRES_ONLY
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-11")
 def test_a_tick_and_a_trigger_at_once_open_the_class_once(app, live_scheduler, monkeypatch):
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.lessons import Lesson

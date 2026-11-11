@@ -2,6 +2,7 @@
 the per-occurrence enrolment, written by one function. Owner decision
 2026-09-11, option A. The phase-1 shadow junction is gone (PAD-301); its
 reconcile tests went with it."""
+import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -61,6 +62,7 @@ def _edit_payload(instance):
     }
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-7")
 def test_materialisation_writes_one_enrolment_per_roster_player(app):
     from padel_app.models import LessonInstance, Presence
     ids = _seed_coach_and_student(app)
@@ -75,6 +77,7 @@ def test_materialisation_writes_one_enrolment_per_roster_player(app):
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 2
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-8")
 def test_a_coach_adds_a_player_to_one_occurrence(app):
     from padel_app.models import LessonInstance, Presence
     from padel_app.services.lesson_service import edit_lesson_instance_helper
@@ -91,6 +94,7 @@ def test_a_coach_adds_a_player_to_one_occurrence(app):
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 2
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-11")
 def test_a_walk_in_on_the_attendance_sheet_becomes_an_enrolment(app):
     from padel_app.models import LessonInstance, Presence
     from padel_app.services.lesson_service import add_presences
@@ -107,6 +111,7 @@ def test_a_walk_in_on_the_attendance_sheet_becomes_an_enrolment(app):
         assert LessonInstance.query.get(instance_id).effective_filled_spots == 2
 
 
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-12")
 def test_removing_a_player_deletes_the_enrolment_and_retires_the_reminder(app):
     from padel_app.models import LessonInstance, Presence, ReminderAttempt
     from padel_app.services import reminder_attempt_service as attempts

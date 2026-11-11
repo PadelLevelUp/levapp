@@ -75,7 +75,7 @@ describe("reminderAnswerOutcome — the server's answer decides, and unknown say
     });
   });
 
-  it("treats a repeat tap as the success it is", () => {
+  it("[ATTENDANCE-CONFIRM-26] treats a repeat tap as the success it is", () => {
     // From the student's point of view nothing failed: the answer they wanted
     // recorded is recorded.
     expect(reminderAnswerOutcome({ action: "confirmed", duplicate: true })).toEqual({
@@ -151,7 +151,7 @@ describe("reminderArrivedFor — the live event that means 'you were just asked'
     payload: { id: 9, messageType, metadata: { lessonInstanceId } },
   });
 
-  it("a notification_reminder message for the open occurrence", () => {
+  it("[ATTENDANCE-CONFIRM-31] a notification_reminder message for the open occurrence", () => {
     expect(reminderArrivedFor(reminder(42), 42)).toBe(true);
     expect(reminderArrivedFor(reminder("42"), 42)).toBe(true);
     expect(reminderArrivedFor(reminder(42), "42")).toBe(true);
@@ -163,7 +163,7 @@ describe("reminderArrivedFor — the live event that means 'you were just asked'
     ).toBe(true);
   });
 
-  it("another occurrence, another message type, another event, no metadata: nothing", () => {
+  it("[ATTENDANCE-CONFIRM-31] another occurrence, another message type, another event, no metadata: nothing", () => {
     expect(reminderArrivedFor(reminder(43), 42)).toBe(false);
     expect(reminderArrivedFor(reminder(42, "notification_invite"), 42)).toBe(false);
     expect(reminderArrivedFor(reminder(42, "text"), 42)).toBe(false);
