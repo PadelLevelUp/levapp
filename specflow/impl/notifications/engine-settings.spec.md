@@ -75,13 +75,16 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
 9. **Settings per coach (swap decision 9, PAD-912).** The engine takes a lookup from a session to its
    coach's `EngineSettings` and asks it again for every session at every call (each session of a tick,
    each request it handles), so a coach's saved change applies from the next call. `UpdateSettings`
-   then only re-plans that coach's sessions.
+   then only re-plans the sessions the request names (the app names the coach's), or every session
+   when it names none (the scenario harness).
 10. **Timing shapes (swap plan §2; PAD-915).** `first_invite` and `attendance_request` each take the
     shape today's timing settings store, with today's meaning (`scheduler.py` `_fire_time_utc`):
     `hours_before` N is N real hours before the class's real start, across a clock change;
     `days_before` and `days_before_at_time` are the class's own wall date minus N days, at HH:MM on the
     club's clock (Lisbon, R-023); `none` starts invitations from the moment the session exists, and
-    sends no attendance request. The mapping from a coach's stored timing is therefore one for one.
+    sends no attendance request. With `attendance_request` `none`, automatic entry (rule 3, whose
+    boundary is `attendance_request_at`) places until the class starts. The mapping from a coach's
+    stored timing is therefore one for one.
 
 ### Not this spec
 - A settings screen on web or iOS (brief §1: backend only in this wave).
@@ -224,7 +227,9 @@ test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_day
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-22: none opens invitations at once and sends no attendance request (rule 10)
 Given `first_invite` `none` and `attendance_request` `none`, when a session is created and runs happen
-up to its start, then invitations may go from the first run and no attendance request is ever sent.
+up to its start, then invitations may go from the first run, no attendance request is ever sent,
+and with `auto-entry` on a waiting-list member is placed by a spot that opens at any time before the
+start.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_none_starts_invitations_at_creation_and_sends_no_attendance_request`
 
 ### Waves
