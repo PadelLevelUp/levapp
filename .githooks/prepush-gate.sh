@@ -18,7 +18,7 @@
 #                       a changed route module (padel_app/modules/) adds test_frontend_api_authz.py;
 #                       --full, or a change to models/migrations, runs the whole suite
 #   cortex/             `cortex store validate` reports no error
-#   .specflow/          `cortex validate` names none of the changed files
+#   specflow/           `cortex validate` names none of the changed files
 # Markdown files never trigger the frontend/backend checks, except cortex/ (B-240). Missing node_modules or backend/.venv
 # is reported as such, not as a compiler error.
 # Not covered locally (CI only): Postgres + `flask db check`, the Android/Maestro lane.
@@ -86,7 +86,7 @@ if [ -z "$TREE_ONLY" ] && [ "$SHA" = "$(git rev-parse HEAD)" ]; then
   [ "${UNTRACKED:-0}" -gt 0 ] && echo "(warning: $UNTRACKED untracked path(s) are in the tree the tests run on and will not be pushed — e.g. a parent migration placed for local runs: git status --short | grep '^??')"
 fi
 
-# Markdown (CLAUDE.md, specs, notes) never triggers a code check; cortex/ and .specflow/ have their own.
+# Markdown (CLAUDE.md, specs, notes) never triggers a code check; cortex/ and specflow/ have their own.
 CODE_CHANGED="$(printf '%s\n' "$CHANGED" | grep -vE '\.md$' || true)"
 # Here-strings, not `printf | grep -q`: under pipefail, grep -q exiting at its first match on a long
 # list SIGPIPEs printf, the pipeline answers 141, and the check is silently skipped (PAD-905).
@@ -192,9 +192,9 @@ if [ -z "$TREE_ONLY" ] && changed_any '^cortex/' && command -v cortex >/dev/null
     printf '%s\n' "$out" | grep '^error' | head -30; return 1; }
   step "cortex store validate" store_check
 fi
-if [ -z "$TREE_ONLY" ] && changed_any '^\.specflow/' && command -v cortex >/dev/null; then
+if [ -z "$TREE_ONLY" ] && changed_any '^specflow/' && command -v cortex >/dev/null; then
   cortex_check() { local out; out="$(cortex validate 2>&1)"; local hit=0 f
-    for f in $(printf '%s\n' "$CHANGED" | grep -E '^\.specflow/'); do
+    for f in $(printf '%s\n' "$CHANGED" | grep -E '^specflow/'); do
       if grep -qF -- "$f" <<<"$(grep -A3 '\[ERROR\]' <<<"$out")"; then echo "cortex validate names $f"; hit=1; fi
     done
     [ $hit -eq 0 ] || printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | head -30
