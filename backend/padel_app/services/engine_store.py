@@ -1,0 +1,521 @@
+"""The new invitation engine's store on the app's tables (PAD-916, swap plan §5): ``SessionStore``
+over ``lesson_instances``, ``presences``, ``waiting_list_entries``, ``reminder_attempts`` and the
+engine's own tables (``models/engine_store.py``).
+
+Ids. A session is a ``LessonInstance`` id and a student a ``Player`` id, both as strings.
+
+What lives where.
+- Going: ``Presence`` is the truth. A row is going unless ``status == "absent"``; the engine's
+  placement (how, when, side moves, why a student left) is in its PAD-916 columns, and its side in
+  ``assigned_side``. Rows are created only through ``lesson_service.enrol``.
+- Regulars: the series roster (``player_in_lesson``); ``joined_at`` is that row's ``created_at``.
+- Invitations: ``invitations``, one row per student per session (D1).
+- Waiting lists: ``WaitingListEntry``; ``added_by == "coach"`` is the coach's list, anything else the
+  students'. One row per student per session (``uq_waiting_session_player``): a student on one list
+  who joins the other raises ``StoreConflict`` (an open question for the specs, PAD-913).
+- Attendance requests and their Yes: ``ReminderAttempt``.
+- Pool: the coach's roster minus the session, the coach's exclusions for it (``engine_exclusions``),
+  students who blocked automatic invitations, and inactive accounts when the coach's
+  ``excludeUnpaidSubscription`` is on. Eligibility stays with the engine's settings until the config
+  mapping (swap step 5) moves it here (ruling D6). ``reveal`` is a no-op: a student is visible once
+  the app links them to the coach.
+- Same hour (D-E26: the same start): every going presence the student has at that start, any coach,
+  either engine. ``elsewhere`` sees only the new engine's invitations.
+
+Writes. ``apply`` writes each effect's rows and logs it in ``engine_effects`` under a key that is the
+effect's content: an effect applied twice is written once. Messages, pushes and the coach alert are
+not sent here: their ``engine_effects`` rows are the outbox, sent after commit by ``dispatch``, which
+claims a row before sending it, so a message is never sent twice.
+
+Transactions. ``unit`` takes the session's ``lesson_instances`` row ``FOR UPDATE`` (a no-op on
+SQLite) and commits on exit; the engine opens one unit at a time (PAD-915), so a tick and an answer
+never plan one session on stale state. That lock is the last-spot claim (engine-answers rule 7).
+"""
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import json
+import logging
+from dataclasses import asdict, fields
+from datetime import datetime, timedelta
+from typing import Callable, Iterable, Iterator, Mapping
+
+from padel_app.invitation_engine import effects as fx
+from padel_app.invitation_engine.settings import EngineSettings
+from padel_app.invitation_engine.store import UnitConflict
+from padel_app.invitation_engine.snapshot import (
+    Elsewhere,
+    Invitation,
+    Placement,
+    SessionSnapshot,
+    Side,
+    SpotType,
+    Student,
+    WaitingListEntry as EngineWaitingListEntry,
+)
+from padel_app.sql_db import db
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+
+log = logging.getLogger(__name__)
+
+SIDE_FROM_APP = {"left": "L", "right": "R"}
+SIDE_TO_APP = {"L": "left", "R": "right", None: None}
+#: The engine's placement -> ``Presence.enrolment_source`` (its six values, classes.instance-enrollment rule 3).
+ENROLMENT_SOURCE = {"regular": "roster", "invitation": "fill", "direct": "fill",
+                    "auto_from_waiting_list": "fill", "regular_returns": "roster"}
+#: Effects that reach a person: their ``engine_effects`` rows are the outbox.
+OUTBOX = (fx.Invited, fx.Message, fx.AttendanceRequested, fx.CoachAlert)
+#: How far back ``sessions()`` looks: the timeline's duties after a class (absences) end within a day.
+AFTER_CLASS = timedelta(days=1)
+
+
+class StoreConflict(Exception):
+    """An effect the tables cannot hold (see the module docstring)."""
+
+
+class SameHourConflict(StoreConflict, UnitConflict):
+    """A placement another unit beat: the student is already going at that start. The unit rolls
+    back; the next call plans on the committed state, where the student is busy at that hour."""
+
+
+def _sides(app_side: str | None) -> frozenset[str]:
+    return frozenset({SIDE_FROM_APP[app_side]}) if app_side in SIDE_FROM_APP else frozenset({"L", "R"})
+
+
+def _encode(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, frozenset):
+        return sorted((_encode(v) for v in value), key=json.dumps)
+    if isinstance(value, SpotType):
+        return [value.side, value.level]
+    return value
+
+
+def effect_key(e: fx.Effect) -> tuple[str, dict]:
+    """The effect as JSON, and its idempotency key (sha256 of its class and content)."""
+    payload = {f.name: _encode(getattr(e, f.name)) for f in fields(e)}
+    body = json.dumps([type(e).__name__, payload], sort_keys=True, default=str)
+    return hashlib.sha256(body.encode()).hexdigest(), payload
+
+
+def settings_for(session: str) -> EngineSettings:
+    """The session's coach's settings (ruling D9). The ``NotificationConfig`` mapping is swap step 5;
+    until then every coach runs on the engine's defaults."""
+    return EngineSettings()
+
+
+class TableStore:
+    """``SessionStore`` on the app's tables. ``clock`` is naive UTC (the app's ``utcnow_naive``)."""
+
+    def __init__(self, clock: Callable[[], datetime] = utcnow_naive) -> None:
+        self.clock = clock
+
+    # --- transactions --------------------------------------------------------------------
+
+    @contextlib.contextmanager
+    def unit(self, sessions: tuple[str, ...], students: tuple[str, ...] = ()) -> Iterator[None]:
+        """One transaction: the students' ``players`` rows, then the sessions' ``lesson_instances``
+        rows, each in id order, ``FOR UPDATE``; committed on exit, rolled back on an exception. The
+        engine opens one at a time (PAD-915), so the order students -> session never cycles."""
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.tools.unit_of_work import unit_of_work
+
+        with unit_of_work():                     # lesson_service.enrol flushes inside it instead of committing
+            for pid in sorted({int(s) for s in students}):
+                self._lock_student(pid)
+            for sid in sorted(int(s) for s in sessions):
+                db.session.query(LessonInstance.id).filter(LessonInstance.id == sid).with_for_update().one_or_none()
+            yield
+
+    # --- reading -------------------------------------------------------------------------
+
+    def sessions(self) -> tuple[str, ...]:
+        from padel_app.models import EngineSession
+        from padel_app.models.lesson_instances import LessonInstance
+
+        since = utc_to_wall_naive(self.clock() - AFTER_CLASS)
+        rows = (db.session.query(EngineSession.lesson_instance_id)
+                .join(LessonInstance, LessonInstance.id == EngineSession.lesson_instance_id)
+                .filter(LessonInstance.start_datetime >= since, LessonInstance.status != "canceled")
+                .order_by(LessonInstance.start_datetime, LessonInstance.id).all())
+        return tuple(str(r[0]) for r in rows)
+
+    def has_session(self, session: str) -> bool:
+        from padel_app.models import EngineSession
+
+        return db.session.get(EngineSession, int(session)) is not None
+
+    def coach_of(self, session: str) -> int:
+        from padel_app.models import EngineSession
+
+        return db.session.get(EngineSession, int(session)).coach_id
+
+    def snapshot(self, session: str) -> SessionSnapshot:
+        from padel_app.models import EngineExclusion, EngineInvitation, EngineSession, ReminderAttempt, User
+        from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+        from padel_app.models.Association_PlayerLesson import Association_PlayerLesson
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.models.players import Player
+        from padel_app.models.presences import Presence
+        from padel_app.models.waiting_list_entry import WaitingListEntry
+
+        iid = int(session)
+        es = db.session.get(EngineSession, iid)
+        inst = db.session.get(LessonInstance, iid)
+        coach_id = es.coach_id
+        presences = Presence.query.filter_by(lesson_instance_id=iid).all()
+        roster_rows = (Association_PlayerLesson.query.filter_by(lesson_id=inst.lesson_id).all()
+                       if inst.lesson_id is not None else [])
+        joined = {str(r.player_id): r.created_at for r in roster_rows}
+        regular_ids = {str(p.player_id) for p in presences if self._placement(p).how in ("regular", "regular_returns")}
+        going = tuple(self._placement(p) for p in presences if p.status != "absent")
+        absent = frozenset(str(p.player_id) for p in presences
+                           if p.status == "absent" and p.left_reason == "regular_no")
+        invitations = tuple(self._invitation(r) for r in EngineInvitation.query.filter_by(lesson_instance_id=iid)
+                            .order_by(EngineInvitation.sent_at, EngineInvitation.id).all())
+        waiting = tuple(
+            EngineWaitingListEntry(str(w.player_id), "coach" if w.added_by == "coach" else "students", w.joined_at,
+                                   SIDE_FROM_APP.get(w.side), w.sides)
+            for w in WaitingListEntry.query.filter_by(lesson_instance_id=iid, is_active=True)
+            .order_by(WaitingListEntry.joined_at, WaitingListEntry.id).all())
+
+        links = Association_CoachPlayer.query.filter_by(coach_id=coach_id).all()
+        users = {pid: u for pid, u in db.session.query(Player.id, User)
+                 .join(User, User.id == Player.user_id)
+                 .filter(Player.id.in_([lk.player_id for lk in links] or [-1])).all()}
+        excluded = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
+        exclude_inactive = self._exclude_inactive(coach_id)
+        inside = {p.student for p in going} | regular_ids
+        students = self._students(coach_id, links, users)
+        pool = tuple(
+            students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
+            if str(lk.player_id) not in inside and str(lk.player_id) not in excluded
+            and not getattr(users.get(lk.player_id), "notif_block_auto_invitations", False)
+            and not (exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active"))
+
+        start = inst.start_datetime
+        others = LessonInstance.query.filter(
+            LessonInstance.id != iid,
+            LessonInstance.start_datetime >= datetime.combine(start.date(), datetime.min.time()),
+            LessonInstance.start_datetime < datetime.combine(start.date() + timedelta(days=1), datetime.min.time()),
+        ).all()
+        same_start = [o.id for o in others if o.start_datetime == start]
+        busy = frozenset(str(pid) for (pid,) in db.session.query(Presence.player_id).filter(
+            Presence.lesson_instance_id.in_(same_start or [-1]),
+            (Presence.status.is_(None)) | (Presence.status != "absent")).all())
+        elsewhere = self._elsewhere(others)
+
+        attempts: dict[str, list[datetime]] = {}
+        confirmed = set()
+        for a in ReminderAttempt.query.filter_by(lesson_instance_id=iid).order_by(ReminderAttempt.sent_at).all():
+            if a.sent_at is not None:
+                attempts.setdefault(str(a.player_id), []).append(a.sent_at)
+            if a.response == "yes":
+                confirmed.add(str(a.player_id))
+
+        named = ({st.id for st in pool} | inside | {i.student for i in invitations} | {w.student for w in waiting})
+        missing = [int(s) for s in named if s not in students]
+        if missing:                                        # a regular or a waiting student off the coach's roster
+            students.update(self._students(coach_id, [], {}, extra=missing))
+        return SessionSnapshot(
+            id=session, level=self._level(inst.level_id), capacity=inst.effective_max_players, start=start,
+            regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
+            going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
+            said_no=frozenset(i.student for i in invitations if i.answer == "no"),
+            confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
+            alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
+            students={s: students[s] for s in named if s in students},
+            joined_at={s: joined[s] for s in regular_ids if s in joined},
+            last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
+            attendance_requested={s: tuple(v) for s, v in attempts.items()},
+        )
+
+    @staticmethod
+    def _level(level_id: int | None) -> int | None:
+        from padel_app.models.coach_levels import CoachLevel
+
+        if level_id is None:
+            return None
+        level = db.session.get(CoachLevel, level_id)
+        return None if level is None else level.display_order
+
+    @staticmethod
+    def _placement(p) -> Placement:
+        how = p.placed_how or ("regular" if p.enrolment_source == "roster" else "invitation")
+        return Placement(str(p.player_id), SIDE_FROM_APP.get(p.assigned_side), how, p.placed_at or p.created_at)
+
+    @staticmethod
+    def _invitation(r) -> Invitation:
+        return Invitation(str(r.player_id), frozenset(SpotType(s, lv) for s, lv in r.offer), r.side_named, r.tier,
+                          r.sent_at, r.answer, r.answered_at, r.counts_until, r.sorry_at, r.closed_at)
+
+    @staticmethod
+    def _exclude_inactive(coach_id: int) -> bool:
+        from padel_app.models.notification_config import NotificationConfig
+
+        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        if config is None:
+            return False
+        return bool((config.get_restrictions().get("excludeUnpaidSubscription") or {}).get("enabled"))
+
+    def _students(self, coach_id: int, links, users, extra: Iterable[int] = ()) -> dict[str, Student]:
+        """Each linked player as the engine's ``Student``, with the coach's ordering facts (PAD-915)."""
+        from padel_app.models import User
+        from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+        from padel_app.models.players import Player
+        from padel_app.services.notification_service import (
+            _attendance_counts_for,
+            _unjustified_absence_counts_for,
+            makeups_owed_for,
+        )
+
+        extra = list(extra)
+        if extra:
+            links = list(links) + Association_CoachPlayer.query.filter(
+                Association_CoachPlayer.coach_id == coach_id, Association_CoachPlayer.player_id.in_(extra)).all()
+            users = {**users, **{pid: u for pid, u in db.session.query(Player.id, User)
+                                 .join(User, User.id == Player.user_id).filter(Player.id.in_(extra)).all()}}
+        by_player = {lk.player_id: lk for lk in links}
+        ids = sorted(set(by_player) | set(extra))
+        if not ids:
+            return {}
+        counts = _attendance_counts_for(ids, coach_id)
+        owed = makeups_owed_for(ids, coach_id)
+        unjustified = _unjustified_absence_counts_for(ids, coach_id)
+        out = {}
+        for pid in ids:
+            lk = by_player.get(pid)
+            total, present, justified = counts.get(pid, (0, 0, 0))
+            user = users.get(pid)
+            out[str(pid)] = Student(
+                str(pid), self._level(lk.level_id) if lk else None, _sides(lk.side if lk else None), present,
+                makeups_owed=owed.get(pid, 0), attendance_rate=(present / total) if total else 0.0,
+                unjustified_absences=unjustified.get(pid, 0), justified_absences=justified,
+                active=getattr(user, "status", "active") == "active")
+        return out
+
+    def _elsewhere(self, others) -> tuple[Elsewhere, ...]:
+        from padel_app.models import EngineInvitation
+        from padel_app.models.presences import Presence
+
+        ids = [o.id for o in others]
+        if not ids:
+            return ()
+        rows = (EngineInvitation.query.filter(EngineInvitation.lesson_instance_id.in_(ids),
+                                              EngineInvitation.answer.is_(None), EngineInvitation.closed_at.is_(None))
+                .order_by(EngineInvitation.lesson_instance_id, EngineInvitation.sent_at, EngineInvitation.id).all())
+        if not rows:
+            return ()
+        by_id = {o.id: o for o in others}
+        going: dict[int, tuple[Placement, ...]] = {}
+        for iid in {r.lesson_instance_id for r in rows}:
+            going[iid] = tuple(self._placement(p) for p in Presence.query.filter_by(lesson_instance_id=iid).all()
+                               if p.status != "absent")
+        return tuple(Elsewhere(str(r.lesson_instance_id), by_id[r.lesson_instance_id].start_datetime,
+                               self._invitation(r), by_id[r.lesson_instance_id].effective_max_players,
+                               going[r.lesson_instance_id]) for r in rows)
+
+    # --- seeding (the app's side of a session) --------------------------------------------
+
+    def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
+                    regulars: Iterable[tuple[Student, Side | None]], at: datetime,
+                    joined_at: Mapping[str, datetime] | None = None) -> None:
+        """The new engine takes over an existing occurrence (the app created it): its row in
+        ``engine_sessions`` and a going presence per regular. ``level``, ``capacity`` and ``start``
+        are the occurrence's own and are not written; ``joined_at`` is the roster's."""
+        from padel_app.models import EngineSession
+        from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.services import lesson_service as ls
+
+        iid = int(session)
+        if db.session.get(EngineSession, iid) is not None:
+            raise ValueError(f"session {session} already exists")
+        link = Association_CoachLessonInstance.query.filter_by(lesson_instance_id=iid).first()
+        db.session.add(EngineSession(lesson_instance_id=iid, coach_id=link.coach_id, alerted=[]))
+        inst = db.session.get(LessonInstance, iid)
+        for student, side in regulars:
+            presence = ls.enrol(int(student.id), inst, "roster", new_engine=True)
+            presence.placed_how, presence.placed_at = "regular", at
+            presence.assigned_side = SIDE_TO_APP[side]
+        db.session.flush()
+
+    def reveal(self, student: str) -> None:
+        """Visibility is the app's coach–player link; nothing to write."""
+
+    def exclude(self, session: str, student: str) -> None:
+        from padel_app.models import EngineExclusion
+
+        if EngineExclusion.query.filter_by(lesson_instance_id=int(session), player_id=int(student)).first() is None:
+            db.session.add(EngineExclusion(lesson_instance_id=int(session), player_id=int(student)))
+            db.session.flush()
+
+    # --- writing -------------------------------------------------------------------------
+
+    def apply(self, effects: Iterable[fx.Effect]) -> None:
+        from padel_app.models import EngineEffect
+
+        for e in effects:
+            key, payload = effect_key(e)
+            if EngineEffect.query.filter_by(key=key).first() is not None:
+                log.info("engine_store: effect already applied, skipped: %s", key)
+                continue
+            student = getattr(e, "student", None)
+            db.session.add(EngineEffect(
+                lesson_instance_id=int(e.session), player_id=int(student) if student else None,
+                kind=type(e).__name__, at=e.at, payload=payload, key=key,
+                dispatched_at=None if isinstance(e, OUTBOX) else e.at))
+            self._write(e)
+        db.session.flush()
+
+    @staticmethod
+    def _lock_student(pid: int) -> None:
+        from padel_app.models.players import Player
+
+        db.session.query(Player.id).filter(Player.id == pid).with_for_update().one_or_none()
+
+    def _guard_same_hour(self, e: fx.Placed) -> None:
+        """Never two sessions at one hour (engine-answers rule 10), whatever path placed the student:
+        with the student's row locked (waiting for any other unit placing them to commit), a going
+        presence at the same start elsewhere refuses the placement and rolls the unit back."""
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.models.presences import Presence
+
+        self._lock_student(int(e.student))
+        start = db.session.get(LessonInstance, int(e.session)).start_datetime
+        clash = (db.session.query(Presence.lesson_instance_id)
+                 .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+                 .filter(Presence.player_id == int(e.student), Presence.lesson_instance_id != int(e.session),
+                         LessonInstance.start_datetime == start,
+                         (Presence.status.is_(None)) | (Presence.status != "absent"))
+                 .populate_existing().first())
+        if clash is not None:
+            raise SameHourConflict(f"{e.student} is already going to {clash[0]} at {start}")
+
+    @staticmethod
+    def _invitation_row(e):
+        from padel_app.models import EngineInvitation
+
+        return EngineInvitation.query.filter_by(lesson_instance_id=int(e.session), player_id=int(e.student)).first()
+
+    @staticmethod
+    def _presence(e):
+        from padel_app.models.presences import Presence
+
+        return Presence.query.filter_by(lesson_instance_id=int(e.session), player_id=int(e.student)).first()
+
+    def _write(self, e: fx.Effect) -> None:
+        from padel_app.models import EngineInvitation, EngineSession, ReminderAttempt
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.models.waiting_list_entry import WaitingListEntry
+        from padel_app.services import lesson_service as ls
+
+        iid = int(e.session)
+        if isinstance(e, fx.CoachAlert):
+            if e.spot_type is not None:                           # one alert per session and type (rule 11)
+                es = db.session.get(EngineSession, iid)
+                kept = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]
+                es.alerted = kept + [[e.spot_type.side, e.spot_type.level, e.spots]]
+        elif isinstance(e, fx.Invited):
+            if self._invitation_row(e) is not None:
+                raise StoreConflict(f"a second invitation for {e.student} in {e.session} (D1)")
+            db.session.add(EngineInvitation(
+                lesson_instance_id=iid, player_id=int(e.student), coach_id=db.session.get(EngineSession, iid).coach_id,
+                offer=[[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))],
+                side_named=e.side_named, tier=e.tier, sent_at=e.at, counts_until=e.counts_until))
+        elif isinstance(e, (fx.Sorry, fx.Reoffered, fx.InvitationClosed)):
+            row = self._invitation_row(e)
+            if row is None or row.answer is not None or row.closed_at is not None:
+                log.info("engine_store: %s for a closed or missing invitation, skipped", type(e).__name__)
+            elif isinstance(e, fx.Sorry):
+                row.sorry_at = e.at
+            elif isinstance(e, fx.Reoffered):
+                row.offer = [[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))]
+                row.side_named, row.tier, row.counts_until, row.sorry_at = e.side_named, e.tier, e.counts_until, None
+            else:
+                row.closed_at = e.at
+        elif isinstance(e, fx.Answered) and e.on == "invitation":
+            row = self._invitation_row(e)
+            if row is not None and row.answer is None and row.closed_at is None:
+                row.answer, row.answered_at = e.answer, e.at
+        elif isinstance(e, fx.Answered):
+            if e.answer == "yes":
+                attempt = (ReminderAttempt.query.filter_by(lesson_instance_id=iid, player_id=int(e.student))
+                           .order_by(ReminderAttempt.sent_at.desc(), ReminderAttempt.id.desc()).first())
+                if attempt is not None:
+                    attempt.response, attempt.responded_at = "yes", e.at
+                else:
+                    db.session.add(ReminderAttempt(lesson_instance_id=iid, player_id=int(e.student), number=0,
+                                                   response="yes", responded_at=e.at))
+        elif isinstance(e, fx.Placed):
+            self._guard_same_hour(e)
+            inst = db.session.get(LessonInstance, iid)
+            presence = ls.enrol(int(e.student), inst, ENROLMENT_SOURCE[e.how], confirmed=e.how != "regular",
+                                new_engine=True)
+            presence.status, presence.justification, presence.left_reason = None, None, None
+            presence.placed_how, presence.placed_at = e.how, e.at
+            presence.assigned_side = SIDE_TO_APP[e.side]
+        elif isinstance(e, fx.SideAssigned):
+            presence = self._presence(e)
+            before = SIDE_FROM_APP.get(presence.assigned_side)
+            if before is not None and before != e.side:            # a first side is not a move
+                presence.side_moved_at = e.at
+            presence.assigned_side = SIDE_TO_APP[e.side]
+        elif isinstance(e, fx.Left):
+            presence = self._presence(e)
+            if presence is not None:
+                presence.status, presence.left_reason = "absent", e.reason
+        elif isinstance(e, fx.Absence):
+            presence = self._presence(e)
+            if presence is not None:
+                presence.justification = None if e.kind == "none" else e.kind
+        elif isinstance(e, fx.WaitingListJoined):
+            added_by = "coach" if e.list == "coach" else "student"
+            row = WaitingListEntry.query.filter_by(lesson_instance_id=iid, player_id=int(e.student)).first()
+            if row is not None and row.is_active and (row.added_by == "coach") != (e.list == "coach"):
+                raise StoreConflict(f"{e.student} already waits on the other list of {e.session}")
+            if row is None:
+                row = WaitingListEntry(lesson_instance_id=iid, player_id=int(e.student),
+                                       coach_id=db.session.get(EngineSession, iid).coach_id)
+                db.session.add(row)
+            row.is_active, row.added_by, row.joined_at = True, added_by, e.at
+            row.side, row.sides = SIDE_TO_APP[e.side], e.sides
+        elif isinstance(e, fx.WaitingListLeft):
+            row = WaitingListEntry.query.filter_by(lesson_instance_id=iid, player_id=int(e.student),
+                                                   is_active=True).first()
+            if row is not None and (row.added_by == "coach") == (e.list == "coach"):
+                row.is_active = False
+        elif isinstance(e, fx.AttendanceRequested):
+            exists = ReminderAttempt.query.filter_by(lesson_instance_id=iid, player_id=int(e.student),
+                                                     sent_at=e.at).first()
+            if exists is None:
+                presence = self._presence(e)
+                n = ReminderAttempt.query.filter_by(lesson_instance_id=iid, player_id=int(e.student)).count()
+                db.session.add(ReminderAttempt(lesson_instance_id=iid, player_id=int(e.student),
+                                               presence_id=presence.id if presence else None, number=n + 1,
+                                               sent_at=e.at))
+        # Message, Refused: the engine_effects row is the record (and the outbox for a Message).
+
+
+def dispatch(send: Callable[["object"], None], *, now: datetime | None = None, limit: int = 200) -> int:
+    """Send the outbox after commit: each undispatched ``engine_effects`` row is claimed (its
+    ``dispatched_at`` set and committed) before ``send`` sees it, so no message goes out twice; a
+    ``send`` that raises leaves the row claimed and logged, never resent. Returns how many were sent."""
+    from padel_app.models import EngineEffect
+
+    sent = 0
+    for row_id, in (db.session.query(EngineEffect.id).filter(EngineEffect.dispatched_at.is_(None))
+                    .order_by(EngineEffect.id).limit(limit).all()):
+        claimed = (db.session.query(EngineEffect).filter(EngineEffect.id == row_id, EngineEffect.dispatched_at.is_(None))
+                   .update({EngineEffect.dispatched_at: now or utcnow_naive()}, synchronize_session=False))
+        db.session.commit()
+        if not claimed:
+            continue
+        try:
+            send(db.session.get(EngineEffect, row_id))
+            sent += 1
+        except Exception:  # noqa: BLE001
+            log.exception("engine_store: sending effect %s failed; not retried", row_id)
+    return sent

@@ -4,10 +4,14 @@ accept with no open invitation changes nothing.
 
 Scenario pins: ANSWERS-1 is P06, ANSWERS-2 is P15, ANSWERS-3 is P24.
 """
+import os
 from dataclasses import replace
 from datetime import datetime, timedelta
 
+import pytest
+
 from padel_app.invitation_engine import EngineSettings
+from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.answers import handle
 from padel_app.invitation_engine.effects import (
     Absence,
@@ -228,3 +232,77 @@ def test_direct_join_at_a_busy_hour_is_refused():
     busy = replace(s, busy_same_time=frozenset({"x"}))
     effects = handle(busy, on, DirectJoin("x"), NOW).effects
     assert [type(e) for e in effects] == [Refused] and not _placed(effects)
+
+
+@pytest.mark.skipif(os.getenv("LEVAPP_TEST_DB", "sqlite").strip().lower() != "postgres",
+                    reason="needs two real connections")
+@pytest.mark.parametrize("locked", [True, False], ids=["with_the_lock", "control_without_it"])
+def test_last_spot_claimed_once_on_postgres(app, monkeypatch, locked):
+    """ANSWERS-10 (rule 7), PAD-916: one spot left (the right side of a class of 2 whose regular plays
+    left), two invitees answer Yes on two connections at once. Each thread's apply is held at its
+    first ``engine_effects`` insert until the other reaches its own: with the session lock the
+    second never gets there while the first is open, so it plans on the committed placement and is
+    told "sorry"; the control drops the lock and must place both, or this test proves nothing."""
+    import threading
+
+    from sqlalchemy import event
+
+    from padel_app.invitation_engine import Engine
+    from padel_app.invitation_engine import requests as rq
+    from padel_app.services import engine_store
+    from padel_app.sql_db import db
+    from padel_app.tests.test_pad916_engine_store import NOW, _seed
+
+    with app.app_context():
+        store, (a,), (reg, x, y) = _seed(app, side="right", capacity=2)
+        offer = frozenset({SpotType("R", 3)})
+        with store.unit((a,)):
+            store.apply([fx.Invited(a, NOW, s, offer, "R", 0, NOW + timedelta(hours=1)) for s in (x, y)])
+        db.session.remove()
+    if not locked:
+        monkeypatch.setattr(engine_store.TableStore, "_lock_student", staticmethod(lambda pid: None))
+        real = engine_store.TableStore.unit
+
+        def unlocked(self, sessions, students=()):
+            return real(self, (), ())
+        monkeypatch.setattr(engine_store.TableStore, "unit", unlocked)
+
+    gate = threading.Barrier(2)
+
+    def _hold(conn, cursor, statement, *_a, **_k):
+        if statement.lstrip().upper().startswith("INSERT INTO ENGINE_EFFECTS"):
+            try:
+                gate.wait(timeout=3)
+            except threading.BrokenBarrierError:
+                pass
+
+    errors = []
+
+    def answer(student):
+        try:
+            with app.app_context():
+                Engine(engine_store.TableStore(clock=lambda: NOW), EngineSettings()).handle(
+                    a, rq.Answer(student, True), NOW + timedelta(minutes=1))
+                db.session.remove()
+        except BaseException as exc:  # noqa: BLE001 — surfaced below
+            errors.append(exc)
+
+    with app.app_context():
+        engine = db.engine
+    event.listen(engine, "before_cursor_execute", _hold)
+    try:
+        threads = [threading.Thread(target=answer, args=(s,)) for s in (x, y)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+    finally:
+        event.remove(engine, "before_cursor_execute", _hold)
+    assert not any(t.is_alive() for t in threads) and not errors, errors
+
+    with app.app_context():
+        going = {p.student for p in engine_store.TableStore(clock=lambda: NOW).snapshot(a).going}
+    if locked:
+        assert going == {reg, x} or going == {reg, y}
+    else:
+        assert going == {reg, x, y}
