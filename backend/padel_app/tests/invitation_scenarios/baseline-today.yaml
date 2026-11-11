@@ -1307,7 +1307,7 @@ P31-postponed-better-group-student:
   class: behavioural
   note: 'behavioural: today invites X1 for A while X1 holds class B''s offer the same day, because the adapter maps the PDF
     base (noSameDayClass off); the plan postpones X1 (D15)'
-  first_failure: 2026-11-01 20:00 invitations
+  first_failure: 2026-11-01 19:30 invitations
 P34-same-hour-yes-closes-the-other:
   outcome: fail
   evaluated: 15
