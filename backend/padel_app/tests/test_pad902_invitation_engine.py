@@ -278,3 +278,73 @@ def test_the_adapter_converts_between_lisbon_wall_clock_and_utc_in_summer():
     adapter.engine.tick = lambda now: seen.append(now) or []
     adapter.tick(datetime(2026, 7, 1, 19, 0))
     assert seen == [sent_utc]
+
+
+# --- adapter requirements from the review of the scenario sheet (PAD-902 follow-up) -----------
+
+import typing  # noqa: E402
+
+from padel_app.invitation_engine import answers  # noqa: E402
+from padel_app.tests.invitation_scenarios.runner import Applied, to_utc  # noqa: E402
+
+
+def _template_adapter():
+    adapter = NewAdapter()
+    sc = load_scenario(TEMPLATE)
+    adapter.setup(sc)
+    return adapter, sc.first_invite_at()
+
+
+@pytest.mark.parametrize("engine_says", ["nothing", "refused"])
+def test_an_accept_the_engine_turns_down_is_observed_as_nothing_placed_and_nothing_sent(monkeypatch, engine_says):
+    adapter, now = _template_adapter()
+    if engine_says == "refused":   # defensive: answers.handle's contract is no effects at all
+        monkeypatch.setattr(answers, "handle", lambda snap, s, req, at: answers.Outcome(
+            (fx.Refused("A", at, req.student, "direct_join", "no open invitation"),)))
+    assert adapter.apply("accepts", "L2R-1", {}, "A", now) == Applied()
+    assert adapter.apply("declines", "L2R-1", {}, "A", now) == Applied()
+    assert adapter.drain() == []
+    if engine_says == "refused":
+        assert adapter.apply("joins_directly", "L2R-1", {}, "A", now).refused   # a join's refusal is observed
+    # A session that does not exist: an accept is nothing, a join is refused.
+    assert adapter.apply("accepts", "L2R-1", {}, "B", now) == Applied()
+    assert adapter.apply("joins_waiting_list", "L2R-1", {"sides": "own"}, "B", now).refused
+
+
+def test_an_accept_with_no_open_invitation_runs_through_the_runner_without_an_error(tmp_path):
+    path = tmp_path / "accept-without-invitation.yaml"
+    path.write_text("""
+id: 1
+title: accept with no invitation
+source: {section: test, lines: [1, 2]}
+what_it_tests: an accept the engine refuses is an observation, never an error
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: W1, level: 3, side: R}
+timeline:
+  - at: 2026-11-01 20:00
+    events: [{accepts: W1}]
+    expect: {nothing_sent: true, roster: {L: 8, R: 7}}
+final:
+  roster: {L: 8, R: 7}
+""", encoding="utf-8")
+    result = run_scenario(path, NewAdapter())
+    assert result.error is None and result.outcome == "pass", result.summary()
+    assert result.evaluated >= 3 and not [r for r in result.log if r.kind == "refused"]
+
+
+def test_an_open_invitation_past_its_inactivity_time_stays_open_with_its_send_time():
+    adapter, start = _template_adapter()
+    adapter.store.apply([fx.Invited("A", to_utc(start), "L2R-1", frozenset({SpotType("R", 3)}), None, 2)])
+    adapter.tick(start + timedelta(hours=3))           # far past T = 20 min: no longer counting (D16)
+    assert adapter.snapshot("A").open_invitations == [("L2R-1", None, start)]
+
+
+def test_every_engine_message_kind_maps_to_its_normalized_kind():
+    kinds = typing.get_args(fx.MessageKind)
+    assert {"sorry", "reoffer", "added", "waiting_list_offer", "side_moved"} == set(kinds)
+    adapter, _ = _template_adapter()
+    for kind in kinds:
+        record, = adapter._records([fx.Message("A", T0, "W1", kind)])
+        assert (record.kind, record.data["kind"]) == ("message", kind)

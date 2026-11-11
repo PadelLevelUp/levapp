@@ -24,5 +24,10 @@ class Outcome:
 
 
 def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request, now: datetime) -> Outcome:
-    """Decide the effects of one student-facing request at ``now`` (naive UTC)."""
+    """Decide the effects of one student-facing request at ``now`` (naive UTC).
+
+    A request the session cannot take is refused, never raised: an ``Answer`` with no open
+    invitation (none sent, already answered, or the class has started) has no effects; a refused
+    join returns a ``Refused`` effect. The scenario harness relies on this (design §12; 65, 72, 79).
+    """
     return Outcome()
