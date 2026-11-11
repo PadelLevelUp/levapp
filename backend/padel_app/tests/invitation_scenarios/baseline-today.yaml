@@ -1316,6 +1316,6 @@ P34-same-hour-yes-closes-the-other:
   - D4
   - D15
   class: behavioural
-  note: 'behavioural: at 19:10 today sends B no invitation for the spot R-1 leaves; the ruling invites S2 and S3, whose
-    invitations to the full class A no longer count (PAD-911)'
-  first_failure: 2026-11-01 19:10 invitations
+  note: 'behavioural: at 19:00 today invites S1-S3 to B too while they hold A''s offers at the same hour (noSameDayClass
+    off, the PDF never sets it); the plan postpones them (D15)'
+  first_failure: 2026-11-01 19:00 invitations

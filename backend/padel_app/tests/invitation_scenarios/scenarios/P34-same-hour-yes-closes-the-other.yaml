@@ -9,9 +9,10 @@ notes: >
   Tomás's suggested test with his answer to point 2 (2026-11-11; owner ruling the same day): the same-hour
   rule is two rules, safety (engine-answers rule 10: a placement closes the student's other same-hour open
   invitations; a second same-hour placement is refused) and efficiency (engine-tiers rule 10: only a counting
-  invitation postpones). Not a PDF or plan scenario: a P file after the plan's P01-P33, beside 72. The run that gets one student two
-  counting invitations at the same hour: S1-S3 are invited to A; S1's Yes fills A, so S2's and S3's A
-  invitations stop counting and B, when a regular says No at 19:10, invites them; S1 cancels at 19:12, A
+  invitation postpones). Not a PDF or plan scenario: a P file after the plan's P01-P33, beside 72.
+  The run that gets one student two counting invitations at the same hour: A and B each have one right
+  spot; S1-S3 are invited to A at 19:00, which postpones them for B (B invites nobody); S1's Yes fills A,
+  so S2's and S3's A invitations stop counting and B's run at once invites them; S1 cancels at 19:12, A
   reopens, and S2's and S3's A invitations (T 20 min from 19:00) count again. S2 now holds counting
   invitations to A and B at the same hour, says Yes to B, and the A invitation closes; a later accept for A
   has no open invitation, so it is refused (coordinator F5: observed as nothing placed and nothing sent).
@@ -19,7 +20,7 @@ notes: >
 roster:
   regulars: {L: 8, R: 7}
 other_classes:
-  - {id: B, level: 3, capacity: 16, start: 2026-11-03 10:30, regulars: {L: 8, R: 8}}
+  - {id: B, level: 3, capacity: 16, start: 2026-11-03 10:30, regulars: {L: 8, R: 7}}
 students:
   - {id: S1, level: 2, side: R, participations: 3}
   - {id: S2, level: 2, side: R, participations: 2}
@@ -40,9 +41,6 @@ timeline:
     expect:
       placed: [{who: S1, side: R, how: invitation}]
       missing: {L: 0, R: 0}
-  - at: 2026-11-01 19:10
-    events: [{other_class: B, event: {regular_no: R-1}}]
-    expect:
       other_class:
         B:
           invitations:
