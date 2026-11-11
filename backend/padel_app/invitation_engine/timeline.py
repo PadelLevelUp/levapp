@@ -16,25 +16,34 @@ from datetime import datetime, time, timedelta
 
 from padel_app.invitation_engine.constants import KIND_SIDE_MOVED, method_b_parts, side_quota
 from padel_app.invitation_engine.effects import Effect, Message, SideAssigned
-from padel_app.invitation_engine.settings import EngineSettings
+from padel_app.invitation_engine.settings import AttendanceRequest, EngineSettings, FirstInvite
 from padel_app.invitation_engine.snapshot import SIDES, Invitation, SessionSnapshot, Side
 from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
 
 
-def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
-    """When invitations start (§8 step 2): ``days_before`` the class's day, at the coach's time.
-    Class times are Lisbon wall-clock, the result naive UTC (R-023)."""
-    fi = settings.first_invite
-    day = snapshot.start.date() - timedelta(days=fi.days_before)
-    return wall_to_utc_naive(datetime.combine(day, fi.at))
+def _fire_at(snapshot: SessionSnapshot, shape: FirstInvite | AttendanceRequest) -> datetime | None:
+    """A timing shape's instant for the session, naive UTC, or ``None`` for ``none``; the scheduler's
+    ``_fire_time_utc`` semantics. ``hours_before`` counts real hours back from the real start, across
+    a daylight-saving change; the day forms take the class's own wall date minus the days, at the
+    coach's Lisbon time (R-023)."""
+    if shape.type == "none":
+        return None
+    if shape.type == "hours_before":
+        return wall_to_utc_naive(snapshot.start) - timedelta(hours=shape.hours)
+    day = snapshot.start.date() - timedelta(days=shape.days_before)
+    return wall_to_utc_naive(datetime.combine(day, shape.at))
 
 
-def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime | None:
+    """When invitations start (§8 step 2), naive UTC; ``None`` (``none``): from the session's creation."""
+    return _fire_at(snapshot, settings.first_invite)
+
+
+def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime | None:
     """When regulars are first asked if they are going (§8 step 3), naive UTC; the boundary of
-    automatic entry (engine-settings rule 3)."""
-    ar = settings.attendance_request
-    day = snapshot.start.date() - timedelta(days=ar.days_before)
-    return wall_to_utc_naive(datetime.combine(day, ar.at))
+    automatic entry (engine-settings rule 3). ``None`` (``none``): never asked, and automatic entry
+    runs until the class starts."""
+    return _fire_at(snapshot, settings.attendance_request)
 
 
 def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
@@ -45,7 +54,8 @@ def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datet
 def may_plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> bool:
     """Whether a run may create invitations at ``now`` (engine-planning rule 1): inside the
     invitation window and outside quiet hours (D14)."""
-    return (first_invite_at(snapshot, settings) <= now <= last_invite_at(snapshot, settings)
+    first = first_invite_at(snapshot, settings)
+    return ((first is None or first <= now) and now <= last_invite_at(snapshot, settings)
             and not is_quiet(settings, now))
 
 
@@ -55,6 +65,8 @@ def useful_time(snapshot: SessionSnapshot, settings: EngineSettings, since: date
     ``since`` it runs from ``first_invite_at``. Scenario 83: 15:30 to 08:30 with quiet hours
     00:00-07:00 is 10 hours."""
     start = first_invite_at(snapshot, settings) if since is None else since
+    if start is None:
+        raise ValueError("useful_time needs `since` when invitations start at the session's creation")
     return _active_between(settings, start, last_invite_at(snapshot, settings))
 
 

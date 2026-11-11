@@ -20,6 +20,9 @@ TierSource = Literal["coach_list", "students_list", "pool"]
 TierSide = Literal["same", "other", "any"]
 TimingMethod = Literal["fixed", "progressive", "per_tier"]
 WaitingList = Literal["coach", "students"]
+#: The config's timing shapes (``reminderTiming``, PAD-915): N real hours before the class, the class's
+#: wall date minus N days at a Lisbon time (both day forms are the same, as in the scheduler), or none.
+TimingType = Literal["hours_before", "days_before", "days_before_at_time", "none"]
 
 #: The ordering criteria (engine-tiers rule 8): today's priority criteria and tiebreakers by their
 #: stored ids, and ``participations``. Each ranks a tier, lower first; see ``planner._criterion``.
@@ -76,18 +79,27 @@ class Timing:
 
 @dataclass(frozen=True)
 class FirstInvite:
+    """When invitations start (``timeline.first_invite_at``): ``days_before`` the class's day at
+    ``at`` (the default), ``hours`` real hours before the class (``hours_before``), or, with
+    ``none``, from the session's creation."""
+
     days_before: int = 2
     at: time = time(19, 0)
+    type: TimingType = "days_before_at_time"
+    hours: int = 24
 
 
 @dataclass(frozen=True)
 class AttendanceRequest:
-    """The plan's ``attendance_request_at`` (§8 step 3), repeated as the coach sets it."""
+    """The plan's ``attendance_request_at`` (§8 step 3), repeated as the coach sets it. The first
+    request takes the shapes of ``FirstInvite``; with ``none`` it is never sent."""
 
     days_before: int = 1
     at: time = time(17, 0)
     every: timedelta = timedelta(hours=2)
     max: int = 3
+    type: TimingType = "days_before_at_time"
+    hours: int = 48
 
 
 @dataclass(frozen=True)
@@ -149,6 +161,11 @@ class EngineSettings:
         unknown = [name for name in self.ordering if name not in ORDERING_CRITERIA]
         if unknown:
             raise SettingsError(f"ordering: unknown criteria {unknown}")
+        for name, shape in (("first_invite", self.first_invite), ("attendance_request", self.attendance_request)):
+            if shape.type not in ("hours_before", "days_before", "days_before_at_time", "none"):
+                raise SettingsError(f"{name}.type: unknown {shape.type!r}")
+            if shape.days_before < 0 or shape.hours < 0:
+                raise SettingsError(f"{name}: days_before and hours must not be negative")
         if self.attendance_request.max < 0 or self.eligibility.levels_above < 0 or self.eligibility.levels_below < 0:
             raise SettingsError("counts must not be negative")
 

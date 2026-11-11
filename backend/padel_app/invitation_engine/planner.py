@@ -554,7 +554,8 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
     then the students' list, each in its tier order (engine-tiers rule 8). A coach's-list entry takes
     the coach's side (any side when none); a students'-list entry takes a side in the student's
     subset, or as their side choice allows when ``wl-sides`` is on."""
-    if not settings.auto_entry_before_attendance_request or now >= timeline.attendance_request_at(snapshot, settings):
+    asked_at = timeline.attendance_request_at(snapshot, settings)
+    if not settings.auto_entry_before_attendance_request or (asked_at is not None and now >= asked_at):
         return ()
     if now >= timeline.wall_to_utc_naive(snapshot.start):
         return ()

@@ -2,7 +2,7 @@
 
 Each test is one acceptance criterion of specflow/impl/notifications/engine-settings.spec.md.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import pytest
 
@@ -10,8 +10,11 @@ from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, Set
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine import requests as rq
 from padel_app.invitation_engine.constants import ENGINE_T_FLOOR, method_b_parts, method_b_share
-from padel_app.invitation_engine.settings import Timing, TimingPair
-from padel_app.invitation_engine.snapshot import Student
+from padel_app.invitation_engine.messages import due
+from padel_app.invitation_engine.planner import plan
+from padel_app.invitation_engine.settings import AttendanceRequest, FirstInvite, Timing, TimingPair
+from padel_app.invitation_engine.snapshot import SessionSnapshot, Student
+from padel_app.invitation_engine.timeline import attendance_request_at, first_invite_at
 from padel_app.invitation_engine.timeline import method_b_round_t
 
 BELOW = ENGINE_T_FLOOR - timedelta(seconds=1)
@@ -87,3 +90,72 @@ def test_settings_are_looked_up_per_session_at_every_call():
     assert engine.settings is lookup and {"A", "B"} <= set(asked)
     assert len([e for e in more if isinstance(e, fx.Invited) and e.session == "A"]) == 2
     assert not [e for e in more if isinstance(e, fx.Invited) and e.session == "B"]
+
+
+def _session(start):
+    return SessionSnapshot("A", 3, 4, start, regulars=(), going=())
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-20")
+def test_hours_before_counts_real_hours_across_a_clock_change():
+    """engine-settings rule 10 (PAD-915): ``hours_before`` is N real hours before the class's real
+    start. Lisbon leaves summer time on 2026-10-25 at 02:00: a 10:00 class that Sunday is 10:00 UTC,
+    and 24 real hours before is Saturday 10:00 UTC, 11:00 on Saturday's wall clock."""
+    settings = EngineSettings(first_invite=FirstInvite(type="hours_before", hours=24),
+                              attendance_request=AttendanceRequest(type="hours_before", hours=3))
+    sunday = _session(datetime(2026, 10, 25, 10, 0))
+    assert first_invite_at(sunday, settings) == datetime(2026, 10, 24, 10, 0)
+    assert attendance_request_at(sunday, settings) == datetime(2026, 10, 25, 7, 0)
+    with pytest.raises(SettingsError, match="first_invite"):
+        EngineSettings(first_invite=FirstInvite(type="hours_before", hours=-1))
+    with pytest.raises(SettingsError, match="attendance_request.type"):
+        EngineSettings(attendance_request=AttendanceRequest(type="weeks_before"))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-21")
+def test_days_before_at_time_is_the_wall_date_at_lisbon_time():
+    """engine-settings rule 10 (PAD-915): the day forms take the class's own wall date minus N days,
+    at the coach's Lisbon time; ``days_before`` and ``days_before_at_time`` are the same, as in the
+    scheduler. A 00:30 class gets its day-before slot on the calendar day before."""
+    for kind in ("days_before", "days_before_at_time"):
+        settings = EngineSettings(first_invite=FirstInvite(2, time(19, 0), kind),
+                                  attendance_request=AttendanceRequest(1, time(17, 0), type=kind))
+        summer = _session(datetime(2026, 7, 10, 0, 30))                   # UTC+1
+        assert first_invite_at(summer, settings) == datetime(2026, 7, 8, 18, 0)
+        assert attendance_request_at(summer, settings) == datetime(2026, 7, 9, 16, 0)
+        winter = _session(datetime(2026, 11, 3, 10, 30))                  # UTC+0
+        assert first_invite_at(winter, settings) == datetime(2026, 11, 1, 19, 0)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-22")
+def test_none_starts_invitations_at_creation_and_sends_no_attendance_request():
+    """engine-settings rule 10 (PAD-915): ``none`` for the first invitation opens the window from the
+    session's creation (the first run plans); for the attendance request, none is ever sent, and
+    automatic entry runs until the class starts."""
+    start = datetime(2026, 11, 3, 10, 30)
+    early = datetime(2026, 10, 20, 9, 0)                                   # two weeks before the class
+    store = MemoryStore()
+    store.add_student(Student("P1", 3, frozenset({"R"})))
+    store.add_session("A", 3, 4, start, [(Student(f"L{i}", 3, frozenset({"L"})), "L") for i in (1, 2)]
+                      + [(Student("R1", 3, frozenset({"R"})), "R")], early)
+    off = EngineSettings(first_invite=FirstInvite(type="none"), attendance_request=AttendanceRequest(type="none"))
+    assert first_invite_at(store.snapshot("A"), off) is None
+    assert attendance_request_at(store.snapshot("A"), off) is None
+    sent = Engine(store, off).tick(early)
+    assert [e.student for e in sent if isinstance(e, fx.Invited)] == ["P1"]
+    # Control: the default shape plans nothing two weeks out.
+    assert not plan(store.snapshot("A"), EngineSettings(), early).effects
+    # No attendance request at any time before the class, even on the default slot.
+    for at in (datetime(2026, 11, 2, 17, 0), datetime(2026, 11, 3, 9, 0)):
+        assert not [e for e in due(store.snapshot("A"), off, at) if isinstance(e, fx.AttendanceRequested)]
+    assert [e for e in due(store.snapshot("A"), EngineSettings(), datetime(2026, 11, 2, 17, 0))
+            if isinstance(e, fx.AttendanceRequested)], "control: the default slot asks the regulars"
+    # Automatic entry has no attendance-request boundary: a list member still goes in on the class's day.
+    store.apply([fx.WaitingListJoined("A", early, "W1", "students", sides="both")])
+    store.add_student(Student("W1", 3, frozenset({"R"})))
+    morning = datetime(2026, 11, 3, 9, 0)
+    auto = off.with_changes(auto_entry_before_attendance_request=True)
+    placed = [e.student for e in plan(store.snapshot("A"), auto, morning).effects if isinstance(e, fx.Placed)]
+    assert placed == ["W1"]
+    assert not [e for e in plan(store.snapshot("A"), auto.with_changes(attendance_request=AttendanceRequest()),
+                                morning).effects if isinstance(e, fx.Placed)], "control: past the default slot"

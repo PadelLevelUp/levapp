@@ -28,6 +28,8 @@ def _current_slot(snapshot: SessionSnapshot, settings: EngineSettings, now: date
     """The latest request slot at or before ``now``, or ``None`` before the first one."""
     ar = settings.attendance_request
     first = attendance_request_at(snapshot, settings)
+    if first is None:                                    # ``none``: never asked
+        return None
     passed = [first + k * ar.every for k in range(ar.max) if first + k * ar.every <= now]
     return passed[-1] if passed else None
 
