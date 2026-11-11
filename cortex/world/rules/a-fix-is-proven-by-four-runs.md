@@ -10,7 +10,7 @@ aliases:
 applies_when: "When the agent does work this rule governs: a fix is proven by four runs, not one"
 scope:
   - action
-match: { commands: [], paths: ["backend/padel_app/tests/**/*.py", "frontend/apps/web/e2e/**/*.ts", "frontend/apps/mobile/.maestro/**/*.yaml", ".cortex/compass/bugs/*.md"] }
+match: { commands: [], paths: ["backend/padel_app/tests/**/*.py", "frontend/apps/web/e2e/**/*.ts", "frontend/apps/mobile/.maestro/**/*.yaml", "cortex/history/incidents/*.md"] }
 source: user@2026-09-13
 ---
 

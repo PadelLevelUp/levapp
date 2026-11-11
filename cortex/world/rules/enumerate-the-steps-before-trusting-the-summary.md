@@ -10,7 +10,7 @@ aliases:
 applies_when: "When the agent does work this rule governs: prove a procedure by enumerating its commands against what the system actually runs"
 scope:
   - action
-match: { commands: [], paths: [".github/workflows/*.yaml", ".cortex/atlas/decisions/*.md", "backend/scripts/*.sh"] }
+match: { commands: [], paths: [".github/workflows/*.yaml", "cortex/world/decisions/*.md", "backend/scripts/*.sh"] }
 source: user@2026-09-16
 ---
 
