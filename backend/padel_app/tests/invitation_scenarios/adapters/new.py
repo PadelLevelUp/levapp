@@ -21,10 +21,17 @@ Records (engine effect -> record):
   ``side_named`` the message's side (D11).
 - ``Answered`` -> answered, ``on`` invitation or reminder (the attendance request).
 - ``Placed`` -> placed with its ``how``; ``Left`` -> left; ``Absence`` -> absence;
-  ``AttendanceRequested`` -> reminder; ``Message`` -> message with the engine's kind (``sorry``,
-  ``reoffer``, ``added``, ``waiting_list_offer``; the plan has no Aviso, D4 and Q6).
+  ``AttendanceRequested`` -> reminder; ``Message`` -> message, kind one for one (``MESSAGE_KINDS``:
+  ``sorry``, ``reoffer``, ``added``, ``waiting_list_offer``, ``side_moved``; the plan has no Aviso,
+  D4 and Q6).
+- Open invitations: the snapshot lists every unanswered invitation with its send time, counting
+  or not. An invitation past its inactivity time stops counting but stays open (D4), so
+  ``open_unanswered`` counts it.
 - ``CoachAlert`` -> ``alert`` (plan §6 step 4), with an empty student.
-- ``Refused`` for the acting student -> ``Applied(refused=True)``; the runner writes that record.
+- ``Refused`` of a join (direct join, waiting list) for the acting student ->
+  ``Applied(refused=True)``; the runner writes that record. Any other request the engine turns
+  down (an accept with no open invitation, an accept after the class started) is observed as
+  nothing placed and nothing sent: no record, never an error (design §12).
 - ``SideAssigned`` and waiting-list changes have no record; the snapshot shows them.
 """
 
@@ -55,6 +62,13 @@ from padel_app.tests.invitation_scenarios.runner import (
     to_local,
     to_utc,
 )
+
+
+#: Engine message kind -> normalized message kind (design §5, §12).
+MESSAGE_KINDS = {"sorry": "sorry", "reoffer": "reoffer", "added": "added",
+                 "waiting_list_offer": "waiting_list_offer", "side_moved": "side_moved"}
+#: Harness events whose refusal is an observation of its own (design §12, ``refused``).
+REFUSABLE = {"joins_directly", "joins_waiting_list"}
 
 
 def _hhmm(value: str) -> time:
@@ -178,11 +192,13 @@ class NewAdapter:
         else:
             request = self._request(event, who, params)
             if not isinstance(request, rq.Appear) and not self.store.has_session(cls):
-                return Applied(True, "the session does not exist yet")
+                return Applied(True, "the session does not exist yet") if event in REFUSABLE else Applied()
         effects = self.engine.handle(cls, request, now)
         refused = [e for e in effects if isinstance(e, fx.Refused) and e.student == who]
         self.pending += self._records([e for e in effects if e not in refused])
-        return Applied(True, refused[0].reason) if refused else Applied()
+        if refused and event in REFUSABLE:
+            return Applied(True, refused[0].reason)
+        return Applied()
 
     @staticmethod
     def _request(event: str, who, params: dict) -> rq.Request:
@@ -227,7 +243,7 @@ class NewAdapter:
             elif isinstance(e, fx.AttendanceRequested):
                 out.append(Record("reminder", e.student, e.session, at))
             elif isinstance(e, fx.Message):
-                out.append(Record("message", e.student, e.session, at, {"kind": e.kind}))
+                out.append(Record("message", e.student, e.session, at, {"kind": MESSAGE_KINDS[e.kind]}))
             elif isinstance(e, fx.CoachAlert):
                 out.append(Record("alert", "", e.session, at, {"reason": e.reason}))
             elif isinstance(e, fx.Refused):
