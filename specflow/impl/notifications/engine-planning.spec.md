@@ -38,18 +38,24 @@ Stated as observable records; storage is the engine package's (PAD-902).
    `open(v) > 0`). A {left, right} student sent for either side counts for both; a right-sider sent to
    play left counts for the left type only. Because types are recomputed every run (D8), an offer is
    matched against the types of each run, never stored as a type.
-5. **The run (§6 step 2, D5, D9).** The run walks the **tiers in order**. Within a tier, the spot
-   types still uncovered are served **hardest first**: fewest candidates per uncovered spot, a type's
-   candidates counted at its ideal tier (rule 6). A tie goes to the type whose ideal tier comes earlier
-   in the order; with the same ideal tier, rule 13. A tier's people are never spent on a harder type
-   before that tier has served its own easy type. In each tier, for each type in that order:
+5. **The run (§6 step 2, D5, D9; coordinator ruling D-E21): cover first, then top up.** Each run has
+   two phases, and an uncovered spot always beats a further invitation for a covered one (D9).
+   - **Cover.** Every spot type with uncovered spots is covered first. The run walks the **tiers in
+     order**; within a tier, the uncovered types are served **hardest first**: fewest candidates per
+     uncovered spot, a type's candidates counted at its ideal tier (rule 6). A tie goes to the type
+     whose ideal tier comes earlier in the order; with the same ideal tier, rule 13. The covering sends
+     follow D17's budget: X per covered spot from the type's ideal tier, else
+     const:LOWER_TIER_PER_SPOT.
+   - **Top up.** Only when no tier can cover anything more are the covered types topped up to their
+     budget (rule 6), tiers in order, hardest type first within a tier.
+   In each phase, in each tier, for each type in that order:
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
       counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
       open invitation answered "sorry" (`notifications.engine-answers` rule 4) and fit the type.
       Postponed students are not candidates (`notifications.engine-tiers` rule 10).
    2. **Cover.** The tier covers as many of the type's uncovered spots as it has **distinct**
       candidates (D5), a candidate already used on a harder type not counted twice.
-   3. **Top up.** The type's budget for that tier is X per covered spot if the tier is the type's ideal
+   3. **Send.** The type's budget for that tier is X per covered spot if the tier is the type's ideal
       tier, else const:LOWER_TIER_PER_SPOT per covered spot (rule 6). Counting invitations from any
       tier whose offer counts for the type fill the budget first; new invitees fill the rest, chosen by
       the tier's ordering, never beyond the candidates, never above M (rule 8), never a revocation. A
@@ -178,8 +184,8 @@ Given capacity 8, must(L) 1 and must(R) 1, one {left, right} student and 5 left-
 the left type and only the flexible student for the right, X = 3, when the run plans, then the flexible
 student is invited with offer {left, right} and no side named, 2 left-siders are invited for the left
 type, 3 in all, and group 2 is not reached; when the flexible student then says No, group 2 is the right
-type's ideal tier and the 3 uninvited left-siders are asked to play right, the side named, and the left
-type keeps 2 counting.
+type's ideal tier and the 3 uninvited left-siders are asked to play right, the side named (cover), and the left
+type keeps 2 counting (nobody is left to top it up; rule 5's two phases).
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P10b-one-flexible-candidate-two-types]`
 
 #### NOTIFICATIONS-ENGINE-PLANNING-13: An either spot is offered across both sides by ordering (rule 5; S12)
@@ -272,10 +278,11 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 
 ### Open questions
-- Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator,
-  2026-11-11, reversing this spec's first reading): tier by tier, hardest type first within a tier
-  (rule 5, plan §6 step 2), because H measured that the type-by-type reading fails the plan's own P10a and
-  P10b and scenario 01.
+- Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator
+  ruling D-E21, 2026-11-11, reversing this spec's first reading): neither alone. Each run covers every
+  uncovered type first (tiers in order, hardest type first within a tier), then tops up the covered
+  ones (rule 5). The type-by-type reading failed the plan's P10a, P10b and scenario 01; the plain tier
+  order failed P10b's No branch (group 1 topped the left up before group 2 covered the right).
 - The coach alert's channel (push, dashboard, both) is not in the plan — decision (owner away): the
   engine emits the effect; channel and wording go to the owner at review, because the scenarios assert
   only that an alert exists.
