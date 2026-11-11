@@ -109,6 +109,9 @@ class WaitingListLeft(Effect):
 
 @dataclass(frozen=True)
 class CoachAlert(Effect):
-    """No tier can take an open spot (plan §6 step 4)."""
+    """No tier can take an open spot of ``spot_type`` (plan §6 step 4, engine-planning rule 11);
+    ``spots`` is how many of that type were uncovered, so the store alerts again only when it changes."""
 
     reason: str
+    spot_type: SpotType | None = None
+    spots: int = 0

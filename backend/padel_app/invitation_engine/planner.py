@@ -20,8 +20,8 @@ from datetime import datetime
 from typing import Literal
 
 from padel_app.invitation_engine import timeline
-from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, method_b_share, side_quota
-from padel_app.invitation_engine.effects import Effect, Invited
+from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, side_quota
+from padel_app.invitation_engine.effects import CoachAlert, Effect, Invited
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
@@ -337,8 +337,8 @@ def _walk(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int
             chosen = fresh[:max(0, min(room, len(fresh)))]
             share = None
             if settings.timing.method == "progressive":
-                share = method_b_share(timeline.useful_time(snapshot, settings), len(with_candidates),
-                                       with_candidates.index(t))
+                taking_part = _method_b_tiers(run, spot_type, with_candidates)
+                share = timeline.method_b_t(snapshot, settings, run.now, len(taking_part), taking_part.index(t))
             t_send = timeline.t_at_send(settings, t, len(fresh) > len(chosen), share)
             for sid in chosen:
                 student = snapshot.students[sid]
@@ -354,6 +354,18 @@ def _walk(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int
     return sent_per_type
 
 
+def _method_b_tiers(run: _Run, spot_type: SpotType, with_candidates: list[int]) -> list[int]:
+    """The tiers in Method B's split for a type (engine-settings rule 2, as agreed with the timeline):
+    those with candidates for it now, and those that sent an invitation whose offer includes it and
+    that was not answered No, this run's sends included. A tier whose invitees all said No leaves."""
+    values = type_sides(spot_type, run.counts)
+    sent = {i.tier for i in run.snapshot.invitations
+            if i.tier is not None and i.answer != "no" and {t.side for t in i.offer} & values}
+    sent |= {e.tier for e in run.effects
+             if isinstance(e, Invited) and e.tier is not None and {t.side for t in e.offer} & values}
+    return sorted(set(with_candidates) | sent)
+
+
 def _offer_across(run: _Run, t: int, student: Student, order: list[tuple[SpotType, int]],
                   current: SpotType) -> frozenset[str]:
     """A new invitee's offer: every type still to serve in this run that this tier holds them for,
@@ -365,6 +377,18 @@ def _offer_across(run: _Run, t: int, student: Student, order: list[tuple[SpotTyp
         if tier_for(student, other, run.counts, run.snapshot, run.settings) == t:
             offer |= _offer_sides(tier, student, type_sides(other, run.counts), run.snapshot, run.settings)
     return frozenset(offer)
+
+
+def _alerts(run: _Run, types: list[tuple[SpotType, int]], now: datetime) -> tuple[Effect, ...]:
+    """Nobody left (engine-planning rule 11, §6 step 4): a type with uncovered spots and no candidate
+    in any tier, neither a counting invitation that counts for it nor an uninvited student who fits.
+    One alert per session and type, raised again only when the type's count changes."""
+    out = []
+    for spot_type, spots in types:
+        if not run.buckets(spot_type) and run.snapshot.alerted.get(spot_type) != spots:
+            side = spot_type.side or "either"
+            out.append(CoachAlert(run.snapshot.id, now, f"no candidate for {spots} {side} spot(s)", spot_type, spots))
+    return tuple(out)
 
 
 def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:
@@ -382,6 +406,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
     types = list(spot_types(snapshot, counts))
     hardness = {st: _hardness(probe, st, n) for st, n in types}
     order = sorted(types, key=lambda tn: hardness[tn[0]])
+    alerts = _alerts(probe, types, now)
 
     # First pass without M's share: what each type wants. If M covers it all, that is the plan.
     dry = fresh_run()
@@ -392,7 +417,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
     if sum(want.values()) <= room:
         run = fresh_run()
         _walk(run, order, None)
-        return Plan(tuple(run.effects))
+        return Plan(tuple(run.effects) + alerts)
 
     caps: dict[SpotType, int] = {}
     i = 0
@@ -416,4 +441,4 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
         i += 1
     run = fresh_run()
     _walk(run, order, caps)
-    return Plan(tuple(run.effects))
+    return Plan(tuple(run.effects) + alerts)
