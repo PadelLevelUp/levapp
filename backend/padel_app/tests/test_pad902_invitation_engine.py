@@ -385,6 +385,7 @@ def test_every_engine_message_kind_maps_to_its_normalized_kind():
         assert (record.kind, record.data["kind"]) == ("message", expected)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-19")
 def test_every_engine_write_is_inside_one_session_unit_at_a_time():
     """PAD-915 (agreed with PAD-916's table store): the engine works one session per unit, so a table
     store can lock that session alone; every effect is applied inside a unit, and none nests."""
@@ -437,6 +438,7 @@ def test_every_engine_write_is_inside_one_session_unit_at_a_time():
     assert store.outside == 0
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-20")
 def test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs():
     """PAD-915/916: a store that finds the state moved under a unit (a same-hour placement elsewhere)
     raises UnitConflict and rolls back; the engine drops that unit's effects, runs the other sessions,
