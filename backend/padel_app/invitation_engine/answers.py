@@ -236,8 +236,8 @@ def _regular_returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tupl
     if regular is None or sid not in snapshot.absent or snapshot.placement(sid) is not None:
         return ()
     sides = open_sides(snapshot) & regular.sides
-    if not sides:
-        return ()
+    if not sides:                                          # their spot was taken: "sorry" (sheet 63, E6)
+        return (Message(snapshot.id, now, sid, KIND_SORRY),)
     side: Side | None = next(iter(sides)) if len(regular.sides) == 1 else None
     return (Placed(snapshot.id, now, sid, side, "regular_returns"), Absence(snapshot.id, now, sid, "none"))
 
@@ -253,7 +253,7 @@ def _join_waiting_list(snapshot: SessionSnapshot, settings: EngineSettings, requ
         return ()
     if request.list == "students":
         student = snapshot.students.get(sid)
-        visible = any(st.id == sid for st in snapshot.pool)
+        visible = any(st.id == sid for st in snapshot.pool) or sid in snapshot.absent   # a regular who said No
         if student is None or not visible or not planner._eligible(student, snapshot, settings):
             return (Refused(snapshot.id, now, sid, "waiting_list", "not eligible for this session"),)
     return (WaitingListJoined(snapshot.id, now, sid, request.list, request.side, request.sides),)

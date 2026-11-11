@@ -29,6 +29,14 @@ def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> date
     return wall_to_utc_naive(datetime.combine(day, fi.at))
 
 
+def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+    """When regulars are first asked if they are going (§8 step 3), naive UTC; the boundary of
+    automatic entry (engine-settings rule 3)."""
+    ar = settings.attendance_request
+    day = snapshot.start.date() - timedelta(days=ar.days_before)
+    return wall_to_utc_naive(datetime.combine(day, ar.at))
+
+
 def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
     """After it no new invitation goes out (§8 step 6)."""
     return wall_to_utc_naive(snapshot.start - settings.last_invite_before)

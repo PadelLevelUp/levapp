@@ -21,7 +21,16 @@ from typing import Literal
 
 from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, side_quota
-from padel_app.invitation_engine.effects import CoachAlert, Effect, Invited, Message, Reoffered
+from padel_app.invitation_engine.effects import (
+    Absence,
+    CoachAlert,
+    Effect,
+    Invited,
+    Message,
+    Placed,
+    Reoffered,
+    WaitingListLeft,
+)
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
@@ -396,8 +405,65 @@ def _alerts(run: _Run, types: list[tuple[SpotType, int]], now: datetime) -> tupl
     return tuple(out)
 
 
+def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> tuple[Effect, ...]:
+    """engine-settings rule 3: with ``auto-entry`` on and before ``attendance_request_at`` (the
+    invitation window not required), waiting-list members are placed in the spots that are open and
+    that they can take, without an invitation, and told so (``added``). The coach's list goes first,
+    then the students' list, each in its tier order (engine-tiers rule 8). A coach's-list entry takes
+    the coach's side (any side when none); a students'-list entry takes a side in the student's
+    subset, or as their side choice allows when ``wl-sides`` is on."""
+    if not settings.auto_entry_before_attendance_request or now >= timeline.attendance_request_at(snapshot, settings):
+        return ()
+    if now >= timeline.wall_to_utc_naive(snapshot.start):
+        return ()
+    going = {p.student: p.side for p in snapshot.going}
+    quota, capacity = side_quota(snapshot.capacity), snapshot.capacity
+    placed_side = {v: sum(1 for s in going.values() if s == v) for v in SIDES}
+    total = len(going)
+    out: list[Effect] = []
+    for which, source in (("coach", "coach_list"), ("students", "students_list")):
+        tier = Tier(source, "any")
+        entries = [w for w in snapshot.waiting_list if w.list == which and w.student not in going]
+        entries.sort(key=lambda w: _order(tier, snapshot.students[w.student], snapshot)
+                     if w.student in snapshot.students else (0, w.joined_at, ()))
+        for w in entries:
+            student = snapshot.students.get(w.student)
+            if student is None or total >= capacity or w.student in snapshot.said_no:
+                continue
+            if which == "students" and (w.student in snapshot.busy_same_time or not _eligible(student, snapshot, settings)):
+                continue
+            if which == "coach":
+                sides = frozenset({w.side}) if w.side else frozenset(SIDES)
+            elif settings.waiting_list_side_choice and w.sides == "other":
+                sides = frozenset(SIDES) - student.sides
+            elif w.sides == "both":                         # the student accepts either side
+                sides = frozenset(SIDES)
+            else:
+                sides = student.sides
+            room = [v for v in SIDES if v in sides and placed_side[v] < quota]
+            if not room:
+                continue
+            side = max(room, key=lambda v: quota - placed_side[v])
+            placed_side[side] += 1
+            total += 1
+            going[w.student] = side
+            out += [Placed(snapshot.id, now, w.student, side, "auto_from_waiting_list"),
+                    Message(snapshot.id, now, w.student, "added")]
+            if w.student in snapshot.absent:                 # a regular back in: their absence goes
+                out.append(Absence(snapshot.id, now, w.student, "none"))
+            out += [WaitingListLeft(snapshot.id, now, w.student, e.list)
+                    for e in snapshot.waiting_list if e.student == w.student]
+    return tuple(out)
+
+
 def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:
-    """Decide the session's new invitations at ``now`` (naive UTC). Never revokes (D4)."""
+    """Decide the session's new invitations at ``now`` (naive UTC). Never revokes (D4).
+
+    Automatic entry (engine-settings rule 3) comes first; the engine plans again on the next run
+    with those students going."""
+    entries = auto_entries(snapshot, settings, now)
+    if entries:
+        return Plan(entries)
     if not timeline.may_plan(snapshot, settings, now):
         return Plan()
     counts = spot_counts(snapshot)
