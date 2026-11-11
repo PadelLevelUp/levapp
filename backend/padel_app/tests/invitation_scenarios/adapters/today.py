@@ -108,6 +108,9 @@ class TodayAdapter:
             db.session.add(lv)
             db.session.flush()
             self.level_ids[n] = lv.id
+        if any(spec.level is None for spec in sc.classes.values()):  # S27: today needs a class level
+            self.level_ids[None] = self.level_ids[3]
+            gaps.append("class without a level: today requires one, so the base level 3 stands in")
         club = Club(name="Scenario Club", description="", location="Lisboa")
         db.session.add(club)
         db.session.flush()

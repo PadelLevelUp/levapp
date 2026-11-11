@@ -130,7 +130,15 @@
       "additionalProperties": false,
       "properties": {
         "level": {
-          "$ref": "#/$defs/level"
+          "description": "The class's level; null for a class with no level, where no level rule applies (D3, S27).",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/level"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "capacity": {
           "type": "integer",

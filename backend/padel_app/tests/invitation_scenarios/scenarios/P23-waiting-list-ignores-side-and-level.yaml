@@ -1,0 +1,42 @@
+id: P23
+title: the waiting list ignores side and level
+source: {section: "Plano §9.4 Waiting list", lines: [284, 284]}
+what_it_tests: a waiting-list student is invited whatever their side or level, before any group
+tags: [waiting-list, other-side, eligibility]
+derived_from: [S23, D12, D11]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). W1 is a left-sider two levels above the class: eligible, but in no group (groups are class level only).
+  On the waiting list they are invited for the right spot, side named, ahead of the right-siders of group 1.
+  The plan's "level 2 at a 3+ spot" is mapped to an eligible off-level student, because a student below the
+  class fails the eligibility gate (D13).
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 4}
+students:
+  - {id: W1, level: 1, side: L}
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    events: [{joins_waiting_list: W1, sides: both}]
+    expect: {invitations: none}
+  - at: 2026-11-02 18:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{who: W1, side_named: R, group: 2}]
+final:
+  roster: {L: 4, R: 3}

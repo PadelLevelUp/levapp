@@ -1,0 +1,56 @@
+id: P31
+title: a postponed better-group student
+source: {section: "Plano §9.5 Messages, levels, timing", lines: [298, 300]}
+what_it_tests: a student holding another offer that day is skipped and invited once free, within X and M
+tags: [groups, multi-class, other-side]
+derived_from: [S31, D15, D10, D16]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). X = 1. Class B is the same day at 18:00. A's own right regulars are candidates for B too (another time,
+  no gate), so X1 carries the most participations and is B's one invitation. A's spot opens at 20:00: X1 is
+  postponed (D15), so group 2 gets X. X1 declines B at 20:10; A's spot already holds X counting, so X1 is
+  invited at 21:00, when group 2's stop counting.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+  invites_per_spot: 1
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 4}
+other_classes:
+  - {id: B, level: 3, capacity: 8, start: 2026-11-03 18:00, regulars: {L: 4, R: 3}}
+students:
+  - {id: X1, level: 3, side: R, participations: 10}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: none
+      other_class:
+        B:
+          invitations: [{who: X1, side_named: null, group: 3}]
+  - at: 2026-11-01 20:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L3L, count: 1, side_named: R, group: 4}]
+  - at: 2026-11-01 20:10
+    events: [{other_class: B, event: {declines: X1}}]
+    expect: {invitations: none}
+  - at: 2026-11-01 21:00
+    expect:
+      invitations: [{who: X1, side_named: null, group: 3}]
+final:
+  roster: {L: 4, R: 3}
+  other_classes:
+    B: {roster: {L: 4, R: 3}}

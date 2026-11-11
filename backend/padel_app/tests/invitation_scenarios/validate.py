@@ -700,7 +700,7 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
         else:
             check_keys(cls, "class", rep, {"level", "capacity", "start", "created_at"})
             if "level" in cls:
-                check_level(cls["level"], "class.level", rep, nullable=False)
+                check_level(cls["level"], "class.level", rep, nullable=True)  # null: a class with no level (D3, S27)
             if "capacity" in cls:
                 check_int(cls["capacity"], "class.capacity", rep, minimum=1)
             if "start" in cls:

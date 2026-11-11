@@ -1,0 +1,41 @@
+id: P28
+title: a side is named only when opposite
+source: {section: "Plano §9.5 Messages, levels, timing", lines: [292, 295]}
+what_it_tests: the message names a side only when it is outside the student's subset
+tags: [sides, both-sides, other-side]
+derived_from: [S28, D11, D17]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). 3 right spots: group 1 has a right-sider and a both-sides student (no side named for either); the third
+  spot goes to group 2 at 1, a left-sider told the right side.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 1}
+students:
+  - {cohort: L3R, count: 1, level: 3, side: R}
+  - {id: B1, level: 3, side: both}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L3R, count: 1, side_named: null, group: 3}
+        - {who: B1, side_named: null, group: 3}
+        - {cohort: L3L, count: 1, side_named: R, group: 4}
+      missing: {L: 0, R: 3}
+final:
+  roster: {L: 4, R: 1}

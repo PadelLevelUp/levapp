@@ -1,0 +1,45 @@
+id: P07
+title: a better fit appears
+source: {section: "Plano §9.1 Coverage and group order", lines: [238, 242]}
+what_it_tests: a better-group candidate is invited at once when the type is below X and the session below M
+tags: [groups, other-side]
+derived_from: [S7, D10, D8, D16]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). S2's start: 3 right-siders plus 1 left-sider for the 4th spot. 19:10: J1, a right-sider, appears. The
+  type has 4 counting invitations for 4 spots (12 wanted), so J1 is invited at once and group 2's invitation
+  stays open. The other branch of S7 (the spot already at X) is P08.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 0}
+students:
+  - {cohort: L3R, count: 3, level: 3, side: R}
+  - {cohort: L3L, count: 6, level: 3, side: L}
+  - {id: J1, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L3R, count: 3, side_named: null, group: 3}
+        - {cohort: L3L, count: 1, side_named: R, group: 4}
+  - at: 2026-11-01 19:10
+    events: [{appears: J1}]
+    expect:
+      invitations: [{who: J1, side_named: null, group: 3}]
+      open_unanswered: 5
+final:
+  roster: {L: 4, R: 0}

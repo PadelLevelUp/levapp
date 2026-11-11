@@ -1,0 +1,54 @@
+id: P29
+title: never revoked
+source: {section: "Plano §9.5 Messages, levels, timing", lines: [296, 296]}
+what_it_tests: an open invitation is never withdrawn; a late Yes gets sorry, and takes a spot that reopens
+tags: [aviso, cancellation]
+derived_from: [S29, D4, §7, Q6]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). r2's Yes after the fill gets the Aviso (sorry plus the waiting-list offer). When r1 cancels, r2's
+  invitation is re-offered (coordinator F1), and r3's still-open invitation takes the spot.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 3}
+students:
+  - {cohort: L3R, count: 3, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L3R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L3R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+  - at: 2026-11-01 19:20
+    events: [{accepts: {cohort: L3R, state: invited, as: r2}}]
+    expect:
+      messages: [{who: r2, kind: aviso}]
+  - at: 2026-11-02 10:00
+    events: [{cancels: r1}]
+    expect:
+      absences: [{who: r1, kind: justified}]
+      messages: [{who: r2, kind: reoffer}]
+      invitations: none
+  - at: 2026-11-02 10:05
+    events: [{accepts: {cohort: L3R, state: invited, as: r3}}]
+    expect:
+      placed: [{who: r3, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 4, R: 4}
