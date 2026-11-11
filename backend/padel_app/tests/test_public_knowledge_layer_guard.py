@@ -1,7 +1,7 @@
 """Guard: the tracked knowledge layer publishes no operational identifiers (PAD-344, R-036).
 
 The repository is public. Conventions, rules, decisions and the bug ledger belong in the
-tracked `.cortex/` and `.specflow/` trees; the operator's map of production does not — the
+tracked `cortex/` and `specflow/` trees (and the 3.x `.cortex/` and `.specflow/` while they exist); the operator's map of production does not — the
 VM's name, the GCP project (bucket names carry it as a prefix), the zone, the addresses and
 the SSH commands that combine them live in the local, gitignored `docs/infra/environment.md`.
 
@@ -25,7 +25,7 @@ from padel_app.tests.git_env import git_env
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Pathspecs, from the repository root. `:(glob)*.md` is root-level Markdown only.
-GUARDED_PATHSPECS = (".cortex", ".specflow", ".claude", ":(glob)*.md")
+GUARDED_PATHSPECS = ("cortex", "specflow", ".cortex", ".specflow", ".claude", ":(glob)*.md")
 EXCLUDED_PREFIXES = (".cortex/insight/",)
 
 IDENTIFIER_DIGESTS = frozenset(
@@ -88,7 +88,9 @@ def test_guard_scans_the_knowledge_layer():
     """R-032: a guard that finds nothing to scan must fail, not pass vacuously."""
     files = tracked_knowledge_files()
     assert ".cortex/compass/environment.md" in files
-    assert any(p.startswith(".specflow/") for p in files)
+    assert "cortex/MAP.md" in files
+    assert "specflow" in GUARDED_PATHSPECS
+    assert any(p.startswith(("specflow/", ".specflow/")) for p in files)
     assert any(p.startswith(".claude/") for p in files)
     assert not any(p.startswith(".cortex/insight/") for p in files)
 
