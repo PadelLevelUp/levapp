@@ -57,7 +57,12 @@ Stated as observable records; storage is the engine package's (PAD-902).
     placement path refuses a second placement at the same hour:** an accept is refused with nothing
     placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
     student. The rule binds the engine's paths; the coach's add is not one of them and is covered at
-    the engine swap. This is the safety rule; the run's efficiency rule, which does not invite a
+    the engine swap. **Two requests by one student never run at once:** the engine names the student in
+    the unit of work and the store locks the student before the session (always students, then the
+    session; no unit holds two sessions). A placement the planner makes (automatic entry), which names
+    no student in advance, is checked when it is applied: if the student was placed at the same start
+    since the snapshot, the store refuses the unit (`UnitConflict`) and rolls it back, the engine
+    drops that unit's effects and the next run re-plans on fresh state. This is the safety rule; the run's efficiency rule, which does not invite a
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
     PAD-913).** The kinds are const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED,
@@ -181,6 +186,18 @@ Given the engine's message kinds (`invitation_engine/effects.py` `MessageKind`) 
 const:KIND_WAITING_LIST_INVITE, and `waiting_list_offer` is not a kind.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_engine_kinds_do_not_reuse_todays_message_names`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-19: Every engine write is one session's unit, and a student's answer locks the student (rule 10)
+Given the engine handling answers and ticks, when it writes, then every write is inside one unit of
+work for one session, units never nest, and a unit for a student's answer names and locks that student
+before the session.
+test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_every_engine_write_is_inside_one_session_unit_at_a_time`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-20: A unit the store refuses is dropped and the rest runs (rule 10)
+Given a tick in which one session's unit is refused (`UnitConflict`, a student placed at the same start
+since the snapshot), when the tick runs, then that unit's effects are dropped and rolled back, the
+other sessions run, and the next run re-plans the refused session on fresh state.
+test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -196,6 +213,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `invitation_engine/constants.py` (a `KIND_WAITING_LIST_INVITE`), `tests/invitation_scenarios/adapters/new.py`
    (its kind map). The scenario format's own `waiting_list_offer` (`scenario.schema.json`, `validate.py`,
    `adapters/today.py`) logs today's message and is not the engine's kind.
+6. (Swap 3/4, PAD-915, PAD-916) ANSWERS-19, ANSWERS-20 — `invitation_engine/engine.py` (units naming
+   students), the store's `unit()` (student locks, `UnitConflict`); the two-transaction proof is
+   ANSWERS-10's Postgres test.
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
