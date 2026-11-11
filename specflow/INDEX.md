@@ -307,7 +307,7 @@ Untagged tests: 4195
   - **ADMIN-WORK-DASHBOARD-8** TestFlight not configured, then configured (rule 9)
     - test: `backend/padel_app/tests/test_pad646_work_dashboard_v2.py` › test_testflight_is_not_configured_until_the_key_exists
     - test: `backend/padel_app/tests/test_pad646_work_dashboard_v2.py` › test_testflight_lists_builds_with_a_signed_token_and_never_echoes_it
-  - **ADMIN-WORK-DASHBOARD-9** Open bugs by severity (rule 10) · unverified
+  - **ADMIN-WORK-DASHBOARD-9** The bugs panel is retired and fetches nothing (rule 10) · unverified
   - **ADMIN-WORK-DASHBOARD-10** CI lanes near their limit (rule 11)
     - test: `backend/padel_app/tests/test_pad646_work_dashboard_v2.py` › test_ci_lanes_timing_against_their_limit
     - test: `backend/padel_app/tests/test_pad646_work_dashboard_v2.py` › test_ci_needs_the_token_and_never_calls_actions_without_it
