@@ -35,7 +35,9 @@ the coach's list).
    and the mapping from the coach's stored config are the engine swap's.
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
-   block on automatic invitations, already in the session, in another session at the same time,
+   block on automatic invitations, already in the session, in another session at the same time
+   (**the same hour**: sessions whose times overlap, the same start included; the overlap reading is
+   ours, PAD-911; engine-answers rule 10, engine-planning rule 10 and rule 10 here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
@@ -57,13 +59,15 @@ the coach's list).
    waiting lists, `joined_at` breaks the ties the criteria leave.
 9. **Candidates are recomputed on every run (D8).**
 10. **Postpone (D15).** A student blocked by the daily invitation cap, or holding a **counting**
-    invitation for another class that club day, the same hour included (`notifications.invitations`
-    rule 18c, kept; Tomás calls a counting invitation "ativo"), is **not a candidate this run**. An
-    open invitation that no longer counts — its class full, past its counting-until instant, or after
-    sorry (`notifications.engine-planning` rules 3, 4) — stays valid (D4) but postpones nobody
-    (owner ruling 2026-11-11 on Tomás's point 2). A postponed student counts for no type, so they
-    neither cover a spot nor make their tier the ideal one, and the next tier goes ahead. Their return once free is `notifications.engine-planning` rule 7, the one
-    rule for it.
+    invitation for another session that club day, the same hour (rule 3) included
+    (`notifications.invitations` rule 18c, as amended by PAD-911; Tomás calls a counting invitation
+    "ativo"), is **not a candidate this run**. For this gate an invitation counts when it counts by
+    `notifications.engine-planning` rule 3 (open, not sorry, before its counting-until instant) **and**
+    its offer counts toward a current spot type of its own session by rule 4; so an invitation to a
+    full session counts for nothing. An open invitation that does not count stays valid (D4) but
+    postpones nobody (owner ruling 2026-11-11 on Tomás's point 2). A postponed student counts for no
+    type, so they neither cover a spot nor make their tier the ideal one, and the next tier goes
+    ahead. Their return once free is `notifications.engine-planning` rule 7, the one rule for it.
 11. **One evaluator (recorded decision "invite simulation shares the engine pipeline", 2026-09-06).**
     The verdict that admits or drops a student and its explanation come from the same evaluator. When
     the engine ships, the invite simulation (`notifications.invite-simulation`) and the semi-automatic
@@ -155,8 +159,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 2. (W7) TIERS-2, TIERS-3, TIERS-5, TIERS-6, TIERS-8 — scenario pins after planning W5 and answers W3.
 3. (Swap) TIERS-9 — `invite_simulation_service.py`, `replacement_approval_service.py`; at the engine
    swap, not in this ticket (brief §1). Tier criteria and the stored-config mapping (rule 2) too.
-4. (PAD-911) TIERS-10 — `invitation_engine/store.py` (`postponed` from counting invitations only,
-   with `invitation_engine/timeline.py`'s `counting`).
+4. (PAD-911) TIERS-10 — `invitation_engine/store.py` and `invitation_engine/planner.py` (`postponed`
+   from invitations that count by planning rule 3 and whose offer counts toward a current spot type of
+   their own session by rule 4: `timeline.counting` and the session's open spots together).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision

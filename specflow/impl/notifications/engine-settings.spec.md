@@ -28,21 +28,22 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    - **fixed** (the PDF's Method A, the default): `between_rounds` and `between_groups`, one pair for
      all tiers; default both 20 minutes, which is the plan's single T;
    - **per tier** (Method C): a pair per tier; a tier without its own pair uses the fixed pair;
-   - **progressive** (Method B, one round per tier): at each send the engine counts, per spot type, the
+   - **progressive** (Method B): at each send the engine counts, per spot type, the
      n tiers taking part — the tiers with candidates for the type now, plus the tiers that sent an
      invitation for the type not yet answered No — and gives the sending tier, at rank r among them,
      parts[r] / sum(parts[r:]) of the useful time that remains at the send (const:METHOD_B_PART; the
      useful time runs from the opening, the first run that plans for the spot, to `last_invite_at`,
-     quiet hours excluded). Every invitation of that send gets that share as T. A tier that drops out
+     quiet hours excluded). A tier that drops out
      (a whole tier refuses) re-splits the remaining time over the rest
      (`invitation_engine/timeline.py`, `method_b_t`).
      **The same parts set the rounds inside one tier (Tomás, 2026-11-11):** "os tempos descem em linha
-     reta e o último recebe dois terços do primeiro". The tier's share is fixed at its first send; its
-     last round waits the last third of the share (the wait to the next tier), and the rounds before
+     reta e o último recebe dois terços do primeiro". The tier's share and its number of rounds are
+     fixed at the tier's first send, per spot type (the count: Open questions). Its last round waits
+     the last third of the share, which is the between-groups wait to the next tier; the rounds before
      it split the other two thirds by const:METHOD_B_PART with n = rounds − 1 (2 rounds before the
-     last: 3:2). A tier with one round waits its whole share; with two, two thirds then one third. The
-     number of rounds is the tier's candidates for the type over its budget per round, rounded up
-     (our inference: Tomás's answer does not say how the rounds are counted).
+     last: 3:2). A tier with one round waits its whole share; with two, two thirds then one third.
+     **Every invitation of a round gets its round's wait as T**, fixed at send
+     (`notifications.engine-timeline` rule 4, D-E6), the last round's being the between-groups share.
    Each value is at least const:ENGINE_T_FLOOR; a lower value is refused when saved.
 3. **`auto-entry`** (`auto_entry_before_attendance_request`, default off). When on, before
    `attendance_request_at` — the invitation window not required — a waiting-list member is **placed**
@@ -142,7 +143,7 @@ its share of the useful time from that opening to `last_invite_at`, quiet hours 
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[87-vaga-de-ultima-hora-com-pouco-tempo-util]`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-18: Method B's rounds inside one tier descend by the same parts (rule 2; scenario 84)
-Given scenario 84 (Method B, the first tier's share 3 h from 15:30, 9 candidates and a budget of 3, so
+Given scenario 84 (Method B, the share of group 3, the first tier taking part, 3 h from 15:30, 9 candidates and a budget of 3, so
 3 rounds), when nobody answers, then the rounds go out at 15:30, 16:42 and 17:30 (72 and 48 minutes,
 3:2 of two hours) and the next tier at 18:30 (the last third, one hour).
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[84-varias-rondas-dentro-do-primeiro-grupo]`
@@ -221,3 +222,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - `direct-join` defaults off in `EngineSettings` though many coaches have `auto_accept_join_requests` on
   today — decision: off is the plan's default; the swap maps each coach's stored value, so no coach's
   behaviour changes at the swap.
+- How many rounds a Method B tier has (rule 2; Tomás's answer gives the split, not the count) —
+  options: (a) the tier's candidates for the type at its first send over the tier's budget per round
+  for the type, rounded up, fixed then; (b) recount at each round as candidates change (D8);
+  (c) a coach setting. Decision (owner away, PAD-911): (a), because the share is fixed at the first
+  send too, so the split stays the one announced; it gives 84's 3 rounds (9 candidates, a budget of 3).
+  This is our inference, not Tomás's words.

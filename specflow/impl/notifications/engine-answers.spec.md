@@ -50,13 +50,15 @@ Stated as observable records; storage is the engine package's (PAD-902).
    last spot, exactly one is placed and the other gets rule 4 (or rule 3 when another spot fits).
 8. **An accept with no open invitation (ruling (4)).** Refused: nothing placed, nothing sent.
 9. **Accepting fills a spot for that session only (§8).** It does not enrol the student in the class.
-10. **Never two sessions at the same hour (Tomás's point 2; owner ruling 2026-11-11; D4's exception).**
-    Any placement — a Yes to an invitation, a direct join, automatic entry, a coach's add — closes the
-    student's other open invitations for other sessions at the same hour: nothing is sent for them and
-    they no longer count. An accept for a session at an hour where the student is already placed is
-    refused: nothing placed, nothing sent. This is the safety rule; the run's efficiency rule, which
-    does not invite a student holding a counting invitation that club day, is
-    `notifications.engine-tiers` rule 10.
+10. **Never two sessions at the same hour (Tomás's point 2: "nunca se quebra"; owner ruling 2026-11-11;
+    D4's exception).** The same hour is `notifications.engine-tiers` rule 3's. Any placement — a Yes to
+    an invitation, a direct join, automatic entry, a coach's add — closes the student's other open
+    invitations for other sessions at the same hour: nothing is sent for them and they no longer
+    count. **Every placement path refuses a second placement at the same hour**, the coach's add
+    included: an accept is refused with nothing placed and nothing sent (rule 8's form); automatic
+    entry skips the student; a direct join is refused; a coach's add is refused with the reason shown
+    to the coach. This is the safety rule; the run's efficiency rule, which does not invite a student
+    holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -151,6 +153,12 @@ Given a student going to session A, when an accept arrives for their open invita
 same hour, then it is refused: nobody is placed and no message is sent.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_second_same_hour_placement_is_refused`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-15: Automatic entry closes the other same-hour invitations (rule 10)
+Given `auto-entry` on, a waiting-list member of session A holding an open invitation to session B at the
+same hour, when a spot they can take opens in A before `attendance_request_at`, then they are placed in
+A and their invitation to B is closed.
+test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_closes_the_same_hour_invitation`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -160,9 +168,12 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    reopened spot), `adapters/new.py` (`sorry` logged as `aviso`).
 3. (Swap) ANSWERS-10 — a table-backed `SessionStore`, out of scope for PAD-899 (`store.py`); at the
    engine swap.
-4. (PAD-911) ANSWERS-13, ANSWERS-14 — `invitation_engine/answers.py` (a placement closes the other
+4. (PAD-911) ANSWERS-13, ANSWERS-14, ANSWERS-15 — `invitation_engine/answers.py` (a placement closes the other
    same-hour invitations; a second same-hour placement refused), `invitation_engine/store.py`.
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
   2's measure, because it is D6's rule for an either-side Yes.
+- A coach's add to a session at an hour where the student is already placed (rule 10) — decision
+  (owner away, PAD-911): refused with the reason, because Tomás's safety rule "nunca se quebra"; the
+  owner may want a coach override (review pack).
