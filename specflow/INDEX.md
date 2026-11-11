@@ -5767,7 +5767,7 @@ Untagged tests: 4220
   - **NOTIFICATIONS-ENGINE-TIERS-8** A postponed student is no candidate this run (rule 10; S31) · unverified
   - **NOTIFICATIONS-ENGINE-TIERS-9** The simulation's verdict for a student equals the engine's (rule 11) · unverified
   - **NOTIFICATIONS-ENGINE-TIERS-10** An invitation to a full class postpones nobody (rule 10; scenario 72) · unverified
-  - **NOTIFICATIONS-ENGINE-TIERS-11** Ordering is the priority criteria, then the tiebreakers, in the coach's order (rule 8) · unverified
+  - **NOTIFICATIONS-ENGINE-TIERS-11** Ordering applies its ids in their order; an unknown id is refused (rule 8) · unverified
   - **NOTIFICATIONS-ENGINE-TIERS-12** Each ordering id ranks its own way, ties falling to the next (rule 8) · unverified
   - **NOTIFICATIONS-ENGINE-TIERS-13** The dry run gives each student a verdict per spot type and plans what plan would (rule 12) · unverified
 - spec **notifications.engine-timeline** (`specflow/impl/notifications/engine-timeline.spec.md`)

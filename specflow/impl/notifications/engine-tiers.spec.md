@@ -57,8 +57,9 @@ the coach's list).
    passes. One student may be tier 2 for the left type and tier 3 for the right.
 8. **Ordering inside a tier (§3; Q4 closed: PAD-723).** `EngineSettings.ordering` is the coach's
    enabled priority criteria followed by the coach's enabled tiebreakers, each list in the coach's
-   order; closest level first when the group's level rule is a range. Each id ranks one way: `level`
-   better first, an unknown level last; `justified_misses` more classes owed first
+   order (built from the stored configuration, `notifications.config` rule 19). Each id ranks one way:
+   `level` the better level first, an unknown level last (today's `_level_sort_key`; an engine tier
+   holds one level offset or none, never a range); `justified_misses` more classes owed first
    (`attendance.stats` rule 4); `attendance` and `attendance_rate` higher rate first; `playing_side`
    and `playing_side_match` a student whose only side is the spot's side first, then one who plays
    both, then the rest, and a spot of either side favours nobody (today's `_side_preference_rank`);
@@ -92,9 +93,14 @@ the coach's list).
     effects are empty and the verdicts still explain). A verdict's stage is the first failure in this
     spec's order, with no tier: `in_session`, `said_no`, `not_in_pool`, `busy_same_time`, `postponed`,
     `failed_eligibility`, `failed_tier_rule` (a coach's-list member skips the pool gates, rule 4, so it
-    fails only as `in_session`, `said_no` or `failed_tier_rule`); or, with its tier, `invited` (this
-    run sends or re-offers it for the type), `invited_earlier` (an open invitation, not sorry) or
-    `waiting` (a candidate this run does not reach). Gates the app applies before the snapshot
+    fails only as `in_session`, `said_no` or `failed_tier_rule`); `invited_before` (their invitation
+    for this session closed without a No, after an accept then a cancellation or by a same-hour
+    placement: D1 allows no second one, so the run never reaches them); or, with its tier, `invited`
+    (this run sends or re-offers it with an offer that covers the type by side; an either type is
+    covered by any side), `invited_for_other_type` (this run invites them for another type, and the
+    offer does not cover this one), `invited_earlier` (an open invitation, not sorry) or `waiting` (a
+    candidate this run does not reach). A type's queue leaves out `invited_before` and
+    `invited_for_other_type`. The verdicts come from the planner's own candidate buckets (rule 11). Gates the app applies before the snapshot
     (exclusions, inactive accounts, eligibility per swap decision 6) never reach the engine; the
     caller explains those. A hypothetical ("this student drops out") is a snapshot the caller builds
     without writing. This is rule 11's evaluator, so the invite simulation and the engine agree.
@@ -177,10 +183,10 @@ Given each P01–P33 snapshot and each student in it, when the invite simulation
 the engine plans the session, then one admits the student exactly when the other does, at the same tier.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_simulation_and_engine_share_the_evaluator`
 
-#### NOTIFICATIONS-ENGINE-TIERS-11: Ordering is the priority criteria, then the tiebreakers, in the coach's order (rule 8)
-Given a coach with priority criteria and tiebreakers, some off, when the settings are built, then
-`ordering` holds the enabled priority criteria in their order followed by the enabled tiebreakers in
-theirs, and an unknown id is refused with `SettingsError`.
+#### NOTIFICATIONS-ENGINE-TIERS-11: Ordering applies its ids in their order; an unknown id is refused (rule 8)
+Given `ordering` with several ids, when candidates of one tier are ordered, then the first id decides
+and each later id breaks only the ties the ones before it leave, in the given order; and settings
+built with an unknown id are refused with `SettingsError`.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_ordering_is_priority_criteria_then_tiebreakers_in_the_coachs_order`
 
 #### NOTIFICATIONS-ENGINE-TIERS-12: Each ordering id ranks its own way, ties falling to the next (rule 8)
@@ -190,9 +196,11 @@ waiting-list member who joined earlier goes first.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_each_ordering_id_ranks_in_its_direction`
 
 #### NOTIFICATIONS-ENGINE-TIERS-13: The dry run gives each student a verdict per spot type and plans what plan would (rule 12)
-Given a snapshot with students failing each gate, a coach's-list member, invited, earlier-invited and
-unreached candidates, when it is evaluated, then each student has one verdict per open spot type with
-the first failing stage in rule 12's order or its tier, the effects equal `plan`'s with nothing
+Given a snapshot with students failing each gate, a coach's-list member, an either spot, and invited,
+invited-for-another-type, invited-before, earlier-invited and unreached candidates, when it is
+evaluated, then each student has one verdict per open spot type with the first failing stage in rule
+12's order or its tier, an either spot's invitee is `invited`, the queues leave out
+`invited_before` and `invited_for_other_type`, the effects equal `plan`'s with nothing
 applied, and outside the window or in quiet hours the effects are empty while the verdicts stand.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_dry_run_gives_each_student_a_verdict_per_spot_type`
 
