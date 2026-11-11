@@ -135,3 +135,6 @@ def test_engine_kinds_do_not_reuse_todays_message_names():
     kinds = set(typing.get_args(fx.MessageKind))
     assert kinds & set(DEFAULT_MESSAGE_TEMPLATES) == {"waiting_list_invite"}
     assert "waiting_list_offer" not in kinds
+    from padel_app.invitation_engine.constants import KIND_WAITING_LIST_INVITE
+
+    assert KIND_WAITING_LIST_INVITE in kinds

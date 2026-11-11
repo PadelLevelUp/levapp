@@ -83,13 +83,18 @@ def test_settings_are_looked_up_per_session_at_every_call():
     invited = {s: [e.student for e in sent if isinstance(e, fx.Invited) and e.session == s] for s in "AB"}
     assert (len(invited["A"]), len(invited["B"])) == (1, 2)
     assert set(asked) == {"A", "B"}
-    # A coach's change is read at the next call; UpdateSettings only replans when a lookup is in place.
+    # A coach's change is read at the next call; with a lookup UpdateSettings only re-plans, and only
+    # the sessions it names (the coach's).
     per_coach["A"] = EngineSettings(invites_per_spot=3)
     asked.clear()
-    more = engine.handle("A", rq.UpdateSettings(EngineSettings()), t0)
-    assert engine.settings is lookup and {"A", "B"} <= set(asked)
+    more = engine.handle("A", rq.UpdateSettings(EngineSettings(), sessions=("A",)), t0)
+    assert engine.settings is lookup and asked == ["A"]
     assert len([e for e in more if isinstance(e, fx.Invited) and e.session == "A"]) == 2
-    assert not [e for e in more if isinstance(e, fx.Invited) and e.session == "B"]
+    assert {e.session for e in more} == {"A"}
+    # Naming none re-plans every session (the harness, one coach).
+    asked.clear()
+    engine.handle("A", rq.UpdateSettings(EngineSettings()), t0)
+    assert set(asked) == {"A", "B"}
 
 
 def _session(start):
@@ -103,9 +108,13 @@ def test_hours_before_counts_real_hours_across_a_clock_change():
     and 24 real hours before is Saturday 10:00 UTC, 11:00 on Saturday's wall clock."""
     settings = EngineSettings(first_invite=FirstInvite(type="hours_before", hours=24),
                               attendance_request=AttendanceRequest(type="hours_before", hours=3))
+    from padel_app.scheduler import _fire_time_utc
+
     sunday = _session(datetime(2026, 10, 25, 10, 0))
     assert first_invite_at(sunday, settings) == datetime(2026, 10, 24, 10, 0)
     assert attendance_request_at(sunday, settings) == datetime(2026, 10, 25, 7, 0)
+    assert first_invite_at(sunday, settings) == _fire_time_utc(sunday.start, {"type": "hours_before", "value": 24})
+    assert attendance_request_at(sunday, settings) == _fire_time_utc(sunday.start, {"type": "hours_before", "value": 3})
     with pytest.raises(SettingsError, match="first_invite"):
         EngineSettings(first_invite=FirstInvite(type="hours_before", hours=-1))
     with pytest.raises(SettingsError, match="attendance_request.type"):
@@ -117,6 +126,8 @@ def test_days_before_at_time_is_the_wall_date_at_lisbon_time():
     """engine-settings rule 10 (PAD-915): the day forms take the class's own wall date minus N days,
     at the coach's Lisbon time; ``days_before`` and ``days_before_at_time`` are the same, as in the
     scheduler. A 00:30 class gets its day-before slot on the calendar day before."""
+    from padel_app.scheduler import _fire_time_utc
+
     for kind in ("days_before", "days_before_at_time"):
         settings = EngineSettings(first_invite=FirstInvite(2, time(19, 0), kind),
                                   attendance_request=AttendanceRequest(1, time(17, 0), type=kind))
@@ -125,6 +136,13 @@ def test_days_before_at_time_is_the_wall_date_at_lisbon_time():
         assert attendance_request_at(summer, settings) == datetime(2026, 7, 9, 16, 0)
         winter = _session(datetime(2026, 11, 3, 10, 30))                  # UTC+0
         assert first_invite_at(winter, settings) == datetime(2026, 11, 1, 19, 0)
+        late = _session(datetime(2026, 7, 10, 23, 30))                    # the criterion's 23:30 class
+        assert attendance_request_at(late, settings) == datetime(2026, 7, 9, 16, 0)
+        for session in (summer, winter, late):                             # the scheduler's own instants
+            assert first_invite_at(session, settings) == _fire_time_utc(
+                session.start, {"type": kind, "days": 2, "time": "19:00"})
+            assert attendance_request_at(session, settings) == _fire_time_utc(
+                session.start, {"type": kind, "days": 1, "time": "17:00"})
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-22")
@@ -145,9 +163,11 @@ def test_none_starts_invitations_at_creation_and_sends_no_attendance_request():
     assert [e.student for e in sent if isinstance(e, fx.Invited)] == ["P1"]
     # Control: the default shape plans nothing two weeks out.
     assert not plan(store.snapshot("A"), EngineSettings(), early).effects
-    # No attendance request at any time before the class, even on the default slot.
-    for at in (datetime(2026, 11, 2, 17, 0), datetime(2026, 11, 3, 9, 0)):
-        assert not [e for e in due(store.snapshot("A"), off, at) if isinstance(e, fx.AttendanceRequested)]
+    # No attendance request at any run up to the class's start, the default slot included.
+    engine, at = Engine(store, off), early
+    while at < datetime(2026, 11, 3, 10, 30):
+        assert not [e for e in engine.tick(at) if isinstance(e, fx.AttendanceRequested)], at
+        at += timedelta(hours=1)
     assert [e for e in due(store.snapshot("A"), EngineSettings(), datetime(2026, 11, 2, 17, 0))
             if isinstance(e, fx.AttendanceRequested)], "control: the default slot asks the regulars"
     # Automatic entry has no attendance-request boundary: a list member still goes in on the class's day.

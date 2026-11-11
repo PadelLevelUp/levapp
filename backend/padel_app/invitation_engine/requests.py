@@ -103,7 +103,12 @@ class Appear:
 
 @dataclass(frozen=True)
 class UpdateSettings:
+    """A coach changed their settings: the sessions to re-plan are that coach's (``sessions``, the
+    app names them); ``None`` re-plans every session (the harness, one coach). With a settings lookup
+    the engine only re-plans; with one value it also replaces it (engine-settings rule 9)."""
+
     settings: EngineSettings
+    sessions: tuple[str, ...] | None = None
 
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel

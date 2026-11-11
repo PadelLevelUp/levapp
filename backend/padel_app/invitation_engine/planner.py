@@ -662,14 +662,17 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
 # --- the dry run (swap plan §4: the simulation and the approval queue) ------------------------
 
 VerdictStage = Literal["in_session", "said_no", "not_in_pool", "busy_same_time", "postponed",
-                       "failed_eligibility", "failed_tier_rule", "invited", "invited_earlier", "waiting"]
+                       "failed_eligibility", "failed_tier_rule", "invited", "invited_for_other_type",
+                       "invited_earlier", "invited_before", "waiting"]
 
 
 @dataclass(frozen=True)
 class Verdict:
     """One student for one spot type: why they are out (the first gate or rule they fail, in
-    engine-tiers order), or their tier and whether this run invites them (``invited``), an earlier
-    invitation of theirs is still open (``invited_earlier``), or they wait their turn (``waiting``)."""
+    engine-tiers order), or their tier and where they stand: this run's offer covers the type
+    (``invited``) or only another type (``invited_for_other_type``); an open invitation of theirs from
+    an earlier run (``invited_earlier``); a closed one without a No, so none again (D1,
+    ``invited_before``); or a candidate this run does not reach (``waiting``)."""
 
     student: str
     spot_type: SpotType
@@ -710,18 +713,22 @@ def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapsh
 
 
 def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> DryRun:
-    """The dry run (engine-tiers rule 11, one evaluator): what ``plan`` would send at ``now`` and why
-    each student is or is not asked, per spot type. Pure: nothing is applied. A hypothetical ("this
-    student drops out") is the caller's snapshot, built without writing."""
+    """The dry run (engine-tiers rules 11-12, one evaluator): what ``plan`` would send at ``now`` and
+    why each student is or is not asked, per spot type. The candidates are the planner's own
+    (``_Run.buckets`` on a fresh run, as ``plan`` starts). Pure: nothing is applied. A hypothetical
+    ("this student drops out") is the caller's snapshot, built without writing."""
     effects = plan(snapshot, settings, now).effects
     snapshot = with_postponed(snapshot, now)
     counts = spot_counts(snapshot)
     latest = {i.student: i for i in snapshot.invitations}
-    asked = {(e.student, t) for e in effects if isinstance(e, (Invited, Reoffered)) for t in e.offer}
+    people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list}, key=_natural)
+    probe = _Run(snapshot, settings, now, counts, latest, people)
+    sent = {e.student: frozenset(o.side for o in e.offer) for e in effects if isinstance(e, (Invited, Reoffered))}
     verdicts: list[Verdict] = []
     queues: dict[SpotType, tuple[str, ...]] = {}
     for spot_type, _ in spot_types(snapshot, counts):
-        ranked: list[tuple[int, tuple, str]] = []
+        values = type_sides(spot_type, counts)
+        tiers = {sid: t for t, bucket in probe.buckets(spot_type).items() for sid in bucket.holders + bucket.fresh}
         for sid in sorted(snapshot.students, key=_natural):
             student = snapshot.students[sid]
             t = tier_for(student, spot_type, counts, snapshot, settings)
@@ -729,13 +736,18 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
                 verdicts.append(Verdict(sid, spot_type, _out_stage(student, spot_type, counts, snapshot, settings)))
                 continue
             invitation = latest.get(sid)
-            if (sid, spot_type) in asked:
-                stage: VerdictStage = "invited"
-            elif invitation is not None and invitation.open and invitation.sorry_at is None:
-                stage = "invited_earlier"
+            stage: VerdictStage
+            if sid in sent:
+                stage = "invited" if sent[sid] & values else "invited_for_other_type"
+            elif sid in tiers:
+                held = invitation is not None and invitation.open and invitation.sorry_at is None
+                stage = "invited_earlier" if held else "waiting"
+            elif invitation is not None and invitation.open:
+                stage = "invited_earlier"               # open, but neither counting nor covering this type
             else:
-                stage = "waiting"
+                stage = "invited_before"                # closed without a No: never a second (D1)
             verdicts.append(Verdict(sid, spot_type, stage, t))
-            ranked.append((t, _order(settings.tiers[t], student, snapshot, settings, spot_type), sid))
-        queues[spot_type] = tuple(sid for *_, sid in sorted(ranked))
+        ranked = sorted((t, _order(settings.tiers[t], snapshot.students[sid], snapshot, settings, spot_type), sid)
+                        for sid, t in tiers.items() if sid not in sent or sent[sid] & values)
+        queues[spot_type] = tuple(sid for *_, sid in ranked)
     return DryRun(effects, tuple(verdicts), queues, timeline.may_plan(snapshot, settings, now))

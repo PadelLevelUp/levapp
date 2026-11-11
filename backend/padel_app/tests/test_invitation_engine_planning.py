@@ -3,12 +3,14 @@
 Each test is one acceptance criterion of specflow/impl/notifications/engine-planning.spec.md; the
 scenario-pinned criteria of W2 (PLANNING-6, -11, -16) run in the scenario suite.
 """
+import typing
 from datetime import datetime, timedelta
 
 import pytest
 
 from padel_app.invitation_engine import EngineSettings, MemoryStore
 from padel_app.invitation_engine import effects as fx
+from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE
 from padel_app.invitation_engine.planner import plan
 from padel_app.invitation_engine.snapshot import SpotType, Student
 
@@ -135,7 +137,8 @@ def test_coach_alert_once_per_type_until_its_count_changes():
     store = _store(4, 3)                                    # one right spot, nobody in the pool
     first = plan(store.snapshot("A"), settings, T0).effects
     alerts = [e for e in first if isinstance(e, fx.CoachAlert)]
-    assert [(a.reason, a.spot_type, a.spots) for a in alerts] == [("no_candidate", SpotType("R", 3), 1)]
+    assert [(a.reason, a.spot_type, a.spots) for a in alerts] == [(ALERT_NO_CANDIDATE, SpotType("R", 3), 1)]
+    assert ALERT_NO_CANDIDATE == "no_candidate" and ALERT_NO_CANDIDATE in typing.get_args(fx.AlertReason)
     store.apply(first)
     assert [e for e in plan(store.snapshot("A"), settings, T0 + HOUR).effects
             if isinstance(e, fx.CoachAlert)] == []          # already raised for this type and count

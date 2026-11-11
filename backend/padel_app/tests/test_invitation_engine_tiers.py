@@ -140,6 +140,16 @@ def test_each_ordering_id_ranks_in_its_direction():
     assert _first(("subscription_status",), A={"active": False}) == ["B"]       # an active account first
     assert _first(("unjustified_absences",), A={"unjustified_absences": 1}) == ["B"]   # fewer first
     assert _first(("justified_absences",), B={"justified_absences": 3}) == ["B"]       # more first
+    # Equal on every configured id, the earlier joiner of a list goes first.
+    store = MemoryStore()
+    for sid in ("EARLY", "LATE"):
+        store.add_student(_student(sid, "R", participations=2))
+    store.add_session("S", 3, 8, START, _regulars(4, 3), T0)
+    store.apply([fx.WaitingListJoined("S", datetime(2026, 11, 1, 11, 0), "EARLY", "students", sides="both"),
+                 fx.WaitingListJoined("S", datetime(2026, 11, 1, 12, 0), "LATE", "students", sides="both")])
+    lists = EngineSettings(invites_per_spot=1, ordering=("participations", "attendance_rate"),
+                           tiers=(Tier("students_list"),))
+    assert _invited(plan(store.snapshot("S"), lists, T0).effects) == ["EARLY"]
     # Playing side: the spot's side alone, then both sides, then the rest (today's _side_preference_rank).
     for criterion in ("playing_side", "playing_side_match"):
         assert _first((criterion,), A={"sides": frozenset({"L", "R"})}) == ["B"]
@@ -176,7 +186,14 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     store.add_session("B", 3, 4, START, [(_student("BUSY", "R"), "R")], T0)          # the same hour
     store.add_session("C", 3, 4, START + timedelta(hours=8), [], T0)                  # later that day
     spot = SpotType("R", 3)
+    store.add_student(_student("COACH_OK", "L"))
+    store.add_student(_student("COACH_SIDE", "L"))
+    store.add_student(_student("CLOSED", "R"))
     store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
+                 fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_OK", "coach", side="R"),
+                 fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_SIDE", "coach", side="L"),
+                 fx.Invited("A", T0 - timedelta(hours=2), "CLOSED", frozenset({spot}), None, 3, T0),
+                 fx.InvitationClosed("A", T0 - timedelta(hours=1), "CLOSED"),
                  fx.Answered("A", T0, "NO", "no", "invitation"),
                  fx.Invited("C", T0, "POST", frozenset({spot}), None, 3, T0 + timedelta(minutes=20)),
                  fx.Invited("A", T0, "EARLIER", frozenset({spot}), None, 3, T0 + timedelta(minutes=20))])
@@ -196,11 +213,47 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     assert stages["LOW"] == ("failed_eligibility", None)
     assert stages["LEFTY"] == ("failed_tier_rule", None)
     assert stages["EARLIER"] == ("invited_earlier", 3)
-    # X = 3 for the spot, one already counting: two more, by the coach's ordering (participations).
-    assert (stages["P2"], stages["P3"], stages["P1"]) == (("invited", 3), ("invited", 3), ("waiting", 3))
-    assert run.queues[spot] == ("P2", "P3", "EARLIER", "P1")
+    assert stages["CLOSED"] == ("invited_before", 3), "closed without a No: never a second invitation (D1)"
+    # The coach's list skips the pool's gates: only its side rule can fail (rule 6).
+    assert stages["COACH_SIDE"] == ("failed_tier_rule", None)
+    # The coach's list is the ideal tier (tier 0): it is asked; the pool's tier, not the ideal one, sends
+    # only for an uncovered spot (D17), and the spot is covered, so the pool waits in the coach's order.
+    assert stages["COACH_OK"] == ("invited", 0)
+    assert (stages["P2"], stages["P3"], stages["P1"]) == (("waiting", 3), ("waiting", 3), ("waiting", 3))
+    assert [e.student for e in run.effects if isinstance(e, fx.Invited)] == ["COACH_OK"]
+    assert run.queues[spot] == ("COACH_OK", "P2", "P3", "EARLIER", "P1")
+    assert "CLOSED" not in run.queues[spot]
     assert {v.spot_type for v in run.verdicts} == {spot}
     # Outside the window the verdicts still explain, and the run sends nothing.
     early = evaluate(before, settings, T0 - timedelta(days=3))
     assert not early.may_plan and not early.effects
     assert {v.student: v.stage for v in early.verdicts}["P2"] == "waiting"
+    # In quiet hours (00:00-07:00 Lisbon) too: nothing sent, the verdicts the same.
+    quiet = evaluate(before, settings, datetime(2026, 11, 2, 3, 0))
+    assert not quiet.may_plan and not quiet.effects
+    assert {v.student: v.stage for v in quiet.verdicts}["P2"] == "waiting"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-13")
+def test_dry_run_verdicts_follow_the_offer_per_type():
+    """An either spot is covered by an offer of any side; a student this run asks for one type only
+    is ``invited_for_other_type`` for the other and out of its queue."""
+    store = MemoryStore()
+    for sid in ("P1", "P2"):
+        store.add_student(_student(sid, "R"))
+    store.add_session("E", 3, 4, START, [(_student("L-1", "L"), "L"), (_student("F-1", "both"), None),
+                                         (_student("F-2", "both"), None)], T0)            # one either spot
+    either = evaluate(store.snapshot("E"), EngineSettings(), T0)
+    assert {(v.student, v.spot_type.side, v.stage) for v in either.verdicts if v.student in ("P1", "P2")} == \
+        {("P1", None, "invited"), ("P2", None, "invited")}
+
+    store = MemoryStore()
+    for sid, side in (("PR", "R"), ("PL", "L"), ("PB", "both")):
+        store.add_student(_student(sid, side))
+    store.add_session("A", 3, 8, START, _regulars(3, 3), T0)                           # one left, one right
+    run = evaluate(store.snapshot("A"), EngineSettings(invites_per_spot=1, tiers=(Tier("pool", "any", 0),)), T0)
+    stages = {(v.student, v.spot_type.side): v.stage for v in run.verdicts}
+    assert sorted(e.student for e in run.effects if isinstance(e, fx.Invited)) == ["PB", "PL"]
+    assert stages[("PB", "L")] == stages[("PB", "R")] == "invited"                     # offered both sides
+    assert (stages[("PL", "R")], stages[("PL", "L")]) == ("invited", "invited_for_other_type")
+    assert run.queues[SpotType("L", 3)] == ("PB", "PR") and run.queues[SpotType("R", 3)] == ("PB", "PL", "PR")

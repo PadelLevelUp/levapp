@@ -49,7 +49,7 @@ class Engine:
                 settings = self.settings_for(session)
                 out += self._commit(timeline.due(self.store.snapshot(session), settings, now))
                 out += self._commit(messages.due(self.store.snapshot(session), settings, now))
-                out += self._plan(session, now)
+                out += self._plan(session, now, settings)
         return out
 
     def handle(self, session: str, request: Request, now: datetime) -> list[Effect]:
@@ -57,7 +57,8 @@ class Engine:
         if isinstance(request, UpdateSettings):     # a lookup reads the app's stored config: replan only
             if isinstance(self.settings, EngineSettings):
                 self.settings = request.settings
-            return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
+            sessions = self.store.sessions() if request.sessions is None else request.sessions
+            return [e for s in sessions for e in self._plan_unit(s, now)]
         if isinstance(request, Appear):
             self.store.reveal(request.student)
             return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
@@ -71,9 +72,9 @@ class Engine:
                 self.store.add_session(session, request.level, request.capacity, request.start, request.regulars,
                                        now, joined_at=request.joined_at)
                 return self._plan(session, now)
-            out = self._commit(answers.handle(self.store.snapshot(session), self.settings_for(session),
-                                              request, now).effects)
-            out += self._plan(session, now)
+            settings = self.settings_for(session)          # one lookup per unit: answer and plan agree
+            out = self._commit(answers.handle(self.store.snapshot(session), settings, request, now).effects)
+            out += self._plan(session, now, settings)
         # A same-hour close (answers rule 10) touched other sessions: each replans in its own unit,
         # after this one commits, so no call holds two sessions' locks.
         touched = sorted({e.session for e in out} - {session})
@@ -83,8 +84,9 @@ class Engine:
         with self.store.unit((session,)):
             return self._plan(session, now)
 
-    def _plan(self, session: str, now: datetime) -> list[Effect]:
-        return self._commit(planner.plan(self.store.snapshot(session), self.settings_for(session), now).effects)
+    def _plan(self, session: str, now: datetime, settings: EngineSettings | None = None) -> list[Effect]:
+        settings = self.settings_for(session) if settings is None else settings
+        return self._commit(planner.plan(self.store.snapshot(session), settings, now).effects)
 
     def _commit(self, effects: Iterable[Effect]) -> list[Effect]:
         effects = list(effects)

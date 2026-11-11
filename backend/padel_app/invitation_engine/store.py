@@ -137,9 +137,8 @@ class MemoryStore:
         for e in effects:
             self.history.append(e)
             s = self._sessions[e.session]
-            if isinstance(e, fx.CoachAlert):
-                if e.spot_type is not None:                    # one alert per session and type (rule 11)
-                    s.alerted[e.spot_type] = e.spots
+            if isinstance(e, fx.CoachAlert):                   # one alert per session and type (rule 11)
+                s.alerted[e.spot_type] = e.spots
                 continue
             if isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
