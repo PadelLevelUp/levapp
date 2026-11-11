@@ -15,6 +15,7 @@ from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotType, Wait
 MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_invite", "side_moved"]
 AbsenceKind = Literal["justified", "unjustified", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
+AlertReason = Literal["no_candidate"]
 
 
 @dataclass(frozen=True)
@@ -133,11 +134,16 @@ class WaitingListLeft(Effect):
 @dataclass(frozen=True)
 class CoachAlert(Effect):
     """No tier can take an open spot of ``spot_type`` (plan §6 step 4, engine-planning rule 11);
-    ``spots`` is how many of that type were uncovered, so the store alerts again only when it changes."""
+    ``spots`` is how many of that type were uncovered, so the store alerts again only when it changes.
 
-    reason: str
-    spot_type: SpotType | None = None
-    spots: int = 0
+    Everything the app needs to tell the coach, with no text to parse (PAD-915): the session and
+    instant, ``reason`` a code (``constants.ALERT_NO_CANDIDATE``), the type's side (``None``: either
+    side) and level, and the count. The store turns it into the coach's message (``COACH_ALERT``) or
+    a dashboard card; the wording is the app's."""
+
+    reason: AlertReason
+    spot_type: SpotType
+    spots: int
 
 
 @dataclass(frozen=True)

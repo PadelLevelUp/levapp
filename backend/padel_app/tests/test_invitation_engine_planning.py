@@ -132,7 +132,7 @@ def test_coach_alert_once_per_type_until_its_count_changes():
     store = _store(4, 3)                                    # one right spot, nobody in the pool
     first = plan(store.snapshot("A"), settings, T0).effects
     alerts = [e for e in first if isinstance(e, fx.CoachAlert)]
-    assert [(a.spot_type, a.spots) for a in alerts] == [(SpotType("R", 3), 1)]
+    assert [(a.reason, a.spot_type, a.spots) for a in alerts] == [("no_candidate", SpotType("R", 3), 1)]
     store.apply(first)
     assert [e for e in plan(store.snapshot("A"), settings, T0 + HOUR).effects
             if isinstance(e, fx.CoachAlert)] == []          # already raised for this type and count

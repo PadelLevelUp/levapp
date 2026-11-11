@@ -16,6 +16,7 @@ KIND_ADDED = "added"
 KIND_WAITING_LIST_INVITE = "waiting_list_invite"
 KIND_SIDE_MOVED = "side_moved"
 COACH_ALERT = "coach_alert"
+ALERT_NO_CANDIDATE = "no_candidate"           # CoachAlert.reason: no tier can take the spots
 
 
 def side_quota(capacity: int) -> int:

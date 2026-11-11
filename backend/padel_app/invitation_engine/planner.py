@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Literal
 
 from padel_app.invitation_engine import timeline
-from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, side_quota
+from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE, LOWER_TIER_PER_SPOT, side_quota
 from padel_app.invitation_engine.effects import (
     Absence,
     CoachAlert,
@@ -542,8 +542,7 @@ def _alerts(run: _Run, types: list[tuple[SpotType, int]], now: datetime) -> tupl
     out = []
     for spot_type, spots in types:
         if not run.buckets(spot_type) and run.snapshot.alerted.get(spot_type) != spots:
-            side = spot_type.side or "either"
-            out.append(CoachAlert(run.snapshot.id, now, f"no candidate for {spots} {side} spot(s)", spot_type, spots))
+            out.append(CoachAlert(run.snapshot.id, now, ALERT_NO_CANDIDATE, spot_type, spots))
     return tuple(out)
 
 
