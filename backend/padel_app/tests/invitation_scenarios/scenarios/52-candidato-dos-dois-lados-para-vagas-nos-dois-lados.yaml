@@ -3,13 +3,16 @@ title: um candidato que joga dos dois lados para vagas nos dois lados
 source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1213, 1228]}
 what_it_tests: o aluno que joga dos dois lados conta só uma vez, e o seu lado adapta-se para encher a aula
 tags: [both-sides, groups, sides]
-depends_on: [U5]
+derived_from: [D17, D20]
 corrections: []
 notes: >
   B1 is a label for the PDF's unnamed level-2 both-sides student. B1 covers one spot by heads. For the
   other spot group 4 enters at once with the full X = 3 (R1; U5). B1's invitation names no side ("para
   qualquer lado"). When the right fills, B1's Yes takes the left (R12: the both-sides student goes to the
   spot that the lower groups cannot fill).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): B1's either-side offer covers one spot. The other goes to
+  group 4 at 1 per spot, because group 3 (B1) is the ideal tier for both types (D17).
 
 roster:
   regulars: {L: 7, R: 7}
@@ -22,8 +25,8 @@ timeline:
     expect:
       invitations:
         - {who: B1, side_named: null, group: 3}
-        - {cohort: L3R, count: 3, side_named: null, group: 4}
-      invitations_total_sent: 4
+        - {cohort: L3R, count: 1, side_named: null, group: 4}
+      invitations_total_sent: 2
   - at: 2026-11-01 19:10
     events: [{accepts: {cohort: L3R, state: invited, as: r1}}]
     expect:

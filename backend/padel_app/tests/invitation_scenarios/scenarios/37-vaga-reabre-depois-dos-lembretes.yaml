@@ -3,7 +3,7 @@ title: vaga reabre depois dos lembretes
 source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [926, 942]}
 what_it_tests: depois dos lembretes, a waiting list recebe convite e o primeiro Sim fica com a vaga
 tags: [waiting-list, aviso, tiebreak]
-depends_on: [U16, U25, U26]
+derived_from: [§7, Q6, D1]
 corrections: []
 notes: >
   Initial state and 19:00-19:10 as in scenario 36. E1 to E5 carry participations 5..1 so that the
@@ -11,6 +11,11 @@ notes: >
   That is the waiting-list exception to "não se convida o mesmo aluno duas vezes". E3's invitation stays
   valid (U25). Open heads (E2 and E3) cover the one spot, so no further level-2 is invited (R1). After the
   Aviso, E2 stays on the list (U26).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): E2 got the Aviso on 1 Nov and keeps their one invitation
+  (D1). When the left reopens on 2 Nov at 18:00, the same invitation is re-offered (Q6, `reoffer`) rather
+  than a new one sent; group 2 is the ideal tier, so E4 and E5 are not invited. The class fills with E3 at
+  18:20, so E2's 18:25 Yes gets the Aviso.
 
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 roster:
@@ -45,7 +50,8 @@ timeline:
   - at: 2026-11-02 18:00
     events: [{regular_no: L-1}]
     expect:
-      invitations: [{who: E2, group: 2}]
+      invitations: none
+      messages: [{who: E2, kind: reoffer}]
       missing: {L: 1, R: 0}
   - at: 2026-11-02 18:20
     events: [{accepts: E3}]

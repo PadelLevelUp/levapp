@@ -3,7 +3,7 @@ title: "6 à esquerda e 2 à direita: todo o limite vai para a direita"
 source: {section: "Cenários 91 a 95: limite de convites e equilíbrio dos lados", lines: [1976, 1997]}
 what_it_tests: o lado mais vazio recebe os convites primeiro, e o outro lado entra assim que os dois se aproximam
 tags: [max-open, sides, rounds]
-depends_on: [U7]
+derived_from: [§2, D16]
 corrections: []
 notes: >
   M counts only unanswered invitations of the current round (R10); each round sends X x spots up to M without
@@ -12,6 +12,10 @@ notes: >
   top-up; open_in_round is checked after the engine runs, so it is those 8 plus the 4 left invitations = 12.
   The 2 right invitations above the ideal of 6 are not cancelled (lines 2188-2191). 19:40 is 20 minutes after
   the 19:20 round; the 19:25 top-up has no clock of its own (line 170). All 40 candidates are used.
+
+  Re-derived under the plan (PAD-900, 2026-11-11): The 19:00 tie between the types uses the coordinator's tie
+  rule (more vacant side first). 19:40: the 4 L2L sent at 19:25 count until 19:45 (each invitation its own T,
+  §2), so the left tops up by 2.
 
 roster:
   regulars: {L: 6, R: 2}
@@ -46,7 +50,7 @@ timeline:
   - at: 2026-11-01 19:40
     expect:
       invitations:
-        - {cohort: L2L, count: 6, side_named: null, group: 3}
+        - {cohort: L2L, count: 2, side_named: null, group: 3}
         - {cohort: L2R, count: 6, side_named: null, group: 3}
   - at: 2026-11-01 19:50
     events:

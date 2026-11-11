@@ -12,6 +12,9 @@ Opt-in (design §8), because most scenarios fail on today's engine by design:
 - ``INVITATION_SCENARIOS=baseline``: compare each scenario with baseline-today.yaml; a
   scenario that passed there and fails now fails the test, any other change is reported.
 - ``INVITATION_SCENARIOS_OUT=<dir>``: also write each scenario's normalized log there.
+- ``INVITATION_ENGINE=new`` (PAD-902): run against the redesign plan's engine through
+  adapters/new.py instead of today's; unset or ``today`` keeps today's adapter. The baseline is
+  today's, so ``baseline`` mode refuses ``new``.
 """
 import json
 import os
@@ -25,6 +28,7 @@ from padel_app.tests.invitation_scenarios.runner import dump_log, dump_yaml, run
 
 HERE = Path(__file__).parent
 MODE = os.getenv("INVITATION_SCENARIOS", "").strip().lower()
+ENGINE = os.getenv("INVITATION_ENGINE", "").strip().lower() or "today"
 BASELINE = HERE / "baseline-today.yaml"
 
 
@@ -50,6 +54,22 @@ def test_schema_and_validator_name_the_same_vocabulary():
     assert set(schema["properties"]["tags"]["x-known"]) == validate.TAGS
 
 
+def _adapter(request):
+    if ENGINE == "new":
+        if MODE == "baseline":
+            pytest.fail("baseline-today.yaml is today's engine's baseline; run INVITATION_ENGINE=new with "
+                        "INVITATION_SCENARIOS=1")
+        from padel_app.tests.invitation_scenarios.adapters.new import NewAdapter
+
+        return NewAdapter()
+    if ENGINE != "today":
+        pytest.fail(f"INVITATION_ENGINE={ENGINE!r}: expected today or new")
+    app = request.getfixturevalue("app")
+    from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
+
+    return TodayAdapter(app)
+
+
 def _baseline() -> dict:
     if not BASELINE.exists():
         return {}
@@ -60,10 +80,7 @@ def _baseline() -> dict:
 def test_scenario(path, request):
     if MODE not in ("1", "baseline"):
         pytest.skip("opt-in: set INVITATION_SCENARIOS=1 (or =baseline) to run the invitation scenarios")
-    app = request.getfixturevalue("app")
-    from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
-
-    result = run_scenario(path, TodayAdapter(app))
+    result = run_scenario(path, _adapter(request))
     out = os.getenv("INVITATION_SCENARIOS_OUT")
     if out:
         dump_log(result, Path(out))
@@ -89,8 +106,8 @@ class _ScriptedEngine:
 
     name = "scripted"
 
-    def __init__(self, wrong=False):
-        self.wrong = wrong
+    def __init__(self, wrong=False, alert_at=None):
+        self.wrong, self.alert_at = wrong, alert_at
 
     def setup(self, sc):
         from padel_app.tests.invitation_scenarios.runner import parse_local
@@ -111,6 +128,8 @@ class _ScriptedEngine:
         for sid in self.plan.pop(fmt(now), []):
             self.open.append((sid, None, now))
             self.pending.append(Record("invited", sid, "A", now, {"side_named": None, "group": None}))
+        if fmt(now) == self.alert_at:
+            self.pending.append(Record("alert", "", "A", now, {"reason": "no_tier"}))
 
     def apply(self, event, who, params, cls, now):
         from padel_app.tests.invitation_scenarios.runner import Applied, Record
@@ -152,3 +171,25 @@ def test_runner_passes_a_correct_engine_and_fails_a_wrong_one():
     bad = run_scenario(path, _ScriptedEngine(wrong=True))
     assert bad.outcome == "fail"
     assert bad.first.at == "2026-11-01 20:20" and bad.first.key == "invitations"
+
+
+def test_coach_alert_true_needs_an_alert_record_and_false_needs_none(tmp_path):
+    text = (HERE / "scenarios" / "04-grupo-esgota-se-sem-resposta.yaml").read_text(encoding="utf-8")
+    text = text.replace("  - at: 2026-11-01 20:00\n    expect: {invitations: none}",
+                        "  - at: 2026-11-01 20:00\n    expect: {invitations: none, coach_alert: true}")
+    text = text.replace("  - at: 2026-11-01 19:00\n    expect: {invitations:",
+                        "  - at: 2026-11-01 19:00\n    expect: {coach_alert: false, invitations:")
+    assert text.count("coach_alert") == 2
+    path = tmp_path / "04-grupo-esgota-se-sem-resposta.yaml"
+    path.write_text(text, encoding="utf-8")
+
+    good = run_scenario(path, _ScriptedEngine(alert_at="2026-11-01 20:00"))
+    assert good.outcome == "pass", yaml.safe_dump(good.summary())
+
+    late = run_scenario(path, _ScriptedEngine(alert_at="2026-11-01 20:05"))
+    assert late.outcome == "fail" and late.first.key == "coach_alert"
+    assert late.first.at == "2026-11-01 20:00"
+
+    early = run_scenario(path, _ScriptedEngine(alert_at="2026-11-01 19:00"))
+    assert early.outcome == "fail" and early.first.key == "coach_alert"
+    assert early.first.at == "2026-11-01 19:00"

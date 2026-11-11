@@ -3,13 +3,17 @@ title: só recebe convite quem está num grupo
 source: {section: "Cenários 72 a 79: outras regras e parâmetros", lines: [1603, 1617]}
 what_it_tests: para receber convite, um aluno tem de ser elegível e pertencer a um grupo de prioridade
 tags: [eligibility, groups]
-depends_on: [U30]
+derived_from: [§6 step 4]
 corrections: []
 notes: >
   Level 1 is two above the class: eligible, but no group holds it (groups are +1 and 0 only). Level 4 is
   below the class and not eligible. invitations_total_sent pins that only the one L3R was ever invited. "O
   professor vê no dashboard que a aula não está cheia" (no coach alert, U30) cannot be observed in the
   normalized log; the final 8/7 roster stands for it.
+
+  Re-derived under the plan (PAD-900, 2026-11-11): At 20:00 the only invitee stops counting (60m: their round
+  exhausted the tier) and no tier can take the spot, so the plan alerts the coach (§6 step 4), replacing the
+  PDF's dashboard-only reading (U30).
 
 roster:
   regulars: {L: 8, R: 7}
@@ -27,5 +31,6 @@ timeline:
     expect:
       invitations: none
       invitations_total_sent: 1
+      coach_alert: true
 final:
   roster: {L: 8, R: 7}

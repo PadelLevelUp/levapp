@@ -13,12 +13,13 @@
 #   always              one Alembic head, on the COMMIT's migrations (untracked parents don't count)
 #   *.json changed      each file parses
 #   frontend/ changed   tsc web (tsconfig.app.json) + tsc mobile + tsc admin + `npm test` (web, packages, mobile, admin)
-#   backend/ or .cortex/compass/ changed  pytest (SQLite): the changed test files, the tests that import a changed
+#   backend/ or cortex/ changed  pytest (SQLite): the changed test files, the tests that import a changed
 #                       module, and every source-scanning guard (ratchets, heads, registries…);
 #                       a changed route module (padel_app/modules/) adds test_frontend_api_authz.py;
 #                       --full, or a change to models/migrations, runs the whole suite
-#   .cortex/ .specflow/ `cortex validate` names none of the changed files
-# Markdown files never trigger the frontend/backend checks, except .cortex/compass/ (B-240). Missing node_modules or backend/.venv
+#   cortex/             `cortex store validate` reports no error
+#   .specflow/          `cortex validate` names none of the changed files
+# Markdown files never trigger the frontend/backend checks, except cortex/ (B-240). Missing node_modules or backend/.venv
 # is reported as such, not as a compiler error.
 # Not covered locally (CI only): Postgres + `flask db check`, the Android/Maestro lane.
 #
@@ -85,10 +86,12 @@ if [ -z "$TREE_ONLY" ] && [ "$SHA" = "$(git rev-parse HEAD)" ]; then
   [ "${UNTRACKED:-0}" -gt 0 ] && echo "(warning: $UNTRACKED untracked path(s) are in the tree the tests run on and will not be pushed — e.g. a parent migration placed for local runs: git status --short | grep '^??')"
 fi
 
-# Markdown (CLAUDE.md, specs, notes) never triggers a code check; .cortex/.specflow have their own.
+# Markdown (CLAUDE.md, specs, notes) never triggers a code check; cortex/ and .specflow/ have their own.
 CODE_CHANGED="$(printf '%s\n' "$CHANGED" | grep -vE '\.md$' || true)"
-changed() { printf '%s\n' "$CODE_CHANGED" | grep -qE "$1"; }
-changed_any() { printf '%s\n' "$CHANGED" | grep -qE "$1"; }
+# Here-strings, not `printf | grep -q`: under pipefail, grep -q exiting at its first match on a long
+# list SIGPIPEs printf, the pipeline answers 141, and the check is silently skipped (PAD-905).
+changed() { grep -qE "$1" <<<"$CODE_CHANGED"; }
+changed_any() { grep -qE "$1" <<<"$CHANGED"; }
 PY="$ROOT/backend/.venv/bin/python"
 
 # 1. One Alembic head — on the commit's migrations, so a parent placed untracked for local runs
@@ -140,10 +143,10 @@ fi
 
 # 4. Backend — pytest on SQLite (backend-tests.yaml runs the whole suite on both databases).
 BACKEND_TOUCH='^backend/|^frontend/apps/web/e2e/scripts/|^frontend/apps/mobile/src/lib/push-routing'
-# B-240: the ledger-index and rule-number guards are backend tests over .cortex/compass/ — Markdown,
-# which changed() ignores — so a ledger-only push skipped them and an emptied bugs/_index.md reached
-# a PR. changed_any() sees Markdown.
-backend_due() { changed "$BACKEND_TOUCH" || changed_any '^\.cortex/compass/'; }
+# B-240: some backend guards scan the knowledge layer's Markdown (test_public_knowledge_layer_guard
+# reads cortex/), which changed() ignores — so a Markdown-only push skipped them and an emptied
+# ledger index reached a PR in the 3.x store. changed_any() sees Markdown.
+backend_due() { changed "$BACKEND_TOUCH" || changed_any '^cortex/'; }
 if [ -n "$TREE_ONLY" ]; then
   :
 elif { backend_due || [ $FULL -eq 1 ]; } && [ ! -x "$PY" ]; then
@@ -174,7 +177,7 @@ $(grep -lE 'rglob\(|os\.walk\(|ast\.parse\(|check_alembic|LEGACY_MAX|git ls-file
     done
     # d) a changed route module also runs the route-map authz guard, which takes the app and so
     #    is not in a) — PAD-786's unauthenticated debug route reached CI past this gate.
-    printf '%s\n' "$CHANGED" | grep -qE '^backend/padel_app/modules/.*\.py$' && IMP="$IMP $T/test_frontend_api_authz.py"
+    changed_any '^backend/padel_app/modules/.*\.py$' && IMP="$IMP $T/test_frontend_api_authz.py"
     SEED=""; changed '^frontend/apps/web/e2e/scripts/' && SEED="../frontend/apps/web/e2e/scripts"
     SELECT="$(printf '%s\n' $GUARDS $CT $IMP | sort -u | sed 's#^backend/##' | tr '\n' ' ') $SEED"
     echo "(backend selection: $(printf '%s\n' $SELECT | grep -c .) test paths — guards + changed + importers)"
@@ -182,11 +185,17 @@ $(grep -lE 'rglob\(|os\.walk\(|ast\.parse\(|check_alembic|LEGACY_MAX|git ls-file
   step "pytest (sqlite)" bash -c "cd backend && PYTHONPATH=\$PWD '$PY' -m pytest $SELECT -q -p no:warnings -p no:cacheprovider"
 fi
 
-# 5. The knowledge layer names none of the changed files.
-if [ -z "$TREE_ONLY" ] && changed_any '^\.cortex/|^\.specflow/' && command -v cortex >/dev/null; then
+# 5. The knowledge layer: the 4.0 store has no error; the 3.x spec tree names none of the changed files.
+if [ -z "$TREE_ONLY" ] && changed_any '^cortex/' && command -v cortex >/dev/null; then
+  # Exit status, not output: the store prints `error check.…` lines and exits 1 on any error.
+  store_check() { local out; out="$(cortex store validate 2>&1)" && return 0
+    printf '%s\n' "$out" | grep '^error' | head -30; return 1; }
+  step "cortex store validate" store_check
+fi
+if [ -z "$TREE_ONLY" ] && changed_any '^\.specflow/' && command -v cortex >/dev/null; then
   cortex_check() { local out; out="$(cortex validate 2>&1)"; local hit=0 f
-    for f in $(printf '%s\n' "$CHANGED" | grep -E '^\.(cortex|specflow)/'); do
-      if printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | grep -qF "$f"; then echo "cortex validate names $f"; hit=1; fi
+    for f in $(printf '%s\n' "$CHANGED" | grep -E '^\.specflow/'); do
+      if grep -qF -- "$f" <<<"$(grep -A3 '\[ERROR\]' <<<"$out")"; then echo "cortex validate names $f"; hit=1; fi
     done
     [ $hit -eq 0 ] || printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | head -30
     return $hit; }

@@ -122,7 +122,8 @@ export interface AuthConfig {
 export type WorkSource<T> =
   | ({ status: "ok" } & T)
   | { status: "not_configured"; missing: string }
-  | { status: "unavailable"; lastOkAt: string | null };
+  | { status: "unavailable"; lastOkAt: string | null }
+  | { status: "retired" };
 export interface WorkTicket {
   id: string; title: string; summary: string; state: string | null; stateType: string | null;
   priority: number; assignee: string | null; createdAt: string | null; url: string | null;

@@ -3,7 +3,7 @@ title: "lados empatados: a vaga que sobra vai para o lado com menos candidatos"
 source: {section: "Cenários 91 a 95: limite de convites e equilíbrio dos lados", lines: [2060, 2082]}
 what_it_tests: com os lados empatados em confirmados, a vaga a mais vai para o lado mais difícil de preencher
 tags: [max-open, sides, rounds]
-depends_on: []
+derived_from: [D16]
 corrections: [E1]
 notes: >
   M is 9. 19:00: 3 spots covered, 1 per side, the leftover to the left (6 candidates against 16). 19:10: the
@@ -14,6 +14,10 @@ notes: >
   is 6 right-siders only. The left needs no other group: its 5 open invitations cover its 1 spot (R2).
   No U tag: the analysis (C8) finds 93-95 agree with the plan. The 19:30 Aviso probe is derived from "Quem
   disser Sim depois vê o Aviso" (R9).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): M caps the session's counting invitations (D16). The 6 L2L
+  sent at 19:00 exhausted their tier, so they count 60m and still hold 5 of the 9 at 19:20 (one accepted);
+  with the right's 19:10 invitation that leaves room for 3 L2R, not 6.
 
 settings:
   max_open: 9
@@ -40,7 +44,7 @@ timeline:
       open_in_round: 9
   - at: 2026-11-01 19:20
     expect:
-      invitations: [{cohort: L2R, count: 6, side_named: null, group: 3}]
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
   - at: 2026-11-01 19:25
     events:
       - {accepts: {cohort: L2L, state: invited, as: b1}}

@@ -3,12 +3,17 @@ title: um lado tem regulares a mais
 source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1264, 1282]}
 what_it_tests: os convites respeitam a capacidade total, e os regulares a mais não são forçados a mudar de lado
 tags: [unbalanced, regulars, aviso, max-open]
-depends_on: [U9, U11, U26]
+derived_from: [§8 step 6, S18]
 corrections: []
 notes: >
   10 left regulars is over half capacity, so the missing count is for the whole class (4, not 6) and
   every invitation goes to the under-filled right (R6). 12 = 4 × 3 also equals M. The 19:18 Yes gets
   the Aviso: the class is full although the right holds only 6. No one is moved to another side (U11).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): At last_invite_at the two left regulars over the quota
+  move right and are notified (§8 step 6, S18; coordinator F2). Who moves: the coach's choice, else whoever
+  moved least recently; on a tie, the regular who joined the class most recently (L-10, then L-9). The added
+  08:30 step is an observation; no event changes.
 
 roster:
   regulars: {L: 10, R: 2}
@@ -38,5 +43,13 @@ timeline:
     events: [{accepts: {cohort: L2R, state: invited, as: r5}}]
     expect:
       messages: [{who: r5, kind: aviso}]
+  - at: 2026-11-03 08:30
+    derived: true
+    derived_from: [§8 step 6, S18]
+    expect:
+      roster: {L: 8, R: 8}
+      messages:
+        - {who: L-10, kind: side_moved}
+        - {who: L-9, kind: side_moved}
 final:
-  roster: {L: 10, R: 6}
+  roster: {L: 8, R: 8}

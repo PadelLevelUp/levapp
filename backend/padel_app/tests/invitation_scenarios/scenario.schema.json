@@ -105,6 +105,14 @@
         "pattern": "^E[1-6]$"
       }
     },
+    "derived_from": {
+      "description": "The plan's rules that decide this file's expected outcome after the 2026-11-11 re-derivation (brief §2): D1-D20, Q2-Q10, S1-S33 or a plan section such as §6.4. A section may name a step: \"§8 step 6\".",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(D([1-9]|1\\d|20)|Q([2-9]|10)|S([1-9]|[12]\\d|3[0-3])b?|§\\d+(\\.\\d+)*( step \\d+(\\.\\d+)*)?)$"
+      }
+    },
     "notes": {
       "type": [
         "string",
@@ -122,7 +130,15 @@
       "additionalProperties": false,
       "properties": {
         "level": {
-          "$ref": "#/$defs/level"
+          "description": "The class's level; null for a class with no level, where no level rule applies (D3, S27).",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/level"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "capacity": {
           "type": "integer",
@@ -808,6 +824,19 @@
         {
           "type": "object",
           "required": [
+            "coach_excludes"
+          ],
+          "additionalProperties": false,
+          "description": "The coach excludes the student from this class's invitations (a gate, D13).",
+          "properties": {
+            "coach_excludes": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
             "regular_no"
           ],
           "additionalProperties": false,
@@ -1032,7 +1061,9 @@
                   "aviso",
                   "sorry",
                   "added",
-                  "waiting_list_offer"
+                  "waiting_list_offer",
+                  "reoffer",
+                  "side_moved"
                 ]
               }
             }
@@ -1145,6 +1176,10 @@
           "description": "Unanswered invitations of the current round only (the PDF's 'abertos na ronda atual', R10); open_unanswered counts all rounds.",
           "type": "integer",
           "minimum": 0
+        },
+        "coach_alert": {
+          "description": "true: at least one coach alert (normalized record `alert`) at this step, the plan's §6 step 4; false: none. Assert it only where the unfilled class is the scenario's point.",
+          "type": "boolean"
         }
       }
     },
@@ -1161,6 +1196,10 @@
         "derived": {
           "type": "boolean",
           "description": "true when the step is a probe not in the PDF text"
+        },
+        "derived_from": {
+          "description": "On a step the re-derivation added or changed: the plan rules that decide it.",
+          "$ref": "#/properties/derived_from"
         },
         "events": {
           "type": "array",

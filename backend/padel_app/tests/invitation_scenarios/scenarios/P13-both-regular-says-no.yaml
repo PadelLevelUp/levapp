@@ -1,0 +1,48 @@
+id: P13
+title: a both-sides regular says No
+source: {section: "Plano §9.2 Distinct people and flexible students", lines: [255, 255]}
+what_it_tests: the remaining both-sides regular takes the other side
+tags: [both-sides, regulars, absences]
+derived_from: [S13, §4, §8 step 5, §8 step 6]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). B-1's No before the cutoff is justified. 3 left-siders are invited for the either spot; on a Yes the
+  other both-sides regular plays right at last_invite_at.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 3, R: 3, both: 2}
+students:
+  - {cohort: L3L, count: 5, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-02 10:00
+    events: [{regular_no: B-1}]
+    expect:
+      absences: [{who: B-1, kind: justified}]
+      invitations: [{cohort: L3L, count: 3, side_named: null, group: 3}]
+      missing: {total: 1}
+  - at: 2026-11-02 10:10
+    events: [{accepts: {cohort: L3L, state: invited, as: l1}}]
+    expect:
+      placed: [{who: l1, side: L, how: invitation}]
+      missing: {total: 0}
+  - at: 2026-11-03 08:30
+    derived_from: [§8 step 6]
+    expect:
+      roster: {L: 4, R: 4}
+      messages: [{who: B-2, kind: side_moved}]
+final:
+  roster: {L: 4, R: 4}
