@@ -37,7 +37,7 @@ const WORK: WorkAnswer = {
   bugs: {
     status: "ok",
     open: [{ id: "B-1", title: "the login loops", type: "incomplete-rule", severity: "high", status: "open",
-             url: "https://github.com/PadelLevelUp/levapp/blob/staging/.cortex/compass/bugs/B-1-x.md" }],
+             url: "https://github.com/PadelLevelUp/levapp/blob/staging/cortex/history/incidents/B-1-x.md" }],
     counts: { open: { high: 1 }, resolved: 3 },
     unparsed: 0,
   },
@@ -129,6 +129,16 @@ describe("Work page (PAD-555)", () => {
     expect(screen.queryByTestId("admin-work-ticket-PAD-7")).toBeNull();
   });
 
+  it("a retired source says it is no longer shown (PAD-905)", async () => {
+    signIn("owner");
+    window.history.pushState({}, "", "/work");
+    mockFetch({ ...WORK, bugs: { status: "retired" } });
+    render(<App />);
+    const card = await screen.findByTestId("admin-work-bugs-status");
+    expect(card).toHaveTextContent(/No longer shown|Já não é mostrado/);
+    expect(screen.queryByTestId("admin-work-bugs")).toBeNull();
+  });
+
   it("asks the server to refresh only when told", async () => {
     signIn("operator");
     window.history.pushState({}, "", "/work");
@@ -137,6 +147,8 @@ describe("Work page (PAD-555)", () => {
     await screen.findByTestId("admin-work-ticket-PAD-7");
     const refreshes = () => fetchSpy.mock.calls.filter(([u]) => String(u).includes("/work?refresh=1")).length;
     expect(refreshes()).toBe(0);
+    // A refetch still running from the previous test's cached answer disables the button.
+    await waitFor(() => expect(screen.getByTestId("admin-work-refresh")).toBeEnabled());
     fireEvent.click(screen.getByTestId("admin-work-refresh"));
     await waitFor(() => expect(refreshes()).toBe(1));
   });

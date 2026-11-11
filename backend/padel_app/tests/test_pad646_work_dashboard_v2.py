@@ -1,5 +1,5 @@
 """PAD-646 — admin.work-dashboard v2 (rules 9–11): TestFlight builds from App Store Connect, open
-bugs from the ledger index and CI lane timing from GitHub Actions, each a source of its own beside
+bugs from the ledger index (retired in PAD-905) and CI lane timing from GitHub Actions, each a source of its own beside
 v1's two. Outside calls go through `work_service._request`, replaced by a fake keyed by URL; the
 App Store Connect key is generated here, never committed.
 """
@@ -25,15 +25,6 @@ ASC_PUBLIC = _KEY.public_key()
 def _iso(minutes_ago=0, days_ago=0):
     return (NOW - timedelta(days=days_ago, minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-INDEX = """# Bug ledger — index
-
-**Read this when:** …
-- [B-1](B-1-login-loop.md) — the login loops on a stale token (incomplete-rule, high, open)
-- [B-2](B-2-chip-colour.md) — a chip has the wrong colour (wrong-test, low, triaged)
-- [B-3](B-3-old.md) — an old one (layer-drift, high, resolved in PAD-9)
-- [B-4](B-4-broken.md) — a line with no parenthesis
-"""
 
 BACKEND_TESTS_YAML = """name: Backend tests
 jobs:
@@ -70,8 +61,6 @@ SQLITE_MINUTES = [30, 31, 40, 49, 50]  # newest first
 
 
 def _github(url):
-    if "/contents/.cortex/compass/bugs/_index.md" in url:
-        return _contents(INDEX)
     if "/contents/.github/workflows/backend-tests.yaml" in url:
         return _contents(BACKEND_TESTS_YAML)
     if "/contents/.github/workflows/" in url:
@@ -172,20 +161,15 @@ def test_testflight_lists_builds_with_a_signed_token_and_never_echoes_it(client,
 
 # ── rule 10: open bugs ────────────────────────────────────────────────────────
 
-def test_open_bugs_by_severity_from_the_index(client, operator, calls):
-    bugs = _work(client, operator)["bugs"]
-    assert bugs["status"] == "ok"
-    assert [(b["id"], b["severity"], b["status"]) for b in bugs["open"]] == [("B-1", "high", "open"), ("B-2", "low", "triaged")]
-    assert bugs["open"][0]["url"] == "https://github.com/PadelLevelUp/levapp/blob/staging/.cortex/compass/bugs/B-1-login-loop.md"
-    assert bugs["counts"] == {"open": {"high": 1, "low": 1}, "resolved": 1}
-    assert bugs["unparsed"] == 1
-    index_calls = [url for _, url, _ in calls if "bugs/_index.md" in url]
-    assert len(index_calls) == 1 and "ref=staging" in index_calls[0]
+def test_the_bugs_panel_is_retired_and_fetches_nothing(client, operator, calls):
+    """PAD-905: the 4.0 store has no ledger index, so the source answers `retired` without a call."""
+    assert _work(client, operator)["bugs"] == {"status": "retired"}
+    assert not [url for _, url, _ in calls if "bugs" in url or "cortex" in url]
 
 
-def test_bugs_without_a_repository_are_not_configured(client, app, operator, calls):
+def test_the_bugs_panel_is_retired_without_a_repository_too(client, app, operator, calls):
     app.config["WORK_GITHUB_REPO"] = ""
-    assert _work(client, operator)["bugs"] == {"status": "not_configured", "missing": "WORK_GITHUB_REPO"}
+    assert _work(client, operator)["bugs"] == {"status": "retired"}
 
 
 # ── rule 11: CI lanes ─────────────────────────────────────────────────────────

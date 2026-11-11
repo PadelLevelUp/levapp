@@ -19,7 +19,7 @@ MODELS = pathlib.Path(__file__).resolve().parents[1] / "models"
 #   - a lambda around the WRONG clock (`lambda: datetime.utcnow()`): late-bound, but `pin_clock`
 #     rebinds `utcnow_naive` only, so the pin never reaches it (Session-B's review of #382);
 #   - a CALL at class-body time (`utcnow_naive()`): one instant for the process's whole life.
-# The same string is R-054's `check.pattern` (.cortex/compass/rules), run by the PreWrite hook.
+# The same string is R-054's `check.pattern` (cortex/world/rules/model-clock-defaults-are-late-bound.md), run by the PreWrite hook.
 IMPORT_BOUND = re.compile(
     r"\b(default|onupdate)\s*=\s*"
     r"(?:(?:lambda\s*:\s*)?datetime\.(?:utcnow|now)\b"

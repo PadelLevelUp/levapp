@@ -35,7 +35,7 @@ function Truncated({ show }: { show: boolean | undefined }) {
   return show ? <p className="mt-2 text-xs text-muted-foreground">{t("admin.work.truncated")}</p> : null;
 }
 
-/** Rule 1: a source that is not configured or unreachable says so, in place of its sections. */
+/** Rule 1: a source that is not configured, unreachable or retired says so, in place of its sections. */
 function SourceState<T>({ name, source, children }: { name: "linear" | "github" | "testflight" | "bugs" | "ci"; source: WorkSource<T>; children: (ok: T) => ReactNode }) {
   const { t } = useTranslation();
   const when = useWhen();
@@ -45,6 +45,8 @@ function SourceState<T>({ name, source, children }: { name: "linear" | "github" 
       <h2 className="mb-1 font-semibold">{t(name === "linear" || name === "github" ? `admin.work.${name}` : `admin.work.sources.${name}`)}</h2>
       {source.status === "not_configured" ? (
         <p className="text-sm text-muted-foreground">{t("admin.work.notConfigured", { setting: source.missing })}</p>
+      ) : source.status === "retired" ? (
+        <p className="text-sm text-muted-foreground">{t("admin.work.retired")}</p>
       ) : (
         <p className="text-sm text-destructive">
           {t("admin.work.unavailable")} {source.lastOkAt ? t("admin.work.lastOk", { when: when(source.lastOkAt) }) : null}

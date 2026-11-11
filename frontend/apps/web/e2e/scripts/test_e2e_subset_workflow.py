@@ -12,7 +12,14 @@ import yaml
 ROOT = Path(__file__).resolve().parents[5]
 WORKFLOW = ROOT / ".github/workflows/e2e-subset.yaml"
 QUARANTINE = ROOT / "frontend/apps/web/e2e/pr-subset/quarantine.txt"
-LEDGER = ROOT / ".cortex/compass/bugs"
+#: The 4.0 store files a ledger entry under cortex/ with its B-id as an alias and the 3.x fields,
+#: `status:` among them, in a trailing yaml block (PAD-905).
+LEDGER = ROOT / "cortex"
+
+
+def _ledger_entry(bug_id):
+    alias = re.compile(rf"^  - {bug_id}$", re.M)
+    return next((f for f in LEDGER.rglob("*.md") if alias.search(f.read_text())), None)
 
 
 def _wf():
@@ -61,8 +68,8 @@ def test_every_quarantined_spec_cites_a_still_open_ledger_entry():
         # The line goes when its entry is fixed (rule 4): at least one cited entry is still open.
         statuses = []
         for b in ids:
-            entry = next(LEDGER.glob(f"{b}-*.md"), None)
-            assert entry is not None, f"{b} has no ledger file in .cortex/compass/bugs: {line}"
+            entry = _ledger_entry(b)
+            assert entry is not None, f"{b} has no ledger file in cortex/ (no file has it as an alias): {line}"
             statuses.append(re.search(r"^status:\s*(\S+)", entry.read_text(), re.M).group(1))
         assert any(s != "resolved" for s in statuses), f"every cited entry is resolved: {line}"
     # PAD-514 fixed B-286 and took its spec out in the same PR (rule 4).
