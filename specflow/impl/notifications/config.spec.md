@@ -716,3 +716,11 @@ test: `frontend/apps/mobile/src/features/settings/restrictions-i18n.test.ts` ›
 - **Then** the save answers 200 with the saved timing, no `pastDue`, and `pastDueUnknown: true`; the failure is logged with the coach
 - **And** the card says the check could not be made and asks nothing, also with the reminders section closed, on web and iOS; the line goes after the next timing save whose answer lacks the flag
 test: `backend/padel_app/tests/test_pad478_ask_before_sending.py` › `test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error` (+3 more)
+
+### Open questions
+- The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
+  15-minute floor drops to the engine's one minute with the new timing controls
+  (`notifications.engine-settings`, const:ENGINE_T_FLOOR there).
+- iOS at the swap — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): every setting the new engine needs ships on web and iOS together, the
+  groups editor (now tiers) included; the iOS deferrals recorded before the swap stand with their
+  reasons.

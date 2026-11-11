@@ -1588,3 +1588,12 @@ test: `backend/padel_app/tests/test_pad552_capacity_edit_follows_vacancies.py` �
 - **And** with several open spots the one with the lowest id takes them
 - **And** an invitation withdrawn for balance moves the same way when another spot now asks that side
 test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py` › `test_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second` (+14 more)
+
+### Open questions
+- Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a
+  read-only projection. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): dropped, and their readers change; a read-only projection serves only
+  `admin.engine-health` during cutover, because the engine has no spots to store (D1) and a
+  projection kept for the clients would be a second truth.
+- How a coach moves to the new engine (swap plan §7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): per coach; sessions the old engine
+  started finish on it (they drain), new sessions go to the new engine, because converting live
+  vacancies into the engine's invitations has no lossless mapping.

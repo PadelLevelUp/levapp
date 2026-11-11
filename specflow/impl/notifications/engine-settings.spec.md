@@ -72,6 +72,10 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    (`notifications.engine-timeline` rule 5).
 8. **Kept unchanged:** invitation start, last invitation, quiet hours, eligibility, restrictions, the
    daily per-student cap and one live offer per club day (postpones, D15), priority criteria.
+9. **Settings per coach (swap decision 9, PAD-912).** The engine takes a lookup from a session to its
+   coach's `EngineSettings` and asks it again for every session at every call (each session of a tick,
+   each request it handles), so a coach's saved change applies from the next call. `UpdateSettings`
+   then only re-plans that coach's sessions.
 
 ### Not this spec
 - A settings screen on web or iOS (brief §1: backend only in this wave).
@@ -196,6 +200,12 @@ Given `EngineSettings()` defaults and the `new` adapter's defaults mode (no coac
 the plan scenarios P01–P33 run, then each passes.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_defaults_are_the_plan`
 
+#### NOTIFICATIONS-ENGINE-SETTINGS-19: Each session is planned with its own coach's settings, read at every call (rule 9)
+Given two coaches with different settings and a lookup from session to settings, when the engine ticks
+and one coach's settings change between two calls, then each session is planned with its coach's
+settings, and the changed coach's sessions use the new values from the next call.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_settings_are_looked_up_per_session_at_every_call`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SETTINGS-3, SETTINGS-4 — `invitation_engine/settings.py` (the timing shape of rule 2, the floor,
@@ -211,6 +221,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    that use it).
 6. (PAD-911) SETTINGS-4's inner rounds, SETTINGS-18 — `invitation_engine/timeline.py` (the rounds of
    a tier inside its Method B share), `invitation_engine/planner.py` (the tier's rounds at send).
+7. (Swap 3, PAD-915) SETTINGS-19 — `invitation_engine/engine.py` (the settings lookup).
 
 ### Open questions
 - Is an automatically placed student's No also the "said No for this session" gate? — decision (owner
@@ -228,3 +239,15 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   (c) a coach setting. Decision (owner away, PAD-911): (a), because the share is fixed at the first
   send too, so the split stays the one announced; it gives 84's 3 rounds (9 candidates, a budget of 3).
   This is our inference, not Tomás's words.
+- One engine for all coaches or one per coach (swap decision 9) — options: an `Engine` per coach; one
+  engine with a settings lookup per session. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the lookup in the store's `sessions()` loop
+  (rule 9), because one engine keeps one tick and one lock order, and a lookup sees a saved change
+  at the next call.
+- The clients' timing floor (swap decision 7): today the clients refuse less than 15 minutes
+  (`P/config/src/restriction-bounds.ts:23`); the engine's floor is const:ENGINE_T_FLOOR.
+  Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients' floor drops to const:ENGINE_T_FLOOR with the new timing controls, because
+  one floor must hold on every surface that saves a timing.
+- Which settings ship on iOS (swap plan §6.2) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): every setting the new engine needs ships on web
+  and iOS together, the groups editor (now tiers) included; the other iOS deferrals recorded before
+  the swap stand with their reasons. This replaces "A settings screen on web or iOS" under Not this
+  spec at the swap, when the screens are specced (`notifications.config`).

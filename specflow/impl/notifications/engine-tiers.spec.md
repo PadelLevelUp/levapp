@@ -175,3 +175,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   hour or not? (PAD-911; rule 3) — decision (owner away): not, for now; "the same hour" is the same
   start, which is Tomás's "mesma hora", the owner's words and the code (`store.py`, `busy_same_time`).
   An overlap rule needs the session's end time in the engine's snapshot, which it does not carry yet.
+- Where eligibility is decided after the swap (swap decision 6) — options: the coach's rule language
+  (`eligibilityRules`) mapped into `EngineSettings.eligibility`; kept in the app. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): kept in the
+  app; the store builds `pool` with `effective_eligibility` and the engine's bar is set wide open,
+  because the engine's two integers cannot express today's rules and the app already evaluates them.
+- The same hour (rule 3) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): confirmed as the same start (recorded decision D-E26); no overlap
+  rule in the swap.

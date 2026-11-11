@@ -208,3 +208,6 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   PAD-912; the owner can reverse it): rename before any client renders it, to `waiting_list_invite`,
   because today's `waiting_list_offer` is the engine's sorry, and today's `waiting_list_invite`
   template already says exactly this message, in both locales.
+- The coach's add at the same hour, an override or not — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): no override; the coach removes the
+  student from the other session first, because Tomás's safety rule "nunca se quebra" and a refusal
+  that names the other session tells the coach what to do (swap plan §3.1).

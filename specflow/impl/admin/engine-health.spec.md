@@ -295,3 +295,8 @@ test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answer
   admin API only, never on the public `healthz`; the other-environment read costs the console a
   service token for that environment (wiring left to PAD-534).
 - Decision 2026-10-07 (coordinator default, confirmed): `delivery_incidents` rows are kept 30 days.
+
+### Open questions
+- What the console reads once vacancies are gone (swap decision 1) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): a read-only projection
+  per spot type during cutover only, then the engine's own state, because the console is the one
+  reader that must see both engines while coaches move.

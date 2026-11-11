@@ -213,3 +213,8 @@ test: `backend/padel_app/tests/test_pad330_the_student_is_told.py` › `test_a_c
 - PAD-430 is web-only in the client: iOS has no message-template editor (the templates are edited on
   the web settings page only), so there is no iOS surface to port. The rendering is server-side and
   reaches iOS recipients unchanged.
+
+### Open questions
+- Templates for the engine's new kinds (sorry, re-offer, added, side moved, the coach alert) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it):
+  written in both locales and rendered on web and iOS together; an iOS template editor stays out (the
+  PAD-430 reason under Notes).
