@@ -21,6 +21,11 @@ coach and student control over how and when that happens.
 - `notifications.coach-understands-who-gets-invited` — a rehearsal in Settings → Tutorials: pick a
   class and a player who cancels, see who would be invited right now and why, and ask about any
   student who is missing from the list
+- `notifications.coach-classes-fill-by-spot-type` — draft (PAD-899): the redesigned engine counts
+  what a class needs, asks the best-fitting students first and never withdraws an invitation; it
+  replaces the vacancy engine above when it ships
+- `notifications.student-gets-one-invitation-per-class` — draft (PAD-899): one invitation per class
+  date, a side named only when it is not the student's own, a re-offer before "sorry"
 
 ## Why it's grouped this way
 

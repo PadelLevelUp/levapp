@@ -7,7 +7,7 @@ behaviour with entities, rules, and Given/When/Then acceptance criteria.
 
 ## What it covers
 
-19 domains, 136 leaf specs (recounted 2026-10-10, when `client/` was added for the query-cache policy, PAD-586/PAD-592, after `admin.phone-console` PAD-572; `admin/` added 2026-10-06 for the staff console, PAD-530 — the earlier "16 domains, 92 leaves" dated from the migration; `mobile/` added 2026-09-11 for the Android runtime, PAD-298), migrated 2026-09-03 from the legacy `specs/` tree (one file per domain).
+19 domains, 142 leaf specs (six draft `notifications.engine-*` leaves 2026-11-11, PAD-901; recounted 2026-10-10, when `client/` was added for the query-cache policy, PAD-586/PAD-592, after `admin.phone-console` PAD-572; `admin/` added 2026-10-06 for the staff console, PAD-530 — the earlier "16 domains, 92 leaves" dated from the migration; `mobile/` added 2026-09-11 for the Android runtime, PAD-298), migrated 2026-09-03 from the legacy `specs/` tree (one file per domain).
 
 ## Why it's grouped this way
 

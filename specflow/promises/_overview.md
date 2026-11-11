@@ -6,7 +6,7 @@ The business layer: user outcomes and journeys written for stakeholders, in plai
 
 ## What it covers
 
-51 outcomes across 19 domains (`import` gained the team-run coach setup 2026-11-05, PAD-827; recounted 2026-10-10, when `client/` was added for the query-cache outcome, PAD-586/PAD-592; `admin/` added 2026-10-06 for the staff console, PAD-530; `delivery/` added 2026-10-03 for the PR E2E check, PAD-511; `mobile/` added 2026-09-11 for Android, PAD-298; two owner-pending `evaluations/` outcomes drafted 2026-09-21), authored 2026-09-03 from the developer leaves (insight-first onboarding). Files named persona-first (`coach-…`, `student-…`, `user-…`). `status: implemented` means every developer leaf behind the outcome is implemented (Policy A); `draft` means at least one is still open. `OPEN:` notes mark grouping judgment calls awaiting the owner's review.
+53 outcomes across 19 domains (two draft `notifications` outcomes for the redesigned engine 2026-11-11, PAD-901; `import` gained the team-run coach setup 2026-11-05, PAD-827; recounted 2026-10-10, when `client/` was added for the query-cache outcome, PAD-586/PAD-592; `admin/` added 2026-10-06 for the staff console, PAD-530; `delivery/` added 2026-10-03 for the PR E2E check, PAD-511; `mobile/` added 2026-09-11 for Android, PAD-298; two owner-pending `evaluations/` outcomes drafted 2026-09-21), authored 2026-09-03 from the developer leaves (insight-first onboarding). Files named persona-first (`coach-…`, `student-…`, `user-…`). `status: implemented` means every developer leaf behind the outcome is implemented (Policy A); `draft` means at least one is still open. `OPEN:` notes mark grouping judgment calls awaiting the owner's review.
 
 ## Why it's grouped this way
 

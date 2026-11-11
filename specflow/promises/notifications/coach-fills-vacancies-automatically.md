@@ -27,3 +27,13 @@ When a player drops out, the engine works through eligible students in ordered r
 - Whatever fills a spot closes or moves every other invitation for it. The student who got the spot is never told it was taken; one who answers too late is told on the invitation itself and offered the waiting list.
 
 It does not promise the engine's wording and ordering settings, the approval gate, or who is eligible.
+
+## Replaced when PAD-899's engine ships
+
+P-NOTIFICATIONS-8 and P-NOTIFICATIONS-9 (draft) replace this outcome when the redesigned engine
+ships; until then this page describes what runs. Reversed then: closing or moving other invitations
+at a fill, withdrawing invitations for side balance and retiring them as "Vaga preenchida" (an
+invitation stays open until answered or the class starts, and a late Yes gets a re-offer or "sorry");
+a freed spot asking for a side by balancing (sides come from the class's counts); one waiting list in
+join order before every group (two lists, the coach's first, ranked by the coach's criteria); and
+pacing by batches and rounds (invitations per spot, a session maximum and a counting time).
