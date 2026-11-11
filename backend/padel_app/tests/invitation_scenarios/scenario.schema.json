@@ -106,11 +106,11 @@
       }
     },
     "derived_from": {
-      "description": "The plan's rules that decide this file's expected outcome after the 2026-11-11 re-derivation (brief §2): D1-D20, Q2-Q10, S1-S33 or a plan section such as §6.4.",
+      "description": "The plan's rules that decide this file's expected outcome after the 2026-11-11 re-derivation (brief §2): D1-D20, Q2-Q10, S1-S33 or a plan section such as §6.4. A section may name a step: \"§8 step 6\".",
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^(D([1-9]|1\\d|20)|Q([2-9]|10)|S([1-9]|[12]\\d|3[0-3])b?|§\\d+(\\.\\d+)*)$"
+        "pattern": "^(D([1-9]|1\\d|20)|Q([2-9]|10)|S([1-9]|[12]\\d|3[0-3])b?|§\\d+(\\.\\d+)*( step \\d+(\\.\\d+)*)?)$"
       }
     },
     "notes": {
@@ -1041,7 +1041,8 @@
                   "sorry",
                   "added",
                   "waiting_list_offer",
-                  "reoffer"
+                  "reoffer",
+                  "side_moved"
                 ]
               }
             }
@@ -1174,6 +1175,10 @@
         "derived": {
           "type": "boolean",
           "description": "true when the step is a probe not in the PDF text"
+        },
+        "derived_from": {
+          "description": "On a step the re-derivation added or changed: the plan rules that decide it.",
+          "$ref": "#/properties/derived_from"
         },
         "events": {
           "type": "array",

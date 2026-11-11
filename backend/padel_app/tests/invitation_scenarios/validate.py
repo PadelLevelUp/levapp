@@ -59,7 +59,7 @@ SETTINGS_KEYS = {
 
 STATES = {"uninvited", "invited", "accepted", "declined", "placed", "on_waiting_list"}
 HOW = {"invitation", "direct", "auto_from_waiting_list", "regular_returns"}
-MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "reoffer"}
+MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "reoffer", "side_moved"}
 ABSENCE_KINDS = {"justified", "unjustified", "none"}
 SIDES = {"L", "R"}
 STUDENT_SIDES = {"L", "R", "both"}
@@ -98,7 +98,7 @@ HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
 DURATION_RE = re.compile(r"^(?=\d)(\d+h)?(\d+m)?$")
 U_RE = re.compile(r"^U([1-9]|[12]\d|3[01])$")
 E_RE = re.compile(r"^E[1-6]$")
-PLAN_REF_RE = re.compile(r"^(D([1-9]|1\d|20)|Q([2-9]|10)|S([1-9]|[12]\d|3[0-3])b?|§\d+(\.\d+)*)$")
+PLAN_REF_RE = re.compile(r"^(D([1-9]|1\d|20)|Q([2-9]|10)|S([1-9]|[12]\d|3[0-3])b?|§\d+(\.\d+)*( step \d+(\.\d+)*)?)$")
 COHORT_RE = re.compile(r"^L[1-6][LRB](-[a-z0-9]+(-[a-z0-9]+)*)?$")
 FILE_RE = re.compile(r"^(P?\d{2})([a-z]?)-[a-z0-9]+(-[a-z0-9]+)*\.yaml$")
 REGULAR_MEMBER_RE = re.compile(r"^([LRB])-(\d+)$")
@@ -760,7 +760,7 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
                 if not isinstance(step, dict):
                     rep.err(sp, "expected {at, events, expect}")
                     continue
-                check_keys(step, sp, rep, {"at", "derived", "events", "expect"}, {"at"})
+                check_keys(step, sp, rep, {"at", "derived", "derived_from", "events", "expect"}, {"at"})
                 at = check_at(step.get("at"), f"{sp}.at", rep)
                 if at is not None:
                     if prev is not None and at < prev:
@@ -769,6 +769,11 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
                     prev = at
                 if "derived" in step and not isinstance(step["derived"], bool):
                     rep.err(f"{sp}.derived", "expected true or false")
+                if "derived_from" in step:
+                    refs = step["derived_from"]
+                    if not isinstance(refs, list) or not all(isinstance(x, str) and PLAN_REF_RE.match(x)
+                                                             for x in refs):
+                        rep.err(f"{sp}.derived_from", "expected a list of D1..D20, Q2..Q10, S1..S33 or a plan §")
                 events = step.get("events", [])
                 if not isinstance(events, list):
                     rep.err(f"{sp}.events", "expected a list of events")
