@@ -9,7 +9,7 @@ import pytest
 
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
-from padel_app.invitation_engine.planner import plan, spot_counts, tier_for, with_postponed
+from padel_app.invitation_engine.planner import evaluate, plan, spot_counts, tier_for, with_postponed
 from padel_app.invitation_engine.settings import Eligibility, Tier
 from padel_app.invitation_engine.snapshot import Elsewhere, Invitation, Placement, SessionSnapshot, SpotType, Student
 
@@ -158,3 +158,48 @@ def test_each_ordering_id_ranks_in_its_direction():
         return _invited(plan(store.snapshot("S"), settings, T0).effects)
 
     assert on_list({"A": None, "B": 4, "C": 2}) == ["C", "B", "A"]
+
+
+def test_dry_run_gives_each_student_a_verdict_per_spot_type():
+    """Swap plan §4 (PAD-915, engine-tiers rule 11): ``evaluate`` is ``plan`` with nothing applied,
+    plus each student's verdict per open type and the type's queue, for the simulation and the
+    approval queue."""
+    store = MemoryStore()
+    students = {"NO": 3, "HIDDEN": 3, "BUSY": 3, "POST": 3, "LOW": 5, "EARLIER": 3, "P1": 3, "P2": 3, "P3": 3}
+    for sid, level in students.items():
+        store.add_student(_student(sid, "R", level=level, participations={"P2": 5, "P3": 3}.get(sid, 0)),
+                          visible=sid != "HIDDEN")
+    store.add_student(_student("LEFTY", "L"))
+    store.add_session("A", 3, 4, START, [(_student("L-1", "L"), "L"), (_student("L-2", "L"), "L"),
+                                         (_student("R-1", "R"), "R")], T0)           # one right spot
+    store.add_session("B", 3, 4, START, [(_student("BUSY", "R"), "R")], T0)          # the same hour
+    store.add_session("C", 3, 4, START + timedelta(hours=8), [], T0)                  # later that day
+    spot = SpotType("R", 3)
+    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
+                 fx.Answered("A", T0, "NO", "no", "invitation"),
+                 fx.Invited("C", T0, "POST", frozenset({spot}), None, 3, T0 + timedelta(minutes=20)),
+                 fx.Invited("A", T0, "EARLIER", frozenset({spot}), None, 3, T0 + timedelta(minutes=20))])
+    before = store.snapshot("A")
+    settings = EngineSettings()
+    now = T0 + timedelta(minutes=5)
+
+    run = evaluate(before, settings, now)
+    assert store.snapshot("A") == before, "nothing applied"
+    assert run.effects == plan(before, settings, now).effects and run.may_plan
+    stages = {v.student: (v.stage, v.tier) for v in run.verdicts if v.spot_type == spot}
+    assert stages["R-1"] == ("in_session", None)
+    assert stages["NO"] == ("said_no", None)
+    assert stages["HIDDEN"] == ("not_in_pool", None)
+    assert stages["BUSY"] == ("busy_same_time", None)
+    assert stages["POST"] == ("postponed", None)
+    assert stages["LOW"] == ("failed_eligibility", None)
+    assert stages["LEFTY"] == ("failed_tier_rule", None)
+    assert stages["EARLIER"] == ("invited_earlier", 3)
+    # X = 3 for the spot, one already counting: two more, by the coach's ordering (participations).
+    assert (stages["P2"], stages["P3"], stages["P1"]) == (("invited", 3), ("invited", 3), ("waiting", 3))
+    assert run.queues[spot] == ("P2", "P3", "EARLIER", "P1")
+    assert {v.spot_type for v in run.verdicts} == {spot}
+    # Outside the window the verdicts still explain, and the run sends nothing.
+    early = evaluate(before, settings, T0 - timedelta(days=3))
+    assert not early.may_plan and not early.effects
+    assert {v.student: v.stage for v in early.verdicts}["P2"] == "waiting"

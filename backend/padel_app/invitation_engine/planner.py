@@ -657,3 +657,85 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
     run = fresh_run()
     _walk(run, order, caps)
     return Plan(tuple(run.effects) + alerts)
+
+
+# --- the dry run (swap plan §4: the simulation and the approval queue) ------------------------
+
+VerdictStage = Literal["in_session", "said_no", "not_in_pool", "busy_same_time", "postponed",
+                       "failed_eligibility", "failed_tier_rule", "invited", "invited_earlier", "waiting"]
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """One student for one spot type: why they are out (the first gate or rule they fail, in
+    engine-tiers order), or their tier and whether this run invites them (``invited``), an earlier
+    invitation of theirs is still open (``invited_earlier``), or they wait their turn (``waiting``)."""
+
+    student: str
+    spot_type: SpotType
+    stage: VerdictStage
+    tier: int | None = None
+
+
+@dataclass(frozen=True)
+class DryRun:
+    """``plan`` on a snapshot with nothing applied: the run's effects, every student's verdict per
+    open spot type, and each type's queue (its candidates in tier, then ordering, order)."""
+
+    effects: tuple[Effect, ...]
+    verdicts: tuple[Verdict, ...]
+    queues: dict[SpotType, tuple[str, ...]]
+    may_plan: bool
+
+
+def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
+               settings: EngineSettings) -> VerdictStage:
+    """Why a student has no tier for a type: the first of ``passes``'s gates they fail, else a tier rule."""
+    sid = student.id
+    if _inside(snapshot, sid):
+        return "in_session"
+    if sid in snapshot.said_no:
+        return "said_no"
+    on_coach_list = _entry(snapshot, sid, "coach") is not None and any(t.source == "coach_list" for t in settings.tiers)
+    if not on_coach_list:                            # the coach's list bypasses the pool's gates (rule 3)
+        if not any(st.id == sid for st in snapshot.pool):
+            return "not_in_pool"
+        if sid in snapshot.busy_same_time:
+            return "busy_same_time"
+        if sid in snapshot.postponed:
+            return "postponed"
+        if not _eligible(student, snapshot, settings):
+            return "failed_eligibility"
+    return "failed_tier_rule"
+
+
+def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> DryRun:
+    """The dry run (engine-tiers rule 11, one evaluator): what ``plan`` would send at ``now`` and why
+    each student is or is not asked, per spot type. Pure: nothing is applied. A hypothetical ("this
+    student drops out") is the caller's snapshot, built without writing."""
+    effects = plan(snapshot, settings, now).effects
+    snapshot = with_postponed(snapshot, now)
+    counts = spot_counts(snapshot)
+    latest = {i.student: i for i in snapshot.invitations}
+    asked = {(e.student, t) for e in effects if isinstance(e, (Invited, Reoffered)) for t in e.offer}
+    verdicts: list[Verdict] = []
+    queues: dict[SpotType, tuple[str, ...]] = {}
+    for spot_type, _ in spot_types(snapshot, counts):
+        ranked: list[tuple[int, tuple, str]] = []
+        for sid in sorted(snapshot.students, key=_natural):
+            student = snapshot.students[sid]
+            t = tier_for(student, spot_type, counts, snapshot, settings)
+            if t is None:
+                verdicts.append(Verdict(sid, spot_type, _out_stage(student, spot_type, counts, snapshot, settings)))
+                continue
+            invitation = latest.get(sid)
+            if (sid, spot_type) in asked:
+                stage: VerdictStage = "invited"
+            elif invitation is not None and invitation.open and invitation.sorry_at is None:
+                stage = "invited_earlier"
+            else:
+                stage = "waiting"
+            verdicts.append(Verdict(sid, spot_type, stage, t))
+            ranked.append((t, _order(settings.tiers[t], student, snapshot, settings, spot_type), sid))
+        queues[spot_type] = tuple(sid for *_, sid in sorted(ranked))
+    return DryRun(effects, tuple(verdicts), queues, timeline.may_plan(snapshot, settings, now))
