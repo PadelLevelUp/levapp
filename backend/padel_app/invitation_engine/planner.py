@@ -21,7 +21,7 @@ from typing import Literal
 
 from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, side_quota
-from padel_app.invitation_engine.effects import CoachAlert, Effect, Invited
+from padel_app.invitation_engine.effects import CoachAlert, Effect, Invited, Message, Reoffered
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
@@ -251,13 +251,14 @@ class _Run:
             if student is None or sid in self.used or sid in self.sent:
                 continue
             invitation = self.latest.get(sid)
-            if invitation is not None and not (timeline.counting(invitation, self.now)
-                                               and {t.side for t in invitation.offer} & values):
+            sorry = invitation is not None and invitation.open and invitation.sorry_at is not None
+            if invitation is not None and not sorry and not (timeline.counting(invitation, self.now)
+                                                             and {t.side for t in invitation.offer} & values):
                 continue
             t = tier_for(student, spot_type, self.counts, self.snapshot, self.settings)
-            if t is not None:
+            if t is not None:                    # a "sorry" holder is chosen like an uninvited one (rule 5.1)
                 bucket = out.setdefault(t, _TierPool())
-                (bucket.fresh if invitation is None else bucket.holders).append(sid)
+                (bucket.fresh if invitation is None or sorry else bucket.holders).append(sid)
         return out
 
     def counting_for(self, spot_type: SpotType) -> int:
@@ -344,9 +345,13 @@ def _walk(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int
                 student = snapshot.students[sid]
                 offer = _offer_across(run, t, student, order, spot_type)
                 run.sent[sid] = offer
-                run.effects.append(Invited(
-                    snapshot.id, run.now, sid, frozenset(SpotType(v, snapshot.level) for v in sorted(offer)),
-                    side_named(offer, student), t, timeline.counts_until(settings, run.now, t_send)))
+                fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student),
+                          t, timeline.counts_until(settings, run.now, t_send))
+                if sid in run.latest:            # a "sorry" invitation: re-offered, never a second one (D1)
+                    run.effects += [Reoffered(snapshot.id, run.now, sid, *fields),
+                                    Message(snapshot.id, run.now, sid, "reoffer")]
+                else:
+                    run.effects.append(Invited(snapshot.id, run.now, sid, *fields))
             sent_here += len(chosen)
             run.used.update(bucket.holders)
             uncovered -= covered

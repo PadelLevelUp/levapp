@@ -173,3 +173,40 @@ def test_method_b_takes_each_tier_share_of_what_is_left():
     group4 = [i for i in adapter.store.snapshot("A").invitations if i.tier == 3]
     assert sorted(i.student for i in group4) == ["L3R-1", "L3R-2", "L3R-3"]
     assert {i.counts_until for i in group4} == {datetime(2026, 11, 2, 21, 10)}
+
+
+# --- the re-offer (W7's planner half of PLANNING-26; the seam with answers.py, coordinator ruling) --
+
+def test_sorry_invitation_is_reoffered_not_duplicated():
+    from padel_app.invitation_engine.timeline import counting
+
+    settings = EngineSettings(tiers=PLAN_TIERS, timing=Timing("fixed", HOUR, HOUR))
+    store = _store(4, 3, pool=[_student("R1", "R"), _student("R2", "R")])
+    store.apply(plan(store.snapshot("A"), settings, T0).effects)              # R1 and R2 invited, 1 spot
+    yes_at = T0 + timedelta(minutes=5)
+    store.apply([fx.Answered("A", yes_at, "R2", "yes", "invitation"), fx.Placed("A", yes_at, "R2", "R", "invitation"),
+                 fx.Sorry("A", yes_at + timedelta(minutes=1), "R1"), fx.Message("A", yes_at, "R1", "sorry")])
+    sorry = store.snapshot("A").invitation("R1")
+    assert sorry.open and sorry.sorry_at is not None and not counting(sorry, yes_at + timedelta(minutes=2))
+    reopen = T0 + timedelta(hours=3)
+    store.apply([fx.Left("A", reopen, "R2", "cancel")])                     # the right spot reopens
+    effects = plan(store.snapshot("A"), settings, reopen).effects
+    assert [type(e).__name__ for e in effects] == ["Reoffered", "Message"]
+    reoffer, message = effects
+    assert (reoffer.student, message.kind) == ("R1", "reoffer") and reoffer.offer == frozenset({SpotType("R", 3)})
+    store.apply(effects)
+    snap = store.snapshot("A")
+    assert [i.student for i in snap.invitations].count("R1") == 1                  # never a second one (D1)
+    again = snap.invitation("R1")
+    assert again.sorry_at is None and again.counts_until == reopen + HOUR
+    assert counting(again, reopen + timedelta(minutes=59)) and not counting(again, reopen + HOUR)
+
+
+def test_the_adapter_logs_a_reoffer_as_its_message_only():
+    from padel_app.tests.invitation_scenarios.adapters.new import NewAdapter
+
+    records = NewAdapter._records(NewAdapter(), [
+        fx.Sorry("A", T0, "R1"), fx.Message("A", T0, "R1", "sorry"),
+        fx.Reoffered("A", T0, "R1", frozenset({SpotType("R", 3)}), None, 2, T0 + HOUR),
+        fx.Message("A", T0, "R1", "reoffer")])
+    assert [(r.kind, r.data.get("kind")) for r in records] == [("message", "aviso"), ("message", "reoffer")]

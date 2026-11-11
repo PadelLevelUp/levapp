@@ -35,6 +35,28 @@ class Invited(Effect):
 
 
 @dataclass(frozen=True)
+class Sorry(Effect):
+    """A Yes with no room (plan §7, D4; engine-answers rule 4): the invitation stays open but stops
+    counting until the planner re-offers it. Comes with ``Message(kind="sorry")``; never with
+    ``Answered``, which would close it."""
+
+    student: str
+
+
+@dataclass(frozen=True)
+class Reoffered(Effect):
+    """The same invitation offered again (Q6, coordinator ruling (1); engine-planning rule 5.3): its
+    offer, named side, tier and counting-until replace the old ones and it counts again. Never a
+    second invitation (D1). Comes with ``Message(kind="reoffer")``."""
+
+    student: str
+    offer: frozenset[SpotType]
+    side_named: Side | None
+    tier: int | None
+    counts_until: datetime | None = None
+
+
+@dataclass(frozen=True)
 class Answered(Effect):
     student: str
     answer: Literal["yes", "no"]
