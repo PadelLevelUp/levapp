@@ -86,8 +86,11 @@ Stated as observable records; storage is the engine package's (PAD-902).
     hour close (`notifications.engine-answers` rule 10); a student cannot play two sessions at once.
 11. **Nobody left (§6 step 4).** When a spot type has uncovered spots and **no candidate in any tier**
     (no counting invitation counts for it and no uninvited student fits it), the run emits a
-    const:COACH_ALERT for the session naming the type. The store keeps one alert per session and type
-    until the type's count changes.
+    const:COACH_ALERT for the session. The alert carries a reason code (const:ALERT_NO_CANDIDATE, the
+    only one), the spot type (its side, none for an either spot, and its level) and how many spots of
+    that type are uncovered; never text. The store keeps one alert per session and type until the
+    type's count changes, and turns it into the coach's message or dashboard card, whose wording is
+    the app's (swap plan §6.3 item 7).
 12. **Why this waits for the better tier (D9).** A spot is covered once one distinct candidate holds a
     counting invitation for it; the next tier gets it only when it is uncovered.
 13. **Ties in "hardest first" when M binds (coordinator ruling 2026-11-11, U7).** When two side types
@@ -268,6 +271,12 @@ run tops up the right type and chooses them, then their invitation is re-offered
 no second invitation is created, and it counts again until a new counting-until instant.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_sorry_invitation_is_reoffered_not_duplicated`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-27: The coach alert carries a reason code, the spot type and its count, once per type until the count changes (rule 11)
+Given a type with no candidate in any tier, when runs repeat with nothing changed and then the type's
+uncovered count changes, then one alert is raised with const:ALERT_NO_CANDIDATE, the type's side and
+level and its uncovered count, none on the repeats, and a new one at the change.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_coach_alert_once_per_type_until_its_count_changes`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -280,6 +289,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 4. (W7) PLANNING-14, PLANNING-17, PLANNING-18, PLANNING-25, PLANNING-26 — `invitation_engine/planner.py` (D4, the alert),
    `invitation_engine/store.py` (one alert per session and type), `adapters/new.py` (the alert as
    `coach_alert`).
+5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
+   `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
 
 ### Open questions
 - Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator
