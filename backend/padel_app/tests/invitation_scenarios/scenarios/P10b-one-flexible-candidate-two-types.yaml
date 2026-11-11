@@ -24,23 +24,20 @@ settings:
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 
 roster:
-  regulars: {L: 4, R: 4}
+  regulars: {L: 3, R: 3}
 students:
   - {id: B1, level: 3, side: both}
   - {cohort: L3L, count: 5, level: 3, side: L}
 
 timeline:
-  - at: 2026-11-02 10:00
-    events:
-      - {regular_no: L-1}
-      - {regular_no: R-1}
+  - at: 2026-11-01 19:00
     expect:
       invitations:
         - {who: B1, side_named: null, group: 3}
         - {cohort: L3L, count: 2, side_named: null, group: 3}
       invitations_total_sent: 3
       missing: {L: 1, R: 1}
-  - at: 2026-11-02 10:10
+  - at: 2026-11-01 19:10
     events: [{declines: B1}]
     expect:
       invitations: [{cohort: L3L, count: 3, side_named: R, group: 4}]
