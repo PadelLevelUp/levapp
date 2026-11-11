@@ -29,7 +29,8 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
      all tiers; default both 20 minutes, which is the plan's single T;
    - **per tier** (Method C): a pair per tier; a tier without its own pair uses the fixed pair;
    - **progressive** (Method B, one round per tier): the engine computes, at send, the tier's share of
-     the useful time — from `first_invite_at` to `last_invite_at`, quiet hours excluded — over the tiers
+     the useful time — from the opening (the first run that plans for the spot) to `last_invite_at`,
+     quiet hours excluded — over the tiers
      that have candidates at that send, by const:METHOD_B_PART; every invitation of that tier gets its
      tier's share as T.
    Each value is at least const:ENGINE_T_FLOOR; a lower value is refused when saved.
@@ -107,8 +108,9 @@ thirds of the first's.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_method_b_parts`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-5: Method B with four tiers (rule 2)
-Given scenario 83 (four tiers, one round each), when it runs, then each tier's invitations go out when
-the previous tier's T runs out, by the 9:8:7:6 shares.
+Given scenario 83 (four tiers, one round each; the opening at 15:30 and `last_invite_at` 08:30, so a
+useful time of 17 h minus 7 h of quiet hours, 10 h), when it runs, then each tier's invitations go out
+when the previous tier's T runs out, by the 9:8:7:6 shares of those 10 h.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[83-quatro-grupos-com-menos-tempo-nos-ultimos]`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-6: Automatic entry places before the reminder hour and invites after it (rule 3)
