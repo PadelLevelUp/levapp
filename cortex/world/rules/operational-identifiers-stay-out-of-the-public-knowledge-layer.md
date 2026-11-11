@@ -10,13 +10,13 @@ aliases:
 applies_when: "When the agent does work this rule governs: operational identifiers stay out of the tracked knowledge layer; docs/ is local and disposable"
 scope:
   - action
-match: { commands: [], paths: [".cortex/**/*.md", ".specflow/**/*.md", ".claude/**/*", "*.md"] }
+match: { commands: [], paths: ["cortex/**/*.md", ".specflow/**/*.md", ".claude/**/*", "*.md"] }
 source: user@2026-09-16
 ---
 
 # R-036 — Operational identifiers stay out of the tracked knowledge layer; docs/ is local and disposable
 
-The repository is public, and so is everything tracked in `.cortex/`, `.specflow/` and
+The repository is public, and so is everything tracked in `cortex/`, `.specflow/` and
 `.claude/`. Conventions, rules, decisions, domain terms and the bug ledger belong there. **The
 operator's map of production does not**: the VM's name, the GCP project (and the bucket names
 that carry it as a prefix), the zone, the public and internal addresses, the SSH command that
@@ -32,7 +32,7 @@ never the problem here.
 **`docs/` is local, untracked and disposable** (PAD-339). It does not travel to a clone, a
 fresh worktree or a teammate, and it is not backed up. That is by design — it is what keeps
 internal prose out of a public repository — so it is never tracked. Anything that must
-outlive this machine is written into `.cortex/`, publicly.
+outlive this machine is written into `cortex/`, publicly.
 
 **Why:** PAD-344 found `.cortex/compass/environment.md` world-readable with the operational
 identifiers and data-handling specifics that the guard now hashes — beside PAD-229's then-open
@@ -45,7 +45,7 @@ home for prose", and losing them at the next worktree.
   file, stop: it goes in `docs/infra/environment.md`, and the tracked file says "see the local
   map" or uses the variable.
 - The guard test is the check: it hashes the identifiers, so it is not itself a map, and it
-  scans `.cortex/` (minus the code-mirroring `insight/`), `.specflow/`, `.claude/` and
+  scans `cortex/`, `specflow/`, `.specflow/`, `.claude/` and
   root-level Markdown on every PR. A new identifier is added as a digest, never as text.
 - The code carries what it needs (`backend/terraform/`, the workflows, `config.py`'s guard
   list). That is a separate, accepted exposure: the decision on 2026-09-16 was that the repo

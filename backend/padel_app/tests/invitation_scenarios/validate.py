@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover - environment guard
 
 TOP_KEYS_REQUIRED = {"id", "title", "source", "what_it_tests", "timeline", "final"}
 TOP_KEYS_OPTIONAL = {
-    "tags", "depends_on", "corrections", "notes", "settings", "class", "other_classes",
+    "tags", "depends_on", "corrections", "derived_from", "notes", "settings", "class", "other_classes",
     "roster", "students", "tick_every", "variant",
 }
 
@@ -59,7 +59,7 @@ SETTINGS_KEYS = {
 
 STATES = {"uninvited", "invited", "accepted", "declined", "placed", "on_waiting_list"}
 HOW = {"invitation", "direct", "auto_from_waiting_list", "regular_returns"}
-MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer"}
+MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "reoffer", "side_moved"}
 ABSENCE_KINDS = {"justified", "unjustified", "none"}
 SIDES = {"L", "R"}
 STUDENT_SIDES = {"L", "R", "both"}
@@ -76,6 +76,7 @@ EVENTS: dict[str, dict[str, bool]] = {
     "leaves_waiting_list": {},
     "coach_adds_to_waiting_list": {"side": True},
     "coach_removes_from_waiting_list": {},
+    "coach_excludes": {},
     "regular_no": {},
     "regular_returns": {},
     "cancels": {},
@@ -89,7 +90,7 @@ WHO_EVENTS = set(EVENTS) - {"class_created", "coach_sets", "other_class"}
 EXPECT_KEYS = {
     "invitations", "invitations_total_sent", "open_unanswered", "placed", "messages",
     "reminders", "absences", "missing", "roster", "nothing_sent", "waiting_list", "other_class",
-    "refused", "open_in_round",
+    "refused", "open_in_round", "coach_alert",
 }
 REFUSED_ACTIONS = {"direct_join", "waiting_list"}
 
@@ -98,11 +99,12 @@ HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
 DURATION_RE = re.compile(r"^(?=\d)(\d+h)?(\d+m)?$")
 U_RE = re.compile(r"^U([1-9]|[12]\d|3[01])$")
 E_RE = re.compile(r"^E[1-6]$")
+PLAN_REF_RE = re.compile(r"^(D([1-9]|1\d|20)|Q([2-9]|10)|S([1-9]|[12]\d|3[0-3])b?|§\d+(\.\d+)*( step \d+(\.\d+)*)?)$")
 COHORT_RE = re.compile(r"^L[1-6][LRB](-[a-z0-9]+(-[a-z0-9]+)*)?$")
 FILE_RE = re.compile(r"^(P?\d{2})([a-z]?)-[a-z0-9]+(-[a-z0-9]+)*\.yaml$")
 REGULAR_MEMBER_RE = re.compile(r"^([LRB])-(\d+)$")
 
-BOOL_VALUE_KEYS = {"derived", "nothing_sent", "class_created"}
+BOOL_VALUE_KEYS = {"derived", "nothing_sent", "class_created", "coach_alert"}
 
 
 def parse_at(value: str) -> datetime:
@@ -546,6 +548,9 @@ def check_expect(node, path: str, rep: Report, people: People, class_ids: set[st
         elif k == "nothing_sent":
             if v is not True:
                 rep.err(p, "expected `nothing_sent: true` (omit it otherwise)")
+        elif k == "coach_alert":
+            if not isinstance(v, bool):
+                rep.err(p, "expected `coach_alert: true` or `coach_alert: false`")
         elif k == "waiting_list":
             if not isinstance(v, dict):
                 rep.err(p, "expected {coach: [...], students: [...]}")
@@ -674,7 +679,8 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
         for t in tags:
             if t not in TAGS:
                 rep.warn("tags", f"{t!r} is not in the §2.6 vocabulary; explain it in notes")
-    for key, rx, what in (("depends_on", U_RE, "U1..U31"), ("corrections", E_RE, "E1..E6")):
+    for key, rx, what in (("depends_on", U_RE, "U1..U31"), ("corrections", E_RE, "E1..E6"),
+                          ("derived_from", PLAN_REF_RE, "D1..D20, Q2..Q10, S1..S33 or a plan §")):
         vals = data.get(key, [])
         if not isinstance(vals, list):
             rep.err(key, f"expected a list of {what}")
@@ -695,7 +701,7 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
         else:
             check_keys(cls, "class", rep, {"level", "capacity", "start", "created_at"})
             if "level" in cls:
-                check_level(cls["level"], "class.level", rep, nullable=False)
+                check_level(cls["level"], "class.level", rep, nullable=True)  # null: a class with no level (D3, S27)
             if "capacity" in cls:
                 check_int(cls["capacity"], "class.capacity", rep, minimum=1)
             if "start" in cls:
@@ -755,7 +761,7 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
                 if not isinstance(step, dict):
                     rep.err(sp, "expected {at, events, expect}")
                     continue
-                check_keys(step, sp, rep, {"at", "derived", "events", "expect"}, {"at"})
+                check_keys(step, sp, rep, {"at", "derived", "derived_from", "events", "expect"}, {"at"})
                 at = check_at(step.get("at"), f"{sp}.at", rep)
                 if at is not None:
                     if prev is not None and at < prev:
@@ -764,6 +770,11 @@ def validate_data(data, name: str, filename: str | None = None) -> Report:
                     prev = at
                 if "derived" in step and not isinstance(step["derived"], bool):
                     rep.err(f"{sp}.derived", "expected true or false")
+                if "derived_from" in step:
+                    refs = step["derived_from"]
+                    if not isinstance(refs, list) or not all(isinstance(x, str) and PLAN_REF_RE.match(x)
+                                                             for x in refs):
+                        rep.err(f"{sp}.derived_from", "expected a list of D1..D20, Q2..Q10, S1..S33 or a plan §")
                 events = step.get("events", [])
                 if not isinstance(events, list):
                     rep.err(f"{sp}.events", "expected a list of events")

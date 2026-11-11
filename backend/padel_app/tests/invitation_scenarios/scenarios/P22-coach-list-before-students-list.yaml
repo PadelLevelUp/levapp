@@ -1,0 +1,52 @@
+id: P22
+title: coach's list before the students' list
+source: {section: "Plano §9.4 Waiting list", lines: [280, 283]}
+what_it_tests: the coach's waiting list is asked before the students' list, and the other side is named
+tags: [coach-list, waiting-list, other-side]
+derived_from: [S22, D12, Q7, D11]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). The opening comes after the reminder hour, so the waiting lists are invited, never placed
+  automatically. Bia and Caio list for both sides, which is D12's side-free list. Ana's invitation stops
+  counting at 19:00, and the students' list takes the spot; Caio, a left-sider, is told the right side.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 4, R: 4}
+students:
+  - {id: Ana, level: 3, side: R}
+  - {id: Bia, level: 3, side: R}
+  - {id: Caio, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    events:
+      - {coach_adds_to_waiting_list: Ana, side: R}
+      - {joins_waiting_list: Bia, sides: both}
+      - {joins_waiting_list: Caio, sides: both}
+    expect:
+      invitations: none
+      waiting_list: {coach: [Ana], students: [Bia, Caio]}
+  - at: 2026-11-02 18:00
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{who: Ana, side_named: null, group: 1}]
+  - at: 2026-11-02 19:00
+    expect:
+      invitations:
+        - {who: Bia, side_named: null, group: 2}
+        - {who: Caio, side_named: R, group: 2}
+final:
+  roster: {L: 4, R: 3}

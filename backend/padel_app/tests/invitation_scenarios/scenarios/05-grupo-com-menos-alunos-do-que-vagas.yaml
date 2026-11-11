@@ -3,7 +3,7 @@ title: grupo com menos alunos do que vagas
 source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [313, 335]}
 what_it_tests: a aplicação avança logo para o grupo seguinte quando, mesmo que todos aceitem, faltariam alunos
 tags: [groups, other-side]
-depends_on: [U5, U28]
+derived_from: [D17, §2]
 corrections: []
 notes: >
   Coverage is by heads (R1): at 19:00 group 3 covers 3 of 4 spots and group 4 gets X (3) for the one
@@ -11,6 +11,12 @@ notes: >
   (R2). At 19:30 a second No leaves 3 for 4; groups 3 and 4 are exhausted, so group 5 gets X for the
   uncovered spot (R1, R2), invited to play right (side_named R). Invitations at 19:50 are not checked:
   the PDF is silent on whether group 5 runs a second round then.
+
+  Re-derived under the plan (PAD-900, 2026-11-11): 19:00: group 3 is the ideal tier for the right (it has
+  candidates), so group 4 gets 1 for the uncovered spot, not X (D17). 19:20: the 19:00 L3R stops counting (T
+  20m, its tier still had a candidate) and the No leaves 2 spots to lower tiers at 1 each: the last L3R and
+  one L2L named R. 19:30: d2 is pinned to the L3R invited at 19:00, which no longer counts, so nothing
+  changes.
 
 roster:
   regulars: {L: 8, R: 4}
@@ -24,19 +30,21 @@ timeline:
     expect:
       invitations:
         - {cohort: L2R, count: 3, side_named: null, group: 3}
-        - {cohort: L3R, count: 2, side_named: null, group: 4}
-      invitations_total_sent: 5
+        - {cohort: L3R, count: 1, side_named: null, group: 4}
+      invitations_total_sent: 4
       missing: {L: 0, R: 4}
   - at: 2026-11-01 19:20
     events: [{declines: {cohort: L2R, state: invited, as: d1}}]
     expect:
+      invitations:
+        - {cohort: L3R, count: 1, side_named: null, group: 4}
+        - {cohort: L2L, count: 1, side_named: R, group: 5}
+      open_unanswered: 5
+  - at: 2026-11-01 19:30
+    events: [{declines: {cohort: L3R, state: invited, invited_at: 2026-11-01 19:00, as: d2}}]
+    expect:
       invitations: none
       open_unanswered: 4
-  - at: 2026-11-01 19:30
-    events: [{declines: {cohort: L3R, state: invited, as: d2}}]
-    expect:
-      invitations: [{cohort: L2L, count: 3, side_named: R, group: 5}]
-      open_unanswered: 6
   - at: 2026-11-01 19:50
     events:
       - {accepts: {cohort: L2R, state: invited, as: a1}}

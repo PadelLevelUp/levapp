@@ -1,15 +1,16 @@
-# Baseline of the invitation scenarios against today's engine (PAD-846).
-# Run 2026-11-10 against 24f32ab2c (origin/staging 1bd3c160f + this branch), SQLite.
-# Classes per the reading rule (first failing step;
-# encoding > structural > decision > behavioural). Regenerate, never hand-edit counts.
+# Baseline of the invitation scenarios against today's engine (PAD-846; PAD-900 re-derivation and P files).
+# Run 2026-11-11 against feature/pad-907-coach-excludes (origin/staging 32339f2d1 + P25's
+# third gate), SQLite. Classes per the reading rule (first failing step; encoding > structural >
+# behavioural); `decision` is retired, since the owner's 2026-11-11 ruling closed the U-questions.
+# Regenerate, never hand-edit counts.
 01-exemplo-completo:
   outcome: fail
   evaluated: 16
   skipped: 4
-  depends_on:
-  - U16
-  - U23
-  - U26
+  derived_from:
+  - Q6
+  - D20
+  - §7
   class: structural
   note: 'structural: today has no automatic entry from the waiting list (W-list student not placed before the reminder hour)'
   first_failure: 2026-11-01 18:00 placed[W1]
@@ -37,18 +38,19 @@
   outcome: fail
   evaluated: 14
   skipped: 0
-  depends_on:
-  - U5
-  - U28
-  class: structural
-  note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
-  first_failure: 2026-11-01 19:30 invitations
+  derived_from:
+  - D17
+  - §2
+  class: behavioural
+  note: 'behavioural: today sends the lower group a full batch for the uncovered spot; the plan sends 1 per spot while the
+    ideal tier still counts (D17)'
+  first_failure: 2026-11-01 19:00 invitations
 06-grupo-com-mais-alunos-com-recusas:
   outcome: fail
   evaluated: 11
   skipped: 0
-  depends_on:
-  - U5
+  derived_from:
+  - D17
   class: structural
   note: 'structural: today''s rounds are per-spot batches of X, not a class-wide round of X per uncovered spot'
   first_failure: 2026-11-01 19:15 invitations
@@ -74,11 +76,14 @@
   note: 'structural: today has no between-groups timer; the next group starts when maxInactiveTime expires'
   first_failure: 2026-11-01 20:00 invitations
 09-professor-nao-aceita-outro-lado:
-  outcome: pass
-  evaluated: 5
+  outcome: fail
+  evaluated: 6
   skipped: 0
-  depends_on:
-  - U30
+  derived_from:
+  - §6 step 4
+  class: structural
+  note: 'structural: today has no coach alert when no tier can take a spot (§6 step 4)'
+  first_failure: 2026-11-01 19:00 coach_alert
 10-nivel-vale-mais-do-que-lado:
   outcome: fail
   evaluated: 7
@@ -144,8 +149,9 @@
   outcome: fail
   evaluated: 17
   skipped: 0
-  depends_on:
-  - U5
+  derived_from:
+  - D17
+  - D16
   class: structural
   note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
   first_failure: 2026-11-01 19:00 invitations
@@ -153,6 +159,9 @@
   outcome: fail
   evaluated: 11
   skipped: 0
+  derived_from:
+  - Q6
+  - D20
   class: behavioural
   note: 'behavioural: today retires the other invitations when a spot fills (rules 15/15a), so the later Yes has no open invitation'
   first_failure: 2026-11-01 19:15 events.accepts
@@ -267,15 +276,13 @@
   outcome: fail
   evaluated: 11
   skipped: 0
-  depends_on:
-  - U16
-  - U6
-  - U15
-  - U12
-  class: decision
-  note: 'decision U6: a waiting-list student added after the reminders is not invited at once while lower-group invitations
-    are open'
-  first_failure: 2026-11-02 18:30 invitations
+  derived_from:
+  - D10
+  - S7
+  class: structural
+  note: 'structural: today has one inactivity time; the round that exhausts a tier does not count for between_groups (timing
+    (c)), so group 3 resumes at 19:30 instead of 19:40'
+  first_failure: 2026-11-02 19:30 invitations
 31-vaga-para-waiting-list-no-horario-de-silencio:
   outcome: fail
   evaluated: 8
@@ -283,9 +290,9 @@
   depends_on:
   - U16
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-03 00:20 absences[L-1]
 32-lado-cheio-mas-vaga-no-outro-lado:
   outcome: fail
@@ -296,8 +303,9 @@
   - U18
   - U23
   - U24
-  class: decision
-  note: 'decision U24: a direct join to a full side is not refused; today leaves the join request pending for the coach'
+  class: behavioural
+  note: 'behavioural: a direct join to a full side is not refused; today leaves the join request pending for the coach (setting
+    direct-join)'
   first_failure: 2026-11-01 10:00 refused[X1]
 33-waiting-list-ambos-os-lados-vaga-abre-depois:
   outcome: fail
@@ -317,18 +325,18 @@
   - U16
   - U18
   - U22
-  class: decision
-  note: 'decision U18: today invites S1 for the left spot although S1 joined the list for the right side only'
+  class: structural
+  note: 'structural: today''s waiting list is not side-bound (setting wl-sides); S1 is invited for the left although they
+    listed for the right only'
   first_failure: 2026-11-02 09:00 invitations
 35-waiting-list-so-para-o-lado-cheio:
   outcome: fail
   evaluated: 9
   skipped: 0
-  depends_on:
-  - U18
-  - U22
-  class: decision
-  note: 'decision U18: today refuses the waiting-list join (the class still has a spot on the other side)'
+  derived_from:
+  - §5
+  class: behavioural
+  note: 'behavioural: today refuses the waiting-list join while the class still has a spot on the other side'
   first_failure: 2026-11-01 19:00 waiting_list.students
 36-vaga-reabre-antes-dos-lembretes:
   outcome: fail
@@ -344,12 +352,12 @@
   first_failure: 2026-11-01 19:10 messages[E2]
 37-vaga-reabre-depois-dos-lembretes:
   outcome: fail
-  evaluated: 12
+  evaluated: 13
   skipped: 0
-  depends_on:
-  - U16
-  - U25
-  - U26
+  derived_from:
+  - §7
+  - Q6
+  - D1
   class: behavioural
   note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
     is sent (notification_service.py ~6514/6533)'
@@ -369,10 +377,9 @@
   outcome: fail
   evaluated: 9
   skipped: 2
-  depends_on:
-  - U16
-  - U18
-  - U26
+  derived_from:
+  - Q6
+  - D20
   class: behavioural
   note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
     is sent (notification_service.py ~6514/6533)'
@@ -445,9 +452,9 @@
   - U23
   - U24
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-03 09:00 absences[R-1]
 47-so-ha-candidatos-do-outro-lado:
   outcome: fail
@@ -462,10 +469,10 @@
   outcome: fail
   evaluated: 13
   skipped: 0
-  depends_on:
-  - U5
-  - U10
-  - U26
+  derived_from:
+  - D17
+  - Q6
+  - D20
   class: structural
   note: 'structural: groups 5-6 (other side) cannot be expressed; today never invites for the opposite side'
   first_failure: 2026-11-01 19:00 invitations
@@ -485,9 +492,9 @@
   skipped: 0
   depends_on:
   - U11
-  class: decision
-  note: 'decision U11: today assigns the both-sides regular a side and opens the spot on the other, so it invites left-siders;
-    the PDF treats it as a spot of either side (R7)'
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regular a side at once and opens the spot on the other; the plan counts
+    an either spot and sides the regular at last_invite_at (§4, §8 step 6)'
   first_failure: 2026-11-01 19:00 invitations
 50b-regular-dos-dois-lados-cobre-o-lado-sem-candidatos:
   outcome: fail
@@ -495,9 +502,9 @@
   skipped: 0
   depends_on:
   - U11
-  class: decision
-  note: 'decision U11: today assigns the both-sides regular a side and opens the spot on the other, so it invites left-siders;
-    the PDF treats it as a spot of either side (R7)'
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regular a side at once and opens the spot on the other; the plan counts
+    an either spot and sides the regular at last_invite_at (§4, §8 step 6)'
   first_failure: 2026-11-01 19:00 invitations
 51-candidato-dos-dois-lados-conta-como-mesmo-lado:
   outcome: fail
@@ -509,11 +516,16 @@
   note: 'structural: today has no between-groups timer; the next group starts when maxInactiveTime expires'
   first_failure: 2026-11-01 19:20 invitations
 52-candidato-dos-dois-lados-para-vagas-nos-dois-lados:
-  outcome: pass
+  outcome: fail
   evaluated: 7
   skipped: 0
-  depends_on:
-  - U5
+  derived_from:
+  - D17
+  - D20
+  class: behavioural
+  note: 'behavioural: today sends the lower group a full batch for the uncovered spot; the plan sends 1 per spot while the
+    ideal tier still counts (D17)'
+  first_failure: 2026-11-01 19:00 invitations
 53-varios-regulares-que-jogam-dos-dois-lados:
   outcome: fail
   evaluated: 9
@@ -521,8 +533,9 @@
   depends_on:
   - U11
   - U26
-  class: decision
-  note: 'decision U11: the side of the open spots follows today''s both-sides assignment, not the PDF''s'
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regular a side at once and opens the spot on the other; the plan counts
+    an either spot and sides the regular at last_invite_at (§4, §8 step 6)'
   first_failure: 2026-11-01 19:00 invitations
 54-regular-que-joga-dos-dois-lados-diz-nao:
   outcome: pass
@@ -533,30 +546,35 @@
   - U29
 55-um-lado-tem-regulares-a-mais:
   outcome: fail
-  evaluated: 10
+  evaluated: 13
   skipped: 0
-  depends_on:
-  - U9
-  - U11
-  - U26
+  derived_from:
+  - §8 step 6
+  - S18
   class: behavioural
   note: 'behavioural: today retires the other invitations when a spot fills (rules 15/15a), so the later Yes has no open invitation
     (scenario not tagged U25; see report)'
   first_failure: 2026-11-01 19:18 events.accepts
 56-aula-pequena-com-um-lado-muito-carregado:
-  outcome: pass
-  evaluated: 7
+  outcome: fail
+  evaluated: 9
   skipped: 0
-  depends_on:
-  - U9
-  - U11
+  derived_from:
+  - §8 step 6
+  - S18
+  class: structural
+  note: 'structural: today never moves an over-quota regular''s side at last_invite_at (§8 step 6, S18)'
+  first_failure: 2026-11-03 08:30 roster
 57-regular-do-lado-com-excesso-diz-nao:
-  outcome: pass
-  evaluated: 11
+  outcome: fail
+  evaluated: 13
   skipped: 0
-  depends_on:
-  - U9
-  - U11
+  derived_from:
+  - §8 step 6
+  - S18
+  class: structural
+  note: 'structural: today never moves an over-quota regular''s side at last_invite_at (§8 step 6, S18)'
+  first_failure: 2026-11-03 08:30 roster
 58-regular-avisa-antes-do-inicio-dos-convites:
   outcome: pass
   evaluated: 8
@@ -569,9 +587,9 @@
   skipped: 0
   depends_on:
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-03 00:20 absences[L-1]
 60-lembretes-e-regular-que-nunca-responde:
   outcome: fail
@@ -579,8 +597,9 @@
   skipped: 0
   depends_on:
   - U29
-  class: decision
-  note: 'decision U29: no absence is recorded for a regular who never answered; the coach validates'
+  class: behavioural
+  note: 'behavioural: today records no absence for a regular who never answered and did not come; the plan records it unjustified
+    (§8 step 7)'
   first_failure: 2026-11-03 10:30 absences[R-8]
 61-falta-justificada-e-injustificada:
   outcome: fail
@@ -588,9 +607,9 @@
   skipped: 0
   depends_on:
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-02 10:40 absences[R-2]
 62-regular-volta-atras-vaga-livre:
   outcome: fail
@@ -599,8 +618,8 @@
   depends_on:
   - U29
   - U25
-  class: decision
-  note: 'decision U25: invitations are retired when the class fills, so none is open when the spot reopens'
+  class: behavioural
+  note: 'behavioural: today retires the open invitations when the class fills (rules 15/15a); the plan never revokes (D4)'
   first_failure: 2026-11-02 12:10 events.accepts
 63-regular-volta-atras-vaga-ocupada:
   outcome: fail
@@ -610,8 +629,8 @@
   - U26
   - U16
   - U29
-  class: decision
-  note: 'decision U26 (E6): a regular returning to a full side gets no Aviso; today has no such message'
+  class: behavioural
+  note: 'behavioural: a regular returning to a full side gets no Aviso; today has no such message (E6)'
   first_failure: 2026-11-02 12:00 messages[R-1]
 64-convidado-aceita-e-cancela:
   outcome: fail
@@ -620,8 +639,8 @@
   depends_on:
   - U25
   - U29
-  class: decision
-  note: 'decision U25: today retired D2/D3''s invitations at the fill and re-invites them; the PDF keeps them valid'
+  class: behavioural
+  note: 'behavioural: today retires the open invitations when the class fills (rules 15/15a); the plan never revokes (D4)'
   first_failure: 2026-11-02 10:00 invitations
 65-cancelamento-depois-do-ultimo-convite:
   outcome: fail
@@ -630,9 +649,9 @@
   depends_on:
   - U25
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-03 09:00 absences[D1]
 66-tempo-de-espera-pausa-no-silencio:
   outcome: fail
@@ -640,9 +659,9 @@
   skipped: 0
   depends_on:
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-02 23:50 absences[R-1]
 67-respostas-durante-o-silencio:
   outcome: fail
@@ -650,9 +669,9 @@
   skipped: 0
   depends_on:
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-02 23:55 absences[R-1]
 68-aula-criada-depois-do-inicio-dos-convites:
   outcome: pass
@@ -664,9 +683,9 @@
   skipped: 0
   depends_on:
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-02 23:50 absences[R-1]
 70-inicio-dos-convites-durante-o-silencio:
   outcome: pass
@@ -680,18 +699,22 @@
   outcome: fail
   evaluated: 9
   skipped: 0
-  depends_on:
-  - U25
+  derived_from:
+  - D4
+  - D15
   class: structural
   note: 'structural: no rule across two classes at the same hour; today invites D1-D3 to both (noSameDayClass off, the PDF
     never sets it)'
   first_failure: 2026-11-01 19:00 invitations
 73-so-convida-quem-esta-num-grupo:
-  outcome: pass
-  evaluated: 5
+  outcome: fail
+  evaluated: 6
   skipped: 0
-  depends_on:
-  - U30
+  derived_from:
+  - §6 step 4
+  class: structural
+  note: 'structural: today has no coach alert when no tier can take a spot (§6 step 4)'
+  first_failure: 2026-11-01 20:00 coach_alert
 74-desempate-dentro-do-grupo:
   outcome: pass
   evaluated: 6
@@ -720,23 +743,23 @@
   outcome: fail
   evaluated: 10
   skipped: 0
-  depends_on:
-  - U16
-  - U23
-  - U24
-  - U26
-  class: decision
-  note: 'decision U24: a direct join to a full side is not refused; today leaves the join request pending for the coach'
+  derived_from:
+  - D10
+  - S7
+  class: behavioural
+  note: 'behavioural: a direct join to a full side is not refused; today leaves the join request pending for the coach (setting
+    direct-join)'
   first_failure: 2026-11-02 18:10 refused[E1]
 80-uma-recusa-a-meio-de-uma-ronda:
   outcome: fail
   evaluated: 9
   skipped: 0
-  depends_on:
-  - U12
-  - U13
-  class: decision
-  note: 'decision U13: today''s timer restarts on the No, so the 19:20 round does not come'
+  derived_from:
+  - §2
+  - D16
+  class: behavioural
+  note: 'behavioural: today restarts the inactivity clock on a No, so the 19:20 top-up does not come; the plan gives each
+    invitation its own T (§2, D16)'
   first_failure: 2026-11-01 19:20 invitations
 81-todo-o-grupo-recusa-antes-do-fim-do-tempo-entre-grupos:
   outcome: fail
@@ -754,8 +777,9 @@
   depends_on:
   - U12
   - U13
-  class: decision
-  note: 'decision U13: today replaces the No at once from the next group (next-on-decline); the PDF waits for the clock'
+  class: behavioural
+  note: 'behavioural: today replaces a No at once from the next group (next-on-decline); the plan waits while the remaining
+    invitation counts (D9)'
   first_failure: 2026-11-01 19:05 invitations
 83-quatro-grupos-com-menos-tempo-nos-ultimos:
   outcome: fail
@@ -772,11 +796,12 @@
   outcome: fail
   evaluated: 9
   skipped: 0
-  depends_on:
-  - U12
-  class: structural
-  note: 'structural: Method B absent; today has one per-spot inactivity timer'
-  first_failure: 2026-11-02 16:40 invitations
+  derived_from:
+  - D16
+  - §2
+  class: behavioural
+  note: 'behavioural: today retires the open invitations when the class fills (rules 15/15a); the plan never revokes (D4)'
+  first_failure: 2026-11-02 18:45 events.accepts
 85-um-grupo-sem-candidatos-nao-conta:
   outcome: fail
   evaluated: 8
@@ -807,9 +832,9 @@
   - U12
   - U28
   - U29
-  class: decision
-  note: 'decision U29: today records a student''s No as justified and only flags lateness (presence_late_cancellation); the
-    coach decides'
+  class: behavioural
+  note: 'behavioural: today records a No as justified and only flags lateness (presence_late_cancellation), leaving the call
+    to the coach; the plan decides by the cutoff (§8 step 5)'
   first_failure: 2026-11-03 07:30 absences[R-1]
 88-cada-grupo-com-os-seus-tempos:
   outcome: fail
@@ -844,8 +869,9 @@
   outcome: fail
   evaluated: 17
   skipped: 1
-  depends_on:
-  - U7
+  derived_from:
+  - §2
+  - D16
   class: structural
   note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
   first_failure: 2026-11-01 19:00 invitations
@@ -853,8 +879,9 @@
   outcome: fail
   evaluated: 15
   skipped: 1
-  depends_on:
-  - U7
+  derived_from:
+  - §6 step 2.3
+  - D16
   class: structural
   note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
   first_failure: 2026-11-01 19:00 invitations
@@ -862,6 +889,9 @@
   outcome: fail
   evaluated: 13
   skipped: 1
+  derived_from:
+  - §2
+  - D16
   class: structural
   note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
   first_failure: 2026-11-01 19:00 invitations
@@ -873,6 +903,407 @@
   outcome: fail
   evaluated: 12
   skipped: 1
+  derived_from:
+  - D16
   class: structural
   note: 'structural: no class-wide limit M; today sends X invitations per spot (maxSimultaneous)'
   first_failure: 2026-11-01 19:00 invitations
+P02-group-smaller-than-spots:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  derived_from:
+  - S2
+  - D17
+  - D16
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 19:00 invitations
+P03a-wait-for-group-1-no:
+  outcome: fail
+  evaluated: 4
+  skipped: 0
+  derived_from:
+  - S3
+  - D9
+  - D17
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 19:10 invitations
+P03b-wait-for-group-1-silent:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S3
+  - D9
+  - D17
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 20:00 invitations
+P04-spots-on-one-side:
+  outcome: pass
+  evaluated: 4
+  skipped: 0
+  derived_from:
+  - S4
+  - D16
+P05a-nobody-answers:
+  outcome: pass
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S5
+  - D4
+  - D16
+P05b-m-caps-the-session:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  derived_from:
+  - S5b
+  - D16
+  class: structural
+  note: 'structural: no class-wide limit M; today sends X invitations per spot'
+  first_failure: 2026-11-01 19:00 invitations
+P06-lower-group-answers-first:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S6
+  - D4
+  - D9
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 20:00 invitations
+P07-better-fit-appears:
+  outcome: fail
+  evaluated: 4
+  skipped: 0
+  derived_from:
+  - S7
+  - D10
+  - D8
+  - D16
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 19:00 invitations
+P08-candidates-recomputed:
+  outcome: fail
+  evaluated: 4
+  skipped: 0
+  derived_from:
+  - S8
+  - D8
+  - D10
+  - D16
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 19:00 invitations
+P09-empty-tier-costs-no-time:
+  outcome: pass
+  evaluated: 3
+  skipped: 0
+  derived_from:
+  - S9
+  - D9
+  - §6 step 2.4
+P10a-one-flexible-candidate-two-types:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  derived_from:
+  - S10
+  - D5
+  - D6
+  - D20
+  class: behavioural
+  note: 'behavioural: today places a both-sides invitee with no side; the plan places them in the hardest type (D6)'
+  first_failure: 2026-11-02 10:10 placed[B1]
+P10b-one-flexible-candidate-two-types:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S10
+  - D5
+  - D17
+  - D20
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-02 10:10 invitations
+P11a-both-regular-fills-other-side:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  derived_from:
+  - S11
+  - §4
+  - §8 step 6
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regulars a side at once and invites for that side; the plan counts an either
+    spot (§4)'
+  first_failure: 2026-11-01 19:00 invitations
+P11b-both-regular-fills-other-side:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S11
+  - §6 step 4
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regulars a side at once and invites for that side; the plan counts an either
+    spot (§4)'
+  first_failure: 2026-11-01 19:00 invitations
+P12-several-both-regulars:
+  outcome: fail
+  evaluated: 10
+  skipped: 0
+  derived_from:
+  - S12
+  - §4
+  - §8 step 6
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regulars a side at once and invites for that side; the plan counts an either
+    spot (§4)'
+  first_failure: 2026-11-01 19:00 invitations
+P13-both-regular-says-no:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  derived_from:
+  - S13
+  - §4
+  - §8 step 5
+  - §8 step 6
+  class: structural
+  note: 'structural: today never moves or sides a regular at last_invite_at (§8 step 6)'
+  first_failure: 2026-11-03 08:30 messages[B-2]
+P14-inviting-a-flexible-student:
+  outcome: fail
+  evaluated: 3
+  skipped: 0
+  derived_from:
+  - S14
+  - D11
+  - D17
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 20:00 invitations
+P15-flexible-placement-on-yes:
+  outcome: fail
+  evaluated: 5
+  skipped: 0
+  derived_from:
+  - S15
+  - D6
+  - D20
+  class: behavioural
+  note: 'behavioural: today places a both-sides invitee with no side; the plan places them in the hardest type (D6)'
+  first_failure: 2026-11-01 19:10 placed[B1]
+P16-silent-regular:
+  outcome: fail
+  evaluated: 4
+  skipped: 0
+  derived_from:
+  - S16
+  - §8 step 3
+  - §8 step 7
+  class: behavioural
+  note: 'behavioural: today records no absence for a regular who never answered and did not come; the plan records it unjustified
+    (§8 step 7)'
+  first_failure: 2026-11-03 10:30 absences[R-1]
+P17-both-kinds-of-open-spot:
+  outcome: fail
+  evaluated: 5
+  skipped: 0
+  derived_from:
+  - S17
+  - §2
+  - §8 step 4
+  class: behavioural
+  note: 'behavioural: today sends 3 left and no right at 19:00 for an absence recorded before the invitations start; the plan
+    sends X per open spot (6 left, 3 right)'
+  first_failure: 2026-11-01 19:00 invitations
+P18a-one-side-over-two-accept:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  derived_from:
+  - S18
+  - §4
+  - §8 step 6
+  class: structural
+  note: 'structural: today never moves or sides a regular at last_invite_at (§8 step 6)'
+  first_failure: 2026-11-03 08:30 roster
+P18b-one-side-over-regular-no-first:
+  outcome: pass
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S18
+  - §4
+P19-unbalanced-with-a-both-regular:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  derived_from:
+  - S19
+  - §4
+  - §8 step 6
+  class: structural
+  note: 'structural: today never moves or sides a regular at last_invite_at (§8 step 6)'
+  first_failure: 2026-11-03 08:30 roster
+P20a-side-limit:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  derived_from:
+  - S20
+  - D17
+  - Q9
+  - Q6
+  - D20
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regulars a side at once and invites for that side; the plan counts an either
+    spot (§4)'
+  first_failure: 2026-11-01 19:00 invitations
+P20b-side-limit:
+  outcome: fail
+  evaluated: 5
+  skipped: 0
+  derived_from:
+  - S20
+  - D17
+  - Q9
+  - D20
+  class: behavioural
+  note: 'behavioural: today assigns the both-sides regulars a side at once and invites for that side; the plan counts an either
+    spot (§4)'
+  first_failure: 2026-11-01 19:00 invitations
+P21-cancellation-after-last-invite:
+  outcome: fail
+  evaluated: 8
+  skipped: 0
+  derived_from:
+  - S21
+  - D4
+  - §8 step 6
+  class: behavioural
+  note: 'behavioural: today retires the open invitations when the class fills (rules 15/15a); the plan never revokes (D4)'
+  first_failure: 2026-11-03 09:10 events.accepts
+P22-coach-list-before-students-list:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S22
+  - D12
+  - Q7
+  - D11
+  class: behavioural
+  note: 'behavioural: today''s waiting list is one list ranked by criteria: Ana and Bia are invited together and told the
+    right side; the plan asks the coach''s list first (Q7) and names a side only outside the student''s subset (D11)'
+  first_failure: 2026-11-02 18:00 invitations
+P23-waiting-list-ignores-side-and-level:
+  outcome: fail
+  evaluated: 3
+  skipped: 0
+  derived_from:
+  - S23
+  - D12
+  - D11
+  class: behavioural
+  note: 'behavioural: today does not invite the off-level left-sider on the waiting list and invites group 1''s right-siders
+    instead; the plan''s waiting list ignores side and level (D12)'
+  first_failure: 2026-11-02 18:00 invitations
+P24-waiting-list-placement:
+  outcome: fail
+  evaluated: 6
+  skipped: 0
+  derived_from:
+  - S24
+  - D7
+  - D20
+  class: behavioural
+  note: 'behavioural: today''s waiting-list invitation names the spot''s side to a right-sider; the plan names a side only
+    outside the student''s subset (D11)'
+  first_failure: 2026-11-02 18:00 invitations
+P25-gates-hold-on-waiting-list:
+  outcome: fail
+  evaluated: 5
+  skipped: 1
+  derived_from:
+  - S25
+  - D13
+  class: structural
+  note: 'structural: the coach_excludes event has no mapping on today''s engine'
+  first_failure: 2026-11-01 18:00 events.coach_excludes
+P26-level-from-the-class:
+  outcome: fail
+  evaluated: 2
+  skipped: 0
+  derived_from:
+  - S26
+  - D3
+  class: behavioural
+  note: 'behavioural: today gives the vacancy the leaving player''s level (rule 2a) and invites level-2 right-siders; the
+    plan uses the class''s level (D3)'
+  first_failure: 2026-11-02 10:00 invitations
+P27-class-without-a-level:
+  outcome: fail
+  evaluated: 3
+  skipped: 0
+  derived_from:
+  - S27
+  - D3
+  class: structural
+  note: 'structural: today requires a class level; the base level 3 stands in (setup gap), so level rules still apply'
+  first_failure: 2026-11-01 19:00 invitations
+P28-side-named-only-when-opposite:
+  outcome: fail
+  evaluated: 3
+  skipped: 0
+  derived_from:
+  - S28
+  - D11
+  - D17
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-01 19:00 invitations
+P29-never-revoked:
+  outcome: fail
+  evaluated: 9
+  skipped: 0
+  derived_from:
+  - S29
+  - D4
+  - §7
+  - Q6
+  class: behavioural
+  note: 'behavioural: today retires the open invitations when the class fills (rules 15/15a); the plan never revokes (D4)'
+  first_failure: 2026-11-01 19:20 events.accepts
+P30-quiet-hours:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  derived_from:
+  - S30
+  - D14
+  class: structural
+  note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
+  first_failure: 2026-11-02 07:30 invitations
+P31-postponed-better-group-student:
+  outcome: fail
+  evaluated: 7
+  skipped: 0
+  derived_from:
+  - S31
+  - D15
+  - D10
+  - D16
+  class: behavioural
+  note: 'behavioural: today invites X1 for A while X1 holds class B''s offer the same day, because the adapter maps the PDF
+    base (noSameDayClass off); the plan postpones X1 (D15)'
+  first_failure: 2026-11-01 20:00 invitations

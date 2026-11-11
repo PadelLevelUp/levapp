@@ -1,7 +1,7 @@
 """Guard: the tracked knowledge layer publishes no operational identifiers (PAD-344, R-036).
 
 The repository is public. Conventions, rules, decisions and the bug ledger belong in the
-tracked `cortex/` and `specflow/` trees (and the 3.x `.cortex/` and `.specflow/` while they exist); the operator's map of production does not — the
+tracked `cortex/` and `specflow/` trees (and the 3.x `.specflow/` while it exists); the operator's map of production does not — the
 VM's name, the GCP project (bucket names carry it as a prefix), the zone, the addresses and
 the SSH commands that combine them live in the local, gitignored `docs/infra/environment.md`.
 
@@ -10,9 +10,7 @@ not itself the map it guards against. To add one:
 
     python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.argv[1].lower().encode()).hexdigest())' '<identifier>'
 
-`.cortex/insight/` is excluded on purpose: it is regenerated from the code, and the code
-(Terraform, workflows, config) names what it needs; scrubbing a mirror of it would be undone
-by the next `cortex insight` run. Root-level Markdown is included.
+Root-level Markdown is included.
 """
 
 import hashlib
@@ -25,8 +23,7 @@ from padel_app.tests.git_env import git_env
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Pathspecs, from the repository root. `:(glob)*.md` is root-level Markdown only.
-GUARDED_PATHSPECS = ("cortex", "specflow", ".cortex", ".specflow", ".claude", ":(glob)*.md")
-EXCLUDED_PREFIXES = (".cortex/insight/",)
+GUARDED_PATHSPECS = ("cortex", "specflow", ".specflow", ".claude", ":(glob)*.md")
 
 IDENTIFIER_DIGESTS = frozenset(
     {
@@ -72,8 +69,7 @@ def tracked_knowledge_files():
         check=True,
         env=git_env(),
     ).stdout.decode()
-    paths = [p for p in out.split("\0") if p]
-    return [p for p in paths if not p.startswith(EXCLUDED_PREFIXES)]
+    return [p for p in out.split("\0") if p]
 
 
 def test_scanner_finds_a_planted_identifier():
@@ -87,12 +83,10 @@ def test_scanner_finds_a_planted_identifier():
 def test_guard_scans_the_knowledge_layer():
     """R-032: a guard that finds nothing to scan must fail, not pass vacuously."""
     files = tracked_knowledge_files()
-    assert ".cortex/compass/environment.md" in files
     assert "cortex/MAP.md" in files
     assert "specflow" in GUARDED_PATHSPECS
     assert any(p.startswith(("specflow/", ".specflow/")) for p in files)
     assert any(p.startswith(".claude/") for p in files)
-    assert not any(p.startswith(".cortex/insight/") for p in files)
 
 
 def test_tracked_knowledge_layer_publishes_no_operational_identifiers():

@@ -3,7 +3,7 @@ title: os dois lados precisam dos mesmos alunos
 source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1132, 1154]}
 what_it_tests: cada aluno é primeiro usado no seu lado, e só os restantes vão para o lado diferente
 tags: [groups, other-side, sides, aviso]
-depends_on: [U5, U10, U26]
+derived_from: [D17, Q6, D20]
 corrections: []
 notes: >
   Group 3 covers the left by heads with 3 of the 5 L2L and the right with the single L2R. One right spot
@@ -13,6 +13,11 @@ notes: >
   even though the right still has a spot (R9; U10 asks whether that is right). At 19:20 nothing is sent
   because every candidate has been invited. `who` uses the side_named filter (coordinator's format
   decision 2).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): 19:00: group 3 is the ideal tier for the right (the L2R),
+  so group 5 gets 1 L2L named R for the uncovered spot, not X (D17). 19:15: l2's offer (left) has filled with
+  a right spot open, so it is re-offered (Q6). 19:20: the 19:00 L2L named R stops counting, so group 5
+  invites the last L2L for the right. 19:30: l3 binds the L2L named R invited at 19:00.
 
 roster:
   regulars: {L: 7, R: 6}
@@ -26,9 +31,9 @@ timeline:
       invitations:
         - {cohort: L2L, count: 3, side_named: null, group: 3}
         - {cohort: L2R, count: 1, side_named: null, group: 3}
-        - {cohort: L2L, count: 2, side_named: R, group: 5}
-      invitations_total_sent: 6
-      open_unanswered: 6
+        - {cohort: L2L, count: 1, side_named: R, group: 5}
+      invitations_total_sent: 5
+      open_unanswered: 5
   - at: 2026-11-01 19:10
     events: [{accepts: {cohort: L2L, state: invited, side_named: null, as: l1}}]
     expect:
@@ -37,14 +42,14 @@ timeline:
   - at: 2026-11-01 19:15
     events: [{accepts: {cohort: L2L, state: invited, side_named: null, as: l2}}]
     expect:
-      messages: [{who: l2, kind: aviso}]
+      messages: [{who: l2, kind: reoffer}]
       missing: {L: 0, R: 2}
   - at: 2026-11-01 19:20
     events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
     expect:
       placed: [{who: r1, side: R, how: invitation}]
       missing: {L: 0, R: 1}
-      invitations: none
+      invitations: [{cohort: L2L, count: 1, side_named: R, group: 5}]
   - at: 2026-11-01 19:30
     events: [{accepts: {cohort: L2L, state: invited, side_named: R, as: l3}}]
     expect:

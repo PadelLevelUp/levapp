@@ -8,20 +8,20 @@ One repository (`PadelLevelUp/levapp`, monorepo since 2026-09-03):
 
 - `backend/` — Flask API (Poetry; see `backend/CLAUDE.md`)
 - `frontend/` — npm-workspaces: `apps/web` (React/Vite), `apps/mobile` (Expo), `packages/*` (see `frontend/CLAUDE.md`)
-- `.specflow/specs/` + `.specflow/specs-business/` — the spec trees (source of truth); `.cortex/` — rules, bugs, decisions, insight
+- `.specflow/specs/` + `.specflow/specs-business/` — the spec trees (source of truth); `cortex/` — the Cortex 4.0 store: rules, incidents, decisions (map at `cortex/MAP.md`)
 - `.github/workflows/` — `deploy-staging.yaml` (push to `staging` → staging.levapp.app), `deploy-prod.yaml` (push to `main` → levapp.app), `guard-main-source.yaml`
 - `docs/` — **local, untracked, disposable** (gitignored because the repository is public; the
   two comment lines above the rule in `.gitignore` say so). Plans, QA journeys and run reports,
   baselines, handoffs, onboarding notes and the operational map (`docs/infra/environment.md`)
   live here **on this machine only**: they do not travel to a clone, a fresh worktree or a
   teammate, and they are not backed up. **Anything that must outlive this machine goes in
-  `.cortex/`** — and `.cortex/` is public, so write it accordingly (PAD-339, PAD-344, R-036):
-  durable process rules → `compass/rules/`; recurring traps → `compass/do-not-repeat.md` and
-  `compass/environment.md`; decisions → `atlas/decisions/`; per-wave operational logs stay in
+  `cortex/`** — and `cortex/` is public, so write it accordingly (PAD-339, PAD-344, R-036):
+  file each fact where `cortex/MAP.md` says (rules → `world/rules/`, decisions →
+  `world/decisions/`, incidents → `history/incidents/`); per-wave operational logs stay in
   `docs/` and are meant to be disposable. `docs/` is **never tracked** — that option is closed.
-  Raw design canvases and vendored reference apps live in `.cortex/atlas/sources/` (gitignored,
-  schema §4.3) — `.cortex/` itself is layout-validated by `cortex validate`, so prose directories
-  never go inside it.
+  Raw design canvases and vendored reference apps live in `.cortex/atlas/sources/`: local only,
+  gitignored, not part of the store (the 3.x `.cortex/` was removed in PAD-905; `cortex store
+  validate` checks `cortex/`, so prose directories never go inside it).
 
 The Discord→Linear issue bot stays in its own repo, `levelup_issue_bot`.
 

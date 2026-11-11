@@ -3,7 +3,7 @@ title: "7 à esquerda e 4 à direita: a vaga que sobra vai para a direita"
 source: {section: "Cenários 91 a 95: limite de convites e equilíbrio dos lados", lines: [2021, 2041]}
 what_it_tests: se sobrar uma vaga na divisão, os convites vão para o lado com menos confirmados
 tags: [max-open, sides, rounds]
-depends_on: []
+derived_from: [§2, D16]
 corrections: []
 notes: >
   The limit covers 4 spots: 3 to bring the right level with the left, the leftover to the right, the side with
@@ -12,6 +12,9 @@ notes: >
   the engine runs is 9 + 3 = 12. 19:20 is
   the next round (X x 2 spots = 6, R11). No U tag: the analysis (C8) finds 93-95 agree with the plan. The 19:30
   Aviso probe is derived from "Quem disser Sim depois vê o Aviso" (R9).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): 19:20: the 3 L2L sent at 19:10 count until 19:30 (each
+  invitation its own T, §2), so only the right re-sends.
 
 roster:
   regulars: {L: 7, R: 4}
@@ -40,7 +43,6 @@ timeline:
   - at: 2026-11-01 19:20
     expect:
       invitations:
-        - {cohort: L2L, count: 3, side_named: null, group: 3}
         - {cohort: L2R, count: 3, side_named: null, group: 3}
   - at: 2026-11-01 19:25
     events:

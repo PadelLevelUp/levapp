@@ -3,13 +3,16 @@ title: o professor não aceita alunos do outro lado
 source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [395, 410]}
 what_it_tests: alunos fora dos grupos definidos não recebem convite, mesmo havendo vaga
 tags: [groups, sides]
-depends_on: [U30]
+derived_from: [§6 step 4]
 corrections: []
 notes: >
   The coach keeps only groups 1 to 4 (no other-side groups). The 2026-11-03 08:30 probe (the last
   invitation hour) is derived, so that "a vaga fica em aberto" is checked over the whole window and not
   only at the 19:00 tick. "O professor vê no dashboard" has no expectation in the format; no coach alert
   is expected (U30).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): No tier can take the right spot, so the plan alerts the
+  coach at the first run (§6 step 4). That replaces the PDF's dashboard-only reading (U30).
 
 settings:
   groups:
@@ -29,6 +32,7 @@ timeline:
     expect:
       invitations: none
       missing: {L: 0, R: 1}
+      coach_alert: true
   - at: 2026-11-03 08:30
     derived: true
     expect:

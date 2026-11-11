@@ -25,16 +25,12 @@ __pycache__/
 # local-only Claude Code state (settings.local.json holds machine permissions incl. secret-bearing patterns)
 .claude/settings.local.json
 .claude/learnings/
-.cortex/atlas/sources/
-.cortex/pulse/*
-!.cortex/pulse/_index.md
-.cortex/constellation.json
-# Hook-generated in every worktree (Coordinator, 2026-09-21): never tracked, or every batch conflicts on it.
-.cortex/recall-index.json
-.cortex/archive/documents/*/source.*
+# The 3.x store was removed in PAD-905; what remains under .cortex/ is the owner's local design
+# canvases (atlas/sources), never tracked and not part of the 4.0 store in cortex/.
+.cortex/
 
 # internal prose — plans, QA, handoffs, onboarding notes, vendored reference apps.
-# Kept on disk, out of the public repo. Cortex knowledge lives in .cortex/ instead.
+# Kept on disk, out of the public repo. Cortex knowledge lives in cortex/ instead.
 docs/
 
 # Local iOS build output and watchman cookies: never commit (swept into #195 by mistake).

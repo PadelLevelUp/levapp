@@ -117,7 +117,7 @@ importance (name "Messages") before the Android 13+ `POST_NOTIFICATIONS` prompt,
 `platform: "android"` (the backend accepts only `ios` / `android`), and every Expo message
 carries `channelId: "default"` + `priority: "high"`. Delivery over FCM needs owner steps outside
 the repo (Firebase project, `google-services.json`, FCM V1 key on the Expo project, optional
-`EXPO_ACCESS_TOKEN`): `.cortex/atlas/decisions/2026-09-11-android-push-firebase-eas.md`.
+`EXPO_ACCESS_TOKEN`): `cortex/world/decisions/android-push-firebase-eas.md`.
 
 ## API contract
 
