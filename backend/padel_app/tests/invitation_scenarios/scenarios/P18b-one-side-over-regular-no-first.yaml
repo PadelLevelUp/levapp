@@ -1,0 +1,42 @@
+id: P18
+variant: b
+title: one side over
+source: {section: "Plano §9.3 Regulars and absences", lines: [265, 268]}
+what_it_tests: an over-quota regular moves at last_invite_at only if still needed
+tags: [unbalanced, regulars]
+derived_from: [S18, §4]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). Branch b: a right regular says No first; nobody needs to move, and the left tops up to 3 spots x X = 9.
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 1, R: 5}
+students:
+  - {cohort: L3L, count: 10, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L3L, count: 6, side_named: null, group: 3}]
+      missing: {total: 2}
+  - at: 2026-11-01 19:05
+    events: [{regular_no: R-1}]
+    expect:
+      invitations: [{cohort: L3L, count: 3, side_named: null, group: 3}]
+      open_unanswered: 9
+      missing: {total: 3}
+final:
+  roster: {L: 1, R: 4}
