@@ -25,7 +25,6 @@ from padel_app.invitation_engine.effects import Effect, Invited
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
-    Invitation,
     SessionSnapshot,
     Side,
     SpotType,
@@ -111,11 +110,6 @@ class Plan:
 
 
 # --- tiers, gates and ordering (engine-tiers) ----------------------------------------------------
-
-def counting(invitation: Invitation, now: datetime) -> bool:
-    """Open and before its counting-until instant (engine-planning rule 3). Only these hold spots."""
-    return invitation.open and (invitation.counts_until is None or now < invitation.counts_until)
-
 
 def _entry(snapshot: SessionSnapshot, student: str, which: str) -> WaitingListEntry | None:
     return next((w for w in snapshot.waiting_list if w.student == student and w.list == which), None)
@@ -244,7 +238,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
             if student is None or sid in used:
                 continue
             invitation = latest.get(sid)
-            if invitation is not None and not (counting(invitation, now)
+            if invitation is not None and not (timeline.counting(invitation, now)
                                                and {t.side for t in invitation.offer} & values):
                 continue
             t = tier_for(student, spot_type, counts, snapshot, settings)
