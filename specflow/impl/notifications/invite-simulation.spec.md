@@ -23,6 +23,34 @@ that what the tutorial shows and what the engine does can never disagree.
 - **WRITES:** nothing. See rule 3.
 - **CREATES:** nothing persistent. The hypothetical **Vacancy** is an unsaved in-memory object.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; plan
+`docs/plans/2026-11-11-engine-swap.md` §4) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Entities: the unsaved `Vacancy` | no vacancy: the caller builds a hypothetical snapshot without writing ("this student drops out") | `notifications.engine-tiers` rule 12 |
+| Rule 2 (explain) | one verdict per student per open spot type | `notifications.engine-tiers` rule 12 |
+| Rule 4 (stages) | the stages are rule 12's (`in_session`, `said_no`, `not_in_pool`, `busy_same_time`, `postponed`, `failed_eligibility`, `failed_tier_rule`, `invited_before`, `invited`, `invited_for_other_type`, `invited_earlier`, `waiting`), preceded by the stages of the gates the app applies before the snapshot (exclusions, inactive accounts, eligibility per swap decision 6), which the caller explains; `already_invited` is `invited_earlier` | `notifications.engine-tiers` rule 12 |
+| Rule 5 (one pipeline) | the simulation runs the engine's evaluator, never a copy | `notifications.engine-tiers` rule 11, TIERS-9 |
+| Rule 6, `max_total_reached` | no such gate: the new engine does not read `maxTotal` | swap decision 3 (owner) |
+| Rule 6, the window and quiet hours | the dry run's "may plan now"; `min_time_before_class` is `last_invite_before` | `notifications.engine-tiers` rule 12; `notifications.config` rule 19 |
+| Rule 8 (group 0) | two waiting lists, the coach's first; with automatic entry on, a member can be placed rather than invited | `notifications.engine-tiers` rules 4–6; `notifications.engine-settings` rule 3 |
+| Rule 9 (the spot's side and level) | from the session's counts and the class's level, never the leaver's | `notifications.engine-spots` rules 6–8 |
+| Rules 10, 11, 13 (rounds, first batch, queued, daily quota) | queues per spot type by tier, then by rule 8's ordering; X per covered spot and M instead of batches; a capped student is `postponed` | `notifications.engine-planning` rules 5, 6, 8; `notifications.engine-tiers` rules 8, 10 |
+| Criteria 1, 3, 5, 9, 13, 14, 18 | replaced with their rules; new criteria are written at swap step 7 | — |
+
+Readings:
+- Intent, rules 1 and 3: unchanged in purpose; "the engine" is the session's engine (`notifications.config` rule 18).
+- Rule 6's class switches (`auto_invites`, `notifications_enabled`) are the store's listing (`notifications.config` rule 19).
+- Rule 7 and criterion 8 (semi-automatic) wait on the owner (swap decision 2).
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the wire shape of a per-type verdict and its client rendering (web and iOS, the tutorial's payload, `settings.tutorials`).
+
 ### Rules
 1. `POST /api/app/notify/invite_simulation` with body `{model, originalId, date, departingPlayerId}`
    runs the simulation. `model`/`originalId`/`date` address the class exactly as
@@ -275,3 +303,7 @@ test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `te
   answer — the owner chose this on 2026-09-06 over a clock-independent structural view.
 - OPEN: whether the tutorial should also expose the round *timing* (`maxInactiveTime`) as a gate
   entry. Left out of v1; `queued` covers the coach-facing meaning.
+
+### Open questions
+- The explain payload for a new-engine session (plan §4, §6.3 item 5) — open until swap step 7, which writes it with `settings.tutorials`; decision (S, owner away, PAD-913; the owner can reverse it): one entry per student per open spot type, rule 12's stage and tier, so the simulation states exactly what the engine would do.
+- `departing_player` and the `unavailable` blocker on a new-engine session — the leaver is simply in no session snapshot as going; whether the blocker is a pool gate is for H's store (PAD-916) to state.

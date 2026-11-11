@@ -12,6 +12,27 @@ governed_by: []
 ### Intent
 Customize the text of notification messages sent to players.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; plan
+`docs/plans/2026-11-11-engine-swap.md` §6.4) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 15 (no `spot_filled` message) | a fill retires nothing (D4); a Yes into a full session gets const:KIND_SORRY with the waiting-list offer, or const:KIND_REOFFER when another spot fits | `notifications.engine-answers` rules 3, 4 |
+| Rule 16 (`{side}` only in `waiting_list_invite`) | any invitation names a side only when it is outside the student's subset | `notifications.engine-planning` rule 9 |
+| Criterion 14 | replaced with rule 15 | — |
+
+Readings:
+- Rule 2: templates are needed for const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED, const:KIND_SIDE_MOVED and the coach alert (const:ALERT_NO_CANDIDATE); const:KIND_WAITING_LIST_INVITE uses today's `waiting_list_invite`.
+- Rule 3 and criteria 5, 7: the engine's attendance requests render through today's `reminder` templates (`notifications.engine-timeline` rule 2: the recipients change, not the message).
+- Criteria 6, 8, 9: a new-engine invitation renders through `invite`, or `waiting_list_invite` from a waiting list.
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the five new keys, their default texts in both locales and the web editor's groups (plan §6.4).
+
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
 2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_invite. (PAD-446: `waiting_list_invite` replaces `waiting_list_placed`; a stored `waiting_list_placed` text is ignored.) Since PAD-501, `spot_filled` is sent only to a student whose pending join request was closed because the class filled (`classes.join-requests` rule 10); see rule 15
@@ -218,3 +239,4 @@ test: `backend/padel_app/tests/test_pad330_the_student_is_told.py` › `test_a_c
 - Templates for the engine's new kinds (sorry, re-offer, added, side moved, the coach alert) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it):
   written in both locales and rendered on web and iOS together; an iOS template editor stays out (the
   PAD-430 reason under Notes).
+- The texts of the new kinds — open until swap step 8; the owner approves product copy (rule 17 of `notifications.config`'s reference set says templates stay the built-in texts until approved).

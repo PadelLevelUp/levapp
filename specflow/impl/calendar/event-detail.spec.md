@@ -12,6 +12,28 @@ governed_by: []
 ### Intent
 Clicking a calendar event opens a detail sheet showing full information and available actions.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; plan
+`docs/plans/2026-11-11-engine-swap.md` §6.3 item 4) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 8 (the invitation tie-break) | nothing to choose: one invitation per student per session | `notifications.engine-planning` rule 2 |
+| Rule 16 (six outcomes) | `spot_filled`, terminal `expired` and `queued` go; `withdrawn` stays; the outcomes gain not counting, sorry, re-offered, added and direct join; `movedAt` becomes the re-offer | `notifications.engine-planning` rules 3, 10; `notifications.engine-answers` rules 3, 4; `notifications.engine-settings` rules 3, 5 |
+| Rule 20 (the engine still filters an add) | an add from the class goes on the coach's list, which skips the pool gates | `notifications.engine-tiers` rule 4 (ruling (3)) |
+| Criteria 3, 15, 16, 18, 29 | replaced with their rules; new criteria at swap step 8 | — |
+
+Readings:
+- Rules 6, 7, 19: the waiting list shown is two lists, the coach's first.
+- Rule 17 (`coach_respond`): a Yes the coach records on a full session gets sorry, as the student's would (`notifications.engine-answers` rule 4).
+- Rule 18 (a withdrawal): kept (`notifications.invitations` rule 19); the next run may invite someone else.
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the outcome vocabulary and its labels on web and iOS, and whether "N pending" counts open invitations that no longer count (plan §6.3 item 4).
+
 ### Rules
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons
 2. Block events open `EventDetailSheet`: view/edit block details
@@ -529,3 +551,6 @@ test: `backend/padel_app/tests/test_pad560_deeplink_recurring.py` › `test_the_
 - **And** the open class reloads when the event names its occurrence, whether the id arrives as a number or as text, and by series and date when the occurrence did not exist yet
 - **And** an event for another class, or of another type, is ignored
 test: `backend/padel_app/tests/test_pad659_presence_changed_event.py` › `test_a_cancellation_tells_the_coach` (+5 more)
+
+### Open questions
+- "N pending" on a new-engine session — decision (S, owner away, PAD-913; the owner can reverse it): it counts counting invitations only, because an invitation that no longer counts holds no spot; the row still shows it as "not counting".
