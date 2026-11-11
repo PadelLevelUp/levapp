@@ -28,6 +28,7 @@ class SessionStore(Protocol):
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime) -> None: ...
     def reveal(self, student: str) -> None: ...
+    def exclude(self, session: str, student: str) -> None: ...
     def apply(self, effects: Iterable[fx.Effect]) -> None: ...
 
 
@@ -44,6 +45,7 @@ class _Session:
     absent: set[str] = field(default_factory=set)
     said_no: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
+    excluded: set[str] = field(default_factory=set)
 
 
 class MemoryStore:
@@ -62,6 +64,10 @@ class MemoryStore:
 
     def reveal(self, student: str) -> None:
         self._hidden.discard(student)
+
+    def exclude(self, session: str, student: str) -> None:
+        """A gate the store decides alone (engine-tiers rule 3): the student leaves the pool."""
+        self._sessions[session].excluded.add(student)
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime) -> None:
@@ -86,7 +92,8 @@ class MemoryStore:
     def snapshot(self, session: str) -> SessionSnapshot:
         s = self._sessions[session]
         inside = set(s.going) | set(s.regulars)
-        pool = tuple(st for sid, st in self._students.items() if sid not in inside and sid not in self._hidden)
+        pool = tuple(st for sid, st in self._students.items()
+                     if sid not in inside and sid not in self._hidden and sid not in s.excluded)
         named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
         return SessionSnapshot(
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
@@ -105,7 +112,8 @@ class MemoryStore:
                 continue
             s = self._sessions[e.session]
             if isinstance(e, fx.Invited):
-                s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at))
+                s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
+                                                counts_until=e.counts_until))
             elif isinstance(e, fx.Answered) and e.on == "invitation":
                 for i in range(len(s.invitations) - 1, -1, -1):
                     if s.invitations[i].student == e.student and s.invitations[i].open:

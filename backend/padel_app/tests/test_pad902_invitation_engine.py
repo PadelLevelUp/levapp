@@ -14,7 +14,7 @@ import pytest
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine import requests as rq
-from padel_app.invitation_engine.settings import Tier, Timing
+from padel_app.invitation_engine.settings import Tier, Timing, TimingPair
 from padel_app.invitation_engine.snapshot import SpotType, Student
 
 PACKAGE = Path(__file__).resolve().parents[1] / "invitation_engine"
@@ -39,7 +39,8 @@ def _store():
 
 def test_default_settings_are_the_plan_alone():
     s = EngineSettings()
-    assert (s.invites_per_spot, s.max_at_a_time, s.timing.inactivity) == (3, 12, timedelta(minutes=20))
+    assert (s.invites_per_spot, s.max_at_a_time) == (3, 12)
+    assert (s.timing.between_rounds, s.timing.between_groups) == (timedelta(minutes=20), timedelta(minutes=20))
     assert s.quiet_hours == (time(0), time(7))
     # Coach rules the plan is silent on start off (wave brief §2, clause 3).
     assert not (s.auto_entry_before_attendance_request or s.waiting_list_side_choice or s.direct_join)
@@ -49,8 +50,8 @@ def test_default_settings_are_the_plan_alone():
 @pytest.mark.parametrize("changes, message", [
     ({"invites_per_spot": 0}, "invites_per_spot"),
     ({"max_at_a_time": 0}, "max_at_a_time"),
-    ({"timing": Timing(inactivity=timedelta(seconds=30))}, "inactivity"),
-    ({"timing": Timing(per_tier=(timedelta(minutes=5),))}, "per_tier"),
+    ({"timing": Timing(between_rounds=timedelta(seconds=30))}, "between_rounds"),
+    ({"timing": Timing(per_tier=(TimingPair(),))}, "per_tier"),
     ({"tiers": (Tier("pool"),)}, "level_offset"),
     ({"tiers": (Tier("coach_list", level_offset=0),)}, "level_offset"),
     ({"tiers": ()}, "tiers"),
@@ -61,13 +62,15 @@ def test_invalid_settings_are_refused_with_the_key_named(changes, message):
 
 
 def test_with_changes_refuses_an_unknown_setting():
-    with pytest.raises(SettingsError, match="between_groups"):
-        EngineSettings().with_changes(between_groups=timedelta(hours=1))
+    with pytest.raises(SettingsError, match="inactivity"):
+        EngineSettings().with_changes(inactivity=timedelta(hours=1))
 
 
-def test_inactivity_per_tier_falls_back_to_the_default():
-    s = EngineSettings(timing=Timing("per_tier", timedelta(minutes=20), (timedelta(minutes=5), None)))
-    assert [s.inactivity_for(i) for i in range(4)] == [timedelta(minutes=5)] + [timedelta(minutes=20)] * 3
+def test_a_tier_without_its_own_pair_takes_the_fixed_pair():
+    own = TimingPair(timedelta(minutes=5), timedelta(minutes=30))
+    s = EngineSettings(timing=Timing("per_tier", timedelta(minutes=20), timedelta(hours=1), (own, None)))
+    fixed = TimingPair(timedelta(minutes=20), timedelta(hours=1))
+    assert [s.timing_for(i) for i in range(4)] == [own, fixed, fixed, fixed]
 
 
 # --- the store's bookkeeping ------------------------------------------------------------------
@@ -149,6 +152,12 @@ def test_phase_one_tick_decides_nothing():
     assert store.history == []
 
 
+def test_a_coach_exclusion_takes_the_student_out_of_the_session_pool():
+    store = _store()
+    Engine(store, EngineSettings()).handle("A", rq.CoachExcludes("W1"), T0)
+    assert "W1" not in {s.id for s in store.snapshot("A").pool}
+
+
 def test_session_creation_appearance_and_settings_go_through_the_facade():
     store = _store()
     engine = Engine(store, EngineSettings())
@@ -208,7 +217,12 @@ def test_the_purity_scans_catch_what_they_look_for():
 # --- the scenario harness's `new` adapter -----------------------------------------------------
 
 from padel_app.tests.invitation_scenarios import validate  # noqa: E402
-from padel_app.tests.invitation_scenarios.adapters.new import NewAdapter, engine_settings  # noqa: E402
+from padel_app.tests.invitation_scenarios.adapters.new import (  # noqa: E402
+    COACH_RULES,
+    NewAdapter,
+    coach_rules,
+    engine_settings,
+)
 from padel_app.tests.invitation_scenarios.runner import (  # noqa: E402
     BASE_SETTINGS,
     SCENARIOS_DIR,
@@ -220,24 +234,48 @@ from padel_app.tests.invitation_scenarios.runner import (  # noqa: E402
 TEMPLATE = SCENARIOS_DIR / "04-grupo-esgota-se-sem-resposta.yaml"
 
 
-def test_the_base_profile_maps_onto_engine_settings_with_the_between_groups_clock_as_a_gap():
+def test_the_base_profile_maps_onto_engine_settings_with_no_gap_and_the_coach_rules_off():
     settings, gaps = engine_settings(BASE_SETTINGS)
     assert (settings.invites_per_spot, settings.max_at_a_time) == (3, 12)
-    assert settings.timing == Timing("fixed", timedelta(minutes=20))
+    assert settings.timing == Timing("fixed", timedelta(minutes=20), timedelta(hours=1))
     assert [(t.source, t.side, t.level_offset) for t in settings.tiers] == [
         ("coach_list", "same", None), ("students_list", "same", None), ("pool", "same", 1),
         ("pool", "same", 0), ("pool", "other", 1), ("pool", "other", 0)]
-    assert settings.auto_entry_before_attendance_request and settings.waiting_list_side_choice
-    assert settings.direct_join
-    assert gaps == ["timing.between_groups: the plan has no between-groups clock (D9, D16)"]
+    assert not (settings.auto_entry_before_attendance_request or settings.waiting_list_side_choice
+                or settings.direct_join)
+    assert gaps == []
+    on, _ = engine_settings(BASE_SETTINGS, {"direct_join": True})
+    assert on.direct_join and not on.waiting_list_side_choice
 
 
-def test_method_c_maps_between_rounds_per_tier_and_reports_to_next_group():
+def test_method_c_maps_each_group_pair_and_a_missing_half_takes_the_default():
     harness = merge_settings(BASE_SETTINGS, {"timing": {"method": "C", "per_group": {
         3: {"between_rounds": "5m", "to_next_group": "30m"}, 4: {"between_rounds": "1m"}}}})
     settings, gaps = engine_settings(harness)
-    assert settings.timing.per_tier == (None, None, timedelta(minutes=5), timedelta(minutes=1), None, None)
-    assert gaps == ["timing.per_group.to_next_group: the plan has no between-groups clock (D9, D16)"]
+    twenty = timedelta(minutes=20)
+    assert settings.timing.per_tier == (None, None, TimingPair(timedelta(minutes=5), timedelta(minutes=30)),
+                                        TimingPair(timedelta(minutes=1), twenty), None, None)
+    assert gaps == []
+
+
+def test_a_scenario_turns_on_only_the_coach_rules_it_uses():
+    def rules_of(*steps):
+        return coach_rules({"timeline": list(steps)})
+
+    assert rules_of({"at": "x", "events": [{"accepts": "W1"}]}) == {
+        "direct_join": False, "waiting_list_side_choice": False, "auto_entry_before_attendance_request": False}
+    assert rules_of({"at": "x", "events": [{"other_class": "B", "event": {"joins_directly": "J1"}}]})["direct_join"]
+    assert not rules_of({"at": "x", "events": [{"joins_waiting_list": "S1", "sides": "both"}]})[
+        "waiting_list_side_choice"]
+    assert rules_of({"at": "x", "events": [{"joins_waiting_list": "S1", "sides": "other"}]})[
+        "waiting_list_side_choice"]
+    assert rules_of({"at": "x", "expect": {"messages": [{"who": "W1", "kind": "added"}]}})[
+        "auto_entry_before_attendance_request"]
+    assert rules_of({"at": "x", "expect": {"placed": [{"who": "W1", "side": "R", "how": "auto_from_waiting_list"}]}})[
+        "auto_entry_before_attendance_request"]
+    used = {k for path in sorted(SCENARIOS_DIR.glob("*.yaml"))
+            for k, v in coach_rules(load_scenario(path).data).items() if v}
+    assert used == set(COACH_RULES), "the suite's scenarios no longer use every coach rule"
 
 
 def test_a_scenario_runs_against_the_skeleton_to_a_clean_failure():
@@ -347,4 +385,5 @@ def test_every_engine_message_kind_maps_to_its_normalized_kind():
     adapter, _ = _template_adapter()
     for kind in kinds:
         record, = adapter._records([fx.Message("A", T0, "W1", kind)])
-        assert (record.kind, record.data["kind"]) == ("message", kind)
+        # The engine's "sorry" is the scenario format's "aviso" (constants.md KIND_SORRY).
+        assert (record.kind, record.data["kind"]) == ("message", "aviso" if kind == "sorry" else kind)

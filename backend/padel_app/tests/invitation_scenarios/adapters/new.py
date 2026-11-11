@@ -6,28 +6,35 @@ The engine is pure, so this adapter needs no app, no database and no clock pinni
 wall-clock) and stores class starts as Lisbon wall-clock (R-023).
 
 Settings (design §2.1 -> ``EngineSettings``). X -> ``invites_per_spot``; M -> ``max_at_a_time``;
-Method A's between-rounds time -> T (``timing.inactivity``); Method B -> ``timing.method
-progressive``; Method C's per-group between-rounds times -> T per tier; first invitation, last
-invitation, quiet hours, absence cutoff -> their fields; reminders -> ``attendance_request``;
-eligibility -> ``eligibility.levels_above``; tiebreak -> ``ordering``; groups -> ``tiers`` one for
-one (the coach's and the students' lists, then pool tiers by level offset and side). The PDF's
-coach rules the plan is silent on are turned on for every scenario: automatic entry before the
-attendance request, the students' side choice on the waiting list, direct join (wave brief §2,
-clause 3). A between-groups clock (Method A's ``between_groups``, Method C's ``to_next_group``)
-contradicts D9 and D16 and has no setting: ``setup`` returns it as a gap.
+Method A -> ``timing`` fixed, its ``between_rounds`` and ``between_groups`` the pair every
+invitation's T is chosen from at send (engine-timeline rule 4, ruling D-E6); Method B ->
+``progressive``; Method C -> ``per_tier`` pairs (``between_rounds``, ``to_next_group``), a group or
+half not set taking the fixed default; first invitation, last invitation, quiet hours, absence
+cutoff -> their fields; reminders -> ``attendance_request``; eligibility ->
+``eligibility.levels_above``; tiebreak -> ``ordering``; groups -> ``tiers`` one for one (the
+coach's and the students' lists, then pool tiers by level offset and side).
+
+Coach rules (engine-settings rules 3-5; SETTINGS-14, the defaults mode). The rules the plan is
+silent on are off unless the scenario uses them, read from its own content by ``coach_rules``:
+direct join when it has a ``joins_directly`` event; the students' side choice when a students'-list
+join chooses ``own`` or ``other``; automatic entry when it expects a placement
+``auto_from_waiting_list`` or an ``added`` message. A scenario that uses none of them, such as the
+plan's P01-P33, runs on ``EngineSettings`` defaults: the plan alone.
 
 Records (engine effect -> record):
 - ``Invited`` -> invited; ``group`` is the tier's position in the scenario's groups (1-based),
   ``side_named`` the message's side (D11).
 - ``Answered`` -> answered, ``on`` invitation or reminder (the attendance request).
 - ``Placed`` -> placed with its ``how``; ``Left`` -> left; ``Absence`` -> absence;
-  ``AttendanceRequested`` -> reminder; ``Message`` -> message, kind one for one (``MESSAGE_KINDS``:
-  ``sorry``, ``reoffer``, ``added``, ``waiting_list_offer``, ``side_moved``; the plan has no Aviso,
-  D4 and Q6).
+  ``AttendanceRequested`` -> reminder; ``Message`` -> message by ``MESSAGE_KINDS``: the engine's
+  ``sorry`` (plan §7, D4) is logged as ``aviso`` (the scenario format's word for it, constants.md
+  KIND_SORRY), the others one for one (``reoffer``, ``added``, ``waiting_list_offer``,
+  ``side_moved``).
 - Open invitations: the snapshot lists every unanswered invitation with its send time, counting
   or not. An invitation past its inactivity time stops counting but stays open (D4), so
   ``open_unanswered`` counts it.
-- ``CoachAlert`` -> ``alert`` (plan §6 step 4), with an empty student.
+- ``CoachAlert`` -> ``alert`` (plan §6 step 4), with an empty student; the scenario expectation
+  ``coach_alert: true`` looks for it.
 - ``Refused`` of a join (direct join, waiting list) for the acting student ->
   ``Applied(refused=True)``; the runner writes that record. Any other request the engine turns
   down (an accept with no open invitation, an accept after the class started) is observed as
@@ -48,6 +55,7 @@ from padel_app.invitation_engine.settings import (
     FirstInvite,
     Tier,
     Timing,
+    TimingPair,
 )
 from padel_app.invitation_engine.snapshot import Student
 from padel_app.tests.invitation_scenarios.runner import (
@@ -65,7 +73,7 @@ from padel_app.tests.invitation_scenarios.runner import (
 
 
 #: Engine message kind -> normalized message kind (design §5, §12).
-MESSAGE_KINDS = {"sorry": "sorry", "reoffer": "reoffer", "added": "added",
+MESSAGE_KINDS = {"sorry": "aviso", "reoffer": "reoffer", "added": "added",
                  "waiting_list_offer": "waiting_list_offer", "side_moved": "side_moved"}
 #: Harness events whose refusal is an observation of its own (design §12, ``refused``).
 REFUSABLE = {"joins_directly", "joins_waiting_list"}
@@ -76,21 +84,22 @@ def _hhmm(value: str) -> time:
     return time(h, m)
 
 
-def _timing(t: dict, n_tiers: int) -> tuple[Timing, list[str]]:
+def _timing(t: dict, n_tiers: int) -> Timing:
     method = t.get("method", "A")
+    default = Timing()
     if method == "A":
-        gaps = ["timing.between_groups: the plan has no between-groups clock (D9, D16)"] if "between_groups" in t else []
-        return Timing("fixed", duration(t.get("between_rounds", "20m"))), gaps
+        return Timing("fixed", duration(t.get("between_rounds", "20m")), duration(t.get("between_groups", "20m")))
     if method == "B":
-        return Timing("progressive"), []
+        return Timing("progressive")
     if method == "C":
         per_group = {int(k): v for k, v in (t.get("per_group") or {}).items()}
-        per_tier = tuple(duration(per_group[g]["between_rounds"])
-                         if g in per_group and "between_rounds" in per_group[g] else None
-                         for g in range(1, n_tiers + 1))
-        gaps = ["timing.per_group.to_next_group: the plan has no between-groups clock (D9, D16)"
-                if any("to_next_group" in v for v in per_group.values()) else ""]
-        return Timing("per_tier", per_tier=per_tier), [g for g in gaps if g]
+
+        def pair(g: dict) -> TimingPair:
+            return TimingPair(duration(g["between_rounds"]) if "between_rounds" in g else default.between_rounds,
+                              duration(g["to_next_group"]) if "to_next_group" in g else default.between_groups)
+
+        return Timing("per_tier", per_tier=tuple(pair(per_group[g]) if g in per_group else None
+                                                 for g in range(1, n_tiers + 1)))
     raise SettingsError(f"timing.method {method!r}")
 
 
@@ -101,13 +110,44 @@ def _tier(group: dict) -> Tier:
     return Tier("pool", side, int(group["level"]))
 
 
-def engine_settings(harness: dict) -> tuple[EngineSettings, list[str]]:
-    """The scenario's settings (base profile merged with its overrides) as the engine's."""
+COACH_RULES = ("auto_entry_before_attendance_request", "waiting_list_side_choice", "direct_join")
+
+
+def _events(data: dict):
+    for step in data.get("timeline") or []:
+        for ev in step.get("events") or []:
+            yield ev.get("event", ev) if "other_class" in ev else ev
+
+
+def _expects(data: dict):
+    for step in data.get("timeline") or []:
+        exp = step.get("expect") or {}
+        yield exp
+        yield from (exp.get("other_class") or {}).values()
+
+
+def coach_rules(data: dict) -> dict[str, bool]:
+    """Which of the coach rules the plan is silent on a scenario uses, from its own content."""
+    events, expects = list(_events(data)), list(_expects(data))
+    return {
+        "direct_join": any("joins_directly" in ev for ev in events),
+        "waiting_list_side_choice": any(ev.get("sides") in ("own", "other") for ev in events
+                                        if "joins_waiting_list" in ev),
+        "auto_entry_before_attendance_request": any(
+            any(p.get("how") == "auto_from_waiting_list" for p in exp.get("placed") or [])
+            or any(m.get("kind") == "added" for m in exp.get("messages") or [])
+            for exp in expects),
+    }
+
+
+def engine_settings(harness: dict, rules: dict[str, bool] | None = None) -> tuple[EngineSettings, list[str]]:
+    """The scenario's settings (base profile merged with its overrides) as the engine's, with the
+    coach rules in ``rules`` turned on (all off when ``None``: the plan's defaults)."""
     known = {"invites_per_spot", "max_open", "timing", "first_invite", "last_invite_before", "quiet_hours",
              "reminders", "absence_cutoff_before", "eligible_levels_above", "tiebreak", "groups"}
     gaps = [f"{k}: no engine setting" for k in sorted(set(harness) - known)]
     tiers = tuple(_tier(g) for g in harness["groups"])
-    timing, timing_gaps = _timing(harness["timing"], len(tiers))
+    timing = _timing(harness["timing"], len(tiers))
     r, fi = harness["reminders"], harness["first_invite"]
     qh = harness.get("quiet_hours")
     settings = EngineSettings(
@@ -122,11 +162,9 @@ def engine_settings(harness: dict) -> tuple[EngineSettings, list[str]]:
         eligibility=Eligibility(levels_above=harness["eligible_levels_above"]),
         tiers=tiers,
         ordering=(harness["tiebreak"],),
-        auto_entry_before_attendance_request=True,
-        waiting_list_side_choice=True,
-        direct_join=True,
+        **{rule: bool((rules or {}).get(rule)) for rule in COACH_RULES},
     )
-    return settings, gaps + timing_gaps
+    return settings, gaps
 
 
 def _student(p: Person) -> Student:
@@ -140,7 +178,8 @@ class NewAdapter:
     def setup(self, sc: Scenario) -> list[str]:
         self.sc = sc
         self.harness_settings = sc.settings
-        settings, gaps = engine_settings(sc.settings)
+        self.rules = coach_rules(sc.data)
+        settings, gaps = engine_settings(sc.settings, self.rules)
         self.setup_gaps = set(gaps)
         self.store = MemoryStore()
         appears = self._appearing(sc)
@@ -178,7 +217,7 @@ class NewAdapter:
         if event == "coach_sets":
             merged = merge_settings(self.harness_settings, params["settings"])
             try:
-                settings, gaps = engine_settings(merged)
+                settings, gaps = engine_settings(merged, self.rules)
             except (SettingsError, KeyError, ValueError) as exc:
                 raise Unsupported(f"coach_sets: {exc}") from exc
             new_gaps = [g for g in gaps if g not in self.setup_gaps]  # setup already reported the others
@@ -217,7 +256,7 @@ class NewAdapter:
         if event == "confirms":
             return rq.ConfirmAttendance(None if who == "regulars" else who)
         simple = {"regular_no": rq.RegularAbsent, "regular_returns": rq.RegularReturns, "cancels": rq.Cancel,
-                  "no_show": rq.NoShow, "appears": rq.Appear}
+                  "no_show": rq.NoShow, "appears": rq.Appear, "coach_excludes": rq.CoachExcludes}
         if event in simple:
             return simple[event](who)
         raise Unsupported(f"no engine request for the event {event!r}")

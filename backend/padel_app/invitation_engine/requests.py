@@ -86,6 +86,14 @@ class CreateSession:
 
 
 @dataclass(frozen=True)
+class CoachExcludes:
+    """The coach excludes a student from this session's automatic invitations (a gate, D13;
+    engine-tiers rule 3): from now on the student is not in the session's pool."""
+
+    student: str
+
+
+@dataclass(frozen=True)
 class Appear:
     """A club student becomes visible and eligible from now (plan D8)."""
 
@@ -98,6 +106,6 @@ class UpdateSettings:
 
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | Appear | UpdateSettings)
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | Appear | UpdateSettings)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
                     NoShow, ConfirmAttendance)
