@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 
-from padel_app.invitation_engine.effects import Effect
+from padel_app.invitation_engine.constants import KIND_SIDE_MOVED, method_b_parts, side_quota
+from padel_app.invitation_engine.effects import Effect, Message, SideAssigned
 from padel_app.invitation_engine.settings import EngineSettings
-from padel_app.invitation_engine.snapshot import Invitation, SessionSnapshot
+from padel_app.invitation_engine.snapshot import SIDES, Invitation, SessionSnapshot, Side
 from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
 
 
@@ -40,9 +41,27 @@ def may_plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
             and not is_quiet(settings, now))
 
 
-def useful_time(snapshot: SessionSnapshot, settings: EngineSettings) -> timedelta:
-    """Method B's useful time: the invitation window. Quiet hours are taken out of it in wave W7."""
-    return last_invite_at(snapshot, settings) - first_invite_at(snapshot, settings)
+def useful_time(snapshot: SessionSnapshot, settings: EngineSettings, since: datetime | None = None) -> timedelta:
+    """Method B's useful time (engine-settings rule 2, amended): from ``since`` (naive UTC; the
+    opening, the run that plans for the spot) to ``last_invite_at``, quiet hours not counted. Without
+    ``since`` it runs from ``first_invite_at``. Scenario 83: 15:30 to 08:30 with quiet hours
+    00:00-07:00 is 10 hours."""
+    start = first_invite_at(snapshot, settings) if since is None else since
+    return _active_between(settings, start, last_invite_at(snapshot, settings))
+
+
+def method_b_t(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime, n: int,
+               rank: int) -> timedelta:
+    """Method B's T for a send at ``now`` from the tier at ``rank`` (0-based) of the ``n`` tiers in
+    the split: what is left of the useful time, in proportion to this tier's part among the parts
+    still to run (``constants.method_b_parts``).
+
+    With nothing ending early this is the split fixed at the opening (83, 85, 87: 9:8:7:6 of the
+    useful time). A tier that ends before its time (everyone said No, 86) leaves the split: the caller
+    counts only tiers that still have candidates or invitations not refused, so what remains is split
+    afresh over the tiers left (6:5:4 of 9 h 50 m)."""
+    parts = method_b_parts(n)
+    return useful_time(snapshot, settings, now) * parts[rank] / sum(parts[rank:])
 
 
 def t_at_send(settings: EngineSettings, tier: int, tier_has_uninvited: bool,
@@ -91,6 +110,26 @@ def is_quiet(settings: EngineSettings, now: datetime) -> bool:
     return bool(qh) and qh[0] != qh[1] and _in_quiet(utc_to_wall_naive(now), *qh)
 
 
+def _active_between(settings: EngineSettings, start: datetime, end: datetime) -> timedelta:
+    """The time from ``start`` to ``end`` (naive UTC) that falls outside quiet hours."""
+    if end <= start:
+        return timedelta(0)
+    qh = settings.quiet_hours
+    if not qh or qh[0] == qh[1]:
+        return end - start
+    q_start, q_end = qh
+    cur, total = start, timedelta(0)
+    while cur < end:
+        wall = utc_to_wall_naive(cur)
+        if _in_quiet(wall, q_start, q_end):
+            cur = max(wall_to_utc_naive(_quiet_end(wall, q_start, q_end)), cur + timedelta(minutes=1))
+            continue
+        pause = min(wall_to_utc_naive(_next_quiet_start(wall, q_start)), end)
+        total += pause - cur
+        cur = pause
+    return total
+
+
 def counts_until(settings: EngineSettings, sent_at: datetime, t: timedelta) -> datetime:
     """The instant an invitation sent at ``sent_at`` (naive UTC) with T ``t`` stops counting.
 
@@ -124,5 +163,48 @@ def counting(invitation: Invitation, now: datetime) -> bool:
 
 
 def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> tuple[Effect, ...]:
-    """The session's time-driven effects at ``now`` (naive UTC), before the planning run."""
-    return ()
+    """The session's time-driven effects at ``now`` (naive UTC), before the planning run.
+
+    From ``last_invite_at`` on (§8 step 6, engine-timeline rule 6): every flexible going student gets
+    a final side, and a side over its quota sheds regulars to the other side while it has room. Each
+    is a ``SideAssigned`` with a ``side_moved`` message. Once applied nothing is left to do, so later
+    runs return nothing until the going students change."""
+    if now < last_invite_at(snapshot, settings):
+        return ()
+    return _final_sides(snapshot, now)
+
+
+def _final_sides(snapshot: SessionSnapshot, now: datetime) -> tuple[Effect, ...]:
+    quota = side_quota(snapshot.capacity)
+    side: dict[str, Side | None] = {p.student: p.side for p in snapshot.going}
+    count = {v: sum(1 for s in side.values() if s == v) for v in SIDES}
+    joined = snapshot.joined_at
+    out: list[Effect] = []
+
+    def assign(student: str, value: Side) -> None:
+        if side[student] is not None:
+            count[side[student]] -= 1
+        side[student] = value
+        count[value] += 1
+        out.append(SideAssigned(snapshot.id, now, student, value))
+        out.append(Message(snapshot.id, now, student, KIND_SIDE_MOVED))
+
+    # Unplaced flexible students first (a {L, R} regular), in joining order: the side with more room.
+    for p in sorted((p for p in snapshot.going if p.side is None), key=lambda p: (joined.get(p.student, now), p.student)):
+        student = snapshot.students.get(p.student)
+        options = [v for v in SIDES if student is None or v in student.sides]
+        assign(p.student, max(options, key=lambda v: quota - count[v]))
+
+    # Then a side over its quota sheds regulars: the coach's choice is not modelled here; whoever moved
+    # least recently (never moved first), ties to the one who joined the class most recently.
+    for v in SIDES:
+        other = next(w for w in SIDES if w != v)
+        while count[v] > quota and count[other] < quota:
+            movable = [p.student for p in snapshot.going if p.how == "regular" and side[p.student] == v]
+            if not movable:
+                break
+            never = datetime.min
+            movable.sort(key=lambda sid: (snapshot.last_moved_at.get(sid, never),
+                                          -(joined.get(sid, never) - never).total_seconds(), sid))
+            assign(movable[0], other)
+    return tuple(out)
