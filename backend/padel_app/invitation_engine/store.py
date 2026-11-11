@@ -116,6 +116,11 @@ class MemoryStore:
 
     # --- writing -------------------------------------------------------------------------
 
+    @staticmethod
+    def _latest_open(s: _Session, student: str) -> int | None:
+        return next((i for i in range(len(s.invitations) - 1, -1, -1)
+                     if s.invitations[i].student == student and s.invitations[i].open), None)
+
     def apply(self, effects: Iterable[fx.Effect]) -> None:
         for e in effects:
             self.history.append(e)
@@ -127,6 +132,13 @@ class MemoryStore:
             if isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))
+            elif isinstance(e, (fx.Sorry, fx.Reoffered)):
+                i = self._latest_open(s, e.student)
+                if i is not None and isinstance(e, fx.Sorry):
+                    s.invitations[i] = replace(s.invitations[i], sorry_at=e.at)
+                elif i is not None:
+                    s.invitations[i] = replace(s.invitations[i], offer=e.offer, side_named=e.side_named,
+                                               tier=e.tier, counts_until=e.counts_until, sorry_at=None)
             elif isinstance(e, fx.Answered) and e.on == "invitation":
                 for i in range(len(s.invitations) - 1, -1, -1):
                     if s.invitations[i].student == e.student and s.invitations[i].open:

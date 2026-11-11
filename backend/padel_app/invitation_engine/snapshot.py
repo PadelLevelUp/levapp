@@ -70,6 +70,7 @@ class Invitation:
     answer: Literal["yes", "no"] | None = None
     answered_at: datetime | None = None
     counts_until: datetime | None = None
+    sorry_at: datetime | None = None                  # a Yes got "sorry": open, not counting, re-offerable
 
     @property
     def open(self) -> bool:

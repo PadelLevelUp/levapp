@@ -159,7 +159,8 @@ def counting(invitation: Invitation, now: datetime) -> bool:
     ``counts_until``. Only its own send fixes that instant, so no other invitee's No (or Yes) ever
     changes it (engine-timeline rule 4, TIMELINE-5); once past it, it stays open but stops counting (D4).
     An invitation with no ``counts_until`` counts while open (agreed with the planner, W2)."""
-    return invitation.open and (invitation.counts_until is None or now < invitation.counts_until)
+    return (invitation.open and invitation.sorry_at is None
+            and (invitation.counts_until is None or now < invitation.counts_until))
 
 
 def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> tuple[Effect, ...]:
