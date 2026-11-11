@@ -10,8 +10,10 @@ notes: >
   Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
   between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
-  4). A left spot and a right spot are open after the reminder hour; W1, a right-sider on the waiting list,
-  is invited for either and placed on the right on Yes, even with nobody else for the left.
+  4). A left spot and a right spot are open from the start (3 L and 3 R regulars; the harness applies two Nos
+  in one step one after the other, with a run between, as for P10). W1, a right-sider two levels above the
+  class (eligible, in no group, as in P23), joins the waiting list after the reminder hour and is invited for
+  either side, no side named, and placed on the right on Yes, even with nobody else for the left.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -23,18 +25,17 @@ settings:
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 
 roster:
-  regulars: {L: 4, R: 4}
+  regulars: {L: 3, R: 3}
 students:
-  - {id: W1, level: 3, side: R}
+  - {id: W1, level: 1, side: R}
 
 timeline:
   - at: 2026-11-01 19:00
-    events: [{joins_waiting_list: W1, sides: both}]
-    expect: {invitations: none}
+    expect:
+      invitations: none
+      missing: {L: 1, R: 1}
   - at: 2026-11-02 18:00
-    events:
-      - {regular_no: L-1}
-      - {regular_no: R-1}
+    events: [{joins_waiting_list: W1, sides: both}]
     expect:
       invitations: [{who: W1, side_named: null, group: 2}]
       missing: {L: 1, R: 1}

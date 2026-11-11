@@ -3,13 +3,18 @@ title: o limite dá prioridade ao lado com mais vagas
 source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [505, 523]}
 what_it_tests: como os 12 convites se dividem entre os lados, e como o espaço passa de um lado para o outro
 tags: [max-open, sides]
-depends_on: [U7]
+derived_from: [§6, D16]
 corrections: []
 notes: >
   Side split of M per "Divisão do limite entre lados" (cenarios.txt 2130-2134): the side with more spots
   is covered first until the sides are equal. 19:00: R needs 18, L needs 6; covering R's 4 extra spots
   takes all 12. 19:05: R keeps 9 open for 3 spots, and the 3 freed places go to L. 19:10: 11 open, L needs
   3 and has 2, so 1 more for L (R10).
+
+  Re-derived (PAD-908, coordinator, D-E22 on the owner's review list): the engine plans after every answer (§6),
+  so the PDF's simultaneous Yeses in one step are applied one after the other, each followed by a run
+  that gives the freed place to the more vacant side (rule 13). The plan has no rule batching answers
+  that arrive at the same instant; the same limit as 78.
 
 roster:
   regulars: {L: 6, R: 2}
@@ -32,7 +37,9 @@ timeline:
         - {who: r1, side: R, how: invitation}
         - {who: r2, side: R, how: invitation}
         - {who: r3, side: R, how: invitation}
-      invitations: [{cohort: L2L, count: 3, side_named: null, group: 3}]
+      invitations:
+        - {cohort: L2R, count: 2, side_named: null, group: 3}
+        - {cohort: L2L, count: 1, side_named: null, group: 3}
       open_unanswered: 12
       missing: {L: 2, R: 3}
   - at: 2026-11-01 19:10

@@ -14,7 +14,12 @@ notes: >
   Re-derived under the plan (PAD-900, 2026-11-11): Group 3 has candidates for the right, so it is the ideal
   tier, and group 4 gets 1 per uncovered spot (6), not X capped by M (D17). Group 4 re-sends 6 at 19:20 and
   19:40. At 20:00, group 3's invitations stop counting (60m: their round exhausted the tier), group 4 becomes
-  ideal and sends its last 2. Only 20:20's totals are asserted.
+  ideal and sends its last 2.
+
+  Corrected (PAD-908, coordinator): 20:20 lists every invitation since the previous step (19:20): group
+  4's 6 at 19:40 (its 19:20 ones stopped counting after T = 20 min while the tier still had candidates)
+  and its last 2 at 20:00, so 8, with 22 open. The first re-derivation expected none at 20:20, which
+  missed the runner's step window.
 
 roster:
   regulars: {L: 8, R: 0}
@@ -35,8 +40,9 @@ timeline:
       invitations: [{cohort: L3R, count: 6, side_named: null, group: 4}]
       open_unanswered: 14
   - at: 2026-11-01 20:20
+    derived_from: [D17, D16]
     expect:
-      invitations: none
+      invitations: [{cohort: L3R, count: 8, side_named: null, group: 4}]
       open_unanswered: 22
   - at: 2026-11-01 20:30
     events:
