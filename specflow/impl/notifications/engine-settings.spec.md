@@ -76,6 +76,12 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    coach's `EngineSettings` and asks it again for every session at every call (each session of a tick,
    each request it handles), so a coach's saved change applies from the next call. `UpdateSettings`
    then only re-plans that coach's sessions.
+10. **Timing shapes (swap plan §2; PAD-915).** `first_invite` and `attendance_request` each take the
+    shape today's timing settings store, with today's meaning (`scheduler.py` `_fire_time_utc`):
+    `hours_before` N is N real hours before the class's real start, across a clock change;
+    `days_before` and `days_before_at_time` are the class's own wall date minus N days, at HH:MM on the
+    club's clock (Lisbon, R-023); `none` starts invitations from the moment the session exists, and
+    sends no attendance request. The mapping from a coach's stored timing is therefore one for one.
 
 ### Not this spec
 - A settings screen on web or iOS (brief §1: backend only in this wave).
@@ -206,6 +212,21 @@ and one coach's settings change between two calls, then each session is planned 
 settings, and the changed coach's sessions use the new values from the next call.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_settings_are_looked_up_per_session_at_every_call`
 
+#### NOTIFICATIONS-ENGINE-SETTINGS-20: hours_before counts real hours, across a clock change (rule 10)
+Given `hours_before` 24 and a class the day after the clocks change, when its instant is computed, then
+it is 24 real hours before the class's real start, the same instant `_fire_time_utc` gives.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_hours_before_counts_real_hours_across_a_clock_change`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-21: days_before is the class's wall date minus N days, at the club's time (rule 10)
+Given `days_before_at_time` 1 at 19:00 and a class at 23:30, when its instant is computed, then it is
+19:00 Lisbon on the day before the class's wall date, the same instant `_fire_time_utc` gives.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_days_before_at_time_is_the_wall_date_at_lisbon_time`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-22: none opens invitations at once and sends no attendance request (rule 10)
+Given `first_invite` `none` and `attendance_request` `none`, when a session is created and runs happen
+up to its start, then invitations may go from the first run and no attendance request is ever sent.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_none_starts_invitations_at_creation_and_sends_no_attendance_request`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SETTINGS-3, SETTINGS-4 — `invitation_engine/settings.py` (the timing shape of rule 2, the floor,
@@ -222,6 +243,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 6. (PAD-911) SETTINGS-4's inner rounds, SETTINGS-18 — `invitation_engine/timeline.py` (the rounds of
    a tier inside its Method B share), `invitation_engine/planner.py` (the tier's rounds at send).
 7. (Swap 3, PAD-915) SETTINGS-19 — `invitation_engine/engine.py` (the settings lookup).
+8. (Swap 3, PAD-915) SETTINGS-20 to SETTINGS-22 — `invitation_engine/settings.py` (`FirstInvite`,
+   `AttendanceRequest` shapes), `invitation_engine/timeline.py` (`first_invite_at`, `attendance_request_at`),
+   `invitation_engine/messages.py` (`none`).
 
 ### Open questions
 - Is an automatically placed student's No also the "said No for this session" gate? — decision (owner
