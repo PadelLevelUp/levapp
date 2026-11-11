@@ -116,3 +116,46 @@ def test_method_b_useful_time_runs_from_the_opening_without_quiet_hours():
     assert useful_time(s, EngineSettings(), datetime(2026, 11, 2, 15, 30)) == timedelta(hours=10)
     # 87: a spot opening at 07:30 on class day has one hour.
     assert useful_time(s, EngineSettings(), datetime(2026, 11, 3, 7, 30)) == timedelta(hours=1)
+
+
+def _method_b_schedule(opening: datetime, n: int, ranks: range) -> list[datetime]:
+    """When each tier's invitations go out under Method B: the next tier starts when the previous
+    tier's T, computed at its send by ``method_b_t`` and paused by quiet hours, runs out."""
+    from padel_app.invitation_engine.snapshot import SessionSnapshot
+    from padel_app.invitation_engine.timeline import method_b_t
+
+    s = SessionSnapshot("S", 3, 16, datetime(2026, 11, 3, 10, 30), regulars=(), going=())
+    settings = EngineSettings(timing=Timing("progressive"))
+    out, at = [], opening
+    for rank in ranks:
+        out.append(at)
+        at = counts_until(settings, at, method_b_t(s, settings, at, n, rank))
+    out.append(at)
+    return out
+
+
+def _hm(*pairs):
+    return [datetime(2026, 11, d, h, m) for d, h, m in pairs]
+
+
+def test_method_b_t_reproduces_the_pdf_schedules():
+    # engine-settings rule 2 (amended) with the coordinator's tier count, against the PDF's own times.
+    # 83: four tiers, 10 h from 15:30, 9:8:7:6; the last runs into quiet hours and ends at 08:30.
+    assert _method_b_schedule(datetime(2026, 11, 2, 15, 30), 4, range(4)) == _hm(
+        (2, 15, 30), (2, 18, 30), (2, 21, 10), (2, 23, 30), (3, 8, 30))
+    # 85: three tiers, 6:5:4 of the same 10 h.
+    assert _method_b_schedule(datetime(2026, 11, 2, 15, 30), 3, range(3)) == _hm(
+        (2, 15, 30), (2, 19, 30), (2, 22, 50), (3, 8, 30))
+    # 87: an opening at 07:30 on class day leaves 1 h: 18, 16, 14 and 12 minutes.
+    assert _method_b_schedule(datetime(2026, 11, 3, 7, 30), 4, range(4)) == _hm(
+        (3, 7, 30), (3, 7, 48), (3, 8, 4), (3, 8, 18), (3, 8, 30))
+
+
+def test_method_b_t_resplits_after_a_whole_tier_refuses():
+    # 86: everyone in group 3 says No at 15:40, so it leaves the split; the 9 h 50 m left go 6:5:4
+    # over the three tiers that remain. Group 5's T ends at 22:52:40, so the next minute's run, at
+    # 22:53, invites group 6, as the PDF says.
+    times = _method_b_schedule(datetime(2026, 11, 2, 15, 40), 3, range(3))
+    assert times[:2] == _hm((2, 15, 40), (2, 19, 36))
+    assert times[2] == datetime(2026, 11, 2, 22, 52, 40)
+    assert times[3] == datetime(2026, 11, 3, 8, 30)
