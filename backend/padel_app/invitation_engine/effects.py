@@ -25,10 +25,13 @@ class Effect:
 
 @dataclass(frozen=True)
 class Invited(Effect):
+    """``counts_until`` is the instant it stops counting, fixed at send (engine-timeline rule 4)."""
+
     student: str
     offer: frozenset[SpotType]
     side_named: Side | None
     tier: int | None
+    counts_until: datetime | None = None
 
 
 @dataclass(frozen=True)

@@ -14,14 +14,12 @@ from dataclasses import dataclass, field
 from datetime import time, timedelta
 from typing import Any, Literal
 
+from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
+
 TierSource = Literal["coach_list", "students_list", "pool"]
 TierSide = Literal["same", "other", "any"]
 TimingMethod = Literal["fixed", "progressive", "per_tier"]
 WaitingList = Literal["coach", "students"]
-
-#: The plan's floor between two sends of the same tier (wave brief §2, clause 3).
-MIN_BETWEEN_SENDS = timedelta(minutes=1)
-
 
 class SettingsError(ValueError):
     """A settings mapping the engine cannot accept; the message names the key."""
@@ -43,16 +41,28 @@ class Tier:
 
 
 @dataclass(frozen=True)
-class Timing:
-    """How long an invitation counts (plan's T, D16), per method.
+class TimingPair:
+    """The two values an invitation's T is chosen from at send (engine-timeline rule 4):
+    ``between_rounds`` while its tier still has uninvited candidates, ``between_groups`` once not."""
 
-    ``fixed``: one T for every tier. ``progressive`` (Method B) and ``per_tier`` (Method C) are
-    values of T per tier; ``per_tier[i]`` is tier i's T, ``None`` when unset (then ``inactivity``).
+    between_rounds: timedelta = timedelta(minutes=20)
+    between_groups: timedelta = timedelta(minutes=20)
+
+
+@dataclass(frozen=True)
+class Timing:
+    """How long an invitation counts (plan's T, D16; engine-settings rule 2, ruling D-E6).
+
+    ``fixed`` (Method A, the default): one pair for every tier; both 20 minutes is the plan's single
+    T. ``per_tier`` (Method C): ``per_tier[i]`` is tier i's pair, ``None`` for a tier using the fixed
+    pair. ``progressive`` (Method B): T is the tier's share of the useful time, computed at send
+    (``constants.method_b_share``); the pair is not read.
     """
 
     method: TimingMethod = "fixed"
-    inactivity: timedelta = timedelta(minutes=20)
-    per_tier: tuple[timedelta | None, ...] = ()
+    between_rounds: timedelta = timedelta(minutes=20)
+    between_groups: timedelta = timedelta(minutes=20)
+    per_tier: tuple[TimingPair | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -107,12 +117,17 @@ class EngineSettings:
             raise SettingsError("invites_per_spot must be at least 1")
         if self.max_at_a_time < 1:
             raise SettingsError("max_at_a_time must be at least 1")
-        if self.timing.inactivity < MIN_BETWEEN_SENDS:
-            raise SettingsError(f"timing.inactivity must be at least {MIN_BETWEEN_SENDS}")
-        if any(t is not None and t < MIN_BETWEEN_SENDS for t in self.timing.per_tier):
-            raise SettingsError(f"timing.per_tier values must be at least {MIN_BETWEEN_SENDS}")
-        if self.timing.method == "fixed" and self.timing.per_tier:
-            raise SettingsError("timing.per_tier needs method progressive or per_tier")
+        values = [("timing.between_rounds", self.timing.between_rounds),
+                  ("timing.between_groups", self.timing.between_groups)]
+        for i, pair in enumerate(self.timing.per_tier):
+            if pair is not None:
+                values += [(f"timing.per_tier[{i}].between_rounds", pair.between_rounds),
+                           (f"timing.per_tier[{i}].between_groups", pair.between_groups)]
+        for name, value in values:
+            if value < ENGINE_T_FLOOR:
+                raise SettingsError(f"{name} must be at least {ENGINE_T_FLOOR}")
+        if self.timing.method != "per_tier" and self.timing.per_tier:
+            raise SettingsError("timing.per_tier needs method per_tier")
         if len(self.timing.per_tier) > len(self.tiers):
             raise SettingsError("timing.per_tier has more entries than there are tiers")
         if not self.tiers:
@@ -132,9 +147,9 @@ class EngineSettings:
             raise SettingsError(f"unknown settings: {sorted(unknown)}")
         return dataclasses.replace(self, **changes)
 
-    def inactivity_for(self, tier: int) -> timedelta:
-        """T for an invitation sent from ``tier`` (index into ``tiers``)."""
+    def timing_for(self, tier: int) -> TimingPair:
+        """The pair an invitation from ``tier`` (index into ``tiers``) takes its T from."""
         per = self.timing.per_tier
-        if tier < len(per) and per[tier] is not None:
+        if self.timing.method == "per_tier" and tier < len(per) and per[tier] is not None:
             return per[tier]
-        return self.timing.inactivity
+        return TimingPair(self.timing.between_rounds, self.timing.between_groups)
