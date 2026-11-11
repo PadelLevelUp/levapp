@@ -50,7 +50,7 @@ coach is drained, the old engine is deleted and the replaced rules and their cri
 | 15a | `notifications.engine-answers` rule 4 | "sorry" and the waiting-list offer answer the Yes (D4) |
 | 16 | `notifications.engine-planning` rule 10 | no spot to hold; invitations stay open until the class starts (D4) |
 | 18a | `notifications.engine-answers` rule 3 | nothing moves between spots; a filled offer is re-offered (D1, Q6) |
-| 3d | the engine's dry-run verdicts (swap plan §4; PAD-915) | each student's stage per spot type, not a log line per empty round |
+| 3d | `notifications.engine-tiers` rule 12 (the dry run's verdicts) | each student's stage per spot type, not a log line per empty round |
 | 4 | `notifications.engine-tiers` rule 8 | the priority criteria, then the tiebreakers (PAD-913) |
 | 11, 11a | `notifications.engine-timeline` rule 1; `notifications.engine-settings` rules 9, 10 | no vacancy carries a window; settings are read at every call |
 | 12, 12a, 12b | the table-backed store (swap plan §5; PAD-916) and `notifications.engine-tiers` rule 11 | there are no waves; one snapshot per session per call |
@@ -324,7 +324,7 @@ Kept unchanged for the new engine: rules 3b, 6, 9, 17, 20. Rule 18c, as amended 
    group the vacancy expires, as before. Decision recorded in the PR: the engine tick is the
    spacing, because waiting the full inactivity timeout (120 min by default) per empty group
    could push a vacancy past the class start with nobody ever invited.
-3d. *(For a session on the new engine (`notifications.config` rule 18): replaced by the engine's dry-run verdicts (swap plan §4; spec pending with PAD-915), which give each student's stage per spot type. Holds as written for an old-engine session until the old engine is deleted.)* **An empty round says why (PAD-771).** Before the round is deferred, `_send_invitation_batch`
+3d. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rule 12 (the dry run's verdicts), which give each student's stage per spot type. Holds as written for an old-engine session until the old engine is deleted.)* **An empty round says why (PAD-771).** Before the round is deferred, `_send_invitation_batch`
    logs one INFO line `empty round: vacancy <id> round <n> stages {<stage>: <count>, …}`. The counts
    are `evaluate_candidates`' first-failing stage for every roster student in that wave. The line
    carries stage names and counts only, never a student id or name. It is what explains a vacancy
