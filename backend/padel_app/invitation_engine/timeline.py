@@ -10,11 +10,42 @@ attendance request; and the duties due at an instant, such as fixing flexible st
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from padel_app.invitation_engine.effects import Effect
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.snapshot import SessionSnapshot
+
+#: Class times and the coach's times of day are Lisbon wall-clock; event instants are UTC (R-023).
+CLUB_TZ = ZoneInfo("Europe/Lisbon")
+
+
+def _utc(wall: datetime) -> datetime:
+    return wall.replace(tzinfo=CLUB_TZ).astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+    """When invitations start (§8 step 2): ``days_before`` the class's day, at the coach's time."""
+    fi = settings.first_invite
+    day = snapshot.start.date() - timedelta(days=fi.days_before)
+    return _utc(datetime.combine(day, fi.at))
+
+
+def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+    """After it no new invitation goes out (§8 step 6)."""
+    return _utc(snapshot.start - settings.last_invite_before)
+
+
+def may_plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> bool:
+    """Whether a run may create invitations at ``now`` (engine-planning rule 1): inside the
+    invitation window. Quiet hours (D14) join this gate in wave W4."""
+    return first_invite_at(snapshot, settings) <= now <= last_invite_at(snapshot, settings)
+
+
+def useful_time(snapshot: SessionSnapshot, settings: EngineSettings) -> timedelta:
+    """Method B's useful time: the invitation window. Quiet hours are taken out of it in wave W7."""
+    return last_invite_at(snapshot, settings) - first_invite_at(snapshot, settings)
 
 
 def t_at_send(settings: EngineSettings, tier: int, tier_has_uninvited: bool,

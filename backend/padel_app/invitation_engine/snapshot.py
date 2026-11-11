@@ -103,6 +103,8 @@ class SessionSnapshot:
     pool: tuple[Student, ...] = ()                    # visible club students not in the session
     absent: frozenset[str] = frozenset()              # regulars who said they are not going
     said_no: frozenset[str] = frozenset()             # answered No for this session (a gate, plan §3)
+    busy_same_time: frozenset[str] = frozenset()      # going to another session at the same time (a gate)
+    postponed: frozenset[str] = frozenset()           # holding an open offer for another session that day (D15)
     confirmed: frozenset[str] = frozenset()           # answered Yes to an attendance request
     students: dict[str, Student] = field(default_factory=dict)  # every student the snapshot names
 

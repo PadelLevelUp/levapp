@@ -95,11 +95,15 @@ class MemoryStore:
         pool = tuple(st for sid, st in self._students.items()
                      if sid not in inside and sid not in self._hidden and sid not in s.excluded)
         named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
+        others = [o for o in self._sessions.values() if o.id != s.id]
+        busy = {sid for o in others if o.start == s.start for sid in o.going}
+        postponed = {i.student for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open}
         return SessionSnapshot(
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
             regulars=tuple(s.regulars.values()), going=tuple(s.going.values()),
             invitations=tuple(s.invitations), waiting_list=tuple(s.waiting_list), pool=pool,
             absent=frozenset(s.absent), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
+            busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy),
             students={sid: self._students[sid] for sid in named if sid in self._students},
         )
 
