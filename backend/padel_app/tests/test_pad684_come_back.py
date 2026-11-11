@@ -120,7 +120,7 @@ def _invite(ids, name, vacancy):
     """An open invitation to ``name`` for ``vacancy`` (its message is the bubble)."""
     from padel_app.models import Message
     from padel_app.models.notification_event import NotificationEvent
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     conv = _get_or_create_direct_conversation(ids["coach_user_id"], ids[f"{name}_user"])
     msg = Message(text="invite", sender_id=ids["coach_user_id"], conversation_id=conv.id,

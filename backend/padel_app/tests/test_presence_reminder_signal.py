@@ -107,9 +107,7 @@ def test_an_invitation_counts_as_a_message_that_reached_the_player(app, client):
         # PAD-330: enrolling a student now writes a message telling them, so the
         # coach-student thread already exists by the time this runs. Building one
         # by hand collided with it; get-or-create is what production does.
-        from padel_app.services.notification_service import (
-            _get_or_create_direct_conversation,
-        )
+        from padel_app.services.system_messages import _get_or_create_direct_conversation
 
         conv = _get_or_create_direct_conversation(
             ids["coach_user_id"], ids["student_user_id"]

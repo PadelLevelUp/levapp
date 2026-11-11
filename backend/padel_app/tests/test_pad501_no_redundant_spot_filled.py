@@ -18,7 +18,7 @@ def _messages_to(user_id):
 
 
 def _recipients(message):
-    from padel_app.services.notification_service import message_recipient_ids
+    from padel_app.services.conversation_access import message_recipient_ids
 
     return set(message_recipient_ids(message))
 
@@ -97,7 +97,7 @@ def test_a_yes_after_the_spot_went_is_answered_without_a_message(app, monkeypatc
 
 def test_a_join_request_accept_retires_the_invitations_without_a_message(app):
     from padel_app.models import Coach, Message, NotificationEvent, Player, Vacancy
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.tests.test_pad131_join_requests import _config, _decide, _fill_to_one_spot, _request, _seed, _student
 
     ids = _seed(app, eligibility_rules=None)

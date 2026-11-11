@@ -454,7 +454,7 @@ def test_the_coach_recording_a_waiting_list_no_closes_the_entry_without_spending
 
 @pytest.mark.criterion("NOTIFICATIONS-WAITING-LIST-25")
 def test_the_english_side_phrase():
-    from padel_app.services.notification_service import _side_phrase
+    from padel_app.services.message_text import _side_phrase
 
     assert (_side_phrase("left", "en"), _side_phrase("right", "en"), _side_phrase("both", "en")) == (
         " (left side)", " (right side)", "")

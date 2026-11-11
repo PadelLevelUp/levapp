@@ -43,7 +43,7 @@ def _quiet(monkeypatch):
 
 @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-11")
 def test_the_formatter_dates_an_occurrence_and_not_a_series(app):
-    from padel_app.services.notification_service import _format_class_when, _format_when
+    from padel_app.services.message_text import _format_class_when, _format_when
 
     saturday = datetime(2027, 4, 10, 18, 0)
     assert _format_when(saturday, "pt", dated=True) == " no dia 10/04 (sábado) às 18:00"
@@ -68,7 +68,7 @@ def test_the_formatter_dates_an_occurrence_and_not_a_series(app):
 def test_a_waiting_list_join_tells_the_coach_the_day(app, monkeypatch):
     from padel_app.models import Coach, LessonInstance, Message
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.tests.test_pad358_academy_classes import _add_class, _join, _setup
 
     _quiet(monkeypatch)
@@ -91,7 +91,7 @@ def test_a_waiting_list_join_tells_the_coach_the_day(app, monkeypatch):
 def test_an_english_coach_reads_the_day_too(app, monkeypatch):
     from padel_app.models import Coach, LessonInstance, Message
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.tests.test_pad358_academy_classes import _add_class, _join, _setup
 
     _quiet(monkeypatch)

@@ -430,7 +430,7 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
     from padel_app.models.clubs import Club
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
-    from padel_app.services.notification_service import _notify_coach_of_cancellation
+    from padel_app.services.system_messages import _notify_coach_of_cancellation
 
     with app.app_context():
         coach_user = _create_user("Coach", "cancel-coach")
