@@ -20,6 +20,31 @@ from padel_app.invitation_engine.snapshot import Invitation, SessionSnapshot
 from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
 
 
+def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+    """When invitations start (§8 step 2): ``days_before`` the class's day, at the coach's time.
+    Class times are Lisbon wall-clock, the result naive UTC (R-023)."""
+    fi = settings.first_invite
+    day = snapshot.start.date() - timedelta(days=fi.days_before)
+    return wall_to_utc_naive(datetime.combine(day, fi.at))
+
+
+def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+    """After it no new invitation goes out (§8 step 6)."""
+    return wall_to_utc_naive(snapshot.start - settings.last_invite_before)
+
+
+def may_plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> bool:
+    """Whether a run may create invitations at ``now`` (engine-planning rule 1): inside the
+    invitation window and outside quiet hours (D14)."""
+    return (first_invite_at(snapshot, settings) <= now <= last_invite_at(snapshot, settings)
+            and not is_quiet(settings, now))
+
+
+def useful_time(snapshot: SessionSnapshot, settings: EngineSettings) -> timedelta:
+    """Method B's useful time: the invitation window. Quiet hours are taken out of it in wave W7."""
+    return last_invite_at(snapshot, settings) - first_invite_at(snapshot, settings)
+
+
 def t_at_send(settings: EngineSettings, tier: int, tier_has_uninvited: bool,
               method_b_share: timedelta | None = None) -> timedelta:
     """An invitation's T, fixed when it is sent (engine-timeline rule 4).

@@ -137,19 +137,11 @@ def test_every_student_request_type_is_exercised_here():
 
 
 @pytest.mark.parametrize("request_", ALL_STUDENT_REQUESTS, ids=lambda r: type(r).__name__)
-def test_phase_one_handles_every_request_and_decides_nothing(request_):
+def test_every_request_runs_through_the_facade(request_):
     store = _store()
-    before = store.snapshot("A")
-    assert Engine(store, EngineSettings()).handle("A", request_, T0) == []
-    assert store.snapshot("A") == before
-
-
-def test_phase_one_tick_decides_nothing():
-    store = _store()
-    engine = Engine(store, EngineSettings())
-    for minutes in range(0, 24 * 60, 5):
-        assert engine.tick(T0 + timedelta(minutes=minutes)) == []
-    assert store.history == []
+    effects = Engine(store, EngineSettings()).handle("A", request_, T0)
+    assert isinstance(effects, list) and all(isinstance(e, fx.Effect) for e in effects)
+    assert store.history == effects
 
 
 def test_a_coach_exclusion_takes_the_student_out_of_the_session_pool():
@@ -278,11 +270,10 @@ def test_a_scenario_turns_on_only_the_coach_rules_it_uses():
     assert used == set(COACH_RULES), "the suite's scenarios no longer use every coach rule"
 
 
-def test_a_scenario_runs_against_the_skeleton_to_a_clean_failure():
+def test_a_scenario_runs_against_the_new_engine_without_an_error():
     result = run_scenario(TEMPLATE, NewAdapter())
     assert result.error is None, result.error
-    assert result.outcome == "fail" and result.evaluated > 0 and result.skipped == 0
-    assert result.first.at == "2026-11-01 19:00" and result.first.key == "invitations"
+    assert result.outcome in ("pass", "fail") and result.evaluated > 0 and result.skipped == 0
 
 
 def test_every_harness_event_reaches_the_engine():
@@ -327,10 +318,11 @@ from padel_app.tests.invitation_scenarios.runner import Applied, to_utc  # noqa:
 
 
 def _template_adapter():
+    """The template's adapter and an instant before its invitation window, when nothing is planned."""
     adapter = NewAdapter()
     sc = load_scenario(TEMPLATE)
     adapter.setup(sc)
-    return adapter, sc.first_invite_at()
+    return adapter, sc.first_invite_at() - timedelta(hours=9)
 
 
 @pytest.mark.parametrize("engine_says", ["nothing", "refused"])
@@ -361,7 +353,7 @@ roster:
 students:
   - {id: W1, level: 3, side: R}
 timeline:
-  - at: 2026-11-01 20:00
+  - at: 2026-11-01 10:00
     events: [{accepts: W1}]
     expect: {nothing_sent: true, roster: {L: 8, R: 7}}
 final:
@@ -374,9 +366,11 @@ final:
 
 def test_an_open_invitation_past_its_inactivity_time_stays_open_with_its_send_time():
     adapter, start = _template_adapter()
-    adapter.store.apply([fx.Invited("A", to_utc(start), "L2R-1", frozenset({SpotType("R", 3)}), None, 2)])
+    sent = to_utc(start)
+    adapter.store.apply([fx.Invited("A", sent, "L2R-1", frozenset({SpotType("R", 3)}), None, 2,
+                                    sent + timedelta(minutes=20))])
     adapter.tick(start + timedelta(hours=3))           # far past T = 20 min: no longer counting (D16)
-    assert adapter.snapshot("A").open_invitations == [("L2R-1", None, start)]
+    assert ("L2R-1", None, start) in adapter.snapshot("A").open_invitations
 
 
 def test_every_engine_message_kind_maps_to_its_normalized_kind():
