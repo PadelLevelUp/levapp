@@ -375,9 +375,11 @@ def test_an_open_invitation_past_its_inactivity_time_stays_open_with_its_send_ti
 
 def test_every_engine_message_kind_maps_to_its_normalized_kind():
     kinds = typing.get_args(fx.MessageKind)
-    assert {"sorry", "reoffer", "added", "waiting_list_offer", "side_moved"} == set(kinds)
+    assert {"sorry", "reoffer", "added", "waiting_list_invite", "side_moved"} == set(kinds)
     adapter, _ = _template_adapter()
     for kind in kinds:
         record, = adapter._records([fx.Message("A", T0, "W1", kind)])
-        # The engine's "sorry" is the scenario format's "aviso" (constants.md KIND_SORRY).
-        assert (record.kind, record.data["kind"]) == ("message", "aviso" if kind == "sorry" else kind)
+        # The engine's "sorry" is the scenario format's "aviso" (constants.md KIND_SORRY); its
+        # "waiting_list_invite" is the format's "waiting_list_offer" (KIND_WAITING_LIST_INVITE).
+        expected = {"sorry": "aviso", "waiting_list_invite": "waiting_list_offer"}.get(kind, kind)
+        assert (record.kind, record.data["kind"]) == ("message", expected)

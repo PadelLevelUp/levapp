@@ -13,6 +13,7 @@ LOWER_TIER_PER_SPOT = 1                      # what a non-ideal tier sends per c
 KIND_SORRY = "sorry"
 KIND_REOFFER = "reoffer"
 KIND_ADDED = "added"
+KIND_WAITING_LIST_INVITE = "waiting_list_invite"
 KIND_SIDE_MOVED = "side_moved"
 COACH_ALERT = "coach_alert"
 

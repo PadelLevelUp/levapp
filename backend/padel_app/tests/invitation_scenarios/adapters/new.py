@@ -28,8 +28,8 @@ Records (engine effect -> record):
 - ``Placed`` -> placed with its ``how``; ``Left`` -> left; ``Absence`` -> absence;
   ``AttendanceRequested`` -> reminder; ``Message`` -> message by ``MESSAGE_KINDS``: the engine's
   ``sorry`` (plan §7, D4) is logged as ``aviso`` (the scenario format's word for it, constants.md
-  KIND_SORRY), the others one for one (``reoffer``, ``added``, ``waiting_list_offer``,
-  ``side_moved``).
+  KIND_SORRY), the engine's ``waiting_list_invite`` as the format's ``waiting_list_offer``, the
+  others one for one (``reoffer``, ``added``, ``side_moved``).
 - Open invitations: the snapshot lists every unanswered invitation with its send time, counting
   or not. An invitation past its inactivity time stops counting but stays open (D4), so
   ``open_unanswered`` counts it.
@@ -75,7 +75,7 @@ from padel_app.tests.invitation_scenarios.runner import (
 
 #: Engine message kind -> normalized message kind (design §5, §12).
 MESSAGE_KINDS = {"sorry": "aviso", "reoffer": "reoffer", "added": "added",
-                 "waiting_list_offer": "waiting_list_offer", "side_moved": "side_moved"}
+                 "waiting_list_invite": "waiting_list_offer", "side_moved": "side_moved"}
 #: Harness events whose refusal is an observation of its own (design §12, ``refused``).
 REFUSABLE = {"joins_directly", "joins_waiting_list"}
 

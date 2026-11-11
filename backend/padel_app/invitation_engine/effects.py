@@ -12,7 +12,7 @@ from typing import Literal
 
 from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotType, WaitingListSides
 
-MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_offer", "side_moved"]
+MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_invite", "side_moved"]
 AbsenceKind = Literal["justified", "unjustified", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 
@@ -88,8 +88,9 @@ class Left(Effect):
 class Message(Effect):
     """``sorry``: Yes with no room (D4); ``reoffer``: the same invitation offered again, for another
     spot (Q6) or after a "sorry" when a spot reopens; ``added``: automatic entry;
-    ``waiting_list_offer``: the waiting-list invitation; ``side_moved``: a going student told their
-    side was moved at ``last_invite_at`` (plan §4, §8 step 6)."""
+    ``waiting_list_invite``: the waiting-list invitation (today's template key of that meaning; today's
+    ``waiting_list_offer`` is the engine's ``sorry``, ruling D8); ``side_moved``: a going student
+    told their side was moved at ``last_invite_at`` (plan §4, §8 step 6)."""
 
     student: str
     kind: MessageKind
