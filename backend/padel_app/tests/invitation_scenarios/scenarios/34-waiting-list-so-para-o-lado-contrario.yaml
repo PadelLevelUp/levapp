@@ -10,6 +10,11 @@ notes: >
   (right) only, while the class is full. S1 has no level (level null, so the class level). S1 is not a
   candidate for the left spot by level either (R13; U22). Group 3 (L2L) covers the left spot anyway.
 
+  Re-derived (PAD-908, coordinator ruling N2, as for 35): the side choice limits automatic entry and
+  group 0 only, so S1 (level 3, a left-sider) is group 4 for the left. The 09:00 L2L round exhausted
+  group 3 and counts 60 minutes, so at the 10:00 run, before R-1's No, group 4 invites S1 for the left;
+  R-1's No then places S1 on the right by automatic entry.
+
 roster:
   regulars: {L: 8, R: 8}
 students:
@@ -32,7 +37,7 @@ timeline:
     expect:
       placed: [{who: S1, side: R, how: auto_from_waiting_list}]
       messages: [{who: S1, kind: added}]
-      invitations: none
+      invitations: [{who: S1, side_named: null, group: 4}]
       missing: {L: 1, R: 0}
   - at: 2026-11-02 10:10
     events: [{accepts: {cohort: L2L, state: invited, as: l1}}]

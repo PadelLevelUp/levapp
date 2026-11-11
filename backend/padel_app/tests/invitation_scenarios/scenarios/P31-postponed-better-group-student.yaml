@@ -10,10 +10,11 @@ notes: >
   Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
   between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
-  4). X = 1. Class B is the same day at 18:00. A's own right regulars are candidates for B too (another time,
-  no gate), so X1 carries the most participations and is B's one invitation. A's spot opens at 20:00: X1 is
-  postponed (D15), so group 2 gets X. X1 declines B at 20:10; A's spot already holds X counting, so X1 is
-  invited at 21:00, when group 2's stop counting.
+  4). X = 1. Class B is the same day at 18:00, a level-4 class, so B's regulars are not eligible for A, and
+  X1 (level 3) is B's group 5 (one level above, same side, a group added here). A's own right regulars are
+  candidates for B too (another time, no gate), so X1 carries the most participations and is B's one
+  invitation. A's spot opens at 20:00: X1 is postponed (D15), so group 2 gets X. X1 declines B at 20:10; A's
+  spot already holds X counting, so X1 is invited at 21:00, when group 2's stop counting.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -22,13 +23,14 @@ settings:
     - {list: students, side: any}
     - {level: 0, side: same}
     - {level: 0, side: other}
+    - {level: +1, side: same}
   invites_per_spot: 1
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 
 roster:
   regulars: {L: 4, R: 4}
 other_classes:
-  - {id: B, level: 3, capacity: 8, start: 2026-11-03 18:00, regulars: {L: 4, R: 3}}
+  - {id: B, level: 4, capacity: 8, start: 2026-11-03 18:00, regulars: {L: 4, R: 3}}
 students:
   - {id: X1, level: 3, side: R, participations: 10}
   - {cohort: L3L, count: 3, level: 3, side: L}
