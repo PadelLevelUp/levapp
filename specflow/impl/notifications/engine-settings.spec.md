@@ -28,11 +28,14 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    - **fixed** (the PDF's Method A, the default): `between_rounds` and `between_groups`, one pair for
      all tiers; default both 20 minutes, which is the plan's single T;
    - **per tier** (Method C): a pair per tier; a tier without its own pair uses the fixed pair;
-   - **progressive** (Method B, one round per tier): the engine computes, at send, the tier's share of
-     the useful time — from the opening (the first run that plans for the spot) to `last_invite_at`,
-     quiet hours excluded — over the tiers
-     that have candidates at that send, by const:METHOD_B_PART; every invitation of that tier gets its
-     tier's share as T.
+   - **progressive** (Method B, one round per tier): at each send the engine counts, per spot type, the
+     n tiers taking part — the tiers with candidates for the type now, plus the tiers that sent an
+     invitation for the type not yet answered No — and gives the sending tier, at rank r among them,
+     parts[r] / sum(parts[r:]) of the useful time that remains at the send (const:METHOD_B_PART; the
+     useful time runs from the opening, the first run that plans for the spot, to `last_invite_at`,
+     quiet hours excluded). Every invitation of that send gets that share as T. A tier that drops out
+     (a whole tier refuses) re-splits the remaining time over the rest
+     (`invitation_engine/timeline.py`, `method_b_t`).
    Each value is at least const:ENGINE_T_FLOOR; a lower value is refused when saved.
 3. **`auto-entry`** (`auto_entry_before_attendance_request`, default off). When on, before
    `attendance_request_at` — the invitation window not required — a waiting-list member is **placed**
@@ -101,17 +104,34 @@ Given a timing value below const:ENGINE_T_FLOOR, when the settings are built, th
 a `SettingsError`.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_timing_below_the_floor_is_refused`
 
-#### NOTIFICATIONS-ENGINE-SETTINGS-4: Method B shares follow the parts and leave the last tier two thirds of the first (rule 2)
-Given useful time U and n tiers with candidates, when T is computed at send, then tier i's T is U ×
-(3(n−1) − i) / Σ parts for n ≥ 2 (4 tiers: 9:8:7:6), U for n = 1, and the last tier's share is two
-thirds of the first's.
+#### NOTIFICATIONS-ENGINE-SETTINGS-4: Method B gives the sending tier its part over the parts left, of the time left (rule 2)
+Given n tiers taking part, the sending tier at rank r and a remaining useful time R at the send, when T
+is computed, then T is R × parts[r] / sum(parts[r:]) with parts[i] = 3(n−1) − i (4 tiers: 9:8:7:6), R
+for n = 1; with no tier dropping out the shares equal the 9:8:7:6 split of the whole useful time, and
+the last tier's share is two thirds of the first's.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_method_b_parts`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-5: Method B with four tiers (rule 2)
 Given scenario 83 (four tiers, one round each; the opening at 15:30 and `last_invite_at` 08:30, so a
 useful time of 17 h minus 7 h of quiet hours, 10 h), when it runs, then each tier's invitations go out
-when the previous tier's T runs out, by the 9:8:7:6 shares of those 10 h.
+when the previous tier's T runs out: the first tier's T is 3 h (9/30 of 10 h), and at 18:30 the second
+tier's is 2 h 40 (8/21 of the 7 h left).
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[83-quatro-grupos-com-menos-tempo-nos-ultimos]`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-15: A whole tier refusing re-splits the time left over the rest (rule 2)
+Given Method B and a tier taking part whose every invitee says No, when the next tier sends, then its T
+is its part over the parts of the tiers still taking part, of the useful time left.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[86-a-recusa-de-um-grupo-inteiro-recalcula-o-tempo-que-falta]`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-16: A tier with no candidates does not take part in Method B (rule 2)
+Given Method B and a tier with no candidates for the type and no invitation out for it, when another
+tier sends, then n leaves that tier out and the shares are those of the tiers taking part.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[85-um-grupo-sem-candidatos-nao-conta]`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-17: A late spot splits only the useful time left before the last invitation (rule 2)
+Given Method B and a spot that opens shortly before `last_invite_at`, when its tiers send, then each T is
+its share of the useful time from that opening to `last_invite_at`, quiet hours excluded.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[87-vaga-de-ultima-hora-com-pouco-tempo-util]`
 
 #### NOTIFICATIONS-ENGINE-SETTINGS-6: Automatic entry places before the reminder hour and invites after it (rule 3)
 Given `auto-entry` on and a waiting-list member, when a spot they can take opens before
@@ -165,7 +185,7 @@ test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_def
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SETTINGS-3, SETTINGS-4 — `invitation_engine/settings.py` (the timing shape of rule 2, the floor,
    `const:METHOD_B_PART`), with TIMELINE W1's shared-module change.
-2. (W7) SETTINGS-1, SETTINGS-2, SETTINGS-5, SETTINGS-11, SETTINGS-12, SETTINGS-13 —
+2. (W7) SETTINGS-1, SETTINGS-2, SETTINGS-5, SETTINGS-15, SETTINGS-16, SETTINGS-17, SETTINGS-11, SETTINGS-12, SETTINGS-13 —
    `invitation_engine/timeline.py` (T per tier, Method B at send), `invitation_engine/planner.py`
    (`side: other`, tier order).
 3. (W8) SETTINGS-6, SETTINGS-7, SETTINGS-8 — `invitation_engine/planner.py` (automatic entry, the

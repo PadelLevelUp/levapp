@@ -23,8 +23,9 @@ suite.
   `backend/padel_app/models/notification_config.py:382`).
 - `SIDE_QUOTA`: side's quota per value (D19). Not a setting.
 - `LOWER_TIER_PER_SPOT`: what a tier that is not the type's ideal tier sends per covered spot (D17).
-- `METHOD_B_PART`: Method B's split (coordinator ruling, 2026-11-11). Tier i's share is its part over
-  the sum of the parts, applied to the useful time; 4 tiers 9:8:7:6, 3 tiers 6:5:4, 2 tiers 3:2, 5
+- `METHOD_B_PART`: Method B's split (coordinator ruling, 2026-11-11). At each send, the tier at rank r
+  among the n tiers taking part gets parts[r] over sum(parts[r:]) of the useful time left (engine-settings
+  rule 2), which with no tier dropping out is its part over the sum of the parts; 4 tiers 9:8:7:6, 3 tiers 6:5:4, 2 tiers 3:2, 5
   tiers 12:11:10:9:8 — the last tier always gets two thirds of the first. One tier gets all of it.
 - `KIND_SORRY`: the engine's message kind for plan §7's "sorry, plus the offer to join the waiting
   list" (`invitation_engine/effects.py` `MessageKind`). The scenario format logs it as `aviso` (H's
