@@ -1,0 +1,50 @@
+id: P20
+variant: a
+title: side limit
+source: {section: "Plano §9.3 Regulars and absences", lines: [270, 275]}
+what_it_tests: a type the better group cannot cover goes to the next tier with full X
+tags: [sides, other-side, groups]
+derived_from: [S20, D17, Q9, Q6, D20]
+corrections: []
+notes: >
+  Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
+  Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
+  between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
+  the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
+  4). Group 1 covers the either spot with 3 right-siders (offer: right); nobody in group 1 fits must(L), so
+  group 2 is its ideal tier and the other 2 right-siders are asked to play left (Q9: per spot type). Branch
+  a: after one of the first 3 takes the right, a second one's Yes is re-offered the left (Q6).
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 2, R: 3, both: 1}
+students:
+  - {cohort: L3R, count: 5, level: 3, side: R, participations: [5, 4, 3, 2, 1]}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L3R, count: 3, side_named: null, group: 3}
+        - {cohort: L3R, count: 2, side_named: L, group: 4}
+      missing: {total: 2}
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L3R, state: invited, side_named: null, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {total: 1}
+  - at: 2026-11-01 19:20
+    events: [{accepts: {cohort: L3R, state: invited, side_named: null, as: r2}}]
+    expect:
+      messages: [{who: r2, kind: reoffer}]
+      missing: {total: 1}
+final:
+  roster: {total: 7}

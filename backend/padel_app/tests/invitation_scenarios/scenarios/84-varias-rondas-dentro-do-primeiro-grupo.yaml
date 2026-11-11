@@ -3,7 +3,7 @@ title: várias rondas dentro do primeiro grupo
 source: {section: "Cenários 80 a 90: métodos de tempo A, B e C", lines: [1811, 1834]}
 what_it_tests: o tempo do grupo divide-se por rondas decrescentes, e o último terço é o tempo de espera até ao grupo seguinte
 tags: [method-b, timers, rounds, groups]
-depends_on: [U12]
+derived_from: [D16, §2]
 corrections: []
 notes: >
   Method B, same people as 83 plus 6 more level-2 right-siders. Group 3 gets 3 h in 3 rounds: 70 min, 50 min,
@@ -12,12 +12,14 @@ notes: >
   second round at 16:42 instead of 16:40). The 18:45 Aviso probe is derived from "Os outros convidados veem o
   Aviso se disserem Sim" (R9). Regular R-1 stands for "o regular de direita".
 
-  Disposition (PAD-900, 2026-11-11): setting. Method B is the engine's per-tier duration computed at send:
-  with n tiers, tier i (0-based) gets 3(n-1) - i parts and share = part / sum (coordinator ruling), fixed
-  per invitation at send and never overriding coverage. Expectations stand as encoded.
+  Disposition (PAD-900, 2026-11-11, coordinator's reversal after reading S's specs): deferred, re-derived to
+  the plan's outcome. A decreasing per-round schedule inside one tier has no formula the engine can
+  implement (the 70/50 split is E4), and the spec's Method B is one round per tier. Plan outcome, checked by
+  R: T fixed per invitation with between_rounds = between_groups = 60m, so group 3's rounds go at 15:30,
+  16:30 and 17:30 and group 4 comes at 18:30. The owner sees this line on the disposition sheet.
 
 settings:
-  timing: {method: B}
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
 
 roster:
   regulars: {L: 8, R: 8}
@@ -33,7 +35,8 @@ timeline:
     expect:
       invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
       missing: {L: 0, R: 1}
-  - at: 2026-11-02 16:40
+  - at: 2026-11-02 16:30
+    derived_from: [D16, §2]
     expect:
       invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
   - at: 2026-11-02 17:30

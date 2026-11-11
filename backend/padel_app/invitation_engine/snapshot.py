@@ -59,7 +59,8 @@ class Placement:
 class Invitation:
     """One invitation per student per session (D1). ``offer`` is the spot types it was sent for
     (D20); ``side_named`` is the side the message names, ``None`` when it names none (D11);
-    ``tier`` is the index into ``EngineSettings.tiers`` it was sent from."""
+    ``tier`` is the index into ``EngineSettings.tiers`` it was sent from; ``counts_until`` is the
+    instant it stops counting (fixed at send, engine-timeline rule 4), after which it stays open (D4)."""
 
     student: str
     offer: frozenset[SpotType]
@@ -68,6 +69,7 @@ class Invitation:
     sent_at: datetime
     answer: Literal["yes", "no"] | None = None
     answered_at: datetime | None = None
+    counts_until: datetime | None = None
 
     @property
     def open(self) -> bool:

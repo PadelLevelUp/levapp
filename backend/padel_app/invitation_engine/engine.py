@@ -13,7 +13,14 @@ from typing import Iterable
 
 from padel_app.invitation_engine import answers, messages, planner, timeline
 from padel_app.invitation_engine.effects import Effect
-from padel_app.invitation_engine.requests import STUDENT_REQUESTS, Appear, CreateSession, Request, UpdateSettings
+from padel_app.invitation_engine.requests import (
+    STUDENT_REQUESTS,
+    Appear,
+    CoachExcludes,
+    CreateSession,
+    Request,
+    UpdateSettings,
+)
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.store import SessionStore
 
@@ -40,6 +47,9 @@ class Engine:
         if isinstance(request, Appear):
             self.store.reveal(request.student)
             return [e for s in self.store.sessions() for e in self._plan(s, now)]
+        if isinstance(request, CoachExcludes):
+            self.store.exclude(session, request.student)
+            return self._plan(session, now)
         if isinstance(request, CreateSession):
             self.store.add_session(session, request.level, request.capacity, request.start, request.regulars, now)
             return self._plan(session, now)
