@@ -55,9 +55,20 @@ the coach's list).
    coach turns on `wl-sides` (`notifications.engine-settings` rule 4).
 7. **A candidate's tier is per spot type (§5).** For a type, the first tier whose rules the student
    passes. One student may be tier 2 for the left type and tier 3 for the right.
-8. **Ordering inside a tier (§3; Q4 closed: PAD-723).** The coach's priority criteria
-   (`EngineSettings.ordering`), closest level first when the group's level rule is a range. On the
-   waiting lists, `joined_at` breaks the ties the criteria leave.
+8. **Ordering inside a tier (§3; Q4 closed: PAD-723).** `EngineSettings.ordering` is the coach's
+   enabled priority criteria followed by the coach's enabled tiebreakers, each list in the coach's
+   order; closest level first when the group's level rule is a range. Each id ranks one way: `level`
+   better first, an unknown level last; `justified_misses` more classes owed first
+   (`attendance.stats` rule 4); `attendance` and `attendance_rate` higher rate first; `playing_side`
+   and `playing_side_match` a student whose sides include the spot's side first;
+   `subscription_status` an active account first; `unjustified_absences` fewer first;
+   `justified_absences` more first; `participations` (the scenario harness's own) more first. Then, on
+   the waiting lists, `joined_at`; then a stable order. An id outside this list is refused when the
+   settings are built (`SettingsError`). Today only the priority criteria rank
+   (`_build_sort_key`, `notification_service.py:989`, called at `:1912`); the tiebreakers are stored
+   and edited but rank nothing, although `notifications.invitations` rule 4 and `notifications.config`
+   rule 8 say they do. Wiring them changes who is asked first for every coach with a tiebreaker on,
+   which by default is three of them (`DEFAULT_TIEBREAKERS`); Open questions.
 9. **Candidates are recomputed on every run (D8).**
 10. **Postpone (D15).** A student blocked by the daily invitation cap, or holding a **counting**
     invitation for another session that club day, the same hour (rule 3) included
@@ -152,6 +163,18 @@ Given each P01–P33 snapshot and each student in it, when the invite simulation
 the engine plans the session, then one admits the student exactly when the other does, at the same tier.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_simulation_and_engine_share_the_evaluator`
 
+#### NOTIFICATIONS-ENGINE-TIERS-11: Ordering is the priority criteria, then the tiebreakers, in the coach's order (rule 8)
+Given a coach with priority criteria and tiebreakers, some off, when the settings are built, then
+`ordering` holds the enabled priority criteria in their order followed by the enabled tiebreakers in
+theirs, and an unknown id is refused with `SettingsError`.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_ordering_is_priority_criteria_then_tiebreakers_in_the_coachs_order`
+
+#### NOTIFICATIONS-ENGINE-TIERS-12: Each ordering id ranks its own way, ties falling to the next (rule 8)
+Given two candidates in one tier who differ only in the stat one id reads, when that id alone orders
+them, then the one rule 8 puts first is invited first; and when they are equal on every id, a
+waiting-list member who joined earlier goes first.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_each_ordering_id_ranks_in_its_direction`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
@@ -163,6 +186,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 4. (PAD-911) TIERS-10 — `invitation_engine/store.py` and `invitation_engine/planner.py` (`postponed`
    from invitations that count by planning rule 3 and whose offer counts toward a current spot type of
    their own session by rule 4: `timeline.counting` and the session's open spots together).
+5. (Swap 3, PAD-915) TIERS-11, TIERS-12 — `invitation_engine/settings.py` (the ids and `SettingsError`),
+   `invitation_engine/planner.py` (the sort key), the config mapping (swap plan §2).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision
@@ -181,3 +206,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   because the engine's two integers cannot express today's rules and the app already evaluates them.
 - The same hour (rule 3) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): confirmed as the same start (recorded decision D-E26); no overlap
   rule in the swap.
+- Wire the tiebreakers into the engine's ordering (rule 8) — options: priority criteria only, as today's
+  code; priority criteria then tiebreakers, as today's specs say. Decision (S, owner away, PAD-913;
+  the owner can reverse it): wire them, because `notifications.invitations` rule 4 and
+  `notifications.config` rule 8 already promise it, and coaches edit them in settings; the behaviour
+  change (three tiebreakers on by default) goes to the owner's review pack.
