@@ -50,6 +50,7 @@ class _Session:
     alerted: dict = field(default_factory=dict)
     joined_at: dict[str, datetime] = field(default_factory=dict)
     last_moved_at: dict[str, datetime] = field(default_factory=dict)
+    attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
 
 
 class MemoryStore:
@@ -112,6 +113,7 @@ class MemoryStore:
             busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy), alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
+            attendance_requested=dict(s.attendance_requested),
         )
 
     # --- writing -------------------------------------------------------------------------
@@ -165,4 +167,6 @@ class MemoryStore:
                 s.waiting_list.append(WaitingListEntry(e.student, e.list, e.at, e.side, e.sides))
             elif isinstance(e, fx.WaitingListLeft):
                 s.waiting_list = [w for w in s.waiting_list if not (w.student == e.student and w.list == e.list)]
-            # Message, AttendanceRequested, Absence, Refused: recorded in history only.
+            elif isinstance(e, fx.AttendanceRequested):
+                s.attendance_requested[e.student] = s.attendance_requested.get(e.student, ()) + (e.at,)
+            # Message, Absence, Refused: recorded in history only.
