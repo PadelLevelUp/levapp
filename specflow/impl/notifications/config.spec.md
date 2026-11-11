@@ -1,6 +1,6 @@
 ---
 id: notifications.config
-status: implemented
+status: implementing
 depends_on: [auth.login]
 serves: [P-NOTIFICATIONS-3]
 governed_by: []
@@ -383,6 +383,16 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     The column defaults and the `DEFAULT_*` fallbacks for NULL lists are unchanged. A coach created
     before this rule, with or without a row, reads exactly as before (rule 1 still creates a missing
     row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
+18. **Which engine a session runs on (swap plan §7; coordinator ruling on PAD-912).** Each coach has an
+    engine switch (`engine_version`: `old` or `new`; `old` for every coach until the coach is
+    switched). A session runs on the new engine when its coach is on `new` and its invitation window
+    had not opened when the coach was switched; a session already inviting at the switch finishes on
+    the old engine until it starts (it drains). Every entry point that reaches an engine reads this
+    rule: the new engine's `sessions()` lists only new-engine sessions, and the old tick only
+    old-engine ones. Where another spec says "a coach on the new engine" or "a coach on the old
+    engine", it means a session this rule assigns to that engine. Once a coach has no old-engine
+    session left, the coach's old per-vacancy jobs are removed; once every coach is drained, the old
+    engine is deleted (swap plan §8 step 9).
 
 ### Acceptance Criteria
 
@@ -717,6 +727,17 @@ test: `frontend/apps/mobile/src/features/settings/restrictions-i18n.test.ts` ›
 - **And** the card says the check could not be made and asks nothing, also with the reminders section closed, on web and iOS; the line goes after the next timing save whose answer lacks the flag
 test: `backend/padel_app/tests/test_pad478_ask_before_sending.py` › `test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error` (+3 more)
 
+#### NOTIFICATIONS-CONFIG-50: A switched coach's sessions that have not started inviting run on the new engine (rule 18)
+Given a coach on `old` with one session whose invitation window has opened and one whose has not, when
+the coach is switched to `new`, then the second runs on the new engine (listed by its `sessions()`, never
+by the old tick) and the first stays on the old engine until it starts.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_switched_coach_drains_old_sessions_and_starts_new_ones_on_the_new_engine`
+
+#### NOTIFICATIONS-CONFIG-51: A coach not switched never reaches the new engine (rule 18)
+Given a coach on `old`, when a spot opens, an answer arrives or the tick runs, then only the old engine
+acts for the coach's sessions and the new engine's `sessions()` lists none of them.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_coach_not_switched_never_reaches_the_new_engine`
+
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
   15-minute floor drops to the engine's one minute with the new timing controls
@@ -724,3 +745,7 @@ test: `backend/padel_app/tests/test_pad478_ask_before_sending.py` › `test_a_li
 - iOS at the swap — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): every setting the new engine needs ships on web and iOS together, the
   groups editor (now tiers) included; the iOS deferrals recorded before the swap stand with their
   reasons.
+- A coach created during cutover (rule 18) — options: `old` until switched; `new` from the start.
+  Decision (S, owner away, PAD-913; the owner can reverse it): `old` until switched, because the
+  coordinator switches coaches one at a time (staging first, one real coach, then all) and a new
+  coach on `new` would skip that order.
