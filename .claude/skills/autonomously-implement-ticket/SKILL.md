@@ -6,9 +6,10 @@ description: >
   ticket taken all the way to an open PR — e.g. they paste a prompt starting with "Implement the
   following ticket" or "Autonomously implement the following ticket", or say "implement this ticket
   and open the PR", "take this ticket all the way to a PR", "run this ticket end to end". It is the
-  LevApp-specific spine (Linear ticket → feature branch → E2E-first → iOS parity gate → browser
-  verification → PR) wrapped around the Cortex specflow skills, which do the spec, plan, test and
-  build work. Do NOT ask the user any questions. Do NOT serve via Tailscale or notify Discord.
+  LevApp-specific spine (Linear ticket → feature branch → spec check → tests first → iOS parity gate
+  → browser verification → PR) wrapped around the `## Specs` rules in CLAUDE.md and the Cortex 4.0
+  skills `specflow-spec` and `specflow-review`. Do NOT ask the user any questions. Do NOT serve via
+  Tailscale or notify Discord.
 ---
 
 # Autonomously Implement Ticket — Spec-Driven, Straight to PR
@@ -20,9 +21,9 @@ The goal: take the ticket from nothing to an **open pull request into `staging`*
 merge. There is no human review gate in the middle. Quality comes from the spec gate, the failing
 test first, the full regression pass, and a browser walk of the changed flow before the PR goes up.
 
-This skill orchestrates; the Cortex bundles do the work. **Never do a step by hand that a listed
-skill owns** — the point of routing through them is that they carry the discipline (Iron Laws,
-rationalization tables) this orchestrator does not restate.
+This skill orchestrates; the `## Specs` block of CLAUDE.md and the Cortex skills do the work.
+**Never do a step by hand that a listed skill owns** — the point of routing through them is that
+they carry the discipline (Iron Laws, rationalization tables) this orchestrator does not restate.
 
 ## Step 0: Pre-flight & branch
 
@@ -43,25 +44,31 @@ git switch -c feature/pad-<id>-<short-slug> origin/staging
 Other sessions share this checkout (scheduled tasks included). Prefer a worktree when one is
 offered (`isolation: worktree`), and never `git checkout` a branch another session may be on.
 
-## Step 1: Classify against the specs — `specflow-entry`
+## Step 1: Check the ticket against the specs
 
-**Mandatory. Never skip.** Run `specflow-entry` with the ticket's title, type and description. It
-classifies the request against `.specflow/specs/` and `.specflow/specs-business/` and names the
-next skill. Follow its routing:
+**Mandatory. Never skip.** The `## Specs` block of CLAUDE.md holds the rules; this step applies
+them to the ticket's title, type and description. Find every spec and criterion the ticket touches
+in `specflow/INDEX.md` (and `grep specflow/impl specflow/promises`), then route:
 
-| entry routes to | you then run |
+| the ticket | you then |
 |---|---|
-| a spec gap / spec change / new behaviour | `specflow-spec-editor` — update or create the leaf (and its business spec if the promise changes). **Spec edits are their own commit**, before any code. |
-| "something is broken" | `specflow-bugs` — root-cause it and file it in `cortex/code/<area>/` (with `status: open`) first; its change plan names the spec to touch. |
-| no spec applies (standalone task) | say so explicitly in the PR body and proceed from the ticket text. |
+| creates a behaviour no criterion covers, or touches more than one spec | run `specflow-spec`: it writes the spec (criteria, a named test per criterion, waves) and commits it **alone**, before any code. Then run `specflow-review` in spec mode on it and resolve its findings. This run cannot ask the user, so `specflow-spec` decides open questions and records them; a conflict with a recorded owner decision still stops the run. |
+| changes a behaviour a criterion already describes | change that criterion in the same ticket: the spec edit is **its own commit**, with a `Specflow-Amends:` trailer for every rule or criterion whose text changed. |
+| reports something broken | root-cause it and file it in `cortex/code/<area>/` (with `status: open`) first; the criterion the fix restores, or the one it adds, names the spec to touch. |
+| applies to no spec (standalone task) | say so explicitly in the PR body and proceed from the ticket text. |
+
+Work that exists without specs (an area never specified) goes through `specflow-onboard` first,
+which proposes specs for the owner's approval; this run does not apply them.
 
 Before touching a file, query its insight (`cortex insight file <path>`) — the managed
 CLAUDE.md block explains why. Where insight disagrees with a spec or a compass rule, the gated
 layer wins.
 
-## Step 2: Tests first — `specflow-tests`
+## Step 2: Tests first — the tests the criteria name
 
-Run `specflow-tests` for the leaf spec(s) from Step 1. For LevApp that means, concretely:
+Every criterion carries a `test:` line naming a file and a test. Write each named test the ticket's
+criteria need, citing the criterion id: pytest `@pytest.mark.criterion("ID")`, vitest
+`it('[ID] …')`. For LevApp that means, concretely:
 
 - **Backend behaviour** → a pytest case in `backend/padel_app/tests/` (fixtures in `conftest.py`;
   import services inside the test body; `with app.app_context():`; inject `now=`).
@@ -72,17 +79,19 @@ Run `specflow-tests` for the leaf spec(s) from Step 1. For LevApp that means, co
   a vacuous flow).
 
 The test MUST fail before Step 4. **Never modify an assertion to make it pass** — if the test is
-wrong, the spec is wrong: go back to `specflow-spec-editor`, then fix the test.
+wrong, the spec is wrong: change the criterion first (its own commit, Step 1), then fix the test.
 
-## Step 3: Plan — `specflow-plan`
+## Step 3: Plan — the spec's waves
 
-Run `specflow-plan` on the agreed spec. Its plan must name the rules and acceptance criteria being
-satisfied, the files per side (backend / web / mobile / packages), and any other leaf the change
-touches.
+There is no plan file: the spec is the design document. Its `Waves` list the criteria in order,
+each wave implementable, testable and committable on its own (constants and migrations first).
+Name, before building, the files each wave touches per side (backend / web / mobile / packages)
+and any other spec the change touches.
 
-## Step 4: Build — `specflow-develop`
+## Step 4: Build — wave by wave
 
-Run `specflow-develop` against the plan. LevApp conventions it must respect:
+Implement one wave at a time; each wave's named tests go from failing to passing before the next
+starts. LevApp conventions the build must respect:
 
 - Backend: services in `backend/padel_app/services/`, thin route handlers in `modules/`,
   migrations via Alembic (`flask db migrate`) — one head, always (`flask db heads`).
@@ -136,9 +145,11 @@ Because no human reviews this before it becomes a PR, the regression pass is the
 
 ## Step 7: Spec status & verification gate
 
-Set the leaf's `status:` to `implemented` (and the business spec per Policy A) now that tests
-pass. Then run `verification-before-completion` — it is the evidence gate for every claim in the
-PR body; nothing below is written from memory.
+Set the spec's `status:` to `implemented` now that its criteria's tests pass, and run
+`cortex specs index` so `specflow/INDEX.md` matches (never edit it by hand). A review of the diff
+against its criteria is `specflow-review` in diff mode, on request only. Then run
+`verification-before-completion` — it is the evidence gate for every claim in the PR body; nothing
+below is written from memory.
 
 ## Step 8: Commit & push
 
@@ -185,8 +196,8 @@ Account `pedropacheco95` (`export GH_TOKEN=$(gh auth token --user pedropacheco95
 ## Ticket
 [PAD-<id>](<linear url>)
 
-## Classification
-<specflow-entry category> — `<leaf id>`; spec <changed in <commit> | unchanged>
+## Spec
+<criteria touched (ids) | new spec `<path>` | no spec applies> — spec <changed in <commit> | unchanged>
 
 ## What changed
 <2–4 lines: what and why>
@@ -218,10 +229,9 @@ The user merges the PR. No Tailscale, no Discord.
 ## Rules
 
 - **NEVER ask the user questions.** Work with what you have.
-- **NEVER skip `specflow-entry`.** It is the gate; "I already know which skill this is" is the
-  rationalisation it exists to catch.
-- **NEVER write production code before a failing test** (`specflow-tests` / `specflow-develop`
-  carry this as their Iron Law).
+- **NEVER skip Step 1's spec check.** "I already know this needs no spec" is the rationalisation
+  it exists to catch.
+- **NEVER write production code before a failing test** named by a criterion.
 - **NEVER modify test assertions to make them pass.**
 - **Spec changes get their own commit**, before code.
 - **Do NOT open the PR if tests are red.**

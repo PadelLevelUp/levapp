@@ -8,7 +8,7 @@ One repository (`PadelLevelUp/levapp`, monorepo since 2026-09-03):
 
 - `backend/` — Flask API (Poetry; see `backend/CLAUDE.md`)
 - `frontend/` — npm-workspaces: `apps/web` (React/Vite), `apps/mobile` (Expo), `packages/*` (see `frontend/CLAUDE.md`)
-- `.specflow/specs/` + `.specflow/specs-business/` — the spec trees (source of truth); `cortex/` — the Cortex 4.0 store: rules, incidents, decisions (map at `cortex/MAP.md`)
+- `specflow/impl/` + `specflow/promises/` — the specs (source of truth; `specflow/INDEX.md` is generated, never edited by hand); `cortex/` — the Cortex 4.0 store: rules, incidents, decisions (map at `cortex/MAP.md`)
 - `.github/workflows/` — `deploy-staging.yaml` (push to `staging` → staging.levapp.app), `deploy-prod.yaml` (push to `main` → levapp.app), `guard-main-source.yaml`
 - `docs/` — **local, untracked, disposable** (gitignored because the repository is public; the
   two comment lines above the rule in `.gitignore` say so). Plans, QA journeys and run reports,
@@ -57,7 +57,7 @@ Required variables:
 
 ## Ticket workflow
 
-Ticket prompts carry the full sequence in a skill — don't restate it here. Both "Implement the following ticket" and "Autonomously implement the following ticket" route to `autonomously-implement-ticket`, which wraps the Cortex specflow skills (`specflow-entry` → `specflow-spec-editor` / `specflow-bugs` → `specflow-tests` → `specflow-plan` → `specflow-develop` → `verification-before-completion`) and opens the PR into `staging` without a review gate. **`specflow-entry` is the mandatory entry point for any request in this repo** — bug reports, feature asks, "what does X do". Branches are `feature/pad-<id>`.
+Ticket prompts carry the full sequence in a skill — don't restate it here. Both "Implement the following ticket" and "Autonomously implement the following ticket" route to `autonomously-implement-ticket`, which applies the `## Specs` rules of the root `CLAUDE.md` (a spec check first; `specflow-spec` then `specflow-review` for a behaviour no criterion covers; the criteria's named tests first; the spec's waves → `verification-before-completion`) and opens the PR into `staging` without a review gate. **The spec check comes first for any request in this repo** — bug reports, feature asks, "what does X do": find the criteria it touches in `specflow/INDEX.md` before anything else. Branches are `feature/pad-<id>`.
 
 If something is ambiguous, make a reasonable decision and document it in the commit message.
 
