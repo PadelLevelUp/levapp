@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Iterable, Protocol
+from typing import Iterable, Mapping, Protocol
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
@@ -26,7 +26,8 @@ class SessionStore(Protocol):
     def sessions(self) -> tuple[str, ...]: ...
     def snapshot(self, session: str) -> SessionSnapshot: ...
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
-                    regulars: Iterable[tuple[Student, Side | None]], at: datetime) -> None: ...
+                    regulars: Iterable[tuple[Student, Side | None]], at: datetime,
+                    joined_at: Mapping[str, datetime] | None = None) -> None: ...
     def reveal(self, student: str) -> None: ...
     def exclude(self, session: str, student: str) -> None: ...
     def apply(self, effects: Iterable[fx.Effect]) -> None: ...
@@ -46,6 +47,8 @@ class _Session:
     said_no: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
     excluded: set[str] = field(default_factory=set)
+    joined_at: dict[str, datetime] = field(default_factory=dict)
+    last_moved_at: dict[str, datetime] = field(default_factory=dict)
 
 
 class MemoryStore:
@@ -70,7 +73,8 @@ class MemoryStore:
         self._sessions[session].excluded.add(student)
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
-                    regulars: Iterable[tuple[Student, Side | None]], at: datetime) -> None:
+                    regulars: Iterable[tuple[Student, Side | None]], at: datetime,
+                    joined_at: Mapping[str, datetime] | None = None) -> None:
         if session in self._sessions:
             raise ValueError(f"session {session} already exists")
         regs: dict[str, Student] = {}
@@ -79,7 +83,8 @@ class MemoryStore:
             self._students.setdefault(student.id, student)
             regs[student.id] = student
             going[student.id] = Placement(student.id, side, "regular", at)
-        self._sessions[session] = _Session(session, level, capacity, start, regs, going)
+        joined = {sid: (joined_at or {}).get(sid, at) for sid in regs}
+        self._sessions[session] = _Session(session, level, capacity, start, regs, going, joined_at=joined)
 
     # --- reading -------------------------------------------------------------------------
 
@@ -105,6 +110,7 @@ class MemoryStore:
             absent=frozenset(s.absent), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
             busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy),
             students={sid: self._students[sid] for sid in named if sid in self._students},
+            joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
         )
 
     # --- writing -------------------------------------------------------------------------
@@ -132,6 +138,9 @@ class MemoryStore:
                 s.going[e.student] = Placement(e.student, e.side, e.how, e.at)
                 s.absent.discard(e.student)
             elif isinstance(e, fx.SideAssigned):
+                before = s.going[e.student].side
+                if before is not None and before != e.side:          # a first side is not a move
+                    s.last_moved_at[e.student] = e.at
                 s.going[e.student] = replace(s.going[e.student], side=e.side)
             elif isinstance(e, fx.Left):
                 s.going.pop(e.student, None)

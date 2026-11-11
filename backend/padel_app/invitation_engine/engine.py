@@ -51,7 +51,8 @@ class Engine:
             self.store.exclude(session, request.student)
             return self._plan(session, now)
         if isinstance(request, CreateSession):
-            self.store.add_session(session, request.level, request.capacity, request.start, request.regulars, now)
+            self.store.add_session(session, request.level, request.capacity, request.start, request.regulars, now,
+                                   joined_at=request.joined_at)
             return self._plan(session, now)
         if not isinstance(request, STUDENT_REQUESTS):
             raise TypeError(f"unknown request {request!r}")
