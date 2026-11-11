@@ -24,6 +24,13 @@ from padel_app.invitation_engine.snapshot import (
 )
 
 
+class UnitConflict(Exception):
+    """A store refused a unit's writes because the state moved under it, for instance a placement at
+    an hour the student was placed at elsewhere since the snapshot (engine-answers rule 10). The
+    store has rolled the unit back; the engine drops that unit's effects and the next run re-plans
+    on fresh state."""
+
+
 class SessionStore(Protocol):
     def sessions(self) -> tuple[str, ...]: ...
     def snapshot(self, session: str) -> SessionSnapshot: ...
@@ -33,9 +40,11 @@ class SessionStore(Protocol):
     def reveal(self, student: str) -> None: ...
     def exclude(self, session: str, student: str) -> None: ...
     def apply(self, effects: Iterable[fx.Effect]) -> None: ...
-    def unit(self, sessions: tuple[str, ...]) -> ContextManager[None]:
-        """One unit of work on ``sessions``: a table store locks them and commits on exit (rolls back
-        on an exception). The engine passes one session at a time, so no call holds two locks."""
+    def unit(self, sessions: tuple[str, ...], students: tuple[str, ...] = ()) -> ContextManager[None]:
+        """One unit of work on ``sessions``: a table store locks ``students`` first, then the
+        sessions, and commits on exit (rolls back on an exception, ``UnitConflict`` included). The
+        engine passes one session at a time, so no call holds two sessions' locks; a student's
+        request names the student, so two requests by one student never run at once."""
         ...
 
 
@@ -76,7 +85,7 @@ class MemoryStore:
     def reveal(self, student: str) -> None:
         self._hidden.discard(student)
 
-    def unit(self, sessions: tuple[str, ...]) -> ContextManager[None]:
+    def unit(self, sessions: tuple[str, ...], students: tuple[str, ...] = ()) -> ContextManager[None]:
         return nullcontext()
 
     def exclude(self, session: str, student: str) -> None:

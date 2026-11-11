@@ -393,13 +393,14 @@ def test_every_engine_write_is_inside_one_session_unit_at_a_time():
     class Recording(MemoryStore):
         def __init__(self):
             super().__init__()
-            self.open, self.units, self.outside = [], [], 0
+            self.open, self.units, self.outside, self.students = [], [], 0, []
 
         @contextmanager
-        def unit(self, sessions):
+        def unit(self, sessions, students=()):
             assert not self.open, f"unit {sessions} opened inside {self.open}"
             self.open.append(sessions)
             self.units.append(sessions)
+            self.students.append(students)
             try:
                 yield
             finally:
@@ -423,12 +424,57 @@ def test_every_engine_write_is_inside_one_session_unit_at_a_time():
     assert store.units == [("A",), ("B",)]
     store.apply([fx.Invited("B", T0, "W1", frozenset({SpotType("R", 3)}), None, 2, T0 + timedelta(minutes=20))])
     store.units.clear()
+    store.students.clear()
     store.outside = 0                                   # the seeding above is the test's, not the engine's
     out = engine.handle("A", rq.Answer("W1", True), T0 + timedelta(minutes=1))
     assert any(isinstance(e, fx.Placed) for e in out) and any(e.session == "B" for e in out)
     assert store.units == [("A",), ("B",)], "B's same-hour close replans in its own unit, after A's"
+    assert store.students == [("W1",), ()], "the answer locks its student; the re-plan locks none"
     for request in (rq.Appear("W1"), rq.UpdateSettings(EngineSettings())):
         store.units.clear()
         engine.handle("A", request, T0)
         assert store.units == [("A",), ("B",)]
     assert store.outside == 0
+
+
+def test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs():
+    """PAD-915/916: a store that finds the state moved under a unit (a same-hour placement elsewhere)
+    raises UnitConflict and rolls back; the engine drops that unit's effects, runs the other sessions,
+    and the next run re-plans."""
+    from contextlib import contextmanager
+
+    from padel_app.invitation_engine.store import UnitConflict
+
+    class Refusing(MemoryStore):
+        """Writes of a refused unit are never kept: a rollback."""
+
+        refuse = {"A"}
+        current: tuple = ()
+
+        @contextmanager
+        def unit(self, sessions, students=()):
+            self.current = sessions
+            try:
+                yield
+            finally:
+                self.current = ()
+            if set(sessions) & self.refuse:
+                raise UnitConflict(sessions)
+
+        def apply(self, effects):
+            if not set(self.current) & self.refuse:
+                super().apply(effects)
+
+    store = Refusing()
+    store.add_student(_student("W1", "R"))
+    store.add_student(_student("W2", "R"))
+    for session in ("A", "B"):
+        store.add_session(session, 3, 4, START + (timedelta(hours=2) if session == "B" else timedelta()),
+                          [(_student(f"{session}-L1"), "L"), (_student(f"{session}-L2"), "L"),
+                           (_student(f"{session}-R1", "R"), "R")], T0)
+    engine = Engine(store, EngineSettings())
+    sent = engine.tick(T0)
+    assert sent and {e.session for e in sent} == {"B"}, "A's unit was refused; B's still ran"
+    assert engine.handle("A", rq.UpdateSettings(EngineSettings(), sessions=("A",)), T0) == []
+    Refusing.refuse = set()
+    assert {e.session for e in engine.tick(T0 + timedelta(minutes=1))} >= {"A"}, "the next run re-plans A"

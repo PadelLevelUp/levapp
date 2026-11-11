@@ -22,7 +22,7 @@ from padel_app.invitation_engine.requests import (
     UpdateSettings,
 )
 from padel_app.invitation_engine.settings import EngineSettings
-from padel_app.invitation_engine.store import SessionStore
+from padel_app.invitation_engine.store import SessionStore, UnitConflict
 
 SettingsLookup = Callable[[str], EngineSettings]
 
@@ -45,11 +45,16 @@ class Engine:
         """The periodic work (plan §6: every minute in the background), for every session."""
         out: list[Effect] = []
         for session in self.store.sessions():
-            with self.store.unit((session,)):
-                settings = self.settings_for(session)
-                out += self._commit(timeline.due(self.store.snapshot(session), settings, now))
-                out += self._commit(messages.due(self.store.snapshot(session), settings, now))
-                out += self._plan(session, now, settings)
+            done: list[Effect] = []
+            try:
+                with self.store.unit((session,)):
+                    settings = self.settings_for(session)
+                    done += self._commit(timeline.due(self.store.snapshot(session), settings, now))
+                    done += self._commit(messages.due(self.store.snapshot(session), settings, now))
+                    done += self._plan(session, now, settings)
+            except UnitConflict:            # rolled back: nothing of this session happened; next run
+                continue
+            out += done
         return out
 
     def handle(self, session: str, request: Request, now: datetime) -> list[Effect]:
@@ -64,7 +69,10 @@ class Engine:
             return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
         if not isinstance(request, (CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
-        with self.store.unit((session,)):
+        # A student's request locks the student first (two of theirs never run at once, answers rule 10).
+        who = getattr(request, "student", None) if isinstance(request, STUDENT_REQUESTS) else None
+        student = (who,) if who is not None else ()
+        with self.store.unit((session,), student):
             if isinstance(request, CoachExcludes):
                 self.store.exclude(session, request.student)
                 return self._plan(session, now)
@@ -81,8 +89,12 @@ class Engine:
         return out + [e for s in touched for e in self._plan_unit(s, now)]
 
     def _plan_unit(self, session: str, now: datetime) -> list[Effect]:
-        with self.store.unit((session,)):
-            return self._plan(session, now)
+        """A re-plan in its own unit; one the store refuses (``UnitConflict``) is left to the next run."""
+        try:
+            with self.store.unit((session,)):
+                return self._plan(session, now)
+        except UnitConflict:
+            return []
 
     def _plan(self, session: str, now: datetime, settings: EngineSettings | None = None) -> list[Effect]:
         settings = self.settings_for(session) if settings is None else settings
