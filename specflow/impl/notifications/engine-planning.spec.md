@@ -38,10 +38,11 @@ Stated as observable records; storage is the engine package's (PAD-902).
    `open(v) > 0`). A {left, right} student sent for either side counts for both; a right-sider sent to
    play left counts for the left type only. Because types are recomputed every run (D8), an offer is
    matched against the types of each run, never stored as a type.
-5. **The run (§6 step 2, D5, D9).** Spot types are taken **hardest first**: fewest candidates per
-   uncovered spot, a type's candidates counted at its ideal tier (rule 6). A tie goes to the type whose
-   ideal tier comes earlier in the order; with the same ideal tier, rule 13. For each type, the tiers
-   are walked in order:
+5. **The run (§6 step 2, D5, D9).** The run walks the **tiers in order**. Within a tier, the spot
+   types still uncovered are served **hardest first**: fewest candidates per uncovered spot, a type's
+   candidates counted at its ideal tier (rule 6). A tie goes to the type whose ideal tier comes earlier
+   in the order; with the same ideal tier, rule 13. A tier's people are never spent on a harder type
+   before that tier has served its own easy type. In each tier, for each type in that order:
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
       counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
       open invitation answered "sorry" (`notifications.engine-answers` rule 4) and fit the type.
@@ -174,11 +175,11 @@ test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test
 
 #### NOTIFICATIONS-ENGINE-PLANNING-12: A flexible invitation counts for every type it was offered (rules 4, 5; S10)
 Given capacity 8, must(L) 1 and must(R) 1, one {left, right} student and 5 left-siders, all group 1 for
-the left type and only the flexible student for the right, X = 3, when the run plans, then the right
-type is served first, the flexible student is invited with offer {left, right} and no side named, 2
-left-siders are invited for the left type, 3 in all, and group 2 is not reached; when the flexible
-student then says No, the right type is served first again, group 2 is its ideal tier and the 3
-uninvited left-siders are asked to play right, the side named, and the left type keeps 2 counting.
+the left type and only the flexible student for the right, X = 3, when the run plans, then the flexible
+student is invited with offer {left, right} and no side named, 2 left-siders are invited for the left
+type, 3 in all, and group 2 is not reached; when the flexible student then says No, group 2 is the right
+type's ideal tier and the 3 uninvited left-siders are asked to play right, the side named, and the left
+type keeps 2 counting.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P10b-one-flexible-candidate-two-types]`
 
 #### NOTIFICATIONS-ENGINE-PLANNING-13: An either spot is offered across both sides by ordering (rule 5; S12)
@@ -271,10 +272,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 
 ### Open questions
-- Top-up order: tier by tier over all types, or type by type, hardest first, over the tiers? The plan's
-  §6 step 2 reads both ways, and only the second reproduces S10 (3 invitations at the start; 3
-  left-siders to play right after the flexible No) — decision (owner away): type by type (rule 5),
-  because S10 is the plan's own worked example.
+- Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator,
+  2026-11-11, reversing this spec's first reading): tier by tier, hardest type first within a tier
+  (rule 5, plan §6 step 2), because H measured that the type-by-type reading fails the plan's own P10a and
+  P10b and scenario 01.
 - The coach alert's channel (push, dashboard, both) is not in the plan — decision (owner away): the
   engine emits the effect; channel and wording go to the owner at review, because the scenarios assert
   only that an alert exists.
