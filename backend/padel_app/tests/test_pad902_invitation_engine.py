@@ -383,3 +383,52 @@ def test_every_engine_message_kind_maps_to_its_normalized_kind():
         # "waiting_list_invite" is the format's "waiting_list_offer" (KIND_WAITING_LIST_INVITE).
         expected = {"sorry": "aviso", "waiting_list_invite": "waiting_list_offer"}.get(kind, kind)
         assert (record.kind, record.data["kind"]) == ("message", expected)
+
+
+def test_every_engine_write_is_inside_one_session_unit_at_a_time():
+    """PAD-915 (agreed with PAD-916's table store): the engine works one session per unit, so a table
+    store can lock that session alone; every effect is applied inside a unit, and none nests."""
+    from contextlib import contextmanager
+
+    class Recording(MemoryStore):
+        def __init__(self):
+            super().__init__()
+            self.open, self.units, self.outside = [], [], 0
+
+        @contextmanager
+        def unit(self, sessions):
+            assert not self.open, f"unit {sessions} opened inside {self.open}"
+            self.open.append(sessions)
+            self.units.append(sessions)
+            try:
+                yield
+            finally:
+                self.open.pop()
+
+        def apply(self, effects):
+            effects = list(effects)
+            if effects and not self.open:
+                self.outside += 1
+            super().apply(effects)
+
+    store = Recording()
+    store.add_student(_student("W1", "R"))
+    store.add_session("A", 3, 4, START, [(_student("L-1"), "L"), (_student("R-1", "R"), "R"),
+                                         (_student("L-2"), "L")], T0)
+    store.add_session("B", 3, 4, START, [(_student("L-3"), "L"), (_student("R-3", "R"), "R"),
+                                         (_student("L-4"), "L")], T0)
+    engine = Engine(store, EngineSettings())
+    sent = engine.tick(T0)
+    assert [(e.session, e.student) for e in sent if isinstance(e, fx.Invited)] == [("A", "W1")]
+    assert store.units == [("A",), ("B",)]
+    store.apply([fx.Invited("B", T0, "W1", frozenset({SpotType("R", 3)}), None, 2, T0 + timedelta(minutes=20))])
+    store.units.clear()
+    store.outside = 0                                   # the seeding above is the test's, not the engine's
+    out = engine.handle("A", rq.Answer("W1", True), T0 + timedelta(minutes=1))
+    assert any(isinstance(e, fx.Placed) for e in out) and any(e.session == "B" for e in out)
+    assert store.units == [("A",), ("B",)], "B's same-hour close replans in its own unit, after A's"
+    for request in (rq.Appear("W1"), rq.UpdateSettings(EngineSettings())):
+        store.units.clear()
+        engine.handle("A", request, T0)
+        assert store.units == [("A",), ("B",)]
+    assert store.outside == 0

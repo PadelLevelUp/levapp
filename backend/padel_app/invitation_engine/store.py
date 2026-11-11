@@ -7,9 +7,10 @@ happened is recorded; no rule is evaluated here.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Iterable, Mapping, Protocol
+from typing import ContextManager, Iterable, Mapping, Protocol
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
@@ -32,6 +33,10 @@ class SessionStore(Protocol):
     def reveal(self, student: str) -> None: ...
     def exclude(self, session: str, student: str) -> None: ...
     def apply(self, effects: Iterable[fx.Effect]) -> None: ...
+    def unit(self, sessions: tuple[str, ...]) -> ContextManager[None]:
+        """One unit of work on ``sessions``: a table store locks them and commits on exit (rolls back
+        on an exception). The engine passes one session at a time, so no call holds two locks."""
+        ...
 
 
 @dataclass
@@ -70,6 +75,9 @@ class MemoryStore:
 
     def reveal(self, student: str) -> None:
         self._hidden.discard(student)
+
+    def unit(self, sessions: tuple[str, ...]) -> ContextManager[None]:
+        return nullcontext()
 
     def exclude(self, session: str, student: str) -> None:
         """A gate the store decides alone (engine-tiers rule 3): the student leaves the pool."""

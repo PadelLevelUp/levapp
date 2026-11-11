@@ -45,10 +45,11 @@ class Engine:
         """The periodic work (plan §6: every minute in the background), for every session."""
         out: list[Effect] = []
         for session in self.store.sessions():
-            settings = self.settings_for(session)
-            out += self._commit(timeline.due(self.store.snapshot(session), settings, now))
-            out += self._commit(messages.due(self.store.snapshot(session), settings, now))
-            out += self._plan(session, now)
+            with self.store.unit((session,)):
+                settings = self.settings_for(session)
+                out += self._commit(timeline.due(self.store.snapshot(session), settings, now))
+                out += self._commit(messages.due(self.store.snapshot(session), settings, now))
+                out += self._plan(session, now)
         return out
 
     def handle(self, session: str, request: Request, now: datetime) -> list[Effect]:
@@ -56,22 +57,31 @@ class Engine:
         if isinstance(request, UpdateSettings):     # a lookup reads the app's stored config: replan only
             if isinstance(self.settings, EngineSettings):
                 self.settings = request.settings
-            return [e for s in self.store.sessions() for e in self._plan(s, now)]
+            return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
         if isinstance(request, Appear):
             self.store.reveal(request.student)
-            return [e for s in self.store.sessions() for e in self._plan(s, now)]
-        if isinstance(request, CoachExcludes):
-            self.store.exclude(session, request.student)
-            return self._plan(session, now)
-        if isinstance(request, CreateSession):
-            self.store.add_session(session, request.level, request.capacity, request.start, request.regulars, now,
-                                   joined_at=request.joined_at)
-            return self._plan(session, now)
-        if not isinstance(request, STUDENT_REQUESTS):
+            return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
+        if not isinstance(request, (CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
-        out = self._commit(answers.handle(self.store.snapshot(session), self.settings_for(session), request, now).effects)
-        touched = [session] + sorted({e.session for e in out} - {session})   # a same-hour close (answers rule 10)
-        return out + [e for s in touched for e in self._plan(s, now)]
+        with self.store.unit((session,)):
+            if isinstance(request, CoachExcludes):
+                self.store.exclude(session, request.student)
+                return self._plan(session, now)
+            if isinstance(request, CreateSession):
+                self.store.add_session(session, request.level, request.capacity, request.start, request.regulars,
+                                       now, joined_at=request.joined_at)
+                return self._plan(session, now)
+            out = self._commit(answers.handle(self.store.snapshot(session), self.settings_for(session),
+                                              request, now).effects)
+            out += self._plan(session, now)
+        # A same-hour close (answers rule 10) touched other sessions: each replans in its own unit,
+        # after this one commits, so no call holds two sessions' locks.
+        touched = sorted({e.session for e in out} - {session})
+        return out + [e for s in touched for e in self._plan_unit(s, now)]
+
+    def _plan_unit(self, session: str, now: datetime) -> list[Effect]:
+        with self.store.unit((session,)):
+            return self._plan(session, now)
 
     def _plan(self, session: str, now: datetime) -> list[Effect]:
         return self._commit(planner.plan(self.store.snapshot(session), self.settings_for(session), now).effects)

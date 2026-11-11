@@ -57,6 +57,7 @@ def test_method_b_parts():
     assert sum(four, timedelta()) == share
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-19")
 def test_settings_are_looked_up_per_session_at_every_call():
     """Ruling D9 (PAD-915): the engine takes a settings lookup, asked per session, so two coaches'
     sessions plan with their own settings in one tick, and a changed setting shows at the next call."""
