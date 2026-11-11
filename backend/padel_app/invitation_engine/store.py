@@ -46,6 +46,7 @@ class _Session:
     said_no: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)
     excluded: set[str] = field(default_factory=set)
+    alerted: dict = field(default_factory=dict)
 
 
 class MemoryStore:
@@ -103,7 +104,7 @@ class MemoryStore:
             regulars=tuple(s.regulars.values()), going=tuple(s.going.values()),
             invitations=tuple(s.invitations), waiting_list=tuple(s.waiting_list), pool=pool,
             absent=frozenset(s.absent), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
-            busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy),
+            busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy), alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
         )
 
@@ -112,9 +113,11 @@ class MemoryStore:
     def apply(self, effects: Iterable[fx.Effect]) -> None:
         for e in effects:
             self.history.append(e)
-            if isinstance(e, fx.CoachAlert):
-                continue
             s = self._sessions[e.session]
+            if isinstance(e, fx.CoachAlert):
+                if e.spot_type is not None:                    # one alert per session and type (rule 11)
+                    s.alerted[e.spot_type] = e.spots
+                continue
             if isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))

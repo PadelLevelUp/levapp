@@ -21,7 +21,7 @@ from typing import Literal
 
 from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, method_b_share, side_quota
-from padel_app.invitation_engine.effects import Effect, Invited
+from padel_app.invitation_engine.effects import CoachAlert, Effect, Invited
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
@@ -367,6 +367,18 @@ def _offer_across(run: _Run, t: int, student: Student, order: list[tuple[SpotTyp
     return frozenset(offer)
 
 
+def _alerts(run: _Run, types: list[tuple[SpotType, int]], now: datetime) -> tuple[Effect, ...]:
+    """Nobody left (engine-planning rule 11, §6 step 4): a type with uncovered spots and no candidate
+    in any tier, neither a counting invitation that counts for it nor an uninvited student who fits.
+    One alert per session and type, raised again only when the type's count changes."""
+    out = []
+    for spot_type, spots in types:
+        if not run.buckets(spot_type) and run.snapshot.alerted.get(spot_type) != spots:
+            side = spot_type.side or "either"
+            out.append(CoachAlert(run.snapshot.id, now, f"no candidate for {spots} {side} spot(s)", spot_type, spots))
+    return tuple(out)
+
+
 def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:
     """Decide the session's new invitations at ``now`` (naive UTC). Never revokes (D4)."""
     if not timeline.may_plan(snapshot, settings, now):
@@ -382,6 +394,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
     types = list(spot_types(snapshot, counts))
     hardness = {st: _hardness(probe, st, n) for st, n in types}
     order = sorted(types, key=lambda tn: hardness[tn[0]])
+    alerts = _alerts(probe, types, now)
 
     # First pass without M's share: what each type wants. If M covers it all, that is the plan.
     dry = fresh_run()
@@ -392,7 +405,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
     if sum(want.values()) <= room:
         run = fresh_run()
         _walk(run, order, None)
-        return Plan(tuple(run.effects))
+        return Plan(tuple(run.effects) + alerts)
 
     caps: dict[SpotType, int] = {}
     i = 0
@@ -416,4 +429,4 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
         i += 1
     run = fresh_run()
     _walk(run, order, caps)
-    return Plan(tuple(run.effects))
+    return Plan(tuple(run.effects) + alerts)

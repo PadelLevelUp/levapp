@@ -106,6 +106,7 @@ class SessionSnapshot:
     busy_same_time: frozenset[str] = frozenset()      # going to another session at the same time (a gate)
     postponed: frozenset[str] = frozenset()           # holding an open offer for another session that day (D15)
     confirmed: frozenset[str] = frozenset()           # answered Yes to an attendance request
+    alerted: dict[SpotType, int] = field(default_factory=dict)  # coach alerts raised: type -> its spots then
     students: dict[str, Student] = field(default_factory=dict)  # every student the snapshot names
 
     def placement(self, student: str) -> Placement | None:

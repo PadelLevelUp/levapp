@@ -123,3 +123,30 @@ def test_a_flexible_invitation_counts_for_both_types():
     store.apply([fx.Answered("A", T0 + timedelta(minutes=10), "B1", "no", "invitation")])
     after = _engine_run(store, settings, T0 + timedelta(minutes=10))
     assert sorted(after) == [("L3", "R", 1), ("L4", "R", 1), ("L5", "R", 1)]       # asked to play right
+
+
+# --- wave W7: the coach alert ------------------------------------------------------------------
+
+def test_coach_alert_once_per_type_until_its_count_changes():
+    settings = EngineSettings(tiers=PLAN_TIERS)
+    store = _store(4, 3)                                    # one right spot, nobody in the pool
+    first = plan(store.snapshot("A"), settings, T0).effects
+    alerts = [e for e in first if isinstance(e, fx.CoachAlert)]
+    assert [(a.spot_type, a.spots) for a in alerts] == [(SpotType("R", 3), 1)]
+    store.apply(first)
+    assert [e for e in plan(store.snapshot("A"), settings, T0 + HOUR).effects
+            if isinstance(e, fx.CoachAlert)] == []          # already raised for this type and count
+    store.apply([fx.Left("A", T0 + HOUR, "R-3", "regular_no")])        # two right spots now
+    again = [e for e in plan(store.snapshot("A"), settings, T0 + 2 * HOUR).effects if isinstance(e, fx.CoachAlert)]
+    assert [(a.spot_type, a.spots) for a in again] == [(SpotType("R", 3), 2)]
+
+
+def test_no_coach_alert_while_an_invitation_still_counts():
+    settings = EngineSettings(tiers=PLAN_TIERS, timing=Timing("fixed", HOUR, HOUR))
+    store = _store(4, 3, pool=[_student("R9", "R")])
+    first = plan(store.snapshot("A"), settings, T0).effects
+    assert [type(e).__name__ for e in first] == ["Invited"]
+    store.apply(first)
+    assert plan(store.snapshot("A"), settings, T0 + timedelta(minutes=59)).effects == ()
+    late = plan(store.snapshot("A"), settings, T0 + HOUR).effects     # R9 stops counting, nobody else
+    assert [type(e).__name__ for e in late] == ["CoachAlert"]
