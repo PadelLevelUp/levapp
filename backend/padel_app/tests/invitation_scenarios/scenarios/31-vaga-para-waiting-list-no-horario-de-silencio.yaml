@@ -10,7 +10,8 @@ corrections: []
 notes: >
   Setup step at 1 Nov 19:00 (derived), when the class is full. The 00:20 No is after the 22:30 cutoff,
   so it is an unjustified absence (U29: decided by the cutoff, not by the coach). W1 has no level (level
-  null).
+  null). The 2 Nov 17:00 step (derived, PAD-908) observes the regulars' attendance request, so that the
+  00:20 step's `nothing_sent` covers only the night, as the PDF means.
 
 roster:
   regulars: {L: 8, R: 8}
@@ -23,6 +24,10 @@ timeline:
     events:
       - {coach_adds_to_waiting_list: W1, side: L}
     expect: {invitations: none}
+  - at: 2026-11-02 17:00
+    derived: true
+    expect:
+      reminders: {to: [regulars]}
   - at: 2026-11-03 00:20
     events: [{regular_no: L-1}]
     expect:
