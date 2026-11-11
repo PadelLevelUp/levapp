@@ -1,0 +1,39 @@
+id: 35
+title: waiting list só para o lado que está cheio
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [886, 903]}
+what_it_tests: a waiting list só é chamada para o lado indicado, mesmo havendo falta de candidatos
+tags: [waiting-list, coach-list, sides, groups]
+depends_on: [U18, U22]
+corrections: []
+notes: >
+  W1 (coach's list, left) and S1 (students' list, left only) join at the 19:00 step, before the engine
+  runs. Both have no level (level null, so the class level). By level they would be group-6 candidates
+  for the right spot. R13 excludes waiting-list students from groups 3 to 6 (U22), so nobody after the 2
+  L2R is invited. 20:00 is 60 minutes after group 3's only round, and groups 4 to 6 have no candidates.
+  No automatic entry occurs, so U16 is not tagged.
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {id: W1, level: null, side: L}
+  - {id: S1, level: null, side: L}
+  - {cohort: L2R, count: 2, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    events:
+      - {coach_adds_to_waiting_list: W1, side: L}
+      - {joins_waiting_list: S1, sides: own}
+    expect:
+      invitations: [{cohort: L2R, count: 2, side_named: null, group: 3}]
+      waiting_list: {coach: [W1], students: [S1]}
+  - at: 2026-11-01 20:00
+    expect: {invitations: none}
+  - at: 2026-11-01 20:15
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+      waiting_list: {coach: [W1], students: [S1]}
+final:
+  roster: {L: 8, R: 8}

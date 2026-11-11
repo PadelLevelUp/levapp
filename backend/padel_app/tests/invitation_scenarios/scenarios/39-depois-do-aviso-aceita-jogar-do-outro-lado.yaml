@@ -1,0 +1,53 @@
+id: 39
+title: depois do Aviso, aceita jogar do outro lado
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [965, 984]}
+what_it_tests: antes dos lembretes, depois do Aviso, aceitar o outro lado na waiting list dá entrada nesse lado
+tags: [aviso, waiting-list, sides, other-side, reminders]
+depends_on: [U16, U18, U26]
+corrections: [E5]
+notes: >
+  19:00: E1 to E3 are invited for their own side (left), so they are not candidates for the right spot
+  (R8). Nothing goes to the right. 19:10: E2's Yes fills only the side named on the invitation; left is
+  full, so the Aviso comes even with a spot on the right (R9). The PDF's "entra diretamente à direita"
+  after joining the list for the right only is automatic entry (E5): how auto_from_waiting_list, message
+  added. E1 to E3 are the only candidates, so they are named.
+
+roster:
+  regulars: {L: 7, R: 7}
+students:
+  - {id: E1, level: 2, side: L}
+  - {id: E2, level: 2, side: L}
+  - {id: E3, level: 2, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: E1, side_named: null, group: 3}
+        - {who: E2, side_named: null, group: 3}
+        - {who: E3, side_named: null, group: 3}
+      missing: {L: 1, R: 1}
+  - at: 2026-11-01 19:05
+    events: [{accepts: E1}]
+    expect:
+      placed: [{who: E1, side: L, how: invitation}]
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 19:10
+    events: [{accepts: E2}]
+    expect:
+      messages: [{who: E2, kind: aviso}]
+  - at: 2026-11-01 19:10
+    events: [{joins_waiting_list: E2, sides: other}]
+    expect:
+      placed: [{who: E2, side: R, how: auto_from_waiting_list}]
+      messages: [{who: E2, kind: added}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:20
+    events: [{accepts: E3}]
+    expect:
+      messages: [{who: E3, kind: aviso}]
+  - at: 2026-11-02 17:00
+    expect:
+      reminders: {to: [regulars, E2], not_to: [E1]}
+final:
+  roster: {L: 8, R: 8}

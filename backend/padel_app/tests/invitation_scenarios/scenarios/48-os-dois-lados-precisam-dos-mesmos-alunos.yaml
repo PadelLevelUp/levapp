@@ -1,0 +1,54 @@
+id: 48
+title: os dois lados precisam dos mesmos alunos
+source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1132, 1154]}
+what_it_tests: cada aluno é primeiro usado no seu lado, e só os restantes vão para o lado diferente
+tags: [groups, other-side, sides, aviso]
+depends_on: [U5, U10, U26]
+corrections: []
+notes: >
+  Group 3 covers the left by heads with 3 of the 5 L2L and the right with the single L2R. One right spot
+  stays uncovered, so group 5 enters at once with the other 2 L2L, capped by candidates (R1; U5: the
+  lower group gets the full X). A student invited for their own side is not a candidate for the other
+  side's spot (R8). The 19:15 Yes was to an invitation for the left, which is full, so it gets the Aviso
+  even though the right still has a spot (R9; U10 asks whether that is right). At 19:20 nothing is sent
+  because every candidate has been invited. `who` uses the side_named filter (coordinator's format
+  decision 2).
+
+roster:
+  regulars: {L: 7, R: 6}
+students:
+  - {cohort: L2L, count: 5, level: 2, side: L}
+  - {cohort: L2R, count: 1, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L2L, count: 3, side_named: null, group: 3}
+        - {cohort: L2R, count: 1, side_named: null, group: 3}
+        - {cohort: L2L, count: 2, side_named: R, group: 5}
+      invitations_total_sent: 6
+      open_unanswered: 6
+  - at: 2026-11-01 19:10
+    events: [{accepts: {cohort: L2L, state: invited, side_named: null, as: l1}}]
+    expect:
+      placed: [{who: l1, side: L, how: invitation}]
+      missing: {L: 0, R: 2}
+  - at: 2026-11-01 19:15
+    events: [{accepts: {cohort: L2L, state: invited, side_named: null, as: l2}}]
+    expect:
+      messages: [{who: l2, kind: aviso}]
+      missing: {L: 0, R: 2}
+  - at: 2026-11-01 19:20
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 1}
+      invitations: none
+  - at: 2026-11-01 19:30
+    events: [{accepts: {cohort: L2L, state: invited, side_named: R, as: l3}}]
+    expect:
+      placed: [{who: l3, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}

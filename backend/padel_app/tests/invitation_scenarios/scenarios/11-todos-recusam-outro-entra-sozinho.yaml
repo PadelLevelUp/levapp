@@ -1,0 +1,54 @@
+id: 11
+title: todos recusam e outro aluno entra sozinho
+source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [432, 449]}
+what_it_tests: a substituição imediata após recusas, a falta de candidatos e a entrada direta
+tags: [groups, other-side, direct-join, reminders]
+depends_on: [U23, U24, U28]
+corrections: []
+notes: >
+  The PDF's level-3 right-sider only "vê a aula" at 20:00. Under the base groups he would be a group-4
+  candidate from 19:00, and the PDF's jump to group 5 at 19:10 and "não há mais candidatos" at 19:20 only
+  hold if he does not exist before 20:00. Encoded with `{appears: J1}` at 20:00 (coordinator's format
+  decision, 2026-11-10). 19:10: everyone in group 3 refused and group 4 is empty, so group 5 is invited
+  at once (cenarios.txt 172-173, R2), invited to play right (side_named R).
+
+roster:
+  regulars: {L: 8, R: 7}
+students:
+  - {cohort: L2R, count: 3, level: 2, side: R}
+  - {cohort: L2L, count: 3, level: 2, side: L}
+  - {id: J1, level: 3, side: R}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:10
+    events:
+      - {declines: {cohort: L2R, state: invited, as: d1}}
+      - {declines: {cohort: L2R, state: invited, as: d2}}
+      - {declines: {cohort: L2R, state: invited, as: d3}}
+    expect:
+      invitations: [{cohort: L2L, count: 3, side_named: R, group: 5}]
+  - at: 2026-11-01 19:20
+    events:
+      - {declines: {cohort: L2L, state: invited, as: d4}}
+      - {declines: {cohort: L2L, state: invited, as: d5}}
+      - {declines: {cohort: L2L, state: invited, as: d6}}
+    expect:
+      invitations: none
+      open_unanswered: 0
+      missing: {L: 0, R: 1}
+  - at: 2026-11-01 20:00
+    events:
+      - {appears: J1}
+      - {joins_directly: J1}
+    expect:
+      placed: [{who: J1, side: R, how: direct}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-02 17:00
+    expect:
+      reminders:
+        to: [regulars, J1]
+final:
+  roster: {L: 8, R: 8}

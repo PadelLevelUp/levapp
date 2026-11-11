@@ -1,0 +1,50 @@
+id: 40
+title: aluno fora dos critérios e a decisão do professor
+source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [985, 1003]}
+what_it_tests: os critérios de elegibilidade aplicam-se aos alunos, mas não às decisões do professor
+tags: [coach-list, waiting-list, eligibility]
+depends_on: [U16, U19]
+corrections: []
+notes: >
+  A and B are level 4, below the eligibility rule for a level-3 class. The coach adds A, who enters
+  automatically despite the level (U19), before the first invitation hour (the "Pressupostos" item at
+  cenarios.txt 2152-2154, U16). B "não vê a aula" and cannot join or list: the 10:00 step tries both and
+  expects `refused` for each (B never `appears`, as the student cannot see the class). The exact
+  invitations list at 19:00 (three L2R only) proves B is not invited.
+
+roster:
+  regulars: {L: 8, R: 6}
+students:
+  - {id: A, level: 4, side: R}
+  - {id: B, level: 4, side: R}
+  - {cohort: L2R, count: 3, level: 2, side: R}
+
+timeline:
+  - at: 2026-11-01 10:00
+    events:
+      - {coach_adds_to_waiting_list: A, side: R}
+    expect:
+      placed: [{who: A, side: R, how: auto_from_waiting_list}]
+      messages: [{who: A, kind: added}]
+      missing: {L: 0, R: 1}
+      invitations: none
+  - at: 2026-11-01 10:00
+    events:
+      - {joins_directly: B}
+      - {joins_waiting_list: B, sides: own}
+    expect:
+      refused:
+        - {who: B, action: direct_join}
+        - {who: B, action: waiting_list}
+      roster: {L: 8, R: 7}
+      waiting_list: {students: []}
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
+  - at: 2026-11-01 19:15
+    events: [{accepts: {cohort: L2R, state: invited, as: r1}}]
+    expect:
+      placed: [{who: r1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 8, R: 8}
