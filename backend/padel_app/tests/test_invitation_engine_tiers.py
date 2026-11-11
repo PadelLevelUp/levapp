@@ -105,31 +105,47 @@ def test_only_a_counting_offer_elsewhere_postpones():
     assert postponed(offer, left_only) == frozenset()                               # the offer counts for no type
 
 
-def test_the_coachs_criteria_order_a_tier_in_the_coachs_order():
-    """engine-tiers rule 8 (PAD-915): ``ordering`` is the coach's priority criteria then tiebreakers,
-    each ranking the tier in turn; join time on the lists only after them, then a stable order."""
-    def first(ordering, **facts):
-        store = MemoryStore()
-        for sid in ("A", "B"):
-            store.add_student(replace(_student(sid, "R"), **facts.get(sid, {})))
-        store.add_session("S", 3, 8, START, _regulars(4, 3), T0)                 # one right spot
-        settings = EngineSettings(invites_per_spot=1, ordering=ordering, tiers=(Tier("pool", "any", 0),))
-        return _invited(plan(store.snapshot("S"), settings, T0).effects)
+def _first(ordering, **facts):
+    """Who of two right-side students at the class level is invited first for one right spot."""
+    store = MemoryStore()
+    for sid in ("A", "B"):
+        store.add_student(replace(_student(sid, "R"), **facts.get(sid, {})))
+    store.add_session("S", 3, 8, START, _regulars(4, 3), T0)                 # one right spot
+    settings = EngineSettings(invites_per_spot=1, ordering=ordering, tiers=(Tier("pool", "any", 0),))
+    return _invited(plan(store.snapshot("S"), settings, T0).effects)
 
-    assert first(("participations",)) == ["A"]                                  # a tie: the stable order
-    assert first(("justified_misses",), B={"makeups_owed": 2}) == ["B"]         # more owed first
-    assert first(("attendance",), B={"attendance_rate": 0.9}, A={"attendance_rate": 0.5}) == ["B"]
-    assert first(("attendance_rate",), B={"attendance_rate": 0.9}) == ["B"]
-    assert first(("subscription_status",), A={"active": False}) == ["B"]       # an active account first
-    assert first(("unjustified_absences",), A={"unjustified_absences": 1}) == ["B"]   # fewer first
-    assert first(("justified_absences",), B={"justified_absences": 3}) == ["B"]       # more first
-    assert first(("playing_side",), A={"sides": frozenset({"L", "R"})}) == ["B"]     # the spot's side only
-    assert first(("playing_side_match",), A={"sides": frozenset({"L", "R"})}) == ["B"]
-    # The coach's order decides: the first criterion that tells them apart wins.
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-11")
+def test_ordering_is_priority_criteria_then_tiebreakers_in_the_coachs_order():
+    """engine-tiers rule 8 (PAD-915): ``ordering`` is the coach's enabled priority criteria then
+    tiebreakers, in the coach's order; the first criterion that tells two students apart wins."""
     facts = {"A": {"makeups_owed": 3}, "B": {"attendance_rate": 1.0}}
-    assert first(("justified_misses", "attendance"), **facts) == ["A"]
-    assert first(("attendance", "justified_misses"), **facts) == ["B"]
-    # Level, inside a list tier (pool tiers hold one level): the better level first, unknown last.
+    assert _first(("justified_misses", "attendance"), **facts) == ["A"]
+    assert _first(("attendance", "justified_misses"), **facts) == ["B"]
+    assert _first(("unjustified_absences", "attendance_rate"), A={"unjustified_absences": 1},
+                  B={"attendance_rate": 0.0}) == ["B"]
+    with pytest.raises(SettingsError, match="ordering"):
+        EngineSettings(ordering=("level", "shoe_size"))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-12")
+def test_each_ordering_id_ranks_in_its_direction():
+    """engine-tiers rule 8 (PAD-915): each criterion's direction; then join time on the lists (pinned
+    by TIERS-7), then a stable order."""
+    assert _first(("participations",)) == ["A"]                                  # a tie: the stable order
+    assert _first(("participations",), B={"participations": 4}) == ["B"]         # more first
+    assert _first(("justified_misses",), B={"makeups_owed": 2}) == ["B"]         # more owed first
+    assert _first(("attendance",), B={"attendance_rate": 0.9}, A={"attendance_rate": 0.5}) == ["B"]
+    assert _first(("attendance_rate",), B={"attendance_rate": 0.9}) == ["B"]     # higher first
+    assert _first(("subscription_status",), A={"active": False}) == ["B"]       # an active account first
+    assert _first(("unjustified_absences",), A={"unjustified_absences": 1}) == ["B"]   # fewer first
+    assert _first(("justified_absences",), B={"justified_absences": 3}) == ["B"]       # more first
+    # Playing side: the spot's side alone, then both sides, then the rest (today's _side_preference_rank).
+    for criterion in ("playing_side", "playing_side_match"):
+        assert _first((criterion,), A={"sides": frozenset({"L", "R"})}) == ["B"]
+        assert _first((criterion,), A={"sides": frozenset({"L"})}, B={"sides": frozenset({"L", "R"})}) == ["B"]
+
+    # Level, inside a list tier (a pool tier holds one level): the better level first, unknown last.
     def on_list(levels):
         store = MemoryStore()
         for sid, level in levels.items():
@@ -142,8 +158,3 @@ def test_the_coachs_criteria_order_a_tier_in_the_coachs_order():
         return _invited(plan(store.snapshot("S"), settings, T0).effects)
 
     assert on_list({"A": None, "B": 4, "C": 2}) == ["C", "B", "A"]
-
-
-def test_an_unknown_ordering_criterion_is_refused():
-    with pytest.raises(SettingsError, match="ordering"):
-        EngineSettings(ordering=("level", "shoe_size"))
