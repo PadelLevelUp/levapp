@@ -40,14 +40,15 @@ Stated as observable records; storage is the engine package's (PAD-902).
    matched against the types of each run, never stored as a type.
 5. **The run (§6 step 2, D5, D9; coordinator ruling D-E21): cover first, then top up.** Each run has
    two phases, and an uncovered spot always beats a further invitation for a covered one (D9).
-   - **Cover.** Every spot type with uncovered spots is covered first. The run walks the **tiers in
-     order**; within a tier, the uncovered types are served **hardest first**: fewest candidates per
-     uncovered spot, a type's candidates counted at its ideal tier (rule 6). A tie goes to the type
-     whose ideal tier comes earlier in the order; with the same ideal tier, rule 13. The covering sends
-     follow D17's budget: X per covered spot from the type's ideal tier, else
-     const:LOWER_TIER_PER_SPOT.
-   - **Top up.** Only when no tier can cover anything more are the covered types topped up to their
-     budget (rule 6), tiers in order, hardest type first within a tier.
+   - **Cover.** First, a spot held by a counting invitation of any tier is covered: each holder
+     covers one type only, hardest type first. The spots left are then covered with new invitees: the
+     run walks the **tiers in order** and, within a tier, serves the uncovered types **hardest first**
+     (fewest candidates per uncovered spot, a type's candidates counted at its ideal tier, rule 6; a tie
+     goes to the type whose ideal tier comes earlier in the order, and with the same ideal tier,
+     rule 13). It sends at least one distinct person per uncovered spot, and up to D17's budget for
+     those spots (X per spot at the type's ideal tier, else const:LOWER_TIER_PER_SPOT), counting the
+     invitations whose offer already counts for the type.
+   - **Top up.** Only then are the covered types topped up to their budgets (rule 6), tiers in order.
    In each phase, in each tier, for each type in that order:
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
       counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
