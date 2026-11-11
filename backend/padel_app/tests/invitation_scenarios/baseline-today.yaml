@@ -698,7 +698,7 @@
   skipped: 0
 72-duas-aulas-a-mesma-hora:
   outcome: fail
-  evaluated: 9
+  evaluated: 11
   skipped: 0
   derived_from:
   - D4
@@ -800,9 +800,9 @@
   derived_from:
   - D16
   - §2
-  class: behavioural
-  note: 'behavioural: today retires the open invitations when the class fills (rules 15/15a); the plan never revokes (D4)'
-  first_failure: 2026-11-02 18:45 events.accepts
+  class: structural
+  note: 'structural: today has one inactivity timer and no Method B, so the rounds cannot descend inside a group (PAD-911)'
+  first_failure: 2026-11-02 16:42 invitations
 85-um-grupo-sem-candidatos-nao-conta:
   outcome: fail
   evaluated: 8
@@ -1308,3 +1308,14 @@ P31-postponed-better-group-student:
   note: 'behavioural: today invites X1 for A while X1 holds class B''s offer the same day, because the adapter maps the PDF
     base (noSameDayClass off); the plan postpones X1 (D15)'
   first_failure: 2026-11-01 20:00 invitations
+P34-same-hour-yes-closes-the-other:
+  outcome: fail
+  evaluated: 15
+  skipped: 0
+  derived_from:
+  - D4
+  - D15
+  class: behavioural
+  note: 'behavioural: at 19:10 today sends B no invitation for the spot R-1 leaves; the ruling invites S2 and S3, whose
+    invitations to the full class A no longer count (PAD-911)'
+  first_failure: 2026-11-01 19:10 invitations

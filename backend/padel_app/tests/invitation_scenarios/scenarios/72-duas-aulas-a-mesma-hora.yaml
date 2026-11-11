@@ -17,6 +17,11 @@ notes: >
   19:15 accept by D2 has no open invitation: an engine refusal, observed as nothing placed (coordinator F5).
   B stays one short.
 
+  Re-derived again (PAD-911, 2026-11-11, owner ruling on Tomás's point 2): only a counting ("ativo")
+  invitation postpones (engine-tiers rule 10). When A fills at 19:10, D2's and D3's invitations to A stay
+  open (D4) but no longer count, so B invites D2 at once (its budget of 3 holds D4 and D5). D2's Yes in B at
+  19:15 places them there and closes their invitation to A (engine-answers rule 10), leaving D3's open.
+
 roster:
   regulars: {L: 8, R: 7}
 other_classes:
@@ -47,15 +52,18 @@ timeline:
       missing: {L: 0, R: 0}
       other_class:
         B:
-          invitations: none
+          invitations:
+            - {who: D2, side_named: null, group: 3}
   - at: 2026-11-01 19:15
     events: [{other_class: B, event: {accepts: D2}}]
     expect:
+      open_unanswered: 1
       other_class:
         B:
-          roster: {L: 8, R: 7}
-          missing: {L: 0, R: 1}
+          placed: [{who: D2, side: R, how: invitation}]
+          roster: {L: 8, R: 8}
+          missing: {L: 0, R: 0}
 final:
   roster: {L: 8, R: 8}
   other_classes:
-    B: {roster: {L: 8, R: 7}}
+    B: {roster: {L: 8, R: 8}}

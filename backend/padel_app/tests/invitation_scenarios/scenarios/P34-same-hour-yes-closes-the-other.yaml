@@ -1,0 +1,73 @@
+id: P34
+title: a Yes in one same-hour session closes the other invitation
+source: {section: "Cenários 72 a 79: outras regras e parâmetros (Tomás's answer to point 2, 2026-11-11)", lines: [1583, 1601]}
+what_it_tests: a student holding counting invitations to two sessions at the same hour says Yes to one, and the other invitation closes
+tags: [multi-class]
+derived_from: [D4, D15]
+corrections: []
+notes: >
+  Tomás's suggested test with his answer to point 2 (2026-11-11; owner ruling the same day): the same-hour
+  rule is two rules, safety (engine-answers rule 10: a placement closes the student's other same-hour open
+  invitations; a second same-hour placement is refused) and efficiency (engine-tiers rule 10: only a counting
+  invitation postpones). Not a PDF or plan scenario: a P file after the plan's P01-P33, beside 72. The run that gets one student two
+  counting invitations at the same hour: S1-S3 are invited to A; S1's Yes fills A, so S2's and S3's A
+  invitations stop counting and B, when a regular says No at 19:10, invites them; S1 cancels at 19:12, A
+  reopens, and S2's and S3's A invitations (T 20 min from 19:00) count again. S2 now holds counting
+  invitations to A and B at the same hour, says Yes to B, and the A invitation closes; a later accept for A
+  has no open invitation, so it is refused (coordinator F5: observed as nothing placed and nothing sent).
+
+roster:
+  regulars: {L: 8, R: 7}
+other_classes:
+  - {id: B, level: 3, capacity: 16, start: 2026-11-03 10:30, regulars: {L: 8, R: 8}}
+students:
+  - {id: S1, level: 2, side: R, participations: 3}
+  - {id: S2, level: 2, side: R, participations: 2}
+  - {id: S3, level: 2, side: R, participations: 1}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {who: S1, side_named: null, group: 3}
+        - {who: S2, side_named: null, group: 3}
+        - {who: S3, side_named: null, group: 3}
+      other_class:
+        B:
+          invitations: none
+  - at: 2026-11-01 19:05
+    events: [{accepts: S1}]
+    expect:
+      placed: [{who: S1, side: R, how: invitation}]
+      missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:10
+    events: [{other_class: B, event: {regular_no: R-1}}]
+    expect:
+      other_class:
+        B:
+          invitations:
+            - {who: S2, side_named: null, group: 3}
+            - {who: S3, side_named: null, group: 3}
+  - at: 2026-11-01 19:12
+    events: [{cancels: S1}]
+    expect:
+      missing: {L: 0, R: 1}
+      open_unanswered: 2
+  - at: 2026-11-01 19:15
+    events: [{other_class: B, event: {accepts: S2}}]
+    expect:
+      open_unanswered: 1
+      other_class:
+        B:
+          placed: [{who: S2, side: R, how: invitation}]
+          missing: {L: 0, R: 0}
+  - at: 2026-11-01 19:16
+    events: [{accepts: S2}]
+    expect:
+      nothing_sent: true
+      open_unanswered: 1
+      missing: {L: 0, R: 1}
+final:
+  roster: {L: 8, R: 7}
+  other_classes:
+    B: {roster: {L: 8, R: 8}}

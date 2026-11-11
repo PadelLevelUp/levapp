@@ -18,8 +18,15 @@ notes: >
   R: T fixed per invitation with between_rounds = between_groups = 60m, so group 3's rounds go at 15:30,
   16:30 and 17:30 and group 4 comes at 18:30. The owner sees this line on the disposition sheet.
 
+  Undeferred (PAD-911, 2026-11-11, owner ruling on Tomás's answer): Method B's parts also set the rounds
+  inside one tier (engine-settings rule 2). Group 3's share is 3 h (9/30 of 10 h, as in 83); its last round
+  waits the last third (60 min, to group 4) and the two rounds before it split the other 2 h as 3:2, so
+  72 and 48 min: rounds at 15:30, 16:42 and 17:30, group 4 at 18:30. Tomás: "No 84, a segunda ronda passa
+  das 16h40 para as 16h42. A terceira continua às 17h30 e o grupo 4 às 18h30." 3 rounds = 9 candidates
+  over a budget of 3 (our inference, not his words).
+
 settings:
-  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  timing: {method: B}
 
 roster:
   regulars: {L: 8, R: 8}
@@ -35,8 +42,7 @@ timeline:
     expect:
       invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
       missing: {L: 0, R: 1}
-  - at: 2026-11-02 16:30
-    derived_from: [D16, §2]
+  - at: 2026-11-02 16:42
     expect:
       invitations: [{cohort: L2R, count: 3, side_named: null, group: 3}]
   - at: 2026-11-02 17:30
