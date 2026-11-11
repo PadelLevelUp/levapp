@@ -21,8 +21,7 @@ mixin behaves exactly as before, so nothing else changes.
 The depth counter is thread-local, which matches the scoped session's
 granularity for both request threads and the scheduler's executor threads.
 The decision on where this goes next (every service, then a request-scoped
-commit) is the owner's: ``.cortex/atlas/decisions/2026-09-11-request-scoped-
-transactions.md``.
+commit) is the owner's: ``cortex/world/decisions/request-scoped-transactions.md``.
 """
 import threading
 from contextlib import contextmanager

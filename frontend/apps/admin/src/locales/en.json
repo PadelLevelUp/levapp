@@ -443,6 +443,7 @@
       "fetchedAt": "Updated at {{when}}",
       "notConfigured": "Not configured: {{setting}} is missing.",
       "unavailable": "Could not get the data.",
+      "retired": "No longer shown: the bug ledger moved to the Cortex 4.0 store, which keeps no index to read.",
       "lastOk": "Last success: {{when}}.",
       "open": {
         "title": "Tickets to do",
