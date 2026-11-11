@@ -247,6 +247,8 @@ class _Run:
     people: list[str]
     used: set[str] = field(default_factory=set)
     sent: dict[str, frozenset[str]] = field(default_factory=dict)       # this run's invitees -> offer sides
+    covers: dict[str, SpotType] = field(default_factory=dict)          # covering pass: who covers which type
+    sent_tier: dict[str, int] = field(default_factory=dict)            # this run's invitees -> their tier
     effects: list[Effect] = field(default_factory=list)
 
     def buckets(self, spot_type: SpotType) -> dict[int, _TierPool]:
@@ -270,13 +272,18 @@ class _Run:
                 (bucket.fresh if invitation is None or sorry else bucket.holders).append(sid)
         return out
 
-    def counting_for(self, spot_type: SpotType) -> int:
+    def counting_for(self, spot_type: SpotType, *, distinct: bool = False) -> int:
         """Counting invitations from any tier whose offer counts for the type, this run's included
-        (engine-planning rules 4, 5.3)."""
+        (engine-planning rules 4, 5.3). ``distinct`` (the covering pass): a person this run uses to
+        cover another type does not count for this one (D5, coverage in distinct people)."""
         values = type_sides(spot_type, self.counts)
-        old = sum(1 for sid, inv in self.latest.items() if sid not in self.sent
+
+        def mine(sid: str) -> bool:
+            return not distinct or self.covers.get(sid, spot_type) == spot_type
+
+        old = sum(1 for sid, inv in self.latest.items() if sid not in self.sent and mine(sid)
                   and timeline.counting(inv, self.now) and {t.side for t in inv.offer} & values)
-        return old + sum(1 for offer in self.sent.values() if offer & values)
+        return old + sum(1 for sid, offer in self.sent.items() if offer & values and mine(sid))
 
     def session_counting(self) -> int:
         return sum(1 for inv in self.latest.values() if timeline.counting(inv, self.now)) + len(self.sent)
@@ -319,53 +326,119 @@ def split_tied(room: int, want: dict[Side, int], uncovered: dict[Side, int], goi
 
 
 def _walk(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int] | None) -> dict[SpotType, int]:
-    """Serve the types in ``order`` (engine-planning rule 5): per type, tiers in order, cover by
-    distinct people, top up to the type's budget (D17, D10), never above ``caps`` (M's share).
-    Returns how many invitations each type sent."""
+    """One run of plan §6 step 2 in two passes (coordinator ruling D-E21, 2026-11-11; engine-planning
+    rule 5): first COVER every type with uncovered spots, then TOP UP the covered ones. Each pass walks
+    the tiers in order, and inside a tier the types hardest first (``order``). An uncovered spot beats a
+    third invitation for a covered one (D9; the owner's S10). Budgets are D17's: X per covered spot at
+    the type's ideal tier, else 1; never above ``caps`` (M's share). Returns invitations per type."""
+    first = {st: run.buckets(st) for st, _ in order}                   # before anyone is used
+    ideal = {st: min(b) if b else None for st, b in first.items()}
+    sent = {st: 0 for st, _ in order}
+    _cover(run, order, caps, first, ideal, sent)
+    _pass(run, order, caps, first, ideal, sent, cover=False)
+    return sent
+
+
+def _cover(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int] | None,
+           first: dict[SpotType, dict[int, _TierPool]], ideal: dict[SpotType, int | None],
+           sent: dict[SpotType, int]) -> None:
+    """The covering pass. A spot held by a counting invitation of any tier is covered (D9), each
+    holder covering one type only, hardest type first (D5). The spots left are covered with new
+    invitees, tiers in order and hardest type first inside a tier: at least one distinct person per
+    spot, and up to D17's budget for those spots (X at the type's ideal tier, else 1), counting the
+    invitations whose offer already counts for the type (D20)."""
     settings, snapshot, x = run.settings, run.snapshot, run.settings.invites_per_spot
-    sent_per_type: dict[SpotType, int] = {}
+    uncovered: dict[SpotType, int] = {}
+    holding: set[str] = set()
     for spot_type, spots in order:
         values = type_sides(spot_type, run.counts)
-        buckets = run.buckets(spot_type)
-        with_candidates = sorted(buckets)
-        ideal = with_candidates[0] if with_candidates else None
-        uncovered, budget_so_far, sent_here = spots, 0, 0
-        cap = None if caps is None else caps.get(spot_type, 0)
-        for t in with_candidates:                                          # an empty tier costs no time
-            if uncovered == 0:
-                break
-            tier, bucket = settings.tiers[t], buckets[t]
-            covered = min(uncovered, bucket.size)
-            budget = covered * (x if t == ideal else LOWER_TIER_PER_SPOT)   # D17
-            budget_so_far += budget
-            room = min(budget - len(bucket.holders),                        # the tier's own budget
-                       budget_so_far - run.counting_for(spot_type))         # the type's, filled first (D10)
-            room = min(room, settings.max_at_a_time - run.session_counting())   # M (D16)
-            if cap is not None:
-                room = min(room, cap - sent_here)
-            fresh = sorted(bucket.fresh, key=lambda sid: _order(tier, snapshot.students[sid], snapshot))
-            chosen = fresh[:max(0, min(room, len(fresh)))]
-            share = None
-            if settings.timing.method == "progressive":
-                taking_part = _method_b_tiers(run, spot_type, with_candidates)
-                share = timeline.method_b_t(snapshot, settings, run.now, len(taking_part), taking_part.index(t))
-            t_send = timeline.t_at_send(settings, t, len(fresh) > len(chosen), share)
-            for sid in chosen:
-                student = snapshot.students[sid]
-                offer = _offer_across(run, t, student, order, spot_type)
-                run.sent[sid] = offer
-                fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student),
-                          t, timeline.counts_until(settings, run.now, t_send))
-                if sid in run.latest:            # a "sorry" invitation: re-offered, never a second one (D1)
-                    run.effects += [Reoffered(snapshot.id, run.now, sid, *fields),
-                                    Message(snapshot.id, run.now, sid, "reoffer")]
-                else:
-                    run.effects.append(Invited(snapshot.id, run.now, sid, *fields))
-            sent_here += len(chosen)
+        mine = [sid for sid, inv in run.latest.items() if sid not in holding and timeline.counting(inv, run.now)
+                and {s.side for s in inv.offer} & values][:spots]
+        holding.update(mine)
+        run.covers.update({sid: spot_type for sid in mine})
+        uncovered[spot_type] = spots - len(mine)
+    for t in range(len(settings.tiers)):
+        tier = settings.tiers[t]
+        for spot_type, _spots in order:
+            if uncovered[spot_type] == 0:
+                continue
+            bucket = run.buckets(spot_type).get(t)
+            if bucket is None or not bucket.fresh:                          # an empty tier costs no time
+                continue
+            k = min(uncovered[spot_type], len(bucket.fresh))
+            uncovered[spot_type] -= k
+            budget = k * (x if t == ideal[spot_type] else LOWER_TIER_PER_SPOT)   # D17
+            room = max(k, budget - _counting_new(run, spot_type, t))
+            room = min(room, settings.max_at_a_time - run.session_counting())     # M (D16)
+            if caps is not None:
+                room = min(room, caps.get(spot_type, 0) - sent[spot_type])
+            _send(run, order, spot_type, t, tier, bucket, room, sent, first, covering=True)
+
+
+def _counting_new(run: _Run, spot_type: SpotType, t: int) -> int:
+    """This run's invitees from tier ``t`` whose offer counts for the type (a flexible invitee sent
+    for a harder type counts for this one too, D20)."""
+    values = type_sides(spot_type, run.counts)
+    return sum(1 for sid, tt in run.sent_tier.items() if tt == t and run.sent[sid] & values)
+
+
+def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: int, tier: Tier,
+          bucket: _TierPool, room: int, sent: dict[SpotType, int], first: dict[SpotType, dict[int, _TierPool]],
+          *, covering: bool) -> None:
+    settings, snapshot = run.settings, run.snapshot
+    fresh = sorted(bucket.fresh, key=lambda sid: _order(tier, snapshot.students[sid], snapshot))
+    chosen = fresh[:max(0, min(room, len(fresh)))]
+    share = None
+    if settings.timing.method == "progressive":
+        taking_part = _method_b_tiers(run, spot_type, sorted(set(first[spot_type]) | {t}))
+        share = timeline.method_b_t(snapshot, settings, run.now, len(taking_part), taking_part.index(t))
+    t_send = timeline.t_at_send(settings, t, len(fresh) > len(chosen), share)
+    for sid in chosen:
+        student = snapshot.students[sid]
+        offer = _offer_across(run, t, student, order, spot_type)
+        run.sent[sid] = offer
+        run.sent_tier[sid] = t
+        if covering:
+            run.covers[sid] = spot_type
+        fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student),
+                  t, timeline.counts_until(settings, run.now, t_send))
+        if sid in run.latest:            # a "sorry" invitation: re-offered, never a second one (D1)
+            run.effects += [Reoffered(snapshot.id, run.now, sid, *fields),
+                            Message(snapshot.id, run.now, sid, "reoffer")]
+        else:
+            run.effects.append(Invited(snapshot.id, run.now, sid, *fields))
+    sent[spot_type] += len(chosen)
+
+
+def _pass(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int] | None,
+          first: dict[SpotType, dict[int, _TierPool]], ideal: dict[SpotType, int | None],
+          sent: dict[SpotType, int], *, cover: bool) -> None:
+    """The top-up pass: tiers in order, hardest type first inside a tier; per type and tier, cover by
+    distinct people (this run's invitees from the tier included) and top up to the type's budget
+    (D17, D10), never above M or ``caps``."""
+    settings, x = run.settings, run.settings.invites_per_spot
+    uncovered = {st: spots for st, spots in order}
+    budget_so_far = {st: 0 for st, _ in order}
+    for t in range(len(settings.tiers)):
+        tier = settings.tiers[t]
+        for spot_type, _spots in order:
+            if uncovered[spot_type] == 0:
+                continue
+            bucket = run.buckets(spot_type).get(t) or _TierPool()
+            holders = len(bucket.holders) + _counting_new(run, spot_type, t)
+            if holders + len(bucket.fresh) == 0:                            # an empty tier costs no time
+                continue
+            covered = min(uncovered[spot_type], holders + len(bucket.fresh))
+            uncovered[spot_type] -= covered
+            budget = covered * (x if t == ideal[spot_type] else LOWER_TIER_PER_SPOT)   # D17
+            budget_so_far[spot_type] += budget
+            room = min(budget - holders,                                    # the tier's own budget
+                       budget_so_far[spot_type] - run.counting_for(spot_type))   # the type's, filled first (D10)
+            room = min(room, settings.max_at_a_time - run.session_counting())     # M (D16)
+            if caps is not None:
+                room = min(room, caps.get(spot_type, 0) - sent[spot_type])
+            _send(run, order, spot_type, t, tier, bucket, room, sent, first, covering=False)
             run.used.update(bucket.holders)
-            uncovered -= covered
-        sent_per_type[spot_type] = sent_here
-    return sent_per_type
 
 
 def _method_b_tiers(run: _Run, spot_type: SpotType, with_candidates: list[int]) -> list[int]:
