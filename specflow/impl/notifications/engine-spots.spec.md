@@ -134,8 +134,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 ### Open questions
 - A class with no level: no level rule (D3, "to revisit later") or today's fail-closed (rule 4d)? —
   decision (owner away, coordinator approves tonight): D3, because the plan says so and S27 pins it.
-- SPOTS-7's scenario `P27-class-without-a-level` is not written: the scenario format cannot yet hold a
-  class with no level (H, 2026-11-11); the coordinator decides whether the format gains it or SPOTS-7
-  moves to a unit test on `planner.py`. Until then its test is named and pending.
+- SPOTS-7's scenario `P27-class-without-a-level` — closed (coordinator, 2026-11-11): the scenario format
+  gained a nullable `class.level` (H, on the P-file branch), so SPOTS-7 stays a scenario pin.
 - More than one quota category: the plan solves the counts per combination as a matching (§4); no
   scenario needs it, so it is out of this spec.

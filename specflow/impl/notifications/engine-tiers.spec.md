@@ -59,8 +59,8 @@ the coach's list).
 10. **Postpone (D15).** A student blocked by the daily invitation cap, or holding a live offer for
     another class that club day (`notifications.invitations` rule 18c, kept), is **not a candidate this
     run**: they count for no type, so they neither cover a spot nor make their tier the ideal one, and
-    the next tier goes ahead. They are invited once free if there is room
-    (`notifications.engine-planning` rule 7).
+    the next tier goes ahead. Their return once free is `notifications.engine-planning` rule 7, the one
+    rule for it.
 11. **One evaluator (recorded decision "invite simulation shares the engine pipeline", 2026-09-06).**
     The verdict that admits or drops a student and its explanation come from the same evaluator. When
     the engine ships, the invite simulation (`notifications.invite-simulation`) and the semi-automatic

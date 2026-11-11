@@ -63,7 +63,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
    tier's invitations stopped counting or said No). Nothing sent is taken back.
 7. **Better fits come first, within the budget and M (D10).** A better-tier candidate who becomes
    available is invited when the type's counting invitations are below its budget and the session
-   below M, else as soon as there is room. Lower tiers' invitations stay open.
+   below M, else as soon as there is room. Lower tiers' invitations stay open. This is also how a
+   postponed student (`notifications.engine-tiers` rule 10) is invited once free.
 8. **M caps the session (D16).** A new invitation goes out only while the session's counting
    invitations are below M **and** the type's counting invitations are below its budget (rule 5.3).
 9. **The message names a side only when it is outside the student's subset (D11).** A {left, right}
@@ -242,16 +243,16 @@ Given a session with open spots and candidates, when the run happens before `fir
 `last_invite_at`, then it creates no `Invited` effect.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_no_invitation_outside_the_window`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-25: When the only candidate says No and no tier has another, the coach is alerted (rule 11; S11)
+Given 3 left, 3 right and 1 {left, right} regular, 1 right-sider available and no left-sider, when the
+right-sider says No, then no invitation goes out and a const:COACH_ALERT is raised.
+test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P11b-both-regular-fills-other-side]`
+
 #### NOTIFICATIONS-ENGINE-PLANNING-26: A "sorry" invitation is re-offered when the planner chooses its student (rule 5.3; ruling (1))
 Given a right-sider holding an open invitation answered "sorry" and a right spot that reopens, when the
 run tops up the right type and chooses them, then their invitation is re-offered (const:KIND_REOFFER),
 no second invitation is created, and it counts again until a new counting-until instant.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_sorry_invitation_is_reoffered_not_duplicated`
-
-#### NOTIFICATIONS-ENGINE-PLANNING-25: When the only candidate says No and no tier has another, the coach is alerted (rule 11; S11)
-Given 3 left, 3 right and 1 {left, right} regular, 1 right-sider available and no left-sider, when the
-right-sider says No, then no invitation goes out and a const:COACH_ALERT is raised.
-test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P11b-both-regular-fills-other-side]`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
