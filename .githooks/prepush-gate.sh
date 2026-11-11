@@ -88,8 +88,10 @@ fi
 
 # Markdown (CLAUDE.md, specs, notes) never triggers a code check; cortex/ and .specflow/ have their own.
 CODE_CHANGED="$(printf '%s\n' "$CHANGED" | grep -vE '\.md$' || true)"
-changed() { printf '%s\n' "$CODE_CHANGED" | grep -qE "$1"; }
-changed_any() { printf '%s\n' "$CHANGED" | grep -qE "$1"; }
+# Here-strings, not `printf | grep -q`: under pipefail, grep -q exiting at its first match on a long
+# list SIGPIPEs printf, the pipeline answers 141, and the check is silently skipped (PAD-905).
+changed() { grep -qE "$1" <<<"$CODE_CHANGED"; }
+changed_any() { grep -qE "$1" <<<"$CHANGED"; }
 PY="$ROOT/backend/.venv/bin/python"
 
 # 1. One Alembic head — on the commit's migrations, so a parent placed untracked for local runs
@@ -175,7 +177,7 @@ $(grep -lE 'rglob\(|os\.walk\(|ast\.parse\(|check_alembic|LEGACY_MAX|git ls-file
     done
     # d) a changed route module also runs the route-map authz guard, which takes the app and so
     #    is not in a) — PAD-786's unauthenticated debug route reached CI past this gate.
-    printf '%s\n' "$CHANGED" | grep -qE '^backend/padel_app/modules/.*\.py$' && IMP="$IMP $T/test_frontend_api_authz.py"
+    changed_any '^backend/padel_app/modules/.*\.py$' && IMP="$IMP $T/test_frontend_api_authz.py"
     SEED=""; changed '^frontend/apps/web/e2e/scripts/' && SEED="../frontend/apps/web/e2e/scripts"
     SELECT="$(printf '%s\n' $GUARDS $CT $IMP | sort -u | sed 's#^backend/##' | tr '\n' ' ') $SEED"
     echo "(backend selection: $(printf '%s\n' $SELECT | grep -c .) test paths — guards + changed + importers)"
@@ -193,7 +195,7 @@ fi
 if [ -z "$TREE_ONLY" ] && changed_any '^\.specflow/' && command -v cortex >/dev/null; then
   cortex_check() { local out; out="$(cortex validate 2>&1)"; local hit=0 f
     for f in $(printf '%s\n' "$CHANGED" | grep -E '^\.specflow/'); do
-      if printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | grep -qF "$f"; then echo "cortex validate names $f"; hit=1; fi
+      if grep -qF -- "$f" <<<"$(grep -A3 '\[ERROR\]' <<<"$out")"; then echo "cortex validate names $f"; hit=1; fi
     done
     [ $hit -eq 0 ] || printf '%s\n' "$out" | grep -A3 '\[ERROR\]' | head -30
     return $hit; }
