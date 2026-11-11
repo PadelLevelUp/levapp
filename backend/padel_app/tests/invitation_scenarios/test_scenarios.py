@@ -12,6 +12,9 @@ Opt-in (design §8), because most scenarios fail on today's engine by design:
 - ``INVITATION_SCENARIOS=baseline``: compare each scenario with baseline-today.yaml; a
   scenario that passed there and fails now fails the test, any other change is reported.
 - ``INVITATION_SCENARIOS_OUT=<dir>``: also write each scenario's normalized log there.
+- ``INVITATION_ENGINE=new`` (PAD-902): run against the redesign plan's engine through
+  adapters/new.py instead of today's; unset or ``today`` keeps today's adapter. The baseline is
+  today's, so ``baseline`` mode refuses ``new``.
 """
 import json
 import os
@@ -25,6 +28,7 @@ from padel_app.tests.invitation_scenarios.runner import dump_log, dump_yaml, run
 
 HERE = Path(__file__).parent
 MODE = os.getenv("INVITATION_SCENARIOS", "").strip().lower()
+ENGINE = os.getenv("INVITATION_ENGINE", "").strip().lower() or "today"
 BASELINE = HERE / "baseline-today.yaml"
 
 
@@ -50,6 +54,22 @@ def test_schema_and_validator_name_the_same_vocabulary():
     assert set(schema["properties"]["tags"]["x-known"]) == validate.TAGS
 
 
+def _adapter(request):
+    if ENGINE == "new":
+        if MODE == "baseline":
+            pytest.fail("baseline-today.yaml is today's engine's baseline; run INVITATION_ENGINE=new with "
+                        "INVITATION_SCENARIOS=1")
+        from padel_app.tests.invitation_scenarios.adapters.new import NewAdapter
+
+        return NewAdapter()
+    if ENGINE != "today":
+        pytest.fail(f"INVITATION_ENGINE={ENGINE!r}: expected today or new")
+    app = request.getfixturevalue("app")
+    from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
+
+    return TodayAdapter(app)
+
+
 def _baseline() -> dict:
     if not BASELINE.exists():
         return {}
@@ -60,10 +80,7 @@ def _baseline() -> dict:
 def test_scenario(path, request):
     if MODE not in ("1", "baseline"):
         pytest.skip("opt-in: set INVITATION_SCENARIOS=1 (or =baseline) to run the invitation scenarios")
-    app = request.getfixturevalue("app")
-    from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
-
-    result = run_scenario(path, TodayAdapter(app))
+    result = run_scenario(path, _adapter(request))
     out = os.getenv("INVITATION_SCENARIOS_OUT")
     if out:
         dump_log(result, Path(out))
