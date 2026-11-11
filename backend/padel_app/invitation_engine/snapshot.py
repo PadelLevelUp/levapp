@@ -29,6 +29,12 @@ class Student:
     level: int | None
     sides: frozenset[str]
     participations: int = 0
+    # The coach's ordering data (engine-tiers rule 8), this coach's figures; the store fills them.
+    makeups_owed: int = 0
+    attendance_rate: float = 0.0
+    unjustified_absences: int = 0
+    justified_absences: int = 0
+    active: bool = True
 
     def __post_init__(self) -> None:
         if not self.sides or not self.sides <= set(SIDES):

@@ -221,14 +221,43 @@ def _natural(sid: str) -> tuple:
     return tuple(int(p) if p.isdigit() else p for p in re.split(r"(\d+)", sid))
 
 
-def _order(tier: Tier, student: Student, snapshot: SessionSnapshot) -> tuple:
-    """Ordering inside a tier (engine-tiers rule 8): the coach's criteria, then join time on the
-    waiting lists, then a stable order."""
+def _side_rank(student: Student, spot_type: SpotType | None) -> int:
+    """The playing-side criterion: a student whose only side is the spot's first, then one who plays
+    both, then the rest. A spot with no side (an either spot, or none given) favours nobody."""
+    if spot_type is None or spot_type.side is None or student.sides == frozenset({spot_type.side}):
+        return 0
+    return 1 if spot_type.side in student.sides else 2
+
+
+def _criterion(name: str, student: Student, spot_type: SpotType | None) -> float:
+    """One ordering criterion's rank, lower first (``settings.ORDERING_CRITERIA``)."""
+    if name == "level":                                   # 1 is the best; an unknown level last
+        return student.level if student.level is not None else float("inf")
+    if name == "justified_misses":
+        return -student.makeups_owed
+    if name in ("attendance", "attendance_rate"):
+        return -student.attendance_rate
+    if name in ("playing_side", "playing_side_match"):
+        return _side_rank(student, spot_type)
+    if name == "subscription_status":
+        return 0 if student.active else 1
+    if name == "unjustified_absences":
+        return student.unjustified_absences
+    if name == "justified_absences":
+        return -student.justified_absences
+    return -student.participations                       # "participations"
+
+
+def _order(tier: Tier, student: Student, snapshot: SessionSnapshot, settings: EngineSettings,
+           spot_type: SpotType | None = None) -> tuple:
+    """Ordering inside a tier (engine-tiers rule 8): the coach's criteria (``settings.ordering``) in
+    the coach's order, then join time on the waiting lists, then a stable order."""
     joined = None
     if tier.source != "pool":
         entry = _entry(snapshot, student.id, "coach" if tier.source == "coach_list" else "students")
         joined = entry.joined_at if entry else None
-    return (-student.participations, joined or datetime.min, _natural(student.id))
+    criteria = tuple(_criterion(name, student, spot_type) for name in settings.ordering)
+    return (criteria, joined or datetime.min, _natural(student.id))
 
 
 def _offer_sides(tier: Tier, student: Student, values: frozenset[str], snapshot: SessionSnapshot,
@@ -418,7 +447,7 @@ def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: 
           bucket: _TierPool, room: int, sent: dict[SpotType, int], first: dict[SpotType, dict[int, _TierPool]],
           *, covering: bool) -> None:
     settings, snapshot = run.settings, run.snapshot
-    fresh = sorted(bucket.fresh, key=lambda sid: _order(tier, snapshot.students[sid], snapshot))
+    fresh = sorted(bucket.fresh, key=lambda sid: _order(tier, snapshot.students[sid], snapshot, settings, spot_type))
     chosen = fresh[:max(0, min(room, len(fresh)))]
     share = None
     if settings.timing.method == "progressive":
@@ -537,8 +566,8 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
     for which, source in (("coach", "coach_list"), ("students", "students_list")):
         tier = Tier(source, "any")
         entries = [w for w in snapshot.waiting_list if w.list == which and w.student not in going]
-        entries.sort(key=lambda w: _order(tier, snapshot.students[w.student], snapshot)
-                     if w.student in snapshot.students else (0, w.joined_at, ()))
+        entries.sort(key=lambda w: _order(tier, snapshot.students[w.student], snapshot, settings)
+                     if w.student in snapshot.students else ((), w.joined_at, ()))
         for w in entries:
             student = snapshot.students.get(w.student)
             if (student is None or total >= capacity or w.student in snapshot.said_no

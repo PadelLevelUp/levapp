@@ -5,10 +5,12 @@ Each test is one acceptance criterion of specflow/impl/notifications/engine-tier
 from dataclasses import replace
 from datetime import datetime, timedelta
 
-from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore
+import pytest
+
+from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.planner import plan, spot_counts, tier_for, with_postponed
-from padel_app.invitation_engine.settings import Tier
+from padel_app.invitation_engine.settings import Eligibility, Tier
 from padel_app.invitation_engine.snapshot import Elsewhere, Invitation, Placement, SessionSnapshot, SpotType, Student
 
 T0 = datetime(2026, 11, 1, 19, 0)            # naive UTC, the base profile's first invitation
@@ -101,3 +103,47 @@ def test_only_a_counting_offer_elsewhere_postpones():
     left_only = tuple(p for p in open_b if p.side == "R") + tuple(
         Placement(f"r{i}", "R", "regular", sent) for i in range(1))                  # only left spots open
     assert postponed(offer, left_only) == frozenset()                               # the offer counts for no type
+
+
+def test_the_coachs_criteria_order_a_tier_in_the_coachs_order():
+    """engine-tiers rule 8 (PAD-915): ``ordering`` is the coach's priority criteria then tiebreakers,
+    each ranking the tier in turn; join time on the lists only after them, then a stable order."""
+    def first(ordering, **facts):
+        store = MemoryStore()
+        for sid in ("A", "B"):
+            store.add_student(replace(_student(sid, "R"), **facts.get(sid, {})))
+        store.add_session("S", 3, 8, START, _regulars(4, 3), T0)                 # one right spot
+        settings = EngineSettings(invites_per_spot=1, ordering=ordering, tiers=(Tier("pool", "any", 0),))
+        return _invited(plan(store.snapshot("S"), settings, T0).effects)
+
+    assert first(("participations",)) == ["A"]                                  # a tie: the stable order
+    assert first(("justified_misses",), B={"makeups_owed": 2}) == ["B"]         # more owed first
+    assert first(("attendance",), B={"attendance_rate": 0.9}, A={"attendance_rate": 0.5}) == ["B"]
+    assert first(("attendance_rate",), B={"attendance_rate": 0.9}) == ["B"]
+    assert first(("subscription_status",), A={"active": False}) == ["B"]       # an active account first
+    assert first(("unjustified_absences",), A={"unjustified_absences": 1}) == ["B"]   # fewer first
+    assert first(("justified_absences",), B={"justified_absences": 3}) == ["B"]       # more first
+    assert first(("playing_side",), A={"sides": frozenset({"L", "R"})}) == ["B"]     # the spot's side only
+    assert first(("playing_side_match",), A={"sides": frozenset({"L", "R"})}) == ["B"]
+    # The coach's order decides: the first criterion that tells them apart wins.
+    facts = {"A": {"makeups_owed": 3}, "B": {"attendance_rate": 1.0}}
+    assert first(("justified_misses", "attendance"), **facts) == ["A"]
+    assert first(("attendance", "justified_misses"), **facts) == ["B"]
+    # Level, inside a list tier (pool tiers hold one level): the better level first, unknown last.
+    def on_list(levels):
+        store = MemoryStore()
+        for sid, level in levels.items():
+            store.add_student(_student(sid, "R", level=level))
+        store.add_session("S", 3, 8, START, _regulars(4, 3), T0)
+        store.apply([fx.WaitingListJoined("S", T0 - timedelta(hours=1), sid, "students", sides="both")
+                     for sid in levels])
+        settings = EngineSettings(invites_per_spot=3, ordering=("level",),
+                                  eligibility=Eligibility(9, 9), tiers=(Tier("students_list"),))
+        return _invited(plan(store.snapshot("S"), settings, T0).effects)
+
+    assert on_list({"A": None, "B": 4, "C": 2}) == ["C", "B", "A"]
+
+
+def test_an_unknown_ordering_criterion_is_refused():
+    with pytest.raises(SettingsError, match="ordering"):
+        EngineSettings(ordering=("level", "shoe_size"))

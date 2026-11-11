@@ -21,6 +21,15 @@ TierSide = Literal["same", "other", "any"]
 TimingMethod = Literal["fixed", "progressive", "per_tier"]
 WaitingList = Literal["coach", "students"]
 
+#: The ordering criteria (engine-tiers rule 8): today's priority criteria and tiebreakers by their
+#: stored ids, and ``participations``. Each ranks a tier, lower first; see ``planner._criterion``.
+ORDERING_CRITERIA = frozenset({
+    "level", "justified_misses", "attendance", "playing_side", "subscription_status",
+    "unjustified_absences", "justified_absences", "attendance_rate", "playing_side_match",
+    "participations",
+})
+
+
 class SettingsError(ValueError):
     """A settings mapping the engine cannot accept; the message names the key."""
 
@@ -137,6 +146,9 @@ class EngineSettings:
                 raise SettingsError(f"tiers[{i}]: a pool tier needs level_offset")
             if tier.source != "pool" and tier.level_offset is not None:
                 raise SettingsError(f"tiers[{i}]: only a pool tier takes level_offset")
+        unknown = [name for name in self.ordering if name not in ORDERING_CRITERIA]
+        if unknown:
+            raise SettingsError(f"ordering: unknown criteria {unknown}")
         if self.attendance_request.max < 0 or self.eligibility.levels_above < 0 or self.eligibility.levels_below < 0:
             raise SettingsError("counts must not be negative")
 
