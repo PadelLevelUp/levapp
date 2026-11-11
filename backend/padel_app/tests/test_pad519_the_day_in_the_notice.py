@@ -37,6 +37,8 @@ def _quiet(monkeypatch):
     monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification", lambda **kw: None)
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda user_id, **kw: None)
     monkeypatch.setattr("padel_app.services.notification_service.publish", lambda event, recipients: None)
+    monkeypatch.setattr("padel_app.services.system_messages.publish", lambda event, recipients: None)
+    monkeypatch.setattr("padel_app.realtime.publish", lambda event, recipients: None)
 
 
 # ── the formatter ─────────────────────────────────────────────────────────────

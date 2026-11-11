@@ -285,7 +285,7 @@ def test_waiting_list_join_native_push_carries_the_message_id(app):
     ids = _seed_academy(app)
     full = _add_class(app, ids, days=3, title="Pad408 Full", max_players=2, filled=2)
 
-    with patch("padel_app.services.notification_service.publish"), \
+    with patch("padel_app.realtime.publish"), \
          patch("padel_app.utils.push_notifications.send_push_notification") as mock_web, \
          patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_expo:
         _join_waiting_list(app, ids, model="LessonInstance", original_id=full["instance_id"])
