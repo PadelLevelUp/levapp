@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Mapping
 
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.snapshot import Side, Student, WaitingListSides
@@ -83,6 +83,7 @@ class CreateSession:
     capacity: int
     start: datetime                                   # Lisbon wall-clock
     regulars: tuple[tuple[Student, Side | None], ...]
+    joined_at: Mapping[str, datetime] | None = None   # per regular, naive UTC; absent: the creation instant
 
 
 @dataclass(frozen=True)

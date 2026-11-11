@@ -108,6 +108,10 @@ class SessionSnapshot:
     confirmed: frozenset[str] = frozenset()           # answered Yes to an attendance request
     alerted: dict[SpotType, int] = field(default_factory=dict)  # coach alerts raised: type -> its spots then
     students: dict[str, Student] = field(default_factory=dict)  # every student the snapshot names
+    # Per regular, naive UTC (engine-timeline rule 6, ruling (2)): when they joined the class, and the
+    # last time the engine moved their side; a missing key in ``last_moved_at`` means never moved.
+    joined_at: dict[str, datetime] = field(default_factory=dict)
+    last_moved_at: dict[str, datetime] = field(default_factory=dict)
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)

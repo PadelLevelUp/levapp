@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Literal
 
 from padel_app.invitation_engine import timeline
-from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, method_b_share, side_quota
+from padel_app.invitation_engine.constants import LOWER_TIER_PER_SPOT, side_quota
 from padel_app.invitation_engine.effects import CoachAlert, Effect, Invited
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
@@ -337,8 +337,8 @@ def _walk(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int
             chosen = fresh[:max(0, min(room, len(fresh)))]
             share = None
             if settings.timing.method == "progressive":
-                share = method_b_share(timeline.useful_time(snapshot, settings), len(with_candidates),
-                                       with_candidates.index(t))
+                taking_part = _method_b_tiers(run, spot_type, with_candidates)
+                share = timeline.method_b_t(snapshot, settings, run.now, len(taking_part), taking_part.index(t))
             t_send = timeline.t_at_send(settings, t, len(fresh) > len(chosen), share)
             for sid in chosen:
                 student = snapshot.students[sid]
@@ -352,6 +352,18 @@ def _walk(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int
             uncovered -= covered
         sent_per_type[spot_type] = sent_here
     return sent_per_type
+
+
+def _method_b_tiers(run: _Run, spot_type: SpotType, with_candidates: list[int]) -> list[int]:
+    """The tiers in Method B's split for a type (engine-settings rule 2, as agreed with the timeline):
+    those with candidates for it now, and those that sent an invitation whose offer includes it and
+    that was not answered No, this run's sends included. A tier whose invitees all said No leaves."""
+    values = type_sides(spot_type, run.counts)
+    sent = {i.tier for i in run.snapshot.invitations
+            if i.tier is not None and i.answer != "no" and {t.side for t in i.offer} & values}
+    sent |= {e.tier for e in run.effects
+             if isinstance(e, Invited) and e.tier is not None and {t.side for t in e.offer} & values}
+    return sorted(set(with_candidates) | sent)
 
 
 def _offer_across(run: _Run, t: int, student: Student, order: list[tuple[SpotType, int]],

@@ -104,3 +104,15 @@ def test_a_no_never_changes_another_invitations_t():
     assert not counting(first, SENT + timedelta(minutes=20))
     assert first.open and not counting(replace(first, answer="yes"), SENT + timedelta(minutes=5))
     assert counting(replace(first, counts_until=None), SENT + timedelta(days=1))
+
+
+def test_method_b_useful_time_runs_from_the_opening_without_quiet_hours():
+    # Scenario 83 (coordinator ruling): a spot opening at 15:30 the day before a 10:30 class, with
+    # last_invite_at 08:30 and quiet hours 00:00-07:00, has 17 h minus 7 h = 10 h of useful time.
+    from padel_app.invitation_engine.snapshot import SessionSnapshot
+    from padel_app.invitation_engine.timeline import useful_time
+
+    s = SessionSnapshot("S", 3, 16, datetime(2026, 11, 3, 10, 30), regulars=(), going=())
+    assert useful_time(s, EngineSettings(), datetime(2026, 11, 2, 15, 30)) == timedelta(hours=10)
+    # 87: a spot opening at 07:30 on class day has one hour.
+    assert useful_time(s, EngineSettings(), datetime(2026, 11, 3, 7, 30)) == timedelta(hours=1)

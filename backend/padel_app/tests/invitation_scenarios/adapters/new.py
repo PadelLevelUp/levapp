@@ -44,7 +44,7 @@ Records (engine effect -> record):
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
@@ -189,7 +189,8 @@ class NewAdapter:
         first = to_utc(min(sc.first_invite_at(), datetime.strptime(sc.data["timeline"][0]["at"], "%Y-%m-%d %H:%M")))
         for cid, spec in sc.classes.items():
             if spec.created_at is None:
-                self.store.add_session(cid, spec.level, spec.capacity, spec.start, self._regulars(cid), first)
+                self.store.add_session(cid, spec.level, spec.capacity, spec.start, self._regulars(cid), first,
+                                       joined_at=self._joined_at(cid, first))
         self.engine = Engine(self.store, settings)
         self.pending: list[Record] = []
         return gaps
@@ -206,6 +207,13 @@ class NewAdapter:
 
     def _regulars(self, cid: str):
         return tuple((_student(p), None if p.side == "both" else p.side) for p in self.sc.regulars(cid))
+
+    def _joined_at(self, cid: str, before: datetime) -> dict[str, datetime]:
+        """Regulars joined the class in member order (L-1 first, then the R and B members), a minute
+        apart and well before the scenario, so "joined most recently" is the highest-numbered member."""
+        regs = self.sc.regulars(cid)
+        start = before - timedelta(days=30)
+        return {p.id: start + timedelta(minutes=i) for i, p in enumerate(regs)}
 
     # --- time and events -----------------------------------------------------------------
 
@@ -227,7 +235,8 @@ class NewAdapter:
             request: rq.Request = rq.UpdateSettings(settings)
         elif event == "class_created":
             spec = self.sc.classes[cls]
-            request = rq.CreateSession(spec.level, spec.capacity, spec.start, self._regulars(cls))
+            request = rq.CreateSession(spec.level, spec.capacity, spec.start, self._regulars(cls),
+                                       self._joined_at(cls, now))
         else:
             request = self._request(event, who, params)
             if not isinstance(request, rq.Appear) and not self.store.has_session(cls):
