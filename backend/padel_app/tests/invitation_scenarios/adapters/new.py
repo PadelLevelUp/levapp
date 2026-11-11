@@ -49,6 +49,7 @@ from datetime import datetime, time, timedelta
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine import requests as rq
+from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.settings import (
     AttendanceRequest,
     Eligibility,
@@ -187,6 +188,7 @@ class NewAdapter:
             if p.kind == "student":
                 self.store.add_student(_student(p), visible=p.id not in appears)
         first = to_utc(min(sc.first_invite_at(), datetime.strptime(sc.data["timeline"][0]["at"], "%Y-%m-%d %H:%M")))
+        self.now = first
         for cid, spec in sc.classes.items():
             if spec.created_at is None:
                 self.store.add_session(cid, spec.level, spec.capacity, spec.start, self._regulars(cid), first,
@@ -218,10 +220,11 @@ class NewAdapter:
     # --- time and events -----------------------------------------------------------------
 
     def tick(self, now_local: datetime) -> None:
-        self.pending += self._records(self.engine.tick(to_utc(now_local)))
+        self.now = to_utc(now_local)
+        self.pending += self._records(self.engine.tick(self.now))
 
     def apply(self, event: str, who, params: dict, cls: str, now_local: datetime) -> Applied:
-        now = to_utc(now_local)
+        now = self.now = to_utc(now_local)
         if event == "coach_sets":
             merged = merge_settings(self.harness_settings, params["settings"])
             try:
@@ -313,7 +316,9 @@ class NewAdapter:
             placed_at={p.student: to_local(p.at) for p in s.going},
             waiting_list=wl,
             open_invitations=[(i.student, i.side_named, to_local(i.sent_at)) for i in s.open_invitations],
-            open_in_round=None,  # the plan has no rounds
+            # The PDF's "open in the current round" is the plan's counting invitations (D16, sheet
+            # convention): open, not told "sorry", and before their counting-until instant.
+            open_in_round=sum(1 for i in s.open_invitations if timeline.counting(i, self.now)),
         )
 
     def unsupported(self, key: str, item=None):

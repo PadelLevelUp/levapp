@@ -285,7 +285,7 @@
   first_failure: 2026-11-02 19:30 invitations
 31-vaga-para-waiting-list-no-horario-de-silencio:
   outcome: fail
-  evaluated: 8
+  evaluated: 9
   skipped: 0
   depends_on:
   - U16
@@ -364,11 +364,12 @@
   first_failure: 2026-11-01 19:10 messages[E2]
 38-aviso-e-nao-quer-ir-para-waiting-list:
   outcome: fail
-  evaluated: 10
+  evaluated: 11
   skipped: 0
-  depends_on:
-  - U13
-  - U26
+  derived_from:
+  - Q6
+  - D1
+  - §7
   class: behavioural
   note: 'behavioural: a Yes refused because the side filled exists today (retired_reason=spot_filled) but no Aviso message
     is sent (notification_service.py ~6514/6533)'
