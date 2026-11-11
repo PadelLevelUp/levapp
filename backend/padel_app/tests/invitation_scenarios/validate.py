@@ -76,6 +76,7 @@ EVENTS: dict[str, dict[str, bool]] = {
     "leaves_waiting_list": {},
     "coach_adds_to_waiting_list": {"side": True},
     "coach_removes_from_waiting_list": {},
+    "coach_excludes": {},
     "regular_no": {},
     "regular_returns": {},
     "cancels": {},
