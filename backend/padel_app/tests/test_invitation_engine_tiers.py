@@ -2,13 +2,14 @@
 
 Each test is one acceptance criterion of specflow/impl/notifications/engine-tiers.spec.md.
 """
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore
 from padel_app.invitation_engine import effects as fx
-from padel_app.invitation_engine.planner import plan, spot_counts, tier_for
+from padel_app.invitation_engine.planner import plan, spot_counts, tier_for, with_postponed
 from padel_app.invitation_engine.settings import Tier
-from padel_app.invitation_engine.snapshot import SpotType, Student
+from padel_app.invitation_engine.snapshot import Elsewhere, Invitation, Placement, SessionSnapshot, SpotType, Student
 
 T0 = datetime(2026, 11, 1, 19, 0)            # naive UTC, the base profile's first invitation
 START = datetime(2026, 11, 3, 10, 30)        # Lisbon wall-clock
@@ -79,3 +80,24 @@ def test_join_time_breaks_only_criteria_ties():
 
     assert invited(0, 0) == ["EARLY"]          # criteria tie: the earlier join wins
     assert invited(0, 5) == ["LATE"]           # the criteria rank the later joiner higher
+
+
+def test_only_a_counting_offer_elsewhere_postpones():
+    """engine-tiers rule 10 (PAD-911): an offer that day postpones while it counts by planning rules 3
+    and 4; not once its session is full, past its counting-until instant, or after sorry."""
+    sent, now = datetime(2026, 11, 1, 19, 0), datetime(2026, 11, 1, 19, 10)
+    offer = Invitation("x", frozenset({SpotType("R", 3)}), None, 2, sent, counts_until=sent + timedelta(minutes=20))
+    open_b = tuple(Placement(f"b{i}", "L" if i < 4 else "R", "regular", sent) for i in range(7))
+    full_b = open_b + (Placement("b7", "R", "regular", sent),)
+    here = SessionSnapshot("A", 3, 8, START, regulars=(), going=())
+
+    def postponed(invitation, going, at=now):
+        return with_postponed(replace(here, elsewhere=(Elsewhere("B", START, invitation, 8, going),)), at).postponed
+
+    assert postponed(offer, open_b) == {"x"}
+    assert postponed(offer, full_b) == frozenset()                                   # its session is full
+    assert postponed(offer, open_b, sent + timedelta(minutes=20)) == frozenset()     # past counting-until
+    assert postponed(replace(offer, sorry_at=now), open_b) == frozenset()             # after sorry
+    left_only = tuple(p for p in open_b if p.side == "R") + tuple(
+        Placement(f"r{i}", "R", "regular", sent) for i in range(1))                  # only left spots open
+    assert postponed(offer, left_only) == frozenset()                               # the offer counts for no type

@@ -67,6 +67,7 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
         return Outcome(absences.record(snapshot, settings, request.student, "no_show", now))
     if now >= wall_to_utc_naive(snapshot.start):          # the class has started (invitations rule 20)
         return Outcome()
+    snapshot = planner.with_postponed(snapshot, now)
     if isinstance(request, Answer):
         return Outcome(_answer(snapshot, settings, request, now))
     if isinstance(request, RegularAbsent):
@@ -121,6 +122,8 @@ def _answer(snapshot: SessionSnapshot, settings: EngineSettings, request: Answer
         return ()                                          # rule 8: refused, nothing placed, nothing sent
     if not request.yes:
         return (Answered(snapshot.id, now, sid, "no", "invitation"),)   # rule 5: final for the session
+    if sid in snapshot.busy_same_time:
+        return ()                                          # rule 10: already placed at this hour, refused
     if invitation.sorry_at is not None:
         return ()                                          # rule 4: no spot with it until a re-offer
     side = _place_side(snapshot, settings, sid, invitation.offer, invitation.side_named, now)
@@ -172,6 +175,7 @@ def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime,
     out: list[Effect] = [Answered(snapshot.id, now, sid, "yes", "invitation")] if answered else []
     out.append(Placed(snapshot.id, now, sid, side, how))
     out += [WaitingListLeft(snapshot.id, now, sid, w.list) for w in snapshot.waiting_list if w.student == sid]
+    out += planner.close_same_hour(snapshot, sid, now)    # rule 10: never two sessions at one hour
     return tuple(out)
 
 
@@ -239,7 +243,8 @@ def _regular_returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tupl
     if not sides:                                          # their spot was taken: "sorry" (sheet 63, E6)
         return (Message(snapshot.id, now, sid, KIND_SORRY),)
     side: Side | None = next(iter(sides)) if len(regular.sides) == 1 else None
-    return (Placed(snapshot.id, now, sid, side, "regular_returns"), Absence(snapshot.id, now, sid, "none"))
+    return (Placed(snapshot.id, now, sid, side, "regular_returns"), Absence(snapshot.id, now, sid, "none"),
+            *planner.close_same_hour(snapshot, sid, now))
 
 
 def _join_waiting_list(snapshot: SessionSnapshot, settings: EngineSettings, request: JoinWaitingList,
@@ -270,7 +275,7 @@ def _direct_join(snapshot: SessionSnapshot, settings: EngineSettings, request: D
         return (Refused(snapshot.id, now, sid, "direct_join", "direct join is off"),)
     visible = any(st.id == sid for st in snapshot.pool)
     if (student is None or not visible or snapshot.placement(sid) is not None
-            or not planner._eligible(student, snapshot, settings)):
+            or sid in snapshot.busy_same_time or not planner._eligible(student, snapshot, settings)):
         return (Refused(snapshot.id, now, sid, "direct_join", "not eligible for this session"),)
     sides = open_sides(snapshot) & (frozenset({request.side}) if request.side else student.sides)
     if not sides:

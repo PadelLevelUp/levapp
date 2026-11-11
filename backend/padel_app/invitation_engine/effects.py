@@ -137,3 +137,11 @@ class CoachAlert(Effect):
     reason: str
     spot_type: SpotType | None = None
     spots: int = 0
+
+
+@dataclass(frozen=True)
+class InvitationClosed(Effect):
+    """The student's open invitation for this session closed because they were placed in another
+    session at the same hour (engine-answers rule 10, D4's one exception). Nothing is sent."""
+
+    student: str
