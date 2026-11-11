@@ -1,7 +1,7 @@
 id: P25
 title: gates hold on the waiting list
 source: {section: "Plano §9.4 Waiting list", lines: [286, 286]}
-what_it_tests: a waiting-list student who said No, is in another session at the same time, or is excluded is not invited
+what_it_tests: a waiting-list student who said No, or is in another session at the same time, is not invited
 tags: [waiting-list, multi-class, eligibility]
 derived_from: [S25, D13]
 corrections: []
@@ -10,9 +10,9 @@ notes: >
   Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
   between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
-  4). X2 joined class B, at the same hour, before A's invitations start; X1 says No to A and then lists. X3
-  is excluded by the coach (`coach_excludes`) and lists too. None of the three is invited from the waiting
-  list; group 2 takes the spot.
+  4). X2 joined class B, at the same hour, before A's invitations start; X1 says No to A and then lists.
+  Neither is invited from the waiting list; group 2 takes the spot. The third gate (excluded by the coach)
+  returns when N's W1 maps the `coach_excludes` event (coordinator, 2026-11-11).
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -30,7 +30,6 @@ other_classes:
 students:
   - {id: X1, level: 3, side: R}
   - {id: X2, level: 3, side: R}
-  - {id: X3, level: 3, side: R}
   - {cohort: L3L, count: 3, level: 3, side: L}
 
 timeline:
@@ -38,8 +37,6 @@ timeline:
     events:
       - {other_class: B, event: {joins_directly: X2}}
       - {joins_waiting_list: X2, sides: both}
-      - {coach_excludes: X3}
-      - {joins_waiting_list: X3, sides: both}
     expect:
       invitations: none
   - at: 2026-11-01 19:00

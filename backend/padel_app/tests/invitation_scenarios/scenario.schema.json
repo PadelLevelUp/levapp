@@ -824,19 +824,6 @@
         {
           "type": "object",
           "required": [
-            "coach_excludes"
-          ],
-          "additionalProperties": false,
-          "description": "The coach excludes the student from this class's invitations (a gate, D13).",
-          "properties": {
-            "coach_excludes": {
-              "$ref": "#/$defs/who"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
             "regular_no"
           ],
           "additionalProperties": false,

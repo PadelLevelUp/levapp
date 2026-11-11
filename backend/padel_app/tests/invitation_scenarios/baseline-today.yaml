@@ -1233,13 +1233,14 @@ P24-waiting-list-placement:
 P25-gates-hold-on-waiting-list:
   outcome: fail
   evaluated: 5
-  skipped: 1
+  skipped: 0
   derived_from:
   - S25
   - D13
-  class: structural
-  note: 'structural: the coach_excludes event has no mapping on today''s engine'
-  first_failure: 2026-11-01 18:00 events.coach_excludes
+  class: behavioural
+  note: 'behavioural: today invites class B''s regulars, who are in B at the same hour, ahead of X1; the plan''s same-time
+    gate keeps them out (D13)'
+  first_failure: 2026-11-01 19:00 invitations
 P26-level-from-the-class:
   outcome: fail
   evaluated: 2
