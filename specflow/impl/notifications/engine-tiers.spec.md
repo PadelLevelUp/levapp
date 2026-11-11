@@ -60,7 +60,8 @@ the coach's list).
    order; closest level first when the group's level rule is a range. Each id ranks one way: `level`
    better first, an unknown level last; `justified_misses` more classes owed first
    (`attendance.stats` rule 4); `attendance` and `attendance_rate` higher rate first; `playing_side`
-   and `playing_side_match` a student whose sides include the spot's side first;
+   and `playing_side_match` a student whose only side is the spot's side first, then one who plays
+   both, then the rest, and a spot of either side favours nobody (today's `_side_preference_rank`);
    `subscription_status` an active account first; `unjustified_absences` fewer first;
    `justified_absences` more first; `participations` (the scenario harness's own) more first. Then, on
    the waiting lists, `joined_at`; then a stable order. An id outside this list is refused when the
@@ -84,6 +85,19 @@ the coach's list).
     The verdict that admits or drops a student and its explanation come from the same evaluator. When
     the engine ships, the invite simulation (`notifications.invite-simulation`) and the semi-automatic
     prompt run this spec's evaluator, never a copy of it.
+12. **The dry run (swap plan §4; PAD-915).** `planner.evaluate(snapshot, settings, now)` plans a
+    snapshot without applying anything and returns the effects `plan` would emit, a verdict per
+    student the snapshot names per open spot type, each type's queue (its candidates by tier, then by
+    rule 8), and whether the run may plan now (false outside the window or in quiet hours, when the
+    effects are empty and the verdicts still explain). A verdict's stage is the first failure in this
+    spec's order, with no tier: `in_session`, `said_no`, `not_in_pool`, `busy_same_time`, `postponed`,
+    `failed_eligibility`, `failed_tier_rule` (a coach's-list member skips the pool gates, rule 4, so it
+    fails only as `in_session`, `said_no` or `failed_tier_rule`); or, with its tier, `invited` (this
+    run sends or re-offers it for the type), `invited_earlier` (an open invitation, not sorry) or
+    `waiting` (a candidate this run does not reach). Gates the app applies before the snapshot
+    (exclusions, inactive accounts, eligibility per swap decision 6) never reach the engine; the
+    caller explains those. A hypothetical ("this student drops out") is a snapshot the caller builds
+    without writing. This is rule 11's evaluator, so the invite simulation and the engine agree.
 
 ### Not this spec
 - How many invitations a tier sends (`notifications.engine-planning`).
@@ -175,6 +189,13 @@ them, then the one rule 8 puts first is invited first; and when they are equal o
 waiting-list member who joined earlier goes first.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_each_ordering_id_ranks_in_its_direction`
 
+#### NOTIFICATIONS-ENGINE-TIERS-13: The dry run gives each student a verdict per spot type and plans what plan would (rule 12)
+Given a snapshot with students failing each gate, a coach's-list member, invited, earlier-invited and
+unreached candidates, when it is evaluated, then each student has one verdict per open spot type with
+the first failing stage in rule 12's order or its tier, the effects equal `plan`'s with nothing
+applied, and outside the window or in quiet hours the effects are empty while the verdicts stand.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_dry_run_gives_each_student_a_verdict_per_spot_type`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
@@ -188,6 +209,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    their own session by rule 4: `timeline.counting` and the session's open spots together).
 5. (Swap 3, PAD-915) TIERS-11, TIERS-12 — `invitation_engine/settings.py` (the ids and `SettingsError`),
    `invitation_engine/planner.py` (the sort key), the config mapping (swap plan §2).
+6. (Swap 3, PAD-915) TIERS-13 — `invitation_engine/planner.py` (`evaluate`, `DryRun`, `Verdict`).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision
