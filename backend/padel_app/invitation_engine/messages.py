@@ -13,23 +13,15 @@ class has started. The coach alert is emitted by the planner (engine-planning ru
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from padel_app.invitation_engine.effects import AttendanceRequested, Effect
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.snapshot import SessionSnapshot
-from padel_app.invitation_engine.timeline import is_quiet
+from padel_app.invitation_engine.timeline import attendance_request_at, is_quiet
 from padel_app.utils.dates import wall_to_utc_naive
 
 ASKED = ("regular", "regular_returns", "auto_from_waiting_list", "direct")   # never "invitation"
-
-
-def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
-    """When regulars are first asked if they are going (§8 step 3): ``days_before`` the class's day,
-    at the coach's time. Class times are Lisbon wall-clock, the result naive UTC (R-023)."""
-    ar = settings.attendance_request
-    day = snapshot.start.date() - timedelta(days=ar.days_before)
-    return wall_to_utc_naive(datetime.combine(day, ar.at))
 
 
 def _current_slot(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> datetime | None:
