@@ -3,13 +3,18 @@ title: o limite é atingido entre dois grupos
 source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [539, 559]}
 what_it_tests: o grupo prioritário entra primeiro e o grupo seguinte fica com o espaço que sobra no limite
 tags: [max-open, groups, rounds, timers]
-depends_on: [U5]
+derived_from: [D17, D16]
 corrections: []
 notes: >
   19:00 is one round across two groups: group 3 covers 2 spots by heads and group 4 gets X for the 6
   uncovered spots (18), capped at the 10 places left under M (R1). 19:20: a new round sends X x spots
   without subtracting the 12 open (R11), capped at the 10 remaining candidates. 20:20 is 60 min after the
   last round; no group has candidates, so nothing goes out and 22 stay open.
+
+  Re-derived under the plan (PAD-900, 2026-11-11): Group 3 has candidates for the right, so it is the ideal
+  tier, and group 4 gets 1 per uncovered spot (6), not X capped by M (D17). Group 4 re-sends 6 at 19:20 and
+  19:40. At 20:00, group 3's invitations stop counting (60m: their round exhausted the tier), group 4 becomes
+  ideal and sends its last 2. Only 20:20's totals are asserted.
 
 roster:
   regulars: {L: 8, R: 0}
@@ -22,13 +27,13 @@ timeline:
     expect:
       invitations:
         - {cohort: L2R, count: 2, side_named: null, group: 3}
-        - {cohort: L3R, count: 10, side_named: null, group: 4}
-      invitations_total_sent: 12
+        - {cohort: L3R, count: 6, side_named: null, group: 4}
+      invitations_total_sent: 8
       missing: {L: 0, R: 8}
   - at: 2026-11-01 19:20
     expect:
-      invitations: [{cohort: L3R, count: 10, side_named: null, group: 4}]
-      open_unanswered: 22
+      invitations: [{cohort: L3R, count: 6, side_named: null, group: 4}]
+      open_unanswered: 14
   - at: 2026-11-01 20:20
     expect:
       invitations: none

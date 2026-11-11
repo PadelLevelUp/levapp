@@ -3,12 +3,17 @@ title: exemplo completo
 source: {section: "Cenários 1 a 11: base e grupos de prioridade", lines: [231, 262]}
 what_it_tests: o percurso completo, com entradas sem convite, grupos, Aviso, waiting list para o outro lado e lembretes
 tags: [groups, direct-join, coach-list, waiting-list, aviso, reminders]
-depends_on: [U16, U23, U26]
+derived_from: [Q6, D20, §7]
 corrections: [E5]
 notes: >
   19:08 "entra diretamente à direita" is auto entry from the waiting list (E5). Groups 5 and 6 are empty
   because the three L2L were already invited for the left (R8). 19:09 expects nothing because the group
   has no one left and the left is full (R2).
+
+  Re-derived under the plan (PAD-900, 2026-11-11): 19:08: l2's offer was the left, which is full, while the
+  right is open and group 5 allows a level-2 left-sider there, so the same invitation is re-offered for the
+  right (Q6, `reoffer`) instead of the Aviso. l2 then chooses the waiting list as in the file, and auto-entry
+  places them.
 
 roster:
   regulars: {L: 6, R: 2}
@@ -47,7 +52,7 @@ timeline:
     expect: {placed: [{who: l1, side: L, how: invitation}], missing: {L: 0, R: 4}}
   - at: 2026-11-01 19:08
     events: [{accepts: {cohort: L2L, state: invited, as: l2}}]
-    expect: {messages: [{who: l2, kind: aviso}]}
+    expect: {messages: [{who: l2, kind: reoffer}]}
   - at: 2026-11-01 19:08
     events: [{joins_waiting_list: l2, sides: both}]
     expect:
