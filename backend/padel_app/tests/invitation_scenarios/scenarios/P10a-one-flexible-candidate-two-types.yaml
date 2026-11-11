@@ -11,7 +11,9 @@ notes: >
   Plan §9 defaults: capacity 8 (4 per side), X = 3, one inactivity time T = 60m (between_rounds =
   between_groups, so timing (c) is the plan's single T). Groups: the two waiting lists, side-free (D12), then
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
-  4). Branch a (Yes): B1 is placed on the right (D6), and the left type, down to 2 counting, tops up to 3.
+  4). Both spots are open when invitations start (3 L and 3 R regulars), the state S10 reaches after its two
+  Nos; the harness applies two Nos in one step one after the other, with a run between. Branch a (Yes): B1 is
+  placed on the right (D6), and the left type, down to 2 counting, tops up to 3.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -23,23 +25,20 @@ settings:
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 
 roster:
-  regulars: {L: 4, R: 4}
+  regulars: {L: 3, R: 3}
 students:
   - {id: B1, level: 3, side: both}
   - {cohort: L3L, count: 5, level: 3, side: L}
 
 timeline:
-  - at: 2026-11-02 10:00
-    events:
-      - {regular_no: L-1}
-      - {regular_no: R-1}
+  - at: 2026-11-01 19:00
     expect:
       invitations:
         - {who: B1, side_named: null, group: 3}
         - {cohort: L3L, count: 2, side_named: null, group: 3}
       invitations_total_sent: 3
       missing: {L: 1, R: 1}
-  - at: 2026-11-02 10:10
+  - at: 2026-11-01 19:10
     events: [{accepts: B1}]
     expect:
       placed: [{who: B1, side: R, how: invitation}]

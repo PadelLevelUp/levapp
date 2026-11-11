@@ -1021,7 +1021,7 @@ P10a-one-flexible-candidate-two-types:
   - D20
   class: behavioural
   note: 'behavioural: today places a both-sides invitee with no side; the plan places them in the hardest type (D6)'
-  first_failure: 2026-11-02 10:10 placed[B1]
+  first_failure: 2026-11-01 19:10 placed[B1]
 P10b-one-flexible-candidate-two-types:
   outcome: fail
   evaluated: 6
@@ -1033,7 +1033,7 @@ P10b-one-flexible-candidate-two-types:
   - D20
   class: structural
   note: 'structural: today''s groups cannot name the opposite side, so the plan''s group 2 (other side) is never asked'
-  first_failure: 2026-11-02 10:10 invitations
+  first_failure: 2026-11-01 19:10 invitations
 P11a-both-regular-fills-other-side:
   outcome: fail
   evaluated: 7
