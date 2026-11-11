@@ -10,19 +10,12 @@ attendance request; and the duties due at an instant, such as fixing flexible st
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 
 from padel_app.invitation_engine.effects import Effect
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.snapshot import SessionSnapshot
-
-#: Class times and the coach's times of day are Lisbon wall-clock; event instants are UTC (R-023).
-CLUB_TZ = ZoneInfo("Europe/Lisbon")
-
-
-def _utc(wall: datetime) -> datetime:
-    return wall.replace(tzinfo=CLUB_TZ).astimezone(timezone.utc).replace(tzinfo=None)
+from padel_app.utils.dates import wall_to_utc_naive as _utc   # Lisbon wall-clock -> naive UTC (R-023)
 
 
 def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
