@@ -576,6 +576,8 @@ class NotificationConfig(db.Model, model.Model):
         timing = data.get("timing") or {}
         if "method" in timing:
             self.timing_method = timing["method"]
+            if timing["method"] != "per_tier" and "perTier" not in timing:
+                self.per_tier_timing = None      # the clients drop perTier with any other method (rule 20)
         if "betweenRoundsMinutes" in timing:
             self.between_rounds_minutes = timing["betweenRoundsMinutes"]
         if "betweenGroupsMinutes" in timing:

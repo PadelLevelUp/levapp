@@ -7,6 +7,7 @@
  * Free time is the coach's calendar minus what is on it (rule 1); the slot is
  * held on the coach's calendar while the request is open (rule 3).
  */
+import { busySameHourDescription } from "@/components/calendar/busySameHourDescription";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
@@ -74,7 +75,7 @@ function statusVariant(status: string): "default" | "secondary" | "outline" | "d
 }
 
 export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   // The list is a react-query row so the proposal bubble in chat and this
   // section read the same cache, refreshed by `class_request_changed` (rule 6).
@@ -196,6 +197,8 @@ export function ClassRequestsSection({ role }: { role: "student" | "coach" }) {
             : refusal?.code === "class_closed"
               ? t("calendar.joinRequest.classClosedToast")
               : t("calendar.joinRequest.decideFailed"),
+        // PAD-920 (classes.instance-enrollment rule 15): a same-hour clash names the other class.
+        description: busySameHourDescription(err, t, i18n.language) ?? undefined,
         variant: "destructive",
       });
     } finally {

@@ -49,7 +49,18 @@
       "showMore": "Show more ({{count}})",
       "showLess": "Show less",
       "showingOf": "Showing {{shown}} of {{total}} · approving invites them all",
-      "groupStale": "{{stale}} of {{total}} spots already filled or expired"
+      "groupStale": "{{stale}} of {{total}} spots already filled or expired",
+      "engine": {
+        "yes": "Yes",
+        "yesRemoved_one": "Yes ({{count}} removed)",
+        "yesRemoved_other": "Yes ({{count}} removed)",
+        "dismissed": "Ignored",
+        "replaced": "This request was replaced by a newer one.",
+        "remove": "Remove {{name}} from the list",
+        "restore": "Put {{name}} back on the list",
+        "reasonCount": "{{reason}} ({{count}})",
+        "yesRemoved_zero": "Yes ({{count}} removed)"
+      }
     }
   }
 }

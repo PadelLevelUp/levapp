@@ -94,6 +94,16 @@ appId: com.padellevelup.app
       - inputText: ${PASSWORD}
       - tapOn:
           id: "login-submit"
+      # A simulator with AutoFill passwords on asks "Save Password?" after every sign-in; the
+      # system sheet hides the app from Maestro until it is answered.
+      - extendedWaitUntil:
+          visible:
+            text: "Not Now|Agora não"
+          timeout: 5000
+          optional: true
+      - tapOn:
+          text: "Not Now|Agora não"
+          optional: true
       # players.join-token rule 8: a student with no coach lands on "Connect
       # with a coach" (e2e-student-3 in the seed). Its "Go to dashboard" is the
       # explicit way through; every other account never shows it.

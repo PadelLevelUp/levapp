@@ -62,6 +62,12 @@ onFlowComplete:
     visible:
       text: "E2E Student"
     timeout: 15000
+# Centred first: the chip sits at the bottom edge after the class list, where the tap can miss it.
+- scrollUntilVisible:
+    element:
+      text: "E2E Student"
+    direction: DOWN
+    centerElement: true
 - tapOn:
     text: "E2E Student"
 

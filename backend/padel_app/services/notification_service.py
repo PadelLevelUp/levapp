@@ -347,7 +347,12 @@ def _validate_engine_settings(engine, config: NotificationConfig, groups) -> Non
     for key in ("betweenRoundsMinutes", "betweenGroupsMinutes"):
         if key in timing:
             minutes(f"timing.{key}", timing[key])
-    per_tier = timing["perTier"] if "perTier" in timing else (config.per_tier_timing or [])
+    if "perTier" in timing:
+        per_tier = timing["perTier"]
+    elif method != "per_tier":
+        per_tier = []            # a method that has no per-tier pairs drops the stored ones (set below)
+    else:
+        per_tier = config.per_tier_timing or []
     if per_tier is None:
         per_tier = []
     if not isinstance(per_tier, list):
@@ -2686,8 +2691,11 @@ def freeze_assigned_sides(*, now: datetime | None = None) -> int:
         LessonInstance.start_datetime > wall_now - timedelta(days=1),
     ).all()
     written = 0
+    from padel_app.services.engine_switch import new_engine_ids
+
+    new = new_engine_ids(i.id for i in started)          # CONFIG-81: the engine keeps its own sides
     for instance in started:
-        if any(p.assigned_side for p in instance.presences):
+        if instance.id in new or any(p.assigned_side for p in instance.presences):
             continue
         coach = primary_coach(instance)
         for player_id, side in assigned_sides(instance, coach.id if coach else None).items():
@@ -3507,7 +3515,12 @@ def expire_stale_invitations(*, now: datetime | None = None) -> int:
     ]
 
     retired = 0
+    from padel_app.services.engine_switch import new_engine_ids
+
+    new = new_engine_ids(instance_ids)                   # CONFIG-81: the old engine never acts on them
     for instance_id in instance_ids:
+        if instance_id in new:
+            continue
         instance = LessonInstance.query.get(instance_id)
         if instance is None:
             continue
@@ -4840,8 +4853,8 @@ def send_next_on_decline_for(vacancy_id: int) -> None:
     """PAD-733: the decline's follow-up as the scheduler job runs it (``arm_next_on_decline``),
     reading the vacancy, its class and its coach's configuration afresh."""
     vacancy = Vacancy.query.get(vacancy_id)
-    if vacancy is None or vacancy.lesson_instance is None:
-        return
+    if vacancy is None or vacancy.lesson_instance is None or _on_new_engine(vacancy.lesson_instance):
+        return                                           # rule 18 (CONFIG-81): not the old engine's
     _send_next_on_decline(
         vacancy, vacancy.lesson_instance, vacancy.coach_id, get_or_create_config(vacancy.coach_id)
     )
@@ -5535,6 +5548,12 @@ def process_invitation_batches(*, now: datetime | None = None) -> int:
         if has_app_context():
             current_app.logger.exception("never-filled places: the scan failed")
     open_vacancies = Vacancy.query.filter_by(status="open").all()
+    # Rule 18 (CONFIG-81): the old tick never acts on a new-engine session, even through a vacancy left
+    # open on it from before the switch; nothing is sent, opened or closed for it.
+    from padel_app.services.engine_switch import new_engine_ids
+
+    new = new_engine_ids(v.lesson_instance_id for v in open_vacancies)
+    open_vacancies = [v for v in open_vacancies if v.lesson_instance_id not in new]
     processed = 0
 
     # PAD-271 (rule 13): capacity is the truth a vacancy follows. Close what a

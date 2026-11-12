@@ -99,6 +99,21 @@
         "title": "Lista de espera para {{class}}",
         "detail": "{{date}} · {{time}} · a vaga foi ocupada — queres ficar na lista?",
         "open": "Abrir"
+      },
+      "engineAlert": {
+        "title": "Ninguém para convidar",
+        "line": "{{count}} vaga(s) · {{class}}, {{weekday}} {{time}}",
+        "lineSided": "{{count}} vaga(s) ({{side}}) · {{class}}, {{weekday}} {{time}}",
+        "sideLeft": "lado esquerdo",
+        "sideRight": "lado direito",
+        "hint": "Convida alguém à mão ou alarga os grupos de convite."
+      },
+      "engineAnswer": {
+        "confirmed": "Estás inscrito.",
+        "declined": "Recusado.",
+        "sorry": "A vaga já foi ocupada.",
+        "closedSameHour": "Já estás noutra aula a essa hora.",
+        "classStarted": "A aula já começou."
       }
     },
     "schedule": {

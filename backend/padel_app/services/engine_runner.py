@@ -64,21 +64,24 @@ def tick_sessions(now: datetime, store=None) -> list:
     return effects
 
 
-def send_outbox(now: datetime | None = None) -> int:
+def send_outbox() -> int:
     """Send what the engine's commits left in the outbox (``engine_outbox.send_effect`` per row, each
-    claimed first so two callers never send one twice). Returns how many rows were sent."""
+    claimed first so two callers never send one twice). Returns how many rows were sent. A row's
+    ``dispatched_at`` is the send's own clock, read when it is claimed, never the tick's or the effect's
+    ``at``: a drain or stuck-row measure reads it."""
     from padel_app.services.engine_outbox import send_effect
     from padel_app.services.engine_store import dispatch
 
-    return dispatch(send_effect, now=now)
+    return dispatch(send_effect)
 
 
 def run_tick(now: datetime | None = None) -> int:
-    """The ``engine_tick`` job: adopt, tick every session, send the outbox. Returns how many outbox
-    rows were sent."""
-    from padel_app.services.engine_switch import adopt_due
+    """The ``engine_tick`` job: adopt (and materialise), remove a drained coach's old jobs, tick every
+    session, send the outbox. Returns how many outbox rows were sent."""
+    from padel_app.services.engine_switch import adopt_due, cutover_pass
 
     now = now or utcnow_naive()
     adopt_due(now=now)
+    cutover_pass(now=now)                               # PAD-921 (CONFIG-79): a drained coach's old jobs go
     tick_sessions(now)
-    return send_outbox(now)
+    return send_outbox()

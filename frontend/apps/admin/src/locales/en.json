@@ -338,6 +338,54 @@
         "notConfigured": "Not configured",
         "unreachable": "Unreachable"
       },
+      "engine": {
+        "title": "New engine",
+        "hint": "Counts only, for the coaches on the new engine. Open spots and sessions are the next 7 days.",
+        "coachesOld": "Coaches on the old engine",
+        "coachesNew": "Coaches on the new engine",
+        "sessionsUpcoming": "Upcoming sessions",
+        "sessions7d": "Sessions in 7 days",
+        "spots": {
+          "title": "Open spots by type",
+          "uncovered": "Uncovered",
+          "left": "Left",
+          "right": "Right",
+          "either": "Either side",
+          "anyLevel": "Any level",
+          "none": "No open spots."
+        },
+        "invitations": {
+          "title": "Open invitations",
+          "counting": "Counting",
+          "notCounting": "Open, not counting",
+          "sent24h": "Sent in 24 h",
+          "tier": "Tier",
+          "coachList": "Coach's list",
+          "waitingList": "Students' waiting list",
+          "group": "Group {{n}}"
+        },
+        "approvals": {
+          "title": "Approvals",
+          "pending": "Awaiting approval",
+          "dismissed": "Dismissed"
+        },
+        "alerts": {
+          "title": "Coach alerts",
+          "none": "None."
+        },
+        "outbox": {
+          "title": "Outbox",
+          "pending": "To send",
+          "stuck": "Stuck (>5 min)"
+        },
+        "tick": {
+          "title": "Engine tick",
+          "job": "Tick job",
+          "overdue": "overdue",
+          "onTime": "on time",
+          "failures": "Session failures, 24 h"
+        }
+      },
       "coaches": {
         "title": "A coach's engine settings",
         "search": "Search a coach by name",

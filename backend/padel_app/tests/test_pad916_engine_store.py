@@ -782,3 +782,41 @@ def test_the_invitation_records_who_answered(app):
     assert (rows[x].answered_by, rows[y].answered_by) == ("coach", "student")
     db.session.refresh(msg)
     assert (msg.msg_metadata["state"], msg.msg_metadata["answeredBy"]) == ("answered", "coach")
+
+
+def test_closed_reason_fits_every_reason(app):
+    """``invitations.closed_reason`` holds each reason an invitation closes for, the longest
+    "class_removed" (INVITATIONS-125) included, so Postgres never rejects the write (SQLite would not
+    notice)."""
+    from padel_app.models import EngineInvitation
+
+    store, (a,), (_, x, _) = _seed(app)
+    with store.unit((a,)):
+        store.apply([_invited(a, x)])
+    width = EngineInvitation.__table__.c.closed_reason.type.length
+    assert width >= max(len(r) for r in ("withdrawn", "same_hour", "class_removed"))
+    row = db.session.get(EngineInvitation, store.invitation_id(a, x))
+    row.closed_at, row.closed_reason = NOW, "class_removed"
+    db.session.commit()
+    assert db.session.get(EngineInvitation, row.id).closed_reason == "class_removed"
+
+
+def test_a_regular_the_coach_removed_stays_a_removed_regular(app):
+    """Engine-answers rule 14 (ANSWERS-29), engine-settings rule 11: a regular the coach removed from this
+    one session (the app deletes the presence and sends ``CoachExcludes``) stays in the snapshot's regulars
+    with their sides, in ``coach_removed``, out of ``going``, ``absent`` and the pool, so the planner counts
+    their seat as freed. The class's other sessions keep them as a regular."""
+    from padel_app.models.presences import Presence
+
+    store, (a, b), (reg, _, _) = _seed(app, starts=(START, START + timedelta(days=7)))
+    Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(reg)).delete()
+    db.session.commit()
+    with store.unit((a,)):
+        store.exclude(a, reg)
+
+    s = store.snapshot(a)
+    assert s.coach_removed == {reg} and reg in {r.id for r in s.regulars}
+    assert reg not in {p.student for p in s.going} and reg not in s.absent
+    assert reg not in {st.id for st in s.pool}
+    other = store.snapshot(b)
+    assert other.coach_removed == frozenset() and reg in {p.student for p in other.going}

@@ -238,3 +238,21 @@ def test_fill_never_held_off_limits_direct_join_and_automatic_entry():
     store.apply([fx.WaitingListJoined("A", t, sid, "coach") for sid in ("PL1", "PR1", "PR2")])
     placed = [e.student for e in engine.handle("A", rq.Appear("PL1"), t) if isinstance(e, fx.Placed)]
     assert len(placed) == 1                                                      # one freed spot, one entry
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-26")
+def test_a_regular_the_coach_removed_frees_their_spot():
+    """engine-settings rule 11 with engine-answers rule 14: with ``fill_never_held`` off, a full class
+    whose coach removes a right regular from this one session gets that one right spot invited."""
+    store = MemoryStore()
+    for sid, side in (("PL", "L"), ("PR", "R")):
+        store.add_student(Student(sid, 3, frozenset({side})))
+    store.add_session("A", 3, 8, datetime(2026, 11, 3, 10, 30),
+                      [(Student(f"{v}-{i}", 3, frozenset({v})), v) for v in "LR" for i in (1, 2, 3, 4)],
+                      datetime(2026, 11, 1, 18, 0))
+    engine = Engine(store, EngineSettings(invites_per_spot=1, fill_never_held=False))
+    t0 = datetime(2026, 11, 1, 19, 0)
+    assert engine.tick(t0) == []                                              # full, nothing never held
+    removed = engine.handle("A", rq.CoachExcludes("R-4"), t0 + timedelta(minutes=1))
+    assert _invited_types(removed) == ["R"]
+    assert store.snapshot("A").coach_removed == {"R-4"}

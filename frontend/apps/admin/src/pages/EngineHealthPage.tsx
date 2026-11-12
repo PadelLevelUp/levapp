@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, Input, PageHeader } from "@/components/ui";
 import { ScrollTable } from "@/components/ScrollTable";
-import { adminApi, type DeployIdentity, type EngineHealth, type IncidentKind, type PushReceiptStatus } from "@/lib/api";
+import { adminApi, type DeployIdentity, type EngineHealth, type EngineHealthEngine, type IncidentKind, type PushReceiptStatus } from "@/lib/api";
 
 const KINDS: IncidentKind[] = [
   "email_failed", "push_failed", "reminder_skipped_past_due", "push_registration_failed",
@@ -46,6 +46,103 @@ function Identity({ id, testId }: { id: DeployIdentity | string | null | undefin
       <dt className="mt-1 text-xs text-muted-foreground">{t("admin.engineHealth.deploy.head")}</dt>
       <dd className="font-mono">{id.alembicHead ? String(id.alembicHead) : "—"}</dd>
     </dl>
+  );
+}
+
+/** Rule 10 (PAD-913): the new engine's counts, beside the old engine's cards while coaches move. */
+function EngineBlock({ engine }: { engine: EngineHealthEngine }) {
+  const { t } = useTranslation();
+  const k = "admin.engineHealth.engine";
+  // Tier 0 is the coach's list, 1 the students' waiting list, n ≥ 2 group n − 1.
+  const tierLabel = (tier: number) =>
+    tier === 0 ? t(`${k}.invitations.coachList`) : tier === 1 ? t(`${k}.invitations.waitingList`) : t(`${k}.invitations.group`, { n: tier - 1 });
+  return (
+    <Card className="md:col-span-2" data-testid="admin-eh-engine">
+      <h2 className="mb-1 font-semibold">{t(`${k}.title`)}</h2>
+      <p className="mb-3 text-xs text-muted-foreground">{t(`${k}.hint`)}</p>
+      <div className="flex flex-wrap gap-6" data-testid="admin-eh-engine-coaches">
+        <Stat label={t(`${k}.coachesOld`)} value={engine.coaches.old} testId="admin-eh-engine-coaches-old" />
+        <Stat label={t(`${k}.coachesNew`)} value={engine.coaches.new} testId="admin-eh-engine-coaches-new" />
+        <Stat label={t(`${k}.sessionsUpcoming`)} value={engine.sessions.upcoming} testId="admin-eh-engine-sessions-upcoming" />
+        <Stat label={t(`${k}.sessions7d`)} value={engine.sessions.next7Days} testId="admin-eh-engine-sessions-7d" />
+      </div>
+      <div className="mt-4 grid gap-6 sm:grid-cols-2">
+        <section data-testid="admin-eh-engine-open-spots">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t(`${k}.spots.title`)}</h3>
+          <Stat label={t(`${k}.spots.uncovered`)} value={engine.openSpots.uncovered} testId="admin-eh-engine-spots-uncovered" />
+          {engine.openSpots.byType.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">{t(`${k}.spots.none`)}</p>
+          ) : (
+            <ul className="mt-2 text-sm">
+              {engine.openSpots.byType.map((s) => (
+                <li key={`${s.side ?? "either"}-${s.levelId ?? "any"}`} data-testid={`admin-eh-engine-spot-${s.side ?? "either"}-${s.levelId ?? "any"}`}>
+                  {t(`${k}.spots.${s.side ?? "either"}`)} · {s.levelId == null ? t(`${k}.spots.anyLevel`) : (s.levelLabel ?? `#${s.levelId}`)}: <strong>{s.open}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section data-testid="admin-eh-engine-invitations">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t(`${k}.invitations.title`)}</h3>
+          <div className="flex flex-wrap gap-6">
+            <Stat label={t(`${k}.invitations.counting`)} value={engine.invitations.counting} testId="admin-eh-engine-invitations-counting" />
+            <Stat label={t(`${k}.invitations.notCounting`)} value={engine.invitations.openNotCounting} testId="admin-eh-engine-invitations-not-counting" />
+            <Stat label={t(`${k}.invitations.sent24h`)} value={engine.invitations.sentLast24h} testId="admin-eh-engine-invitations-sent-24h" />
+          </div>
+          <ScrollTable testId="admin-eh-engine-tiers-table">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr><th className="py-1 pr-4">{t(`${k}.invitations.tier`)}</th><th className="py-1 pr-4">{t(`${k}.invitations.counting`)}</th><th className="py-1">{t(`${k}.invitations.notCounting`)}</th></tr>
+            </thead>
+            <tbody>
+              {engine.invitations.byTier.map((r) => (
+                <tr key={r.tier} className="border-t" data-testid={`admin-eh-engine-tier-${r.tier}`}>
+                  <td className="py-1 pr-4">{tierLabel(r.tier)}</td>
+                  <td className="py-1 pr-4">{r.counting}</td>
+                  <td className="py-1">{r.openNotCounting}</td>
+                </tr>
+              ))}
+            </tbody>
+          </ScrollTable>
+        </section>
+        <section data-testid="admin-eh-engine-approvals">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t(`${k}.approvals.title`)}</h3>
+          <div className="flex flex-wrap gap-6">
+            <Stat label={t(`${k}.approvals.pending`)} value={engine.approvals.pending} testId="admin-eh-engine-approvals-pending" />
+            <Stat label={t(`${k}.approvals.dismissed`)} value={engine.approvals.dismissed} testId="admin-eh-engine-approvals-dismissed" />
+          </div>
+        </section>
+        <section data-testid="admin-eh-engine-alerts">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t(`${k}.alerts.title`)}</h3>
+          {engine.alerts.byReason.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t(`${k}.alerts.none`)}</p>
+          ) : (
+            <ul className="text-sm">
+              {engine.alerts.byReason.map((a) => (
+                <li key={a.reason}><code className="text-xs">{a.reason}</code>: <strong>{a.count}</strong></li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section data-testid="admin-eh-engine-outbox">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t(`${k}.outbox.title`)}</h3>
+          <div className="flex flex-wrap gap-6">
+            <Stat label={t(`${k}.outbox.pending`)} value={engine.outbox.pending} testId="admin-eh-engine-outbox-pending" />
+            <Stat label={t(`${k}.outbox.stuck`)} value={engine.outbox.stuckOver5Min} testId="admin-eh-engine-outbox-stuck" />
+          </div>
+        </section>
+        <section data-testid="admin-eh-engine-tick">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t(`${k}.tick.title`)}</h3>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{t(`${k}.tick.job`)}</span>
+            <span data-testid="admin-eh-engine-tick-present"><Badge tone={engine.tick.present ? "success" : "destructive"}>{t(`admin.engineHealth.scheduler.${engine.tick.present ? "present" : "missing"}`)}</Badge></span>
+            <span data-testid="admin-eh-engine-tick-overdue"><Badge tone={engine.tick.overdue ? "destructive" : "success"}>{t(`${k}.tick.${engine.tick.overdue ? "overdue" : "onTime"}`)}</Badge></span>
+          </div>
+          <div className="mt-2">
+            <Stat label={t(`${k}.tick.failures`)} value={engine.tick.sessionFailures24h} testId="admin-eh-engine-tick-failures" />
+          </div>
+        </section>
+      </div>
+    </Card>
   );
 }
 
@@ -195,6 +292,7 @@ function Summary({ data }: { data: EngineHealth }) {
           <div><p className="mb-1 text-xs font-medium">{t("admin.engineHealth.deploy.other")}</p><Identity id={data.deploy.other} testId="admin-eh-deploy-other" /></div>
         </div>
       </Card>
+      {data.engine && <EngineBlock engine={data.engine} />}
     </div>
   );
 }

@@ -43,7 +43,7 @@ class EngineInvitation(db.Model, model.Model):
     closed_at = Column(DateTime, nullable=True)             # a same-hour placement closed it (answers rule 10)
     # invitations NB1a: why it closed ("withdrawn" by the coach, rule 19 | "same_hour"), when it was last
     # reopened, and the ids of its message bubbles (the first and each reopening's), kept current by the store.
-    closed_reason = Column(String(10), nullable=True)
+    closed_reason = Column(String(16), nullable=True)      # "withdrawn" | "same_hour" | "class_removed"
     reopened_at = Column(DateTime, nullable=True)
     message_ids = Column(JSON, nullable=False, default=list)
 
