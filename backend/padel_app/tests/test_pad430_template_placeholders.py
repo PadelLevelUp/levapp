@@ -22,6 +22,8 @@ from padel_app.sql_db import db
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 # A Tuesday, far enough ahead that nothing else in the suite collides with it.
@@ -148,7 +150,7 @@ class TestEmptyCourtLeavesNoBrokenText:
     ])
     @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-9")
     def test_empty_court_goes_with_its_connector(self, template, expected):
-        from padel_app.services.notification_service import _format_template
+        from padel_app.services.message_text import _format_template
 
         assert _format_template(template, type="academia", time="19:00", court="") == expected
 
@@ -161,13 +163,13 @@ class TestEmptyCourtLeavesNoBrokenText:
     ])
     def test_a_template_that_opens_on_punctuation_keeps_it(self, template, expected, court):
         """B's review of #455: only what the empty placeholder exposed is stripped."""
-        from padel_app.services.notification_service import _format_template
+        from padel_app.services.message_text import _format_template
 
         assert _format_template(template, name="Rui", time="19:00", court=court) == expected
 
     @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-8")
     def test_a_named_court_keeps_its_connector(self):
-        from padel_app.services.notification_service import _format_template
+        from padel_app.services.message_text import _format_template
 
         assert _format_template("às {time} no {court}.", time="19:00", court="Campo 2") == (
             "às 19:00 no Campo 2."

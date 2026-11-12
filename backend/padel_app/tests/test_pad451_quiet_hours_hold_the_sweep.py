@@ -15,6 +15,8 @@ from padel_app.sql_db import db
 PATCHES = (
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 )
 
 # 22:30 UTC on 10 June is 23:30 in Lisbon (WEST, UTC+1): inside the default 22:00-07:00 window.

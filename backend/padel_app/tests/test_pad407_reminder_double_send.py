@@ -34,6 +34,8 @@ IO_PATCHES = (
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
     "padel_app.utils.expo_push.send_expo_push_to_user",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 )
 GATE_SECONDS = 1.5
 
@@ -92,7 +94,7 @@ def _seed(app, *, reminder_count, hours_between=2.0, n_players=3):
         db.session.commit()
         # As in prod, each student already has a conversation with the coach — otherwise
         # two unlocked passes collide on creating it and the OLD cell fails for that instead.
-        from padel_app.services.notification_service import _get_or_create_direct_conversation
+        from padel_app.services.system_messages import _get_or_create_direct_conversation
 
         for pid in player_ids:
             _get_or_create_direct_conversation(cu.id, db.session.get(Player, pid).user_id)

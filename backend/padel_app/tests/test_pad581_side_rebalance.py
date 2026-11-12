@@ -49,7 +49,7 @@ def _invite(coach, instance, vacancy, player_id, round_number=1):
     from padel_app.models import Message
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     conversation = _get_or_create_direct_conversation(coach.user_id, Player.query.get(player_id).user_id)
     event = NotificationEvent(coach_id=coach.id, lesson_instance_id=instance.id, player_id=player_id, type="auto",

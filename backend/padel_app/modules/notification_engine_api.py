@@ -89,7 +89,7 @@ def _resolve_owned_instance(coach, model: str, original_id: int, date_str: str |
 def template_preview():
     """PAD-549 (notifications.message-templates rule 19): the settings help's live preview — the
     coach's template rendered by the real formatter with example values, plus each example."""
-    from padel_app.services.notification_service import (
+    from padel_app.services.message_text import (
         _resolve_locale,
         render_template_preview,
         template_preview_examples,
@@ -1148,9 +1148,9 @@ def debug_offer_waiting_list():
 
     from padel_app.services.notification_service import (
         _offer_waiting_list,
-        _resolve_locale,
         get_or_create_config,
     )
+    from padel_app.services.message_text import _resolve_locale
 
     coach = _current_coach()
     data = request.get_json() or {}

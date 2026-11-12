@@ -335,7 +335,7 @@ def test_pad107_reminders_skip_blocked_student_but_reach_the_rest(app):
 def test_pad107_send_system_message_backstop_refuses_invite(app):
     """Even a direct call to the delivery choke point is refused."""
     with app.app_context():
-        from padel_app.services.notification_service import _send_system_message
+        from padel_app.services.system_messages import _send_system_message
 
         coach, instance, (blocked, blocked_user), (free, free_user) = (
             _setup_two_students("backstop"))
@@ -356,7 +356,7 @@ def test_pad107_send_system_message_backstop_refuses_invite(app):
 def test_pad107_backstop_does_not_block_plain_chat(app):
     """Unavailability silences class solicitations, not the coach's chat."""
     with app.app_context():
-        from padel_app.services.notification_service import _send_system_message
+        from padel_app.services.system_messages import _send_system_message
 
         coach, instance, (blocked, blocked_user), (free, free_user) = (
             _setup_two_students("chat"))

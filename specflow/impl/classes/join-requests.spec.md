@@ -1,6 +1,6 @@
 ---
 id: classes.join-requests
-status: implemented
+status: implementing
 depends_on: [eligibility.open-spot-visibility, eligibility.enforcement, classes.instances, notifications.invitations, messaging.messages]
 serves: [P-CLASSES-4]
 governed_by: []
@@ -18,6 +18,39 @@ by a student's request — and whichever lands first wins.
 - **ClassJoinRequest** (`class_join_requests`): lesson_instance_id, player_id, coach_id,
   status (`pending` | `accepted` | `rejected` | `withdrawn` | `superseded`), created_at, decided_at,
   decided_by_coach_id, note (PAD-358: optional, ≤ 500 characters). Unique on `(lesson_instance_id, player_id)` among `pending` rows.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine the coach's "let eligible requests in at once"
+(rule 21, `auto_accept_join_requests`) is the engine's direct join (`notifications.engine-settings` rule 5,
+set from that setting, `notifications.config` rule 19). **Copy marked "proposed" awaits the owner's
+approval.**
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 21 (an automatic accept) | replaced: with the setting on (never for a semi-automatic coach, as today: `notifications.config` rule 19), a request is the engine's `DirectJoin`, placed at once on a side the student fits, refused for the hard reasons of NJ1, and otherwise left waiting for the coach as rule 21 says; with the setting off it waits for the coach as today | `notifications.engine-settings` rule 5; NJ1 |
+
+- **NJ1. Refusal codes.** The route's own pre-checks run first, as today (`not_visible`, `spot_filled`).
+  Then the engine answers a direct join with a code, never text. The route refuses (`409 {code}`) only
+  for the hard reasons: `already_enrolled`, `class_closed`, `already_on_list`, `busy_same_hour` (the
+  student is going to a class at the same time, `notifications.engine-tiers` rule 3) and
+  `side_full` (with today's `requestedSide` and `sides` fields, the open sides as `left`/`right`; the
+  client offers the waiting list, `notifications.engine-settings` rule 5). For the soft reasons, the
+  engine's `ineligible` (below the bar, or kept out of the pool by an exclusion), the request is created
+  `pending` and waits for the coach, as rule 21 says; the student is never told why, so an exclusion
+  stays the coach's. Direct join off is no refusal either: the request waits.
+- **NJ2. Copy for every code, both locales**, under `calendar.joinRequest.refusal.*`, including the two
+  codes that have none today:
+  - `busy_same_hour`: "Já estás inscrito noutra aula à mesma hora" / "You're already in another class at
+    the same time" (proposed);
+  - `side_full`: "Já não há vaga do teu lado. Podes entrar na lista de espera." / "There's no spot left on
+    your side. You can join the waiting list." (proposed);
+  - `has_spots` (a waiting-list join while the class has room, today's code): "Esta aula ainda tem vagas:
+    pede para entrar." / "This class still has spots: ask to join." (proposed); the academy wizard keeps
+    its own `classRequests.academy.nowOpen` line;
+  - `already_on_list`: "Já estás na lista de espera desta aula." / "You're already on this class's
+    waiting list." (proposed).
+  Web and iOS show the same line; a code with no copy never shows its raw key.
 
 ### Rules
 1. **Only an eligible student may request**, and only for a class that is visible to them with an
@@ -511,6 +544,28 @@ test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py`
 - **And** when the accepted request was for the right side, the left request stays `pending` and nothing is sent
 test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_a_pending_request_whose_side_spot_is_taken_moves_to_that_sides_waiting_list`
 
+#### CLASSES-JOIN-REQUESTS-36: A new-engine direct join is placed or refused with a code (new-engine section NJ1)
+- **Given** a new-engine class with direct join on, a right spot open, and students: one who fits the right side, one who plays only left, one below the bar, one going to another class with the same start
+- **When** each asks to join
+- **Then** the first is placed at once (`201`, accepted), the left-only student answers `409 side_full` with `sides` `["right"]`, the one going elsewhere at that hour `409 busy_same_hour`, and the one below the bar `201` pending; with direct join off, a request answers `201` pending
+test: `backend/padel_app/tests/test_pad920_direct_join_refusals.py` › `test_a_direct_join_is_placed_or_refused_with_a_code`
+
+#### CLASSES-JOIN-REQUESTS-38: A direct join that fails a soft check waits for the coach, and a semi-automatic coach never auto-accepts (new-engine section NJ1)
+- **Given** a new-engine class with direct join on, a student on the coach's excluded list and a student below the bar, and a semi-automatic coach's class with the setting on
+- **When** each asks to join, and an eligible student asks to join the semi-automatic coach's class
+- **Then** the first two get `201` with a `pending` request and no refusal text, and the third's request is `pending` too
+test: `backend/padel_app/tests/test_pad920_direct_join_refusals.py` › `test_a_soft_failure_waits_for_the_coach_and_semi_automatic_never_auto_accepts`
+
+#### CLASSES-JOIN-REQUESTS-37: Every refusal code has copy on both shells (new-engine section NJ2)
+- **Given** each refusal code of rule 15 and NJ1, plus `has_spots`
+- **When** the student's request or waiting-list join is refused with it, on web and on iOS
+- **Then** each shows its `calendar.joinRequest.refusal.<code>` line in the user's language, and no raw key ever shows
+test: `frontend/packages/config/src/join-refusal-copy.test.ts` › `every refusal code has copy in both locales`
+
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
+
+### Open questions
+- The direct-join refusal copy and the two codes missing copy today (NJ2) — proposed by S (PAD-913,
+  2026-11-12), **for the owner's approval**.

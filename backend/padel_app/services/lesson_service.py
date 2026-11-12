@@ -123,7 +123,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         from padel_app.serializers.message import serialize_message
         from padel_app.services import reminder_attempt_service as attempts
         from padel_app.services.conversation_access import message_recipient_ids
-        from padel_app.services.notification_service import publish
+        from padel_app.realtime import publish
 
         for message in attempts.void_for_return(instance.id, player_id):
             publish(
@@ -205,9 +205,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
         # engine, which sends its own (invitation, waiting list, join request);
         # `walk_in` and `import` record a class that already happened.
         if source == "coach":
-            from padel_app.services.notification_service import (
-                notify_student_added_to_class,
-            )
+            from padel_app.services.system_messages import notify_student_added_to_class
 
             notify_student_added_to_class(
                 primary_coach(instance), player_id, instance=instance,
@@ -941,9 +939,7 @@ def create_lesson_helper(data, *, notify_students=True):
         # directly and deliberately does not come through here — the students of
         # a split series already know they are in it.
         from padel_app.models import Coach
-        from padel_app.services.notification_service import (
-            notify_student_added_to_class,
-        )
+        from padel_app.services.system_messages import notify_student_added_to_class
 
         coach = Coach.query.get(data["coach"]) if data.get("coach") else None
         for player_id in data.get("player_ids"):
@@ -1003,9 +999,7 @@ def edit_lesson_helper(data, lesson=None):
     if data.get("add_player_ids"):
         # PAD-330: added to the series, so told once — not once per occurrence.
         from padel_app.models import Coach
-        from padel_app.services.notification_service import (
-            notify_student_added_to_class,
-        )
+        from padel_app.services.system_messages import notify_student_added_to_class
 
         coach_rels = list(getattr(lesson, "coaches_relations", []) or [])
         coach = None
@@ -1314,7 +1308,7 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
                 first_late = first_late or instance
         db.session.commit()
     if told_as_coming and first_late is not None:
-        from padel_app.services.notification_service import notify_student_added_to_class
+        from padel_app.services.system_messages import notify_student_added_to_class
 
         for player_id in counted:
             notify_student_added_to_class(coach, player_id, instance=first_late, counted_as_coming=True)
@@ -2120,9 +2114,7 @@ def remove_class_service(data):
     # are cascade-deleted as part of the removal below.
     cancellation_recipients = []
     try:
-        from padel_app.services.notification_service import (
-            collect_cancellation_recipients,
-        )
+        from padel_app.services.system_messages import collect_cancellation_recipients
         cancellation_recipients = collect_cancellation_recipients(obj)
     except Exception:
         cancellation_recipients = []
@@ -2138,9 +2130,7 @@ def remove_class_service(data):
 
     if 200 <= status < 300 and cancellation_recipients:
         try:
-            from padel_app.services.notification_service import (
-                notify_students_of_cancellation,
-            )
+            from padel_app.services.system_messages import notify_students_of_cancellation
             notify_students_of_cancellation(cancellation_recipients)
         except Exception:
             pass  # never fail a successful removal because notification failed

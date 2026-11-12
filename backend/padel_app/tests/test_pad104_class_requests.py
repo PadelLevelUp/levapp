@@ -110,7 +110,7 @@ def _decide(app, ids, rid, action, **data):
 
 def _messages(app, ids, pid=None):
     from padel_app.models import Message, Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     with app.app_context():
         player_uid = db.session.get(Player, pid or ids["player_id"]).user_id

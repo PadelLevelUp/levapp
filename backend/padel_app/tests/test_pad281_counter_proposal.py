@@ -28,7 +28,7 @@ def _counter(app, ids, rid, start, end, *, pid=None, day=None):
 
 def _last_meta(app, ids):
     from padel_app.models import Message, Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     with app.app_context():
         player_uid = db.session.get(Player, ids["player_id"]).user_id

@@ -203,7 +203,7 @@ def _localized(coach_user, pt: str, en: str) -> str:
 
 
 def _class_label(instance: LessonInstance, locale: str) -> str:
-    from padel_app.services.notification_service import _format_class_when
+    from padel_app.services.message_text import _format_class_when
 
     title = instance.title or ("a aula" if locale == "pt" else "the class")
     return f"{title}{_format_class_when(instance, locale)}"
@@ -213,7 +213,7 @@ def _accepted_text(instance: LessonInstance, locale: str) -> str:
     """PAD-678 (rule 19): the student's "you are in the class" message for an accepted request. It
     leads with the outcome and never says "pedido"/"aceite", which students read as a waiting-list
     place. The pt text is the coach-approved one (2026-10-15); "inscrito/a" is literal."""
-    from padel_app.services.notification_service import _format_when
+    from padel_app.services.message_text import _format_when
 
     when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
     if locale == "pt":
@@ -227,7 +227,7 @@ def _declined_text(instance: LessonInstance, locale: str) -> str:
     """PAD-678 (rule 19a): the student's message for a refused request, in the same shape as the
     accepted one: the outcome first ("Não ficaste inscrito/a"), then the class and its day. Text
     approved by the coordinator on the owner's behalf (2026-10-22); owner to confirm."""
-    from padel_app.services.notification_service import _format_when
+    from padel_app.services.message_text import _format_when
 
     when = _format_when(getattr(instance, "start_datetime", None), locale, dated=True, weekday_first=True)
     if locale == "pt":
@@ -460,11 +460,13 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         _lock_vacancy_and_instance,
         _publish_retired,
         _deactivate_standing_entry,
+        eligibility_failures_for_players,
+        vacancy_for_joiner,
+    )
+    from padel_app.services.system_messages import (
         _send_system_message,
         _user_id_for_coach,
         _user_id_for_player,
-        eligibility_failures_for_players,
-        vacancy_for_joiner,
     )
 
     now = now or utcnow_naive()
@@ -633,7 +635,7 @@ def move_side_requests_to_waiting_list(instance: LessonInstance, *, filled_by_pl
     before rule 11's superseding, which then handles the rest unchanged. Returns the rows moved."""
     from padel_app.models.waiting_list_entry import WaitingListEntry
     from padel_app.services.academy_class_service import _existing_entry, _publish_waiting_list_changed
-    from padel_app.services.notification_service import _send_system_message, _user_id_for_player
+    from padel_app.services.system_messages import _send_system_message, _user_id_for_player
     from padel_app.models import Coach
 
     now = now or utcnow_naive()
@@ -688,15 +690,17 @@ def supersede_pending_requests(instance: LessonInstance, *, filled_by_player_id=
     """When ``instance`` is full, close every other pending request as
     ``superseded``; reply to each requester if the coach auto-notifies; alert
     the coach either way. Returns the rows closed."""
-    from padel_app.services.notification_service import (
+    from padel_app.models.notification_config import resolve_message_template
+    from padel_app.realtime import publish
+    from padel_app.services.message_text import (
+        _format_template,
+        template_variables,
+    )
+    from padel_app.services.system_messages import (
         _get_or_create_direct_conversation,
         _send_system_message,
         _user_id_for_coach,
-        _format_template,
         _user_id_for_player,
-        publish,
-        resolve_message_template,
-        template_variables,
     )
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
@@ -800,10 +804,10 @@ def _notify_coach_of_request(row: ClassJoinRequest, instance: LessonInstance) ->
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
-    from padel_app.services.notification_service import (
+    from padel_app.realtime import publish
+    from padel_app.services.system_messages import (
         _get_or_create_direct_conversation,
         _user_id_for_player,
-        publish,
     )
     from padel_app.utils.expo_push import send_expo_push_to_user
     from padel_app.utils.push_notifications import send_push_notification

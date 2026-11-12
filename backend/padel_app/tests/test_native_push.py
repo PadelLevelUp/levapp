@@ -398,6 +398,8 @@ def test_class_reminder_pushes_expo_with_message_payload(app):
 
         with patch("padel_app.services.notification_service.publish"), \
              patch("padel_app.services.notification_service.send_push_notification"), \
+             patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification"), \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_send:
             mock_send.return_value = True
             send_class_reminders(instance_id)
@@ -430,7 +432,7 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
     from padel_app.models.clubs import Club
     from padel_app.models.lessons import Lesson
     from padel_app.models.lesson_instances import LessonInstance
-    from padel_app.services.notification_service import _notify_coach_of_cancellation
+    from padel_app.services.system_messages import _notify_coach_of_cancellation
 
     with app.app_context():
         coach_user = _create_user("Coach", "cancel-coach")
@@ -456,8 +458,8 @@ def test_coach_cancellation_pushes_expo_with_message_payload(app):
         db.session.commit()
         DeviceToken(user_id=coach_user.id, token="ExponentPushToken[cancel]", platform="ios").create()
 
-        with patch("padel_app.services.notification_service.publish"), \
-             patch("padel_app.services.notification_service.send_push_notification"), \
+        with patch("padel_app.services.system_messages.publish"), \
+             patch("padel_app.services.system_messages.send_push_notification"), \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as mock_send:
             mock_send.return_value = True
             msg = _notify_coach_of_cancellation(

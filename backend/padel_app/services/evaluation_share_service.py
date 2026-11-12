@@ -183,7 +183,7 @@ def _locale_is_pt(user) -> bool:
 def _send_share_message(record) -> None:
     """sharing.spec.md rule 8: one system message, no push — the one exception
     to `messaging.messages` rule 7. Sent only for the FIRST share of a record."""
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     coach_player = record.coach_player
     coach_user = coach_player.coach.user if coach_player.coach is not None else None

@@ -21,4 +21,9 @@ A coach who wants a say in every replacement switches to semi-automatic mode: in
 - A spot filled another way or run out stops asking at once, and its question says so (PAD-765).
 - The class follows changes while open. The question says what time its list is from, and answering it never invites a student who joined or declined since, or more students than there are free spots (PAD-770).
 
+With the new engine (PAD-899; the owner, 2026-11-12) the coach is asked before each group starts, the first
+included, instead of for each spot: approving a group lets its rounds run on their own for that class,
+students added to it later included, and the coach is asked again before the next group. Ignoring a
+group skips it, and the next group is asked for.
+
 It does not promise changes to the matching rounds, or the engine's timing and wording settings.

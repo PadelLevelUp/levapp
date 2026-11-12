@@ -242,13 +242,13 @@ def test_the_run_shows_in_the_coachs_import_history(app, tmp_path):
 
 def _record_outgoing(monkeypatch):
     sent = {"added": [], "email": [], "push": []}
-    real = __import__("padel_app.services.notification_service", fromlist=["x"]).notify_student_added_to_class
+    real = __import__("padel_app.services.system_messages", fromlist=["x"]).notify_student_added_to_class
 
     def _added(coach, player_id, **kw):
         sent["added"].append(player_id)
         return real(coach, player_id, **kw)
 
-    monkeypatch.setattr("padel_app.services.notification_service.notify_student_added_to_class", _added)
+    monkeypatch.setattr("padel_app.services.system_messages.notify_student_added_to_class", _added)
     monkeypatch.setattr("padel_app.tools.email_tools.send_email",
                         lambda *a, **kw: sent["email"].append((a, kw)))
     monkeypatch.setattr("padel_app.utils.push_notifications.send_push_notification",

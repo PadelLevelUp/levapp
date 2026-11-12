@@ -134,12 +134,14 @@ def test_a_late_yes_on_a_filled_spot_sends_no_offer_message_and_no_push(app, mon
     from padel_app.models import Message
     from padel_app.models.players import Player
     from padel_app.services import notification_service as ns
+    from padel_app.services import system_messages
     from padel_app.tests.helpers import pin_clock
 
     pin_clock(monkeypatch, NOW)
     pushes = []
     with app.app_context(), _io():
         monkeypatch.setattr(ns, "send_push_notification", lambda **kw: pushes.append(kw))
+        monkeypatch.setattr(system_messages, "send_push_notification", lambda **kw: pushes.append(kw))
         monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda *a, **kw: pushes.append(kw))
         instance_id, coach_id, _, (a, b) = _seed(enrolled=0, candidates=2, max_players=1)
         ns.send_manual_notifications(instance_id, [a, b], coach_id)
@@ -164,6 +166,7 @@ def test_the_fill_retires_the_losers_bubble_live_without_a_push_or_a_message(app
     from padel_app.models import Message
     from padel_app.models.players import Player
     from padel_app.services import notification_service as ns
+    from padel_app.services import system_messages
     from padel_app.tests.helpers import pin_clock
 
     pin_clock(monkeypatch, NOW)
@@ -175,8 +178,10 @@ def test_the_fill_retires_the_losers_bubble_live_without_a_push_or_a_message(app
         ev_b = ns.NotificationEvent.query.filter_by(lesson_instance_id=instance_id, player_id=b).one()
         loser_user = Player.query.get(b).user_id
         monkeypatch.setattr(ns, "send_push_notification", lambda **kw: pushes.append(kw["user_id"]))
+        monkeypatch.setattr(system_messages, "send_push_notification", lambda **kw: pushes.append(kw["user_id"]))
         monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user", lambda user_id, **kw: pushes.append(user_id))
         monkeypatch.setattr(ns, "publish", lambda event, users: edited.append((event.get("type"), (event.get("payload") or {}).get("id"))))
+        monkeypatch.setattr(system_messages, "publish", lambda event, users: edited.append((event.get("type"), (event.get("payload") or {}).get("id"))))
         winner_user = Player.query.get(a).user_id
         loser_messages = Message.query.filter(Message.conversation_id == Message.query.get(ev_b.message_id).conversation_id).count()
         assert ns.respond_to_notification(ev_a.id, "yes", Player.query.get(a).user_id, now=NOW + timedelta(minutes=1)) == {"action": "confirmed"}

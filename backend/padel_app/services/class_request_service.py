@@ -311,7 +311,7 @@ def _locale_of(user) -> str:
 
 
 def _when(row: ClassRequest, locale: str) -> str:
-    from padel_app.services.notification_service import _format_weekday
+    from padel_app.services.message_text import _format_weekday
 
     d = row.start_datetime
     weekday = _format_weekday(d, locale)
@@ -355,7 +355,7 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     from padel_app.realtime import publish
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
     from padel_app.utils.expo_push import send_expo_push_to_user
     from padel_app.utils.push_notifications import send_push_notification
 
@@ -396,7 +396,7 @@ def _tell_coach(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
 
 def _tell_student(row: ClassRequest, pt: str, en: str, *, kind: str) -> None:
     """A system message from the coach's side; `_send_system_message` pushes."""
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     coach_user = row.coach.user if row.coach else None
     player_user = row.player.user if row.player else None
@@ -711,7 +711,7 @@ def _create_class_and_accept(row: ClassRequest, *, by: str, now) -> None:
         counted_player_ids=[row.player_id],
     )
     # PAD-357 rule 14: the people they brought did not ask — they are told.
-    from padel_app.services.notification_service import notify_student_added_to_class
+    from padel_app.services.system_messages import notify_student_added_to_class
     for p in invitees:
         try:
             notify_student_added_to_class(coach, p.id, lesson=lesson)

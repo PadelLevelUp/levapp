@@ -17,8 +17,12 @@ ordered by the coach's own priority criteria like any group (PAD-446, PAD-723). 
 > Rule 1's client wiring landed with the PAD-124 build (decided 2026-09-04). Everything else in
 > this spec is implemented, rules 3a/4a-4d included (they landed with PAD-128).
 
-### Replaced when PAD-899's engine ships
-The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's ruling of 2026-11-11) replaces these rules. They stay in force until it ships; each is marked inline too.
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (plan `docs/plans/invitation-engine-redesign.md`,
+owner's ruling of 2026-11-11; the swap, PAD-912) the rules in the table are replaced, each marked inline
+too; rules 1a, 4b, 12 and 17 hold as their inline note says; the rest hold unchanged. When every coach is
+drained, the old engine is deleted and the replaced rules and their criteria go with it.
 
 | Rule | Replaced by | Why |
 |---|---|---|
@@ -28,15 +32,20 @@ The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's 
 | 13 | `notifications.engine-answers` rule 7 | one claim per session, as every Yes |
 | 16 | `notifications.engine-planning` rule 9 | a side is named only when it is outside the student's subset (D11) |
 | 16a | `notifications.engine-answers` rule 3 | nothing moves between spots (D1) |
+| 4a, 4c | `notifications.engine-tiers` rules 3, 4 | the students' list passes every gate; the coach's list is the coach's decision (ruling (3)) |
 
-Kept, the plan silent: rule 15b (the last standing credit withdraws the offers it paid for: a credit rule, not the engine's coverage) and rule 18a (the coach names the side a student waits for: the coach's decision, `notifications.engine-tiers` rule 6).
+In semi-automatic mode (rule 4's last sentence; owner ruling D2), waiting-list invitations wait for the
+coach's approval like any invitation, and automatic entry from a list does not (`notifications.engine-planning`
+rule 14). A student is on one list of a session, never both (`notifications.engine-answers` rule 12).
+
+Kept unchanged for the new engine, the plan silent: rule 15b (the last standing credit withdraws the offers it paid for: a credit rule, not the engine's coverage) and rule 18a (the coach names the side a student waits for: the coach's decision, `notifications.engine-tiers` rule 6); and the list management of rules 2–3a, 5–11, 14–15a and 18–22.
 
 ### Entities
 - **WaitingListEntry** (`waiting_list_entries`): lesson_instance_id, player_id, coach_id, standing_entry_id, is_active, joined_at. Unique: (lesson_instance_id, player_id); indexed on standing_entry_id
 - **StandingWaitingListEntry** (`standing_waiting_list_entries`): coach_id, player_id, credits_total, credits_used, expires_at, is_active. Unique: one **active** entry per (coach_id, player_id), via the partial unique index `uq_standing_entries_active_coach_player` (PAD-273). `add_standing_waiting_list_entry` deactivates the previous active entry before creating the new one; inactive rows keep the history and may repeat
 
 ### Rules
-1. *(Replaced by `notifications.engine-answers` rule 4 when PAD-899's engine ships.)* **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
+1. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 4. Holds as written for an old-engine session until the old engine is deleted.)* **Players join the waiting list by answering Yes on a `waiting_list_offer` message**, via
    `POST /api/app/notify/respond_waiting_list`. The offer is sent by `_offer_waiting_list()`
    only on the "sorry, that spot was just filled" path (`respond_to_waiting_list()` upserts a
    `WaitingListEntry` for that same instance on "yes", sends `waiting_list_confirm` back, and is a
@@ -65,7 +74,7 @@ Kept, the plan silent: rule 15b (the last standing credit withdraws the offers i
    (`classes.academy-class-booking` rule 6, `POST /api/app/class-waiting-list`). The offer path
    above is unchanged, and so is rule 12: `respond_waiting_list` still answers only an offered
    player. The new path has its own gate (eligible, visible, full) instead of an offer
-1a. **The offer bubble settles like the reminder bubble.** Yes/No render only for the recipient
+1a. *(For a session on the new engine (`notifications.config` rule 18): the waiting-list offer is the const:KIND_SORRY message's (`notifications.engine-answers` rule 4), and its bubble settles the same way.)* **The offer bubble settles like the reminder bubble.** Yes/No render only for the recipient
    (the coach sees `waitingForResponse` on the copy they sent), and the answer is written back
    onto the offer message as `metadata.responded = true` plus `metadata.response`, so the settled
    state survives a reload instead of living only in client state:
@@ -117,7 +126,7 @@ Kept, the plan silent: rule 15b (the last standing credit withdraws the offers i
    level and absence record change over time, so a bar evaluated at fan-out would be stale by the
    time it mattered. `activeClassCount` therefore reports how many classes the entry is queued for,
    not how many the student could actually be invited to.
-4. *(Replaced by `notifications.engine-tiers` rules 5, 6, 8 and `notifications.engine-planning` rule 5 when PAD-899's engine ships.)* **The waiting list is invitation group 0 (PAD-446, owner decision 2026-10-03; rule numbering
+4. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 5, 6, 8 and `notifications.engine-planning` rule 5. Holds as written for an old-engine session until the old engine is deleted.)* **The waiting list is invitation group 0 (PAD-446, owner decision 2026-10-03; rule numbering
    unconfirmed).** When a spot opens, every batch the engine sends for it asks the class's
    waiting-list students **first**, before the coach's invitation groups (`notifications.invitations`
    rule 8a). There is no automatic placement any more: a waiting-list student is enrolled only by
@@ -147,22 +156,22 @@ Kept, the plan silent: rule 15b (the last standing credit withdraws the offers i
    - **Side, for a balance-withdrawn member (PAD-581, `notifications.invitations` rule 2d):** a
      member whose invitation to the class was withdrawn for side balance is in group 0 only for a
      spot of their own side or one with no side; a `both` or side-less member matches any spot.
-4a. **Waiting-list invitations are gated by eligibility.** A waiting-list student is invited only if
+4a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 3 and 4: the bar gates the students' list (applied in the store's `pool`, swap decision 6); a coach's-list member is the coach's decision and skips it. Holds as written for an old-engine session until the old engine is deleted.)* **Waiting-list invitations are gated by eligibility.** A waiting-list student is invited only if
    they pass `effective_eligibility()` for that class (`eligibility.cascade`). The side rules of the
    coach's invitation groups do **not** apply to group 0: the invitation names the spot's side
    (rule 16) and the student decides. With an unset bar, nobody on the list is filtered out by
    level; that is the coach's configuration, not an engine decision.
-4b. **A student is never invited into a class they are already in.** Waiting-list students are left
+4b. *(For a session on the new engine (`notifications.config` rule 18): the gate "already in the session", `notifications.engine-tiers` rules 3, 4.)* **A student is never invited into a class they are already in.** Waiting-list students are left
    out if they are on the class's roster — any presence, `absent` included. The second case is what
    stops the student whose cancellation created the spot from being offered it straight back.
-4c. **Waiting-list invitations honour every restriction invitations honour**: `restrictions.excludedPlayers`,
+4c. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 3 and 4: the students' list passes every gate; a coach's-list member skips the pool gates. Holds as written for an old-engine session until the old engine is deleted.)* **Waiting-list invitations honour every restriction invitations honour**: `restrictions.excludedPlayers`,
    `restrictions.excludeUnpaidSubscription` (the inactive-account exclusion), a disabled account,
    the availability-blocker filter of `calendar.student-blockers`, and the student's own block on
    automatic invitations (`notifications.student-block-preferences`). Rules 4b and 4c apply whether
    or not an eligibility bar is defined.
 4d. *(Retired with PAD-446: "placement is silent enrolment". Nothing on the waiting-list path adds a
    student without their yes.)*
-4e. *(Replaced by `notifications.engine-tiers` rule 6 and `notifications.engine-settings` rule 4 when PAD-899's engine ships.)* **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
+4e. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rule 6 and `notifications.engine-settings` rule 4. Holds as written for an old-engine session until the old engine is deleted.)* **An entry with a side is asked only for a spot that side can take (PAD-672 slice 1, D4;
     numbering unconfirmed).** A `left` (or `right`) entry is group 0 only for a vacancy whose side is
     `left` (or `right`), `both` or none; a `both` entry, or one with no side (every entry before
     PAD-672), for any vacancy. The join order is unchanged. A standing entry's side is chosen when it
@@ -213,7 +222,7 @@ Kept, the plan silent: rule 15b (the last standing credit withdraws the offers i
     - Each row shows the date the entry runs to with its year ("Expira a 3 de out. de 2027") and a
       **Renew** control beside remove (PAD-507). The player's page, on web and iOS, shows
       "Renovar · Até <date>" while the player holds an entry, opening the same dialog in renew mode
-12. **Only an offered player may answer (PAD-222, B-041).** `POST /api/app/notify/respond_waiting_list`
+12. *(For a session on the new engine (`notifications.config` rule 18): the offer a player answers is the const:KIND_SORRY message.)* **Only an offered player may answer (PAD-222, B-041).** `POST /api/app/notify/respond_waiting_list`
     is 403 unless the caller's player holds a `waiting_list_offer` message for that
     `lessonInstanceId` in their direct conversation with the class's coach (answered or not: a
     double tap or a changed answer on the same offer stays the idempotent upsert of PAD-124).
@@ -230,7 +239,7 @@ Kept, the plan silent: rule 15b (the last standing credit withdraws the offers i
     to the place, not to the class, so it is not rule 18's invitation "no". Leaving (`POST /api/app/class-waiting-list/<id>/leave`) deactivates the
     student's active entry for that class whatever its origin; a standing entry (rule 10) itself
     stays active for its other classes.
-13. *(Replaced by `notifications.engine-answers` rule 7 when PAD-899's engine ships.)* **Under the lock, as every invitation (PAD-261, PAD-495).** A waiting-list invitation is
+13. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 7. Holds as written for an old-engine session until the old engine is deleted.)* **Under the lock, as every invitation (PAD-261, PAD-495).** A waiting-list invitation is
     decided exactly as the batch decides any student (`notifications.invitations` rules 3(a) and 18):
     under the vacancy lock, re-reading the spot (still open), the class (still room) and the student
     (still on the list, not in the class, no live offer for it and no "no" to it). The yes that
@@ -263,16 +272,16 @@ Kept, the plan silent: rule 15b (the last standing credit withdraws the offers i
     no waiting-list join offer, its edit published after the commit. Otherwise a student holding two
     offers could take a second class with no credit left. Offers from the student's own class
     entries (not this standing entry) are untouched.
-16. *(Replaced by `notifications.engine-planning` rule 9 when PAD-899's engine ships.)* **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
+16. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 9. Holds as written for an old-engine session until the old engine is deleted.)* **The invitation names the spot's side when the spot has one (PAD-446).** A group-0 invitation
     uses the `waiting_list_invite` template (`notifications.message-templates`). When the vacancy's
     side is `left` or `right` its `{side}` placeholder renders the side ("left side" / "lado
     esquerdo", "right side" / "lado direito"); for a `both` or empty side it renders nothing, and the
     message says nothing about sides.
-16a. *(Replaced by `notifications.engine-answers` rule 3 when PAD-899's engine ships.)* **A waiting-list invitation can move to a sibling spot of the same side (PAD-679; numbering
+16a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 3. Holds as written for an old-engine session until the old engine is deleted.)* **A waiting-list invitation can move to a sibling spot of the same side (PAD-679; numbering
     unconfirmed).** When its spot closes or flips side, a live group-0 invitation moves to another
     open spot of the class under `notifications.invitations` rule 18a, and only to one of the same
     side as its own (or any, when its own had none), since its message named the side.
-17. **No placement message, no placement event.** The `waiting_list_placed` template and the coach's
+17. *(For a session on the new engine (`notifications.config` rule 18): a Yes still gets the accept's message; a student placed by automatic entry (`notifications.engine-settings` rule 3) gets const:KIND_ADDED.)* **No placement message, no placement event.** The `waiting_list_placed` template and the coach's
     `waiting_list_filled` live event are retired: a waiting-list student who says yes gets the
     accept's `confirm` message, and the coach sees the same `notification_responded` event as for any
     invitation.
@@ -688,3 +697,11 @@ test: `backend/padel_app/tests/test_pad547_coach_adds_to_class_waiting_list.py` 
   on the next load. Rule 1a is what the build added on the server for that; iOS also keeps the
   derivation in a pure `waiting-list-state.ts` beside `reminder-state.ts`, since the screen itself
   is not unit-testable there.
+
+### Open questions
+- Rules 4a and 4c on a new-engine session (PAD-913) — PR #939 left them unmarked. On reading, the new
+  engine gates the students' list like any automatic candidate but lets the coach's list skip the
+  pool gates (`notifications.engine-tiers` rule 4, ruling (3)), while today every waiting-list
+  student passes them. Decision (S, owner away; the owner can reverse it): the engine's rule, because
+  ruling (3) made the coach's list the coach's decision. The behaviour change (a coach-added student
+  below the bar can be invited) goes to the owner's review pack.
