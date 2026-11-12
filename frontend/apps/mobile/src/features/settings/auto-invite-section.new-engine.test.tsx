@@ -90,6 +90,21 @@ beforeEach(() => {
 });
 
 describe("iOS Settings → Auto-Invite Engine on the new engine (notifications.config rule 20)", () => {
+  it("[NOTIFICATIONS-CONFIG-72] the new engine's controls stay editable with the engine switched off", async () => {
+    const n = await mount({ ...NEW, autoNotifyEnabled: false });
+    await n.press("settings-tiers-header");
+    for (const id of ["engine-max-at-a-time-inc", "engine-between-rounds-dec", "engine-timing-method-per_tier", "tier-add", "tier-remove-2"]) {
+      expect(n.byTestId(id).props.disabled ?? false).toBe(false);
+    }
+    expect(n.byTestId("engine-auto-entry").props.disabled ?? false).toBe(false);
+    await n.press("engine-max-at-a-time-inc");
+    await n.press("tier-add");
+    await save(n);
+    const patch = api.updateNotificationConfig.mock.calls[0][0];
+    expect(patch.engine.maxAtATime).toBe(13);
+    expect(patch.invitationGroups).toHaveLength(3);
+  });
+
   it("[NOTIFICATIONS-CONFIG-72] a tiers edit under the fixed method sends only the groups", async () => {
     // No `engine` stored yet: editing a group must not send the engine's defaults with it.
     const n = await mount(NEW);

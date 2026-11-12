@@ -339,7 +339,7 @@ export function AutoInviteSection() {
                 groups={groups}
                 engine={engine}
                 pair={pair}
-                disabled={engineOff}
+                // Rule 20: editable with the engine off, so a coach can set it up before turning it on.
                 // A groups-only edit leaves `engine` as it is (the same object), so it is not sent.
                 onChange={(next) =>
                   save(next.engine === engine ? { invitationGroups: next.groups } : { invitationGroups: next.groups, engine: next.engine })
