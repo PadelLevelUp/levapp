@@ -71,9 +71,19 @@ The new-engine answer (swap step 7, PAD-919):
   session whose pending request's queues are unchanged keeps that request: it is already current, and
   the class view computes its list when shown (rule 12b).
 
-Not yet specified, needed before this spec's swap step (each under Open questions):
-- the request's message and card: one block per spot type (side and level), its queue, the coach's
-  removals and "Ignorar" on web and iOS, and their copy in both locales.
+- **N5. The card, web and iOS** (web `ReplacementApprovalCard`, iOS `replacement-approval-card`, one shared
+  display helper in `@levelup/config` as rule 7a's): for a new-engine request, one block per spot type
+  (side and level, its open spots) with its queue in order, the first 5 and "Ver mais (N)" as rule 7a,
+  "A mostrar 5 de N · ao aprovar, são convidados todos" whenever truncated. Each student has a remove
+  toggle (`approval-remove-<playerId>`); a removed student is struck through and counted in "Sim (N
+  retirados)" / "Yes (N removed)" (proposed). The buttons: "Sim" (`approval-yes`, sends `yes_now` with the
+  removed ids) and "Ignorar" (`approval-dismiss`) on the class's card; the conversation's card offers
+  "Sim" only (rule 8, PAD-545). No "at the window" button for a new-engine request. A `stale` answer, or
+  a message whose request is no longer pending, shows "Este pedido foi substituído por um mais recente."
+  / "This request was replaced by a newer one." (proposed) and no buttons; `dismissed` shows "Ignorado" /
+  "Ignored". An empty type shows its `emptyQueueReasons` with N6's words.
+
+The card's new words (N5) are proposed, for the owner's approval.
 
 ### Rules
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
@@ -430,6 +440,17 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_recom
 - **When** the outbox sends it, and sends again
 - **Then** the coach's Assistant conversation holds one `replacement_approval` message with `engine` `new`, the request's id, the lesson instance, `responded` false and each type's side, level and queue, the coach gets one push, and the second send adds nothing
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_outbox_posts_the_request_to_the_coachs_assistant`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-41: The web card approves with removals, dismisses, and reads a stale answer (new-engine section N5)
+- **Given** a new-engine request on web with a left type of 7 students and an either type with none, on the class's card and in the conversation
+- **When** the coach removes two students and presses "Sim", and on another card presses "Ignorar", and a third card's answer comes back `stale`
+- **Then** the left block shows 5 with "Ver mais (2)" and the truncation line, the either block shows its empty-queue reasons, "Sim (2 retirados)" sends `yes_now` with both ids, "Ignorar" sends `dismiss`, the conversation card has no "Ignorar", no card has an "at the window" button, and the stale card shows the replaced line with no buttons
+test: `frontend/apps/web/src/components/messages/ReplacementApprovalCard.newEngine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-42: The iOS card does the same with the same test ids (new-engine section N5)
+- **Given** the same requests on iOS
+- **Then** the same blocks, removals, buttons, test ids and stale line show, and the same requests are sent
+test: `frontend/apps/mobile/src/features/messages/components/replacement-approval-card-new-engine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
 
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
