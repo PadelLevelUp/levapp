@@ -30,6 +30,13 @@ Readings:
 - `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4):
   one per class, carrying `invitationId` in place of `notificationEventId`, its id `invitation-<id>`, and
   answered on `POST /api/app/notify/respond` with that id (`notifications.invitations` NB5) (R, PAD-918).
+  The home card (web `NeedsYouQueue`, iOS `blocks.tsx` `VacancyInviteCard`) answers a card carrying
+  `invitationId` with `{invitationId, action: "yes"|"no"}` and reads the route's answer, one toast each,
+  from one shared helper (proposed copy, for the owner): `confirmed` "Estás inscrito." / "You're in.";
+  `declined` "Recusado." / "Declined."; `sorry` "A vaga já foi ocupada." / "The spot was already
+  taken." (bad news); `closed_same_hour` "Já estás noutra aula a essa hora." / "You're already in
+  another class at that time." (bad news); `class_started` "A aula já começou." / "The class has
+  started.". A card carrying `notificationEventId` is the old engine's and answers as today.
 - Rules 6–7 (the coach's pending confirmations): the set counts the new-engine invitations still open
   for tomorrow's classes (counting or not), and the nudge re-pushes each one's own message, never a new
   invitation (R, PAD-918).
@@ -795,6 +802,17 @@ test: `backend/padel_app/tests/test_pad918_player_home.py` › `test_an_open_eng
 - **When** the coach's home is read and the coach presses the nudge
 - **Then** the pending count is 2, and each of the two students gets their invitation's push again, with no new invitation or message
 test: `backend/padel_app/tests/test_pad918_dashboard_pending.py` › `test_pending_confirmations_count_and_nudge_open_engine_invitations`
+
+#### DASHBOARD-BLOCKS-56: The web home card answers a new-engine invitation by its id and reads the answer (new-engine readings)
+- **Given** a student's web home with a `vacancy_invite` carrying `invitationId`, and one carrying `notificationEventId`
+- **When** they press Yes on the first and the route answers `sorry`, and Yes on the second
+- **Then** the first posts `{invitationId, action: "yes"}` to `/notify/respond` and shows the sorry toast as bad news, and the second answers by `notificationEventId` as today; each of the five actions maps to its toast in the shared helper
+test: `frontend/apps/web/src/components/dashboard/NeedsYouQueue.engineInvite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
+
+#### DASHBOARD-BLOCKS-57: The iOS home card answers a new-engine invitation by its id and reads the answer (new-engine readings)
+- **Given** the same cards on iOS
+- **Then** the same requests are sent and the same toasts show
+test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-invite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
 
 ### Open questions
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
