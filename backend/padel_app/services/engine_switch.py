@@ -41,6 +41,18 @@ def engine_for(instance) -> str:
     return "new" if db.session.get(EngineSession, instance.id) is not None else "old"
 
 
+def new_engine_ids(instance_ids) -> set[int]:
+    """Of ``instance_ids``, the occurrences on the new engine (rule 18: an ``engine_sessions`` row), in one
+    query whatever their number (CONFIG-82: a switched coach's calendar reads engines in one batch)."""
+    from padel_app.models import EngineSession
+
+    ids = {int(i) for i in instance_ids if i is not None}
+    if not ids:
+        return set()
+    return {lid for (lid,) in db.session.query(EngineSession.lesson_instance_id)
+            .filter(EngineSession.lesson_instance_id.in_(ids)).all()}
+
+
 def _switched_config(instance):
     """The primary coach's config when that coach is on the new engine, else ``None``."""
     from padel_app.models.notification_config import NotificationConfig

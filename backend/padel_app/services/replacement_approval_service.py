@@ -294,6 +294,10 @@ def create_vacancy_approval_prompt(vacancy_id: int, coach_id: int) -> dict | Non
     vacancy = db.session.get(Vacancy, vacancy_id)
     if vacancy is None or vacancy.status != "open" or vacancy.approval_status != "pending":
         return None
+    from padel_app.services.engine_switch import engine_for
+
+    if vacancy.lesson_instance is not None and engine_for(vacancy.lesson_instance) == "new":
+        return None                                      # rule 18 (CONFIG-81): the engine asks for its own
     return create_approval_prompts(
         [vacancy], vacancy.lesson_instance, coach_id, get_or_create_config(coach_id)
     )
