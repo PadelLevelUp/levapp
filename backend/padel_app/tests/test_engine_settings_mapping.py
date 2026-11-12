@@ -282,3 +282,27 @@ def test_a_malformed_stored_value_never_refuses_the_coach():
     assert s.first_invite.at == time(9, 0)
     assert s.quiet_hours == (time(22, 0), time(7, 0))
     assert s.timing.between_rounds == s.timing.between_groups == ENGINE_T_FLOOR
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-65")
+def test_quiet_hours_with_equal_ends_stay_quiet_all_day():
+    """22:00 to 22:00 is quiet all day, as today: a run at noon sends nothing."""
+    from datetime import datetime, time
+
+    from padel_app.invitation_engine.timeline import is_quiet
+
+    config = _config()
+    config.restrictions = {"quietHours": {"enabled": True, "start": "22:00", "end": "22:00"}}
+    s = _settings(config)
+    assert s.quiet_hours == (time(22, 0), time(22, 0))
+    assert is_quiet(s, datetime(2026, 11, 3, 12, 0))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-68")
+def test_invitation_start_none_turns_fill_never_held_off():
+    """The coordinator's ruling: `none` keeps today's meaning, so never-filled spots are not offered."""
+    none = _config()
+    none.invitation_start_timing = {"type": "none"}
+    hours = _config()
+    hours.invitation_start_timing = {"type": "hours_before", "value": 24}
+    assert (_settings(none).fill_never_held, _settings(hours).fill_never_held) == (False, True)

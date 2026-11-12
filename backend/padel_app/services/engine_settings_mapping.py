@@ -112,4 +112,6 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
         # Rule 19 (owner Q3, as today): never with semi-automatic, whatever the stored flag says.
         direct_join=bool(config.auto_accept_join_requests) and config.get_invitation_mode() != "semi_automatic",
         invitation_mode=config.get_invitation_mode(),                                  # D2 (CONFIG-58)
+        # Coordinator's ruling (CONFIG-68): `none` keeps today's meaning, no never-filled spots offered.
+        fill_never_held=config.get_invitation_start_timing().get("type") != "none",
     )
