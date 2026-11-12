@@ -42,6 +42,7 @@ import {
   JOIN_REFUSAL_CODES,
   joinRefusalKey,
   joinRefusalOf,
+  isEngineApproval,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -57,6 +58,7 @@ import type {
   ApprovalBundle,
   ClassInstance,
   ClassInvitation,
+  EngineApprovalState,
   PresenceStatus,
 } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -138,11 +140,6 @@ import {
   type AttendancePayloadItem,
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
-import {
-  engineApprovalFromState,
-  isEngineApprovalState,
-  type EngineApprovalCardData,
-} from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import {
   eventFromLessonInstance,
@@ -322,7 +319,7 @@ export default function ClassDetailScreen() {
   const [semiAutomatic, setSemiAutomatic] = React.useState(false);
   const [recomputing, setRecomputing] = React.useState(false);
   // PAD-920 (semi-auto-approval N1): a new-engine session answers one request, not bundles.
-  const [engineApproval, setEngineApproval] = React.useState<EngineApprovalCardData | null>(null);
+  const [engineApproval, setEngineApproval] = React.useState<EngineApprovalState | null>(null);
   const suggestionsInstanceId = React.useMemo(() => {
     const fromPresence = instance?.presences?.[0]?.lessonInstanceId;
     if (fromPresence != null) return Number(fromPresence);
@@ -338,13 +335,13 @@ export default function ClassDetailScreen() {
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
-        if (isEngineApprovalState(s)) {
+        if (isEngineApproval(s)) {
           // N1: the pending request is the card; a dismissed session offers the recompute. A
           // request the coach just approved here stays until the class is closed (PAD-770).
           setEngineApproval((prev) =>
-            s.state === "pending"
-              ? engineApprovalFromState(s)
-              : prev && answeredBundleIdsRef.current.has(String(prev.requestId))
+            s.state === "pending" && s.request
+              ? s
+              : prev?.request && answeredBundleIdsRef.current.has(String(prev.request.requestId))
                 ? prev
                 : null
           );
@@ -368,7 +365,7 @@ export default function ClassDetailScreen() {
     try {
       const s = await notificationEngineApi.recomputeApprovalState(suggestionsInstanceId);
       // N3: a reopened session's fresh request replaces the card.
-      if (isEngineApprovalState(s)) setEngineApproval(s.state === "pending" ? engineApprovalFromState(s) : null);
+      if (isEngineApproval(s)) setEngineApproval(s.state === "pending" && s.request ? s : null);
       else if (s.state === "pending" && s.bundle) setApprovalBundles(suggestionBundles(s));
       setSuggestionsIgnored(false);
     } catch {
@@ -1807,11 +1804,11 @@ export default function ClassDetailScreen() {
           ) : null}
 
           {/* PAD-920 (semi-auto-approval N5): the new-engine request, "Sim" and "Ignorar". */}
-          {isCoach && !isEditing && engineApproval ? (
+          {isCoach && !isEditing && engineApproval?.request ? (
             <>
               <Separator />
               <ReplacementApprovalCard
-                key={engineApproval.requestId}
+                key={engineApproval.request.requestId}
                 bundle={engineApproval}
                 allowDismiss
                 onResult={(action) => {
@@ -1819,7 +1816,7 @@ export default function ClassDetailScreen() {
                     setEngineApproval(null);
                     setSuggestionsIgnored(true);
                   } else {
-                    answeredBundleIdsRef.current.add(String(engineApproval.requestId));
+                    answeredBundleIdsRef.current.add(String(engineApproval.request!.requestId));
                   }
                 }}
               />

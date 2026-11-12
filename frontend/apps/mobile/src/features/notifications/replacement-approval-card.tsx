@@ -8,6 +8,7 @@ import {
   approvalQueuePreview,
   approvalSideKey,
   approvalStaleLabel,
+  isEngineApproval,
   lightTheme,
   queueAsOfLabel,
   resolvedVacancyIds,
@@ -26,11 +27,9 @@ import { cn } from "@/lib/utils";
 import {
   approvalCardState,
   approvalRespondOutcome,
-  isEngineApprovalCard,
   queueBadgeLabel,
-  type EngineApprovalCardData,
 } from "./approval-bundle";
-import { EngineApprovalCard } from "./engine-approval-card";
+import { EngineApprovalCard, type EngineApprovalSource } from "./engine-approval-card";
 
 // Ionicons take a color string, not a class — same one-off pattern as
 // message-bubble.tsx's ACCEPTED_ICON_COLOR.
@@ -38,7 +37,7 @@ const APPROVED_ICON_COLOR = "#059669";
 
 type Props = {
   /** PAD-920 (semi-auto-approval N5): a new-engine request renders `EngineApprovalCard`. */
-  bundle: ApprovalBundle | EngineApprovalCardData;
+  bundle: ApprovalBundle | EngineApprovalSource;
   /** Render without action buttons (viewing your own message). */
   readOnly?: boolean;
   /** Fires after the server records an answer, for cache/toast follow-up. */
@@ -63,9 +62,9 @@ type Props = {
  */
 export function ReplacementApprovalCard(props: Props) {
   // PAD-920 (N5): a new-engine request has its own card; an old-engine bundle renders as before.
-  if (isEngineApprovalCard(props.bundle)) {
+  if (isEngineApproval(props.bundle)) {
     const { bundle, readOnly, onResult, allowDismiss } = props;
-    return <EngineApprovalCard request={bundle} readOnly={readOnly} onResult={onResult} allowDismiss={allowDismiss} />;
+    return <EngineApprovalCard source={bundle} readOnly={readOnly} onResult={onResult} allowDismiss={allowDismiss} />;
   }
   return <OldEngineApprovalCard {...props} bundle={props.bundle} />;
 }

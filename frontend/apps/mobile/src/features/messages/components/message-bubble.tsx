@@ -5,6 +5,8 @@ import {
   engineInviteState,
   engineInviteTestIds,
   isEngineInvite,
+  engineApprovalRequest,
+  isEngineApproval,
   joinRequestBubbleState,
   lightTheme,
   lisbonNowMs,
@@ -32,7 +34,7 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { lightImpact } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
-import { approvalBundleFrom, engineApprovalFrom } from "@/features/notifications/approval-bundle";
+import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import type { EngineAlertClassRoute } from "../engine-message";
 import { inviteState } from "../invite-state";
@@ -343,7 +345,7 @@ function MessageBubbleImpl({
     message.messageType === "replacement_approval";
   // PAD-920 (semi-auto-approval N4, N5): a new-engine request is read first; it has no bundle.
   const approvalBundle = isReplacementApproval
-    ? engineApprovalFrom(message.metadata) ?? approvalBundleFrom(message.metadata)
+    ? isEngineApproval(message.metadata) && engineApprovalRequest(message.metadata) ? message.metadata : approvalBundleFrom(message.metadata)
     : null;
   const [confirmingLateCancel, setConfirmingLateCancel] =
     React.useState(false);
