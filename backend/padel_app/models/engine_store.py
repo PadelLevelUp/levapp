@@ -41,9 +41,9 @@ class EngineInvitation(db.Model, model.Model):
     sorry_at = Column(DateTime, nullable=True)
     closed_at = Column(DateTime, nullable=True)             # a same-hour placement closed it (answers rule 10)
     # invitations NB1a: why it closed ("withdrawn" by the coach, rule 19 | "same_hour"), when it was last
-    # re-offered, and the ids of its message bubbles (the first and each re-offer's), kept current by the store.
+    # reopened, and the ids of its message bubbles (the first and each reopening's), kept current by the store.
     closed_reason = Column(String(10), nullable=True)
-    reoffered_at = Column(DateTime, nullable=True)
+    reopened_at = Column(DateTime, nullable=True)
     message_ids = Column(JSON, nullable=False, default=list)
 
 
@@ -60,16 +60,15 @@ class EngineSession(db.Model, model.Model):
     coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
     # Coach alerts raised (engine-planning rule 11): a list of [side or null, level or null, spots].
     alerted = Column(JSON, nullable=False, default=list)
-    # Semi-automatic approval (engine-planning, owner ruling D2; PAD-915's Approval): the students the
-    # coach let through and those they took out, lists of ids; the pending request's queues, a list of
-    # [[side, level], [ids in order]] (null: none pending); the open spots when the coach dismissed the
-    # queue, a list of [[side, level], count] (null: not dismissed).
-    approved = Column(JSON, nullable=False, default=list)
+    # Semi-automatic approval per group (engine-planning rule 14; owner decisions 5, 10; engine-store rule 5):
+    # the tiers the coach approved for this session, a list of ints; the students they took out, a list of
+    # ids; one pending request per tier, a list of {tier, request, queues: [[[side, level], [ids…]], …],
+    # message_id} (message_id: its Assistant message once posted, PAD-919); each dismissed tier with the spot
+    # counts it saw, a list of [tier, [[[side, level], count], …]].
+    approved_groups = Column(JSON, nullable=False, default=list)
     removed = Column(JSON, nullable=False, default=list)
-    pending = Column(JSON, nullable=True)
-    pending_request = Column(String(80), nullable=True)      # the pending request's id (the engine's)
-    request_message_id = Column(Integer, nullable=True)      # the pending request's Assistant message (PAD-919)
-    dismissed = Column(JSON, nullable=True)
+    pending = Column(JSON, nullable=False, default=list)
+    dismissed_groups = Column(JSON, nullable=False, default=list)
 
 
 class EngineExclusion(db.Model, model.Model):

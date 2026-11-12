@@ -21,26 +21,32 @@ from datetime import datetime
 from typing import Literal
 
 from padel_app.invitation_engine import timeline
-from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE, LOWER_TIER_PER_SPOT, side_quota
+from padel_app.invitation_engine.constants import (
+    ALERT_NO_CANDIDATE,
+    KIND_WAITING_LIST_INVITE,
+    LOWER_TIER_PER_SPOT,
+    side_quota,
+)
 from padel_app.invitation_engine.effects import (
     Absence,
     AlertCleared,
     ApprovalRequest,
     ApprovalWithdrawn,
+    GroupReopened,
+    GroupsCleared,
     CoachAlert,
     Effect,
     InvitationClosed,
     Invited,
     Message,
     Placed,
-    QueueApproved,
-    QueueReopened,
-    Reoffered,
+    Reopened,
     WaitingListLeft,
 )
 from padel_app.invitation_engine.settings import EngineSettings, GroupRule, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
+    same_time,
     Elsewhere,
     Invitation,
     SessionSnapshot,
@@ -57,8 +63,9 @@ class SpotCounts:
     """What a session needs, by side (engine-spots rule 6; plan §4).
 
     ``flexible_unplaced`` are going students with no side yet (a {L, R} regular the coach has not
-    placed); ``over_quota[v]`` is how many going students placed on v exceed its quota, each of them a
-    flexible going student too (rule 9). ``Σ open(v) = class_empty + flexible_going``.
+    placed); ``over_quota[v]`` is how many going students placed on v exceed its quota: one-sided
+    regulars who keep their side, not flexible (rule 9; the owner's decisions 12, 13).
+    ``Σ open(v) = class_empty + flexible_going + Σ over_quota``.
     """
 
     class_empty: int
@@ -70,7 +77,7 @@ class SpotCounts:
 
     @property
     def flexible_going(self) -> int:
-        return len(self.flexible_unplaced) + sum(self.over_quota.values())
+        return len(self.flexible_unplaced)
 
 
 def freed_spots(snapshot: SessionSnapshot) -> tuple[dict[Side, int], int]:
@@ -194,10 +201,11 @@ def _eligible(student: Student, snapshot: SessionSnapshot, settings: EngineSetti
 def _entry_admits(entry: WaitingListEntry, student: Student, values: frozenset[str],
                   settings: EngineSettings) -> bool:
     """The waiting lists have no level rules (D12); sides per engine-tiers rule 6 and
-    engine-settings rule 4."""
+    engine-settings rule 4: a side the student chose binds whatever ``wl-sides`` says, which only
+    decides whether the clients offer the choice."""
     if entry.list == "coach":
         return entry.side is None or entry.side in values
-    if not settings.waiting_list_side_choice or entry.sides in (None, "both"):
+    if entry.sides in (None, "both"):
         return True
     if entry.sides == "own":
         return bool(student.sides & values)
@@ -231,7 +239,7 @@ def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> t
     """engine-answers rule 10 (D4's one exception): a student placed in this session has their open
     invitations for other sessions at the same hour closed. Called with every placement."""
     return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
-                 if e.invitation.student == student and e.start == snapshot.start)
+                 if e.invitation.student == student and same_time(e, snapshot))
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
@@ -243,9 +251,10 @@ def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts
             or sid in snapshot.blocked):          # the student's own blocks hold on every tier (rule 4)
         return False
     values = type_sides(spot_type, counts)
-    if tier.source == "coach_list":
+    if tier.source == "coach_list":                # busy at that time holds here too (rule 4)
         entry = _entry(snapshot, sid, "coach")
-        return entry is not None and _entry_admits(entry, student, values, settings)
+        return (entry is not None and sid not in snapshot.busy_same_time
+                and _entry_admits(entry, student, values, settings))
     in_pool = any(st.id == sid for st in snapshot.pool)
     if (not in_pool or sid in snapshot.busy_same_time or sid in snapshot.postponed
             or not _eligible(student, snapshot, settings)):
@@ -346,10 +355,14 @@ def group_rule_passes(rule: GroupRule, student: Student, spot_type: SpotType, co
 
 
 def tier_for(student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
-             settings: EngineSettings) -> int | None:
-    """The student's tier for a type: the first tier they pass (engine-tiers rule 7), or ``None``."""
+             settings: EngineSettings, sources: set[str] | None = None) -> int | None:
+    """The student's tier for a type: the first tier they pass (engine-tiers rule 7), or ``None``. A
+    dismissed group is skipped as if empty; ``sources`` limits the tiers to those sources (a "sorry"
+    holder is a candidate of their waiting list's tier only, engine-planning rule 5.1)."""
+    skipped = _dismissed_now(snapshot)                  # a dismissed group: as if it had no candidates
     return next((i for i, tier in enumerate(settings.tiers)
-                 if passes(tier, student, spot_type, counts, snapshot, settings)), None)
+                 if i not in skipped and (sources is None or tier.source in sources)
+                 and passes(tier, student, spot_type, counts, snapshot, settings)), None)
 
 
 def _natural(sid: str) -> tuple:
@@ -402,7 +415,7 @@ def _offer_sides(tier: Tier, student: Student, values: frozenset[str], snapshot:
         entry = _entry(snapshot, student.id, "coach")
         if entry is not None and entry.side is not None:
             return frozenset({entry.side}) & values
-    if tier.source == "students_list" and settings.waiting_list_side_choice:
+    if tier.source == "students_list":
         entry = _entry(snapshot, student.id, "students")
         if entry is not None and entry.sides == "other":
             return values - student.sides
@@ -459,11 +472,15 @@ class _Run:
                 continue
             invitation = self.latest.get(sid)
             sorry = invitation is not None and invitation.open and invitation.sorry_at is not None
+            lists = {"coach_list" if w.list == "coach" else "students_list"
+                     for w in self.snapshot.waiting_list if w.student == sid}
+            if sorry and not lists:
+                continue                         # told sorry: asked again only from the waiting list (rule 4)
             if invitation is not None and not sorry and not (timeline.counting(invitation, self.now)
                                                              and {t.side for t in invitation.offer} & values):
                 continue
-            t = tier_for(student, spot_type, self.counts, self.snapshot, self.settings)
-            if t is not None:                    # a "sorry" holder is chosen like an uninvited one (rule 5.1)
+            t = tier_for(student, spot_type, self.counts, self.snapshot, self.settings, sources=lists if sorry else None)
+            if t is not None:                    # a "sorry" holder: a candidate of its list's tier only (rule 5.1)
                 bucket = out.setdefault(t, _TierPool())
                 (bucket.fresh if invitation is None or sorry else bucket.holders).append(sid)
         return out
@@ -606,9 +623,9 @@ def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: 
             run.covers[sid] = spot_type
         fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student),
                   t, timeline.counts_until(settings, run.now, t_send))
-        if sid in run.latest:            # a "sorry" invitation: re-offered, never a second one (D1)
-            run.effects += [Reoffered(snapshot.id, run.now, sid, *fields),
-                            Message(snapshot.id, run.now, sid, "reoffer")]
+        if sid in run.latest:            # a "sorry" invitation, its student on the list: reopened, never a second (D1)
+            run.effects += [Reopened(snapshot.id, run.now, sid, *fields),
+                            Message(snapshot.id, run.now, sid, KIND_WAITING_LIST_INVITE)]
         else:
             run.effects.append(Invited(snapshot.id, run.now, sid, *fields))
     sent[spot_type] += len(chosen)
@@ -692,7 +709,9 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
     that they can take, without an invitation, and told so (``added``). The coach's list goes first,
     then the students' list, each in its tier order (engine-tiers rule 8). A coach's-list entry takes
     the coach's side (any side when none); a students'-list entry takes a side in the student's
-    subset, or as their side choice allows when ``wl-sides`` is on."""
+    subset, or as their side choice allows when ``wl-sides`` is on. It places only a student its list's
+    tier would invite (engine-settings rule 3): every gate for the students' list; the student's own
+    blocks, the coach's removal and being busy at that time for the coach's list."""
     asked_at = timeline.attendance_request_at(snapshot, settings)
     if not settings.auto_entry_before_attendance_request or (asked_at is not None and now >= asked_at):
         return ()
@@ -712,13 +731,16 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
         for w in entries:
             student = snapshot.students.get(w.student)
             if (student is None or total >= capacity or w.student in snapshot.said_no
-                    or w.student in snapshot.busy_same_time):     # never two sessions at one hour (answers rule 10)
-                continue
-            if which == "students" and not _eligible(student, snapshot, settings):
-                continue
+                    or w.student in snapshot.busy_same_time      # never two sessions at one hour (answers rule 10)
+                    or w.student in snapshot.blocked or w.student in snapshot.approval.removed):
+                continue                                      # the coach's list too keeps these out (rule 3)
+            visible = any(st.id == w.student for st in snapshot.pool) or w.student in snapshot.absent  # a regular back
+            if which == "students" and (not visible or w.student in snapshot.postponed
+                                        or not _eligible(student, snapshot, settings)):
+                continue                                      # every gate its tier holds (tiers rules 3, 10)
             if which == "coach":
                 sides = frozenset({w.side}) if w.side else frozenset(SIDES)
-            elif settings.waiting_list_side_choice and w.sides == "other":
+            elif w.sides == "other":
                 sides = frozenset(SIDES) - student.sides
             elif w.sides == "both":                         # the student accepts either side
                 sides = frozenset(SIDES)
@@ -849,6 +871,8 @@ def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapsh
     if sid in snapshot.blocked:                      # the student's own blocks, even on the coach's list
         return "not_in_pool"
     on_coach_list = _entry(snapshot, sid, "coach") is not None and any(t.source == "coach_list" for t in settings.tiers)
+    if on_coach_list and sid in snapshot.busy_same_time:   # the coach's list keeps this gate (rule 4)
+        return "busy_same_time"
     if not on_coach_list:                            # the coach's list bypasses the pool's gates (rule 3)
         if not any(st.id == sid for st in snapshot.pool):
             return "not_in_pool"
@@ -872,7 +896,7 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
     latest = {i.student: i for i in snapshot.invitations}
     people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list}, key=_natural)
     probe = _Run(snapshot, settings, now, counts, latest, people)
-    sent = {e.student: frozenset(o.side for o in e.offer) for e in effects if isinstance(e, (Invited, Reoffered))}
+    sent = {e.student: frozenset(o.side for o in e.offer) for e in effects if isinstance(e, (Invited, Reopened))}
     verdicts: list[Verdict] = []
     queues: dict[SpotType, tuple[str, ...]] = {}
     for spot_type, _ in spot_types(snapshot, counts):
@@ -891,10 +915,10 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
             elif sid in tiers:
                 held = invitation is not None and invitation.open and invitation.sorry_at is None
                 stage = "invited_earlier" if held else "waiting"
-            elif invitation is not None and invitation.open:
+            elif invitation is not None and invitation.open and invitation.sorry_at is None:
                 stage = "invited_earlier"               # open, but neither counting nor covering this type
             else:
-                stage = "invited_before"                # closed without a No: never a second (D1)
+                stage = "invited_before"                # closed without a No, or sorry off the list: never a second (D1)
             verdicts.append(Verdict(sid, spot_type, stage, t))
         ranked = sorted((t, _order(settings.tiers[t], snapshot.students[sid], snapshot, settings, spot_type), sid)
                         for sid, t in tiers.items() if sid not in sent or sent[sid] & values)
@@ -902,56 +926,76 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
     return DryRun(effects, tuple(verdicts), queues, timeline.may_plan(snapshot, settings, now))
 
 
-# --- semi-automatic mode (engine-planning rule 14, owner ruling D2) ------------------------------------
+# --- semi-automatic mode (engine-planning rule 14; the owner's decisions 5 and 10) ----------------------
 
-def _queues(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> SpotQueues:
+def _dismissed_now(snapshot: SessionSnapshot) -> frozenset[int]:
+    """The groups the coach dismissed whose spot count has not changed since: skipped, as if empty."""
+    if not snapshot.approval.dismissed_groups:
+        return frozenset()
+    count = spot_types(snapshot)
+    return frozenset(t for t, at in snapshot.approval.dismissed_groups if at == count)
+
+
+def _group_queues(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime,
+                  tiers: set[int]) -> dict[int, SpotQueues]:
+    """Each group's queue per open spot type, from the dry run (engine-tiers rule 12)."""
     dry = evaluate(snapshot, settings, now)
-    return tuple((spot_type, dry.queues[spot_type]) for spot_type, _ in spot_types(snapshot, spot_counts(snapshot, settings)))
+    tier_of = {(v.student, v.spot_type): v.tier for v in dry.verdicts}
+    types = [st for st, _ in spot_types(snapshot, spot_counts(snapshot, settings))]
+    out: dict[int, SpotQueues] = {}
+    for t in tiers:
+        queues = tuple((st, tuple(sid for sid in dry.queues.get(st, ()) if tier_of.get((sid, st)) == t)) for st in types)
+        out[t] = tuple((st, q) for st, q in queues if q)
+    return out
 
 
 def decide(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:
     """``plan``, then what semi-automatic mode lets through (engine-planning rule 14). The engine plans
-    the same in both modes; only the sends change. In semi-automatic mode an invitation (or re-offer)
-    to a student outside the approved queue is held and an ``ApprovalRequest`` carries the dry run's
-    queues instead, unless the pending request already has them; one inside the queue goes out. A run
-    with nothing held withdraws the pending request. A dismissed session sends nothing and asks nothing
-    while its open spot types stay as they were at the dismissal. Automatic entry is never held, and
-    in automatic mode a pending request is withdrawn."""
-    planned = plan(snapshot, settings, now)
+    the same in both modes; only the sends change. A dismissed group is skipped, in either mode, while
+    the spot count stays as it was (``GroupReopened`` once it changes). In semi-automatic mode a send
+    from a group not approved for the session is held and an ``ApprovalRequest`` per such group carries
+    its queues, unless that group's pending request already has them; sends from approved groups go
+    out. A pending request whose group the run no longer sends from is withdrawn, except in quiet
+    hours. Automatic entry is never held. In automatic mode the pending requests are withdrawn and the
+    approved groups emptied."""
     approval = snapshot.approval
+    lead: list[Effect] = []
+    if approval.dismissed_groups:
+        live = _dismissed_now(snapshot)
+        lead += [GroupReopened(snapshot.id, now, t) for t, _ in approval.dismissed_groups if t not in live]
+        if lead:
+            approval = replace(approval, dismissed_groups=tuple(d for d in approval.dismissed_groups if d[0] in live))
+            snapshot = replace(snapshot, approval=approval)
+    planned = plan(snapshot, settings, now)
     if any(isinstance(e, Placed) for e in planned.effects):     # automatic entry: its own run, not held
-        return planned
-    lead: tuple[Effect, ...] = ()
-    if settings.invitation_mode != "semi_automatic":          # automatic: no pending request, no approved queue
-        if approval.pending is not None:
-            lead += (ApprovalWithdrawn(snapshot.id, now),)
-        if approval.approved:
-            lead += (QueueApproved(snapshot.id, now, frozenset(), frozenset()),)
-    if approval.dismissed is not None:                          # in either mode (a dismissal survives a switch)
-        if approval.dismissed == spot_types(snapshot):          # still dismissed: nothing is sent or asked
-            return Plan(lead + tuple(e for e in planned.effects if not _is_send(e)))
-        lead += (QueueReopened(snapshot.id, now),)              # the spot count changed: ask again
+        return Plan(tuple(lead) + planned.effects)
     if settings.invitation_mode != "semi_automatic":
-        return Plan(lead + planned.effects)
-    held = {e.student for e in planned.effects
-            if isinstance(e, (Invited, Reoffered)) and e.student not in approval.approved}
-    effects = lead + tuple(e for e in planned.effects if not (_is_send(e) and e.student in held))
-    if held:
-        queues = _queues(snapshot, settings, now)
-        if queues != approval.pending or lead:
-            effects += (ApprovalRequest(snapshot.id, now, queues, _request_id(snapshot.id, now, queues)),)
-    elif approval.pending is not None and not timeline.is_quiet(settings, now):
-        effects += (ApprovalWithdrawn(snapshot.id, now),)   # quiet hours only pause the sends: it stays pending
-    return Plan(effects)
+        lead += [ApprovalWithdrawn(snapshot.id, now, p.tier, p.request) for p in approval.pending]
+        if approval.approved_groups:
+            lead.append(GroupsCleared(snapshot.id, now))
+        return Plan(tuple(lead) + planned.effects)
+    held_tiers = {e.tier for e in planned.effects if isinstance(e, (Invited, Reopened))
+                  and e.tier is not None and e.tier not in approval.approved_groups}
+    held = {e.student for e in planned.effects if isinstance(e, (Invited, Reopened)) and e.tier in held_tiers}
+    effects = lead + [e for e in planned.effects if not (_is_send(e) and e.student in held)]
+    reopened = {e.tier for e in lead if isinstance(e, GroupReopened)}
+    for t, queues in sorted(_group_queues(snapshot, settings, now, held_tiers).items() if held_tiers else ()):
+        pending = approval.pending_for(t)
+        if pending is None or pending.queues != queues or t in reopened:
+            effects.append(ApprovalRequest(snapshot.id, now, t, queues, _request_id(snapshot.id, now, t, queues)))
+    if not timeline.is_quiet(settings, now):                    # quiet hours only pause the sends
+        effects += [ApprovalWithdrawn(snapshot.id, now, p.tier, p.request)
+                    for p in approval.pending if p.tier not in held_tiers]
+    return Plan(tuple(effects))
 
 
-def _request_id(session: str, now: datetime, queues: SpotQueues) -> str:
-    """A request's id: its session, instant and queues, so a store applying it twice writes it once."""
-    digest = hashlib.sha1(repr((session, now.isoformat(), queues)).encode()).hexdigest()[:12]
-    return f"{session}:{now:%Y%m%dT%H%M%S}:{digest}"
+def _request_id(session: str, now: datetime, tier: int, queues: SpotQueues) -> str:
+    """A request's id: its session, instant, group and queues, so a store applying it twice writes it once."""
+    digest = hashlib.sha1(repr((session, now.isoformat(), tier, queues)).encode()).hexdigest()[:12]
+    return f"{session}:{now:%Y%m%dT%H%M%S}:{tier}:{digest}"
 
 
 def _is_send(effect: Effect) -> bool:
-    """An invitation going out: ``Invited``, ``Reoffered`` and the messages a plan sends with them."""
-    return isinstance(effect, (Invited, Reoffered)) or (
-        isinstance(effect, Message) and effect.kind in ("reoffer", "waiting_list_invite"))
+    """An invitation going out: ``Invited``, ``Reopened`` and the messages a plan sends with them."""
+    return isinstance(effect, (Invited, Reopened)) or (
+        isinstance(effect, Message) and effect.kind == KIND_WAITING_LIST_INVITE)

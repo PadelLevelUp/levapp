@@ -11,7 +11,7 @@ import pytest
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.settings import EngineSettings
-from padel_app.invitation_engine.snapshot import Approval, SpotType, Student
+from padel_app.invitation_engine.snapshot import Approval, PendingRequest, SpotType, Student
 from padel_app.sql_db import db
 
 @pytest.fixture(autouse=True)
@@ -325,31 +325,42 @@ def test_levels_reach_the_engine_as_ladder_positions(app):
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-4")
 def test_the_coachs_approval_round_trips_through_the_store(app):
-    """Owner ruling D2: the store keeps one session's approval state as the engine's effects leave it.
-    A request sets the pending queues and ends a dismissal; an approval replaces ``approved``, adds to
-    ``removed`` and ends the request; a dismissal keeps the spots it saw; a reopening ends it. The
-    request is a message to the coach, sent once by the outbox."""
+    """Engine-store rule 5, per group (owner decisions 5, 10): a request for group 1, its approval removing
+    one student, a request for group 2, its dismissal (keeping the spot counts it saw), its reopening, a
+    third request for group 2, its approval removing another, and a group-3 request withdrawn; after each
+    the snapshot says so, and the outbox sends each request once."""
     from padel_app.services.engine_store import dispatch
 
     store, (a,), (_, x, y) = _seed(app)
     L = SpotType("L", 3)
+    q = ((L, (x, y)),)
+
+    def at(m):
+        return NOW + timedelta(minutes=m)
+
     steps = [
-        ([fx.ApprovalRequest(a, NOW, ((L, (x, y)),), "r1")], Approval(pending=((L, (x, y)),), pending_request="r1")),
-        ([fx.QueueApproved(a, NOW, frozenset({x}), frozenset({y}))], Approval(approved=frozenset({x}),
-                                                                              removed=frozenset({y}))),
-        ([fx.QueueDismissed(a, NOW, ((L, 1),))], Approval(approved=frozenset({x}), removed=frozenset({y}),
-                                                          dismissed=((L, 1),))),
-        ([fx.QueueReopened(a, NOW + timedelta(minutes=1)), fx.ApprovalRequest(a, NOW + timedelta(minutes=1), ((L, (x,)),), "r2")],
-         Approval(approved=frozenset({x}), removed=frozenset({y}), pending=((L, (x,)),), pending_request="r2")),
-        ([fx.ApprovalWithdrawn(a, NOW + timedelta(minutes=2))], Approval(approved=frozenset({x}), removed=frozenset({y}))),
+        ([fx.ApprovalRequest(a, at(1), 1, q, "r1")], Approval(pending=(PendingRequest(1, "r1", q),))),
+        ([fx.GroupApproved(a, at(2), 1, frozenset({y}))], Approval(approved_groups=frozenset({1}), removed=frozenset({y}))),
+        ([fx.ApprovalRequest(a, at(3), 2, q, "r2")],
+         Approval(approved_groups=frozenset({1}), removed=frozenset({y}), pending=(PendingRequest(2, "r2", q),))),
+        ([fx.GroupDismissed(a, at(4), 2, ((L, 1),))],
+         Approval(approved_groups=frozenset({1}), removed=frozenset({y}), dismissed_groups=((2, ((L, 1),)),))),
+        ([fx.GroupReopened(a, at(5), 2)], Approval(approved_groups=frozenset({1}), removed=frozenset({y}))),
+        ([fx.ApprovalRequest(a, at(6), 2, q, "r3")],
+         Approval(approved_groups=frozenset({1}), removed=frozenset({y}), pending=(PendingRequest(2, "r3", q),))),
+        ([fx.GroupApproved(a, at(7), 2, frozenset({x}))],
+         Approval(approved_groups=frozenset({1, 2}), removed=frozenset({x, y}))),
+        ([fx.ApprovalRequest(a, at(8), 3, q, "r4"), fx.ApprovalWithdrawn(a, at(9), 3, "r4")],
+         Approval(approved_groups=frozenset({1, 2}), removed=frozenset({x, y}))),
     ]
     for effects, expected in steps:
         with store.unit((a,)):
             store.apply(effects)
         assert store.snapshot(a).approval == expected
     sent = []
-    assert dispatch(lambda row: sent.append(row.kind), now=NOW) == 2
-    assert sent == ["ApprovalRequest", "ApprovalRequest"]
+    dispatch(lambda row: sent.append(row.payload["request"]) if row.kind == "ApprovalRequest" else None, now=NOW)
+    assert sorted(sent) == ["r1", "r2", "r3", "r4"]
+    assert dispatch(lambda row: sent.append(row), now=NOW) == 0
 
 
 
@@ -445,7 +456,7 @@ def test_a_student_the_system_recorded_as_coming_counts_as_confirmed(app):
 @pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-16")
 def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everything(app):
     """Student-block-preferences rule 8 (new-engine section): at send time the outbox does not
-    deliver a ``reoffer`` or a ``waiting_list_invite`` (nor an invitation) to a student with
+    deliver a ``waiting_list_invite`` (nor an invitation) to a student with
     ``notif_block_all``; a ``sorry`` still is. A student without the block gets all of them."""
     from padel_app.models import User
     from padel_app.models.players import Player
@@ -456,11 +467,11 @@ def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everyt
     db.session.commit()
     with store.unit((a,)):
         store.apply([fx.Message(a, NOW, s, kind) for s in (blocked, free)
-                     for kind in ("reoffer", "waiting_list_invite", "sorry")])
+                     for kind in ("waiting_list_invite", "sorry")])
     sent = []
     dispatch(lambda row: sent.append((row.player_id, row.payload["kind"])), now=NOW)
     assert sorted(sent) == sorted([(int(blocked), "sorry")] + [(int(free), k) for k in
-                                                                ("reoffer", "waiting_list_invite", "sorry")])
+                                                                ("waiting_list_invite", "sorry")])
     assert dispatch(lambda row: sent.append(row), now=NOW) == 0           # claimed, never retried
 
 
@@ -501,7 +512,7 @@ def test_a_session_belongs_to_the_occurrences_primary_coach(app):
     store = TableStore(clock=lambda: NOW)
     for sid in (str(twin.id), str(bare.id)):
         with store.unit((sid,)):
-            store.add_session(sid, 3, 4, START, [], NOW)
+            store.add_session(sid, 3, 4, START, [], NOW, end=START + timedelta(hours=1))   # the protocol's end, unused
     assert store.coach_of(str(twin.id)) == first           # the coach assigned first
     assert store.coach_of(str(bare.id)) == co.id            # no row of its own: the lesson's coach
 
@@ -510,9 +521,10 @@ def test_a_session_belongs_to_the_occurrences_primary_coach(app):
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-7")
 def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
     """Engine-store rule 8 (invitations NB1a): the store keeps an invitation's bubbles and writes each new
-    state on every one of them, with ``startsAt`` and ``countsUntil``, one ``message_edited`` per message
-    after the commit: ``sorry``; a re-offer (``reoffered``, ``reoffered_at``) whose own bubble is
-    attached after; the coach's ``withdraw`` (``withdrawn``, ``closed_reason``). Elsewhere an answer is
+    state, with ``startsAt`` and ``countsUntil``, one ``message_edited`` per message after the commit:
+    ``sorry``; a reopening (``reopened`` on every bubble so far, ``reopened_at``) whose own bubble is
+    attached after; then the coach's ``withdraw`` (``withdrawn``, ``closed_reason``) on the newest bubble
+    only, the older keeping ``reopened``. Elsewhere an answer is
     ``answered`` with its response, and a same-hour placement ``closed_same_hour`` (``same_hour``)."""
     from padel_app import realtime
     from padel_app.models import Conversation, EngineInvitation, Message, User
@@ -544,16 +556,16 @@ def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
         store.apply([fx.Sorry(a, NOW + timedelta(minutes=1), x)])
     assert states(first) == ["sorry"] and db.session.get(Message, first).msg_metadata["startsAt"]
     with store.unit((a,)):
-        store.apply([fx.Reoffered(a, NOW + timedelta(minutes=2), x, frozenset({SpotType("L", 3)}), "L", 0,
+        store.apply([fx.Reopened(a, NOW + timedelta(minutes=2), x, frozenset({SpotType("L", 3)}), "L", 0,
                                   NOW + timedelta(minutes=30))])
-    assert states(first) == ["reoffered"]
-    assert db.session.get(EngineInvitation, store.invitation_id(a, x)).reoffered_at == NOW + timedelta(minutes=2)
+    assert states(first) == ["reopened"]
+    assert db.session.get(EngineInvitation, store.invitation_id(a, x)).reopened_at == NOW + timedelta(minutes=2)
     second = bubble(x)
     edited.clear()
     with store.unit((a,)):
         assert store.withdraw(store.invitation_id(a, x), NOW + timedelta(minutes=3))
-    assert states(first, second) == ["withdrawn", "withdrawn"]
-    assert sorted(m for _, m, _ in edited) == sorted([first, second])
+    assert states(first, second) == ["reopened", "withdrawn"]          # the older bubble keeps "reopened"
+    assert [m for _, m, _ in edited] == [second]
     assert all(kind == "message_edited" for kind, _, _ in edited)
     assert db.session.get(Message, second).msg_metadata["countsUntil"] == (NOW + timedelta(minutes=30)).isoformat()
     assert db.session.get(EngineInvitation, store.invitation_id(a, x)).closed_reason == "withdrawn"
@@ -584,24 +596,23 @@ def test_an_alert_cleared_drops_the_alert(app):
 
 
 def test_the_request_message_says_how_the_request_ended(app, monkeypatch):
-    """Semi-auto-approval N4 (the store's half of SEMI-AUTO-APPROVAL-43): the request's Assistant
+    """Semi-auto-approval N4 (the store's half of SEMI-AUTO-APPROVAL-43), per group: a request's Assistant
     message, attached only while that request is pending, says ``replaced``, ``approved`` or
-    ``dismissed`` with ``responded`` true when the request stops being pending, one ``message_edited``
-    each; a re-raise of the same request leaves it alone, and an emptied approved queue with no request
-    pending edits nothing."""
+    ``dismissed`` with ``responded`` true when it stops being pending, one ``message_edited`` each; a
+    re-raise of the same request leaves it alone, and clearing the approved groups edits nothing."""
     from padel_app import realtime
     from padel_app.models import Conversation, Message, User
 
     edited = []
     monkeypatch.setattr(realtime, "publish", lambda event, users: edited.append(event["payload"]["id"]))
     store, (a,), (_, x, _) = _seed(app)
-    L = SpotType("L", 3)
+    q = ((SpotType("L", 3), (x,)),)
     coach_user = User.query.filter_by(username="c916").one().id
     conv = Conversation.get_or_insert([coach_user])
 
-    def request(rid, minute):
+    def request(tier, rid, minute):
         with store.unit((a,)):
-            store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=minute), ((L, (x,)),), rid)])
+            store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=minute), tier, q, rid)])
         msg = Message(text="request", sender_id=coach_user, conversation_id=conv.id,
                       message_type="replacement_approval", msg_metadata={"requestId": rid, "state": "pending"})
         db.session.add(msg)
@@ -613,21 +624,128 @@ def test_the_request_message_says_how_the_request_ended(app, monkeypatch):
     def meta(mid):
         return db.session.get(Message, mid).msg_metadata
 
-    first, ok = request("r1", 1)
-    assert ok and not store.attach_request_message(a, "r0", first)          # only the pending request
+    first, ok = request(1, "r1", 1)
+    assert ok and not store.attach_request_message(a, "r0", first)          # only a pending request
     with store.unit((a,)):
-        store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=2), ((L, (x,)),), "r1")])   # the same one
+        store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=2), 1, q, "r1")])   # the same one again
     assert meta(first)["state"] == "pending" and edited == []
-    second, _ = request("r2", 3)
+    second, _ = request(1, "r2", 3)
     assert (meta(first)["state"], meta(first)["responded"]) == ("replaced", True) and edited == [first]
     with store.unit((a,)):
-        store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=4), frozenset({x}), frozenset())])
+        store.apply([fx.GroupApproved(a, NOW + timedelta(minutes=4), 1, frozenset())])
     assert (meta(second)["state"], meta(second)["responded"]) == ("approved", True)
-    third, _ = request("r3", 5)
+    third, _ = request(2, "r3", 5)
     with store.unit((a,)):
-        store.apply([fx.QueueDismissed(a, NOW + timedelta(minutes=6), ((L, 1),))])
+        store.apply([fx.GroupDismissed(a, NOW + timedelta(minutes=6), 2, ((SpotType("L", 3), 1),))])
     assert meta(third)["state"] == "dismissed"
     edited.clear()
     with store.unit((a,)):
-        store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=7), frozenset(), frozenset())])
-    assert edited == []
+        store.apply([fx.GroupsCleared(a, NOW + timedelta(minutes=7))])
+    assert edited == [] and store.snapshot(a).approval.approved_groups == frozenset()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-9")
+def test_the_snapshot_carries_each_sessions_end(app):
+    """Engine-store rule 4, engine-tiers rule 3 (owner decision 11, the 11-11 ruling kept): a 90-minute
+    occurrence at 18:00 runs to 19:30, so a student going to it is busy for the same coach's 19:00 session;
+    one that only touches (19:30) is not, and the store refuses a placement into the overlapping session
+    (engine-answers rule 10). Another coach's class makes the student busy only at the same start."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.services.engine_store import SameHourConflict
+
+    six = START.replace(hour=18)
+    nine = six + timedelta(hours=3)
+    store, (a, b, c, same, overlap), (_, x, _) = _seed(
+        app, starts=(six, six + timedelta(hours=1), six + timedelta(minutes=90), nine, nine + timedelta(minutes=30)))
+    db.session.get(LessonInstance, int(a)).end_datetime = six + timedelta(minutes=90)
+    db.session.commit()
+    with store.unit((a,)):
+        store.apply([fx.Placed(a, NOW, x, "L", "invitation")])
+
+    assert store.snapshot(a).end == six + timedelta(minutes=90)
+    assert x in store.snapshot(b).busy_same_time and store.snapshot(b).end == six + timedelta(hours=2)
+    assert x not in store.snapshot(c).busy_same_time                       # touching ends do not overlap
+    with pytest.raises(SameHourConflict), store.unit((b,)):
+        store.apply([fx.Placed(b, NOW, x, "L", "invitation")])
+    with store.unit((c,)):
+        store.apply([fx.Placed(c, NOW, x, "L", "invitation")])
+    assert x in {p.student for p in store.snapshot(c).going}
+
+    other = User(name="Other", username="o916b", password="x", status="active")
+    db.session.add(other)
+    db.session.flush()
+    other_coach = Coach(user_id=other.id)
+    db.session.add(other_coach)
+    db.session.flush()
+    first = db.session.get(LessonInstance, int(a))
+    theirs = LessonInstance(lesson_id=first.lesson_id, start_datetime=nine, end_datetime=nine + timedelta(hours=1),
+                            max_players=4, status="scheduled", level_id=first.level_id)
+    db.session.add(theirs)
+    db.session.flush()
+    db.session.add_all([Association_CoachLessonInstance(coach_id=other_coach.id, lesson_instance_id=theirs.id),
+                        Presence(lesson_instance_id=theirs.id, player_id=int(x), enrolment_source="fill")])
+    db.session.commit()
+    assert x in store.snapshot(same).busy_same_time                         # another coach, the same start
+    assert x not in store.snapshot(overlap).busy_same_time                  # another coach, only overlapping
+
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-10")
+def test_a_no_show_stays_placed(app):
+    """Engine-store rule 4: a presence is going unless the engine recorded the student leaving (absent
+    with ``left_reason`` ``regular_no`` or ``cancel``). A no-show and the coach's absent mark after the
+    class has started record attendance: the student keeps the spot (scenarios 60, P16). The coach's
+    absent mark before the start is a leaving (attendance.confirm rule 13): PAD-918's entry point sends
+    it to the engine first, as the regular's absence or a cancel, so the student is not going."""
+    from padel_app.models.presences import Presence
+
+    store, (a,), (reg, x, y, z) = _seed(app, players=4)
+    with store.unit((a,)):
+        store.apply([fx.Placed(a, NOW, s, "L", "invitation") for s in (x, y, z)])
+    after = START + timedelta(hours=2)
+    with store.unit((a,)):
+        store.apply([fx.Absence(a, after, x, "late"), fx.Left(a, after, x, "no_show")])
+    Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(y)).one().status = "absent"   # the sheet, after
+    db.session.commit()
+    assert {p.student for p in store.snapshot(a).going} == {reg, x, y, z}
+
+    before = START - timedelta(hours=3)                    # the coach's marks before the start, through the engine
+    with store.unit((a,)):
+        store.apply([fx.Absence(a, before, reg, "late"), fx.Left(a, before, reg, "regular_no"),
+                     fx.Absence(a, before, z, "late"), fx.Left(a, before, z, "cancel")])
+    for pid in (reg, z):
+        Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(pid)).one().status = "absent"
+    db.session.commit()
+    going = {p.student for p in store.snapshot(a).going}
+    assert going == {x, y} and reg in store.snapshot(a).absent
+
+
+
+def test_elsewhere_says_whose_session_it_is(app):
+    """Engine-tiers rule 3: each ``Elsewhere`` (an open invitation in another session that club day)
+    carries ``same_coach``, so the engine reads the same coach's session as at the same time when it
+    overlaps and another coach's only at the same start."""
+    from padel_app.models import EngineSession, User
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
+
+    six = START.replace(hour=18)
+    store, (a, b, c), (_, x, _) = _seed(app, starts=(six, six + timedelta(hours=1), six + timedelta(hours=2)))
+    other = User(name="Other", username="o916c", password="x", status="active")
+    db.session.add(other)
+    db.session.flush()
+    other_coach = Coach(user_id=other.id)
+    db.session.add(other_coach)
+    db.session.flush()
+    Association_CoachLessonInstance.query.filter_by(lesson_instance_id=int(c)).one().coach_id = other_coach.id
+    db.session.get(EngineSession, int(c)).coach_id = other_coach.id
+    db.session.commit()
+    for sid in (b, c):
+        with store.unit((sid,)):
+            store.apply([_invited(sid, x)])
+    by_session = {e.session: e.same_coach for e in store.snapshot(a).elsewhere}
+    assert by_session == {b: True, c: False}

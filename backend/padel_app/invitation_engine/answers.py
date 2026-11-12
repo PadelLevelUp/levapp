@@ -15,8 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from padel_app.invitation_engine import absences, planner, timeline
-from padel_app.invitation_engine.constants import KIND_REOFFER, KIND_SORRY
+from padel_app.invitation_engine import absences, planner
+from padel_app.invitation_engine.constants import KIND_SORRY
 from padel_app.invitation_engine.effects import (
     Absence,
     Answered,
@@ -26,7 +26,6 @@ from padel_app.invitation_engine.effects import (
     Message,
     Placed,
     Refused,
-    Reoffered,
     Sorry,
     WaitingListJoined,
     WaitingListLeft,
@@ -129,48 +128,12 @@ def _answer(snapshot: SessionSnapshot, settings: EngineSettings, request: Answer
     if sid in snapshot.busy_same_time:
         return ()                                          # rule 10: already placed at this hour, refused
     if invitation.sorry_at is not None:
-        return ()                                          # rule 4: no spot with it until a re-offer
+        return ()                                          # rule 4: sorry offers nothing more
     side = _place_side(snapshot, settings, sid, invitation.offer, invitation.side_named, now)
     if side is not None:
         return _placed(snapshot, sid, side, "invitation", now, answered=True)
-    return _reoffer(snapshot, settings, sid, invitation.offer, now) or (
-        Sorry(snapshot.id, now, sid), Message(snapshot.id, now, sid, KIND_SORRY))   # rule 4
-
-
-def _reoffer(snapshot: SessionSnapshot, settings: EngineSettings, sid: str, tried: frozenset[SpotType],
-             now: datetime) -> tuple[Effect, ...]:
-    """Rule 3: the Yes could not be placed within the offer, but an open spot of another side
-    remains that some tier admits the student for: the same invitation is re-offered for it (the
-    hardest such side by rule 2's measure), with a new T fixed now. Not a final answer; one
-    invitation still (D1). Empty when no such spot exists."""
-    student = snapshot.students.get(sid)
-    if student is None:
-        return ()
-    counts = planner.spot_counts(snapshot)
-    tried_sides = {t.side for t in tried}
-    fits: dict[Side, int] = {}
-    for v in sorted(open_sides(snapshot) - tried_sides):
-        t = planner.tier_for(student, SpotType(v, snapshot.level), counts, snapshot, settings)
-        if t is not None:
-            fits[v] = t
-    if not fits:
-        return ()
-    side = _hardest(snapshot, settings, sid, frozenset(fits), now)
-    tier = fits[side]
-    spot_type = SpotType(side, snapshot.level)
-    run = _run(snapshot, settings, now)
-    run.used.add(sid)
-    buckets = run.buckets(spot_type)
-    others_left = bool(buckets.get(tier) and buckets[tier].fresh)
-    share = None
-    if settings.timing.method == "progressive":
-        taking_part = planner._method_b_tiers(run, spot_type, sorted(set(buckets) | {tier}))
-        share = timeline.method_b_t(snapshot, settings, now, len(taking_part), taking_part.index(tier))
-    t_send = timeline.t_at_send(settings, tier, others_left, share)
-    offer = frozenset({side})
-    return (Reoffered(snapshot.id, now, sid, frozenset({spot_type}), planner.side_named(offer, student), tier,
-                      timeline.counts_until(settings, now, t_send)),
-            Message(snapshot.id, now, sid, KIND_REOFFER))
+    # Rules 3 and 4: never another side or type on this answer; sorry, and the waiting list is the way back.
+    return (Sorry(snapshot.id, now, sid), Message(snapshot.id, now, sid, KIND_SORRY))
 
 
 def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime, *,

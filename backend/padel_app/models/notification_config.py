@@ -63,6 +63,11 @@ DEFAULT_MESSAGE_TEMPLATES = {
     # student is counted as coming and told so. No question in it.
     "added_to_class_coming": "Hi {name}, I've added you to {class}{when}. You're counted as coming. If you can't make it, tell me in the app. 🎾",
     "class_cancelled": "Hi {name}, your {level} class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
+    # The new engine (notifications.message-templates, new-engine section N1-N2; PAD-916's outbox): a
+    # waiting-list student it placed, a side it set, and the coach's nobody-left-to-invite alert.
+    "waiting_list_added": "Hi {name}, a spot opened in the {level} class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾",
+    "side_moved": "Hi {name}, in the {level} class on {weekday} at {time} you'll play on the {sideName} side. See you there!",
+    "coach_no_candidate": "{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.",
 }
 
 DEFAULT_MESSAGE_TEMPLATES_PT = {
@@ -80,6 +85,9 @@ DEFAULT_MESSAGE_TEMPLATES_PT = {
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
     "class_cancelled": "Olá {name}, a tua aula de {level} de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
+    "waiting_list_added": "Olá {name}, abriu uma vaga na aula de {level} na {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾",
+    "side_moved": "Olá {name}, na aula de {level} na {weekday} às {time} vais jogar do lado {sideName}. Até já!",
+    "coach_no_candidate": "{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.",
 }
 
 

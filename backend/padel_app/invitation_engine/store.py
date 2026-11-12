@@ -16,12 +16,15 @@ from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
     Approval,
     Elsewhere,
+    PendingRequest,
     Invitation,
     Placement,
     SessionSnapshot,
     Side,
     Student,
     WaitingListEntry,
+    overlaps,
+    session_end,
 )
 
 
@@ -37,7 +40,7 @@ class SessionStore(Protocol):
     def snapshot(self, session: str) -> SessionSnapshot: ...
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
-                    joined_at: Mapping[str, datetime] | None = None) -> None: ...
+                    joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None) -> None: ...
     def reveal(self, student: str) -> None: ...
     def exclude(self, session: str, student: str) -> None: ...
     def apply(self, effects: Iterable[fx.Effect]) -> None: ...
@@ -68,6 +71,8 @@ class _Session:
     last_moved_at: dict[str, datetime] = field(default_factory=dict)
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
     approval: Approval = field(default_factory=Approval)
+    end: datetime | None = None
+    coach: str | None = None
 
 
 class MemoryStore:
@@ -96,7 +101,11 @@ class MemoryStore:
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
-                    joined_at: Mapping[str, datetime] | None = None) -> None:
+                    joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None,
+                    coach: str | None = None) -> None:
+        """``end`` defaults to an hour after ``start``; ``coach`` names the session's coach, ``None`` for
+        the harness's one coach: the same coach's overlapping sessions, and any coach's at the same
+        start, make a student busy (tiers rule 3)."""
         if session in self._sessions:
             raise ValueError(f"session {session} already exists")
         regs: dict[str, Student] = {}
@@ -106,7 +115,8 @@ class MemoryStore:
             regs[student.id] = student
             going[student.id] = Placement(student.id, side, "regular", at)
         joined = {sid: (joined_at or {}).get(sid, at) for sid in regs}
-        self._sessions[session] = _Session(session, level, capacity, start, regs, going, joined_at=joined)
+        self._sessions[session] = _Session(session, level, capacity, start, regs, going, joined_at=joined,
+                                           end=session_end(start, end), coach=coach)
 
     # --- reading -------------------------------------------------------------------------
 
@@ -123,8 +133,9 @@ class MemoryStore:
                      if sid not in inside and sid not in self._hidden and sid not in s.excluded)
         named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
         others = [o for o in self._sessions.values() if o.id != s.id]
-        busy = {sid for o in others if o.start == s.start for sid in o.going}
-        elsewhere = tuple(Elsewhere(o.id, o.start, i, o.capacity, tuple(o.going.values()))
+        busy = {sid for o in others if (overlaps(o.start, o.end, s.start, s.end) if o.coach == s.coach
+                                        else o.start == s.start) for sid in o.going}
+        elsewhere = tuple(Elsewhere(o.id, o.start, i, o.capacity, tuple(o.going.values()), o.end, o.coach == s.coach)
                           for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open)
         return SessionSnapshot(
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
@@ -134,7 +145,7 @@ class MemoryStore:
             busy_same_time=frozenset(busy), elsewhere=elsewhere, alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
-            attendance_requested=dict(s.attendance_requested), approval=s.approval,
+            attendance_requested=dict(s.attendance_requested), approval=s.approval, end=s.end,
         )
 
     # --- writing -------------------------------------------------------------------------
@@ -154,21 +165,27 @@ class MemoryStore:
             if isinstance(e, fx.AlertCleared):
                 s.alerted.pop(e.spot_type, None)
                 continue
-            if isinstance(e, fx.ApprovalRequest):              # semi-automatic mode (planning rule 14)
-                s.approval = replace(s.approval, pending=e.queues, pending_request=e.request, dismissed=None)
+            a = s.approval                                       # semi-automatic mode (planning rule 14)
+            if isinstance(e, fx.ApprovalRequest):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.tier != e.tier)
+                                     + (PendingRequest(e.tier, e.request, e.queues),))
             elif isinstance(e, fx.ApprovalWithdrawn):
-                s.approval = replace(s.approval, pending=None, pending_request=None)
-            elif isinstance(e, fx.QueueApproved):
-                s.approval = replace(s.approval, approved=e.approved, removed=s.approval.removed | e.removed,
-                                     pending=None, pending_request=None)
-            elif isinstance(e, fx.QueueDismissed):
-                s.approval = replace(s.approval, pending=None, pending_request=None, dismissed=e.spots)
-            elif isinstance(e, fx.QueueReopened):
-                s.approval = replace(s.approval, dismissed=None)
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.request != e.request))
+            elif isinstance(e, fx.GroupApproved):
+                s.approval = replace(a, approved_groups=a.approved_groups | {e.tier}, removed=a.removed | e.removed,
+                                     pending=tuple(p for p in a.pending if p.tier != e.tier))
+            elif isinstance(e, fx.GroupDismissed):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.tier != e.tier),
+                                     dismissed_groups=tuple(d for d in a.dismissed_groups if d[0] != e.tier)
+                                     + ((e.tier, e.spots),))
+            elif isinstance(e, fx.GroupReopened):
+                s.approval = replace(a, dismissed_groups=tuple(d for d in a.dismissed_groups if d[0] != e.tier))
+            elif isinstance(e, fx.GroupsCleared):
+                s.approval = replace(a, approved_groups=frozenset())
             elif isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))
-            elif isinstance(e, (fx.Sorry, fx.Reoffered)):
+            elif isinstance(e, (fx.Sorry, fx.Reopened)):
                 i = self._latest_open(s, e.student)
                 if i is not None and isinstance(e, fx.Sorry):
                     s.invitations[i] = replace(s.invitations[i], sorry_at=e.at)

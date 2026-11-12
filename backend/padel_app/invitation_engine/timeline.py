@@ -205,7 +205,9 @@ def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> t
     """The session's time-driven effects at ``now`` (naive UTC), before the planning run.
 
     From ``last_invite_at`` on (§8 step 6, engine-timeline rule 6): every flexible going student gets
-    a final side, and a side over its quota sheds regulars to the other side while it has room. Each
+    a final side, and a side over its quota sheds students who play the other side too, while it has
+    room; a one-sided student never moves to the other side (the owner's decisions 12 and 13), so an
+    imbalance no such move fixes stays, unannounced. Each
     is a ``SideAssigned`` with a ``side_moved`` message. Once applied nothing is left to do, so later
     runs return nothing until the going students change."""
     if now < last_invite_at(snapshot, settings):
@@ -234,12 +236,14 @@ def _final_sides(snapshot: SessionSnapshot, now: datetime) -> tuple[Effect, ...]
         options = [v for v in SIDES if student is None or v in student.sides]
         assign(p.student, max(options, key=lambda v: quota - count[v]))
 
-    # Then a side over its quota sheds regulars: the coach's choice is not modelled here; whoever moved
-    # least recently (never moved first), ties to the one who joined the class most recently.
+    # Then a side over its quota sheds a student who plays both sides: the coach's choice is not
+    # modelled here; whoever moved least recently (never moved first), ties to the one who joined the
+    # class most recently. A one-sided student never goes to the other side (decisions 12, 13).
     for v in SIDES:
         other = next(w for w in SIDES if w != v)
         while count[v] > quota and count[other] < quota:
-            movable = [p.student for p in snapshot.going if p.how == "regular" and side[p.student] == v]
+            movable = [p.student for p in snapshot.going if side[p.student] == v
+                       and (st := snapshot.students.get(p.student)) is not None and other in st.sides]
             if not movable:
                 break
             never = datetime.min

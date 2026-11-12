@@ -84,6 +84,7 @@ class CreateSession:
     start: datetime                                   # Lisbon wall-clock
     regulars: tuple[tuple[Student, Side | None], ...]
     joined_at: Mapping[str, datetime] | None = None   # per regular, naive UTC; absent: the creation instant
+    end: datetime | None = None                       # Lisbon wall-clock; absent: an hour after start
 
 
 @dataclass(frozen=True)
@@ -112,28 +113,32 @@ class UpdateSettings:
 
 
 @dataclass(frozen=True)
-class ApproveQueue:
-    """The coach approves approval request ``request`` (its id), without ``removed`` (engine-planning
-    rule 14). An answer to a request that is no longer pending decides nothing."""
+class ApproveGroup:
+    """The coach approves the group of approval request ``request`` (its id), without ``removed``
+    (engine-planning rule 14). An answer to a request that is no longer pending decides nothing."""
 
     request: str
     removed: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
-class DismissQueue:
-    """The coach dismisses the pending approval request ("Ignorar", engine-planning rule 14)."""
+class DismissGroup:
+    """The coach dismisses the group of approval request ``request`` ("Ignorar", engine-planning rule 14)."""
+
+    request: str
 
 
 @dataclass(frozen=True)
-class ReopenQueue:
-    """The coach reopens a dismissed session from the class (engine-planning rule 14)."""
+class ReopenGroup:
+    """The coach reopens dismissed group ``tier`` from the class (engine-planning rule 14)."""
+
+    tier: int
 
 
-COACH_QUEUE_REQUESTS = (ApproveQueue, DismissQueue, ReopenQueue)
+COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
            | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | Appear | UpdateSettings
-           | ApproveQueue | DismissQueue | ReopenQueue)
+           | ApproveGroup | DismissGroup | ReopenGroup)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
                     NoShow, ConfirmAttendance)
