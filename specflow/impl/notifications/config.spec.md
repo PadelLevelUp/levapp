@@ -413,9 +413,19 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     - `autoNotifyEnabled` off, or a class's `auto_invites` or `notifications_enabled` off → the store
       lists none of those sessions;
     - `openSpotsVisible`, `notificationGroups` and `messageTemplates` stay the app's.
-    Not mapped until the owner answers (PAD-912): `invitationMode` (swap decision 2),
-    `restrictions.maxTotal` (3), `restrictions.cancellationDeadlineHours` → `absence_cutoff_before`
-    (4) and `invitationGroups` → `tiers` (5). The keys only the new engine has (`timing.method` and
+    The owner's answers (2026-11-11, PAD-912 decisions 2–5):
+    - `invitationMode` → carried as stored; `semi_automatic` turns on the engine's hold
+      (`notifications.engine-planning` rule 14);
+    - `restrictions.maxTotal` → nothing: the owner dropped it (decision 3), M is the only cap;
+    - `restrictions.cancellationDeadlineHours` → `absence_cutoff_before`, in hours; it only marks an
+      absence on time or late (`notifications.engine-timeline` rule 5, decision 4);
+    - `invitationGroups` → `tiers`, one tier per stored group in the coach's order, after the coach's
+      list and the students' list, each carrying the group's rules (`notifications.engine-tiers`
+      rule 13, decision 5); a group with no rules ("everyone") is a pool tier of any side and any level
+      (`level_offset` none). Until the tier carries every rule kind, a group holding a rule the tier
+      cannot express is refused (`SettingsError` naming the group and the rule), and that coach cannot
+      be switched to the new engine (rule 18): no group is rounded to a nearer tier.
+    The keys only the new engine has (`timing.method` and
     `per_tier`, automatic entry, side-bound lists) take the engine's defaults, which are the plan.
 
 ### Acceptance Criteria
@@ -786,6 +796,28 @@ the store builds the coach's `EngineSettings`, then `ordering` holds the enabled
 their order followed by the enabled tiebreakers in theirs, and nothing that is off.
 test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_ordering_is_the_enabled_priority_criteria_then_the_enabled_tiebreakers`
 
+#### NOTIFICATIONS-CONFIG-56: The cancellation deadline is the absence cutoff (rule 19)
+Given a coach with `cancellationDeadlineHours` 24, when the store builds the coach's `EngineSettings`,
+then `absence_cutoff_before` is 24 hours.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_cancellation_deadline_maps_to_the_absence_cutoff`
+
+#### NOTIFICATIONS-CONFIG-57: Each invitation group becomes one tier, in the coach's order (rule 19)
+Given the reference groups (level same + side same; level same; no rules), when the store builds the
+coach's `EngineSettings`, then `tiers` is the coach's list, the students' list, then one tier per group
+in order: (pool, side same, level 0), (pool, side any, level 0), (pool, side any, level any).
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invitation_groups_map_to_tiers_one_for_one`
+
+#### NOTIFICATIONS-CONFIG-58: The invitation mode is carried (rule 19)
+Given a coach in `semi_automatic` mode and one in `automatic`, when the store builds each coach's
+`EngineSettings`, then each carries its stored mode.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invitation_mode_is_carried`
+
+#### NOTIFICATIONS-CONFIG-59: A group the tier cannot express is refused, never rounded (rule 19)
+Given a group with a rule the engine's tier does not carry yet, when the store builds the coach's
+`EngineSettings`, then it raises `SettingsError` naming the group and the rule, and no tier is built
+for it.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_a_group_the_tier_cannot_express_is_refused`
+
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
   15-minute floor drops to the engine's one minute with the new timing controls
@@ -801,3 +833,10 @@ test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_orderi
   stored value; the engine's default; for the timer, T until `last_invite_at`. Decision (S, owner away,
   PAD-913; the owner can reverse it): the stored value, because the engine has no "off" for either
   (X ≥ 1, T ≥ const:ENGINE_T_FLOOR) and the stored value is the one the coach last chose.
+- The swap decisions 2–5 the store left unmapped (rule 19) — answered by the owner (2026-11-11):
+  semi-automatic is kept ("exactly the same engine, but instead of sending directly the message it
+  should ask the coach permission"), `maxTotal` is dropped, the cancellation deadline marks on time or
+  late only ("justified or unjustified is always a coach's judgement"), and groups become tiers one
+  for one ("it cannot be well built if it doesn't take into account these important rules"). Refusing
+  a group the tier cannot yet express, rather than mapping it to the nearest tier, is S's decision
+  (PAD-913): a nearest tier would ask a different set of students than the coach's group, silently.

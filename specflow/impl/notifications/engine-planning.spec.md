@@ -103,7 +103,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
 ### Not this spec
 - Answers (`notifications.engine-answers`) and the session's clock (`notifications.engine-timeline`).
 - The alert's channel and wording (open question).
-- `maxTotal`, today's cap on invitations ever sent (open question).
+- `maxTotal`, today's cap on invitations ever sent: dropped by the owner (Open questions).
 
 ### Today
 - Matching is per vacancy, in rounds and batches: `trigger_invitations`
@@ -302,5 +302,5 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   engine emits the effect; channel and wording go to the owner at review, because the scenarios assert
   only that an alert exists.
 - `maxTotal` (today's cap on invitations ever sent per session) has no place in the plan (U4) —
-  decision (owner away): not read by the new engine; M is the only cap, because D16 defines M as the
-  cap and nothing in §1–§8 keeps a second one. The owner may restore it at review.
+  decision (owner, 2026-11-11, swap decision 3): dropped. The new engine does not read it; M is the
+  only cap, as D16 defines it.
