@@ -1,6 +1,6 @@
 ---
 id: notifications.invite-simulation
-status: implemented
+status: implementing
 depends_on: [notifications.invitations, notifications.config, notifications.waiting-list, notifications.semi-auto-approval, eligibility.rules, eligibility.cascade, eligibility.enforcement, calendar.student-blockers, notifications.student-block-preferences, classes.instances]
 serves: [P-NOTIFICATIONS-4]
 governed_by: [R-002, R-005, R-022, R-023]
@@ -49,8 +49,25 @@ Readings:
 - Eligibility: an app session's bar is applied in `pool`, so a student below it is `not_in_pool`, and the simulation explains it from the caller's own pool gates (`failed_eligibility` arises only where the engine's bar is not open).
 - Rule 7 and criterion 8 (semi-automatic; owner ruling D2): `approvalRequired` reads the carried `invitation_mode` (`notifications.config` rule 19) as today; the list the coach approves is the dry run's queue per spot type (`notifications.engine-planning` rule 14), the same evaluator, so the request and the simulation agree.
 
-Not yet specified, needed before this spec's swap step (each under Open questions):
-- the wire shape of a per-type verdict and its client rendering (web and iOS, the tutorial's payload, `settings.tutorials`).
+The new-engine answer (swap step 7, PAD-919):
+- **N1. One dry run, nothing written.** For a new-engine session the simulation builds the session's
+  snapshot, without the departing student among the going (a regular counts as absent), and runs
+  `planner.evaluate` (`notifications.engine-tiers` rules 11, 12) on it. Nothing is written: no row, no
+  effect applied.
+- **N2. The payload, per open spot type.** `spotTypes: [{side, level, count, queue, verdicts}]`: `side`
+  `left`, `right` or null (either); `count` the type's open spots; `queue` its candidates in the order
+  rule 12 gives (`{playerId, name, nickname, tier, rank}`); `verdicts` one per student the snapshot
+  names (`{playerId, stage, tier}`), `stage` exactly the dry run's stage word.
+- **N3. The app's own gates explain `not_in_pool`.** A `not_in_pool` verdict carries `reasons`, the gates
+  the app applied when it built the pool (`notifications.config` rule 19): excluded by the coach,
+  `excludedPlayers`, an inactive account, eligibility failures as today's structured records
+  (`eligibility.rules`), a class that day, the student's own block, an availability blocker. No other
+  stage carries reasons.
+- **N4. When the run may plan.** The answer's gates are the dry run's `may_plan` and why not: outside the
+  window, quiet hours, past `last_invite_before`, the class over. There is no `max_total_reached`
+  (swap decision 3).
+- **N5. Explain.** The explain answer gives one entry per open spot type, each with its verdicts.
+Old-engine sessions keep today's code and payloads; `CANDIDATE_STAGES` stays for them until the drain.
 
 ### Rules
 1. `POST /api/app/notify/invite_simulation` with body `{model, originalId, date, departingPlayerId}`
@@ -295,6 +312,36 @@ test: `backend/padel_app/tests/test_pad196_invite_simulation.py` › `test_route
 - **And** the spot the engine then creates for that player has the side the simulation chose
 test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `test_the_simulation_shows_the_side_the_engine_would_choose` (+4 more)
 
+#### NOTIFICATIONS-INVITE-SIMULATION-19: The simulation runs the engine's dry run and writes nothing (new-engine section N1, N2; TIERS-9)
+- **Given** a new-engine session with two open spot types and students in every tier
+- **When** the coach simulates a regular's departure
+- **Then** each type's queue and verdicts equal `planner.evaluate` on the same hypothetical snapshot, and no row of any table is written
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_simulation_runs_the_engines_dry_run_and_writes_nothing`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-20: The departing student is not going in the hypothetical snapshot (new-engine section N1)
+- **Given** a full new-engine session
+- **When** the coach simulates a regular's departure
+- **Then** the snapshot has one open spot of the regular's side, the regular counts as absent, and they are in no queue
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_leaver_is_not_going_in_the_hypothetical_snapshot`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-21: A student out of the pool is explained by the app's gate (new-engine section N3)
+- **Given** students kept out of the pool by each app gate (excluded, `excludedPlayers`, inactive, below the eligibility bar, a class that day, their own block, an availability blocker)
+- **When** the simulation answers
+- **Then** each has stage `not_in_pool` with `reasons` naming that gate (eligibility as today's structured records), and no other verdict carries `reasons`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_a_student_out_of_the_pool_is_explained_by_the_apps_gate`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-22: The gates are the dry run's may_plan (new-engine section N4)
+- **Given** the same session simulated outside the window, in quiet hours, past `last_invite_before` and after the class
+- **When** each simulation answers
+- **Then** each says it may not plan and why, the verdicts still explain, and no answer says `max_total_reached`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_gates_are_the_dry_runs_may_plan`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-23: Explain gives one entry per open spot type (new-engine section N5)
+- **Given** a new-engine session with a left and an either spot open
+- **When** the coach asks to explain a student
+- **Then** the answer has two entries, one per type, each with that student's stage and tier
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_explain_gives_one_entry_per_open_spot_type`
+
 ### Notes
 - Why the pipeline is shared rather than re-stated:
   `.cortex/atlas/decisions/2026-09-06-invite-simulation-shares-the-engine-pipeline.md`.
@@ -308,3 +355,8 @@ test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `te
 ### Open questions
 - The explain payload for a new-engine session (plan §4, §6.3 item 5) — open until swap step 7, which writes it with `settings.tutorials`; decision (S, owner away, PAD-913; the owner can reverse it): one entry per student per open spot type, rule 12's stage and tier, so the simulation states exactly what the engine would do.
 - `departing_player` and the `unavailable` blocker on a new-engine session — the leaver is simply in no session snapshot as going; whether the blocker is a pool gate is for H's store (PAD-916) to state.
+- The new-engine payload's shape (new-engine section N2) — decision (S, owner away, PAD-913, 2026-11-12,
+  from H's proposal for PAD-919; the owner can reverse it): per open spot type, the dry run's queue and
+  verdicts, `stage` the dry run's own word so client and engine never translate it twice. The clients'
+  rendering is PAD-920's, under `notifications.invitations`' and `settings.tutorials`' new-engine
+  sections.

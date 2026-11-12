@@ -47,6 +47,18 @@ Readings:
 - Rule 12: recomputing from the class asks the engine's dry run with the class as it is now and raises a
   fresh request.
 
+The new-engine answer (swap step 7, PAD-919):
+- **N1. The class's approval state is the session's request.** The class view's suggestion state
+  (rule 12's route) answers, for a new-engine session: the pending request's id and its queues per
+  spot type (in `notifications.invite-simulation`'s N2 shape), the approved and removed students and
+  whether the session is dismissed; `emptyQueueReasons` becomes the dry run's stage counts per type.
+- **N2. The coach's answer.** "Sim" answers `ApproveQueue(session, request, removed)` and "Ignorar"
+  `DismissQueue(session)`; "Yes, at the window" is refused for a new-engine session (no request is
+  raised before the window); an answer naming a request that is no longer pending decides nothing and
+  answers `stale`.
+- **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenQueue(session)` when dismissed,
+  and the next run raises a fresh request.
+
 Not yet specified, needed before this spec's swap step (each under Open questions):
 - the request's message and card: one block per spot type (side and level), its queue, the coach's
   removals and "Ignorar" on web and iOS, and their copy in both locales.
@@ -382,6 +394,24 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.te
 - **And** the card is stale only when the server refused every one of its spots as stale
 - **And** a yes that reached no spot tells the coach the spots were filled or expired, or that the list was recalculated
 test: `frontend/apps/mobile/src/features/notifications/approval-bundle.test.ts` › `accepts a bundle carrying an id and at least one vacancy` (+14 more)
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-37: The class's approval state is the session's request (new-engine section N1)
+- **Given** a semi-automatic new-engine session with a pending request over two spot types, one student approved and one removed earlier
+- **When** the coach's class view reads its suggestions
+- **Then** the answer carries the request's id, its queues per type, the approved and removed students and `dismissed` false, and an empty type's `emptyQueueReasons` are the dry run's stage counts
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_approval_state_is_the_sessions_request`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-38: The coach approves or dismisses the pending request (new-engine section N2)
+- **Given** a pending request R2 that replaced R1
+- **When** the coach answers "Sim" on R2 removing one student, "Sim" on R1, "Yes, at the window" and "Ignorar"
+- **Then** R2's answer is `ApproveQueue(session, R2, removed)`, R1's answers `stale` and decides nothing, "at the window" is refused, and "Ignorar" is `DismissQueue(session)`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_coach_approves_or_dismisses_the_pending_request`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-39: Recomputing a dismissed session raises a fresh request (new-engine section N3)
+- **Given** a dismissed new-engine session
+- **When** the coach recomputes the suggestions from the class
+- **Then** the session is reopened and the next run raises a new request with the class as it is now
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_recompute_raises_a_fresh_request`
 
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
