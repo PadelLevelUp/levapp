@@ -272,6 +272,24 @@ def parse_event_target(model, original_id, date):
 # Errors
 # ---------------------------------------------------------------------------
 
+def _as_date(value):
+    """A recurrence end as a date (the payload carries a ``YYYY-MM-DD`` string or a date)."""
+    if value is None or not isinstance(value, str):
+        return value
+    return datetime.strptime(value[:10], "%Y-%m-%d").date()
+
+
+class BusySameHourError(ValueError):
+    """PAD-918 (instance-enrollment rule 15): a class created with a student who is going to another
+    class at the same time, one of them new-engine. The route answers 409 with the clashes."""
+
+    code = "busy_same_hour"
+
+    def __init__(self, clashes):
+        super().__init__("busy same hour")
+        self.clashes = clashes
+
+
 class NoSeasonCoversDateError(ValueError):
     """Raised when "recurs until season end" cannot be resolved to a season.
 
@@ -1213,6 +1231,28 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
             if season_end is None:
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
+
+    if lesson_payload["player_ids"]:
+        # PAD-918 (instance-enrollment rule 15): a class created with a student going elsewhere at that
+        # time, one of the two new-engine, is refused before anything is written.
+        from padel_app.models.notification_config import NotificationConfig
+        from padel_app.services.engine_entry import same_hour_clashes
+
+        config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+        def _when(value):                            # build_datetime's "%d/%m/%Y, %H:%M" form
+            return datetime.strptime(value, "%d/%m/%Y, %H:%M") if isinstance(value, str) else value
+
+        draft = Lesson(start_datetime=_when(lesson_payload["start_datetime"]),
+                       end_datetime=_when(lesson_payload["end_datetime"]),
+                       is_recurring=bool(lesson_payload["is_recurring"]),
+                       recurrence_rule=lesson_payload.get("recurrence_rule"),
+                       recurrence_end=_as_date(lesson_payload.get("recurrence_end")))
+        clashes = same_hour_clashes(lesson_payload["player_ids"], lesson=draft, coach_ids=[coach.id],
+                                    series_new=config is not None and config.engine_version == "new")
+        if draft in db.session:                      # a transient draft, never saved
+            db.session.expunge(draft)
+        if clashes:
+            raise BusySameHourError(clashes)
 
     # PAD-489 (notifications.reminders rule 22): a class created after its reminder time
     # counts its students as coming. Decided here, before anything is written, from the

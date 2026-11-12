@@ -288,10 +288,11 @@ def _series_is_new_engine(lesson) -> bool:
     return config is not None and config.engine_version == "new"
 
 
-def same_hour_clashes(player_ids, *, instance=None, lesson=None, on_date=None,
-                      now: datetime | None = None) -> list[dict]:
+def same_hour_clashes(player_ids, *, instance=None, lesson=None, on_date=None, coach_ids=None,
+                      series_new: bool | None = None, now: datetime | None = None) -> list[dict]:
     """Rule 15: for a coach's add of ``player_ids`` to one occurrence (``instance``) or a series
-    (``lesson``; ``on_date`` narrows it to one occurrence not yet materialised), every clash: another class the student is going to that overlaps the target and is
+    (``lesson``; ``on_date`` narrows it to one occurrence not yet materialised; ``coach_ids`` and
+    ``series_new`` stand in for a series not saved yet), every clash: another class the student is going to that overlaps the target and is
     the same coach's, or starts at the same time (any coach); at least one of the two new-engine.
     Empty when the add may go through."""
     from padel_app.models.players import Player
@@ -300,10 +301,12 @@ def same_hour_clashes(player_ids, *, instance=None, lesson=None, on_date=None,
 
     now = now or utcnow_naive()
     target = instance if instance is not None else lesson
-    target_coaches = ({c.id for c in coaches_for(instance)} if instance is not None
+    target_coaches = (set(coach_ids) if coach_ids is not None
+                      else {c.id for c in coaches_for(instance)} if instance is not None
                       else set(_series_coaches(lesson)))
     duration = target.end_datetime - target.start_datetime
-    target_new_series = lesson is not None and _series_is_new_engine(lesson)
+    target_new_series = lesson is not None and (series_new if series_new is not None
+                                                else _series_is_new_engine(lesson))
     clashes = []
     for presence, other in _going_elsewhere(player_ids, getattr(instance, "id", None), now):
         other_new = engine_for(other) == "new"

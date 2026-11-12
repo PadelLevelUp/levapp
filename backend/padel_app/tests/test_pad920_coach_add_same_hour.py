@@ -116,3 +116,39 @@ def test_a_different_start_or_an_old_engine_class_is_not_refused(coach_class):
     assert _add(session, [other_coachs])[1] == 409                    # another coach, the same start
     assert _add(session, [touching])[1] == 200                        # ends as this one starts
     assert _add(old_target.id, [old_only])[1] == 200                  # old-engine classes only
+
+
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-29")
+def test_accepting_a_request_or_creating_a_class_at_a_busy_hour_is_refused(coach_class):
+    """Rule 15's other two adds: a coach accepting a join request, and a class created with students."""
+    from werkzeug.exceptions import HTTPException
+
+    from padel_app.models import ClassJoinRequest
+    from padel_app.models.clubs import Club
+    from padel_app.models.coaches import Coach
+    from padel_app.services.class_join_request_service import decide_join_request_service
+    from padel_app.services.lesson_service import BusySameHourError, add_class_service
+
+    store, coach_id, session, (busy, *_) = coach_class
+    _class(_other_coach(), START, START + timedelta(hours=1), [busy])
+    coach = db.session.get(Coach, coach_id)
+
+    row = ClassJoinRequest(lesson_instance_id=int(session), player_id=int(busy), coach_id=coach_id,
+                           status="pending", created_at=NOW)
+    db.session.add(row)
+    db.session.commit()
+    with pytest.raises(HTTPException) as refused:
+        decide_join_request_service(row.id, coach, accept=True, confirm=True, now=NOW)
+    body = refused.value.response.get_json()
+    assert refused.value.response.status_code == 409 and body["code"] == "busy_same_hour"
+    assert db.session.get(ClassJoinRequest, row.id).status == "pending"
+    assert not _on(session, busy)
+
+    data = {"name": "New", "classType": "academy", "maxPlayers": 4, "date": START.date().isoformat(),
+            "startTime": "20:00", "endTime": "21:00", "playerIds": [int(busy)]}
+    with pytest.raises(BusySameHourError) as busy_hour:          # Ana's class starts at the same time
+        add_class_service(data, coach, Club.query.first())
+    assert busy_hour.value.clashes and busy_hour.value.clashes[0]["playerId"] == int(busy)
+
+    data["startTime"], data["endTime"] = "20:30", "21:30"       # another coach's class, a partial overlap only
+    assert add_class_service(data, coach, Club.query.first()).id is not None

@@ -515,6 +515,14 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
         db.session.commit()
         _refuse("spot_filled", "This class is already full", request=serialize_join_request(row))
 
+    # PAD-918 (instance-enrollment rule 15): accepting is a coach's add; at a busy hour it is refused,
+    # with no override (no confirm skips it), and the request stays pending.
+    from padel_app.services.engine_entry import same_hour_clashes
+
+    clashes = same_hour_clashes([row.player_id], instance=instance, now=now)
+    if clashes:
+        _refuse("busy_same_hour", "busy same hour", clashes=clashes, request=serialize_join_request(row))
+
     # Rule 7: accepting is a manual add — warn with named reasons, never block.
     config = NotificationConfig.query.filter_by(coach_id=row.coach_id).first()
     # PAD-808 (rule 7a): the side too — both warnings in the one 409, under rule 7's code.
