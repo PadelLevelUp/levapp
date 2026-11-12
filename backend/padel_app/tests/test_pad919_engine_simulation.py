@@ -199,62 +199,70 @@ def _semi_session(app, players=4):
     return store, a, ids
 
 
+def _request(store, a, tier, queues, rid, minute=0):
+    """The engine's ``ApprovalRequest`` for ``tier``, applied through the store as a run would."""
+    with store.unit((a,)):
+        store.apply([fx.ApprovalRequest(a, PLAN_AT + timedelta(minutes=minute), tier, queues, rid)])
+
+
+def _two_types(x, y):
+    from padel_app.invitation_engine.snapshot import SpotType
+
+    return ((SpotType("L", 1), (x, y)), (SpotType("R", 1), ()))
+
+
 @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-37")
 def test_the_approval_state_is_the_sessions_request(app, semi):
-    """The class view's state is the session's pending request (its id and the queue per open spot
-    type) with the approved and removed students; a type with nobody to ask carries the dry run's
-    stage counts; then ``dismissed`` and ``none``."""
-    from padel_app.invitation_engine import requests as rq
-    from padel_app.services.engine_approval import _engine
+    """Semi-auto-approval N1: with pool group 1 approved, one student removed earlier and a request for
+    pool group 2 over two spot types pending, the class state carries group 1 in ``approvedGroups``, the
+    removed student, no dismissed group, and the request with its id, group 2 and its queue per type
+    (``side``, ``levelId``, ``levelLabel``, ``count``); the empty type's ``emptyQueueReasons`` are the dry
+    run's stage counts."""
     from padel_app.services.replacement_approval_service import instance_suggestions
 
     store, a, (reg, x, y, z) = _semi_session(app)
     coach_id = store.coach_of(a)
-    pending = store.snapshot(a).approval
+    with store.unit((a,)):
+        store.apply([fx.GroupApproved(a, PLAN_AT + timedelta(minutes=1), 2, frozenset({z}))])
+    _request(store, a, 3, _two_types(x, y), f"{a}:r2:3:h", 2)
     got = instance_suggestions(int(a), coach_id)
-    assert got["state"] == "pending" and got["semiAutomatic"] and got["engine"] == "new"
-    assert got["request"]["requestId"] == pending.pending_request
-    assert [[q["playerId"] for q in t["queue"]] for t in got["request"]["spotTypes"]] == [
-        list(ids) for _, ids in pending.pending]
-    assert [t["side"] for t in got["request"]["spotTypes"]] == [{"L": "left", "R": "right"}.get(st.side)
-                                                                for st, _ in pending.pending]
-    assert all(t["levelId"] and t["levelLabel"] for t in got["request"]["spotTypes"])
-    assert any(t["queue"] for t in got["request"]["spotTypes"])
-    for t in got["request"]["spotTypes"]:
-        if not t["queue"]:
-            assert t["emptyQueueReasons"] and all(r["count"] > 0 for r in t["emptyQueueReasons"])
-
-    _engine(PLAN_AT).handle(a, rq.DismissQueue(), PLAN_AT)
-    assert instance_suggestions(int(a), coach_id)["state"] == "dismissed"
+    assert got["engine"] == "new" and got["state"] == "pending" and got["semiAutomatic"]
+    assert got["approvedGroups"] == [{"tierSource": "pool", "groupNumber": 1}]
+    assert got["removed"] == [z] and got["dismissedGroups"] == []
+    [request] = got["requests"]
+    assert request["requestId"] == f"{a}:r2:3:h" and request["group"] == {"tierSource": "pool", "groupNumber": 2}
+    assert [(t["side"], [q["playerId"] for q in t["queue"]]) for t in request["spotTypes"]] == [
+        ("left", [x, y]), ("right", [])]
+    assert all(t["levelId"] and t["levelLabel"] and "count" in t for t in request["spotTypes"])
+    empty = request["spotTypes"][1]["emptyQueueReasons"]
+    assert empty and all(r["count"] > 0 and r["stage"] for r in empty)
 
 
 @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-38")
 def test_the_coach_approves_or_dismisses_the_pending_request(app, semi):
-    """``yes_now`` approves the pending request without the students the coach removed; ``dismiss``
-    ignores it; "yes, at the window" is refused for a new-engine request; an answer to a request that is
-    no longer pending decides nothing and answers ``stale``."""
+    """Semi-auto-approval N2: R2 replaced R1 for the same group. "Yes, at the window" is a 400; "Sim" on
+    R1 answers ``stale`` and decides nothing; "Ignorar" on R2 dismisses its group (``DismissGroup``);
+    "Sim" on the group's next request, removing one student, approves the group (``ApproveGroup``)."""
     from werkzeug.exceptions import BadRequest
 
-    from padel_app.services.engine_approval import _engine
     from padel_app.services.replacement_approval_service import respond_to_approval
 
     store, a, (reg, x, y, z) = _semi_session(app)
     coach_id = store.coach_of(a)
-    request_id = store.snapshot(a).approval.pending_request
-    queued = {sid for _, ids in store.snapshot(a).approval.pending for sid in ids}
-    assert y in queued
+    _request(store, a, 3, _two_types(x, y), f"{a}:r1:3:h", 1)
+    _request(store, a, 3, _two_types(x, y), f"{a}:r2:3:h", 2)
     with pytest.raises(BadRequest):
-        respond_to_approval(request_id, "yes_at_window", coach_id)
-    out = respond_to_approval(request_id, "yes_now", coach_id, removed=[int(y)], now=PLAN_AT)
-    assert out["result"] == "approved"
-    approval = store.snapshot(a).approval
-    assert y in approval.removed and y not in approval.approved and approval.approved <= queued
-    assert respond_to_approval(request_id, "dismiss", coach_id, now=PLAN_AT)["result"] == "stale"
+        respond_to_approval(f"{a}:r2:3:h", "yes_at_window", coach_id)
+    assert respond_to_approval(f"{a}:r1:3:h", "yes_now", coach_id, now=PLAN_AT + timedelta(minutes=3))["result"] == "stale"
+    assert store.snapshot(a).approval.approved_groups == frozenset()
+    out = respond_to_approval(f"{a}:r2:3:h", "dismiss", coach_id, now=PLAN_AT + timedelta(minutes=4))
+    assert out["result"] == "dismissed" and 3 in dict(store.snapshot(a).approval.dismissed_groups)
 
-    store2, b, _ = _semi_session_second(app)
-    second = store2.snapshot(b).approval.pending_request
-    assert respond_to_approval(second, "dismiss", store2.coach_of(b), now=PLAN_AT)["result"] == "dismissed"
-    assert store2.snapshot(b).approval.dismissed is not None
+    _request(store, a, 2, _two_types(x, y), f"{a}:r3:2:h", 5)
+    out = respond_to_approval(f"{a}:r3:2:h", "yes_now", coach_id, removed=[int(y)], now=PLAN_AT + timedelta(minutes=6))
+    approval = store.snapshot(a).approval
+    assert out["result"] == "approved" and 2 in approval.approved_groups and y in approval.removed
+    assert out["state"]["approvedGroups"] == [{"tierSource": "pool", "groupNumber": 1}]
 
 
 def _semi_session_second(app):
@@ -269,8 +277,9 @@ def _semi_session_second(app):
 
 @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-39")
 def test_recompute_raises_a_fresh_request(app, semi, monkeypatch):
-    """Recomputing from the class asks the engine again with the class as it is now: a dismissed
-    session is reopened and gets a pending request again; an automatic coach is refused."""
+    """Semi-auto-approval N3: with a group dismissed, recomputing from the class reopens it
+    (``ReopenGroup``) and plans at once, which asks for it again with the class as it is now; an
+    automatic coach is refused."""
     from werkzeug.exceptions import Conflict
 
     from padel_app.services import engine_store
@@ -278,87 +287,89 @@ def test_recompute_raises_a_fresh_request(app, semi, monkeypatch):
 
     store, a, _ = _semi_session(app)
     coach_id = store.coach_of(a)
-    respond_to_approval(store.snapshot(a).approval.pending_request, "dismiss", coach_id,
-                        now=PLAN_AT + timedelta(minutes=1))
-    assert store.snapshot(a).approval.pending is None
+    [first] = store.snapshot(a).approval.pending
+    respond_to_approval(first.request, "dismiss", coach_id, now=PLAN_AT + timedelta(minutes=1))
+    assert dict(store.snapshot(a).approval.dismissed_groups).keys() == {first.tier}
     # Each run at its own instant: an effect equal in content to one already applied is a retry (STORE-1).
     out = recompute_suggestions(int(a), coach_id, now=PLAN_AT + timedelta(minutes=2))
-    assert out["state"] == "pending" and out["request"]["requestId"]
-    assert store.snapshot(a).approval.dismissed is None
+    assert store.snapshot(a).approval.dismissed_groups == ()
+    assert out["state"] == "pending" and out["requests"]
+    assert store.snapshot(a).approval.pending_for(first.tier).request != first.request
     monkeypatch.setattr(engine_store, "settings_for", lambda session: EngineSettings())   # back to automatic
     with pytest.raises(Conflict):
         recompute_suggestions(int(a), coach_id, now=PLAN_AT + timedelta(minutes=3))
 
 
+def _send(row):
+    from padel_app.services.engine_approval import send_approval_request
+
+    if row.kind == "ApprovalRequest":
+        send_approval_request(row)
+
+
 @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-40")
 def test_the_outbox_posts_the_request_to_the_coachs_assistant(app, semi, monkeypatch):
-    """The outbox's sender for an ``ApprovalRequest`` row (rule 6, as today): one ``replacement_approval``
-    message in the coach's Assistant conversation carrying the request id and a queue per spot type, and
-    one push to the coach; sending the outbox again adds nothing."""
+    """Semi-auto-approval N4: the outbox posts one ``replacement_approval`` message for a request over two
+    spot types in the coach's Assistant conversation (the request id, the class, its group, ``responded``
+    false, each type's side, level and queue), its text in Portuguese for a ``pt`` coach, and pushes it
+    once; sending again adds nothing."""
     from padel_app.models import Coach, Message
-    from padel_app.services.engine_approval import send_approval_request
     from padel_app.services.engine_store import dispatch
     from padel_app.utils import push_notifications
 
     pushes = []
     monkeypatch.setattr(push_notifications, "send_push_notification", lambda **kw: pushes.append(kw["user_id"]))
-    store, a, _ = _semi_session(app)
-    request_id = store.snapshot(a).approval.pending_request
-
-    def send(row):
-        if row.kind == "ApprovalRequest":
-            send_approval_request(row)
-
-    dispatch(send, now=PLAN_AT)
+    store, a, (reg, x, y, z) = _semi_session(app)
+    dispatch(lambda row: None, now=PLAN_AT)                                  # the planner's own request, sent
+    _request(store, a, 3, _two_types(x, y), f"{a}:r9:3:h", 1)
+    dispatch(_send, now=PLAN_AT)
     msgs = Message.query.filter_by(message_type="replacement_approval").all()
     assert len(msgs) == 1
     meta = msgs[0].msg_metadata
-    assert meta["requestId"] == request_id and meta["engine"] == "new" and meta["responded"] is False
-    assert meta["lessonInstanceId"] == int(a) and len(meta["spotTypes"]) == 2
-    assert all({"side", "levelId", "levelLabel", "queue"} <= set(t) for t in meta["spotTypes"])
-    assert msgs[0].text.startswith("Pedido de convites para ") and "Enviar os convites?" in msgs[0].text
+    assert meta["requestId"] == f"{a}:r9:3:h" and meta["engine"] == "new" and meta["responded"] is False
+    assert meta["lessonInstanceId"] == int(a) and meta["group"] == {"tierSource": "pool", "groupNumber": 2}
+    assert len(meta["spotTypes"]) == 2
+    assert all({"side", "levelId", "levelLabel", "count", "queue"} <= set(t) for t in meta["spotTypes"])
+    assert msgs[0].text.startswith("Vou começar a convidar o grupo 2 para ") and msgs[0].text.endswith("Aprovas?")
     assert pushes == [db.session.get(Coach, store.coach_of(a)).user_id]
-    assert dispatch(send, now=PLAN_AT) == 0
+    assert dispatch(_send, now=PLAN_AT) == 0
     assert Message.query.filter_by(message_type="replacement_approval").count() == 1 and len(pushes) == 1
 
 
 @pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-43")
 def test_a_request_message_follows_it_when_it_stops_being_pending(app, semi, monkeypatch):
-    """Semi-auto-approval N1, N4: the request's message says ``state`` pending, and each spot type
-    carries its open spots (``count``), as the class state does. When the coach approves it the message
-    says ``approved`` with ``responded`` true, one ``message_edited`` sent; a dismissed request's says
-    ``dismissed``."""
+    """Semi-auto-approval N4: of three posted request messages, the first's request is replaced by a
+    newer one, the second is approved and the third dismissed; their metadata reads ``replaced``,
+    ``approved`` and ``dismissed``, each with ``responded`` true and its spot types' ``count``, each change
+    published once as ``message_edited``."""
     from padel_app import realtime
     from padel_app.models import Message
-    from padel_app.services.engine_approval import send_approval_request
     from padel_app.services.engine_store import dispatch
-    from padel_app.services.replacement_approval_service import instance_suggestions, respond_to_approval
 
     edited = []
     monkeypatch.setattr(realtime, "publish",
                         lambda event, users: edited.append(event["payload"]["id"]) if event["type"] == "message_edited" else None)
+    store, a, (reg, x, y, z) = _semi_session(app)
+    dispatch(lambda row: None, now=PLAN_AT)                                  # the planner's own request, sent
 
-    def send(row):
-        if row.kind == "ApprovalRequest":
-            send_approval_request(row)
+    def posted(tier, rid, minute):
+        _request(store, a, tier, _two_types(x, y), rid, minute)
+        dispatch(_send, now=PLAN_AT)
+        return Message.query.filter_by(message_type="replacement_approval").order_by(Message.id.desc()).first()
 
-    store, a, _ = _semi_session(app)
-    coach_id = store.coach_of(a)
-    dispatch(send, now=PLAN_AT)
-    msg = Message.query.filter_by(message_type="replacement_approval").one()
-    assert msg.msg_metadata["state"] == "pending"
-    state = instance_suggestions(int(a), coach_id)
-    assert [t["count"] for t in msg.msg_metadata["spotTypes"]] == [t["count"] for t in state["request"]["spotTypes"]]
-    assert sum(t["count"] for t in state["request"]["spotTypes"]) == 3          # a class of four, one regular
-
-    respond_to_approval(msg.msg_metadata["requestId"], "yes_now", coach_id, now=PLAN_AT + timedelta(minutes=1))
-    db.session.refresh(msg)
-    assert (msg.msg_metadata["state"], msg.msg_metadata["responded"]) == ("approved", True)
-    assert edited == [msg.id]
-
-    store2, b, _ = _semi_session_second(app)
-    dispatch(send, now=PLAN_AT)
-    second = Message.query.filter(Message.message_type == "replacement_approval", Message.id != msg.id).one()
-    respond_to_approval(second.msg_metadata["requestId"], "dismiss", store2.coach_of(b), now=PLAN_AT + timedelta(minutes=1))
-    db.session.refresh(second)
-    assert (second.msg_metadata["state"], second.msg_metadata["responded"]) == ("dismissed", True)
+    first = posted(1, f"{a}:q1:1:h", 1)
+    second = posted(2, f"{a}:q2:2:h", 2)
+    third = posted(3, f"{a}:q3:3:h", 3)
+    assert first.msg_metadata["state"] == "pending" and first.msg_metadata["spotTypes"][0]["count"] >= 1
+    edited.clear()
+    posted(1, f"{a}:q4:1:h", 4)                                             # replaces the first's request
+    # The approval and dismissal as the engine's effects: an answer through respond re-plans the session,
+    # and a run asks again for the group about to start, replacing these hand-made requests first.
+    with store.unit((a,)):
+        store.apply([fx.GroupApproved(a, PLAN_AT + timedelta(minutes=5), 2, frozenset()),
+                     fx.GroupDismissed(a, PLAN_AT + timedelta(minutes=6), 3, ())])
+    for msg, expected in ((first, "replaced"), (second, "approved"), (third, "dismissed")):
+        db.session.refresh(msg)
+        assert (msg.msg_metadata["state"], msg.msg_metadata["responded"]) == (expected, True)
+        assert all("count" in t for t in msg.msg_metadata["spotTypes"])
+    assert sorted(m for m in edited if m in {first.id, second.id, third.id}) == sorted([first.id, second.id, third.id])

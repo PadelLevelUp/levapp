@@ -64,10 +64,22 @@ def _empty_queue_reasons(snapshot, settings, now: datetime) -> dict:
     return out
 
 
+def group(settings, tier: int | None) -> dict | None:
+    """A group on the wire (calendar.event-detail ND1's names): ``tierSource`` (``coach_list``,
+    ``students_list`` or ``pool``) and, for ``pool``, ``groupNumber``, its 1-based place among the coach's
+    pool groups."""
+    if tier is None or not 0 <= tier < len(settings.tiers):
+        return None
+    source = settings.tiers[tier].source
+    number = sum(1 for t in settings.tiers[: tier + 1] if t.source == "pool") if source == "pool" else None
+    return {"tierSource": source, "groupNumber": number}
+
+
 def state(instance, coach_id: int, *, now: datetime | None = None) -> dict:
-    """The class's approval state for its coach (rule 12, new-engine readings): ``pending`` with the
-    session's request (its id and a queue per spot type), ``dismissed``, or ``none``; with the
-    session's approved and removed students, and ``semiAutomatic`` from the coach's mode."""
+    """The class's approval state for its coach (semi-auto-approval N1, per group): each pending
+    request (its id, its group, its queue per spot type with the type's open spots; an empty type's
+    ``emptyQueueReasons``), the approved and the dismissed groups and the removed students, and
+    ``semiAutomatic`` from the coach's mode; ``state`` is ``pending`` while any request waits."""
     from padel_app.services import engine_store
 
     _now = now or utcnow_naive()
@@ -76,36 +88,39 @@ def state(instance, coach_id: int, *, now: datetime | None = None) -> dict:
     settings = engine_store.settings_for(session)
     snapshot = store.snapshot(session)
     approval = snapshot.approval
-    out = {
-        "engine": "new",
-        "semiAutomatic": settings.invitation_mode == "semi_automatic",
-        "approved": sorted(approval.approved, key=int),
-        "removed": sorted(approval.removed, key=int),
-    }
-    if approval.pending is not None:
+    requests = []
+    if approval.pending:
         reasons = _empty_queue_reasons(snapshot, settings, _now)
-        types = _queues_payload(coach_id, approval.pending, snapshot)
-        for (spot_type, _), t in zip(approval.pending, types):
-            if not t["queue"]:
-                t["emptyQueueReasons"] = reasons.get(spot_type, [])
-        return {**out, "state": "pending", "request": {"requestId": approval.pending_request,
-                                                        "lessonInstanceId": instance.id, "spotTypes": types}}
-    if approval.dismissed is not None:
-        return {**out, "state": "dismissed"}
-    return {**out, "state": "none"}
+        for p in sorted(approval.pending, key=lambda p: p.tier):
+            types = _queues_payload(coach_id, p.queues, snapshot)
+            for (spot_type, _), t in zip(p.queues, types):
+                if not t["queue"]:
+                    t["emptyQueueReasons"] = reasons.get(spot_type, [])
+            requests.append({"requestId": p.request, "lessonInstanceId": instance.id,
+                             "group": group(settings, p.tier), "spotTypes": types})
+    return {
+        "engine": "new",
+        "state": "pending" if requests else "none",
+        "semiAutomatic": settings.invitation_mode == "semi_automatic",
+        "approvedGroups": [group(settings, t) for t in sorted(approval.approved_groups)],
+        "dismissedGroups": [group(settings, t) for t, _ in sorted(approval.dismissed_groups)],
+        "removed": sorted(approval.removed, key=int),
+        "requests": requests,
+    }
 
 
 def is_request_id(value) -> bool:
-    """Whether ``value`` names a new-engine request (``"<session>:<time>:<hash>"``), not an old bundle."""
+    """Whether ``value`` names a new-engine request (the engine's ``"<session>:<time>:…"``), not an old
+    bundle (a UUID, which has no colon)."""
     parts = str(value or "").split(":")
-    return len(parts) == 3 and parts[0].isdigit()
+    return len(parts) >= 3 and parts[0].isdigit()
 
 
 def respond(request_id: str, action: str, coach_id: int, removed=(), *, now: datetime | None = None) -> dict:
-    """The coach's answer to a new-engine request (rule 8, new-engine readings): ``yes_now`` approves
-    it without the ``removed`` students (``ApproveQueue``), ``dismiss`` ignores it until the spot count
-    changes or the coach reopens the class (``DismissQueue``). A request that is no longer the
-    session's pending one decides nothing and answers ``stale``."""
+    """The coach's answer to a new-engine request (semi-auto-approval N2): ``yes_now`` approves its group
+    without the ``removed`` students (``ApproveGroup``), ``dismiss`` ignores the group until its spot
+    count changes or the coach reopens it (``DismissGroup``). A request that is no longer pending
+    decides nothing and answers ``stale``."""
     from flask import abort
 
     from padel_app.invitation_engine import requests as rq
@@ -118,10 +133,11 @@ def respond(request_id: str, action: str, coach_id: int, removed=(), *, now: dat
     session = str(request_id).split(":")[0]
     instance = _coached_instance(int(session), coach_id)
     store = engine_store.TableStore(clock=lambda: _now)
-    if not store.has_session(session) or store.snapshot(session).approval.pending_request != request_id:
+    if not store.has_session(session) or not any(p.request == request_id
+                                                 for p in store.snapshot(session).approval.pending):
         return {"engine": "new", "requestId": request_id, "result": "stale"}
-    request = (rq.ApproveQueue(request_id, frozenset(str(r) for r in removed or ())) if action == "yes_now"
-               else rq.DismissQueue())
+    request = (rq.ApproveGroup(request_id, frozenset(str(r) for r in removed or ())) if action == "yes_now"
+               else rq.DismissGroup(request_id))
     _engine(_now).handle(session, request, _now)
     result = "approved" if action == "yes_now" else "dismissed"
     return {"engine": "new", "requestId": request_id, "result": result,
@@ -129,9 +145,9 @@ def respond(request_id: str, action: str, coach_id: int, removed=(), *, now: dat
 
 
 def recompute(instance, coach_id: int, *, now: datetime | None = None) -> dict:
-    """Ask the engine again with the class as it is now (rule 12, new-engine readings): a dismissed
-    session is reopened (``ReopenQueue``, which ends the dismissal and plans), any other is planned
-    (``Engine.plan``). The answer is the class's approval state after the run."""
+    """Ask the engine again with the class as it is now (semi-auto-approval N3): each dismissed group is
+    reopened (``ReopenGroup``), then the session is planned at once (``Engine.plan``), which asks for the
+    group about to start. The answer is the class's approval state after the run."""
     from flask import abort
 
     from padel_app.invitation_engine import requests as rq
@@ -145,44 +161,52 @@ def recompute(instance, coach_id: int, *, now: datetime | None = None) -> dict:
     if engine_store.settings_for(session).invitation_mode != "semi_automatic":
         abort(409, "Suggestions are for the semi-automatic mode")
     engine = _engine(_now)
-    if engine_store.TableStore(clock=lambda: _now).snapshot(session).approval.dismissed is not None:
-        engine.handle(session, rq.ReopenQueue(), _now)
-    else:
-        engine.plan(session, _now)
+    for tier, _ in engine_store.TableStore(clock=lambda: _now).snapshot(session).approval.dismissed_groups:
+        engine.handle(session, rq.ReopenGroup(tier), _now)
+    engine.plan(session, _now)
     return state(instance, coach_id, now=_now)
 
 
 def card(row) -> dict:
     """The Assistant message's payload for an ``ApprovalRequest`` outbox row (semi-auto-approval N4): the
-    request id, the class, ``state`` pending, and per open spot type its open spots and its queue."""
+    request id, the class, its group, ``state`` pending, and per open spot type its open spots and its
+    queue."""
     from padel_app.invitation_engine.snapshot import SpotType
-    from padel_app.services.engine_store import TableStore
+    from padel_app.services.engine_store import TableStore, settings_for
 
     session = str(row.lesson_instance_id)
     store = TableStore()
-    queues = tuple((SpotType(*spot), tuple(ids)) for spot, ids in (row.payload or {}).get("queues") or ())
-    return {"engine": "new", "requestId": (row.payload or {}).get("request"), "lessonInstanceId": int(session),
-            "state": "pending", "responded": False,
+    payload = row.payload or {}
+    queues = tuple((SpotType(*spot), tuple(ids)) for spot, ids in payload.get("queues") or ())
+    return {"engine": "new", "requestId": payload.get("request"), "lessonInstanceId": int(session),
+            "group": group(settings_for(session), payload.get("tier")), "state": "pending", "responded": False,
             "spotTypes": _queues_payload(store.coach_of(session), queues, store.snapshot(session))}
 
 
-#: The request's message (semi-auto-approval N4, message-templates rule 6), per coach locale.
+#: The request's message (semi-auto-approval N4, message-templates rule 6; proposed, after the owner's own
+#: example in decision 5), per coach locale, and a group's name in it (calendar.event-detail ND1).
 CARD_TEXT = {
-    "pt": "Pedido de convites para {klass}, {weekday} às {time}: {n} aluno(s) na fila. Enviar os convites?",
-    "en": "Invitation request for {klass}, {weekday} at {time}: {n} student(s) in the queue. Send the invitations?",
+    "pt": "Vou começar a convidar {group} para {klass}, {weekday} às {time}: {n} aluno(s) na fila. Aprovas?",
+    "en": "I'll start inviting {group} for {klass}, {weekday} at {time}: {n} student(s) in the queue. Do you approve?",
+}
+GROUP_NAMES = {
+    "pt": {"coach_list": "a lista do treinador", "students_list": "a lista de espera", "pool": "o grupo {n}"},
+    "en": {"coach_list": "the coach's list", "students_list": "the waiting list", "pool": "group {n}"},
 }
 
 
 def _card_text(card_payload: dict, coach, instance) -> str:
-    """The message's text in the coach's locale: the class, its day and time, and how many students the
-    request's queues hold."""
+    """The message's text in the coach's locale: the group, the class, its day and time, and how many
+    students the request's queues hold."""
     from padel_app.services.notification_service import _format_weekday, _resolve_locale
 
     locale = _resolve_locale(coach)
     start = instance.start_datetime
     klass = getattr(getattr(instance, "lesson", None), "title", None) or ""
+    g = card_payload.get("group") or {}
+    name = GROUP_NAMES[locale].get(g.get("tierSource"), "").format(n=g.get("groupNumber") or "")
     n = len({q["playerId"] for t in card_payload["spotTypes"] for q in t["queue"]})
-    return CARD_TEXT[locale].format(klass=klass, weekday=_format_weekday(start, locale),
+    return CARD_TEXT[locale].format(group=name, klass=klass, weekday=_format_weekday(start, locale),
                                     time=start.strftime("%H:%M") if start else "", n=n)
 
 
@@ -202,7 +226,7 @@ def send_approval_request(row) -> None:
     store = TableStore()
     session = str(row.lesson_instance_id)
     request_id = (row.payload or {}).get("request")
-    if store.snapshot(session).approval.pending_request != request_id:
+    if not any(p.request == request_id for p in store.snapshot(session).approval.pending):
         return
     payload = card(row)
     coach = db.session.get(Coach, store.coach_of(session))
