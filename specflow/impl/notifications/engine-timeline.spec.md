@@ -34,10 +34,11 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    class has started. Silence keeps the spot. At a coach's cutover the app's reminder flow
    (`notifications.reminders`) stops for that coach's sessions: the engine's requests replace it,
    never alongside it.
-3. **Quiet hours (D14).** Nobody is invited during them, from any tier; they never reorder tiers; they
+3. **Quiet hours (D14).** A window whose start equals its end is quiet all day (as today,
+   `notifications.config` rule 19). Nobody is invited during them, from any tier; they never reorder tiers; they
    pause every invitation's counting. Answers during them count.
 4. **An invitation's T is fixed when it is sent (ruling D-E6).** For each invitation the run creates (or
-   re-offers), T is `between_rounds` when, after that run's sends, the invitation's tier still has
+   reopens from the waiting list), T is `between_rounds` when, after that run's sends, the invitation's tier still has
    uninvited candidates for any type in the offer, and `between_groups` when it has none; with Method B,
    T is the tier's share (`notifications.engine-settings` rule 2). The invitation counts until T has
    run, quiet hours not counted; then it stops counting and stays open. A No never changes another
@@ -61,11 +62,17 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    (`presence_late_cancellation`, true only for `cancelled` at or after the deadline that
    `notifications.config` rule 19 maps to `absence_cutoff_before`) is the notice. It leaves
    `Presence.justification` alone.
-6. **`last_invite_at` (§8 step 6; ruling (2)).** No new invitation after it. Flexible going students
-   get their final side and are told it (const:KIND_SIDE_MOVED): {left, right} students their usual
-   side when possible; when a side is over its quota, one regular moves — the coach's choice, else the
-   one who moved least recently, ties to the one who joined the class most recently (`joined_at`). The
-   engine records each move. Open invitations can still be accepted.
+6. **`last_invite_at` (§8 step 6; ruling (2)).** `last_invite_before` in real hours before the class's
+   real start, as the absence cutoff (rule 5), never wall-clock arithmetic. No new invitation after it.
+   Going students who play both sides get their final side and are told it (const:KIND_SIDE_MOVED):
+   their usual side when possible, else the side that balances the class. **The engine moves a student
+   only within the sides they play** (the owner, 2026-11-12, Codex decisions 12 and 13): a student who
+   plays both sides may go to either; a one-sided student only back to their own side, never to the
+   other. When a side is over its quota, one student who plays both sides on it moves — the coach's
+   choice, else the one who moved least recently, ties to the one who joined the class most recently
+   (`joined_at`). When no such move balances the class (a coach-built roster of one-sided regulars), it
+   stays as it is, and the coach is not warned. The engine records each move. Open invitations can still
+   be accepted.
 7. **After the class (§8 step 7).** A regular who did not answer and did not come gets an absence
    with notice `late` (they never told anyone). The coach judges it, as any absence (rule 5).
 
@@ -132,19 +139,20 @@ then the first absence has notice `on_time` and the second `late`, and neither c
 scenario's words "justificada" / "injustificada" read as on time / late in the harness.)
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[61-falta-justificada-e-injustificada]`
 
-#### NOTIFICATIONS-ENGINE-TIMELINE-8: A side over quota sheds the regular who moved least recently (rule 6; S18)
-Given capacity 8, 1 left and 5 right regulars, none ever moved, the latest joined being R5, 10
-left-siders and X = 3, when 2 left-siders accept, then 6 were invited and at `last_invite_at` R5 moves
-left and gets const:KIND_SIDE_MOVED.
+#### NOTIFICATIONS-ENGINE-TIMELINE-8: A one-sided regular on an over-quota side is never moved (rule 6; S18; owner decision 13)
+Given capacity 8, 1 left and 5 right regulars who play only right, 10 left-siders and X = 3, when 2
+left-siders accept, then 6 were invited, at `last_invite_at` nobody moves, the class ends 5 right and 3
+left, and no const:KIND_SIDE_MOVED is sent.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P18a-one-side-over-two-accept]`
 
 #### NOTIFICATIONS-ENGINE-TIMELINE-9: A No from the over-quota side means nobody moves (rule 6; S18)
 Given S18's start, when a right regular says No first, then nobody moves and the invitations top up to 9.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P18b-one-side-over-regular-no-first]`
 
-#### NOTIFICATIONS-ENGINE-TIMELINE-10: Flexible regulars balance the sides at last_invite_at (rule 6; S19)
-Given 1 left, 5 right and 1 {left, right} regular and 5 left-siders, when a left-sider says Yes, then 3
-were invited and at `last_invite_at` the "both" regular and one right regular play left: 4 / 4.
+#### NOTIFICATIONS-ENGINE-TIMELINE-10: Only a regular who plays both sides moves to balance (rule 6; S19; owner decision 12)
+Given 1 left, 5 one-sided right and 1 {left, right} regular and 5 left-siders, when a left-sider says
+Yes, then 3 were invited and at `last_invite_at` the "both" regular plays left and no right regular
+moves: 3 left / 5 right.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P19-unbalanced-with-a-both-regular]`
 
 #### NOTIFICATIONS-ENGINE-TIMELINE-11: A "both" regular fills the side left open (rule 6; S11)
@@ -214,6 +222,15 @@ Given two regulars, one with `notif_block_all`, when the first attendance reques
 other is asked.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_a_student_who_blocked_everything_gets_no_attendance_request`
 
+#### NOTIFICATIONS-ENGINE-TIMELINE-24: last_invite_at is real hours before the real start, across a clock change (rule 6)
+Given `last_invite_before` 2 h and a class at 01:30 Lisbon on the night the clocks go forward, when the
+engine computes `last_invite_at`, then it is exactly 2 real hours before the class's real start.
+test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_last_invite_at_is_real_hours_before_the_real_start`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-25: Quiet hours whose start equals their end are quiet all day (rule 3)
+Given quiet hours from 22:00 to 22:00, when runs happen at 10:00, 22:00 and 03:00, then none sends.
+test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_quiet_hours_whose_start_equals_their_end_are_quiet_all_day`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) TIMELINE-2, TIMELINE-4 — `invitation_engine/timeline.py` (T at send), `invitation_engine/settings.py`
@@ -233,6 +250,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 6. (Swap, per coach at cutover) rule 2's hand-over — the store applies `AttendanceRequested` as the
    app's reminder message and `ReminderAttempt`, answers go to the engine (`ConfirmAttendance`, the
    regular's No by rule 5), and the coach's `reminder_lesson_*` jobs stop (`notifications.reminders`).
+7. (Owner decisions, PAD-915) TIMELINE-8, TIMELINE-10 again — `invitation_engine/timeline.py` (moves only within the student's sides), scenario pins P18a, P19.
 
 ### Open questions
 - Ruling (2) settled who moves.
@@ -246,3 +264,11 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   notice, on time or late by the cutoff, and never a verdict; the coach judges as today. The tiers'
   `justified_absences` / `unjustified_absences` criteria and tiebreakers therefore count the coach's
   verdicts (`Presence.justification`), which is what they read today.
+- Who the engine may move at `last_invite_at` (rule 6) — the coordinator's ruling (2) let a one-sided
+  regular on an over-quota side move; **reversed by the owner (2026-11-12, Codex decisions 12 and 13):**
+  "the engine can do that automatically if it's to move a student … to the correct side … or moving a
+  student that can play in both"; when no allowed move fixes a coach-built imbalance, "we do nothing …
+  we don't need to plan to warn the coach, at least not for now". The notice for an allowed move, and
+  overriding a coach-chosen side, are not decided.
+- Lateness by the deadline alone (rule 5) — **confirmed by the owner (2026-11-12, Codex decision 6)**: the
+  notice is the cutoff's alone, whatever the reminders; the coach judges the absence (D4).

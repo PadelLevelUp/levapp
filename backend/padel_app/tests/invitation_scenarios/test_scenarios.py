@@ -15,6 +15,8 @@ Opt-in (design §8), because most scenarios fail on today's engine by design:
 - ``INVITATION_ENGINE=new`` (PAD-902): run against the redesign plan's engine through
   adapters/new.py instead of today's; unset or ``today`` keeps today's adapter. The baseline is
   today's, so ``baseline`` mode refuses ``new``.
+- ``INVITATION_STORE=db`` (PAD-916), with ``INVITATION_ENGINE=new``: the same engine on the app's
+  tables (adapters/new_db.py, ``services/engine_store.TableStore``) instead of ``MemoryStore``.
 """
 import json
 import os
@@ -29,6 +31,7 @@ from padel_app.tests.invitation_scenarios.runner import dump_log, dump_yaml, run
 HERE = Path(__file__).parent
 MODE = os.getenv("INVITATION_SCENARIOS", "").strip().lower()
 ENGINE = os.getenv("INVITATION_ENGINE", "").strip().lower() or "today"
+STORE = os.getenv("INVITATION_STORE", "").strip().lower() or "memory"
 BASELINE = HERE / "baseline-today.yaml"
 
 
@@ -59,6 +62,12 @@ def _adapter(request):
         if MODE == "baseline":
             pytest.fail("baseline-today.yaml is today's engine's baseline; run INVITATION_ENGINE=new with "
                         "INVITATION_SCENARIOS=1")
+        if STORE == "db":
+            from padel_app.tests.invitation_scenarios.adapters.new_db import NewDbAdapter
+
+            return NewDbAdapter(request.getfixturevalue("app"))
+        if STORE != "memory":
+            pytest.fail(f"INVITATION_STORE={STORE!r}: expected memory or db")
         from padel_app.tests.invitation_scenarios.adapters.new import NewAdapter
 
         return NewAdapter()

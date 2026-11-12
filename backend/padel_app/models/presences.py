@@ -60,6 +60,14 @@ class Presence(db.Model, model.Model):
     # PAD-672 (rule 13a): a "both" player's side, written once by the engine's tick from the class's
     # start; while the class is open it is computed (`notification_service.assigned_sides`), never stored.
     assigned_side = Column(String(5), nullable=True)
+    # PAD-916: the new engine's placement (swap plan §5). How the student came to be going
+    # (snapshot.PlacedHow; enrolment_source's six values cannot hold it), when, the last time the
+    # engine moved their side (engine-timeline rule 6), and why a going student left
+    # (effects.LeftReason). NULL on rows the new engine never wrote.
+    placed_how = Column(String(24), nullable=True)
+    placed_at = Column(DateTime, nullable=True)
+    side_moved_at = Column(DateTime, nullable=True)
+    left_reason = Column(String(10), nullable=True)
     
     @property
     def attendance_state(self) -> str:

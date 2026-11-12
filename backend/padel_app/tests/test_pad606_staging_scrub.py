@@ -94,6 +94,14 @@ NON_PERSONAL = {
     # Merge of 2026-10-22: court sides, and the rate limiter's scope (an endpoint name; its rows go).
     "class_join_requests.side", "standing_waiting_list_entries.side", "waiting_list_entries.side",
     "presences.assigned_side",  # PAD-672 slice 3: the side a "both" player was kept to
+    # PAD-916: the new engine's store. Codes, sides and ids only; an effect's payload names player and
+    # occurrence ids, never a name or a message's text.
+    "invitations.answer", "invitations.offer", "invitations.side_named", "invitations.closed_reason",
+    "invitations.message_ids", "engine_sessions.alerted", "engine_sessions.approved_groups", "engine_sessions.removed",
+    "engine_sessions.pending", "engine_sessions.dismissed_groups",
+    "engine_effects.key", "engine_effects.kind", "engine_effects.payload",
+    "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides", "notification_configs.engine_version", "notification_configs.timing_method",
+    "notification_configs.per_tier_timing",
     "auth_rate_limit_hits.scope",
     "user_identities.provider",
     # PAD-742 finance: business costs and staff (owner) emails, kept on purpose (owner-only section).

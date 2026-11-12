@@ -70,7 +70,7 @@ def counted_as_coming(player_ids):
         _COUNTED_AS_COMING.reset(token)
 
 
-def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False):
+def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False, new_engine=False):
     """Put a player on one occurrence. THE single writer (rule 4).
 
     The `Presence` row is the enrolment (rule 1). Idempotent: an existing row is
@@ -81,6 +81,10 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
     one, so a caller that enrols a whole roster under ``with unit_of_work():``
     gets one commit, and the PAD-261 accept path keeps its row lock until its
     own commit.
+
+    ``new_engine`` (PAD-916): the new invitation engine's store places the student. Only the row
+    is written: the old engine's work on an enrolment (its vacancies, which ruling D1 drops, and
+    its reminder pass, which the new engine's attendance requests replace) is skipped.
     """
     from padel_app.models.presences import ENROLMENT_SOURCES
 
@@ -151,7 +155,7 @@ def enrol(player_id, instance, source, *, invited=True, confirmed=False, validat
 
         presence.confirmed = True
         record_response(presence, "confirmed", recorded_by="system")
-    elif created or returning:
+    elif (created or returning) and not new_engine:
         # PAD-331: a late arrival must actually be ASKED. The reminder chain is
         # spent once a pass reports nothing more due, so nobody who joins after
         # it is asked by anything — clearing the cap (PAD-318) removes the
@@ -638,6 +642,11 @@ def create_lesson_instance_helper(data, parent_lesson=None):
             coach_id=coach_id,
             lesson_instance_id=lesson_instance.id,
         ).create()
+
+    # PAD-917 (notifications.config rule 18, CONFIG-63): the creating path assigns the engine; a switched
+    # coach's new occurrence is on the new engine from now.
+    from padel_app.services.engine_switch import on_occurrence_created
+    on_occurrence_created(lesson_instance)
 
     return lesson_instance
 

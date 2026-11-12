@@ -2,7 +2,7 @@ id: P18
 variant: a
 title: one side over
 source: {section: "Plano §9.3 Regulars and absences", lines: [265, 268]}
-what_it_tests: an over-quota regular moves at last_invite_at only if still needed
+what_it_tests: a one-sided regular on an over-quota side is never moved at last_invite_at
 tags: [unbalanced, regulars]
 derived_from: [S18, §4, §8 step 6]
 corrections: []
@@ -13,6 +13,13 @@ notes: >
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
   4). Branch a: 2 accept, so one right regular moves left at last_invite_at (the one who joined most
   recently, R-5) and is notified.
+
+  Re-derived again (PAD-913, owner 2026-11-12, decisions 12-13: the engine moves a student only within the
+  sides they play): the right regulars play only the right, so at last_invite_at
+  nobody moves and no `side_moved` is sent: the 08:30 observation and the final are L3 R5 (was L4 R4 with
+  R-5 moved left).
+  An 08:00 observation step (roster unchanged) drains the 2 Nov reminders, so the 08:30 `nothing_sent`
+  asserts that no `side_moved` goes out.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -42,10 +49,14 @@ timeline:
         - {who: l1, side: L, how: invitation}
         - {who: l2, side: L, how: invitation}
       missing: {total: 0}
+  - at: 2026-11-03 08:00
+    derived_from: [§8 step 6]
+    expect:
+      roster: {L: 3, R: 5}
   - at: 2026-11-03 08:30
     derived_from: [§8 step 6, S18]
     expect:
-      roster: {L: 4, R: 4}
-      messages: [{who: R-5, kind: side_moved}]
+      roster: {L: 3, R: 5}
+      nothing_sent: true
 final:
-  roster: {L: 4, R: 4}
+  roster: {L: 3, R: 5}

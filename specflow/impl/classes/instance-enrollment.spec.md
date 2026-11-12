@@ -168,6 +168,28 @@ three separate fields on it. Decision record:
     `notifications.engine-timeline` rule 2) and no `added_to_class` message is sent (rule 11; the
     engine sends its own `added` notice or invitation confirmation). Every old-engine enrolment is
     unchanged.
+15. **A coach's add at an hour the student is already going elsewhere is refused (PAD-913;
+    `notifications.engine-answers` rule 10, the coordinator's ruling: no override).** When a coach adds a
+    student to a class (one occurrence, a series, a class created with students, or accepting a join
+    request), and the add would put the student in two classes at the same time
+    (`notifications.engine-tiers` rule 3: any overlap with a class of that coach, one ending as the other
+    starts being no overlap, the owner's decision 11; or the same start with any coach, the owner's
+    2026-11-11 ruling) of which at least one is a new-engine session, the
+    whole edit is refused and nothing is saved. An occurrence not yet materialised counts as new-engine
+    when its class's coach is on `new` (`notifications.config` rule 18 assigns it so when it first
+    exists); a student is going to an occurrence when they are on its roster or presences and not marked
+    absent. The refusal: `409 {code: "busy_same_hour", clashes: [{playerId, playerName, lessonInstanceId, title,
+    start}]}`, one entry per student and clashing occurrence. There is no override: the coach removes the
+    student from the other class first. Both shells read the body (today they show a generic failure
+    toast) and show, per clash, "{name} já está inscrito noutra aula à mesma hora ({title}, {date}
+    {time}). Remove-o dessa aula primeiro." / "{name} is already in another class at the same time
+    ({title}, {date} {time}). Remove them from that class first." (proposed, for the owner's approval),
+    from one shared copy helper. The four places that today drop the error body read it: web
+    `CalendarPage.handleEditClass` and `AddToClassesDialog.proceedSave`, iOS `class/[id].tsx`
+    `finalizeEdit` and `add-to-classes-dialog.tsx` `proceedSave`; adding to several classes at once saves
+    the others and lists each class that refused. An add that clashes only with old-engine classes is
+    unchanged. An add that goes through to a new-engine session is a placement: the student's other open
+    invitations at that hour close, as for any placement (`notifications.engine-answers` rule 10).
 
 ### Acceptance Criteria
 
@@ -357,6 +379,39 @@ test: `backend/padel_app/tests/test_pad259_enrolment.py` › `test_enrol_survive
 - **When** the store enrols a student with `new_engine=True`, and puts back a student who had cancelled the same way
 - **Then** each has a presence (the returning one with the absence cleared and its earlier attendance records voided), no vacancy is closed or reconciled, no reminder pass is armed and no `added_to_class` message is sent
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_new_engine_enrolment_writes_only_the_presence`
+
+#### CLASSES-INSTANCE-ENROLLMENT-29: A coach's add that clashes at the same hour is refused whole, with the clashes (rule 15)
+- **Given** a student going to Ana's class on Thursday at 19:00 and a coach's new-engine class on Thursday at 19:00
+- **When** the coach adds that student and another to the class in one edit, and then adds the same student to the class's series
+- **Then** both edits answer `409 busy_same_hour` with one clash naming Ana's class and its start, nothing is saved (neither student is added), and adding only the other student succeeds
+test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_coachs_add_at_a_busy_hour_is_refused_whole`
+
+#### CLASSES-INSTANCE-ENROLLMENT-30: A partial overlap, or another coach's class at the same start, is refused; a touching class or a clash between old-engine classes only is not (rule 15)
+- **Given** a coach's hour-long new-engine class at 19:00, and students going to that coach's 18:30–19:30 class, to that coach's class ending at 19:00, only to that coach's old-engine 19:00 class (the add being to another old-engine 19:00 class), and to another coach's 19:00 class
+- **When** the coach adds each
+- **Then** the partial overlap answers `409 busy_same_hour`, so does the other coach's class at the same start, and the touching and the old-engine-only adds succeed
+test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_different_start_or_an_old_engine_class_is_not_refused`
+
+#### CLASSES-INSTANCE-ENROLLMENT-31: Both shells show each clash from the refusal's body (rule 15)
+- **Given** a `409 busy_same_hour` with one clash, on web and on iOS
+- **Then** each shows the shared helper's line naming the student, the other class and its date and time, never the generic failure toast
+test: `frontend/packages/config/src/busy-same-hour-copy.test.ts` › `renders one line per clash in both locales`
+
+#### CLASSES-INSTANCE-ENROLLMENT-32: The web edit and add-to-classes read the refusal's body (rule 15)
+- **Given** web's class edit and the player's add-to-classes dialog over two classes, one refusing with `busy_same_hour`
+- **Then** the edit shows the clash line instead of the generic toast, and the dialog saves the other class and lists the refused one with its line
+test: `frontend/apps/web/src/components/players/detail/AddToClassesDialog.busySameHour.test.tsx` › `shows each clash and saves the classes that did not refuse`
+
+#### CLASSES-INSTANCE-ENROLLMENT-33: The iOS edit and add-to-classes read the refusal's body (rule 15)
+- **Given** the same refusals on iOS
+- **Then** the same lines show and the other class is saved
+test: `frontend/apps/mobile/src/features/players/add-to-classes-dialog-busy-same-hour.test.tsx` › `shows each clash and saves the classes that did not refuse`
+
+#### CLASSES-INSTANCE-ENROLLMENT-34: A coach's add to a new-engine session closes the student's other invitations at that hour (rule 15)
+- **Given** a student holding a counting invitation to a 19:00 new-engine session, not yet answered
+- **When** a coach adds them to another 19:00 new-engine class
+- **Then** the add succeeds and the invitation closes as a same-hour close (nothing more is sent for it and it no longer counts)
+test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_coachs_add_closes_the_students_other_invitations_at_that_hour`
 
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the

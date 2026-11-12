@@ -3,7 +3,7 @@ title: o aluno recebe o Aviso e não quer ir para a waiting list
 source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [943, 964]}
 what_it_tests: não se convida o mesmo aluno duas vezes para a mesma aula, exceto se ele entrar na waiting list
 tags: [aviso, groups, timers]
-derived_from: [Q6, D1, §7]
+derived_from: [§7, D4, D8]
 corrections: []
 notes: >
   E3 (design §6.1): the expected result is the PDF's (group 4 is invited at 2 Nov 09:00). The reason is
@@ -17,6 +17,11 @@ notes: >
   Re-derived (PAD-908, coordinator ruling 5, under F1 / ruling (1)): E2 got "sorry" and keeps their one
   invitation; when the left reopens at 09:00 it is re-offered to E2 (group 3, the ideal tier), so group 4
   is not asked. The 09:10 accept is E2's, on the re-offer, since no L3L is ever invited.
+
+  Re-derived again (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): E2 declined the waiting list
+  after the sorry, so E2 is never asked again for this session. The PDF's (Tomás's) expectation is back, as
+  the 2026-11-11 sheet's plan-consistent line has it: at 09:00 E3's invitation is open but no longer counting
+  and E2 is no candidate, so tier 4 is the ideal tier and gets X = 3 (the 3 L3L); at 09:10 an L3L accepts.
 
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 roster:
@@ -46,16 +51,15 @@ timeline:
       messages: [{who: E2, kind: aviso}]
   - at: 2026-11-02 09:00
     events: [{regular_no: L-1}]
-    derived_from: [Q6, D1]
+    derived_from: [§7, D8]
     expect:
-      invitations: none
-      messages: [{who: E2, kind: reoffer}]
+      invitations: [{cohort: L3L, count: 3, side_named: null, group: 4}]
       missing: {L: 1, R: 0}
   - at: 2026-11-02 09:10
-    events: [{accepts: E2}]
-    derived_from: [Q6, D1]
+    events: [{accepts: {cohort: L3L, state: invited, as: l1}}]
+    derived_from: [§7, D8]
     expect:
-      placed: [{who: E2, side: L, how: invitation}]
+      placed: [{who: l1, side: L, how: invitation}]
       missing: {L: 0, R: 0}
 final:
   roster: {L: 4, R: 4}

@@ -28,17 +28,17 @@ engine is deleted and the replaced items go with it.
 
 | Item | For a new-engine session | Source |
 |---|---|---|
-| Entities: `ReplacementApprovalPrompt` per vacancy, `Vacancy.approval_status` | one pending `ApprovalRequest` per session and the session's approved queue, kept by the store | `notifications.engine-planning` rule 14 |
-| Rule 2 (every vacancy-creation path prompts) | a planning run that would send to a student outside the approved queue raises the request; there is no vacancy to create | `notifications.engine-planning` rule 14 |
-| Rule 3 (one prompt per vacancy) | one pending request per session; a new one replaces it, an equal one is not raised again | `notifications.engine-planning` rule 14 |
-| Rule 4 (the full ordered queue; exactness) | the queue per open spot type from the dry run; the engine never invites outside the approved queue without a new request | `notifications.engine-tiers` rule 12, `notifications.engine-planning` rule 14 |
+| Entities: `ReplacementApprovalPrompt` per vacancy, `Vacancy.approval_status` | a pending `ApprovalRequest` per group about to start, and the session's approved and dismissed groups and removed students, kept by the store | `notifications.engine-planning` rule 14 |
+| Rule 2 (every vacancy-creation path prompts) | a planning run about to send from a group not yet approved for the session, the first included, asks for that group; there is no vacancy to create | `notifications.engine-planning` rule 14 |
+| Rule 3 (one prompt per vacancy) | one pending request per group; a changed one replaces it, an equal one is not raised again | `notifications.engine-planning` rule 14 |
+| Rule 4 (the full ordered queue; exactness) | the group's queue per open spot type from the dry run; the engine never sends from a group the coach has not approved for the session | `notifications.engine-tiers` rule 12, `notifications.engine-planning` rule 14 |
 | Rule 4b (`emptyQueueReasons`) | the dry run's verdict stages, counted per type | `notifications.engine-tiers` rule 12 |
-| Rule 5 (the waiting list heads the queue) | the coach's list, then the students' list, head each type's queue (tier order) | `notifications.engine-tiers` rule 5 |
-| Rules 7, 7a (bundles of vacancies) | one request per session carries every type; no bundles | `notifications.engine-planning` rule 14 |
-| Rule 8 (three actions) | approve, removing any students; "Yes, at the window" goes (no request before the window); "Ignorar" dismisses until the spot count changes or the coach reopens the class | `notifications.engine-planning` rule 14 |
+| Rule 5 (the waiting list heads the queue) | the coach's list and the students' list are the first two groups, each asked for before it starts (tier order) | `notifications.engine-tiers` rule 5 |
+| Rules 7, 7a (bundles of vacancies) | one request per group carries every type; no bundles | `notifications.engine-planning` rule 14 |
+| Rule 8 (three actions) | approve the group, removing any students; "Yes, at the window" goes (no request before the window); "Ignorar" dismisses the group: the next group is asked for, and this one again on a spot-count change or a reopen | `notifications.engine-planning` rule 14 |
 | Rules 9, 10 (gating by approval status) | the hold itself; waiting-list invitations are held, automatic entry and direct join are not | `notifications.engine-planning` rule 14 |
 | Rule 11 (a fill or expiry resolves the prompt) | a run with nothing left to ask for withdraws the request, which goes stale | `notifications.engine-planning` rule 14 |
-| Rule 1a (leaving semi-automatic releases spots) | switching to automatic withdraws the pending request and the next run sends | `notifications.engine-planning` rule 14 |
+| Rule 1a (leaving semi-automatic releases spots) | switching to automatic withdraws the pending requests and the next run sends | `notifications.engine-planning` rule 14 |
 
 Readings:
 - Rule 1: the hold applies when `invitation_mode` is `semi_automatic` (carried by `notifications.config`
@@ -47,9 +47,56 @@ Readings:
 - Rule 12: recomputing from the class asks the engine's dry run with the class as it is now and raises a
   fresh request.
 
-Not yet specified, needed before this spec's swap step (each under Open questions):
-- the request's message and card: one block per spot type (side and level), its queue, the coach's
-  removals and "Ignorar" on web and iOS, and their copy in both locales.
+The new-engine answer (swap step 7, PAD-919):
+- **N1. The class's approval state is the session's groups and requests** (`notifications.engine-planning`
+  rule 14, the owner's per-group shape). The class view's suggestion state (rule 12's route) answers,
+  for a new-engine session: the pending request for each group about to start (its id, the group, and
+  its queues per spot type with `notifications.invite-simulation` N2's `side`, `levelId` and
+  `levelLabel`), the approved groups, the dismissed groups and the removed students;
+  `emptyQueueReasons` becomes the dry run's stage counts per type. A group is `{tierSource, groupNumber}`
+  (`calendar.event-detail` ND1's names). On the wire (`GET /api/app/notify/approval/instance/<id>`):
+  `{engine: "new", state: "pending"|"none", semiAutomatic, approvedGroups: [group], dismissedGroups:
+  [group], removed: [playerId], requests: [{requestId, lessonInstanceId, group, spotTypes: [{side,
+  levelId, levelLabel, count, queue, emptyQueueReasons?: [{stage, count}]}]}]}`.
+- **N2. The coach's answer.** "Sim" answers `ApproveGroup(session, request, removed)` and "Ignorar"
+  `DismissGroup(session, request)`; "Yes, at the window" is refused for a new-engine session (no request is
+  raised before the window); an answer naming a request that is no longer pending decides nothing and
+  answers `stale`. On the wire `POST /api/app/notify/approval/respond` takes `{bundleId: <requestId>,
+  action: "yes_now"|"dismiss", removed?: [playerId]}` and answers `{engine: "new", requestId, result:
+  "approved"|"dismissed"|"stale", state?}`; `yes_at_window` is a 400.
+- **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenGroup(session, tier)` for each
+  dismissed group and re-plans the session at once (`Engine.plan(session, now)`), which asks again for
+  the group about to start. A pending request whose queues are unchanged stays: it is already current,
+  and the class view computes its list when shown (rule 12b).
+- **N4. The request reaches the coach (rule 6).** The outbox's sender for an `ApprovalRequest` posts one
+  `replacement_approval` message in the coach's Assistant conversation, its metadata `{engine: "new",
+  requestId, lessonInstanceId, group, state: "pending", responded: false, spotTypes: [{side, levelId,
+  levelLabel, count, queue}]}` (`count` the type's open spots), its text in the coach's locale
+  (message-templates rule 6): "Vou começar a convidar {group} para {class}, {weekday} às {time}: {n}
+  aluno(s) na fila. Aprovas?" / "I'll start inviting {group} for {class}, {weekday} at {time}: {n}
+  student(s) in the queue. Do you approve?" (proposed, after the owner's own example in decision 5), then pushes it to
+  the coach, once (`notifications.engine-store` rule 2). When the request stops being pending, the
+  store edits that message's metadata, `state` `approved`, `dismissed` or `replaced` (replaced or
+  withdrawn) and `responded: true` (what older builds read), with one live `message_edited`, as it does
+  for invitation messages (`notifications.engine-store` rule 8).
+
+- **N5. The card, web and iOS** (web `ReplacementApprovalCard`, iOS `replacement-approval-card`, one shared
+  display helper in `@levelup/config` as rule 7a's): for a new-engine request, the group's name as its
+  title ("lista do treinador", "lista de espera", "grupo N", ND1's words), then one block per spot type
+  (side and level, its open spots) with its queue in order, the first 5 and "Ver mais (N)" as rule 7a,
+  "A mostrar 5 de N · ao aprovar, são convidados todos" whenever truncated. Each student has a remove
+  toggle (`approval-remove-<playerId>`); a removed student is struck through and counted in "Sim (N
+  retirados)" / "Yes (N removed)" (proposed). The buttons: "Sim" (`approval-yes`, sends `yes_now` with the
+  removed ids) and "Ignorar" (`approval-dismiss`) on the class's card; the conversation's card offers
+  "Sim" only (rule 8, PAD-545). No "at the window" button for a new-engine request. A `stale` answer, or
+  a message whose `state` is `replaced`, shows "Este pedido foi substituído por um mais recente."
+  / "This request was replaced by a newer one." (proposed) and no buttons; `dismissed` shows "Ignorado" /
+  "Ignored". An empty type shows its `emptyQueueReasons` with N6's words, one line each, "{{reason}}
+  ({{count}})". Also proposed: the singular "Sim (1 retirado)" / "Yes (1 removed)"; the remove and restore
+  labels for assistive tech, "Retirar {{name}} da lista" / "Remove {{name}} from the list" and "Repor
+  {{name}} na lista" / "Put {{name}} back on the list".
+
+The card's new words (N5) are proposed, for the owner's approval.
 
 ### Rules
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
@@ -383,9 +430,65 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.te
 - **And** a yes that reached no spot tells the coach the spots were filled or expired, or that the list was recalculated
 test: `frontend/apps/mobile/src/features/notifications/approval-bundle.test.ts` › `accepts a bundle carrying an id and at least one vacancy` (+14 more)
 
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-37: The class's approval state is the session's request (new-engine section N1)
+- **Given** a semi-automatic new-engine session with group 1 approved, one student removed earlier, and a pending request for group 2 over two spot types
+- **When** the coach's class view reads its suggestions
+- **Then** the answer carries group 1 in `approvedGroups`, the removed student, no dismissed group, and one request with its id, group 2 and its queues per type, an empty type's `emptyQueueReasons` being the dry run's stage counts
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_approval_state_is_the_sessions_request`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-38: The coach approves or dismisses the pending request (new-engine section N2)
+- **Given** a pending request R2 that replaced R1
+- **When** the coach answers "Sim" on R2 removing one student, "Sim" on R1, "Yes, at the window" and "Ignorar"
+- **Then** R2's answer is `ApproveGroup(session, R2, removed)`, R1's answers `stale` and decides nothing, "at the window" is refused, and "Ignorar" is `DismissGroup(session, R2)`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_coach_approves_or_dismisses_the_pending_request`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-39: Recomputing reopens the dismissed groups and asks afresh (new-engine section N3)
+- **Given** a new-engine session with group 1 dismissed
+- **When** the coach recomputes the suggestions from the class
+- **Then** group 1 is reopened and the next run asks for it again with the class as it is now
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_recompute_raises_a_fresh_request`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-40: The outbox posts the request in the coach's Assistant conversation (new-engine section N4)
+- **Given** an `ApprovalRequest` row in the outbox for a session with two spot types
+- **When** the outbox sends it, and sends again
+- **Then** the coach's Assistant conversation holds one `replacement_approval` message with `engine` `new`, the request's id, the lesson instance, its `group`, `responded` false and each type's `side`, `levelId`, `levelLabel` and queue, its text in Portuguese for a `pt` coach, the coach gets one push, and the second send adds nothing
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_outbox_posts_the_request_to_the_coachs_assistant`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-41: The web card approves with removals, dismisses, and reads a stale answer (new-engine section N5)
+- **Given** a new-engine request for group 2 on web with a left type of 7 students and an either type with none, on the class's card and in the conversation
+- **When** the coach removes two students and presses "Sim", and on another card presses "Ignorar", and a third card's answer comes back `stale`
+- **Then** the card is titled with group 2's name, the left block shows 5 with "Ver mais (2)" and the truncation line, the either block shows its empty-queue reasons, "Sim (2 retirados)" sends `yes_now` with both ids, "Ignorar" sends `dismiss`, the conversation card has no "Ignorar", no card has an "at the window" button, and the stale card shows the replaced line with no buttons
+test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.newEngine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-42: The iOS card does the same with the same test ids (new-engine section N5)
+- **Given** the same requests on iOS
+- **Then** the same blocks, removals, buttons, test ids and stale line show, and the same requests are sent
+test: `frontend/apps/mobile/src/features/notifications/replacement-approval-card-new-engine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-43: A request's message follows it when it stops being pending (new-engine section N4)
+- **Given** three posted request messages
+- **When** the first's request is replaced by a newer one, the second is approved and the third dismissed
+- **Then** their metadata reads `state` `replaced`, `approved` and `dismissed`, each with `responded` true and its spot types' `count`, and each change published once as `message_edited`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_a_request_message_follows_it_when_it_stops_being_pending`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-44: The iOS class card follows the session's approval state across re-reads (new-engine section N1, N3, N5)
+- **Given** the iOS class screen of a semi-automatic new-engine session, re-reading its approval state
+- **When** the state goes pending for group 1 → (the coach approves) none → pending for group 2 → (the coach dismisses) group 2 dismissed → (the coach recomputes) pending for group 2 again
+- **Then** the card shows group 1's request; after approving, the approved card stays while the screen is open even though the re-read answers `none` (as rule 12b keeps an answered card); group 2's request then shows as its own card; the dismissed group shows "Ignorado" with the recompute button; the recompute replaces it with group 2's new request
+test: `frontend/apps/mobile/src/features/notifications/engine-approval-class-state.test.ts` › `the class card follows the session's approval state across re-reads`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-45: The web class card follows the session's approval state the same way (new-engine section N1, N3, N5)
+- **Given** the web class detail with the same sequence
+- **Then** the same cards show
+test: `frontend/apps/web/src/components/notifications/engineApprovalClassState.test.ts` › `the class card follows the session's approval state across re-reads`
+
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
   kept, as the hold of `notifications.engine-planning` rule 14 (the shape is the coordinator's,
   reversible by the owner). "Ignorar" is `DismissQueue` (the coordinator's ruling, reversible by the
   owner, `notifications.engine-planning` Open questions). The message and card copy are not decided;
   they go to the owner with this spec's swap step.
+- The approval's unit — **the owner's (2026-11-12, Codex decisions 5 and 10):** one request before each
+  group, the first included; an approved group stays approved for the session. N1–N5 follow
+  (`notifications.engine-planning` rule 14). The request's text follows the owner's example ("I will
+  now start inviting people from [group]. Do you approve?"), proposed, not approved copy.

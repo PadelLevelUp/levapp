@@ -615,6 +615,9 @@ test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` �
   every absence on time or late by the cutoff, and today's "a reminder decline is never late" rested on
   the reminder deciding the justification, which D4 hands to the coach. A No before anyone asked stays
   never late (rule 12).
+- **Answered by the owner (2026-11-12, Codex decision 6, "I want to go with Claude's proposal"):** lateness
+  follows the cancellation deadline alone, reminder answers and Nos before any reminder included; the
+  coach still judges justified or unjustified. The two questions below are closed by it.
 - Does rule 12 (a proactive decline is never late) hold for a new-engine session? — **for the owner.**
   It cannot hold together with D4 as the coordinator reads it (2026-11-12): the cutoff alone decides,
   and scenario 61 (Tomás's expectation, one of the 133 that do not change) expects a No after the

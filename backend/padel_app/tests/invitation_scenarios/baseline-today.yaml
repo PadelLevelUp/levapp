@@ -3,6 +3,8 @@
 # third gate), SQLite. Classes per the reading rule (first failing step; encoding > structural >
 # behavioural); `decision` is retired, since the owner's 2026-11-11 ruling closed the U-questions.
 # Regenerate, never hand-edit counts.
+# 2026-11-12 (PAD-913): 37, 38, 55, 56, 57, P18a, P19, P20a, P29 re-run against today's engine on
+# feature/pad-913-owner-decisions after the owner's decisions 1 and 12-13 (re-derived files).
 01-exemplo-completo:
   outcome: fail
   evaluated: 16
@@ -352,7 +354,7 @@
   first_failure: 2026-11-01 19:10 messages[E2]
 37-vaga-reabre-depois-dos-lembretes:
   outcome: fail
-  evaluated: 13
+  evaluated: 12
   skipped: 0
   derived_from:
   - §7
@@ -364,7 +366,7 @@
   first_failure: 2026-11-01 19:10 messages[E2]
 38-aviso-e-nao-quer-ir-para-waiting-list:
   outcome: fail
-  evaluated: 11
+  evaluated: 10
   skipped: 0
   derived_from:
   - Q6
@@ -557,25 +559,19 @@
     (scenario not tagged U25; see report)'
   first_failure: 2026-11-01 19:18 events.accepts
 56-aula-pequena-com-um-lado-muito-carregado:
-  outcome: fail
-  evaluated: 9
+  outcome: pass
+  evaluated: 10
   skipped: 0
   derived_from:
   - §8 step 6
   - S18
-  class: structural
-  note: 'structural: today never moves an over-quota regular''s side at last_invite_at (§8 step 6, S18)'
-  first_failure: 2026-11-03 08:30 roster
 57-regular-do-lado-com-excesso-diz-nao:
-  outcome: fail
-  evaluated: 13
+  outcome: pass
+  evaluated: 14
   skipped: 0
   derived_from:
   - §8 step 6
   - S18
-  class: structural
-  note: 'structural: today never moves an over-quota regular''s side at last_invite_at (§8 step 6, S18)'
-  first_failure: 2026-11-03 08:30 roster
 58-regular-avisa-antes-do-inicio-dos-convites:
   outcome: pass
   evaluated: 8
@@ -1128,16 +1124,13 @@ P17-both-kinds-of-open-spot:
     sends X per open spot (6 left, 3 right)'
   first_failure: 2026-11-01 19:00 invitations
 P18a-one-side-over-two-accept:
-  outcome: fail
-  evaluated: 8
+  outcome: pass
+  evaluated: 9
   skipped: 0
   derived_from:
   - S18
   - §4
   - §8 step 6
-  class: structural
-  note: 'structural: today never moves or sides a regular at last_invite_at (§8 step 6)'
-  first_failure: 2026-11-03 08:30 roster
 P18b-one-side-over-regular-no-first:
   outcome: pass
   evaluated: 6
@@ -1147,7 +1140,7 @@ P18b-one-side-over-regular-no-first:
   - §4
 P19-unbalanced-with-a-both-regular:
   outcome: fail
-  evaluated: 8
+  evaluated: 7
   skipped: 0
   derived_from:
   - S19
@@ -1155,10 +1148,10 @@ P19-unbalanced-with-a-both-regular:
   - §8 step 6
   class: structural
   note: 'structural: today never moves or sides a regular at last_invite_at (§8 step 6)'
-  first_failure: 2026-11-03 08:30 roster
+  first_failure: 2026-11-03 08:30 messages[B-1]
 P20a-side-limit:
   outcome: fail
-  evaluated: 7
+  evaluated: 8
   skipped: 0
   derived_from:
   - S20

@@ -59,6 +59,9 @@ def _format_template(template: str, **variables) -> str:
     # PAD-446 (message-templates rule 16): `{side}` is filled only for a waiting-list invitation; anywhere else (or a
     # caller that did not pass it) it renders as nothing, never as a raw token.
     template = template.replace("{side}", "")
+    # The new engine's placeholders (message-templates N2): `{sideName}` (side_moved) and `{count}`
+    # (coach_no_candidate) are stripped the same way anywhere they are not filled.
+    template = template.replace("{sideName}", "").replace("{count}", "")
     # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
     template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a

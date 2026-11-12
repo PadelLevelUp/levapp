@@ -19,10 +19,33 @@ from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
 TierSource = Literal["coach_list", "students_list", "pool"]
 TierSide = Literal["same", "other", "any"]
 TimingMethod = Literal["fixed", "progressive", "per_tier"]
+InvitationMode = Literal["automatic", "semi_automatic"]
 WaitingList = Literal["coach", "students"]
+#: The config's timing shapes (``reminderTiming``, PAD-915): N real hours before the class, the class's
+#: wall date minus N days at a Lisbon time (both day forms are the same, as in the scheduler), or none.
+TimingType = Literal["hours_before", "days_before", "days_before_at_time", "none"]
+
+#: The ordering criteria (engine-tiers rule 8): today's priority criteria and tiebreakers by their
+#: stored ids, and ``participations``. Each ranks a tier, lower first; see ``planner._criterion``.
+ORDERING_CRITERIA = frozenset({
+    "level", "justified_misses", "attendance", "playing_side", "subscription_status",
+    "unjustified_absences", "justified_absences", "attendance_rate", "playing_side_match",
+    "participations",
+})
+
 
 class SettingsError(ValueError):
     """A settings mapping the engine cannot accept; the message names the key."""
+
+
+@dataclass(frozen=True)
+class GroupRule:
+    """One rule of a coach's stored group (engine-tiers rule 13), as stored: ``{attribute, operation,
+    value}``. Read as today's vacancy-anchored group rules; see ``planner.group_rule_passes``."""
+
+    attribute: str
+    operation: str
+    value: object = None
 
 
 @dataclass(frozen=True)
@@ -31,13 +54,16 @@ class Tier:
 
     ``source`` is the coach's list, the students' list, or the club's pool of eligible students.
     ``level_offset`` (pool only) is relative to the class: 0 the class level, +1 one level better
-    (the level number minus one, since 1 is the best). ``side`` relates the student's natural side
-    to the spot's: ``same``, ``other`` (the "lado diferente" groups) or ``any``.
+    (the level number minus one, since 1 is the best); ``None`` sets no level. ``side`` relates the
+    student's natural side to the spot's: ``same``, ``other`` (the "lado diferente" groups) or
+    ``any``. ``rules`` (pool only) are the stored group's rules (engine-tiers rule 13, owner ruling
+    D5); none admits every pool student.
     """
 
     source: TierSource
     side: TierSide = "same"
     level_offset: int | None = None
+    rules: tuple[GroupRule, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -67,18 +93,27 @@ class Timing:
 
 @dataclass(frozen=True)
 class FirstInvite:
+    """When invitations start (``timeline.first_invite_at``): ``days_before`` the class's day at
+    ``at`` (the default), ``hours`` real hours before the class (``hours_before``), or, with
+    ``none``, from the session's creation."""
+
     days_before: int = 2
     at: time = time(19, 0)
+    type: TimingType = "days_before_at_time"
+    hours: int = 24
 
 
 @dataclass(frozen=True)
 class AttendanceRequest:
-    """The plan's ``attendance_request_at`` (§8 step 3), repeated as the coach sets it."""
+    """The plan's ``attendance_request_at`` (§8 step 3), repeated as the coach sets it. The first
+    request takes the shapes of ``FirstInvite``; with ``none`` it is never sent."""
 
     days_before: int = 1
     at: time = time(17, 0)
     every: timedelta = timedelta(hours=2)
     max: int = 3
+    type: TimingType = "days_before_at_time"
+    hours: int = 48
 
 
 @dataclass(frozen=True)
@@ -96,7 +131,7 @@ class EngineSettings:
     timing: Timing = field(default_factory=Timing)
     first_invite: FirstInvite = field(default_factory=FirstInvite)
     last_invite_before: timedelta = timedelta(hours=2)
-    quiet_hours: tuple[time, time] | None = (time(0, 0), time(7, 0))
+    quiet_hours: tuple[time, time] | None = (time(0, 0), time(7, 0))   # start == end: quiet all day; None: never
     attendance_request: AttendanceRequest = field(default_factory=AttendanceRequest)
     absence_cutoff_before: timedelta = timedelta(hours=12)
     eligibility: Eligibility = field(default_factory=Eligibility)
@@ -111,6 +146,11 @@ class EngineSettings:
     auto_entry_before_attendance_request: bool = False
     waiting_list_side_choice: bool = False
     direct_join: bool = False
+    # Off: only spots a going student freed are filled, never spots no one held (engine-settings
+    # rule 11; today's invitation start "none").
+    fill_never_held: bool = True
+    # Semi-automatic mode holds the engine's sends for the coach (engine-planning rule 14, ruling D2).
+    invitation_mode: InvitationMode = "automatic"
 
     def __post_init__(self) -> None:
         if self.invites_per_spot < 1:
@@ -132,11 +172,21 @@ class EngineSettings:
             raise SettingsError("timing.per_tier has more entries than there are tiers")
         if not self.tiers:
             raise SettingsError("tiers must not be empty")
+        if self.invitation_mode not in ("automatic", "semi_automatic"):
+            raise SettingsError(f"invitation_mode: unknown {self.invitation_mode!r}")
         for i, tier in enumerate(self.tiers):
-            if tier.source == "pool" and tier.level_offset is None:
-                raise SettingsError(f"tiers[{i}]: a pool tier needs level_offset")
             if tier.source != "pool" and tier.level_offset is not None:
                 raise SettingsError(f"tiers[{i}]: only a pool tier takes level_offset")
+            if tier.source != "pool" and tier.rules:
+                raise SettingsError(f"tiers[{i}]: only a pool tier takes group rules")
+        unknown = [name for name in self.ordering if name not in ORDERING_CRITERIA]
+        if unknown:
+            raise SettingsError(f"ordering: unknown criteria {unknown}")
+        for name, shape in (("first_invite", self.first_invite), ("attendance_request", self.attendance_request)):
+            if shape.type not in ("hours_before", "days_before", "days_before_at_time", "none"):
+                raise SettingsError(f"{name}.type: unknown {shape.type!r}")
+            if shape.days_before < 0 or shape.hours < 0:
+                raise SettingsError(f"{name}: days_before and hours must not be negative")
         if self.attendance_request.max < 0 or self.eligibility.levels_above < 0 or self.eligibility.levels_below < 0:
             raise SettingsError("counts must not be negative")
 

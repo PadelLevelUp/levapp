@@ -3,8 +3,8 @@ variant: a
 title: side limit
 source: {section: "Plano §9.3 Regulars and absences", lines: [270, 275]}
 what_it_tests: a type the better group cannot cover goes to the next tier with full X
-tags: [sides, other-side, groups]
-derived_from: [S20, D17, Q9, Q6, D20]
+tags: [sides, other-side, groups, aviso]
+derived_from: [S20, D17, Q9, D20, §7]
 corrections: []
 notes: >
   Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
@@ -14,6 +14,12 @@ notes: >
   4). Group 1 covers the either spot with 3 right-siders (offer: right); nobody in group 1 fits must(L), so
   group 2 is its ideal tier and the other 2 right-siders are asked to play left (Q9: per spot type). Branch
   a: after one of the first 3 takes the right, a second one's Yes is re-offered the left (Q6).
+
+  Re-derived (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): 19:20 r2's offer (right) has
+  filled, so r2 gets the Aviso (sorry with the waiting-list offer), never an offer of the left, though the
+  left spot is open and group 4 admits right-siders there. r2 does not join the list, so nothing more goes to
+  them, and no invitation is sent at 19:20: the left's ideal tier is group 4, whose 2 named-L invitations
+  still count (to 20:00) and no group-4 candidate is left uninvited. The left stays 1 short; final 7.
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -43,8 +49,10 @@ timeline:
       missing: {total: 1}
   - at: 2026-11-01 19:20
     events: [{accepts: {cohort: L3R, state: invited, side_named: null, as: r2}}]
+    derived_from: [§7]
     expect:
-      messages: [{who: r2, kind: reoffer}]
+      messages: [{who: r2, kind: aviso}]
+      invitations: none
       missing: {total: 1}
 final:
   roster: {total: 7}

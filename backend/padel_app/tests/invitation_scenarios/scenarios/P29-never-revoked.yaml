@@ -1,9 +1,9 @@
 id: P29
 title: never revoked
 source: {section: "Plano §9.5 Messages, levels, timing", lines: [296, 296]}
-what_it_tests: an open invitation is never withdrawn; a late Yes gets sorry, and takes a spot that reopens
+what_it_tests: an open invitation is never withdrawn; a late Yes gets sorry, and a still-open invitation takes a spot that reopens
 tags: [aviso, cancellation]
-derived_from: [S29, D4, §7, Q6]
+derived_from: [S29, D4, §7]
 corrections: []
 notes: >
   Plan scenario, encoded from docs/plans/invitation-engine-redesign.md §9 (source lines are that file's).
@@ -12,6 +12,12 @@ notes: >
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
   4). r2's Yes after the fill gets the Aviso (sorry plus the waiting-list offer). When r1 cancels, r2's
   invitation is re-offered (coordinator F1), and r3's still-open invitation takes the spot.
+
+  Re-derived (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): r2 was told sorry and did not join
+  the waiting list, so when r1 cancels on 2 Nov at 10:00 nothing goes to r2 (no `reoffer`) and no invitation
+  is sent: r3's invitation is open but stopped counting at 20:00 on 1 Nov, and no tier has a candidate (the
+  run alerts the coach, unasserted); `nothing_sent` asserts that r2 is not asked again. r3's open invitation
+  still takes the spot at 10:05 (never revoked, D4).
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -41,10 +47,11 @@ timeline:
       messages: [{who: r2, kind: aviso}]
   - at: 2026-11-02 10:00
     events: [{cancels: r1}]
+    derived_from: [§7, D4]
     expect:
       absences: [{who: r1, kind: justified}]
-      messages: [{who: r2, kind: reoffer}]
       invitations: none
+      nothing_sent: true
   - at: 2026-11-02 10:05
     events: [{accepts: {cohort: L3R, state: invited, as: r3}}]
     expect:
