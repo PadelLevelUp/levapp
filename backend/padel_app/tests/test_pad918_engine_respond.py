@@ -134,3 +134,24 @@ def test_the_serializer_sends_counts_until_to_the_coach_only(app):
         assert counts_until(_user(student)) is None
         assert "countsUntil" not in serialize_message(msg, None)["metadata"]       # no viewer: never leaks
         assert serialize_message(msg, None, viewer_id=coach_user)["metadata"]["countsUntil"]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-124")
+def test_the_live_event_gives_counts_until_to_the_coach_only(app, monkeypatch):
+    from padel_app import realtime
+    from padel_app.models.coaches import Coach
+    from padel_app.services.notification_service import _send_system_message
+
+    sent = []
+    monkeypatch.setattr(realtime, "publish", lambda event, users: sent.append((list(users), event)))
+    with app.app_context():
+        store, (session,), (_, student, _) = _seed(app)
+        coach_user = db.session.get(Coach, store.coach_of(session)).user_id
+        meta = {"engine": "new", "invitationId": 1, "lessonInstanceId": int(session), "kind": "invite",
+                "state": "open", "countsUntil": "2026-11-01T18:20:00"}
+        _send_system_message(coach_user, _user(student), "Join?", message_type="notification_invite",
+                             msg_metadata=meta, push=False)
+        created = {users[0]: e["payload"]["metadata"] for users, e in sent
+                   if e["type"] == "message_created" and len(users) == 1}
+        assert created[coach_user]["countsUntil"] == "2026-11-01T18:20:00"
+        assert "countsUntil" not in created[_user(student)]
