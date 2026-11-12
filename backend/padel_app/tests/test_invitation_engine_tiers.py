@@ -435,6 +435,7 @@ def test_any_overlap_with_the_same_coachs_class_is_busy():
     assert stages["LATER"] != "busy_same_time" and stages["OTHER"] != "busy_same_time"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-21")
 def test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says():
     """engine-settings rule 4, engine-tiers rule 6 (amended, R): ``wl-sides`` only decides whether the
     choice is offered; a side the student sent is always kept. A right-sider who chose the other side
