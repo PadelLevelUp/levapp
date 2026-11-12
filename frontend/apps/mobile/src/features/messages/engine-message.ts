@@ -6,6 +6,7 @@
  * `engine_alert` message's class link goes.
  */
 import type { EngineInviteStateName, EngineRespondAction } from "@levelup/types";
+import { nativeRouteForWebPath } from "@/features/dashboard/routes";
 
 /** What the cached message's metadata takes after an answer; null writes nothing. */
 export type EngineAnswerPatch = {
@@ -50,17 +51,23 @@ export function applyEngineAnswer<M extends { metadata?: Record<string, unknown>
   return { ...message, metadata: { ...message.metadata, ...patch } };
 }
 
-export type EngineAlertClassRoute = { pathname: "/class/[id]"; params: { id: string } };
+export type EngineAlertClassRoute = { pathname: "/class/[id]"; params: { id: string } & Record<string, string> };
 
 /**
- * NA3: an `engine_alert` message links to its class. The native class screen opens from the
- * materialised instance id alone and fetches the rest (`instanceIdFromParams`), the way a push or
- * a message's `lessonInstanceId` opens it.
+ * NA3 (DASHBOARD-BLOCKS-53): an `engine_alert` message links to its class, from its `href` (the
+ * dashboard's `class_href` shape, with the date) when it has one, else from the materialised
+ * instance id alone: the native class screen fetches the rest (`instanceIdFromParams`).
  */
 export function engineAlertClassRoute(
   metadata: Record<string, unknown> | null | undefined
 ): EngineAlertClassRoute | null {
   if (metadata?.engine !== "new") return null;
+  if (typeof metadata.href === "string") {
+    const route = nativeRouteForWebPath(metadata.href);
+    if (route?.pathname === "/class/[id]" && route.params?.id) {
+      return { pathname: "/class/[id]", params: { ...route.params, id: route.params.id } };
+    }
+  }
   const id = Number(metadata.lessonInstanceId);
   if (!Number.isInteger(id) || id <= 0) return null;
   return { pathname: "/class/[id]", params: { id: `lessoninstance-${id}` } };
