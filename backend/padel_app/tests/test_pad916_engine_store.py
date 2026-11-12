@@ -279,6 +279,7 @@ def test_app_gates_build_the_pool(app):
     assert s.postponed == frozenset()
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-3")
 def test_levels_reach_the_engine_as_ladder_positions(app):
     """engine-tiers rule 13: a level is its position on the coach's ladder, 1 the best and consecutive,
     as the app's level rules count it, whatever the stored display orders; a level off the coach's
