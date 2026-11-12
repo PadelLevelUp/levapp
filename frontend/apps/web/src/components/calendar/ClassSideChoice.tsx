@@ -25,7 +25,9 @@ import {
   sideLabelKey,
   sideWordKey,
   type SideFull,
+  type WaitingListSideOption,
 } from "@levelup/config";
+import type { WaitingListSides } from "@levelup/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,6 +47,20 @@ export interface ClassSideChoiceProps {
   onWaitingListJoined?: (side: PlayerSide) => void;
   /** Any failure that is not the `side_full` answer (the caller shows its own toast). */
   onFailed?: (error: unknown, mode: "request" | "waiting") => void;
+  /**
+   * PAD-920 (notifications.config rule 20): a new-engine class whose coach turned the side choice on
+   * offers "my side", "the other side" or "both" on its waiting list (`waitingListSideChoice`), and
+   * the join sends `sides`. Null or absent: today's absolute choice.
+   */
+  relativeChoice?: WaitingListSideOption[] | null;
+}
+
+const OTHER_SIDE: Record<"left" | "right", PlayerSide> = { left: "right", right: "left" };
+
+/** The absolute side a relative choice reads as for the caller's own state ("both" when unknown). */
+function absoluteOf(choice: WaitingListSides, profileSide: PlayerSide | null | undefined): PlayerSide {
+  if (choice === "both" || (profileSide !== "left" && profileSide !== "right")) return "both";
+  return choice === "own" ? profileSide : OTHER_SIDE[profileSide];
 }
 
 export function ClassSideChoice({
@@ -57,8 +73,10 @@ export function ClassSideChoice({
   onRequestSent,
   onWaitingListJoined,
   onFailed,
+  relativeChoice,
 }: ClassSideChoiceProps) {
   const { t } = useTranslation();
+  const [relChosen, setRelChosen] = useState<WaitingListSides | null>(null);
   const [chosen, setChosen] = useState<PlayerSide | null>(preselectedSide(profileSide));
   const [full, setFull] = useState<SideFull | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,6 +85,7 @@ export function ClassSideChoice({
   useEffect(() => {
     if (open) {
       setChosen(preselectedSide(profileSide));
+      setRelChosen(null);
       setFull(null);
       setBusy(false);
     }
@@ -107,7 +126,22 @@ export function ClassSideChoice({
     }
   };
 
+  const joinListRelative = async (choice: WaitingListSides) => {
+    setBusy(true);
+    try {
+      await joinClassWaitingList(event, undefined, choice);
+      onWaitingListJoined?.(absoluteOf(choice, profileSide));
+      onOpenChange(false);
+    } catch (err) {
+      onFailed?.(err, "waiting");
+      onOpenChange(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const word = (side: PlayerSide) => t(sideWordKey(side));
+  const relative = waiting && relativeChoice ? relativeChoice : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,6 +172,48 @@ export function ClassSideChoice({
                 data-testid="class-side-stay-waiting"
               >
                 {t("calendar.sidePick.stayWaiting", { requested: word(full.requestedSide) })}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : relative ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{t("calendar.sidePick.title")}</DialogTitle>
+              <DialogDescription>{t("calendar.sidePick.waitingSub")}</DialogDescription>
+            </DialogHeader>
+            <RadioGroupPrimitive.Root
+              value={relChosen ?? ""}
+              onValueChange={(v) => setRelChosen(v as WaitingListSides)}
+              aria-label={t("calendar.sidePick.title")}
+              className="grid gap-2"
+              data-testid="waiting-list-side-options"
+            >
+              {relative.map((option) => (
+                <RadioGroupPrimitive.Item
+                  key={option.value}
+                  value={option.value}
+                  data-testid={option.testId}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm font-medium",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    relChosen === option.value ? "border-[1.5px] border-warning bg-warning/10" : "border-border bg-background",
+                  )}
+                >
+                  {relChosen === option.value && <Check className="h-3 w-3" aria-hidden />}
+                  {t(option.labelKey)}
+                </RadioGroupPrimitive.Item>
+              ))}
+            </RadioGroupPrimitive.Root>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="class-side-cancel">
+                {t("calendar.sidePick.cancel")}
+              </Button>
+              <Button
+                disabled={busy || !relChosen}
+                onClick={() => relChosen && void joinListRelative(relChosen)}
+                data-testid="class-side-send"
+              >
+                {t("classRequests.academy.joinWaitlist")}
               </Button>
             </DialogFooter>
           </>

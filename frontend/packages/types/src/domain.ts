@@ -547,6 +547,10 @@ export interface ClassInvitation {
 }
 
 export interface ClassInstance {
+  /** PAD-920 (notifications.config rules 18, 20): the session's engine; absent on older servers. */
+  engineVersion?: "old" | "new";
+  /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
+  waitingListSideChoice?: boolean;
   /**
    * PAD-551 (`classes.instance-enrollment` rule 13): may the coach set a player's side on this
    * occurrence, materialised or virtual (the server's answer: not ended, not canceled; false for a
@@ -743,6 +747,10 @@ export interface NamedRef {
 }
 
 export interface CalendarEvent {
+  /** PAD-920 (notifications.config rules 18, 20): the session's engine; absent on older servers. */
+  engineVersion?: "old" | "new";
+  /** PAD-920 (rule 20): the student picks own/other/both on the waiting list; false on `old`. */
+  waitingListSideChoice?: boolean;
   /** clubs.courts rule 7: the class's club and court; absent on blocks. */
   club?: NamedRef | null;
   court?: NamedRef | null;

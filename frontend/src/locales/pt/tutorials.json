@@ -217,7 +217,11 @@
         "blocks_all": "Desligou todas as notificações",
         "availability_blocker": "Indisponível a esta hora"
       },
-      "other": "Outro motivo"
+      "other": "Outro motivo",
+      "openSpots_one": "{{count}} vaga",
+      "openSpots_other": "{{count}} vagas",
+      "sideEither": "Qualquer lado",
+      "leftOutTitle": "Quem não entra e porquê"
     }
   }
 }

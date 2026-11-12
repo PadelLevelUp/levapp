@@ -1,0 +1,132 @@
+/**
+ * PAD-920 (notifications.invitations NB1–NB4): a new-engine invitation bubble. Its state is the
+ * message's metadata, kept current by `message_edited`; the bubble re-renders from it. Asserted by
+ * the shared test ids, never by copy (`t` returns the key).
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { Message } from "@/types";
+
+const navigate = vi.fn();
+vi.mock("react-router-dom", async (orig) => ({ ...(await orig<object>()), useNavigate: () => navigate }));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
+const respondToEngineInvitation = vi.fn();
+vi.mock("@/api/notificationEngine", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  respondToEngineInvitation: (...a: unknown[]) => respondToEngineInvitation(...a),
+}));
+
+import { MessageBubble } from "./MessageBubble";
+
+const noop = () => undefined;
+const FUTURE = "2099-01-01T19:00:00Z";
+
+function bubble(id: string, metadata: Record<string, unknown>, isMine = false) {
+  const message: Message = {
+    id,
+    senderId: 2,
+    content: "Há uma vaga na aula de quinta",
+    timestamp: "2026-11-12T18:00:00Z",
+    isRead: true,
+    messageType: "notification_invite",
+    metadata: { engine: "new", invitationId: 41, lessonInstanceId: 3, kind: "invite", startsAt: FUTURE, ...metadata },
+  };
+  return (
+    <MessageBubble
+      key={id}
+      message={message}
+      isMine={isMine}
+      userId={isMine ? 2 : 5}
+      participantName="Dinis"
+      onReply={noop}
+      onEdit={noop}
+      onDelete={noop}
+      onReaction={noop}
+    />
+  );
+}
+
+function renderAll(nodes: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrap = (n: React.ReactNode) => (
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{n}</QueryClientProvider>
+    </MemoryRouter>
+  );
+  const r = render(wrap(nodes));
+  return { rerender: (n: React.ReactNode) => r.rerender(wrap(n)) };
+}
+
+beforeEach(() => respondToEngineInvitation.mockReset());
+afterEach(cleanup);
+
+describe("PAD-920 the new engine's invitation bubble on web", () => {
+  it("[NOTIFICATIONS-INVITATIONS-116] renders the new engine's states and follows a live edit", () => {
+    const { rerender } = renderAll(bubble("m1", { state: "open" }));
+    expect(screen.getByTestId("invite-respond-yes-41")).toBeTruthy();
+    expect(screen.getByTestId("invite-respond-no-41")).toBeTruthy();
+    // The old engine's ids are not used on a new-engine bubble.
+    expect(screen.queryByTestId("invite-respond-yes")).toBeNull();
+
+    // A live `message_edited` turns it sorry: no buttons, the sorry line.
+    rerender(bubble("m1", { state: "sorry" }));
+    expect(screen.getByTestId("invite-state-41-sorry")).toHaveTextContent("messages.engineInvite.sorry");
+    expect(screen.queryByTestId("invite-respond-yes-41")).toBeNull();
+
+    // A reoffer arrives for the same invitation: the first bubble reads "reopened below", the new one asks.
+    rerender(
+      <>
+        {bubble("m1", { state: "reoffered" })}
+        {bubble("m2", { state: "open", kind: "reoffer" })}
+      </>,
+    );
+    expect(screen.getByTestId("invite-state-41-reoffered")).toHaveTextContent("messages.engineInvite.reoffered");
+    expect(screen.getAllByTestId("invite-respond-yes-41")).toHaveLength(1);
+    expect(screen.getAllByTestId("invite-respond-no-41")).toHaveLength(1);
+  });
+
+  it("shows the coach 'no longer counts' on their copy, and no buttons", () => {
+    renderAll(bubble("m1", { state: "open", countsUntil: "2000-01-01T00:00:00Z" }, true));
+    expect(screen.getByTestId("invite-state-41-open")).toHaveTextContent("messages.engineInvite.notCounting");
+    expect(screen.queryByTestId("invite-respond-yes-41")).toBeNull();
+  });
+
+  it("answers by the invitation's id and shows the engine's answer until the edit arrives", async () => {
+    respondToEngineInvitation.mockResolvedValue({ action: "sorry", invitationId: 41 });
+    renderAll(bubble("m1", { state: "open" }));
+    fireEvent.click(screen.getByTestId("invite-respond-yes-41"));
+    expect(respondToEngineInvitation).toHaveBeenCalledWith({ invitationId: 41, action: "yes" });
+    await waitFor(() => expect(screen.getByTestId("invite-state-41-sorry")).toBeTruthy());
+  });
+
+  it("shows no buttons once the class has started", () => {
+    renderAll(bubble("m1", { state: "open", startsAt: "2000-01-01T00:00:00Z" }));
+    expect(screen.getByTestId("invite-state-41-started")).toHaveTextContent("messages.engineInvite.classStarted");
+    expect(screen.queryByTestId("invite-respond-yes-41")).toBeNull();
+  });
+
+  it("opens the class from the coach alert's message", () => {
+    const message: Message = {
+      id: "m9",
+      senderId: 1,
+      content: "Iniciação na quinta às 19:00: 1 vaga(s) por preencher e já não há ninguém para convidar automaticamente.",
+      timestamp: "2026-11-12T18:00:00Z",
+      isRead: true,
+      messageType: "engine_alert",
+      metadata: { engine: "new", lessonInstanceId: 12, reason: "no_candidate", side: "right", count: 1,
+        href: "/calendar?classId=lessoninstance-12&date=2026-11-19", date: "2026-11-19" },
+    };
+    renderAll(
+      <MessageBubble message={message} isMine={false} userId={2} participantName="Assistente"
+        onReply={noop} onEdit={noop} onDelete={noop} onReaction={noop} />,
+    );
+    fireEvent.click(screen.getByTestId("engine-alert-open-class-m9"));
+    expect(navigate).toHaveBeenCalledWith("/calendar?classId=lessoninstance-12&date=2026-11-19");
+  });
+});

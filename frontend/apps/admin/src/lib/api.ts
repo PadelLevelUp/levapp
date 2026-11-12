@@ -495,6 +495,31 @@ export interface EngineHealth {
     registrationFailures7d: Record<"ios" | "android" | "web", number>;
   };
   deploy: { this: DeployIdentity; other: DeployIdentity | string };
+  /** Rule 10 (PAD-913): the new engine's counts; absent while no coach is on `new`. */
+  engine?: EngineHealthEngine;
+}
+
+/** Rule 10's wire shape, mirrored from `EngineHealthBlock` in @levelup/types: the console builds
+ * alone (admin.foundation rule 14) and takes no product package. `side` null is either side;
+ * `levelId`/`levelLabel` null is any level. Tier 0 is the coach's list, 1 the students' waiting
+ * list, n ≥ 2 group n − 1. */
+export interface EngineHealthEngine {
+  coaches: { old: number; new: number };
+  sessions: { upcoming: number; next7Days: number };
+  openSpots: {
+    byType: { side: "left" | "right" | null; levelId: number | null; levelLabel: string | null; open: number }[];
+    uncovered: number;
+  };
+  invitations: {
+    counting: number;
+    openNotCounting: number;
+    byTier: { tier: number; counting: number; openNotCounting: number }[];
+    sentLast24h: number;
+  };
+  approvals: { pending: number; dismissed: number };
+  alerts: { byReason: { reason: string; count: number }[] };
+  outbox: { pending: number; stuckOver5Min: number };
+  tick: { present: boolean; overdue: boolean; sessionFailures24h: number };
 }
 
 export interface CoachEngine {

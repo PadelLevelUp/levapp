@@ -49,7 +49,17 @@
       "showMore": "Ver mais ({{count}})",
       "showLess": "Ver menos",
       "showingOf": "A mostrar {{shown}} de {{total}} · ao aprovar, são convidados todos",
-      "groupStale": "{{stale}} de {{total}} vagas já preenchidas ou expiradas"
+      "groupStale": "{{stale}} de {{total}} vagas já preenchidas ou expiradas",
+      "engine": {
+        "yes": "Sim",
+        "yesRemoved_one": "Sim ({{count}} retirado)",
+        "yesRemoved_other": "Sim ({{count}} retirados)",
+        "dismissed": "Ignorado",
+        "replaced": "Este pedido foi substituído por um mais recente.",
+        "remove": "Retirar {{name}} da lista",
+        "restore": "Repor {{name}} na lista",
+        "reasonCount": "{{reason}} ({{count}})"
+      }
     }
   }
 }

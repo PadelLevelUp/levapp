@@ -18,10 +18,10 @@ vi.mock("@/api/events", () => ({
     return () => undefined;
   },
 }));
-const api = vi.hoisted(() => ({ getApprovalSuggestions: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -46,7 +46,7 @@ const event = {
 
 beforeEach(() => {
   live.handler = null;
-  api.getApprovalSuggestions.mockReset().mockResolvedValue({ state: "none" });
+  api.getApprovalState.mockReset().mockResolvedValue({ state: "none" });
   api.getClassInstance.mockReset().mockResolvedValue({
     id: 7, date: "2099-10-19", startTime: "09:00", endTime: "10:30", status: "scheduled",
     presences: [], participants: [], maxPlayers: 16, invitations: [],

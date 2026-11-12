@@ -34,7 +34,7 @@ import {
 } from "@/components/calendar/AddClassSheet";
 import { AddEventSheet } from "@/components/calendar/AddEventSheet";
 import { EventDetailSheet } from "@/components/calendar/EventDetailSheet";
-import { effectiveFilledSpots, filterStudentEvents, isHoldOccurrenceLocked } from "@levelup/config";
+import { busySameHourClashes, busySameHourLines, effectiveFilledSpots, filterStudentEvents, isHoldOccurrenceLocked, resolveText } from "@levelup/config";
 import { addCalendarBlock, rescheduleCalendarBlock } from "@/api/calendar";
 import { useCalendar } from "@/hooks/useCalendar";
 import type { CalendarEvent, ClassInstance, CoachLevel, CoachPlayer } from "@/types";
@@ -452,10 +452,16 @@ export default function CalendarPage() {
         description: updated.name || event.title,
       });
     } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): an add refused because the student is in
+      // another class at the same hour names that class. Nothing was saved; the form stays open
+      // with the coach's other changes.
+      const clashes = busySameHourClashes(err);
       toast({
         variant: "destructive",
         title: t("calendar.page.updateFailed"),
-        description: t("calendar.page.updateFailedDescription"),
+        description: clashes
+          ? busySameHourLines(clashes, i18n.language).map((l) => resolveText(t, l)).join("\n")
+          : t("calendar.page.updateFailedDescription"),
       });
     } finally {
       setEditingClassId(null);

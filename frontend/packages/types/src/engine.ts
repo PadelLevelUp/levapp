@@ -149,6 +149,9 @@ export interface EngineNotInPoolReason {
 
 export interface EngineVerdict {
   playerId: string;
+  /** invite-simulation N2 (c02ede988): named like a queue entry; optional for older payloads. */
+  name?: string;
+  nickname?: string | null;
   stage: EngineStage | string;
   tier: number | null;
   /** `not_in_pool` only. */
@@ -229,6 +232,10 @@ export interface EngineAlertMeta extends EngineSpotTypeKey {
   lessonInstanceId: number;
   reason: string;
   count: number;
+  /** class_href(event): `/calendar?classId=lessoninstance-<id>&date=<YYYY-MM-DD>`. */
+  href: string;
+  /** The class's club-local date, YYYY-MM-DD. */
+  date: string;
 }
 
 /** Where a new-engine invitee came from (calendar.event-detail ND1); null is a manual invitation. */

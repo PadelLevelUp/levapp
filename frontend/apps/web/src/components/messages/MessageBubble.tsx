@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
+import { Check, CheckCheck, ChevronRight, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, EligibilityCheckEntry, Message, MessageStatus } from '@/types';
 import { MessageActionMenu } from './MessageActionMenu';
@@ -13,7 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
 import { comeBackFromAnswer, lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
-import { classRequestBubbleState, joinRequestBubbleState } from '@levelup/config';
+import { classRequestBubbleState, isEngineApproval, isEngineInvite, joinRequestBubbleState } from '@levelup/config';
+import { EngineInviteResponse } from './EngineInviteResponse';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest, sideGoneOf } from '@/api/classJoinRequests';
 import { joinClassWaitingList, leaveClassWaitingList, listClassWaitingList } from '@/api/academyClasses';
@@ -458,8 +459,13 @@ export function MessageBubble({
           </div>
         </div>
 
+        {/* PAD-920: a new-engine invitation reads its state from the metadata (NB1–NB4). */}
+        {isInvite && isEngineInvite(message.metadata) && (
+          <EngineInviteResponse meta={message.metadata} isMine={isMine} />
+        )}
+
         {/* Notification invite response area */}
-        {isInvite && (
+        {isInvite && !isEngineInvite(message.metadata) && (
           <div className="flex gap-2 mt-1.5 ml-1">
             {localResponse === 'accepted' ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success">
@@ -553,6 +559,12 @@ export function MessageBubble({
         {approvalBundle?.bundleId && approvalBundle.vacancies?.length > 0 && (
           <div className="mt-1.5 ml-1">
             <ReplacementApprovalCard bundle={approvalBundle} readOnly={isMine} queueAsOf={message.timestamp} />
+          </div>
+        )}
+        {/* PAD-920 (semi-auto-approval N4–N5): a new-engine request; the chat's card offers "Sim" only. */}
+        {isReplacementApproval && isEngineApproval(message.metadata) && Array.isArray(message.metadata.spotTypes) && (
+          <div className="mt-1.5 ml-1">
+            <ReplacementApprovalCard bundle={message.metadata} readOnly={isMine} queueAsOf={message.timestamp} />
           </div>
         )}
 
@@ -706,6 +718,21 @@ export function MessageBubble({
             </div>
           );
         })()}
+
+        {/* PAD-920 (dashboard.blocks NA3): the coach alert is a text bubble with a link to the class. */}
+        {message.messageType === "engine_alert" && typeof message.metadata?.href === "string" && (
+          <div className="mt-1.5 ml-1">
+            <button
+              type="button"
+              data-testid={`engine-alert-open-class-${message.id}`}
+              onClick={() => navigate(message.metadata!.href as string)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              {t("classDetail.classFallbackTitle")}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Waiting-list offer response area (PAD-124). The coach sees their own
             offer as "waiting for response"; the student gets the Yes/No that

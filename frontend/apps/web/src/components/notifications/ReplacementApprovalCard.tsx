@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Check, Clock, X } from "lucide-react";
+import { Check, Clock, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCoachDisplayName } from "@levelup/hooks";
 import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
-import { respondToApproval } from "@/api/notificationEngine";
+import type { EngineApprovalMeta, EngineApprovalRespondResult, EngineApprovalState } from "@levelup/types";
+import { respondToApproval, respondToEngineApproval } from "@/api/notificationEngine";
 import {
   approvalDisplayGroups,
   approvalEmptyReasonKey,
@@ -13,9 +14,16 @@ import {
   approvalQueuePreview,
   approvalSideKey,
   approvalStaleLabel,
+  engineApprovalRequest,
+  engineApprovalYesLabel,
+  engineEmptyQueueReasons,
+  engineSideKey,
+  engineSideSlug,
+  isEngineApproval,
   lisbonNowMs,
   queueAsOfLabel,
   queueBadgeLabel,
+  resolveText,
   resolvedVacancyIds,
   staleCount,
   wallClockISOMs,
@@ -48,7 +56,27 @@ interface ReplacementApprovalCardProps {
   queueAsOf?: string | null;
 }
 
+type EngineSource = EngineApprovalMeta | EngineApprovalState;
+
+/**
+ * PAD-920 (semi-auto-approval N5): a new-engine request (the message's `engine: "new"` metadata,
+ * or the class's EngineApprovalState) draws its own card; every other bundle is today's card.
+ */
 export function ReplacementApprovalCard({
+  bundle,
+  onEngineResult,
+  ...props
+}: Omit<ReplacementApprovalCardProps, "bundle"> & {
+  bundle: ApprovalBundle | EngineSource;
+  onEngineResult?: (result: EngineApprovalRespondResult) => void;
+}) {
+  if (isEngineApproval(bundle)) {
+    return <EngineApprovalCard source={bundle} onResult={onEngineResult} readOnly={props.readOnly} allowDismiss={props.allowDismiss} />;
+  }
+  return <BundleApprovalCard bundle={bundle} {...props} />;
+}
+
+function BundleApprovalCard({
   bundle,
   onResult,
   readOnly = false,
@@ -313,6 +341,197 @@ export function ReplacementApprovalCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// New engine (PAD-920, semi-auto-approval N5)
+// ---------------------------------------------------------------------------
+
+type EngineOutcome = EngineApprovalRespondResult["result"];
+
+function EngineApprovalCard({
+  source,
+  onResult,
+  readOnly = false,
+  allowDismiss = false,
+}: {
+  source: EngineSource;
+  onResult?: (result: EngineApprovalRespondResult) => void;
+  readOnly?: boolean;
+  allowDismiss?: boolean;
+}) {
+  const { t } = useTranslation();
+  const displayName = useCoachDisplayName();
+  const request = engineApprovalRequest(source);
+  const [responding, setResponding] = useState(false);
+  const [outcome, setOutcome] = useState<EngineOutcome | null>(request?.state === "dismissed" ? "dismissed" : null);
+  // N5: the students the coach takes off the list; "Sim" invites everyone else in the queues.
+  const [removed, setRemoved] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  if (!request) return null;
+  // A message the coach already answered offers nothing more; its answer is on the class.
+  const actionable = !outcome && !request.responded && !readOnly;
+
+  const toggle = (playerId: string) =>
+    setRemoved((r) => (r.includes(playerId) ? r.filter((id) => id !== playerId) : [...r, playerId]));
+
+  const respond = async (action: "yes_now" | "dismiss") => {
+    if (responding || !actionable) return;
+    setResponding(true);
+    try {
+      const result = await respondToEngineApproval(
+        action === "yes_now" ? { bundleId: request.requestId, action, removed } : { bundleId: request.requestId, action },
+      );
+      setOutcome(result.result);
+      onResult?.(result);
+    } catch {
+      toast.error(t("notificationsUi.replacementApproval.genericError"));
+    } finally {
+      setResponding(false);
+    }
+  };
+
+  const yesLabel = engineApprovalYesLabel(removed.length);
+
+  return (
+    <div
+      data-testid="replacement-approval-card"
+      data-request-id={request.requestId}
+      className="rounded-xl border bg-card shadow-sm p-3 space-y-3"
+    >
+      {request.spotTypes.map((type, index) => {
+        const slug = engineSideSlug(type.side);
+        const isExpanded = !!expanded[index];
+        const { shown, hidden } = approvalQueuePreview(type.queue, isExpanded);
+        const reasons = engineEmptyQueueReasons(type);
+        return (
+          <div key={`${slug}-${type.levelId ?? "any"}-${index}`} className="space-y-2" data-testid={`approval-type-${slug}`}>
+            <p className="text-xs font-medium text-muted-foreground" data-testid="approval-type-header">
+              {t(engineSideKey(type.side))}
+              {type.levelLabel ? ` · ${type.levelLabel}` : ""}
+            </p>
+            {type.queue.length > 0 ? (
+              <div className="space-y-1">
+                <ol className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-sm">
+                  {shown.map((entry, i) => {
+                    const name = displayName(entry.playerId, entry.nickname ?? entry.name);
+                    const isRemoved = removed.includes(entry.playerId);
+                    return (
+                      <li key={entry.playerId} className="contents">
+                        <span className="text-xs text-muted-foreground text-right">{i + 1}.</span>
+                        <span
+                          data-testid={`approval-name-${entry.playerId}`}
+                          className={isRemoved ? "line-through text-muted-foreground" : undefined}
+                        >
+                          {name}
+                        </span>
+                        <button
+                          type="button"
+                          data-testid={`approval-remove-${entry.playerId}`}
+                          aria-pressed={isRemoved}
+                          aria-label={t(
+                            isRemoved
+                              ? "notificationsUi.replacementApproval.engine.restore"
+                              : "notificationsUi.replacementApproval.engine.remove",
+                            { name },
+                          )}
+                          disabled={!actionable || responding}
+                          onClick={() => toggle(entry.playerId)}
+                          className="justify-self-end rounded-full p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                        >
+                          {isRemoved ? <Undo2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {/* Rule 7a: the preview is never the invite set; say so whenever it is truncated. */}
+                {hidden > 0 && (
+                  <p className="text-[11px] text-muted-foreground" data-testid="approval-showing-of">
+                    {t("notificationsUi.replacementApproval.showingOf", { shown: shown.length, total: type.queue.length })}
+                  </p>
+                )}
+                {(hidden > 0 || isExpanded) && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    data-testid="approval-show-more"
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpanded((e) => ({ ...e, [index]: !isExpanded }))}
+                  >
+                    {isExpanded
+                      ? t("notificationsUi.replacementApproval.showLess")
+                      : t("notificationsUi.replacementApproval.showMore", { count: hidden })}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                <p className="text-xs italic text-muted-foreground">
+                  {t("notificationsUi.replacementApproval.noEligiblePlayers")}
+                </p>
+                {/* N5: an empty type says why, in N6's words, one line per stage with its count. */}
+                {reasons.length > 0 && (
+                  <ul className="text-xs text-muted-foreground" data-testid="approval-empty-reasons">
+                    {reasons.map((r) => (
+                      <li key={r.stage} data-testid={`approval-empty-reason-${r.stage}`}>
+                        {t("notificationsUi.replacementApproval.engine.reasonCount", { reason: resolveText(t, r.line), count: r.count })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {outcome === "stale" ? (
+        <p className="text-xs text-muted-foreground" data-testid="approval-replaced">
+          {t("notificationsUi.replacementApproval.engine.replaced")}
+        </p>
+      ) : outcome === "approved" ? (
+        <div className="flex">
+          <span data-testid="approval-outcome" className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-success/15 text-success-strong">
+            <Check className="w-3.5 h-3.5" />
+            {t("notificationsUi.replacementApproval.approved")}
+          </span>
+        </div>
+      ) : outcome === "dismissed" ? (
+        <div className="flex">
+          <span data-testid="approval-outcome" className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-destructive/15 text-destructive">
+            <X className="w-3.5 h-3.5" />
+            {t("notificationsUi.replacementApproval.engine.dismissed")}
+          </span>
+        </div>
+      ) : actionable ? (
+        // N2/N5: no "at the window" for a new-engine request; "Ignorar" only on the class's card.
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="approval-yes"
+            onClick={() => respond("yes_now")}
+            disabled={responding}
+            className="flex-1 min-w-[7rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+          >
+            {responding ? "…" : t(yesLabel.key, yesLabel.params)}
+          </button>
+          {allowDismiss && (
+            <button
+              type="button"
+              data-testid="approval-dismiss"
+              onClick={() => respond("dismiss")}
+              disabled={responding}
+              className="flex-1 min-w-[4rem] py-1.5 px-3 text-sm font-medium rounded-xl bg-muted text-foreground disabled:opacity-50 transition-opacity"
+            >
+              {responding ? "…" : t("notificationsUi.replacementApproval.ignore")}
+            </button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

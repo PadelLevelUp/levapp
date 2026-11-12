@@ -5,7 +5,8 @@ import { addDays, format } from "date-fns";
 import { AlertTriangle, CheckCircle2, Loader2, Search } from "lucide-react";
 import { useDebouncedText } from "@/hooks/useDebouncedText";
 import { PlayerSearchFeedback } from "@/components/players/PlayerSearchFeedback";
-import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeSideReasoning, describeSideRoster, describeVerdict, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
+import { classDayParts, describeGate, describePriority, describeRules, describeSendStatus, describeSideReasoning, describeSideRoster, describeVerdict, engineLeftOut, engineSideKey, engineSideSlug, engineTierGroups, engineTierLabel, engineVerdictLines, formatClubTime, lisbonNow, resolveText, sortGates, waitingListAskedFirst } from "@levelup/config";
+import type { EngineSpotType, EngineVerdict } from "@levelup/types";
 
 import type {
   CalendarEvent,
@@ -260,7 +261,7 @@ export function UnderstandInvitesTutorial() {
                 </Alert>
               )}
               {simulation && request && (
-                <SimulationResults simulation={simulation} request={request} />
+                <SimulationResults simulation={simulation} request={request} players={players ?? []} />
               )}
             </section>
           )}
@@ -277,11 +278,17 @@ export function UnderstandInvitesTutorial() {
 function SimulationResults({
   simulation,
   request,
+  players,
 }: {
   simulation: InviteSimulation;
   request: InviteSimulationRequest;
+  players: Player[];
 }) {
   const { t } = useTranslation();
+  // PAD-920 (settings.tutorials NT1–NT4): a new-engine session reads the dry run's per-type queues.
+  if (simulation.engine === "new") {
+    return <NewEngineResults simulation={simulation} request={request} players={players} />;
+  }
   const gates = sortGates(simulation.gates);
   const blocked = gates.filter((g) => g.blocked);
   const sideKey = simulation.spot.side ?? "none";
@@ -394,6 +401,156 @@ function SimulationResults({
 
       <Lookup request={request} />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// New engine (PAD-920, settings.tutorials NT1–NT4)
+// ---------------------------------------------------------------------------
+
+function NewEngineResults({
+  simulation,
+  request,
+  players,
+}: {
+  simulation: InviteSimulation;
+  request: InviteSimulationRequest;
+  players: Player[];
+}) {
+  const { t } = useTranslation();
+  const displayName = useCoachDisplayName();
+  const spotTypes = simulation.spotTypes ?? [];
+  // NT3: the gates are the dry run's may_plan; any blocked gate means the run may not plan.
+  const blocked = sortGates(simulation.gates).filter((g) => g.blocked);
+  const leftOut = engineLeftOut(spotTypes);
+
+  // The verdict's own name first; then a queue entry of any type, the class's roster, else the id.
+  const nameOf = (verdict: EngineVerdict) => {
+    const own = verdict.nickname ?? verdict.name;
+    if (own) return own;
+    const queued = spotTypes.flatMap((type) => type.queue).find((e) => e.playerId === verdict.playerId);
+    if (queued) return queued.nickname ?? queued.name;
+    const participant = players.find((p) => String(p.id) === verdict.playerId);
+    if (participant) return playerLabel(participant, displayName);
+    return `#${verdict.playerId}`;
+  };
+
+  return (
+    <div className="space-y-4" data-testid="tutorial-results">
+      <p className="text-xs text-muted-foreground" data-testid="tutorial-evaluated-at">
+        {t("tutorials.understandInvites.evaluatedAt", {
+          time: formatClubTime(simulation.evaluatedAt),
+        })}
+      </p>
+
+      {blocked.length > 0 ? (
+        <Alert variant="destructive" data-testid="tutorial-cannot-plan">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>{t("tutorials.understandInvites.blockedTitle")}</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4 space-y-0.5">
+              {blocked.map((gate) => (
+                <li key={gate.code} data-testid={`tutorial-gate-${gate.code}`}>
+                  {resolveText(t, describeGate(gate))}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="tutorial-gates-clear">
+          <CheckCircle2 className="w-4 h-4 text-primary" />
+          {t("tutorials.understandInvites.clearTitle")}
+        </p>
+      )}
+
+      {simulation.approvalRequired && (
+        <Alert data-testid="tutorial-approval">
+          <AlertDescription>{t("tutorials.understandInvites.approvalRequired")}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="space-y-3">
+        {spotTypes.map((type, index) => (
+          <SpotTypeBlock key={`${engineSideSlug(type.side)}-${type.levelId ?? "any"}-${index}`} type={type} />
+        ))}
+      </div>
+
+      {leftOut.length > 0 && (
+        <details className="rounded-lg border border-border p-3 text-sm" data-testid="tutorial-left-out">
+          <summary className="cursor-pointer font-medium">{t("tutorials.engine.leftOutTitle")}</summary>
+          <ul className="mt-2 space-y-1.5">
+            {leftOut.map((verdict) => (
+              <li key={verdict.playerId} data-testid={`tutorial-left-out-${verdict.playerId}`}>
+                <span className="font-medium">{nameOf(verdict)}</span>
+                <ul className="list-disc pl-5 text-muted-foreground">
+                  {engineVerdictLines(verdict).map((line, i) => (
+                    <li key={`${line.key}-${i}`} data-testid={`tutorial-left-out-${verdict.playerId}-line`}>
+                      {resolveText(t, line)}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <Separator />
+
+      <Lookup request={request} />
+    </div>
+  );
+}
+
+function SpotTypeBlock({ type }: { type: EngineSpotType }) {
+  const { t } = useTranslation();
+  const slug = engineSideSlug(type.side);
+  const verdictOf = (playerId: string) => type.verdicts.find((v) => v.playerId === playerId);
+  return (
+    <Card data-testid={`tutorial-type-${slug}`}>
+      <CardHeader className="py-3">
+        <CardTitle className="text-sm" data-testid="tutorial-type-header">
+          {t(engineSideKey(type.side))}
+          {type.levelLabel ? ` · ${type.levelLabel}` : ""}
+          {" · "}
+          <span data-testid={`tutorial-type-${slug}-count`}>{t("tutorials.engine.openSpots", { count: type.count })}</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="py-2 space-y-3">
+        {type.queue.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("tutorials.rounds.empty")}</p>
+        ) : (
+          engineTierGroups(type.queue).map((group, gi) => (
+            <div key={`${group.tier}-${gi}`} className="space-y-1" data-testid={`tutorial-tier-${slug}-${group.tier}`}>
+              <h5 className="text-xs font-medium text-muted-foreground">{resolveText(t, engineTierLabel(group.tier))}</h5>
+              <ol className="space-y-1.5">
+                {group.entries.map((entry) => {
+                  const verdict = verdictOf(entry.playerId);
+                  return (
+                    <li
+                      key={entry.playerId}
+                      className="flex flex-wrap items-center gap-2 text-sm"
+                      data-testid={`tutorial-row-${entry.playerId}-${slug}`}
+                    >
+                      <span className="w-7 text-muted-foreground tabular-nums">
+                        {t("tutorials.understandInvites.rank", { rank: entry.rank })}
+                      </span>
+                      <span className="font-medium">{entry.nickname ?? entry.name}</span>
+                      {verdict && (
+                        <span className="ml-auto text-xs text-muted-foreground" data-testid={`tutorial-row-${entry.playerId}-${slug}-stage`}>
+                          {engineVerdictLines(verdict).map((line) => resolveText(t, line)).join(" · ")}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

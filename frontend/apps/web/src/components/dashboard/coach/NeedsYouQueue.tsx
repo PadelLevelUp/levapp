@@ -9,6 +9,7 @@
  * grid never leaves a ragged half-row.
  */
 import type {
+  DashboardNeedsYouEngineAlert,
   DashboardNeedsYouBlock,
   DashboardNeedsYouEmptySeats,
   DashboardNeedsYouInvite,
@@ -18,7 +19,7 @@ import type {
   DashboardNeedsYouVacancyInvite,
   DashboardNeedsYouWaitingListOffer,
 } from "@levelup/types";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { snoozeNeedsYouItem } from "@levelup/api/src/resources/dashboard";
@@ -28,7 +29,7 @@ import { ActionCard, Eyebrow } from "./primitives";
 import { AnswerButtons } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
 import { useAnswerVacancyInvite, useAnswerWaitingListOffer } from "./useAnswerAsk";
-import { shortDate, validationTier } from "@levelup/config";
+import { engineAlertCopy, resolveText, shortDate, validationTier } from "@levelup/config";
 import { PresencesBadge } from "@/components/layout/PresencesBadge";
 
 export function NeedsYouQueue({
@@ -77,6 +78,8 @@ function QueueItem({
   onAnswered?: () => void | Promise<void>;
 }) {
   switch (item.kind) {
+    case "engine_alert":
+      return <EngineAlertCard item={item} onSnoozed={onAnswered} />;
     case "empty_seats":
       return <EmptySeatsCard item={item} onSnoozed={onAnswered} />;
     case "invite":
@@ -92,6 +95,53 @@ function QueueItem({
     default:
       return null;
   }
+}
+
+/**
+ * PAD-920 (dashboard.blocks NA1–NA2): the new engine found nobody left to invite for a spot type.
+ * First in the queue; the card opens the class, and "Mais tarde" snoozes it as it snoozes
+ * `empty_seats`. Its words come from the copy helper iOS shares.
+ */
+function EngineAlertCard({
+  item,
+  onSnoozed,
+}: {
+  item: DashboardNeedsYouEngineAlert;
+  onSnoozed?: () => void | Promise<void>;
+}) {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [snoozing, setSnoozing] = useState(false);
+  const copy = engineAlertCopy(item, i18n.language);
+
+  const later = async (e: MouseEvent) => {
+    e.stopPropagation();
+    setSnoozing(true);
+    try {
+      await snoozeNeedsYouItem(item.id);
+      await onSnoozed?.();
+    } catch {
+      toast({ description: t("dashboard.needsYou.laterFailed"), variant: "destructive" });
+    } finally {
+      setSnoozing(false);
+    }
+  };
+
+  return (
+    <ActionCard accent="attention" className="flex flex-col gap-3.5" testId={copy.testId} onClick={() => navigate(item.href)}>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[15px] font-bold">{t(copy.titleKey)}</span>
+        <span className="text-[13px] text-muted-foreground tabular-nums">{resolveText(t, copy.line)}</span>
+        <span className="text-[13px] text-muted-foreground">{t(copy.hintKey)}</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" className="h-11 lg:h-10" disabled={snoozing} onClick={later} data-testid="needs-you-later">
+          {t("dashboard.needsYou.later")}
+        </Button>
+      </div>
+    </ActionCard>
+  );
 }
 
 function EmptySeatsCard({
