@@ -108,16 +108,21 @@ the coach's list).
     that tier for a spot type when they pass every rule, read as today's vacancy-anchored group rules
     (`_group_rule_failures`) with the class's level as the vacancy's: level `same_as_vacancy`,
     `one_above_vacancy`, `one_below_vacancy`, `all_above_vacancy`, `all_below_vacancy` on the coach's
-    ladder (a student with no level, or a level off the ladder, fails); side `same_as_vacancy` as the
+    ladder (a student with no level, or a level off the ladder, fails; a class with no level applies
+    no level rule, `notifications.engine-spots` rule 8 (D3), the one place this differs from today,
+    which fails every level rule closed); side `same_as_vacancy` as the
     category rule (rule 2); `has_makeups` `is_true` (makeups owed above zero); `unjustified_absences`
     and `justified_absences` (counts of the coach's verdicts, D4) and `attendance_rate` (a percentage)
     compared by `less_than`, `less_than_or_equal`, `equals`, `greater_than` or
-    `greater_than_or_equal`; `subscription_status` `equals`. A threshold that is not a number passes and
-    an unknown operation passes, as today. A group with no rules ("everyone") admits every pool student
+    `greater_than_or_equal`; `subscription_status` `equals`. As today, a threshold that is not a number
+    passes, an unknown attribute passes, and an unknown operation passes except on level, where it
+    fails (B-257). A group with no rules ("everyone") admits every pool student
     for every type. The snapshot's `Student` carries the facts these read, counted on the coach's own
     classes as today (PAD-382): level, sides, makeups owed, the two absence counts, attendance rate and
-    subscription status. The class-anchored level operations (`*_class`) are eligibility, which stays
-    in the app (swap decision 6).
+    subscription status. The class-anchored level operations (`*_class`: `same_as_class`,
+    `equal_or_above_class`, `equal_or_below_class`, `one_below_or_above_class`, `within_n_*`) belong to
+    the eligibility bar, which stays in the app (swap decision 6); a stored group that carries one is
+    read as today, against the class's level.
 
 ### Not this spec
 - How many invitations a tier sends (`notifications.engine-planning`).
@@ -220,8 +225,8 @@ test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_dry_ru
 
 #### NOTIFICATIONS-ENGINE-TIERS-14: A stored group admits exactly the students today's group rules admit (rule 13)
 Given one group per attribute and operation of rule 13, each with a student who passes and one who
-fails, plus a threshold that is not a number and an unknown operation, when the engine computes tiers
-for a class at level L and `_group_rule_failures` is asked for the same students against a spot at L,
+fails, plus a threshold that is not a number, an unknown attribute and an unknown operation (on level
+and on another attribute), when the engine computes tiers for a class at level L and `_group_rule_failures` is asked for the same students against a spot at L,
 then each student is in the group's tier exactly when today's function returns no failure.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_group_rules_give_todays_verdict_for_every_rule_kind`
 
@@ -242,6 +247,12 @@ Given a snapshot whose store-built `postponed` holds A, when the planner adds B 
 (`planner.with_postponed`), then both A and B are postponed and neither is a candidate.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_the_stores_postponed_students_stay_postponed`
 
+#### NOTIFICATIONS-ENGINE-TIERS-18: A class with no level applies no level rule of a group (rule 13; engine-spots rule 8)
+Given a class with no level and a group `level same_as_vacancy` + `side same_as_vacancy`, when tiers are
+computed for a right spot, then every right-fitting pool student is in that group's tier whatever their
+level, although today's `_group_rule_failures` fails them all (`class_has_no_level`).
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_a_class_with_no_level_applies_no_group_level_rule`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
@@ -256,7 +267,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 5. (Swap 3, PAD-915) TIERS-11, TIERS-12 — `invitation_engine/settings.py` (the ids and `SettingsError`),
    `invitation_engine/planner.py` (the sort key), the config mapping (swap plan §2).
 6. (Swap 3, PAD-915) TIERS-13 — `invitation_engine/planner.py` (`evaluate`, `DryRun`, `Verdict`).
-7. (Swap, PAD-915) TIERS-14, TIERS-15, TIERS-16 — `invitation_engine/settings.py` (`Tier` carries the
+7. (Swap, PAD-915) TIERS-14, TIERS-15, TIERS-16, TIERS-18 — `invitation_engine/settings.py` (`Tier` carries the
    group's rules; a pool tier with `level_offset` none), `invitation_engine/snapshot.py` (`Student`
    gains the facts of rule 13), the tier evaluator in `invitation_engine/planner.py`; then (PAD-917)
    `notifications.config` CONFIG-57 and CONFIG-59, and (PAD-916) the store fills the facts.
