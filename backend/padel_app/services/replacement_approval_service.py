@@ -360,9 +360,12 @@ def respond_to_approval(
     coach_id: int,
     *,
     now: datetime | None = None,
+    removed=(),
 ) -> dict:
     """
-    Apply the coach's decision to every prompt in a bundle.
+    Apply the coach's decision to every prompt in a bundle. A new-engine request id
+    (``"<session>:<time>:<hash>"``) is the engine's own request (PAD-919): it goes to
+    ``engine_approval.respond``, with ``removed`` the students the coach took out.
 
     action: "yes_now" | "yes_at_window" | "dismiss"
 
@@ -370,6 +373,11 @@ def respond_to_approval(
     | "stale" (vacancy filled/expired or prompt already decided — no-op).
     """
     from flask import abort
+
+    from padel_app.services import engine_approval
+
+    if engine_approval.is_request_id(bundle_id):
+        return engine_approval.respond(bundle_id, action, coach_id, removed, now=now)
 
     from padel_app.models import Message
     from padel_app.models.replacement_approval_prompt import ReplacementApprovalPrompt
@@ -625,6 +633,9 @@ def instance_suggestions(instance_id: int, coach_id: int) -> dict:
     from padel_app.services.notification_service import _is_semi_auto, get_or_create_config
 
     instance = _coached_instance(instance_id, coach_id)
+    from padel_app.services import engine_approval, engine_simulation
+    if engine_simulation.is_new_engine_session(instance):          # PAD-919: the engine's request
+        return engine_approval.state(instance, coach_id)
     config = get_or_create_config(coach_id)
     # PAD-542: the class view shows "preparing suggestions" only for a semi-automatic coach.
     semi = _is_semi_auto(config)
@@ -678,6 +689,9 @@ def recompute_suggestions(instance_id: int, coach_id: int, *, now: datetime | No
 
     instance = _coached_instance(instance_id, coach_id)
     _now = now or utcnow_naive()
+    from padel_app.services import engine_approval, engine_simulation
+    if engine_simulation.is_new_engine_session(instance):          # PAD-919: ask the engine again
+        return engine_approval.recompute(instance, coach_id, now=_now)
     if _instance_is_over(instance, _now):
         abort(409, "The class is over")
     # #573 review: suggestions are a semi-automatic mode's; an automatic coach has nothing to ask.

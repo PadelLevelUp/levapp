@@ -648,7 +648,9 @@ def withdraw_invitation_route(event_id: int):
 def approval_respond():
     """Coach responds to a replacement approval bundle (semi-automatic mode).
 
-    Body: { "bundleId": str, "action": "yes_now" | "yes_at_window" | "dismiss" }
+    Body: { "bundleId": str, "action": "yes_now" | "yes_at_window" | "dismiss", "removed"?: [playerId] }
+    A new-engine request (PAD-919) takes "yes_now" or "dismiss", and "removed" the students the
+    coach took out of its queue.
     """
     coach = _current_coach()
     data = request.get_json() or {}
@@ -657,7 +659,7 @@ def approval_respond():
     if not bundle_id:
         abort(400, "bundleId is required")
     from padel_app.services.replacement_approval_service import respond_to_approval
-    result = respond_to_approval(bundle_id, action, coach.id)
+    result = respond_to_approval(bundle_id, action, coach.id, removed=data.get("removed") or ())
     return jsonify(result)
 
 
