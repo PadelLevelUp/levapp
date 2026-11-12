@@ -19,6 +19,12 @@ vi.mock("@/api/notificationEngine", async (importOriginal) => ({
   respondToEngineInvitation: (...a: unknown[]) => respondToEngineInvitation(...a),
 }));
 
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock("sonner", async (importOriginal) => {
+  const real = await importOriginal<{ toast: object }>();
+  return { ...real, toast: Object.assign(() => undefined, real.toast, { error: toastError }) };
+});
+
 import { MessageBubble } from "./MessageBubble";
 
 const noop = () => undefined;
@@ -60,7 +66,10 @@ function renderAll(nodes: React.ReactNode) {
   return { rerender: (n: React.ReactNode) => r.rerender(wrap(n)) };
 }
 
-beforeEach(() => respondToEngineInvitation.mockReset());
+beforeEach(() => {
+  respondToEngineInvitation.mockReset();
+  toastError.mockReset();
+});
 afterEach(cleanup);
 
 describe("PAD-920 the new engine's invitation bubble on web", () => {
@@ -106,6 +115,22 @@ describe("PAD-920 the new engine's invitation bubble on web", () => {
     await act(async () => answer({ action: "sorry", invitationId: 41 }));
     expect(screen.getByTestId("invite-state-41-reopened")).toBeTruthy();
     expect(screen.queryByTestId("invite-state-41-sorry")).toBeNull();
+  });
+
+  it("[NOTIFICATIONS-INVITATIONS-126] reads class cancelled and a refused answer", async () => {
+    // The live state: no buttons, the cancelled line under the shared id.
+    const { rerender } = renderAll(bubble("m1", { state: "class_cancelled" }));
+    expect(screen.getByTestId("invite-state-41-class_cancelled")).toHaveTextContent("messages.engineInvite.classCancelled");
+    expect(screen.queryByTestId("invite-respond-yes-41")).toBeNull();
+    // A Yes the route refuses with 409 class_cancelled reads the same line, never a generic error.
+    respondToEngineInvitation.mockRejectedValue({ response: { status: 409, data: { code: "class_cancelled" } } });
+    rerender(bubble("m2", { state: "open", invitationId: 42 }));
+    fireEvent.click(screen.getByTestId("invite-respond-yes-42"));
+    await waitFor(() =>
+      expect(screen.getByTestId("invite-state-42-class_cancelled")).toHaveTextContent("messages.engineInvite.classCancelled"),
+    );
+    expect(screen.queryByTestId("invite-respond-yes-42")).toBeNull();
+    expect(toastError).not.toHaveBeenCalled();
   });
 
   it("shows the engine's answer until the live edit arrives", async () => {

@@ -21,7 +21,8 @@ export type EngineInviteStateName =
   | "sorry"
   | "reopened"
   | "withdrawn"
-  | "closed_same_hour";
+  | "closed_same_hour"
+  | "class_cancelled";
 
 /** `msg_metadata` of a new-engine `notification_invite` message. */
 export interface EngineInviteMeta {
