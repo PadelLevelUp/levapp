@@ -222,5 +222,6 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a know
   (`settings.language` rule: Portuguese is the default and the fallback).
 
 ### Open questions
-- The tutorial's screens for the new per-type payload on web and iOS (`notifications.invite-simulation`,
-  new-engine section) — not decided; written with this spec's swap step (client step 7–8).
+- The tutorial's screens for the new per-type payload on web and iOS — the payload is
+  `notifications.invite-simulation` N2 and its words N6 (proposed, PAD-913); the screens' layout is
+  written with this spec's swap step.

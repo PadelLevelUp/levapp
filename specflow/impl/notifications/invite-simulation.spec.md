@@ -69,6 +69,36 @@ The new-engine answer (swap step 7, PAD-919):
   window, quiet hours, past `last_invite_before`, the class over. There is no `max_total_reached`
   (swap decision 3).
 - **N5. Explain.** The explain answer gives one entry per open spot type, each with its verdicts.
+- **N6. The words the coach reads (swap step 8, PAD-920; proposed, for the owner's approval).** One
+  shared helper in `@levelup/config` turns each stage and reason code into a line, in both locales, for
+  the simulation, the tutorial (`settings.tutorials`) and the approval card
+  (`notifications.semi-auto-approval`), on web and iOS:
+
+  | code | pt | en |
+  |---|---|---|
+  | `in_session` | Já está na aula | Already in the class |
+  | `said_no` | Disse que não a esta aula | Said no to this class |
+  | `removed_by_coach` | Retiraste-o da lista | You removed them from the list |
+  | `busy_same_time` | Noutra aula à mesma hora | In another class at the same time |
+  | `postponed` | Fica para depois: já tem um convite ativo hoje, ou chegou ao limite diário | Later: already holds a live invitation today, or reached the daily limit |
+  | `failed_eligibility` | Fora da elegibilidade | Outside the eligibility bar |
+  | `failed_tier_rule` | Fora dos grupos de convite | Outside your invitation groups |
+  | `invited_before` | Já foi convidado para esta aula | Already invited to this class |
+  | `invited` | Convidado agora | Invited now |
+  | `invited_for_other_type` | Convidado para o outro lado | Invited for the other side |
+  | `invited_earlier` | Já tem um convite em aberto | Already holds an open invitation |
+  | `waiting` | Na fila | In the queue |
+  | `excluded_for_session` | Excluído desta aula | Excluded from this class |
+  | `excluded_players` | Na tua lista de excluídos | On your excluded list |
+  | `same_day_class` | Já tem aula neste dia | Already has a class that day |
+  | `inactive_account` | Conta inativa | Inactive account |
+  | `eligibility` | today's eligibility lines from its `failures` | today's eligibility lines from its `failures` |
+  | `blocks_auto_invitations` | Não quer convites automáticos | Turned automatic invitations off |
+  | `blocks_all` | Desligou todas as notificações | Turned all notifications off |
+  | `availability_blocker` | Indisponível a esta hora | Unavailable at this time |
+
+  A `not_in_pool` verdict shows one line per reason. An unknown code shows "Outro motivo" / "Other
+  reason", never the raw code.
 Old-engine sessions keep today's code and payloads; `CANDIDATE_STAGES` stays for them until the drain.
 
 ### Rules
@@ -344,6 +374,12 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_g
 - **Then** the answer has two entries, one per type, each with that student's stage and tier
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_explain_gives_one_entry_per_open_spot_type`
 
+#### NOTIFICATIONS-INVITE-SIMULATION-24: Every stage and reason code has a line in both locales, from one helper (new-engine section N6)
+- **Given** every stage of `notifications.engine-tiers` rule 12, every reason code of N3 and an unknown code
+- **When** the shared helper renders each in `pt` and `en`
+- **Then** each gives N6's line, a `not_in_pool` with two reasons gives two lines, and the unknown code gives "Outro motivo" / "Other reason"
+test: `frontend/packages/config/src/engine-verdict-copy.test.ts` › `every stage and reason has a line in both locales`
+
 ### Notes
 - Why the pipeline is shared rather than re-stated:
   `.cortex/atlas/decisions/2026-09-06-invite-simulation-shares-the-engine-pipeline.md`.
@@ -360,5 +396,4 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_expla
 - The new-engine payload's shape (new-engine section N2) — decision (S, owner away, PAD-913, 2026-11-12,
   from H's proposal for PAD-919; the owner can reverse it): per open spot type, the dry run's queue and
   verdicts, `stage` the dry run's own word so client and engine never translate it twice. The clients'
-  rendering is PAD-920's, under `notifications.invitations`' and `settings.tutorials`' new-engine
-  sections.
+  rendering is N6, its words proposed by S (PAD-913, 2026-11-12) **for the owner's approval**.
