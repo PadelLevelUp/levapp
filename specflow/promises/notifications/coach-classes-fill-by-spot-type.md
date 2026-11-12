@@ -19,7 +19,9 @@ P-NOTIFICATIONS-2's vacancy engine when it ships; until then P-NOTIFICATIONS-2 d
 - Students are asked in the coach's order: the coach's waiting list, the students' waiting list, then
   the coach's groups, each ranked by the coach's priority criteria. A student who fails a gate
   (excluded, blocked, already in the class or another at that time, said No) is never asked
-  automatically, waiting list included.
+  automatically, the students' waiting list included; a student the coach put on the coach's own list
+  is the coach's decision and passes the coach's gates (eligibility, exclusions), never the student's
+  own blocks (the owner, 2026-11-12).
 - While the best group can still fill a spot, the engine waits for it. A spot it cannot fill goes to
   the next group at once, one invitation per spot, in case the better students all say yes; once the
   better group has nobody left for that kind of spot, the next gets the full number.

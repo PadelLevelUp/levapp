@@ -22,7 +22,7 @@ drained, the old engine is deleted and the replaced items go with it.
 | Item | For a new-engine session | Source |
 |---|---|---|
 | Rule 8 (the invitation tie-break) | nothing to choose: one invitation per student per session | `notifications.engine-planning` rule 2 |
-| Rule 16 (six outcomes) | `spot_filled`, terminal `expired` and `queued` go; `withdrawn` stays; the outcomes gain not counting, sorry, re-offered, added and direct join; `movedAt` becomes the re-offer | `notifications.engine-planning` rules 3, 10; `notifications.engine-answers` rules 3, 4; `notifications.engine-settings` rules 3, 5 |
+| Rule 16 (six outcomes) | `spot_filled`, terminal `expired` and `queued` go; `withdrawn` stays; the outcomes gain not counting, sorry, reopened, added and direct join; `movedAt` becomes the reopening from the waiting list | `notifications.engine-planning` rules 3, 10; `notifications.engine-answers` rules 3, 4; `notifications.engine-settings` rules 3, 5 |
 | Rule 20 (the engine still filters an add) | an add from the class goes on the coach's list, which skips the pool gates | `notifications.engine-tiers` rule 4 (ruling (3)) |
 | Criteria 3, 15, 16, 18, 29 | replaced with their rules; new criteria at swap step 8 | — |
 
@@ -43,14 +43,15 @@ approval.**
   | answered no | `declined` | Recusou / Declined |
   | withdrawn by the coach (`closed_reason` `withdrawn`) | `withdrawn` | Convite retirado / Invitation withdrawn |
   | closed by a placement at the same hour (`closed_reason` `same_hour`) | `closed_same_hour` | Noutra aula à mesma hora / In another class at the same time (proposed) |
-  | answered yes, sorry, not re-offered | `sorry` | Disse que sim, sem vaga / Said yes, no spot (proposed) |
+  | answered yes, sorry, not reopened | `sorry` | Disse que sim, sem vaga / Said yes, no spot (proposed) |
   | the class has started, no answer | `expired` | Expirou / Expired |
   | open and counting | `pending` | Ainda sem resposta / No answer yet |
   | open, no longer counting | `not_counting` | Sem resposta · já não conta / No answer · no longer counts (proposed) |
 
-  A re-offered invitation shows its current outcome and the note "convite reaberto" / "reopened"
-  (proposed) in place of `movedAt`'s, from the same shared `inviteeNotes`, read from the row's
-  `reoffered_at`, which the store writes when it applies a `Reoffered`. Each invitee carries
+  An invitation reopened from the waiting list after a sorry shows its current outcome and the note
+  "convite reaberto" / "reopened" (proposed) in place of `movedAt`'s, from the same shared
+  `inviteeNotes`, read from the row's `reopened_at`, which the store writes when it applies a
+  `Reopened`. Each invitee carries
   `tierSource` (`coach_list`, `students_list`, `pool` or null for a manual invitation) and, for `pool`,
   `groupNumber` (1-based, the coach's group order), for the row's secondary text: "lista do treinador"
   / "coach's list", "lista de espera" / "waiting list", "grupo N" / "group N", "convite manual" /
@@ -585,9 +586,9 @@ test: `backend/padel_app/tests/test_pad560_deeplink_recurring.py` › `test_the_
 test: `backend/padel_app/tests/test_pad659_presence_changed_event.py` › `test_a_cancellation_tells_the_coach` (+5 more)
 
 #### CALENDAR-EVENT-DETAIL-33: A new-engine invitee's outcome is the first match of ND1's table (new-engine section ND1)
-- **Given** a new-engine session with one invitee in each ND1 case (one of them re-offered, one a manual invitation), and a pinned clock before the start
+- **Given** a new-engine session with one invitee in each ND1 case (one of them reopened from the waiting list, one a manual invitation), and a pinned clock before the start
 - **When** the coach reads the class
-- **Then** each invitee's `outcome` is the row the table gives, the re-offered one carries the reopened note, each carries its `tierSource` and `groupNumber` (the manual one `tierSource` null), and students placed by automatic entry or direct join are participants, not invitees
+- **Then** each invitee's `outcome` is the row the table gives, the reopened one carries the reopened note, each carries its `tierSource` and `groupNumber` (the manual one `tierSource` null), and students placed by automatic entry or direct join are participants, not invitees
 test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_each_invitee_gets_the_first_matching_outcome`
 
 #### CALENDAR-EVENT-DETAIL-34: The shared helper counts only counting invitations as pending (new-engine section ND2)

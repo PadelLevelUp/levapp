@@ -3,7 +3,7 @@ title: os dois lados precisam dos mesmos alunos
 source: {section: "Cenários 47 a 57: lado diferente, dois lados e regulares desequilibrados", lines: [1132, 1154]}
 what_it_tests: cada aluno é primeiro usado no seu lado, e só os restantes vão para o lado diferente
 tags: [groups, other-side, sides, aviso]
-derived_from: [D17, Q6, D20]
+derived_from: [D17, §7]
 corrections: []
 notes: >
   Group 3 covers the left by heads with 3 of the 5 L2L and the right with the single L2R. One right spot
@@ -18,6 +18,11 @@ notes: >
   so group 5 gets 1 L2L named R for the uncovered spot, not X (D17). 19:15: l2's offer (left) has filled with
   a right spot open, so it is re-offered (Q6). 19:20: the 19:00 L2L named R stops counting, so group 5
   invites the last L2L for the right. 19:30: l3 binds the L2L named R invited at 19:00.
+
+  Re-derived again (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): 19:15 is back to the PDF's
+  Aviso; l2 is not offered the right and is not on the waiting list, so never asked again. The D17 changes
+  stand: 19:20 still sends the last L2L named R, because the 19:00 one (sent with a tier-5 candidate left,
+  so T = between_rounds) stops counting at 19:20 and no other invitation counts for the right.
 
 roster:
   regulars: {L: 7, R: 6}
@@ -41,8 +46,9 @@ timeline:
       missing: {L: 0, R: 2}
   - at: 2026-11-01 19:15
     events: [{accepts: {cohort: L2L, state: invited, side_named: null, as: l2}}]
+    derived_from: [§7]
     expect:
-      messages: [{who: l2, kind: reoffer}]
+      messages: [{who: l2, kind: aviso}]
       missing: {L: 0, R: 2}
   - at: 2026-11-01 19:20
     events: [{accepts: {cohort: L2R, state: invited, as: r1}}]

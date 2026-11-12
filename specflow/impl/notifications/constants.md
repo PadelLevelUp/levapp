@@ -6,7 +6,6 @@ constants:
   LOWER_TIER_PER_SPOT: 1
   METHOD_B_PART: "3 × (n − 1) − i parts for tier i (0-based) of n tiers with candidates; n = 1 takes the whole useful time"
   KIND_SORRY: "sorry"
-  KIND_REOFFER: "reoffer"
   KIND_ADDED: "added"
   KIND_SIDE_MOVED: "side_moved"
   KIND_WAITING_LIST_INVITE: "waiting_list_invite"
@@ -32,7 +31,6 @@ suite.
 - `KIND_SORRY`: the engine's message kind for plan §7's "sorry, plus the offer to join the waiting
   list" (`invitation_engine/effects.py` `MessageKind`). The scenario format logs it as `aviso` (H's
   convention 1); `adapters/new.py` maps `sorry` to `aviso`.
-- `KIND_REOFFER`: the re-offer of the same invitation (Q6; coordinator ruling (1) of 2026-11-11).
 - `KIND_ADDED`: the notice to a student placed by automatic entry.
 - `KIND_SIDE_MOVED`: the notice to a regular moved to the other side at `last_invite_at` (ruling (2)).
 - `KIND_WAITING_LIST_INVITE`: the engine's kind for an invitation sent from a waiting list (group 0a

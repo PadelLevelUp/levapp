@@ -22,7 +22,7 @@ drained, the old engine is deleted and the replaced items go with it.
 | Item | For a new-engine session | Source |
 |---|---|---|
 | Rule 3, the `waiting_list_offer` ask | no such message: the waiting-list offer rides on the sorry, which the ask lists instead | `notifications.engine-answers` rules 4, 11 |
-| Rule 3, a Yes answered `spot_filled` | sorry (the waiting-list offer) or a re-offer, never "just filled" | `notifications.engine-answers` rules 3, 4 |
+| Rule 3, a Yes answered `spot_filled` | sorry with the waiting-list offer, never "just filled" and never another offer (the owner, 2026-11-12) | `notifications.engine-answers` rules 3, 4 |
 | Criterion 12 | replaced with rule 3 | — |
 | Rule 3, the coach's item order (`empty_seats` → `reply` → `validation`) | `engine_alert` → `empty_seats` → `reply` → `validation`; "Mais tarde" snoozes an `engine_alert` as it snoozes `empty_seats` (B-030) | NA1 |
 

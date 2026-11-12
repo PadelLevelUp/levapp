@@ -171,8 +171,10 @@ three separate fields on it. Decision record:
 15. **A coach's add at an hour the student is already going elsewhere is refused (PAD-913;
     `notifications.engine-answers` rule 10, the coordinator's ruling: no override).** When a coach adds a
     student to a class (one occurrence, a series, a class created with students, or accepting a join
-    request), and the add would put the student in two classes with the same start (the same hour,
-    `notifications.engine-tiers` rule 3; any coach) of which at least one is a new-engine session, the
+    request), and the add would put the student in two classes at the same time
+    (`notifications.engine-tiers` rule 3: any overlap with a class of that coach, one ending as the other
+    starts being no overlap, the owner's decision 11; or the same start with any coach, the owner's
+    2026-11-11 ruling) of which at least one is a new-engine session, the
     whole edit is refused and nothing is saved. An occurrence not yet materialised counts as new-engine
     when its class's coach is on `new` (`notifications.config` rule 18 assigns it so when it first
     exists); a student is going to an occurrence when they are on its roster or presences and not marked
@@ -384,10 +386,10 @@ test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_new_engi
 - **Then** both edits answer `409 busy_same_hour` with one clash naming Ana's class and its start, nothing is saved (neither student is added), and adding only the other student succeeds
 test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_coachs_add_at_a_busy_hour_is_refused_whole`
 
-#### CLASSES-INSTANCE-ENROLLMENT-30: A different start, or a clash between old-engine classes only, is not refused; an old-engine add clashing with a new-engine session is (rule 15)
-- **Given** a student going to a class at 19:30 (overlapping, a different start); another going only to an old-engine class at 19:00; a third going to a new-engine session at 19:00
-- **When** the coach adds the first to a 19:00 new-engine class, the second to another 19:00 old-engine class, and the third to a 19:00 old-engine class
-- **Then** the first two adds succeed and the third answers `409 busy_same_hour`
+#### CLASSES-INSTANCE-ENROLLMENT-30: A partial overlap, or another coach's class at the same start, is refused; a touching class or a clash between old-engine classes only is not (rule 15)
+- **Given** a coach's hour-long new-engine class at 19:00, and students going to that coach's 18:30–19:30 class, to that coach's class ending at 19:00, only to that coach's old-engine 19:00 class (the add being to another old-engine 19:00 class), and to another coach's 19:00 class
+- **When** the coach adds each
+- **Then** the partial overlap answers `409 busy_same_hour`, so does the other coach's class at the same start, and the touching and the old-engine-only adds succeed
 test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_different_start_or_an_old_engine_class_is_not_refused`
 
 #### CLASSES-INSTANCE-ENROLLMENT-31: Both shells show each clash from the refusal's body (rule 15)

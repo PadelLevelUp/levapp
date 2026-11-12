@@ -40,15 +40,19 @@ the coach's list).
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
    block on automatic invitations, already in the session, in another session at the same time
-   (**the same hour**: sessions with the same start, Tomás's "mesma hora"; overlapping sessions with
-   different starts are an open question; engine-answers rule 10, engine-planning rule 10 and rule 10
-   here use this one),
+   (**at the same time**: another session **of the same coach** whose interval overlaps this one's at
+   all (the owner's decision 11 of 2026-11-12), each session running from its start to its start plus
+   the lesson's duration, which the store puts in the snapshot, a session ending exactly when the other
+   starts not overlapping; **or a session of any coach with the same start** (the owner's ruling of
+   2026-11-11, "nunca se quebra", which decision 11 widened within one coach and did not narrow). The code's and the wire's `same_hour` / `busy_same_time` names mean
+   this. engine-answers rule 10, engine-planning rule 10 and rule 10 here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
 4. **The coach's list is the coach's decision (ruling (3)).** A student the coach put on the coach's
    list, eligible or not, is a member of group 0a and is placed or invited like any other member; only
-   "already in the session", "said No for this session" and the student's own choices still apply: a
+   "already in the session", "said No for this session", being busy at that time (rule 3, the safety
+   rule of `notifications.engine-answers` rule 10) and the student's own choices still apply: a
    block on automatic invitations or on all notifications (`notifications.student-block-preferences`
    rule 5) and an availability blocker over the class (`calendar.student-blockers` rule 5) keep them out
    of `pool` on the coach's list too. The coach decides who is asked, never over the student's own
@@ -59,8 +63,9 @@ the coach's list).
 6. **The waiting lists have no level rules (D12).** A waiting-list member is a candidate for every spot
    type whatever their level. Sides: a coach's-list entry with a side the coach chose (today's
    `notifications.waiting-list` rule 18a) is a candidate only for spot types that side can take; one
-   without a side, for every type. A students'-list member is a candidate for every type, unless the
-   coach turns on `wl-sides` (`notifications.engine-settings` rule 4).
+   without a side, for every type. A students'-list member who chose a side when joining (today's
+   route carries left, right or both, PAD-672) is a candidate for the types that choice allows, read as
+   own, other or both (`notifications.engine-settings` rule 4); one who chose none, for every type.
 7. **A candidate's tier is per spot type (§5).** For a type, the first tier whose rules the student
    passes. One student may be tier 2 for the left type and tier 3 for the right.
 8. **Ordering inside a tier (§3; Q4 closed: PAD-723).** `EngineSettings.ordering` is the coach's
@@ -107,8 +112,9 @@ the coach's list).
     gates except the student's own blocks, rule 4, so it fails only as `in_session`, `said_no`,
     `removed_by_coach`, `not_in_pool` for a block, or `failed_tier_rule`); `invited_before` (their invitation
     for this session closed without a No, after an accept then a cancellation or by a same-hour
-    placement: D1 allows no second one, so the run never reaches them); or, with its tier, `invited`
-    (this run sends or re-offers it with an offer that covers the type by side; an either type is
+    placement, or was answered with a sorry and they are not on this session's waiting list: D1 allows no
+    second one, so the run never reaches them); or, with its tier, `invited`
+    (this run sends or reopens it with an offer that covers the type by side; an either type is
     covered by any side), `invited_for_other_type` (this run invites them for another type, and the
     offer does not cover this one), `invited_earlier` (an open invitation, not sorry) or `waiting` (a
     candidate this run does not reach). A type's queue leaves out `invited_before` and
@@ -277,6 +283,26 @@ the class, when the store builds the snapshot and the run plans, then only the m
 in `pool` and invited; the others are `not_in_pool`.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_students_own_blocks_hold_on_the_coachs_list`
 
+#### NOTIFICATIONS-ENGINE-TIERS-20: Any overlap with the same coach's class, or the same start with any coach, is busy (rule 3)
+Given a 60-minute session at 19:00 and a student going to the same coach's 90-minute class at 18:00, a
+second going to the same coach's class at 20:00, a third going to another coach's class at 19:00, and a
+fourth going to another coach's class at 18:30, when the dry run evaluates them, then the first is
+`busy_same_time` (18:00–19:30 overlaps 19:00–20:00), the third is too (the same start), and the second
+and fourth are not (touching; another coach's class with a different start).
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_any_overlap_with_the_same_coachs_class_is_busy`
+
+#### NOTIFICATIONS-ENGINE-TIERS-21: A side chosen for the waiting list binds whatever wl-sides says (rule 6)
+Given `wl-sides` off and on the students' list a right-sider who chose "other" and one who chose nothing,
+when a right spot and a left spot open, then the first is a candidate (and placed or invited) only for the
+left, and the second for both.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says`
+
+#### NOTIFICATIONS-ENGINE-TIERS-22: The coach's list keeps "busy at that time" (rule 4)
+Given a student on the coach's list who is going to the same coach's overlapping class, when the dry run
+evaluates them for this session, then they are `busy_same_time` and not invited, although the coach's
+list skips the pool gates.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_the_coachs_list_keeps_busy_at_that_time`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
@@ -296,6 +322,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    gains the facts of rule 13), the tier evaluator in `invitation_engine/planner.py`; then (PAD-917)
    `notifications.config` CONFIG-57 and CONFIG-59, and (PAD-916) the store fills the facts.
 8. (PAD-915) TIERS-17 — `invitation_engine/planner.py` (`with_postponed` takes the union).
+9. (Owner decisions, PAD-915, PAD-916) TIERS-20, TIERS-21 — `invitation_engine/planner.py` (the overlap and the same start; a chosen side binds), the store (each session's end).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision
@@ -305,15 +332,20 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   treats a missing level as the class's level, as the harness does (design §2.2) — decision (owner
   away), because no scenario expects such a student to be gated.
 - Sessions that overlap without sharing a start (one at 10:00 for 90 minutes, one at 10:30): the same
-  hour or not? (PAD-911; rule 3) — decision (owner away): not, for now; "the same hour" is the same
-  start, which is Tomás's "mesma hora", the owner's words and the code (`store.py`, `busy_same_time`).
-  An overlap rule needs the session's end time in the engine's snapshot, which it does not carry yet.
+  hour or not? (PAD-911; rule 3) — first decided "not" (owner away, then the coordinator's D-E26);
+  **reversed by the owner (2026-11-12, Codex decision 11):** "we should check for the whole timeline …
+  classes that overlap even a little bit", for the same coach. A session that ends exactly when another
+  starts does not overlap: S's reading (PAD-913, 2026-11-12; the owner can reverse it), because nothing
+  of the two classes happens at once. Another coach's class with the same start stays busy: decision 11
+  widened the 2026-11-11 ruling ("never two sessions at the same hour") within one coach and did not
+  narrow it; S's reconciliation of the two (PAD-913, after the fresh review), for the owner to confirm. **Later extension, not decided:** the same club's other coaches
+  ("same club eventually"); travel buffers between classes.
 - Where eligibility is decided after the swap (swap decision 6) — options: the coach's rule language
   (`eligibilityRules`) mapped into `EngineSettings.eligibility`; kept in the app. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): kept in the
   app; the store builds `pool` with `effective_eligibility` and the engine's bar is set wide open,
   because the engine's two integers cannot express today's rules and the app already evaluates them.
-- The same hour (rule 3) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): confirmed as the same start (recorded decision D-E26); no overlap
-  rule in the swap.
+- The same hour (rule 3) — Decision (coordinator, owner away, PAD-912, 2026-11-11): the same start
+  (D-E26); reversed by the owner's decision 11 (above).
 - Wire the tiebreakers into the engine's ordering (rule 8) — options: priority criteria only, as today's
   code; priority criteria then tiebreakers, as today's specs say. Decision (S, owner away, PAD-913;
   the owner can reverse it): wire them, because `notifications.invitations` rule 4 and
@@ -325,3 +357,14 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   to one tier (rule 13). Reading them as today's `_group_rule_failures`, unparseable thresholds and
   unknown operations passing included, is S's (PAD-913), so no coach's group changes meaning at the
   cutover.
+- The waiting lists as two groups, and the coach's list past the gates (rules 4, 5) — **the owner's
+  answers (2026-11-12, waiting-list inspection questions 2 and 3, both "matches Tomás"):** two groups,
+  the coach's list first with the usual wait before the students' list; the coach's list skips the
+  eligibility bar and the coach's own gates (the student's own blocks still hold, rule 4). Today has
+  one list with no coach priority and every gate.
+- One tier per stored group with all its criteria, and the timing between groups (rule 13) —
+  **confirmed by the owner** (Codex decision 4, 2026-11-12): "if we ensure that we do keep all the
+  criteria from the coach … and we keep the timings in the separation between groups, … that's fine."
+- A better-tier candidate who appears later is considered again (rule 9; `notifications.engine-planning`
+  rule 7) — **confirmed by the owner** (Codex decision 9, 2026-11-12), the coach-added waiting-list
+  example included.

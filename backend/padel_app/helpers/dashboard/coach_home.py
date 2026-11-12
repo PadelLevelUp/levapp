@@ -31,7 +31,7 @@ Notes on two deliberate choices:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import urlencode
 
 from sqlalchemy import and_, func, or_
@@ -41,6 +41,7 @@ from padel_app.models import (
     Association_CoachLesson,
     Association_CoachPlayer,
     ConversationParticipant,
+    EngineSession,
     Lesson,
     LessonInstance,
     Message,
@@ -341,13 +342,16 @@ def build_needs_you_block(
 ) -> Dict[str, Any]:
     """Things the coach can resolve, each carrying its own action.
 
-    Order is fixed — empty seats (soonest first), then replies, then validation —
-    because it runs from time-critical to whenever-you-like.
+    Order is fixed — engine alerts, then empty seats (both soonest first), then replies,
+    then validation — because it runs from time-critical to whenever-you-like.
     """
     now = now or club_now_naive()
 
     items: List[Dict[str, Any]] = []
-    items.extend(_empty_seat_items(coach_id=coach_id, now=now, events=events))
+    queue = _queue_events(coach_id=coach_id, now=now, events=events)
+    alerts = _engine_alert_items(coach_id=coach_id, queue=queue)
+    items.extend(alerts)
+    items.extend(_empty_seat_items(queue, skip={item["id"] for item in alerts}))
     items.extend(reply_items(user_id=user_id, coach_id=coach_id))
 
     validation = _validation_item(coach_id=coach_id, now=now)
@@ -361,9 +365,10 @@ def build_needs_you_block(
     }
 
 
-def _empty_seat_items(
+def _queue_events(
     *, coach_id: int, now: datetime, events: Optional[Sequence[Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
+    """The classes the queue may nag about: this week's, not started, not snoozed."""
     # PAD-740 (dashboard.blocks rule 3): only the current Sunday-to-Saturday week, up to next
     # Sunday 00:00 — the same week the week pulse counts. It used to be a rolling 7 days, which
     # reached into next week on every day but Sunday.
@@ -372,15 +377,72 @@ def _empty_seat_items(
     # "Later" (rule 3c): a snoozed occurrence stays off the queue until its
     # snooze lapses. It is still on the schedule — only the nag is paused.
     snoozed = snoozed_item_ids(coach_id=coach_id, now=wall_to_utc_naive(now))  # snoozed_until is UTC
+    # Rule 12a: from its start time a class no longer needs the coach to fill it.
+    return [
+        e for e in events
+        if not has_started(e, now) and str(e.get("id") or "") not in snoozed
+    ]
+
+
+_ALERT_SIDE_ORDER = {"L": 0, "R": 1, None: 2}
+
+
+def _engine_alert_items(*, coach_id: int, queue: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """PAD-920 (dashboard.blocks NA1): one item per new-engine session and spot type the store
+    holds a coach alert for (engine-planning rule 11), in the empty-seats window, soonest first.
+    The store drops the alert on ``AlertCleared``, so the item goes with it."""
+    from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE
+    from padel_app.services.engine_store import SIDE_TO_APP
+    from padel_app.services.level_ladder import get_level_ladder
+
+    by_instance = {
+        _safe_int(e.get("originalId"), 0): e
+        for e in queue
+        if e.get("model") == "LessonInstance"
+    }
+    if not by_instance:
+        return []
+    sessions = EngineSession.query.filter(
+        EngineSession.lesson_instance_id.in_(list(by_instance))
+    ).all()
+    held = [(by_instance[s.lesson_instance_id], a) for s in sessions for a in (s.alerted or [])]
+    if not held:
+        return []
+    ladder = get_level_ladder(coach_id)
+    held.sort(key=lambda pair: (_event_start(pair[0]), _ALERT_SIDE_ORDER.get(pair[1][0], 3)))
     out: List[Dict[str, Any]] = []
-    for event in events:
-        # Rule 12a: from its start time a class no longer needs the coach to fill it.
-        if has_started(event, now):
-            continue
+    for event, (side, level, spots) in held:
+        rung = ladder[level - 1] if level is not None and 0 < level <= len(ladder) else None
+        out.append(
+            {
+                "kind": "engine_alert",
+                # The event id, as empty_seats': "Mais tarde" snoozes it the same way.
+                "id": str(event.get("id") or ""),
+                "lessonInstanceId": event.get("originalId"),
+                "classTitle": event.get("title") or "",
+                "date": event.get("date"),
+                "timeLabel": event.get("startTime"),
+                "reason": ALERT_NO_CANDIDATE,
+                "side": SIDE_TO_APP.get(side),
+                "levelId": rung.id if rung else None,
+                "levelLabel": rung.label if rung else None,
+                "level": rung.label if rung else None,
+                "count": spots,
+                "href": class_href(event),
+            }
+        )
+    return out
+
+
+def _empty_seat_items(queue: Sequence[Dict[str, Any]], *, skip: Set[str]) -> List[Dict[str, Any]]:
+    """``queue`` from ``_queue_events``; ``skip``: event ids an ``engine_alert`` already covers
+    (NA1: the alert says more)."""
+    out: List[Dict[str, Any]] = []
+    for event in queue:
         filled, capacity = fill(event)
         if not capacity or filled >= capacity:
             continue
-        if str(event.get("id") or "") in snoozed:
+        if str(event.get("id") or "") in skip:
             continue
         out.append(
             {

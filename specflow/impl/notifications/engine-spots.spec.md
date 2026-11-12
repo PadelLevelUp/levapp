@@ -42,8 +42,8 @@ Stated as the engine's observable inputs; storage is the engine package's (PAD-9
    must(v)     = max(0, class_empty − Σ open(w) for every w ≠ v)
    either      = class_empty − Σ must(v)
    ```
-   The number to invite is never read from `open(v)` alone: `Σ open(v) = class_empty + flexible
-   going students`.
+   The number to invite is never read from `open(v)` alone: `Σ open(v) = class_empty + the flexible
+   going students + the one-sided regulars above their side's quota` (rule 9: those keep their side).
 7. **Spot types (D2).** The `must(v)` types plus `either`, each at the class's level. A `must(v)`
    spot takes only a student who fits v; an `either` spot anyone who fits a value with
    `open(v) > 0`, within `open(v)`. For a category rule (`notifications.engine-tiers` rule 2), an
@@ -51,9 +51,11 @@ Stated as the engine's observable inputs; storage is the engine package's (PAD-9
    them, "other side" admits nobody.
 8. **A spot's level is the class's level (D3)**, never the departing player's. A class with no level
    applies no level rule.
-9. **Flexible going students (§4).** {left, right} students the coach has not placed, and regulars
-   above a value's quota. Extra regulars keep their spot; who moves, and when, is
-   `notifications.engine-timeline` rule 6. Total regulars never exceed capacity.
+9. **Flexible going students (§4).** {left, right} students the coach has not placed. A one-sided
+   regular above a value's quota keeps their spot and their side (the owner, 2026-11-12, decisions 12
+   and 13): they count under their side, and the other side's open spots are only the seats the class
+   has left. Who moves, and when, is `notifications.engine-timeline` rule 6. Total regulars never exceed
+   capacity.
 10. **One logic for both reasons (§4).** A spot with no regular and a spot freed by an absence are the
     same to the engine; only the coach's view and attendance records tell them apart. The one exception
     is `fill_never_held` off (`notifications.engine-settings` rule 11), which keeps today's invitation
@@ -100,10 +102,11 @@ computed, then `class_empty` 1, `open(L)` 2, `open(R)` 2, `either` 1, and `open(
 `class_empty` + 3.
 test: `backend/padel_app/tests/test_invitation_engine_spots.py` › `test_open_sum_is_class_empty_plus_flexible`
 
-#### NOTIFICATIONS-ENGINE-SPOTS-4: A side over its quota makes its extra regular flexible (rules 6, 9)
-Given capacity 8 with 1 left and 5 right regulars, when the counts are computed, then `must(L)` 2,
-`open(R)` 0, `either` 0, and one right regular is a flexible going student.
-test: `backend/padel_app/tests/test_invitation_engine_spots.py` › `test_side_over_quota_makes_one_regular_flexible`
+#### NOTIFICATIONS-ENGINE-SPOTS-4: A side over its quota keeps its extra one-sided regular there (rules 6, 9)
+Given capacity 8 with 1 left and 5 right regulars who play only their side, when the counts are computed,
+then `must(L)` 2, `open(R)` 0, `either` 0, no regular is a flexible going student, and the extra right
+regular is counted under the right.
+test: `backend/padel_app/tests/test_invitation_engine_spots.py` › `test_side_over_quota_keeps_the_extra_regular_on_their_side`
 
 #### NOTIFICATIONS-ENGINE-SPOTS-5: An absence and a never-held spot produce the same invitations (rule 10; S17)
 Given capacity 8 with 3 left and 3 right regulars and X = 3, when a left regular says No before the
@@ -132,6 +135,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SPOTS-1, SPOTS-2, SPOTS-3, SPOTS-4, SPOTS-8 — `invitation_engine/planner.py` (a pure count
    function over `SessionSnapshot`), `const:SIDE_QUOTA`.
 2. (W7) SPOTS-5, SPOTS-6, SPOTS-7 — scenario pins; they pass once planning W5 and answers W3 land.
+3. (Owner decisions, PAD-915) SPOTS-4 again — `invitation_engine/spots.py` (a one-sided regular above quota keeps their side).
 
 ### Open questions
 - A class with no level: no level rule (D3, "to revisit later") or today's fail-closed (rule 4d)? —

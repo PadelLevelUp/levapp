@@ -19,10 +19,10 @@ gets them a place whenever one they fit is still there.
 - On Yes, the student is placed on what the invitation offered. A side the message named binds them
   to it. A student who plays one side takes it when it is open, even from the waiting list; one who
   plays both takes the side that is hardest to fill.
-- If what they were offered has filled but another place they fit is open, the same invitation asks
-  them about that place ("the right side filled; can you play left?") instead of a new one.
-- If nothing they fit is left: "sorry", with the offer to join the waiting list; if a place they fit
-  opens later, the same invitation asks them again.
+- If what they were offered has filled: "sorry", with the offer to join the waiting list, even when a
+  place on the other side is open. They are not asked again for that class unless they join its waiting
+  list; then the same invitation is reopened when the list's turn comes, or they are placed straight
+  from the list where the coach allows it (the owner, 2026-11-12).
 - No is final for invitations to that class date; a coach who allows direct joins still lets the
   student join a place on their own.
 - Two students saying Yes to the last place at the same moment: exactly one gets it, the other is

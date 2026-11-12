@@ -47,7 +47,7 @@ Readings:
 - Intent, rules 1 and 3: unchanged in purpose; "the engine" is the session's engine (`notifications.config` rule 18).
 - Rule 6's class switches (`auto_invites`, `notifications_enabled`) are the store's listing (`notifications.config` rule 19).
 - Eligibility: an app session's bar is applied in `pool`, so a student below it is `not_in_pool`, and the simulation explains it from the caller's own pool gates (`failed_eligibility` arises only where the engine's bar is not open).
-- Rule 7 and criterion 8 (semi-automatic; owner ruling D2): `approvalRequired` reads the carried `invitation_mode` (`notifications.config` rule 19) as today; the list the coach approves is the dry run's queue per spot type (`notifications.engine-planning` rule 14), the same evaluator, so the request and the simulation agree.
+- Rule 7 and criterion 8 (semi-automatic; owner ruling D2): `approvalRequired` reads the carried `invitation_mode` (`notifications.config` rule 19) as today; what the coach approves is each group's queue per spot type from the dry run (`notifications.engine-planning` rule 14, per group), the same evaluator, so the requests and the simulation agree.
 
 The new-engine answer (swap step 7, PAD-919):
 - **N1. One dry run, nothing written.** For a new-engine session the simulation builds the session's

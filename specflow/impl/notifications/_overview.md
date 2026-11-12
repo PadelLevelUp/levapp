@@ -32,7 +32,7 @@ The notifications domain.
     D13, D15)
   - `notifications.engine-planning` — one planning run: cover, top up, X, M, D17, offers, never
     revoked (D1, D4, D5, D9, D10, D11, D16, D17, D20)
-  - `notifications.engine-answers` — Yes within the offer, re-offer, "sorry", the last spot (D6, D7,
+  - `notifications.engine-answers` — Yes within the offer, "sorry" (no re-offer), the last spot (D6, D7,
     D20)
   - `notifications.engine-timeline` — the session's timeline, quiet hours and the clock T (§8, D14)
   - `notifications.engine-settings` — X, M, T per tier and the scenario suite's coach rules, each
@@ -55,7 +55,7 @@ is where its code goes.
 3. **W3** — answers: placement within the offer, refusals (`answers.py`).
 4. **W4** — the clock: counting, quiet hours (`timeline.py`).
 5. **W5** — D17 and M: hardest first, ideal tier, offers, budgets, D10, the tie rule (`planner.py`).
-6. **W6** — sorry and re-offer, the last spot (`answers.py`, `planner.py`); `sorry` logged as `aviso`
+6. **W6** — sorry (a re-offer only from the waiting list), the last spot (`answers.py`, `planner.py`); `sorry` logged as `aviso`
    (`adapters/new.py`).
 7. **W7** — timeline duties and coach surfaces: `last_invite_at` sides and `side_moved`, absences, the
    coach alert, per-tier and Method B timing, other-side tiers; the scenario pins of spots and tiers.

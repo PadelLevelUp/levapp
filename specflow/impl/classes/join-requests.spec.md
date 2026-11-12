@@ -33,7 +33,7 @@ approval.**
 - **NJ1. Refusal codes.** The route's own pre-checks run first, as today (`not_visible`, `spot_filled`).
   Then the engine answers a direct join with a code, never text. The route refuses (`409 {code}`) only
   for the hard reasons: `already_enrolled`, `class_closed`, `already_on_list`, `busy_same_hour` (the
-  student is going to another class with the same start, `notifications.engine-answers` rule 10) and
+  student is going to a class at the same time, `notifications.engine-tiers` rule 3) and
   `side_full` (with today's `requestedSide` and `sides` fields, the open sides as `left`/`right`; the
   client offers the waiting list, `notifications.engine-settings` rule 5). For the soft reasons, the
   engine's `ineligible` (below the bar, or kept out of the pool by an exclusion), the request is created

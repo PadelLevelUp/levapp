@@ -16,36 +16,47 @@ from datetime import datetime, time, timedelta
 
 from padel_app.invitation_engine.constants import KIND_SIDE_MOVED, method_b_parts, side_quota
 from padel_app.invitation_engine.effects import Effect, Message, SideAssigned
-from padel_app.invitation_engine.settings import EngineSettings
+from padel_app.invitation_engine.settings import AttendanceRequest, EngineSettings, FirstInvite
 from padel_app.invitation_engine.snapshot import SIDES, Invitation, SessionSnapshot, Side
 from padel_app.utils.dates import utc_to_wall_naive, wall_to_utc_naive
 
 
-def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
-    """When invitations start (§8 step 2): ``days_before`` the class's day, at the coach's time.
-    Class times are Lisbon wall-clock, the result naive UTC (R-023)."""
-    fi = settings.first_invite
-    day = snapshot.start.date() - timedelta(days=fi.days_before)
-    return wall_to_utc_naive(datetime.combine(day, fi.at))
+def _fire_at(snapshot: SessionSnapshot, shape: FirstInvite | AttendanceRequest) -> datetime | None:
+    """A timing shape's instant for the session, naive UTC, or ``None`` for ``none``; the scheduler's
+    ``_fire_time_utc`` semantics. ``hours_before`` counts real hours back from the real start, across
+    a daylight-saving change; the day forms take the class's own wall date minus the days, at the
+    coach's Lisbon time (R-023)."""
+    if shape.type == "none":
+        return None
+    if shape.type == "hours_before":
+        return wall_to_utc_naive(snapshot.start) - timedelta(hours=shape.hours)
+    day = snapshot.start.date() - timedelta(days=shape.days_before)
+    return wall_to_utc_naive(datetime.combine(day, shape.at))
 
 
-def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
+def first_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime | None:
+    """When invitations start (§8 step 2), naive UTC; ``None`` (``none``): from the session's creation."""
+    return _fire_at(snapshot, settings.first_invite)
+
+
+def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime | None:
     """When regulars are first asked if they are going (§8 step 3), naive UTC; the boundary of
-    automatic entry (engine-settings rule 3)."""
-    ar = settings.attendance_request
-    day = snapshot.start.date() - timedelta(days=ar.days_before)
-    return wall_to_utc_naive(datetime.combine(day, ar.at))
+    automatic entry (engine-settings rule 3). ``None`` (``none``): never asked, and automatic entry
+    runs until the class starts."""
+    return _fire_at(snapshot, settings.attendance_request)
 
 
 def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
-    """After it no new invitation goes out (§8 step 6)."""
-    return wall_to_utc_naive(snapshot.start - settings.last_invite_before)
+    """After it no new invitation goes out (§8 step 6): ``last_invite_before`` in real hours before
+    the class's real start (engine-timeline rule 6), never wall-clock arithmetic."""
+    return wall_to_utc_naive(snapshot.start) - settings.last_invite_before
 
 
 def may_plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> bool:
     """Whether a run may create invitations at ``now`` (engine-planning rule 1): inside the
     invitation window and outside quiet hours (D14)."""
-    return (first_invite_at(snapshot, settings) <= now <= last_invite_at(snapshot, settings)
+    first = first_invite_at(snapshot, settings)
+    return ((first is None or first <= now) and now <= last_invite_at(snapshot, settings)
             and not is_quiet(settings, now))
 
 
@@ -55,6 +66,8 @@ def useful_time(snapshot: SessionSnapshot, settings: EngineSettings, since: date
     ``since`` it runs from ``first_invite_at``. Scenario 83: 15:30 to 08:30 with quiet hours
     00:00-07:00 is 10 hours."""
     start = first_invite_at(snapshot, settings) if since is None else since
+    if start is None:
+        raise ValueError("useful_time needs `since` when invitations start at the session's creation")
     return _active_between(settings, start, last_invite_at(snapshot, settings))
 
 
@@ -127,9 +140,10 @@ def is_quiet(settings: EngineSettings, now: datetime) -> bool:
     """Whether ``now`` (naive UTC) falls in the coach's quiet hours, read in Lisbon wall-clock.
 
     While it does, nobody is invited from any tier (D14, engine-timeline rule 3); answers still count.
+    A window whose start equals its end is quiet all day (today's reading, config rule 19).
     """
     qh = settings.quiet_hours
-    return bool(qh) and qh[0] != qh[1] and _in_quiet(utc_to_wall_naive(now), *qh)
+    return bool(qh) and (qh[0] == qh[1] or _in_quiet(utc_to_wall_naive(now), *qh))
 
 
 def _active_between(settings: EngineSettings, start: datetime, end: datetime) -> timedelta:
@@ -137,8 +151,10 @@ def _active_between(settings: EngineSettings, start: datetime, end: datetime) ->
     if end <= start:
         return timedelta(0)
     qh = settings.quiet_hours
-    if not qh or qh[0] == qh[1]:
+    if not qh:
         return end - start
+    if qh[0] == qh[1]:                                # quiet all day
+        return timedelta(0)
     q_start, q_end = qh
     cur, total = start, timedelta(0)
     while cur < end:
@@ -160,7 +176,7 @@ def counts_until(settings: EngineSettings, sent_at: datetime, t: timedelta) -> d
     counting at 07:30). An invitation sent inside quiet hours starts counting at their end.
     """
     qh = settings.quiet_hours
-    if not qh or qh[0] == qh[1]:
+    if not qh or qh[0] == qh[1]:                      # all day: nothing is sent, so nothing pauses
         return sent_at + t
     start, end = qh
     cur, left = sent_at, t                            # arithmetic in UTC, boundaries read in Lisbon
@@ -189,7 +205,9 @@ def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> t
     """The session's time-driven effects at ``now`` (naive UTC), before the planning run.
 
     From ``last_invite_at`` on (§8 step 6, engine-timeline rule 6): every flexible going student gets
-    a final side, and a side over its quota sheds regulars to the other side while it has room. Each
+    a final side, and a side over its quota sheds students who play the other side too, while it has
+    room; a one-sided student never moves to the other side (the owner's decisions 12 and 13), so an
+    imbalance no such move fixes stays, unannounced. Each
     is a ``SideAssigned`` with a ``side_moved`` message. Once applied nothing is left to do, so later
     runs return nothing until the going students change."""
     if now < last_invite_at(snapshot, settings):
@@ -218,12 +236,14 @@ def _final_sides(snapshot: SessionSnapshot, now: datetime) -> tuple[Effect, ...]
         options = [v for v in SIDES if student is None or v in student.sides]
         assign(p.student, max(options, key=lambda v: quota - count[v]))
 
-    # Then a side over its quota sheds regulars: the coach's choice is not modelled here; whoever moved
-    # least recently (never moved first), ties to the one who joined the class most recently.
+    # Then a side over its quota sheds a student who plays both sides: the coach's choice is not
+    # modelled here; whoever moved least recently (never moved first), ties to the one who joined the
+    # class most recently. A one-sided student never goes to the other side (decisions 12, 13).
     for v in SIDES:
         other = next(w for w in SIDES if w != v)
         while count[v] > quota and count[other] < quota:
-            movable = [p.student for p in snapshot.going if p.how == "regular" and side[p.student] == v]
+            movable = [p.student for p in snapshot.going if side[p.student] == v
+                       and (st := snapshot.students.get(p.student)) is not None and other in st.sides]
             if not movable:
                 break
             never = datetime.min
