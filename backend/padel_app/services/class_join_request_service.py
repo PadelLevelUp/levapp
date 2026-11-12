@@ -284,6 +284,11 @@ def create_join_request_service(player, model, original_id, date_str, *, note=No
         _refuse("not_visible", "This class is not open to requests")
     if _is_full(instance):
         _refuse("spot_filled", "This class is already full")
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        # PAD-918 (new-engine section NJ1): the engine answers the rest.
+        return _join_new_engine(player, instance, coach_id, requested_side(side, cp)[0], note, now)
     if not passes_eligibility(cp, instance, coach_id, effective_eligibility(instance, coach_id, config)):
         _refuse("ineligible", "You do not meet this class's eligibility bar")
     side, check_side = requested_side(side, cp)
@@ -315,6 +320,50 @@ def create_join_request_service(player, model, original_id, date_str, *, note=No
     _notify_coach_of_request(row, instance)
     if config is not None and config.auto_accept_join_requests:
         row = _accept_automatically(row, instance, config, now=now)
+    return row, True
+
+
+#: NJ1: the engine's refusals the route answers with a 409; anything else (``ineligible``) waits.
+HARD_REFUSALS = ("already_enrolled", "class_closed", "already_on_list", "busy_same_hour", "side_full")
+_ENGINE_SIDE = {"left": "L", "right": "R"}
+_APP_SIDE = {"L": "left", "R": "right"}
+
+
+def _join_new_engine(player, instance, coach_id, side, note, now):
+    """New-engine section NJ1 (CLASSES-JOIN-REQUESTS-36, 38): with direct join on (never for a
+    semi-automatic coach, the mapping's rule 19), the request is the engine's ``DirectJoin``: placed at
+    once (the request accepted), refused with a 409 for a hard reason (nothing written), or, for a soft
+    one (``ineligible``), left waiting for the coach with no reason given. Direct join off: it waits."""
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine import requests as rq
+    from padel_app.services.engine_runner import engine
+    from padel_app.services.engine_store import settings_for
+
+    session, student = str(instance.id), str(player.id)
+    existing = ClassJoinRequest.query.filter_by(lesson_instance_id=instance.id, player_id=player.id,
+                                                status="pending").first()
+    if existing is not None:
+        return existing, False
+    if settings_for(session).direct_join:
+        effects = engine(now).handle(session, rq.DirectJoin(student, _ENGINE_SIDE.get(side)), now)
+        refused = next((e for e in effects if isinstance(e, fx.Refused) and e.student == student), None)
+        if refused is not None and refused.reason in HARD_REFUSALS:
+            extra = {}
+            if refused.reason == "side_full":
+                extra = {"sides": sorted(_APP_SIDE[s] for s in refused.sides), "requestedSide": side}
+            _refuse(refused.reason, refused.reason.replace("_", " "), **extra)
+        if any(isinstance(e, fx.Placed) and e.student == student for e in effects):
+            row = ClassJoinRequest(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id,
+                                   status="accepted", created_at=now, decided_at=now, note=note, side=side)
+            db.session.add(row)
+            db.session.commit()
+            _publish_join_request_decided(row)
+            return row, True
+    row = ClassJoinRequest(lesson_instance_id=instance.id, player_id=player.id, coach_id=coach_id,
+                           status="pending", created_at=now, note=note, side=side)
+    db.session.add(row)
+    db.session.commit()
+    _notify_coach_of_request(row, instance)
     return row, True
 
 
