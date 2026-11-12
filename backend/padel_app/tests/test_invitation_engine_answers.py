@@ -300,3 +300,25 @@ def test_a_yes_closes_another_coachs_invitation_only_at_the_same_start():
     closed = {e.session for e in handle(s, EngineSettings(), Answer("x", True), NOW).effects
               if isinstance(e, InvitationClosed)}
     assert closed == {"B", "D"}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-27")
+def test_a_coachs_add_closes_the_students_same_time_invitations():
+    """engine-answers rule 10: a coach's add outside the engine reaches it as CoachAdded on the session
+    added to; it writes no placement, closes the student's same-time invitations elsewhere (not one
+    later that day), re-plans that session, and each touched session re-plans in its own unit."""
+    from padel_app.invitation_engine import Engine
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.requests import CoachAdded
+    from padel_app.invitation_engine.store import MemoryStore
+
+    store = MemoryStore()
+    store.add_student(_student("x", "R"))
+    for sid, at in (("A", START), ("B", START), ("C", START + timedelta(hours=3))):
+        store.add_session(sid, 3, 8, at, [(_student(f"{sid}{r}", side), side) for r, side in _regs(4, 3)], SENT)
+    store.apply([fx.Invited(s, SENT, "x", frozenset({R}), None, 2, SENT + timedelta(minutes=20)) for s in "BC"])
+    store.apply([fx.Placed("A", NOW, "x", "R", "direct")])                     # the app's own enrolment
+    effects = Engine(store, EngineSettings()).handle("A", CoachAdded("x"), NOW)
+    assert [e.session for e in effects if isinstance(e, InvitationClosed)] == ["B"]
+    assert not [e for e in effects if isinstance(e, Placed)]
+    assert store.snapshot("B").invitation("x").closed_at == NOW and store.snapshot("C").invitation("x").open

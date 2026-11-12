@@ -96,6 +96,15 @@ class CoachExcludes:
 
 
 @dataclass(frozen=True)
+class CoachAdded:
+    """The coach added the student to this session outside the engine (the app wrote the enrolment):
+    their open invitations at the same time close, as for an engine placement (engine-answers rule
+    10). The engine writes no placement."""
+
+    student: str
+
+
+@dataclass(frozen=True)
 class Appear:
     """A club student becomes visible and eligible from now (plan D8)."""
 
@@ -138,7 +147,7 @@ class ReopenGroup:
 COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | Appear | UpdateSettings
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | Appear | UpdateSettings
            | ApproveGroup | DismissGroup | ReopenGroup)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
                     NoShow, ConfirmAttendance)

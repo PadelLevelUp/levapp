@@ -19,6 +19,7 @@ from padel_app.invitation_engine.requests import (
     Appear,
     ApproveGroup,
     ReopenGroup,
+    CoachAdded,
     CoachExcludes,
     CreateSession,
     Request,
@@ -72,22 +73,26 @@ class Engine:
             return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
         if isinstance(request, COACH_QUEUE_REQUESTS):
             return self._queue_answer(session, request, now)
-        if not isinstance(request, (CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
+        if not isinstance(request, (CoachAdded, CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
         # A student's request locks the student first (two of theirs never run at once, answers rule 10).
-        who = getattr(request, "student", None) if isinstance(request, STUDENT_REQUESTS) else None
+        who = getattr(request, "student", None) if isinstance(request, (CoachAdded, *STUDENT_REQUESTS)) else None
         student = (who,) if who is not None else ()
         with self.store.unit((session,), student):
-            if isinstance(request, CoachExcludes):
+            if isinstance(request, CoachAdded):         # the coach's add: close the same-time invitations
+                out = self._commit(planner.close_same_hour(self.store.snapshot(session), request.student, now))
+                out += self._plan(session, now)
+            elif isinstance(request, CoachExcludes):
                 self.store.exclude(session, request.student)
                 return self._plan(session, now)
-            if isinstance(request, CreateSession):
+            elif isinstance(request, CreateSession):
                 self.store.add_session(session, request.level, request.capacity, request.start, request.regulars,
                                        now, joined_at=request.joined_at, end=request.end)
                 return self._plan(session, now)
-            settings = self.settings_for(session)          # one lookup per unit: answer and plan agree
-            out = self._commit(answers.handle(self.store.snapshot(session), settings, request, now).effects)
-            out += self._plan(session, now, settings)
+            else:
+                settings = self.settings_for(session)      # one lookup per unit: answer and plan agree
+                out = self._commit(answers.handle(self.store.snapshot(session), settings, request, now).effects)
+                out += self._plan(session, now, settings)
         # A same-hour close (answers rule 10) touched other sessions: each replans in its own unit,
         # after this one commits, so no call holds two sessions' locks.
         touched = sorted({e.session for e in out} - {session})
