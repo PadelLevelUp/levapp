@@ -742,6 +742,10 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
     # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
         enrol(player_id, lesson_instance, "roster" if series else "coach")
+    if data.get("add_player_ids"):
+        from padel_app.services.engine_entry import coach_added
+
+        coach_added(lesson_instance, data["add_player_ids"])       # PAD-918: a placement (rule 15)
 
     for player_id in data.get("remove_player_ids", []):
         if series:

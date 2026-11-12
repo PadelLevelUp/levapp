@@ -359,3 +359,15 @@ def sorry_joins_waiting_list(instance, player, config, now: datetime | None = No
     if refused is not None:
         return {"action": "unknown"}
     return {"action": "added_to_waiting_list"}
+
+
+def coach_added(instance, player_ids, now: datetime | None = None) -> None:
+    """Rule 15's last sentence (INSTANCE-ENROLLMENT-34): a coach's add to a new-engine session is a
+    placement, so each student's open invitations at that time close (``CoachAdded``; the enrolment is
+    the app's own, already written). Nothing for an old-engine session."""
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) != "new":
+        return
+    for player_id in player_ids:
+        handle(instance, rq.CoachAdded(str(player_id)), now)

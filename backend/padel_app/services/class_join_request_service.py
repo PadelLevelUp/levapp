@@ -605,6 +605,9 @@ def _decide_join_request(request_id, coach, *, accept: bool, confirm: bool = Fal
     row.decided_at = now
     row.decided_by_coach_id = coach.id
     db.session.commit()
+    from padel_app.services.engine_entry import coach_added
+
+    coach_added(instance, [row.player_id], now)                   # PAD-918: a placement (rule 15)
 
     if coach_user_id and player_user_id:
         _send_system_message(

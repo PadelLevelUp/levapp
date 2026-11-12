@@ -152,3 +152,24 @@ def test_accepting_a_request_or_creating_a_class_at_a_busy_hour_is_refused(coach
 
     data["startTime"], data["endTime"] = "20:30", "21:30"       # another coach's class, a partial overlap only
     assert add_class_service(data, coach, Club.query.first()).id is not None
+
+
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-34")
+def test_a_coachs_add_closes_the_students_other_invitations_at_that_hour(coach_class):
+    """An add that goes through to a new-engine session is a placement: the student's open invitation to
+    another session at that hour closes as a same-hour close, and no longer counts."""
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.snapshot import SpotType
+    from padel_app.models import EngineInvitation
+
+    store, coach_id, session, (invited, *_) = coach_class
+    other = _class(coach_id, START, START + timedelta(hours=1), new_engine=True)
+    level = store.snapshot(str(other.id)).level
+    with store.unit((str(other.id),)):
+        store.apply([fx.Invited(str(other.id), NOW, invited, frozenset({SpotType("R", level)}), None, 2,
+                                NOW + timedelta(minutes=20))])
+
+    result, status = _add(session, [invited])
+    assert status == 200 and _on(session, invited)
+    row = EngineInvitation.query.filter_by(lesson_instance_id=other.id, player_id=int(invited)).one()
+    assert row.closed_at is not None
