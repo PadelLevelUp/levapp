@@ -44,7 +44,7 @@ the coach's list).
    all (the owner's decision 11 of 2026-11-12), each session running from its start to its start plus
    the lesson's duration, which the store puts in the snapshot, a session ending exactly when the other
    starts not overlapping; **or a session of any coach with the same start** (the owner's ruling of
-   2026-11-11, "nunca se quebra", which decision 11 widened within one coach and did not narrow). The code's and the wire's `same_hour` / `busy_same_time` names mean
+   2026-11-11, "nunca se quebra", which decision 11 widened within one coach and did not narrow). The code's and the wire's `same_hour` / `busy_same_time` names mean (TIERS-20, STORE-9)
    this. engine-answers rule 10, engine-planning rule 10 and rule 10 here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
