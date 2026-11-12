@@ -36,7 +36,9 @@ Readings:
   `declined` "Recusado." / "Declined."; `sorry` "A vaga já foi ocupada." / "The spot was already
   taken." (bad news); `closed_same_hour` "Já estás noutra aula a essa hora." / "You're already in
   another class at that time." (bad news); `class_started` "A aula já começou." / "The class has
-  started.". A card carrying `notificationEventId` is the old engine's and answers as today.
+  started." (bad news too: nothing was taken; Session5's reading). The helper is `@levelup/config`
+  `engineAnswerToast`, keys `dashboard.needsYou.engineAnswer.*`. A card carrying `notificationEventId` is
+  the old engine's and answers as today.
 - Rules 6–7 (the coach's pending confirmations): the set counts the new-engine invitations still open
   for tomorrow's classes (counting or not), and the nudge re-pushes each one's own message, never a new
   invitation (R, PAD-918).
@@ -807,7 +809,7 @@ test: `backend/padel_app/tests/test_pad918_dashboard_pending.py` › `test_pendi
 - **Given** a student's web home with a `vacancy_invite` carrying `invitationId`, and one carrying `notificationEventId`
 - **When** they press Yes on the first and the route answers `sorry`, and Yes on the second
 - **Then** the first posts `{invitationId, action: "yes"}` to `/notify/respond` and shows the sorry toast as bad news, and the second answers by `notificationEventId` as today; each of the five actions maps to its toast in the shared helper
-test: `frontend/apps/web/src/components/dashboard/NeedsYouQueue.engineInvite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
+test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineInvite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
 
 #### DASHBOARD-BLOCKS-57: The iOS home card answers a new-engine invitation by its id and reads the answer (new-engine readings)
 - **Given** the same cards on iOS
