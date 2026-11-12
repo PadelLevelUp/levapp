@@ -63,7 +63,8 @@ approval.**
 - **ND3. Labels and notes come from the shared `invitation-outcome` and `inviteeNotes` helpers**, never
   per shell; on a new-engine session's rows the test id is `invitee-outcome-<playerId>-<outcome>` on both
   shells. Old-engine rows keep today's ids (web `invitee-outcome-<playerId>`), which
-  `e2e/notification-engine/invitee-outcomes.spec.ts` keeps reading.
+  `e2e/notification-engine/invitee-outcomes.spec.ts` keeps reading. An old-engine row carries no
+  `tierSource` key at all (a null `tierSource` means a manual invitation on a new-engine session).
 
 ### Rules
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons

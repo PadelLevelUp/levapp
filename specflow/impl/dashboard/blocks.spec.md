@@ -768,6 +768,16 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-alert.test.tsx`
 - **Then** the coach's Assistant conversation has one `coach_no_candidate` message and the coach one push
 test: `backend/padel_app/tests/test_pad920_dashboard_engine_alert.py` › `test_the_alert_reaches_the_coach_once_as_a_message`
 
+#### DASHBOARD-BLOCKS-52: The alert message links to its class on web (new-engine section NA3)
+- **Given** an `engine_alert` message in the coach's Assistant conversation on web, with `href`, and an older one with only `lessonInstanceId`
+- **Then** both show a link that opens the class, from `href` or else from `lessonInstanceId`
+test: `frontend/apps/web/src/components/messages/MessageBubble.engineAlert.test.tsx` › `links the alert message to its class`
+
+#### DASHBOARD-BLOCKS-53: The alert message links to its class on iOS (new-engine section NA3)
+- **Given** the same messages on iOS
+- **Then** both link to the native class screen the same way
+test: `frontend/apps/mobile/src/features/messages/engine-alert-message.test.tsx` › `links the alert message to its class`
+
 ### Open questions
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
   PAD-913, 2026-11-12; the owner can reverse it): both a dashboard card (NA1, NA2) and one message with a

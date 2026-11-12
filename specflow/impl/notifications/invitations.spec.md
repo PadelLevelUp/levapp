@@ -1709,6 +1709,17 @@ test: `frontend/apps/web/e2e/notification-engine/new-engine-bubble.spec.ts` › 
 - **Then** the first is on the session's students' list and the route answers `added_to_waiting_list`; the second answers with `alreadyWaiting: true` and no second entry
 test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_a_yes_to_the_sorrys_offer_joins_the_students_list`
 
+#### NOTIFICATIONS-INVITATIONS-122: The web bubble answers by invitation id and keeps the newest state (new-engine section NB5)
+- **Given** a new-engine bubble on web
+- **When** the student presses Yes, the route answers `sorry`, and a `message_edited` with a newer state arrived while the answer was in flight
+- **Then** the request carried `invitationId`, the bubble shows the newer live state, never overwritten by the older answer
+test: `frontend/apps/web/src/components/messages/MessageBubble.newEngine.test.tsx` › `answers by invitation id and keeps the newest state`
+
+#### NOTIFICATIONS-INVITATIONS-123: The iOS bubble answers by invitation id and keeps the newest state (new-engine section NB5)
+- **Given** the same on iOS
+- **Then** the same request and the same outcome
+test: `frontend/apps/mobile/src/features/messages/engine-message.test.ts` › `answers by invitation id and keeps the newest state`
+
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a
   read-only projection. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): dropped, and their readers change; a read-only projection serves only

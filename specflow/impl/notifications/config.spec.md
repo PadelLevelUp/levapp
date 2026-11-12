@@ -464,19 +464,22 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       `betweenGroupsMinutes` → the pair, each null falling back to `maxInactiveTime` as rule 19 says;
       `perTier` → one entry per tier in tier order (0 the coach's list, 1 the students' list, then the
       invitation groups in order), each a pair or null (that tier uses the pair), only with `per_tier`;
+      a null side of a tier's pair falls back to the coach's pair, then to `maxInactiveTime`;
       the two booleans → `notifications.engine-settings` rules 3 and 4. X stays
       `restrictions.maxSimultaneous`; direct join stays `autoAcceptJoinRequests`.
     - **Other-side tiers** are a group rule `{attribute: side, operation: different_from_vacancy}`,
       which maps to tier side `other` (`notifications.engine-tiers` rule 2). The old engine would read
       that operation as unknown and let everyone through, so a save that puts it in a group of a coach
       on `old` is refused (400).
-    - **Validation.** `method` one of the three; every minutes value at least const:ENGINE_T_FLOOR
+    - **Validation.** `method` one of the three; every minutes value that is not null at least const:ENGINE_T_FLOOR
       (`notifications.engine-settings` rule 2); `maxAtATime` at least 1; `perTier` only with `per_tier`
       and no longer than 2 + the number of groups. An invalid value answers 400 naming the key, as the
       restrictions do. The bounds live once, in `@levelup/config` (`ENGINE_SETTING_BOUNDS`), beside
       `RESTRICTION_BOUNDS`.
     - **Who sees the controls.** Only a coach whose `engineVersion` (on the `GET`) is `new` sees them;
-      a coach on `old` sees today's screens unchanged, `maxInactiveTime`'s 15-minute floor included. On
+      a coach on `old` sees today's screens unchanged, `maxInactiveTime`'s 15-minute floor included.
+      With `autoNotifyEnabled` off they stay editable (unlike rule 14's restrictions), so a coach can
+      set the engine up before turning it on. On
       web and iOS alike (the coordinator's decision, `notifications.engine-settings` Open questions):
       - M ("Máximo de convites ao mesmo tempo na aula" / "Most invitations at once in a class") as a
         stepper;
@@ -501,7 +504,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     - **What the student's class payloads carry.** Every student-facing class payload (the calendar event,
       the academy class, the class detail) carries `engineVersion` (`"old"` | `"new"`, the session's
       engine by rule 18) and `waitingListSideChoice` (the primary coach's flag, false on `old`), always
-      present, so the clients choose the join and side-choice flows without another call.
+      present, so the clients choose the join and side-choice flows without another call. After a
+      `side_full` refusal (`classes.join-requests` NJ1) with the side choice on, the offer to wait
+      reopens the own/other/both choice, preselected to the side the student asked for, rather than
+      joining with an absolute side.
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-CONFIG-1: A new coach starts from the reference configuration (rule 17)
@@ -972,6 +978,12 @@ Given a student reading a new-engine class whose coach has `waitingListSideChoic
 class, through the calendar event, the academy class and the class detail, then each payload carries
 `engineVersion` (`new`, `old`) and `waitingListSideChoice` (true, false).
 test: `backend/padel_app/tests/test_pad918_student_class_payloads.py` › `test_student_class_payloads_say_the_engine_and_the_side_choice`
+
+#### NOTIFICATIONS-CONFIG-75: A tier's half-set pair falls back to the coach's pair, then maxInactiveTime (rule 20)
+Given method `per_tier`, the coach's pair 10/null, `maxInactiveTime` 30, and tier 2's pair 29/null, when
+the store builds the coach's `EngineSettings`, then tier 2's pair is 29 and 30 (null falls to the coach's
+null, then to `maxInactiveTime`), and a saved non-null value of 0 is refused.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_a_half_set_tier_pair_falls_back`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
