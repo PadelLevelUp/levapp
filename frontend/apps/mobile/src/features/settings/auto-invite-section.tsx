@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { notificationEngineApi } from "@levelup/api";
 import { lightTheme } from "@levelup/config";
-import type { InvitationMode, NotificationConfig, NotificationRestrictions } from "@levelup/types";
+import type { InvitationGroup, InvitationMode, NotificationConfig, NotificationRestrictions } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -18,10 +18,13 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { EligibilitySection } from "./eligibility-section";
+import { engineConfigOf, setTimingMethod } from "./engine-config-edits";
+import { EngineSettingsSection } from "./engine-settings-section";
 import { PastDueRemindersDialog, pastDueOutcome, sendPastDueInParts } from "./past-due-reminders-dialog";
 import { REMINDER_FALLBACKS, RemindersSection } from "./reminders-section";
 import { EligibilityImpactNote } from "./eligibility-impact-note";
 import { RestrictionsSection } from "./restrictions-section";
+import { TiersEditor } from "./tiers-editor";
 import { useSectionSave } from "./unsaved-registry";
 import type { EligibilityImpactEntry } from "@levelup/types";
 
@@ -29,9 +32,11 @@ import type { EligibilityImpactEntry } from "@levelup/types";
  * Auto-Invite Engine basic controls, mirroring the top-level portion of
  * web's NotificationsEngineSection.tsx: the master on/off toggle and the
  * automatic/semi-automatic mode choice, plus Reminders (PAD-776 part 3, rules 5 and 10c-10f),
- * Eligibility (PAD-161) and Restrictions (PAD-433, notifications.config rule 14). The other
- * sub-panels (Invitation Groups, Tiebreakers, Notify Groups, Message Templates, Standing Waiting
- * List) are deferred — see found_issues.md.
+ * Eligibility (PAD-161) and Restrictions (PAD-433, notifications.config rule 14). For a coach on the
+ * new engine, also its own settings and the tiers editor (PAD-920, notifications.config rule 20; the
+ * invitation groups as tiers, ported by the coordinator's ruling on PAD-912). The other sub-panels
+ * (Tiebreakers, Notify Groups, Message Templates, Standing Waiting List) stay deferred — see
+ * found_issues.md; and a coach on the old engine still edits the groups on web only.
  *
  * Simplification vs. web: web's master toggle special-cases turning the
  * engine on with zero invitationGroups configured (auto-seeds
@@ -54,6 +59,9 @@ const ENGINE_FIELDS = [
   "openSpotsVisible",
   "restrictions",
   "reminderTiming",
+  // PAD-920 (rule 20): edited only by a coach on `new`, so unchanged (and unsent) for the others.
+  "engine",
+  "invitationGroups",
 ] as const satisfies readonly (keyof NotificationConfig)[];
 
 const RESTRICTION_FALLBACKS: Partial<NotificationRestrictions> = {
@@ -99,6 +107,7 @@ export function AutoInviteSection() {
   // Closed by default, like web's collapsible sub-panels.
   const [restrictionsOpen, setRestrictionsOpen] = React.useState(false);
   const [remindersOpen, setRemindersOpen] = React.useState(false);
+  const [tiersOpen, setTiersOpen] = React.useState(false);
   // notifications.config rule 10c: the timing is saved, but the server could not re-arm the jobs.
   const [rescheduleFailed, setRescheduleFailed] = React.useState(false);
   // Rule 10f: what a timing save made past due, asked about once per class during the visit.
@@ -181,6 +190,16 @@ export function AutoInviteSection() {
   const mode = config.invitationMode ?? "automatic";
   // Rule 3a: automatic acceptance does not work in semi-automatic mode, whether or not the engine is on.
   const autoAcceptBlocked = mode === "semi_automatic";
+  // PAD-920 (rule 20): only a coach whose GET says `new` sees the new engine's controls.
+  const newEngine = config.engineVersion === "new";
+  const engine = engineConfigOf(config.engine);
+  const groups: InvitationGroup[] = config.invitationGroups ?? [];
+  // Rule 19: a null side of the pair is `maxInactiveTime`'s value, enabled or not.
+  const inactive = config.restrictions?.maxInactiveTime?.value ?? RESTRICTION_FALLBACKS.maxInactiveTime!.value;
+  const pair = {
+    betweenRoundsMinutes: engine.timing.betweenRoundsMinutes ?? inactive,
+    betweenGroupsMinutes: engine.timing.betweenGroupsMinutes ?? inactive,
+  };
 
   return (
     <Card testID="settings-auto-invite">
@@ -290,6 +309,45 @@ export function AutoInviteSection() {
             </Text>
           ) : null}
         </View>
+
+        {newEngine ? (
+          <View className="gap-3 border-t border-border pt-4">
+            <EngineSettingsSection
+              engine={engine}
+              pair={pair}
+              onChange={(next) => save({ engine: next })}
+              onMethodChange={(method) => save({ engine: setTimingMethod(engine, method, groups.length) })}
+            />
+          </View>
+        ) : null}
+
+        {newEngine ? (
+          <View className="gap-3 border-t border-border pt-4">
+            <Pressable
+              testID="settings-tiers-header"
+              accessibilityRole="button"
+              accessibilityState={{ expanded: tiersOpen }}
+              onPress={() => setTiersOpen((open) => !open)}
+              className="flex-row items-center justify-between"
+            >
+              <Text className="text-sm font-medium">{t("settings.engine.invitationGroups")}</Text>
+              <Ionicons name={tiersOpen ? "chevron-up" : "chevron-down"} size={16} color={lightTheme.mutedForeground} />
+            </Pressable>
+            {tiersOpen ? <Text className="text-xs text-muted-foreground">{t("settings.engine.invitationGroupsHint")}</Text> : null}
+            {tiersOpen ? (
+              <TiersEditor
+                groups={groups}
+                engine={engine}
+                pair={pair}
+                disabled={engineOff}
+                // A groups-only edit leaves `engine` as it is (the same object), so it is not sent.
+                onChange={(next) =>
+                  save(next.engine === engine ? { invitationGroups: next.groups } : { invitationGroups: next.groups, engine: next.engine })
+                }
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Reminders — PAD-776 part 3, the port of web's Reminders panel (rules 5, 10c-10f). Visible
             whatever the engine state but disabled while it is off, as web's `disabled` does. */}

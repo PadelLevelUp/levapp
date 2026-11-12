@@ -7,7 +7,7 @@ import {
   messagesApi,
   notificationEngineApi,
 } from "@levelup/api";
-import { groupByDay, lightTheme, messageDayLabel } from "@levelup/config";
+import { groupByDay, isEngineInvite, lightTheme, messageDayLabel } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
@@ -56,6 +56,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { MessageBubble } from "@/features/messages/components/message-bubble";
 import { ChatMoreOptionsMenu } from "@/features/messages/components/chat-more-options-menu";
 import {
@@ -66,6 +67,7 @@ import { ReportMessageDialog } from "@/features/messages/components/report-messa
 import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
+import { applyEngineAnswer, engineAnswerPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
 import {
   anchorReducer,
   initialAnchorState,
@@ -129,6 +131,10 @@ type RowHandlers = {
   onCounterClassRequest: () => void;
   onAnswerJoinRequest: (accept: boolean) => void;
 };
+
+/** PAD-920 (dashboard.blocks NA3): an `engine_alert` message's link opens its class. Module-level,
+ * so every bubble gets the same reference and its memo holds. */
+const openEngineAlertClass = (route: EngineAlertClassRoute) => router.push(route);
 
 /**
  * PAD-767 (messaging.conversation-detail rule 18): the composer's text, placeholder and caret sit
@@ -944,6 +950,31 @@ export default function ConversationScreen() {
     message: Message,
     action: "yes" | "no"
   ) => {
+    // PAD-920 (notifications.invitations NB5): a new-engine invitation is answered by its
+    // invitation id, and the server's action is written as the bubble's state (a Yes answered
+    // `sorry` stays sorry, never "declined"). The live `message_edited` keeps it current after.
+    const metadata = message.metadata;
+    if (isEngineInvite(metadata)) {
+      if (respondingInviteId !== null) return;
+      const tappedState = metadata.state;
+      setRespondingInviteId(message.id);
+      try {
+        const result = await notificationEngineApi.respondToEngineInvitation({
+          invitationId: metadata.invitationId,
+          action,
+        });
+        const patch = engineAnswerPatch(result?.action);
+        if (patch) {
+          // Only a bubble still in the state it was tapped in takes the answer (as web does).
+          updateMessageInCache(queryClient, conversationId, message.id, (m) => applyEngineAnswer(m, tappedState, patch));
+        }
+      } catch {
+        toast.error(t("messages.somethingWentWrong"));
+      } finally {
+        setRespondingInviteId(null);
+      }
+      return;
+    }
     const eventId = message.metadata?.notificationEventId;
     if (!eventId || respondingInviteId !== null) return;
     setRespondingInviteId(message.id);
@@ -1195,8 +1226,13 @@ export default function ConversationScreen() {
         toast.success(t("calendar.joinRequest.rejectedToast", { name: participantName }));
       }
     } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): accepting is an add, refused at an hour
+      // the student is already going elsewhere; say who and where, never the generic line.
+      const busy = accept ? busySameHourToast(err, i18n.language) : null;
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
-      if (accept && refusal?.code === "ineligible") {
+      if (busy) {
+        showBusySameHourToast(busy, t, toast.error);
+      } else if (accept && refusal?.code === "ineligible") {
         setPendingJoinIneligible({ message, ineligible: refusal.ineligible ?? [], sideGone: classJoinRequestsApi.sideGoneOf(refusal) });
       } else {
         toast.error(
@@ -1401,6 +1437,7 @@ export default function ConversationScreen() {
             onCancelAttendance={row.onCancelAttendance}
             respondingWaitingList={respondingWaitingListId === item.id}
             onRespondWaitingList={temp ? undefined : row.onRespondWaitingList}
+            onOpenClass={openEngineAlertClass}
             respondingInvite={respondingInviteId === item.id}
             onRespondInvite={temp ? undefined : row.onRespondInvite}
             classRequestLive={classRequestLiveFor(item)}
