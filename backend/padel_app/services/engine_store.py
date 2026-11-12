@@ -122,9 +122,11 @@ def _blocks_auto_invitations(user) -> bool:
 
 @dataclass(frozen=True)
 class _PoolGates:
-    excluded: frozenset[str] = frozenset()
+    excluded_players: frozenset[str] = frozenset()        # the coach's excludedPlayers
+    same_day: frozenset[str] = frozenset()                # noSameDayClass: another class that day
     exclude_inactive: bool = False
     eligible: Callable[[object], bool] | None = None   # None: no bar, everyone clears it
+    failures: Callable[[object], list] | None = None   # the bar's structured failures (eligibility_failures)
     daily_cap: int | None = None
 
 
@@ -215,19 +217,15 @@ class TableStore:
         users = {pid: u for pid, u in db.session.query(Player.id, User)
                  .join(User, User.id == Player.user_id)
                  .filter(Player.id.in_([lk.player_id for lk in links] or [-1])).all()}
-        excluded = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
         gates = self._pool_gates(coach_id, inst, links)
-        excluded |= gates.excluded
+        own = self._own_blocks(inst, links, users)
         # Engine-tiers rule 4 (TIERS-19): the student's own blocks hold on every list, the coach's too.
-        blocked = self._blocked(inst, links, users)
+        blocked = {pid for pid, codes in own.items() if codes}
         inside = {p.student for p in going} | regular_ids
         students = self._students(coach_id, links, users)
-        pool = tuple(
-            students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
-            if str(lk.player_id) not in inside and str(lk.player_id) not in excluded
-            and str(lk.player_id) not in blocked
-            and not (gates.exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active")
-            and (gates.eligible is None or gates.eligible(lk)))
+        out = self._pool_reasons(iid, links, users, gates, own)
+        pool = tuple(students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
+                     if str(lk.player_id) not in inside and not out[str(lk.player_id)])
 
         start = inst.start_datetime
         others = LessonInstance.query.filter(
@@ -279,17 +277,77 @@ class TableStore:
         )
 
     @staticmethod
-    def _blocked(inst, links, users) -> set[str]:
-        """Students whose own settings refuse automatic invitations to this session: automatic
-        invitations or every solicitation blocked (``user_blocks_auto_invitations``), or an
-        availability blocker over the class (``blocked_user_ids_for_window``, wall clock as stored)."""
+    def _own_blocks(inst, links, users) -> dict[str, list[str]]:
+        """Each linked student's own refusals of automatic invitations to this session, as codes:
+        ``blocks_auto_invitations``, ``blocks_all`` (``user_blocks_auto_invitations``) and
+        ``availability_blocker`` (``blocked_user_ids_for_window``, wall clock as stored)."""
         from padel_app.services.student_availability_service import blocked_user_ids_for_window
 
-        out = {str(lk.player_id) for lk in links if _blocks_auto_invitations(users.get(lk.player_id))}
+        out: dict[str, list[str]] = {str(lk.player_id): [] for lk in links}
+        for lk in links:
+            user = users.get(lk.player_id)
+            if getattr(user, "notif_block_auto_invitations", False):
+                out[str(lk.player_id)].append("blocks_auto_invitations")
+            if getattr(user, "notif_block_all", False):
+                out[str(lk.player_id)].append("blocks_all")
         by_user = {u.id: pid for pid, u in users.items() if u is not None}
-        out |= {str(by_user[uid]) for uid in blocked_user_ids_for_window(
-            list(by_user), inst.start_datetime, inst.end_datetime) if uid in by_user}
+        for uid in blocked_user_ids_for_window(list(by_user), inst.start_datetime, inst.end_datetime):
+            if uid in by_user and str(by_user[uid]) in out:
+                out[str(by_user[uid])].append("availability_blocker")
         return out
+
+    @staticmethod
+    def _pool_reasons(iid: int, links, users, gates: _PoolGates, own: Mapping[str, list[str]],
+                      *, explain: bool = False) -> dict[str, list[dict]]:
+        """Why each linked student is kept out of the session's pool (notifications.config rule 19,
+        CONFIG-53; engine-tiers rule 4): every reason, as ``{"code": …}`` records, empty for a student
+        the gates admit. The one source of the pool (``snapshot``) and of its explanation
+        (``pool_exclusions``). With ``explain`` an eligibility record carries the bar's structured
+        ``failures``; without it the bar short-circuits."""
+        from padel_app.models import EngineExclusion
+
+        for_session = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
+        out: dict[str, list[dict]] = {}
+        for lk in links:
+            pid = str(lk.player_id)
+            reasons = [{"code": c} for c in own.get(pid, ())]
+            if pid in for_session:
+                reasons.append({"code": "excluded_for_session"})
+            if pid in gates.excluded_players:
+                reasons.append({"code": "excluded_players"})
+            if pid in gates.same_day:
+                reasons.append({"code": "same_day_class"})
+            if gates.exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active":
+                reasons.append({"code": "inactive_account"})
+            if gates.eligible is not None:
+                if explain:
+                    failures = gates.failures(lk)
+                    if failures:
+                        reasons.append({"code": "eligibility", "failures": failures})
+                elif not gates.eligible(lk):
+                    reasons.append({"code": "eligibility"})
+            out[pid] = reasons
+        return out
+
+    def pool_exclusions(self, session: str) -> dict[str, list[dict]]:
+        """Of the coach's students, those the session's pool keeps out and every reason why
+        (notifications.invite-simulation, new-engine readings: the caller explains ``not_in_pool``).
+        Read-only; the same gates ``snapshot`` builds ``pool`` with."""
+        from padel_app.models import User
+        from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+        from padel_app.models.lesson_instances import LessonInstance
+        from padel_app.models.players import Player
+
+        iid = int(session)
+        inst = db.session.get(LessonInstance, iid)
+        coach_id = self.coach_of(session)
+        links = Association_CoachPlayer.query.filter_by(coach_id=coach_id).all()
+        users = {pid: u for pid, u in db.session.query(Player.id, User)
+                 .join(User, User.id == Player.user_id)
+                 .filter(Player.id.in_([lk.player_id for lk in links] or [-1])).all()}
+        gates = self._pool_gates(coach_id, inst, links)
+        reasons = self._pool_reasons(iid, links, users, gates, self._own_blocks(inst, links, users), explain=True)
+        return {pid: r for pid, r in reasons.items() if r}
 
     @staticmethod
     def _approval(es, e: fx.Effect) -> None:
@@ -337,6 +395,7 @@ class TableStore:
             _RosterFacts,
             _vacancy_level,
             effective_eligibility,
+            eligibility_failures,
             passes_eligibility,
         )
 
@@ -344,11 +403,11 @@ class TableStore:
         if config is None:
             return _PoolGates()
         restrictions = config.get_restrictions()
-        excluded = set()
+        excluded_players, same_day = set(), set()
         if (restrictions.get("excludedPlayers") or {}).get("enabled"):
-            excluded |= {str(pid) for pid in restrictions["excludedPlayers"].get("playerIds") or []}
+            excluded_players = {str(pid) for pid in restrictions["excludedPlayers"].get("playerIds") or []}
         if (restrictions.get("noSameDayClass") or {}).get("enabled"):
-            excluded |= {str(pid) for pid in _players_with_a_class_that_day([lk.player_id for lk in links], inst)}
+            same_day = {str(pid) for pid in _players_with_a_class_that_day([lk.player_id for lk in links], inst)}
         rules = effective_eligibility(inst, coach_id, config)
         if rules and _vacancy_level(None, inst)[0] is None:
             # Owner ruling D3 (engine-tiers rule 13, TIERS-18): a class with no level applies no level
@@ -357,9 +416,10 @@ class TableStore:
         facts = _RosterFacts(coach_id, [lk.player_id for lk in links]) if rules else None
         cap = restrictions.get("maxInvitesPerStudentPerDay") or {}
         return _PoolGates(
-            excluded=frozenset(excluded),
+            excluded_players=frozenset(excluded_players), same_day=frozenset(same_day),
             exclude_inactive=bool((restrictions.get("excludeUnpaidSubscription") or {}).get("enabled")),
             eligible=(lambda lk: passes_eligibility(lk, inst, coach_id, rules, facts=facts)) if rules else None,
+            failures=(lambda lk: eligibility_failures(lk, inst, coach_id, rules, facts=facts)) if rules else None,
             daily_cap=int(cap["value"]) if cap.get("enabled") and cap.get("value") is not None else None,
         )
 
