@@ -189,7 +189,8 @@ three separate fields on it. Decision record:
     `finalizeEdit` and `add-to-classes-dialog.tsx` `proceedSave`; adding to several classes at once saves
     the others and lists each class that refused. An add that clashes only with old-engine classes is
     unchanged. Removing a regular from one new-engine occurrence also tells the engine
-    `CoachRemoved(student)` on that session (`notifications.engine-answers` rule 14). An add that goes
+    `CoachExcludes(student)` for that session (`notifications.engine-answers` rule 14); the coach can still
+    add them back by hand. An add that goes
     through to a new-engine session is a placement: the student's other open
     invitations at that hour close, as for any placement (`notifications.engine-answers` rule 10).
 
@@ -418,7 +419,7 @@ test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_c
 #### CLASSES-INSTANCE-ENROLLMENT-35: Removing a regular from one new-engine occurrence tells the engine (rule 15)
 - **Given** a new-engine occurrence and its regular
 - **When** the coach removes the regular from that occurrence only
-- **Then** the presence is deleted and the session's unit applies `CoachRemoved(student)`; removing them from an old-engine occurrence sends nothing to the engine
+- **Then** the presence is deleted, the session's unit applies `CoachExcludes(student)`, and the store keeps them as a removed regular (their seat freed); removing them from an old-engine occurrence sends nothing to the engine
 test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_removing_a_regular_from_one_occurrence_tells_the_engine`
 
 ### Notes
