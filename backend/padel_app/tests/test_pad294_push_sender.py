@@ -149,7 +149,7 @@ def test_a_system_message_returns_before_the_push_round_trip(app, async_sender):
     while the identical merge passed twice) — the B-100 family.
     """
     from padel_app.models import Coach, User
-    from padel_app.services import notification_service as ns
+    from padel_app.services import system_messages as sm
 
     engine_returned = threading.Event()   # set by the test after the engine returns
     push_started = threading.Event()      # set by the worker when the fake push begins
@@ -172,8 +172,8 @@ def test_a_system_message_returns_before_the_push_round_trip(app, async_sender):
         db.session.commit()
         student_user_id = _user_with_token("Dora", "p294dora", token="ExponentPushToken[d]")
         with patch("padel_app.utils.expo_push.requests.post", side_effect=blocking_post), \
-             patch.object(ns, "publish"):
-            msg = ns._send_system_message(coach_user.id, student_user_id, "Hello", message_type="text")
+             patch.object(sm, "publish"):
+            msg = sm._send_system_message(coach_user.id, student_user_id, "Hello", message_type="text")
             # The engine has returned while the push is still parked — that is the
             # whole claim. A push that had already run on the caller's thread could
             # not be parked now.

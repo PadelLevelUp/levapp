@@ -19,7 +19,7 @@ _LEVEL_TEMPLATES = ("invite", "reminder", "reminder_followup", "waiting_list_inv
 
 
 def _render(template):
-    from padel_app.services.notification_service import _format_template
+    from padel_app.services.message_text import _format_template
     return _format_template(template, name="Ana", level="", weekday="quarta-feira", time="10:00")
 
 
@@ -54,7 +54,7 @@ def test_en_defaults_still_read_whole(key):
 def test_a_level_keeps_its_connector():
     """With a level the phrase is untouched — the connector is only dropped
     when the placeholder is empty."""
-    from padel_app.services.notification_service import _format_template
+    from padel_app.services.message_text import _format_template
     assert _format_template("tens a aula de {level} esta {weekday}", level="M2", weekday="terça") == \
         "tens a aula de M2 esta terça"
     # A coach's own connector that is not a genitive is left alone.

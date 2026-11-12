@@ -46,8 +46,8 @@ UNSHARE_PATH = SHARE_PATH
 # kept here so all four endpoints are named in one place per file.
 MY_EVALUATIONS_PATH = BASE + "/my_evaluations"
 
-PATCH_PUBLISH = "padel_app.services.notification_service.publish"
-PATCH_WEB_PUSH = "padel_app.services.notification_service.send_push_notification"
+PATCH_PUBLISH = "padel_app.services.system_messages.publish"
+PATCH_WEB_PUSH = "padel_app.services.system_messages.send_push_notification"
 PATCH_EXPO_PUSH = "padel_app.utils.expo_push.send_expo_push_to_user"
 
 

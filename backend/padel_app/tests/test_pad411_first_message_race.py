@@ -99,7 +99,7 @@ def _conversations(app, key):
 @pytest.mark.criterion("MESSAGING-CONVERSATIONS-26")
 def test_two_first_system_messages_at_once_make_one_conversation_and_both_arrive(app):
     from padel_app.models import Conversation, Message
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     coach_uid, student_uid = _users(app)
     key = Conversation.build_participant_key([coach_uid, student_uid])
@@ -149,7 +149,7 @@ def test_two_first_assistant_prompts_at_once_make_one_conversation(app):
 def test_the_second_caller_after_the_first_committed_reuses_the_conversation(app):
     """Trigger absent: no race, the ordinary look-up path."""
     from padel_app.models import Conversation
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     coach_uid, student_uid = _users(app)
     with app.app_context():

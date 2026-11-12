@@ -26,7 +26,7 @@ WED = datetime(2026, 10, 7, 10, 0)     # a Wednesday, club wall clock
 ])
 @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-3")
 def test_the_day_reads_like_a_person_would(app, start, pt, en):
-    from padel_app.services.notification_service import format_relative_day
+    from padel_app.services.message_text import format_relative_day
 
     with app.app_context():
         assert format_relative_day(start, "pt", now=WED) == pt
@@ -35,7 +35,7 @@ def test_the_day_reads_like_a_person_would(app, start, pt, en):
 
 @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-3")
 def test_from_a_friday_a_monday_three_days_on_is_next_week(app):
-    from padel_app.services.notification_service import format_relative_day
+    from padel_app.services.message_text import format_relative_day
 
     with app.app_context():
         assert format_relative_day(datetime(2026, 10, 12, 18, 0), "pt", now=datetime(2026, 10, 9, 23, 59)) == "na próxima segunda-feira"
@@ -44,17 +44,17 @@ def test_from_a_friday_a_monday_three_days_on_is_next_week(app):
 @pytest.mark.criterion("NOTIFICATIONS-MESSAGE-TEMPLATES-3")
 def test_the_day_is_computed_when_the_message_renders(app, monkeypatch):
     """Rule 18: at send time, on the club clock. A message held past midnight says "hoje"."""
-    from padel_app.services import notification_service as ns
+    from padel_app.services import message_text as mt
     from padel_app.models import LessonInstance
 
     inst = LessonInstance(start_datetime=datetime(2026, 10, 8, 18, 0), end_datetime=datetime(2026, 10, 8, 19, 0))
     with app.app_context():
-        monkeypatch.setattr(ns, "utcnow_naive", lambda: datetime(2026, 10, 7, 21, 0))   # 22:00 Lisbon, Wed
-        assert ns.class_placeholders(inst, "pt")["day"] == "amanhã"
-        monkeypatch.setattr(ns, "utcnow_naive", lambda: datetime(2026, 10, 7, 23, 30))  # 00:30 Lisbon, Thu
-        assert ns.class_placeholders(inst, "pt")["day"] == "hoje"
-        text = ns._format_template("Abriu uma vaga para {day} às {time}!", time="18:00",
-                                   **ns.class_placeholders(inst, "pt"))
+        monkeypatch.setattr(mt, "utcnow_naive", lambda: datetime(2026, 10, 7, 21, 0))   # 22:00 Lisbon, Wed
+        assert mt.class_placeholders(inst, "pt")["day"] == "amanhã"
+        monkeypatch.setattr(mt, "utcnow_naive", lambda: datetime(2026, 10, 7, 23, 30))  # 00:30 Lisbon, Thu
+        assert mt.class_placeholders(inst, "pt")["day"] == "hoje"
+        text = mt._format_template("Abriu uma vaga para {day} às {time}!", time="18:00",
+                                   **mt.class_placeholders(inst, "pt"))
         assert text == "Abriu uma vaga para hoje às 18:00!"
 
 

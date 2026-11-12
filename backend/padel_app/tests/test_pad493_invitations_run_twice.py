@@ -20,6 +20,8 @@ from padel_app.sql_db import db
 PATCHES = (
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 )
 
 NOW = datetime(2026, 6, 10, 14, 0)           # 15:00 Lisbon; class tomorrow 09:00, window open

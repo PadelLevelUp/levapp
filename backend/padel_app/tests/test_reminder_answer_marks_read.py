@@ -29,7 +29,7 @@ def _participation(conversation_id, user_id):
 
 def _reminder_and_conversation(coach_user_id, student_user_id):
     from padel_app.models.messages import Message
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     conv = _get_or_create_direct_conversation(coach_user_id, student_user_id)
     reminder = (

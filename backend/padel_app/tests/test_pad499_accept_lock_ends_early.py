@@ -42,7 +42,7 @@ def _two_open_spots_for_one_place(app):
     from padel_app.models.notification_event import NotificationEvent
     from padel_app.models.players import Player
     from padel_app.models.vacancy import Vacancy
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context(), _io():
         instance_id, coach_id, _, (x, y, z) = _seed(enrolled=1, candidates=3, max_players=2)

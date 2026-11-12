@@ -36,7 +36,7 @@ class TestTemplateVariables:
     def test_an_occurrence_is_dated_and_a_series_is_weekday_only(self, app, monkeypatch):
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.models.players import Player
-        from padel_app.services.notification_service import template_variables
+        from padel_app.services.message_text import template_variables
 
         pin_clock(monkeypatch, EVE)
         ids = _seed430(app, language="pt", lesson_type="academy", court_name="Campo 2")
@@ -56,7 +56,7 @@ class TestTemplateVariables:
         assert "side" not in occ
 
     def test_side_is_passed_only_when_given(self, app):
-        from padel_app.services.notification_service import template_variables
+        from padel_app.services.message_text import template_variables
 
         with app.app_context():
             assert template_variables(None, None, "pt", side=" (lado esquerdo)")["side"] == " (lado esquerdo)"
