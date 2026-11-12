@@ -297,6 +297,12 @@ when a right spot and a left spot open, then the first is a candidate (and place
 left, and the second for both.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says`
 
+#### NOTIFICATIONS-ENGINE-TIERS-22: The coach's list keeps "busy at that time" (rule 4)
+Given a student on the coach's list who is going to the same coach's overlapping class, when the dry run
+evaluates them for this session, then they are `busy_same_time` and not invited, although the coach's
+list skips the pool gates.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_the_coachs_list_keeps_busy_at_that_time`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),

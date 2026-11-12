@@ -425,6 +425,12 @@ Given a student in group 1 and in the "everyone" group 3, group 1 dismissed and 
 reaches group 3, then that group's request lists the student.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissed_groups_student_is_reached_from_a_later_group`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-44: A sorry student on the waiting list is a candidate of that list's tier only (rule 5.1)
+Given a student told sorry who joined the students' list and who also passes a later pool group, when a
+spot of their type opens after the reminder hour, then they are a candidate of the students' list's tier
+and of no later tier.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_sorry_student_on_the_list_is_a_candidate_of_that_lists_tier_only`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`

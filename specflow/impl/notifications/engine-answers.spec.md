@@ -245,6 +245,12 @@ when they say Yes, then they get const:KIND_SORRY and no other message, and thei
 unchanged.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_yes_whose_offer_filled_gets_sorry_never_another_side`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-26: A Yes closes another coach's invitation only at the same start (rule 10; engine-tiers rule 3)
+Given a student holding invitations to another coach's session at the same start and to another coach's
+session at an overlapping but different start, when they say Yes here, then the first closes and the
+second stays open.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_yes_closes_another_coachs_invitation_only_at_the_same_start`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
