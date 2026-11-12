@@ -46,6 +46,7 @@ afterEach(() => {
 describe("PAD-920 the coach alert's message on web", () => {
   it("[DASHBOARD-BLOCKS-52] links the alert message to its class", () => {
     renderAlert("m9", { href: "/calendar?classId=lessoninstance-12&date=2026-11-19", date: "2026-11-19" });
+    expect(screen.getByTestId("engine-alert-open-class-m9").textContent).toBe("messages.engineAlert.openClass");
     fireEvent.click(screen.getByTestId("engine-alert-open-class-m9"));
     expect(navigate).toHaveBeenLastCalledWith("/calendar?classId=lessoninstance-12&date=2026-11-19");
     cleanup();

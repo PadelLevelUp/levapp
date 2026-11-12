@@ -741,7 +741,7 @@ export function MessageBubble({
               onClick={() => navigate(engineAlertHref(message.metadata)!)}
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
-              {t("classDetail.classFallbackTitle")}
+              {t("messages.engineAlert.openClass")}
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>

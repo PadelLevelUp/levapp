@@ -162,6 +162,9 @@
       "notCounting": "Sem resposta · já não conta",
       "withdrawn": "O treinador retirou este convite.",
       "closedSameHour": "Já inscrito noutra aula à mesma hora"
+    },
+    "engineAlert": {
+      "openClass": "Abrir aula"
     }
   }
 }
