@@ -287,6 +287,12 @@ when the dry run evaluates them, then the first is `busy_same_time` (18:00–19:
 and the other two are not.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_any_overlap_with_the_same_coachs_class_is_busy`
 
+#### NOTIFICATIONS-ENGINE-TIERS-21: A side chosen for the waiting list binds whatever wl-sides says (rule 6)
+Given `wl-sides` off and on the students' list a right-sider who chose "other" and one who chose nothing,
+when a right spot and a left spot open, then the first is a candidate (and placed or invited) only for the
+left, and the second for both.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
