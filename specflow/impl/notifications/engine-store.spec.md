@@ -35,6 +35,12 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    that is not on that coach's ladder (another coach's level) reaches the engine as none, which fails
    every level rule (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
    account's `User.status`.
+5. **The store keeps each session's approval state as the engine's effects leave it** (semi-automatic
+   mode, `notifications.engine-planning` rule 14), in the session's row (`engine_sessions`: approved,
+   removed, pending, dismissed): `ApprovalRequest` sets the pending queues and ends a dismissal;
+   `QueueApproved` replaces the approved queue, adds to the removed students and ends the request;
+   `QueueDismissed` ends the request and keeps the spot counts it saw; `QueueReopened` ends the
+   dismissal; `ApprovalWithdrawn` ends the request. Each `ApprovalRequest` is sent once (rule 2).
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -65,8 +71,16 @@ the store builds a snapshot, then the two levels are positions 1 and 2, the othe
 and each student's `subscription_status` is their account's status.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_levels_reach_the_engine_as_ladder_positions`
 
+#### NOTIFICATIONS-ENGINE-STORE-4: The coach's approval round-trips through the store (rule 5)
+Given a session, when the store applies in turn an `ApprovalRequest`, a `QueueApproved` removing one
+student, a second request, a `QueueApproved` removing another, a `QueueDismissed`, a `QueueReopened` and
+an `ApprovalWithdrawn`, then after each the snapshot's approval state is as rule 5 says (removed holds
+both students after the second approval; the dismissal keeps the spot counts it saw), and `dispatch`
+sends each request once.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_coachs_approval_round_trips_through_the_store`
+
 ### Waves
-1. (PAD-916) STORE-1, STORE-2, STORE-3 — `padel_app/services/engine_store.py` (content keys, the outbox,
+1. (PAD-916) STORE-1 to STORE-4 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 
 ### Open questions
