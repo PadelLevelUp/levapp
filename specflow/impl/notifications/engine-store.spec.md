@@ -61,7 +61,7 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
 
 8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
-   `closed_reason` and `reopened_at`, writes the invitation's state (`open`, `answered` with `response`
+   `closed_reason` (`withdrawn` | `same_hour` | `class_removed`) and `reopened_at`, writes the invitation's state (`open`, `answered` with `response`
    and `answeredBy`, `sorry`, `reopened`, `withdrawn`, `closed_same_hour`) and `startsAt`/`countsUntil`
    on its live messages: every attached message until the invitation is reopened; from then the older
    bubbles keep `reopened` and later states land only on the newest bubble, the one with live buttons. It
