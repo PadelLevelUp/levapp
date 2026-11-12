@@ -97,3 +97,30 @@ def open_invitations_query(player_id: int):
         EngineInvitation.closed_at.is_(None),
         (EngineInvitation.sorry_at.is_(None)) | (EngineInvitation.reopened_at.isnot(None)),
     )
+
+
+def class_engine_fields(obj) -> dict:
+    """notifications.config rule 20 (CONFIG-74): what a student's class payload says about the engine:
+    ``engineVersion`` (an occurrence's own engine, rule 18; a series' or an occurrence not yet
+    materialised, its primary coach's switch) and ``waitingListSideChoice`` (the coach's rule-20 flag,
+    false on the old engine). Both always present."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.engine_entry import _series_coaches, _series_is_new_engine
+    from padel_app.services.engine_switch import engine_for
+    from padel_app.services.lesson_service import primary_coach
+
+    if getattr(obj, "model_name", None) == "LessonInstance":
+        new = engine_for(obj) == "new"
+        coach = primary_coach(obj)
+        coach_id = coach.id if coach is not None else None
+    elif getattr(obj, "model_name", None) == "Lesson":
+        new = _series_is_new_engine(obj)
+        coaches = _series_coaches(obj)
+        coach_id = coaches[0] if coaches else None
+    else:
+        return {}
+    choice = False
+    if new and coach_id is not None:
+        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        choice = bool(config and config.waiting_list_side_choice)
+    return {"engineVersion": "new" if new else "old", "waitingListSideChoice": choice}

@@ -224,7 +224,11 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
         if not is_student or rel.player_id == viewer_player_id
     ]
 
+    from padel_app.services.engine_readers import class_engine_fields
+
     data = {
+        # PAD-918 (notifications.config rule 20, CONFIG-74): the class's engine and the side-choice flag.
+        **class_engine_fields(obj),
         "coachId": str(coach_id) if coach_id else None,
         # PAD-570 (attendance.confirm rule 28): the chat shortcut after "Não vou" opens the
         # conversation with this user (`POST /app/conversation` takes user ids).
