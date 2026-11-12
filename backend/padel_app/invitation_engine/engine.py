@@ -93,6 +93,12 @@ class Engine:
         touched = sorted({e.session for e in out} - {session})
         return out + [e for s in touched for e in self._plan_unit(s, now)]
 
+    def plan(self, session: str, now: datetime) -> list[Effect]:
+        """Plan one session now, in its own unit, and commit (the app's "recompute from the class",
+        semi-auto-approval rule 12): the same run ``tick`` and ``handle`` make, nothing else. A run
+        the store refuses (``UnitConflict``) returns nothing."""
+        return self._plan_unit(session, now)
+
     def _queue_answer(self, session: str, request: Request, now: datetime) -> list[Effect]:
         """The coach's answer to semi-automatic mode (engine-planning rule 14), then a re-plan, which
         sends at once what the approval lets through: its counting-until starts now."""
