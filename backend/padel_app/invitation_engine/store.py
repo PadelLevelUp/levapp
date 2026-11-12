@@ -151,6 +151,9 @@ class MemoryStore:
             if isinstance(e, fx.CoachAlert):                   # one alert per session and type (rule 11)
                 s.alerted[e.spot_type] = e.spots
                 continue
+            if isinstance(e, fx.AlertCleared):
+                s.alerted.pop(e.spot_type, None)
+                continue
             if isinstance(e, fx.ApprovalRequest):              # semi-automatic mode (planning rule 14)
                 s.approval = replace(s.approval, pending=e.queues, pending_request=e.request, dismissed=None)
             elif isinstance(e, fx.ApprovalWithdrawn):
