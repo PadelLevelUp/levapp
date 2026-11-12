@@ -163,9 +163,9 @@ def with_postponed(snapshot: SessionSnapshot, now: datetime) -> SessionSnapshot:
     invitation counts by rule 3 (``timeline.counting``) **and** its offer counts toward a current spot
     type of its own session by rule 4, so an invitation to a full session counts for nothing; such an
     invitation stays valid (D4) but postpones nobody. Going elsewhere at the same time is the gate,
-    not a postpone."""
+    not a postpone. Students the store already marked postponed stay postponed."""
     postponed = {e.invitation.student for e in snapshot.elsewhere if _counts_there(e, now)}
-    return replace(snapshot, postponed=frozenset(postponed - snapshot.busy_same_time))
+    return replace(snapshot, postponed=frozenset((postponed | snapshot.postponed) - snapshot.busy_same_time))
 
 
 def _counts_there(e: Elsewhere, now: datetime) -> bool:
