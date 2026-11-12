@@ -66,7 +66,7 @@ import { ReportMessageDialog } from "@/features/messages/components/report-messa
 import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
-import { engineAnswerPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
+import { applyEngineAnswer, engineAnswerPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
 import {
   anchorReducer,
   initialAnchorState,
@@ -131,6 +131,10 @@ type RowHandlers = {
   onAnswerJoinRequest: (accept: boolean) => void;
 };
 
+/** PAD-920 (dashboard.blocks NA3): an `engine_alert` message's link opens its class. Module-level,
+ * so every bubble gets the same reference and its memo holds. */
+const openEngineAlertClass = (route: EngineAlertClassRoute) => router.push(route);
+
 /**
  * PAD-767 (messaging.conversation-detail rule 18): the composer's text, placeholder and caret sit
  * on the vertical centre of the 48 px box, level with the send button's centre. A multiline
@@ -140,10 +144,6 @@ type RowHandlers = {
  * fills the 48 px minimum, and further lines add height up to `max-h-28` (the row is `items-end`, so
  * the send button stays at the bottom). `textAlignVertical: "center"` is Android's half.
  */
-/** PAD-920 (dashboard.blocks NA3): an `engine_alert` message's link opens its class. Module-level,
- * so every bubble gets the same reference and its memo holds. */
-const openEngineAlertClass = (route: EngineAlertClassRoute) => router.push(route);
-
 const COMPOSER_INPUT_CLASS = "h-auto min-h-12 py-3.5";
 const COMPOSER_INPUT_STYLE = { textAlignVertical: "center" } as const;
 
@@ -955,6 +955,7 @@ export default function ConversationScreen() {
     const metadata = message.metadata;
     if (isEngineInvite(metadata)) {
       if (respondingInviteId !== null) return;
+      const tappedState = metadata.state;
       setRespondingInviteId(message.id);
       try {
         const result = await notificationEngineApi.respondToEngineInvitation({
@@ -963,10 +964,8 @@ export default function ConversationScreen() {
         });
         const patch = engineAnswerPatch(result?.action);
         if (patch) {
-          updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
-            ...m,
-            metadata: { ...m.metadata, ...patch },
-          }));
+          // Only a bubble still in the state it was tapped in takes the answer (as web does).
+          updateMessageInCache(queryClient, conversationId, message.id, (m) => applyEngineAnswer(m, tappedState, patch));
         }
       } catch {
         toast.error(t("messages.somethingWentWrong"));

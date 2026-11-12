@@ -36,6 +36,20 @@ export function engineAnswerPatch(action: EngineRespondAction | string | undefin
   }
 }
 
+/**
+ * NB5: apply an answer to the cached message only while it is still in the state it was tapped in.
+ * A live `message_edited` that landed while the answer was in flight is newer (a sorry already
+ * re-offered), so the answer must not write the older state back over it.
+ */
+export function applyEngineAnswer<M extends { metadata?: Record<string, unknown> | null }>(
+  message: M,
+  tappedState: unknown,
+  patch: EngineAnswerPatch
+): M {
+  if (!patch || message.metadata?.state !== tappedState) return message;
+  return { ...message, metadata: { ...message.metadata, ...patch } };
+}
+
 export type EngineAlertClassRoute = { pathname: "/class/[id]"; params: { id: string } };
 
 /**

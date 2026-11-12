@@ -7,7 +7,7 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Message } from "@levelup/types";
-import type { ReactTestInstance } from "react-test-renderer";
+import { act, type ReactTestInstance } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderNative, type Native } from "@/test/render-native";
 
@@ -150,6 +150,8 @@ describe("the iOS new-engine invitation bubble (PAD-920)", () => {
     // NB3, the coach's copy (their own message): open and counting, open and no longer counting.
     await expectState(invite(12, engine(21, { state: "open", countsUntil: LATER })), true, 21, "open", "messages.waitingForResponse", false);
     await expectState(invite(13, engine(22, { state: "open", countsUntil: EARLIER })), true, 22, "open", "messages.engineInvite.notCounting", false);
+    // The coach's copy of any other state reads the student's label, never with buttons.
+    await expectState(invite(16, engine(23, { state: "sorry", response: "yes" })), true, 23, "sorry", "messages.engineInvite.sorry", false);
 
     // An old-engine invitation renders exactly as before, with its own ids.
     const oldOpen = await mount(invite(14, { notificationEventId: 77, lessonInstanceId: 900 }), false, onRespond);
@@ -160,6 +162,23 @@ describe("the iOS new-engine invitation bubble (PAD-920)", () => {
     const oldAnswered = await mount(invite(15, { notificationEventId: 78, responded: true, response: "yes" }), false);
     expect(texts(oldAnswered.byTestId("invite-accepted"))).toEqual(["messages.accepted"]);
     oldAnswered.root.unmount();
+  });
+
+  it("[NOTIFICATIONS-INVITATIONS-117] an open bubble left on screen turns started at the class's start (NB1)", async () => {
+    // beforeEach fakes Date only; this case also needs the timers.
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(NOW);
+    const startsAt = new Date(NOW.getTime() + 60_000).toISOString();
+    const r = await mount(invite(17, engine(24, { state: "open", startsAt })), false);
+    r.byTestId("invite-respond-yes-24");
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    await act(async () => {
+      vi.advanceTimersByTime(61_000);
+    });
+    r.byTestId("invite-state-24-started");
+    expect(r.queryByTestId("invite-respond-yes-24")).toBeNull();
+    r.root.unmount();
   });
 
   it("renders an engine_alert as text with a link to its native class screen (dashboard.blocks NA3)", async () => {

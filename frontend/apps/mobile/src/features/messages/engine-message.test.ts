@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { engineAlertClassRoute, engineAnswerPatch } from "./engine-message";
+import { applyEngineAnswer, engineAlertClassRoute, engineAnswerPatch } from "./engine-message";
 
 describe("the new engine's messages on iOS (PAD-920)", () => {
   it("writes the server's answer as the bubble's state; a sorry Yes is never declined (NB5)", () => {
@@ -11,6 +11,15 @@ describe("the new engine's messages on iOS (PAD-920)", () => {
     // Started is derived from startsAt, never written.
     expect(engineAnswerPatch("class_started")).toBeNull();
     expect(engineAnswerPatch(undefined)).toBeNull();
+  });
+
+  it("an answer never writes an older state over a live edit that landed first (NB5)", () => {
+    const tapped = { id: 1, metadata: { engine: "new", invitationId: 5, state: "open" } };
+    expect(applyEngineAnswer(tapped, "open", engineAnswerPatch("sorry")).metadata).toMatchObject({ state: "sorry" });
+    // The re-offer arrived first: the slower sorry answer leaves it alone.
+    const reoffered = { id: 1, metadata: { engine: "new", invitationId: 5, state: "reoffered" } };
+    expect(applyEngineAnswer(reoffered, "open", engineAnswerPatch("sorry"))).toBe(reoffered);
+    expect(applyEngineAnswer(tapped, "open", null)).toBe(tapped);
   });
 
   it("links an engine_alert to its class by the materialised instance (NA3)", () => {
