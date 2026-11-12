@@ -12,9 +12,10 @@ What the store gates instead of the engine (``engine_store.TableStore``): ``auto
 class switches (not listed), ``maxInvitesPerStudentPerDay`` (``postponed``), ``noSameDayClass``,
 ``excludedPlayers``, ``excludeUnpaidSubscription`` and ``eligibilityRules`` (``pool``).
 
-Not mapped here yet: ``invitationMode`` (D2), ``cancellationDeadlineHours`` (D4) and
-``invitationGroups`` (D5) wait for their criteria on notifications.config rule 19; ``maxTotal`` (D3)
-has no counterpart. Those keys take the engine's defaults, as do the keys only the new engine has.
+``cancellationDeadlineHours`` is the engine's ``absence_cutoff_before`` (swap decision 4, CONFIG-56).
+Not mapped here yet: ``invitationMode`` (D2, CONFIG-58) and ``invitationGroups`` (D5, CONFIG-57 and
+59) wait for the engine's hold and its extended ``Tier`` (PAD-915); ``maxTotal`` (D3) has no
+counterpart. Those keys take the engine's defaults, as do the keys only the new engine has.
 """
 from __future__ import annotations
 
@@ -80,6 +81,7 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
             max=config.get_reminder_count(),
             every=timedelta(hours=config.get_hours_between_reminders()),
         ),
+        absence_cutoff_before=timedelta(hours=config.get_cancellation_deadline_hours()),   # D4 (CONFIG-56)
         eligibility=OPEN_BAR,
         ordering=_ordering(config),
         direct_join=bool(config.auto_accept_join_requests),

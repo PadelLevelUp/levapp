@@ -154,7 +154,7 @@ def test_ordering_is_the_enabled_priority_criteria_then_the_enabled_tiebreakers(
                                              "justified_absences", "attendance_rate")
 
 
-@pytest.mark.criterion("NOTIFICATIONS-CONFIG-53")
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-60")
 def test_the_engine_bar_is_wide_open():
     """rule 19, swap decision 6: eligibility is the app's (the store's pool), so the engine admits a
     student any number of levels better or worse than the class."""
@@ -187,3 +187,13 @@ def test_settings_for_reads_the_session_s_coach_config_at_every_call(app):
     config.max_simultaneous_value = 2
     db.session.commit()
     assert settings_for(a).invites_per_spot == 2
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-56")
+def test_cancellation_deadline_maps_to_the_absence_cutoff():
+    """Swap decision 4: the stored hours are the engine's cutoff (it only marks an absence on time or
+    late; the coach judges), never the engine's 12 h default."""
+    assert _settings(_config()).absence_cutoff_before == timedelta(hours=24)
+    config = _config()
+    config.restrictions = {"cancellationDeadlineHours": 6.5}
+    assert _settings(config).absence_cutoff_before == timedelta(hours=6, minutes=30)
