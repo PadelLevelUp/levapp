@@ -197,9 +197,7 @@ def _refresh_bubbles(row, state: str, **extra) -> None:
     waits for it inside a unit of work)."""
     from padel_app.models import Message
     from padel_app.models.lesson_instances import LessonInstance
-    from padel_app.realtime import publish
-    from padel_app.serializers.message import serialize_message
-    from padel_app.services.conversation_access import message_recipient_ids
+    from padel_app.services.message_events import publish_message_event
 
     if not row.message_ids:
         return
@@ -214,7 +212,8 @@ def _refresh_bubbles(row, state: str, **extra) -> None:
                      "countsUntil": row.counts_until.isoformat() if row.counts_until else None, **extra})
         msg.msg_metadata = meta
         db.session.flush()
-        publish({"type": "message_edited", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
+        # PAD-918 (INVITATIONS-124): once per reader, so the coach's copy keeps countsUntil live.
+        publish_message_event("message_edited", msg)
 
 
 @dataclass(frozen=True)

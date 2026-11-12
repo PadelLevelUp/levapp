@@ -533,7 +533,12 @@ def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
     from padel_app.tools.unit_of_work import active
 
     edited = []
-    monkeypatch.setattr(realtime, "publish", lambda event, users: edited.append((event["type"], event["payload"]["id"], active())))
+
+    def coach_copy(event, users):                 # PAD-918: once per reader; the coach's copy counts each change
+        if User.query.filter_by(username="c916").one().id in users:
+            edited.append((event["type"], event["payload"]["id"], active()))
+
+    monkeypatch.setattr(realtime, "publish", coach_copy)
     store, (a,), (reg, x, y, z) = _seed(app, players=4)
     with store.unit((a,)):
         store.apply([_invited(a, s) for s in (x, y, z)])

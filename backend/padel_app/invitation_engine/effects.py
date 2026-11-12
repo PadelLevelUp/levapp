@@ -16,6 +16,7 @@ MessageKind = Literal["sorry", "added", "waiting_list_invite", "side_moved"]
 AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 AlertReason = Literal["no_candidate"]
+AnsweredBy = Literal["student", "coach"]
 #: Why a join was refused, a code the route answers as 409 {code} (classes.join-requests NJ1).
 RefusalCode = Literal["already_enrolled", "class_closed", "ineligible", "side_full", "busy_same_hour",
                       "already_on_list"]
@@ -63,9 +64,12 @@ class Reopened(Effect):
 
 @dataclass(frozen=True)
 class Answered(Effect):
+    """``by``: who gave the answer, the student or the coach on their behalf (engine-answers)."""
+
     student: str
     answer: Literal["yes", "no"]
     on: Literal["invitation", "attendance_request"]
+    by: AnsweredBy = "student"
 
 
 @dataclass(frozen=True)
