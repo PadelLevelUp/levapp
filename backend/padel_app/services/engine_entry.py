@@ -27,14 +27,14 @@ def _answer_state(row, placed: bool) -> str:
         return "sorry"
     if row.answer == "no":
         return "declined"
-    return "confirmed" if placed else "reoffered"
+    return "confirmed" if placed else "sorry"          # a Yes not placed is a sorry (engine-answers rule 4)
 
 
 def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now: datetime | None = None,
                           coach_id: int | None = None) -> dict:
     """A Yes or a No to a new-engine invitation, by its id: the student's own (``user_id``), or the
     coach's on their behalf (``coach_id``, ``coach_respond``). Returns ``{action, invitationId}``:
-    ``confirmed``, ``declined``, ``sorry``, ``reoffered``, ``closed_same_hour`` or ``class_started``,
+    ``confirmed``, ``declined``, ``sorry``, ``closed_same_hour`` or ``class_started``,
     with ``duplicate: true`` for an answer already given. 404 for an unknown id, 403 when the
     invitation is not the caller's."""
     from padel_app.models import EngineInvitation
