@@ -261,7 +261,7 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 - **And** a message whose text is blank is not created, while one with text is
 test: `backend/padel_app/tests/test_pad330_the_student_is_told.py` › `test_a_coach_whose_templates_predate_the_key_still_gets_text` (+25 more)
 
-#### NOTIFICATIONS-MESSAGE-TEMPLATES-17: The four new keys resolve in both locales, fully substituted (new-engine section N1, N2, N4)
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-17: The three new keys resolve in both locales, fully substituted (new-engine section N1, N2, N4)
 - **Given** a coach with no stored texts, a `pt` and an `en` student, a {left, right} student told their side and a coach with a right spot nobody is left to invite for
 - **When** `waiting_list_added`, `side_moved` and `coach_no_candidate` are rendered for a new-engine session
 - **Then** each is the locale's default with no raw placeholder left, `{sideName}` reads "direito" / "right" in `side_moved`, `{count}` the uncovered count in `coach_no_candidate`, and `{sideName}` and `{count}` render "" in any other template
@@ -273,7 +273,7 @@ test: `backend/padel_app/tests/test_pad920_engine_templates.py` › `test_the_ne
 - **Then** `waiting_list_added` is the coach's text, `side_moved` the default, and `sorry` the coach's `waiting_list_offer` text
 test: `backend/padel_app/tests/test_pad920_engine_templates.py` › `test_a_coachs_text_wins_and_sorry_uses_waiting_list_offer`
 
-#### NOTIFICATIONS-MESSAGE-TEMPLATES-19: The web editor lists the three editable new keys in their groups (new-engine section N3)
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-19: The web editor lists the two editable new keys in their groups (new-engine section N3)
 - **Given** a coach on web Settings → message templates
 - **Then** `template-row-waiting_list_added` in "Lista de espera" after `waiting_list_invite`, `template-row-side_moved` in "Adicionado a uma aula", each with its label and description, `side_moved`'s variable chips include `{sideName}`, `waiting_list_added`'s include `{side}`, and there is no `template-row-coach_no_candidate`
 test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `lists the new engine's editable templates in their groups`

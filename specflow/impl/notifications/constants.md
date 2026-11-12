@@ -32,7 +32,7 @@ suite.
   list" (`invitation_engine/effects.py` `MessageKind`). The scenario format logs it as `aviso` (H's
   convention 1); `adapters/new.py` maps `sorry` to `aviso`.
 - `KIND_ADDED`: the notice to a student placed by automatic entry.
-- `KIND_SIDE_MOVED`: the notice to a regular moved to the other side at `last_invite_at` (ruling (2)).
+- `KIND_SIDE_MOVED`: the notice to a regular moved to the other side at `last_invite_at`, only a student who plays both sides (the owner's decisions 12-13, 2026-11-12).
 - `KIND_WAITING_LIST_INVITE`: the engine's kind for an invitation sent from a waiting list (group 0a
   or 0b). It is today's template key of the same meaning (`DEFAULT_MESSAGE_TEMPLATES["waiting_list_invite"]`,
   `backend/padel_app/models/notification_config.py:57`). Renamed from the engine's `waiting_list_offer`

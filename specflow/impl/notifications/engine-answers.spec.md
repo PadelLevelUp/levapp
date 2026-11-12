@@ -213,7 +213,7 @@ before the session.
 test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_every_engine_write_is_inside_one_session_unit_at_a_time`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-20: A unit the store refuses is dropped and the rest runs (rule 10)
-Given a tick in which one session's unit is refused (`UnitConflict`, a student placed at the same start
+Given a tick in which one session's unit is refused (`UnitConflict`, a student placed in an overlapping session
 since the snapshot), when the tick runs, then that unit's effects are dropped and rolled back, the
 other sessions run, and the next run re-plans the refused session on fresh state.
 test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs`

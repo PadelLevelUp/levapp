@@ -101,7 +101,7 @@ test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_levels_rea
 #### NOTIFICATIONS-ENGINE-STORE-4: The coach's approval round-trips through the store (rule 5)
 Given a session, when the store applies in turn an `ApprovalRequest` for group 1, a `GroupApproved`
 removing one student, a request for group 2, a `GroupDismissed` for it, a `GroupReopened` for it, a third
-request for group 2, a `GroupApproved` removing another and an `ApprovalWithdrawn` for a group-3 request,
+request for group 2, a `GroupApproved` removing another a request for group 3 and an `ApprovalWithdrawn` for it,
 then after each the snapshot's approval state is as rule 5 says (approved groups 1 and 2 at the end,
 removed holding both students; the dismissal keeps the spot counts it saw), and `dispatch` sends each
 request once.

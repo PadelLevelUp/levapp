@@ -55,7 +55,7 @@ is where its code goes.
 3. **W3** — answers: placement within the offer, refusals (`answers.py`).
 4. **W4** — the clock: counting, quiet hours (`timeline.py`).
 5. **W5** — D17 and M: hardest first, ideal tier, offers, budgets, D10, the tie rule (`planner.py`).
-6. **W6** — sorry (a re-offer only from the waiting list), the last spot (`answers.py`, `planner.py`); `sorry` logged as `aviso`
+6. **W6** — sorry (a sorry invitation reopened only from the waiting list), the last spot (`answers.py`, `planner.py`); `sorry` logged as `aviso`
    (`adapters/new.py`).
 7. **W7** — timeline duties and coach surfaces: `last_invite_at` sides and `side_moved`, absences, the
    coach alert, per-tier and Method B timing, other-side tiers; the scenario pins of spots and tiers.
