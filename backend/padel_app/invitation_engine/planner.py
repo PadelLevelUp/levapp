@@ -41,6 +41,7 @@ from padel_app.invitation_engine.effects import (
 from padel_app.invitation_engine.settings import EngineSettings, GroupRule, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
+    overlaps,
     Elsewhere,
     Invitation,
     SessionSnapshot,
@@ -231,7 +232,7 @@ def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> t
     """engine-answers rule 10 (D4's one exception): a student placed in this session has their open
     invitations for other sessions at the same hour closed. Called with every placement."""
     return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
-                 if e.invitation.student == student and e.start == snapshot.start)
+                 if e.invitation.student == student and overlaps(e.start, e.end, snapshot.start, snapshot.end))
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
@@ -692,7 +693,9 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
     that they can take, without an invitation, and told so (``added``). The coach's list goes first,
     then the students' list, each in its tier order (engine-tiers rule 8). A coach's-list entry takes
     the coach's side (any side when none); a students'-list entry takes a side in the student's
-    subset, or as their side choice allows when ``wl-sides`` is on."""
+    subset, or as their side choice allows when ``wl-sides`` is on. It places only a student its list's
+    tier would invite (engine-settings rule 3): every gate for the students' list; the student's own
+    blocks, the coach's removal and being busy at that time for the coach's list."""
     asked_at = timeline.attendance_request_at(snapshot, settings)
     if not settings.auto_entry_before_attendance_request or (asked_at is not None and now >= asked_at):
         return ()
@@ -712,10 +715,13 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
         for w in entries:
             student = snapshot.students.get(w.student)
             if (student is None or total >= capacity or w.student in snapshot.said_no
-                    or w.student in snapshot.busy_same_time):     # never two sessions at one hour (answers rule 10)
-                continue
-            if which == "students" and not _eligible(student, snapshot, settings):
-                continue
+                    or w.student in snapshot.busy_same_time      # never two sessions at one hour (answers rule 10)
+                    or w.student in snapshot.blocked or w.student in snapshot.approval.removed):
+                continue                                      # the coach's list too keeps these out (rule 3)
+            visible = any(st.id == w.student for st in snapshot.pool) or w.student in snapshot.absent  # a regular back
+            if which == "students" and (not visible or w.student in snapshot.postponed
+                                        or not _eligible(student, snapshot, settings)):
+                continue                                      # every gate its tier holds (tiers rules 3, 10)
             if which == "coach":
                 sides = frozenset({w.side}) if w.side else frozenset(SIDES)
             elif settings.waiting_list_side_choice and w.sides == "other":

@@ -84,6 +84,7 @@ class CreateSession:
     start: datetime                                   # Lisbon wall-clock
     regulars: tuple[tuple[Student, Side | None], ...]
     joined_at: Mapping[str, datetime] | None = None   # per regular, naive UTC; absent: the creation instant
+    end: datetime | None = None                       # Lisbon wall-clock; absent: an hour after start
 
 
 @dataclass(frozen=True)
