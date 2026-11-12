@@ -668,23 +668,33 @@ def test_the_snapshot_carries_each_sessions_end(app):
     assert x in {p.student for p in store.snapshot(c).going}
 
 
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-10")
 def test_a_no_show_stays_placed(app):
     """Engine-store rule 4: a presence is going unless the engine recorded the student leaving (absent
-    with ``left_reason`` ``regular_no`` or ``cancel``). A no-show, and the coach's attendance-sheet absent
-    mark after the class, record attendance: the student keeps the spot they held, so the final roster
-    still counts them (scenarios 60, P16)."""
+    with ``left_reason`` ``regular_no`` or ``cancel``). A no-show and the coach's absent mark after the
+    class has started record attendance: the student keeps the spot (scenarios 60, P16). The coach's
+    absent mark before the start is a leaving (attendance.confirm rule 13): PAD-918's entry point sends
+    it to the engine first, as the regular's absence or a cancel, so the student is not going."""
     from padel_app.models.presences import Presence
 
-    store, (a,), (reg, x, y) = _seed(app)
+    store, (a,), (reg, x, y, z) = _seed(app, players=4)
     with store.unit((a,)):
-        store.apply([fx.Placed(a, NOW, x, "L", "invitation"), fx.Placed(a, NOW, y, "L", "invitation")])
+        store.apply([fx.Placed(a, NOW, s, "L", "invitation") for s in (x, y, z)])
     after = START + timedelta(hours=2)
     with store.unit((a,)):
         store.apply([fx.Absence(a, after, x, "late"), fx.Left(a, after, x, "no_show")])
-    Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(y)).one().status = "absent"   # the sheet
+    Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(y)).one().status = "absent"   # the sheet, after
     db.session.commit()
-    assert {p.student for p in store.snapshot(a).going} == {reg, x, y}
+    assert {p.student for p in store.snapshot(a).going} == {reg, x, y, z}
+
+    before = START - timedelta(hours=3)                    # the coach's marks before the start, through the engine
     with store.unit((a,)):
-        store.apply([fx.Left(a, NOW, reg, "regular_no")])
-    assert reg not in {p.student for p in store.snapshot(a).going} and reg in store.snapshot(a).absent
+        store.apply([fx.Absence(a, before, reg, "late"), fx.Left(a, before, reg, "regular_no"),
+                     fx.Absence(a, before, z, "late"), fx.Left(a, before, z, "cancel")])
+    for pid in (reg, z):
+        Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(pid)).one().status = "absent"
+    db.session.commit()
+    going = {p.student for p in store.snapshot(a).going}
+    assert going == {x, y} and reg in store.snapshot(a).absent
 
