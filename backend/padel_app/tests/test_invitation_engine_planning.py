@@ -395,3 +395,16 @@ def test_engine_plan_runs_one_session():
     effects = engine.plan("A", T0)
     assert {e.session for e in effects} == {"A"} and _requests(effects)
     assert engine.plan("A", T0 + timedelta(minutes=1)) == []                  # the same queue: nothing new
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-40")
+def test_an_alert_is_cleared_once_its_type_has_a_candidate():
+    store = _store(4, 3)                                                       # one right spot, nobody to ask
+    store.add_student(_student("LATE", "R"), visible=False)
+    engine = Engine(store, EngineSettings())
+    [alert] = [e for e in engine.tick(T0) if isinstance(e, fx.CoachAlert)]
+    assert store.snapshot("A").alerted == {alert.spot_type: 1}
+    effects = engine.handle("A", Appear("LATE"), T0 + timedelta(minutes=5))   # a right-sider can be asked now
+    assert _invited(effects) == ["LATE"]
+    assert [e.spot_type for e in effects if isinstance(e, fx.AlertCleared)] == [alert.spot_type]
+    assert store.snapshot("A").alerted == {}
