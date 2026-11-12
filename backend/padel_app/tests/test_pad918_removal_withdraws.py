@@ -77,3 +77,25 @@ def test_cancelling_a_new_engine_class_withdraws_its_open_invitations(app, monke
         assert row.closed_reason == "class_removed"
         from padel_app.models.players import Player
         _answer_is_class_cancelled(row.id, db.session.get(Player, int(invited)).user_id)
+
+
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-35")
+def test_removing_a_regular_from_one_occurrence_tells_the_engine(app, monkeypatch):
+    """The coach takes a regular out of one new-engine occurrence: the presence goes and the engine
+    gets ``CoachExcludes`` for that student on that session, so it never invites them back to it."""
+    from padel_app.models import EngineExclusion
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.services.lesson_service import edit_lesson_instance_helper
+    from padel_app.tests.helpers import pin_clock
+
+    with app.app_context():
+        pin_clock(monkeypatch, NOW)
+        store, (s,), (regular, _, _) = _seed(app, starts=(START + timedelta(days=1),))
+        inst = db.session.get(LessonInstance, int(s))
+        edit_lesson_instance_helper({"date": inst.start_datetime.date().isoformat(),
+                                     "remove_player_ids": [int(regular)]}, inst)
+        db.session.commit()
+
+        assert Presence.query.filter_by(lesson_instance_id=int(s), player_id=int(regular)).first() is None
+        assert EngineExclusion.query.filter_by(lesson_instance_id=int(s), player_id=int(regular)).count() == 1

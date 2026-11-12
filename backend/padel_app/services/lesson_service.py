@@ -753,6 +753,14 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
             if kept is not None:
                 continue  # the coach's validated record is theirs to change, on the attendance sheet
         unenrol(player_id, lesson_instance)
+        if not series:
+            # PAD-918 (CLASSES-INSTANCE-ENROLLMENT-35): the coach took them out of this occurrence, so
+            # the engine never invites them back to it (CoachExcludes; an old-engine session ignores it).
+            from padel_app.services.engine_entry import coach_excludes
+            from padel_app.services.engine_switch import engine_for
+
+            if engine_for(lesson_instance) == "new":
+                coach_excludes(lesson_instance, int(player_id))
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_drop_followups, _maybe_schedule_instance
