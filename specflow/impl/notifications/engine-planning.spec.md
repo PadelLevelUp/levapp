@@ -26,7 +26,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
 
 ### Rules
 1. **When a run happens (§6).** For one session at a time: after every answer, cancellation, roster
-   change or settings change, and every const:ENGINE_RUN_EVERY in the background. It plans no
+   change or settings change, when the coach recomputes the class's suggestions
+   (`notifications.semi-auto-approval` rule 12; `Engine.plan(session, now)`), and every
+   const:ENGINE_RUN_EVERY in the background. It plans no
    invitation during quiet hours (D14), before `first_invite_at` or after `last_invite_at`
    (`notifications.engine-timeline` rules 1, 3, 6).
 2. **An invitation is for a student and a session (D1).** Never for a spot. One per student per
@@ -413,7 +415,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
    `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
-6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-38 — `invitation_engine/effects.py` (`ApprovalRequest`),
+6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-40 — `invitation_engine/effects.py` (`ApprovalRequest`),
    `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`, `ReopenQueue`), `invitation_engine/planner.py` (the hold, from
    `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
    approved queue and the pending request and sends the request through the outbox, and

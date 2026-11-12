@@ -70,9 +70,10 @@ The new-engine answer (swap step 7, PAD-919):
   wire each is a code, and a student may carry several: `excluded_for_session`, `excluded_players`,
   `same_day_class`, `inactive_account`, `eligibility` (with `failures`), `blocks_auto_invitations`,
   `blocks_all`, `availability_blocker`. No other stage carries reasons.
-- **N4. When the run may plan.** The answer's gates are the dry run's `may_plan` and why not: outside the
-  window, quiet hours, past `last_invite_before`, the class over. There is no `max_total_reached`
-  (swap decision 3).
+- **N4. When the run may plan.** The answer's gates are the dry run's `may_plan` and why not, in today's
+  gate shape (`InviteSimulationGate`: `{code, blocked, until?, opensAt?}`): outside the window (with
+  `opensAt`), quiet hours (with `until`), past `last_invite_before`, the class's automatic invitations
+  off (`class_auto_invites_off`), the class over. There is no `max_total_reached` (swap decision 3).
 - **N5. Explain.** The explain answer gives one entry per open spot type, each with its verdicts.
 - **N6. The words the coach reads (swap step 8, PAD-920; proposed, for the owner's approval).** One
   shared helper in `@levelup/config` turns each stage and reason code into a line, in both locales, for
@@ -101,6 +102,8 @@ The new-engine answer (swap step 7, PAD-919):
   | `blocks_auto_invitations` | Não quer convites automáticos | Turned automatic invitations off |
   | `blocks_all` | Desligou todas as notificações | Turned all notifications off |
   | `availability_blocker` | Indisponível a esta hora | Unavailable at this time |
+  | gate `last_invite_before` | Já passou a hora do último convite | Past the last invitation time |
+  | gate `class_auto_invites_off` | Convites automáticos desligados nesta aula | Automatic invitations are off for this class |
 
   A `not_in_pool` verdict shows one line per reason. An unknown code shows "Outro motivo" / "Other
   reason", never the raw code.
@@ -370,7 +373,7 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_a_stu
 #### NOTIFICATIONS-INVITE-SIMULATION-22: The gates are the dry run's may_plan (new-engine section N4)
 - **Given** the same session simulated outside the window, in quiet hours, past `last_invite_before` and after the class
 - **When** each simulation answers
-- **Then** each says it may not plan and why, the verdicts still explain, and no answer says `max_total_reached`
+- **Then** each says it may not plan with a gate in today's `{code, blocked, until?, opensAt?}` shape (quiet hours with `until`, outside the window with `opensAt`), the verdicts still explain, and no answer says `max_total_reached`
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_gates_are_the_dry_runs_may_plan`
 
 #### NOTIFICATIONS-INVITE-SIMULATION-23: Explain gives one entry per open spot type (new-engine section N5)

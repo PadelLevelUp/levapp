@@ -62,14 +62,17 @@ The new-engine answer (swap step 7, PAD-919):
   answers `stale`. On the wire `POST /api/app/notify/approval/respond` takes `{bundleId: <requestId>,
   action: "yes_now"|"dismiss", removed?: [playerId]}` and answers `{engine: "new", requestId, result:
   "approved"|"dismissed"|"stale", state?}`; `yes_at_window` is a 400.
-- **N4. The request reaches the coach (rule 6).** The outbox's sender for an `ApprovalRequest` posts one
-  `replacement_approval` message in the coach's Assistant conversation, its metadata `{engine: "new",
-  requestId, lessonInstanceId, responded: false, spotTypes: [{side, levelId, levelLabel, queue}]}`, then pushes it to
-  the coach, once (`notifications.engine-store` rule 2).
 - **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenQueue(session)` when dismissed
   and re-plans the session at once (`Engine.plan(session, now)`), which raises a fresh request. A
   session whose pending request's queues are unchanged keeps that request: it is already current, and
   the class view computes its list when shown (rule 12b).
+- **N4. The request reaches the coach (rule 6).** The outbox's sender for an `ApprovalRequest` posts one
+  `replacement_approval` message in the coach's Assistant conversation, its metadata `{engine: "new",
+  requestId, lessonInstanceId, responded: false, spotTypes: [{side, levelId, levelLabel, queue}]}`, its
+  text in the coach's locale (message-templates rule 6): "Pedido de convites para {class}, {weekday} às
+  {time}: {n} aluno(s) na fila. Enviar os convites?" / "Invitation request for {class}, {weekday} at
+  {time}: {n} student(s) in the queue. Send the invitations?" (proposed), then pushes it to
+  the coach, once (`notifications.engine-store` rule 2).
 
 - **N5. The card, web and iOS** (web `ReplacementApprovalCard`, iOS `replacement-approval-card`, one shared
   display helper in `@levelup/config` as rule 7a's): for a new-engine request, one block per spot type
@@ -438,7 +441,7 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_recom
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-40: The outbox posts the request in the coach's Assistant conversation (new-engine section N4)
 - **Given** an `ApprovalRequest` row in the outbox for a session with two spot types
 - **When** the outbox sends it, and sends again
-- **Then** the coach's Assistant conversation holds one `replacement_approval` message with `engine` `new`, the request's id, the lesson instance, `responded` false and each type's side, level and queue, the coach gets one push, and the second send adds nothing
+- **Then** the coach's Assistant conversation holds one `replacement_approval` message with `engine` `new`, the request's id, the lesson instance, `responded` false and each type's `side`, `levelId`, `levelLabel` and queue, its text in Portuguese for a `pt` coach, the coach gets one push, and the second send adds nothing
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_outbox_posts_the_request_to_the_coachs_assistant`
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-41: The web card approves with removals, dismisses, and reads a stale answer (new-engine section N5)

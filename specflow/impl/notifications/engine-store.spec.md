@@ -46,6 +46,12 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    (`notifications.reminders` rule 22: a class created after its reminder time counts its students as
    coming).
 
+7. **The tick.** One scheduler job, `engine_tick`, runs every const:ENGINE_RUN_EVERY: it lists the
+   new-engine sessions (`notifications.config` rules 18, 19) and plans each in its own unit and its own
+   transaction (`notifications.engine-planning` rule 1). A session that raises is rolled back and
+   skipped, and the tick goes on with the rest (`notifications.invitations` rule 21's new reading); the
+   failure is recorded as `admin.engine-health` rule 12 says. The outbox is sent after the sessions.
+
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
 - The locks a unit takes (`notifications.engine-answers` rule 10).
@@ -88,6 +94,11 @@ Given a new-engine class created after its reminder time, its students recorded 
 when the store builds the snapshot and the attendance request falls due, then they are confirmed and
 nobody is asked.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_student_the_system_recorded_as_coming_counts_as_confirmed`
+
+#### NOTIFICATIONS-ENGINE-STORE-6: The tick plans each session on its own and goes on past a failure (rule 7)
+Given three new-engine sessions, the second made to raise, when `engine_tick` runs, then the first and
+third are planned and committed, the second's unit is rolled back, and one failure is recorded for it.
+test: `backend/padel_app/tests/test_pad918_engine_tick.py` › `test_the_tick_plans_each_session_and_goes_on_past_a_failure`
 
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5 — `padel_app/services/engine_store.py` (content keys, the outbox,

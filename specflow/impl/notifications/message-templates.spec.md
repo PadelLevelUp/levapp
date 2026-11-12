@@ -32,8 +32,10 @@ Readings:
 
 The new-engine templates (swap step 8, PAD-920). **The default texts below are proposals awaiting the
 owner's approval (Open questions); the keys, placeholders and editor places are not.**
-- **N1. Four new keys**, in both default dicts (`DEFAULT_MESSAGE_TEMPLATES`, `_PT`) and the `MessageTemplates`
-  type. Each key's name is its kind's where one exists (`notifications.engine-answers` rule 11):
+- **N1. Four new keys**, in both default dicts (`DEFAULT_MESSAGE_TEMPLATES`, `_PT`), and the three
+  editable ones in the `MessageTemplates` type (`coach_no_candidate` stays out, as the other
+  non-editable keys do). Each key's name is its kind's, except `waiting_list_added`
+  (`notifications.engine-answers` rule 11):
 
   | Key | Sent for | Proposed en | Proposed pt |
   |---|---|---|---|
@@ -43,7 +45,7 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
   | `coach_no_candidate` | the coach alert, const:ALERT_NO_CANDIDATE | `{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.` | `{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.` |
 
   `waiting_list_added` is not named `added`: a key `added` would read as today's `added_to_class`, which
-  means another message (rule 11's invariant). `waiting_list_placed` is not reused: a stored
+  means another message (`notifications.engine-answers` rule 11's invariant). `waiting_list_placed` is not reused: a stored
   `waiting_list_placed` text is ignored since PAD-446 (rule 2).
 - **N2. Two new placeholders.** `{sideName}` is the bare side word ("left" / "esquerdo", "right" /
   "direito"), filled for `side_moved` only; `{count}` is the alert's uncovered spots, filled for
@@ -53,8 +55,8 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
   (`notifications.engine-planning` rule 9 decides when an invitation names one).
 - **N3. The web editor.** `reoffer` joins "Convites" / "Invitations" after `invite`; `waiting_list_added`
   joins "Lista de espera" / "Waiting list" after `waiting_list_invite`; `side_moved` joins "Adicionado a
-  uma aula" / "Added to a class". `coach_no_candidate` is not editable (a message to the coach
-  themselves, like `class_cancelled`). Labels and descriptions (`settings.templates.labels.*`,
+  uma aula" / "Added to a class". `coach_no_candidate` is not editable: it is a message to the coach
+  themselves. Labels and descriptions (`settings.templates.labels.*`,
   `.descriptions.*`, both locales): `reoffer` "Convite reaberto" / "Invitation reopened", "Enviada quando
   uma vaga abre para alguém cujo sim chegou tarde." / "Sent when a spot opens for someone whose yes came
   too late."; `waiting_list_added` "Entrada automática da lista de espera" / "Placed from the waiting
@@ -276,7 +278,7 @@ test: `backend/padel_app/tests/test_pad920_engine_templates.py` › `test_a_coac
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-19: The web editor lists the three editable new keys in their groups (new-engine section N3)
 - **Given** a coach on web Settings → message templates
-- **Then** `template-row-reoffer` is in "Convites" after `invite`, `template-row-waiting_list_added` in "Lista de espera" after `waiting_list_invite`, `template-row-side_moved` in "Adicionado a uma aula", each with its label and description, `side_moved`'s variable chips include `{sideName}`, and there is no `template-row-coach_no_candidate`
+- **Then** `template-row-reoffer` is in "Convites" after `invite`, `template-row-waiting_list_added` in "Lista de espera" after `waiting_list_invite`, `template-row-side_moved` in "Adicionado a uma aula", each with its label and description, `side_moved`'s variable chips include `{sideName}`, `reoffer`'s and `waiting_list_added`'s include `{side}`, and there is no `template-row-coach_no_candidate`
 test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `lists the new engine's editable templates in their groups`
 
 ### Notes

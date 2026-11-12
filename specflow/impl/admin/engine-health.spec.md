@@ -164,9 +164,10 @@ Readings:
       starting in the next 7 days.
     - `openSpots`: for the new-engine sessions starting in the next 7 days, the open spots by type as the
       engine counts them (`notifications.engine-spots` rule 6: side `left`, `right` or either), summed,
-      and how many of them are uncovered (no counting invitation covers them,
-      `notifications.engine-planning` rule 12). Read from the store's snapshots in one batch per table
-      (rule 7's one exception, bounded by the 7-day window).
+      and how many of them are uncovered: per type, its open spots minus the counting invitations whose
+      offer counts for it, floored at 0, summed (a count that approximates the planner's cover step,
+      `notifications.engine-planning` rule 5, without running it). Read in one batch per table for the
+      7-day window.
     - `invitations`: open invitations (`invitations` rows not answered and not closed) of sessions that
       have not started, split into **counting** (not sorry and `counts_until` after now,
       `notifications.engine-planning` rule 3) and **open, not counting**, each by tier; and the
@@ -193,10 +194,10 @@ Readings:
     `upcomingSessions: [{lessonInstanceId, start, openSpots, counting, openNotCounting}]`, its
     `openSpots` in `byType`'s shape. Students are counted, never named. For a coach on `old`, rule 6 holds
     as written.
-12. **A failing session is recorded.** When the engine's tick fails on one session it goes on with the
-    rest (`notifications.invitations` rule 21's new reading) and records one `delivery_incidents` row,
-    kind `engine_session_failed`, channel `scheduler`, the lesson instance as subject, the error's class,
-    in its own short transaction as rule 3's rows are.
+12. **A failing session is recorded.** When the tick (`notifications.engine-store` rule 7) skips a
+    session that raised, it records one `delivery_incidents` row, kind `engine_session_failed`, channel
+    `scheduler`, the lesson instance as subject, the error's class, in its own short transaction as rule
+    3's rows are.
 
 ### Acceptance Criteria
 
