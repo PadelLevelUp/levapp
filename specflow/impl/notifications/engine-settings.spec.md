@@ -58,9 +58,12 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    that time, not postponed); a coach's-list member is still kept out by the student's own blocks, the
    coach's removal and being busy at that time.
 4. **`wl-sides`** (`waiting_list_side_choice`, default off; D12: group 0 has no spot-type rules). When
-   on, a student joining the students' list chooses own side, other side or both, and is a candidate
-   only for the spot types that choice allows; an other-side invitation or placement names the side
-   (D11).
+   on, the clients offer a student joining the students' list the choice of own side, other side or
+   both. **The setting only decides whether the choice is offered** (R, PAD-918): a side the client
+   sends is always passed to the engine, as own, other or both (today's route already carries left,
+   right or both, PAD-672), and the student is a candidate only for the spot types it allows; when
+   nothing is sent, no choice is passed and they are a candidate for every type. An other-side
+   invitation or placement names the side (D11).
 5. **`direct-join`** (`direct_join`, default off: the plan has none). When on, an eligible student who
    sees the session with a spot on a side they fit joins it at once, any time until the class starts:
    before the invitation start, alongside open invitations, and after their own No to an invitation
@@ -322,3 +325,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   decision (coordinator, owner away, PAD-918, 2026-11-12; the owner can reverse it): today's meaning is
   kept through `fill_never_held` off (rule 11); the plan's "one logic for both" holds for every other
   coach.
+- Whether `wl-sides` off drops a side the client sends (rule 4) — decision (R, owner away, PAD-918,
+  2026-11-12; the owner can reverse it): no; the setting only decides whether the clients offer the
+  own/other/both choice, and a side sent is always passed, because today's route already carries a side
+  and scenarios 01, 32 and 33 expect a placement from it.

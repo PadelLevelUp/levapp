@@ -61,8 +61,9 @@ the coach's list).
 6. **The waiting lists have no level rules (D12).** A waiting-list member is a candidate for every spot
    type whatever their level. Sides: a coach's-list entry with a side the coach chose (today's
    `notifications.waiting-list` rule 18a) is a candidate only for spot types that side can take; one
-   without a side, for every type. A students'-list member is a candidate for every type, unless the
-   coach turns on `wl-sides` (`notifications.engine-settings` rule 4).
+   without a side, for every type. A students'-list member who chose a side when joining (today's
+   route carries left, right or both, PAD-672) is a candidate for the types that choice allows, read as
+   own, other or both (`notifications.engine-settings` rule 4); one who chose none, for every type.
 7. **A candidate's tier is per spot type (§5).** For a type, the first tier whose rules the student
    passes. One student may be tier 2 for the left type and tier 3 for the right.
 8. **Ordering inside a tier (§3; Q4 closed: PAD-723).** `EngineSettings.ordering` is the coach's
