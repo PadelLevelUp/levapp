@@ -68,6 +68,7 @@ class EngineSession(db.Model, model.Model):
     removed = Column(JSON, nullable=False, default=list)
     pending = Column(JSON, nullable=True)
     pending_request = Column(String(80), nullable=True)      # the pending request's id (the engine's)
+    request_message_id = Column(Integer, nullable=True)      # the pending request's Assistant message (PAD-919)
     dismissed = Column(JSON, nullable=True)
 
 

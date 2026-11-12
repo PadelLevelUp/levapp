@@ -581,3 +581,53 @@ def test_an_alert_cleared_drops_the_alert(app):
     with store.unit((a,)):
         store.apply([fx.AlertCleared(a, NOW + timedelta(minutes=1), left)])
     assert store.snapshot(a).alerted == {right: 2}
+
+
+def test_the_request_message_says_how_the_request_ended(app, monkeypatch):
+    """Semi-auto-approval N4 (the store's half of SEMI-AUTO-APPROVAL-43): the request's Assistant
+    message, attached only while that request is pending, says ``replaced``, ``approved`` or
+    ``dismissed`` with ``responded`` true when the request stops being pending, one ``message_edited``
+    each; a re-raise of the same request leaves it alone, and an emptied approved queue with no request
+    pending edits nothing."""
+    from padel_app import realtime
+    from padel_app.models import Conversation, Message, User
+
+    edited = []
+    monkeypatch.setattr(realtime, "publish", lambda event, users: edited.append(event["payload"]["id"]))
+    store, (a,), (_, x, _) = _seed(app)
+    L = SpotType("L", 3)
+    coach_user = User.query.filter_by(username="c916").one().id
+    conv = Conversation.get_or_insert([coach_user])
+
+    def request(rid, minute):
+        with store.unit((a,)):
+            store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=minute), ((L, (x,)),), rid)])
+        msg = Message(text="request", sender_id=coach_user, conversation_id=conv.id,
+                      message_type="replacement_approval", msg_metadata={"requestId": rid, "state": "pending"})
+        db.session.add(msg)
+        db.session.flush()
+        attached = store.attach_request_message(a, rid, msg.id)
+        db.session.commit()
+        return msg.id, attached
+
+    def meta(mid):
+        return db.session.get(Message, mid).msg_metadata
+
+    first, ok = request("r1", 1)
+    assert ok and not store.attach_request_message(a, "r0", first)          # only the pending request
+    with store.unit((a,)):
+        store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=2), ((L, (x,)),), "r1")])   # the same one
+    assert meta(first)["state"] == "pending" and edited == []
+    second, _ = request("r2", 3)
+    assert (meta(first)["state"], meta(first)["responded"]) == ("replaced", True) and edited == [first]
+    with store.unit((a,)):
+        store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=4), frozenset({x}), frozenset())])
+    assert (meta(second)["state"], meta(second)["responded"]) == ("approved", True)
+    third, _ = request("r3", 5)
+    with store.unit((a,)):
+        store.apply([fx.QueueDismissed(a, NOW + timedelta(minutes=6), ((L, 1),))])
+    assert meta(third)["state"] == "dismissed"
+    edited.clear()
+    with store.unit((a,)):
+        store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=7), frozenset(), frozenset())])
+    assert edited == []

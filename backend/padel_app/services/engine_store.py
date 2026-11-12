@@ -120,6 +120,24 @@ def _blocks_auto_invitations(user) -> bool:
     return bool(getattr(user, "notif_block_auto_invitations", False) or getattr(user, "notif_block_all", False))
 
 
+def _close_request_message(es, state: str) -> None:
+    """The session's pending request stopped being pending: its Assistant message's metadata says how
+    (``replaced``, ``approved``, ``dismissed``) with ``responded`` true, and one ``message_edited`` goes
+    out after the commit (semi-auto-approval N4, SEMI-AUTO-APPROVAL-43)."""
+    from padel_app.models import Message
+    from padel_app.realtime import publish
+    from padel_app.serializers.message import serialize_message
+    from padel_app.services.conversation_access import message_recipient_ids
+
+    msg = db.session.get(Message, es.request_message_id) if es.request_message_id else None
+    es.request_message_id = None
+    if msg is None:
+        return
+    msg.msg_metadata = {**(msg.msg_metadata or {}), "state": state, "responded": True}
+    db.session.flush()
+    publish({"type": "message_edited", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
+
+
 def _refresh_bubbles(row, state: str, **extra) -> None:
     """Write the invitation's new ``state`` (invitations NB1: ``answered`` with ``response``, ``sorry``,
     ``reoffered``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on every
@@ -328,6 +346,19 @@ class TableStore:
         return None if row is None else row.id
 
     @staticmethod
+    def attach_request_message(session: str, request_id: str, message_id: int) -> bool:
+        """Keep ``message_id`` (the Assistant message the outbox's sender posted for approval request
+        ``request_id``) on the session, so the message follows the request. False, and nothing kept,
+        when that request is no longer the session's pending one."""
+        from padel_app.models import EngineSession
+
+        es = db.session.get(EngineSession, int(session))
+        if es is None or es.pending_request != request_id:
+            return False
+        es.request_message_id = int(message_id)
+        return True
+
+    @staticmethod
     def attach_message(invitation_id: int, message_id: int) -> None:
         """Keep ``message_id`` (an invitation or re-offer bubble the outbox's sender posted) on the
         invitation, so the store keeps its ``state`` current."""
@@ -355,7 +386,12 @@ class TableStore:
     def _approval(es, e: fx.Effect) -> None:
         """The coach's approval state (owner ruling D2): a request replaces the pending queues and
         ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
-        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal."""
+        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal. A
+        request that stops being pending has its Assistant message say why (semi-auto-approval N4)."""
+        if es.pending_request is not None and not isinstance(e, fx.QueueReopened):
+            ended = {fx.QueueApproved: "approved", fx.QueueDismissed: "dismissed"}.get(type(e), "replaced")
+            if not (isinstance(e, fx.ApprovalRequest) and e.request == es.pending_request):
+                _close_request_message(es, ended)
         if isinstance(e, fx.ApprovalRequest):
             es.pending, es.pending_request, es.dismissed = _encode(e.queues), e.request or None, None
         elif isinstance(e, fx.ApprovalWithdrawn):

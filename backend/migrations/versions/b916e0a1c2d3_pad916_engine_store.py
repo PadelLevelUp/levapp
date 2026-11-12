@@ -66,6 +66,7 @@ def upgrade():
         sa.Column("removed", sa.JSON(), nullable=False),
         sa.Column("pending", sa.JSON(), nullable=True),
         sa.Column("pending_request", sa.String(length=80), nullable=True),
+        sa.Column("request_message_id", sa.Integer(), nullable=True),
         sa.Column("dismissed", sa.JSON(), nullable=True),
         sa.ForeignKeyConstraint(["lesson_instance_id"], ["lesson_instances.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["coach_id"], ["coaches.id"], ondelete="CASCADE"),
