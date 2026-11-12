@@ -92,7 +92,7 @@ def test_a_switched_coach_drains_old_sessions_and_starts_new_ones_on_the_new_eng
     assert store.sessions() == (not_opened,)
 
 
-@pytest.mark.criterion("NOTIFICATIONS-CONFIG-50")
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-61")
 def test_a_session_the_old_engine_already_started_stays_on_the_old_engine(app):
     """A session the old engine opened vacancies for (a coach's "invite now", before its window) is
     inviting: it drains on the old engine whatever its window says."""
