@@ -415,7 +415,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     - `priorityCriteria` and `tiebreakers` → `ordering` (`notifications.engine-tiers` rule 8);
     - `autoAcceptJoinRequests` → `direct_join` (`notifications.engine-settings` rule 5);
     - `eligibilityRules` → none: the store applies them when it builds `pool`, and the engine's bar is
-      wide open (swap decision 6);
+      wide open (swap decision 6); for a class with no level the bar's level rules apply nothing and
+      its other rules stand (`notifications.engine-spots` rule 8, D3, as for groups), where today's
+      bar fails everyone closed (PAD-86);
     - `restrictions.maxInvitesPerStudentPerDay` → the store's `postponed`; `restrictions.noSameDayClass`,
       `excludedPlayers` and `excludeUnpaidSubscription` → the store's `pool` gates;
     - `autoNotifyEnabled` off, or a class's `auto_invites` or `notifications_enabled` off → the store
@@ -851,6 +853,12 @@ coach is switched to `new` and a later occurrence of the same class is materiali
 drains on the old engine and the later one is on the new engine, with its session row written when it
 was materialised.
 test: `backend/padel_app/tests/test_engine_switch.py` › `test_an_occurrence_that_first_exists_after_the_switch_runs_on_the_new_engine`
+
+#### NOTIFICATIONS-CONFIG-64: A class with no level applies no level rule of the eligibility bar (rule 19)
+Given a coach's bar with a level rule and an attendance-rate rule and a new-engine class with no level,
+when the store builds `pool`, then students of every level are in it, except one below the attendance
+rate.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_class_with_no_level_applies_no_level_rule_of_the_bar`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
