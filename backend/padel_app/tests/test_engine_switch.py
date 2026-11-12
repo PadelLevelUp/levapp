@@ -317,3 +317,22 @@ def test_a_failed_adoption_at_creation_leaves_the_occurrence_on_the_old_engine(a
     assert later.id is not None and engine_for(later) == "old"
     assert adopt_due(now=NOW + timedelta(minutes=1)) == [str(later.id)]
     assert engine_for(later) == "new"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-66")
+def test_an_occurrence_coached_through_its_lesson_is_adopted_with_that_coach(app):
+    """An occurrence with no coach row of its own belongs to its lesson's coach (coaches_for): the
+    switch adopts it, and the session row names that coach (PAD-916's add_session on primary_coach)."""
+    from padel_app.models import EngineSession
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.services.engine_switch import switch_coach
+
+    store, coach_id, _, not_opened = _classes(app)
+    inst = _instance(not_opened)
+    Association_CoachLessonInstance.query.filter_by(lesson_instance_id=inst.id).delete()
+    db.session.add(Association_CoachLesson(coach_id=coach_id, lesson_id=inst.lesson_id))
+    db.session.commit()
+
+    assert str(inst.id) in switch_coach(coach_id, now=NOW)
+    assert db.session.get(EngineSession, inst.id).coach_id == coach_id
