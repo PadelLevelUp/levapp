@@ -782,3 +782,20 @@ def test_the_invitation_records_who_answered(app):
     assert (rows[x].answered_by, rows[y].answered_by) == ("coach", "student")
     db.session.refresh(msg)
     assert (msg.msg_metadata["state"], msg.msg_metadata["answeredBy"]) == ("answered", "coach")
+
+
+def test_closed_reason_fits_every_reason(app):
+    """``invitations.closed_reason`` holds each reason an invitation closes for, the longest
+    "class_removed" (INVITATIONS-125) included, so Postgres never rejects the write (SQLite would not
+    notice)."""
+    from padel_app.models import EngineInvitation
+
+    store, (a,), (_, x, _) = _seed(app)
+    with store.unit((a,)):
+        store.apply([_invited(a, x)])
+    width = EngineInvitation.__table__.c.closed_reason.type.length
+    assert width >= max(len(r) for r in ("withdrawn", "same_hour", "class_removed"))
+    row = db.session.get(EngineInvitation, store.invitation_id(a, x))
+    row.closed_at, row.closed_reason = NOW, "class_removed"
+    db.session.commit()
+    assert db.session.get(EngineInvitation, row.id).closed_reason == "class_removed"

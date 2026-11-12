@@ -288,6 +288,20 @@ def _register_engine(app):
         click.echo(f"coach #{coach_id}: engine {version}, switched at {switched}, automatic invitations "
                    f"{'on' if auto else 'off'}; {len(rows)} new-engine sessions, {len(listed)} listed now")
 
+    @engine.command("drain-state")
+    @click.argument("coach_id", type=int)
+    def engine_drain_state(coach_id):
+        """How far COACH_ID has drained (rule 18, PAD-921): the old-engine sessions left, the last one's
+        start, the open old vacancies. Computed now, never stored."""
+        from padel_app.services.engine_switch import drain_state
+
+        _config(coach_id)
+        state = drain_state(coach_id)
+        last = state["lastStart"].isoformat() if state["lastStart"] else "-"
+        click.echo(f"coach #{coach_id}: engine {state['engine']}; {len(state['oldSessions'])} old-engine sessions "
+                   f"left, the last at {last}; {state['openVacancies']} open old vacancies; "
+                   f"{'drained' if state['drained'] else 'not drained'}")
+
     @engine.command("status")
     @click.argument("coach_id", type=int)
     def engine_status(coach_id):
