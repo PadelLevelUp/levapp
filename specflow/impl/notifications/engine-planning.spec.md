@@ -326,6 +326,11 @@ Given a pending request, when the session fills, then the next run withdraws it;
 request, when the coach switches to `automatic`, then it is withdrawn and the next run sends.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_pending_request_is_withdrawn_when_nothing_is_left_or_the_mode_turns_automatic`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-32: The store refuses a second invitation for one student and session (rule 2)
+Given an invitation applied for a student in a session, when a second `Invited` for the same student
+and session is applied, then the store raises `StoreConflict` and keeps the first.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_second_invitation_for_one_student_is_refused`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -345,6 +350,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
    approved queue and the pending request and sends the request through the outbox, and
    (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
+7. (PAD-916) PLANNING-32 — the store (one invitation per student and session, `StoreConflict`).
 
 ### Open questions
 - Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator
