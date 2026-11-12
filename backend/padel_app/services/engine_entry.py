@@ -372,3 +372,27 @@ def coach_added(instance, player_ids, now: datetime | None = None) -> None:
         return
     for player_id in player_ids:
         handle(instance, rq.CoachAdded(str(player_id)), now)
+
+
+def withdraw_before_removal(instances, now: datetime | None = None) -> int:
+    """A coach removes (or cancels) new-engine classes: each open invitation of theirs is withdrawn
+    first (``TableStore.withdraw``), so its bubbles settle as ``withdrawn`` (invitations NB1) and no
+    student is left with a Yes the route can no longer answer. Returns how many were withdrawn."""
+    from padel_app.models import EngineInvitation
+    from padel_app.services.engine_store import TableStore
+    from padel_app.services.engine_switch import engine_for
+
+    now = now or utcnow_naive()
+    store, withdrawn = TableStore(clock=lambda: now), 0
+    for instance in instances:
+        if instance is None or engine_for(instance) != "new":
+            continue
+        open_rows = EngineInvitation.query.filter(EngineInvitation.lesson_instance_id == instance.id,
+                                                  EngineInvitation.answer.is_(None),
+                                                  EngineInvitation.closed_at.is_(None)).all()
+        if not open_rows:
+            continue
+        with store.unit((str(instance.id),)):
+            for row in open_rows:
+                withdrawn += bool(store.withdraw(row.id, now))
+    return withdrawn
