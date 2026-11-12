@@ -5051,12 +5051,22 @@ def cancel_attendance(
     return {"action": "declined", "proactive": is_proactive}
 
 
+def _on_new_engine(instance: LessonInstance) -> bool:
+    """PAD-917 (notifications.config rule 18): the session has an ``engine_sessions`` row, so the new
+    engine runs it and this engine opens no vacancy for it and starts nothing."""
+    from padel_app.services.engine_switch import engine_for
+
+    return engine_for(instance) == "new"
+
+
 def _trigger_vacancy_for_player(
     instance: LessonInstance,
     coach_id: int,
     player_id: int,
 ) -> None:
     """Create a vacancy for a player who declined and immediately trigger invitations."""
+    if _on_new_engine(instance):
+        return
     # Avoid duplicate vacancies for the same departing player
     existing = Vacancy.query.filter_by(
         lesson_instance_id=instance.id,
@@ -5076,7 +5086,9 @@ def _ensure_vacancy_for_player(
     """Create a vacancy for an absent player without triggering invitations.
     Used when the invitation window hasn't opened yet — the invite_start scheduler
     job will call trigger_invitations when the window opens.
-    Returns the existing or newly created vacancy."""
+    Returns the existing or newly created vacancy, or None for a new-engine session (PAD-917)."""
+    if _on_new_engine(instance):
+        return None
     existing = Vacancy.query.filter_by(
         lesson_instance_id=instance.id,
         original_player_id=player_id,
@@ -5515,6 +5527,8 @@ def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> l
     vacancy at all, so a student marked absent while another spot was still being filled got none;
     rule 16's hold made that window long. Capacity still bounds the result (PAD-271, rule 13).
     """
+    if _on_new_engine(instance):                 # PAD-917: the new engine's session has no vacancies
+        return []
     any_open = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").first() is not None
     )
@@ -5663,6 +5677,9 @@ def trigger_invitations(
         return []
     # PAD-68: never open/refresh vacancies for a class that already happened.
     if _instance_is_over(instance, now):
+        return []
+    # PAD-917 (notifications.config rule 18): a session on the new engine is never started here.
+    if _on_new_engine(instance):
         return []
 
     semi_auto = _is_semi_auto(config)
@@ -5931,7 +5948,7 @@ def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
       is created here: the class's ``invite_start`` job opens the place when the window does.
     """
     reconcile_vacancies(instance)
-    if not place_freed or _instance_is_over(instance, now):
+    if not place_freed or _instance_is_over(instance, now) or _on_new_engine(instance):
         return
     from padel_app.scheduler import _compute_invite_start_dt
     from padel_app.services.lesson_service import primary_coach
