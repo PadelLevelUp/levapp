@@ -328,6 +328,10 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
             obj, proactive_config
         )
 
+        from padel_app.services.engine_readers import engine_invitees
+        from padel_app.services.engine_switch import engine_for
+
+        on_new_engine = engine_for(obj) == "new"
         data.update(
             {
                 "parentClassId": str(lesson.id),
@@ -335,7 +339,8 @@ def serialize_class_instance(obj, viewer_player_id=None, occurrence_date=None) -
                 # PAD-275 (classes.edit rule 4): derived from the override columns.
                 "overriddenFields": overridden_fields_for(obj),
                 "presences": presences,
-                "invitations": [
+                # PAD-918 (calendar.event-detail ND1-ND3): a new-engine session reads the engine's rows.
+                "invitations": engine_invitees(obj) if on_new_engine else [
                     {
                         "id": ev.id,
                         "playerId": str(ev.player_id),
