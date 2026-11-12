@@ -239,6 +239,12 @@ invitation, then nothing is placed and nothing sent; when another student going 
 19:00 says Yes to it, then they are placed.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_an_overlapping_yes_is_refused_and_a_touching_one_is_not`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-25: A Yes whose offer filled gets sorry and never another side or type (rule 3)
+Given a left-sider invited for the left, the left full and a right spot open that a tier admits them for,
+when they say Yes, then they get const:KIND_SORRY and no other message, and their invitation's offer is
+unchanged.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_yes_whose_offer_filled_gets_sorry_never_another_side`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
