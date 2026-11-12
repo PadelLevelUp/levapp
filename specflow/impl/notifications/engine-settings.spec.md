@@ -95,7 +95,8 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
     stored timing is therefore one for one.
 11. **`fill_never_held`** (default on; the coordinator's ruling on today's `none`, PAD-918). When off,
     the planner invites only for spots a going student freed (an absent regular, a cancellation after
-    accepting), never for spots no one held (`class_empty` beyond the freed ones): the session's
+    accepting, a regular the coach removed from this session, `notifications.engine-answers` rule 14),
+    never for spots no one held (`class_empty` beyond the freed ones): the session's
     planned open spots of each type are at most the spots freed on that type's side, a freed spot of a
     student who plays both sides counted as `either`. Each going student who is not a regular takes
     back one freed spot, their side's first, then an `either` one. Waiting-list placement by automatic entry and direct join follow the
@@ -268,6 +269,11 @@ request, one postponed by the daily cap and one free, and on the coach's list on
 notifications, when the run places, then only the free students'-list member is placed, and the
 coach's-list member is not.
 test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_places_only_who_the_tier_would_invite`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-26: A regular the coach removed frees their spot under fill_never_held off (rule 11)
+Given `fill_never_held` off, a full class with no never-held spot, when the coach removes a right regular
+from this one session, then the planner invites for that one right spot.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_a_regular_the_coach_removed_frees_their_spot`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
