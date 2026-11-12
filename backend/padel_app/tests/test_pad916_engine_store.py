@@ -631,3 +631,28 @@ def test_the_request_message_says_how_the_request_ended(app, monkeypatch):
     with store.unit((a,)):
         store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=7), frozenset(), frozenset())])
     assert edited == []
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-9")
+def test_the_snapshot_carries_each_sessions_end(app):
+    """Engine-store rule 4, owner decision 11: a 90-minute occurrence at 18:00 runs to 19:30, so a
+    student going to it is busy for the same coach's 19:00 session; one that only touches (19:30) is
+    not, and the store refuses a placement into the overlapping session (engine-answers rule 10)."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_store import SameHourConflict
+
+    six = START.replace(hour=18)
+    store, (a, b, c), (_, x, _) = _seed(app, starts=(six, six + timedelta(hours=1), six + timedelta(minutes=90)))
+    db.session.get(LessonInstance, int(a)).end_datetime = six + timedelta(minutes=90)
+    db.session.commit()
+    with store.unit((a,)):
+        store.apply([fx.Placed(a, NOW, x, "L", "invitation")])
+
+    assert store.snapshot(a).end == six + timedelta(minutes=90)
+    assert x in store.snapshot(b).busy_same_time and store.snapshot(b).end == six + timedelta(hours=2)
+    assert x not in store.snapshot(c).busy_same_time                       # touching ends do not overlap
+    with pytest.raises(SameHourConflict), store.unit((b,)):
+        store.apply([fx.Placed(b, NOW, x, "L", "invitation")])
+    with store.unit((c,)):
+        store.apply([fx.Placed(c, NOW, x, "L", "invitation")])
+    assert x in {p.student for p in store.snapshot(c).going}

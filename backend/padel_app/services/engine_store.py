@@ -120,6 +120,38 @@ def _blocks_auto_invitations(user) -> bool:
     return bool(getattr(user, "notif_block_auto_invitations", False) or getattr(user, "notif_block_all", False))
 
 
+def _end_of(inst) -> datetime:
+    """An occurrence's end, Lisbon wall clock: its own (start plus the lesson's duration), or an hour
+    after its start when it has none (the engine's default length)."""
+    return inst.end_datetime or inst.start_datetime + timedelta(hours=1)
+
+
+def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, *,
+                       student: int | None = None) -> list[tuple[int, int]]:
+    """``(player_id, lesson_instance_id)`` of every student going to another of ``coach_id``'s
+    occurrences whose ``[start, end)`` overlaps this one's (``a.start < b.end and b.start < a.end``;
+    touching ends do not overlap), not canceled; only ``student``'s when given. Read fresh
+    (``populate_existing``) so a guard under the student's lock sees the other unit's commit."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.services.lesson_service import coach_instance_ids
+
+    ids = set(coach_instance_ids(coach_id)) - {iid}
+    if not ids:
+        return []
+    candidates = LessonInstance.query.filter(
+        LessonInstance.id.in_(ids), LessonInstance.status != "canceled",
+        LessonInstance.start_datetime < end, LessonInstance.start_datetime >= start - timedelta(days=1)).all()
+    overlapping = [o.id for o in candidates if _end_of(o) > start]
+    if not overlapping:
+        return []
+    q = db.session.query(Presence.player_id, Presence.lesson_instance_id).filter(
+        Presence.lesson_instance_id.in_(overlapping), (Presence.status.is_(None)) | (Presence.status != "absent"))
+    if student is not None:
+        q = q.filter(Presence.player_id == student)
+    return [(pid, lid) for pid, lid in q.populate_existing().all()]
+
+
 def _close_request_message(es, state: str) -> None:
     """The session's pending request stopped being pending: its Assistant message's metadata says how
     (``replaced``, ``approved``, ``dismissed``) with ``responded`` true, and one ``message_edited`` goes
@@ -278,10 +310,10 @@ class TableStore:
             LessonInstance.start_datetime >= datetime.combine(start.date(), datetime.min.time()),
             LessonInstance.start_datetime < datetime.combine(start.date() + timedelta(days=1), datetime.min.time()),
         ).all()
-        same_start = [o.id for o in others if o.start_datetime == start]
-        busy = frozenset(str(pid) for (pid,) in db.session.query(Presence.player_id).filter(
-            Presence.lesson_instance_id.in_(same_start or [-1]),
-            (Presence.status.is_(None)) | (Presence.status != "absent")).all())
+        # Engine-tiers rule 3, owner decision 11: busy is going to another of this coach's sessions whose
+        # [start, end) overlaps this one's (touching ends do not overlap).
+        end = _end_of(inst)
+        busy = frozenset(str(pid) for pid, _ in _overlapping_going(coach_id, iid, start, end))
         elsewhere = self._elsewhere(others)
 
         attempts: dict[str, list[datetime]] = {}
@@ -301,6 +333,7 @@ class TableStore:
             students.update(self._students(coach_id, [], {}, extra=missing))
         return SessionSnapshot(
             id=session, level=self._level(ladder_index_map(coach_id), inst.level_id), capacity=inst.effective_max_players, start=start,
+            end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
@@ -534,7 +567,7 @@ class TableStore:
                                if p.status != "absent")
         return tuple(Elsewhere(str(r.lesson_instance_id), by_id[r.lesson_instance_id].start_datetime,
                                self._invitation(r), by_id[r.lesson_instance_id].effective_max_players,
-                               going[r.lesson_instance_id]) for r in rows)
+                               going[r.lesson_instance_id], end=_end_of(by_id[r.lesson_instance_id])) for r in rows)
 
     # --- seeding (the app's side of a session) --------------------------------------------
 
@@ -599,22 +632,18 @@ class TableStore:
         db.session.query(Player.id).filter(Player.id == pid).with_for_update().one_or_none()
 
     def _guard_same_hour(self, e: fx.Placed) -> None:
-        """Never two sessions at one hour (engine-answers rule 10), whatever path placed the student:
+        """Never two sessions at the same hour (engine-answers rule 10; engine-tiers rule 3, owner decision
+        11: another of the coach's sessions whose interval overlaps), whatever path placed the student:
         with the student's row locked (waiting for any other unit placing them to commit), a going
-        presence at the same start elsewhere refuses the placement and rolls the unit back."""
+        presence in an overlapping session refuses the placement and rolls the unit back."""
         from padel_app.models.lesson_instances import LessonInstance
-        from padel_app.models.presences import Presence
 
         self._lock_student(int(e.student))
-        start = db.session.get(LessonInstance, int(e.session)).start_datetime
-        clash = (db.session.query(Presence.lesson_instance_id)
-                 .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
-                 .filter(Presence.player_id == int(e.student), Presence.lesson_instance_id != int(e.session),
-                         LessonInstance.start_datetime == start,
-                         (Presence.status.is_(None)) | (Presence.status != "absent"))
-                 .populate_existing().first())
-        if clash is not None:
-            raise SameHourConflict(f"{e.student} is already going to {clash[0]} at {start}")
+        inst = db.session.get(LessonInstance, int(e.session))
+        coach_id = self.coach_of(e.session)
+        clash = _overlapping_going(coach_id, inst.id, inst.start_datetime, _end_of(inst), student=int(e.student))
+        if clash:
+            raise SameHourConflict(f"{e.student} is already going to {clash[0][1]}, which overlaps {e.session}")
 
     @staticmethod
     def _invitation_row(e):
