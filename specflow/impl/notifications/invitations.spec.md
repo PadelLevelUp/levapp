@@ -92,8 +92,7 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   `open` and not counting, "Sem resposta · já não conta" / "No answer · no longer counts" (proposed);
   the other states as the student's labels.
 - **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
-  `invite-respond-no-<invitationId>`, `invite-state-<invitationId>` carrying `data-state` (web) or the
-  state in the id's suffix accessibility label (iOS), so one E2E reads both. The old engine's ids stay
+  `invite-respond-no-<invitationId>` and `invite-state-<invitationId>-<state>`, so one E2E reads both. The old engine's ids stay
   for old-engine bubbles.
 
 ### Entities
