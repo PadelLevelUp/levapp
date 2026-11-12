@@ -44,7 +44,8 @@ def test_the_simulation_runs_the_engines_dry_run_and_writes_nothing(app):
     """TIERS-9: the verdicts (each naming its student, as a queue entry does) and queues are ``planner.evaluate``'s on the hypothetical snapshot with the
     coach's settings (``settings_for``), per student per open spot type, through the same ``simulate_vacancy`` the endpoint calls; nothing is
     written."""
-    from padel_app.services.engine_simulation import _spot_type, hypothetical_snapshot
+    from padel_app.services.engine_outbox import spot_type_wire
+    from padel_app.services.engine_simulation import hypothetical_snapshot
     from padel_app.services.engine_store import TableStore, settings_for
     from padel_app.services.level_ladder import get_level_ladder
     from padel_app.services.invite_simulation_service import simulate_vacancy
@@ -59,7 +60,7 @@ def test_the_simulation_runs_the_engines_dry_run_and_writes_nothing(app):
     ladder = get_level_ladder(coach_id)
 
     def wire(st):
-        w = _spot_type(st, ladder)
+        w = spot_type_wire(st, ladder)
         return (w["side"], w["levelId"])
 
     expected = {(wire(v.spot_type), v.student): (v.stage, v.tier) for v in dry.verdicts}

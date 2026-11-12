@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime
 
+from padel_app.services.engine_outbox import people, spot_type_wire
 from padel_app.utils.dates import utcnow_naive, wall_to_utc_naive
 
 
@@ -70,33 +71,6 @@ def _gates(instance, coach_id: int, snapshot, settings, now: datetime) -> list[d
     ]
 
 
-def _people(coach_id: int, ids) -> dict[str, dict]:
-    """Each student's name and the coach's nickname keys (players.nickname rule 9a)."""
-    from padel_app.models import Player
-    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
-    from padel_app.services.player_service import nickname_payload
-
-    ints = [int(i) for i in ids]
-    links = {lk.player_id: lk for lk in Association_CoachPlayer.query.filter(
-        Association_CoachPlayer.coach_id == coach_id, Association_CoachPlayer.player_id.in_(ints or [-1])).all()}
-    out = {}
-    for player in Player.query.filter(Player.id.in_(ints or [-1])).all():
-        name = player.user.name if player.user else None
-        out[str(player.id)] = {"name": name, **nickname_payload(links.get(player.id), name)}
-    return out
-
-
-def _spot_type(spot_type, ladder) -> dict:
-    """A spot type on the wire (notifications.invite-simulation N2): ``side`` ``left``/``right``, or null
-    for an "either" spot (the store's ``SIDE_TO_APP``); ``levelId`` and ``levelLabel`` the coach's level at
-    that ladder position (``ladder``: ``get_level_ladder``), both null for a type of any level."""
-    from padel_app.services.engine_store import SIDE_TO_APP
-
-    level = ladder[spot_type.level - 1] if spot_type.level is not None and 0 < spot_type.level <= len(ladder) else None
-    return {"side": SIDE_TO_APP[spot_type.side], "levelId": getattr(level, "id", None),
-            "levelLabel": getattr(level, "label", None)}
-
-
 def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | None = None) -> dict:
     """What the session's engine would do at ``now`` if ``departing_player_id`` dropped out: for each
     open spot type its queue (tier, then the coach's ordering) and every student's verdict stage
@@ -114,7 +88,7 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
     dry = planner.evaluate(snapshot, settings, _now)
     excluded = store.pool_exclusions(session)
     counts = planner.spot_counts(planner.with_postponed(snapshot, _now))
-    people = _people(coach_id, set(snapshot.students) | set(excluded))
+    names = people(coach_id, set(snapshot.students) | set(excluded))
     ladder = get_level_ladder(coach_id)
 
     types = []
@@ -122,13 +96,13 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
         verdicts = [v for v in dry.verdicts if v.spot_type == spot_type]
         tiers = {v.student: v.tier for v in verdicts}
         types.append({
-            **_spot_type(spot_type, ladder),
+            **spot_type_wire(spot_type, ladder),
             "count": n,
-            "queue": [{"playerId": sid, **people.get(sid, {}), "tier": tiers.get(sid), "rank": rank}
+            "queue": [{"playerId": sid, **names.get(sid, {}), "tier": tiers.get(sid), "rank": rank}
                       for rank, sid in enumerate(dry.queues.get(spot_type, ()), 1)],
-            "verdicts": [{"playerId": v.student, **people.get(v.student, {}), "stage": v.stage, "tier": v.tier}
+            "verdicts": [{"playerId": v.student, **names.get(v.student, {}), "stage": v.stage, "tier": v.tier}
                          for v in verdicts]
-                        + [{"playerId": sid, **people.get(sid, {}), "stage": "not_in_pool", "tier": None,
+                        + [{"playerId": sid, **names.get(sid, {}), "stage": "not_in_pool", "tier": None,
                             "reasons": reasons}
                            for sid, reasons in sorted(excluded.items(), key=lambda kv: int(kv[0]))
                            if sid not in snapshot.students],
@@ -163,5 +137,5 @@ def explain(instance, coach_id: int, departing_player_id, player_id, *, now: dat
                                 "stage": v["stage"], "tier": v["tier"], "rank": rank,
                                 **({"reasons": v["reasons"]} if "reasons" in v else {})})
     if not person:
-        person = _people(coach_id, [sid]).get(sid, {})
+        person = people(coach_id, [sid]).get(sid, {})
     return {"engine": "new", "playerId": sid, **person, "spotTypes": entries}
