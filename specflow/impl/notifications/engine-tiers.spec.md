@@ -126,7 +126,8 @@ the coach's list).
     closed; a class level off the coach's ladder reaches the engine as no level
     (`notifications.engine-store` rule 4) and is read the same way, where today fails the range rules
     closed (`level_not_in_ladder`); these two are the only places the engine differs from today); side `same_as_vacancy` as the
-    category rule (rule 2); `has_makeups` `is_true` (makeups owed above zero); `unjustified_absences`
+    category rule (rule 2), and `different_from_vacancy` as an other-side tier (`notifications.config`
+    rule 20, new-engine coaches only); `has_makeups` `is_true` (makeups owed above zero); `unjustified_absences`
     and `justified_absences` (counts of the coach's verdicts, D4) and `attendance_rate` (a percentage)
     compared by `less_than`, `less_than_or_equal`, `equals`, `greater_than` or
     `greater_than_or_equal`; `subscription_status` `equals`. As today, a threshold that is not a number

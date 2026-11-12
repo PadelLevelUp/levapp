@@ -1,6 +1,6 @@
 ---
 id: admin.engine-health
-status: implemented
+status: implementing
 depends_on: [admin.foundation, notifications.invitations, notifications.waiting-list, notifications.reminders, notifications.config, messaging.push-notifications]
 serves: [P-ADMIN-3]
 governed_by: [R-005, R-010, R-022, R-023, R-036]
@@ -24,10 +24,11 @@ database query or a log search, and failed sends are only in the logs.
   ReminderAttempt (`reminder_attempts`), NotificationConfig (`notification_configs`), User, Coach,
   the APScheduler job store (`apscheduler_jobs`, `SQLAlchemyJobStore` on the app database),
   `alembic_version`; for rule 8, Player, ConversationParticipant (`last_read_at`), DeviceToken,
-  PushSubscription
+  PushSubscription; for rules 10–12 the new engine's tables (`engine_sessions`, `invitations`,
+  `engine_effects`; `notifications.engine-store`) and `NotificationConfig.engine_version`
 - **CREATES:** `delivery_incidents` — `id`, `created_at`, `kind`
   (`email_failed`|`push_failed`|`reminder_skipped_past_due`|`push_registration_failed`, the last
-  since PAD-746, rule 8; `stream_refused`|`push_dropped` since PAD-689, rule 9), `channel`
+  since PAD-746, rule 8; `stream_refused`|`push_dropped` since PAD-689, rule 9; `engine_session_failed` since PAD-913, rule 12), `channel`
   (`email`|`webpush`|`apns`|`fcm`|`expo`|`scheduler`|`sse`|`push`; an Expo receipt maps the device's platform
   to `apns` (ios) or `fcm` (android) and is `expo` when the device row does not say), `user_id` (FK → users, SET NULL, nullable),
   `subject_type` / `subject_id` (nullable: the lesson instance, vacancy or notification the
@@ -46,18 +47,15 @@ drained, the old engine is deleted and the replaced items go with it.
 
 | Item | For a new-engine session | Source |
 |---|---|---|
-| Intent, Entities READS | the engine's own state per session: spot counts per type, counting and open invitations, alerts | `notifications.engine-spots` rule 6; `notifications.engine-planning` rules 3, 11 |
-| Rule 2, `vacancies` and invitations by round | during cutover a read-only projection per spot type (swap decision 1); invitations counted as counting or open-not-counting, by tier | this spec's Open questions; `notifications.engine-planning` rule 3 |
-| Rule 6 (a coach's engine view) | shows the coach's `engine_version` and the mapped `EngineSettings`, not open vacancies | `notifications.config` rules 18, 19 |
-| Criterion 1 | replaced with rule 2; its new-engine form is written at swap step 6 | — |
+| Intent, Entities READS | the engine's own state per session (rule 10): sessions, open spot types, counting and open invitations, approvals, alerts, the outbox | `notifications.engine-store`; `notifications.engine-planning` rules 3, 11, 14 |
+| Rule 2, `vacancies` and `invitations` | count old-engine sessions only; the new engine's numbers are rule 10's `engine` block. No vacancy projection is built: the `engine` block is the new engine's view from its first coach | rule 10; Open questions |
+| Rule 6 (a coach's engine view) | rule 11 | `notifications.config` rules 18, 19 |
+| Criterion 1 | holds for old-engine sessions; the new engine's is criterion 24 | — |
 
 Readings:
-- Rule 2's scheduler families: the new engine adds one tick job; the per-vacancy families exist only for old-engine sessions (`notifications.config` rule 18).
-- Rule 3, `reminder_skipped_past_due`: arises only for old-engine sessions; the engine's attendance requests replace reminders (`notifications.engine-timeline` rule 2).
+- Rule 2's scheduler families: the new engine adds the singleton `engine_tick` (rule 10); the per-vacancy families exist only for old-engine sessions (`notifications.config` rule 18).
+- Rule 3, `reminder_skipped_past_due`: arises only for old-engine sessions; the engine's attendance requests replace reminders (`notifications.engine-timeline` rule 2). A new-engine session's failure is rule 12's kind.
 - Criterion 10 (`invitationMode`): holds; semi-automatic is kept (owner ruling D2) and the mode is carried into the engine's settings (`notifications.config` rule 19).
-
-Not yet specified, needed before this spec's swap step (each under Open questions):
-- the new engine's tick job id and its health fields (with H's store, PAD-916).
 
 ### Rules
 1. **Read-only, all of it.** Every route of this spec is a `GET` under
@@ -158,6 +156,48 @@ Not yet specified, needed before this spec's swap step (each under Open question
    any happened, the count in `detail` (`messaging.sse-realtime` rule 25a). The incident table
    lists both kinds; their counts are minutes, not events. No migration: `kind` is a plain
    `String(32)`.
+
+10. **The new engine's block (PAD-913; swap plan §3.2, §7).** The summary's `engine` block, computed at
+    request time in UTC and present once the store's tables exist:
+    - `coaches`: coaches by `engine_version` (`old`, `new`).
+    - `sessions`: new-engine sessions (`engine_sessions`) whose class has not started, and of them those
+      starting in the next 7 days.
+    - `openSpots`: for the new-engine sessions starting in the next 7 days, the open spots by type as the
+      engine counts them (`notifications.engine-spots` rule 6: side `left`, `right` or either), summed,
+      and how many of them are uncovered: per type, its open spots minus the counting invitations whose
+      offer counts for it, floored at 0, summed (a count that approximates the planner's cover step,
+      `notifications.engine-planning` rule 5, without running it). Read in one batch per table for the
+      7-day window.
+    - `invitations`: open invitations (`invitations` rows not answered and not closed) of sessions that
+      have not started, split into **counting** (not sorry and `counts_until` after now,
+      `notifications.engine-planning` rule 3) and **open, not counting**, each by tier; and the
+      invitations sent in the last 24 hours.
+    - `approvals`: sessions with a pending request, and dismissed sessions
+      (`notifications.engine-planning` rule 14).
+    - `alerts`: sessions holding a coach alert (`notifications.engine-planning` rule 11), by reason code.
+    - `outbox`: rows still to send (`engine_effects` with no `dispatched_at`) by kind, and how many are
+      older than 5 minutes (stuck).
+    - `tick`: whether the `engine_tick` job exists, whether it is overdue (rule 2's 5 minutes), and the
+      session failures of the last 24 hours (rule 12).
+    Counts only: no student is named. The block is absent while no coach is on `new`. On the wire (R,
+    PAD-918): `coaches {old, new}`, `sessions {upcoming, next7Days}`, `openSpots {byType: [{side, levelId,
+    levelLabel, open}], uncovered}`, `invitations {counting, openNotCounting, byTier: [{tier, counting,
+    openNotCounting}], sentLast24h}`, `approvals {pending, dismissed}`, `alerts {byReason: [{reason,
+    count}]}` (each alert item, where listed, `{side, levelId, levelLabel, open}` as `byType`'s), `outbox {pending, stuckOver5Min}`, `tick {present, overdue, sessionFailures24h}`. A spot type's `side` is
+    `"left"`, `"right"` or null (either); `levelId` is the `coach_levels` id and `levelLabel` its
+    name, both null for a type of any level.
+11. **A new-engine coach's view.** For a coach on `new`, rule 6's answer adds `engineVersion` and the
+    coach's `EngineSettings` as the store builds them (`notifications.config` rule 19; a `SettingsError`
+    is answered as its message, never raised), and lists the coach's new-engine sessions that have not
+    started: start, capacity, open spots by type, counting and open-not-counting invitations, the
+    approval state and any alert. On the wire: `engineVersion`, `engineSettings` (or `{error}`),
+    `upcomingSessions: [{lessonInstanceId, start, openSpots, counting, openNotCounting}]`, its
+    `openSpots` in `byType`'s shape. Students are counted, never named. For a coach on `old`, rule 6 holds
+    as written.
+12. **A failing session is recorded.** When the tick (`notifications.engine-store` rule 7) skips a
+    session that raised, it records one `delivery_incidents` row, kind `engine_session_failed`, channel
+    `scheduler`, the lesson instance as subject, the error's class, in its own short transaction as rule
+    3's rows are.
 
 ### Acceptance Criteria
 
@@ -318,8 +358,51 @@ test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answer
   service token for that environment (wiring left to PAD-534).
 - Decision 2026-10-07 (coordinator default, confirmed): `delivery_incidents` rows are kept 30 days.
 
+#### ADMIN-ENGINE-HEALTH-24: The engine block counts sessions, open spots and counting invitations (rule 10)
+- **Given** one coach on `new` and one on `old`; two new-engine sessions starting tomorrow (one with a left spot covered by a counting invitation and an uncovered right spot, one full), one that has started; and invitations: two counting (tiers 1 and 2), one answered sorry, one past its `counts_until`, one answered yes
+- **When** support GETs `/admin/api/engine-health`
+- **Then** `engine.coaches` is 1 old and 1 new, `engine.sessions` is 2, `engine.openSpots` is one left and one right with one uncovered, and `engine.invitations` holds 2 counting (one per tier) and 2 open-not-counting, the answered one in neither
+test: `backend/padel_app/tests/test_pad918_engine_health_new_engine.py` › `test_the_engine_block_counts_sessions_spots_and_counting_invitations`
+
+#### ADMIN-ENGINE-HEALTH-25: Approvals, alerts, the outbox and the tick are visible (rule 10)
+- **Given** one session with a pending request, one dismissed, one with a no-candidate alert, three outbox rows of which one was written 10 minutes ago (pinned clock), and no `engine_tick` job
+- **When** the summary is read
+- **Then** `engine.approvals` is 1 pending and 1 dismissed, `engine.alerts` is 1 `no_candidate`, `engine.outbox` is 3 with 1 stuck, and `engine.tick` says the job is missing
+test: `backend/padel_app/tests/test_pad918_engine_health_new_engine.py` › `test_approvals_alerts_outbox_and_tick_are_visible`
+
+#### ADMIN-ENGINE-HEALTH-26: No engine block while no coach is on the new engine (rule 10)
+- **Given** every coach on `old`
+- **When** the summary is read
+- **Then** it has no `engine` block and rule 2's blocks are unchanged
+test: `backend/padel_app/tests/test_pad918_engine_health_new_engine.py` › `test_no_engine_block_while_no_coach_is_on_the_new_engine`
+
+#### ADMIN-ENGINE-HEALTH-27: A new-engine coach's view shows the engine's settings and sessions, naming no student (rule 11)
+- **Given** a coach on `new` with one upcoming session (an open right spot, two counting invitations, a pending approval request)
+- **When** support GETs the coach's engine settings
+- **Then** the answer has `engineVersion` `new`, the mapped settings, and the session with its open spot, 2 counting invitations and its pending state, and no student id or name anywhere; for a coach whose settings raise `SettingsError`, the answer carries the error's message and still answers 200
+test: `backend/padel_app/tests/test_pad918_engine_health_new_engine.py` › `test_a_new_engine_coachs_view_names_no_student`
+
+#### ADMIN-ENGINE-HEALTH-28: A session the tick fails on is recorded and the others go on (rule 12)
+- **Given** two new-engine sessions, the first made to raise during the tick
+- **When** the tick runs
+- **Then** the second is planned, one `engine_session_failed` row names the first's lesson instance with channel `scheduler`, and the summary's `engine.tick` counts 1 failure in 24 hours
+test: `backend/padel_app/tests/test_pad918_engine_health_new_engine.py` › `test_a_failing_session_is_recorded_and_the_rest_go_on`
+
+#### ADMIN-ENGINE-HEALTH-29: The page shows the engine block when the summary has one (rule 10)
+- **Given** support on `/engine-health` and a summary with an `engine` block
+- **Then** coaches by engine, sessions, open spots by type with the uncovered count, counting and open-not-counting invitations by tier, approvals, alerts, the outbox with its stuck count and the tick (missing, overdue, failures) each show in their place
+- **And** a summary without an `engine` block shows the page without it
+test: `frontend/apps/admin/src/pages/EngineHealthPage.test.tsx` › `shows the new engine's block, and no block when the summary has none`
+
 ### Open questions
 - What the console reads once vacancies are gone (swap decision 1) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): a read-only projection
   per spot type during cutover only, then the engine's own state, because the console is the one
   reader that must see both engines while coaches move.
+  Reading (S, owner away, PAD-913, 2026-11-12; the owner can reverse it): the projection is the
+  `engine` block itself (rule 10). Old-engine sessions keep rule 2's vacancy counts and new-engine
+  sessions show in `engine`, side by side, so no vacancy-shaped copy of the engine's state is built.
 - The new engine's tick in the scheduler panel — decision (S, owner away, PAD-913; the owner can reverse it): one job, its last run and its last failure per session, so a failing session shows without hiding the rest (`notifications.invitations` rule 21's new reading).
+- The kind for a failing session (rule 12) — decision (S, owner away, PAD-913, 2026-11-12; the owner can
+  reverse it): a new `delivery_incidents` kind, `engine_session_failed`, rather than reusing
+  `reminder_skipped_past_due`, because the two failures mean different things and a plain `String(32)`
+  needs no migration (rule 9).

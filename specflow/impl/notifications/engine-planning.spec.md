@@ -26,7 +26,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
 
 ### Rules
 1. **When a run happens (§6).** For one session at a time: after every answer, cancellation, roster
-   change or settings change, and every const:ENGINE_RUN_EVERY in the background. It plans no
+   change or settings change, when the coach recomputes the class's suggestions
+   (`notifications.semi-auto-approval` rule 12; `Engine.plan(session, now)`), and every
+   const:ENGINE_RUN_EVERY in the background. It plans no
    invitation during quiet hours (D14), before `first_invite_at` or after `last_invite_at`
    (`notifications.engine-timeline` rules 1, 3, 6).
 2. **An invitation is for a student and a session (D1).** Never for a spot. One per student per
@@ -91,7 +93,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
     only one), the spot type (its side, none for an either spot, and its level) and how many spots of
     that type are uncovered; never text. The store keeps one alert per session and type until the
     type's count changes, and turns it into the coach's message or dashboard card, whose wording is
-    the app's (swap plan §6.3 item 7).
+    the app's (swap plan §6.3 item 7). A run that finds an alerted type covered, gone, or with a
+    candidate again emits `AlertCleared` (session, spot type), and the store drops that alert, so a
+    reader of the store's alerts sees only live ones.
 12. **Why this waits for the better tier (D9).** A spot is covered once one distinct candidate holds a
     counting invitation for it; the next tier gets it only when it is uncovered.
 13. **Ties in "hardest first" when M binds (coordinator ruling 2026-11-11, U7).** When two side types
@@ -137,8 +141,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
     - Only the planner's sends are held. The re-offer an answer makes at once (a Yes whose offer filled,
       `notifications.engine-answers` rule 3) goes to a student who already holds the invitation and is
       not held.
-    - Automatic entry from a waiting list and direct join are the coach's own settings and are not held;
-      waiting-list invitations are invitations and are.
+    - Automatic entry from a waiting list is the coach's own setting and is not held; direct join is off
+      in semi-automatic mode (`notifications.config` rule 19, the owner's Q3); waiting-list invitations
+      are invitations and are held.
     - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
       session, except a dismissed session, which stays dismissed until its spot count changes or the
       coach reopens it (as today's rule 1a of `notifications.semi-auto-approval` keeps a dismissed spot);
@@ -386,6 +391,16 @@ given a session that is not dismissed, when the coach answers `ReopenQueue`, the
 `QueueReopened` is recorded.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissal_or_reopening_out_of_turn_does_nothing`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-39: One session can be re-planned on demand (rule 1)
+Given two sessions, when `Engine.plan(session, now)` is called for one, then only that session is
+planned, as a background run would plan it, and the other is untouched.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_engine_plan_runs_one_session`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-40: An alert is cleared once its type is covered or has a candidate (rule 11)
+Given an alerted right type, when a right-sider becomes a candidate and the next run invites them, then
+that run emits `AlertCleared` for the type and the store holds no alert for it.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_an_alert_is_cleared_once_its_type_has_a_candidate`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -400,7 +415,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
    `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
-6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-38 — `invitation_engine/effects.py` (`ApprovalRequest`),
+6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-40 — `invitation_engine/effects.py` (`ApprovalRequest`),
    `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`, `ReopenQueue`), `invitation_engine/planner.py` (the hold, from
    `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
    approved queue and the pending request and sends the request through the outbox, and

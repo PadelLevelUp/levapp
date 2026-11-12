@@ -46,6 +46,20 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    (`notifications.reminders` rule 22: a class created after its reminder time counts its students as
    coming).
 
+7. **The tick.** One scheduler job, `engine_tick`, runs every const:ENGINE_RUN_EVERY: it lists the
+   new-engine sessions (`notifications.config` rules 18, 19) and plans each in its own unit and its own
+   transaction (`notifications.engine-planning` rule 1). A session that raises is rolled back and
+   skipped, and the tick goes on with the rest (`notifications.invitations` rule 21's new reading); the
+   failure is recorded as `admin.engine-health` rule 12 says. The outbox is sent after the sessions.
+
+8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
+   `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
+   `closed_reason` and `reoffered_at`, writes the invitation's state (`open`, `answered` with `response`
+   and `answeredBy`, `sorry`, `reoffered`, `withdrawn`, `closed_same_hour`) and `startsAt`/`countsUntil`
+   on every attached message, and publishes one `message_edited` per message after the commit. A
+   withdrawal is the store's own `withdraw(invitation_id, at)`, which rule 19's route calls; it is no
+   engine effect. An `AlertCleared` drops that alert.
+
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
 - The locks a unit takes (`notifications.engine-answers` rule 10).
@@ -89,8 +103,24 @@ when the store builds the snapshot and the attendance request falls due, then th
 nobody is asked.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_student_the_system_recorded_as_coming_counts_as_confirmed`
 
+#### NOTIFICATIONS-ENGINE-STORE-6: The tick plans each session on its own and goes on past a failure (rule 7)
+Given three new-engine sessions, the second made to raise, when `engine_tick` runs, then the first and
+third are planned and committed, the second's unit is rolled back, and one failure is recorded for it.
+test: `backend/padel_app/tests/test_pad918_engine_tick.py` › `test_the_tick_plans_each_session_and_goes_on_past_a_failure`
+
+#### NOTIFICATIONS-ENGINE-STORE-7: Every message of an invitation follows its state, once per change (rule 8)
+Given an invitation with its first bubble, when the store applies a sorry, a re-offer (a second bubble),
+then `withdraw`, then both messages carry each state in turn, `closed_reason` is `withdrawn`,
+`reoffered_at` is set, and each change publishes one `message_edited` per attached message after commit.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_every_message_of_an_invitation_follows_its_state`
+
+#### NOTIFICATIONS-ENGINE-STORE-8: An AlertCleared drops the alert (rule 8)
+Given a session holding an alert for a right type, when the store applies `AlertCleared` for it, then the
+session holds no alert for that type and a later alert for it is raised again.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_an_alert_cleared_drops_the_alert`
+
 ### Waves
-1. (PAD-916) STORE-1 to STORE-5 — `padel_app/services/engine_store.py` (content keys, the outbox,
+1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 
 ### Open questions
