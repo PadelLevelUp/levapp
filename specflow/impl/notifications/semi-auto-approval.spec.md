@@ -17,6 +17,41 @@ In semi-automatic mode, the invitation engine asks the coach for approval before
 - **Assistant conversation**: a system conversation between the platform assistant and the coach (new concept — today conversations exist only between users). One per coach; reuses the existing conversation/message machinery (SSE delivery, push notifications, unread counts). Approval prompts are delivered as messages with coach action buttons
 - **Vacancy.approval_status** (defined in notifications.invitations): not_required | pending | approved | dismissed
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; owner ruling D2,
+2026-11-11: semi-automatic is kept, "exactly the same engine, but instead of sending directly the
+message it should ask the coach permission") the hold is `notifications.engine-planning` rule 14, keyed
+to the **session**, not to a vacancy (swap decision 1 drops vacancies). The items in the table are
+replaced and the readings below hold; the rest hold unchanged. When every coach is drained, the old
+engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Entities: `ReplacementApprovalPrompt` per vacancy, `Vacancy.approval_status` | one pending `ApprovalRequest` per session and the session's approved queue, kept by the store | `notifications.engine-planning` rule 14 |
+| Rule 2 (every vacancy-creation path prompts) | a planning run that would send to a student outside the approved queue raises the request; there is no vacancy to create | `notifications.engine-planning` rule 14 |
+| Rule 3 (one prompt per vacancy) | one pending request per session; a new one replaces it, an equal one is not raised again | `notifications.engine-planning` rule 14 |
+| Rule 4 (the full ordered queue; exactness) | the queue per open spot type from the dry run; the engine never invites outside the approved queue without a new request | `notifications.engine-tiers` rule 12, `notifications.engine-planning` rule 14 |
+| Rule 4b (`emptyQueueReasons`) | the dry run's verdict stages, counted per type | `notifications.engine-tiers` rule 12 |
+| Rule 5 (the waiting list heads the queue) | the coach's list, then the students' list, head each type's queue (tier order) | `notifications.engine-tiers` rule 5 |
+| Rules 7, 7a (bundles of vacancies) | one request per session carries every type; no bundles | `notifications.engine-planning` rule 14 |
+| Rule 8 (three actions) | approve, removing any students; "Yes, at the window" goes (no request before the window); "Ignorar" is an open question | `notifications.engine-planning` rule 14 and Open questions |
+| Rules 9, 10 (gating by approval status) | the hold itself; waiting-list invitations are held, automatic entry and direct join are not | `notifications.engine-planning` rule 14 |
+| Rule 11 (a fill or expiry resolves the prompt) | a run with nothing left to ask for withdraws the request, which goes stale | `notifications.engine-planning` rule 14 |
+| Rule 1a (leaving semi-automatic releases spots) | switching to automatic withdraws the pending request and the next run sends | `notifications.engine-planning` rule 14 |
+
+Readings:
+- Rule 1: the hold applies when `invitation_mode` is `semi_automatic` (carried by `notifications.config`
+  rule 19); `auto_notify_enabled` off lists no session at all.
+- Rule 6: the request is persisted as a message in the coach's Assistant conversation, as today.
+- Rule 12: recomputing from the class asks the engine's dry run with the class as it is now and raises a
+  fresh request.
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the request's message and card: one block per spot type (side and level), its queue, the coach's
+  removals on web and iOS, and their copy in both locales;
+- "Ignorar" (proposal in `notifications.engine-planning`, Open questions).
+
 ### Rules
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
 1a. **Leaving semi-automatic releases the spots awaiting approval (PAD-766, ledger B-688; coordinator 2026-10-27).** When a coach's `invitation_mode` changes from `semi_automatic` to `automatic`, every open vacancy of that coach whose class has not started and whose approval_status is `pending` becomes `not_required`, in the same commit as the mode, and its pending prompt becomes `stale` (with `decided_at`), so its message's buttons answer "stale" and decide nothing. The sweep (`process_invitation_batches`) then starts these spots on its next tick, under the same restrictions, claim and per-class automatic-invitations switch as any spot. A `dismissed` vacancy stays dismissed: the coach already said no to it. The sweep heals itself: it treats an open `pending` vacancy whose coach's mode is now `automatic` the same way (released, prompt stale, started on that tick), so spots stranded before this rule recover with no data repair. **The released spot takes the coach's invitation window (PAD-776 part 2, ledger B-702).** A pending spot carries no `invite_not_before` (only an approval "at the window" writes one), so the release, from the switch and from the sweep alike, stamps the window the coach's current invitation start gives the class (invitations rule 11), exactly as a spot opened in automatic mode gets it: a window still ahead holds the spot until it opens, and a window already past is not stored, so the spot starts on that tick. A save that switches the mode and moves the invitation start in one go ends with the saved window (invitations rule 11a re-times the released spot in the same commit). Switching `automatic` → `semi_automatic` changes nothing for spots already open: `not_required` spots keep inviting, and only spots opened afterwards wait for approval. The release keys on the mode alone: a semi-automatic coach who turns automatic notifications off keeps the spots pending, and they stay decidable when notifications come back on.
@@ -348,3 +383,9 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.te
 - **And** the card is stale only when the server refused every one of its spots as stale
 - **And** a yes that reached no spot tells the coach the spots were filled or expired, or that the list was recalculated
 test: `frontend/apps/mobile/src/features/notifications/approval-bundle.test.ts` › `accepts a bundle carrying an id and at least one vacancy` (+14 more)
+
+### Open questions
+- Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
+  kept, as the hold of `notifications.engine-planning` rule 14 (the shape is the coordinator's,
+  reversible by the owner). The message and card copy, and what "Ignorar" becomes, are not decided;
+  they go to the owner with this spec's swap step.

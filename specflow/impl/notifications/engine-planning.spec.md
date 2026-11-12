@@ -21,7 +21,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
   (`notifications.engine-timeline`).
 - **CREATES:** `Invited` effects (`invitation_engine/effects.py`): student, session, offer, the side
   named, tier, and the instant it stops counting (`notifications.engine-timeline` rule 4). One per
-  student per session (D1). `CoachAlert` effects (rule 11).
+  student per session (D1). `CoachAlert` effects (rule 11). `ApprovalRequest` effects in
+  semi-automatic mode (rule 14).
 
 ### Rules
 1. **When a run happens (§6).** For one session at a time: after every answer, cancellation, roster
@@ -99,6 +100,30 @@ Stated as observable records; storage is the engine package's (PAD-902).
     uncovered spots is served first until the sides' uncovered spots are equal; the rest of M is split
     in halves; an odd leftover goes to the side with fewer going students, then to the side with fewer
     candidates in the tier. Without a tie, rule 5's order stands.
+14. **Semi-automatic mode holds the sends for the coach (owner ruling D2, 2026-11-11; shape: the
+    coordinator's, reversible by the owner).** With `invitation_mode` `semi_automatic`
+    (`notifications.config` rule 19) the engine is the same and plans the same; only what it sends
+    changes. The store keeps, per session, the **approved queue** (the students the coach let through)
+    and at most one pending approval request.
+    - A run whose plan sends or re-offers an invitation to a student **outside** the approved queue
+      does not send it. It emits `ApprovalRequest(session, queues)`: the queue of each open spot type
+      from the dry run (`notifications.engine-tiers` rule 12) at that instant. A new request replaces
+      the pending one; a run whose queues equal the pending request's emits nothing.
+    - Invitations the plan sends to students **inside** the approved queue go out without asking.
+    - The coach answers `ApproveQueue(session, removed)`. The approved queue becomes the request's
+      queues without the removed students, the pending request is gone, and the session is re-planned
+      at once and sends. An invitation's counting-until instant is fixed when it is really sent
+      (`notifications.engine-timeline` rule 4), never when it was requested.
+    - A removed student is never invited automatically for that session (it is not a No: the "said No"
+      gate, automatic entry and direct join are unchanged).
+    - A run with nothing to send outside the approved queue (the session full, every type covered, the
+      class started) withdraws the pending request, which goes stale.
+    - Automatic entry from a waiting list and direct join are the coach's own settings and are not held;
+      waiting-list invitations are invitations and are.
+    - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
+      session; switching to `semi_automatic` leaves open invitations as they are (rule 10) and holds the
+      next send outside the (empty) approved queue.
+    Nothing is planned before `first_invite_at` (rule 1), so no request is raised before the window.
 
 ### Not this spec
 - Answers (`notifications.engine-answers`) and the session's clock (`notifications.engine-timeline`).
@@ -277,6 +302,30 @@ uncovered count changes, then one alert is raised with const:ALERT_NO_CANDIDATE,
 level and its uncovered count, none on the repeats, and a new one at the change.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_coach_alert_once_per_type_until_its_count_changes`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-28: A semi-automatic run asks instead of sending (rule 14)
+Given a semi-automatic coach, a session with two uncovered spot types and no approved queue, when a run
+plans inside the window, then no `Invited` effect is emitted and one `ApprovalRequest` is, carrying for
+each open type the queue `planner.evaluate` gives for the same snapshot; a second run with nothing
+changed emits nothing.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_semi_automatic_run_asks_instead_of_sending`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-29: An approval sends the queue without the removed students, and T starts at the send (rule 14)
+Given that pending request with students A, B, C in one type's queue, when the coach approves at 19:10
+removing B, then the run sends to A and C what an automatic run would, never to B, and their invitations
+count from 19:10, not from the request's time; B is not in `said_no`.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_approval_sends_the_queue_without_the_removed_and_t_starts_at_the_send`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-30: Rounds inside the approved queue need no new approval; a student outside it asks again (rule 14)
+Given an approved queue A, C, D for a type and A, C invited, when A says No and the next run tops up,
+then D is invited with no request; when the queue is spent and the next tier's E would be invited, then
+E is not invited and a new `ApprovalRequest` is emitted.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_rounds_inside_the_approved_queue_need_no_new_approval`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-31: A pending request goes stale when nothing is left to ask for, or when the coach turns automatic (rule 14)
+Given a pending request, when the session fills, then the next run withdraws it; given another pending
+request, when the coach switches to `automatic`, then it is withdrawn and the next run sends.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_pending_request_is_withdrawn_when_nothing_is_left_or_the_mode_turns_automatic`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -291,6 +340,11 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
    `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
+6. (Swap, PAD-915) PLANNING-28 to PLANNING-31 — `invitation_engine/effects.py` (`ApprovalRequest`),
+   `invitation_engine/requests.py` (`ApproveQueue`), `invitation_engine/planner.py` (the hold, from
+   `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
+   approved queue and the pending request and sends the request through the outbox, and
+   (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
 
 ### Open questions
 - Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator
@@ -304,3 +358,15 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - `maxTotal` (today's cap on invitations ever sent per session) has no place in the plan (U4) —
   decision (owner, 2026-11-11, swap decision 3): dropped. The new engine does not read it; M is the
   only cap, as D16 defines it.
+- Semi-automatic mode (swap decision 2) — decision (owner, 2026-11-11): kept. "Semi automatic mode
+  should have exactly the same engine, but instead of sending directly the message it should ask the
+  coach permission." Rule 14's shape (one request per session with the dry run's queues, removals,
+  rounds inside the approved queue unasked, a student outside it asks again, T at the real send) is the
+  coordinator's, reversible by the owner. S's readings inside it (PAD-913): a removed student is
+  excluded from that session's automatic invitations, not a No; automatic entry and direct join are not
+  held, because they are the coach's own settings; no request before `first_invite_at`, so today's
+  "Yes, at the window" button has nothing to schedule.
+- What the coach's "Ignorar" (today's dismiss, `notifications.semi-auto-approval` rule 8) becomes —
+  not decided; proposal (S): `DismissQueue(session)`, after which the session sends nothing
+  automatically and raises no request until the coach recomputes from the class (today's rule 12).
+  Until decided, a coach who does not approve simply leaves the request pending.
