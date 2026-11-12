@@ -73,22 +73,30 @@ describe("ClassSideSheet: the students' own/other/both choice", () => {
     expect(joinClassWaitingList).toHaveBeenCalledWith(base, "left");
   });
 
-  it("[NOTIFICATIONS-CONFIG-73] after side_full, staying on the waiting list asks own, other or both again", async () => {
-    // A left-side student asks for the right; the right is full. With the coach's side choice on,
-    // "stay waiting" reopens the relative choice, preselected to the side asked for ("other").
-    createClassJoinRequest.mockReset().mockRejectedValue({
-      response: { status: 409, data: { code: "side_full", requestedSide: "right", sides: ["left"] } },
-    });
+  it("[NOTIFICATIONS-CONFIG-76] after side_full the asked side becomes own or other", async () => {
+    // With the coach's side choice on, "stay waiting" joins the asked side's list at once, in
+    // own/other terms: a left student who asked for the right waits as "other"; a student whose side
+    // is the asked one, or who plays both, waits as "own". No choice is reopened.
     const event = { ...base, engineVersion: "new" as const, waitingListSideChoice: true };
-    const n = await renderNative(<ClassSideSheet open onClose={() => {}} mode="request" event={event} profileSide="left" />);
-    await n.press("class-side-right");
-    await n.press("class-side-send");
-    await n.flush();
-    await n.press("class-side-stay-waiting");
-    for (const id of RELATIVE) expect(n.queryByTestId(id)).not.toBeNull();
-    expect(n.byTestId("class-side-send").props.disabled).toBe(false);
-    await n.press("class-side-send");
-    await n.flush();
-    expect(joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: 5 }), undefined, "other");
+    const cases: Array<[profile: "left" | "right" | "both", asked: "left" | "right", sides: string]> = [
+      ["left", "right", "other"],
+      ["left", "left", "own"],
+      ["both", "left", "own"],
+    ];
+    for (const [profile, asked, sides] of cases) {
+      joinClassWaitingList.mockClear();
+      createClassJoinRequest.mockReset().mockRejectedValue({
+        response: { status: 409, data: { code: "side_full", requestedSide: asked, sides: [asked === "left" ? "right" : "left"] } },
+      });
+      const n = await renderNative(<ClassSideSheet open onClose={() => {}} mode="request" event={event} profileSide={profile} />);
+      await n.press(`class-side-${asked}`);
+      await n.press("class-side-send");
+      await n.flush();
+      await n.press("class-side-stay-waiting");
+      await n.flush();
+      for (const id of RELATIVE) expect(n.queryByTestId(id)).toBeNull();
+      expect(joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: 5 }), undefined, sides);
+      n.root.unmount();
+    }
   });
 });
