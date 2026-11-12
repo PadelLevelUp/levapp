@@ -130,7 +130,7 @@ export function NewEngineResults({
       )}
 
       {spotTypes.map((type) => (
-        <SpotTypeBlock key={`${sideId(type.side)}-${type.levelId ?? "any"}`} type={type} />
+        <SpotTypeBlock key={`${sideId(type.side)}-${type.levelId ?? "any"}`} type={type} displayName={displayName} />
       ))}
 
       <LeftOut students={leftOut} displayName={displayName} />
@@ -138,7 +138,13 @@ export function NewEngineResults({
   );
 }
 
-function SpotTypeBlock({ type }: { type: EngineSpotType }) {
+function SpotTypeBlock({
+  type,
+  displayName,
+}: {
+  type: EngineSpotType;
+  displayName: (id: string | number, fallback: string) => string;
+}) {
   const { t } = useTranslation();
   const side = sideId(type.side);
   const verdictOf = new Map<string, EngineVerdict>(type.verdicts.map((v) => [v.playerId, v]));
@@ -165,7 +171,8 @@ function SpotTypeBlock({ type }: { type: EngineSpotType }) {
                     {t("tutorials.understandInvites.rank", { rank: entry.rank })}
                   </Text>
                   <Text className="flex-1 text-sm font-medium" numberOfLines={1}>
-                    {entry.nickname ?? entry.name}
+                    {/* PAD-683: the coach's own name for the student, the payload's as the fallback. */}
+                    {displayName(entry.playerId, entry.nickname ?? entry.name)}
                   </Text>
                 </View>
                 {/* N6: the stage's line; a queued student with no verdict in this type is waiting. */}
