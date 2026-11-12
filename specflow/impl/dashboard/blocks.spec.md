@@ -1,6 +1,6 @@
 ---
 id: dashboard.blocks
-status: implemented
+status: implementing
 depends_on: [classes.instances, messaging.conversations, notifications.activity, players.list]
 serves: [P-DASHBOARD-1]
 governed_by: []
@@ -30,8 +30,25 @@ Readings:
 - `pendingConfirmation` comes from the engine's attendance requests instead of the reminders (`notifications.engine-timeline` rule 2).
 - The `empty_seats` card is unaffected; it is where the coach alert lands unless the owner picks another channel (`notifications.engine-planning` Open questions).
 
-Not yet specified, needed before this spec's swap step (each under Open questions):
-- the card rename off "vacancy" and the coach alert's card on web and iOS (plan §6.3 item 7).
+The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the owner's approval.**
+- **NA1. A new `needs_you` item, `engine_alert`, first in the coach's order** (`engine_alert` →
+  `empty_seats` → `reply` → `validation`): one per new-engine session and spot type holding a coach
+  alert (`notifications.engine-planning` rule 11) in the current week's window (as `empty_seats`), soonest
+  first. It carries `lessonInstanceId`, the class's title, ISO date and start time, `reason`
+  (const:ALERT_NO_CANDIDATE), `side` (`left`, `right` or null for either), `level` and `count`, and
+  `href` to the class detail. It goes when the alert does (the type's count changes or the class is
+  covered). That class's `empty_seats` item is not shown too: the alert says more.
+- **NA2. The card**, web `NeedsYouQueue` and iOS `blocks.tsx`, both from one shared copy helper:
+  title "Ninguém para convidar" / "Nobody left to invite"; line "{count} vaga(s){side} · {class},
+  {weekday} {time}" / "{count} open spot(s){side} · {class}, {weekday} {time}"; hint "Convida alguém à
+  mão ou alarga os grupos de convite." / "Invite someone by hand or widen your invitation groups." (all
+  proposed). Test id `needs-you-engine-alert-<lessonInstanceId>-<side or either>`; the card opens the
+  class.
+- **NA3. The alert also reaches the coach as a message.** The store's outbox posts the
+  `coach_no_candidate` template (`notifications.message-templates` new-engine section) in the coach's
+  Assistant conversation and pushes it, once per alert (`notifications.engine-store` rule 2).
+- **NA4. No rename.** The wire names `vacancy_invite` and `empty_seats` stay: renaming them breaks older
+  builds for no reader's gain, and their copy already says "convite" and "vagas".
 
 ### Rules
 1. `GET /api/app/dashboard?from=ISO&to=ISO` returns `DashboardDefinition`
@@ -724,7 +741,30 @@ test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCA
 - **And** an unknown path maps to nothing, and the card goes nowhere
 test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `falls back to the calendar tab when the class id is not a dashboard id` (+4 more)
 
+#### DASHBOARD-BLOCKS-48: A coach alert is the first needs-you item and hides that class's empty-seats item (new-engine section NA1)
+- **Given** a coach on `new` with an alert for a right spot of Thursday's class (1 uncovered) and an `empty_seats` class on Friday
+- **When** the coach's home is read on Tuesday
+- **Then** `needs_you` starts with one `engine_alert` (that class, `no_candidate`, side `right`, `count` 1, its href), then Friday's `empty_seats`, and Thursday's class has no `empty_seats` item; after the spot is covered, the next read has no `engine_alert`
+test: `backend/padel_app/tests/test_pad920_dashboard_engine_alert.py` › `test_a_coach_alert_leads_the_queue_and_hides_its_empty_seats`
+
+#### DASHBOARD-BLOCKS-49: The alert card shows on web and iOS from one copy helper (new-engine section NA2)
+- **Given** an `engine_alert` item on web and on iOS
+- **Then** both show the card with the shared title, line and hint under `needs-you-engine-alert-<id>-right`, and pressing it opens the class
+test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineAlert.test.tsx` › `shows the coach alert card and opens the class`
+
+#### DASHBOARD-BLOCKS-50: The iOS alert card matches the web one (new-engine section NA2)
+- **Given** the same item on iOS
+- **Then** the same copy and test id show, and the card opens the native class screen
+test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-alert.test.tsx` › `shows the coach alert card and opens the class`
+
+#### DASHBOARD-BLOCKS-51: The alert reaches the coach once as a message (new-engine section NA3)
+- **Given** a `CoachAlert` in the outbox
+- **When** the outbox sends it twice
+- **Then** the coach's Assistant conversation has one `coach_no_candidate` message and the coach one push
+test: `backend/padel_app/tests/test_pad920_dashboard_engine_alert.py` › `test_the_alert_reaches_the_coach_once_as_a_message`
+
 ### Open questions
-- The class card's rename off "vacancy" and the coach alert's card on web and iOS (swap plan §6.3
-  items 2, 7; `notifications.engine-planning` rule 11) — not decided; written with this spec's swap
-  step (client step 7–8), its copy to the owner then.
+- The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,
+  PAD-913, 2026-11-12; the owner can reverse it): both a dashboard card (NA1, NA2) and one message with a
+  push (NA3), because the card shows only on the home and the class may be days away; no rename (NA4).
+  The card's copy is proposed, **for the owner's approval**.
