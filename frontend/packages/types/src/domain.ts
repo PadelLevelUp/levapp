@@ -1155,7 +1155,10 @@ export interface DashboardNeedsYouValidation {
 export interface DashboardNeedsYouVacancyInvite {
   kind: "vacancy_invite";
   id: string;
-  notificationEventId: number;
+  /** The old engine's card: answered through `respondToNotification`. */
+  notificationEventId?: number;
+  /** PAD-920 (dashboard.blocks new-engine readings): a new-engine card, answered by this id on `/notify/respond`. */
+  invitationId?: number;
   lessonInstanceId: number;
   classTitle: string;
   /** ISO date, `YYYY-MM-DD`. */

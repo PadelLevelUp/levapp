@@ -107,6 +107,13 @@
         "sideLeft": "left side",
         "sideRight": "right side",
         "hint": "Invite someone by hand or widen your invitation groups."
+      },
+      "engineAnswer": {
+        "confirmed": "You're in.",
+        "declined": "Declined.",
+        "sorry": "The spot was already taken.",
+        "closedSameHour": "You're already in another class at that time.",
+        "classStarted": "The class has started."
       }
     },
     "schedule": {

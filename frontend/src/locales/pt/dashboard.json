@@ -107,6 +107,13 @@
         "sideLeft": "lado esquerdo",
         "sideRight": "lado direito",
         "hint": "Convida alguém à mão ou alarga os grupos de convite."
+      },
+      "engineAnswer": {
+        "confirmed": "Estás inscrito.",
+        "declined": "Recusado.",
+        "sorry": "A vaga já foi ocupada.",
+        "closedSameHour": "Já estás noutra aula a essa hora.",
+        "classStarted": "A aula já começou."
       }
     },
     "schedule": {
