@@ -782,3 +782,24 @@ def test_the_invitation_records_who_answered(app):
     assert (rows[x].answered_by, rows[y].answered_by) == ("coach", "student")
     db.session.refresh(msg)
     assert (msg.msg_metadata["state"], msg.msg_metadata["answeredBy"]) == ("answered", "coach")
+
+
+def test_a_regular_the_coach_removed_stays_a_removed_regular(app):
+    """Engine-answers rule 14 (ANSWERS-29), engine-settings rule 11: a regular the coach removed from this
+    one session (the app deletes the presence and sends ``CoachExcludes``) stays in the snapshot's regulars
+    with their sides, in ``coach_removed``, out of ``going``, ``absent`` and the pool, so the planner counts
+    their seat as freed. The class's other sessions keep them as a regular."""
+    from padel_app.models.presences import Presence
+
+    store, (a, b), (reg, _, _) = _seed(app, starts=(START, START + timedelta(days=7)))
+    Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(reg)).delete()
+    db.session.commit()
+    with store.unit((a,)):
+        store.exclude(a, reg)
+
+    s = store.snapshot(a)
+    assert s.coach_removed == {reg} and reg in {r.id for r in s.regulars}
+    assert reg not in {p.student for p in s.going} and reg not in s.absent
+    assert reg not in {st.id for st in s.pool}
+    other = store.snapshot(b)
+    assert other.coach_removed == frozenset() and reg in {p.student for p in other.going}
