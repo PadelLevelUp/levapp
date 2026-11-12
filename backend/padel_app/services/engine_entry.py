@@ -68,7 +68,8 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
     if row.answer is not None or row.closed_at is not None:
         return {**out, "action": _answer_state(row, placed()), "duplicate": True}
 
-    engine(now).handle(str(row.lesson_instance_id), rq.Answer(str(row.player_id), action == "yes"), now)
+    by = "coach" if coach_id is not None else "student"          # engine-answers rule 13 (ANSWERS-28)
+    engine(now).handle(str(row.lesson_instance_id), rq.Answer(str(row.player_id), action == "yes", by=by), now)
     db.session.expire_all()
     from padel_app.services.engine_runner import send_outbox
 
