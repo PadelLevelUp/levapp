@@ -32,7 +32,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
    invitation during quiet hours (D14), before `first_invite_at` or after `last_invite_at`
    (`notifications.engine-timeline` rules 1, 3, 6).
 2. **An invitation is for a student and a session (D1).** Never for a spot. One per student per
-   session; a re-offer (`notifications.engine-answers` rule 3) changes its offer, never adds a second.
+   session; reopening a sorry invitation from the waiting list (`notifications.engine-answers` rule 4)
+   changes its offer, never adds a second.
 3. **Counting invitations (§2, D16).** An invitation counts while it is open, not answered "sorry"
    (`notifications.engine-answers` rule 4), and before its counting-until instant. Only counting
    invitations hold spots. An open invitation that stops counting stays open (rule 10).
@@ -55,7 +56,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
    In each phase, in each tier, for each type in that order:
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
       counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
-      open invitation answered "sorry" (`notifications.engine-answers` rule 4) and fit the type.
+      invitation answered "sorry" (`notifications.engine-answers` rule 4), are on this session's
+      waiting list and fit the type.
       Postponed students are not candidates (`notifications.engine-tiers` rule 10).
    2. **Cover.** The tier covers as many of the type's uncovered spots as it has **distinct**
       candidates (D5), a candidate already used on a harder type not counted twice.
@@ -63,9 +65,10 @@ Stated as observable records; storage is the engine package's (PAD-902).
       tier, else const:LOWER_TIER_PER_SPOT per covered spot (rule 6). Counting invitations from any
       tier whose offer counts for the type fill the budget first; new invitees fill the rest, chosen by
       the tier's ordering, never beyond the candidates, never above M (rule 8), never a revocation. A
-      chosen student who holds a "sorry" invitation is **re-offered** it (const:KIND_REOFFER) instead
-      of a second invitation: its offer becomes this type and its counting-until instant is fixed anew
-      (coordinator ruling (1); `notifications.engine-timeline` rule 4).
+      chosen student who holds a "sorry" invitation (on the waiting list, step 1) has it **reopened**
+      as a waiting-list invitation (const:KIND_WAITING_LIST_INVITE) instead of a second one: its offer
+      becomes this type and its counting-until instant is fixed anew (`notifications.engine-timeline`
+      rule 4).
       **A new invitee's offer is every uncovered type of this tier they fit**, so a flexible invitation
       sent for the hard type counts for the easy one too.
    4. **Pass down.** Spots the tier cannot cover pass to the next tier in the same run. An empty tier
@@ -316,11 +319,12 @@ Given 3 left, 3 right and 1 {left, right} regular, 1 right-sider available and n
 right-sider says No, then no invitation goes out and a const:COACH_ALERT is raised.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P11b-both-regular-fills-other-side]`
 
-#### NOTIFICATIONS-ENGINE-PLANNING-26: A "sorry" invitation is re-offered when the planner chooses its student (rule 5.3; ruling (1))
-Given a right-sider holding an open invitation answered "sorry" and a right spot that reopens, when the
-run tops up the right type and chooses them, then their invitation is re-offered (const:KIND_REOFFER),
-no second invitation is created, and it counts again until a new counting-until instant.
-test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_sorry_invitation_is_reoffered_not_duplicated`
+#### NOTIFICATIONS-ENGINE-PLANNING-26: A "sorry" invitation is reopened only for a student on the waiting list (rules 5.1, 5.3)
+Given two right-siders told sorry, one of whom joined the session's waiting list, when a right spot opens
+after the reminder hour and the run tops up the right type, then the one on the list has the same
+invitation reopened as const:KIND_WAITING_LIST_INVITE with a new counting-until instant, no second
+invitation is created, and the other is not a candidate.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_sorry_invitation_is_reopened_only_from_the_waiting_list`
 
 #### NOTIFICATIONS-ENGINE-PLANNING-27: The coach alert carries a reason code, the spot type and its count, once per type until the count changes (rule 11)
 Given a type with no candidate in any tier, when runs repeat with nothing changed and then the type's

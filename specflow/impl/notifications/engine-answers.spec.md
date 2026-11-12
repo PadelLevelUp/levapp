@@ -16,10 +16,9 @@ D6, D7, D20; ruling of 2026-11-11 closing Q6 and Q10; coordinator rulings (1) an
 ### Entities
 Stated as observable records; storage is the engine package's (PAD-902).
 - **READS:** the invitation and its offer, the session's counts at the moment of the answer.
-- **WRITES:** `Answered` (yes or no); `Placed` within the offer; on a re-offer, the invitation's new
-  offer and counting-until instant.
-- **CREATES:** `Message` effects of kind const:KIND_SORRY (with the waiting-list offer) or
-  const:KIND_REOFFER; `Refused` for an accept with no open invitation.
+- **WRITES:** `Answered` (yes or no); `Placed` within the offer.
+- **CREATES:** `Message` effects of kind const:KIND_SORRY (with the waiting-list offer); `Refused` for
+  an accept with no open invitation.
 
 ### Rules
 1. **Yes, and there is room (§7, D20).** The Yes succeeds when `class_empty > 0` and a spot of a type
@@ -30,18 +29,17 @@ Stated as observable records; storage is the engine package's (PAD-902).
    with the fewest candidates per open spot, candidates as `notifications.engine-planning` rule 5.1
    counts them, the answering student left out. They count under that side and may still be moved at
    `last_invite_at` (`notifications.engine-spots` rule 5).
-3. **The re-offer (§7; Q6 closed; rulings (1), (a)).** When a Yes cannot place the student within the
-   offer but an open spot they fit remains, and some tier admits them for its type
-   (`notifications.engine-tiers` rules 6, 7), the same invitation is re-offered for it:
-   const:KIND_REOFFER ("the right side filled; can you play left?"). The Yes is not recorded as a final
-   answer; the invitation stays open with that type as its offer and a new counting-until instant fixed
-   at the re-offer (`notifications.engine-timeline` rule 4). With several such types, the hardest by
-   rule 2's measure. Still one invitation (D1); the student is never placed on a side they were not told.
-4. **No room for them (§7, D4; ruling (a)).** const:KIND_SORRY: "sorry", with the offer to join the
-   session's waiting list. The invitation stays open but **does not count** toward coverage or M, and
-   the student cannot take a spot with it until a re-offer. **When a spot they fit reopens, the engine
-   re-offers it** (rule 3; ruling (1)), and from then it counts again. It stays open (D4) except as
-   rule 10 closes it.
+3. **No other-side offer (the owner, 2026-11-12: Codex decision 1 and waiting-list answer 4).** A Yes
+   that cannot place the student within the offer gets rule 4's sorry, even when a spot of another
+   type they fit is open. The engine never offers them another side or type on that answer; the
+   student is never placed on a side they were not told.
+4. **No room for them (§7, D4; the owner's decision 1).** const:KIND_SORRY: "sorry", with the offer to
+   join the session's waiting list. The Yes is recorded, the invitation **no longer counts** toward
+   coverage or M and offers nothing more: the engine never asks that student again for the session
+   because a spot reopens. **Only if they join the session's waiting list** does the same invitation
+   (D1) reopen when the list's turn reaches them, as a waiting-list invitation
+   (const:KIND_WAITING_LIST_INVITE, `notifications.engine-planning` rule 5.3), or are they placed by
+   automatic entry (`notifications.engine-settings` rule 3). Rule 10 still closes it.
 5. **No is final for this session (§7)**: a gate for automatic invitations from then on
    (`notifications.engine-tiers` rule 3). The engine runs again at once.
 6. **Cancels after accepting (§7).** The same absence rules as a regular
@@ -68,7 +66,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
     the same start. This is the safety rule; the run's efficiency rule, which does not invite a
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
-    PAD-913).** The kinds are const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED,
+    PAD-913).** The kinds are const:KIND_SORRY, const:KIND_ADDED,
     const:KIND_SIDE_MOVED and const:KIND_WAITING_LIST_INVITE. A kind that shares a name with a key of
     today's `DEFAULT_MESSAGE_TEMPLATES` means the same message (today const:KIND_WAITING_LIST_INVITE,
     the invitation sent from a waiting list). `waiting_list_offer` is not an engine kind: today it is
@@ -120,10 +118,10 @@ Given S20's run, when one of the 2 right-siders told "left" says Yes before the 
 they are placed left and the either spot stays with the first 3.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P20b-side-limit]`
 
-#### NOTIFICATIONS-ENGINE-ANSWERS-5: A Yes whose offer filled gets a re-offer for the open spot it fits (rule 3)
-Given scenario 1 at 19:08 as re-derived on PAD-900: a level-2 left-sider invited for the left, the left
-full, the right open and an other-side group admitting them, when they say Yes, then they get
-const:KIND_REOFFER to play right, not const:KIND_SORRY.
+#### NOTIFICATIONS-ENGINE-ANSWERS-5: A Yes whose offer filled gets sorry, even with another side open (rule 3)
+Given scenario 1 at 19:08: a level-2 left-sider invited for the left, the left full, the right open and
+an other-side group admitting them, when they say Yes, then they get const:KIND_SORRY with the
+waiting-list offer and no offer to play right.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[01-exemplo-completo]`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-6: A late Yes into a full session gets sorry and stops counting (rule 4; S29)
@@ -131,11 +129,12 @@ Given a right-sider holding a counting invitation and the session filled, when t
 get const:KIND_SORRY with the waiting-list offer, are not placed, and their invitation no longer counts.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P29-never-revoked]`
 
-#### NOTIFICATIONS-ENGINE-ANSWERS-7: A spot that reopens is re-offered to a student told sorry (rules 3, 4; ruling (1))
-Given a right-sider who got const:KIND_SORRY on a full session, when a right regular says No, then the
-same invitation is re-offered to them (const:KIND_REOFFER), counts again from then, and their Yes
-places them on the right.
-test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_sorry_then_reopened_spot_is_reoffered`
+#### NOTIFICATIONS-ENGINE-ANSWERS-7: A student told sorry is asked again only from the waiting list (rule 4)
+Given two right-siders told const:KIND_SORRY on a full session, one of whom joins the session's
+waiting list, when a right regular says No after the reminder hour, then only the one on the list is
+asked, their same invitation reopened as const:KIND_WAITING_LIST_INVITE, and the other is never asked
+again.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_sorry_is_asked_again_only_from_the_waiting_list`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-8: Two Yes for the last spot place exactly one (rule 7; S32)
 Given one spot left and two invitations offering it, when both say Yes at the same instant, then exactly
@@ -158,10 +157,10 @@ flexible student says Yes, then they are placed on the right and the left type, 
 tops up to 3 on the next run.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P10a-one-flexible-candidate-two-types]`
 
-#### NOTIFICATIONS-ENGINE-ANSWERS-12: After the either spot fills, a second Yes for it is re-offered the left (rule 3; S20)
+#### NOTIFICATIONS-ENGINE-ANSWERS-12: After the either spot fills, a second Yes for it gets sorry (rule 3; S20)
 Given S20's run and the either spot filled by one of the first 3 right-siders, the left spot open and a
 tier admitting right-siders for it, when a second of the first 3 says Yes, then they get
-const:KIND_REOFFER for the left, not a place.
+const:KIND_SORRY, not a place and not an offer of the left.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P20a-side-limit]`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-13: A Yes to one of two same-hour sessions closes the other invitation (rule 10; Tomás)
@@ -238,8 +237,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
    the offer, refusals).
 2. (W6) ANSWERS-4, ANSWERS-5, ANSWERS-6, ANSWERS-7, ANSWERS-8, ANSWERS-11, ANSWERS-12 — `invitation_engine/answers.py`
-   (`reoffer`, `sorry`, not counting after sorry), `invitation_engine/planner.py` (re-offer on a
-   reopened spot), `adapters/new.py` (`sorry` logged as `aviso`).
+   (`sorry`, not counting after sorry), `invitation_engine/planner.py` (a sorry invitation reopened only
+   from the waiting list), `adapters/new.py` (`sorry` logged as `aviso`).
+   (Owner decisions, PAD-913) ANSWERS-5, ANSWERS-7, ANSWERS-12 again: the `reoffer` kind and the
+   other-side offer go (`effects.py`, `answers.py`, `planner.py`, `adapters/new.py`).
 3. (Swap) ANSWERS-10 — a table-backed `SessionStore`, out of scope for PAD-899 (`store.py`); at the
    engine swap.
 4. (PAD-911) ANSWERS-13 to ANSWERS-17 — `invitation_engine/answers.py` (a placement closes the other
@@ -255,8 +256,11 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    (one entry per student and session); ANSWERS-22 — the store's apply (`SameHourConflict`).
 
 ### Open questions
-- A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
-  2's measure, because it is D6's rule for an either-side Yes.
+- The re-offer (Q6; the coordinator's ruling (1) of 2026-11-11) — **reversed by the owner**
+  (2026-11-12): no re-offer after sorry ("we can't keep bothering people … that's exactly why we created
+  the waiting list", Codex decision 1) and no other-side offer on a Yes ("sorry" with the waiting-list
+  offer, waiting-list inspection answer 4). A sorry student is asked again only through the waiting
+  list they joined (rule 4); that reading of decision 1 together with answer 1 is S's (PAD-913).
 - A coach's add to a session at an hour where the student is already placed (rule 10) — not an
   engine path; covered at the engine swap (refused with the reason, Tomás's "nunca se quebra"; the
   owner may want a coach override, review pack).

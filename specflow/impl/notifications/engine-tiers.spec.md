@@ -108,7 +108,7 @@ the coach's list).
     `removed_by_coach`, `not_in_pool` for a block, or `failed_tier_rule`); `invited_before` (their invitation
     for this session closed without a No, after an accept then a cancellation or by a same-hour
     placement: D1 allows no second one, so the run never reaches them); or, with its tier, `invited`
-    (this run sends or re-offers it with an offer that covers the type by side; an either type is
+    (this run sends or reopens it with an offer that covers the type by side; an either type is
     covered by any side), `invited_for_other_type` (this run invites them for another type, and the
     offer does not cover this one), `invited_earlier` (an open invitation, not sorry) or `waiting` (a
     candidate this run does not reach). A type's queue leaves out `invited_before` and

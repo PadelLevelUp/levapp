@@ -54,8 +54,8 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
 
 8. **Invitation messages and alerts stay current** (`notifications.invitations` NB1a;
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
-   `closed_reason` and `reoffered_at`, writes the invitation's state (`open`, `answered` with `response`
-   and `answeredBy`, `sorry`, `reoffered`, `withdrawn`, `closed_same_hour`) and `startsAt`/`countsUntil`
+   `closed_reason` and `reopened_at`, writes the invitation's state (`open`, `answered` with `response`
+   and `answeredBy`, `sorry`, `reopened`, `withdrawn`, `closed_same_hour`) and `startsAt`/`countsUntil`
    on every attached message, and publishes one `message_edited` per message after the commit. A
    withdrawal is the store's own `withdraw(invitation_id, at)`, which rule 19's route calls; it is no
    engine effect. An `AlertCleared` drops that alert.
@@ -109,9 +109,9 @@ third are planned and committed, the second's unit is rolled back, and one failu
 test: `backend/padel_app/tests/test_pad918_engine_tick.py` › `test_the_tick_plans_each_session_and_goes_on_past_a_failure`
 
 #### NOTIFICATIONS-ENGINE-STORE-7: Every message of an invitation follows its state, once per change (rule 8)
-Given an invitation with its first bubble, when the store applies a sorry, a re-offer (a second bubble),
+Given an invitation with its first bubble, when the store applies a sorry, a reopening from the waiting list (a second bubble),
 then `withdraw`, then both messages carry each state in turn, `closed_reason` is `withdrawn`,
-`reoffered_at` is set, and each change publishes one `message_edited` per attached message after commit.
+`reopened_at` is set, and each change publishes one `message_edited` per attached message after commit.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_every_message_of_an_invitation_follows_its_state`
 
 #### NOTIFICATIONS-ENGINE-STORE-8: An AlertCleared drops the alert (rule 8)

@@ -38,7 +38,7 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    `notifications.config` rule 19). Nobody is invited during them, from any tier; they never reorder tiers; they
    pause every invitation's counting. Answers during them count.
 4. **An invitation's T is fixed when it is sent (ruling D-E6).** For each invitation the run creates (or
-   re-offers), T is `between_rounds` when, after that run's sends, the invitation's tier still has
+   reopens from the waiting list), T is `between_rounds` when, after that run's sends, the invitation's tier still has
    uninvited candidates for any type in the offer, and `between_groups` when it has none; with Method B,
    T is the tier's share (`notifications.engine-settings` rule 2). The invitation counts until T has
    run, quiet hours not counted; then it stops counting and stays open. A No never changes another
