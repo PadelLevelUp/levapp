@@ -13,7 +13,8 @@ What the new engine's table-backed store guarantees when it writes the engine's 
 messages (PAD-916; swap plan §5). The engine decides; the store makes each decision land exactly once.
 
 ### Entities
-- **READS:** the engine's effects (`invitation_engine/effects.py`).
+- **READS:** the engine's effects (`invitation_engine/effects.py`); the coach's level ladder and each
+  account's status, to build the snapshot.
 - **WRITES:** `EngineEffect` (one row per effect applied), `EngineInvitation`, the app's presences and
   messages through the outbox (`padel_app/services/engine_store.py`, `dispatch`).
 
@@ -28,6 +29,12 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    (`notifications.engine-planning` rule 2), a second waiting-list entry (`notifications.engine-answers`
    rule 12) and a second placement at the same hour (`notifications.engine-answers` rule 10) are
    refused; their criteria are in those specs.
+4. **The store hands the engine levels as ladder positions.** Each level the engine reads (a student's
+   and the class's) is its position on the session's coach's ladder, 1 the strongest and consecutive,
+   counted as the app's `ladder_index` counts it, whatever the stored `display_order` values; a level
+   that is not on that coach's ladder (another coach's level) reaches the engine as none, which fails
+   every level rule (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
+   account's `User.status`.
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -52,8 +59,14 @@ run sends three rows (the two invitations and the message), the second sends non
 is never sent.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_outbox_sends_each_message_once`
 
+#### NOTIFICATIONS-ENGINE-STORE-3: Levels reach the engine as ladder positions (rule 4)
+Given a coach's ladder with `display_order` 10 and 30 and a student holding another coach's level, when
+the store builds a snapshot, then the two levels are positions 1 and 2, the other coach's level is none,
+and each student's `subscription_status` is their account's status.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_levels_reach_the_engine_as_ladder_positions`
+
 ### Waves
-1. (PAD-916) STORE-1, STORE-2 — `padel_app/services/engine_store.py` (content keys, the outbox,
+1. (PAD-916) STORE-1, STORE-2, STORE-3 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 
 ### Open questions
