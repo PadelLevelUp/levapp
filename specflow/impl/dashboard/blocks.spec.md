@@ -51,7 +51,8 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   lessonInstanceId, reason, side, levelId, levelLabel, count, href, date}` (`notifications.invite-simulation`
   N2's spot-type shape; `href` the class's `class_href(event)`, `date` the class's club-local
   `YYYY-MM-DD`), and pushes it, once per alert (`notifications.engine-store` rule 2). Both shells show
-  it as a text bubble with a link to the class.
+  it as a text bubble with a link to the class, which reads "Abrir aula" / "Open class" (proposed; its
+  own key `messages.engineAlert.openClass`, not a fallback title).
 - **NA4. No rename.** The wire names `vacancy_invite` and `empty_seats` stay: renaming them breaks older
   builds for no reader's gain, and their copy already says "convite" and "vagas".
 
