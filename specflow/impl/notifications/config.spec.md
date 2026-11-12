@@ -385,9 +385,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
 18. **Which engine a session runs on (swap plan §7; coordinator ruling on PAD-912).** Each coach has an
     engine switch (`engine_version`: `old` or `new`; `old` for every coach until the coach is
-    switched). A session runs on the new engine when its coach is on `new` and its invitation window
-    had not opened when the coach was switched; a session already inviting at the switch finishes on
-    the old engine until it starts (it drains). Every entry point that reaches an engine reads this
+    switched). A session runs on the new engine when its coach is on `new` and, when the coach was
+    switched, its invitation window had not opened and the old engine had not started inviting for it
+    (a coach's "invite now" before the window, an approved semi-automatic spot); a session already
+    inviting at the switch finishes on the old engine until it starts (it drains). The switch is one
+    way: nothing moves a coach back to `old`, and a session never changes engine after it is
+    assigned. Every entry point that reaches an engine reads this
     rule: the new engine's `sessions()` lists only new-engine sessions, and the old tick only
     old-engine ones. Where another spec says "a coach on the new engine" or "a coach on the old
     engine", it means a session this rule assigns to that engine. Once a coach has no old-engine
@@ -422,9 +425,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     - `invitationGroups` → `tiers`, one tier per stored group in the coach's order, after the coach's
       list and the students' list, each carrying the group's rules (`notifications.engine-tiers`
       rule 13, decision 5); a group with no rules ("everyone") is a pool tier of any side and any level
-      (`level_offset` none). Until the tier carries every rule kind, a group holding a rule the tier
-      cannot express is refused (`SettingsError` naming the group and the rule), and that coach cannot
-      be switched to the new engine (rule 18): no group is rounded to a nearer tier.
+      (`level_offset` none). Every stored group maps: the tier carries the group's rules as they are
+      stored, and an attribute or operation the engine does not know is read as today
+      (`notifications.engine-tiers` rule 13), never refused and never rounded to a nearer tier;
+    - an ordering id the engine does not know (`notifications.engine-tiers` rule 8) is left out of
+      `ordering`, so a coach is never refused for it; `maxSimultaneous` below 1 maps to 1; a criterion
+      in both the priority list and the tiebreakers ranks once.
     The keys only the new engine has (`timing.method` and
     `per_tier`, automatic entry, side-bound lists) take the engine's defaults, which are the plan.
 
@@ -817,11 +823,17 @@ Given a coach in `semi_automatic` mode and one in `automatic`, when the store bu
 `EngineSettings`, then each carries its stored mode.
 test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invitation_mode_is_carried`
 
-#### NOTIFICATIONS-CONFIG-59: A group the tier cannot express is refused, never rounded (rule 19)
-Given a group with a rule the engine's tier does not carry yet, when the store builds the coach's
-`EngineSettings`, then it raises `SettingsError` naming the group and the rule, and no tier is built
-for it.
-test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_a_group_the_tier_cannot_express_is_refused`
+#### NOTIFICATIONS-CONFIG-59: Every stored group maps, an unknown rule included (rule 19)
+Given a group with a rule whose attribute the engine does not know and a group with an unknown level
+operation, when the store builds the coach's `EngineSettings`, then no `SettingsError` is raised and
+each group is one tier carrying its rules as stored.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_every_stored_group_maps_an_unknown_rule_included`
+
+#### NOTIFICATIONS-CONFIG-61: A session the old engine already started stays on the old engine (rule 18)
+Given a coach on `old` with a session whose window has not opened but for which the coach pressed
+"invite now", when the coach is switched to `new`, then that session drains on the old engine and the
+new engine's `sessions()` never lists it.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_session_the_old_engine_already_started_stays_on_the_old_engine`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
@@ -842,6 +854,14 @@ test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_a_grou
   semi-automatic is kept ("exactly the same engine, but instead of sending directly the message it
   should ask the coach permission"), `maxTotal` is dropped, the cancellation deadline marks on time or
   late only ("justified or unjustified is always a coach's judgement"), and groups become tiers one
-  for one ("it cannot be well built if it doesn't take into account these important rules"). Refusing
-  a group the tier cannot yet express, rather than mapping it to the nearest tier, is S's decision
-  (PAD-913): a nearest tier would ask a different set of students than the coach's group, silently.
+  for one ("it cannot be well built if it doesn't take into account these important rules"). Once the
+  tier carried the group rules (N, PAD-915), every stored group maps; S's earlier interim refusal of a
+  group the tier could not express is retired with it.
+- The switch's way back, and a session the old engine started early (rule 18) — decisions (R, PAD-917,
+  owner away; the coordinator agrees; the owner can reverse them): the switch is one way, because rule
+  18 names no way back and a session moving between engines mid-flight would lose its invitations; a
+  session the old engine had already started inviting for before its window ("invite now", an
+  approved semi-automatic spot) is "already inviting" and drains on the old engine.
+- Ordering ids the engine does not know, `maxSimultaneous` below 1, a criterion in both lists —
+  decisions (R, PAD-917, owner away): dropped from `ordering` rather than refusing the coach, mapped to
+  1, ranked once, so a coach's stored settings never block the switch.
