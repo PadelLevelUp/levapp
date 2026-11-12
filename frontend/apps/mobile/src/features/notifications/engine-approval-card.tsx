@@ -36,6 +36,14 @@ type Props = {
 
 type Outcome = "approved" | "dismissed" | "stale";
 
+/** N4/N5: what a request no longer pending says; `replaced` (or an older `responded`) reads as stale. */
+function outcomeFromState(state: string | undefined, responded: boolean): Outcome | null {
+  if (state === "approved") return "approved";
+  if (state === "dismissed") return "dismissed";
+  if (state === "replaced") return "stale";
+  return responded ? "stale" : null;
+}
+
 /**
  * PAD-920 (semi-auto-approval N5): the card for a new-engine request, on iOS. One block per spot
  * type (side, level and its open spots) with its queue in order (rule 7a's preview: the first five,
@@ -50,18 +58,19 @@ export function EngineApprovalCard({ source, readOnly = false, onResult, allowDi
   const [removed, setRemoved] = React.useState<string[]>([]);
   const [expanded, setExpanded] = React.useState<Record<number, boolean>>({});
   const [responding, setResponding] = React.useState(false);
-  // N4/N5: a message no longer pending says what became of it; `replaced` reads as a stale answer.
-  const [outcome, setOutcome] = React.useState<Outcome | null>(
-    request?.state === "dismissed"
-      ? "dismissed"
-      : request?.state === "approved"
-        ? "approved"
-        : request?.state === "replaced"
-          ? "stale"
-          : null
-  );
+  // N2: set before the await, so a second tap in the same frame never sends a second answer.
+  const inFlight = React.useRef(false);
+  // Only the coach's own answer here is state; what the request says is read on every render, so a
+  // `message_edited` turning a mounted card replaced, approved or dismissed shows that line (N4/N5).
+  const [localOutcome, setLocalOutcome] = React.useState<Outcome | null>(null);
 
   if (!request) return null;
+  const stateOutcome = outcomeFromState(request.state, request.responded);
+  // A `stale` answer never hides an approval or a dismissal the request already reads.
+  const outcome =
+    localOutcome === "stale" && (stateOutcome === "approved" || stateOutcome === "dismissed")
+      ? stateOutcome
+      : (localOutcome ?? stateOutcome);
   const actionable = !outcome && !request.responded && !readOnly;
 
   const toggleRemoved = (playerId: string) =>
@@ -70,7 +79,8 @@ export function EngineApprovalCard({ source, readOnly = false, onResult, allowDi
     );
 
   const handleRespond = async (action: "yes_now" | "dismiss") => {
-    if (responding || !actionable) return;
+    if (inFlight.current || !actionable) return;
+    inFlight.current = true;
     setResponding(true);
     try {
       const result = await notificationEngineApi.respondToEngineApproval({
@@ -79,11 +89,14 @@ export function EngineApprovalCard({ source, readOnly = false, onResult, allowDi
         ...(action === "yes_now" ? { removed } : {}),
       });
       // N2: an answer naming a request no longer pending decided nothing; the card says so.
-      setOutcome(result.result);
+      setLocalOutcome((prev) =>
+        result.result === "stale" && (prev === "approved" || prev === "dismissed") ? prev : result.result
+      );
       if (result.result !== "stale") onResult?.(action);
     } catch {
       toast.error(t("notificationsUi.replacementApproval.genericError"));
     } finally {
+      inFlight.current = false;
       setResponding(false);
     }
   };

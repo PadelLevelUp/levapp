@@ -140,6 +140,7 @@ import {
   type AttendancePayloadItem,
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
+import { nextEngineClassCard, showsEngineRecompute } from "@/features/notifications/engine-approval-class-state";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import {
   eventFromLessonInstance,
@@ -338,17 +339,14 @@ export default function ClassDetailScreen() {
         if (isEngineApproval(s)) {
           // N1: the pending request is the card; a dismissed session offers the recompute. A
           // request the coach just approved here stays until the class is closed (PAD-770).
-          setEngineApproval((prev) =>
-            s.state === "pending" && s.request
-              ? s
-              : prev?.request && answeredBundleIdsRef.current.has(String(prev.request.requestId))
-                ? prev
-                : null
-          );
+          setEngineApproval((prev) => nextEngineClassCard(prev, { kind: "read", state: s }, answeredBundleIdsRef.current));
+          // No old-engine card beside a new-engine one.
+          setApprovalBundles([]);
           setSuggestionsIgnored(s.state === "dismissed");
           return;
         }
         // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
+        setEngineApproval(null);
         setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
@@ -365,8 +363,13 @@ export default function ClassDetailScreen() {
     try {
       const s = await notificationEngineApi.recomputeApprovalState(suggestionsInstanceId);
       // N3: a reopened session's fresh request replaces the card.
-      if (isEngineApproval(s)) setEngineApproval(s.state === "pending" && s.request ? s : null);
-      else if (s.state === "pending" && s.bundle) setApprovalBundles(suggestionBundles(s));
+      if (isEngineApproval(s)) {
+        setEngineApproval((prev) => nextEngineClassCard(prev, { kind: "recompute", state: s }, answeredBundleIdsRef.current));
+        setApprovalBundles([]);
+      } else if (s.state === "pending" && s.bundle) {
+        setEngineApproval(null);
+        setApprovalBundles(suggestionBundles(s));
+      }
       setSuggestionsIgnored(false);
     } catch {
       toast.error(t("notificationsUi.replacementApproval.genericError"));
@@ -1812,8 +1815,9 @@ export default function ClassDetailScreen() {
                 bundle={engineApproval}
                 allowDismiss
                 onResult={(action) => {
+                  // The card stays, reading "Ignorado", with the recompute beside it (web's ClassDetailSheet).
                   if (action === "dismiss") {
-                    setEngineApproval(null);
+                    setEngineApproval((prev) => nextEngineClassCard(prev, { kind: "dismissed" }, answeredBundleIdsRef.current));
                     setSuggestionsIgnored(true);
                   } else {
                     answeredBundleIdsRef.current.add(String(engineApproval.request!.requestId));
@@ -1823,7 +1827,7 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
-          {isCoach && !isEditing && approvalBundles.length === 0 && !engineApproval && suggestionsIgnored ? (
+          {isCoach && !isEditing && approvalBundles.length === 0 && showsEngineRecompute(engineApproval) && suggestionsIgnored ? (
             <>
               <Separator />
               <Button

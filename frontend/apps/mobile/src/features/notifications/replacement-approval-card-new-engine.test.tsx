@@ -9,7 +9,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactTestInstance } from "react-test-renderer";
+import { act, type ReactTestInstance } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { EngineApprovalMeta, EngineApprovalState } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
@@ -256,6 +256,47 @@ describe("the iOS card for a new-engine request (semi-auto-approval N5)", () => 
     const legacy = await renderNative(wrap(<ReplacementApprovalCard bundle={message(19, { state: undefined, responded: true })} />));
     expect(text(legacy.byTestId("approval-replaced"))).toBe(pt("notificationsUi.replacementApproval.engine.replaced"));
     noButtons(legacy);
+
+    // A live `message_edited` on a mounted card shows its line and takes the buttons away (N4/N5).
+    const live = await renderNative(wrap(<ReplacementApprovalCard bundle={message(20)} />));
+    expect(live.queryByTestId("approval-yes")).not.toBeNull();
+    await live.rerender(wrap(<ReplacementApprovalCard bundle={message(20, { state: "replaced", responded: true })} />));
+    expect(text(live.byTestId("approval-replaced"))).toBe(pt("notificationsUi.replacementApproval.engine.replaced"));
+    noButtons(live);
+    await live.rerender(wrap(<ReplacementApprovalCard bundle={message(20, { state: "approved", responded: true })} />));
+    expect(text(live.byTestId("approval-outcome"))).toBe(pt("notificationsUi.replacementApproval.approved"));
+    expect(live.queryByTestId("approval-replaced")).toBeNull();
+    noButtons(live);
+    await live.rerender(wrap(<ReplacementApprovalCard bundle={message(20, { state: "dismissed", responded: true })} />));
+    expect(text(live.byTestId("approval-outcome"))).toBe(pt("notificationsUi.replacementApproval.engine.dismissed"));
+    noButtons(live);
+
+    // N2: two taps in a row send one answer; the second lands while the first is in flight.
+    respondToEngineApproval.mockReset();
+    let settle!: (v: unknown) => void;
+    respondToEngineApproval.mockReturnValueOnce(new Promise((r) => (settle = r)));
+    const twice = await renderNative(wrap(<ReplacementApprovalCard bundle={classState(21)} allowDismiss />));
+    const yes = twice.byTestId("approval-yes").props.onPress as () => void;
+    await act(async () => {
+      yes();
+      yes();
+    });
+    settle({ engine: "new", requestId: 21, result: "approved", state: "none" });
+    await twice.flush();
+    expect(respondToEngineApproval).toHaveBeenCalledTimes(1);
+    expect(text(twice.byTestId("approval-outcome"))).toBe(pt("notificationsUi.replacementApproval.approved"));
+
+    // A `stale` answer never hides an approval the message already reads (sent before the edit landed).
+    respondToEngineApproval.mockReset();
+    let settleStale!: (v: unknown) => void;
+    respondToEngineApproval.mockReturnValueOnce(new Promise((r) => (settleStale = r)));
+    const race = await renderNative(wrap(<ReplacementApprovalCard bundle={message(22)} />));
+    await race.press("approval-yes");
+    await race.rerender(wrap(<ReplacementApprovalCard bundle={message(22, { state: "approved", responded: true })} />));
+    settleStale({ engine: "new", requestId: 22, result: "stale" });
+    await race.flush();
+    expect(text(race.byTestId("approval-outcome"))).toBe(pt("notificationsUi.replacementApproval.approved"));
+    expect(race.queryByTestId("approval-replaced")).toBeNull();
 
     // Every word the card asked for is in the pt locale.
     expect(missing).toEqual([]);
