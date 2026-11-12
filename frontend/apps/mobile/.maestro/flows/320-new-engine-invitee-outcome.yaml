@@ -1,0 +1,42 @@
+# PAD-920 / calendar.event-detail ND1-ND2 (EVENT-DETAIL-36) on iOS: on a new-engine class the coach's
+# screen shows the open spots with the pending count, and the invitee's outcome with where the
+# invitation came from (the coach's list).
+#
+# HAND-RUN SETUP (tag hand-run-setup; the Android lane and whole-suite runs skip it): run
+# `scripts/new-engine-setup.py invite` against the backend under test first. It switches e2e-coach to
+# the new engine, makes the class "E2E New Engine iOS" 3 days out, puts E2E Student on the coach's
+# list for it and runs one engine tick, which invites E2E Student. Run 320 before 321: 321 answers the
+# invitation and removes the class.
+# Asserted by testID and server values only (PAD-320). Backend: -e API_BASE=http://localhost:<port>,
+# else :5001. Flow number 320 from the coordinator.
+appId: com.padellevelup.app
+tags:
+  - hand-run-setup
+onFlowStart:
+  - runScript: ../scripts/new-engine-class.js
+---
+- assertTrue: "${output.instanceId != null}"
+- evalScript: "${output.row = output.detail().invitations.filter(function (r) { return String(r.playerId) === output.studentId; })[0]}"
+- assertTrue: "${output.row != null && output.row.outcome === 'pending' && output.row.tierSource === 'coach_list'}"
+
+- runFlow: ../subflows/login-coach.yaml
+- openLink: "levelup://class/${output.instanceId}"
+- scrollUntilVisible:
+    element:
+      id: "class-open-spots"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "class-invited-toggle"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "class-invited-toggle"
+- extendedWaitUntil:
+    visible:
+      id: "invitee-outcome-${output.studentId}-pending"
+    timeout: 15000
+- assertVisible:
+    id: "invitee-tier-${output.studentId}"
+- takeScreenshot: .maestro/evidence/320-new-engine-invitee-outcome

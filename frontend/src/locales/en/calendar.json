@@ -278,7 +278,16 @@
       "comeBack": "I can come after all",
       "spotTaken": "Your spot has been taken",
       "onWaitingList": "You're on the waiting list",
-      "declinedFinalChat": "Talk to the coach"
+      "declinedFinalChat": "Talk to the coach",
+      "outcomeSorry": "Said yes, no spot",
+      "outcomeNotCounting": "No answer · no longer counts",
+      "reopened": "reopened",
+      "tierGroup": "group {{n}}",
+      "tierCoachList": "coach's list",
+      "tierWaitingList": "waiting list",
+      "outcomeClosedSameHour": "In another class at the same time",
+      "outcomeCancelled": "Accepted, then cancelled",
+      "tierManual": "manual invitation"
     },
     "planning": {
       "title": "Planning ({{count}})",
@@ -549,7 +558,11 @@
         "not_visible": "This class is not open to requests",
         "spot_filled": "This class is already full",
         "ineligible": "You do not meet this class's eligibility bar",
-        "not_pending": "This request was already decided"
+        "not_pending": "This request was already decided",
+        "busy_same_hour": "You're already in another class at the same time",
+        "side_full": "There's no spot left on your side. You can join the waiting list.",
+        "has_spots": "This class still has spots: ask to join.",
+        "already_on_list": "You're already on this class's waiting list."
       },
       "coachTitle_one": "{{count}} request to join",
       "coachTitle_other": "{{count}} requests to join",
@@ -609,7 +622,12 @@
       "on": "On waiting list",
       "onHint": "We'll let you know if a spot opens.",
       "failed": "Couldn't join the waiting list",
-      "fullHint": "This class is full. You can join its waiting list."
+      "fullHint": "This class is full. You can join its waiting list.",
+      "sideChoice": {
+        "own": "My side",
+        "other": "The other side",
+        "both": "Both"
+      }
     },
     "side": {
       "label": "Side in this class",
@@ -716,6 +734,9 @@
         "label": "Side",
         "none": "No preference"
       }
+    },
+    "busySameHour": {
+      "line": "{{name}} is already in another class at the same time ({{title}}, {{date}} {{time}}). Remove them from that class first."
     }
   }
 }

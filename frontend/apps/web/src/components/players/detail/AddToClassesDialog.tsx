@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { canStepBackPickerWeek, upcomingPickerClasses, WEEK_STARTS_ON } from "@levelup/config";
+import { busySameHourClashes, busySameHourLines, canStepBackPickerWeek, resolveText, upcomingPickerClasses, WEEK_STARTS_ON } from "@levelup/config";
 import { cn } from "@/lib/utils";
 import { dateFnsLocale } from "@/lib/dateLocale";
 
@@ -48,6 +48,9 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
   // stand in for the "name"), one line per failed rule.
   const [ineligibleClasses, setIneligibleClasses] = useState<EligibilityCheckEntry[]>([]);
   const [pendingTargets, setPendingTargets] = useState<CalendarEvent[] | null>(null);
+  // PAD-920 (classes.instance-enrollment rule 15): the classes that refused the add because the
+  // student is already in another class at the same hour, each with its lines.
+  const [refused, setRefused] = useState<{ id: string; lines: string[] }[]>([]);
 
   const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: WEEK_STARTS_ON }), [weekStart]);
 
@@ -127,16 +130,21 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
 
     let successCount = 0;
     let failureCount = 0;
+    const refusals: { id: string; lines: string[] }[] = [];
     for (const cls of targets) {
       try {
         await editClass(cls, { addPlayers: [String(player.playerId)] }, "single");
         successCount++;
-      } catch {
-        failureCount++;
+      } catch (err) {
+        // A same-hour refusal names the other class; every other failure stays the generic toast.
+        const clashes = busySameHourClashes(err);
+        if (clashes) refusals.push({ id: cls.id, lines: busySameHourLines(clashes, i18n.language).map((l) => resolveText(t, l)) });
+        else failureCount++;
       }
     }
 
     setSaving(false);
+    setRefused(refusals);
 
     if (successCount > 0) {
       toast.success(t("players.addedToClasses", { name: player.displayName || player.name, count: successCount }));
@@ -146,7 +154,8 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
     }
     if (successCount > 0) {
       onSave?.(Array.from(selectedIds));
-      onClose();
+      // The dialog stays open on a refusal so the coach reads which class refused and why.
+      if (refusals.length === 0) onClose();
     }
   };
 
@@ -313,6 +322,20 @@ export function AddToClassesDialog({ open, onClose, onSave, player }: AddToClass
             </div>
           )}
         </div>
+
+        {refused.length > 0 && (
+          <div data-testid="add-to-classes-busy-same-hour" className="rounded-md border border-destructive/40 bg-destructive/5 p-2 space-y-1">
+            {refused.map((r) => (
+              <div key={r.id} data-testid={`add-to-classes-busy-same-hour-${r.id}`}>
+                {r.lines.map((line, i) => (
+                  <p key={i} data-testid={`add-to-classes-busy-same-hour-line-${r.id}-${i}`} className="text-xs text-destructive">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         <DialogFooter className="pt-2" data-testid="add-to-classes-footer">
           <Button variant="outline" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>

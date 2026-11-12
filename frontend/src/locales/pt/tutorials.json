@@ -51,7 +51,9 @@
       "invitation_window": "Os convites só abrem a {{opensAt}}.",
       "quiet_hours": "Horas de silêncio — os convites retomam às {{until}}.",
       "min_time_before_class": "Faltam menos de {{minutes}} minutos para a aula.",
-      "max_total_reached": "Já foram enviados {{sent}} convites para esta aula (limite {{limit}})."
+      "max_total_reached": "Já foram enviados {{sent}} convites para esta aula (limite {{limit}}).",
+      "last_invite_before": "Já passou a hora do último convite",
+      "class_auto_invites_off": "Convites automáticos desligados nesta aula"
     },
     "gatesOk": {
       "auto_notify_disabled": "Motor de convites ligado",
@@ -190,6 +192,37 @@
       "player": "nível do aluno que falta",
       "class": "nível da aula (o aluno não tem nível)",
       "none": "nem o aluno nem a aula têm nível"
+    },
+    "engine": {
+      "stage": {
+        "in_session": "Já está na aula",
+        "said_no": "Disse que não a esta aula",
+        "removed_by_coach": "Retiraste-o da lista",
+        "busy_same_time": "Noutra aula à mesma hora",
+        "postponed": "Fica para depois: já tem um convite ativo hoje, ou chegou ao limite diário",
+        "failed_eligibility": "Fora da elegibilidade",
+        "failed_tier_rule": "Fora dos grupos de convite",
+        "invited_before": "Já foi convidado para esta aula",
+        "invited": "Convidado agora",
+        "invited_for_other_type": "Convidado para o outro lado",
+        "invited_earlier": "Já tem um convite em aberto",
+        "waiting": "Na fila"
+      },
+      "reason": {
+        "excluded_for_session": "Excluído desta aula",
+        "excluded_players": "Na tua lista de excluídos",
+        "same_day_class": "Já tem aula neste dia",
+        "inactive_account": "Conta inativa",
+        "blocks_auto_invitations": "Não quer convites automáticos",
+        "blocks_all": "Desligou todas as notificações",
+        "availability_blocker": "Indisponível a esta hora"
+      },
+      "other": "Outro motivo",
+      "openSpots_one": "{{count}} vaga",
+      "openSpots_other": "{{count}} vagas",
+      "sideEither": "Qualquer lado",
+      "leftOutTitle": "Quem não entra e porquê",
+      "openSpots_zero": "{{count}} vagas"
     }
   }
 }

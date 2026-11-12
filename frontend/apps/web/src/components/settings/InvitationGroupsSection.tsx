@@ -4,141 +4,28 @@ import { GripVertical, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { InvitationGroup, GroupRule } from "@/types";
+import type { EngineTimingMethod, EngineTimingPair } from "@levelup/types";
+import {
+  DEFAULT_INVITATION_GROUPS,
+  FIXED_TIERS,
+  MAX_TIERS,
+  SIDE_BALANCE_EXAMPLES,
+  moveTier,
+  perTierAfterMove,
+  perTierAfterRemove,
+  perTierAligned,
+  tierAttributesFor,
+  type TierAttribute,
+} from "@levelup/config";
+import { EngineStepper } from "./EngineStepper";
 
-const AVAILABLE_ATTRIBUTES = [
-  {
-    id: "level",
-    labelKey: "settings.invitationGroups.attributes.level",
-    operations: [
-      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.sameAsVacancy" },
-      { id: "one_above_vacancy", labelKey: "settings.invitationGroups.operations.oneAboveVacancy" },
-      { id: "one_below_vacancy", labelKey: "settings.invitationGroups.operations.oneBelowVacancy" },
-      { id: "all_above_vacancy", labelKey: "settings.invitationGroups.operations.allAboveVacancy" },
-      { id: "all_below_vacancy", labelKey: "settings.invitationGroups.operations.allBelowVacancy" },
-    ],
-    valueType: "none" as const,
-  },
-  {
-    id: "side",
-    labelKey: "settings.invitationGroups.attributes.side",
-    operations: [
-      // PAD-564: the stored operation stays `same_as_vacancy`; the copy is SideBalanceHelp's.
-      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.balanceSides" },
-    ],
-    valueType: "none" as const,
-  },
-  {
-    id: "has_makeups",
-    labelKey: "settings.invitationGroups.attributes.hasMakeups",
-    operations: [
-      { id: "is_true", labelKey: "settings.invitationGroups.operations.hasPendingMakeup" },
-    ],
-    valueType: "none" as const,
-  },
-  {
-    id: "unjustified_absences",
-    labelKey: "settings.invitationGroups.attributes.unjustifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.invitationGroups.operations.lessThan" },
-      { id: "equals", labelKey: "settings.invitationGroups.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.invitationGroups.operations.atMost" },
-    ],
-    valueType: "number" as const,
-  },
-  {
-    id: "justified_absences",
-    labelKey: "settings.invitationGroups.attributes.justifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.invitationGroups.operations.lessThan" },
-      { id: "equals", labelKey: "settings.invitationGroups.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.invitationGroups.operations.atMost" },
-    ],
-    valueType: "number" as const,
-  },
-  {
-    id: "attendance_rate",
-    labelKey: "settings.invitationGroups.attributes.attendanceRate",
-    operations: [
-      { id: "greater_than", labelKey: "settings.invitationGroups.operations.greaterThan" },
-      { id: "greater_than_or_equal", labelKey: "settings.invitationGroups.operations.atLeast" },
-    ],
-    valueType: "percentage" as const,
-  },
-  {
-    id: "subscription_status",
-    labelKey: "settings.invitationGroups.attributes.subscription",
-    operations: [
-      { id: "equals", labelKey: "settings.invitationGroups.operations.is" },
-    ],
-    valueType: "select" as const,
-    valueOptions: [
-      { id: "active", labelKey: "settings.invitationGroups.subscriptionActive" },
-      { id: "inactive", labelKey: "settings.invitationGroups.subscriptionInactive" },
-    ],
-  },
-];
+// PAD-920: the attributes, defaults and examples live in @levelup/config (invitation-tiers), shared
+// with the iOS tiers editor. Re-exported here so existing importers keep working.
+export { DEFAULT_INVITATION_GROUPS, SIDE_BALANCE_EXAMPLES };
 
-export const DEFAULT_INVITATION_GROUPS: InvitationGroup[] = [
-  {
-    id: "default_1",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_2",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_3",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-    ],
-  },
-  {
-    id: "default_4",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-    ],
-  },
-  {
-    id: "default_5",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_6",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_7",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-    ],
-  },
-  {
-    id: "default_8",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-    ],
-  },
-];
-
-/** PAD-564 (notifications.groups rule 6a): the balancing examples under a side rule. */
-export const SIDE_BALANCE_EXAMPLES = ["example1", "example2", "example3"] as const;
+// An old-engine coach's editor: the new engine's own operations ("other side") are not offered.
+const OLD_ENGINE_ATTRIBUTES = tierAttributesFor(undefined);
+const NEW_ENGINE_ATTRIBUTES = tierAttributesFor("new");
 
 function SideBalanceHelp() {
   const { t } = useTranslation();
@@ -157,30 +44,35 @@ function SideBalanceHelp() {
 
 function RuleRow({
   rule,
+  attributes,
+  operationTestId,
   onChange,
   onRemove,
   disabled,
 }: {
   rule: GroupRule;
+  attributes: TierAttribute[];
+  /** PAD-920: the tiers editor's `tier-side-<tier>` on a group's side rule. */
+  operationTestId?: string;
   onChange: (rule: GroupRule) => void;
   onRemove: () => void;
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
-  const attr = AVAILABLE_ATTRIBUTES.find((a) => a.id === rule.attribute);
+  const attr = attributes.find((a) => a.id === rule.attribute);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <Select
         value={rule.attribute}
-        onValueChange={(v) => onChange({ attribute: v, operation: AVAILABLE_ATTRIBUTES.find((a) => a.id === v)?.operations[0].id ?? "", value: undefined })}
+        onValueChange={(v) => onChange({ attribute: v, operation: attributes.find((a) => a.id === v)?.operations[0].id ?? "", value: undefined })}
         disabled={disabled}
       >
         <SelectTrigger className="w-[160px] h-7 text-xs">
           <SelectValue placeholder={t("settings.invitationGroups.attribute")} />
         </SelectTrigger>
         <SelectContent>
-          {AVAILABLE_ATTRIBUTES.map((a) => (
+          {attributes.map((a) => (
             <SelectItem key={a.id} value={a.id} className="text-xs">
               {t(a.labelKey)}
             </SelectItem>
@@ -194,7 +86,7 @@ function RuleRow({
           onValueChange={(v) => onChange({ ...rule, operation: v })}
           disabled={disabled}
         >
-          <SelectTrigger className="w-[140px] h-7 text-xs">
+          <SelectTrigger className="w-[140px] h-7 text-xs" data-testid={operationTestId}>
             <SelectValue placeholder={t("settings.invitationGroups.operation")} />
           </SelectTrigger>
           <SelectContent>
@@ -269,6 +161,9 @@ function GroupCard({
   group,
   index,
   totalGroups,
+  attributes,
+  tierIndex,
+  children,
   onChange,
   onRemove,
   onDragStart,
@@ -280,6 +175,11 @@ function GroupCard({
   group: InvitationGroup;
   index: number;
   totalGroups: number;
+  attributes: TierAttribute[];
+  /** PAD-920: set in the tiers editor (a new-engine coach): the group's tier, `index` + 2. */
+  tierIndex?: number;
+  /** The tier's own timing pair, under "Por grupo". */
+  children?: React.ReactNode;
   onChange: (group: InvitationGroup) => void;
   onRemove: () => void;
   onDragStart: () => void;
@@ -289,8 +189,10 @@ function GroupCard({
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
+  const inTiers = tierIndex !== undefined;
+  const sideRuleIdx = group.rules.findIndex((r) => r.attribute === "side");
   const addRule = () => {
-    const defaultAttr = AVAILABLE_ATTRIBUTES[0];
+    const defaultAttr = attributes[0];
     onChange({
       ...group,
       rules: [
@@ -330,9 +232,10 @@ function GroupCard({
           <GripVertical className="w-4 h-4" />
         </button>
         <span className="text-sm font-medium flex-1">{t("settings.invitationGroups.group", { number: index + 1 })}</span>
-        {totalGroups > 1 && (
+        {(inTiers || totalGroups > 1) && (
           <button
             type="button"
+            data-testid={inTiers ? `tier-remove-${tierIndex}` : undefined}
             className="text-muted-foreground hover:text-destructive transition-colors"
             onClick={onRemove}
             disabled={disabled}
@@ -353,6 +256,8 @@ function GroupCard({
           <RuleRow
             key={idx}
             rule={rule}
+            attributes={attributes}
+            operationTestId={inTiers && idx === sideRuleIdx ? `tier-side-${tierIndex}` : undefined}
             onChange={(r) => updateRule(idx, r)}
             onRemove={() => removeRule(idx)}
             disabled={disabled}
@@ -370,17 +275,180 @@ function GroupCard({
         <Plus className="w-3 h-3" />
         {t("settings.invitationGroups.addRule")}
       </Button>
+      {children}
     </div>
   );
+}
+
+type TierPair = EngineTimingPair | null;
+
+/** PAD-920 (notifications.config rule 20): what the tiers editor of a coach on the new engine needs. */
+export interface TiersEditorEngine {
+  method: EngineTimingMethod;
+  /** The held `timing.perTier`, tier order; read only with `per_tier`. */
+  perTier: TierPair[] | undefined;
+  /** What a tier with no pair of its own shows: the card's pair, as displayed. */
+  fallback: { betweenRoundsMinutes: number; betweenGroupsMinutes: number };
+  /** One change carries the groups and, with `per_tier`, `perTier` kept aligned with them (else undefined). */
+  onChange: (groups: InvitationGroup[], perTier: TierPair[] | undefined) => void;
 }
 
 interface InvitationGroupsSectionProps {
   groups: InvitationGroup[];
   onChange: (groups: InvitationGroup[]) => void;
   disabled?: boolean;
+  /** Set for a coach on the new engine: the editor becomes the tiers editor. Unset, today's editor. */
+  engine?: TiersEditorEngine;
 }
 
-export function InvitationGroupsSection({ groups, onChange, disabled }: InvitationGroupsSectionProps) {
+/** A tier's own pair under "Por grupo": a null entry shows the card's pair until its first step. */
+function TierTiming({
+  tierIndex,
+  entry,
+  fallback,
+  onChange,
+  disabled,
+}: {
+  tierIndex: number;
+  entry: TierPair;
+  fallback: TiersEditorEngine["fallback"];
+  onChange: (entry: EngineTimingPair) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  const rows = [
+    ["betweenRoundsMinutes", "between-rounds", "settings.engine.newEngine.betweenRounds"],
+    ["betweenGroupsMinutes", "between-groups", "settings.engine.newEngine.betweenGroups"],
+  ] as const;
+  return (
+    <div className="space-y-1.5 border-t pt-2">
+      {rows.map(([key, slug, labelKey]) => (
+        <div key={key} className="flex items-center justify-between gap-3">
+          <span className="text-xs text-muted-foreground">{t(labelKey)}</span>
+          <EngineStepper
+            testId={`tier-${tierIndex}-${slug}`}
+            boundKey={key}
+            value={entry?.[key] ?? fallback[key]}
+            unit={t("settings.restrictions.min")}
+            onStep={(v) => onChange({ betweenRoundsMinutes: null, betweenGroupsMinutes: null, ...entry, [key]: v })}
+            disabled={disabled}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * PAD-920 (notifications.config rule 20): the groups editor as a new-engine coach's tiers editor.
+ * The coach's list and the students' list come first as tiers 0 and 1 (fixed: no rules, not
+ * removable), then the groups as tiers 2…; the side rule also offers "Lado contrário". With
+ * "Por grupo" every tier has its own pair, and `perTier` follows the groups through every edit.
+ * Test ids are shared with the iOS tiers editor.
+ */
+function TiersEditor({ groups, engine, disabled }: { groups: InvitationGroup[]; engine: TiersEditorEngine; disabled?: boolean }) {
+  const { t } = useTranslation();
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const perTierOn = engine.method === "per_tier";
+  const perTier = perTierAligned(engine.perTier, groups.length);
+  const emit = (next: InvitationGroup[], nextPerTier: TierPair[]) => engine.onChange(next, perTierOn ? nextPerTier : undefined);
+
+  const handleDragOver = (e: React.DragEvent, overIdx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === overIdx) return;
+    emit(moveTier(groups, dragIdx, overIdx), perTierAfterMove(perTier, dragIdx, overIdx));
+    setDragIdx(overIdx);
+  };
+  const updateGroup = (idx: number, group: InvitationGroup) => {
+    const next = [...groups];
+    next[idx] = group;
+    emit(next, perTier);
+  };
+  const setPair = (tierIndex: number, entry: EngineTimingPair) => {
+    const next = [...perTier];
+    next[tierIndex] = entry;
+    emit(groups, next);
+  };
+  const timing = (tierIndex: number) =>
+    perTierOn ? (
+      <TierTiming
+        tierIndex={tierIndex}
+        entry={perTier[tierIndex]}
+        fallback={engine.fallback}
+        onChange={(entry) => setPair(tierIndex, entry)}
+        disabled={disabled}
+      />
+    ) : null;
+
+  const lastGroup = groups[groups.length - 1];
+
+  return (
+    <div data-testid="tiers-editor" className={`space-y-3 ${disabled ? "opacity-40 pointer-events-none" : ""}`}>
+      <p className="text-xs text-muted-foreground">{t("settings.invitationGroups.sequenceHint")}</p>
+
+      {FIXED_TIERS.map((tier) => (
+        <div key={tier.index} data-testid={`tier-row-${tier.index}`} className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium flex-1 first-letter:uppercase">{t(tier.labelKey)}</p>
+            <span className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              {t("settings.engine.newEngine.tiers.fixed")}
+            </span>
+          </div>
+          {timing(tier.index)}
+        </div>
+      ))}
+
+      {groups.map((group, idx) => {
+        const tierIndex = FIXED_TIERS.length + idx;
+        return (
+          <div key={group.id} data-testid={`tier-row-${tierIndex}`}>
+            <GroupCard
+              group={group}
+              index={idx}
+              totalGroups={groups.length}
+              attributes={NEW_ENGINE_ATTRIBUTES}
+              tierIndex={tierIndex}
+              onChange={(g) => updateGroup(idx, g)}
+              onRemove={() => emit(groups.filter((_, i) => i !== idx), perTierAfterRemove(perTier, idx))}
+              onDragStart={() => setDragIdx(idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDragEnd={() => setDragIdx(null)}
+              isDragging={dragIdx === idx}
+              disabled={disabled}
+            >
+              {timing(tierIndex)}
+            </GroupCard>
+          </div>
+        );
+      })}
+
+      {lastGroup && lastGroup.rules.length > 0 && (
+        <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">{t("settings.invitationGroups.lastGroupHint")}</p>
+      )}
+
+      {groups.length < MAX_TIERS && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1 w-full"
+          data-testid="tier-add"
+          onClick={() => emit([...groups, { id: String(Date.now()), rules: [] }], [...perTier, null])}
+          disabled={disabled}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {t("settings.invitationGroups.addGroup")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function InvitationGroupsSection({ engine, ...props }: InvitationGroupsSectionProps) {
+  if (engine) return <TiersEditor groups={props.groups} engine={engine} disabled={props.disabled} />;
+  return <OldEngineGroupsEditor {...props} />;
+}
+
+function OldEngineGroupsEditor({ groups, onChange, disabled }: Omit<InvitationGroupsSectionProps, "engine">) {
   const { t } = useTranslation();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
@@ -427,6 +495,7 @@ export function InvitationGroupsSection({ groups, onChange, disabled }: Invitati
           group={group}
           index={idx}
           totalGroups={groups.length}
+          attributes={OLD_ENGINE_ATTRIBUTES}
           onChange={(g) => updateGroup(idx, g)}
           onRemove={() => removeGroup(idx)}
           onDragStart={() => setDragIdx(idx)}

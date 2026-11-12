@@ -338,6 +338,54 @@
         "notConfigured": "Não configurado",
         "unreachable": "Inacessível"
       },
+      "engine": {
+        "title": "Novo motor",
+        "hint": "Só contagens, para os treinadores no novo motor. Vagas e sessões: próximos 7 dias.",
+        "coachesOld": "Treinadores no motor antigo",
+        "coachesNew": "Treinadores no novo motor",
+        "sessionsUpcoming": "Sessões por vir",
+        "sessions7d": "Sessões em 7 dias",
+        "spots": {
+          "title": "Vagas abertas por tipo",
+          "uncovered": "Sem convite",
+          "left": "Esquerda",
+          "right": "Direita",
+          "either": "Qualquer lado",
+          "anyLevel": "Qualquer nível",
+          "none": "Nenhuma vaga aberta."
+        },
+        "invitations": {
+          "title": "Convites abertos",
+          "counting": "A contar",
+          "notCounting": "Abertos, sem contar",
+          "sent24h": "Enviados em 24 h",
+          "tier": "Nível de envio",
+          "coachList": "Lista do treinador",
+          "waitingList": "Lista de espera dos alunos",
+          "group": "Grupo {{n}}"
+        },
+        "approvals": {
+          "title": "Aprovações",
+          "pending": "À espera de aprovação",
+          "dismissed": "Dispensadas"
+        },
+        "alerts": {
+          "title": "Alertas ao treinador",
+          "none": "Nenhum."
+        },
+        "outbox": {
+          "title": "Envios pendentes",
+          "pending": "Por enviar",
+          "stuck": "Presos (>5 min)"
+        },
+        "tick": {
+          "title": "Ciclo do motor",
+          "job": "Tarefa do ciclo",
+          "overdue": "em atraso",
+          "onTime": "a tempo",
+          "failures": "Falhas de sessão, 24 h"
+        }
+      },
       "coaches": {
         "title": "Definições do motor de um treinador",
         "search": "Procurar um treinador pelo nome",

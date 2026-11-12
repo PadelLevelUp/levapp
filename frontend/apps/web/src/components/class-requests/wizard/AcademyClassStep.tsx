@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AcademyClass } from "@levelup/types";
-import { NOTE_MAX_LENGTH, academyClassAction, groupAcademyClassesByDay, joinRequestAcceptedAtOnce } from "@levelup/config";
+import { NOTE_MAX_LENGTH, academyClassAction, groupAcademyClassesByDay, joinRequestAcceptedAtOnce, joinRefusalKey, waitingListSideChoice } from "@levelup/config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -66,7 +66,9 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
           ? t("classRequests.academy.nowFull")
           : code === "has_spots"
             ? t("classRequests.academy.nowOpen")
-            : t("classRequests.academy.failed");
+            : code // PAD-920 (NJ2): the new engine's refusals (side full, same hour) say why.
+              ? t(joinRefusalKey(code))
+              : t("classRequests.academy.failed");
       toast({ title: message, variant: code ? "default" : "destructive" });
       await refresh();
     } finally {
@@ -227,6 +229,7 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
           mode={sideFor.mode}
           event={sideFor.c}
           profileSide={sideFor.c.profileSide ?? query.data.profileSide ?? null}
+          relativeChoice={waitingListSideChoice(sideFor.c)}
           note={sideFor.mode === "request" ? note : undefined}
           onRequestSent={(request) => {
             // PAD-672 slice 2: accepted at once by the coach's automatic acceptance (201 "accepted").
@@ -252,7 +255,9 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
                 ? t("classRequests.academy.nowFull")
                 : code === "has_spots"
                   ? t("classRequests.academy.nowOpen")
-                  : t("classRequests.academy.failed");
+                  : code
+                    ? t(joinRefusalKey(code))
+                    : t("classRequests.academy.failed");
             toast({ title: message, variant: code ? "default" : "destructive" });
             void refresh();
           }}

@@ -20,8 +20,16 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AcademyClass } from "@levelup/types";
-import { NOTE_MAX_LENGTH, academyClassAction, groupAcademyClassesByDay, joinRequestAcceptedAtOnce } from "@levelup/config";
-import { academyClassesApi, classJoinRequestsApi } from "@levelup/api";
+import {
+  JOIN_REFUSAL_CODES,
+  NOTE_MAX_LENGTH,
+  academyClassAction,
+  groupAcademyClassesByDay,
+  joinRefusalKey,
+  joinRefusalOf,
+  joinRequestAcceptedAtOnce,
+} from "@levelup/config";
+import { academyClassesApi } from "@levelup/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -60,6 +68,17 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: academyClassesKey(coachId) });
 
+  // The step keeps its own lines for a class that filled or opened since the list loaded
+  // (classes.join-requests NJ2 keeps `nowOpen`); PAD-920 (NJ1–NJ2): every other refusal code reads
+  // its shared `calendar.joinRequest.refusal.<code>` line, and an error with no known code the step's own.
+  const reportRefusal = (err: unknown) => {
+    const code = joinRefusalOf(err)?.code;
+    if (code === "spot_filled") toast.warning(t("classRequests.academy.nowFull"));
+    else if (code === "has_spots") toast.warning(t("classRequests.academy.nowOpen"));
+    else if (code && (JOIN_REFUSAL_CODES as readonly string[]).includes(code)) toast.error(t(joinRefusalKey(code)));
+    else toast.error(t("classRequests.academy.failed"));
+  };
+
   const run = async (c: AcademyClass, action: () => Promise<unknown>, success: string) => {
     setBusyId(c.id);
     try {
@@ -69,11 +88,8 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
       setNote("");
       await refresh();
     } catch (err) {
-      const code = classJoinRequestsApi.joinRequestRefusal(err)?.code as string | undefined;
       // The class changed state between the list and the tap: say so and show its new state.
-      if (code === "spot_filled") toast.warning(t("classRequests.academy.nowFull"));
-      else if (code === "has_spots") toast.warning(t("classRequests.academy.nowOpen"));
-      else toast.error(t("classRequests.academy.failed"));
+      reportRefusal(err);
       await refresh();
     } finally {
       setBusyId(null);
@@ -265,10 +281,7 @@ export function AcademyClassStep({ coachId, onDone }: { coachId: string; onDone:
             void refresh();
           }}
           onFailed={(err) => {
-            const code = classJoinRequestsApi.joinRequestRefusal(err)?.code as string | undefined;
-            if (code === "spot_filled") toast.warning(t("classRequests.academy.nowFull"));
-            else if (code === "has_spots") toast.warning(t("classRequests.academy.nowOpen"));
-            else toast.error(t("classRequests.academy.failed"));
+            reportRefusal(err);
             void refresh();
           }}
         />
