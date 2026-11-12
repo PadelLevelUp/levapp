@@ -203,7 +203,7 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     store.add_student(_student("COACH_SIDE", "L"))
     store.add_student(_student("CLOSED", "R"))
     store.add_student(_student("GONE", "R"))
-    store.apply([fx.QueueApproved("A", T0 - timedelta(hours=1), frozenset(), frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
+    store.apply([fx.GroupApproved("A", T0 - timedelta(hours=1), 0, frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_OK", "coach", side="R"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_SIDE", "coach", side="L"),
                  fx.Invited("A", T0 - timedelta(hours=2), "CLOSED", frozenset({spot}), None, 3, T0),

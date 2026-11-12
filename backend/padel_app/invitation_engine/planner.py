@@ -27,14 +27,14 @@ from padel_app.invitation_engine.effects import (
     AlertCleared,
     ApprovalRequest,
     ApprovalWithdrawn,
+    GroupReopened,
+    GroupsCleared,
     CoachAlert,
     Effect,
     InvitationClosed,
     Invited,
     Message,
     Placed,
-    QueueApproved,
-    QueueReopened,
     Reoffered,
     WaitingListLeft,
 )
@@ -349,8 +349,9 @@ def group_rule_passes(rule: GroupRule, student: Student, spot_type: SpotType, co
 def tier_for(student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
              settings: EngineSettings) -> int | None:
     """The student's tier for a type: the first tier they pass (engine-tiers rule 7), or ``None``."""
+    skipped = _dismissed_now(snapshot)                  # a dismissed group: as if it had no candidates
     return next((i for i, tier in enumerate(settings.tiers)
-                 if passes(tier, student, spot_type, counts, snapshot, settings)), None)
+                 if i not in skipped and passes(tier, student, spot_type, counts, snapshot, settings)), None)
 
 
 def _natural(sid: str) -> tuple:
@@ -908,53 +909,73 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
     return DryRun(effects, tuple(verdicts), queues, timeline.may_plan(snapshot, settings, now))
 
 
-# --- semi-automatic mode (engine-planning rule 14, owner ruling D2) ------------------------------------
+# --- semi-automatic mode (engine-planning rule 14; the owner's decisions 5 and 10) ----------------------
 
-def _queues(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> SpotQueues:
+def _dismissed_now(snapshot: SessionSnapshot) -> frozenset[int]:
+    """The groups the coach dismissed whose spot count has not changed since: skipped, as if empty."""
+    if not snapshot.approval.dismissed_groups:
+        return frozenset()
+    count = spot_types(snapshot)
+    return frozenset(t for t, at in snapshot.approval.dismissed_groups if at == count)
+
+
+def _group_queues(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime,
+                  tiers: set[int]) -> dict[int, SpotQueues]:
+    """Each group's queue per open spot type, from the dry run (engine-tiers rule 12)."""
     dry = evaluate(snapshot, settings, now)
-    return tuple((spot_type, dry.queues[spot_type]) for spot_type, _ in spot_types(snapshot, spot_counts(snapshot, settings)))
+    tier_of = {(v.student, v.spot_type): v.tier for v in dry.verdicts}
+    types = [st for st, _ in spot_types(snapshot, spot_counts(snapshot, settings))]
+    out: dict[int, SpotQueues] = {}
+    for t in tiers:
+        queues = tuple((st, tuple(sid for sid in dry.queues.get(st, ()) if tier_of.get((sid, st)) == t)) for st in types)
+        out[t] = tuple((st, q) for st, q in queues if q)
+    return out
 
 
 def decide(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:
     """``plan``, then what semi-automatic mode lets through (engine-planning rule 14). The engine plans
-    the same in both modes; only the sends change. In semi-automatic mode an invitation (or re-offer)
-    to a student outside the approved queue is held and an ``ApprovalRequest`` carries the dry run's
-    queues instead, unless the pending request already has them; one inside the queue goes out. A run
-    with nothing held withdraws the pending request. A dismissed session sends nothing and asks nothing
-    while its open spot types stay as they were at the dismissal. Automatic entry is never held, and
-    in automatic mode a pending request is withdrawn."""
-    planned = plan(snapshot, settings, now)
+    the same in both modes; only the sends change. A dismissed group is skipped, in either mode, while
+    the spot count stays as it was (``GroupReopened`` once it changes). In semi-automatic mode a send
+    from a group not approved for the session is held and an ``ApprovalRequest`` per such group carries
+    its queues, unless that group's pending request already has them; sends from approved groups go
+    out. A pending request whose group the run no longer sends from is withdrawn, except in quiet
+    hours. Automatic entry is never held. In automatic mode the pending requests are withdrawn and the
+    approved groups emptied."""
     approval = snapshot.approval
+    lead: list[Effect] = []
+    if approval.dismissed_groups:
+        live = _dismissed_now(snapshot)
+        lead += [GroupReopened(snapshot.id, now, t) for t, _ in approval.dismissed_groups if t not in live]
+        if lead:
+            approval = replace(approval, dismissed_groups=tuple(d for d in approval.dismissed_groups if d[0] in live))
+            snapshot = replace(snapshot, approval=approval)
+    planned = plan(snapshot, settings, now)
     if any(isinstance(e, Placed) for e in planned.effects):     # automatic entry: its own run, not held
-        return planned
-    lead: tuple[Effect, ...] = ()
-    if settings.invitation_mode != "semi_automatic":          # automatic: no pending request, no approved queue
-        if approval.pending is not None:
-            lead += (ApprovalWithdrawn(snapshot.id, now),)
-        if approval.approved:
-            lead += (QueueApproved(snapshot.id, now, frozenset(), frozenset()),)
-    if approval.dismissed is not None:                          # in either mode (a dismissal survives a switch)
-        if approval.dismissed == spot_types(snapshot):          # still dismissed: nothing is sent or asked
-            return Plan(lead + tuple(e for e in planned.effects if not _is_send(e)))
-        lead += (QueueReopened(snapshot.id, now),)              # the spot count changed: ask again
+        return Plan(tuple(lead) + planned.effects)
     if settings.invitation_mode != "semi_automatic":
-        return Plan(lead + planned.effects)
-    held = {e.student for e in planned.effects
-            if isinstance(e, (Invited, Reoffered)) and e.student not in approval.approved}
-    effects = lead + tuple(e for e in planned.effects if not (_is_send(e) and e.student in held))
-    if held:
-        queues = _queues(snapshot, settings, now)
-        if queues != approval.pending or lead:
-            effects += (ApprovalRequest(snapshot.id, now, queues, _request_id(snapshot.id, now, queues)),)
-    elif approval.pending is not None and not timeline.is_quiet(settings, now):
-        effects += (ApprovalWithdrawn(snapshot.id, now),)   # quiet hours only pause the sends: it stays pending
-    return Plan(effects)
+        lead += [ApprovalWithdrawn(snapshot.id, now, p.tier, p.request) for p in approval.pending]
+        if approval.approved_groups:
+            lead.append(GroupsCleared(snapshot.id, now))
+        return Plan(tuple(lead) + planned.effects)
+    held_tiers = {e.tier for e in planned.effects if isinstance(e, (Invited, Reoffered))
+                  and e.tier is not None and e.tier not in approval.approved_groups}
+    held = {e.student for e in planned.effects if isinstance(e, (Invited, Reoffered)) and e.tier in held_tiers}
+    effects = lead + [e for e in planned.effects if not (_is_send(e) and e.student in held)]
+    reopened = {e.tier for e in lead if isinstance(e, GroupReopened)}
+    for t, queues in sorted(_group_queues(snapshot, settings, now, held_tiers).items() if held_tiers else ()):
+        pending = approval.pending_for(t)
+        if pending is None or pending.queues != queues or t in reopened:
+            effects.append(ApprovalRequest(snapshot.id, now, t, queues, _request_id(snapshot.id, now, t, queues)))
+    if not timeline.is_quiet(settings, now):                    # quiet hours only pause the sends
+        effects += [ApprovalWithdrawn(snapshot.id, now, p.tier, p.request)
+                    for p in approval.pending if p.tier not in held_tiers]
+    return Plan(tuple(effects))
 
 
-def _request_id(session: str, now: datetime, queues: SpotQueues) -> str:
-    """A request's id: its session, instant and queues, so a store applying it twice writes it once."""
-    digest = hashlib.sha1(repr((session, now.isoformat(), queues)).encode()).hexdigest()[:12]
-    return f"{session}:{now:%Y%m%dT%H%M%S}:{digest}"
+def _request_id(session: str, now: datetime, tier: int, queues: SpotQueues) -> str:
+    """A request's id: its session, instant, group and queues, so a store applying it twice writes it once."""
+    digest = hashlib.sha1(repr((session, now.isoformat(), tier, queues)).encode()).hexdigest()[:12]
+    return f"{session}:{now:%Y%m%dT%H%M%S}:{tier}:{digest}"
 
 
 def _is_send(effect: Effect) -> bool:
