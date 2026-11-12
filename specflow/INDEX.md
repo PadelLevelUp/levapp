@@ -5824,7 +5824,7 @@ Untagged tests: 4220
   - **NOTIFICATIONS-ENGINE-TIMELINE-19** Quiet hours hold a request until they end (rule 2; D14) · unverified
   - **NOTIFICATIONS-ENGINE-TIMELINE-20** The app's derived lateness is the engine's notice, and the coach's verdict stays empty (rule 5) · unverified
   - **NOTIFICATIONS-ENGINE-TIMELINE-21** The cutoff is real hours before the real start, across a clock change (rule 5) · unverified
-  - **NOTIFICATIONS-ENGINE-TIMELINE-22** A No before the first attendance request was due is on time (rule 5) · unverified
+  - **NOTIFICATIONS-ENGINE-TIMELINE-22** A No before the student was asked is on time (rule 5) · unverified
   - **NOTIFICATIONS-ENGINE-TIMELINE-23** A student who blocked all notifications gets no attendance request (rule 2) · unverified
 
 ### P-NOTIFICATIONS-9: Student gets one clear invitation per class date
