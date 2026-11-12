@@ -1,5 +1,5 @@
 """notifications.engine-timeline rules 5 and 7 (PAD-907, wave W7): leaving a session is an absence,
-justified before ``absence_cutoff_at`` and unjustified after it or on a no-show; an automatic
+on time before ``absence_cutoff_at`` and late after it or on a no-show; an automatic
 entrant's No is none (the auto-entry setting, wave brief §2 clause 3).
 
 Scenario pins: TIMELINE-6 is P16, TIMELINE-7 is 61.
@@ -22,35 +22,35 @@ def _snapshot(how="regular"):
                            students={"A": ana})
 
 
-def _kind(effects):
+def _notice(effects):
     [absence] = [e for e in effects if isinstance(e, Absence)]
     assert absence.student == "A"
-    return absence.kind
+    return absence.notice
 
 
-def test_a_no_before_the_cutoff_is_justified_and_after_it_unjustified():
+def test_a_no_before_the_cutoff_is_on_time_and_after_it_late():
     s, settings = _snapshot(), EngineSettings()
-    assert _kind(record(s, settings, "A", "regular_no", CUTOFF - timedelta(minutes=1))) == "justified"
-    assert _kind(record(s, settings, "A", "regular_no", CUTOFF)) == "unjustified"
+    assert _notice(record(s, settings, "A", "regular_no", CUTOFF - timedelta(minutes=1))) == "on_time"
+    assert _notice(record(s, settings, "A", "regular_no", CUTOFF)) == "late"
     longer = settings.with_changes(absence_cutoff_before=timedelta(hours=24))
-    assert _kind(record(s, longer, "A", "regular_no", datetime(2026, 11, 2, 10, 20))) == "justified"
-    assert _kind(record(s, longer, "A", "regular_no", datetime(2026, 11, 2, 10, 40))) == "unjustified"
+    assert _notice(record(s, longer, "A", "regular_no", datetime(2026, 11, 2, 10, 20))) == "on_time"
+    assert _notice(record(s, longer, "A", "regular_no", datetime(2026, 11, 2, 10, 40))) == "late"
 
 
-def test_a_no_show_is_unjustified():
-    assert _kind(record(_snapshot(), EngineSettings(), "A", "no_show", datetime(2026, 11, 3, 10, 30))) \
-        == "unjustified"
+def test_a_no_show_is_late():
+    assert _notice(record(_snapshot(), EngineSettings(), "A", "no_show", datetime(2026, 11, 3, 10, 30))) \
+        == "late"
 
 
 def test_an_invitee_who_cancels_follows_the_regulars_rule():
     s, settings = _snapshot("invitation"), EngineSettings()
-    assert _kind(record(s, settings, "A", "cancel", CUTOFF - timedelta(hours=1))) == "justified"
-    assert _kind(record(s, settings, "A", "cancel", CUTOFF + timedelta(hours=1))) == "unjustified"
+    assert _notice(record(s, settings, "A", "cancel", CUTOFF - timedelta(hours=1))) == "on_time"
+    assert _notice(record(s, settings, "A", "cancel", CUTOFF + timedelta(hours=1))) == "late"
 
 
 def test_an_automatic_entrants_no_is_no_absence():
     s = _snapshot("auto_from_waiting_list")
-    assert _kind(record(s, EngineSettings(), "A", "cancel", CUTOFF + timedelta(hours=1))) == "none"
+    assert _notice(record(s, EngineSettings(), "A", "cancel", CUTOFF + timedelta(hours=1))) == "none"
 
 
 def test_the_cutoff_is_lisbon_wall_clock():
@@ -58,5 +58,5 @@ def test_the_cutoff_is_lisbon_wall_clock():
     ana = Student("A", 3, frozenset({"R"}))
     s = SessionSnapshot("S", 3, 8, datetime(2026, 7, 3, 10, 30), regulars=(ana,),
                         going=(Placement("A", "R", "regular", datetime(2026, 7, 1, 18, 0)),), students={"A": ana})
-    assert _kind(record(s, EngineSettings(), "A", "regular_no", datetime(2026, 7, 2, 21, 29))) == "justified"
-    assert _kind(record(s, EngineSettings(), "A", "regular_no", datetime(2026, 7, 2, 21, 30))) == "unjustified"
+    assert _notice(record(s, EngineSettings(), "A", "regular_no", datetime(2026, 7, 2, 21, 29))) == "on_time"
+    assert _notice(record(s, EngineSettings(), "A", "regular_no", datetime(2026, 7, 2, 21, 30))) == "late"

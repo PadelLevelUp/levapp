@@ -96,7 +96,7 @@ def test_snapshot_reads_what_apply_wrote(app):
     assert s.said_no == {y} and not s.open_invitations
     assert {st.id for st in s.pool} == {y}                                 # x is in the session now
     with store.unit((a,)):
-        store.apply([fx.Left(a, NOW, reg, "regular_no"), fx.Absence(a, NOW, reg, "justified")])
+        store.apply([fx.Absence(a, NOW, reg, "on_time"), fx.Left(a, NOW, reg, "regular_no")])
     s = store.snapshot(a)
     assert s.absent == {reg} and reg not in {p.student for p in s.going} and reg in {r.id for r in s.regulars}
 
@@ -161,3 +161,31 @@ def test_both_waiting_lists_at_once_is_a_named_conflict(app):
     s = store.snapshot(a)
     assert [(w.student, w.list, w.side) for w in s.waiting_list] == [(x, "coach", "L")]
 
+
+
+
+def test_a_no_is_the_students_cancellation_and_the_coach_judges_the_absence(app):
+    """Owner ruling D4: the store writes the student's No as ``cancelled`` at the effect's time, so the
+    app's ``presence_late_cancellation`` agrees with the engine's notice when the two cutoffs agree; it
+    never writes ``justification``. A no-show and an automatic entrant's No record no response."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.presences import Presence
+    from padel_app.services.presence_response import presence_late_cancellation
+
+    store, (a,), (reg, x, auto, gone) = _seed(app, players=4)
+    config = NotificationConfig(coach_id=store.coach_of(a), cancellation_deadline_hours=12)   # = the engine's cutoff
+    db.session.add(config)
+    db.session.commit()
+    with store.unit((a,)):
+        store.apply([fx.Placed(a, NOW, x, "L", "invitation"), fx.Placed(a, NOW, auto, "L", "auto_from_waiting_list"),
+                     fx.Placed(a, NOW, gone, "L", "invitation")])
+    on_time, late, after = START - timedelta(hours=13), START - timedelta(hours=1), START + timedelta(hours=1)
+    for student, at, notice, reason in ((reg, on_time, "on_time", "regular_no"), (x, late, "late", "cancel"),
+                                        (auto, late, "none", "cancel"), (gone, after, "late", "no_show")):
+        with store.unit((a,)):
+            store.apply([fx.Absence(a, at, student, notice), fx.Left(a, at, student, reason)])
+    rows = {str(p.player_id): p for p in Presence.query.filter_by(lesson_instance_id=int(a)).all()}
+    assert [(rows[s].response, presence_late_cancellation(rows[s], config=config))
+            for s in (reg, x, auto, gone)] == [
+        ("cancelled", False), ("cancelled", True), ("none", False), ("none", False)]
+    assert {p.justification for p in rows.values()} == {None}

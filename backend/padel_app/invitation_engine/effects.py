@@ -13,7 +13,7 @@ from typing import Literal
 from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotType, WaitingListSides
 
 MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_invite", "side_moved"]
-AbsenceKind = Literal["justified", "unjustified", "none"]
+AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 AlertReason = Literal["no_candidate"]
 
@@ -106,8 +106,11 @@ class AttendanceRequested(Effect):
 
 @dataclass(frozen=True)
 class Absence(Effect):
+    """A student left the session: the notice they gave by the cutoff (owner ruling D4). The engine
+    never judges an absence justified or unjustified; the coach does, outside it."""
+
     student: str
-    kind: AbsenceKind
+    notice: AbsenceNotice
 
 
 @dataclass(frozen=True)

@@ -58,7 +58,7 @@ from padel_app.invitation_engine.snapshot import (
     WaitingListEntry as EngineWaitingListEntry,
 )
 from padel_app.sql_db import db
-from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive
+from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 
 log = logging.getLogger(__name__)
 
@@ -472,6 +472,7 @@ class TableStore:
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.models.waiting_list_entry import WaitingListEntry
         from padel_app.services import lesson_service as ls
+        from padel_app.services.presence_response import record_response
 
         iid = int(e.session)
         if isinstance(e, fx.CoachAlert):
@@ -529,9 +530,14 @@ class TableStore:
             if presence is not None:
                 presence.status, presence.left_reason = "absent", e.reason
         elif isinstance(e, fx.Absence):
+            # Owner ruling D4: the engine records the notice, never the coach's justification. A No is
+            # the student's "cancelled" at the effect's time, so presence_late_cancellation derives
+            # on time or late from the coach's deadline; a no-show (at or after the start) and an
+            # automatic entrant's No ("none") record no response.
             presence = self._presence(e)
-            if presence is not None:
-                presence.justification = None if e.kind == "none" else e.kind
+            start = wall_to_utc_naive(db.session.get(LessonInstance, iid).start_datetime)
+            if presence is not None and e.notice != "none" and e.at < start:
+                record_response(presence, "cancelled", when=e.at)
         elif isinstance(e, fx.WaitingListJoined):
             added_by = "coach" if e.list == "coach" else "student"
             row = WaitingListEntry.query.filter_by(lesson_instance_id=iid, player_id=int(e.student)).first()
