@@ -7,6 +7,8 @@ Scenario pins: ANSWERS-1 is P06, ANSWERS-2 is P15, ANSWERS-3 is P24.
 from dataclasses import replace
 from datetime import datetime, timedelta
 
+import pytest
+
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine.answers import handle
 from padel_app.invitation_engine.effects import (
@@ -18,7 +20,7 @@ from padel_app.invitation_engine.effects import (
     Refused,
     WaitingListLeft,
 )
-from padel_app.invitation_engine.requests import Answer, Cancel, DirectJoin, NoShow, RegularAbsent
+from padel_app.invitation_engine.requests import Answer, Cancel, DirectJoin, JoinWaitingList, NoShow, RegularAbsent
 from padel_app.invitation_engine.snapshot import (
     Elsewhere,
     Invitation,
@@ -228,3 +230,17 @@ def test_direct_join_at_a_busy_hour_is_refused():
     busy = replace(s, busy_same_time=frozenset({"x"}))
     effects = handle(busy, on, DirectJoin("x"), NOW).effects
     assert [type(e) for e in effects] == [Refused] and not _placed(effects)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
+def test_joining_the_other_list_is_refused_already_waiting():
+    """engine-answers rule 12: one waiting-list entry per student per session, on either list. (The
+    store's own refusal of a second entry, ``StoreConflict``, is the table store's test.)"""
+    coach = WaitingListEntry("C", "coach", SENT, side="R")
+    student = WaitingListEntry("W", "students", SENT, sides="own")
+    s = _session(_regs(4, 3), [("C", "R"), ("W", "R")], waiting_list=[coach, student])
+    refused = Refused("S", NOW, "C", "waiting_list", "already_on_list")
+    assert handle(s, EngineSettings(), JoinWaitingList("C", "students", sides="both"), NOW).effects == (refused,)
+    assert handle(s, EngineSettings(), JoinWaitingList("C", "coach", side="L"), NOW).effects == (refused,)
+    assert handle(s, EngineSettings(), JoinWaitingList("W", "coach", side="R"), NOW).effects == \
+        (Refused("S", NOW, "W", "waiting_list", "already_on_list"),)

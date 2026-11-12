@@ -250,10 +250,11 @@ def _regular_returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tupl
 def _join_waiting_list(snapshot: SessionSnapshot, settings: EngineSettings, request: JoinWaitingList,
                        now: datetime) -> tuple[Effect, ...]:
     """The coach adds anyone (their decision); a student joins the students' list when eligible,
-    visible and not already in the session (D13; engine-settings rule 4 keeps their side choice)."""
+    visible and not already in the session (D13; engine-settings rule 4 keeps their side choice). A
+    student already on either list is refused ``already_on_list`` and nothing changes (rule 12)."""
     sid = request.student
-    if any(w.student == sid and w.list == request.list for w in snapshot.waiting_list):
-        return ()
+    if any(w.student == sid for w in snapshot.waiting_list):    # one entry per session, either list (rule 12)
+        return (Refused(snapshot.id, now, sid, "waiting_list", "already_on_list"),)
     if snapshot.placement(sid) is not None:
         return ()
     if request.list == "students":
