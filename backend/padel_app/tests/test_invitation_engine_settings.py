@@ -9,6 +9,7 @@ import pytest
 from padel_app.invitation_engine import EngineSettings, SettingsError
 from padel_app.invitation_engine.constants import ENGINE_T_FLOOR, method_b_parts, method_b_share
 from padel_app.invitation_engine.settings import Timing, TimingPair
+from padel_app.invitation_engine.timeline import method_b_round_t
 
 BELOW = ENGINE_T_FLOOR - timedelta(seconds=1)
 
@@ -42,3 +43,12 @@ def test_method_b_parts():
         assert abs(sum(shares, timedelta()) - useful) < timedelta(seconds=1)
     # Scenario 86's figure (constants.md): 6:5:4 of 9 h 50 min gives the first tier 3 h 56 min.
     assert method_b_share(useful, 3, 0) == timedelta(hours=3, minutes=56)
+    # Inside one tier (PAD-911): the last round waits the last third of the share, the rounds before it
+    # split the rest by the parts for n = rounds - 1. Scenario 84: 3 h in 3 rounds is 72, 48, 60 min.
+    share = timedelta(hours=3)
+    assert [method_b_round_t(share, 3, i) for i in range(3)] == [timedelta(minutes=m) for m in (72, 48, 60)]
+    assert [method_b_round_t(share, 2, i) for i in range(2)] == [timedelta(hours=2), timedelta(hours=1)]
+    assert method_b_round_t(share, 1, 0) == share
+    four = [method_b_round_t(share, 4, i) for i in range(4)]
+    assert four[:3] == [share * 2 / 3 * p / 15 for p in (6, 5, 4)] and four[3] == share / 3
+    assert sum(four, timedelta()) == share

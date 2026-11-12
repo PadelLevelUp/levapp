@@ -71,10 +71,25 @@ class Invitation:
     answered_at: datetime | None = None
     counts_until: datetime | None = None
     sorry_at: datetime | None = None                  # a Yes got "sorry": open, not counting, re-offerable
+    closed_at: datetime | None = None                 # closed by a same-hour placement (engine-answers rule 10)
 
     @property
     def open(self) -> bool:
-        return self.answer is None
+        return self.answer is None and self.closed_at is None
+
+
+@dataclass(frozen=True)
+class Elsewhere:
+    """An open invitation the student holds for another session the same club day, as the store
+    sees it: that session's start, capacity and who is going there. The planner decides from it who is
+    postponed (engine-tiers rule 10) and the answers which invitations a placement closes
+    (engine-answers rule 10)."""
+
+    session: str
+    start: datetime                                   # Lisbon wall-clock
+    invitation: Invitation
+    capacity: int
+    going: tuple[Placement, ...]
 
 
 @dataclass(frozen=True)
@@ -105,7 +120,8 @@ class SessionSnapshot:
     absent: frozenset[str] = frozenset()              # regulars who said they are not going
     said_no: frozenset[str] = frozenset()             # answered No for this session (a gate, plan §3)
     busy_same_time: frozenset[str] = frozenset()      # going to another session at the same time (a gate)
-    postponed: frozenset[str] = frozenset()           # holding an open offer for another session that day (D15)
+    postponed: frozenset[str] = frozenset()           # holding a counting offer elsewhere that day (D15): set per run
+    elsewhere: tuple[Elsewhere, ...] = ()             # open invitations for other sessions the same club day
     confirmed: frozenset[str] = frozenset()           # answered Yes to an attendance request
     alerted: dict[SpotType, int] = field(default_factory=dict)  # coach alerts raised: type -> its spots then
     students: dict[str, Student] = field(default_factory=dict)  # every student the snapshot names

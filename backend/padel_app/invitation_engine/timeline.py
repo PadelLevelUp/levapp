@@ -72,6 +72,20 @@ def method_b_t(snapshot: SessionSnapshot, settings: EngineSettings, now: datetim
     return useful_time(snapshot, settings, now) * parts[rank] / sum(parts[rank:])
 
 
+def method_b_round_t(share: timedelta, rounds: int, index: int) -> timedelta:
+    """Method B inside one tier (engine-settings rule 2, PAD-911; Tomás: "os tempos descem em linha
+    reta e o último recebe dois terços do primeiro"): of a tier's ``share``, the last of its ``rounds``
+    waits the last third (the wait to the next tier) and the rounds before it split the other two thirds
+    by ``method_b_parts(rounds - 1)``. One round waits the whole share. Scenario 84: a 3 h share in 3
+    rounds gives 72, 48 and 60 minutes."""
+    if rounds <= 1:
+        return share
+    if index >= rounds - 1:
+        return share / 3
+    parts = method_b_parts(rounds - 1)
+    return share * 2 / 3 * parts[index] / sum(parts)
+
+
 def t_at_send(settings: EngineSettings, tier: int, tier_has_uninvited: bool,
               method_b_share: timedelta | None = None) -> timedelta:
     """An invitation's T, fixed when it is sent (engine-timeline rule 4).

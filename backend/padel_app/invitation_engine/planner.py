@@ -15,7 +15,7 @@ come: hardest type first, D17's one per spot for a non-ideal tier, offers across
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Literal
 
@@ -25,6 +25,7 @@ from padel_app.invitation_engine.effects import (
     Absence,
     CoachAlert,
     Effect,
+    InvitationClosed,
     Invited,
     Message,
     Placed,
@@ -34,6 +35,7 @@ from padel_app.invitation_engine.effects import (
 from padel_app.invitation_engine.settings import EngineSettings, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
+    Elsewhere,
     Invitation,
     SessionSnapshot,
     Side,
@@ -153,6 +155,36 @@ def _entry_admits(entry: WaitingListEntry, student: Student, values: frozenset[s
     if entry.sides == "own":
         return bool(student.sides & values)
     return bool(values - student.sides)
+
+
+def with_postponed(snapshot: SessionSnapshot, now: datetime) -> SessionSnapshot:
+    """The snapshot with ``postponed`` set for ``now`` (engine-tiers rule 10, D15; PAD-911): a student
+    holding a counting ("ativo") invitation for another session that club day. For this gate an
+    invitation counts by rule 3 (``timeline.counting``) **and** its offer counts toward a current spot
+    type of its own session by rule 4, so an invitation to a full session counts for nothing; such an
+    invitation stays valid (D4) but postpones nobody. Going elsewhere at the same time is the gate,
+    not a postpone."""
+    postponed = {e.invitation.student for e in snapshot.elsewhere if _counts_there(e, now)}
+    return replace(snapshot, postponed=frozenset(postponed - snapshot.busy_same_time))
+
+
+def _counts_there(e: Elsewhere, now: datetime) -> bool:
+    """Planning rules 3 and 4 for an invitation to another session: counting, and its offer counts
+    toward one of that session's current spot types."""
+    if not timeline.counting(e.invitation, now):
+        return False
+    there = SessionSnapshot(id=e.session, level=None, capacity=e.capacity, start=e.start, regulars=(),
+                            going=e.going)
+    counts = spot_counts(there)
+    offer = {o.side for o in e.invitation.offer}
+    return any(type_sides(st, counts) & offer for st, _ in spot_types(there, counts))
+
+
+def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> tuple[Effect, ...]:
+    """engine-answers rule 10 (D4's one exception): a student placed in this session has their open
+    invitations for other sessions at the same hour closed. Called with every placement."""
+    return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
+                 if e.invitation.student == student and e.start == snapshot.start)
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
@@ -391,7 +423,15 @@ def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: 
     share = None
     if settings.timing.method == "progressive":
         taking_part = _method_b_tiers(run, spot_type, sorted(set(first[spot_type]) | {t}))
-        share = timeline.method_b_t(snapshot, settings, run.now, len(taking_part), taking_part.index(t))
+        # The tier's share is fixed at its first round; its rounds split it (engine-settings rule 2,
+        # PAD-911): the rounds already sent for the type, plus those its uninvited candidates still need.
+        values = type_sides(spot_type, run.counts)
+        rounds_sent = sorted({i.sent_at for i in snapshot.invitations
+                              if i.tier == t and {o.side for o in i.offer} & values})
+        since = rounds_sent[0] if rounds_sent else run.now
+        tier_share = timeline.method_b_t(snapshot, settings, since, len(taking_part), taking_part.index(t))
+        rounds = len(rounds_sent) + (-(-len(fresh) // len(chosen)) if chosen else 1)
+        share = timeline.method_b_round_t(tier_share, rounds, len(rounds_sent))
     t_send = timeline.t_at_send(settings, t, len(fresh) > len(chosen), share)
     for sid in chosen:
         student = snapshot.students[sid]
@@ -501,9 +541,10 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
                      if w.student in snapshot.students else (0, w.joined_at, ()))
         for w in entries:
             student = snapshot.students.get(w.student)
-            if student is None or total >= capacity or w.student in snapshot.said_no:
+            if (student is None or total >= capacity or w.student in snapshot.said_no
+                    or w.student in snapshot.busy_same_time):     # never two sessions at one hour (answers rule 10)
                 continue
-            if which == "students" and (w.student in snapshot.busy_same_time or not _eligible(student, snapshot, settings)):
+            if which == "students" and not _eligible(student, snapshot, settings):
                 continue
             if which == "coach":
                 sides = frozenset({w.side}) if w.side else frozenset(SIDES)
@@ -521,7 +562,7 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
             total += 1
             going[w.student] = side
             out += [Placed(snapshot.id, now, w.student, side, "auto_from_waiting_list"),
-                    Message(snapshot.id, now, w.student, "added")]
+                    Message(snapshot.id, now, w.student, "added"), *close_same_hour(snapshot, w.student, now)]
             if w.student in snapshot.absent:                 # a regular back in: their absence goes
                 out.append(Absence(snapshot.id, now, w.student, "none"))
             out += [WaitingListLeft(snapshot.id, now, w.student, e.list)
@@ -534,6 +575,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
 
     Automatic entry (engine-settings rule 3) comes first; the engine plans again on the next run
     with those students going."""
+    snapshot = with_postponed(snapshot, now)
     entries = auto_entries(snapshot, settings, now)
     if entries:
         return Plan(entries)

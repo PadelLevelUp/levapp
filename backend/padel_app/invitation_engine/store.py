@@ -13,6 +13,7 @@ from typing import Iterable, Mapping, Protocol
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
+    Elsewhere,
     Invitation,
     Placement,
     SessionSnapshot,
@@ -104,13 +105,14 @@ class MemoryStore:
         named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
         others = [o for o in self._sessions.values() if o.id != s.id]
         busy = {sid for o in others if o.start == s.start for sid in o.going}
-        postponed = {i.student for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open}
+        elsewhere = tuple(Elsewhere(o.id, o.start, i, o.capacity, tuple(o.going.values()))
+                          for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open)
         return SessionSnapshot(
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
             regulars=tuple(s.regulars.values()), going=tuple(s.going.values()),
             invitations=tuple(s.invitations), waiting_list=tuple(s.waiting_list), pool=pool,
             absent=frozenset(s.absent), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
-            busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy), alerted=dict(s.alerted),
+            busy_same_time=frozenset(busy), elsewhere=elsewhere, alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
             attendance_requested=dict(s.attendance_requested),
@@ -141,6 +143,10 @@ class MemoryStore:
                 elif i is not None:
                     s.invitations[i] = replace(s.invitations[i], offer=e.offer, side_named=e.side_named,
                                                tier=e.tier, counts_until=e.counts_until, sorry_at=None)
+            elif isinstance(e, fx.InvitationClosed):
+                i = self._latest_open(s, e.student)
+                if i is not None:
+                    s.invitations[i] = replace(s.invitations[i], closed_at=e.at)
             elif isinstance(e, fx.Answered) and e.on == "invitation":
                 for i in range(len(s.invitations) - 1, -1, -1):
                     if s.invitations[i].student == e.student and s.invitations[i].open:

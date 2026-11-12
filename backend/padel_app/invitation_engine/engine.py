@@ -57,7 +57,8 @@ class Engine:
         if not isinstance(request, STUDENT_REQUESTS):
             raise TypeError(f"unknown request {request!r}")
         out = self._commit(answers.handle(self.store.snapshot(session), self.settings, request, now).effects)
-        return out + self._plan(session, now)
+        touched = [session] + sorted({e.session for e in out} - {session})   # a same-hour close (answers rule 10)
+        return out + [e for s in touched for e in self._plan(s, now)]
 
     def _plan(self, session: str, now: datetime) -> list[Effect]:
         return self._commit(planner.plan(self.store.snapshot(session), self.settings, now).effects)

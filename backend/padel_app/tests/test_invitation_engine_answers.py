@@ -4,13 +4,23 @@ accept with no open invitation changes nothing.
 
 Scenario pins: ANSWERS-1 is P06, ANSWERS-2 is P15, ANSWERS-3 is P24.
 """
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine.answers import handle
-from padel_app.invitation_engine.effects import Absence, Answered, Left, Placed, WaitingListLeft
-from padel_app.invitation_engine.requests import Answer, Cancel, NoShow, RegularAbsent
+from padel_app.invitation_engine.effects import (
+    Absence,
+    Answered,
+    InvitationClosed,
+    Left,
+    Placed,
+    Refused,
+    WaitingListLeft,
+)
+from padel_app.invitation_engine.requests import Answer, Cancel, DirectJoin, NoShow, RegularAbsent
 from padel_app.invitation_engine.snapshot import (
+    Elsewhere,
     Invitation,
     Placement,
     SessionSnapshot,
@@ -191,3 +201,30 @@ def test_two_yes_for_the_last_spot_place_exactly_one():
     assert [e.student for e in first + second if isinstance(e, Placed)] == ["a"]
     assert [e.kind for e in second if isinstance(e, Message)] == ["sorry"]
     assert len(store.snapshot("S").going) == 8
+
+
+# --- never two sessions at the same hour (rule 10, PAD-911) ------------------------------------
+
+def test_a_yes_closes_the_same_hour_invitation():
+    """ANSWERS-13's mechanism (the scenario is P34): the Yes closes the invitation to the session at
+    the same start, not one later that day."""
+    same = Elsewhere("B", START, _inv("x", R), 16, ())
+    later = Elsewhere("C", START + timedelta(hours=2), _inv("x", R), 16, ())
+    s = replace(_session(_regs(4, 3), [("x", "R")], [_inv("x", R)]), elsewhere=(same, later))
+    effects = handle(s, EngineSettings(), Answer("x", True), NOW).effects
+    assert _placed(effects) == [("x", "R", "invitation")]
+    assert [(e.session, e.student) for e in effects if isinstance(e, InvitationClosed)] == [("B", "x")]
+
+
+def test_second_same_hour_placement_is_refused():
+    s = replace(_session(_regs(4, 3), [("x", "R")], [_inv("x", R)]), busy_same_time=frozenset({"x"}))
+    assert handle(s, EngineSettings(), Answer("x", True), NOW).effects == ()
+
+
+def test_direct_join_at_a_busy_hour_is_refused():
+    s = _session(_regs(4, 3), [("x", "R")])
+    on = EngineSettings(direct_join=True)
+    assert _placed(handle(s, on, DirectJoin("x"), NOW).effects) == [("x", "R", "direct")]
+    busy = replace(s, busy_same_time=frozenset({"x"}))
+    effects = handle(busy, on, DirectJoin("x"), NOW).effects
+    assert [type(e) for e in effects] == [Refused] and not _placed(effects)
