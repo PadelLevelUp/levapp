@@ -60,3 +60,37 @@ def test_the_old_engine_never_acts_on_a_new_engine_session(app):
     db.session.refresh(draining)
     assert draining.last_activity_at is not None and _events(opened) > 0      # the old engine, as today
     assert Vacancy.query.filter_by(lesson_instance_id=int(not_opened)).count() == 2   # none opened
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-82")
+def test_the_calendar_reads_engines_in_one_query(app):
+    """A switched coach's calendar week of 20 new-engine occurrences reads their engines in one
+    engine_sessions query (engine_switch.new_engine_ids), whatever the number of classes."""
+    from datetime import timedelta as _td
+
+    from sqlalchemy import event
+
+    from padel_app.models.coaches import Coach
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.lesson_service import get_lesson_instances_in_range
+    from padel_app.sql_db import db as _db
+    from padel_app.tests.test_pad916_engine_store import NOW as _NOW, START as _START, _seed
+
+    with app.app_context():
+        starts = tuple(_START + _td(days=d // 4, hours=d % 4) for d in range(20))
+        store, sessions, _ = _seed(app, starts=starts)
+        coach_id = store.coach_of(sessions[0])
+        _db.session.add(NotificationConfig(coach_id=coach_id, auto_notify_enabled=True, engine_version="new",
+                                           engine_switched_at=_NOW))
+        _db.session.commit()
+
+        statements = []
+        listen = lambda conn, cursor, sql, params, context, many: statements.append(sql)  # noqa: E731
+        event.listen(_db.engine, "before_cursor_execute", listen)
+        try:
+            events = get_lesson_instances_in_range(_db.session.get(Coach, coach_id), _START - _td(days=1),
+                                                   _START + _td(days=7))
+        finally:
+            event.remove(_db.engine, "before_cursor_execute", listen)
+        assert len([e for e in events if e.get("engineVersion") == "new"]) == 20
+        assert len([s for s in statements if "FROM engine_sessions" in s]) == 1

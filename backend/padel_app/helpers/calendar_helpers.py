@@ -186,6 +186,11 @@ def load_lesson_instances_for_player(
 
 
 def build_lesson_events(lessons, instances_by_key, range_start, range_end):
+    # PAD-918 (CONFIG-82): every occurrence's engine in one query, before any is serialised.
+    from padel_app.services.engine_readers import prime_engine_ids
+
+    prime_engine_ids(inst.id for inst in instances_by_key.values())
+
     events = []
 
     rendered_instance_ids = set()

@@ -100,6 +100,20 @@ def open_invitations_query(player_id: int):
 
 
 _ANY_SESSION_KEY = "engine_readers.any_new_engine_session"
+_NEW_IDS_KEY = "engine_readers.new_engine_ids"
+
+
+def prime_engine_ids(instance_ids) -> None:
+    """Read the engines of a batch of occurrences in one query (CONFIG-82, ``engine_switch.new_engine_ids``)
+    and keep the answers on the database session, so ``class_engine_fields`` asks nothing more for them."""
+    from padel_app.services.engine_switch import new_engine_ids
+
+    known = db.session.info.setdefault(_NEW_IDS_KEY, {})
+    missing = {int(i) for i in instance_ids if i is not None and int(i) not in known}
+    if not missing:
+        return
+    new = new_engine_ids(missing)
+    known.update({i: i in new for i in missing})
 
 
 def _any_new_engine_session() -> bool:
@@ -121,6 +135,7 @@ def _forget_on_new_session(session, flush_context, instances) -> None:
 
     if any(isinstance(obj, EngineSession) for obj in session.new):
         session.info.pop(_ANY_SESSION_KEY, None)
+        session.info.pop(_NEW_IDS_KEY, None)
 
 
 from sqlalchemy import event as _sa_event  # noqa: E402
@@ -128,6 +143,7 @@ from sqlalchemy.orm import Session as _Session  # noqa: E402
 
 def _forget(session, *args) -> None:
     session.info.pop(_ANY_SESSION_KEY, None)
+    session.info.pop(_NEW_IDS_KEY, None)
 
 
 _sa_event.listen(_Session, "before_flush", _forget_on_new_session)
@@ -147,12 +163,17 @@ def class_engine_fields(obj) -> dict:
 
     if getattr(obj, "model_name", None) not in ("LessonInstance", "Lesson"):
         return {}
-    if not _any_new_engine_session():
+    primed = db.session.info.get(_NEW_IDS_KEY, {})
+    if getattr(obj, "model_name", None) == "LessonInstance" and obj.id in primed and not primed[obj.id]:
+        return {"engineVersion": "old", "waitingListSideChoice": False}        # primed: no lookup at all
+    if not (getattr(obj, "model_name", None) == "LessonInstance" and primed.get(obj.id)) and \
+            not _any_new_engine_session():
         # The fixed-statement budget of a calendar and a class detail (PAD-583, PAD-591): while no
         # session is on the new engine, every class is on the old one and no per-class lookup runs.
         return {"engineVersion": "old", "waitingListSideChoice": False}
     if getattr(obj, "model_name", None) == "LessonInstance":
-        new = engine_for(obj) == "new"
+        known = db.session.info.get(_NEW_IDS_KEY, {})
+        new = known[obj.id] if obj.id in known else engine_for(obj) == "new"
         coach = primary_coach(obj)
         coach_id = coach.id if coach is not None else None
     elif getattr(obj, "model_name", None) == "Lesson":
