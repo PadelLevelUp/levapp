@@ -426,10 +426,10 @@ function NewEngineResults({
 
   // The verdict's own name first; then a queue entry of any type, the class's roster, else the id.
   const nameOf = (verdict: EngineVerdict) => {
-    const own = verdict.nickname ?? verdict.name;
-    if (own) return own;
+    // PAD-683 rule 9b: the coach's own name for the student, through the one resolver.
+    if (verdict.name) return displayName(verdict.playerId, verdict.name);
     const queued = spotTypes.flatMap((type) => type.queue).find((e) => e.playerId === verdict.playerId);
-    if (queued) return queued.nickname ?? queued.name;
+    if (queued) return displayName(queued.playerId, queued.name);
     const participant = players.find((p) => String(p.id) === verdict.playerId);
     if (participant) return playerLabel(participant, displayName);
     return `#${verdict.playerId}`;
@@ -505,6 +505,7 @@ function NewEngineResults({
 
 function SpotTypeBlock({ type }: { type: EngineSpotType }) {
   const { t } = useTranslation();
+  const displayName = useCoachDisplayName();
   const slug = engineSideSlug(type.side);
   const verdictOf = (playerId: string) => type.verdicts.find((v) => v.playerId === playerId);
   return (
@@ -536,7 +537,7 @@ function SpotTypeBlock({ type }: { type: EngineSpotType }) {
                       <span className="w-7 text-muted-foreground tabular-nums">
                         {t("tutorials.understandInvites.rank", { rank: entry.rank })}
                       </span>
-                      <span className="font-medium">{entry.nickname ?? entry.name}</span>
+                      <span className="font-medium">{displayName(entry.playerId, entry.name)}</span>
                       {verdict && (
                         <span className="ml-auto text-xs text-muted-foreground" data-testid={`tutorial-row-${entry.playerId}-${slug}-stage`}>
                           {engineVerdictLines(verdict).map((line) => resolveText(t, line)).join(" · ")}

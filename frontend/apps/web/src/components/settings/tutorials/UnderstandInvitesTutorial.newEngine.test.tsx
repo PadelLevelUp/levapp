@@ -7,9 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
 const simulateInvites = vi.fn();
+// One stable resolver (the component's effects depend on it); the coach calls s6 "Sofi".
+const names = vi.hoisted(() => ({
+  displayName: (id: unknown, real: string | null | undefined) => (String(id) === "s6" ? "Sofi" : real ?? ""),
+}));
 vi.mock("@levelup/hooks", async (orig) => ({
   ...(await orig<typeof import("@levelup/hooks")>()),
-  useCoachDisplayName: () => (_id: unknown, real: string | null | undefined) => real ?? "",
+  useCoachDisplayName: () => names.displayName,
 }));
 vi.mock("@/api/calendar", () => ({
   getCalendarEvents: () =>

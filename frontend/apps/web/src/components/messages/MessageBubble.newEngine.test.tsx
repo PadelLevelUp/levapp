@@ -4,7 +4,7 @@
  * the shared test ids, never by copy (`t` returns the key).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Message } from "@/types";
@@ -128,5 +128,21 @@ describe("PAD-920 the new engine's invitation bubble on web", () => {
     );
     fireEvent.click(screen.getByTestId("engine-alert-open-class-m9"));
     expect(navigate).toHaveBeenCalledWith("/calendar?classId=lessoninstance-12&date=2026-11-19");
+  });
+
+  it("drops the buttons when the class starts while the bubble is on screen", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-11-19T18:59:00Z"));
+      renderAll(bubble("m1", { state: "open", startsAt: "2026-11-19T19:00:00Z" }));
+      expect(screen.getByTestId("invite-respond-yes-41")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(61_000);
+      });
+      expect(screen.getByTestId("invite-state-41-started")).toBeTruthy();
+      expect(screen.queryByTestId("invite-respond-yes-41")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -221,7 +221,8 @@
       "openSpots_one": "{{count}} vaga",
       "openSpots_other": "{{count}} vagas",
       "sideEither": "Qualquer lado",
-      "leftOutTitle": "Quem não entra e porquê"
+      "leftOutTitle": "Quem não entra e porquê",
+      "openSpots_zero": "{{count}} vagas"
     }
   }
 }

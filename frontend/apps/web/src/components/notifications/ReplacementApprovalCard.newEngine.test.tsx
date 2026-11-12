@@ -90,4 +90,17 @@ describe("ReplacementApprovalCard — new engine (PAD-920)", () => {
     expect(screen.queryByTestId("approval-yes")).toBeNull();
     expect(screen.queryByTestId("approval-dismiss")).toBeNull();
   });
+
+  it("reads the message's own state: replaced, approved, and an older payload's responded", () => {
+    render(<ReplacementApprovalCard bundle={{ ...message, state: "replaced" }} />);
+    expect(screen.getByTestId("approval-replaced")).toBeTruthy();
+    expect(screen.queryByTestId("approval-yes")).toBeNull();
+    cleanup();
+    render(<ReplacementApprovalCard bundle={{ ...message, state: "approved" }} />);
+    expect(screen.getByTestId("approval-outcome")).toBeTruthy();
+    expect(screen.queryByTestId("approval-yes")).toBeNull();
+    cleanup();
+    render(<ReplacementApprovalCard bundle={{ ...message, responded: true }} />);
+    expect(screen.getByTestId("approval-replaced")).toBeTruthy();
+  });
 });

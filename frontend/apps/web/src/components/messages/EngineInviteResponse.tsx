@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { EngineInviteMeta, EngineRespondAction } from "@levelup/types";
-import { engineInviteState, engineInviteTestIds } from "@levelup/config";
+import { engineInviteStartMs, engineInviteState, engineInviteTestIds } from "@levelup/config";
 import { respondToEngineInvitation } from "@/api/notificationEngine";
 
 /**
@@ -27,6 +27,16 @@ export function EngineInviteResponse({ meta, isMine }: { meta: EngineInviteMeta;
   // The route's answer for this invitation, until the message's own edit replaces the metadata.
   const [answered, setAnswered] = useState<{ forState: string; patch: Partial<EngineInviteMeta> } | null>(null);
   const shown = answered && answered.forState === meta.state ? { ...meta, ...answered.patch } : meta;
+  // "Started" is derived from the clock, so a bubble left open re-renders at the class's start.
+  const [, setTick] = useState(0);
+  const startMs = engineInviteStartMs(meta);
+  useEffect(() => {
+    if (startMs === null) return;
+    const wait = startMs - Date.now();
+    if (wait <= 0 || wait > 2 ** 31 - 1) return;
+    const id = setTimeout(() => setTick((n) => n + 1), wait + 50);
+    return () => clearTimeout(id);
+  }, [startMs]);
   // The coach sent the invitation, so the coach's copy is the sender's (NB3).
   const view = engineInviteState(shown, isMine ? "coach" : "student", new Date());
   const ids = engineInviteTestIds(meta.invitationId);

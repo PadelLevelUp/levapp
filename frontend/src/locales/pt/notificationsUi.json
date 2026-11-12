@@ -58,7 +58,8 @@
         "replaced": "Este pedido foi substituído por um mais recente.",
         "remove": "Retirar {{name}} da lista",
         "restore": "Repor {{name}} na lista",
-        "reasonCount": "{{reason}} ({{count}})"
+        "reasonCount": "{{reason}} ({{count}})",
+        "yesRemoved_zero": "Sim ({{count}} retirados)"
       }
     }
   }

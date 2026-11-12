@@ -49,6 +49,11 @@ function instant(iso: string | null | undefined): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
+/** The class's real start as epoch ms, read exactly as the derivation reads it (a naive ISO is UTC). */
+export function engineInviteStartMs(meta: Pick<EngineInviteMeta, "startsAt">): number | null {
+  return instant(meta.startsAt);
+}
+
 export function engineInviteState(meta: EngineInviteMeta, viewer: "student" | "coach", now: Date): EngineInviteView {
   const startsAt = instant(meta.startsAt);
   // NB1: the class having started is derived, so it never goes stale; it wins over any stored state.

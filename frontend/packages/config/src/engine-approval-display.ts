@@ -75,8 +75,8 @@ export function engineLeftOut(spotTypes: Pick<EngineSpotType, "queue" | "verdict
 export interface EngineApprovalRequestView {
   requestId: number;
   spotTypes: EngineApprovalSpotType[];
-  /** The class's state: dismissed or pending. A message reads `pending` until answered. */
-  state: "pending" | "dismissed";
+  /** The class's state, or the message's own (N4, kept current by `message_edited`). */
+  state: "pending" | "approved" | "dismissed" | "replaced";
   responded: boolean;
 }
 
@@ -85,7 +85,8 @@ export function isEngineApproval(value: unknown): value is EngineApprovalMeta | 
 }
 
 export function engineApprovalRequest(source: EngineApprovalMeta | EngineApprovalState): EngineApprovalRequestView | null {
-  if ("request" in source || "state" in source) {
+  // The class's state has no top-level `requestId`; a message's metadata always does.
+  if (!("requestId" in source)) {
     const state = source as EngineApprovalState;
     if (!state.request) return null;
     return {
@@ -97,7 +98,9 @@ export function engineApprovalRequest(source: EngineApprovalMeta | EngineApprova
   }
   const meta = source as EngineApprovalMeta;
   if (meta.requestId == null || !Array.isArray(meta.spotTypes)) return null;
-  return { requestId: meta.requestId, spotTypes: meta.spotTypes, state: "pending", responded: !!meta.responded };
+  // N5: the replaced line keys on `state`; an older payload without it reads `responded` as replaced.
+  const state = meta.state ?? (meta.responded ? "replaced" : "pending");
+  return { requestId: meta.requestId, spotTypes: meta.spotTypes, state, responded: !!meta.responded };
 }
 
 /** "Sim" or "Sim (N retirados)" (N5). */

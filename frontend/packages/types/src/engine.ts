@@ -187,6 +187,8 @@ export interface EngineSpotType extends EngineSpotTypeKey {
 // ── Semi-automatic approval (notifications.semi-auto-approval N1, N2, N4) ─────
 
 export interface EngineApprovalSpotType extends EngineSpotTypeKey {
+  /** The type's open spots (semi-auto-approval N1/N4, d99e7b605); absent on older payloads. */
+  count?: number;
   queue: EngineQueueEntry[];
   emptyQueueReasons?: Array<{ stage: EngineStage | string; count: number }>;
 }
@@ -223,7 +225,9 @@ export interface EngineApprovalMeta {
   requestId: number;
   lessonInstanceId: number;
   responded: boolean;
-  spotTypes: Array<EngineSpotTypeKey & { queue: EngineQueueEntry[] }>;
+  /** Kept current with `message_edited` (N4, d99e7b605); older payloads carry only `responded`. */
+  state?: "pending" | "approved" | "dismissed" | "replaced";
+  spotTypes: Array<EngineSpotTypeKey & { count?: number; queue: EngineQueueEntry[] }>;
 }
 
 /** `msg_metadata` of the coach alert's `engine_alert` message (dashboard.blocks NA3). */

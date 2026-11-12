@@ -366,7 +366,15 @@ function EngineApprovalCard({
   const displayName = useCoachDisplayName();
   const request = engineApprovalRequest(source);
   const [responding, setResponding] = useState(false);
-  const [outcome, setOutcome] = useState<EngineOutcome | null>(request?.state === "dismissed" ? "dismissed" : null);
+  const [outcome, setOutcome] = useState<EngineOutcome | null>(
+    request?.state === "dismissed"
+      ? "dismissed"
+      : request?.state === "approved"
+        ? "approved"
+        : request?.state === "replaced"
+          ? "stale"
+          : null,
+  );
   // N5: the students the coach takes off the list; "Sim" invites everyone else in the queues.
   const [removed, setRemoved] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
@@ -412,12 +420,13 @@ function EngineApprovalCard({
             <p className="text-xs font-medium text-muted-foreground" data-testid="approval-type-header">
               {t(engineSideKey(type.side))}
               {type.levelLabel ? ` · ${type.levelLabel}` : ""}
+              {typeof type.count === "number" ? ` · ${t("tutorials.engine.openSpots", { count: type.count })}` : ""}
             </p>
             {type.queue.length > 0 ? (
               <div className="space-y-1">
                 <ol className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-sm">
                   {shown.map((entry, i) => {
-                    const name = displayName(entry.playerId, entry.nickname ?? entry.name);
+                    const name = displayName(entry.playerId, entry.name);
                     const isRemoved = removed.includes(entry.playerId);
                     return (
                       <li key={entry.playerId} className="contents">
