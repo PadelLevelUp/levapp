@@ -15,10 +15,12 @@ from padel_app.invitation_engine.snapshot import Side, Student, WaitingListSides
 
 @dataclass(frozen=True)
 class Answer:
-    """Yes or No to the student's open invitation (plan §7)."""
+    """Yes or No to the student's open invitation (plan §7); ``by`` the coach when they answer for the
+    student."""
 
     student: str
     yes: bool
+    by: Literal["student", "coach"] = "student"
 
 
 @dataclass(frozen=True)

@@ -20,6 +20,7 @@ from padel_app.invitation_engine.constants import KIND_SORRY
 from padel_app.invitation_engine.effects import (
     Absence,
     Answered,
+    AnsweredBy,
     Effect,
     Left,
     LeftReason,
@@ -124,22 +125,23 @@ def _answer(snapshot: SessionSnapshot, settings: EngineSettings, request: Answer
     if invitation is None or not invitation.open or snapshot.placement(sid) is not None:
         return ()                                          # rule 8: refused, nothing placed, nothing sent
     if not request.yes:
-        return (Answered(snapshot.id, now, sid, "no", "invitation"),)   # rule 5: final for the session
+        return (Answered(snapshot.id, now, sid, "no", "invitation", request.by),)   # rule 5: final for the session
     if sid in snapshot.busy_same_time:
         return ()                                          # rule 10: already placed at this hour, refused
     if invitation.sorry_at is not None:
         return ()                                          # rule 4: sorry offers nothing more
     side = _place_side(snapshot, settings, sid, invitation.offer, invitation.side_named, now)
     if side is not None:
-        return _placed(snapshot, sid, side, "invitation", now, answered=True)
+        return _placed(snapshot, sid, side, "invitation", now, answered_by=request.by)
     # Rules 3 and 4: never another side or type on this answer; sorry, and the waiting list is the way back.
     return (Sorry(snapshot.id, now, sid), Message(snapshot.id, now, sid, KIND_SORRY))
 
 
 def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime, *,
-            answered: bool) -> tuple[Effect, ...]:
-    """Going: a placed student no longer waits on the session's lists."""
-    out: list[Effect] = [Answered(snapshot.id, now, sid, "yes", "invitation")] if answered else []
+            answered_by: AnsweredBy | None) -> tuple[Effect, ...]:
+    """Going: a placed student no longer waits on the session's lists. ``answered_by``: who said Yes to
+    the invitation, ``None`` for a placement no answer made."""
+    out: list[Effect] = [Answered(snapshot.id, now, sid, "yes", "invitation", answered_by)] if answered_by else []
     out.append(Placed(snapshot.id, now, sid, side, how))
     out += [WaitingListLeft(snapshot.id, now, sid, w.list) for w in snapshot.waiting_list if w.student == sid]
     out += planner.close_same_hour(snapshot, sid, now)    # rule 10: never two sessions at one hour
@@ -257,4 +259,4 @@ def _direct_join(snapshot: SessionSnapshot, settings: EngineSettings, request: D
     sides = open_sides(snapshot, settings) & (frozenset({request.side}) if request.side else student.sides)
     if not sides:
         return (Refused(snapshot.id, now, sid, "direct_join", "side_full", open_sides(snapshot, settings)),)
-    return _placed(snapshot, sid, _hardest(snapshot, settings, sid, sides, now), "direct", now, answered=False)
+    return _placed(snapshot, sid, _hardest(snapshot, settings, sid, sides, now), "direct", now, answered_by=None)
