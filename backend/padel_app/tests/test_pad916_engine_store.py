@@ -512,7 +512,7 @@ def test_a_session_belongs_to_the_occurrences_primary_coach(app):
     store = TableStore(clock=lambda: NOW)
     for sid in (str(twin.id), str(bare.id)):
         with store.unit((sid,)):
-            store.add_session(sid, 3, 4, START, [], NOW)
+            store.add_session(sid, 3, 4, START, [], NOW, end=START + timedelta(hours=1))   # the protocol's end, unused
     assert store.coach_of(str(twin.id)) == first           # the coach assigned first
     assert store.coach_of(str(bare.id)) == co.id            # no row of its own: the lesson's coach
 

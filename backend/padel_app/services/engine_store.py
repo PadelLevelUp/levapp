@@ -612,10 +612,10 @@ class TableStore:
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
-                    joined_at: Mapping[str, datetime] | None = None) -> None:
+                    joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None) -> None:
         """The new engine takes over an existing occurrence (the app created it): its row in
-        ``engine_sessions`` and a going presence per regular. ``level``, ``capacity`` and ``start``
-        are the occurrence's own and are not written; ``joined_at`` is the roster's."""
+        ``engine_sessions`` and a going presence per regular. ``level``, ``capacity``, ``start`` and
+        ``end`` are the occurrence's own and are not written; ``joined_at`` is the roster's."""
         from padel_app.models import EngineSession
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.services import lesson_service as ls
