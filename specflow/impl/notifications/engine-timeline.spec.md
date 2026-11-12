@@ -61,7 +61,8 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    (`presence_late_cancellation`, true only for `cancelled` at or after the deadline that
    `notifications.config` rule 19 maps to `absence_cutoff_before`) is the notice. It leaves
    `Presence.justification` alone.
-6. **`last_invite_at` (§8 step 6; ruling (2)).** No new invitation after it. Flexible going students
+6. **`last_invite_at` (§8 step 6; ruling (2)).** `last_invite_before` in real hours before the class's
+   real start, as the absence cutoff (rule 5), never wall-clock arithmetic. No new invitation after it. Flexible going students
    get their final side and are told it (const:KIND_SIDE_MOVED): {left, right} students their usual
    side when possible; when a side is over its quota, one regular moves — the coach's choice, else the
    one who moved least recently, ties to the one who joined the class most recently (`joined_at`). The
@@ -213,6 +214,11 @@ test: `backend/padel_app/tests/test_invitation_engine_absences.py` › `test_the
 Given two regulars, one with `notif_block_all`, when the first attendance request is due, then only the
 other is asked.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_a_student_who_blocked_everything_gets_no_attendance_request`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-24: last_invite_at is real hours before the real start, across a clock change (rule 6)
+Given `last_invite_before` 2 h and a class at 01:30 Lisbon on the night the clocks go forward, when the
+engine computes `last_invite_at`, then it is exactly 2 real hours before the class's real start.
+test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_last_invite_at_is_real_hours_before_the_real_start`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".

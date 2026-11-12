@@ -385,16 +385,22 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
 18. **Which engine a session runs on (swap plan §7; coordinator ruling on PAD-912).** Each coach has an
     engine switch (`engine_version`: `old` or `new`; `old` for every coach until the coach is
-    switched). A session runs on the new engine when its coach is on `new` and, when the coach was
-    switched, its invitation window had not opened and the old engine had not started inviting for it
-    (a coach's "invite now" before the window, an approved semi-automatic spot); a session already
+    switched). A session's coach is its class's primary coach (`lesson_service.primary_coach`, the
+    coach the old engine runs it on), so a co-coached class whose primary coach is on `old` stays on
+    `old`. A session runs on the new engine when its coach is on `new` and, when the coach was
+    switched, its invitation window had not opened and the old engine had not started inviting for it:
+    an old vacancy of it filled, sent anything (`last_activity_at`), or held a semi-automatic approval
+    pending or approved (so an approval card already in the coach's chat is never orphaned). Adopting a
+    session closes its old vacancies that had not started. A session already
     inviting at the switch finishes on the old engine until it starts (it drains). The switch is one
     way: nothing moves a coach back to `old`, and a session never changes engine after it is
     assigned. A session is assigned once, when its occurrence first exists (materialised, by the app's
     path that creates it, which writes the new engine's session row for a new-engine session): an
     occurrence that did not exist at the switch is on the new engine whatever its window, so a coach
     whose window opens at creation (`first_invite` none) drains only the occurrences that already
-    existed. Every entry point that reaches an engine reads this
+    existed. An occurrence that existed at the switch and was not adopted then is never re-evaluated:
+    it drains on `old`. An adoption that fails when the occurrence is created is logged and leaves it on
+    `old` until the adoption job (`adopt_due`) retries it. Every entry point that reaches an engine reads this
     rule: the new engine's `sessions()` lists only new-engine sessions, and the old tick only
     old-engine ones. Where another spec says "a coach on the new engine" or "a coach on the old
     engine", it means a session this rule assigns to that engine. Once a coach has no old-engine
@@ -408,7 +414,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       value whether or not it is enabled (Open questions);
     - `restrictions.minTimeBeforeClass` → `last_invite_before`; off maps to zero, never the engine's
       default;
-    - `restrictions.quietHours` → `quiet_hours`; off maps to none, never the engine's default;
+    - `restrictions.quietHours` → `quiet_hours`; off maps to none, never the engine's default; a stored
+      window whose start equals its end, which today is quiet all day, maps to quiet all day, never to
+      no quiet hours;
     - `reminderTiming.invitationStart` → `first_invite` and the reminder timing → `attendance_request`,
       shape for shape (`notifications.engine-settings` rule 10), with `reminder_count` →
       `attendance_request.max` and `hours_between_reminders` → `attendance_request.every`;
@@ -860,6 +868,23 @@ when the store builds `pool`, then students of every level are in it, except one
 rate.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_class_with_no_level_applies_no_level_rule_of_the_bar`
 
+#### NOTIFICATIONS-CONFIG-65: Quiet hours whose start equals their end stay quiet all day (rule 19)
+Given a coach with quiet hours on, from 22:00 to 22:00, when the store builds the coach's
+`EngineSettings` and a run happens at noon, then the settings hold an all-day quiet window and nothing
+is sent.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_quiet_hours_with_equal_ends_stay_quiet_all_day`
+
+#### NOTIFICATIONS-CONFIG-66: A co-coached class follows its primary coach's engine (rule 18)
+Given a class whose primary coach is on `old` and whose co-coach is on `new`, when a new occurrence is
+materialised, then it runs on the old engine.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_co_coached_class_follows_its_primary_coach`
+
+#### NOTIFICATIONS-CONFIG-67: A pending semi-automatic approval counts as started (rule 18)
+Given a coach on `old` with a session whose window has not opened and whose old vacancy has a pending
+approval, and another whose old vacancy has not started, when the coach is switched, then the first
+drains on `old` and the second is adopted with its unstarted vacancy closed.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_pending_approval_counts_as_started_and_adoption_closes_unstarted_vacancies`
+
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
   15-minute floor drops to const:ENGINE_T_FLOOR with the new timing controls
@@ -890,3 +915,10 @@ test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_class_wi
 - Ordering ids the engine does not know, `maxSimultaneous` below 1, a criterion in both lists —
   decisions (R, owner away, PAD-917, 2026-11-12; the owner can reverse them): dropped from `ordering` rather than refusing the coach, mapped to
   1, ranked once, so a coach's stored settings never block the switch.
+- Which coach a co-coached session follows, what "started inviting" includes, an occurrence not adopted
+  at the switch, a failed adoption (rule 18) — decisions (R, owner away, PAD-918, 2026-11-12; the owner
+  can reverse them): the primary coach, as the old engine runs it; filled, sent anything, or a
+  semi-automatic approval pending or approved, so no approval card is orphaned; never re-evaluated,
+  it drains; logged and retried by `adopt_due`, the occurrence staying on `old` meanwhile.
+- Quiet hours whose start equals their end (rule 19) — decision (S, owner away, PAD-913, 2026-11-12; the
+  owner can reverse it): quiet all day, as today, so no coach's settings change meaning at the switch.
