@@ -9,6 +9,7 @@ class has started. Each repeat goes out once: the snapshot carries the requests 
 Scenario pin: 60 (repeats only to non-responders, at most 3).
 """
 import typing
+from dataclasses import replace
 from datetime import datetime, time, timedelta
 
 import pytest
@@ -133,8 +134,18 @@ def test_engine_kinds_do_not_reuse_todays_message_names():
     from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES
 
     kinds = set(typing.get_args(fx.MessageKind))
-    assert kinds & set(DEFAULT_MESSAGE_TEMPLATES) == {"waiting_list_invite"}
+    assert kinds & set(DEFAULT_MESSAGE_TEMPLATES) == {"waiting_list_invite"}   # a shared name, the same message
     assert "waiting_list_offer" not in kinds
+    # The engine's "sorry" is today's "spot taken, join the list?", so it renders through that template.
+    from padel_app.invitation_engine.constants import KIND_SORRY
+    assert KIND_SORRY in kinds and "waiting_list_offer" in DEFAULT_MESSAGE_TEMPLATES
     from padel_app.invitation_engine.constants import KIND_WAITING_LIST_INVITE
 
     assert KIND_WAITING_LIST_INVITE in kinds
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-23")
+def test_a_student_who_blocked_everything_gets_no_attendance_request():
+    s = _snapshot((("A", "regular"), ("B", "regular")))
+    s.students["B"] = replace(s.students["B"], blocks_all=True)
+    assert _asked(due(s, EngineSettings(), FIRST)) == ["A"]

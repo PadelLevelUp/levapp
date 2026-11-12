@@ -62,6 +62,7 @@ class EngineSession(db.Model, model.Model):
     approved = Column(JSON, nullable=False, default=list)
     removed = Column(JSON, nullable=False, default=list)
     pending = Column(JSON, nullable=True)
+    pending_request = Column(String(80), nullable=True)      # the pending request's id (the engine's)
     dismissed = Column(JSON, nullable=True)
 
 

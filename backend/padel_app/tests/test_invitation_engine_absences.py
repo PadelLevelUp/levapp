@@ -6,6 +6,8 @@ Scenario pins: TIMELINE-6 is P16, TIMELINE-7 is 61.
 """
 from datetime import datetime, timedelta
 
+import pytest
+
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine.absences import record
 from padel_app.invitation_engine.effects import Absence
@@ -60,3 +62,26 @@ def test_the_cutoff_is_lisbon_wall_clock():
                         going=(Placement("A", "R", "regular", datetime(2026, 7, 1, 18, 0)),), students={"A": ana})
     assert _notice(record(s, EngineSettings(), "A", "regular_no", datetime(2026, 7, 2, 21, 29))) == "on_time"
     assert _notice(record(s, EngineSettings(), "A", "regular_no", datetime(2026, 7, 2, 21, 30))) == "late"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-21")
+def test_the_cutoff_is_real_hours_before_the_real_start():
+    """engine-timeline rule 5: the cutoff is ``absence_cutoff_before`` real hours before the class's real
+    start, as today's ``cancellation_deadline_utc``. Lisbon's clocks go back on 25 Oct 2026, so 24 h of
+    wall clock before a 10:00 class that Sunday is one real hour more than 24 real hours."""
+    from types import SimpleNamespace
+
+    from padel_app.services.presence_response import cancellation_deadline_utc
+    from padel_app.utils.dates import wall_to_utc_naive
+
+    start = datetime(2026, 10, 25, 10, 0)                                    # Lisbon wall-clock, after the change
+    ana = Student("A", 3, frozenset({"R"}))
+    s = SessionSnapshot("S", 3, 8, start, regulars=(ana,), going=(Placement("A", "R", "regular", datetime(2026, 10, 1)),),
+                        students={"A": ana})
+    settings = EngineSettings(absence_cutoff_before=timedelta(hours=24))
+    deadline = cancellation_deadline_utc(SimpleNamespace(start_datetime=start),
+                                         SimpleNamespace(get_cancellation_deadline_hours=lambda: 24))
+    for wall in (datetime(2026, 10, 24, 10, 30), datetime(2026, 10, 24, 10, 0), datetime(2026, 10, 24, 11, 0)):
+        at = wall_to_utc_naive(wall)
+        assert _notice(record(s, settings, "A", "regular_no", at)) == ("late" if at >= deadline else "on_time"), wall
+    assert _notice(record(s, settings, "A", "regular_no", wall_to_utc_naive(datetime(2026, 10, 24, 10, 30)))) == "on_time"

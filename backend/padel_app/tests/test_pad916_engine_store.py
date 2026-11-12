@@ -155,6 +155,7 @@ def test_a_placement_at_an_hour_the_student_is_going_elsewhere_rolls_back(app):
     assert x in store.snapshot(b).busy_same_time
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
 def test_both_waiting_lists_at_once_is_a_named_conflict(app):
     from padel_app.services.engine_store import StoreConflict
 
@@ -333,13 +334,13 @@ def test_the_coachs_approval_round_trips_through_the_store(app):
     store, (a,), (_, x, y) = _seed(app)
     L = SpotType("L", 3)
     steps = [
-        ([fx.ApprovalRequest(a, NOW, ((L, (x, y)),))], Approval(pending=((L, (x, y)),))),
+        ([fx.ApprovalRequest(a, NOW, ((L, (x, y)),), "r1")], Approval(pending=((L, (x, y)),), pending_request="r1")),
         ([fx.QueueApproved(a, NOW, frozenset({x}), frozenset({y}))], Approval(approved=frozenset({x}),
                                                                               removed=frozenset({y}))),
         ([fx.QueueDismissed(a, NOW, ((L, 1),))], Approval(approved=frozenset({x}), removed=frozenset({y}),
                                                           dismissed=((L, 1),))),
-        ([fx.QueueReopened(a, NOW + timedelta(minutes=1)), fx.ApprovalRequest(a, NOW + timedelta(minutes=1), ((L, (x,)),))],
-         Approval(approved=frozenset({x}), removed=frozenset({y}), pending=((L, (x,)),))),
+        ([fx.QueueReopened(a, NOW + timedelta(minutes=1)), fx.ApprovalRequest(a, NOW + timedelta(minutes=1), ((L, (x,)),), "r2")],
+         Approval(approved=frozenset({x}), removed=frozenset({y}), pending=((L, (x,)),), pending_request="r2")),
         ([fx.ApprovalWithdrawn(a, NOW + timedelta(minutes=2))], Approval(approved=frozenset({x}), removed=frozenset({y}))),
     ]
     for effects, expected in steps:
@@ -385,19 +386,40 @@ def test_a_class_with_no_level_applies_no_level_rule_of_the_bar(app):
     db.session.commit()
     assert {st.id for st in store.snapshot(a).pool} == {x}
 
-def test_a_student_who_blocked_automatic_invitations_or_everything_is_not_in_the_pool(app):
-    """The student's own block, as the app reads it (``user_blocks_auto_invitations``): automatic
-    invitations off or every solicitation off keeps them out of the pool; blocking only the coach's
-    manual invitations does not."""
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-19")
+def test_the_students_own_blocks_hold_on_the_coachs_list(app):
+    """Engine-tiers rule 4: the coach's list never overrides the student's own blocks. Of three students
+    on the coach's list, one blocking automatic invitations, one blocking everything and one blocking
+    only manual invitations, and a fourth with an availability blocker over the class, only the
+    manual-only blocker is in ``pool`` and invited; the others are ``not_in_pool``."""
+    from padel_app.invitation_engine import planner
     from padel_app.models import User
+    from padel_app.models.calendar_blocks import CalendarBlock
     from padel_app.models.players import Player
 
-    store, (a,), (_, auto, everything, manual, free) = _seed(app, players=5)
+    store, (a,), (_, auto, everything, manual, away) = _seed(app, players=5)
+
+    def user(pid):
+        return db.session.get(User, db.session.get(Player, int(pid)).user_id)
+
     for pid, column in ((auto, "notif_block_auto_invitations"), (everything, "notif_block_all"),
                         (manual, "notif_block_manual_invitations")):
-        setattr(db.session.get(User, db.session.get(Player, int(pid)).user_id), column, True)
+        setattr(user(pid), column, True)
+    db.session.add(CalendarBlock(user_id=user(away).id, type="unavailable", start_datetime=START - timedelta(hours=1),
+                                 end_datetime=START + timedelta(hours=2), blocks_auto_invitations=True))
     db.session.commit()
-    assert {st.id for st in store.snapshot(a).pool} == {manual, free}
+    with store.unit((a,)):
+        store.apply([fx.WaitingListJoined(a, NOW, s, "coach", "L") for s in (auto, everything, manual, away)])
+
+    s = store.snapshot(a)
+    assert {st.id for st in s.pool} == {manual}
+    assert s.blocked == {auto, everything, away}
+    assert s.students[everything].blocks_all and not s.students[manual].blocks_all
+    run = planner.evaluate(s, EngineSettings(), START - timedelta(hours=6))
+    invited = {e.student for e in run.effects if isinstance(e, fx.Invited)}
+    assert invited == {manual}
+    assert {v.student for v in run.verdicts if v.stage == "not_in_pool"} >= {auto, everything, away}
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-5")

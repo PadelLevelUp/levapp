@@ -97,7 +97,7 @@ NON_PERSONAL = {
     # PAD-916: the new engine's store. Codes, sides and ids only; an effect's payload names player and
     # occurrence ids, never a name or a message's text.
     "invitations.answer", "invitations.offer", "invitations.side_named", "engine_sessions.alerted", "engine_sessions.approved", "engine_sessions.removed",
-    "engine_sessions.pending", "engine_sessions.dismissed",
+    "engine_sessions.pending", "engine_sessions.dismissed", "engine_sessions.pending_request",
     "engine_effects.key", "engine_effects.kind", "engine_effects.payload",
     "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides", "notification_configs.engine_version",
     "auth_rate_limit_hits.scope",

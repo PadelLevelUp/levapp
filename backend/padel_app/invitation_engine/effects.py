@@ -165,6 +165,7 @@ class ApprovalRequest(Effect):
     ``queues`` is each open spot type's queue from the dry run at ``at``. Replaces a pending one."""
 
     queues: SpotQueues
+    request: str = ""                                    # the request's id; ApproveQueue names it
 
 
 @dataclass(frozen=True)

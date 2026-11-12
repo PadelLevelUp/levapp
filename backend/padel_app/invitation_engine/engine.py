@@ -99,14 +99,18 @@ class Engine:
         with self.store.unit((session,)):
             approval = self.store.snapshot(session).approval
             if isinstance(request, ApproveQueue):
-                if approval.pending is None:            # nothing to approve: stale, or answered already
-                    return []
+                if approval.pending is None or approval.pending_request != request.request:
+                    return []                           # stale (replaced, withdrawn) or answered already
                 queued = {sid for _, queue in approval.pending for sid in queue}
                 out = self._commit([QueueApproved(session, now, frozenset(queued - request.removed),
                                                   frozenset(request.removed))])
             elif isinstance(request, DismissQueue):
+                if approval.pending is None:            # a stale "Ignorar": the request is gone already
+                    return []
                 out = self._commit([QueueDismissed(session, now, planner.spot_types(self.store.snapshot(session)))])
             else:
+                if approval.dismissed is None:          # nothing to reopen
+                    return []
                 out = self._commit([QueueReopened(session, now)])
             return out + self._plan(session, now)
 

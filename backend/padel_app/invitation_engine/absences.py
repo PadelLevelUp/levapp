@@ -17,15 +17,18 @@ from padel_app.utils.dates import wall_to_utc_naive
 
 
 def absence_cutoff_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
-    """§8 step 5: ``absence_cutoff_before`` ahead of the class (Lisbon wall-clock), as naive UTC."""
-    return wall_to_utc_naive(snapshot.start - settings.absence_cutoff_before)
+    """§8 step 5: ``absence_cutoff_before`` in real hours before the class's real start, naive UTC, as
+    today's ``presence_response.cancellation_deadline_utc`` (engine-timeline rule 5): never wall-clock
+    arithmetic, which is an hour off across a clock change."""
+    return wall_to_utc_naive(snapshot.start) - settings.absence_cutoff_before
 
 
 def notice(snapshot: SessionSnapshot, settings: EngineSettings, student: str, reason: LeftReason,
            now: datetime) -> AbsenceNotice:
     """The notice leaving for ``reason`` at ``now`` gave (engine-timeline rules 5, 7; plan §7).
 
-    A no-show is late. A No before the cutoff is on time, at or after it late, for a
+    A no-show is late. A No before the cutoff is on time, at
+    or after it late, for a
     regular and for an invitee alike (§7: the same rules as regulars). An automatic entrant's No is no
     absence (the auto-entry setting's own rule, wave brief §2 clause 3).
     """

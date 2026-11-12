@@ -218,12 +218,14 @@ class TableStore:
         excluded = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
         gates = self._pool_gates(coach_id, inst, links)
         excluded |= gates.excluded
+        # Engine-tiers rule 4 (TIERS-19): the student's own blocks hold on every list, the coach's too.
+        blocked = self._blocked(inst, links, users)
         inside = {p.student for p in going} | regular_ids
         students = self._students(coach_id, links, users)
         pool = tuple(
             students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
             if str(lk.player_id) not in inside and str(lk.player_id) not in excluded
-            and not _blocks_auto_invitations(users.get(lk.player_id))
+            and str(lk.player_id) not in blocked
             and not (gates.exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active")
             and (gates.eligible is None or gates.eligible(lk)))
 
@@ -265,14 +267,29 @@ class TableStore:
                 approved=frozenset(es.approved or ()), removed=frozenset(es.removed or ()),
                 pending=None if es.pending is None else tuple(
                     (SpotType(*spot), tuple(ids)) for spot, ids in es.pending),
+                pending_request=es.pending_request,
                 dismissed=None if es.dismissed is None else tuple(
                     (SpotType(*spot), n) for spot, n in es.dismissed)),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
             attendance_requested={s: tuple(v) for s, v in attempts.items()},
+            blocked=frozenset(blocked),
             postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )
+
+    @staticmethod
+    def _blocked(inst, links, users) -> set[str]:
+        """Students whose own settings refuse automatic invitations to this session: automatic
+        invitations or every solicitation blocked (``user_blocks_auto_invitations``), or an
+        availability blocker over the class (``blocked_user_ids_for_window``, wall clock as stored)."""
+        from padel_app.services.student_availability_service import blocked_user_ids_for_window
+
+        out = {str(lk.player_id) for lk in links if _blocks_auto_invitations(users.get(lk.player_id))}
+        by_user = {u.id: pid for pid, u in users.items() if u is not None}
+        out |= {str(by_user[uid]) for uid in blocked_user_ids_for_window(
+            list(by_user), inst.start_datetime, inst.end_datetime) if uid in by_user}
+        return out
 
     @staticmethod
     def _approval(es, e: fx.Effect) -> None:
@@ -280,15 +297,15 @@ class TableStore:
         ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
         a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal."""
         if isinstance(e, fx.ApprovalRequest):
-            es.pending, es.dismissed = _encode(e.queues), None
+            es.pending, es.pending_request, es.dismissed = _encode(e.queues), e.request or None, None
         elif isinstance(e, fx.ApprovalWithdrawn):
-            es.pending = None
+            es.pending = es.pending_request = None
         elif isinstance(e, fx.QueueApproved):
             es.approved = _encode(e.approved)
             es.removed = sorted(set(es.removed or ()) | e.removed, key=int)
-            es.pending = None
+            es.pending = es.pending_request = None
         elif isinstance(e, fx.QueueDismissed):
-            es.pending, es.dismissed = None, _encode(e.spots)
+            es.pending, es.pending_request, es.dismissed = None, None, _encode(e.spots)
         elif isinstance(e, fx.QueueReopened):
             es.dismissed = None
 
@@ -398,6 +415,7 @@ class TableStore:
                 makeups_owed=owed.get(pid, 0), attendance_rate=(present / total) if total else 0.0,
                 unjustified_absences=unjustified.get(pid, 0), justified_absences=justified,
                 active=getattr(user, "status", "active") == "active",
+                blocks_all=bool(getattr(user, "notif_block_all", False)),
                 subscription_status=getattr(user, "status", None))
         return out
 

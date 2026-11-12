@@ -202,7 +202,8 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     store.add_student(_student("COACH_OK", "L"))
     store.add_student(_student("COACH_SIDE", "L"))
     store.add_student(_student("CLOSED", "R"))
-    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
+    store.add_student(_student("GONE", "R"))
+    store.apply([fx.QueueApproved("A", T0 - timedelta(hours=1), frozenset(), frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_OK", "coach", side="R"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_SIDE", "coach", side="L"),
                  fx.Invited("A", T0 - timedelta(hours=2), "CLOSED", frozenset({spot}), None, 3, T0),
@@ -220,6 +221,7 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     stages = {v.student: (v.stage, v.tier) for v in run.verdicts if v.spot_type == spot}
     assert stages["R-1"] == ("in_session", None)
     assert stages["NO"] == ("said_no", None)
+    assert stages["GONE"] == ("removed_by_coach", None)
     assert stages["HIDDEN"] == ("not_in_pool", None)
     assert stages["BUSY"] == ("busy_same_time", None)
     assert stages["POST"] == ("postponed", None)
@@ -235,7 +237,7 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     assert (stages["P2"], stages["P3"], stages["P1"]) == (("waiting", 3), ("waiting", 3), ("waiting", 3))
     assert [e.student for e in run.effects if isinstance(e, fx.Invited)] == ["COACH_OK"]
     assert run.queues[spot] == ("COACH_OK", "P2", "P3", "EARLIER", "P1")
-    assert "CLOSED" not in run.queues[spot]
+    assert "CLOSED" not in run.queues[spot] and "GONE" not in run.queues[spot]
     assert {v.spot_type for v in run.verdicts} == {spot}
     # Outside the window the verdicts still explain, and the run sends nothing.
     early = evaluate(before, settings, T0 - timedelta(days=3))
@@ -290,6 +292,13 @@ GROUP_CASES = [
     (GroupRule("level", "all_above_vacancy"), [{"level": 1}, {"level": 2}], [{}, {"level": 4}]),
     (GroupRule("level", "all_below_vacancy"), [{"level": 4}, {"level": 5}], [{}, {"level": 2}]),
     (GroupRule("level", "sideways"), [], [{}]),                          # an unknown level operation fails (B-257)
+    (GroupRule("level", "same_as_class"), [{}], [{"level": 2}]),         # class-anchored, read as today
+    (GroupRule("level", "equal_or_above_class"), [{}, {"level": 1}], [{"level": 4}]),
+    (GroupRule("level", "equal_or_below_class"), [{}, {"level": 5}], [{"level": 2}]),
+    (GroupRule("level", "one_below_or_above_class"), [{"level": 2}, {"level": 4}], [{"level": 5}]),
+    (GroupRule("level", "within_n_of_class", 2), [{"level": 1}, {"level": 5}], []),
+    (GroupRule("level", "within_n_above_class", 1), [{"level": 2}, {}], [{"level": 1}, {"level": 4}]),
+    (GroupRule("level", "within_n_below_class", "x"), [{}], [{"level": 4}]),   # not a number: 0
     (GroupRule("side", "same_as_vacancy"), [{}, {"sides": "both"}], [{"sides": "L"}]),
     (GroupRule("has_makeups", "is_true"), [{"makeups_owed": 1}], [{}]),
     (GroupRule("unjustified_absences", "less_than", 2), [{"unjustified_absences": 1}], [{"unjustified_absences": 2}]),
@@ -392,3 +401,16 @@ def test_a_class_with_no_level_applies_no_group_level_rule():
     snap, counts, settings = _group_tiers(store, "A", Tier("pool", "any", None, rules=rules))
     admitted = {s.id for s in students if tier_for(s, SpotType("R", None), counts, snap, settings) == 0}
     assert admitted == {"ANY", "NONE"}
+
+
+def test_the_students_own_blocks_hold_on_every_tier():
+    """engine-tiers rule 4: a student whose own settings refuse automatic invitations here (the store's
+    ``blocked``) is not invited even from the coach's list, and the dry run says ``not_in_pool``."""
+    store = MemoryStore()
+    store.add_student(_student("C", "R"))
+    store.add_session("A", 3, 8, START, _regulars(4, 3), T0)                 # one right spot
+    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "C", "coach", side="R")])
+    snap = replace(store.snapshot("A"), blocked=frozenset({"C"}))
+    run = evaluate(snap, EngineSettings(), T0)
+    assert _invited(run.effects) == [] and {v.student: v.stage for v in run.verdicts}["C"] == "not_in_pool"
+    assert _invited(evaluate(store.snapshot("A"), EngineSettings(), T0).effects) == ["C"]

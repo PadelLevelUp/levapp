@@ -152,14 +152,14 @@ class MemoryStore:
                 s.alerted[e.spot_type] = e.spots
                 continue
             if isinstance(e, fx.ApprovalRequest):              # semi-automatic mode (planning rule 14)
-                s.approval = replace(s.approval, pending=e.queues, dismissed=None)
+                s.approval = replace(s.approval, pending=e.queues, pending_request=e.request, dismissed=None)
             elif isinstance(e, fx.ApprovalWithdrawn):
-                s.approval = replace(s.approval, pending=None)
+                s.approval = replace(s.approval, pending=None, pending_request=None)
             elif isinstance(e, fx.QueueApproved):
                 s.approval = replace(s.approval, approved=e.approved, removed=s.approval.removed | e.removed,
-                                     pending=None)
+                                     pending=None, pending_request=None)
             elif isinstance(e, fx.QueueDismissed):
-                s.approval = replace(s.approval, pending=None, dismissed=e.spots)
+                s.approval = replace(s.approval, pending=None, pending_request=None, dismissed=e.spots)
             elif isinstance(e, fx.QueueReopened):
                 s.approval = replace(s.approval, dismissed=None)
             elif isinstance(e, fx.Invited):
