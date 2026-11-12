@@ -224,12 +224,13 @@ def test_a_new_engine_enrolment_writes_only_the_presence(app, monkeypatch):
     from padel_app.models.presences import Presence
     from padel_app.services import lesson_service as ls
     from padel_app.services import notification_service as ns
+    from padel_app.services import system_messages as sm
 
     calls = []
     monkeypatch.setattr(scheduler, "arm_ask_for_student", lambda *a, **k: calls.append("armed"))
     monkeypatch.setattr(ns, "reconcile_vacancies", lambda *a, **k: calls.append("reconciled"))
     monkeypatch.setattr(ns, "_open_vacancy_for", lambda *a, **k: calls.append("own vacancy") or None)
-    monkeypatch.setattr(ns, "notify_student_added_to_class", lambda *a, **k: calls.append("added_to_class"))
+    monkeypatch.setattr(sm, "notify_student_added_to_class", lambda *a, **k: calls.append("added_to_class"))
 
     store, (a,), (reg, x, y) = _seed(app)
     inst = db.session.get(LessonInstance, int(a))

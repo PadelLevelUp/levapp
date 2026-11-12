@@ -24,6 +24,8 @@ from padel_app.sql_db import db
 PATCHES = (
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 )
 
 # Two waves that admit everyone (PAD-279: invitation groups, not legacy rounds).

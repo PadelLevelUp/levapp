@@ -261,7 +261,7 @@ def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(ap
                         lambda **kw: pushes.append(("web", kw["user_id"])))
     monkeypatch.setattr("padel_app.utils.expo_push.send_expo_push_to_user",
                         lambda user_id, **kw: pushes.append(("ios", user_id, (kw.get("data") or {}).get("type"))))
-    monkeypatch.setattr("padel_app.services.notification_service.publish",
+    monkeypatch.setattr("padel_app.realtime.publish",
                         lambda event, recipients: events.append((event["type"], list(recipients))))
     ids = _setup(app)
     full = _add_class(app, ids, days=3, title="Full In Three", max_players=2, filled=2)
@@ -274,7 +274,7 @@ def test_joining_a_full_class_waiting_list_is_one_entry_and_the_coach_is_told(ap
 
     from padel_app.models import Coach, Message
     from padel_app.models.players import Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     with app.app_context():
         conv = _get_or_create_direct_conversation(

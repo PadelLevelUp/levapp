@@ -47,6 +47,10 @@ def _collect_publishes(monkeypatch):
     monkeypatch.setattr("padel_app.services.notification_service.publish",
                         lambda event, recipients: seen.append((event["type"], event.get("payload"), list(recipients))))
     monkeypatch.setattr("padel_app.services.notification_service.send_push_notification", lambda **kw: None)
+    # PAD-914: messages publish from system_messages; the same recorder sees them.
+    monkeypatch.setattr("padel_app.services.system_messages.publish",
+                        lambda event, recipients: seen.append((event["type"], event.get("payload"), list(recipients))))
+    monkeypatch.setattr("padel_app.services.system_messages.send_push_notification", lambda **kw: None)
     return seen
 
 

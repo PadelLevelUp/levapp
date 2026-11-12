@@ -1,6 +1,6 @@
 ---
 id: notifications.student-block-preferences
-status: implemented
+status: implementing
 depends_on: [notifications.invitations, notifications.manual, notifications.reminders, notifications.waiting-list, settings.profile, settings.role-scope, calendar.student-blockers]
 serves: [P-NOTIFICATIONS-6]
 governed_by: []
@@ -35,6 +35,18 @@ cut a student off from their coach.
     suppressed, including attendance reminders.
   - `notif_block_reason` (text, nullable) — the student's own free-text explanation, written by
     the student and readable by their coach.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912) the student's choices
+hold the same, read onto the engine:
+
+| Rule | For a new-engine session | Source |
+|---|---|---|
+| 5 (automatic block) | the store keeps the student out of `pool` (automatic OR all), on the coach's waiting list too | `notifications.engine-tiers` rule 4, TIERS-19 |
+| 7 (block-all: no attendance reminders) | the engine sends them no attendance request | `notifications.engine-timeline` rule 2, TIMELINE-23 |
+| 8 (the delivery backstop) | the blockable set also holds the engine's invitation kind `waiting_list_invite`; `sorry` (an answer to the student's own Yes), `added` and `side_moved` (notices of a place they hold) are not blockable, like plain chat | this section; criterion 16 |
+
 
 ### Rules
 1. The three block levels are **independent** and may be set in any combination. `notif_block_all`
@@ -213,6 +225,12 @@ cut a student off from their coach.
 - **Then** no message is created for any of the three
 - **And** a student who blocked automatic and manual invitations, and not everything, still receives one that reaches this point
 test: `backend/padel_app/tests/test_student_notification_block_preferences.py` › `test_backstop_suppresses_every_class_slot_solicitation` (+1 more)
+
+#### NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-16: The backstop refuses the engine's invitation kinds to a student who blocked everything (new-engine section, rule 8)
+- **Given** a student with `notif_block_all` and a new-engine session
+- **When** the store's outbox sends them an `invite`, a `waiting_list_invite` and a `sorry`
+- **Then** the first two are not delivered and the `sorry` is
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everything`
 
 ### Notes
 - Source: ticket PAD-112 (reported by `tomasmpacheco` via Discord). PAD-142 narrowed the panel's

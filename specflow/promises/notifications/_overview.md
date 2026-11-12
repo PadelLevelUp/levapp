@@ -25,7 +25,7 @@ coach and student control over how and when that happens.
   what a class needs, asks the best-fitting students first and never withdraws an invitation; it
   replaces the vacancy engine above when it ships
 - `notifications.student-gets-one-invitation-per-class` — draft (PAD-899): one invitation per class
-  date, a side named only when it is not the student's own, a re-offer before "sorry"
+  date, a side named only when it is not the student's own, "sorry" and no re-offer
 
 ## Why it's grouped this way
 

@@ -308,7 +308,7 @@ def test_before_materialisation_the_court_is_stored_cleared_and_refused_the_same
 def test_message_placeholders_name_the_occurrence_court(client, world):
     """notifications.message-templates rule 14: {court} is the court the class is on."""
     from padel_app.models import LessonInstance
-    from padel_app.services.notification_service import class_placeholders
+    from padel_app.services.message_text import class_placeholders
 
     event, _court1, court2 = _series_with_court(client, world)
     _lesson_id, instance_id = _materialise(client, "Series", OCCURRENCE)

@@ -6,10 +6,11 @@ constants:
   LOWER_TIER_PER_SPOT: 1
   METHOD_B_PART: "3 × (n − 1) − i parts for tier i (0-based) of n tiers with candidates; n = 1 takes the whole useful time"
   KIND_SORRY: "sorry"
-  KIND_REOFFER: "reoffer"
   KIND_ADDED: "added"
   KIND_SIDE_MOVED: "side_moved"
+  KIND_WAITING_LIST_INVITE: "waiting_list_invite"
   COACH_ALERT: "coach_alert"
+  ALERT_NO_CANDIDATE: "no_candidate"
 ---
 
 # notifications constants
@@ -30,8 +31,14 @@ suite.
 - `KIND_SORRY`: the engine's message kind for plan §7's "sorry, plus the offer to join the waiting
   list" (`invitation_engine/effects.py` `MessageKind`). The scenario format logs it as `aviso` (H's
   convention 1); `adapters/new.py` maps `sorry` to `aviso`.
-- `KIND_REOFFER`: the re-offer of the same invitation (Q6; coordinator ruling (1) of 2026-11-11).
 - `KIND_ADDED`: the notice to a student placed by automatic entry.
 - `KIND_SIDE_MOVED`: the notice to a regular moved to the other side at `last_invite_at` (ruling (2)).
+- `KIND_WAITING_LIST_INVITE`: the engine's kind for an invitation sent from a waiting list (group 0a
+  or 0b). It is today's template key of the same meaning (`DEFAULT_MESSAGE_TEMPLATES["waiting_list_invite"]`,
+  `backend/padel_app/models/notification_config.py:57`). Renamed from the engine's `waiting_list_offer`
+  (PAD-913, swap decision 8): today's `waiting_list_offer` is "spot taken, join the list?", which is
+  the engine's `KIND_SORRY`.
 - `COACH_ALERT`: §6 step 4's coach alert; the engine's `CoachAlert` effect, the scenario expectation
   `coach_alert: true` (validator on PAD-900).
+- `ALERT_NO_CANDIDATE`: the coach alert's reason code when a spot type has no candidate in any tier
+  (`invitation_engine/constants.py`; engine-planning rule 11). The wording is the app's.

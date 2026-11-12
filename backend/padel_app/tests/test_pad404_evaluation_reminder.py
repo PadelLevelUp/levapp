@@ -459,6 +459,11 @@ def test_the_reminder_never_leaves_the_app(app, client, monkeypatch):
     monkeypatch.setattr(notification_service, "send_push_notification",
                         lambda *a, **k: pushes.append((a, k)))
     monkeypatch.setattr(notification_service, "publish", lambda *a, **k: pushes.append((a, k)))
+    # PAD-914: system messages push and publish from system_messages; other callers from realtime.
+    monkeypatch.setattr("padel_app.services.system_messages.send_push_notification",
+                        lambda *a, **k: pushes.append((a, k)))
+    monkeypatch.setattr("padel_app.services.system_messages.publish", lambda *a, **k: pushes.append((a, k)))
+    monkeypatch.setattr("padel_app.realtime.publish", lambda *a, **k: pushes.append((a, k)))
 
     for reminder, n in (("monthly", None), ("every_n_classes", 1), ("never", None)):
         _set(app, client, ids, reminder, n)

@@ -52,11 +52,18 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    const:KIND_ADDED; they then get the reminder like a regular. The coach's list goes first, then the
    students' list, each by `notifications.engine-tiers` rule 8. From `attendance_request_at` on,
    waiting-list members are invited as group 0, as with the setting off. Their No later is not an
-   absence and takes them off the session's waiting list.
+   absence and takes them off the session's waiting list. **Automatic entry places only a student its
+   list's tier would invite** (`notifications.engine-tiers` rules 3, 4, 10): a students'-list member
+   must pass every gate (in the pool, not excluded, not blocked, not removed by the coach, not busy at
+   that time, not postponed); a coach's-list member is still kept out by the student's own blocks, the
+   coach's removal and being busy at that time.
 4. **`wl-sides`** (`waiting_list_side_choice`, default off; D12: group 0 has no spot-type rules). When
-   on, a student joining the students' list chooses own side, other side or both, and is a candidate
-   only for the spot types that choice allows; an other-side invitation or placement names the side
-   (D11).
+   on, the clients offer a student joining the students' list the choice of own side, other side or
+   both. **The setting only decides whether the choice is offered** (R, PAD-918): a side the client
+   sends is always passed to the engine, as own, other or both (today's route already carries left,
+   right or both, PAD-672), and the student is a candidate only for the spot types it allows; when
+   nothing is sent, no choice is passed and they are a candidate for every type. An other-side
+   invitation or placement names the side (D11).
 5. **`direct-join`** (`direct_join`, default off: the plan has none). When on, an eligible student who
    sees the session with a spot on a side they fit joins it at once, any time until the class starts:
    before the invitation start, alongside open invitations, and after their own No to an invitation
@@ -68,10 +75,32 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    and 6 use it.
 7. **`group-order`, `reminders`, `cutoff`.** The coach orders the tiers (`EngineSettings.tiers`); reminder
    times, interval and count (`EngineSettings.attendance_request`, as `notifications.reminders`); the
-   absence cutoff's hours (`absence_cutoff_before`). The justified-or-unjustified decision is the plan's
-   (`notifications.engine-timeline` rule 5).
+   absence cutoff's hours (`absence_cutoff_before`), which only marks an absence on time or late
+   (`notifications.engine-timeline` rule 5); justified or unjustified stays the coach's judgement (D4).
 8. **Kept unchanged:** invitation start, last invitation, quiet hours, eligibility, restrictions, the
    daily per-student cap and one live offer per club day (postpones, D15), priority criteria.
+9. **Settings per coach (swap decision 9, PAD-912).** The engine takes a lookup from a session to its
+   coach's `EngineSettings` and asks it again for every session at every call (each session of a tick,
+   each request it handles), so a coach's saved change applies from the next call. `UpdateSettings`
+   then only re-plans the sessions the request names (the app names the coach's), or every session
+   when it names none (the scenario harness).
+10. **Timing shapes (swap plan §2; PAD-915).** `first_invite` and `attendance_request` each take the
+    shape today's timing settings store, with today's meaning (`scheduler.py` `_fire_time_utc`):
+    `hours_before` N is N real hours before the class's real start, across a clock change;
+    `days_before` and `days_before_at_time` are the class's own wall date minus N days, at HH:MM on the
+    club's clock (Lisbon, R-023); `none` starts invitations from the moment the session exists, and
+    sends no attendance request; with it, `fill_never_held` (rule 11) is off, so as today only spots a
+    student freed are invited for. With `attendance_request` `none`, automatic entry (rule 3, whose
+    boundary is `attendance_request_at`) places until the class starts. The mapping from a coach's
+    stored timing is therefore one for one.
+11. **`fill_never_held`** (default on; the coordinator's ruling on today's `none`, PAD-918). When off,
+    the planner invites only for spots a going student freed (an absent regular, a cancellation after
+    accepting), never for spots no one held (`class_empty` beyond the freed ones): the session's
+    planned open spots of each type are at most the spots freed on that type's side, a freed spot of a
+    student who plays both sides counted as `either`. Each going student who is not a regular takes
+    back one freed spot, their side's first, then an `either` one. Waiting-list placement by automatic entry and direct join follow the
+    same limit. Today's coaches with invitation start `none` map to it off (`notifications.config`
+    rule 19); every other coach maps to on, which is the plan (`notifications.engine-spots` rule 10).
 
 ### Not this spec
 - A settings screen on web or iOS (brief §1: backend only in this wave).
@@ -196,6 +225,50 @@ Given `EngineSettings()` defaults and the `new` adapter's defaults mode (no coac
 the plan scenarios P01–P33 run, then each passes.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_defaults_are_the_plan`
 
+#### NOTIFICATIONS-ENGINE-SETTINGS-19: Each session is planned with its own coach's settings, read at every call (rule 9)
+Given two coaches with different settings and a lookup from session to settings, when the engine ticks
+and one coach's settings change between two calls, then each session is planned with its coach's
+settings, and the changed coach's sessions use the new values from the next call.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_settings_are_looked_up_per_session_at_every_call`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-20: hours_before counts real hours, across a clock change (rule 10)
+Given `hours_before` 24 and a class the day after the clocks change, when its instant is computed, then
+it is 24 real hours before the class's real start, the same instant `_fire_time_utc` gives.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_hours_before_counts_real_hours_across_a_clock_change`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-21: days_before is the class's wall date minus N days, at the club's time (rule 10)
+Given `days_before_at_time` 1 at 19:00 and a class at 23:30, when its instant is computed, then it is
+19:00 Lisbon on the day before the class's wall date, the same instant `_fire_time_utc` gives.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_days_before_at_time_is_the_wall_date_at_lisbon_time`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-22: none opens invitations at once and sends no attendance request (rule 10)
+Given `first_invite` `none` and `attendance_request` `none`, when a session is created and runs happen
+up to its start, then invitations may go from the first run, no attendance request is ever sent,
+and with `auto-entry` on a waiting-list member is placed by a spot that opens at any time before the
+start.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_none_starts_invitations_at_creation_and_sends_no_attendance_request`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-23: With fill_never_held off, only freed spots are invited for (rule 11)
+Given capacity 8, 6 regulars of whom one right regular says No (two spots never held, one freed), when
+runs plan with `fill_never_held` off, then invitations are sent for the one right spot only, and with
+it on for all three.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_fill_never_held_off_invites_only_for_freed_spots`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-24: With fill_never_held off, direct join and automatic entry are limited the same way (rule 11)
+Given capacity 8, 6 regulars of whom one right regular is absent and one {left, right} regular is absent,
+and an invitee who accepted on the right, with `fill_never_held` off, when a student asks to join
+directly and automatic entry runs, then only the one `either` spot left free can be taken, and the two
+never-held spots are taken by nobody.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_fill_never_held_off_limits_direct_join_and_automatic_entry`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-25: Automatic entry places only who its list's tier would invite (rule 3)
+Given `auto-entry` on, a spot opening before `attendance_request_at`, and on the students' list a student
+the coach excluded, one blocking automatic invitations, one the coach removed in a semi-automatic
+request, one postponed by the daily cap and one free, and on the coach's list one blocking all
+notifications, when the run places, then only the free students'-list member is placed, and the
+coach's-list member is not.
+test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_places_only_who_the_tier_would_invite`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SETTINGS-3, SETTINGS-4 — `invitation_engine/settings.py` (the timing shape of rule 2, the floor,
@@ -211,6 +284,11 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    that use it).
 6. (PAD-911) SETTINGS-4's inner rounds, SETTINGS-18 — `invitation_engine/timeline.py` (the rounds of
    a tier inside its Method B share), `invitation_engine/planner.py` (the tier's rounds at send).
+7. (Swap 3, PAD-915) SETTINGS-19 — `invitation_engine/engine.py` (the settings lookup).
+8. (Swap 3, PAD-915) SETTINGS-20 to SETTINGS-22 — `invitation_engine/settings.py` (`FirstInvite`,
+   `AttendanceRequest` shapes), `invitation_engine/timeline.py` (`first_invite_at`, `attendance_request_at`),
+   `invitation_engine/messages.py` (`none`).
+8. (PAD-915) SETTINGS-25 — `invitation_engine/planner.py` (automatic entry passes its tier's gates).
 
 ### Open questions
 - Is an automatically placed student's No also the "said No for this session" gate? — decision (owner
@@ -219,6 +297,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - `auto-entry` places a student without a Yes, which `notifications.waiting-list` rule 4 (owner,
   2026-10-03) forbids today — decision: a setting, off by default, because the owner's ruling of
   2026-11-11 (brief §2 clause 3) makes the PDF's coach rules settings where the plan is silent.
+  **Confirmed by the owner (2026-11-12, waiting-list inspection question 1, "matches Tomás"):**
+  waiting-list students are placed directly before the reminder hour as a coach option, and invited
+  after it. This supersedes the owner's earlier "keep today's waiting-list behaviour exactly"
+  (Codex decision 3), which decision 8 narrowed.
 - `direct-join` defaults off in `EngineSettings` though many coaches have `auto_accept_join_requests` on
   today — decision: off is the plan's default; the swap maps each coach's stored value, so no coach's
   behaviour changes at the swap.
@@ -228,3 +310,23 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   (c) a coach setting. Decision (owner away, PAD-911): (a), because the share is fixed at the first
   send too, so the split stays the one announced; it gives 84's 3 rounds (9 candidates, a budget of 3).
   This is our inference, not Tomás's words.
+- One engine for all coaches or one per coach (swap decision 9) — options: an `Engine` per coach; one
+  engine with a settings lookup per session. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the lookup in the store's `sessions()` loop
+  (rule 9), because one engine keeps one tick and one lock order, and a lookup sees a saved change
+  at the next call.
+- The clients' timing floor (swap decision 7): today the clients refuse less than 15 minutes
+  (`P/config/src/restriction-bounds.ts:23`); the engine's floor is const:ENGINE_T_FLOOR.
+  Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients' floor drops to const:ENGINE_T_FLOOR with the new timing controls, because
+  one floor must hold on every surface that saves a timing.
+- Which settings ship on iOS (swap plan §6.2) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): every setting the new engine needs ships on web
+  and iOS together, the groups editor (now tiers) included; the other iOS deferrals recorded before
+  the swap stand with their reasons. This replaces "A settings screen on web or iOS" under Not this
+  spec at the swap, when the screens are specced (`notifications.config`).
+- An invitation start of `none` (rule 10), which today never invites for a spot that was never filled —
+  decision (coordinator, owner away, PAD-918, 2026-11-12; the owner can reverse it): today's meaning is
+  kept through `fill_never_held` off (rule 11); the plan's "one logic for both" holds for every other
+  coach.
+- Whether `wl-sides` off drops a side the client sends (rule 4) — decision (R, owner away, PAD-918,
+  2026-11-12; the owner can reverse it): no; the setting only decides whether the clients offer the
+  own/other/both choice, and a side sent is always passed, because today's route already carries a side
+  and scenarios 01, 32 and 33 expect a placement from it.

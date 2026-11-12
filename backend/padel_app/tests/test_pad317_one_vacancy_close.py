@@ -71,7 +71,7 @@ def _invite(instance_id, coach_id, player_id, vacancy_id, status, *, with_messag
     """One invitation in a given live state, with the conversation message that
     delivered it (that message is what keeps Yes/No buttons on screen)."""
     from padel_app.models import Coach, Message, NotificationEvent, Player
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     message_id = None
     if with_message:
