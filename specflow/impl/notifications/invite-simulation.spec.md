@@ -62,7 +62,8 @@ The new-engine answer (swap step 7, PAD-919):
   name, mapped back from the engine's ladder position (`notifications.engine-store` rule 4), both null
   for a type of any level. `count` the type's open spots; `queue` its candidates in the order
   rule 12 gives (`{playerId, name, nickname, tier, rank}`); `verdicts` one per student the snapshot
-  names (`{playerId, stage, tier}`), `stage` exactly the dry run's stage word.
+  names (`{playerId, name, nickname, stage, tier}`, named as the queue's entries are, so a student
+  off the coach's roster still shows by name), `stage` exactly the dry run's stage word.
 - **N3. The app's own gates explain `not_in_pool`.** A `not_in_pool` verdict carries `reasons`, the gates
   the app applied when it built the pool (`notifications.config` rule 19): excluded by the coach,
   `excludedPlayers`, an inactive account, eligibility failures as today's structured records
@@ -355,7 +356,7 @@ test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `te
 #### NOTIFICATIONS-INVITE-SIMULATION-19: The simulation runs the engine's dry run and writes nothing (new-engine section N1, N2; TIERS-9)
 - **Given** a new-engine session with two open spot types and students in every tier
 - **When** the coach simulates a regular's departure
-- **Then** each type's queue and verdicts equal `planner.evaluate` on the same hypothetical snapshot, and no row of any table is written
+- **Then** each type's queue and verdicts equal `planner.evaluate` on the same hypothetical snapshot, every verdict and queue entry carries the student's `name` and `nickname`, and no row of any table is written
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_simulation_runs_the_engines_dry_run_and_writes_nothing`
 
 #### NOTIFICATIONS-INVITE-SIMULATION-20: The departing student is not going in the hypothetical snapshot (new-engine section N1)
