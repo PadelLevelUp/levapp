@@ -23,6 +23,10 @@ as coming (`Presence.response` `confirmed`, any `recorded_by`) counts as confirm
 snapshot and is not asked (`notifications.engine-store` rule 6). Which of the rules below the engine
 replaces one by one is written at this spec's swap step; until then every rule here describes the old
 engine only.
+The app's reminder flow skips a new-engine session at every entry: `send_class_reminders`,
+`arm_ask_for_student` and the past-due pass send and arm nothing for it, so a switched coach's students
+never get both the app's reminder and the engine's attendance request (the coordinator's ruling for
+batch 2; `notifications.config` rule 18's cutover).
 
 
 ### Rules
@@ -410,3 +414,9 @@ test: `backend/padel_app/tests/test_pad407_reminder_double_send.py` › `test_a_
 - **And** the student's tap shows at once; the answer stored is the one the server returned: confirmed stores yes, declined stores no, an expired or unknown answer stores nothing and says so
 - **And** a stored answer the app does not know reads as absent, never as confirmed
 test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `offers Yes/No on a fresh reminder for a future class` (+17 more)
+
+#### NOTIFICATIONS-REMINDERS-34: The app's reminders skip a new-engine session at every entry (new-engine section)
+- **Given** a switched coach with a new-engine occurrence and an old-engine occurrence, both due a reminder, and a student added late to each
+- **When** `send_class_reminders` runs, `arm_ask_for_student` is called for each late student, and the past-due pass runs
+- **Then** nothing is sent or armed for the new-engine occurrence, and the old-engine one gets its reminder, its ask and its past-due pass as today
+test: `backend/padel_app/tests/test_pad918_reminders_skip_new_engine.py` › `test_the_apps_reminders_skip_a_new_engine_session`
