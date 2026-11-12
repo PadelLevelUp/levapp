@@ -54,8 +54,11 @@ Stated as observable records; storage is the engine package's (PAD-902).
     other sessions at the same hour: nothing is sent for them and they no longer count. **Every engine
     placement path refuses a second placement at the same hour:** an accept is refused with nothing
     placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
-    student. The rule binds the engine's paths; the coach's add is not one of them and is covered at
-    the engine swap. **Two requests by one student never run at once:** the engine names the student in
+    student. The coach's add is the app's (`classes.instance-enrollment` rule 15 refuses one at a busy
+    time); one that goes through reaches the engine as `CoachAdded(student)` on the session added to,
+    in that session's unit with the student named: it writes no placement (the app already did), closes
+    the student's open invitations for every session at the same time (`InvitationClosed`, as any
+    placement does), re-plans that session, and each session it touched re-plans in its own unit. **Two requests by one student never run at once:** the engine names the student in
     the unit of work and the store locks the student before the session (always students, then the
     session; no unit holds two sessions). A placement the planner makes (automatic entry), which names
     no student in advance, is checked when it is applied: if the student was placed in an overlapping
@@ -250,6 +253,13 @@ Given a student holding invitations to another coach's session at the same start
 session at an overlapping but different start, when they say Yes here, then the first closes and the
 second stays open.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_yes_closes_another_coachs_invitation_only_at_the_same_start`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-27: A coach's add closes the student's same-time invitations (rule 10)
+Given a student holding counting invitations to two sessions at the same time as session A, when the coach
+adds them to A (the app writes the presence) and A's unit applies `CoachAdded(student)`, then both
+invitations close (nothing more is sent for them and they no longer count), no second presence is
+written, and A and the two sessions each re-plan.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_coachs_add_closes_the_students_same_time_invitations`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
