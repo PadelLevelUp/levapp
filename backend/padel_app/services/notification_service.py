@@ -7215,6 +7215,23 @@ def respond_to_waiting_list(
         coach.user_id, acting_user_id, lesson_instance_id, action
     )
 
+    if action == "yes" and _on_new_engine(instance):
+        # PAD-918 (invitations NB2, INVITATIONS-121): the sorry's yes joins the session's students' list.
+        from padel_app.services.engine_entry import sorry_joins_waiting_list
+
+        result = sorry_joins_waiting_list(instance, player, config, now)
+        if coach.user_id and not result.get("alreadyWaiting"):
+            _send_system_message(
+                coach_user_id=coach.user_id,
+                player_user_id=acting_user_id,
+                text=_format_template(
+                    resolve_message_template(templates, "waiting_list_confirm", locale),
+                    **template_variables(player, instance, locale),
+                ),
+                class_instance_id=instance.id,
+            )
+        return result
+
     if action == "yes":
         # Upsert waiting list entry
         existing = WaitingListEntry.query.filter_by(

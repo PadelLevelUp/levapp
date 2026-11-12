@@ -72,3 +72,40 @@ def test_the_answer_route_takes_an_invitation_id_and_says_what_happened(app, cli
 
     by_coach = answer(coach_user, ids[third], "no", route="coach_respond")
     assert by_coach.get_json() == {"action": "declined", "invitationId": ids[third]}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-121")
+def test_a_yes_to_the_sorrys_offer_joins_the_students_list(app, monkeypatch):
+    from padel_app.models.coaches import Coach
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services.notification_service import (
+        _send_system_message,
+        add_to_class_waiting_list,
+        respond_to_waiting_list,
+    )
+    from padel_app.tests.helpers import pin_clock
+
+    with app.app_context():
+        pin_clock(monkeypatch, NOW)
+        store, (session,), (_, sorry, listed) = _seed(app, players=3, capacity=4)
+        coach_id = store.coach_of(session)
+        db.session.add(NotificationConfig(coach_id=coach_id, auto_notify_enabled=True, waiting_list_side_choice=True))
+        db.session.commit()
+        from padel_app.models.lesson_instances import LessonInstance
+        add_to_class_waiting_list(coach_id, db.session.get(LessonInstance, int(session)), int(listed),
+                                  scope="occurrence", side="left")
+        coach_user = db.session.get(Coach, coach_id).user_id
+        for student in (sorry, listed):                       # the engine's sorry, as its sender writes it
+            _send_system_message(coach_user, _user(student), "Sorry", message_type="waiting_list_offer",
+                                 msg_metadata={"engine": "new", "lessonInstanceId": int(session)}, push=False)
+
+        assert respond_to_waiting_list(int(session), "yes", _user(sorry), now=NOW) == {
+            "action": "added_to_waiting_list"}
+        joined = {w.student: (w.list, w.sides) for w in store.snapshot(session).waiting_list}
+        assert joined[sorry] == ("students", "own")
+
+        assert respond_to_waiting_list(int(session), "yes", _user(listed), now=NOW) == {
+            "action": "added_to_waiting_list", "alreadyWaiting": True}
+        assert WaitingListEntry.query.filter_by(lesson_instance_id=int(session), player_id=int(listed)).count() == 1
+        assert joined[listed][0] == "coach"

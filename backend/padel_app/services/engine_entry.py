@@ -335,3 +335,22 @@ def same_hour_clashes(player_ids, *, instance=None, lesson=None, on_date=None, c
 def busy_same_hour(clashes: list[dict]) -> tuple[dict, int]:
     """The refusal body (rule 15): ``409 {code: busy_same_hour, clashes}``."""
     return {"code": "busy_same_hour", "message": "busy same hour", "clashes": clashes}, 409
+
+
+def sorry_joins_waiting_list(instance, player, config, now: datetime | None = None) -> dict:
+    """A yes to the sorry's waiting-list offer (invitations NB2, INVITATIONS-121): the session's
+    students' list, the side choice "own" when the coach offers the choice and none when not. A
+    student already on either list stays where they are: ``alreadyWaiting``."""
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+
+    if WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player.id,
+                                        is_active=True).first() is not None:
+        return {"action": "added_to_waiting_list", "alreadyWaiting": True}
+    sides = "own" if config is not None and config.waiting_list_side_choice else None
+    effects = handle(instance, rq.JoinWaitingList(str(player.id), "students", sides=sides), now)
+    refused = refusal(effects, player.id)
+    if refused is not None and refused.reason == "already_on_list":
+        return {"action": "added_to_waiting_list", "alreadyWaiting": True}
+    if refused is not None:
+        return {"action": "unknown"}
+    return {"action": "added_to_waiting_list"}
