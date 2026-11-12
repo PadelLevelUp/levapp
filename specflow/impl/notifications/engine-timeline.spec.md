@@ -250,6 +250,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 6. (Swap, per coach at cutover) rule 2's hand-over — the store applies `AttendanceRequested` as the
    app's reminder message and `ReminderAttempt`, answers go to the engine (`ConfirmAttendance`, the
    regular's No by rule 5), and the coach's `reminder_lesson_*` jobs stop (`notifications.reminders`).
+7. (Owner decisions, PAD-915) TIMELINE-8, TIMELINE-10 again — `invitation_engine/timeline.py` (moves only within the student's sides), scenario pins P18a, P19.
 
 ### Open questions
 - Ruling (2) settled who moves.
@@ -269,3 +270,5 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   student that can play in both"; when no allowed move fixes a coach-built imbalance, "we do nothing …
   we don't need to plan to warn the coach, at least not for now". The notice for an allowed move, and
   overriding a coach-chosen side, are not decided.
+- Lateness by the deadline alone (rule 5) — **confirmed by the owner (2026-11-12, Codex decision 6)**: the
+  notice is the cutoff's alone, whatever the reminders; the coach judges the absence (D4).

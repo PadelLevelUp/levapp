@@ -51,7 +51,8 @@ the coach's list).
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
 4. **The coach's list is the coach's decision (ruling (3)).** A student the coach put on the coach's
    list, eligible or not, is a member of group 0a and is placed or invited like any other member; only
-   "already in the session", "said No for this session" and the student's own choices still apply: a
+   "already in the session", "said No for this session", being busy at that time (rule 3, the safety
+   rule of `notifications.engine-answers` rule 10) and the student's own choices still apply: a
    block on automatic invitations or on all notifications (`notifications.student-block-preferences`
    rule 5) and an availability blocker over the class (`calendar.student-blockers` rule 5) keep them out
    of `pool` on the coach's list too. The coach decides who is asked, never over the student's own
@@ -111,7 +112,8 @@ the coach's list).
     gates except the student's own blocks, rule 4, so it fails only as `in_session`, `said_no`,
     `removed_by_coach`, `not_in_pool` for a block, or `failed_tier_rule`); `invited_before` (their invitation
     for this session closed without a No, after an accept then a cancellation or by a same-hour
-    placement: D1 allows no second one, so the run never reaches them); or, with its tier, `invited`
+    placement, or was answered with a sorry and they are not on this session's waiting list: D1 allows no
+    second one, so the run never reaches them); or, with its tier, `invited`
     (this run sends or reopens it with an offer that covers the type by side; an either type is
     covered by any side), `invited_for_other_type` (this run invites them for another type, and the
     offer does not cover this one), `invited_earlier` (an open invitation, not sorry) or `waiting` (a
@@ -314,6 +316,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    gains the facts of rule 13), the tier evaluator in `invitation_engine/planner.py`; then (PAD-917)
    `notifications.config` CONFIG-57 and CONFIG-59, and (PAD-916) the store fills the facts.
 8. (PAD-915) TIERS-17 — `invitation_engine/planner.py` (`with_postponed` takes the union).
+9. (Owner decisions, PAD-915, PAD-916) TIERS-20, TIERS-21 — `invitation_engine/planner.py` (the overlap and the same start; a chosen side binds), the store (each session's end).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision

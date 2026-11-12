@@ -145,6 +145,7 @@ test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_no_show_
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
+2. (PAD-916) STORE-9, STORE-10 — `padel_app/services/engine_store.py` (each session's end; what going means).
 
 ### Open questions
 - None.

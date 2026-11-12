@@ -288,6 +288,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 8. (Swap 3, PAD-915) SETTINGS-20 to SETTINGS-22 — `invitation_engine/settings.py` (`FirstInvite`,
    `AttendanceRequest` shapes), `invitation_engine/timeline.py` (`first_invite_at`, `attendance_request_at`),
    `invitation_engine/messages.py` (`none`).
+8. (PAD-915) SETTINGS-25 — `invitation_engine/planner.py` (automatic entry passes its tier's gates).
 
 ### Open questions
 - Is an automatically placed student's No also the "said No for this session" gate? — decision (owner

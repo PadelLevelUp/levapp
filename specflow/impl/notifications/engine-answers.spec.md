@@ -45,7 +45,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
 6. **Cancels after accepting (§7).** The same absence rules as a regular
    (`notifications.engine-timeline` rule 5).
 7. **The last spot (§7).** Claimed in one database transaction: of two Yes at the same moment for the
-   last spot, exactly one is placed and the other gets rule 4 (or rule 3 when another spot fits).
+   last spot, exactly one is placed and the other gets rule 4's sorry (rule 3: never another offer).
 8. **An accept with no open invitation (ruling (4)).** Refused: nothing placed, nothing sent.
 9. **Accepting fills a spot for that session only (§8).** It does not enrol the student in the class.
 10. **Never two sessions at the same hour (Tomás's point 2: "nunca se quebra"; owner ruling 2026-11-11;
@@ -267,6 +267,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    ANSWERS-10's Postgres test.
 7. (PAD-916, PAD-915) ANSWERS-21 — `invitation_engine/answers.py` (`_join_waiting_list`), the store
    (one entry per student and session); ANSWERS-22 — the store's apply (`SameHourConflict`).
+8. (Owner decisions, PAD-915) ANSWERS-5, ANSWERS-7, ANSWERS-12, ANSWERS-22 again, ANSWERS-24, ANSWERS-25 — `invitation_engine/answers.py` (no other-side offer, no re-offer, the overlap).
 
 ### Open questions
 - The re-offer (Q6; the coordinator's ruling (1) of 2026-11-11) — **reversed by the owner**

@@ -76,7 +76,9 @@ The new-engine tutorial (swap step 8, PAD-920), on web and iOS alike:
    1. **Gates**, blocked ones first, each in plain words with the moment it clears when the
       response gives one ("The engine is switched off", "Quiet hours — invitations resume at
       07:00", "Invitations open at 16:00", "This class is too close to start").
-   2. **Approval note** when `approvalRequired` — "You would be asked to approve this list first".
+   2. **Approval note** when `approvalRequired` — "You would be asked to approve this list first"; on a
+      new-engine session, "Ser-te-ia pedido para aprovar cada grupo antes de começar" / "You would be asked
+      to approve each group before it starts" (proposed; `notifications.engine-planning` rule 14).
    3. **Waiting list, asked first (PAD-446)** when `waitingList` is not empty — "Asked first, from
       the waiting list:" and the students in their order, each marked "(standing entry)" when
       `standing`. Nothing is shown for an empty list.

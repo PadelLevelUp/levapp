@@ -57,7 +57,7 @@ Stated as observable records; storage is the engine package's (PAD-902).
    1. **Candidates.** Students who pass the gates and the tier's rules for the type and either hold a
       counting invitation whose offer counts for it (rule 4), or are not yet invited (D8), or hold an
       invitation answered "sorry" (`notifications.engine-answers` rule 4), are on this session's
-      waiting list and fit the type.
+      waiting list and fit the type — a candidate of that list's tier only.
       Postponed students are not candidates (`notifications.engine-tiers` rule 10).
    2. **Cover.** The tier covers as many of the type's uncovered spots as it has **distinct**
       candidates (D5), a candidate already used on a harder type not counted twice.
@@ -414,6 +414,17 @@ Given an alerted right type, when a right-sider becomes a candidate and the next
 that run emits `AlertCleared` for the type and the store holds no alert for it.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_an_alert_is_cleared_once_its_type_has_a_candidate`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-42: Two groups about to start for two types each get their request (rule 14)
+Given a semi-automatic session whose left type's ideal tier is group 1 and whose right type has nobody
+before group 3, neither approved, when a run plans, then two `ApprovalRequest`s are emitted, one for group
+1 and one for group 3, and approving group 3 sends its one per spot without waiting for group 1.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_two_groups_about_to_start_each_get_their_request`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-43: A dismissed group's student is still reached from a later group (rule 14)
+Given a student in group 1 and in the "everyone" group 3, group 1 dismissed and group 2 empty, when the run
+reaches group 3, then that group's request lists the student.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissed_groups_student_is_reached_from_a_later_group`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -435,6 +446,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    the outbox, and
    (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
 7. (PAD-916) PLANNING-32 — the store (one invitation per student and session, `StoreConflict`).
+8. (Owner decisions, PAD-915) PLANNING-26, PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-38 again, PLANNING-41 to PLANNING-43 — `invitation_engine/planner.py`, `requests.py`, `effects.py` (per-group approval, reopening from the waiting list).
 
 ### Open questions
 - Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator
@@ -467,3 +479,14 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   group. "Ignorar" stays the coordinator's dismissal (asked again on a spot-count change or a reopen),
   now per group: S's reading (PAD-913) is that a dismissed group is skipped like an empty one, so the
   next group is asked for, because a per-group "no" should not freeze the whole session.
+- Two groups asked for at once (rule 14) — S's reading (PAD-913, 2026-11-12; the owner can reverse it):
+  a run that would start sending from two unapproved groups for different spot types (the ideal tier for
+  one type, a lower tier's one per spot for another, rule 6) asks for each, one request per group, so
+  neither type waits on the other's approval. Decision 5 asks before each group; it did not say one at
+  a time.
+- A dismissed group's students (rule 14) — S's reading of N's question (PAD-913, 2026-11-12): still
+  reachable from a later group they pass, because the dismissal is about the group; only a removal keeps
+  a student out.
+- Resetting the approved groups on a switch to automatic (rule 14, PLANNING-36) — S's reading (PAD-913;
+  the owner can reverse it): decision 10 keeps a group approved for the session but did not decide
+  resets; a coach who leaves semi-automatic and comes back is asked again.

@@ -135,6 +135,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SPOTS-1, SPOTS-2, SPOTS-3, SPOTS-4, SPOTS-8 — `invitation_engine/planner.py` (a pure count
    function over `SessionSnapshot`), `const:SIDE_QUOTA`.
 2. (W7) SPOTS-5, SPOTS-6, SPOTS-7 — scenario pins; they pass once planning W5 and answers W3 land.
+3. (Owner decisions, PAD-915) SPOTS-4 again — `invitation_engine/spots.py` (a one-sided regular above quota keeps their side).
 
 ### Open questions
 - A class with no level: no level rule (D3, "to revisit later") or today's fail-closed (rule 4d)? —
