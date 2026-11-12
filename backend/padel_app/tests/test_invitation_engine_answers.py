@@ -362,3 +362,18 @@ def test_an_overlapping_yes_is_refused_and_a_touching_one_is_not():
     engine = Engine(store, EngineSettings())
     assert engine.handle("S", Answer("X", True), NOW) == []                      # nothing placed, nothing sent
     assert _placed(engine.handle("S", Answer("Y", True), NOW)) == [("Y", "R", "invitation")]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-26")
+def test_a_yes_closes_another_coachs_invitation_only_at_the_same_start():
+    """engine-answers rule 10 with engine-tiers rule 3: another coach's session counts as the same time
+    only at the same start; the same coach's counts on any overlap."""
+    other_same = Elsewhere("B", START, _inv("x", R), 16, (), START + timedelta(hours=1), same_coach=False)
+    other_overlap = Elsewhere("C", START + timedelta(minutes=30), _inv("x", R), 16, (),
+                              START + timedelta(hours=1, minutes=30), same_coach=False)
+    mine_overlap = Elsewhere("D", START + timedelta(minutes=30), _inv("x", R), 16, (),
+                             START + timedelta(hours=1, minutes=30))
+    s = replace(_session(_regs(4, 3), [("x", "R")], [_inv("x", R)]), elsewhere=(other_same, other_overlap, mine_overlap))
+    closed = {e.session for e in handle(s, EngineSettings(), Answer("x", True), NOW).effects
+              if isinstance(e, InvitationClosed)}
+    assert closed == {"B", "D"}

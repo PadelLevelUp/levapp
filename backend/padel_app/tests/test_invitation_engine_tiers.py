@@ -203,7 +203,10 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     store.add_student(_student("COACH_SIDE", "L"))
     store.add_student(_student("CLOSED", "R"))
     store.add_student(_student("GONE", "R"))
-    store.apply([fx.GroupApproved("A", T0 - timedelta(hours=1), 0, frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
+    store.add_student(_student("TOLD", "R"))
+    store.apply([fx.Invited("A", T0 - timedelta(hours=2), "TOLD", frozenset({spot}), None, 3, T0),
+                 fx.Sorry("A", T0 - timedelta(hours=1), "TOLD"),                 # sorry, not on the list
+fx.GroupApproved("A", T0 - timedelta(hours=1), 0, frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_OK", "coach", side="R"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_SIDE", "coach", side="L"),
                  fx.Invited("A", T0 - timedelta(hours=2), "CLOSED", frozenset({spot}), None, 3, T0),
@@ -229,6 +232,7 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     assert stages["LEFTY"] == ("failed_tier_rule", None)
     assert stages["EARLIER"] == ("invited_earlier", 3)
     assert stages["CLOSED"] == ("invited_before", 3), "closed without a No: never a second invitation (D1)"
+    assert stages["TOLD"] == ("invited_before", 3), "sorry and not on the waiting list: never asked again"
     # The coach's list skips the pool's gates: only its side rule can fail (rule 6).
     assert stages["COACH_SIDE"] == ("failed_tier_rule", None)
     # The coach's list is the ideal tier (tier 0): it is asked; the pool's tier, not the ideal one, sends
@@ -237,7 +241,7 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     assert (stages["P2"], stages["P3"], stages["P1"]) == (("waiting", 3), ("waiting", 3), ("waiting", 3))
     assert [e.student for e in run.effects if isinstance(e, fx.Invited)] == ["COACH_OK"]
     assert run.queues[spot] == ("COACH_OK", "P2", "P3", "EARLIER", "P1")
-    assert "CLOSED" not in run.queues[spot] and "GONE" not in run.queues[spot]
+    assert "CLOSED" not in run.queues[spot] and "GONE" not in run.queues[spot] and "TOLD" not in run.queues[spot]
     assert {v.spot_type for v in run.verdicts} == {spot}
     # Outside the window the verdicts still explain, and the run sends nothing.
     early = evaluate(before, settings, T0 - timedelta(days=3))
@@ -418,10 +422,11 @@ def test_the_students_own_blocks_hold_on_every_tier():
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-20")
 def test_any_overlap_with_the_same_coachs_class_is_busy():
-    """engine-tiers rule 3 (owner decision 11): another session of the same coach whose interval
-    overlaps at all makes a student busy; one ending as this starts, or another coach's, does not."""
+    """engine-tiers rule 3 (owner decision 11, the 11-11 ruling kept): another session of the same coach
+    whose interval overlaps at all, or any coach's at the same start, makes a student busy; one ending
+    as this starts, or another coach's at another start, does not."""
     store = MemoryStore()
-    for sid in ("EARLY", "LATER", "OTHER"):
+    for sid in ("EARLY", "LATER", "OTHER", "OTHER_EARLY"):
         store.add_student(_student(sid, "R"))
     at = datetime(2026, 11, 3, 19, 0)
     store.add_session("S", 3, 8, at, _regulars(4, 3), T0, end=at + timedelta(hours=1))          # one right spot
@@ -430,9 +435,11 @@ def test_any_overlap_with_the_same_coachs_class_is_busy():
     store.add_session("B", 3, 8, at + timedelta(hours=1), [(_student("LATER", "R"), "R")], T0,
                       end=at + timedelta(hours=2))                                               # 20:00-21:00
     store.add_session("C", 3, 8, at, [(_student("OTHER", "R"), "R")], T0, coach="another")
+    store.add_session("D", 3, 8, at - timedelta(minutes=30), [(_student("OTHER_EARLY", "R"), "R")], T0,
+                      coach="another")                                                           # 18:30
     stages = {v.student: v.stage for v in evaluate(store.snapshot("S"), EngineSettings(), T0).verdicts}
-    assert stages["EARLY"] == "busy_same_time"
-    assert stages["LATER"] != "busy_same_time" and stages["OTHER"] != "busy_same_time"
+    assert stages["EARLY"] == stages["OTHER"] == "busy_same_time"
+    assert stages["LATER"] != "busy_same_time" and stages["OTHER_EARLY"] != "busy_same_time"
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-21")
@@ -452,3 +459,16 @@ def test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says():
     assert tier_for(snap.students["W"], SpotType("R", 3), counts, snap, settings) is None
     [invited] = [e for e in plan(snap, settings, T0).effects if isinstance(e, fx.Invited)]
     assert invited.offer == frozenset({SpotType("L", 3)}) and invited.side_named == "L"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-22")
+def test_the_coachs_list_keeps_busy_at_that_time():
+    """engine-tiers rule 4: a coach's-list member going to a class at the same time is not invited, and
+    the dry run says ``busy_same_time``."""
+    store = MemoryStore()
+    store.add_student(_student("C", "R"))
+    store.add_session("A", 3, 8, START, _regulars(4, 3), T0)                  # one right spot
+    store.add_session("B", 3, 8, START, [(_student("C", "R"), "R")], T0)      # C goes to B, same start
+    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "C", "coach", side="R")])
+    run = evaluate(store.snapshot("A"), EngineSettings(), T0)
+    assert _invited(run.effects) == [] and {v.student: v.stage for v in run.verdicts}["C"] == "busy_same_time"

@@ -334,7 +334,7 @@ class TableStore:
         # [start, end) overlaps this one's (touching ends do not overlap).
         end = _end_of(inst)
         busy = frozenset(str(pid) for pid, _ in _overlapping_going(coach_id, iid, start, end))
-        elsewhere = self._elsewhere(others)
+        elsewhere = self._elsewhere(others, coach_id)
 
         attempts: dict[str, list[datetime]] = {}
         confirmed = set()
@@ -647,7 +647,7 @@ class TableStore:
                 subscription_status=getattr(user, "status", None))
         return out
 
-    def _elsewhere(self, others) -> tuple[Elsewhere, ...]:
+    def _elsewhere(self, others, coach_id: int) -> tuple[Elsewhere, ...]:
         from padel_app.models import EngineInvitation
         from padel_app.models.presences import Presence
 
@@ -660,22 +660,28 @@ class TableStore:
         if not rows:
             return ()
         by_id = {o.id: o for o in others}
+        # Engine-tiers rule 3: another of this coach's sessions is at the same time when it overlaps,
+        # another coach's only at the same start (the engine reads same_coach, snapshot.same_time).
+        from padel_app.services.lesson_service import coach_instance_ids
+
+        own = set(coach_instance_ids(coach_id))
         going: dict[int, tuple[Placement, ...]] = {}
         for iid in {r.lesson_instance_id for r in rows}:
             going[iid] = tuple(self._placement(p) for p in Presence.query.filter_by(lesson_instance_id=iid).all()
                                if _going(p))
         return tuple(Elsewhere(str(r.lesson_instance_id), by_id[r.lesson_instance_id].start_datetime,
                                self._invitation(r), by_id[r.lesson_instance_id].effective_max_players,
-                               going[r.lesson_instance_id], end=_end_of(by_id[r.lesson_instance_id])) for r in rows)
+                               going[r.lesson_instance_id], end=_end_of(by_id[r.lesson_instance_id]),
+                               same_coach=r.lesson_instance_id in own) for r in rows)
 
     # --- seeding (the app's side of a session) --------------------------------------------
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
-                    joined_at: Mapping[str, datetime] | None = None) -> None:
+                    joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None) -> None:
         """The new engine takes over an existing occurrence (the app created it): its row in
-        ``engine_sessions`` and a going presence per regular. ``level``, ``capacity`` and ``start``
-        are the occurrence's own and are not written; ``joined_at`` is the roster's."""
+        ``engine_sessions`` and a going presence per regular. ``level``, ``capacity``, ``start`` and
+        ``end`` are the occurrence's own and are not written; ``joined_at`` is the roster's."""
         from padel_app.models import EngineSession
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.services import lesson_service as ls

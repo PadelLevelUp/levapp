@@ -4,6 +4,8 @@ Each test is one acceptance criterion of specflow/impl/notifications/engine-spot
 """
 from datetime import datetime
 
+import pytest
+
 from padel_app.invitation_engine.planner import side_admits, spot_counts, spot_types
 from padel_app.invitation_engine.snapshot import Placement, SessionSnapshot, SpotType, Student
 
@@ -41,10 +43,14 @@ def test_open_sum_is_class_empty_plus_flexible():
     assert c.open["L"] + c.open["R"] == c.class_empty + 3 == c.class_empty + c.flexible_going
 
 
-def test_side_over_quota_makes_one_regular_flexible():
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SPOTS-4")
+def test_side_over_quota_keeps_the_extra_regular_on_their_side():
+    """engine-spots rules 6 and 9 (the owner's decisions 12, 13): a one-sided regular above their side's
+    quota is counted under it, never flexible."""
     c, numbers = _counts(left=1, right=5)
     assert (numbers[3], numbers[2], numbers[5]) == (2, 0, 0)          # must(L) 2, open(R) 0, either 0
-    assert c.over_quota == {"L": 0, "R": 1} and c.flexible_going == 1
+    assert c.over_quota == {"L": 0, "R": 1} and c.flexible_going == 0
+    assert c.open["L"] + c.open["R"] == c.class_empty + c.flexible_going + sum(c.over_quota.values())
 
 
 def test_either_spot_side_rules():
