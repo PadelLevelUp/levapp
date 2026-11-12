@@ -82,7 +82,7 @@ def _people(coach_id: int, ids) -> dict[str, dict]:
     out = {}
     for player in Player.query.filter(Player.id.in_(ints or [-1])).all():
         name = player.user.name if player.user else None
-        out[str(player.id)] = {"name": name, **(nickname_payload(links[player.id], name) if player.id in links else {})}
+        out[str(player.id)] = {"name": name, **nickname_payload(links.get(player.id), name)}
     return out
 
 

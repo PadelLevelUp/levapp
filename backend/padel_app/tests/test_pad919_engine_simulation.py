@@ -41,7 +41,7 @@ def _rows():
 
 @pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-19")
 def test_the_simulation_runs_the_engines_dry_run_and_writes_nothing(app):
-    """TIERS-9: the verdicts and queues are ``planner.evaluate``'s on the hypothetical snapshot with the
+    """TIERS-9: the verdicts (each naming its student, as a queue entry does) and queues are ``planner.evaluate``'s on the hypothetical snapshot with the
     coach's settings (``settings_for``), per student per open spot type, through the same ``simulate_vacancy`` the endpoint calls; nothing is
     written."""
     from padel_app.services.engine_simulation import _spot_type, hypothetical_snapshot
@@ -68,6 +68,8 @@ def test_the_simulation_runs_the_engines_dry_run_and_writes_nothing(app):
     assert {(t["side"], t["levelId"]): [q["playerId"] for q in t["queue"]] for t in sim["spotTypes"]} == {
         wire(st): list(q) for st, q in dry.queues.items()}
     assert {t["side"] for t in sim["spotTypes"]} <= {"left", "right", None}
+    assert all({"playerId", "name", "nickname", "stage", "tier"} <= set(v)
+               for t in sim["spotTypes"] for v in t["verdicts"])           # N2: a verdict names its student
     assert all(t["levelLabel"] for t in sim["spotTypes"])
     assert sim["engine"] == "new" and "rounds" not in sim
 
