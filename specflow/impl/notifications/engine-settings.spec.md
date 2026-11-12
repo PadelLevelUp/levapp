@@ -52,7 +52,11 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    const:KIND_ADDED; they then get the reminder like a regular. The coach's list goes first, then the
    students' list, each by `notifications.engine-tiers` rule 8. From `attendance_request_at` on,
    waiting-list members are invited as group 0, as with the setting off. Their No later is not an
-   absence and takes them off the session's waiting list.
+   absence and takes them off the session's waiting list. **Automatic entry places only a student its
+   list's tier would invite** (`notifications.engine-tiers` rules 3, 4, 10): a students'-list member
+   must pass every gate (in the pool, not excluded, not blocked, not removed by the coach, not busy at
+   that time, not postponed); a coach's-list member is still kept out by the student's own blocks, the
+   coach's removal and being busy at that time.
 4. **`wl-sides`** (`waiting_list_side_choice`, default off; D12: group 0 has no spot-type rules). When
    on, a student joining the students' list chooses own side, other side or both, and is a candidate
    only for the spot types that choice allows; an other-side invitation or placement names the side
@@ -253,6 +257,14 @@ and an invitee who accepted on the right, with `fill_never_held` off, when a stu
 directly and automatic entry runs, then only the one `either` spot left free can be taken, and the two
 never-held spots are taken by nobody.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_fill_never_held_off_limits_direct_join_and_automatic_entry`
+
+#### NOTIFICATIONS-ENGINE-SETTINGS-25: Automatic entry places only who its list's tier would invite (rule 3)
+Given `auto-entry` on, a spot opening before `attendance_request_at`, and on the students' list a student
+the coach excluded, one blocking automatic invitations, one the coach removed in a semi-automatic
+request, one postponed by the daily cap and one free, and on the coach's list one blocking all
+notifications, when the run places, then only the free students'-list member is placed, and the
+coach's-list member is not.
+test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_places_only_who_the_tier_would_invite`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
