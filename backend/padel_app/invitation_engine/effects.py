@@ -12,7 +12,7 @@ from typing import Literal
 
 from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotQueues, SpotType, WaitingListSides
 
-MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_invite", "side_moved"]
+MessageKind = Literal["sorry", "added", "waiting_list_invite", "side_moved"]
 AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 AlertReason = Literal["no_candidate"]
@@ -48,10 +48,11 @@ class Sorry(Effect):
 
 
 @dataclass(frozen=True)
-class Reoffered(Effect):
-    """The same invitation offered again (Q6, coordinator ruling (1); engine-planning rule 5.3): its
-    offer, named side, tier and counting-until replace the old ones and it counts again. Never a
-    second invitation (D1). Comes with ``Message(kind="reoffer")``."""
+class Reopened(Effect):
+    """A "sorry" invitation reopened for a student who joined the session's waiting list, when the
+    list's turn reaches them (engine-answers rule 4, engine-planning rule 5.3; the owner's decision 1):
+    its offer, named side, tier and counting-until replace the old ones and it counts again. Never a
+    second invitation (D1). Comes with ``Message(kind="waiting_list_invite")``."""
 
     student: str
     offer: frozenset[SpotType]
@@ -90,9 +91,9 @@ class Left(Effect):
 
 @dataclass(frozen=True)
 class Message(Effect):
-    """``sorry``: Yes with no room (D4); ``reoffer``: the same invitation offered again, for another
-    spot (Q6) or after a "sorry" when a spot reopens; ``added``: automatic entry;
-    ``waiting_list_invite``: the waiting-list invitation (today's template key of that meaning; today's
+    """``sorry``: Yes with no room (D4), never another side; ``added``: automatic entry;
+    ``waiting_list_invite``: the waiting-list invitation, a reopened "sorry" one included (today's
+    template key of that meaning; today's
     ``waiting_list_offer`` is the engine's ``sorry``, ruling D8); ``side_moved``: a going student
     told their side was moved at ``last_invite_at`` (plan §4, §8 step 6)."""
 

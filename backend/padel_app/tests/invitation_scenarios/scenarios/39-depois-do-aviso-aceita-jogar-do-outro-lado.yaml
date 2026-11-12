@@ -3,7 +3,7 @@ title: depois do Aviso, aceita jogar do outro lado
 source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [965, 984]}
 what_it_tests: antes dos lembretes, depois do Aviso, aceitar o outro lado na waiting list dá entrada nesse lado
 tags: [aviso, waiting-list, sides, other-side, reminders]
-derived_from: [Q6, D20]
+derived_from: [§7]
 corrections: [E5]
 notes: >
   19:00: E1 to E3 are invited for their own side (left), so they are not candidates for the right spot
@@ -15,6 +15,10 @@ notes: >
   Re-derived under the plan (PAD-900, 2026-11-11): 19:10: E2's offer (left) has filled while the right is
   open and group 5 allows a level-2 left-sider there, so the same invitation is re-offered (Q6, `reoffer`).
   E2 then chooses the waiting list as in the file.
+
+  Re-derived again (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): 19:10 is back to the PDF's
+  Aviso, even with the right open. The second 19:10 step is unchanged: E2 joins the list for the other side
+  and automatic entry places them on the right, so the rest of the file is the PDF's.
 
 roster:
   regulars: {L: 7, R: 7}
@@ -38,8 +42,9 @@ timeline:
       missing: {L: 0, R: 1}
   - at: 2026-11-01 19:10
     events: [{accepts: E2}]
+    derived_from: [§7]
     expect:
-      messages: [{who: E2, kind: reoffer}]
+      messages: [{who: E2, kind: aviso}]
   - at: 2026-11-01 19:10
     events: [{joins_waiting_list: E2, sides: other}]
     expect:

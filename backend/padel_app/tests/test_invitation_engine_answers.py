@@ -130,24 +130,16 @@ def test_a_no_show_after_the_class_is_late():
 
 # --- wave W6: "sorry" and the re-offer (engine-answers rules 3, 4, 7) ------------------------------
 
-def test_a_yes_whose_offer_filled_is_reoffered_for_a_side_a_tier_admits():
-    # Scenario 1 at 19:08: a left-sider sent for the left, the left now full, the right open, and an
-    # other-side tier admitting left-siders for the right: the same invitation is re-offered.
-    from dataclasses import replace
-
-    from padel_app.invitation_engine.effects import Message, Reoffered
+def test_a_yes_whose_offer_filled_gets_sorry_never_another_side():
+    # Rule 3 (the owner's decision 1, answer 4): a left-sider sent for the left, the left now full, the
+    # right open, and a tier admitting left-siders for the right: still "sorry", never the right.
+    from padel_app.invitation_engine.effects import Message, Sorry
     from padel_app.invitation_engine.settings import Tier
 
     settings = EngineSettings(tiers=EngineSettings().tiers + (Tier("pool", "other", 0),))
     s = _session(_regs(4, 3), [("l", "L")], [_inv("l", L)])
     effects = handle(s, settings, Answer("l", True), NOW).effects
-    [re] = [e for e in effects if isinstance(e, Reoffered)]
-    assert re.offer == frozenset({R}) and re.side_named == "R" and re.tier == 4
-    assert [e.kind for e in effects if isinstance(e, Message)] == ["reoffer"]
-    assert not any(isinstance(e, (Answered, Placed)) for e in effects)       # not a final answer
-    # Without a tier that admits them for the right: "sorry".
-    effects = handle(replace(s), EngineSettings(), Answer("l", True), NOW).effects
-    assert [e.kind for e in effects if isinstance(e, Message)] == ["sorry"]
+    assert [type(e) for e in effects] == [Sorry, Message] and effects[1].kind == "sorry"
 
 
 def test_a_late_yes_into_a_full_session_gets_sorry_and_stops_counting():
@@ -173,23 +165,28 @@ def _engine(*regulars_sides, pool=()):
     return Engine(store, EngineSettings()), store
 
 
-def test_sorry_then_reopened_spot_is_reoffered():
-    # ANSWERS-7: told "sorry" on a full session; a right regular says No; the same invitation is
-    # re-offered, counts again, and the Yes then places them on the right.
-    from padel_app.invitation_engine.effects import Invited, Message, Reoffered
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-7")
+def test_sorry_is_asked_again_only_from_the_waiting_list():
+    # Two right-siders told "sorry"; one joins the session's waiting list. When a right regular says No
+    # after the reminder hour, only that one is asked, the same invitation reopened as a waiting-list
+    # invitation; the other is never asked again.
+    from padel_app.invitation_engine.effects import Invited, Message, Reopened
+    from padel_app.invitation_engine.requests import JoinWaitingList
 
-    engine, store = _engine(*_regs(4, 3), pool=[("a", "R"), ("b", "R")])
+    engine, store = _engine(*_regs(4, 3), pool=[("a", "R"), ("b", "R"), ("c", "R")])
     sent = [e for e in engine.tick(SENT) if isinstance(e, Invited)]
-    assert {e.student for e in sent} == {"a", "b"}
+    assert {e.student for e in sent} == {"a", "b", "c"}
     engine.handle("S", Answer("a", True), NOW)                               # a takes the right spot
-    told = engine.handle("S", Answer("b", True), NOW + timedelta(minutes=1))
-    assert [e.kind for e in told if isinstance(e, Message)] == ["sorry"]
-    reopened = engine.handle("S", RegularAbsent("R1"), NOW + timedelta(minutes=5))
-    assert [e.student for e in reopened if isinstance(e, Reoffered)] == ["b"]
-    assert [e.kind for e in reopened if isinstance(e, Message)] == ["reoffer"]
-    assert not [e for e in reopened if isinstance(e, Invited) and e.student == "b"]   # still one invitation
-    placed = engine.handle("S", Answer("b", True), NOW + timedelta(minutes=6))
-    assert [(e.student, e.side) for e in placed if isinstance(e, Placed)] == [("b", "R")]
+    for sid in "bc":
+        told = engine.handle("S", Answer(sid, True), NOW + timedelta(minutes=1))
+        assert [e.kind for e in told if isinstance(e, Message)] == ["sorry"]
+    engine.handle("S", JoinWaitingList("c", "students", sides="own"), NOW + timedelta(minutes=2))
+    later = datetime(2026, 11, 2, 18, 0)                                    # after the reminder hour
+    reopened = engine.handle("S", RegularAbsent("R1"), later)
+    assert [e.student for e in reopened if isinstance(e, Reopened)] == ["c"]
+    assert [(e.student, e.kind) for e in reopened if isinstance(e, Message)] == [("c", "waiting_list_invite")]
+    assert not [e for e in reopened if isinstance(e, Invited)]               # still one invitation each
+    assert not [e for e in engine.tick(later + timedelta(hours=1)) if getattr(e, "student", None) == "b"]
 
 
 def test_two_yes_for_the_last_spot_place_exactly_one():

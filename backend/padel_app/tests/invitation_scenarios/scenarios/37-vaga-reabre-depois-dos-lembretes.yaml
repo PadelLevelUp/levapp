@@ -3,7 +3,7 @@ title: vaga reabre depois dos lembretes
 source: {section: "Cenários 32 a 46: waiting list, lados, Aviso e entrada direta", lines: [926, 942]}
 what_it_tests: depois dos lembretes, a waiting list recebe convite e o primeiro Sim fica com a vaga
 tags: [waiting-list, aviso, tiebreak]
-derived_from: [§7, Q6, D1]
+derived_from: [§7, D1, D12]
 corrections: []
 notes: >
   Initial state and 19:00-19:10 as in scenario 36. E1 to E5 carry participations 5..1 so that the
@@ -16,6 +16,13 @@ notes: >
   (D1). When the left reopens on 2 Nov at 18:00, the same invitation is re-offered (Q6, `reoffer`) rather
   than a new one sent; group 2 is the ideal tier, so E4 and E5 are not invited. The class fills with E3 at
   18:20, so E2's 18:25 Yes gets the Aviso.
+
+  Re-derived again (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): a student told sorry is asked
+  again only from the waiting list. E2 joined the students' list after the 1 Nov Aviso, so on 2 Nov at 18:00
+  (after the reminder hour, no automatic entry) the list's turn reaches E2 and their same invitation reopens
+  as a waiting-list invitation from group 2: the PDF's "new invitation to E2 (group 2)", logged as any
+  waiting-list invitation, with no `reoffer`. Group 2 is the ideal tier and the reopened invitation fills the
+  lower tiers' budget of 1, so E4 and E5 are not invited. 18:20 and 18:25 are unchanged.
 
 class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
 roster:
@@ -49,9 +56,9 @@ timeline:
       waiting_list: {students: [E2]}
   - at: 2026-11-02 18:00
     events: [{regular_no: L-1}]
+    derived_from: [§7, D1, D12]
     expect:
-      invitations: none
-      messages: [{who: E2, kind: reoffer}]
+      invitations: [{who: E2, group: 2}]
       missing: {L: 1, R: 0}
   - at: 2026-11-02 18:20
     events: [{accepts: E3}]
