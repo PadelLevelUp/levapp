@@ -14,11 +14,14 @@ def new_class(app, monkeypatch):
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.tests.helpers import pin_clock
 
+    import padel_app.services.engine_entry  # noqa: F401 — loaded before the pin, so it reads the pinned clock
+
     with app.app_context():
         pin_clock(monkeypatch, NOW)
         store, (session,), pids = _seed(app, players=4, capacity=4, side="right")
         db.session.add(NotificationConfig(coach_id=store.coach_of(session), auto_notify_enabled=True,
-                                          open_spots_visible=True))
+                                          open_spots_visible=True, engine_version="new",
+                                          engine_switched_at=NOW - timedelta(days=1)))
         db.session.commit()
         yield store, session, pids
 
@@ -96,3 +99,30 @@ def test_a_no_show_on_the_attendance_sheet_is_the_engines(new_class, monkeypatch
     add_presences(_instance(session), [{"playerId": int(regular), "status": "absent"}])
     assert any(isinstance(e, fx.Absence) and e.student == regular for e in applied)
     assert _no_old_vacancy(session)
+
+
+def _invited(session):
+    from padel_app.models import EngineInvitation
+
+    return EngineInvitation.query.filter_by(lesson_instance_id=int(session)).count()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-50")
+def test_a_config_save_replans_the_coachs_sessions_at_once(new_class):
+    """engine-settings rule 9: a saved change applies from the next call; the save is that call."""
+    from padel_app.services.notification_service import update_config
+
+    store, session, _ = new_class
+    assert _invited(session) == 0                                 # nothing has run yet
+    update_config(store.coach_of(session), {"restrictions": {"maxSimultaneous": {"enabled": True, "value": 2}}})
+    assert _invited(session) > 0
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-50")
+def test_a_class_edit_replans_the_session_at_once(new_class):
+    """engine-planning rule 1: an edit is a run for that session."""
+    from padel_app.services.notification_service import vacancies_after_class_edit
+
+    store, session, _ = new_class
+    vacancies_after_class_edit(_instance(session), place_freed=True, now=NOW)
+    assert _invited(session) > 0 and _no_old_vacancy(session)

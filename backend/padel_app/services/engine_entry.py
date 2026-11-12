@@ -214,3 +214,31 @@ def coach_marks_absent(instance, presence, now: datetime | None = None) -> None:
 def coach_excludes(instance, player_id: int, now: datetime | None = None) -> None:
     """The coach keeps a student out of this session's invitations (``CoachExcludes``)."""
     handle(instance, rq.CoachExcludes(str(player_id)), now)
+
+
+# --- re-plans: a class edit, a config save (engine-planning rule 1; engine-settings rule 9) ----------
+
+
+def replan(sessions, now: datetime | None = None) -> list:
+    """Plan the named sessions now (``UpdateSettings`` naming them: each reads its coach's stored
+    settings again through the lookup), rather than at the next tick."""
+    from padel_app.invitation_engine.settings import EngineSettings
+    from padel_app.services.engine_runner import engine
+
+    sessions = tuple(str(s) for s in sessions)
+    if not sessions:
+        return []
+    now = now or utcnow_naive()
+    effects = engine(now).handle(sessions[0], rq.UpdateSettings(EngineSettings(), sessions), now)
+    db.session.expire_all()
+    return effects
+
+
+def replan_coach(coach_id: int, now: datetime | None = None) -> list:
+    """A config save: every new-engine session of the coach that the engine lists."""
+    from padel_app.models import EngineSession
+    from padel_app.services.engine_store import TableStore
+
+    listed = set(TableStore(clock=lambda: now or utcnow_naive()).sessions())
+    mine = [str(r.lesson_instance_id) for r in EngineSession.query.filter_by(coach_id=coach_id).all()]
+    return replan([s for s in mine if s in listed], now)

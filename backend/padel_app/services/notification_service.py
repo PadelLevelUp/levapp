@@ -441,6 +441,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     _record_config_changes(config, recorded_before, utcnow_naive())
 
     config.save()
+    if (config.engine_version or "old") == "new":
+        # PAD-918 (engine-settings rule 9): the save is the next call for the coach's sessions.
+        from padel_app.services.engine_entry import replan_coach
+
+        replan_coach(coach_id)
 
     # PAD-478 (notifications.config rule 10c): the configuration is saved whatever happens
     # below. A reschedule that FAILS is reported, not swallowed: the jobs of classes already
@@ -6029,8 +6034,15 @@ def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
       restrictions and the quiet-hours hold, the start-once claim. Before the window opens nothing
       is created here: the class's ``invite_start`` job opens the place when the window does.
     """
+    if _on_new_engine(instance):
+        # PAD-918 (engine-planning rule 1): the edit is a run for the session; it has no vacancies.
+        if not _instance_is_over(instance, now):
+            from padel_app.services.engine_entry import replan
+
+            replan([instance.id], now)
+        return
     reconcile_vacancies(instance)
-    if not place_freed or _instance_is_over(instance, now) or _on_new_engine(instance):
+    if not place_freed or _instance_is_over(instance, now):
         return
     from padel_app.scheduler import _compute_invite_start_dt
     from padel_app.services.lesson_service import primary_coach
