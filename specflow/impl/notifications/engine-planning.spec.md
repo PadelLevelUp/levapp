@@ -496,17 +496,13 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - Resetting the approved groups on a switch to automatic (rule 14, PLANNING-36) — S's reading (PAD-913;
   the owner can reverse it): decision 10 keeps a group approved for the session but did not decide
   resets; a coach who leaves semi-automatic and comes back is asked again.
-- **For the owner: does one flexible counting invitation fill every type's budget, or one?** (rules 4,
-  5.3; found on staging instance 783, PAD-913, 2026-11-12.) Today, as written: a {left, right} invitation
-  counts toward every type its offer fits and fills each type's budget, so a class with three open
-  spots (one left, one right, one either; ideal tier with X = 3) and six counting flexible invitations
-  sends nothing more: 6 invitations, 2 per spot, where X per spot would give 9. Proposed by N, approved
-  by the coordinator: a counting invitation fills the budget of the one type it covers (the covering
-  pass's distinct-holder assignment, D5), and may still cover either. Under it the 133 scenarios give
-  131 passes: only P10a and P10b move (one more left invitation at 19:00), and no step of Tomás's PDF.
-  **It is not applied** because it contradicts two recorded owner decisions: D5 ("one invitation counts
-  toward every spot type in its offer: a student sent for either side counts for both") and D20,
-  confirmed by the owner through Q10 on 2026-11-11, whose plan scenario S10 counts exactly that (3
-  invitations in all). Options: keep D5/D20 as they are (783 stays at 2 per spot); or amend D5/D20 as
-  N proposes (P10a/P10b re-derived; the failing test `test_a_flexible_invitation_fills_one_types_budget`
-  becomes PLANNING-45).
+- **For the owner (a notification-volume decision, the owner's): does one flexible (either-side) counting
+  invitation fill one spot type's budget only, or every type it fits?** (rules 4 and 5.3, D5, D20; found
+  on staging instance 783, PAD-913, 2026-11-12; no amendment until the owner answers.) With N's numbers:
+  - **every type it fits** (today's rule, D5/D20 as the owner confirmed them through Q10 on 2026-11-11):
+    4 invitations for 2 open spots at X = 3, and nothing more when a third spot opens (6 cover 3);
+  - **one type only** (N's proposal, approved by the coordinator for the owner to decide): 6 for 2, then
+    3 more when a third opens (9 for 3).
+  Every scenario from Tomás's PDF passes under both. P10a and P10b (the plan's own scenarios for D20)
+  and PLANNING-12 change under the second; N's failing test `test_a_flexible_invitation_fills_one_types_budget`
+  would become PLANNING-45.
