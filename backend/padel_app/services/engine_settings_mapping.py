@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from datetime import time, timedelta
 
+from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
 from padel_app.invitation_engine.settings import (
     ORDERING_CRITERIA,
     AttendanceRequest,
@@ -52,8 +53,14 @@ def _tier(group: dict) -> Tier:
 
 
 def _clock(value: str | None, default: str) -> time:
-    hour, minute = (value or default).split(":")
-    return time(int(hour), int(minute))
+    """"HH:MM" as a time; a value that does not parse reads as ``default``, as the scheduler reads it
+    (``_fire_time_utc``), so one bad row never refuses the coach."""
+    try:
+        hour, minute = (int(p) for p in (value or default).split(":"))
+        return time(hour, minute)
+    except (ValueError, TypeError):
+        hour, minute = (int(p) for p in default.split(":"))
+        return time(hour, minute)
 
 
 def _shape(timing: dict) -> dict:
@@ -83,8 +90,9 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
     """The coach's ``EngineSettings`` (CONFIG-52, CONFIG-55, and the open bar of CONFIG-53)."""
     r = config.get_restrictions()
     min_before, quiet, inactive = r["minTimeBeforeClass"], r["quietHours"], r["maxInactiveTime"]
-    # maxSimultaneous and maxInactiveTime: the value whether or not enabled (rule 19; X and T are >= 1).
-    t = timedelta(minutes=inactive["value"])
+    # maxSimultaneous and maxInactiveTime: the value whether or not enabled (rule 19); X is at least 1
+    # and T at least the engine's floor, so an old row below them never refuses the coach.
+    t = max(ENGINE_T_FLOOR, timedelta(minutes=inactive["value"]))
     return EngineSettings(
         invites_per_spot=max(1, int(r["maxSimultaneous"]["value"])),
         timing=Timing(method="fixed", between_rounds=t, between_groups=t),

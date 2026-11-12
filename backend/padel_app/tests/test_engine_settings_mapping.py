@@ -260,3 +260,23 @@ def test_reminder_count_and_interval_map_to_the_attendance_request():
     config = _config(reminder_count=2, hours_between_reminders=6)
     a = _settings(config).attendance_request
     assert (a.max, a.every) == (2, timedelta(hours=6))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-52")
+def test_a_malformed_stored_value_never_refuses_the_coach():
+    """A stored time that does not parse reads as today's scheduler reads it (09:00; quiet hours'
+    22:00-07:00), and a maxInactiveTime below the engine's floor is raised to it, so one bad row never
+    makes every engine call for the coach fail."""
+    from datetime import time
+
+    from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
+
+    config = _config()
+    config.invitation_start_type, config.invitation_start_value, config.invitation_start_time = (
+        "days_before_at_time", 1, "9h30")
+    config.quiet_hours_enabled, config.quiet_hours_start, config.quiet_hours_end = True, "late", "07:00"
+    config.max_inactive_time_value = 0
+    s = _settings(config)
+    assert s.first_invite.at == time(9, 0)
+    assert s.quiet_hours == (time(22, 0), time(7, 0))
+    assert s.timing.between_rounds == s.timing.between_groups == ENGINE_T_FLOOR
