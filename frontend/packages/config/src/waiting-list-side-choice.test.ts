@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { waitingListJoinSides, waitingListSideChoice } from "./waiting-list-side-choice";
+import { waitingListJoinSides, waitingListSideChoice, waitingListSidesFor } from "./waiting-list-side-choice";
 import { localeT } from "./testkit/locale-t";
 
 describe("PAD-920 the student's side choice on the waiting list (notifications.config rule 20)", () => {
@@ -15,5 +15,13 @@ describe("PAD-920 the student's side choice on the waiting list (notifications.c
     expect(waitingListSideChoice({ engineVersion: "old", waitingListSideChoice: true })).toBeNull();
     expect(waitingListSideChoice({})).toBeNull();
     expect(waitingListJoinSides(null)).toEqual({});
+  });
+
+  it("[NOTIFICATIONS-CONFIG-76] after side_full the asked side becomes own or other", () => {
+    // A left-only student asking for the right side; a {left, right} student asking for the left.
+    expect(waitingListSidesFor("right", "left")).toBe("other");
+    expect(waitingListSidesFor("left", "both")).toBe("own");
+    expect(waitingListSidesFor("left", "left")).toBe("own");
+    expect(waitingListSidesFor("right", null)).toBe("own");
   });
 });
