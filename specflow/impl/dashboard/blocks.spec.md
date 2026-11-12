@@ -35,7 +35,7 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   `empty_seats` → `reply` → `validation`): one per new-engine session and spot type holding a coach
   alert (`notifications.engine-planning` rule 11) in the current week's window (as `empty_seats`), soonest
   first. It carries `lessonInstanceId`, the class's title, ISO date and start time, `reason`
-  (const:ALERT_NO_CANDIDATE), `side` (`left`, `right` or null for either), `level` and `count`, and
+  (`no_candidate`, the engine's `ALERT_NO_CANDIDATE` in `notifications/constants.md`), `side` (`left`, `right` or null for either), `level` and `count`, and
   `href` to the class detail. It goes when the alert does (the type's count changes or the class is
   covered). That class's `empty_seats` item is not shown too: the alert says more.
 - **NA2. The card**, web `NeedsYouQueue` and iOS `blocks.tsx`, both from one shared copy helper:
