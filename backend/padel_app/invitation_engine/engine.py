@@ -12,13 +12,13 @@ from datetime import datetime
 from typing import Callable, Iterable
 
 from padel_app.invitation_engine import answers, messages, planner, timeline
-from padel_app.invitation_engine.effects import Effect, QueueApproved, QueueDismissed, QueueReopened
+from padel_app.invitation_engine.effects import Effect, GroupApproved, GroupDismissed, GroupReopened
 from padel_app.invitation_engine.requests import (
     COACH_QUEUE_REQUESTS,
     STUDENT_REQUESTS,
     Appear,
-    ApproveQueue,
-    DismissQueue,
+    ApproveGroup,
+    ReopenGroup,
     CoachExcludes,
     CreateSession,
     Request,
@@ -83,7 +83,7 @@ class Engine:
                 return self._plan(session, now)
             if isinstance(request, CreateSession):
                 self.store.add_session(session, request.level, request.capacity, request.start, request.regulars,
-                                       now, joined_at=request.joined_at)
+                                       now, joined_at=request.joined_at, end=request.end)
                 return self._plan(session, now)
             settings = self.settings_for(session)          # one lookup per unit: answer and plan agree
             out = self._commit(answers.handle(self.store.snapshot(session), settings, request, now).effects)
@@ -101,23 +101,23 @@ class Engine:
 
     def _queue_answer(self, session: str, request: Request, now: datetime) -> list[Effect]:
         """The coach's answer to semi-automatic mode (engine-planning rule 14), then a re-plan, which
-        sends at once what the approval lets through: its counting-until starts now."""
+        sends at once what the approval lets through: its counting-until starts now. An answer naming
+        no pending request, or reopening a group not dismissed, changes nothing."""
         with self.store.unit((session,)):
-            approval = self.store.snapshot(session).approval
-            if isinstance(request, ApproveQueue):
-                if approval.pending is None or approval.pending_request != request.request:
-                    return []                           # stale (replaced, withdrawn) or answered already
-                queued = {sid for _, queue in approval.pending for sid in queue}
-                out = self._commit([QueueApproved(session, now, frozenset(queued - request.removed),
-                                                  frozenset(request.removed))])
-            elif isinstance(request, DismissQueue):
-                if approval.pending is None:            # a stale "Ignorar": the request is gone already
+            snapshot = self.store.snapshot(session)
+            approval = snapshot.approval
+            if isinstance(request, ReopenGroup):
+                if all(t != request.tier for t, _ in approval.dismissed_groups):
                     return []
-                out = self._commit([QueueDismissed(session, now, planner.spot_types(self.store.snapshot(session)))])
+                out = self._commit([GroupReopened(session, now, request.tier)])
             else:
-                if approval.dismissed is None:          # nothing to reopen
+                pending = next((p for p in approval.pending if p.request == request.request), None)
+                if pending is None:                     # stale (replaced, withdrawn) or answered already
                     return []
-                out = self._commit([QueueReopened(session, now)])
+                if isinstance(request, ApproveGroup):
+                    out = self._commit([GroupApproved(session, now, pending.tier, frozenset(request.removed))])
+                else:
+                    out = self._commit([GroupDismissed(session, now, pending.tier, planner.spot_types(snapshot))])
             return out + self._plan(session, now)
 
     def _plan_unit(self, session: str, now: datetime) -> list[Effect]:

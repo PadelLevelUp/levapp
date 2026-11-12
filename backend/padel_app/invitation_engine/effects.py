@@ -172,39 +172,53 @@ class InvitationClosed(Effect):
     student: str
 
 
-# --- semi-automatic mode (engine-planning rule 14, owner ruling D2) ----------------------------------
+# --- semi-automatic mode (engine-planning rule 14; the owner's decisions 5 and 10) --------------------
 
 @dataclass(frozen=True)
 class ApprovalRequest(Effect):
-    """The run would invite students outside the approved queue, so it asks the coach instead:
-    ``queues`` is each open spot type's queue from the dry run at ``at``. Replaces a pending one."""
+    """The run would start sending from group ``tier``, not approved for this session, so it asks the
+    coach instead: ``queues`` is the group's queue per open spot type from the dry run at ``at``;
+    ``request`` its id. Replaces that group's pending request."""
 
+    tier: int
     queues: SpotQueues
-    request: str = ""                                    # the request's id; ApproveQueue names it
+    request: str
 
 
 @dataclass(frozen=True)
 class ApprovalWithdrawn(Effect):
-    """The pending request went stale: nothing is left to ask for, or the coach turned automatic."""
+    """Group ``tier``'s pending request ``request`` went stale: nothing is left to send from the group,
+    or the coach turned automatic."""
+
+    tier: int
+    request: str
 
 
 @dataclass(frozen=True)
-class QueueApproved(Effect):
-    """The coach approved the pending request: ``approved`` (its queues without ``removed``) becomes
-    the approved queue; ``removed`` adds to the students never invited automatically here."""
+class GroupApproved(Effect):
+    """The coach approved group ``tier`` for this session; ``removed`` adds to the students never
+    invited automatically here."""
 
-    approved: frozenset[str]
+    tier: int
     removed: frozenset[str]
 
 
 @dataclass(frozen=True)
-class QueueDismissed(Effect):
-    """The coach dismissed the pending request ("Ignorar"): nothing is sent automatically and no
-    request is raised while the session's open spot types stay ``spots``."""
+class GroupDismissed(Effect):
+    """The coach dismissed group ``tier``'s request ("Ignorar"): the group is skipped as if it had no
+    candidates while the session's open spot types stay ``spots``."""
 
+    tier: int
     spots: tuple[tuple[SpotType, int], ...]
 
 
 @dataclass(frozen=True)
-class QueueReopened(Effect):
-    """A dismissal ends: the coach reopened the session from the class, or its spot count changed."""
+class GroupReopened(Effect):
+    """Group ``tier``'s dismissal ends: the coach reopened it from the class, or the spot count changed."""
+
+    tier: int
+
+
+@dataclass(frozen=True)
+class GroupsCleared(Effect):
+    """The coach turned automatic: no group stays approved, so a return to semi-automatic asks again."""

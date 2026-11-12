@@ -5,6 +5,8 @@ then on they are invited as group 0. Scenario pins: SETTINGS-6 is 23, SETTINGS-7
 from dataclasses import replace
 from datetime import datetime
 
+import pytest
+
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine.effects import InvitationClosed, Message, Placed, WaitingListLeft
 from padel_app.invitation_engine.planner import auto_entries
@@ -77,3 +79,21 @@ def test_auto_entry_skips_a_student_busy_at_that_hour():
                   WaitingListEntry("W2", "students", datetime(2026, 11, 1, 9, 0), sides="own")], [w1, w2])
     busy = replace(s, busy_same_time=frozenset({"W1", "W2"}))
     assert auto_entries(busy, ON, datetime(2026, 11, 2, 9, 0)) == ()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-25")
+def test_auto_entry_places_only_who_the_tier_would_invite():
+    """engine-settings rule 3: automatic entry places only a student its list's tier would invite. One
+    right spot; everyone ahead of FREE fails a gate, so FREE alone is placed."""
+    from padel_app.invitation_engine.snapshot import Approval
+
+    names = ("EXCL", "BLOCK", "REMOVED", "POST", "FREE", "ALL")
+    students = {sid: Student(sid, 3, frozenset("R")) for sid in names}
+    joined = {sid: datetime(2026, 11, 1, 9, i) for i, sid in enumerate(names)}
+    waiting = [WaitingListEntry("ALL", "coach", joined["ALL"], side="R")] + \
+        [WaitingListEntry(sid, "students", joined[sid], sides="own") for sid in names[:5]]
+    s = _session(waiting, [st for sid, st in students.items() if sid != "EXCL"])       # excluded: not in the pool
+    s = replace(s, students={**s.students, "EXCL": students["EXCL"]}, blocked=frozenset({"BLOCK", "ALL"}),
+                postponed=frozenset({"POST"}), approval=Approval(removed=frozenset({"REMOVED"})))
+    effects = auto_entries(s, ON, datetime(2026, 11, 2, 16, 59))
+    assert [e.student for e in effects if isinstance(e, Placed)] == ["FREE"]

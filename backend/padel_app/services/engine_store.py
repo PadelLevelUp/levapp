@@ -50,6 +50,7 @@ from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.store import UnitConflict
 from padel_app.invitation_engine.snapshot import (
     Approval,
+    PendingRequest,
     Elsewhere,
     Invitation,
     Placement,
@@ -126,8 +127,40 @@ def _blocks_auto_invitations(user) -> bool:
     return bool(getattr(user, "notif_block_auto_invitations", False) or getattr(user, "notif_block_all", False))
 
 
-def _close_request_message(es, state: str) -> None:
-    """The session's pending request stopped being pending: its Assistant message's metadata says how
+def _end_of(inst) -> datetime:
+    """An occurrence's end, Lisbon wall clock: its own (start plus the lesson's duration), or an hour
+    after its start when it has none (the engine's default length)."""
+    return inst.end_datetime or inst.start_datetime + timedelta(hours=1)
+
+
+def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, *,
+                       student: int | None = None) -> list[tuple[int, int]]:
+    """``(player_id, lesson_instance_id)`` of every student going to another of ``coach_id``'s
+    occurrences whose ``[start, end)`` overlaps this one's (``a.start < b.end and b.start < a.end``;
+    touching ends do not overlap), not canceled; only ``student``'s when given. Read fresh
+    (``populate_existing``) so a guard under the student's lock sees the other unit's commit."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.services.lesson_service import coach_instance_ids
+
+    ids = set(coach_instance_ids(coach_id)) - {iid}
+    if not ids:
+        return []
+    candidates = LessonInstance.query.filter(
+        LessonInstance.id.in_(ids), LessonInstance.status != "canceled",
+        LessonInstance.start_datetime < end, LessonInstance.start_datetime >= start - timedelta(days=1)).all()
+    overlapping = [o.id for o in candidates if _end_of(o) > start]
+    if not overlapping:
+        return []
+    q = db.session.query(Presence.player_id, Presence.lesson_instance_id).filter(
+        Presence.lesson_instance_id.in_(overlapping), (Presence.status.is_(None)) | (Presence.status != "absent"))
+    if student is not None:
+        q = q.filter(Presence.player_id == student)
+    return [(pid, lid) for pid, lid in q.populate_existing().all()]
+
+
+def _close_request_message(message_id: int | None, state: str) -> None:
+    """An approval request stopped being pending: its Assistant message's metadata says how
     (``replaced``, ``approved``, ``dismissed``) with ``responded`` true, and one ``message_edited`` goes
     out after the commit (semi-auto-approval N4, SEMI-AUTO-APPROVAL-43)."""
     from padel_app.models import Message
@@ -135,8 +168,7 @@ def _close_request_message(es, state: str) -> None:
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
 
-    msg = db.session.get(Message, es.request_message_id) if es.request_message_id else None
-    es.request_message_id = None
+    msg = db.session.get(Message, message_id) if message_id else None
     if msg is None:
         return
     msg.msg_metadata = {**(msg.msg_metadata or {}), "state": state, "responded": True}
@@ -282,10 +314,10 @@ class TableStore:
             LessonInstance.start_datetime >= datetime.combine(start.date(), datetime.min.time()),
             LessonInstance.start_datetime < datetime.combine(start.date() + timedelta(days=1), datetime.min.time()),
         ).all()
-        same_start = [o.id for o in others if o.start_datetime == start]
-        busy = frozenset(str(pid) for (pid,) in db.session.query(Presence.player_id).filter(
-            Presence.lesson_instance_id.in_(same_start or [-1]),
-            (Presence.status.is_(None)) | (Presence.status != "absent")).all())
+        # Engine-tiers rule 3, owner decision 11: busy is going to another of this coach's sessions whose
+        # [start, end) overlaps this one's (touching ends do not overlap).
+        end = _end_of(inst)
+        busy = frozenset(str(pid) for pid, _ in _overlapping_going(coach_id, iid, start, end))
         elsewhere = self._elsewhere(others)
 
         attempts: dict[str, list[datetime]] = {}
@@ -305,18 +337,19 @@ class TableStore:
             students.update(self._students(coach_id, [], {}, extra=missing))
         return SessionSnapshot(
             id=session, level=self._level(ladder_index_map(coach_id), inst.level_id), capacity=inst.effective_max_players, start=start,
+            end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
             alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
             approval=Approval(
-                approved=frozenset(es.approved or ()), removed=frozenset(es.removed or ()),
-                pending=None if es.pending is None else tuple(
-                    (SpotType(*spot), tuple(ids)) for spot, ids in es.pending),
-                pending_request=es.pending_request,
-                dismissed=None if es.dismissed is None else tuple(
-                    (SpotType(*spot), n) for spot, n in es.dismissed)),
+                approved_groups=frozenset(es.approved_groups or ()), removed=frozenset(es.removed or ()),
+                pending=tuple(PendingRequest(p["tier"], p["request"],
+                                             tuple((SpotType(*spot), tuple(ids)) for spot, ids in p["queues"]))
+                              for p in es.pending or ()),
+                dismissed_groups=tuple((tier, tuple((SpotType(*spot), n) for spot, n in spots))
+                                       for tier, spots in es.dismissed_groups or ())),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
@@ -359,14 +392,14 @@ class TableStore:
     @staticmethod
     def attach_request_message(session: str, request_id: str, message_id: int) -> bool:
         """Keep ``message_id`` (the Assistant message the outbox's sender posted for approval request
-        ``request_id``) on the session, so the message follows the request. False, and nothing kept,
-        when that request is no longer the session's pending one."""
+        ``request_id``) on that pending request, so the message follows it. False, and nothing kept,
+        when that request is no longer pending."""
         from padel_app.models import EngineSession
 
         es = db.session.get(EngineSession, int(session))
-        if es is None or es.pending_request != request_id:
+        if es is None or not any(p["request"] == request_id for p in es.pending or ()):
             return False
-        es.request_message_id = int(message_id)
+        es.pending = [{**p, "message_id": int(message_id)} if p["request"] == request_id else p for p in es.pending]
         return True
 
     @staticmethod
@@ -448,26 +481,43 @@ class TableStore:
 
     @staticmethod
     def _approval(es, e: fx.Effect) -> None:
-        """The coach's approval state (owner ruling D2): a request replaces the pending queues and
-        ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
-        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal. A
-        request that stops being pending has its Assistant message say why (semi-auto-approval N4)."""
-        if es.pending_request is not None and not isinstance(e, fx.QueueReopened):
-            ended = {fx.QueueApproved: "approved", fx.QueueDismissed: "dismissed"}.get(type(e), "replaced")
-            if not (isinstance(e, fx.ApprovalRequest) and e.request == es.pending_request):
-                _close_request_message(es, ended)
+        """The coach's approval state per group (engine-store rule 5; owner decisions 5, 10): a request
+        replaces its group's pending one; an approval adds the group to the approved ones, adds to the
+        removed students and ends that group's request; a dismissal ends it and keeps the spot counts it
+        saw; a reopening ends the group's dismissal; a withdrawal ends the request it names; leaving
+        semi-automatic clears the approved groups. A request that stops pending has its Assistant message
+        say why (semi-auto-approval N4)."""
+        pending = list(es.pending or [])
+
+        def end(entry, state):
+            pending.remove(entry)
+            _close_request_message(entry.get("message_id"), state)
+
         if isinstance(e, fx.ApprovalRequest):
-            es.pending, es.pending_request, es.dismissed = _encode(e.queues), e.request or None, None
+            old = next((p for p in pending if p["tier"] == e.tier), None)
+            keep = old is not None and old["request"] == e.request          # the same request raised again
+            if old is not None and not keep:
+                end(old, "replaced")
+            entry = {"tier": e.tier, "request": e.request, "queues": _encode(e.queues),
+                     "message_id": old.get("message_id") if keep else None}
+            pending = [entry if p is old else p for p in pending] if keep else [*pending, entry]
         elif isinstance(e, fx.ApprovalWithdrawn):
-            es.pending = es.pending_request = None
-        elif isinstance(e, fx.QueueApproved):
-            es.approved = _encode(e.approved)
+            for p in [p for p in pending if p["request"] == e.request]:
+                end(p, "replaced")
+        elif isinstance(e, fx.GroupApproved):
+            es.approved_groups = sorted({*(es.approved_groups or ()), e.tier})
             es.removed = sorted(set(es.removed or ()) | e.removed, key=int)
-            es.pending = es.pending_request = None
-        elif isinstance(e, fx.QueueDismissed):
-            es.pending, es.pending_request, es.dismissed = None, None, _encode(e.spots)
-        elif isinstance(e, fx.QueueReopened):
-            es.dismissed = None
+            for p in [p for p in pending if p["tier"] == e.tier]:
+                end(p, "approved")
+        elif isinstance(e, fx.GroupDismissed):
+            for p in [p for p in pending if p["tier"] == e.tier]:
+                end(p, "dismissed")
+            es.dismissed_groups = [*[d for d in es.dismissed_groups or () if d[0] != e.tier], [e.tier, _encode(e.spots)]]
+        elif isinstance(e, fx.GroupReopened):
+            es.dismissed_groups = [d for d in es.dismissed_groups or () if d[0] != e.tier]
+        elif isinstance(e, fx.GroupsCleared):
+            es.approved_groups = []
+        es.pending = pending
 
     @staticmethod
     def _level(ladder: Mapping[int, int], level_id: int | None) -> int | None:
@@ -600,7 +650,7 @@ class TableStore:
                                if p.status != "absent")
         return tuple(Elsewhere(str(r.lesson_instance_id), by_id[r.lesson_instance_id].start_datetime,
                                self._invitation(r), by_id[r.lesson_instance_id].effective_max_players,
-                               going[r.lesson_instance_id]) for r in rows)
+                               going[r.lesson_instance_id], end=_end_of(by_id[r.lesson_instance_id])) for r in rows)
 
     # --- seeding (the app's side of a session) --------------------------------------------
 
@@ -665,22 +715,18 @@ class TableStore:
         db.session.query(Player.id).filter(Player.id == pid).with_for_update().one_or_none()
 
     def _guard_same_hour(self, e: fx.Placed) -> None:
-        """Never two sessions at one hour (engine-answers rule 10), whatever path placed the student:
+        """Never two sessions at the same hour (engine-answers rule 10; engine-tiers rule 3, owner decision
+        11: another of the coach's sessions whose interval overlaps), whatever path placed the student:
         with the student's row locked (waiting for any other unit placing them to commit), a going
-        presence at the same start elsewhere refuses the placement and rolls the unit back."""
+        presence in an overlapping session refuses the placement and rolls the unit back."""
         from padel_app.models.lesson_instances import LessonInstance
-        from padel_app.models.presences import Presence
 
         self._lock_student(int(e.student))
-        start = db.session.get(LessonInstance, int(e.session)).start_datetime
-        clash = (db.session.query(Presence.lesson_instance_id)
-                 .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
-                 .filter(Presence.player_id == int(e.student), Presence.lesson_instance_id != int(e.session),
-                         LessonInstance.start_datetime == start,
-                         (Presence.status.is_(None)) | (Presence.status != "absent"))
-                 .populate_existing().first())
-        if clash is not None:
-            raise SameHourConflict(f"{e.student} is already going to {clash[0]} at {start}")
+        inst = db.session.get(LessonInstance, int(e.session))
+        coach_id = self.coach_of(e.session)
+        clash = _overlapping_going(coach_id, inst.id, inst.start_datetime, _end_of(inst), student=int(e.student))
+        if clash:
+            raise SameHourConflict(f"{e.student} is already going to {clash[0][1]}, which overlaps {e.session}")
 
     @staticmethod
     def _invitation_row(e):
@@ -702,8 +748,8 @@ class TableStore:
         from padel_app.services.presence_response import record_response
 
         iid = int(e.session)
-        if isinstance(e, (fx.ApprovalRequest, fx.ApprovalWithdrawn, fx.QueueApproved, fx.QueueDismissed,
-                          fx.QueueReopened)):
+        if isinstance(e, (fx.ApprovalRequest, fx.ApprovalWithdrawn, fx.GroupApproved, fx.GroupDismissed,
+                          fx.GroupReopened, fx.GroupsCleared)):
             self._approval(db.session.get(EngineSession, iid), e)
         elif isinstance(e, fx.AlertCleared):                       # engine-planning rule 11 (PLANNING-40)
             es = db.session.get(EngineSession, iid)

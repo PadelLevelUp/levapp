@@ -203,7 +203,7 @@ def test_dry_run_gives_each_student_a_verdict_per_spot_type():
     store.add_student(_student("COACH_SIDE", "L"))
     store.add_student(_student("CLOSED", "R"))
     store.add_student(_student("GONE", "R"))
-    store.apply([fx.QueueApproved("A", T0 - timedelta(hours=1), frozenset(), frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
+    store.apply([fx.GroupApproved("A", T0 - timedelta(hours=1), 0, frozenset({"GONE"})),fx.WaitingListJoined("A", T0 - timedelta(hours=1), "HIDDEN", "students", sides="both"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_OK", "coach", side="R"),
                  fx.WaitingListJoined("A", T0 - timedelta(hours=1), "COACH_SIDE", "coach", side="L"),
                  fx.Invited("A", T0 - timedelta(hours=2), "CLOSED", frozenset({spot}), None, 3, T0),
@@ -414,3 +414,22 @@ def test_the_students_own_blocks_hold_on_every_tier():
     run = evaluate(snap, EngineSettings(), T0)
     assert _invited(run.effects) == [] and {v.student: v.stage for v in run.verdicts}["C"] == "not_in_pool"
     assert _invited(evaluate(store.snapshot("A"), EngineSettings(), T0).effects) == ["C"]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-20")
+def test_any_overlap_with_the_same_coachs_class_is_busy():
+    """engine-tiers rule 3 (owner decision 11): another session of the same coach whose interval
+    overlaps at all makes a student busy; one ending as this starts, or another coach's, does not."""
+    store = MemoryStore()
+    for sid in ("EARLY", "LATER", "OTHER"):
+        store.add_student(_student(sid, "R"))
+    at = datetime(2026, 11, 3, 19, 0)
+    store.add_session("S", 3, 8, at, _regulars(4, 3), T0, end=at + timedelta(hours=1))          # one right spot
+    store.add_session("A", 3, 8, at - timedelta(hours=1), [(_student("EARLY", "R"), "R")], T0,
+                      end=at + timedelta(minutes=30))                                            # 18:00-19:30
+    store.add_session("B", 3, 8, at + timedelta(hours=1), [(_student("LATER", "R"), "R")], T0,
+                      end=at + timedelta(hours=2))                                               # 20:00-21:00
+    store.add_session("C", 3, 8, at, [(_student("OTHER", "R"), "R")], T0, coach="another")
+    stages = {v.student: v.stage for v in evaluate(store.snapshot("S"), EngineSettings(), T0).verdicts}
+    assert stages["EARLY"] == "busy_same_time"
+    assert stages["LATER"] != "busy_same_time" and stages["OTHER"] != "busy_same_time"

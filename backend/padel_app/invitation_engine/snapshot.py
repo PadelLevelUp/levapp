@@ -11,7 +11,7 @@ Sides are ``"L"`` and ``"R"``; a student holds a non-empty subset of them (D18).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 Side = Literal["L", "R"]
@@ -101,6 +101,7 @@ class Elsewhere:
     invitation: Invitation
     capacity: int
     going: tuple[Placement, ...]
+    end: datetime | None = None                       # Lisbon wall-clock; None: start plus DEFAULT_LENGTH
 
 
 @dataclass(frozen=True)
@@ -121,19 +122,33 @@ SpotQueues = tuple[tuple[SpotType, tuple[str, ...]], ...]   # per open type, its
 
 
 @dataclass(frozen=True)
+class PendingRequest:
+    """One group's pending approval request: the ``tier``, its id, its queue per open spot type."""
+
+    tier: int
+    request: str
+    queues: SpotQueues
+
+
+SpotCount = tuple[tuple[SpotType, int], ...]          # the open spot types with their counts (planner.spot_types)
+
+
+@dataclass(frozen=True)
 class Approval:
-    """Semi-automatic mode's state for one session (engine-planning rule 14, owner ruling D2).
+    """Semi-automatic mode's state for one session, per group (engine-planning rule 14; the owner's
+    decisions 5 and 10). ``approved_groups``: the tiers the coach approved for this session, whose
+    sends go out unasked, later candidates included; ``removed``: students the coach took out, never
+    invited automatically here (not a No); ``pending``: one request per group waiting for the coach;
+    ``dismissed_groups``: each dismissed tier with the spot count at its dismissal, skipped while the
+    count stays the same."""
 
-    ``approved``: the students the coach let through, invited without asking; ``removed``: the
-    students the coach took out, never invited automatically for this session (not a No);
-    ``pending``: the pending request's queues, ``None`` without one, and ``pending_request`` its id; ``dismissed``: the open spot
-    types and their counts when the coach dismissed the request, ``None`` when not dismissed."""
-
-    approved: frozenset[str] = frozenset()
+    approved_groups: frozenset[int] = frozenset()
     removed: frozenset[str] = frozenset()
-    pending: SpotQueues | None = None
-    pending_request: str | None = None                  # the pending request's id
-    dismissed: tuple[tuple[SpotType, int], ...] | None = None
+    pending: tuple[PendingRequest, ...] = ()
+    dismissed_groups: tuple[tuple[int, SpotCount], ...] = ()
+
+    def pending_for(self, tier: int) -> PendingRequest | None:
+        return next((p for p in self.pending if p.tier == tier), None)
 
 
 @dataclass(frozen=True)
@@ -164,6 +179,7 @@ class SessionSnapshot:
     # ``messages.due`` sends each one once.
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
     approval: Approval = field(default_factory=Approval)      # semi-automatic mode (engine-planning rule 14)
+    end: datetime | None = None                       # Lisbon wall-clock: start plus the lesson's length
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)
@@ -175,3 +191,17 @@ class SessionSnapshot:
     @property
     def open_invitations(self) -> tuple[Invitation, ...]:
         return tuple(i for i in self.invitations if i.open)
+
+
+#: A session's length when the snapshot names no end (the harness's classes are an hour long).
+DEFAULT_LENGTH = timedelta(hours=1)
+
+
+def session_end(start: datetime, end: datetime | None) -> datetime:
+    return end if end is not None else start + DEFAULT_LENGTH
+
+
+def overlaps(a_start: datetime, a_end: datetime | None, b_start: datetime, b_end: datetime | None) -> bool:
+    """"At the same time" (engine-tiers rule 3, owner decision 11): the two intervals overlap at all;
+    one ending exactly when the other starts does not."""
+    return a_start < session_end(b_start, b_end) and b_start < session_end(a_start, a_end)

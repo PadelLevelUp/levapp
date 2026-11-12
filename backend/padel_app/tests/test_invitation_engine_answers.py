@@ -343,3 +343,24 @@ def test_joins_are_refused_with_a_code():
     assert code(s, DirectJoin("x"), now=datetime(2026, 11, 3, 10, 30)) == ("class_closed", frozenset())
     assert code(s, JoinWaitingList("low", "students", sides="own")) == ("ineligible", frozenset())
     assert code(s, JoinWaitingList("L1", "coach", side="R")) == ("already_enrolled", frozenset())
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-24")
+def test_an_overlapping_yes_is_refused_and_a_touching_one_is_not():
+    """engine-answers rule 10 with engine-tiers rule 3's "same time" (owner decision 11)."""
+    from padel_app.invitation_engine import Engine
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.store import MemoryStore
+
+    store = MemoryStore()
+    at = datetime(2026, 11, 3, 19, 0)
+    regulars = [(_student(sid, side), side) for sid, side in _regs(4, 3)]       # one right spot
+    store.add_session("S", 3, 8, at, regulars, SENT, end=at + timedelta(hours=1))
+    store.add_session("A", 3, 8, at - timedelta(hours=1), [(_student("X", "R"), "R")], SENT,
+                      end=at + timedelta(minutes=30))                            # 18:00-19:30: overlaps
+    store.add_session("B", 3, 8, at - timedelta(hours=1), [(_student("Y", "R"), "R")], SENT,
+                      end=at)                                                    # 18:00-19:00: touches
+    store.apply([fx.Invited("S", SENT, sid, frozenset({R}), None, 2, SENT + timedelta(minutes=20)) for sid in "XY"])
+    engine = Engine(store, EngineSettings())
+    assert engine.handle("S", Answer("X", True), NOW) == []                      # nothing placed, nothing sent
+    assert _placed(engine.handle("S", Answer("Y", True), NOW)) == [("Y", "R", "invitation")]
