@@ -168,6 +168,18 @@ three separate fields on it. Decision record:
     `notifications.engine-timeline` rule 2) and no `added_to_class` message is sent (rule 11; the
     engine sends its own `added` notice or invitation confirmation). Every old-engine enrolment is
     unchanged.
+15. **A coach's add at an hour the student is already going elsewhere is refused (PAD-913;
+    `notifications.engine-answers` rule 10, the coordinator's ruling: no override).** When a coach adds a
+    student to a new-engine class (one occurrence, or a series whose upcoming occurrences include
+    new-engine ones), and the student is going to another class with the same start (the same hour,
+    `notifications.engine-tiers` rule 3; either engine, any coach), the whole edit is refused and nothing
+    is saved: `409 {code: "busy_same_hour", clashes: [{playerId, playerName, lessonInstanceId, title,
+    start}]}`, one entry per student and clashing occurrence. There is no override: the coach removes the
+    student from the other class first. Both shells read the body (today they show a generic failure
+    toast) and show, per clash, "{name} já está inscrito noutra aula à mesma hora ({title}, {date}
+    {time}). Remove-o dessa aula primeiro." / "{name} is already in another class at the same time
+    ({title}, {date} {time}). Remove them from that class first." (proposed, for the owner's approval),
+    from one shared copy helper. An add to an old-engine class is unchanged.
 
 ### Acceptance Criteria
 
@@ -357,6 +369,23 @@ test: `backend/padel_app/tests/test_pad259_enrolment.py` › `test_enrol_survive
 - **When** the store enrols a student with `new_engine=True`, and puts back a student who had cancelled the same way
 - **Then** each has a presence (the returning one with the absence cleared and its earlier attendance records voided), no vacancy is closed or reconciled, no reminder pass is armed and no `added_to_class` message is sent
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_new_engine_enrolment_writes_only_the_presence`
+
+#### CLASSES-INSTANCE-ENROLLMENT-29: A coach's add that clashes at the same hour is refused whole, with the clashes (rule 15)
+- **Given** a student going to Ana's class on Thursday at 19:00 and a coach's new-engine class on Thursday at 19:00
+- **When** the coach adds that student and another to the class in one edit, and then adds the same student to the class's series
+- **Then** both edits answer `409 busy_same_hour` with one clash naming Ana's class and its start, nothing is saved (neither student is added), and adding only the other student succeeds
+test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_coachs_add_at_a_busy_hour_is_refused_whole`
+
+#### CLASSES-INSTANCE-ENROLLMENT-30: A clash with a different start, or an add to an old-engine class, is not refused (rule 15)
+- **Given** the student going to a class at 19:30 (overlapping, a different start), and separately an old-engine class at 19:00
+- **When** the coach adds the student to the 19:00 new-engine class, and to the 19:00 old-engine class
+- **Then** both adds succeed
+test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_different_start_or_an_old_engine_class_is_not_refused`
+
+#### CLASSES-INSTANCE-ENROLLMENT-31: Both shells show each clash from the refusal's body (rule 15)
+- **Given** a `409 busy_same_hour` with one clash, on web and on iOS
+- **Then** each shows the shared helper's line naming the student, the other class and its date and time, never the generic failure toast
+test: `frontend/packages/config/src/busy-same-hour-copy.test.ts` › `renders one line per clash in both locales`
 
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the
