@@ -76,3 +76,141 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
         return {**out, "action": "reoffered"}
     row = db.session.get(EngineInvitation, int(invitation_id))
     return {**out, "action": _answer_state(row, placed())}
+
+
+# --- shared ----------------------------------------------------------------------------------------
+
+#: The app's side words and the engine's.
+TO_ENGINE_SIDE = {"left": "L", "right": "R"}
+TO_APP_SIDE = {"L": "left", "R": "right"}
+
+
+def handle(instance, request, now: datetime | None = None) -> list:
+    """One engine request for the occurrence, in its unit; the outbox goes out after the commit."""
+    from padel_app.services.engine_runner import engine
+
+    now = now or utcnow_naive()
+    effects = engine(now).handle(str(instance.id), request, now)
+    db.session.expire_all()
+    return effects
+
+
+def refusal(effects, student) -> "fx.Refused | None":
+    return next((e for e in effects if isinstance(e, fx.Refused) and e.student == str(student)), None)
+
+
+def refuse(code: str, refused=None, **extra):
+    """A ``409 {code, message, ...}`` the clients branch on (classes.join-requests rule 15, NJ1)."""
+    from flask import abort, jsonify, make_response
+
+    if refused is not None and code == "side_full":
+        extra = {"sides": sorted(TO_APP_SIDE[s] for s in refused.sides), **extra}
+    abort(make_response(jsonify({"code": code, "message": code.replace("_", " "), **extra}), 409))
+
+
+# --- a spot opens: a regular's No, a cancellation (swap plan §3.1) ---------------------------------
+
+
+def _is_regular(presence) -> bool:
+    return presence is not None and presence.enrolment_source == "roster"
+
+
+def student_not_going(instance, presence, now: datetime | None = None) -> dict:
+    """A regular's No (``RegularAbsent``) or a placed student's cancellation (``Cancel``): the engine
+    records the absence (its notice by the deadline alone, decision 6) and plans the spot. Answered in
+    the cancel route's own shape."""
+    student = str(presence.player_id)
+    req = rq.RegularAbsent(student) if _is_regular(presence) else rq.Cancel(student)
+    handle(instance, req, now)
+    return {"action": "declined", "proactive": False}
+
+
+def answer_attendance_request(instance, presence, action: str, now: datetime | None = None) -> dict:
+    """Yes or No to the attendance request (the reminder): a Yes confirms, or brings a regular who had
+    said No back (``RegularReturns``); a No is ``student_not_going``. In the reminder route's shape."""
+    if action == "no":
+        student_not_going(instance, presence, now)
+        return {"action": "declined"}
+    student = str(presence.player_id)
+    returning = _is_regular(presence) and presence.status == "absent"
+    handle(instance, rq.RegularReturns(student) if returning else rq.ConfirmAttendance(student), now)
+    return {"action": "confirmed"}
+
+
+# --- waiting lists (notifications.waiting-list; engine-settings rule 4) ----------------------------
+
+
+def _sides_choice(requested: str | None, own_sides: frozenset[str]) -> str:
+    """The student's own/other/both choice from the side the app sent (engine-settings rule 4)."""
+    if requested in (None, "both") or len(own_sides) != 1:
+        return "both" if requested == "both" else "own"
+    return "own" if TO_ENGINE_SIDE.get(requested) in own_sides else "other"
+
+
+def student_joins_waiting_list(player, instance, side: str | None, now: datetime | None = None):
+    """The student's own join of the students' list, with the side they sent as their own/other/both
+    choice (none sent, none passed). A refusal is a 409 with the engine's code.
+    Returns ``(entry, created)`` as the route expects."""
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+    from padel_app.services.engine_store import TableStore
+
+    student = str(player.id)
+    before = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player.id,
+                                              is_active=True).first()
+    if before is not None:
+        return before, False
+    sides = None
+    if side is not None:
+        # The side the student sent (the join route's side round trip since PAD-672), in the engine's
+        # own/other/both terms; none sent, none passed.
+        own = TableStore()._students(_coach_of(instance), [], {}, extra=[player.id])[student].sides
+        sides = _sides_choice(side, own)
+    effects = handle(instance, rq.JoinWaitingList(student, "students", sides=sides), now)
+    refused = refusal(effects, student)
+    if refused is not None:
+        refuse(refused.reason, refused)
+    entry = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player.id,
+                                             is_active=True).first()
+    return entry, True
+
+
+def coach_adds_to_waiting_list(instance, player_id: int, side: str | None, now: datetime | None = None) -> dict:
+    """The coach puts a student on the coach's list for this occurrence, with a side (rule 18)."""
+    from padel_app.models.waiting_list_entry import WaitingListEntry
+
+    student = str(player_id)
+    effects = handle(instance, rq.JoinWaitingList(student, "coach", side=TO_ENGINE_SIDE.get(side)), now)
+    refused = refusal(effects, student)
+    row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
+    if refused is not None:
+        if refused.reason == "already_on_list":
+            return {"action": "already_on_list", "entryId": row.id if row else None}
+        refuse(refused.reason, refused)
+    return {"action": "added", "entryId": row.id if row else None}
+
+
+def leaves_waiting_list(instance, entry, now: datetime | None = None) -> None:
+    """The student leaves, or the coach takes them off: the list the entry is on."""
+    lst = "coach" if entry.added_by == "coach" else "students"
+    handle(instance, rq.LeaveWaitingList(str(entry.player_id), lst), now)
+
+
+def _coach_of(instance) -> int:
+    from padel_app.services.lesson_service import primary_coach
+
+    return primary_coach(instance).id
+
+
+def coach_marks_absent(instance, presence, now: datetime | None = None) -> None:
+    """The coach's attendance sheet marks a student absent: after the class started it is a no-show
+    (``NoShow``, the engine records the absence); before it, the spot opens as for the student's own No."""
+    now = now or utcnow_naive()
+    if instance.start_datetime is not None and utc_to_wall_naive(now) >= instance.start_datetime:
+        handle(instance, rq.NoShow(str(presence.player_id)), now)
+    else:
+        student_not_going(instance, presence, now)
+
+
+def coach_excludes(instance, player_id: int, now: datetime | None = None) -> None:
+    """The coach keeps a student out of this session's invitations (``CoachExcludes``)."""
+    handle(instance, rq.CoachExcludes(str(player_id)), now)

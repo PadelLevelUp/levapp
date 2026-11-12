@@ -4447,6 +4447,12 @@ def respond_to_reminder(
                 )
         return {"action": "not_enrolled"}
 
+    if _on_new_engine(instance):
+        # PAD-918 (swap plan §3.1): the attendance request's answer is the new engine's.
+        from padel_app.services.engine_entry import answer_attendance_request
+
+        return answer_attendance_request(instance, presence, action, _now)
+
     from padel_app.services.lesson_service import primary_coach
 
     coach = primary_coach(instance)  # PAD-275 rule 4
@@ -5029,6 +5035,11 @@ def cancel_attendance(
     ).first()
     if presence is None:
         abort(403, description="You are not enrolled in this class.")
+    if _on_new_engine(instance):
+        # PAD-918 (swap plan §3.1): the new engine records the absence and plans the spot.
+        from padel_app.services.engine_entry import student_not_going
+
+        return student_not_going(instance, presence, _now)
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -7423,6 +7434,11 @@ def add_to_class_waiting_list(
         return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
     if scope != "occurrence":
         abort(400, "scope must be occurrence, series or period")
+    if _on_new_engine(instance):
+        # PAD-918: the coach's list of a new-engine session is the engine's (waiting-list rule 18).
+        from padel_app.services.engine_entry import coach_adds_to_waiting_list
+
+        return coach_adds_to_waiting_list(instance, player_id, side)
 
     row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
     if row is not None and row.is_active:
@@ -7545,6 +7561,13 @@ def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
     row = WaitingListEntry.query.get_or_404(entry_id)
     if row.coach_id != coach_id:
         abort(403, "Not authorized")
+    instance = db.session.get(LessonInstance, row.lesson_instance_id) if row.lesson_instance_id else None
+    if row.is_active and instance is not None and _on_new_engine(instance):
+        from padel_app.services.engine_entry import leaves_waiting_list
+
+        leaves_waiting_list(instance, row)
+        _publish_waiting_list_changed(row)
+        return {"action": "removed", "entryId": row.id}
     if row.is_active:
         row.is_active = False
         db.session.commit()

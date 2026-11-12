@@ -811,6 +811,16 @@ def add_presences(lesson_instance, payload):
 
         was_absent = presence_obj.status == "absent"
         publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
+        if values.get("status") == "absent" and not was_absent:
+            from padel_app.services.engine_switch import engine_for
+
+            if engine_for(lesson_instance) == "new":
+                # PAD-918 (swap plan §3.1): the new engine hears it first, while the student still holds
+                # the spot: a no-show after the start, the spot opening before it.
+                from padel_app.services.engine_entry import coach_marks_absent
+
+                coach_marks_absent(lesson_instance, presence_obj)
+                presence_obj = Presence.query.get(presence_obj.id)
         presence_obj.update_with_dict(values)
         # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
         # none, whatever the body carries. It has to be said here and not in the form

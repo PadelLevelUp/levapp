@@ -211,8 +211,25 @@ class AppAdapter(NewDbAdapter):
                 self._answer(who, cls, "yes" if event == "accepts" else "no", now)
             elif event == "coach_sets":
                 raise Unsupported("coach_sets mid-scenario: the config save's mapping is not wired yet")
+            elif event == "coach_excludes":
+                from padel_app.models.lesson_instances import LessonInstance
+                from padel_app.services.engine_entry import coach_excludes
+
+                coach_excludes(db.session.get(LessonInstance, int(self.session_of[cls])), self.seed.pid[who], now)
+            elif event == "leaves_waiting_list":
+                from padel_app.services.academy_class_service import leave_class_waiting_list_service
+
+                leave_class_waiting_list_service(self.seed._player(who), int(self.session_of[cls]))
+            elif event == "no_show":
+                from padel_app.models.lesson_instances import LessonInstance
+                from padel_app.services.lesson_service import add_presences
+
+                inst = db.session.get(LessonInstance, int(self.session_of[cls]))
+                add_presences(inst, [{"playerId": self.seed.pid[who], "status": "absent"}])   # the attendance sheet
+                db.session.commit()
             else:
                 self.seed.instances = {c: int(s) for c, s in self.session_of.items()}
+                self.seed.holding = {c: self.seed._holding_ids(c) for c in self.seed.instances}  # "regulars confirm"
                 self.seed._dispatch(event, who, params, cls, now)
         except HTTPException as exc:
             db.session.rollback()
