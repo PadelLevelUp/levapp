@@ -111,7 +111,27 @@ class UpdateSettings:
     sessions: tuple[str, ...] | None = None
 
 
+@dataclass(frozen=True)
+class ApproveQueue:
+    """The coach approves the pending approval request, without ``removed`` (engine-planning rule 14)."""
+
+    removed: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class DismissQueue:
+    """The coach dismisses the pending approval request ("Ignorar", engine-planning rule 14)."""
+
+
+@dataclass(frozen=True)
+class ReopenQueue:
+    """The coach reopens a dismissed session from the class (engine-planning rule 14)."""
+
+
+COACH_QUEUE_REQUESTS = (ApproveQueue, DismissQueue, ReopenQueue)
+
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | Appear | UpdateSettings)
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | Appear | UpdateSettings
+           | ApproveQueue | DismissQueue | ReopenQueue)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
                     NoShow, ConfirmAttendance)

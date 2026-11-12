@@ -1,7 +1,7 @@
 """PAD-916: the new invitation engine's table-backed store (swap plan §5).
 
 - ``invitations``: one row per student per session (D1), UNIQUE (lesson_instance_id, player_id).
-- ``engine_sessions``: the occurrences the new engine runs, and their coach alerts.
+- ``engine_sessions``: the occurrences the new engine runs, their coach alerts and approval state.
 - ``engine_exclusions``: a student taken out of one session's pool by the coach.
 - ``engine_effects``: every applied effect once (UNIQUE key) and the outbox of messages.
 - ``presences``: placed_how, placed_at, side_moved_at, left_reason (the engine's placement).
@@ -59,6 +59,10 @@ def upgrade():
         sa.Column("lesson_instance_id", sa.Integer(), nullable=False),
         sa.Column("coach_id", sa.Integer(), nullable=False),
         sa.Column("alerted", sa.JSON(), nullable=False),
+        sa.Column("approved", sa.JSON(), nullable=False),
+        sa.Column("removed", sa.JSON(), nullable=False),
+        sa.Column("pending", sa.JSON(), nullable=True),
+        sa.Column("dismissed", sa.JSON(), nullable=True),
         sa.ForeignKeyConstraint(["lesson_instance_id"], ["lesson_instances.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["coach_id"], ["coaches.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("lesson_instance_id"),

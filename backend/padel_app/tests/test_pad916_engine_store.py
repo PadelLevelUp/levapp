@@ -11,7 +11,7 @@ import pytest
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.settings import EngineSettings
-from padel_app.invitation_engine.snapshot import SpotType, Student
+from padel_app.invitation_engine.snapshot import Approval, SpotType, Student
 from padel_app.sql_db import db
 
 @pytest.fixture(autouse=True)
@@ -314,3 +314,32 @@ def test_levels_reach_the_engine_as_ladder_positions(app):
     assert s.level == 2
     assert {sid: s.students[sid].level for sid in (reg, x, y)} == {reg: 2, x: 1, y: None}
     assert (s.students[x].subscription_status, s.students[y].subscription_status) == ("active", "inactive")
+
+
+def test_the_coachs_approval_round_trips_through_the_store(app):
+    """Owner ruling D2: the store keeps one session's approval state as the engine's effects leave it.
+    A request sets the pending queues and ends a dismissal; an approval replaces ``approved``, adds to
+    ``removed`` and ends the request; a dismissal keeps the spots it saw; a reopening ends it. The
+    request is a message to the coach, sent once by the outbox."""
+    from padel_app.services.engine_store import dispatch
+
+    store, (a,), (_, x, y) = _seed(app)
+    L = SpotType("L", 3)
+    steps = [
+        ([fx.ApprovalRequest(a, NOW, ((L, (x, y)),))], Approval(pending=((L, (x, y)),))),
+        ([fx.QueueApproved(a, NOW, frozenset({x}), frozenset({y}))], Approval(approved=frozenset({x}),
+                                                                              removed=frozenset({y}))),
+        ([fx.QueueDismissed(a, NOW, ((L, 1),))], Approval(approved=frozenset({x}), removed=frozenset({y}),
+                                                          dismissed=((L, 1),))),
+        ([fx.QueueReopened(a, NOW + timedelta(minutes=1)), fx.ApprovalRequest(a, NOW + timedelta(minutes=1), ((L, (x,)),))],
+         Approval(approved=frozenset({x}), removed=frozenset({y}), pending=((L, (x,)),))),
+        ([fx.ApprovalWithdrawn(a, NOW + timedelta(minutes=2))], Approval(approved=frozenset({x}), removed=frozenset({y}))),
+    ]
+    for effects, expected in steps:
+        with store.unit((a,)):
+            store.apply(effects)
+        assert store.snapshot(a).approval == expected
+    sent = []
+    assert dispatch(lambda row: sent.append(row.kind), now=NOW) == 2
+    assert sent == ["ApprovalRequest", "ApprovalRequest"]
+

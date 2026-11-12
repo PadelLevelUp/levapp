@@ -19,6 +19,7 @@ from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
 TierSource = Literal["coach_list", "students_list", "pool"]
 TierSide = Literal["same", "other", "any"]
 TimingMethod = Literal["fixed", "progressive", "per_tier"]
+InvitationMode = Literal["automatic", "semi_automatic"]
 WaitingList = Literal["coach", "students"]
 #: The config's timing shapes (``reminderTiming``, PAD-915): N real hours before the class, the class's
 #: wall date minus N days at a Lisbon time (both day forms are the same, as in the scheduler), or none.
@@ -145,6 +146,8 @@ class EngineSettings:
     auto_entry_before_attendance_request: bool = False
     waiting_list_side_choice: bool = False
     direct_join: bool = False
+    # Semi-automatic mode holds the engine's sends for the coach (engine-planning rule 14, ruling D2).
+    invitation_mode: InvitationMode = "automatic"
 
     def __post_init__(self) -> None:
         if self.invites_per_spot < 1:
@@ -166,6 +169,8 @@ class EngineSettings:
             raise SettingsError("timing.per_tier has more entries than there are tiers")
         if not self.tiers:
             raise SettingsError("tiers must not be empty")
+        if self.invitation_mode not in ("automatic", "semi_automatic"):
+            raise SettingsError(f"invitation_mode: unknown {self.invitation_mode!r}")
         for i, tier in enumerate(self.tiers):
             if tier.source != "pool" and tier.level_offset is not None:
                 raise SettingsError(f"tiers[{i}]: only a pool tier takes level_offset")

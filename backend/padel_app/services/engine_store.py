@@ -48,6 +48,7 @@ from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.store import UnitConflict
 from padel_app.invitation_engine.snapshot import (
+    Approval,
     Elsewhere,
     Invitation,
     Placement,
@@ -69,7 +70,7 @@ SIDE_TO_APP = {"L": "left", "R": "right", None: None}
 ENROLMENT_SOURCE = {"regular": "roster", "invitation": "fill", "direct": "fill",
                     "auto_from_waiting_list": "fill", "regular_returns": "roster"}
 #: Effects that reach a person: their ``engine_effects`` rows are the outbox.
-OUTBOX = (fx.Invited, fx.Message, fx.AttendanceRequested, fx.CoachAlert)
+OUTBOX = (fx.Invited, fx.Message, fx.AttendanceRequested, fx.CoachAlert, fx.ApprovalRequest)
 #: How far back ``sessions()`` looks: the timeline's duties after a class (absences) end within a day.
 AFTER_CLASS = timedelta(days=1)
 
@@ -94,6 +95,8 @@ def _encode(value):
         return sorted((_encode(v) for v in value), key=json.dumps)
     if isinstance(value, SpotType):
         return [value.side, value.level]
+    if isinstance(value, (tuple, list)):
+        return [_encode(v) for v in value]
     return value
 
 
@@ -248,12 +251,36 @@ class TableStore:
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
             alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
+            approval=Approval(
+                approved=frozenset(es.approved or ()), removed=frozenset(es.removed or ()),
+                pending=None if es.pending is None else tuple(
+                    (SpotType(*spot), tuple(ids)) for spot, ids in es.pending),
+                dismissed=None if es.dismissed is None else tuple(
+                    (SpotType(*spot), n) for spot, n in es.dismissed)),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
             attendance_requested={s: tuple(v) for s, v in attempts.items()},
             postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )
+
+    @staticmethod
+    def _approval(es, e: fx.Effect) -> None:
+        """The coach's approval state (owner ruling D2): a request replaces the pending queues and
+        ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
+        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal."""
+        if isinstance(e, fx.ApprovalRequest):
+            es.pending, es.dismissed = _encode(e.queues), None
+        elif isinstance(e, fx.ApprovalWithdrawn):
+            es.pending = None
+        elif isinstance(e, fx.QueueApproved):
+            es.approved = _encode(e.approved)
+            es.removed = sorted(set(es.removed or ()) | e.removed, key=int)
+            es.pending = None
+        elif isinstance(e, fx.QueueDismissed):
+            es.pending, es.dismissed = None, _encode(e.spots)
+        elif isinstance(e, fx.QueueReopened):
+            es.dismissed = None
 
     @staticmethod
     def _level(ladder: Mapping[int, int], level_id: int | None) -> int | None:
@@ -477,7 +504,10 @@ class TableStore:
         from padel_app.services.presence_response import record_response
 
         iid = int(e.session)
-        if isinstance(e, fx.CoachAlert):
+        if isinstance(e, (fx.ApprovalRequest, fx.ApprovalWithdrawn, fx.QueueApproved, fx.QueueDismissed,
+                          fx.QueueReopened)):
+            self._approval(db.session.get(EngineSession, iid), e)
+        elif isinstance(e, fx.CoachAlert):
             if e.spot_type is not None:                           # one alert per session and type (rule 11)
                 es = db.session.get(EngineSession, iid)
                 kept = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]

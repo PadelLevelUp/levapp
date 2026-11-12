@@ -12,10 +12,13 @@ from datetime import datetime
 from typing import Callable, Iterable
 
 from padel_app.invitation_engine import answers, messages, planner, timeline
-from padel_app.invitation_engine.effects import Effect
+from padel_app.invitation_engine.effects import Effect, QueueApproved, QueueDismissed, QueueReopened
 from padel_app.invitation_engine.requests import (
+    COACH_QUEUE_REQUESTS,
     STUDENT_REQUESTS,
     Appear,
+    ApproveQueue,
+    DismissQueue,
     CoachExcludes,
     CreateSession,
     Request,
@@ -67,6 +70,8 @@ class Engine:
         if isinstance(request, Appear):
             self.store.reveal(request.student)
             return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
+        if isinstance(request, COACH_QUEUE_REQUESTS):
+            return self._queue_answer(session, request, now)
         if not isinstance(request, (CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
         # A student's request locks the student first (two of theirs never run at once, answers rule 10).
@@ -88,6 +93,23 @@ class Engine:
         touched = sorted({e.session for e in out} - {session})
         return out + [e for s in touched for e in self._plan_unit(s, now)]
 
+    def _queue_answer(self, session: str, request: Request, now: datetime) -> list[Effect]:
+        """The coach's answer to semi-automatic mode (engine-planning rule 14), then a re-plan, which
+        sends at once what the approval lets through: its counting-until starts now."""
+        with self.store.unit((session,)):
+            approval = self.store.snapshot(session).approval
+            if isinstance(request, ApproveQueue):
+                if approval.pending is None:            # nothing to approve: stale, or answered already
+                    return []
+                queued = {sid for _, queue in approval.pending for sid in queue}
+                out = self._commit([QueueApproved(session, now, frozenset(queued - request.removed),
+                                                  frozenset(request.removed))])
+            elif isinstance(request, DismissQueue):
+                out = self._commit([QueueDismissed(session, now, planner.spot_types(self.store.snapshot(session)))])
+            else:
+                out = self._commit([QueueReopened(session, now)])
+            return out + self._plan(session, now)
+
     def _plan_unit(self, session: str, now: datetime) -> list[Effect]:
         """A re-plan in its own unit; one the store refuses (``UnitConflict``) is left to the next run."""
         try:
@@ -98,7 +120,7 @@ class Engine:
 
     def _plan(self, session: str, now: datetime, settings: EngineSettings | None = None) -> list[Effect]:
         settings = self.settings_for(session) if settings is None else settings
-        return self._commit(planner.plan(self.store.snapshot(session), settings, now).effects)
+        return self._commit(planner.decide(self.store.snapshot(session), settings, now).effects)
 
     def _commit(self, effects: Iterable[Effect]) -> list[Effect]:
         effects = list(effects)

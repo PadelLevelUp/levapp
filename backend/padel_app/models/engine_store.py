@@ -55,6 +55,14 @@ class EngineSession(db.Model, model.Model):
     coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
     # Coach alerts raised (engine-planning rule 11): a list of [side or null, level or null, spots].
     alerted = Column(JSON, nullable=False, default=list)
+    # Semi-automatic approval (engine-planning, owner ruling D2; PAD-915's Approval): the students the
+    # coach let through and those they took out, lists of ids; the pending request's queues, a list of
+    # [[side, level], [ids in order]] (null: none pending); the open spots when the coach dismissed the
+    # queue, a list of [[side, level], count] (null: not dismissed).
+    approved = Column(JSON, nullable=False, default=list)
+    removed = Column(JSON, nullable=False, default=list)
+    pending = Column(JSON, nullable=True)
+    dismissed = Column(JSON, nullable=True)
 
 
 class EngineExclusion(db.Model, model.Model):
