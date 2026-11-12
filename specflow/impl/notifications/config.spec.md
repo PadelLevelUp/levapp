@@ -495,7 +495,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
         removable), then the groups in order, each group's side rule offering "Equilibrar lados da
         aula" (`same_as_vacancy`, today's words) and "Lado contrário" / "Other side"
         (`different_from_vacancy`).
-      All words are proposed, for the owner's approval.
+      Also: the timing heading "Tempo entre convites" / "Time between invitations"; the fixed tiers'
+      badge "fixo" / "fixed" and their names, `calendar.event-detail` ND1's "lista do treinador" /
+      "coach's list" and "lista de espera" / "waiting list"; on iOS, the reorder labels "Subir" / "Move
+      up" and "Descer" / "Move down". All words are proposed, for the owner's approval.
     - **The student's side choice.** With `waitingListSideChoice` on, a student joining a new-engine
       class's waiting list picks "O meu lado" / "My side", "O outro lado" / "The other side" or "Ambos" /
       "Both" (proposed) instead of an absolute side, on web (`ClassSideChoice`) and iOS

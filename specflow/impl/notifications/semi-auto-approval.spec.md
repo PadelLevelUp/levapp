@@ -88,7 +88,10 @@ The new-engine answer (swap step 7, PAD-919):
   "Sim" only (rule 8, PAD-545). No "at the window" button for a new-engine request. A `stale` answer, or
   a message whose `state` is `replaced`, shows "Este pedido foi substituído por um mais recente."
   / "This request was replaced by a newer one." (proposed) and no buttons; `dismissed` shows "Ignorado" /
-  "Ignored". An empty type shows its `emptyQueueReasons` with N6's words.
+  "Ignored". An empty type shows its `emptyQueueReasons` with N6's words, one line each, "{{reason}}
+  ({{count}})". Also proposed: the singular "Sim (1 retirado)" / "Yes (1 removed)"; the remove and restore
+  labels for assistive tech, "Retirar {{name}} da lista" / "Remove {{name}} from the list" and "Repor
+  {{name}} na lista" / "Put {{name}} back on the list".
 
 The card's new words (N5) are proposed, for the owner's approval.
 
