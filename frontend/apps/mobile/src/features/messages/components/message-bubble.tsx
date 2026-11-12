@@ -18,7 +18,7 @@ import {
 } from "@levelup/config";
 import * as academyClassesApi from "@levelup/api/src/resources/academyClasses";
 import { useInviteWaitingList } from "@levelup/hooks";
-import type { Message, MessageStatus } from "@levelup/types";
+import type { EngineApprovalMeta, Message, MessageStatus } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -345,7 +345,7 @@ function MessageBubbleImpl({
     message.messageType === "replacement_approval";
   // PAD-920 (semi-auto-approval N4, N5): a new-engine request is read first; it has no bundle.
   const approvalBundle = isReplacementApproval
-    ? isEngineApproval(message.metadata) && engineApprovalRequest(message.metadata) ? message.metadata : approvalBundleFrom(message.metadata)
+    ? isEngineApproval(message.metadata) && engineApprovalRequest(message.metadata as EngineApprovalMeta) ? (message.metadata as EngineApprovalMeta) : approvalBundleFrom(message.metadata)
     : null;
   const [confirmingLateCancel, setConfirmingLateCancel] =
     React.useState(false);

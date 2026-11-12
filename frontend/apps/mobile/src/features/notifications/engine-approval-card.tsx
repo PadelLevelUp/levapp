@@ -3,6 +3,7 @@ import { notificationEngineApi } from "@levelup/api";
 import { useCoachDisplayName } from "@levelup/hooks";
 import {
   approvalQueuePreview,
+  engineApprovalGroupName,
   engineApprovalRequest,
   engineApprovalYesLabel,
   engineEmptyQueueReasons,
@@ -11,7 +12,7 @@ import {
   lightTheme,
   resolveText,
 } from "@levelup/config";
-import type { ApprovalAction, EngineApprovalMeta, EngineApprovalState } from "@levelup/types";
+import type { ApprovalAction, EngineApprovalMeta } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
@@ -23,8 +24,11 @@ import { cn } from "@/lib/utils";
 // Ionicons take a color string, not a class (replacement-approval-card.tsx's APPROVED_ICON_COLOR).
 const APPROVED_ICON_COLOR = "#059669";
 
-/** A new-engine request as either host has it: the message's metadata (N4) or the class's state (N1). */
-export type EngineApprovalSource = EngineApprovalMeta | EngineApprovalState;
+/**
+ * A new-engine request in one shape for both hosts: the message's metadata (N4), or one of the
+ * class's requests built with `engineApprovalCardOf` (N1), one per group.
+ */
+export type EngineApprovalSource = EngineApprovalMeta;
 
 type Props = {
   source: EngineApprovalSource;
@@ -36,6 +40,9 @@ type Props = {
 
 type Outcome = "approved" | "dismissed" | "stale";
 
+/** The group's name opens the title: "lista de espera" reads "Lista de espera". */
+const capitalizeFirst = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 /** N4/N5: what a request no longer pending says; `replaced` (or an older `responded`) reads as stale. */
 function outcomeFromState(state: string | undefined, responded: boolean): Outcome | null {
   if (state === "approved") return "approved";
@@ -45,7 +52,8 @@ function outcomeFromState(state: string | undefined, responded: boolean): Outcom
 }
 
 /**
- * PAD-920 (semi-auto-approval N5): the card for a new-engine request, on iOS. One block per spot
+ * PAD-920 (semi-auto-approval N5): the card for a new-engine request, on iOS, titled with the group
+ * it asks for (the owner's per-group approval, ND1's words). Then one block per spot
  * type (side, level and its open spots) with its queue in order (rule 7a's preview: the first five,
  * "Ver mais (N)", and the truncation line), a remove toggle per student, and "Sim" with the removed
  * ids. There is no "at the window" button: the new engine raises no request before the window (N2).
@@ -105,6 +113,12 @@ export function EngineApprovalCard({ source, readOnly = false, onResult, allowDi
 
   return (
     <View testID="replacement-approval-card" className="gap-3 rounded-xl border border-border bg-card p-3">
+      {/* N5: the card is titled with the group it asks for (ND1's words). */}
+      {request.group ? (
+        <Text className="text-sm font-semibold" testID="approval-group">
+          {capitalizeFirst(resolveText(t, engineApprovalGroupName(request.group)))}
+        </Text>
+      ) : null}
       {request.spotTypes.map((spotType, index) => {
         const slug = engineSideSlug(spotType.side);
         const isExpanded = !!expanded[index];

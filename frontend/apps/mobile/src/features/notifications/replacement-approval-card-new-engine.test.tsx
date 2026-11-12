@@ -2,7 +2,8 @@
  * PAD-920 (notifications.semi-auto-approval N5) on iOS: the card for a new-engine request, on the
  * shared engine-approval-display helpers web's card uses. One block per spot type (side, level and
  * its open spots) with rule 7a's preview, a remove toggle per student, "Sim" with the removed ids
- * and "Ignorar" on the class's card, "Sim" alone in the conversation, no "at the window" button,
+ * and "Ignorar" on the class's card, titled with the group it asks for (the owner's per-group
+ * approval), "Sim" alone in the conversation, no "at the window" button,
  * and a message no longer pending reads its `state`. `t` here reads the real pt locale files, so the
  * words checked are the ones the coach reads, and a key missing from them fails the test.
  */
@@ -11,7 +12,8 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, type ReactTestInstance } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { EngineApprovalMeta, EngineApprovalState } from "@levelup/types";
+import type { EngineApprovalMeta, EngineApprovalSpotType } from "@levelup/types";
+import { engineApprovalCardOf } from "@levelup/config";
 import { renderNative } from "@/test/render-native";
 
 const LOCALES = resolve(__dirname, "../../../../../src/locales/pt");
@@ -89,46 +91,37 @@ const leftQueue = Array.from({ length: 7 }, (_, i) => ({
   rank: i + 1,
 }));
 
-const classState = (requestId: number): EngineApprovalState => ({
-  engine: "new",
-  state: "pending",
-  semiAutomatic: true,
-  approved: [],
-  removed: [],
-  request: {
-    requestId,
-    lessonInstanceId: 40,
-    spotTypes: [
-      { side: "left", levelId: 3, levelLabel: "Nível 3", count: 1, queue: leftQueue },
-      {
-        side: null,
-        levelId: null,
-        levelLabel: null,
-        count: 2,
-        queue: [],
-        emptyQueueReasons: [
-          { stage: "failed_eligibility", count: 4 },
-          { stage: "said_no", count: 2 },
-          { stage: "busy_same_time", count: 0 },
-        ],
-      },
+const spotTypes: EngineApprovalSpotType[] = [
+  { side: "left", levelId: 3, levelLabel: "Nível 3", count: 1, queue: leftQueue },
+  {
+    side: null,
+    levelId: null,
+    levelLabel: null,
+    count: 2,
+    queue: [],
+    emptyQueueReasons: [
+      { stage: "failed_eligibility", count: 4 },
+      { stage: "said_no", count: 2 },
+      { stage: "busy_same_time", count: 0 },
     ],
   },
-});
+];
+
+// The owner's per-group approval: each request asks for one group, here invitation group 2.
+const GROUP2 = { tierSource: "pool" as const, groupNumber: 2 };
+
+/** The class's card: one of the class's requests in the message's shape (N1, N5). */
+const classState = (requestId: number): EngineApprovalMeta =>
+  engineApprovalCardOf({ requestId, lessonInstanceId: 40, group: GROUP2, spotTypes });
 
 const message = (requestId: number, over: Partial<EngineApprovalMeta> = {}): EngineApprovalMeta => ({
   engine: "new",
   requestId,
   lessonInstanceId: 40,
+  group: GROUP2,
   responded: false,
   state: "pending",
-  spotTypes: classState(requestId).request!.spotTypes.map(({ side, levelId, levelLabel, count, queue }) => ({
-    side,
-    levelId,
-    levelLabel,
-    count,
-    queue,
-  })),
+  spotTypes: spotTypes.map(({ side, levelId, levelLabel, count, queue }) => ({ side, levelId, levelLabel, count, queue })),
   ...over,
 });
 
@@ -143,6 +136,9 @@ describe("the iOS card for a new-engine request (semi-auto-approval N5)", () => 
     // The class's card: two blocks, the left one truncated, the either one saying why it is empty.
     const onResult = vi.fn();
     const card = await renderNative(wrap(<ReplacementApprovalCard bundle={classState(11)} allowDismiss onResult={onResult} />));
+    // N5: titled with the group's name, ND1's words ("Grupo 2").
+    const groupName = pt("calendar.detail.tierGroup", { n: 2 });
+    expect(text(card.byTestId("approval-group"))).toBe(groupName.charAt(0).toUpperCase() + groupName.slice(1));
     expect(hosts(card, (id) => id.startsWith("approval-type-") && id !== "approval-type-header").map((x) => x.props.testID)).toEqual([
       "approval-type-left",
       "approval-type-either",
@@ -228,6 +224,7 @@ describe("the iOS card for a new-engine request (semi-auto-approval N5)", () => 
     const convo = await renderNative(wrap(<ReplacementApprovalCard bundle={message(14)} queueAsOf={null} />));
     expect(text(convo.byTestId("approval-yes"))).toBe(pt("notificationsUi.replacementApproval.engine.yes"));
     expect(convo.queryByTestId("approval-dismiss")).toBeNull();
+    expect(text(convo.byTestId("approval-group"))).toBe(text(card.byTestId("approval-group")));
     expect(convo.queryByTestId("approve-invitations-at-window")).toBeNull();
     expect(hosts(convo, (id) => id === "approval-type-header").map(text)[0]).toContain(
       pt("tutorials.engine.openSpots_one", { count: 1 })
@@ -235,6 +232,10 @@ describe("the iOS card for a new-engine request (semi-auto-approval N5)", () => 
     // An older message without `state` and not responded is still pending.
     const older = await renderNative(wrap(<ReplacementApprovalCard bundle={message(15, { state: undefined })} />));
     expect(older.queryByTestId("approval-yes")).not.toBeNull();
+    // A message from before per-group approval carries no group: no title.
+    const ungrouped = await renderNative(wrap(<ReplacementApprovalCard bundle={message(23, { group: undefined })} />));
+    expect(ungrouped.queryByTestId("approval-group")).toBeNull();
+    expect(ungrouped.queryByTestId("approval-yes")).not.toBeNull();
 
     // A message no longer pending reads its `state` (N4), with no buttons and no toggles.
     const noButtons = (n: Awaited<ReturnType<typeof renderNative>>) => {

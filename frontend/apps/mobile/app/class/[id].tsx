@@ -58,7 +58,6 @@ import type {
   ApprovalBundle,
   ClassInstance,
   ClassInvitation,
-  EngineApprovalState,
   PresenceStatus,
 } from "@levelup/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -140,7 +139,10 @@ import {
   type AttendancePayloadItem,
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
-import { nextEngineClassCard, showsEngineRecompute } from "@/features/notifications/engine-approval-class-state";
+import {
+  ENGINE_APPROVAL_CLASS_START,
+  engineApprovalClassState,
+} from "@/features/notifications/engine-approval-class-state";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import {
   eventFromLessonInstance,
@@ -319,8 +321,8 @@ export default function ClassDetailScreen() {
   const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
   const [semiAutomatic, setSemiAutomatic] = React.useState(false);
   const [recomputing, setRecomputing] = React.useState(false);
-  // PAD-920 (semi-auto-approval N1): a new-engine session answers one request, not bundles.
-  const [engineApproval, setEngineApproval] = React.useState<EngineApprovalState | null>(null);
+  // PAD-920 (semi-auto-approval N1): a new-engine session's cards, one per group about to start.
+  const [engineApproval, dispatchEngineApproval] = React.useReducer(engineApprovalClassState, ENGINE_APPROVAL_CLASS_START);
   const suggestionsInstanceId = React.useMemo(() => {
     const fromPresence = instance?.presences?.[0]?.lessonInstanceId;
     if (fromPresence != null) return Number(fromPresence);
@@ -337,16 +339,16 @@ export default function ClassDetailScreen() {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
         if (isEngineApproval(s)) {
-          // N1: the pending request is the card; a dismissed session offers the recompute. A
-          // request the coach just approved here stays until the class is closed (PAD-770).
-          setEngineApproval((prev) => nextEngineClassCard(prev, { kind: "read", state: s }, answeredBundleIdsRef.current));
+          // N1: one card per pending request; an approved group's card stays until the class is
+          // closed (PAD-770); a dismissed group offers the recompute.
+          dispatchEngineApproval({ type: "read", state: s });
           // No old-engine card beside a new-engine one.
           setApprovalBundles([]);
-          setSuggestionsIgnored(s.state === "dismissed");
+          setSuggestionsIgnored(s.dismissedGroups.length > 0);
           return;
         }
         // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
-        setEngineApproval(null);
+        dispatchEngineApproval({ type: "reset" });
         setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
       })
@@ -362,12 +364,12 @@ export default function ClassDetailScreen() {
     setRecomputing(true);
     try {
       const s = await notificationEngineApi.recomputeApprovalState(suggestionsInstanceId);
-      // N3: a reopened session's fresh request replaces the card.
+      // N3: the dismissed groups reopen; the fresh requests replace their cards.
       if (isEngineApproval(s)) {
-        setEngineApproval((prev) => nextEngineClassCard(prev, { kind: "recompute", state: s }, answeredBundleIdsRef.current));
+        dispatchEngineApproval({ type: "recomputed", state: s });
         setApprovalBundles([]);
       } else if (s.state === "pending" && s.bundle) {
-        setEngineApproval(null);
+        dispatchEngineApproval({ type: "reset" });
         setApprovalBundles(suggestionBundles(s));
       }
       setSuggestionsIgnored(false);
@@ -1806,28 +1808,27 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
-          {/* PAD-920 (semi-auto-approval N5): the new-engine request, "Sim" and "Ignorar". */}
-          {isCoach && !isEditing && engineApproval?.request ? (
+          {/* PAD-920 (semi-auto-approval N1, N5): one card per group about to start, "Sim" and "Ignorar". */}
+          {isCoach && !isEditing && engineApproval.cards.length > 0 ? (
             <>
               <Separator />
-              <ReplacementApprovalCard
-                key={engineApproval.request.requestId}
-                bundle={engineApproval}
-                allowDismiss
-                onResult={(action) => {
-                  // The card stays, reading "Ignorado", with the recompute beside it (web's ClassDetailSheet).
-                  if (action === "dismiss") {
-                    setEngineApproval((prev) => nextEngineClassCard(prev, { kind: "dismissed" }, answeredBundleIdsRef.current));
-                    setSuggestionsIgnored(true);
-                  } else {
-                    answeredBundleIdsRef.current.add(String(engineApproval.request!.requestId));
-                  }
-                }}
-              />
+              {engineApproval.cards.map((card) => (
+                <ReplacementApprovalCard
+                  key={card.meta.requestId}
+                  bundle={card.meta}
+                  allowDismiss
+                  onResult={(action) => {
+                    // An approved card stays; an ignored one reads "Ignorado", the recompute beside it.
+                    const result = action === "dismiss" ? "dismissed" : "approved";
+                    dispatchEngineApproval({ type: "answered", requestId: card.meta.requestId, result });
+                    if (action === "dismiss") setSuggestionsIgnored(true);
+                  }}
+                />
+              ))}
             </>
           ) : null}
 
-          {isCoach && !isEditing && approvalBundles.length === 0 && showsEngineRecompute(engineApproval) && suggestionsIgnored ? (
+          {isCoach && !isEditing && approvalBundles.length === 0 && (suggestionsIgnored || engineApproval.dismissed) ? (
             <>
               <Separator />
               <Button

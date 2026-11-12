@@ -1,45 +1,91 @@
-import type { EngineApprovalState } from "@levelup/types";
-
 /**
- * PAD-920 (semi-auto-approval N1, N3, N5): what the class screen's new-engine card shows next, from
- * what it showed and a fresh answer. The bundle screen's `mergeSuggestionBundles` does the same for
- * old-engine bundles (PAD-770, rule 12b); this is its new-engine half, pure so it can be tested.
+ * PAD-920 (notifications.semi-auto-approval N1, N3, N5; criterion 44, web's twin 45): the class
+ * screen's approval cards for a new-engine session, one per group about to start (the owner's
+ * per-group approval), kept across the class's re-reads by a pure reducer. Web's
+ * `engineApprovalClassState.ts` is the model; this is the same behaviour on iOS:
+ * - each pending request shows its own card; an unanswered card the read no longer lists goes, so a
+ *   group's newer request takes its place;
+ * - an approved card stays while the screen is open, even when a re-read no longer lists it
+ *   (rule 12b keeps an answered card);
+ * - a dismissed group's card reads "Ignorado", with the recompute button beside it;
+ * - a recompute replaces the cards with the class's requests as they are now.
  */
-export type EngineClassCardEvent =
-  /** A re-read of the class's approval state (`getApprovalState`). */
-  | { kind: "read"; state: EngineApprovalState }
-  /** The answer to "Sugestão de convites automáticos" (`recomputeApprovalState`). */
-  | { kind: "recompute"; state: EngineApprovalState }
-  /** The coach pressed "Ignorar" on the card. */
-  | { kind: "dismissed" };
+import type { EngineApprovalGroup, EngineApprovalMeta, EngineApprovalRequest, EngineApprovalState } from "@levelup/types";
+import { engineApprovalCardOf, engineApprovalGroupKey } from "@levelup/config";
 
-export function nextEngineClassCard(
-  prev: EngineApprovalState | null,
-  event: EngineClassCardEvent,
-  /** The requests the coach answered on this screen (String(requestId)), kept until it closes. */
-  answered: ReadonlySet<string>
-): EngineApprovalState | null {
-  if (event.kind === "dismissed") {
-    // As web's ClassDetailSheet: the card stays and reads "Ignorado"; the recompute shows beside it.
-    return prev ? { ...prev, state: "dismissed" } : prev;
-  }
-  const s = event.state;
-  // N3: a recompute's answer is the card.
-  if (event.kind === "recompute") return s.state !== "none" && s.request ? s : null;
-  // N1: a pending request is the card.
-  if (s.state === "pending" && s.request) return s;
-  if (s.state === "dismissed") {
-    // A dismissed session drops a kept answered request; it shows its request (or the one ignored
-    // here) as dismissed.
-    if (s.request) return s;
-    return prev?.state === "dismissed" ? prev : null;
-  }
-  // `none`: a request the coach approved here stays until the screen closes (PAD-770, rule 12b).
-  if (prev?.request && prev.state !== "dismissed" && answered.has(String(prev.request.requestId))) return prev;
-  return null;
+export interface EngineApprovalClassCard {
+  /** The card's source, in the request message's shape. */
+  meta: EngineApprovalMeta;
+  approved: boolean;
+  dismissed: boolean;
 }
 
-/** N1/N3: the recompute button shows when nothing is pending and the session is dismissed. */
-export function showsEngineRecompute(card: EngineApprovalState | null): boolean {
-  return !card || card.state === "dismissed";
+export interface EngineApprovalClassView {
+  cards: EngineApprovalClassCard[];
+  /** Some group is dismissed: the recompute button shows. */
+  dismissed: boolean;
+}
+
+export type EngineApprovalClassEvent =
+  /** A re-read of the class's approval state (`getApprovalState`). */
+  | { type: "read"; state: EngineApprovalState }
+  /** The coach answered a card here; a `stale` answer decided nothing. */
+  | { type: "answered"; requestId: number; result: "approved" | "dismissed" | "stale" }
+  /** The answer to "Sugestão de convites automáticos" (`recomputeApprovalState`). */
+  | { type: "recomputed"; state: EngineApprovalState }
+  /** The session is not a new-engine one. */
+  | { type: "reset" };
+
+export const ENGINE_APPROVAL_CLASS_START: EngineApprovalClassView = { cards: [], dismissed: false };
+
+const keyOf = (group: EngineApprovalGroup | undefined) => (group ? engineApprovalGroupKey(group) : "");
+
+const pendingCard = (request: EngineApprovalRequest): EngineApprovalClassCard => ({
+  meta: engineApprovalCardOf(request),
+  approved: false,
+  dismissed: false,
+});
+
+const asDismissed = (c: EngineApprovalClassCard): EngineApprovalClassCard => ({
+  ...c,
+  dismissed: true,
+  meta: { ...c.meta, state: "dismissed" },
+});
+
+export function engineApprovalClassState(
+  view: EngineApprovalClassView,
+  event: EngineApprovalClassEvent
+): EngineApprovalClassView {
+  switch (event.type) {
+    case "reset":
+      return ENGINE_APPROVAL_CLASS_START;
+    case "answered": {
+      if (event.result === "stale") return view;
+      const cards = view.cards.map((c) =>
+        c.meta.requestId !== event.requestId ? c : event.result === "approved" ? { ...c, approved: true } : asDismissed(c)
+      );
+      return { cards, dismissed: view.dismissed || event.result === "dismissed" };
+    }
+    case "recomputed": {
+      // The approved cards stay while the screen is open; everything else is the class as it is now.
+      const kept = view.cards.filter((c) => c.approved);
+      const keptIds = new Set(kept.map((c) => c.meta.requestId));
+      const fresh = event.state.requests.filter((r) => !keptIds.has(r.requestId)).map(pendingCard);
+      return { cards: [...kept, ...fresh], dismissed: event.state.dismissedGroups.length > 0 };
+    }
+    case "read": {
+      const s = event.state;
+      const dismissedKeys = new Set(s.dismissedGroups.map(keyOf));
+      const byId = new Map(view.cards.map((c) => [c.meta.requestId, c]));
+      // Every pending request shows; the same request again keeps its card as it is.
+      const pending = s.requests.map((r) => byId.get(r.requestId) ?? pendingCard(r));
+      const pendingIds = new Set(pending.map((c) => c.meta.requestId));
+      const kept = view.cards
+        .filter((c) => !pendingIds.has(c.meta.requestId))
+        .filter((c) => c.approved || dismissedKeys.has(keyOf(c.meta.group)))
+        // A card whose group the read names as dismissed reads "Ignorado".
+        .map((c) => (!c.approved && dismissedKeys.has(keyOf(c.meta.group)) ? asDismissed(c) : c));
+      return { cards: [...kept, ...pending], dismissed: s.dismissedGroups.length > 0 };
+    }
+  }
 }
