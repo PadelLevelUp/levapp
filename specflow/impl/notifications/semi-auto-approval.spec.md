@@ -465,6 +465,17 @@ test: `frontend/apps/mobile/src/features/notifications/replacement-approval-card
 - **Then** their metadata reads `state` `replaced`, `approved` and `dismissed`, each with `responded` true and its spot types' `count`, and each change published once as `message_edited`
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_a_request_message_follows_it_when_it_stops_being_pending`
 
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-44: The iOS class card follows the session's approval state across re-reads (new-engine section N1, N3, N5)
+- **Given** the iOS class screen of a semi-automatic new-engine session, re-reading its approval state
+- **When** the state goes pending → (the coach approves) none → dismissed → (the coach recomputes) pending with a new request
+- **Then** the card shows the pending request; after approving, the approved card stays while the screen is open even though the re-read answers `none` (as rule 12b keeps an answered card); `dismissed` shows "Ignorado" with the recompute button; the recompute replaces the card with the new request's
+test: `frontend/apps/mobile/src/features/notifications/engine-approval-class-state.test.ts` › `the class card follows the session's approval state across re-reads`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-45: The web class card follows the session's approval state the same way (new-engine section N1, N3, N5)
+- **Given** the web class detail with the same sequence
+- **Then** the same cards show
+test: `frontend/apps/web/src/components/notifications/engineApprovalClassState.test.ts` › `the class card follows the session's approval state across re-reads`
+
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
   kept, as the hold of `notifications.engine-planning` rule 14 (the shape is the coordinator's,
