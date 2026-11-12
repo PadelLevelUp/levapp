@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotType, WaitingListSides
+from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotQueues, SpotType, WaitingListSides
 
 MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_invite", "side_moved"]
 AbsenceNotice = Literal["on_time", "late", "none"]
@@ -155,3 +155,40 @@ class InvitationClosed(Effect):
     session at the same hour (engine-answers rule 10, D4's one exception). Nothing is sent."""
 
     student: str
+
+
+# --- semi-automatic mode (engine-planning rule 14, owner ruling D2) ----------------------------------
+
+@dataclass(frozen=True)
+class ApprovalRequest(Effect):
+    """The run would invite students outside the approved queue, so it asks the coach instead:
+    ``queues`` is each open spot type's queue from the dry run at ``at``. Replaces a pending one."""
+
+    queues: SpotQueues
+
+
+@dataclass(frozen=True)
+class ApprovalWithdrawn(Effect):
+    """The pending request went stale: nothing is left to ask for, or the coach turned automatic."""
+
+
+@dataclass(frozen=True)
+class QueueApproved(Effect):
+    """The coach approved the pending request: ``approved`` (its queues without ``removed``) becomes
+    the approved queue; ``removed`` adds to the students never invited automatically here."""
+
+    approved: frozenset[str]
+    removed: frozenset[str]
+
+
+@dataclass(frozen=True)
+class QueueDismissed(Effect):
+    """The coach dismissed the pending request ("Ignorar"): nothing is sent automatically and no
+    request is raised while the session's open spot types stay ``spots``."""
+
+    spots: tuple[tuple[SpotType, int], ...]
+
+
+@dataclass(frozen=True)
+class QueueReopened(Effect):
+    """A dismissal ends: the coach reopened the session from the class, or its spot count changed."""

@@ -8,10 +8,20 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from padel_app.invitation_engine import EngineSettings, MemoryStore
+from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE
-from padel_app.invitation_engine.planner import plan
+from padel_app.invitation_engine.planner import evaluate, plan
+from padel_app.invitation_engine.requests import (
+    Answer,
+    Appear,
+    ApproveQueue,
+    DismissQueue,
+    RegularAbsent,
+    ReopenQueue,
+    UpdateSettings,
+)
+from padel_app.invitation_engine.settings import Tier
 from padel_app.invitation_engine.snapshot import SpotType, Student
 
 T0 = datetime(2026, 11, 1, 19, 0)
@@ -216,3 +226,95 @@ def test_the_adapter_logs_a_reoffer_as_its_message_only():
         fx.Reoffered("A", T0, "R1", frozenset({SpotType("R", 3)}), None, 2, T0 + HOUR),
         fx.Message("A", T0, "R1", "reoffer")])
     assert [(r.kind, r.data.get("kind")) for r in records] == [("message", "aviso"), ("message", "reoffer")]
+
+
+# --- engine-planning rule 14 (owner ruling D2): semi-automatic mode holds the sends for the coach --------
+
+SEMI = EngineSettings(invitation_mode="semi_automatic", tiers=(Tier("pool", "same", 0),))
+
+
+def _requests(effects):
+    return [e for e in effects if isinstance(e, fx.ApprovalRequest)]
+
+
+def _semi(left, right, pool, settings=SEMI):
+    store = _store(left, right, pool=[_student(sid, side) for sid, side in pool])
+    return store, Engine(store, settings)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-28")
+def test_semi_automatic_run_asks_instead_of_sending():
+    store, engine = _semi(3, 3, [("LA", "L"), ("LB", "L"), ("RA", "R")])       # a left and a right spot
+    snap = store.snapshot("A")
+    assert _invited(plan(snap, SEMI, T0).effects) == ["LA", "LB", "RA"]        # what automatic would send
+    effects = engine.tick(T0)
+    [request] = _requests(effects)
+    assert _invited(effects) == []
+    assert dict(request.queues) == evaluate(snap, SEMI, T0).queues
+    assert dict(request.queues) == {SpotType("L", 3): ("LA", "LB"), SpotType("R", 3): ("RA",)}
+    assert engine.tick(T0 + timedelta(minutes=1)) == []                       # nothing changed: nothing
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-29")
+def test_approval_sends_the_queue_without_the_removed_and_t_starts_at_the_send():
+    store, engine = _semi(4, 3, [("A", "R"), ("B", "R"), ("C", "R")])          # one right spot, X = 3
+    [request] = _requests(engine.tick(T0))
+    assert dict(request.queues) == {SpotType("R", 3): ("A", "B", "C")}
+    approved_at = T0 + timedelta(minutes=10)
+    effects = engine.handle("A", ApproveQueue(frozenset({"B"})), approved_at)
+    sent = [e for e in effects if isinstance(e, fx.Invited)]
+    assert [e.student for e in sent] == ["A", "C"] and not _requests(effects)
+    assert {e.counts_until for e in sent} == {approved_at + timedelta(minutes=20)}   # T from the real send
+    snap = store.snapshot("A")
+    assert "B" not in snap.said_no and snap.approval.removed == {"B"}
+    later = engine.tick(approved_at + timedelta(minutes=40))                  # A and C stopped counting
+    assert "B" not in _invited(later)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-30")
+def test_rounds_inside_the_approved_queue_need_no_new_approval():
+    settings = SEMI.with_changes(invites_per_spot=2)
+    store, engine = _semi(4, 3, [("A", "R"), ("C", "R"), ("D", "R")], settings)   # one right spot, X = 2
+    store.add_student(_student("E", "R"), visible=False)
+    [request] = _requests(engine.tick(T0))
+    assert dict(request.queues) == {SpotType("R", 3): ("A", "C", "D")}
+    assert _invited(engine.handle("A", ApproveQueue(), T0 + timedelta(minutes=1))) == ["A", "C"]
+    topped = engine.handle("A", Answer("A", False), T0 + timedelta(minutes=2))
+    assert _invited(topped) == ["D"] and not _requests(topped)                # inside the queue: unasked
+    assert engine.handle("A", Appear("E"), T0 + timedelta(minutes=3)) == []   # C and D still count
+    spent = engine.handle("A", Answer("C", False), T0 + timedelta(minutes=4))
+    [again] = _requests(spent)
+    assert _invited(spent) == [] and "E" in dict(again.queues)[SpotType("R", 3)]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-31")
+def test_a_pending_request_is_withdrawn_when_nothing_is_left_or_the_mode_turns_automatic():
+    store, engine = _semi(4, 3, [("A", "R")])                                 # one right spot
+    assert _requests(engine.tick(T0))
+    store.apply([fx.Placed("A", T0, "Z", "R", "direct")])                     # the session fills
+    effects = engine.tick(T0 + timedelta(minutes=1))
+    assert [type(e) for e in effects] == [fx.ApprovalWithdrawn] and store.snapshot("A").approval.pending is None
+
+    store, engine = _semi(4, 3, [("A", "R")])
+    assert _requests(engine.tick(T0))
+    effects = engine.handle("A", UpdateSettings(SEMI.with_changes(invitation_mode="automatic")),
+                            T0 + timedelta(minutes=1))
+    assert isinstance(effects[0], fx.ApprovalWithdrawn) and _invited(effects) == ["A"]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-33")
+def test_a_dismissed_session_asks_again_only_when_its_spots_change_or_the_coach_reopens_it():
+    store, engine = _semi(4, 3, [("A", "R"), ("LA", "L")])                    # one right spot
+    assert _requests(engine.tick(T0))
+    dismissed = engine.handle("A", DismissQueue(), T0 + timedelta(minutes=1))
+    assert [type(e) for e in dismissed] == [fx.QueueDismissed]
+    assert engine.tick(T0 + timedelta(minutes=2)) == []                       # nothing sent, nothing asked
+    changed = engine.handle("A", RegularAbsent("L-1"), T0 + timedelta(minutes=3))   # a left spot opens
+    assert _invited(changed) == [] and fx.QueueReopened in [type(e) for e in changed]
+    [request] = _requests(changed)
+    assert set(dict(request.queues)) == {SpotType("L", 3), SpotType("R", 3)}
+
+    engine.handle("A", DismissQueue(), T0 + timedelta(minutes=4))
+    assert engine.tick(T0 + timedelta(minutes=5)) == []
+    reopened = engine.handle("A", ReopenQueue(), T0 + timedelta(minutes=6))
+    assert _invited(reopened) == [] and len(_requests(reopened)) == 1

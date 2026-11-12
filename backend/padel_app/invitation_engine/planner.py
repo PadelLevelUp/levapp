@@ -23,12 +23,15 @@ from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE, LOWER_TIER_PER_SPOT, side_quota
 from padel_app.invitation_engine.effects import (
     Absence,
+    ApprovalRequest,
+    ApprovalWithdrawn,
     CoachAlert,
     Effect,
     InvitationClosed,
     Invited,
     Message,
     Placed,
+    QueueReopened,
     Reoffered,
     WaitingListLeft,
 )
@@ -39,6 +42,7 @@ from padel_app.invitation_engine.snapshot import (
     Invitation,
     SessionSnapshot,
     Side,
+    SpotQueues,
     SpotType,
     Student,
     WaitingListEntry,
@@ -192,7 +196,7 @@ def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts
     """Whether ``student`` passes the gates and ``tier``'s rules for ``spot_type`` (engine-tiers
     rules 3-6). The coach's list is the coach's decision: only "in the session" and "said No" hold."""
     sid = student.id
-    if _inside(snapshot, sid) or sid in snapshot.said_no:
+    if _inside(snapshot, sid) or sid in snapshot.said_no or sid in snapshot.approval.removed:
         return False
     values = type_sides(spot_type, counts)
     if tier.source == "coach_list":
@@ -272,11 +276,14 @@ def group_rule_passes(rule: GroupRule, student: Student, spot_type: SpotType, co
                       snapshot: SessionSnapshot) -> bool:
     """Whether ``student`` passes one of a group's rules for ``spot_type`` (engine-tiers rule 13),
     read as today's vacancy-anchored ``_group_rule_failures`` with the class's level as the
-    vacancy's. A level rule fails for a class or a student with no level. An attribute or (outside
-    level) an operation it does not know passes, as today."""
+    vacancy's. A class with no level applies no level rule (engine-spots rule 8, D3: the one
+    difference from today, which fails closed); a student with no level fails one. An attribute or
+    (outside level) an operation it does not know passes, as today."""
     attribute, operation = rule.attribute, rule.operation
     if attribute == "level":
-        if snapshot.level is None or student.level is None:
+        if snapshot.level is None:
+            return True
+        if student.level is None:
             return False
         return _level_rule_passes(operation, rule.value, student.level, snapshot.level)
     if attribute == "side":
@@ -745,7 +752,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
 
 # --- the dry run (swap plan §4: the simulation and the approval queue) ------------------------
 
-VerdictStage = Literal["in_session", "said_no", "not_in_pool", "busy_same_time", "postponed",
+VerdictStage = Literal["in_session", "said_no", "removed_by_coach", "not_in_pool", "busy_same_time", "postponed",
                        "failed_eligibility", "failed_tier_rule", "invited", "invited_for_other_type",
                        "invited_earlier", "invited_before", "waiting"]
 
@@ -783,6 +790,8 @@ def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapsh
         return "in_session"
     if sid in snapshot.said_no:
         return "said_no"
+    if sid in snapshot.approval.removed:
+        return "removed_by_coach"
     on_coach_list = _entry(snapshot, sid, "coach") is not None and any(t.source == "coach_list" for t in settings.tiers)
     if not on_coach_list:                            # the coach's list bypasses the pool's gates (rule 3)
         if not any(st.id == sid for st in snapshot.pool):
@@ -835,3 +844,49 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
                         for sid, t in tiers.items() if sid not in sent or sent[sid] & values)
         queues[spot_type] = tuple(sid for *_, sid in ranked)
     return DryRun(effects, tuple(verdicts), queues, timeline.may_plan(snapshot, settings, now))
+
+
+# --- semi-automatic mode (engine-planning rule 14, owner ruling D2) ------------------------------------
+
+def _queues(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> SpotQueues:
+    dry = evaluate(snapshot, settings, now)
+    return tuple((spot_type, dry.queues[spot_type]) for spot_type, _ in spot_types(with_postponed(snapshot, now)))
+
+
+def decide(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:
+    """``plan``, then what semi-automatic mode lets through (engine-planning rule 14). The engine plans
+    the same in both modes; only the sends change. In semi-automatic mode an invitation (or re-offer)
+    to a student outside the approved queue is held and an ``ApprovalRequest`` carries the dry run's
+    queues instead, unless the pending request already has them; one inside the queue goes out. A run
+    with nothing held withdraws the pending request. A dismissed session sends nothing and asks nothing
+    while its open spot types stay as they were at the dismissal. Automatic entry is never held, and
+    in automatic mode a pending request is withdrawn."""
+    planned = plan(snapshot, settings, now)
+    approval = snapshot.approval
+    if settings.invitation_mode != "semi_automatic":
+        if approval.pending is None:
+            return planned
+        return Plan((ApprovalWithdrawn(snapshot.id, now),) + planned.effects)
+    if any(isinstance(e, Placed) for e in planned.effects):     # automatic entry: its own run, not held
+        return planned
+    lead: tuple[Effect, ...] = ()
+    if approval.dismissed is not None:
+        if approval.dismissed == spot_types(snapshot):          # still dismissed: nothing is sent or asked
+            return Plan(tuple(e for e in planned.effects if not _is_send(e)))
+        lead = (QueueReopened(snapshot.id, now),)               # the spot count changed: ask again
+    held = {e.student for e in planned.effects
+            if isinstance(e, (Invited, Reoffered)) and e.student not in approval.approved}
+    effects = lead + tuple(e for e in planned.effects if not (_is_send(e) and e.student in held))
+    if held:
+        queues = _queues(snapshot, settings, now)
+        if queues != approval.pending or lead:
+            effects += (ApprovalRequest(snapshot.id, now, queues),)
+    elif approval.pending is not None:
+        effects += (ApprovalWithdrawn(snapshot.id, now),)
+    return Plan(effects)
+
+
+def _is_send(effect: Effect) -> bool:
+    """An invitation going out: ``Invited``, ``Reoffered`` and the messages a plan sends with them."""
+    return isinstance(effect, (Invited, Reoffered)) or (
+        isinstance(effect, Message) and effect.kind in ("reoffer", "waiting_list_invite"))

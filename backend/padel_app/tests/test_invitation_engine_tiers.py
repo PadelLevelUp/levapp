@@ -376,3 +376,19 @@ def test_level_ranges_admit_every_level_on_their_side_of_the_class():
                                           Tier("pool", "any", None, rules=(GroupRule("level", "all_above_vacancy"),)))
     admitted = {name for name, s in students.items() if tier_for(s, SpotType("R", 3), counts, snap, settings) == 0}
     assert admitted == {"ONE", "TWO"}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-18")
+def test_a_class_with_no_level_applies_no_group_level_rule():
+    """engine-spots rule 8 (D3) over today's fail-closed: with no class level, a group's level rules
+    admit everyone, a student with no level included; its other rules still hold."""
+    store = MemoryStore()
+    students = [_student("ANY", "R", level=5), _student("NONE", "R", level=None), _student("LEFT", "L", level=5)]
+    for student in students:
+        store.add_student(student)
+    store.add_session("A", None, 8, START, _regulars(4, 3), T0)              # one right spot, no level
+    rules = (GroupRule("level", "same_as_vacancy"), GroupRule("level", "one_above_vacancy"),
+             GroupRule("side", "same_as_vacancy"))
+    snap, counts, settings = _group_tiers(store, "A", Tier("pool", "any", None, rules=rules))
+    admitted = {s.id for s in students if tier_for(s, SpotType("R", None), counts, snap, settings) == 0}
+    assert admitted == {"ANY", "NONE"}

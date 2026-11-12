@@ -115,6 +115,24 @@ class WaitingListEntry:
     sides: WaitingListSides | None = None
 
 
+SpotQueues = tuple[tuple[SpotType, tuple[str, ...]], ...]   # per open type, its candidates in queue order
+
+
+@dataclass(frozen=True)
+class Approval:
+    """Semi-automatic mode's state for one session (engine-planning rule 14, owner ruling D2).
+
+    ``approved``: the students the coach let through, invited without asking; ``removed``: the
+    students the coach took out, never invited automatically for this session (not a No);
+    ``pending``: the pending request's queues, ``None`` without one; ``dismissed``: the open spot
+    types and their counts when the coach dismissed the request, ``None`` when not dismissed."""
+
+    approved: frozenset[str] = frozenset()
+    removed: frozenset[str] = frozenset()
+    pending: SpotQueues | None = None
+    dismissed: tuple[tuple[SpotType, int], ...] | None = None
+
+
 @dataclass(frozen=True)
 class SessionSnapshot:
     id: str
@@ -141,6 +159,7 @@ class SessionSnapshot:
     # Per student, naive UTC: when each attendance request went out (engine-timeline rule 2), so
     # ``messages.due`` sends each one once.
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
+    approval: Approval = field(default_factory=Approval)      # semi-automatic mode (engine-planning rule 14)
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)

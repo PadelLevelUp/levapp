@@ -14,6 +14,7 @@ from typing import ContextManager, Iterable, Mapping, Protocol
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
+    Approval,
     Elsewhere,
     Invitation,
     Placement,
@@ -66,6 +67,7 @@ class _Session:
     joined_at: dict[str, datetime] = field(default_factory=dict)
     last_moved_at: dict[str, datetime] = field(default_factory=dict)
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
+    approval: Approval = field(default_factory=Approval)
 
 
 class MemoryStore:
@@ -132,7 +134,7 @@ class MemoryStore:
             busy_same_time=frozenset(busy), elsewhere=elsewhere, alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
-            attendance_requested=dict(s.attendance_requested),
+            attendance_requested=dict(s.attendance_requested), approval=s.approval,
         )
 
     # --- writing -------------------------------------------------------------------------
@@ -149,7 +151,18 @@ class MemoryStore:
             if isinstance(e, fx.CoachAlert):                   # one alert per session and type (rule 11)
                 s.alerted[e.spot_type] = e.spots
                 continue
-            if isinstance(e, fx.Invited):
+            if isinstance(e, fx.ApprovalRequest):              # semi-automatic mode (planning rule 14)
+                s.approval = replace(s.approval, pending=e.queues, dismissed=None)
+            elif isinstance(e, fx.ApprovalWithdrawn):
+                s.approval = replace(s.approval, pending=None)
+            elif isinstance(e, fx.QueueApproved):
+                s.approval = replace(s.approval, approved=e.approved, removed=s.approval.removed | e.removed,
+                                     pending=None)
+            elif isinstance(e, fx.QueueDismissed):
+                s.approval = replace(s.approval, pending=None, dismissed=e.spots)
+            elif isinstance(e, fx.QueueReopened):
+                s.approval = replace(s.approval, dismissed=None)
+            elif isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))
             elif isinstance(e, (fx.Sorry, fx.Reoffered)):
