@@ -56,8 +56,10 @@ The new-engine answer (swap step 7, PAD-919):
   `DismissQueue(session)`; "Yes, at the window" is refused for a new-engine session (no request is
   raised before the window); an answer naming a request that is no longer pending decides nothing and
   answers `stale`.
-- **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenQueue(session)` when dismissed,
-  and the next run raises a fresh request.
+- **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenQueue(session)` when dismissed
+  and re-plans the session at once (`Engine.plan(session, now)`), which raises a fresh request. A
+  session whose pending request's queues are unchanged keeps that request: it is already current, and
+  the class view computes its list when shown (rule 12b).
 
 Not yet specified, needed before this spec's swap step (each under Open questions):
 - the request's message and card: one block per spot type (side and level), its queue, the coach's

@@ -386,6 +386,11 @@ given a session that is not dismissed, when the coach answers `ReopenQueue`, the
 `QueueReopened` is recorded.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissal_or_reopening_out_of_turn_does_nothing`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-39: One session can be re-planned on demand (rule 1)
+Given two sessions, when `Engine.plan(session, now)` is called for one, then only that session is
+planned, as a background run would plan it, and the other is untouched.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_engine_plan_runs_one_session`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
