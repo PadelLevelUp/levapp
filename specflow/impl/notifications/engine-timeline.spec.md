@@ -44,13 +44,19 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    unchanged: no clock gives a spot to the next tier while it is covered.
 5. **A regular's No and the absence cutoff (§8 steps 4–5; owner ruling D4, 2026-11-11).** The spot
    enters the next run. Every absence is recorded with its notice, never a verdict: a No before
-   `absence_cutoff_at` is `on_time`, at or after it `late` (`Absence.notice`). Justified or unjustified
+   `absence_cutoff_at` is `on_time`, at or after it `late` (`Absence.notice`). `absence_cutoff_at` is
+   `absence_cutoff_before` in real hours before the class's real start, as today's cancellation
+   deadline (`attendance.confirm` rule 6), never wall-clock arithmetic. A No given before the first
+   attendance request was due (today's proactive decline, `attendance.confirm` rule 12) is `on_time`
+   whatever the cutoff: nobody had asked yet. Justified or unjustified
    is always the coach's judgement, made as today (`attendance.confirm`); the engine never writes it.
    An automatically placed student's No is no absence (notice `none`,
-   `notifications.engine-settings` rule 3). The store records a No as the student's answer
-   (`Presence.response` `cancelled`, `responded_at` the No's instant), so the lateness the app derives
-   (`presence_late_cancellation`, against `cancellationDeadlineHours`, which `notifications.config`
-   rule 19 maps to `absence_cutoff_before`) is the notice, and leaves `Presence.justification` alone.
+   `notifications.engine-settings` rule 3). The store records a No as the student's answer, with
+   `responded_at` the No's instant: `cancelled` when the notice is `late`, `declined` when it is
+   `on_time` (`proactive_decline` before the first request was due), so the lateness the app derives
+   (`presence_late_cancellation`, true only for `cancelled` at or after the deadline that
+   `notifications.config` rule 19 maps to `absence_cutoff_before`) is the notice. It leaves
+   `Presence.justification` alone.
 6. **`last_invite_at` (§8 step 6; ruling (2)).** No new invitation after it. Flexible going students
    get their final side and are told it (const:KIND_SIDE_MOVED): {left, right} students their usual
    side when possible; when a side is over its quota, one regular moves — the coach's choice, else the
@@ -187,10 +193,23 @@ test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_qui
 #### NOTIFICATIONS-ENGINE-TIMELINE-20: The app's derived lateness is the engine's notice, and the coach's verdict stays empty (rule 5)
 Given `cancellationDeadlineHours` 24 and two regulars, when one says No 30 h before the class and the
 other 10 h before and the store applies their `Left` and `Absence` effects, then both presences are
-`absent` with `response` `cancelled` and `responded_at` the No's instant, `presence_late_cancellation`
-is false for the first and true for the second (each equal to its `Absence.notice` being `late`), and
-`justification` is empty on both.
+`absent` with `responded_at` the No's instant, the first `declined` and the second `cancelled`,
+`presence_late_cancellation` is false for the first and true for the second (each equal to its
+`Absence.notice` being `late`), and `justification` is empty on both.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_no_is_the_students_answer_and_its_lateness_is_the_notice`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-21: The cutoff is real hours before the real start, across a clock change (rule 5)
+Given `absence_cutoff_before` 24 h and a class at 10:00 Lisbon on the Sunday the clocks go back, when a
+regular says No at 10:30 Lisbon on the Saturday, then the notice is `late` exactly when
+`presence_response.cancellation_deadline_utc` puts that instant at or after the deadline (24 real hours
+before the class's real start), and a No 30 minutes earlier is `on_time`.
+test: `backend/padel_app/tests/test_invitation_engine_absences.py` › `test_the_cutoff_is_real_hours_before_the_real_start`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-22: A No before the first attendance request was due is on time (rule 5)
+Given a coach whose attendance request fires 6 h before the class and a cutoff of 24 h, when a regular
+says No 10 h before the class (before any request was due), then the notice is `on_time` and the store
+writes `proactive_decline`, which is never derived late.
+test: `backend/padel_app/tests/test_invitation_engine_absences.py` › `test_a_no_before_the_first_request_is_on_time`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".

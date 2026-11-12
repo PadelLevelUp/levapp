@@ -12,6 +12,23 @@ governed_by: []
 ### Intent
 Players confirm or decline their attendance in response to a reminder notification.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; owner ruling D4,
+2026-11-11: "justified or unjustified is always a coach's judgement"):
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 13's auto-justification ("the absence is auto-justified") | no justification is written; the coach judges every absence | `notifications.engine-timeline` rule 5 |
+| A reminder No is never late (today a reminder decline is `declined`) | a No at or after the cutoff is late (`cancelled`), before it on time (`declined`) | `notifications.engine-timeline` rule 5 (D4's "on time or late by the cutoff") |
+
+Readings:
+- Rule 6 holds: the deadline is `cancellationDeadlineHours` real hours before the real start, and the
+  engine's cutoff is the same instant (`notifications.engine-timeline` rule 5, TIMELINE-21).
+- Rules 10–12 hold: a No before the first attendance request was due is a proactive decline and never
+  late (TIMELINE-22).
+- Rule 7 holds: lateness stays derived from `response` and `responded_at`.
+
 ### Rules
 1. Player responds to reminder via `POST /api/app/notify/respond_reminder`
 2. Action: `yes` → confirmed=True, `no` → removes from instance
@@ -589,3 +606,10 @@ test: `frontend/apps/mobile/src/features/messages/reminder-state.test.ts` › `r
 - **Then** it is offered whether or not the early-decline window is open, and also when the student has no presence row yet
 - **And** it is not offered once the student is absent, once the class has started, on a cancelled class, to a coach, or to someone who is not in the class
 test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` › `stays available after the proactive window closes` (+3 more)
+
+### Open questions
+- A reminder No after the cancellation deadline, late or not, for a new-engine session — decision (S,
+  owner away, PAD-913, 2026-11-12; the owner can reverse it): late. The owner's D4 has the engine mark
+  every absence on time or late by the cutoff, and today's "a reminder decline is never late" rested on
+  the reminder deciding the justification, which D4 hands to the coach. A No before anyone asked stays
+  never late (rule 12).
