@@ -363,8 +363,13 @@ def _serialize_rounds(rounds, vacancy, instance, coach_id: int, config, now: dat
 
 def simulate_vacancy(instance, coach_id: int, departing_player_id: int, *, now: datetime | None = None) -> dict:
     """What the engine would do right now if ``departing_player_id`` dropped
-    out of ``instance``. Read-only."""
+    out of ``instance``. Read-only. A session the new engine runs answers from
+    its dry run instead (PAD-919, the spec's new-engine section)."""
+    from padel_app.services import engine_simulation
     from padel_app.services.notification_service import _is_semi_auto, ordered_invite_rounds
+
+    if engine_simulation.is_new_engine_session(instance):
+        return engine_simulation.simulate(instance, coach_id, departing_player_id, now=now)
 
     _now = now or utcnow_naive()
     config = _config_for(coach_id)
@@ -404,8 +409,13 @@ def explain_player(
     """The single reason ``player_id`` is, or is not, invited — the first
     stage that dropped them, with that stage's structured details
     (notifications.invite-simulation rules 2, 12, 13). ``None`` when the
-    player is not on this coach's roster."""
+    player is not on this coach's roster. A session the new engine runs gives
+    one entry per open spot type instead (PAD-919)."""
     from padel_app.models import Player
+    from padel_app.services import engine_simulation
+
+    if engine_simulation.is_new_engine_session(instance):
+        return engine_simulation.explain(instance, coach_id, departing_player_id, player_id, now=now)
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.services.notification_service import (
         evaluate_candidates,

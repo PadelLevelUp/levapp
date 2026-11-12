@@ -1781,13 +1781,16 @@ def create_conversation():
 @bp.post("/add_class")
 @jwt_required()
 def add_class():
-    from padel_app.services.lesson_service import NoSeasonCoversDateError
+    from padel_app.services.lesson_service import BusySameHourError, NoSeasonCoversDateError
 
     from padel_app.services.court_service import CourtNotInClubError
 
     data = request.get_json() or {}
     try:
         lesson = add_class_service(data, require_coach(), require_club())
+    except BusySameHourError as e:
+        # PAD-918 (instance-enrollment rule 15): nothing written; the clashes for the coach.
+        return jsonify({"code": e.code, "message": str(e), "clashes": e.clashes}), 409
     except NoSeasonCoversDateError as e:
         # PAD-90: "recurs until season end" with no covering season is rejected
         # rather than creating an unbounded recurring class.

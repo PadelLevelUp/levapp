@@ -38,6 +38,7 @@ class EngineInvitation(db.Model, model.Model):
     counts_until = Column(DateTime, nullable=True)
     answer = Column(String(3), nullable=True)               # "yes" | "no"
     answered_at = Column(DateTime, nullable=True)
+    answered_by = Column(String(7), nullable=True)          # "student" | "coach" (the engine's Answered.by)
     sorry_at = Column(DateTime, nullable=True)
     closed_at = Column(DateTime, nullable=True)             # a same-hour placement closed it (answers rule 10)
     # invitations NB1a: why it closed ("withdrawn" by the coach, rule 19 | "same_hour"), when it was last

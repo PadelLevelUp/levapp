@@ -37,9 +37,15 @@ def test_the_invitation_messages_state_follows_the_engine(app, monkeypatch):
     from padel_app import realtime
     from padel_app.models import EngineInvitation, Message
 
+    from padel_app.models import User
+
     edited = []
-    monkeypatch.setattr(realtime, "publish",
-                        lambda event, users: edited.append(event["payload"]["id"]) if event["type"] == "message_edited" else None)
+
+    def coach_copy(event, users):                 # PAD-918: once per reader; the coach's copy counts each change
+        if event["type"] == "message_edited" and User.query.filter_by(username="c916").one().id in users:
+            edited.append(event["payload"]["id"])
+
+    monkeypatch.setattr(realtime, "publish", coach_copy)
     store, (a,), (_, x, _) = _seed(app)
 
     def at(m):

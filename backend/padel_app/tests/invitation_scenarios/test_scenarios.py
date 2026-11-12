@@ -17,6 +17,9 @@ Opt-in (design §8), because most scenarios fail on today's engine by design:
   today's, so ``baseline`` mode refuses ``new``.
 - ``INVITATION_STORE=db`` (PAD-916), with ``INVITATION_ENGINE=new``: the same engine on the app's
   tables (adapters/new_db.py, ``services/engine_store.TableStore``) instead of ``MemoryStore``.
+- ``INVITATION_ENGINE=app`` (PAD-918): the new engine driven the way the app drives it, through the
+  stored configuration, the per-coach switch, the ``engine_tick`` job and the app's own entry points
+  (adapters/app.py); the swap's acceptance gate.
 """
 import json
 import os
@@ -58,6 +61,13 @@ def test_schema_and_validator_name_the_same_vocabulary():
 
 
 def _adapter(request):
+    if ENGINE == "app":
+        if MODE == "baseline":
+            pytest.fail("baseline-today.yaml is today's engine's baseline; run INVITATION_ENGINE=app with "
+                        "INVITATION_SCENARIOS=1")
+        from padel_app.tests.invitation_scenarios.adapters.app import AppAdapter
+
+        return AppAdapter(request.getfixturevalue("app"))
     if ENGINE == "new":
         if MODE == "baseline":
             pytest.fail("baseline-today.yaml is today's engine's baseline; run INVITATION_ENGINE=new with "
@@ -72,7 +82,7 @@ def _adapter(request):
 
         return NewAdapter()
     if ENGINE != "today":
-        pytest.fail(f"INVITATION_ENGINE={ENGINE!r}: expected today or new")
+        pytest.fail(f"INVITATION_ENGINE={ENGINE!r}: expected today, new or app")
     app = request.getfixturevalue("app")
     from padel_app.tests.invitation_scenarios.adapters.today import TodayAdapter
 

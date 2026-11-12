@@ -270,6 +270,24 @@ def parse_event_target(model, original_id, date):
 # Errors
 # ---------------------------------------------------------------------------
 
+def _as_date(value):
+    """A recurrence end as a date (the payload carries a ``YYYY-MM-DD`` string or a date)."""
+    if value is None or not isinstance(value, str):
+        return value
+    return datetime.strptime(value[:10], "%Y-%m-%d").date()
+
+
+class BusySameHourError(ValueError):
+    """PAD-918 (instance-enrollment rule 15): a class created with a student who is going to another
+    class at the same time, one of them new-engine. The route answers 409 with the clashes."""
+
+    code = "busy_same_hour"
+
+    def __init__(self, clashes):
+        super().__init__("busy same hour")
+        self.clashes = clashes
+
+
 class NoSeasonCoversDateError(ValueError):
     """Raised when "recurs until season end" cannot be resolved to a season.
 
@@ -722,6 +740,10 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
     # removal also retires the player's pending reminder bubble.
     for player_id in data.get("add_player_ids", []):
         enrol(player_id, lesson_instance, "roster" if series else "coach")
+    if data.get("add_player_ids"):
+        from padel_app.services.engine_entry import coach_added
+
+        coach_added(lesson_instance, data["add_player_ids"])       # PAD-918: a placement (rule 15)
 
     for player_id in data.get("remove_player_ids", []):
         if series:
@@ -809,6 +831,16 @@ def add_presences(lesson_instance, payload):
 
         was_absent = presence_obj.status == "absent"
         publish_presence_changed(lesson_instance, presence_obj.player_id)  # PAD-659 (event-detail rule 24)
+        if values.get("status") == "absent" and not was_absent:
+            from padel_app.services.engine_switch import engine_for
+
+            if engine_for(lesson_instance) == "new":
+                # PAD-918 (swap plan §3.1): the new engine hears it first, while the student still holds
+                # the spot: a no-show after the start, the spot opening before it.
+                from padel_app.services.engine_entry import coach_marks_absent
+
+                coach_marks_absent(lesson_instance, presence_obj)
+                presence_obj = Presence.query.get(presence_obj.id)
         presence_obj.update_with_dict(values)
         # PAD-381 (B-152): a justification describes an absence, so a PRESENT row has
         # none, whatever the body carries. It has to be said here and not in the form
@@ -1197,6 +1229,28 @@ def add_class_service(data, coach, club, *, notify_students=True, counted_player
             if season_end is None:
                 raise NoSeasonCoversDateError(start_date)
             lesson_payload["recurrence_end"] = season_end
+
+    if lesson_payload["player_ids"]:
+        # PAD-918 (instance-enrollment rule 15): a class created with a student going elsewhere at that
+        # time, one of the two new-engine, is refused before anything is written.
+        from padel_app.models.notification_config import NotificationConfig
+        from padel_app.services.engine_entry import same_hour_clashes
+
+        config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+        def _when(value):                            # build_datetime's "%d/%m/%Y, %H:%M" form
+            return datetime.strptime(value, "%d/%m/%Y, %H:%M") if isinstance(value, str) else value
+
+        draft = Lesson(start_datetime=_when(lesson_payload["start_datetime"]),
+                       end_datetime=_when(lesson_payload["end_datetime"]),
+                       is_recurring=bool(lesson_payload["is_recurring"]),
+                       recurrence_rule=lesson_payload.get("recurrence_rule"),
+                       recurrence_end=_as_date(lesson_payload.get("recurrence_end")))
+        clashes = same_hour_clashes(lesson_payload["player_ids"], lesson=draft, coach_ids=[coach.id],
+                                    series_new=config is not None and config.engine_version == "new")
+        if draft in db.session:                      # a transient draft, never saved
+            db.session.expunge(draft)
+        if clashes:
+            raise BusySameHourError(clashes)
 
     # PAD-489 (notifications.reminders rule 22): a class created after its reminder time
     # counts its students as coming. Decided here, before anything is written, from the
@@ -1732,6 +1786,19 @@ def _edit_class_service(data):
     if refused:
         # Before any write — a "future" edit splits the series before it edits.
         return {"error": "invalid_fields", "fields": refused}, 400
+    if payload["add_player_ids"]:
+        # PAD-918 (instance-enrollment rule 15): an add that puts a student in two classes at the same
+        # time, one of them new-engine, is refused whole, before any write.
+        from padel_app.services.engine_entry import busy_same_hour, same_hour_clashes
+
+        if model == "LessonInstance" and scope == "single":
+            clashes = same_hour_clashes(payload["add_player_ids"],
+                                        instance=LessonInstance.query.get_or_404(original_id))
+        else:
+            clashes = same_hour_clashes(payload["add_player_ids"], lesson=_series,
+                                        on_date=event_date if scope == "single" else None)
+        if clashes:
+            return busy_same_hour(clashes)
     if "recurrence_end" in payload:
         # An explicit end date is the coach's: the season must not re-cap it
         # (calendar.seasons rule 10; season_service.recap_flagged_lessons re-caps

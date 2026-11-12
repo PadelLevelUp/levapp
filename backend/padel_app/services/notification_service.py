@@ -460,6 +460,11 @@ def update_config(coach_id: int, data: dict) -> NotificationConfig:
     _record_config_changes(config, recorded_before, utcnow_naive())
 
     config.save()
+    if (config.engine_version or "old") == "new":
+        # PAD-918 (engine-settings rule 9): the save is the next call for the coach's sessions.
+        from padel_app.services.engine_entry import replan_coach
+
+        replan_coach(coach_id)
 
     # PAD-478 (notifications.config rule 10c): the configuration is saved whatever happens
     # below. A reschedule that FAILS is reported, not swallowed: the jobs of classes already
@@ -3167,7 +3172,8 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None, sched
     """PAD-407: one pass at a time per occurrence (see `_reminder_pass_lock`). A
     ``scheduled`` pass (the scheduler's runners) also skips a student reminded less than
     ``hoursBetweenReminders`` ago, so duplicate retry chains already persisted in
-    ``apscheduler_jobs`` send once. The coach's manual send keeps its old behaviour."""
+    ``apscheduler_jobs`` send once. The coach's manual send keeps its old behaviour.
+"""
     with _reminder_pass_lock(instance_id):
         return _send_class_reminders(instance_id, now=now, scheduled=scheduled)
 
@@ -3240,6 +3246,12 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
     if not coach:
         if _log:
             _log.warning("send_class_reminders: instance %s has no coach — skipping", instance_id)
+        return _no_send
+    # PAD-918 (engine-timeline rule 2; NOTIFICATIONS-REMINDERS-34): a new-engine session's attendance
+    # requests are the engine's, so no pass of the app's sends for it.
+    if _on_new_engine(instance):
+        if _log:
+            _log.info("send_class_reminders: instance %s is on the new engine — skipping", instance_id)
         return _no_send
 
     coach_user_id = coach.user_id
@@ -3695,6 +3707,12 @@ def respond_to_reminder(
                     player.id, lesson_instance_id,
                 )
         return {"action": "not_enrolled"}
+
+    if _on_new_engine(instance):
+        # PAD-918 (swap plan §3.1): the attendance request's answer is the new engine's.
+        from padel_app.services.engine_entry import answer_attendance_request
+
+        return answer_attendance_request(instance, presence, action, _now)
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -4278,6 +4296,11 @@ def cancel_attendance(
     ).first()
     if presence is None:
         abort(403, description="You are not enrolled in this class.")
+    if _on_new_engine(instance):
+        # PAD-918 (swap plan §3.1): the new engine records the absence and plans the spot.
+        from padel_app.services.engine_entry import student_not_going
+
+        return student_not_going(instance, presence, _now)
 
     from padel_app.services.lesson_service import primary_coach
 
@@ -5267,8 +5290,15 @@ def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
       restrictions and the quiet-hours hold, the start-once claim. Before the window opens nothing
       is created here: the class's ``invite_start`` job opens the place when the window does.
     """
+    if _on_new_engine(instance):
+        # PAD-918 (engine-planning rule 1): the edit is a run for the session; it has no vacancies.
+        if not _instance_is_over(instance, now):
+            from padel_app.services.engine_entry import replan
+
+            replan([instance.id], now)
+        return
     reconcile_vacancies(instance)
-    if not place_freed or _instance_is_over(instance, now) or _on_new_engine(instance):
+    if not place_freed or _instance_is_over(instance, now):
         return
     from padel_app.scheduler import _compute_invite_start_dt
     from padel_app.services.lesson_service import primary_coach
@@ -6441,6 +6471,23 @@ def respond_to_waiting_list(
         coach.user_id, acting_user_id, lesson_instance_id, action
     )
 
+    if action == "yes" and _on_new_engine(instance):
+        # PAD-918 (invitations NB2, INVITATIONS-121): the sorry's yes joins the session's students' list.
+        from padel_app.services.engine_entry import sorry_joins_waiting_list
+
+        result = sorry_joins_waiting_list(instance, player, config, now)
+        if coach.user_id and not result.get("alreadyWaiting"):
+            _send_system_message(
+                coach_user_id=coach.user_id,
+                player_user_id=acting_user_id,
+                text=_format_template(
+                    resolve_message_template(templates, "waiting_list_confirm", locale),
+                    **template_variables(player, instance, locale),
+                ),
+                class_instance_id=instance.id,
+            )
+        return result
+
     if action == "yes":
         # Upsert waiting list entry
         existing = WaitingListEntry.query.filter_by(
@@ -6672,6 +6719,11 @@ def add_to_class_waiting_list(
         return {"action": "added", "standingEntryId": entry.id, "entryId": row.id if row else None}
     if scope != "occurrence":
         abort(400, "scope must be occurrence, series or period")
+    if _on_new_engine(instance):
+        # PAD-918: the coach's list of a new-engine session is the engine's (waiting-list rule 18).
+        from padel_app.services.engine_entry import coach_adds_to_waiting_list
+
+        return coach_adds_to_waiting_list(instance, player_id, side)
 
     row = WaitingListEntry.query.filter_by(lesson_instance_id=instance.id, player_id=player_id).first()
     if row is not None and row.is_active:
@@ -6794,6 +6846,13 @@ def remove_from_class_waiting_list(entry_id: int, coach_id: int) -> dict:
     row = WaitingListEntry.query.get_or_404(entry_id)
     if row.coach_id != coach_id:
         abort(403, "Not authorized")
+    instance = db.session.get(LessonInstance, row.lesson_instance_id) if row.lesson_instance_id else None
+    if row.is_active and instance is not None and _on_new_engine(instance):
+        from padel_app.services.engine_entry import leaves_waiting_list
+
+        leaves_waiting_list(instance, row)
+        _publish_waiting_list_changed(row)
+        return {"action": "removed", "entryId": row.id}
     if row.is_active:
         row.is_active = False
         db.session.commit()

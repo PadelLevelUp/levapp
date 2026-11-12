@@ -481,6 +481,11 @@ def respond():
     """Called by the player when they press Yes or No on a notification invite message."""
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
+    if data.get("invitationId") is not None:
+        # PAD-918 (invitations NB5): a new-engine invitation, keyed by its id.
+        from padel_app.services.engine_entry import respond_to_invitation
+
+        return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), user_id))
     notification_event_id = int(data.get("notificationEventId"))
     action = data.get("action")  # "yes" | "no"
     result = respond_to_notification(notification_event_id, action, user_id)
@@ -618,6 +623,12 @@ def coach_respond():
     """Coach manually records a player's Yes/No response to an invitation."""
     coach = _current_coach()
     data = request.get_json() or {}
+    if data.get("invitationId") is not None:
+        # PAD-918 (invitations NB5): the coach records a new-engine invitation's answer by its id.
+        from padel_app.services.engine_entry import respond_to_invitation
+
+        return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), int(get_jwt_identity()),
+                                             coach_id=coach.id))
     notification_event_id = int(data.get("notificationEventId"))
     action = data.get("action")  # "yes" | "no"
     result = coach_respond_to_notification(notification_event_id, action, coach.id)
@@ -637,7 +648,9 @@ def withdraw_invitation_route(event_id: int):
 def approval_respond():
     """Coach responds to a replacement approval bundle (semi-automatic mode).
 
-    Body: { "bundleId": str, "action": "yes_now" | "yes_at_window" | "dismiss" }
+    Body: { "bundleId": str, "action": "yes_now" | "yes_at_window" | "dismiss", "removed"?: [playerId] }
+    A new-engine request (PAD-919) takes "yes_now" or "dismiss", and "removed" the students the
+    coach took out of its queue.
     """
     coach = _current_coach()
     data = request.get_json() or {}
@@ -646,7 +659,7 @@ def approval_respond():
     if not bundle_id:
         abort(400, "bundleId is required")
     from padel_app.services.replacement_approval_service import respond_to_approval
-    result = respond_to_approval(bundle_id, action, coach.id)
+    result = respond_to_approval(bundle_id, action, coach.id, removed=data.get("removed") or ())
     return jsonify(result)
 
 
