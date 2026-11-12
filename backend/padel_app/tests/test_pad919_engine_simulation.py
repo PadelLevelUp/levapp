@@ -320,3 +320,45 @@ def test_the_outbox_posts_the_request_to_the_coachs_assistant(app, semi, monkeyp
     assert pushes == [db.session.get(Coach, store.coach_of(a)).user_id]
     assert dispatch(send, now=PLAN_AT) == 0
     assert Message.query.filter_by(message_type="replacement_approval").count() == 1 and len(pushes) == 1
+
+
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-43")
+def test_a_request_message_follows_it_when_it_stops_being_pending(app, semi, monkeypatch):
+    """Semi-auto-approval N1, N4: the request's message says ``state`` pending, and each spot type
+    carries its open spots (``count``), as the class state does. When the coach approves it the message
+    says ``approved`` with ``responded`` true, one ``message_edited`` sent; a dismissed request's says
+    ``dismissed``."""
+    from padel_app import realtime
+    from padel_app.models import Message
+    from padel_app.services.engine_approval import send_approval_request
+    from padel_app.services.engine_store import dispatch
+    from padel_app.services.replacement_approval_service import instance_suggestions, respond_to_approval
+
+    edited = []
+    monkeypatch.setattr(realtime, "publish",
+                        lambda event, users: edited.append(event["payload"]["id"]) if event["type"] == "message_edited" else None)
+
+    def send(row):
+        if row.kind == "ApprovalRequest":
+            send_approval_request(row)
+
+    store, a, _ = _semi_session(app)
+    coach_id = store.coach_of(a)
+    dispatch(send, now=PLAN_AT)
+    msg = Message.query.filter_by(message_type="replacement_approval").one()
+    assert msg.msg_metadata["state"] == "pending"
+    state = instance_suggestions(int(a), coach_id)
+    assert [t["count"] for t in msg.msg_metadata["spotTypes"]] == [t["count"] for t in state["request"]["spotTypes"]]
+    assert sum(t["count"] for t in state["request"]["spotTypes"]) == 3          # a class of four, one regular
+
+    respond_to_approval(msg.msg_metadata["requestId"], "yes_now", coach_id, now=PLAN_AT + timedelta(minutes=1))
+    db.session.refresh(msg)
+    assert (msg.msg_metadata["state"], msg.msg_metadata["responded"]) == ("approved", True)
+    assert edited == [msg.id]
+
+    store2, b, _ = _semi_session_second(app)
+    dispatch(send, now=PLAN_AT)
+    second = Message.query.filter(Message.message_type == "replacement_approval", Message.id != msg.id).one()
+    respond_to_approval(second.msg_metadata["requestId"], "dismiss", store2.coach_of(b), now=PLAN_AT + timedelta(minutes=1))
+    db.session.refresh(second)
+    assert (second.msg_metadata["state"], second.msg_metadata["responded"]) == ("dismissed", True)

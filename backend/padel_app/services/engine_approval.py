@@ -33,15 +33,18 @@ def _engine(now: datetime):
     return Engine(engine_store.TableStore(clock=lambda: now), engine_store.settings_for)
 
 
-def _queues_payload(coach_id: int, queues) -> list[dict]:
-    """A request's queues on the wire: per spot type (invite-simulation N2's shape) its students in order."""
+def _queues_payload(coach_id: int, queues, snapshot) -> list[dict]:
+    """A request's queues on the wire: per spot type (invite-simulation N2's shape) its open spots now
+    (``count``, from the session's counts) and its students in order."""
+    from padel_app.invitation_engine import planner
     from padel_app.services.engine_simulation import _people, _spot_type
     from padel_app.services.level_ladder import get_level_ladder
 
     people = _people(coach_id, {sid for _, ids in queues for sid in ids})
     ladder = get_level_ladder(coach_id)
-    return [{**_spot_type(spot_type, ladder), "queue": [{"playerId": sid, **people.get(sid, {}), "rank": rank}
-                                                        for rank, sid in enumerate(ids, 1)]}
+    counts = dict(planner.spot_types(snapshot))
+    return [{**_spot_type(spot_type, ladder), "count": counts.get(spot_type, 0),
+             "queue": [{"playerId": sid, **people.get(sid, {}), "rank": rank} for rank, sid in enumerate(ids, 1)]}
             for spot_type, ids in queues]
 
 
@@ -81,7 +84,7 @@ def state(instance, coach_id: int, *, now: datetime | None = None) -> dict:
     }
     if approval.pending is not None:
         reasons = _empty_queue_reasons(snapshot, settings, _now)
-        types = _queues_payload(coach_id, approval.pending)
+        types = _queues_payload(coach_id, approval.pending, snapshot)
         for (spot_type, _), t in zip(approval.pending, types):
             if not t["queue"]:
                 t["emptyQueueReasons"] = reasons.get(spot_type, [])
@@ -150,16 +153,17 @@ def recompute(instance, coach_id: int, *, now: datetime | None = None) -> dict:
 
 
 def card(row) -> dict:
-    """The Assistant message's payload for an ``ApprovalRequest`` outbox row: the request id, the class,
-    and per open spot type its queue (notifications.semi-auto-approval, new-engine readings)."""
+    """The Assistant message's payload for an ``ApprovalRequest`` outbox row (semi-auto-approval N4): the
+    request id, the class, ``state`` pending, and per open spot type its open spots and its queue."""
     from padel_app.invitation_engine.snapshot import SpotType
     from padel_app.services.engine_store import TableStore
 
     session = str(row.lesson_instance_id)
-    coach_id = TableStore().coach_of(session)
+    store = TableStore()
     queues = tuple((SpotType(*spot), tuple(ids)) for spot, ids in (row.payload or {}).get("queues") or ())
     return {"engine": "new", "requestId": (row.payload or {}).get("request"), "lessonInstanceId": int(session),
-            "responded": False, "spotTypes": _queues_payload(coach_id, queues)}
+            "state": "pending", "responded": False,
+            "spotTypes": _queues_payload(store.coach_of(session), queues, store.snapshot(session))}
 
 
 #: The request's message (semi-auto-approval N4, message-templates rule 6), per coach locale.
@@ -185,7 +189,8 @@ def _card_text(card_payload: dict, coach, instance) -> str:
 def send_approval_request(row) -> None:
     """The outbox's sender for an ``ApprovalRequest`` row (plan step 6 schedules it, PAD-918): the
     request as one ``replacement_approval`` message in the coach's Assistant conversation (rule 6, as
-    today), then the live event and the coach's push."""
+    today), kept on the session so it follows the request (``attach_request_message``), then the live
+    event and the coach's push. A request no longer pending when its turn comes is not posted."""
     from padel_app.models import Coach, Message
     from padel_app.serializers.message import serialize_message
     from padel_app.realtime import publish
@@ -194,8 +199,13 @@ def send_approval_request(row) -> None:
     from padel_app.services.replacement_approval_service import _get_or_create_assistant_conversation
     from padel_app.utils.push_notifications import send_push_notification
 
+    store = TableStore()
+    session = str(row.lesson_instance_id)
+    request_id = (row.payload or {}).get("request")
+    if store.snapshot(session).approval.pending_request != request_id:
+        return
     payload = card(row)
-    coach = db.session.get(Coach, TableStore().coach_of(str(row.lesson_instance_id)))
+    coach = db.session.get(Coach, store.coach_of(session))
     if coach is None or coach.user_id is None:
         return
     from padel_app.models.lesson_instances import LessonInstance
@@ -205,6 +215,8 @@ def send_approval_request(row) -> None:
     msg = Message(text=text, sender_id=assistant.id, conversation_id=conv.id,
                   message_type="replacement_approval", msg_metadata=payload)
     db.session.add(msg)
+    db.session.flush()
+    store.attach_request_message(session, request_id, msg.id)
     db.session.commit()
     publish({"type": "message_created", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
     send_push_notification(user_id=coach.user_id, title="Replacement approval needed", body=text[:100],
