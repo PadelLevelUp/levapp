@@ -88,6 +88,12 @@ Stated as observable records; storage is the engine package's (PAD-902).
     `answeredBy` (`notifications.invitations` NB1, `calendar.event-detail` ND1). An attendance answer
     (`ConfirmAttendance`) is the student's; the coach's own attendance mark is `attendance.confirm`'s.
     Who answered changes nothing else.
+14. **A coach's removal of a regular from one session** (S's decision, PAD-913, 2026-11-12, from R's
+    staging rehearsal; the owner can reverse it). The app deletes the presence and tells the engine
+    `CoachRemoved(student)` on that session: the student is excluded from that session's automatic
+    invitations, as `CoachExcludes` does (`notifications.engine-tiers` rule 3), because the coach decided
+    they are not in it; and their seat counts as freed on their side (`notifications.engine-settings`
+    rule 11). Other sessions of the class are untouched.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -272,6 +278,13 @@ Given two invitations, when the student answers yes to one and the coach records
 the first `Answered` carries `by` `student` and the second `by` `coach`, and both are placed or declined
 exactly as a student's answer would be.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_an_answer_records_who_gave_it`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-29: A regular the coach removed from a session is never invited back to it (rule 14)
+Given a full class whose coach removes a right regular from one session, when the right spot is
+uncovered and that regular passes an earlier tier than the other candidates, then they are not invited to
+that session (excluded, like `CoachExcludes`), the spot goes to the next candidate, and they stay a
+candidate for the class's other sessions.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_regular_the_coach_removed_is_never_invited_back`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
