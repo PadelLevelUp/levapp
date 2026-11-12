@@ -25,8 +25,9 @@ below holds as written.** For a session on the new engine (the swap, PAD-912; ow
 Readings:
 - Rule 6 holds: the deadline is `cancellationDeadlineHours` real hours before the real start, and the
   engine's cutoff is the same instant (`notifications.engine-timeline` rule 5, TIMELINE-21).
-- Rules 10–12 hold: a No before the first attendance request was due is a proactive decline and never
-  late (TIMELINE-22).
+- Rules 10–12 hold, read per student: a No before the engine sent that student any attendance request
+  for the session is a proactive decline and never late (TIMELINE-22); today's window closes at the
+  reminder's fire time instead, which differs only for a student the engine has not yet asked.
 - Rule 7 holds: lateness stays derived from `response` and `responded_at`.
 
 ### Rules
