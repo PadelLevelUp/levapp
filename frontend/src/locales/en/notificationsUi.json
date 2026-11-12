@@ -58,7 +58,8 @@
         "replaced": "This request was replaced by a newer one.",
         "remove": "Remove {{name}} from the list",
         "restore": "Put {{name}} back on the list",
-        "reasonCount": "{{reason}} ({{count}})"
+        "reasonCount": "{{reason}} ({{count}})",
+        "yesRemoved_zero": "Yes ({{count}} removed)"
       }
     }
   }

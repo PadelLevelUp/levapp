@@ -221,7 +221,8 @@
       "openSpots_one": "{{count}} open spot",
       "openSpots_other": "{{count}} open spots",
       "sideEither": "Either side",
-      "leftOutTitle": "Who is left out and why"
+      "leftOutTitle": "Who is left out and why",
+      "openSpots_zero": "{{count}} open spots"
     }
   }
 }
