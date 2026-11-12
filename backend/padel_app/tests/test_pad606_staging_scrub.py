@@ -99,7 +99,8 @@ NON_PERSONAL = {
     "invitations.answer", "invitations.offer", "invitations.side_named", "engine_sessions.alerted", "engine_sessions.approved", "engine_sessions.removed",
     "engine_sessions.pending", "engine_sessions.dismissed", "engine_sessions.pending_request",
     "engine_effects.key", "engine_effects.kind", "engine_effects.payload",
-    "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides", "notification_configs.engine_version",
+    "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides", "notification_configs.engine_version", "notification_configs.timing_method",
+    "notification_configs.per_tier_timing",
     "auth_rate_limit_hits.scope",
     "user_identities.provider",
     # PAD-742 finance: business costs and staff (owner) emails, kept on purpose (owner-only section).
