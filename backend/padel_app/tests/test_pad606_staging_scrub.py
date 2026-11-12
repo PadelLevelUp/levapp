@@ -98,7 +98,7 @@ NON_PERSONAL = {
     # occurrence ids, never a name or a message's text.
     "invitations.answer", "invitations.offer", "invitations.side_named", "engine_sessions.alerted",
     "engine_effects.key", "engine_effects.kind", "engine_effects.payload",
-    "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides",
+    "presences.left_reason", "presences.placed_how", "waiting_list_entries.sides", "notification_configs.engine_version",
     "auth_rate_limit_hits.scope",
     "user_identities.provider",
     # PAD-742 finance: business costs and staff (owner) emails, kept on purpose (owner-only section).

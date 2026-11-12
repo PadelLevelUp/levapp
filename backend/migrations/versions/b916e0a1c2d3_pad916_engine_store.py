@@ -103,9 +103,16 @@ def upgrade():
         batch_op.add_column(sa.Column("left_reason", sa.String(length=10), nullable=True))
     with op.batch_alter_table("waiting_list_entries") as batch_op:
         batch_op.add_column(sa.Column("sides", sa.String(length=5), nullable=True))
+    # notifications.config rule 18: the per-coach engine switch (PAD-917 fills its behaviour).
+    with op.batch_alter_table("notification_configs") as batch_op:
+        batch_op.add_column(sa.Column("engine_version", sa.String(length=3), nullable=False, server_default="old"))
+        batch_op.add_column(sa.Column("engine_switched_at", sa.DateTime(), nullable=True))
 
 
 def downgrade():
+    with op.batch_alter_table("notification_configs") as batch_op:
+        batch_op.drop_column("engine_switched_at")
+        batch_op.drop_column("engine_version")
     with op.batch_alter_table("waiting_list_entries") as batch_op:
         batch_op.drop_column("sides")
     with op.batch_alter_table("presences") as batch_op:

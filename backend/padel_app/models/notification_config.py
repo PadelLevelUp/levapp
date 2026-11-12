@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, JSON, String, text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -221,6 +221,10 @@ class NotificationConfig(db.Model, model.Model):
         Integer, ForeignKey("coaches.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     auto_notify_enabled = Column(Boolean, default=False, nullable=False)
+    # notifications.config rule 18 (PAD-917): which invitation engine runs this coach's classes,
+    # 'old' or 'new', and when that last changed (naive UTC). Carried by PAD-916's migration.
+    engine_version = Column(String(3), nullable=False, default="old", server_default="old")
+    engine_switched_at = Column(DateTime, nullable=True)
     # "automatic" (default) or "semi_automatic" — only relevant when
     # auto_notify_enabled is true. In semi_automatic mode vacancies require
     # coach approval before invitations are sent.
