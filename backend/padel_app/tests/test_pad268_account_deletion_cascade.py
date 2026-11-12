@@ -22,6 +22,8 @@ from padel_app.utils.dates import utcnow_naive
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 
@@ -60,7 +62,7 @@ def _world(app):
     from padel_app.models.messages import Message
     from padel_app.models.players import Player
     from padel_app.models.push_subscriptions import PushSubscription
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     now = utcnow_naive()
     ids = {}

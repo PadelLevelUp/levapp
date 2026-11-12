@@ -1,6 +1,6 @@
 ---
 id: calendar.event-detail
-status: implemented
+status: implementing
 depends_on: [calendar.view]
 serves: [P-CALENDAR-3]
 governed_by: []
@@ -11,6 +11,61 @@ governed_by: []
 
 ### Intent
 Clicking a calendar event opens a detail sheet showing full information and available actions.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §6.3 item 4) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 8 (the invitation tie-break) | nothing to choose: one invitation per student per session | `notifications.engine-planning` rule 2 |
+| Rule 16 (six outcomes) | `spot_filled`, terminal `expired` and `queued` go; `withdrawn` stays; the outcomes gain not counting, sorry, reopened, added and direct join; `movedAt` becomes the reopening from the waiting list | `notifications.engine-planning` rules 3, 10; `notifications.engine-answers` rules 3, 4; `notifications.engine-settings` rules 3, 5 |
+| Rule 20 (the engine still filters an add) | an add from the class goes on the coach's list, which skips the pool gates | `notifications.engine-tiers` rule 4 (ruling (3)) |
+| Criteria 3, 15, 16, 18, 29 | replaced with their rules; new criteria at swap step 8 | — |
+
+Readings:
+- Rules 6, 7, 19: the waiting list shown is two lists, the coach's first.
+- Rule 17 (`coach_respond`): a Yes the coach records on a full session gets sorry, as the student's would (`notifications.engine-answers` rule 4).
+- Rule 18 (a withdrawal): kept (`notifications.invitations` rule 19); the next run may invite someone else.
+
+The new-engine invitee list (swap step 8, PAD-920). **Labels marked "proposed" await the owner's
+approval.**
+- **ND1. Outcomes.** For a new-engine session the serializer reads the engine's `invitations` row
+  (`notifications.engine-store`) and gives each invitee one `outcome`, first match:
+
+  | first match | `outcome` | pt / en label |
+  |---|---|---|
+  | answered yes, placed, and since cancelled (the presence is `absent`) | `cancelled` | Aceitou e depois cancelou / Accepted, then cancelled (proposed) |
+  | answered yes and placed | `accepted` | Aceitou / Accepted |
+  | answered no | `declined` | Recusou / Declined |
+  | withdrawn by the coach (`closed_reason` `withdrawn`) | `withdrawn` | Convite retirado / Invitation withdrawn |
+  | closed by a placement at the same hour (`closed_reason` `same_hour`) | `closed_same_hour` | Noutra aula à mesma hora / In another class at the same time (proposed) |
+  | answered yes, sorry, not reopened | `sorry` | Disse que sim, sem vaga / Said yes, no spot (proposed) |
+  | the class has started, no answer | `expired` | Expirou / Expired |
+  | open and counting | `pending` | Ainda sem resposta / No answer yet |
+  | open, no longer counting | `not_counting` | Sem resposta · já não conta / No answer · no longer counts (proposed) |
+
+  An invitation reopened from the waiting list after a sorry shows its current outcome and the note
+  "convite reaberto" / "reopened" (proposed) in place of `movedAt`'s, from the same shared
+  `inviteeNotes`, read from the row's `reopened_at`, which the store writes when it applies a
+  `Reopened`. Each invitee carries
+  `tierSource` (`coach_list`, `students_list`, `pool` or null for a manual invitation) and, for `pool`,
+  `groupNumber` (1-based, the coach's group order), for the row's secondary text: "lista do treinador"
+  / "coach's list", "lista de espera" / "waiting list", "grupo N" / "group N", "convite manual" /
+  "manual invitation" (all proposed). Students placed by automatic entry or by direct join
+  hold no invitation: they show among the participants, not the invitees.
+- **ND2. "N pending" counts counting invitations only** (coordinator, PAD-913): `pending` outcomes, never
+  `not_counting`, because those no longer hold a spot. It shows on **both** shells beside the open spots,
+  today's `calendar.detail.openSpotsPending` copy ("{{count}} livre(s), {{pending}} pendente(s)"); iOS
+  gains the line it lacks today.
+- **ND3. Labels and notes come from the shared `invitation-outcome` and `inviteeNotes` helpers**, never
+  per shell; on a new-engine session's rows the test id is `invitee-outcome-<playerId>-<outcome>` on both
+  shells. Old-engine rows keep today's ids (web `invitee-outcome-<playerId>`), which
+  `e2e/notification-engine/invitee-outcomes.spec.ts` keeps reading. An old-engine row carries no
+  `tierSource` key at all (a null `tierSource` means a manual invitation on a new-engine session).
 
 ### Rules
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons
@@ -529,3 +584,36 @@ test: `backend/padel_app/tests/test_pad560_deeplink_recurring.py` › `test_the_
 - **And** the open class reloads when the event names its occurrence, whether the id arrives as a number or as text, and by series and date when the occurrence did not exist yet
 - **And** an event for another class, or of another type, is ignored
 test: `backend/padel_app/tests/test_pad659_presence_changed_event.py` › `test_a_cancellation_tells_the_coach` (+5 more)
+
+#### CALENDAR-EVENT-DETAIL-33: A new-engine invitee's outcome is the first match of ND1's table (new-engine section ND1)
+- **Given** a new-engine session with one invitee in each ND1 case (one of them reopened from the waiting list, one a manual invitation), and a pinned clock before the start
+- **When** the coach reads the class
+- **Then** each invitee's `outcome` is the row the table gives, the reopened one carries the reopened note, each carries its `tierSource` and `groupNumber` (the manual one `tierSource` null), and students placed by automatic entry or direct join are participants, not invitees
+test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_each_invitee_gets_the_first_matching_outcome`
+
+#### CALENDAR-EVENT-DETAIL-34: The shared helper counts only counting invitations as pending (new-engine section ND2)
+- **Given** a new-engine session's invitees: three `pending` and two `not_counting`
+- **Then** the helper's pending count is 3
+test: `frontend/packages/config/src/invitation-outcome.test.ts` › `pending counts only the invitations that still count`
+
+#### CALENDAR-EVENT-DETAIL-35: The web class detail labels the new outcomes from the shared helper (new-engine section ND1, ND3)
+- **Given** the web class detail with one invitee per new outcome and two of them counting
+- **Then** each row shows the shared helper's label under `invitee-outcome-<playerId>-<outcome>`, the tier and reopened notes show under the label, and the header reads "N pendentes" with the counting count
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.newEngine.test.tsx` › `labels the new engine's outcomes from the shared helper`
+
+#### CALENDAR-EVENT-DETAIL-36: The iOS class detail labels the new outcomes the same way and shows "N pending" (new-engine section ND1–ND3)
+- **Given** the iOS class screen with the same invitees
+- **Then** the same labels, notes and test ids show, and the "N pendentes" line shows as on web
+test: `frontend/apps/mobile/src/features/calendar/class-detail-new-engine.test.tsx` › `labels the new engine's outcomes and shows the pending count`
+
+#### CALENDAR-EVENT-DETAIL-37: An old-engine invitee carries no tierSource key (new-engine section ND3)
+- **Given** an old-engine class with one invitee, and a new-engine class with a manual invitation
+- **When** the coach reads each class
+- **Then** the old-engine invitee has no `tierSource` key at all, and the manual one has `tierSource` null; the shared helper shows "convite manual" only for the second
+test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_an_old_engine_invitee_carries_no_tier_source`
+
+### Open questions
+- "N pending" on a new-engine session — decision (S, owner away, PAD-913; the owner can reverse it): it counts counting invitations only, because an invitation that no longer counts holds no spot; the row still shows it as "not counting".
+- The new-engine invitee labels (ND1, the rows marked proposed) — proposed by S (PAD-913, 2026-11-12),
+  **for the owner's approval**. "N pending" counting only counting invitations is the coordinator's
+  (PAD-913, 2026-11-12; the owner can reverse it).

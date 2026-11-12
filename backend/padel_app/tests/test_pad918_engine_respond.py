@@ -181,3 +181,24 @@ def test_a_bubble_edit_gives_counts_until_to_the_coach_only(app, monkeypatch):
         _refresh_bubbles(row, "answered", response="no")
         edited = {users[0]: e["payload"]["metadata"] for users, e in sent if e["type"] == "message_edited"}
         assert edited[coach_user]["countsUntil"] and "countsUntil" not in edited[_user(student)]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-28")
+def test_the_coachs_answer_is_the_engines_answer_by_the_coach(app, monkeypatch):
+    """engine-answers rule 13: coach_respond sends the engine's Answer with by="coach"."""
+    from padel_app.invitation_engine import Engine
+    from padel_app.models.coaches import Coach
+    from padel_app.services.engine_entry import respond_to_invitation
+
+    sent = []
+    real = Engine.handle
+    monkeypatch.setattr(Engine, "handle", lambda self, session, request, now: sent.append(request) or real(
+        self, session, request, now))
+    with app.app_context():
+        store, (session,), (_, student, _) = _seed(app, players=3, capacity=4, side="right")
+        with store.unit((session,)):
+            store.apply([_invited(store, session, student)])
+        coach_id = store.coach_of(session)
+        respond_to_invitation(_invitation(session, student), "no", db.session.get(Coach, coach_id).user_id,
+                              now=NOW, coach_id=coach_id)
+        assert [(r.yes, r.by) for r in sent] == [(False, "coach")]

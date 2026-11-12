@@ -40,9 +40,7 @@ def _system_messages(coach_user_id, student_user_id):
     """Plain-text system messages (reminder_confirmed / reminder_declined) sent
     to the student in their direct conversation with the coach."""
     from padel_app.models.messages import Message
-    from padel_app.services.notification_service import (
-        _get_or_create_direct_conversation,
-    )
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     conv = _get_or_create_direct_conversation(coach_user_id, student_user_id)
     rows = Message.query.filter_by(
@@ -282,9 +280,7 @@ def _resend_reminder(ids, instance_id):
     """Insert a second live reminder message directly, mimicking a fresh
     reminder pass for a student who already answered the first one."""
     from padel_app.models.messages import Message
-    from padel_app.services.notification_service import (
-        _get_or_create_direct_conversation,
-    )
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     conv = _get_or_create_direct_conversation(
         ids["coach_user_id"], ids["student_user_id"]

@@ -153,6 +153,7 @@ def register_cli(app):
         click.echo(f"✅ Reset {len(table_names)} table(s): {', '.join(table_names)}")
 
     _register_onboarding(app)
+    _register_engine(app)
 
 
 def _register_onboarding(app):
@@ -253,3 +254,78 @@ def _register_onboarding(app):
             )
 
     app.cli.add_command(onboarding)
+
+
+def _register_engine(app):
+    """The per-coach engine switch (notifications.config rule 18; PAD-918). Run by the operator on the
+    server; nothing runs it automatically. ``switch`` is one way by the rule; ``pause`` and ``resume``
+    turn the coach's automatic invitations off and on (``autoNotifyEnabled``), the recovery the rules
+    allow: a paused coach's sessions are listed by neither engine's automatic run."""
+    from flask.cli import AppGroup
+
+    engine = AppGroup("engine", help="The new invitation engine: switch a coach, see where they stand.")
+
+    def _config(coach_id):
+        from padel_app.models.coaches import Coach
+        from padel_app.models.notification_config import NotificationConfig
+        from padel_app.sql_db import db
+
+        if db.session.get(Coach, coach_id) is None:
+            click.echo(f"Refused: no coach #{coach_id}.")
+            raise click.exceptions.Exit(1)
+        return NotificationConfig.query.filter_by(coach_id=coach_id).first()
+
+    def _status(coach_id):
+        from padel_app.models import EngineSession
+        from padel_app.services.engine_store import TableStore
+
+        config = _config(coach_id)
+        version = (config.engine_version if config else "old") or "old"
+        switched = config.engine_switched_at.isoformat() if config and config.engine_switched_at else "-"
+        auto = bool(config and config.auto_notify_enabled)
+        rows = {str(r.lesson_instance_id) for r in EngineSession.query.filter_by(coach_id=coach_id).all()}
+        listed = [s for s in TableStore().sessions() if s in rows]
+        click.echo(f"coach #{coach_id}: engine {version}, switched at {switched}, automatic invitations "
+                   f"{'on' if auto else 'off'}; {len(rows)} new-engine sessions, {len(listed)} listed now")
+
+    @engine.command("status")
+    @click.argument("coach_id", type=int)
+    def engine_status(coach_id):
+        """Where COACH_ID stands: engine, switch time, automatic invitations, new-engine sessions."""
+        _status(coach_id)
+
+    @engine.command("switch")
+    @click.argument("coach_id", type=int)
+    @click.option("--yes", is_flag=True, help="Confirm: the switch is one way (notifications.config rule 18).")
+    def engine_switch(coach_id, yes):
+        """Switch COACH_ID to the new engine; their sessions not yet inviting go to it."""
+        from padel_app.services.engine_switch import switch_coach
+
+        _config(coach_id)
+        if not yes:
+            click.echo("Refused: the switch is one way; pass --yes to confirm.")
+            raise click.exceptions.Exit(1)
+        adopted = switch_coach(coach_id)
+        click.echo(f"switched; {len(adopted)} sessions adopted: {', '.join(adopted) or '-'}")
+        _status(coach_id)
+
+    def _set_auto(coach_id, on):
+        from padel_app.services.notification_service import update_config
+
+        _config(coach_id)
+        update_config(coach_id, {"autoNotifyEnabled": on})
+        _status(coach_id)
+
+    @engine.command("pause")
+    @click.argument("coach_id", type=int)
+    def engine_pause(coach_id):
+        """Turn COACH_ID's automatic invitations off: nothing more is sent on its own, on either engine."""
+        _set_auto(coach_id, False)
+
+    @engine.command("resume")
+    @click.argument("coach_id", type=int)
+    def engine_resume(coach_id):
+        """Turn COACH_ID's automatic invitations back on."""
+        _set_auto(coach_id, True)
+
+    app.cli.add_command(engine)

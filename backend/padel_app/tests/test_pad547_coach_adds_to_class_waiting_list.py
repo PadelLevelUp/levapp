@@ -21,6 +21,8 @@ def _quiet(monkeypatch):
                         lambda event, recipients: events.append(event["type"]))
     monkeypatch.setattr("padel_app.realtime.publish",
                         lambda event, recipients: events.append(event["type"]))
+    monkeypatch.setattr("padel_app.services.system_messages.publish",
+                        lambda event, recipients: events.append(event["type"]))
     return events
 
 

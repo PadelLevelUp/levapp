@@ -14,6 +14,9 @@ from padel_app.tests.test_notification_reminder_flow import _seed_coach_and_stud
 
 PUBLISH = "padel_app.services.notification_service.publish"
 WEB_PUSH = "padel_app.services.notification_service.send_push_notification"
+# PAD-914: the coach's cancellation notice is sent from system_messages; it gets the same stand-in.
+SM_PUBLISH = "padel_app.services.system_messages.publish"
+SM_WEB_PUSH = "padel_app.services.system_messages.send_push_notification"
 EXPO_PUSH = "padel_app.utils.expo_push.send_expo_push_to_user"
 
 
@@ -55,7 +58,8 @@ def test_a_cancellation_a_month_ahead_frees_the_spot_messages_the_coach_and_does
 
     ids = _seed_coach_and_student(app)
     instance_id = _seed(app, ids, 24 * 30)
-    with patch(PUBLISH), patch(WEB_PUSH) as web_push, patch(EXPO_PUSH) as expo_push:
+    with patch(PUBLISH) as publish, patch(SM_PUBLISH, publish), \
+         patch(WEB_PUSH) as web_push, patch(SM_WEB_PUSH, web_push), patch(EXPO_PUSH) as expo_push:
         result = _cancel(app, ids, instance_id)
     assert result["action"] == "declined"
     assert result.get("proactive") is True
@@ -80,7 +84,8 @@ def test_a_cancellation_a_month_ahead_frees_the_spot_messages_the_coach_and_does
 def test_a_late_cancellation_still_pushes_the_coach_once(app):
     ids = _seed_coach_and_student(app)
     instance_id = _seed(app, ids, 2)
-    with patch(PUBLISH), patch(WEB_PUSH) as web_push, patch(EXPO_PUSH) as expo_push:
+    with patch(PUBLISH) as publish, patch(SM_PUBLISH, publish), \
+         patch(WEB_PUSH) as web_push, patch(SM_WEB_PUSH, web_push), patch(EXPO_PUSH) as expo_push:
         result = _cancel(app, ids, instance_id)
     assert result["action"] == "declined"
     assert len(_coach_pushes(web_push, ids)) == 1

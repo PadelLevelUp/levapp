@@ -1,6 +1,6 @@
 ---
 id: settings.tutorials
-status: implemented
+status: implementing
 depends_on: [settings.role-scope, notifications.invite-simulation, calendar.view, classes.instances]
 serves: [P-NOTIFICATIONS-4]
 governed_by: [R-001, R-011, R-012, R-015, R-024]
@@ -21,6 +21,36 @@ about anyone who is missing. Web and iOS ship it together (R-024).
   search of `notifications.waiting-list` rule 7.
 - **WRITES:** nothing. Selecting a non-materialized occurrence materializes it through the
   sanctioned path (rule 3), which is the same side effect opening the class has.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §4, §6.3 item 5) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rules 4.3–4.5, 5 (one waiting list, the leaver's side and level, rounds, first batch and waiting badges) | the dry run's per-type queues by tier, two waiting lists, side and level from the counts and the class | `notifications.engine-tiers` rule 12; `notifications.engine-spots` rules 6–8 |
+| Criteria 3, 4, 5, 8, 12 | replaced with their rules; new criteria at swap step 7 | — |
+
+Readings:
+- Rule 6 and criteria 6, 11: unchanged in purpose; they read the simulation's new payload (`notifications.invite-simulation`).
+
+The new-engine tutorial (swap step 8, PAD-920), on web and iOS alike:
+- **NT1. One block per open spot type**, in the payload's order (`notifications.invite-simulation` N2):
+  a header with the side ("Esquerda" / "Left", "Direita" / "Right", "Qualquer lado" / "Either side")
+  and the type's open spots; then its queue as rows, grouped by tier under the tier's name (the
+  coach's list, the students' list, then each group's name); each row the student, their rank and the
+  stage's line (N6's words).
+- **NT2. Who is left out.** Under the blocks, one collapsed section "Quem não entra e porquê" / "Who is
+  left out and why" (proposed), listing each student whose verdict is not in a queue, with the stage's
+  line and, for `not_in_pool`, one line per reason.
+- **NT3. When the run may not plan**, a banner above the blocks says why (N4: outside the window, quiet
+  hours, past the last invitation, the class over).
+- **NT4. Test ids, one set on both shells:** `tutorial-type-<side or either>-<levelId or any>`,
+  `tutorial-row-<playerId>-<side or either>-<levelId or any>`, `tutorial-left-out`,
+  `tutorial-cannot-plan` (the level keeps two open types of one side apart).
 
 ### Rules
 1. `tutorials` is added to the **single section registry** of each app — web `SettingsPage.tsx`
@@ -46,7 +76,9 @@ about anyone who is missing. Web and iOS ship it together (R-024).
    1. **Gates**, blocked ones first, each in plain words with the moment it clears when the
       response gives one ("The engine is switched off", "Quiet hours — invitations resume at
       07:00", "Invitations open at 16:00", "This class is too close to start").
-   2. **Approval note** when `approvalRequired` — "You would be asked to approve this list first".
+   2. **Approval note** when `approvalRequired` — "You would be asked to approve this list first"; on a
+      new-engine session, "Ser-te-ia pedido para aprovar cada grupo antes de começar" / "You would be asked
+      to approve each group before it starts" (proposed; `notifications.engine-planning` rule 14).
    3. **Waiting list, asked first (PAD-446)** when `waitingList` is not empty — "Asked first, from
       the waiting list:" and the students in their order, each marked "(standing entry)" when
       `standing`. Nothing is shown for an empty list.
@@ -202,3 +234,17 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a know
   classes" must be the same classes the coach sees on their calendar.
 - OPEN: the copy for each gate, stage and badge is drafted at plan time in pt first
   (`settings.language` rule: Portuguese is the default and the fallback).
+
+#### SETTINGS-TUTORIALS-14: The web tutorial shows one block per spot type, grouped by tier, with who is left out (new-engine section NT1–NT4)
+- **Given** a simulation answer with a left and an either type, candidates in three tiers, two students left out (one `not_in_pool` with two reasons) and `may_plan` true
+- **Then** web shows `tutorial-type-left-3` (a type at level 3) and `tutorial-type-either-any` (an either type of any level), each with its rows under their tier names and N6's stage lines, `tutorial-left-out` collapsed holding the two students (three reason lines in all), and no `tutorial-cannot-plan`; with `may_plan` false in quiet hours, the banner says so
+test: `frontend/apps/web/src/components/settings/tutorials/UnderstandInvitesTutorial.newEngine.test.tsx` › `shows a block per spot type grouped by tier and who is left out`
+
+#### SETTINGS-TUTORIALS-15: The iOS tutorial shows the same blocks, rows and test ids (new-engine section NT1–NT4)
+- **Given** the same answer on iOS
+- **Then** the same blocks, rows, left-out section, banner and test ids show as on web
+test: `frontend/apps/mobile/src/features/settings/understand-invites-tutorial-new-engine.test.tsx` › `shows a block per spot type grouped by tier and who is left out`
+
+### Open questions
+- The tutorial's layout for the per-type payload (NT1–NT4) — S's (PAD-913, 2026-11-12; the owner can
+  reverse it); its words, and N6's, are proposed **for the owner's approval**.

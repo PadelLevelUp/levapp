@@ -1,6 +1,6 @@
 ---
 id: notifications.invite-simulation
-status: implemented
+status: implementing
 depends_on: [notifications.invitations, notifications.config, notifications.waiting-list, notifications.semi-auto-approval, eligibility.rules, eligibility.cascade, eligibility.enforcement, calendar.student-blockers, notifications.student-block-preferences, classes.instances]
 serves: [P-NOTIFICATIONS-4]
 governed_by: [R-002, R-005, R-022, R-023]
@@ -22,6 +22,93 @@ that what the tutorial shows and what the engine does can never disagree.
   blockers), the student notification preferences.
 - **WRITES:** nothing. See rule 3.
 - **CREATES:** nothing persistent. The hypothetical **Vacancy** is an unsaved in-memory object.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §4) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Entities: the unsaved `Vacancy` | no vacancy: the caller builds a hypothetical snapshot without writing ("this student drops out") | `notifications.engine-tiers` rule 12 |
+| Rule 2 (explain) | one verdict per student per open spot type | `notifications.engine-tiers` rule 12 |
+| Rule 4 (stages) | the stages are rule 12's (`in_session`, `said_no`, `removed_by_coach`, `not_in_pool`, `busy_same_time`, `postponed`, `failed_eligibility`, `failed_tier_rule`, `invited_before`, `invited`, `invited_for_other_type`, `invited_earlier`, `waiting`), preceded by the stages of the gates the app applies before the snapshot (exclusions, inactive accounts, eligibility per swap decision 6), which the caller explains; `already_invited` is `invited_earlier` | `notifications.engine-tiers` rule 12 |
+| Rule 5 (one pipeline) | the simulation runs the engine's evaluator, never a copy | `notifications.engine-tiers` rule 11, TIERS-9 |
+| Rule 6, `max_total_reached` | no such gate: the new engine does not read `maxTotal` | swap decision 3 (owner) |
+| Rule 6, the window and quiet hours | the dry run's "may plan now"; `min_time_before_class` is `last_invite_before` | `notifications.engine-tiers` rule 12; `notifications.config` rule 19 |
+| Rule 8 (group 0) | two waiting lists, the coach's first; with automatic entry on, a member can be placed rather than invited | `notifications.engine-tiers` rules 4–6; `notifications.engine-settings` rule 3 |
+| Rule 9 (the spot's side and level) | from the session's counts and the class's level, never the leaver's | `notifications.engine-spots` rules 6–8 |
+| Rules 10, 11, 13 (rounds, first batch, queued, daily quota) | queues per spot type by tier, then by rule 8's ordering; X per covered spot and M instead of batches; a capped student is `postponed` | `notifications.engine-planning` rules 5, 6, 8; `notifications.engine-tiers` rules 8, 10 |
+| Criteria 1, 3, 5, 8, 9, 13, 14, 18 | replaced with their rules; new criteria are written at swap step 7 (criterion 8's against `planner.evaluate`'s queues) | — |
+
+Readings:
+- Intent, rules 1 and 3: unchanged in purpose; "the engine" is the session's engine (`notifications.config` rule 18).
+- Rule 6's class switches (`auto_invites`, `notifications_enabled`) are the store's listing (`notifications.config` rule 19).
+- Eligibility: an app session's bar is applied in `pool`, so a student below it is `not_in_pool`, and the simulation explains it from the caller's own pool gates (`failed_eligibility` arises only where the engine's bar is not open).
+- Rule 7 and criterion 8 (semi-automatic; owner ruling D2): `approvalRequired` reads the carried `invitation_mode` (`notifications.config` rule 19) as today; what the coach approves is each group's queue per spot type from the dry run (`notifications.engine-planning` rule 14, per group), the same evaluator, so the requests and the simulation agree.
+
+The new-engine answer (swap step 7, PAD-919):
+- **N1. One dry run, nothing written.** For a new-engine session the simulation builds the session's
+  snapshot, without the departing student among the going (a regular counts as absent), and runs
+  `planner.evaluate` (`notifications.engine-tiers` rules 11, 12) on it. Nothing is written: no row, no
+  effect applied.
+- **N2. The payload, per open spot type.** `spotTypes: [{side, levelId, levelLabel, count, queue,
+  verdicts}]`. **The spot type's wire shape, the one every new-engine payload uses** (this one, the
+  approval request and card, the join refusal's `sides`, `admin.engine-health` rules 10, 11): `side` is
+  `"left"`, `"right"` or null (either), mapped from the engine's `L`/`R` through the store's
+  `SIDE_TO_APP`, never the engine's letters; `levelId` is the `coach_levels` id and `levelLabel` its
+  name, mapped back from the engine's ladder position (`notifications.engine-store` rule 4), both null
+  for a type of any level. `count` the type's open spots; `queue` its candidates in the order
+  rule 12 gives (`{playerId, name, nickname, tier, rank}`); `verdicts` one per student the snapshot
+  names (`{playerId, name, nickname, stage, tier}`, named as the queue's entries are, so a student
+  off the coach's roster still shows by name), `stage` exactly the dry run's stage word.
+- **N3. The app's own gates explain `not_in_pool`.** A `not_in_pool` verdict carries `reasons`, the gates
+  the app applied when it built the pool (`notifications.config` rule 19): excluded by the coach,
+  `excludedPlayers`, an inactive account, eligibility failures as today's structured records
+  (`eligibility.rules`), a class that day, the student's own block, an availability blocker. On the
+  wire each is a code, and a student may carry several: `excluded_for_session`, `excluded_players`,
+  `same_day_class`, `inactive_account`, `eligibility` (with `failures`), `blocks_auto_invitations`,
+  `blocks_all`, `availability_blocker`. No other stage carries reasons.
+- **N4. When the run may plan.** The answer's gates are the dry run's `may_plan` and why not, in today's
+  gate shape (`InviteSimulationGate`: `{code, blocked, until?, opensAt?}`): outside the window (with
+  `opensAt`), quiet hours (with `until`), past `last_invite_before`, the class's automatic invitations
+  off (`class_auto_invites_off`), the class over. There is no `max_total_reached` (swap decision 3).
+- **N5. Explain.** The explain answer gives one entry per open spot type, each with its verdicts.
+- **N6. The words the coach reads (swap step 8, PAD-920; proposed, for the owner's approval).** One
+  shared helper in `@levelup/config` turns each stage and reason code into a line, in both locales, for
+  the simulation, the tutorial (`settings.tutorials`) and the approval card
+  (`notifications.semi-auto-approval`), on web and iOS:
+
+  | code | pt | en |
+  |---|---|---|
+  | `in_session` | Já está na aula | Already in the class |
+  | `said_no` | Disse que não a esta aula | Said no to this class |
+  | `removed_by_coach` | Retiraste-o da lista | You removed them from the list |
+  | `busy_same_time` | Noutra aula à mesma hora | In another class at the same time |
+  | `postponed` | Fica para depois: já tem um convite ativo hoje, ou chegou ao limite diário | Later: already holds a live invitation today, or reached the daily limit |
+  | `failed_eligibility` | Fora da elegibilidade | Outside the eligibility bar |
+  | `failed_tier_rule` | Fora dos grupos de convite | Outside your invitation groups |
+  | `invited_before` | Já foi convidado para esta aula | Already invited to this class |
+  | `invited` | Convidado agora | Invited now |
+  | `invited_for_other_type` | Convidado para o outro lado | Invited for the other side |
+  | `invited_earlier` | Já tem um convite em aberto | Already holds an open invitation |
+  | `waiting` | Na fila | In the queue |
+  | `excluded_for_session` | Excluído desta aula | Excluded from this class |
+  | `excluded_players` | Na tua lista de excluídos | On your excluded list |
+  | `same_day_class` | Já tem aula neste dia | Already has a class that day |
+  | `inactive_account` | Conta inativa | Inactive account |
+  | `eligibility` | today's eligibility lines from its `failures` | today's eligibility lines from its `failures` |
+  | `blocks_auto_invitations` | Não quer convites automáticos | Turned automatic invitations off |
+  | `blocks_all` | Desligou todas as notificações | Turned all notifications off |
+  | `availability_blocker` | Indisponível a esta hora | Unavailable at this time |
+  | gate `last_invite_before` | Já passou a hora do último convite | Past the last invitation time |
+  | gate `class_auto_invites_off` | Convites automáticos desligados nesta aula | Automatic invitations are off for this class |
+
+  A `not_in_pool` verdict shows one line per reason. An unknown code shows "Outro motivo" / "Other
+  reason", never the raw code.
+Old-engine sessions keep today's code and payloads; `CANDIDATE_STAGES` stays for them until the drain.
 
 ### Rules
 1. `POST /api/app/notify/invite_simulation` with body `{model, originalId, date, departingPlayerId}`
@@ -266,6 +353,42 @@ test: `backend/padel_app/tests/test_pad196_invite_simulation.py` › `test_route
 - **And** the spot the engine then creates for that player has the side the simulation chose
 test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `test_the_simulation_shows_the_side_the_engine_would_choose` (+4 more)
 
+#### NOTIFICATIONS-INVITE-SIMULATION-19: The simulation runs the engine's dry run and writes nothing (new-engine section N1, N2; TIERS-9)
+- **Given** a new-engine session with two open spot types and students in every tier
+- **When** the coach simulates a regular's departure
+- **Then** each type's queue and verdicts equal `planner.evaluate` on the same hypothetical snapshot, every verdict and queue entry carries the student's `name` and `nickname`, and no row of any table is written
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_simulation_runs_the_engines_dry_run_and_writes_nothing`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-20: The departing student is not going in the hypothetical snapshot (new-engine section N1)
+- **Given** a full new-engine session
+- **When** the coach simulates a regular's departure
+- **Then** the snapshot has one open spot of the regular's side, the regular counts as absent, and they are in no queue
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_leaver_is_not_going_in_the_hypothetical_snapshot`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-21: A student out of the pool is explained by the app's gate (new-engine section N3)
+- **Given** students kept out of the pool by each app gate (excluded, `excludedPlayers`, inactive, below the eligibility bar, a class that day, their own block, an availability blocker)
+- **When** the simulation answers
+- **Then** each has stage `not_in_pool` with `reasons` naming that gate (eligibility as today's structured records), and no other verdict carries `reasons`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_a_student_out_of_the_pool_is_explained_by_the_apps_gate`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-22: The gates are the dry run's may_plan (new-engine section N4)
+- **Given** the same session simulated outside the window, in quiet hours, past `last_invite_before` and after the class
+- **When** each simulation answers
+- **Then** each says it may not plan with a gate in today's `{code, blocked, until?, opensAt?}` shape (quiet hours with `until`, outside the window with `opensAt`), the verdicts still explain, and no answer says `max_total_reached`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_gates_are_the_dry_runs_may_plan`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-23: Explain gives one entry per open spot type (new-engine section N5)
+- **Given** a new-engine session with a left and an either spot open
+- **When** the coach asks to explain a student
+- **Then** the answer has two entries, one per type, each with that student's stage and tier
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_explain_gives_one_entry_per_open_spot_type`
+
+#### NOTIFICATIONS-INVITE-SIMULATION-24: Every stage and reason code has a line in both locales, from one helper (new-engine section N6)
+- **Given** every stage of `notifications.engine-tiers` rule 12, every reason code of N3 and an unknown code
+- **When** the shared helper renders each in `pt` and `en`
+- **Then** each gives N6's line, a `not_in_pool` with two reasons gives two lines, and the unknown code gives "Outro motivo" / "Other reason"
+test: `frontend/packages/config/src/engine-verdict-copy.test.ts` › `every stage and reason has a line in both locales`
+
 ### Notes
 - Why the pipeline is shared rather than re-stated:
   `.cortex/atlas/decisions/2026-09-06-invite-simulation-shares-the-engine-pipeline.md`.
@@ -275,3 +398,11 @@ test: `backend/padel_app/tests/test_pad541_freed_spot_balances_sides.py` › `te
   answer — the owner chose this on 2026-09-06 over a clock-independent structural view.
 - OPEN: whether the tutorial should also expose the round *timing* (`maxInactiveTime`) as a gate
   entry. Left out of v1; `queued` covers the coach-facing meaning.
+
+### Open questions
+- The explain payload for a new-engine session (plan §4, §6.3 item 5) — open until swap step 7, which writes it with `settings.tutorials`; decision (S, owner away, PAD-913; the owner can reverse it): one entry per student per open spot type, rule 12's stage and tier, so the simulation states exactly what the engine would do.
+- `departing_player` and the `unavailable` blocker on a new-engine session — the leaver is simply in no session snapshot as going; whether the blocker is a pool gate is for H's store (PAD-916) to state.
+- The new-engine payload's shape (new-engine section N2) — decision (S, owner away, PAD-913, 2026-11-12,
+  from H's proposal for PAD-919; the owner can reverse it): per open spot type, the dry run's queue and
+  verdicts, `stage` the dry run's own word so client and engine never translate it twice. The clients'
+  rendering is N6, its words proposed by S (PAD-913, 2026-11-12) **for the owner's approval**.

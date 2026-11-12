@@ -399,3 +399,18 @@ def test_a_coachs_add_closes_the_students_same_time_invitations():
     assert [e.session for e in effects if isinstance(e, InvitationClosed)] == ["B"]
     assert not [e for e in effects if isinstance(e, Placed)]
     assert store.snapshot("B").invitation("x").closed_at == NOW and store.snapshot("C").invitation("x").open
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-28")
+def test_an_answer_records_who_gave_it():
+    """engine-answers rule 13: an invitation answer carries ``by``, the student's by default or the
+    coach's when they answer for the student; the ``Answered`` effect keeps it and nothing else
+    changes."""
+    s = _session(_regs(4, 3), [("a", "R"), ("b", "R"), ("c", "R")], [_inv("a", R), _inv("b", R), _inv("c", R)])
+    by_coach = handle(s, EngineSettings(), Answer("a", True, by="coach"), NOW).effects
+    by_student = handle(s, EngineSettings(), Answer("b", True), NOW).effects
+    assert [e.by for e in by_coach if isinstance(e, Answered)] == ["coach"]
+    assert [e.by for e in by_student if isinstance(e, Answered)] == ["student"]
+    assert [type(e) for e in by_coach] == [type(e) for e in by_student]       # who answered changes nothing else
+    no = handle(s, EngineSettings(), Answer("c", False, by="coach"), NOW).effects
+    assert [(e.answer, e.by) for e in no if isinstance(e, Answered)] == [("no", "coach")]

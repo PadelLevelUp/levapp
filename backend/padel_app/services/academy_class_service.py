@@ -336,7 +336,8 @@ def _tell_coach_of_waiting_list_join(player, instance, coach_id) -> None:
     from padel_app.serializers.message import serialize_message
     from padel_app.services.class_join_request_service import _class_label, _localized
     from padel_app.services.conversation_access import message_recipient_ids
-    from padel_app.services.notification_service import _get_or_create_direct_conversation, publish
+    from padel_app.realtime import publish
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     coach = db.session.get(Coach, coach_id)
     coach_user = coach.user if coach else None

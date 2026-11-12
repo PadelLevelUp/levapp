@@ -60,15 +60,15 @@ def test_a_non_coach_user_gets_the_real_name(app, client, world):
 @pytest.mark.criterion("PLAYERS-NICKNAME-7")
 def test_a_late_cancellation_pushes_the_nickname_but_stores_the_real_name(app, client, world):
     from padel_app.models import LessonInstance, Message, Player
-    from padel_app.services.notification_service import _notify_coach_of_cancellation
+    from padel_app.services.system_messages import _notify_coach_of_cancellation
 
     _nickname_on(app, client, world)
     with app.app_context():
         instance = LessonInstance.query.filter_by(lesson_id=world["lesson_id"]).first()
         player = db.session.get(Player, world["student_id"])
-        with patch("padel_app.services.notification_service.send_push_notification") as web, \
+        with patch("padel_app.services.system_messages.send_push_notification") as web, \
              patch("padel_app.utils.expo_push.send_expo_push_to_user") as expo, \
-             patch("padel_app.services.notification_service.publish"):
+             patch("padel_app.services.system_messages.publish"):
             msg = _notify_coach_of_cancellation(
                 world["coach_user_id"], world["student_user_id"], instance, player,
                 is_late=True, locale="en",

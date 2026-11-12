@@ -797,6 +797,7 @@ def test_a2_a_publish_failing_after_the_commit_leaves_the_invitation_with_its_me
     """The commit happened; delivery (the live event, the push) failed. The invitation must still
     point at its message, so it can be answered and later retired."""
     from padel_app.services import notification_service as ns
+    from padel_app.services import system_messages
     from padel_app.tests.helpers import pin_clock
 
     pin_clock(monkeypatch, NOW)
@@ -808,6 +809,7 @@ def test_a2_a_publish_failing_after_the_commit_leaves_the_invitation_with_its_me
                 raise RuntimeError("live event failed")
 
         monkeypatch.setattr(ns, "publish", failing_publish)
+        monkeypatch.setattr(system_messages, "publish", failing_publish)
         with pytest.raises(RuntimeError):
             ns.trigger_invitations(_instance(instance_id), coach_id, now=NOW)
         db.session.rollback()

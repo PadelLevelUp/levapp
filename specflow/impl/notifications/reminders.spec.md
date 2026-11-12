@@ -1,6 +1,6 @@
 ---
 id: notifications.reminders
-status: implemented
+status: implementing
 depends_on: [notifications.config, classes.instances, attendance.presence]
 serves: [P-NOTIFICATIONS-7]
 governed_by: []
@@ -11,6 +11,19 @@ governed_by: []
 
 ### Intent
 Automatically send class reminders to enrolled players at a configured time before the class.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine the engine sends the attendance requests
+(`notifications.engine-timeline` rule 2; the coordinator's ruling, PAD-912): the coach's
+`reminder_lesson_*` jobs stop at the coach's cutover, the timing, count and interval are the engine's
+`attendance_request` (`notifications.config` rule 19), and the requests render through today's reminder
+templates and `ReminderAttempt` records. Rule 22 (owner, 2026-10-02) holds: a student the system recorded
+as coming (`Presence.response` `confirmed`, any `recorded_by`) counts as confirmed in the engine's
+snapshot and is not asked (`notifications.engine-store` rule 6). Which of the rules below the engine
+replaces one by one is written at this spec's swap step; until then every rule here describes the old
+engine only.
+
 
 ### Rules
 1. Scheduler creates a DateTrigger job per lesson occurrence: `reminder_lesson_{lesson_id}_{date}`

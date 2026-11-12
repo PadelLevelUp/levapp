@@ -143,6 +143,8 @@ def _seed_instance(app, coach_id, student_id, start_offset_hours=48, *, start=No
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 
@@ -1448,7 +1450,8 @@ class TestCancelAttendance:
             config.auto_notify_enabled = True
             db.session.commit()
 
-            with patch(PATCHES[0]), patch(PATCHES[1]) as mock_push:
+            with patch(PATCHES[0]), patch(PATCHES[2]), \
+                    patch(PATCHES[1]) as mock_push, patch(PATCHES[3], mock_push):
                 cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id)
 
             # Exactly one coach-facing cancellation message.
@@ -1502,7 +1505,8 @@ class TestCancelAttendance:
 
             # now = +30h → 18h before start → past the 24h deadline → late.
             now = datetime.utcnow() + timedelta(hours=30)
-            with patch(PATCHES[0]), patch(PATCHES[1]) as mock_push:
+            with patch(PATCHES[0]), patch(PATCHES[2]), \
+                    patch(PATCHES[1]) as mock_push, patch(PATCHES[3], mock_push):
                 cancel_attendance(ids["student_user_id"], lesson_instance_id=instance_id, now=now)
 
             msgs = self._coach_cancellation_messages(

@@ -26,6 +26,8 @@ from padel_app.sql_db import db
 PATCHES = [
     "padel_app.services.notification_service.publish",
     "padel_app.services.notification_service.send_push_notification",
+    "padel_app.services.system_messages.publish",  # PAD-914: system messages publish from here
+    "padel_app.services.system_messages.send_push_notification",
 ]
 
 ALL_TEMPLATE_KEYS = [
@@ -394,7 +396,7 @@ class TestEmptyMessageBackstop:
 
     def test_send_system_message_skips_blank_text(self, app):
         from padel_app.models.messages import Message
-        from padel_app.services.notification_service import _send_system_message
+        from padel_app.services.system_messages import _send_system_message
 
         ids = _seed_coach_and_student(app)
 
@@ -409,7 +411,7 @@ class TestEmptyMessageBackstop:
 
     def test_send_system_message_still_sends_real_text(self, app):
         from padel_app.models.messages import Message
-        from padel_app.services.notification_service import _send_system_message
+        from padel_app.services.system_messages import _send_system_message
 
         ids = _seed_coach_and_student(app)
 
