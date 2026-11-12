@@ -104,7 +104,8 @@ class MemoryStore:
                     joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None,
                     coach: str | None = None) -> None:
         """``end`` defaults to an hour after ``start``; ``coach`` names the session's coach, ``None`` for
-        the harness's one coach: only the same coach's sessions make a student busy (tiers rule 3)."""
+        the harness's one coach: the same coach's overlapping sessions, and any coach's at the same
+        start, make a student busy (tiers rule 3)."""
         if session in self._sessions:
             raise ValueError(f"session {session} already exists")
         regs: dict[str, Student] = {}
@@ -132,9 +133,9 @@ class MemoryStore:
                      if sid not in inside and sid not in self._hidden and sid not in s.excluded)
         named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
         others = [o for o in self._sessions.values() if o.id != s.id]
-        busy = {sid for o in others if o.coach == s.coach and overlaps(o.start, o.end, s.start, s.end)
-                for sid in o.going}
-        elsewhere = tuple(Elsewhere(o.id, o.start, i, o.capacity, tuple(o.going.values()), o.end)
+        busy = {sid for o in others if (overlaps(o.start, o.end, s.start, s.end) if o.coach == s.coach
+                                        else o.start == s.start) for sid in o.going}
+        elsewhere = tuple(Elsewhere(o.id, o.start, i, o.capacity, tuple(o.going.values()), o.end, o.coach == s.coach)
                           for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open)
         return SessionSnapshot(
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,

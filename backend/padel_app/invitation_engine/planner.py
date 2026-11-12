@@ -46,7 +46,7 @@ from padel_app.invitation_engine.effects import (
 from padel_app.invitation_engine.settings import EngineSettings, GroupRule, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
-    overlaps,
+    same_time,
     Elsewhere,
     Invitation,
     SessionSnapshot,
@@ -63,8 +63,9 @@ class SpotCounts:
     """What a session needs, by side (engine-spots rule 6; plan §4).
 
     ``flexible_unplaced`` are going students with no side yet (a {L, R} regular the coach has not
-    placed); ``over_quota[v]`` is how many going students placed on v exceed its quota, each of them a
-    flexible going student too (rule 9). ``Σ open(v) = class_empty + flexible_going``.
+    placed); ``over_quota[v]`` is how many going students placed on v exceed its quota: one-sided
+    regulars who keep their side, not flexible (rule 9; the owner's decisions 12, 13).
+    ``Σ open(v) = class_empty + flexible_going + Σ over_quota``.
     """
 
     class_empty: int
@@ -76,7 +77,7 @@ class SpotCounts:
 
     @property
     def flexible_going(self) -> int:
-        return len(self.flexible_unplaced) + sum(self.over_quota.values())
+        return len(self.flexible_unplaced)
 
 
 def freed_spots(snapshot: SessionSnapshot) -> tuple[dict[Side, int], int]:
@@ -238,7 +239,7 @@ def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> t
     """engine-answers rule 10 (D4's one exception): a student placed in this session has their open
     invitations for other sessions at the same hour closed. Called with every placement."""
     return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
-                 if e.invitation.student == student and overlaps(e.start, e.end, snapshot.start, snapshot.end))
+                 if e.invitation.student == student and same_time(e, snapshot))
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
@@ -250,9 +251,10 @@ def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts
             or sid in snapshot.blocked):          # the student's own blocks hold on every tier (rule 4)
         return False
     values = type_sides(spot_type, counts)
-    if tier.source == "coach_list":
+    if tier.source == "coach_list":                # busy at that time holds here too (rule 4)
         entry = _entry(snapshot, sid, "coach")
-        return entry is not None and _entry_admits(entry, student, values, settings)
+        return (entry is not None and sid not in snapshot.busy_same_time
+                and _entry_admits(entry, student, values, settings))
     in_pool = any(st.id == sid for st in snapshot.pool)
     if (not in_pool or sid in snapshot.busy_same_time or sid in snapshot.postponed
             or not _eligible(student, snapshot, settings)):
@@ -353,11 +355,14 @@ def group_rule_passes(rule: GroupRule, student: Student, spot_type: SpotType, co
 
 
 def tier_for(student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
-             settings: EngineSettings) -> int | None:
-    """The student's tier for a type: the first tier they pass (engine-tiers rule 7), or ``None``."""
+             settings: EngineSettings, sources: set[str] | None = None) -> int | None:
+    """The student's tier for a type: the first tier they pass (engine-tiers rule 7), or ``None``. A
+    dismissed group is skipped as if empty; ``sources`` limits the tiers to those sources (a "sorry"
+    holder is a candidate of their waiting list's tier only, engine-planning rule 5.1)."""
     skipped = _dismissed_now(snapshot)                  # a dismissed group: as if it had no candidates
     return next((i for i, tier in enumerate(settings.tiers)
-                 if i not in skipped and passes(tier, student, spot_type, counts, snapshot, settings)), None)
+                 if i not in skipped and (sources is None or tier.source in sources)
+                 and passes(tier, student, spot_type, counts, snapshot, settings)), None)
 
 
 def _natural(sid: str) -> tuple:
@@ -467,13 +472,15 @@ class _Run:
                 continue
             invitation = self.latest.get(sid)
             sorry = invitation is not None and invitation.open and invitation.sorry_at is not None
-            if sorry and not any(w.student == sid for w in self.snapshot.waiting_list):
+            lists = {"coach_list" if w.list == "coach" else "students_list"
+                     for w in self.snapshot.waiting_list if w.student == sid}
+            if sorry and not lists:
                 continue                         # told sorry: asked again only from the waiting list (rule 4)
             if invitation is not None and not sorry and not (timeline.counting(invitation, self.now)
                                                              and {t.side for t in invitation.offer} & values):
                 continue
-            t = tier_for(student, spot_type, self.counts, self.snapshot, self.settings)
-            if t is not None:                    # a "sorry" holder is chosen like an uninvited one (rule 5.1)
+            t = tier_for(student, spot_type, self.counts, self.snapshot, self.settings, sources=lists if sorry else None)
+            if t is not None:                    # a "sorry" holder: a candidate of its list's tier only (rule 5.1)
                 bucket = out.setdefault(t, _TierPool())
                 (bucket.fresh if invitation is None or sorry else bucket.holders).append(sid)
         return out
@@ -864,6 +871,8 @@ def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapsh
     if sid in snapshot.blocked:                      # the student's own blocks, even on the coach's list
         return "not_in_pool"
     on_coach_list = _entry(snapshot, sid, "coach") is not None and any(t.source == "coach_list" for t in settings.tiers)
+    if on_coach_list and sid in snapshot.busy_same_time:   # the coach's list keeps this gate (rule 4)
+        return "busy_same_time"
     if not on_coach_list:                            # the coach's list bypasses the pool's gates (rule 3)
         if not any(st.id == sid for st in snapshot.pool):
             return "not_in_pool"
@@ -906,10 +915,10 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
             elif sid in tiers:
                 held = invitation is not None and invitation.open and invitation.sorry_at is None
                 stage = "invited_earlier" if held else "waiting"
-            elif invitation is not None and invitation.open:
+            elif invitation is not None and invitation.open and invitation.sorry_at is None:
                 stage = "invited_earlier"               # open, but neither counting nor covering this type
             else:
-                stage = "invited_before"                # closed without a No: never a second (D1)
+                stage = "invited_before"                # closed without a No, or sorry off the list: never a second (D1)
             verdicts.append(Verdict(sid, spot_type, stage, t))
         ranked = sorted((t, _order(settings.tiers[t], snapshot.students[sid], snapshot, settings, spot_type), sid)
                         for sid, t in tiers.items() if sid not in sent or sent[sid] & values)
