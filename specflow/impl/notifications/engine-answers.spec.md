@@ -226,6 +226,13 @@ automatic-entry placement of the same student in the second, then it raises `Sam
 the student as busy at that time.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_placement_at_an_hour_the_student_is_going_elsewhere_rolls_back`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-23: The engine refuses joins with a code (rule 12; classes.join-requests NJ1)
+Given a session and students in each refusal case (already going, below the bar, no spot on their side,
+busy at the same hour, already on a list, and a join after the class has started), when each asks to join
+directly or join a list, then each refusal carries its code (`already_enrolled`, `ineligible`,
+`side_full`, `busy_same_hour`, `already_on_list`, `class_closed`), never text.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_joins_are_refused_with_a_code`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within

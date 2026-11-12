@@ -34,7 +34,8 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    class has started. Silence keeps the spot. At a coach's cutover the app's reminder flow
    (`notifications.reminders`) stops for that coach's sessions: the engine's requests replace it,
    never alongside it.
-3. **Quiet hours (D14).** Nobody is invited during them, from any tier; they never reorder tiers; they
+3. **Quiet hours (D14).** A window whose start equals its end is quiet all day (as today,
+   `notifications.config` rule 19). Nobody is invited during them, from any tier; they never reorder tiers; they
    pause every invitation's counting. Answers during them count.
 4. **An invitation's T is fixed when it is sent (ruling D-E6).** For each invitation the run creates (or
    re-offers), T is `between_rounds` when, after that run's sends, the invitation's tier still has
@@ -219,6 +220,10 @@ test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_a_s
 Given `last_invite_before` 2 h and a class at 01:30 Lisbon on the night the clocks go forward, when the
 engine computes `last_invite_at`, then it is exactly 2 real hours before the class's real start.
 test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_last_invite_at_is_real_hours_before_the_real_start`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-25: Quiet hours whose start equals their end are quiet all day (rule 3)
+Given quiet hours from 22:00 to 22:00, when runs happen at 10:00, 22:00 and 03:00, then none sends.
+test: `backend/padel_app/tests/test_invitation_engine_timeline.py` › `test_quiet_hours_whose_start_equals_their_end_are_quiet_all_day`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
