@@ -184,7 +184,7 @@ class MemoryStore:
             elif isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))
-            elif isinstance(e, (fx.Sorry, fx.Reoffered)):
+            elif isinstance(e, (fx.Sorry, fx.Reopened)):
                 i = self._latest_open(s, e.student)
                 if i is not None and isinstance(e, fx.Sorry):
                     s.invitations[i] = replace(s.invitations[i], sorry_at=e.at)

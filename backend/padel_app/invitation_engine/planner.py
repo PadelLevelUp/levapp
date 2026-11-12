@@ -21,7 +21,12 @@ from datetime import datetime
 from typing import Literal
 
 from padel_app.invitation_engine import timeline
-from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE, LOWER_TIER_PER_SPOT, side_quota
+from padel_app.invitation_engine.constants import (
+    ALERT_NO_CANDIDATE,
+    KIND_WAITING_LIST_INVITE,
+    LOWER_TIER_PER_SPOT,
+    side_quota,
+)
 from padel_app.invitation_engine.effects import (
     Absence,
     AlertCleared,
@@ -35,7 +40,7 @@ from padel_app.invitation_engine.effects import (
     Invited,
     Message,
     Placed,
-    Reoffered,
+    Reopened,
     WaitingListLeft,
 )
 from padel_app.invitation_engine.settings import EngineSettings, GroupRule, Tier
@@ -461,6 +466,8 @@ class _Run:
                 continue
             invitation = self.latest.get(sid)
             sorry = invitation is not None and invitation.open and invitation.sorry_at is not None
+            if sorry and not any(w.student == sid for w in self.snapshot.waiting_list):
+                continue                         # told sorry: asked again only from the waiting list (rule 4)
             if invitation is not None and not sorry and not (timeline.counting(invitation, self.now)
                                                              and {t.side for t in invitation.offer} & values):
                 continue
@@ -608,9 +615,9 @@ def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: 
             run.covers[sid] = spot_type
         fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student),
                   t, timeline.counts_until(settings, run.now, t_send))
-        if sid in run.latest:            # a "sorry" invitation: re-offered, never a second one (D1)
-            run.effects += [Reoffered(snapshot.id, run.now, sid, *fields),
-                            Message(snapshot.id, run.now, sid, "reoffer")]
+        if sid in run.latest:            # a "sorry" invitation, its student on the list: reopened, never a second (D1)
+            run.effects += [Reopened(snapshot.id, run.now, sid, *fields),
+                            Message(snapshot.id, run.now, sid, KIND_WAITING_LIST_INVITE)]
         else:
             run.effects.append(Invited(snapshot.id, run.now, sid, *fields))
     sent[spot_type] += len(chosen)
@@ -879,7 +886,7 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
     latest = {i.student: i for i in snapshot.invitations}
     people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list}, key=_natural)
     probe = _Run(snapshot, settings, now, counts, latest, people)
-    sent = {e.student: frozenset(o.side for o in e.offer) for e in effects if isinstance(e, (Invited, Reoffered))}
+    sent = {e.student: frozenset(o.side for o in e.offer) for e in effects if isinstance(e, (Invited, Reopened))}
     verdicts: list[Verdict] = []
     queues: dict[SpotType, tuple[str, ...]] = {}
     for spot_type, _ in spot_types(snapshot, counts):
@@ -957,9 +964,9 @@ def decide(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -
         if approval.approved_groups:
             lead.append(GroupsCleared(snapshot.id, now))
         return Plan(tuple(lead) + planned.effects)
-    held_tiers = {e.tier for e in planned.effects if isinstance(e, (Invited, Reoffered))
+    held_tiers = {e.tier for e in planned.effects if isinstance(e, (Invited, Reopened))
                   and e.tier is not None and e.tier not in approval.approved_groups}
-    held = {e.student for e in planned.effects if isinstance(e, (Invited, Reoffered)) and e.tier in held_tiers}
+    held = {e.student for e in planned.effects if isinstance(e, (Invited, Reopened)) and e.tier in held_tiers}
     effects = lead + [e for e in planned.effects if not (_is_send(e) and e.student in held)]
     reopened = {e.tier for e in lead if isinstance(e, GroupReopened)}
     for t, queues in sorted(_group_queues(snapshot, settings, now, held_tiers).items() if held_tiers else ()):
@@ -979,6 +986,6 @@ def _request_id(session: str, now: datetime, tier: int, queues: SpotQueues) -> s
 
 
 def _is_send(effect: Effect) -> bool:
-    """An invitation going out: ``Invited``, ``Reoffered`` and the messages a plan sends with them."""
-    return isinstance(effect, (Invited, Reoffered)) or (
-        isinstance(effect, Message) and effect.kind in ("reoffer", "waiting_list_invite"))
+    """An invitation going out: ``Invited``, ``Reopened`` and the messages a plan sends with them."""
+    return isinstance(effect, (Invited, Reopened)) or (
+        isinstance(effect, Message) and effect.kind == KIND_WAITING_LIST_INVITE)

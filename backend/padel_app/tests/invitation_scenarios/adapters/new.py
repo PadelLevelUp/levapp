@@ -29,7 +29,7 @@ Records (engine effect -> record):
   ``AttendanceRequested`` -> reminder; ``Message`` -> message by ``MESSAGE_KINDS``: the engine's
   ``sorry`` (plan §7, D4) is logged as ``aviso`` (the scenario format's word for it, constants.md
   KIND_SORRY), the engine's ``waiting_list_invite`` as the format's ``waiting_list_offer``, the
-  others one for one (``reoffer``, ``added``, ``side_moved``).
+  others one for one (``added``, ``side_moved``).
 - Open invitations: the snapshot lists every unanswered invitation with its send time, counting
   or not. An invitation past its inactivity time stops counting but stays open (D4), so
   ``open_unanswered`` counts it.
@@ -74,7 +74,7 @@ from padel_app.tests.invitation_scenarios.runner import (
 
 
 #: Engine message kind -> normalized message kind (design §5, §12).
-MESSAGE_KINDS = {"sorry": "aviso", "reoffer": "reoffer", "added": "added",
+MESSAGE_KINDS = {"sorry": "aviso", "added": "added",
                  "waiting_list_invite": "waiting_list_offer", "side_moved": "side_moved"}
 #: The engine records the notice an absence gave (D4); the scenarios still name it by today's words.
 ABSENCE_KINDS = {"on_time": "justified", "late": "unjustified", "none": "none"}
@@ -281,7 +281,7 @@ class NewAdapter:
         out = []
         for e in effects:
             at = to_local(e.at)
-            if isinstance(e, fx.Invited):
+            if isinstance(e, (fx.Invited, fx.Reopened)):         # a reopened "sorry" invitation is invited again
                 group = None if e.tier is None else e.tier + 1
                 out.append(Record("invited", e.student, e.session, at, {"side_named": e.side_named, "group": group}))
             elif isinstance(e, fx.Answered):
