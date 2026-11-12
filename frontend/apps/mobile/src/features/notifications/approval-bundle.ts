@@ -18,7 +18,11 @@ import type {
   ApprovalAction,
   ApprovalBundle,
   ApprovalQueuePlayer,
+  ApprovalSuggestionState,
   ApprovalVacancyResult,
+  EngineApprovalMeta,
+  EngineApprovalSpotType,
+  EngineApprovalState,
 } from "@levelup/types";
 
 /**
@@ -151,4 +155,74 @@ export function approvalRespondOutcome(
         ? "notificationsUi.replacementApproval.spotsFilledOrExpired"
         : null,
   };
+}
+
+/**
+ * PAD-920 (semi-auto-approval N1, N4, N5): a new-engine request, in the one shape the card reads
+ * from both hosts. The class gives the session's state (N1), the conversation the message's
+ * metadata (N4); `status` is what the card starts from, before any answer given here.
+ */
+export type EngineApprovalCardData = {
+  engine: "new";
+  requestId: number;
+  lessonInstanceId: number;
+  spotTypes: EngineApprovalSpotType[];
+  /** `pending` offers the buttons; `stale` is a request no longer pending; `dismissed` the session's. */
+  status: "pending" | "stale" | "dismissed";
+};
+
+/** Which of the card's two shapes a host handed it. */
+export function isEngineApprovalCard(
+  data: ApprovalBundle | EngineApprovalCardData
+): data is EngineApprovalCardData {
+  return (data as Partial<EngineApprovalCardData>).engine === "new";
+}
+
+/**
+ * A new-engine `replacement_approval` message (N4). `approvalBundleFrom` answers null for it (no
+ * bundle id, no vacancies), so the conversation asks this first. A message already `responded`
+ * names a request that is no longer pending (N5): it reads as replaced, with no buttons.
+ */
+export function engineApprovalFrom(metadata: unknown): EngineApprovalCardData | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const m = metadata as Partial<EngineApprovalMeta>;
+  if (m.engine !== "new" || typeof m.requestId !== "number" || !Array.isArray(m.spotTypes)) {
+    return null;
+  }
+  return {
+    engine: "new",
+    requestId: m.requestId,
+    lessonInstanceId: Number(m.lessonInstanceId),
+    spotTypes: m.spotTypes,
+    status: m.responded ? "stale" : "pending",
+  };
+}
+
+/** The class's new-engine state (N1) as a card, or null when there is no request to show. */
+export function engineApprovalFromState(
+  state: EngineApprovalState
+): EngineApprovalCardData | null {
+  if (!state.request || state.state === "none") return null;
+  return {
+    engine: "new",
+    requestId: state.request.requestId,
+    lessonInstanceId: state.request.lessonInstanceId,
+    spotTypes: state.request.spotTypes,
+    status: state.state === "dismissed" ? "dismissed" : "pending",
+  };
+}
+
+/** The class's suggestion answer is a new-engine session's (N1) when it says so. */
+export function isEngineApprovalState(
+  state: ApprovalSuggestionState | EngineApprovalState
+): state is EngineApprovalState {
+  return (state as Partial<EngineApprovalState>).engine === "new";
+}
+
+/** An empty type's reasons (N5): only when its queue is empty, counts above zero. */
+export function engineEmptyReasons(
+  spotType: EngineApprovalSpotType
+): Array<{ stage: string; count: number }> {
+  if (spotType.queue.length > 0) return [];
+  return (spotType.emptyQueueReasons ?? []).filter((r) => r.count > 0);
 }

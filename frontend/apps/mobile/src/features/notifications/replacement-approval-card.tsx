@@ -26,15 +26,19 @@ import { cn } from "@/lib/utils";
 import {
   approvalCardState,
   approvalRespondOutcome,
+  isEngineApprovalCard,
   queueBadgeLabel,
+  type EngineApprovalCardData,
 } from "./approval-bundle";
+import { EngineApprovalCard } from "./engine-approval-card";
 
 // Ionicons take a color string, not a class — same one-off pattern as
 // message-bubble.tsx's ACCEPTED_ICON_COLOR.
 const APPROVED_ICON_COLOR = "#059669";
 
 type Props = {
-  bundle: ApprovalBundle;
+  /** PAD-920 (semi-auto-approval N5): a new-engine request renders `EngineApprovalCard`. */
+  bundle: ApprovalBundle | EngineApprovalCardData;
   /** Render without action buttons (viewing your own message). */
   readOnly?: boolean;
   /** Fires after the server records an answer, for cache/toast follow-up. */
@@ -57,13 +61,22 @@ type Props = {
  * The state rules live in `approval-bundle.ts` so they are unit-testable —
  * mobile screens and components are not (see vitest.config.ts).
  */
-export function ReplacementApprovalCard({
+export function ReplacementApprovalCard(props: Props) {
+  // PAD-920 (N5): a new-engine request has its own card; an old-engine bundle renders as before.
+  if (isEngineApprovalCard(props.bundle)) {
+    const { bundle, readOnly, onResult, allowDismiss } = props;
+    return <EngineApprovalCard request={bundle} readOnly={readOnly} onResult={onResult} allowDismiss={allowDismiss} />;
+  }
+  return <OldEngineApprovalCard {...props} bundle={props.bundle} />;
+}
+
+function OldEngineApprovalCard({
   bundle,
   readOnly = false,
   onResult,
   allowDismiss = false,
   queueAsOf = null,
-}: Props) {
+}: Props & { bundle: ApprovalBundle }) {
   const { t } = useTranslation();
   const asOf = queueAsOfLabel(queueAsOf);
   // PAD-660: the card is the coach's; students show under the nickname the coach gave them.

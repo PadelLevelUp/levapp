@@ -138,6 +138,11 @@ import {
   type AttendancePayloadItem,
 } from "@/features/calendar/hooks";
 import { NotifyModal } from "@/features/calendar/notify-modal";
+import {
+  engineApprovalFromState,
+  isEngineApprovalState,
+  type EngineApprovalCardData,
+} from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
 import {
   eventFromLessonInstance,
@@ -316,6 +321,8 @@ export default function ClassDetailScreen() {
   const [suggestionsIgnored, setSuggestionsIgnored] = React.useState(false);
   const [semiAutomatic, setSemiAutomatic] = React.useState(false);
   const [recomputing, setRecomputing] = React.useState(false);
+  // PAD-920 (semi-auto-approval N1): a new-engine session answers one request, not bundles.
+  const [engineApproval, setEngineApproval] = React.useState<EngineApprovalCardData | null>(null);
   const suggestionsInstanceId = React.useMemo(() => {
     const fromPresence = instance?.presences?.[0]?.lessonInstanceId;
     if (fromPresence != null) return Number(fromPresence);
@@ -327,10 +334,23 @@ export default function ClassDetailScreen() {
     if (!isCoach || suggestionsInstanceId == null) return;
     let cancelled = false;
     notificationEngineApi
-      .getApprovalSuggestions(suggestionsInstanceId)
+      .getApprovalState(suggestionsInstanceId)
       .then((s) => {
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
+        if (isEngineApprovalState(s)) {
+          // N1: the pending request is the card; a dismissed session offers the recompute. A
+          // request the coach just approved here stays until the class is closed (PAD-770).
+          setEngineApproval((prev) =>
+            s.state === "pending"
+              ? engineApprovalFromState(s)
+              : prev && answeredBundleIdsRef.current.has(String(prev.requestId))
+                ? prev
+                : null
+          );
+          setSuggestionsIgnored(s.state === "dismissed");
+          return;
+        }
         // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
         setApprovalBundles((prev) => mergeSuggestionBundles(prev, suggestionBundles(s), answeredBundleIdsRef.current));
         setSuggestionsIgnored(s.state === "dismissed");
@@ -346,8 +366,10 @@ export default function ClassDetailScreen() {
     if (suggestionsInstanceId == null || recomputing) return;
     setRecomputing(true);
     try {
-      const s = await notificationEngineApi.recomputeApprovalSuggestions(suggestionsInstanceId);
-      if (s.state === "pending" && s.bundle) setApprovalBundles(suggestionBundles(s));
+      const s = await notificationEngineApi.recomputeApprovalState(suggestionsInstanceId);
+      // N3: a reopened session's fresh request replaces the card.
+      if (isEngineApprovalState(s)) setEngineApproval(s.state === "pending" ? engineApprovalFromState(s) : null);
+      else if (s.state === "pending" && s.bundle) setApprovalBundles(suggestionBundles(s));
       setSuggestionsIgnored(false);
     } catch {
       toast.error(t("notificationsUi.replacementApproval.genericError"));
@@ -1774,7 +1796,27 @@ export default function ClassDetailScreen() {
             </>
           ) : null}
 
-          {isCoach && !isEditing && approvalBundles.length === 0 && suggestionsIgnored ? (
+          {/* PAD-920 (semi-auto-approval N5): the new-engine request, "Sim" and "Ignorar". */}
+          {isCoach && !isEditing && engineApproval ? (
+            <>
+              <Separator />
+              <ReplacementApprovalCard
+                key={engineApproval.requestId}
+                bundle={engineApproval}
+                allowDismiss
+                onResult={(action) => {
+                  if (action === "dismiss") {
+                    setEngineApproval(null);
+                    setSuggestionsIgnored(true);
+                  } else {
+                    answeredBundleIdsRef.current.add(String(engineApproval.requestId));
+                  }
+                }}
+              />
+            </>
+          ) : null}
+
+          {isCoach && !isEditing && approvalBundles.length === 0 && !engineApproval && suggestionsIgnored ? (
             <>
               <Separator />
               <Button
