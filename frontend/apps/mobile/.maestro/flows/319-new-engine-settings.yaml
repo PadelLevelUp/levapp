@@ -1,0 +1,104 @@
+# PAD-920 / notifications.config rule 20 (NOTIFICATIONS-CONFIG-72) on iOS: a coach on the new
+# engine sees its own controls in Settings → Notifications → Auto-Invite Engine, steps "at a time"
+# up once, picks the per-group timing, opens the groups editor, presses the footer Save, and the
+# server holds the new `engine` values.
+#
+# HAND-RUN SETUP (tag hand-run-setup; the Android lane and whole-suite runs skip it): before this
+# flow the coach must be on the new engine, which no endpoint can do. The runner calls the real
+# switch in the backend's app context, `engine_switch.switch_coach(<e2e-coach id>)`
+# (`scripts/new-engine-setup.py switch`). The flow fails at once if the GET does not say
+# `engineVersion: new`.
+#
+# Setup and teardown (R-040): scripts/new-engine-settings-setup.js keeps the coach's `engine` and
+# `invitationGroups`; teardown puts them back. Asserted by testID and server values only (PAD-320).
+# Backend: -e API_BASE=http://localhost:<port>, else :5001. Flow number 319 from the coordinator.
+appId: com.padellevelup.app
+tags:
+  - hand-run-setup
+onFlowStart:
+  - runScript: ../scripts/new-engine-settings-setup.js
+onFlowComplete:
+  - runScript: ../scripts/new-engine-settings-teardown.js
+---
+- assertTrue: "${output.engineVersion == 'new'}"
+- runFlow: ../subflows/login-coach.yaml
+- tapOn:
+    id: "header-account"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 15000
+- tapOn:
+    id: "settings-nav-notifications"
+- extendedWaitUntil:
+    visible:
+      id: "settings-auto-invite"
+    timeout: 15000
+
+# ── The new engine's own controls ──
+- scrollUntilVisible:
+    element:
+      id: "settings-engine-new"
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: "engine-max-at-a-time-inc"
+    direction: DOWN
+- assertVisible:
+    id: "engine-max-at-a-time-value"
+    text: "${String(output.maxBefore)}"
+- tapOn:
+    id: "engine-max-at-a-time-inc"
+- assertVisible:
+    id: "engine-max-at-a-time-value"
+    text: "${String(output.maxBefore + 1)}"
+- scrollUntilVisible:
+    element:
+      id: "engine-timing-method-per_tier"
+    direction: DOWN
+- tapOn:
+    id: "engine-timing-method-per_tier"
+- assertVisible:
+    id: "engine-auto-entry"
+- assertVisible:
+    id: "engine-side-choice"
+
+# ── The groups editor: the two fixed lists first, each with its own pair under "per group" ──
+- scrollUntilVisible:
+    element:
+      id: "settings-tiers-header"
+    direction: DOWN
+- tapOn:
+    id: "settings-tiers-header"
+- scrollUntilVisible:
+    element:
+      id: "tier-row-0"
+    direction: DOWN
+- assertVisible:
+    id: "tier-row-1"
+- scrollUntilVisible:
+    element:
+      id: "tier-0-between-rounds-value"
+    direction: DOWN
+- takeScreenshot: .maestro/evidence/319-new-engine-settings
+
+# ── PAD-506: held until the footer Save ──
+- scrollUntilVisible:
+    element:
+      id: "settings-notifications-save"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-notifications-save"
+- extendedWaitUntil:
+    visible:
+      id: "past-due-dialog"
+    timeout: 4000
+    optional: true
+- tapOn:
+    id: "past-due-decline"
+    optional: true
+
+# ── The server holds it ──
+- evalScript: "${output.after = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).engine}"
+- assertTrue: "${output.after != null && output.after.maxAtATime == output.maxBefore + 1 && output.after.timing.method == 'per_tier'}"
