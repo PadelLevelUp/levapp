@@ -387,6 +387,7 @@ def test_a_dismissal_or_reopening_out_of_turn_does_nothing():
     assert store.snapshot("A").approval.dismissed is None
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-39")
 def test_engine_plan_runs_one_session():
     """``Engine.plan``: the app's "recompute from the class" plans exactly the session it names."""
     store, engine = _semi(4, 3, [("A", "R")])
