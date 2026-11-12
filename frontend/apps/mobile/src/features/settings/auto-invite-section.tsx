@@ -315,7 +315,6 @@ export function AutoInviteSection() {
             <EngineSettingsSection
               engine={engine}
               pair={pair}
-              disabled={engineOff}
               onChange={(next) => save({ engine: next })}
               onMethodChange={(method) => save({ engine: setTimingMethod(engine, method, groups.length) })}
             />

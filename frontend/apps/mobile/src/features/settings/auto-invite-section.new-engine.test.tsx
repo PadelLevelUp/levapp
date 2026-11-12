@@ -123,6 +123,9 @@ describe("iOS Settings → Auto-Invite Engine on the new engine (notifications.c
     }
     expect(n.byTestId("tier-row-2")).toBeTruthy();
     expect(n.byTestId("tier-row-3")).toBeTruthy();
+    // Every group can be removed, the last one too, as on web.
+    expect(n.byTestId("tier-remove-2")).toBeTruthy();
+    expect(n.byTestId("tier-remove-3")).toBeTruthy();
     expect(sideOf(n, 2)).toBe("same_as_vacancy");
     expect(n.byTestId("tier-side-2-same_as_vacancy")).toBeTruthy();
     await n.press("tier-side-2-different_from_vacancy");

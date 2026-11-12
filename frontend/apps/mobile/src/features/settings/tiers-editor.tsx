@@ -56,6 +56,7 @@ function RuleRow({
   tierIndex,
   ruleIndex,
   rule,
+  isTierSide,
   attributes,
   onChange,
   onRemove,
@@ -64,6 +65,8 @@ function RuleRow({
   tierIndex: number;
   ruleIndex: number;
   rule: GroupRule;
+  /** This is the group's first side rule, whose operation is the tier's side. */
+  isTierSide: boolean;
   attributes: TierAttribute[];
   onChange: (rule: GroupRule) => void;
   onRemove: () => void;
@@ -74,8 +77,8 @@ function RuleRow({
   const attributeOptions: Option[] = attributes.map((a) => ({ value: a.id, label: t(a.labelKey) }));
   const operationOptions: Option[] = (attr?.operations ?? []).map((op) => ({ value: op.id, label: t(op.labelKey) }));
   const valueOptions: Option[] = (attr?.valueOptions ?? []).map((o) => ({ value: o.id, label: t(o.labelKey) }));
-  // The side rule's operation is the tier's side (`tier-side-<tierIndex>`, CONFIG-72); a group holds one.
-  const operationTestID = rule.attribute === "side" ? `tier-side-${tierIndex}` : `tier-operation-${tierIndex}-${ruleIndex}`;
+  // The group's first side rule's operation is the tier's side (`tier-side-<tierIndex>`, CONFIG-72), as on web.
+  const operationTestID = isTierSide ? `tier-side-${tierIndex}` : `tier-operation-${tierIndex}-${ruleIndex}`;
 
   return (
     <View testID={`tier-rule-${tierIndex}-${ruleIndex}`} className="gap-2 rounded-md border border-border bg-background p-2">
@@ -269,18 +272,17 @@ export function TiersEditor({ groups, engine, pair, onChange, disabled }: TiersE
               <Text className="flex-1 text-sm font-medium">{t("settings.invitationGroups.group", { number: index + 1 })}</Text>
               {moveButton(index, index - 1, "up")}
               {moveButton(index, index + 1, "down")}
-              {groups.length > 1 ? (
-                <Pressable
-                  testID={`tier-remove-${tierIndex}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("common.remove")}
-                  disabled={disabled}
-                  hitSlop={6}
-                  onPress={() => onChange(removeGroup(groups, engine, index))}
-                >
-                  <Ionicons name="close" size={18} color={lightTheme.mutedForeground} />
-                </Pressable>
-              ) : null}
+              {/* Every group can go, the last one too (web the same); the two lists cannot. */}
+              <Pressable
+                testID={`tier-remove-${tierIndex}`}
+                accessibilityRole="button"
+                accessibilityLabel={t("common.remove")}
+                disabled={disabled}
+                hitSlop={6}
+                onPress={() => onChange(removeGroup(groups, engine, index))}
+              >
+                <Ionicons name="close" size={18} color={lightTheme.mutedForeground} />
+              </Pressable>
             </View>
             {group.rules.length === 0 ? (
               <Text className="text-xs italic text-muted-foreground">{t("settings.invitationGroups.noRules")}</Text>
@@ -291,6 +293,7 @@ export function TiersEditor({ groups, engine, pair, onChange, disabled }: TiersE
                 tierIndex={tierIndex}
                 ruleIndex={ruleIndex}
                 rule={rule}
+                isTierSide={rule.attribute === "side" && group.rules.findIndex((r) => r.attribute === "side") === ruleIndex}
                 attributes={attributes}
                 disabled={disabled}
                 onChange={(r) => updateGroup(index, { ...group, rules: group.rules.map((x, i) => (i === ruleIndex ? r : x)) })}
