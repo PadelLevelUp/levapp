@@ -157,6 +157,14 @@ class CoachAlert(Effect):
 
 
 @dataclass(frozen=True)
+class AlertCleared(Effect):
+    """An alerted type is covered, gone or has a candidate again (engine-planning rule 11): the store
+    drops its alert, so the alerts it keeps are only live ones."""
+
+    spot_type: SpotType
+
+
+@dataclass(frozen=True)
 class InvitationClosed(Effect):
     """The student's open invitation for this session closed because they were placed in another
     session at the same hour (engine-answers rule 10, D4's one exception). Nothing is sent."""

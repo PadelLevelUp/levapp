@@ -24,6 +24,7 @@ from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE, LOWER_TIER_PER_SPOT, side_quota
 from padel_app.invitation_engine.effects import (
     Absence,
+    AlertCleared,
     ApprovalRequest,
     ApprovalWithdrawn,
     CoachAlert,
@@ -672,11 +673,16 @@ def _offer_across(run: _Run, t: int, student: Student, order: list[tuple[SpotTyp
 def _alerts(run: _Run, types: list[tuple[SpotType, int]], now: datetime) -> tuple[Effect, ...]:
     """Nobody left (engine-planning rule 11, §6 step 4): a type with uncovered spots and no candidate
     in any tier, neither a counting invitation that counts for it nor an uninvited student who fits.
-    One alert per session and type, raised again only when the type's count changes."""
-    out = []
+    One alert per session and type, raised again only when the type's count changes; an alerted type
+    that is gone (covered or no longer open) or has a candidate again is cleared (``AlertCleared``)."""
+    out: list[Effect] = []
+    current = dict(types)
     for spot_type, spots in types:
         if not run.buckets(spot_type) and run.snapshot.alerted.get(spot_type) != spots:
             out.append(CoachAlert(run.snapshot.id, now, ALERT_NO_CANDIDATE, spot_type, spots))
+    for spot_type in run.snapshot.alerted:
+        if spot_type not in current or run.buckets(spot_type):
+            out.append(AlertCleared(run.snapshot.id, now, spot_type))
     return tuple(out)
 
 
