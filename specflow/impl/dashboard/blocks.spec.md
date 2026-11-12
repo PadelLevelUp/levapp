@@ -36,7 +36,7 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   alert (`notifications.engine-planning` rule 11) in the current week's window (as `empty_seats`), soonest
   first. It carries `lessonInstanceId`, the class's title, ISO date and start time, `reason`
   (`no_candidate`, the engine's `ALERT_NO_CANDIDATE` in `notifications/constants.md`), `side` (`left`, `right` or null for either), `level` and `count`, and
-  `href` to the class detail. It is listed while the store holds the alert, which it drops when a run
+  `href` to the class detail (`class_href(event)`, the `empty_seats` item's shape). It is listed while the store holds the alert, which it drops when a run
   finds the type covered, gone or with a candidate (`notifications.engine-planning` rule 11,
   `AlertCleared`). That class's `empty_seats` item is not shown too: the alert says more.
 - **NA2. The card**, web `NeedsYouQueue` and iOS `blocks.tsx`, both from one shared copy helper:
@@ -48,8 +48,9 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
 - **NA3. The alert also reaches the coach as a message.** The store's outbox posts the
   `coach_no_candidate` template (`notifications.message-templates` new-engine section) in the coach's
   Assistant conversation as `message_type` `engine_alert` with `msg_metadata` `{engine: "new",
-  lessonInstanceId, reason, side, levelId, levelLabel, count}` (`notifications.invite-simulation` N2's
-  spot-type shape), and pushes it, once per alert (`notifications.engine-store` rule 2). Both shells show
+  lessonInstanceId, reason, side, levelId, levelLabel, count, href, date}` (`notifications.invite-simulation`
+  N2's spot-type shape; `href` the class's `class_href(event)`, `date` the class's club-local
+  `YYYY-MM-DD`), and pushes it, once per alert (`notifications.engine-store` rule 2). Both shells show
   it as a text bubble with a link to the class.
 - **NA4. No rename.** The wire names `vacancy_invite` and `empty_seats` stay: renaming them breaks older
   builds for no reader's gain, and their copy already says "convite" and "vagas".

@@ -498,6 +498,10 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       "Both" (proposed) instead of an absolute side, on web (`ClassSideChoice`) and iOS
       (`ClassSideSheet`); the join sends `sides: "own"|"other"|"both"`
       (`notifications.engine-settings` rule 4).
+    - **What the student's class payloads carry.** Every student-facing class payload (the calendar event,
+      the academy class, the class detail) carries `engineVersion` (`"old"` | `"new"`, the session's
+      engine by rule 18) and `waitingListSideChoice` (the primary coach's flag, false on `old`), always
+      present, so the clients choose the join and side-choice flows without another call.
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-CONFIG-1: A new coach starts from the reference configuration (rule 17)
@@ -962,6 +966,12 @@ Given a new-engine class whose coach has `waitingListSideChoice` on, on web and 
 When a student joins its waiting list
 Then they are offered "O meu lado", "O outro lado" and "Ambos", the join sends `sides`, and with the setting off the choice is today's
 test: `frontend/packages/config/src/waiting-list-side-choice.test.ts` › `offers own, other or both only when the coach turned it on`
+
+#### NOTIFICATIONS-CONFIG-74: Student class payloads say the session's engine and the side-choice flag (rule 20)
+Given a student reading a new-engine class whose coach has `waitingListSideChoice` on, and an old-engine
+class, through the calendar event, the academy class and the class detail, then each payload carries
+`engineVersion` (`new`, `old`) and `waitingListSideChoice` (true, false).
+test: `backend/padel_app/tests/test_pad918_student_class_payloads.py` › `test_student_class_payloads_say_the_engine_and_the_side_choice`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'

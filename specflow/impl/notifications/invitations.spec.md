@@ -93,7 +93,11 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   - `sorry`: no buttons; "Disseste que sim, mas a vaga já tinha sido ocupada." / "You said yes, but the
     spot had already been taken." (proposed). The engine's sorry arrives as its own message
     (`waiting_list_offer`'s text) with today's waiting-list join (`notifications.waiting-list` rules 1,
-    1a).
+    1a), answered on today's respond-waiting-list route keyed by `lessonInstanceId`: for a new-engine
+    session a yes puts the student on that session's students' list through the store, and the route
+    answers `added_to_waiting_list`, `declined` or `expired`, with `alreadyWaiting: true` when the
+    student is already on the session's other list (`notifications.engine-answers` rule 12's
+    `already_on_list`).
   - `reoffered`: no buttons; "O convite foi reaberto mais abaixo." / "This invitation was reopened
     below." (proposed). The `reoffer` message is a new bubble for the same `invitationId`, with Yes and
     No.
@@ -1698,6 +1702,12 @@ test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_answ
 - **When** the student answers yes into a full session
 - **Then** `invite-state-<id>-sorry` shows on the student's bubble with no `invite-respond-yes-<id>`, and the coach's copy shows the same state
 test: `frontend/apps/web/e2e/notification-engine/new-engine-bubble.spec.ts` › `a yes into a full session shows sorry on both copies`
+
+#### NOTIFICATIONS-INVITATIONS-121: A yes to the sorry's waiting-list offer joins the session's students' list (new-engine section NB2)
+- **Given** a student's sorry message for a new-engine session, and another student's for a session whose coach's list already holds them
+- **When** each answers yes on the respond-waiting-list route
+- **Then** the first is on the session's students' list and the route answers `added_to_waiting_list`; the second answers with `alreadyWaiting: true` and no second entry
+test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_a_yes_to_the_sorrys_offer_joins_the_students_list`
 
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a
