@@ -50,6 +50,7 @@ from padel_app.invitation_engine.settings import EngineSettings
 from padel_app.invitation_engine.store import UnitConflict
 from padel_app.invitation_engine.snapshot import (
     Approval,
+    PendingRequest,
     Elsewhere,
     Invitation,
     Placement,
@@ -152,8 +153,8 @@ def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, 
     return [(pid, lid) for pid, lid in q.populate_existing().all()]
 
 
-def _close_request_message(es, state: str) -> None:
-    """The session's pending request stopped being pending: its Assistant message's metadata says how
+def _close_request_message(message_id: int | None, state: str) -> None:
+    """An approval request stopped being pending: its Assistant message's metadata says how
     (``replaced``, ``approved``, ``dismissed``) with ``responded`` true, and one ``message_edited`` goes
     out after the commit (semi-auto-approval N4, SEMI-AUTO-APPROVAL-43)."""
     from padel_app.models import Message
@@ -161,8 +162,7 @@ def _close_request_message(es, state: str) -> None:
     from padel_app.serializers.message import serialize_message
     from padel_app.services.conversation_access import message_recipient_ids
 
-    msg = db.session.get(Message, es.request_message_id) if es.request_message_id else None
-    es.request_message_id = None
+    msg = db.session.get(Message, message_id) if message_id else None
     if msg is None:
         return
     msg.msg_metadata = {**(msg.msg_metadata or {}), "state": state, "responded": True}
@@ -340,12 +340,12 @@ class TableStore:
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
             alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
             approval=Approval(
-                approved=frozenset(es.approved or ()), removed=frozenset(es.removed or ()),
-                pending=None if es.pending is None else tuple(
-                    (SpotType(*spot), tuple(ids)) for spot, ids in es.pending),
-                pending_request=es.pending_request,
-                dismissed=None if es.dismissed is None else tuple(
-                    (SpotType(*spot), n) for spot, n in es.dismissed)),
+                approved_groups=frozenset(es.approved_groups or ()), removed=frozenset(es.removed or ()),
+                pending=tuple(PendingRequest(p["tier"], p["request"],
+                                             tuple((SpotType(*spot), tuple(ids)) for spot, ids in p["queues"]))
+                              for p in es.pending or ()),
+                dismissed_groups=tuple((tier, tuple((SpotType(*spot), n) for spot, n in spots))
+                                       for tier, spots in es.dismissed_groups or ())),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
@@ -381,14 +381,14 @@ class TableStore:
     @staticmethod
     def attach_request_message(session: str, request_id: str, message_id: int) -> bool:
         """Keep ``message_id`` (the Assistant message the outbox's sender posted for approval request
-        ``request_id``) on the session, so the message follows the request. False, and nothing kept,
-        when that request is no longer the session's pending one."""
+        ``request_id``) on that pending request, so the message follows it. False, and nothing kept,
+        when that request is no longer pending."""
         from padel_app.models import EngineSession
 
         es = db.session.get(EngineSession, int(session))
-        if es is None or es.pending_request != request_id:
+        if es is None or not any(p["request"] == request_id for p in es.pending or ()):
             return False
-        es.request_message_id = int(message_id)
+        es.pending = [{**p, "message_id": int(message_id)} if p["request"] == request_id else p for p in es.pending]
         return True
 
     @staticmethod
@@ -417,26 +417,43 @@ class TableStore:
 
     @staticmethod
     def _approval(es, e: fx.Effect) -> None:
-        """The coach's approval state (owner ruling D2): a request replaces the pending queues and
-        ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
-        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal. A
-        request that stops being pending has its Assistant message say why (semi-auto-approval N4)."""
-        if es.pending_request is not None and not isinstance(e, fx.QueueReopened):
-            ended = {fx.QueueApproved: "approved", fx.QueueDismissed: "dismissed"}.get(type(e), "replaced")
-            if not (isinstance(e, fx.ApprovalRequest) and e.request == es.pending_request):
-                _close_request_message(es, ended)
+        """The coach's approval state per group (engine-store rule 5; owner decisions 5, 10): a request
+        replaces its group's pending one; an approval adds the group to the approved ones, adds to the
+        removed students and ends that group's request; a dismissal ends it and keeps the spot counts it
+        saw; a reopening ends the group's dismissal; a withdrawal ends the request it names; leaving
+        semi-automatic clears the approved groups. A request that stops pending has its Assistant message
+        say why (semi-auto-approval N4)."""
+        pending = list(es.pending or [])
+
+        def end(entry, state):
+            pending.remove(entry)
+            _close_request_message(entry.get("message_id"), state)
+
         if isinstance(e, fx.ApprovalRequest):
-            es.pending, es.pending_request, es.dismissed = _encode(e.queues), e.request or None, None
+            old = next((p for p in pending if p["tier"] == e.tier), None)
+            keep = old is not None and old["request"] == e.request          # the same request raised again
+            if old is not None and not keep:
+                end(old, "replaced")
+            entry = {"tier": e.tier, "request": e.request, "queues": _encode(e.queues),
+                     "message_id": old.get("message_id") if keep else None}
+            pending = [entry if p is old else p for p in pending] if keep else [*pending, entry]
         elif isinstance(e, fx.ApprovalWithdrawn):
-            es.pending = es.pending_request = None
-        elif isinstance(e, fx.QueueApproved):
-            es.approved = _encode(e.approved)
+            for p in [p for p in pending if p["request"] == e.request]:
+                end(p, "replaced")
+        elif isinstance(e, fx.GroupApproved):
+            es.approved_groups = sorted({*(es.approved_groups or ()), e.tier})
             es.removed = sorted(set(es.removed or ()) | e.removed, key=int)
-            es.pending = es.pending_request = None
-        elif isinstance(e, fx.QueueDismissed):
-            es.pending, es.pending_request, es.dismissed = None, None, _encode(e.spots)
-        elif isinstance(e, fx.QueueReopened):
-            es.dismissed = None
+            for p in [p for p in pending if p["tier"] == e.tier]:
+                end(p, "approved")
+        elif isinstance(e, fx.GroupDismissed):
+            for p in [p for p in pending if p["tier"] == e.tier]:
+                end(p, "dismissed")
+            es.dismissed_groups = [*[d for d in es.dismissed_groups or () if d[0] != e.tier], [e.tier, _encode(e.spots)]]
+        elif isinstance(e, fx.GroupReopened):
+            es.dismissed_groups = [d for d in es.dismissed_groups or () if d[0] != e.tier]
+        elif isinstance(e, fx.GroupsCleared):
+            es.approved_groups = []
+        es.pending = pending
 
     @staticmethod
     def _level(ladder: Mapping[int, int], level_id: int | None) -> int | None:
@@ -665,8 +682,8 @@ class TableStore:
         from padel_app.services.presence_response import record_response
 
         iid = int(e.session)
-        if isinstance(e, (fx.ApprovalRequest, fx.ApprovalWithdrawn, fx.QueueApproved, fx.QueueDismissed,
-                          fx.QueueReopened)):
+        if isinstance(e, (fx.ApprovalRequest, fx.ApprovalWithdrawn, fx.GroupApproved, fx.GroupDismissed,
+                          fx.GroupReopened, fx.GroupsCleared)):
             self._approval(db.session.get(EngineSession, iid), e)
         elif isinstance(e, fx.AlertCleared):                       # engine-planning rule 11 (PLANNING-40)
             es = db.session.get(EngineSession, iid)
