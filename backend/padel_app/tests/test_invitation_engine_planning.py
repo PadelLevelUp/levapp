@@ -349,6 +349,7 @@ def test_a_dismissal_survives_a_switch_to_automatic():
     assert _invited(changed) == ["A", "LA"] and not _requests(changed)       # sends as an automatic session
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-36")
 def test_switching_to_automatic_empties_the_approved_queue():
     """engine-planning rule 14: switching back to semi-automatic holds the next send outside the
     (empty) approved queue, so a student approved before the switch is asked for again."""
@@ -365,9 +366,22 @@ def test_switching_to_automatic_empties_the_approved_queue():
     assert _invited(effects) == [] and _requests(effects)                     # B was approved before: asked again
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-37")
 def test_quiet_hours_keep_a_pending_request():
     """engine-planning rule 14: quiet hours pause the sends, so the pending request is not withdrawn."""
     store, engine = _semi(4, 3, [("A", "R")])
     assert _requests(engine.tick(T0))
     assert engine.tick(datetime(2026, 11, 2, 3, 0)) == []                     # 03:00 Lisbon, quiet
     assert store.snapshot("A").approval.pending is not None
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-38")
+def test_a_dismissal_or_reopening_out_of_turn_does_nothing():
+    """engine-planning rule 14: a DismissQueue with no pending request and a ReopenQueue on a session
+    that is not dismissed record nothing, so an approved queue keeps sending."""
+    store, engine = _semi(4, 3, [("A", "R")])
+    assert engine.handle("A", ReopenQueue(), T0) == []                        # not dismissed: no QueueReopened
+    [request] = _requests(engine.tick(T0))
+    engine.handle("A", ApproveQueue(request.request), T0 + timedelta(minutes=1))
+    assert engine.handle("A", DismissQueue(), T0 + timedelta(minutes=2)) == []   # nothing pending
+    assert store.snapshot("A").approval.dismissed is None
