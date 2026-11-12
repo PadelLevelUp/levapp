@@ -169,3 +169,64 @@ def test_the_tick_materialises_a_switched_coachs_recurring_occurrences(app, live
     assert made.start_datetime == first and engine_for(made) == "new"
     live_scheduler.schedule_lesson_reminder_jobs(lesson.id, coach_id, now=starts - timedelta(days=2))
     assert [j.id for j in live_scheduler._scheduler.get_jobs() if j.id.startswith(f"invite_start_lesson_{lesson.id}_")] == []
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-77")
+def test_a_coach_is_drained_when_no_future_occurrence_is_old_engine(app, pinned, monkeypatch):
+    """A switched coach with one future occurrence still on the old engine and an open old vacancy:
+    ``flask engine drain-state`` reports engine ``new``, one old-engine session left and its start; once
+    that occurrence has started and its vacancy closed, none is left (drained). Nothing is stored."""
+    from padel_app.services import engine_switch
+    from padel_app.services.engine_switch import drain_state, switch_coach
+    from padel_app.services.notification_service import process_invitation_batches
+    from padel_app.tests.test_pad916_engine_store import START
+
+    store, coach_id, opened, not_opened = _classes(app)
+    switch_coach(coach_id, now=NOW)
+    _vacancy(opened, coach_id, approval_status="not_required")
+    run = lambda: app.test_cli_runner().invoke(args=["engine", "drain-state", str(coach_id)])  # noqa: E731
+
+    monkeypatch.setattr(engine_switch, "utcnow_naive", lambda: NOW)
+    out = run().output
+    assert f"coach #{coach_id}: engine new; 1 old-engine sessions left, the last at {START.isoformat()}" in out
+    assert "not drained" in out
+    assert drain_state(coach_id, now=NOW)["oldSessions"] == [int(opened)]
+
+    after = NOW + timedelta(hours=3)                           # START has begun
+    process_invitation_batches(now=after)                      # its vacancy expires, as today
+    monkeypatch.setattr(engine_switch, "utcnow_naive", lambda: after)
+    state = drain_state(coach_id, now=after)
+    assert (state["oldSessions"], state["openVacancies"], state["drained"]) == ([], 0, True)
+    assert run().output.rstrip().endswith("; drained")
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-79")
+def test_at_drain_the_coachs_old_jobs_are_removed(app, live_scheduler, pinned):
+    """A switched coach whose last old-engine occurrence has just started: the cutover pass (in the
+    engine's tick) removes every old-engine job of that coach. Before drain it removes none."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.engine_switch import cutover_pass, switch_coach
+    from padel_app.services.notification_service import process_invitation_batches
+
+    store, coach_id, opened, not_opened = _classes(app)
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+    config.reminder_type, config.reminder_value = "hours_before", 1
+    db.session.commit()
+    switch_coach(coach_id, now=NOW)
+    draining = _vacancy(opened, coach_id, approval_status="not_required")
+    live_scheduler._reschedule_for_coach(coach_id)
+    live_scheduler._scheduler.add_job(func=print, id=live_scheduler.decline_next_job_id(draining.id, 1),
+                                      trigger="date", run_date=LATER)
+    live_scheduler._scheduler.add_job(func=print, id=f"ask_{opened}_7_123", trigger="date", run_date=LATER)
+    held = _jobs(live_scheduler, opened)
+    assert {f"reminder_{opened}", f"decline_next_{draining.id}_1", f"ask_{opened}_7_123"} <= set(held)
+
+    assert cutover_pass(now=NOW) == {}                          # not drained: the draining class keeps them
+    assert _jobs(live_scheduler, opened) == held
+
+    after = NOW + timedelta(hours=3)
+    process_invitation_batches(now=after)                       # it started; its vacancy expires
+    removed = cutover_pass(now=after)
+    assert set(removed[coach_id]) >= set(held)
+    assert _jobs(live_scheduler, opened) == [] and _jobs(live_scheduler, not_opened) == []
+    assert cutover_pass(now=after) == {}                        # idempotent

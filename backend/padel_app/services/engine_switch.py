@@ -275,3 +275,90 @@ def switch_coach(coach_id: int, *, now: datetime | None = None) -> list[str]:
     adopted = _adopt_each([inst for inst in existing if _due_at_switch(inst, config)], coach_id, now)
     # One created at the switch instant itself counts as created after it (CONFIG-63): adopt it now.
     return adopted + adopt_due(now=now, coach_ids=[coach_id])
+
+
+# --- the cutover (PAD-921): drain state, and the old jobs removed at drain -----------------------------
+
+def drain_state(coach_id: int, *, now: datetime | None = None) -> dict:
+    """How far the coach has drained (rule 18, CONFIG-77), computed, never stored: their engine, the
+    not-started, non-cancelled occurrences still on the old engine (no row, the coach their primary
+    coach), the last one's start, their open old vacancies, and whether they are drained (on ``new``,
+    with none of either left)."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.vacancy import Vacancy
+
+    now = now or utcnow_naive()
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    engine = getattr(config, "engine_version", None) or "old"
+    old = _future_occurrences(coach_id, now)
+    open_vacancies = Vacancy.query.filter(Vacancy.coach_id == coach_id, Vacancy.status == "open").count()
+    return {
+        "coachId": coach_id,
+        "engine": engine,
+        "switchedAt": config.engine_switched_at if config is not None else None,
+        "oldSessions": [inst.id for inst in old],
+        "lastStart": old[-1].start_datetime if old else None,
+        "openVacancies": open_vacancies,
+        "drained": engine == "new" and not old and not open_vacancies,
+    }
+
+
+def _coach_old_keys(coach_id: int) -> tuple[set[int], set[int], set[int]]:
+    """The coach's occurrences and lessons (the coach their primary coach: a co-coached class whose
+    primary coach is someone else keeps its jobs) and the coach's vacancies, by id."""
+    from padel_app.models import Lesson
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.vacancy import Vacancy
+    from padel_app.scheduler import _lesson_primary_coach_id
+    from padel_app.services.lesson_service import primary_coach
+
+    lesson_ids = {lid for (lid,) in db.session.query(Association_CoachLesson.lesson_id)
+                  .filter(Association_CoachLesson.coach_id == coach_id).all()
+                  if _lesson_primary_coach_id(lid) == coach_id}
+    own = db.session.query(Association_CoachLessonInstance.lesson_instance_id).filter(
+        Association_CoachLessonInstance.coach_id == coach_id)
+    instances = LessonInstance.query.filter(LessonInstance.id.in_(own) | LessonInstance.lesson_id.in_(
+        db.session.query(Lesson.id).filter(Lesson.id.in_(lesson_ids or [-1])))).all()
+    instance_ids = {inst.id for inst in instances if getattr(primary_coach(inst), "id", None) == coach_id}
+    vacancy_ids = {vid for (vid,) in db.session.query(Vacancy.id).filter(Vacancy.coach_id == coach_id).all()}
+    return instance_ids, lesson_ids, vacancy_ids
+
+
+def remove_old_jobs(coach_id: int) -> list[str]:
+    """Remove every old-engine job of the coach (rule 18, CONFIG-79): the jobs keyed on their
+    occurrences, their lessons' dates and their vacancies. Returns the removed job ids."""
+    from padel_app import scheduler
+
+    instance_ids, lesson_ids, vacancy_ids = _coach_old_keys(coach_id)
+    removed = []
+    for job in scheduler.old_engine_jobs(instance_ids=instance_ids, lesson_ids=lesson_ids, vacancy_ids=vacancy_ids):
+        try:
+            scheduler._scheduler.remove_job(job.id)
+            removed.append(job.id)
+        except Exception:  # noqa: BLE001 — gone meanwhile
+            pass
+    return removed
+
+
+def cutover_pass(*, now: datetime | None = None) -> dict[int, list[str]]:
+    """Each switched coach who is drained has their remaining old-engine jobs removed (rule 18,
+    CONFIG-79). Idempotent: a drained coach whose old jobs are gone removes nothing. The engine's tick
+    runs it after ``adopt_due``. Returns the removed job ids per coach."""
+    from padel_app.models.notification_config import NotificationConfig
+
+    now = now or utcnow_naive()
+    out = {}
+    for config in NotificationConfig.query.filter(NotificationConfig.engine_version == "new").all():
+        try:
+            if drain_state(config.coach_id, now=now)["drained"]:
+                removed = remove_old_jobs(config.coach_id)
+                if removed:
+                    log.info("engine_switch: coach %s drained; removed %d old jobs", config.coach_id, len(removed))
+                    out[config.coach_id] = removed
+        except Exception:
+            db.session.rollback()
+            log.exception("engine_switch: the cutover pass failed for coach %s", config.coach_id)
+    return out
+
