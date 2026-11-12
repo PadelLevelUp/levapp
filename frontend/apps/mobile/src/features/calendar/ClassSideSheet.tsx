@@ -60,6 +60,16 @@ function sideOfRelative(choice: WaitingListSides, profileSide: PlayerSide | null
   return profileSide === "left" ? "right" : "left";
 }
 
+/**
+ * The relative choice that stands for an absolute side the student asked for (rule 20 as the side_full
+ * offer reopens it): their own side, the other one, or both; null when it cannot be said (no profile side).
+ */
+function relativeOfSide(side: PlayerSide, profileSide: PlayerSide | null | undefined): WaitingListSides | null {
+  if (side === "both") return "both";
+  if (profileSide !== "left" && profileSide !== "right") return null;
+  return side === profileSide ? "own" : "other";
+}
+
 // The waiting-list theme (the owner's PAD-673 mock): the app's warning token, a soft amber fill.
 const WAITING_FILL = "#FDF1E1";
 
@@ -83,18 +93,22 @@ export function ClassSideSheet({
   // PAD-920 (notifications.config rule 20): the relative waiting-list choice, kept apart from the
   // absolute side (both vocabularies have a "both").
   const [relative, setRelative] = React.useState<WaitingListSides | null>(null);
+  // A request refused `side_full` whose student chose the waiting list, on a class with the side
+  // choice on: the sheet becomes the waiting-list join, asking own/other/both again.
+  const [waitingFromFull, setWaitingFromFull] = React.useState(false);
 
   // Each opening starts from the profile side again.
   React.useEffect(() => {
     if (open) {
       setChosen(preselectedSide(profileSide));
       setRelative(null);
+      setWaitingFromFull(false);
       setFull(null);
       setBusy(false);
     }
   }, [open, profileSide]);
 
-  const waiting = mode === "waiting";
+  const waiting = mode === "waiting" || waitingFromFull;
   // PAD-920 (notifications.config rule 20): a new-engine class whose coach turned the side choice on
   // asks a waiting-list join "my side / the other side / both"; otherwise the sheet is today's.
   const relativeOptions = waiting ? waitingListSideChoice(event) : null;
@@ -242,7 +256,15 @@ export function ClassSideSheet({
               {button(
                 "class-side-stay-waiting",
                 t("calendar.sidePick.stayWaiting", { requested: word(full.requestedSide) }),
-                () => void joinList(full.requestedSide),
+                // Rule 20 (S's follow-up on NJ1): with the side choice on, staying reopens own/other/both,
+                // preselected to the side asked for, never an absolute-side join.
+                waitingListSideChoice(event)
+                  ? () => {
+                      setRelative(relativeOfSide(full.requestedSide, profileSide));
+                      setWaitingFromFull(true);
+                      setFull(null);
+                    }
+                  : () => void joinList(full.requestedSide),
                 "outline",
                 busy
               )}

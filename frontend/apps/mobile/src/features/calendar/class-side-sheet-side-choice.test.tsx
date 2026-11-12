@@ -11,8 +11,9 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 
 const joinClassWaitingList = vi.hoisted(() => vi.fn());
+const createClassJoinRequest = vi.hoisted(() => vi.fn());
 vi.mock("@levelup/api/src/resources/academyClasses", () => ({ joinClassWaitingList }));
-vi.mock("@levelup/api/src/resources/classJoinRequests", () => ({ createClassJoinRequest: vi.fn() }));
+vi.mock("@levelup/api/src/resources/classJoinRequests", () => ({ createClassJoinRequest }));
 
 import { ClassSideSheet } from "./ClassSideSheet";
 
@@ -70,5 +71,24 @@ describe("ClassSideSheet: the students' own/other/both choice", () => {
     await today.press("class-side-send");
     await today.flush();
     expect(joinClassWaitingList).toHaveBeenCalledWith(base, "left");
+  });
+
+  it("[NOTIFICATIONS-CONFIG-73] after side_full, staying on the waiting list asks own, other or both again", async () => {
+    // A left-side student asks for the right; the right is full. With the coach's side choice on,
+    // "stay waiting" reopens the relative choice, preselected to the side asked for ("other").
+    createClassJoinRequest.mockReset().mockRejectedValue({
+      response: { status: 409, data: { code: "side_full", requestedSide: "right", sides: ["left"] } },
+    });
+    const event = { ...base, engineVersion: "new" as const, waitingListSideChoice: true };
+    const n = await renderNative(<ClassSideSheet open onClose={() => {}} mode="request" event={event} profileSide="left" />);
+    await n.press("class-side-right");
+    await n.press("class-side-send");
+    await n.flush();
+    await n.press("class-side-stay-waiting");
+    for (const id of RELATIVE) expect(n.queryByTestId(id)).not.toBeNull();
+    expect(n.byTestId("class-side-send").props.disabled).toBe(false);
+    await n.press("class-side-send");
+    await n.flush();
+    expect(joinClassWaitingList).toHaveBeenCalledWith(expect.objectContaining({ originalId: 5 }), undefined, "other");
   });
 });
