@@ -222,6 +222,9 @@ def get_config_dict(coach_id: int) -> dict:
         "eligibilityRules": config.get_eligibility_rules(),
         # PAD-130: the coach standard of the open-spot toggle (rule 3).
         "openSpotsVisible": bool(config.open_spots_visible),
+        # PAD-917 (rules 18, 20): the coach's engine and the new engine's own settings.
+        "engineVersion": config.engine_version or "old",
+        "engine": config.get_engine_settings(),
     }
 
 
@@ -310,9 +313,77 @@ def _record_config_changes(config: NotificationConfig, before: dict, at: datetim
             ))
 
 
+#: notifications.config rule 20: the side rule a coach on the old engine may not store (that engine
+#: would read it as unknown and let everyone through).
+OTHER_SIDE_OPERATION = "different_from_vacancy"
+ENGINE_TIMING_METHODS = ("fixed", "progressive", "per_tier")
+
+
+def _validate_engine_settings(engine, config: NotificationConfig, groups) -> None:
+    """Rule 20 (CONFIG-70): refuse an invalid ``engine`` object with a 400 naming the key, before
+    anything is written. ``groups`` are the invitation groups the save leaves the coach with."""
+    from flask import abort
+
+    from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
+
+    if not isinstance(engine, dict):
+        abort(400, "engine must be an object")
+    floor = int(ENGINE_T_FLOOR.total_seconds() // 60)
+
+    def minutes(key, value):
+        if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < floor):
+            abort(400, f"engine.{key} must be a whole number of minutes, at least {floor}")
+
+    if "maxAtATime" in engine:
+        m = engine["maxAtATime"]
+        if m is not None and (not isinstance(m, int) or isinstance(m, bool) or m < 1):
+            abort(400, "engine.maxAtATime must be at least 1")
+    timing = engine.get("timing") or {}
+    if not isinstance(timing, dict):
+        abort(400, "engine.timing must be an object")
+    method = timing.get("method", config.timing_method or "fixed")
+    if method not in ENGINE_TIMING_METHODS:
+        abort(400, f"engine.timing.method must be one of {', '.join(ENGINE_TIMING_METHODS)}")
+    for key in ("betweenRoundsMinutes", "betweenGroupsMinutes"):
+        if key in timing:
+            minutes(f"timing.{key}", timing[key])
+    per_tier = timing["perTier"] if "perTier" in timing else (config.per_tier_timing or [])
+    if per_tier is None:
+        per_tier = []
+    if not isinstance(per_tier, list):
+        abort(400, "engine.timing.perTier must be a list")
+    if per_tier and method != "per_tier":
+        abort(400, "engine.timing.perTier is only for method per_tier")
+    if len(per_tier) > 2 + len(groups):
+        abort(400, "engine.timing.perTier has more entries than there are tiers")
+    for i, pair in enumerate(per_tier):
+        if pair is None:
+            continue
+        if not isinstance(pair, dict):
+            abort(400, f"engine.timing.perTier[{i}] must be an object or null")
+        for key in ("betweenRoundsMinutes", "betweenGroupsMinutes"):
+            minutes(f"timing.perTier[{i}].{key}", pair.get(key))
+
+
+def _other_side_group(groups) -> bool:
+    return any(isinstance(rule, dict) and rule.get("attribute") == "side"
+               and rule.get("operation") == OTHER_SIDE_OPERATION
+               for group in groups or [] if isinstance(group, dict)
+               for rule in group.get("rules") or [])
+
+
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
     _forget_config(coach_id)
+
+    # PAD-917 (rule 20): checked before anything is written, so a refused save stores nothing.
+    groups_after = data["invitationGroups"] if "invitationGroups" in data else config.get_invitation_groups()
+    if "invitationGroups" in data and (config.engine_version or "old") != "new" and _other_side_group(groups_after):
+        from flask import abort
+        abort(400, f"invitationGroups: {OTHER_SIDE_OPERATION} is for a coach on the new engine")
+    if "engine" in data:
+        _validate_engine_settings(data["engine"], config, groups_after or [])
+        config.set_engine_settings(data["engine"])
 
     timing_changed = False
     invitation_start_before = config.get_invitation_start_timing()
@@ -4300,12 +4371,22 @@ def cancel_attendance(
     return {"action": "declined", "proactive": is_proactive}
 
 
+def _on_new_engine(instance: LessonInstance) -> bool:
+    """PAD-917 (notifications.config rule 18): the session has an ``engine_sessions`` row, so the new
+    engine runs it and this engine opens no vacancy for it and starts nothing."""
+    from padel_app.services.engine_switch import engine_for
+
+    return engine_for(instance) == "new"
+
+
 def _trigger_vacancy_for_player(
     instance: LessonInstance,
     coach_id: int,
     player_id: int,
 ) -> None:
     """Create a vacancy for a player who declined and immediately trigger invitations."""
+    if _on_new_engine(instance):
+        return
     # Avoid duplicate vacancies for the same departing player
     existing = Vacancy.query.filter_by(
         lesson_instance_id=instance.id,
@@ -4325,7 +4406,9 @@ def _ensure_vacancy_for_player(
     """Create a vacancy for an absent player without triggering invitations.
     Used when the invitation window hasn't opened yet — the invite_start scheduler
     job will call trigger_invitations when the window opens.
-    Returns the existing or newly created vacancy."""
+    Returns the existing or newly created vacancy, or None for a new-engine session (PAD-917)."""
+    if _on_new_engine(instance):
+        return None
     existing = Vacancy.query.filter_by(
         lesson_instance_id=instance.id,
         original_player_id=player_id,
@@ -4764,6 +4847,8 @@ def _find_or_create_open_vacancies(instance: LessonInstance, coach_id: int) -> l
     vacancy at all, so a student marked absent while another spot was still being filled got none;
     rule 16's hold made that window long. Capacity still bounds the result (PAD-271, rule 13).
     """
+    if _on_new_engine(instance):                 # PAD-917: the new engine's session has no vacancies
+        return []
     any_open = (
         Vacancy.query.filter_by(lesson_instance_id=instance.id, status="open").first() is not None
     )
@@ -4912,6 +4997,9 @@ def trigger_invitations(
         return []
     # PAD-68: never open/refresh vacancies for a class that already happened.
     if _instance_is_over(instance, now):
+        return []
+    # PAD-917 (notifications.config rule 18): a session on the new engine is never started here.
+    if _on_new_engine(instance):
         return []
 
     semi_auto = _is_semi_auto(config)
@@ -5180,7 +5268,7 @@ def vacancies_after_class_edit(instance: LessonInstance, *, place_freed: bool,
       is created here: the class's ``invite_start`` job opens the place when the window does.
     """
     reconcile_vacancies(instance)
-    if not place_freed or _instance_is_over(instance, now):
+    if not place_freed or _instance_is_over(instance, now) or _on_new_engine(instance):
         return
     from padel_app.scheduler import _compute_invite_start_dt
     from padel_app.services.lesson_service import primary_coach

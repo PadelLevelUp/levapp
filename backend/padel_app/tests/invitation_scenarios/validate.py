@@ -59,7 +59,7 @@ SETTINGS_KEYS = {
 
 STATES = {"uninvited", "invited", "accepted", "declined", "placed", "on_waiting_list"}
 HOW = {"invitation", "direct", "auto_from_waiting_list", "regular_returns"}
-MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "reoffer", "side_moved"}
+MESSAGE_KINDS = {"aviso", "sorry", "added", "waiting_list_offer", "side_moved"}
 ABSENCE_KINDS = {"justified", "unjustified", "none"}
 SIDES = {"L", "R"}
 STUDENT_SIDES = {"L", "R", "both"}

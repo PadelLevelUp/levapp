@@ -7,19 +7,32 @@ happened is recorded; no rule is evaluated here.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Iterable, Mapping, Protocol
+from typing import ContextManager, Iterable, Mapping, Protocol
 
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
+    Approval,
+    Elsewhere,
+    PendingRequest,
     Invitation,
     Placement,
     SessionSnapshot,
     Side,
     Student,
     WaitingListEntry,
+    overlaps,
+    session_end,
 )
+
+
+class UnitConflict(Exception):
+    """A store refused a unit's writes because the state moved under it, for instance a placement at
+    an hour the student was placed at elsewhere since the snapshot (engine-answers rule 10). The
+    store has rolled the unit back; the engine drops that unit's effects and the next run re-plans
+    on fresh state."""
 
 
 class SessionStore(Protocol):
@@ -27,10 +40,16 @@ class SessionStore(Protocol):
     def snapshot(self, session: str) -> SessionSnapshot: ...
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
-                    joined_at: Mapping[str, datetime] | None = None) -> None: ...
+                    joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None) -> None: ...
     def reveal(self, student: str) -> None: ...
     def exclude(self, session: str, student: str) -> None: ...
     def apply(self, effects: Iterable[fx.Effect]) -> None: ...
+    def unit(self, sessions: tuple[str, ...], students: tuple[str, ...] = ()) -> ContextManager[None]:
+        """One unit of work on ``sessions``: a table store locks ``students`` first, then the
+        sessions, and commits on exit (rolls back on an exception, ``UnitConflict`` included). The
+        engine passes one session at a time, so no call holds two sessions' locks; a student's
+        request names the student, so two requests by one student never run at once."""
+        ...
 
 
 @dataclass
@@ -51,6 +70,9 @@ class _Session:
     joined_at: dict[str, datetime] = field(default_factory=dict)
     last_moved_at: dict[str, datetime] = field(default_factory=dict)
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
+    approval: Approval = field(default_factory=Approval)
+    end: datetime | None = None
+    coach: str | None = None
 
 
 class MemoryStore:
@@ -70,13 +92,20 @@ class MemoryStore:
     def reveal(self, student: str) -> None:
         self._hidden.discard(student)
 
+    def unit(self, sessions: tuple[str, ...], students: tuple[str, ...] = ()) -> ContextManager[None]:
+        return nullcontext()
+
     def exclude(self, session: str, student: str) -> None:
         """A gate the store decides alone (engine-tiers rule 3): the student leaves the pool."""
         self._sessions[session].excluded.add(student)
 
     def add_session(self, session: str, level: int | None, capacity: int, start: datetime,
                     regulars: Iterable[tuple[Student, Side | None]], at: datetime,
-                    joined_at: Mapping[str, datetime] | None = None) -> None:
+                    joined_at: Mapping[str, datetime] | None = None, end: datetime | None = None,
+                    coach: str | None = None) -> None:
+        """``end`` defaults to an hour after ``start``; ``coach`` names the session's coach, ``None`` for
+        the harness's one coach: the same coach's overlapping sessions, and any coach's at the same
+        start, make a student busy (tiers rule 3)."""
         if session in self._sessions:
             raise ValueError(f"session {session} already exists")
         regs: dict[str, Student] = {}
@@ -86,7 +115,8 @@ class MemoryStore:
             regs[student.id] = student
             going[student.id] = Placement(student.id, side, "regular", at)
         joined = {sid: (joined_at or {}).get(sid, at) for sid in regs}
-        self._sessions[session] = _Session(session, level, capacity, start, regs, going, joined_at=joined)
+        self._sessions[session] = _Session(session, level, capacity, start, regs, going, joined_at=joined,
+                                           end=session_end(start, end), coach=coach)
 
     # --- reading -------------------------------------------------------------------------
 
@@ -103,17 +133,19 @@ class MemoryStore:
                      if sid not in inside and sid not in self._hidden and sid not in s.excluded)
         named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
         others = [o for o in self._sessions.values() if o.id != s.id]
-        busy = {sid for o in others if o.start == s.start for sid in o.going}
-        postponed = {i.student for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open}
+        busy = {sid for o in others if (overlaps(o.start, o.end, s.start, s.end) if o.coach == s.coach
+                                        else o.start == s.start) for sid in o.going}
+        elsewhere = tuple(Elsewhere(o.id, o.start, i, o.capacity, tuple(o.going.values()), o.end, o.coach == s.coach)
+                          for o in others if o.start.date() == s.start.date() for i in o.invitations if i.open)
         return SessionSnapshot(
             id=s.id, level=s.level, capacity=s.capacity, start=s.start,
             regulars=tuple(s.regulars.values()), going=tuple(s.going.values()),
             invitations=tuple(s.invitations), waiting_list=tuple(s.waiting_list), pool=pool,
             absent=frozenset(s.absent), said_no=frozenset(s.said_no), confirmed=frozenset(s.confirmed),
-            busy_same_time=frozenset(busy), postponed=frozenset(postponed - busy), alerted=dict(s.alerted),
+            busy_same_time=frozenset(busy), elsewhere=elsewhere, alerted=dict(s.alerted),
             students={sid: self._students[sid] for sid in named if sid in self._students},
             joined_at=dict(s.joined_at), last_moved_at=dict(s.last_moved_at),
-            attendance_requested=dict(s.attendance_requested),
+            attendance_requested=dict(s.attendance_requested), approval=s.approval, end=s.end,
         )
 
     # --- writing -------------------------------------------------------------------------
@@ -127,20 +159,43 @@ class MemoryStore:
         for e in effects:
             self.history.append(e)
             s = self._sessions[e.session]
-            if isinstance(e, fx.CoachAlert):
-                if e.spot_type is not None:                    # one alert per session and type (rule 11)
-                    s.alerted[e.spot_type] = e.spots
+            if isinstance(e, fx.CoachAlert):                   # one alert per session and type (rule 11)
+                s.alerted[e.spot_type] = e.spots
                 continue
-            if isinstance(e, fx.Invited):
+            if isinstance(e, fx.AlertCleared):
+                s.alerted.pop(e.spot_type, None)
+                continue
+            a = s.approval                                       # semi-automatic mode (planning rule 14)
+            if isinstance(e, fx.ApprovalRequest):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.tier != e.tier)
+                                     + (PendingRequest(e.tier, e.request, e.queues),))
+            elif isinstance(e, fx.ApprovalWithdrawn):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.request != e.request))
+            elif isinstance(e, fx.GroupApproved):
+                s.approval = replace(a, approved_groups=a.approved_groups | {e.tier}, removed=a.removed | e.removed,
+                                     pending=tuple(p for p in a.pending if p.tier != e.tier))
+            elif isinstance(e, fx.GroupDismissed):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.tier != e.tier),
+                                     dismissed_groups=tuple(d for d in a.dismissed_groups if d[0] != e.tier)
+                                     + ((e.tier, e.spots),))
+            elif isinstance(e, fx.GroupReopened):
+                s.approval = replace(a, dismissed_groups=tuple(d for d in a.dismissed_groups if d[0] != e.tier))
+            elif isinstance(e, fx.GroupsCleared):
+                s.approval = replace(a, approved_groups=frozenset())
+            elif isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))
-            elif isinstance(e, (fx.Sorry, fx.Reoffered)):
+            elif isinstance(e, (fx.Sorry, fx.Reopened)):
                 i = self._latest_open(s, e.student)
                 if i is not None and isinstance(e, fx.Sorry):
                     s.invitations[i] = replace(s.invitations[i], sorry_at=e.at)
                 elif i is not None:
                     s.invitations[i] = replace(s.invitations[i], offer=e.offer, side_named=e.side_named,
                                                tier=e.tier, counts_until=e.counts_until, sorry_at=None)
+            elif isinstance(e, fx.InvitationClosed):
+                i = self._latest_open(s, e.student)
+                if i is not None:
+                    s.invitations[i] = replace(s.invitations[i], closed_at=e.at)
             elif isinstance(e, fx.Answered) and e.on == "invitation":
                 for i in range(len(s.invitations) - 1, -1, -1):
                     if s.invitations[i].student == e.student and s.invitations[i].open:

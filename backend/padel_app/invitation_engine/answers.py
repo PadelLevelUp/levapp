@@ -15,8 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from padel_app.invitation_engine import absences, planner, timeline
-from padel_app.invitation_engine.constants import KIND_REOFFER, KIND_SORRY
+from padel_app.invitation_engine import absences, planner
+from padel_app.invitation_engine.constants import KIND_SORRY
 from padel_app.invitation_engine.effects import (
     Absence,
     Answered,
@@ -26,7 +26,6 @@ from padel_app.invitation_engine.effects import (
     Message,
     Placed,
     Refused,
-    Reoffered,
     Sorry,
     WaitingListJoined,
     WaitingListLeft,
@@ -66,7 +65,12 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
         # The class has happened: the absence is recorded and the roster stays as it was (P16, 60, 71).
         return Outcome(absences.record(snapshot, settings, request.student, "no_show", now))
     if now >= wall_to_utc_naive(snapshot.start):          # the class has started (invitations rule 20)
+        if isinstance(request, (DirectJoin, JoinWaitingList)) and (
+                not isinstance(request, DirectJoin) or settings.direct_join):
+            action = "direct_join" if isinstance(request, DirectJoin) else "waiting_list"
+            return Outcome((Refused(snapshot.id, now, request.student, action, "class_closed"),))
         return Outcome()
+    snapshot = planner.with_postponed(snapshot, now)
     if isinstance(request, Answer):
         return Outcome(_answer(snapshot, settings, request, now))
     if isinstance(request, RegularAbsent):
@@ -121,49 +125,15 @@ def _answer(snapshot: SessionSnapshot, settings: EngineSettings, request: Answer
         return ()                                          # rule 8: refused, nothing placed, nothing sent
     if not request.yes:
         return (Answered(snapshot.id, now, sid, "no", "invitation"),)   # rule 5: final for the session
+    if sid in snapshot.busy_same_time:
+        return ()                                          # rule 10: already placed at this hour, refused
     if invitation.sorry_at is not None:
-        return ()                                          # rule 4: no spot with it until a re-offer
+        return ()                                          # rule 4: sorry offers nothing more
     side = _place_side(snapshot, settings, sid, invitation.offer, invitation.side_named, now)
     if side is not None:
         return _placed(snapshot, sid, side, "invitation", now, answered=True)
-    return _reoffer(snapshot, settings, sid, invitation.offer, now) or (
-        Sorry(snapshot.id, now, sid), Message(snapshot.id, now, sid, KIND_SORRY))   # rule 4
-
-
-def _reoffer(snapshot: SessionSnapshot, settings: EngineSettings, sid: str, tried: frozenset[SpotType],
-             now: datetime) -> tuple[Effect, ...]:
-    """Rule 3: the Yes could not be placed within the offer, but an open spot of another side
-    remains that some tier admits the student for: the same invitation is re-offered for it (the
-    hardest such side by rule 2's measure), with a new T fixed now. Not a final answer; one
-    invitation still (D1). Empty when no such spot exists."""
-    student = snapshot.students.get(sid)
-    if student is None:
-        return ()
-    counts = planner.spot_counts(snapshot)
-    tried_sides = {t.side for t in tried}
-    fits: dict[Side, int] = {}
-    for v in sorted(open_sides(snapshot) - tried_sides):
-        t = planner.tier_for(student, SpotType(v, snapshot.level), counts, snapshot, settings)
-        if t is not None:
-            fits[v] = t
-    if not fits:
-        return ()
-    side = _hardest(snapshot, settings, sid, frozenset(fits), now)
-    tier = fits[side]
-    spot_type = SpotType(side, snapshot.level)
-    run = _run(snapshot, settings, now)
-    run.used.add(sid)
-    buckets = run.buckets(spot_type)
-    others_left = bool(buckets.get(tier) and buckets[tier].fresh)
-    share = None
-    if settings.timing.method == "progressive":
-        taking_part = planner._method_b_tiers(run, spot_type, sorted(set(buckets) | {tier}))
-        share = timeline.method_b_t(snapshot, settings, now, len(taking_part), taking_part.index(tier))
-    t_send = timeline.t_at_send(settings, tier, others_left, share)
-    offer = frozenset({side})
-    return (Reoffered(snapshot.id, now, sid, frozenset({spot_type}), planner.side_named(offer, student), tier,
-                      timeline.counts_until(settings, now, t_send)),
-            Message(snapshot.id, now, sid, KIND_REOFFER))
+    # Rules 3 and 4: never another side or type on this answer; sorry, and the waiting list is the way back.
+    return (Sorry(snapshot.id, now, sid), Message(snapshot.id, now, sid, KIND_SORRY))
 
 
 def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime, *,
@@ -172,16 +142,23 @@ def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime,
     out: list[Effect] = [Answered(snapshot.id, now, sid, "yes", "invitation")] if answered else []
     out.append(Placed(snapshot.id, now, sid, side, how))
     out += [WaitingListLeft(snapshot.id, now, sid, w.list) for w in snapshot.waiting_list if w.student == sid]
+    out += planner.close_same_hour(snapshot, sid, now)    # rule 10: never two sessions at one hour
     return tuple(out)
 
 
-def open_sides(snapshot: SessionSnapshot) -> frozenset[Side]:
+def open_sides(snapshot: SessionSnapshot, settings: EngineSettings | None = None) -> frozenset[Side]:
     """The sides a student can be placed on now: room in the class and in the side's quota
-    (engine-planning rule 4). Placing on such a side keeps every ``must(w)`` coverable."""
+    (engine-planning rule 4). Placing on such a side keeps every ``must(w)`` coverable. With
+    ``settings`` whose ``fill_never_held`` is off, only a side with a freed spot, or any side while an
+    either-side one is freed (engine-settings rule 11)."""
     counts = planner.spot_counts(snapshot)
     if counts.class_empty <= 0:
         return frozenset()
-    return frozenset(v for v in SIDES if counts.open[v] > 0)
+    sides = frozenset(v for v in SIDES if counts.open[v] > 0)
+    if settings is None or settings.fill_never_held:
+        return sides
+    freed, either = planner.freed_spots(snapshot)
+    return frozenset(v for v in sides if freed[v] > 0 or either > 0)
 
 
 def _place_side(snapshot: SessionSnapshot, settings: EngineSettings, sid: str, offer: frozenset[SpotType],
@@ -239,23 +216,25 @@ def _regular_returns(snapshot: SessionSnapshot, sid: str, now: datetime) -> tupl
     if not sides:                                          # their spot was taken: "sorry" (sheet 63, E6)
         return (Message(snapshot.id, now, sid, KIND_SORRY),)
     side: Side | None = next(iter(sides)) if len(regular.sides) == 1 else None
-    return (Placed(snapshot.id, now, sid, side, "regular_returns"), Absence(snapshot.id, now, sid, "none"))
+    return (Placed(snapshot.id, now, sid, side, "regular_returns"), Absence(snapshot.id, now, sid, "none"),
+            *planner.close_same_hour(snapshot, sid, now))
 
 
 def _join_waiting_list(snapshot: SessionSnapshot, settings: EngineSettings, request: JoinWaitingList,
                        now: datetime) -> tuple[Effect, ...]:
     """The coach adds anyone (their decision); a student joins the students' list when eligible,
-    visible and not already in the session (D13; engine-settings rule 4 keeps their side choice)."""
+    visible and not already in the session (D13; engine-settings rule 4 keeps their side choice). A
+    student already on either list is refused ``already_on_list`` and nothing changes (rule 12)."""
     sid = request.student
-    if any(w.student == sid and w.list == request.list for w in snapshot.waiting_list):
-        return ()
+    if any(w.student == sid for w in snapshot.waiting_list):    # one entry per session, either list (rule 12)
+        return (Refused(snapshot.id, now, sid, "waiting_list", "already_on_list"),)
     if snapshot.placement(sid) is not None:
-        return ()
+        return (Refused(snapshot.id, now, sid, "waiting_list", "already_enrolled"),)
     if request.list == "students":
         student = snapshot.students.get(sid)
         visible = any(st.id == sid for st in snapshot.pool) or sid in snapshot.absent   # a regular who said No
         if student is None or not visible or not planner._eligible(student, snapshot, settings):
-            return (Refused(snapshot.id, now, sid, "waiting_list", "not eligible for this session"),)
+            return (Refused(snapshot.id, now, sid, "waiting_list", "ineligible"),)
     return (WaitingListJoined(snapshot.id, now, sid, request.list, request.side, request.sides),)
 
 
@@ -266,13 +245,16 @@ def _direct_join(snapshot: SessionSnapshot, settings: EngineSettings, request: D
     is offered instead)."""
     sid = request.student
     student = snapshot.students.get(sid)
-    if not settings.direct_join:
-        return (Refused(snapshot.id, now, sid, "direct_join", "direct join is off"),)
+    if not settings.direct_join:             # not a refusal: the app's request waits for the coach
+        return ()
+    if snapshot.placement(sid) is not None:
+        return (Refused(snapshot.id, now, sid, "direct_join", "already_enrolled"),)
+    if sid in snapshot.busy_same_time:
+        return (Refused(snapshot.id, now, sid, "direct_join", "busy_same_hour"),)
     visible = any(st.id == sid for st in snapshot.pool)
-    if (student is None or not visible or snapshot.placement(sid) is not None
-            or not planner._eligible(student, snapshot, settings)):
-        return (Refused(snapshot.id, now, sid, "direct_join", "not eligible for this session"),)
-    sides = open_sides(snapshot) & (frozenset({request.side}) if request.side else student.sides)
+    if student is None or not visible or not planner._eligible(student, snapshot, settings):
+        return (Refused(snapshot.id, now, sid, "direct_join", "ineligible"),)
+    sides = open_sides(snapshot, settings) & (frozenset({request.side}) if request.side else student.sides)
     if not sides:
-        return (Refused(snapshot.id, now, sid, "direct_join", "no spot on the student's side"),)
+        return (Refused(snapshot.id, now, sid, "direct_join", "side_full", open_sides(snapshot, settings)),)
     return _placed(snapshot, sid, _hardest(snapshot, settings, sid, sides, now), "direct", now, answered=False)

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, JSON, String, text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, text
 from sqlalchemy.orm import relationship
 
 from padel_app.sql_db import db
@@ -63,6 +63,11 @@ DEFAULT_MESSAGE_TEMPLATES = {
     # student is counted as coming and told so. No question in it.
     "added_to_class_coming": "Hi {name}, I've added you to {class}{when}. You're counted as coming. If you can't make it, tell me in the app. 🎾",
     "class_cancelled": "Hi {name}, your {level} class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
+    # The new engine (notifications.message-templates, new-engine section N1-N2; PAD-916's outbox): a
+    # waiting-list student it placed, a side it set, and the coach's nobody-left-to-invite alert.
+    "waiting_list_added": "Hi {name}, a spot opened in the {level} class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾",
+    "side_moved": "Hi {name}, in the {level} class on {weekday} at {time} you'll play on the {sideName} side. See you there!",
+    "coach_no_candidate": "{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.",
 }
 
 DEFAULT_MESSAGE_TEMPLATES_PT = {
@@ -80,6 +85,9 @@ DEFAULT_MESSAGE_TEMPLATES_PT = {
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
     "class_cancelled": "Olá {name}, a tua aula de {level} de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
+    "waiting_list_added": "Olá {name}, abriu uma vaga na aula de {level} na {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾",
+    "side_moved": "Olá {name}, na aula de {level} na {weekday} às {time} vais jogar do lado {sideName}. Até já!",
+    "coach_no_candidate": "{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.",
 }
 
 
@@ -221,6 +229,19 @@ class NotificationConfig(db.Model, model.Model):
         Integer, ForeignKey("coaches.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     auto_notify_enabled = Column(Boolean, default=False, nullable=False)
+    # notifications.config rule 18 (PAD-917): which invitation engine runs this coach's classes,
+    # 'old' or 'new', and when that last changed (naive UTC). Carried by PAD-916's migration.
+    engine_version = Column(String(3), nullable=False, default="old", server_default="old")
+    engine_switched_at = Column(DateTime, nullable=True)
+    # notifications.config rule 20 (PAD-917): the new engine's settings no client edits yet. Carried by
+    # PAD-916's migration; PAD-917 maps them to EngineSettings.
+    max_at_a_time = Column(Integer, nullable=True)
+    timing_method = Column(String(16), nullable=False, default="fixed", server_default="fixed")
+    between_rounds_minutes = Column(Integer, nullable=True)
+    between_groups_minutes = Column(Integer, nullable=True)
+    per_tier_timing = Column(JSON, nullable=True)
+    auto_entry_before_attendance_request = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    waiting_list_side_choice = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     # "automatic" (default) or "semi_automatic" — only relevant when
     # auto_notify_enabled is true. In semi_automatic mode vacancies require
     # coach approval before invitations are sent.
@@ -530,6 +551,41 @@ class NotificationConfig(db.Model, model.Model):
 
     def get_tiebreakers(self):
         return self.tiebreakers if self.tiebreakers is not None else DEFAULT_TIEBREAKERS
+
+    # -- the new engine's own settings (notifications.config rule 20, PAD-917) -----------------
+
+    def get_engine_settings(self):
+        """The wire ``engine`` object. Nulls stay null: M null is the engine's default, a minutes
+        value null falls back to ``maxInactiveTime`` (rule 19). The old engine reads none of it."""
+        return {
+            "maxAtATime": self.max_at_a_time,
+            "timing": {
+                "method": self._col(self.timing_method, "fixed"),
+                "betweenRoundsMinutes": self.between_rounds_minutes,
+                "betweenGroupsMinutes": self.between_groups_minutes,
+                "perTier": list(self.per_tier_timing or []),
+            },
+            "autoEntryBeforeAttendanceRequest": bool(self._col(self.auto_entry_before_attendance_request, False)),
+            "waitingListSideChoice": bool(self._col(self.waiting_list_side_choice, False)),
+        }
+
+    def set_engine_settings(self, data):
+        """Write the keys present in a validated ``engine`` object (``notification_service`` checks it)."""
+        if "maxAtATime" in data:
+            self.max_at_a_time = data["maxAtATime"]
+        timing = data.get("timing") or {}
+        if "method" in timing:
+            self.timing_method = timing["method"]
+        if "betweenRoundsMinutes" in timing:
+            self.between_rounds_minutes = timing["betweenRoundsMinutes"]
+        if "betweenGroupsMinutes" in timing:
+            self.between_groups_minutes = timing["betweenGroupsMinutes"]
+        if "perTier" in timing:
+            self.per_tier_timing = list(timing["perTier"] or []) or None
+        if "autoEntryBeforeAttendanceRequest" in data:
+            self.auto_entry_before_attendance_request = bool(data["autoEntryBeforeAttendanceRequest"])
+        if "waitingListSideChoice" in data:
+            self.waiting_list_side_choice = bool(data["waitingListSideChoice"])
 
     def get_eligibility_rules(self):
         """The coach's standard eligibility bar, or ``None`` when unset (PAD-128).

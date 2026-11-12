@@ -1,6 +1,7 @@
 """notifications.engine-timeline rule 6 (PAD-907, wave W7): at ``last_invite_at`` flexible going
 students get their final side and are told it; a side over its quota sheds the regular who moved
-least recently, ties to the one who joined the class most recently (coordinator ruling (2)).
+least recently, ties to the one who joined the class most recently (coordinator ruling (2)); only a
+student who plays the other side too ever moves (the owner's decisions 12 and 13).
 
 Scenario pins: TIMELINE-8 to TIMELINE-14 are P18a, P18b, P19, P11a, P13, P12 and P21.
 Snapshot fields ``joined_at`` and ``last_moved_at``: proposed to N (W2's owner of snapshot.py).
@@ -43,16 +44,25 @@ def test_nothing_is_due_before_last_invite_at():
     assert due(s, EngineSettings(), LAST - timedelta(minutes=1)) == ()
 
 
-def test_the_regular_who_joined_most_recently_moves_on_a_tie():
-    # S18 / TIMELINE-8: 1 L and 5 R regulars, 2 left-siders placed; nobody ever moved; R5 joined last.
+def test_a_one_sided_regular_on_an_over_quota_side_never_moves():
+    # S18 / TIMELINE-8 (owner decision 13): 1 L and 5 one-sided R regulars, 2 left-siders placed: the
+    # coach's imbalance stays, nobody is told anything.
     s = _session(8, [("L1", "L", "L", "regular")] + [(f"R{i}", "R", "R", "regular") for i in range(1, 6)]
+                 + [("x", "L", "L", "invitation"), ("y", "L", "L", "invitation")],
+                 ["L1", "R1", "R2", "R3", "R4", "R5"])
+    assert due(s, EngineSettings(), LAST) == ()
+
+
+def test_the_regular_who_joined_most_recently_moves_on_a_tie():
+    # 1 L and 5 R regulars who play both sides, 2 left-siders placed; nobody ever moved; R5 joined last.
+    s = _session(8, [("L1", "L", "L", "regular")] + [(f"R{i}", "LR", "R", "regular") for i in range(1, 6)]
                  + [("x", "L", "L", "invitation"), ("y", "L", "L", "invitation")],
                  ["L1", "R1", "R2", "R3", "R4", "R5"])
     assert _moves(due(s, EngineSettings(), LAST)) == ({"R5": "L"}, {"R5"})
 
 
 def test_the_regular_who_moved_least_recently_goes_first():
-    s = _session(8, [("L1", "L", "L", "regular")] + [(f"R{i}", "R", "R", "regular") for i in range(1, 6)]
+    s = _session(8, [("L1", "L", "L", "regular")] + [(f"R{i}", "LR", "R", "regular") for i in range(1, 6)]
                  + [("x", "L", "L", "invitation"), ("y", "L", "L", "invitation")],
                  ["L1", "R1", "R2", "R3", "R4", "R5"],
                  moved={"R5": datetime(2026, 10, 27, 8, 30), "R4": datetime(2026, 10, 20, 8, 30)})
@@ -67,12 +77,13 @@ def test_nobody_moves_when_no_side_is_over_quota():
     assert due(s, EngineSettings(), LAST) == ()
 
 
-def test_flexible_regulars_and_an_over_quota_regular_balance_the_sides():
-    # S19 / TIMELINE-10: 1 L, 5 R and 1 {L, R} regular, one left-sider placed: B and R5 play left.
+def test_only_the_both_sides_regular_moves_to_balance():
+    # S19 / TIMELINE-10 (owner decision 12): 1 L, 5 one-sided R and 1 {L, R} regular, one left-sider
+    # placed: B plays left and no right regular moves (3 left, 5 right).
     s = _session(8, [("L1", "L", "L", "regular"), ("B1", "LR", None, "regular")]
                  + [(f"R{i}", "R", "R", "regular") for i in range(1, 6)] + [("x", "L", "L", "invitation")],
                  ["L1", "B1", "R1", "R2", "R3", "R4", "R5"])
-    assert _moves(due(s, EngineSettings(), LAST)) == ({"B1": "L", "R5": "L"}, {"B1", "R5"})
+    assert _moves(due(s, EngineSettings(), LAST)) == ({"B1": "L"}, {"B1"})
 
 
 def test_a_both_regular_takes_the_side_left_open():

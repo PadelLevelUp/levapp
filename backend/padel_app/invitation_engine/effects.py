@@ -10,11 +10,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotType, WaitingListSides
+from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotQueues, SpotType, WaitingListSides
 
-MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_offer", "side_moved"]
-AbsenceKind = Literal["justified", "unjustified", "none"]
+MessageKind = Literal["sorry", "added", "waiting_list_invite", "side_moved"]
+AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
+AlertReason = Literal["no_candidate"]
+#: Why a join was refused, a code the route answers as 409 {code} (classes.join-requests NJ1).
+RefusalCode = Literal["already_enrolled", "class_closed", "ineligible", "side_full", "busy_same_hour",
+                      "already_on_list"]
 
 
 @dataclass(frozen=True)
@@ -44,10 +48,11 @@ class Sorry(Effect):
 
 
 @dataclass(frozen=True)
-class Reoffered(Effect):
-    """The same invitation offered again (Q6, coordinator ruling (1); engine-planning rule 5.3): its
-    offer, named side, tier and counting-until replace the old ones and it counts again. Never a
-    second invitation (D1). Comes with ``Message(kind="reoffer")``."""
+class Reopened(Effect):
+    """A "sorry" invitation reopened for a student who joined the session's waiting list, when the
+    list's turn reaches them (engine-answers rule 4, engine-planning rule 5.3; the owner's decision 1):
+    its offer, named side, tier and counting-until replace the old ones and it counts again. Never a
+    second invitation (D1). Comes with ``Message(kind="waiting_list_invite")``."""
 
     student: str
     offer: frozenset[SpotType]
@@ -86,10 +91,11 @@ class Left(Effect):
 
 @dataclass(frozen=True)
 class Message(Effect):
-    """``sorry``: Yes with no room (D4); ``reoffer``: the same invitation offered again, for another
-    spot (Q6) or after a "sorry" when a spot reopens; ``added``: automatic entry;
-    ``waiting_list_offer``: the waiting-list invitation; ``side_moved``: a going student told their
-    side was moved at ``last_invite_at`` (plan §4, §8 step 6)."""
+    """``sorry``: Yes with no room (D4), never another side; ``added``: automatic entry;
+    ``waiting_list_invite``: the waiting-list invitation, a reopened "sorry" one included (today's
+    template key of that meaning; today's
+    ``waiting_list_offer`` is the engine's ``sorry``, ruling D8); ``side_moved``: a going student
+    told their side was moved at ``last_invite_at`` (plan §4, §8 step 6)."""
 
     student: str
     kind: MessageKind
@@ -104,15 +110,22 @@ class AttendanceRequested(Effect):
 
 @dataclass(frozen=True)
 class Absence(Effect):
+    """A student left the session: the notice they gave by the cutoff (owner ruling D4). The engine
+    never judges an absence justified or unjustified; the coach does, outside it."""
+
     student: str
-    kind: AbsenceKind
+    notice: AbsenceNotice
 
 
 @dataclass(frozen=True)
 class Refused(Effect):
+    """A join turned down, with a code and never text; ``sides`` names the open sides on
+    ``side_full``."""
+
     student: str
     action: Literal["direct_join", "waiting_list"]
-    reason: str
+    reason: RefusalCode
+    sides: frozenset[Side] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -132,8 +145,81 @@ class WaitingListLeft(Effect):
 @dataclass(frozen=True)
 class CoachAlert(Effect):
     """No tier can take an open spot of ``spot_type`` (plan §6 step 4, engine-planning rule 11);
-    ``spots`` is how many of that type were uncovered, so the store alerts again only when it changes."""
+    ``spots`` is how many of that type were uncovered, so the store alerts again only when it changes.
 
-    reason: str
-    spot_type: SpotType | None = None
-    spots: int = 0
+    Everything the app needs to tell the coach, with no text to parse (PAD-915): the session and
+    instant, ``reason`` a code (``constants.ALERT_NO_CANDIDATE``), the type's side (``None``: either
+    side) and level, and the count. The store turns it into the coach's message (``COACH_ALERT``) or
+    a dashboard card; the wording is the app's."""
+
+    reason: AlertReason
+    spot_type: SpotType
+    spots: int
+
+
+@dataclass(frozen=True)
+class AlertCleared(Effect):
+    """An alerted type is covered, gone or has a candidate again (engine-planning rule 11): the store
+    drops its alert, so the alerts it keeps are only live ones."""
+
+    spot_type: SpotType
+
+
+@dataclass(frozen=True)
+class InvitationClosed(Effect):
+    """The student's open invitation for this session closed because they were placed in another
+    session at the same hour (engine-answers rule 10, D4's one exception). Nothing is sent."""
+
+    student: str
+
+
+# --- semi-automatic mode (engine-planning rule 14; the owner's decisions 5 and 10) --------------------
+
+@dataclass(frozen=True)
+class ApprovalRequest(Effect):
+    """The run would start sending from group ``tier``, not approved for this session, so it asks the
+    coach instead: ``queues`` is the group's queue per open spot type from the dry run at ``at``;
+    ``request`` its id. Replaces that group's pending request."""
+
+    tier: int
+    queues: SpotQueues
+    request: str
+
+
+@dataclass(frozen=True)
+class ApprovalWithdrawn(Effect):
+    """Group ``tier``'s pending request ``request`` went stale: nothing is left to send from the group,
+    or the coach turned automatic."""
+
+    tier: int
+    request: str
+
+
+@dataclass(frozen=True)
+class GroupApproved(Effect):
+    """The coach approved group ``tier`` for this session; ``removed`` adds to the students never
+    invited automatically here."""
+
+    tier: int
+    removed: frozenset[str]
+
+
+@dataclass(frozen=True)
+class GroupDismissed(Effect):
+    """The coach dismissed group ``tier``'s request ("Ignorar"): the group is skipped as if it had no
+    candidates while the session's open spot types stay ``spots``."""
+
+    tier: int
+    spots: tuple[tuple[SpotType, int], ...]
+
+
+@dataclass(frozen=True)
+class GroupReopened(Effect):
+    """Group ``tier``'s dismissal ends: the coach reopened it from the class, or the spot count changed."""
+
+    tier: int
+
+
+@dataclass(frozen=True)
+class GroupsCleared(Effect):
+    """The coach turned automatic: no group stays approved, so a return to semi-automatic asks again."""

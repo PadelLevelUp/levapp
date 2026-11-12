@@ -2,12 +2,13 @@
 against the `new` engine, the error count, and the `today` baseline-mode result line.
 
 usage (from backend/, with the venv):
-    .venv/bin/python -I padel_app/tests/invitation_scenarios/gate.py [REF] [--no-today]
+    .venv/bin/python -I padel_app/tests/invitation_scenarios/gate.py [REF] [--no-today] [--store db]
 
 REF defaults to the working tree. A REF other than the working tree is checked out detached in a
 temporary worktree under ~/worktrees/levapp/, which is removed afterwards. The `today` baseline run
 is the heavy part (about 3-5 minutes on SQLite); `--no-today` skips it. The output is plain text to
-paste into the coordinator's log.
+paste into the coordinator's log. ``--store db`` (PAD-916) runs the `new` engine on the app's tables
+(``INVITATION_STORE=db``, about 13 minutes on SQLite) instead of ``MemoryStore``; its line says so.
 """
 from __future__ import annotations
 
@@ -44,11 +45,11 @@ def _ids(backend: Path) -> list[str]:
     return sorted(p.stem for p in (backend / SUITE / "scenarios").glob("*.yaml"))
 
 
-def measure(backend: Path, today: bool) -> str:
+def measure(backend: Path, today: bool, store: str = "memory") -> str:
     out: list[str] = []
     with tempfile.TemporaryDirectory() as logs:
-        line, _ = _pytest(backend, {"INVITATION_ENGINE": "new", "INVITATION_SCENARIOS": "1",
-                                    "INVITATION_SCENARIOS_OUT": logs})
+        line, _ = _pytest(backend, {"INVITATION_ENGINE": "new", "INVITATION_STORE": store,
+                                    "INVITATION_SCENARIOS": "1", "INVITATION_SCENARIOS_OUT": logs})
         by: dict[str, list[str]] = {"pass": [], "fail": [], "error": []}
         seen = set()
         for log in Path(logs).glob("*.log.yaml"):
@@ -59,7 +60,8 @@ def measure(backend: Path, today: bool) -> str:
     ids = _ids(backend)
     missing = [i for i in ids if i not in seen]
     short = lambda names: " ".join(sorted(re.match(r"^(P?\d+[ab]?)-", n).group(1) for n in names))  # noqa: E731
-    out.append(f"new: {len(by['pass'])} pass, {len(by['fail'])} fail, {len(by['error'])} error, "
+    label = "new" if store == "memory" else f"new (store {store})"
+    out.append(f"{label}: {len(by['pass'])} pass, {len(by['fail'])} fail, {len(by['error'])} error, "
                f"{len(missing)} not run, of {len(ids)} files")
     out.append(f"  pytest: {line} (its count includes the always-on tests of test_scenarios.py)")
     for key in ("pass", "error", "fail"):
@@ -77,12 +79,13 @@ def measure(backend: Path, today: bool) -> str:
 
 def main(argv: list[str]) -> int:
     today = "--no-today" not in argv
-    refs = [a for a in argv if not a.startswith("--")]
+    store = argv[argv.index("--store") + 1] if "--store" in argv else "memory"
+    refs = [a for i, a in enumerate(argv) if not a.startswith("--") and (i == 0 or argv[i - 1] != "--store")]
     if not refs:
         head = _git("rev-parse", "--short", "HEAD")
         dirty = " + uncommitted changes" if _git("status", "--porcelain") else ""
         print(f"gate: working tree at {head}{dirty}")
-        print(measure(BACKEND, today))
+        print(measure(BACKEND, today, store))
         return 0
     ref = refs[0]
     sha = _git("rev-parse", "--short", ref)
@@ -91,7 +94,7 @@ def main(argv: list[str]) -> int:
     try:
         (tree / "backend/.venv").symlink_to(BACKEND / ".venv")
         print(f"gate: {ref} = {sha} ({_git('log', '-1', '--format=%cI %s', sha)})")
-        print(measure(tree / "backend", today))
+        print(measure(tree / "backend", today, store))
     finally:
         _git("worktree", "remove", "--force", str(tree))
     return 0

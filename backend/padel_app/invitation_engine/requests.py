@@ -84,12 +84,22 @@ class CreateSession:
     start: datetime                                   # Lisbon wall-clock
     regulars: tuple[tuple[Student, Side | None], ...]
     joined_at: Mapping[str, datetime] | None = None   # per regular, naive UTC; absent: the creation instant
+    end: datetime | None = None                       # Lisbon wall-clock; absent: an hour after start
 
 
 @dataclass(frozen=True)
 class CoachExcludes:
     """The coach excludes a student from this session's automatic invitations (a gate, D13;
     engine-tiers rule 3): from now on the student is not in the session's pool."""
+
+    student: str
+
+
+@dataclass(frozen=True)
+class CoachAdded:
+    """The coach added the student to this session outside the engine (the app wrote the enrolment):
+    their open invitations at the same time close, as for an engine placement (engine-answers rule
+    10). The engine writes no placement."""
 
     student: str
 
@@ -103,10 +113,41 @@ class Appear:
 
 @dataclass(frozen=True)
 class UpdateSettings:
-    settings: EngineSettings
+    """A coach changed their settings: the sessions to re-plan are that coach's (``sessions``, the
+    app names them); ``None`` re-plans every session (the harness, one coach). With a settings lookup
+    the engine only re-plans; with one value it also replaces it (engine-settings rule 9)."""
 
+    settings: EngineSettings
+    sessions: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True)
+class ApproveGroup:
+    """The coach approves the group of approval request ``request`` (its id), without ``removed``
+    (engine-planning rule 14). An answer to a request that is no longer pending decides nothing."""
+
+    request: str
+    removed: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class DismissGroup:
+    """The coach dismisses the group of approval request ``request`` ("Ignorar", engine-planning rule 14)."""
+
+    request: str
+
+
+@dataclass(frozen=True)
+class ReopenGroup:
+    """The coach reopens dismissed group ``tier`` from the class (engine-planning rule 14)."""
+
+    tier: int
+
+
+COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | Appear | UpdateSettings)
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | Appear | UpdateSettings
+           | ApproveGroup | DismissGroup | ReopenGroup)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
                     NoShow, ConfirmAttendance)
