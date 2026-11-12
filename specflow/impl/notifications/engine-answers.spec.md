@@ -57,8 +57,30 @@ Stated as observable records; storage is the engine package's (PAD-902).
     placement path refuses a second placement at the same hour:** an accept is refused with nothing
     placed and nothing sent (rule 8's form); a direct join is refused; automatic entry skips the
     student. The rule binds the engine's paths; the coach's add is not one of them and is covered at
-    the engine swap. This is the safety rule; the run's efficiency rule, which does not invite a
+    the engine swap. **Two requests by one student never run at once:** the engine names the student in
+    the unit of work and the store locks the student before the session (always students, then the
+    session; no unit holds two sessions). A placement the planner makes (automatic entry), which names
+    no student in advance, is checked when it is applied: if the student was placed at the same start
+    since the snapshot, the store refuses the unit (`UnitConflict`) and rolls it back, the engine
+    drops that unit's effects and the next run re-plans on fresh state. The store checks every
+    placement this way when it applies it, whatever path made it, under the student's lock: a clash
+    is `SameHourConflict`, a `UnitConflict`, so the student is never written into two sessions with
+    the same start. This is the safety rule; the run's efficiency rule, which does not invite a
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
+11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
+    PAD-913).** The kinds are const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED,
+    const:KIND_SIDE_MOVED and const:KIND_WAITING_LIST_INVITE. A kind that shares a name with a key of
+    today's `DEFAULT_MESSAGE_TEMPLATES` means the same message (today const:KIND_WAITING_LIST_INVITE,
+    the invitation sent from a waiting list). `waiting_list_offer` is not an engine kind: today it is
+    "spot taken, join the list?", which the engine says as const:KIND_SORRY, rendered through that same
+    `waiting_list_offer` template so a coach's own text carries over (`notifications.message-templates`,
+    new-engine section).
+12. **One waiting-list entry per student per session (coordinator ruling, PAD-916, 2026-11-11).** A
+    student is on the coach's list or the students' list of a session, never both. Joining the list
+    they are already on changes nothing and answers today's `already_on_list` (`notifications.waiting-list`
+    rule 18); joining the other one, by the student or by the coach, is refused with the same
+    `already_on_list` and changes nothing (the coach removes the entry first
+    to move it). The store refuses a second entry as well (`StoreConflict`).
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -169,6 +191,48 @@ Given `auto-entry` on and a waiting-list member of session B going to session A 
 spot they could take opens in B before `attendance_request_at`, then they are not placed in B.
 test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_skips_a_student_busy_at_that_hour`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-18: No engine kind reuses a name today's templates give another message (rule 11)
+Given the engine's message kinds (`invitation_engine/effects.py` `MessageKind`) and the keys of today's
+`DEFAULT_MESSAGE_TEMPLATES`, when they are compared, then every shared name renders the kind through the
+template of that name (const:KIND_WAITING_LIST_INVITE among them), `waiting_list_offer` is not a kind,
+and const:KIND_SORRY renders through `waiting_list_offer`.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_engine_kinds_do_not_reuse_todays_message_names`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-19: Every engine write is one session's unit, and a student's answer locks the student (rule 10)
+Given the engine handling answers and ticks, when it writes, then every write is inside one unit of
+work for one session, units never nest, and a unit for a student's answer names and locks that student
+before the session.
+test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_every_engine_write_is_inside_one_session_unit_at_a_time`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-20: A unit the store refuses is dropped and the rest runs (rule 10)
+Given a tick in which one session's unit is refused (`UnitConflict`, a student placed at the same start
+since the snapshot), when the tick runs, then that unit's effects are dropped and rolled back, the
+other sessions run, and the next run re-plans the refused session on fresh state.
+test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-21: A student on one waiting list who joins the other is refused, already_on_list (rule 12)
+Given a student on the coach's list of a session, when the student asks to join its students' list,
+then the answer is a refusal with `already_on_list` and the session still has one entry for them, on the
+coach's list with its side; when the coach adds them to the coach's list again, nothing changes; given
+another student on the students' list, when the coach adds them to the coach's list, then that is
+refused with `already_on_list`; and a second entry applied straight to the store raises
+`StoreConflict`.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_joining_the_other_list_is_refused_already_waiting`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-22: A placement at an hour the student is already going elsewhere rolls its unit back (rule 10)
+Given two sessions with the same start and a student placed in the first, when the store applies an
+automatic-entry placement of the same student in the second, then it raises `SameHourConflict` (a
+`UnitConflict`), no presence is written in the second session, and the second session's snapshot lists
+the student as busy at that time.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_placement_at_an_hour_the_student_is_going_elsewhere_rolls_back`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-23: The engine refuses joins with a code (rule 12; classes.join-requests NJ1)
+Given a session and students in each refusal case (already going, below the bar, no spot on their side,
+busy at the same hour, already on a list, and a join after the class has started), when each asks to join
+directly or join a list, then each refusal carries its code (`already_enrolled`, `ineligible`,
+`side_full`, `busy_same_hour`, `already_on_list`, `class_closed`), never text.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_joins_are_refused_with_a_code`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -180,6 +244,15 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    engine swap.
 4. (PAD-911) ANSWERS-13 to ANSWERS-17 — `invitation_engine/answers.py` (a placement closes the other
    same-hour invitations; a second same-hour placement refused), `invitation_engine/store.py`.
+5. (Swap 3, PAD-915) ANSWERS-18 — `invitation_engine/effects.py` (`MessageKind`, the docstring),
+   `invitation_engine/constants.py` (a `KIND_WAITING_LIST_INVITE`), `tests/invitation_scenarios/adapters/new.py`
+   (its kind map). The scenario format's own `waiting_list_offer` (`scenario.schema.json`, `validate.py`,
+   `adapters/today.py`) logs today's message and is not the engine's kind.
+6. (Swap 3/4, PAD-915, PAD-916) ANSWERS-19, ANSWERS-20 — `invitation_engine/engine.py` (units naming
+   students), the store's `unit()` (student locks, `UnitConflict`); the two-transaction proof is
+   ANSWERS-10's Postgres test.
+7. (PAD-916, PAD-915) ANSWERS-21 — `invitation_engine/answers.py` (`_join_waiting_list`), the store
+   (one entry per student and session); ANSWERS-22 — the store's apply (`SameHourConflict`).
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
@@ -187,3 +260,15 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - A coach's add to a session at an hour where the student is already placed (rule 10) — not an
   engine path; covered at the engine swap (refused with the reason, Tomás's "nunca se quebra"; the
   owner may want a coach override, review pack).
+- The name of the engine's waiting-list invitation kind (swap decision 8) — options: keep
+  `waiting_list_offer`; a new name; today's `waiting_list_invite`. Decision (coordinator, owner away,
+  PAD-912, 2026-11-11; the owner can reverse it): rename before any client renders it, to `waiting_list_invite`,
+  because today's `waiting_list_offer` is the engine's sorry, and today's `waiting_list_invite`
+  template already says exactly this message, in both locales.
+- The coach's add at the same hour, an override or not — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): no override; the coach removes the
+  student from the other session first, because Tomás's safety rule "nunca se quebra" and a refusal
+  that names the other session tells the coach what to do (swap plan §3.1).
+- A student on both waiting lists of one session (found by H building the table store, PAD-916) —
+  decision (coordinator, owner away, 2026-11-11; the owner can reverse it): one entry per student per
+  session; joining the other list is refused "already waiting" (rule 12). The refusal's wording on web
+  and iOS is not yet specified; it goes with `notifications.waiting-list`'s swap step.

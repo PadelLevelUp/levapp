@@ -195,7 +195,7 @@ def test_automatic_messages_ignore_the_picker_scope(app, scope):
     direct conversation and never consult the messageable set, so the fix cannot silence
     them — even between a coach and a student who share no link."""
     from padel_app.models import Message
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
 
     with app.app_context():
         msg = _send_system_message(

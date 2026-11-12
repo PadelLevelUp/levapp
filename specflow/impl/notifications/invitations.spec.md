@@ -1,6 +1,6 @@
 ---
 id: notifications.invitations
-status: implemented
+status: implementing
 depends_on: [notifications.config, notifications.reminders, eligibility.rules]
 serves: [P-NOTIFICATIONS-2]
 governed_by: []
@@ -14,8 +14,13 @@ When a spot opens in a class (player drops out), the invitation engine invites s
 multi-round matching. The rounds are an **ordering** — who gets asked first — inside the floor set by
 `eligibility.rules`. They decide priority; they never decide permission.
 
-### Replaced when PAD-899's engine ships
-The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's ruling of 2026-11-11) replaces these rules. They stay in force until it ships; each is marked inline too.
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18: per coach, sessions already inviting at
+the switch drain on the old engine. **For an old-engine session every rule below holds as written.**
+For a session on the new engine (plan `docs/plans/invitation-engine-redesign.md`, owner's ruling of
+2026-11-11; the swap, PAD-912) the rules in the table are replaced, each marked inline too; the rules
+under "Read for the new engine" hold as their inline note says; the rest hold unchanged. When every
+coach is drained, the old engine is deleted and the replaced rules and their criteria go with it.
 
 | Rule | Replaced by | Why |
 |---|---|---|
@@ -27,9 +32,9 @@ The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's 
 | 2b | `notifications.engine-spots` rules 6, 7 | sides come from the quota counts, not a balancing side per spot (D19) |
 | 2c | `notifications.engine-spots` rules 6, 7 | a freed spot is counted like any other (§4) |
 | 2d | `notifications.engine-spots` rule 6 and `notifications.engine-planning` rule 10 | counts are recomputed every run; nothing is withdrawn for balance (D4) |
-| 3 | `notifications.engine-tiers` rules 5, 7 | tiers per spot type, waiting lists first (§5) |
+| 3 | `notifications.engine-tiers` rules 5, 7, 13 | tiers per spot type, waiting lists first (§5); each group a tier with its rules (swap decision 5, owner) |
 | 3c | `notifications.engine-planning` rule 5.4 | an empty tier costs no time; the next tier goes in the same run (S9) |
-| 3e | `notifications.engine-planning` rule 8 | M caps counting invitations of the session (D16); the new engine does not read maxTotal (decision in `notifications.engine-planning`, U4) |
+| 3e | `notifications.engine-planning` rule 8 | M caps counting invitations of the session (D16); the new engine does not read maxTotal (dropped by the owner, swap decision 3) |
 | 4a | `notifications.engine-spots` rule 3 and `notifications.engine-tiers` rule 2 | side is a category; a student holds a subset (D18) |
 | 4b | `notifications.engine-answers` rule 2 and `notifications.engine-planning` rule 5.2 | own side first on Yes, flexible students used where scarce (D6, D7) |
 | 4d | `notifications.engine-spots` rule 8 | a class with no level applies no level rule (D3; open at approval) |
@@ -45,16 +50,86 @@ The redesigned engine (plan `docs/plans/invitation-engine-redesign.md`, owner's 
 | 15a | `notifications.engine-answers` rule 4 | "sorry" and the waiting-list offer answer the Yes (D4) |
 | 16 | `notifications.engine-planning` rule 10 | no spot to hold; invitations stay open until the class starts (D4) |
 | 18a | `notifications.engine-answers` rule 3 | nothing moves between spots; a filled offer is re-offered (D1, Q6) |
+| 3d | `notifications.engine-tiers` rule 12 (the dry run's verdicts) | each student's stage per spot type, not a log line per empty round |
+| 4 | `notifications.engine-tiers` rule 8 | the priority criteria, then the tiebreakers (PAD-913) |
+| 11, 11a | `notifications.engine-timeline` rule 1; `notifications.engine-settings` rules 9, 10 | no vacancy carries a window; settings are read at every call |
+| 12, 12a, 12b | the table-backed store (swap plan §5; PAD-916) and `notifications.engine-tiers` rule 11 | there are no waves; one snapshot per session per call |
+| 18 | `notifications.engine-answers` rule 5; `notifications.engine-planning` rule 2 | No is final for the session; one invitation per student per session (D1) |
+| 21 | the new tick (PAD-916; Open questions) | one session's failure is skipped, not one spot's |
 
-Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept, the plan silent, as amended by PAD-911 (owner ruling 2026-11-11 on Tomás's point 2): rule 18c (the postpone of D15: only a counting invitation for another class that club day postpones, `notifications.engine-tiers` rule 10; a placement closes only the student's other offers at the same hour, `notifications.engine-answers` rule 10, D4's one exception) and rule 19 (a coach withdraws an invitation by hand: D4 binds the engine, not the coach).
+Semi-automatic approval, wherever a rule below names it, is for a new-engine session the hold of
+`notifications.engine-planning` rule 14 (owner ruling D2, swap decision 2), keyed to the session.
+
+Read for the new engine: rules 2a (the snapshot's level), 3a (the bar applied in `pool`, swap decision
+6), 4c (ladder positions become integer levels), 18c (as amended by PAD-911), 19 (a manual invitation is
+the student's one invitation).
+
+Kept unchanged for the new engine: rules 3b, 6, 9, 17, 20. Rule 18c, as amended by PAD-911 (owner ruling 2026-11-11 on Tomás's point 2): only a counting invitation for another class that club day postpones (`notifications.engine-tiers` rule 10), and a placement closes only the student's other offers at the same hour (`notifications.engine-answers` rule 10, D4's one exception). Rule 19: a coach withdraws an invitation by hand, because D4 binds the engine, not the coach.
+
+The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS `message-bubble` and
+`invite-state`, one shared derivation). **Copy marked "proposed" awaits the owner's approval.**
+- **NB1. One state, derived in one place.** A new-engine invitation message (`message_type`
+  `notification_invite`, for the kinds `invite`, `reoffer` and `waiting_list_invite`) carries
+  `msg_metadata` `{engine: "new", invitationId, lessonInstanceId, kind, state, startsAt, response?,
+  answeredBy?}` (`invitationId` a number, `startsAt` the class's real start, ISO UTC), `state` being
+  `open`, `answered` (with `response` `yes` or `no` and `answeredBy`), `sorry`, `reoffered`,
+  `withdrawn` or `closed_same_hour`. Two things are not stored, they are derived when shown, so they
+  never go stale: **the class has started** (now at or after `startsAt`: no buttons, whatever the
+  stored state), and on the coach's copy **counting**, from `countsUntil` (ISO UTC), which the message
+  serializer sends only to the coach (one message row is read by both people, so the student never
+  receives it). Both shells read all of it through one shared function in `@levelup/config`,
+  `engineInviteState(metadata, viewer, now)`, never each its own.
+- **NB1a. Who keeps it current.** The store keeps each invitation's message ids (the first bubble and
+  each `reoffer` bubble, `invitations.message_ids`) and, after applying a `Sorry`, `Reoffered`,
+  `InvitationClosed`, `Answered` or a withdrawal for that invitation, writes the new `state` on those
+  messages and publishes one `message_edited` per message. An invitation closed by the coach's
+  withdrawal (rule 19) and one closed by a same-hour placement are told apart by
+  `invitations.closed_reason` (`withdrawn` | `same_hour`).
+- **NB2. What the student sees.**
+  - `open`: Yes and No, whether or not the invitation still counts. A Yes after it stopped counting is
+    answered by the engine as any Yes (`notifications.engine-answers` rules 1, 4): placed, re-offered or
+    sorry. The student is never told an invitation stopped counting.
+  - `answered`: today's accepted / declined label (and "by the coach", rule 9).
+  - `sorry`: no buttons; "Disseste que sim, mas a vaga já tinha sido ocupada." / "You said yes, but the
+    spot had already been taken." (proposed). The engine's sorry arrives as its own message
+    (`waiting_list_offer`'s text) with today's waiting-list join (`notifications.waiting-list` rules 1,
+    1a).
+  - `reoffered`: no buttons; "O convite foi reaberto mais abaixo." / "This invitation was reopened
+    below." (proposed). The `reoffer` message is a new bubble for the same `invitationId`, with Yes and
+    No.
+  - `withdrawn`: no buttons; "O treinador retirou este convite." / "The coach withdrew this invitation."
+    (proposed).
+  - `closed_same_hour`: no buttons; "Já inscrito noutra aula à mesma hora" / "Already in another class
+    at the same time" (proposed, a new key: today's `messages.bookedSameDay` says "that day").
+  - once the class has started (derived): no buttons; "A aula já começou." / "The class has started."
+    (proposed).
+- **NB3. What the coach sees** on their copy: `open` and counting, today's "A aguardar resposta…";
+  `open` and not counting, "Sem resposta · já não conta" / "No answer · no longer counts" (proposed);
+  the other states as the student's labels.
+- **NB5. The engine's other messages and the answer route (R, PAD-918).** The sorry is a
+  `waiting_list_offer` message with `{engine: "new", invitationId, lessonInstanceId}`; an automatic
+  entry's notice is an `added_to_class` message; a side set is an `engine_side_moved` message with
+  `{engine: "new", lessonInstanceId, side}`. A student answers through `POST /api/app/notify/respond` and
+  a coach records an answer through `POST /api/app/notify/coach_respond`, both with `{invitationId,
+  action: "yes"|"no"}` (a body with `notificationEventId` is the old engine's); the answer is `{action:
+  "confirmed"|"declined"|"sorry"|"reoffered"|"closed_same_hour"|"class_started", invitationId}`, with
+  `duplicate: true` on a repeated answer, 404 for an unknown id and 403 when the invitation is not the
+  caller's. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
+  (`DELETE /api/app/notify/invitations/<invitationId>?engine=new`); the same 404 and 403 apply.
+- **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
+  `invite-respond-no-<invitationId>` and `invite-state-<invitationId>-<state>` (`started` once the class
+  has started), so one E2E reads both. The old engine's ids stay for old-engine bubbles, and the tests
+  that pin them stay on old-engine bubbles: `e2e/notification-engine/coach-answer-reaches-chat.spec.ts`,
+  `e2e/notification-engine/invite-lost-spot-waiting-list.spec.ts`,
+  `MessageBubble.inviteRecordedByCoach.test.tsx`, Maestro `209-coach-answer-reaches-chat.yaml`.
 
 ### Entities
 - **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
 - **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued), answer (yes|no|null — the student's answer, rule 18), retired_reason (null|"side_balanced" — rule 2d, PAD-581) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
 
 ### Rules
-1. *(Replaced by `notifications.engine-planning` rules 1, 2 when PAD-899's engine ships.)* `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
-1b. *(Replaced by `notifications.engine-planning` rule 1 when PAD-899's engine ships.)* **Starting is once per vacancy (PAD-493, ledger B-259).** `trigger_invitations` only ever
+1. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rules 1, 2. Holds as written for an old-engine session until the old engine is deleted.)* `trigger_invitations(instance, coach_id)` creates a Vacancy and starts matching. In automatic mode the vacancy gets approval_status "not_required" and sending proceeds as below; in semi-automatic mode it gets approval_status "pending" and no invitations are sent until the coach approves (see notifications.semi-auto-approval)
+1b. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 1. Holds as written for an old-engine session until the old engine is deleted.)* **Starting is once per vacancy (PAD-493, ledger B-259).** `trigger_invitations` only ever
    *starts* a vacancy: it sends the first batch to a sendable open vacancy that has never started
    (`last_activity_at` is null — no batch sent, no round deferred). A vacancy that has started is
    left to `process_invitation_batches` (rule 5), which alone sends later batches and advances
@@ -119,7 +194,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    process the prompt is built inline, as before. The coach's attendance sheet
    (`POST /class_instance/presences/confirm`) still builds its prompt in the request: its reply
    carries `approvalBundle`, which web's class detail shows at once.
-1c. *(Replaced by `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 1 when PAD-899's engine ships.)* **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
+1c. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 1. Holds as written for an old-engine session until the old engine is deleted.)* **A never-filled place has a start of its own (PAD-540, ledger B-301; numbering unconfirmed).**
    An absence opens its vacancy the moment it is recorded, and the tick (rule 5) starts it once
    the window is open. A place nobody ever filled has no such moment, and before this rule it was
    opened only by the one-shot `invite_start_<instance>` job, which exists only for a materialised
@@ -167,7 +242,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    The tick opens every such class it can see, so a deploy or a save that lands inside open
    windows opens those classes on the next tick (coordinator, 2026-10-07: the burst is accepted,
    measured on staging before merge). A save still sends nothing itself (config rule 10).
-1d. *(Replaced by `notifications.engine-spots` rule 6 when PAD-899's engine ships.)* **A free seat is a seat nobody holds (PAD-763, ledger B-701; numbering unconfirmed).** A
+1d. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rule 6. Holds as written for an old-engine session until the old engine is deleted.)* **A free seat is a seat nobody holds (PAD-763, ledger B-701; numbering unconfirmed).** A
    class's free seats are its capacity minus the seats held: the players going plus those who have
    not answered (`effective_filled_spots`, the same count as the participants header's "K vagas",
    `calendar.event-detail` rule 5). A filled spot is not counted again: the student who filled it
@@ -182,13 +257,13 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    its balancing side (rule 2b); rule 18's "no is final for that class" and rule 18c's one live offer
    per student per day apply unchanged, and the filler, being in the class, is never asked. A class that holds such a seat when this
    rule ships is opened by the first tick after it, once its window is open; no data repair.
-2. *(Replaced by `notifications.engine-spots` rule 8 when PAD-899's engine ships.)* Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side in that occurrence (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
+2. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rule 8. Holds as written for an old-engine session until the old engine is deleted.)* Vacancy snapshots the departing player's level for matching, and takes a side by rule 2c, which starts from the departing player's side in that occurrence (`left`, `right` or `both`). A structural vacancy (no departing player) gets a balancing side instead (rule 2b).
    **A player's side, wherever rules 2–2d count or start from one, is their side in that
    occurrence (PAD-551):** the presence's override when the coach set one, else the coach–player
    link's side (`classes.instance-enrollment` rule 13). Candidate ranking and round 1's "same
    side" filter (rules 4a, 5) keep reading an invitee's usual side, since an invitee has no
    presence yet.
-2b. *(Replaced by `notifications.engine-spots` rules 6, 7 when PAD-899's engine ships.)* **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
+2b. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rules 6, 7. Holds as written for an old-engine session until the old engine is deleted.)* **Never-filled spots balance the class's sides, if possible (PAD-421; owner, 2026-09-24).** When
    structural vacancies are created, each new spot gets side `left` or `right`, chosen to leave the
    class as close to even as possible. The count is the players holding a spot (`effective_filled_spots`'s predicate: an
    absent player gave theirs up; `left` / `right`, with `both` and no side flexible and counted on
@@ -203,7 +278,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    not rewritten. There is no per-class or coach-wide opt-out: the owner's words ("invite players in a
    way that makes the class simetrical if possible") named none, so balancing is the default for
    every class. Add an opt-out if the owner asks (coordinator, 2026-09-24).
-2c. *(Replaced by `notifications.engine-spots` rules 6, 7 when PAD-899's engine ships.)* **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
+2c. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rules 6, 7. Holds as written for an old-engine session until the old engine is deleted.)* **A freed spot asks first for the side the class is short of (PAD-541; owner, 2026-10-08,
    option A; counting corrected by PAD-565; owner, 2026-10-09, option A).** When a player's
    cancellation opens a vacancy, the vacancy's side is the side the class needs, not automatically
    the leaver's. The count is **the players going**: the players still holding a spot
@@ -229,7 +304,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    never an eligibility bar. Open vacancies created before this rule keep their side. The invite
    simulation shows the side this rule would choose and the numbers it used
    (`notifications.invite-simulation` rule 9), so a tutorial never recounts them.
-2d. *(Replaced by `notifications.engine-spots` rule 6 and `notifications.engine-planning` rule 10 when PAD-899's engine ships.)* **The sides re-balance as the class fills (PAD-581; owner, 2026-10-10, via the coordinator,
+2d. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rule 6 and `notifications.engine-planning` rule 10. Holds as written for an old-engine session until the old engine is deleted.)* **The sides re-balance as the class fills (PAD-581; owner, 2026-10-10, via the coordinator,
    option C with the proposal's defaults except Q3).** A spot's side is no longer fixed at creation:
    it is **re-counted** — the count of rule 2b for a never-filled spot (players going plus the sides
    of the class's other open spots), of rule 2c for a freed one (players going plus the other open
@@ -279,17 +354,17 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    spot leaves `both` or no side, since its invitations were not for one side. A batch already
    running when a "yes" lands (its spot locked, so passed over) sends to the side it counted; the
    spot re-counts at its next batch and withdraws then if it flipped.
-2a. The **effective level** of a class is resolved with a single rule used everywhere in the engine
+2a. *(For a session on the new engine (`notifications.config` rule 18): the effective level is the snapshot's level, as resolved here; the departing player's level plays no part (`notifications.engine-spots` rule 8).)* The **effective level** of a class is resolved with a single rule used everywhere in the engine
    (vacancy creation, eligibility, invitation-group previews, and the `{level}` message
    placeholder): `lesson_instance.level_id`, falling back to `lesson.default_level_id` when the
    instance carries no level of its own. A structural vacancy (no departing player) snapshots the
    class's effective level; a vacancy created from a departing player snapshots that player's
    level, falling back to the class's effective level when the player has none.
-3. *(Replaced by `notifications.engine-tiers` rules 5, 7 when PAD-899's engine ships.)* Multi-round matching based on `invitation_groups` config:
+3. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 5, 7, 13. Holds as written for an old-engine session until the old engine is deleted.)* Multi-round matching based on `invitation_groups` config:
    - Round 1: Exact match (same level + same side)
    - Round 2: Same level only
    - Round 3: Open to all eligible
-3a. **Every round is capped at the eligibility bar.** Candidate selection applies, in this order:
+3a. *(For a session on the new engine (`notifications.config` rule 18): the bar is applied by the store when it builds `pool` with `effective_eligibility` (swap decision 6, `notifications.engine-tiers` Open questions); tiers widen inside it.)* **Every round is capped at the eligibility bar.** Candidate selection applies, in this order:
    `effective_eligibility()` for the class (`eligibility.cascade`) → the current round's
    `invitation_groups` criteria → `restrictions` → the priority criteria and tiebreakers that rank
    what survives. The widest round therefore means "everyone **eligible**", never "everyone". The
@@ -299,7 +374,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    is a round criterion (rules 4a/4b) and is deliberately **not** an eligibility parameter
    (`eligibility.rules` rule 4). Removing side from the bar must not remove it from the rounds:
    `both`-side handling and its acceptance criteria below are unaffected by this work.
-3c. *(Replaced by `notifications.engine-planning` rule 5.4 when PAD-899's engine ships.)* **An empty round never cascades (PAD-87).** When the current group/round yields no
+3c. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 5.4. Holds as written for an old-engine session until the old engine is deleted.)* **An empty round never cascades (PAD-87).** When the current group/round yields no
    eligible candidate, the engine advances the round counter and **stops** — it does not send
    the next round in the same call. The next round goes out on the next
    `process_invitation_batches()` tick (rule 5, every 2 minutes), one round per tick, so eight
@@ -309,13 +384,13 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    group the vacancy expires, as before. Decision recorded in the PR: the engine tick is the
    spacing, because waiting the full inactivity timeout (120 min by default) per empty group
    could push a vacancy past the class start with nobody ever invited.
-3d. **An empty round says why (PAD-771).** Before the round is deferred, `_send_invitation_batch`
+3d. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rule 12 (the dry run's verdicts), which give each student's stage per spot type. Holds as written for an old-engine session until the old engine is deleted.)* **An empty round says why (PAD-771).** Before the round is deferred, `_send_invitation_batch`
    logs one INFO line `empty round: vacancy <id> round <n> stages {<stage>: <count>, …}`. The counts
    are `evaluate_candidates`' first-failing stage for every roster student in that wave. The line
    carries stage names and counts only, never a student id or name. It is what explains a vacancy
    that runs out of rounds with nobody invited. Like every container log it does not survive a
    redeploy, so it is read before the next rollout.
-3e. *(Replaced by `notifications.engine-planning` rule 8 when PAD-899's engine ships.)* **A class at its budget holds its spots (PAD-801).** `_send_invitation_batch` asks the
+3e. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 8. Holds as written for an old-engine session until the old engine is deleted.)* **A class at its budget holds its spots (PAD-801).** `_send_invitation_batch` asks the
    class's remaining `maxTotal` budget (`notifications.config` rule 6c) before it reads the
    waiting list or evaluates anyone. With nothing left it sends nothing and returns: the spot keeps
    its round, an empty round is not deferred (rule 3c) and a last round does not expire (rule 16).
@@ -328,14 +403,14 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    the budget frees, the spot goes on from the round it held. A spot whose class's budget is
    used up for good (every counted invitation accepted) holds until the class starts (rule 20),
    as the tick already did.
-4. Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
-4a. *(Replaced by `notifications.engine-spots` rule 3 and `notifications.engine-tiers` rule 2 when PAD-899's engine ships.)* Side eligibility with "both" (eligibility is symmetric and inclusive):
+4. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rule 8 (the priority criteria, then the tiebreakers). Holds as written for an old-engine session until the old engine is deleted.)* Within each round, players sorted by tiebreaker criteria (attendance, level, etc.)
+4a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rule 3 and `notifications.engine-tiers` rule 2. Holds as written for an old-engine session until the old engine is deleted.)* Side eligibility with "both" (eligibility is symmetric and inclusive):
    - A `both` player is eligible for a vacancy of ANY side (`left`, `right`, or `both`).
    - A `left`/`right` player is eligible for a `both` vacancy (a both-side vacancy accepts any player).
    - A `null`-side vacancy accepts any player (no side constraint).
    - Formally, a candidate passes a "same side" criterion when: `vacancy.side is None` OR `cp.side == vacancy.side` OR `cp.side == "both"` OR `vacancy.side == "both"`.
-4b. *(Replaced by `notifications.engine-answers` rule 2 and `notifications.engine-planning` rule 5.2 when PAD-899's engine ships.)* Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them). **A vacancy with no side ranks every side equally (PAD-420):** the tiebreaker contributes the same value for `left`, `right`, `both` and unset players, so it never favours a side; the remaining criteria decide.
-4c. Level rules are evaluated against the coach's **level ladder position**, never against the
+4b. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 2 and `notifications.engine-planning` rule 5.2. Holds as written for an old-engine session until the old engine is deleted.)* Exact-side preference: the "same side" criterion admits `both` players, but within a round the playing-side tiebreaker PREFERS an exact-side match first, then falls back to `both` players, then any remaining. So for a `left` vacancy, `left` candidates rank ahead of `both` candidates, which rank ahead of `right` candidates (if a later, looser round admits them). **A vacancy with no side ranks every side equally (PAD-420):** the tiebreaker contributes the same value for `left`, `right`, `both` and unset players, so it never favours a side; the remaining criteria decide.
+4c. *(For a session on the new engine (`notifications.config` rule 18): the store turns ladder positions into the snapshot's integer levels (swap plan §5), so tier level offsets are ladder steps.)* Level rules are evaluated against the coach's **level ladder position**, never against the
    raw `display_order` integer. The ladder is the coach's levels ordered by the convention in
    levels.coach-levels rule 3 (lower `display_order` = stronger; unset order sorts last). Given
    the ladder as a 0-indexed list where index 0 is the strongest level:
@@ -348,13 +423,13 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    Because adjacency is positional, a level that is two or more steps away in the coach's ladder
    can never satisfy a "one level above/below" rule, regardless of what integers the levels
    happen to carry. A candidate whose level is not in the coach's ladder never passes a level rule.
-4d. *(Replaced by `notifications.engine-spots` rule 8 when PAD-899's engine ships.)* Level rules fail **closed**. When a vacancy has no effective level at all (neither the
+4d. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rule 8. Holds as written for an old-engine session until the old engine is deleted.)* Level rules fail **closed**. When a vacancy has no effective level at all (neither the
    instance nor its parent lesson defines one), every level rule in an invitation group evaluates
    to "no candidate passes" — a level-only group invites nobody. A missing level is never read as
    "the level filter is switched off", which would silently widen a level-restricted group to the
    coach's entire roster. (The legacy `rounds` vocabulary was removed by PAD-279; an empty
    `invitation_groups` list resolves to the built-in groups — `notifications.config` rule 12.)
-5. *(Replaced by `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 4 when PAD-899's engine ships.)* `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
+5. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 1 and `notifications.engine-timeline` rule 4. Holds as written for an old-engine session until the old engine is deleted.)* `process_invitation_batches()` runs every 2 minutes (IntervalTrigger). The manual trigger
    `POST /api/app/notify/process_rounds` is **superadmin-only** (PAD-258): any JWT holder used to
    be able to run the batch processor concurrently with the scheduler.
    Details:
@@ -366,15 +441,15 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
      stays live and can be accepted; it ends only when the spot is filled (rule 15, "spot_filled"),
      the student answers, the coach withdraws it (rule 19) or the class starts (rule 20).
 6. Player responds: `POST /api/app/notify/respond` with `{notificationEventId, action: "yes" | "no"}`
-7. *(Replaced by `notifications.engine-answers` rules 1, 2 when PAD-899's engine ships.)* If confirmed: Vacancy.status = "filled", player added to instance
-8. *(Replaced by `notifications.engine-planning` rules 6, 12 and `notifications.engine-timeline` rule 4 when PAD-899's engine ships.)* If all decline, or maxInactiveTime passes with no yes: moves to next round, and the earlier
+7. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rules 1, 2. Holds as written for an old-engine session until the old engine is deleted.)* If confirmed: Vacancy.status = "filled", player added to instance
+8. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rules 6, 12 and `notifications.engine-timeline` rule 4. Holds as written for an old-engine session until the old engine is deleted.)* If all decline, or maxInactiveTime passes with no yes: moves to next round, and the earlier
    rounds' invitations stay live alongside it (PAD-609) — the first yes wins. A player invited for
    a vacancy is not invited for it again while that invitation is live, in that round or a later
    one (rule 18's one-offer skip); in that round, whatever they answered, a decline and a
    still-open invitation both count. The next round applies its own criteria (B-056), within the
    class-wide exclusions of rule 18: a student who said "no" is never asked again for the class,
    in any round.
-8a. *(Replaced by `notifications.engine-tiers` rules 5, 6 when PAD-899's engine ships.)* **The waiting list is group 0 (PAD-446; numbering unconfirmed).** Every batch for a vacancy
+8a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 5, 6. Holds as written for an old-engine session until the old engine is deleted.)* **The waiting list is group 0 (PAD-446; numbering unconfirmed).** Every batch for a vacancy
    first asks the class's waiting-list students who have not yet been invited for it, in the order
    they joined, up to the batch size (`notifications.waiting-list` rules 4–4c, 16). Their
    invitations carry `round_number = 0` and use the `waiting_list_invite` template; the vacancy's
@@ -400,7 +475,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    coach's "no" answers `declined` and enrols nobody (rule 18), a "no" or "yes" after the
    coach's "yes" answers `confirmed` and the student keeps the spot (rule 17). "Eliminar
    convite" (rule 19) already shows "Vaga preenchida" at once, the same way.
-10. *(Replaced by `notifications.engine-answers` rule 7 when PAD-899's engine ships.)* **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
+10. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 7. Holds as written for an old-engine session until the old engine is deleted.)* **One winner per vacancy (PAD-261).** A "yes" takes a row lock (`SELECT … FOR UPDATE`) on the
     vacancy and then the class instance, re-reads both — the vacancy's state and the class's filled
     spots, never copies loaded earlier in the request — and only then enrols. PAD-68's "class is over" check runs again on the re-read class, so an answer that
     waited on the lock past the start (or across a move to start now) is expired exactly as the early
@@ -429,7 +504,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     counted again under the same lock and added in one commit. Every locked section ends in a
     commit, so no lock outlives the decision it protects. The partial unique key on open vacancies
     is deferred to the B-046 cleanup plan (duplicates on the staging copy of prod first).
-11. **When the invitation window opens (PAD-256).** `invitation_start_timing` is computed exactly
+11. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-timeline` rule 1 and `notifications.engine-settings` rule 10; there is no `Vacancy.invite_not_before`. Holds as written for an old-engine session until the old engine is deleted.)* **When the invitation window opens (PAD-256).** `invitation_start_timing` is computed exactly
     like a reminder (`notifications.reminders` rule 15):
     - `hours_before` counts real hours before the class's real start;
     - `days_before` takes the class's own date at HH:MM on the club's clock.
@@ -438,7 +513,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     is a moment the server computes (R-023), and every gate compares it with UTC now.
     `minTimeBeforeClass` counts real minutes to the class's real start.
 
-11a. **The window follows the saved timing (PAD-776).** An automatic invitation, whether the first
+11a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-settings` rule 9 (the settings are read at every call) and `notifications.engine-timeline` rule 1. Holds as written for an old-engine session until the old engine is deleted.)* **The window follows the saved timing (PAD-776).** An automatic invitation, whether the first
     wave, a later round or the waiting list, goes out only once the coach's currently saved
     invitation start has opened for that class; the setting in force when the spot opened does not
     count. When a save moves a class's window later, nothing more goes out for that class until the
@@ -461,7 +536,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     action and no data repair. A spot with a stored window is not re-timed here: that stays the
     save's job (above). 'Yes, right now' spots (approved, no window) are not touched.
 
-12. **A wave costs a bounded number of statements, whatever the roster size (PAD-276, audit M17).**
+12. *(For a session on the new engine (`notifications.config` rule 18): replaced by the table-backed store's bound (swap plan §5; spec with PAD-916); there are no waves. Holds as written for an old-engine session until the old engine is deleted.)* **A wave costs a bounded number of statements, whatever the roster size (PAD-276, audit M17).**
    `evaluate_candidates` reads the roster once (player and user eager-loaded), asks for the
    roster's availability blockers in one `calendar_blocks` query
    (`blocked_user_ids_for_window`) and the ranking asks for every survivor's attendance in
@@ -474,7 +549,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    2026-09-11 notification-engine-cost decision, not changed here. Since PAD-733 that cost is
    paid by the scheduler job (rule 1b), not by the request that opened the spot.
 
-12a. **The facts a rule reads are read once per wave too (PAD-788, ledger B-712).** The eligibility
+12a. *(For a session on the new engine (`notifications.config` rule 18): replaced by the table-backed store's snapshot, built once per session per call (swap plan §5; PAD-916). Holds as written for an old-engine session until the old engine is deleted.)* **The facts a rule reads are read once per wave too (PAD-788, ledger B-712).** The eligibility
    bar's absence count, `has_makeups` and the level-step operations need the coach's occurrence
    set, the unjustified-absence and make-up counts, and the level ladder. Each is read at most once
    per evaluation, for the whole roster (`_RosterFacts`), not once per student, and a fact no rule
@@ -484,7 +559,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    per-student reads used to multiply by spots × groups × roster. Measured and reproducible with
    `backend/scripts/opening_cost_probe.py`.
 
-12b. **One verdict per student and spot shape in one engine run (PAD-801).** An engine run is one
+12b. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rule 11 (one evaluator) and the store's snapshot (PAD-916). Holds as written for an old-engine session until the old engine is deleted.)* **One verdict per student and spot shape in one engine run (PAD-801).** An engine run is one
    `process_invitation_batches` tick or one `trigger_invitations` call (the tick's own
    never-filled-places scan included). Within a run, a student's group-rule verdict
    (`_group_rule_failures`) is computed once per **spot shape**: the class, the spot's side as it
@@ -507,7 +582,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    (at most one tick later), not from the next spot of the same run. Measured with
    `backend/scripts/opening_cost_probe.py`; its statement count must not regress.
 
-13. *(Replaced by `notifications.engine-spots` rules 6, 10 when PAD-899's engine ships.)* **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
+13. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rules 6, 10. Holds as written for an old-engine session until the old engine is deleted.)* **Vacancies follow capacity (PAD-271, audit M4; number self-assigned by Session H on
    2026-09-11, unconfirmed).** A `Vacancy` is a promise that a spot is open; capacity
    (`LessonInstance.effective_filled_spots`, `calendar.view` rule 9) is the truth it follows.
    - **Every enrolment closes a vacancy.** `enrol()` (`classes.instance-enrollment` rule 4) is
@@ -529,7 +604,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    - Reconciliation never opens a vacancy: a spot that frees up still opens one only through the
      decline, cancellation and structural paths, and (rule 13a) a coach's edit.
 
-13a. *(Replaced by `notifications.engine-spots` rules 6, 10 and `notifications.engine-planning` rule 1 when PAD-899's engine ships.)* **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
+13a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rules 6, 10 and `notifications.engine-planning` rule 1. Holds as written for an old-engine session until the old engine is deleted.)* **A coach's edit brings the vacancies in line at once (PAD-552; coordinator, 2026-10-07;
    numbering unconfirmed).** `edit_class_service` (`POST /edit_class`), once the WHOLE edit is
    written — capacity, the roster, and the class's own flags (automatic invitations, notifications,
    eligibility) on every occurrence it reached — runs `vacancies_after_class_edit` on each of the
@@ -551,7 +626,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    and also closes that spot under its own locks, so the other offers for the missing seat are
    retired at once. Before PAD-552 the tick closed it.
 
-14. *(Replaced by `notifications.engine-spots` rule 10 when PAD-899's engine ships.)* **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
+14. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-spots` rule 10. Holds as written for an old-engine session until the old engine is deleted.)* **One open vacancy per departing player per occurrence, enforced by the database (PAD-303,
     B-046 step 5 / B-051; numbered 14 after PAD-271's 13 and before PAD-317's 15).** `vacancies` has a partial unique index
     `uq_vacancies_open_original_player` on `(lesson_instance_id, original_player_id)` where
     `status = 'open' AND original_player_id IS NOT NULL`. Filled and expired rows and structural
@@ -561,7 +636,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     vacancies exist — zero on the staging copy of prod on 2026-09-11 — and its downgrade drops the
     index.
 
-15. *(Replaced by `notifications.engine-planning` rule 10 when PAD-899's engine ships.)* **A vacancy is closed in exactly one place, and closing retires every live invitation
+15. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 10. Holds as written for an old-engine session until the old engine is deleted.)* **A vacancy is closed in exactly one place, and closing retires every live invitation
     (PAD-317, ledger B-081; numbered 15 because 14 is taken by PAD-303 on PR #228, which is
     open and merges first).** `_close_vacancy` is the only writer of `Vacancy.status =
     "filled"`: it stamps `filled_by_player_id` and `filled_at`, expires every
@@ -593,7 +668,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     answered "no" nor withdrawn by the coach, may join its
     waiting list from the bubble even when the coach's open spots are hidden (`classes.academy-class-booking`
     rule 6's `not_visible` does not apply to them: the invitation already showed them the class).
-15a. *(Replaced by `notifications.engine-answers` rule 4 when PAD-899's engine ships.)* **A retired invitation offers the waiting list (PAD-577).** When a student's invitation
+15a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 4. Holds as written for an old-engine session until the old engine is deleted.)* **A retired invitation offers the waiting list (PAD-577).** When a student's invitation
     reads "Vaga preenchida" because someone else took the spot (`response: "spot_filled"`), the
     bubble — web and iOS, the chat and anywhere else the invitation is shown — adds "Juntar-me à
     lista de espera" / "Join the waiting list". Pressing it puts the student on **that
@@ -613,7 +688,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     without the separate waiting-list offer message it used to post.
     `spot_filled` is written on every fill (rule 15, PAD-609), and a student who held the invitation
     is not refused `not_visible` (rule 15). Manual invitations carry `startsAt` too.
-16. *(Replaced by `notifications.engine-planning` rule 10 when PAD-899's engine ships.)* **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
+16. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-planning` rule 10. Holds as written for an old-engine session until the old engine is deleted.)* **A spot is not dropped while someone asked can still say yes (PAD-493, ledger B-259).** When a
     vacancy's last round has nobody left to invite, it expires only if none of its invitations is
     still live (`LIVE_INVITATION_STATES`). With a live invitation it **holds**: it stays `open` on
     its last round, and a "yes" in that window is accepted as on any open vacancy. A held vacancy
@@ -644,7 +719,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     repeated by a student who lost the spot: their answer was `spot_filled` (no message since
     PAD-501) and they were offered the waiting list once, and the repeat answers the same and
     sends nothing (PAD-495).
-18. **A student's "no" is final for that class; one live offer per student per class (PAD-497,
+18. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 5 (a No is final for the session) and `notifications.engine-planning` rule 2 (one invitation per student per session); the key stays the single occurrence. Holds as written for an old-engine session until the old engine is deleted.)* **A student's "no" is final for that class; one live offer per student per class (PAD-497,
     absorbing PAD-494; owner, 2026-10-02: "a student no means I dont want a spot in this class.
     He should never be invited to that class again").** "That class" is the single occurrence
     (`lesson_instance_id`), not the recurring series; the key is chosen in one place. The answer a
@@ -722,7 +797,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     recording a "yes" on that invitation; removing the student and adding them back does not clear
     it. The coach recording the same answer twice changes nothing (rule 17).
 
-18a. *(Replaced by `notifications.engine-answers` rule 3 when PAD-899's engine ships.)* **A live invitation moves to a sibling spot instead of ending (PAD-679; owner's decisions
+18a. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-answers` rule 3. Holds as written for an old-engine session until the old engine is deleted.)* **A live invitation moves to a sibling spot instead of ending (PAD-679; owner's decisions
     2026-10-21, recorded on the ticket; numbering unconfirmed).** Before PAD-679 a class with two open
     spots told the students asked for the first "Vaga preenchida" when someone took it, and the
     second spot, which had been waiting only on their offers (rule 18), asked them again at the
@@ -792,7 +867,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
     yes. `booked_same_day` fits `retired_reason`'s 16 characters; both shells label it through
     `retiredInviteLabelKey`.)
 
-19. **A coach withdraws a live invitation (PAD-548).** `DELETE
+19. *(For a session on the new engine (`notifications.config` rule 18): kept; a coach's manual invitation is the student's one invitation for the session (D1; Open questions).)* **A coach withdraws a live invitation (PAD-548).** `DELETE
     /api/app/notify/invitations/<event_id>` by the invitation's coach (403 for any other coach,
     404 for an unknown id).
     - **Live (`sent` or `queued`):** under rule 10's locks — the vacancy, then its class; a manual
@@ -838,7 +913,7 @@ Kept: rules 2a, 3a, 3b, 3d, 4, 4c, 6, 9, 11, 11a, 12–12b, 17, 18, 20, 21. Kept
    approval (`semi-auto-approval`) refuse the same way. Nothing here changed in PAD-798: the rule
    states, beside `notifications.manual` rule 10 (manual sends refused with 409 `CLASS_STARTED`),
    what the owner decided for every path, and its criteria pin it.
-21. **One failure does not stop the tick (PAD-526, PAD-558).** `process_invitation_batches` handles each open spot on its own: a spot whose start or batch raises is rolled back, logged and skipped for that tick, and the scan for never-filled places has a guard of its own. The tick's other spots are processed as usual.
+21. *(For a session on the new engine (`notifications.config` rule 18): replaced by the new tick's rule: one session's failure is rolled back, logged and skipped, and the tick goes on (spec with PAD-916; Open questions). Holds as written for an old-engine session until the old engine is deleted.)* **One failure does not stop the tick (PAD-526, PAD-558).** `process_invitation_batches` handles each open spot on its own: a spot whose start or batch raises is rolled back, logged and skipped for that tick, and the scan for never-filled places has a guard of its own. The tick's other spots are processed as usual.
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-INVITATIONS-1: An empty round logs its stage counts (rule 3d)
@@ -1588,3 +1663,61 @@ test: `backend/padel_app/tests/test_pad552_capacity_edit_follows_vacancies.py` �
 - **And** with several open spots the one with the lowest id takes them
 - **And** an invitation withdrawn for balance moves the same way when another spot now asks that side
 test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py` › `test_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second` (+14 more)
+
+#### NOTIFICATIONS-INVITATIONS-115: One shared function gives a new-engine bubble its state (new-engine section NB1–NB3)
+- **Given** new-engine invitation metadata for each state, on a student's and on a coach's copy, with `countsUntil` before and after now, and `startsAt` before and after now
+- **When** `engineInviteState(metadata, viewer, now)` reads it
+- **Then** it returns Yes/No only for `open` before `startsAt` on the student's copy (counting or not), the label NB2 or NB3 names for every other state, "Sem resposta · já não conta" only for the coach's copy of an open invitation past its `countsUntil`, and no buttons for `sorry`, `reoffered`, `withdrawn`, `closed_same_hour` or once the class has started
+test: `frontend/packages/config/src/engine-invite-state.test.ts` › `derives every new-engine bubble state for the student and the coach`
+
+#### NOTIFICATIONS-INVITATIONS-116: The web bubble renders the new-engine states and follows a live edit (new-engine section NB1, NB2, NB4)
+- **Given** a student's new-engine invitation bubble on web, `open`
+- **When** a `message_edited` turns it `sorry`, and a `reoffer` message arrives for the same invitation
+- **Then** `invite-respond-yes-<id>` shows first, the bubble then shows the sorry label with no buttons, the first bubble reads "reopened below", and the new bubble offers Yes and No
+test: `frontend/apps/web/src/components/messages/MessageBubble.newEngine.test.tsx` › `renders the new engine's states and follows a live edit`
+
+#### NOTIFICATIONS-INVITATIONS-117: The iOS bubble renders the new-engine states with the same test ids (new-engine section NB1, NB2, NB4)
+- **Given** the same metadata on iOS
+- **Then** the same states, labels and test ids as on web show
+test: `frontend/apps/mobile/src/features/messages/components/message-bubble-new-engine.test.tsx` › `renders the new engine's states with the shared test ids`
+
+#### NOTIFICATIONS-INVITATIONS-118: The backend keeps a new-engine invitation message's state current (new-engine section NB1)
+- **Given** a new-engine invitation message
+- **When** the student says Yes into a full session, is then re-offered on a new bubble, and a coach later withdraws the invitation
+- **Then** the first message's `msg_metadata.state` goes `open` → `sorry` → `reoffered`, the new bubble's `open` → `withdrawn`, each change published once as `message_edited` for the messages the invitation's `message_ids` hold; a student reading the message gets no `countsUntil`, the coach does
+test: `backend/padel_app/tests/test_pad920_engine_bubble_state.py` › `test_the_invitation_messages_state_follows_the_engine`
+
+#### NOTIFICATIONS-INVITATIONS-119: The answer route takes an invitation id and says what the engine did (new-engine section NB5)
+- **Given** a new-engine invitation to a student, another student's invitation, and a full session
+- **When** the student answers yes twice, answers on the other student's id, and answers an unknown id
+- **Then** the first answer is `sorry` with the invitation's id, the repeat carries `duplicate: true`, the other student's id answers 403, the unknown id 404; a coach's `coach_respond` with `no` answers `declined`
+test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_answer_route_takes_an_invitation_id_and_says_what_happened`
+
+#### NOTIFICATIONS-INVITATIONS-120: One end-to-end run reads the new-engine bubble with the shared ids (new-engine section NB4)
+- **Given** a coach on `new`, a student invited to a session, on web
+- **When** the student answers yes into a full session
+- **Then** `invite-state-<id>-sorry` shows on the student's bubble with no `invite-respond-yes-<id>`, and the coach's copy shows the same state
+test: `frontend/apps/web/e2e/notification-engine/new-engine-bubble.spec.ts` › `a yes into a full session shows sorry on both copies`
+
+### Open questions
+- Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a
+  read-only projection. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): dropped, and their readers change; a read-only projection serves only
+  `admin.engine-health` during cutover, because the engine has no spots to store (D1) and a
+  projection kept for the clients would be a second truth.
+- How a coach moves to the new engine (swap plan §7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): per coach; sessions the old engine
+  started finish on it (they drain), new sessions go to the new engine, because converting live
+  vacancies into the engine's invitations has no lossless mapping.
+- A coach's manual invitation on a new-engine session (rule 19; swap plan §3.1) — options: it becomes the
+  student's one invitation for the session and counts; the engine skips a student holding one.
+  Decision (S, owner away, PAD-913; the owner can reverse it): it becomes the student's one invitation
+  (D1) and counts as one from the coach's list (tier 0a), because the coach's choice is the coach's list
+  (ruling (3)) and an uncounted invitation would let the engine send past M.
+- The new tick's failure rule (rule 21) — decision (S, owner away, PAD-913, 2026-11-11; the owner can
+  reverse it): kept in substance, per
+  session instead of per spot; its criterion is written with the table-backed store (PAD-916), where
+  the tick's transaction per session lives (swap plan §5).
+- Rules 11, 11a and 12–12b were listed as kept by PR #939; on reading they describe the old engine's
+  vacancy window and waves, which the new engine does not have, so PAD-913 moves them to the table.
+- The new-engine bubble's labels (NB2, NB3) — proposed by S (PAD-913, 2026-11-12), **for the owner's
+  approval**; the states and their derivation are not open. The student is never told "no longer
+  counts", because a Yes is still answered (decision S, owner away; the owner can reverse it).

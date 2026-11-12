@@ -21,11 +21,14 @@ Stated as observable records; storage is the engine package's (PAD-902).
   (`notifications.engine-timeline`).
 - **CREATES:** `Invited` effects (`invitation_engine/effects.py`): student, session, offer, the side
   named, tier, and the instant it stops counting (`notifications.engine-timeline` rule 4). One per
-  student per session (D1). `CoachAlert` effects (rule 11).
+  student per session (D1). `CoachAlert` effects (rule 11). `ApprovalRequest` effects in
+  semi-automatic mode (rule 14).
 
 ### Rules
 1. **When a run happens (§6).** For one session at a time: after every answer, cancellation, roster
-   change or settings change, and every const:ENGINE_RUN_EVERY in the background. It plans no
+   change or settings change, when the coach recomputes the class's suggestions
+   (`notifications.semi-auto-approval` rule 12; `Engine.plan(session, now)`), and every
+   const:ENGINE_RUN_EVERY in the background. It plans no
    invitation during quiet hours (D14), before `first_invite_at` or after `last_invite_at`
    (`notifications.engine-timeline` rules 1, 3, 6).
 2. **An invitation is for a student and a session (D1).** Never for a spot. One per student per
@@ -86,8 +89,13 @@ Stated as observable records; storage is the engine package's (PAD-902).
     hour close (`notifications.engine-answers` rule 10); a student cannot play two sessions at once.
 11. **Nobody left (§6 step 4).** When a spot type has uncovered spots and **no candidate in any tier**
     (no counting invitation counts for it and no uninvited student fits it), the run emits a
-    const:COACH_ALERT for the session naming the type. The store keeps one alert per session and type
-    until the type's count changes.
+    const:COACH_ALERT for the session. The alert carries a reason code (const:ALERT_NO_CANDIDATE, the
+    only one), the spot type (its side, none for an either spot, and its level) and how many spots of
+    that type are uncovered; never text. The store keeps one alert per session and type until the
+    type's count changes, and turns it into the coach's message or dashboard card, whose wording is
+    the app's (swap plan §6.3 item 7). A run that finds an alerted type covered, gone, or with a
+    candidate again emits `AlertCleared` (session, spot type), and the store drops that alert, so a
+    reader of the store's alerts sees only live ones.
 12. **Why this waits for the better tier (D9).** A spot is covered once one distinct candidate holds a
     counting invitation for it; the next tier gets it only when it is uncovered.
 13. **Ties in "hardest first" when M binds (coordinator ruling 2026-11-11, U7).** When two side types
@@ -96,11 +104,57 @@ Stated as observable records; storage is the engine package's (PAD-902).
     uncovered spots is served first until the sides' uncovered spots are equal; the rest of M is split
     in halves; an odd leftover goes to the side with fewer going students, then to the side with fewer
     candidates in the tier. Without a tie, rule 5's order stands.
+14. **Semi-automatic mode holds the sends for the coach (owner ruling D2, 2026-11-11; shape: the
+    coordinator's, reversible by the owner).** With `invitation_mode` `semi_automatic`
+    (`notifications.config` rule 19) the engine is the same and plans the same; only what it sends
+    changes. The store keeps, per session, the **approved queue** (the students the coach let through)
+    and at most one pending approval request.
+    - A run whose plan sends or re-offers an invitation to a student **outside** the approved queue
+      does not send it. It emits `ApprovalRequest(session, queues)`: the queue of each open spot type
+      from the dry run (`notifications.engine-tiers` rule 12) at that instant, with an id. A new request
+      replaces the pending one; a run whose queues equal the pending request's emits nothing. A replaced
+      or withdrawn request goes stale: its message's buttons decide nothing (today's rules 3 and 11 of
+      `notifications.semi-auto-approval`).
+    - Invitations the plan sends to students **inside** the approved queue go out without asking.
+    - The coach answers `ApproveQueue(session, request, removed)`; an answer naming a request that is no
+      longer pending decides nothing. The approved queue becomes the students of the request's queues,
+      across its spot types (one set: a student the coach let through may be invited for any type they
+      fit), without the removed students, the pending request is gone, and the session is re-planned
+      at once and sends. An invitation's counting-until instant is fixed when it is really sent
+      (`notifications.engine-timeline` rule 4), never when it was requested.
+    - A removed student is never invited automatically for that session, and the dry run gives them the
+      stage `removed_by_coach`, so no later request lists them (it is not a No: the "said No" gate,
+      automatic entry and direct join are unchanged).
+    - A run with nothing to send outside the approved queue (the session full, every type covered, the
+      class started) withdraws the pending request, which goes stale. A run in quiet hours plans
+      nothing (rule 1) and keeps the pending request.
+    - The coach may instead answer `DismissQueue(session)` (today's "Ignorar"; coordinator's ruling,
+      reversible by the owner): the pending request is gone and the session sends nothing
+      automatically and raises no request until its spot count changes or the coach reopens it from
+      the class (`ReopenQueue(session)`); then the next run asks again as above. The spot count is the
+      open spot types with their counts (`planner.spot_types`); a change in either ends the dismissal.
+      Either way the engine records `QueueReopened` before the new request. Invitations already sent
+      stay open (rule 10).
+    - `ApproveQueue` or `DismissQueue` with no pending request, and `ReopenQueue` on a session that is
+      not dismissed, change nothing. Each approval replaces the approved queue;
+      removed students add up across approvals.
+    - Only the planner's sends are held. The re-offer an answer makes at once (a Yes whose offer filled,
+      `notifications.engine-answers` rule 3) goes to a student who already holds the invitation and is
+      not held.
+    - Automatic entry from a waiting list is the coach's own setting and is not held; direct join is off
+      in semi-automatic mode (`notifications.config` rule 19, the owner's Q3); waiting-list invitations
+      are invitations and are held.
+    - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
+      session, except a dismissed session, which stays dismissed until its spot count changes or the
+      coach reopens it (as today's rule 1a of `notifications.semi-auto-approval` keeps a dismissed spot);
+      the approved queue is emptied, so a later return to semi-automatic asks again; switching to `semi_automatic` leaves open invitations as they are (rule 10) and holds the
+      next send outside the (empty) approved queue.
+    Nothing is planned before `first_invite_at` (rule 1), so no request is raised before the window.
 
 ### Not this spec
 - Answers (`notifications.engine-answers`) and the session's clock (`notifications.engine-timeline`).
 - The alert's channel and wording (open question).
-- `maxTotal`, today's cap on invitations ever sent (open question).
+- `maxTotal`, today's cap on invitations ever sent: dropped by the owner (Open questions).
 
 ### Today
 - Matching is per vacancy, in rounds and batches: `trigger_invitations`
@@ -268,6 +322,85 @@ run tops up the right type and chooses them, then their invitation is re-offered
 no second invitation is created, and it counts again until a new counting-until instant.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_sorry_invitation_is_reoffered_not_duplicated`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-27: The coach alert carries a reason code, the spot type and its count, once per type until the count changes (rule 11)
+Given a type with no candidate in any tier, when runs repeat with nothing changed and then the type's
+uncovered count changes, then one alert is raised with const:ALERT_NO_CANDIDATE, the type's side and
+level and its uncovered count, none on the repeats, and a new one at the change.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_coach_alert_once_per_type_until_its_count_changes`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-28: A semi-automatic run asks instead of sending (rule 14)
+Given a semi-automatic coach, a session with two uncovered spot types and no approved queue, when a run
+plans inside the window, then no `Invited` effect is emitted and one `ApprovalRequest` is, carrying for
+each open type the queue `planner.evaluate` gives for the same snapshot; a second run with nothing
+changed emits nothing.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_semi_automatic_run_asks_instead_of_sending`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-29: An approval sends the queue without the removed students, and T starts at the send (rule 14)
+Given that pending request with students A, B, C in one type's queue, when the coach approves at 19:10
+removing B, then the run sends to A and C what an automatic run would, never to B, and their invitations
+count from 19:10, not from the request's time; B is not in `said_no`.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_approval_sends_the_queue_without_the_removed_and_t_starts_at_the_send`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-30: Rounds inside the approved queue need no new approval; a student outside it asks again (rule 14)
+Given an approved queue A, C, D for a type and A, C invited, when A says No and the next run tops up,
+then D is invited with no request; when the queue is spent and the next tier's E would be invited, then
+E is not invited and a new `ApprovalRequest` is emitted.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_rounds_inside_the_approved_queue_need_no_new_approval`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-31: A pending request goes stale when nothing is left to ask for, or when the coach turns automatic (rule 14)
+Given a pending request, when the session fills, then the next run withdraws it; given another pending
+request, when the coach switches to `automatic`, then it is withdrawn and the next run sends.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_pending_request_is_withdrawn_when_nothing_is_left_or_the_mode_turns_automatic`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-32: The store refuses a second invitation for one student and session (rule 2)
+Given an invitation applied for a student in a session, when a second `Invited` for the same student
+and session is applied, then the store raises `StoreConflict` and keeps the first.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_second_invitation_for_one_student_is_refused`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-33: A dismissed session asks nothing until its spot count changes or the coach reopens it (rule 14)
+Given a pending request, when the coach answers `DismissQueue`, then runs with nothing changed send
+nothing and emit no request; when a regular's No changes the session's spot count, or the coach reopens
+it from the class, then the next run emits a new `ApprovalRequest`.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissed_session_asks_again_only_when_its_spots_change_or_the_coach_reopens_it`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-34: An answer to a replaced request decides nothing, and a removed student is in no later request (rule 14)
+Given a pending request R1 listing A, B, C, when the coach approves R1 removing B and a later run raises
+R2, then R2's queues do not list B; given R2 replaced by R3 before the coach answers, when the coach
+approves R2, then nothing is approved, nothing is sent and R3 stays pending.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_an_answer_to_a_replaced_request_decides_nothing_and_removed_students_stay_out`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-35: A dismissal survives a switch to automatic (rule 14)
+Given a dismissed semi-automatic session, when the coach switches to `automatic` and a run happens with
+nothing changed, then nothing is sent; when its spot count changes, then the next run sends as an
+automatic session.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissal_survives_a_switch_to_automatic`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-36: Switching to automatic empties the approved queue (rule 14)
+Given a semi-automatic session with an approved queue, when the coach switches to `automatic` and back
+to `semi_automatic`, then the approved queue is empty and the next send outside it raises a request.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_switching_to_automatic_empties_the_approved_queue`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-37: Quiet hours keep a pending request (rule 14)
+Given a pending request, when runs happen during quiet hours, then the request stays pending and is
+neither withdrawn nor replaced.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_quiet_hours_keep_a_pending_request`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-38: A dismissal or reopening out of turn does nothing (rule 14)
+Given a session with no pending request, when the coach answers `DismissQueue`, then nothing changes;
+given a session that is not dismissed, when the coach answers `ReopenQueue`, then nothing changes and no
+`QueueReopened` is recorded.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissal_or_reopening_out_of_turn_does_nothing`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-39: One session can be re-planned on demand (rule 1)
+Given two sessions, when `Engine.plan(session, now)` is called for one, then only that session is
+planned, as a background run would plan it, and the other is untouched.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_engine_plan_runs_one_session`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-40: An alert is cleared once its type is covered or has a candidate (rule 11)
+Given an alerted right type, when a right-sider becomes a candidate and the next run invites them, then
+that run emits `AlertCleared` for the type and the store holds no alert for it.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_an_alert_is_cleared_once_its_type_has_a_candidate`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -280,6 +413,14 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 4. (W7) PLANNING-14, PLANNING-17, PLANNING-18, PLANNING-25, PLANNING-26 — `invitation_engine/planner.py` (D4, the alert),
    `invitation_engine/store.py` (one alert per session and type), `adapters/new.py` (the alert as
    `coach_alert`).
+5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
+   `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
+6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-40 — `invitation_engine/effects.py` (`ApprovalRequest`),
+   `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`, `ReopenQueue`), `invitation_engine/planner.py` (the hold, from
+   `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
+   approved queue and the pending request and sends the request through the outbox, and
+   (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
+7. (PAD-916) PLANNING-32 — the store (one invitation per student and session, `StoreConflict`).
 
 ### Open questions
 - Top-up order: tier by tier over all types, or type by type over the tiers? — decided (coordinator
@@ -291,5 +432,17 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   engine emits the effect; channel and wording go to the owner at review, because the scenarios assert
   only that an alert exists.
 - `maxTotal` (today's cap on invitations ever sent per session) has no place in the plan (U4) —
-  decision (owner away): not read by the new engine; M is the only cap, because D16 defines M as the
-  cap and nothing in §1–§8 keeps a second one. The owner may restore it at review.
+  decision (owner, 2026-11-11, swap decision 3): dropped. The new engine does not read it; M is the
+  only cap, as D16 defines it.
+- Semi-automatic mode (swap decision 2) — decision (owner, 2026-11-11): kept. "Semi automatic mode
+  should have exactly the same engine, but instead of sending directly the message it should ask the
+  coach permission." Rule 14's shape (one request per session with the dry run's queues, removals,
+  rounds inside the approved queue unasked, a student outside it asks again, T at the real send) is the
+  coordinator's, reversible by the owner. S's readings inside it (PAD-913): a removed student is
+  excluded from that session's automatic invitations, not a No; automatic entry and direct join are not
+  held, because they are the coach's own settings; no request before `first_invite_at`, so today's
+  "Yes, at the window" button has nothing to schedule.
+- What the coach's "Ignorar" (today's dismiss, `notifications.semi-auto-approval` rule 8) becomes —
+  decision (coordinator, owner away, 2026-11-12; the owner can reverse it): `DismissQueue(session)`;
+  a dismissed session sends nothing and asks again only when its spot count changes or the coach
+  reopens it from the class (rule 14), so a dismissal is never permanent while the class still changes.

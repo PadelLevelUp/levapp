@@ -55,7 +55,9 @@ Stated as the engine's observable inputs; storage is the engine package's (PAD-9
    above a value's quota. Extra regulars keep their spot; who moves, and when, is
    `notifications.engine-timeline` rule 6. Total regulars never exceed capacity.
 10. **One logic for both reasons (§4).** A spot with no regular and a spot freed by an absence are the
-    same to the engine; only the coach's view and attendance records tell them apart.
+    same to the engine; only the coach's view and attendance records tell them apart. The one exception
+    is `fill_never_held` off (`notifications.engine-settings` rule 11), which keeps today's invitation
+    start `none`: then only freed spots are invited for.
 
 ### Not this spec
 - Who is asked for a spot type (`notifications.engine-tiers`) or how many (`notifications.engine-planning`).

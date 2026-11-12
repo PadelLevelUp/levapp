@@ -21,7 +21,7 @@ def _weekday_first(dt, locale="pt"):
 
 def test_the_formatter_has_a_weekday_first_form(app):
     """The literals are rule 19's and rule 17's own examples."""
-    from padel_app.services.notification_service import _format_when
+    from padel_app.services.message_text import _format_when
 
     friday = datetime(2026, 10, 16, 9, 0)
     saturday = datetime(2026, 10, 17, 18, 0)

@@ -1,6 +1,6 @@
 ---
 id: notifications.message-templates
-status: implemented
+status: implementing
 depends_on: [notifications.config]
 serves: [P-NOTIFICATIONS-3]
 governed_by: []
@@ -11,6 +11,64 @@ governed_by: []
 
 ### Intent
 Customize the text of notification messages sent to players.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §6.4) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 15 (no `spot_filled` message) | a fill retires nothing (D4); a Yes into a full session gets const:KIND_SORRY with the waiting-list offer, or const:KIND_REOFFER when another spot fits | `notifications.engine-answers` rules 3, 4 |
+| Rule 16 (`{side}` only in `waiting_list_invite`) | any invitation names a side only when it is outside the student's subset | `notifications.engine-planning` rule 9 |
+| Criterion 14 | replaced with rule 15 | — |
+
+Readings:
+- Rule 2: templates are needed for const:KIND_REOFFER, const:KIND_ADDED, const:KIND_SIDE_MOVED and the coach alert (const:ALERT_NO_CANDIDATE); const:KIND_WAITING_LIST_INVITE uses today's `waiting_list_invite`, and const:KIND_SORRY today's `waiting_list_offer` ("spot taken, join the list?", the same message), so a coach's own text for either carries over (`notifications.engine-answers` rule 11).
+- Rule 3 and criteria 5, 7: the engine's attendance requests render through today's `reminder` templates (`notifications.engine-timeline` rule 2: the recipients change, not the message).
+- Criteria 6, 8, 9: a new-engine invitation renders through `invite`, or `waiting_list_invite` from a waiting list.
+
+The new-engine templates (swap step 8, PAD-920). **The default texts below are proposals awaiting the
+owner's approval (Open questions); the keys, placeholders and editor places are not.**
+- **N1. Four new keys**, in both default dicts (`DEFAULT_MESSAGE_TEMPLATES`, `_PT`), and the three
+  editable ones in the `MessageTemplates` type (`coach_no_candidate` stays out, as the other
+  non-editable keys do). Each key's name is its kind's, except `waiting_list_added`
+  (`notifications.engine-answers` rule 11):
+
+  | Key | Sent for | Proposed en | Proposed pt |
+  |---|---|---|---|
+  | `reoffer` | const:KIND_REOFFER | `Hi {name}, a spot{side} just opened in the {level} class on {weekday} at {time}. Your invitation is open again: do you want it?` | `Olá {name}, abriu uma vaga{side} na aula de {level} na {weekday} às {time}. O teu convite voltou a estar aberto: queres vir?` |
+  | `waiting_list_added` | const:KIND_ADDED | `Hi {name}, a spot opened in the {level} class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾` | `Olá {name}, abriu uma vaga na aula de {level} na {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾` |
+  | `side_moved` | const:KIND_SIDE_MOVED | `Hi {name}, in the {level} class on {weekday} at {time} you'll play on the {sideName} side. See you there!` | `Olá {name}, na aula de {level} na {weekday} às {time} vais jogar do lado {sideName}. Até já!` |
+  | `coach_no_candidate` | the coach alert, const:ALERT_NO_CANDIDATE | `{class} on {weekday} at {time}: {count} open spot(s){side} and nobody left to invite automatically.` | `{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.` |
+
+  `waiting_list_added` is not named `added`: a key `added` would read as today's `added_to_class`, which
+  means another message (`notifications.engine-answers` rule 11's invariant). `waiting_list_placed` is not reused: a stored
+  `waiting_list_placed` text is ignored since PAD-446 (rule 2).
+- **N2. Two new placeholders.** `{sideName}` is the bare side word ("left" / "esquerdo", "right" /
+  "direito"), filled for `side_moved` only; `{count}` is the alert's uncovered spots, filled for
+  `coach_no_candidate` only. Both are stripped to "" anywhere else, as `{side}` is (rule 16's mechanism).
+  `{side}` keeps its phrase (" (left side)" / " (lado esquerdo)") and is filled for `reoffer`,
+  `waiting_list_added` and `coach_no_candidate` when the offer or the spot type has a side
+  (`notifications.engine-planning` rule 9 decides when an invitation names one).
+- **N3. The web editor.** `reoffer` joins "Convites" / "Invitations" after `invite`; `waiting_list_added`
+  joins "Lista de espera" / "Waiting list" after `waiting_list_invite`; `side_moved` joins "Adicionado a
+  uma aula" / "Added to a class". `coach_no_candidate` is not editable: it is a message to the coach
+  themselves. Labels and descriptions (`settings.templates.labels.*`,
+  `.descriptions.*`, both locales): `reoffer` "Convite reaberto" / "Invitation reopened", "Enviada quando
+  uma vaga abre para alguém cujo sim chegou tarde." / "Sent when a spot opens for someone whose yes came
+  too late."; `waiting_list_added` "Entrada automática da lista de espera" / "Placed from the waiting
+  list", "Enviada quando a entrada automática põe um aluno da lista de espera numa vaga." / "Sent when
+  automatic entry places a waiting-list student in a spot."; `side_moved` "Lado definido" / "Side set",
+  "Enviada quando um aluno que joga dos dois lados fica com o lado final." / "Sent when a student who
+  plays both sides is given their final side.". `waiting_list_offer`'s description becomes "Enviada
+  quando um aluno diz que sim a uma vaga que já foi ocupada, oferecendo a lista de espera." / "Sent when
+  a student says yes to a spot that was already taken, offering the waiting list." (it is now
+  const:KIND_SORRY's text, `notifications.engine-answers` rule 11). iOS has no editor (Notes).
+- **N4. Rules 5, 8, 9 hold for the new keys**: fully substituted, a blank stored text falls back to the
+  default, nothing blank is sent.
 
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
@@ -206,6 +264,23 @@ Customize the text of notification messages sent to players.
 - **And** a message whose text is blank is not created, while one with text is
 test: `backend/padel_app/tests/test_pad330_the_student_is_told.py` › `test_a_coach_whose_templates_predate_the_key_still_gets_text` (+25 more)
 
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-17: The four new keys resolve in both locales, fully substituted (new-engine section N1, N2, N4)
+- **Given** a coach with no stored texts, a `pt` and an `en` student, a {left, right} student told their side and a coach with a right spot nobody is left to invite for
+- **When** `reoffer`, `waiting_list_added`, `side_moved` and `coach_no_candidate` are rendered for a new-engine session
+- **Then** each is the locale's default with no raw placeholder left, `{sideName}` reads "direito" / "right" in `side_moved`, `{count}` the uncovered count in `coach_no_candidate`, and `{sideName}` and `{count}` render "" in any other template
+test: `backend/padel_app/tests/test_pad920_engine_templates.py` › `test_the_new_engine_keys_resolve_fully_in_both_locales`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-18: A coach's own text for a new key wins, and the sorry uses waiting_list_offer's (new-engine section N1, N4)
+- **Given** a coach with a stored `reoffer` text, a blank stored `side_moved` and a stored `waiting_list_offer`
+- **When** the engine's `reoffer`, `side_moved` and `sorry` messages are rendered
+- **Then** `reoffer` is the coach's text, `side_moved` the default, and `sorry` the coach's `waiting_list_offer` text
+test: `backend/padel_app/tests/test_pad920_engine_templates.py` › `test_a_coachs_text_wins_and_sorry_uses_waiting_list_offer`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-19: The web editor lists the three editable new keys in their groups (new-engine section N3)
+- **Given** a coach on web Settings → message templates
+- **Then** `template-row-reoffer` is in "Convites" after `invite`, `template-row-waiting_list_added` in "Lista de espera" after `waiting_list_invite`, `template-row-side_moved` in "Adicionado a uma aula", each with its label and description, `side_moved`'s variable chips include `{sideName}`, `reoffer`'s and `waiting_list_added`'s include `{side}`, and there is no `template-row-coach_no_candidate`
+test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `lists the new engine's editable templates in their groups`
+
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
   reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
@@ -213,3 +288,14 @@ test: `backend/padel_app/tests/test_pad330_the_student_is_told.py` › `test_a_c
 - PAD-430 is web-only in the client: iOS has no message-template editor (the templates are edited on
   the web settings page only), so there is no iOS surface to port. The rendering is server-side and
   reaches iOS recipients unchanged.
+
+### Open questions
+- Templates for the engine's new kinds (sorry, re-offer, added, side moved, the coach alert) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it):
+  written in both locales and rendered on web and iOS together; an iOS template editor stays out (the
+  PAD-430 reason under Notes).
+- The texts of the new kinds — **for the owner's approval**: S proposed them (new-engine section N1, N3,
+  PAD-913, 2026-11-12), in the tone of `invite` and `waiting_list_invite`. Until the owner approves,
+  PAD-920 builds with the proposed texts and nothing ships to a coach on `new` before the owner has
+  read them (the swap's cutover is per coach, `notifications.config` rule 18).
+- The alert's key name `coach_no_candidate` and `waiting_list_added` rather than `added` — S's
+  (PAD-913, 2026-11-12; the owner can reverse it): rule 11 forbids a name that means another message.

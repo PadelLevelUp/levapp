@@ -343,7 +343,7 @@ def test_invitation_only_block_leaves_reminders_alone(app):
 # ---------------------------------------------------------------------------
 
 def test_backstop_suppresses_every_class_slot_solicitation(app):
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
     with app.app_context():
         w = _world(app, "-choke")
         _block(w["s1"], every=True)
@@ -363,7 +363,7 @@ def test_backstop_suppresses_every_class_slot_solicitation(app):
 @pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-11")
 def test_backstop_never_cuts_the_student_off_from_their_coach(app):
     """Plain chat, cancellation notices and 'you got the spot' still arrive."""
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
     with app.app_context():
         w = _world(app, "-chokeok")
         _block(w["s1"], every=True)
@@ -379,7 +379,7 @@ def test_backstop_never_cuts_the_student_off_from_their_coach(app):
 
 
 def test_backstop_leaves_an_unblocked_student_alone(app):
-    from padel_app.services.notification_service import _send_system_message
+    from padel_app.services.system_messages import _send_system_message
     with app.app_context():
         w = _world(app, "-chokefree")
         _block(w["s1"], auto=True, manual=True)  # but NOT `all`

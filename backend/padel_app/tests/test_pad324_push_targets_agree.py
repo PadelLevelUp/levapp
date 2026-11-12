@@ -18,7 +18,7 @@ from padel_app.tests.test_pad131_join_requests import _config, _request, _seed, 
 
 def _pushes(app, ids, player_id):
     """Both pushes for one join request: (web url, expo data)."""
-    with patch("padel_app.services.notification_service.publish"), \
+    with patch("padel_app.realtime.publish"), \
          patch("padel_app.utils.push_notifications.send_push_notification") as web, \
          patch("padel_app.utils.expo_push.send_expo_push_to_user") as expo:
         expo.return_value = True

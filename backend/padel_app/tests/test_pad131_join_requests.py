@@ -70,7 +70,7 @@ def _refusal(exc_info):
 
 def _messages_for(app, ids, pid):
     from padel_app.models import Message, Player, Coach
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     with app.app_context():
         coach_uid = db.session.get(Coach, ids["coach_id"]).user_id
@@ -266,7 +266,7 @@ def test_an_invitation_filling_the_spot_supersedes_pending_requests(app, auto_re
 @pytest.mark.criterion("CLASSES-JOIN-REQUESTS-8")
 def test_an_accepted_request_retires_outstanding_invitations(app):
     from padel_app.models import Coach, Message, NotificationEvent, Player, Vacancy
-    from padel_app.services.notification_service import _get_or_create_direct_conversation
+    from padel_app.services.system_messages import _get_or_create_direct_conversation
 
     ids = _seed(app, eligibility_rules=None)
     _config(app, ids, open_spots_visible=True)
