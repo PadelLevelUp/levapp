@@ -16,8 +16,8 @@ the coach's list).
 ### Entities
 - **READS:** `EngineSettings.tiers` and `.ordering` (`invitation_engine/settings.py`); from the
   `SessionSnapshot`: `waiting_list` (each entry's list, side or sides choice, `joined_at`), `pool`
-  (visible students not in the session), `said_no`, each `Student`'s level, `sides` and
-  `participations`.
+  (visible students not in the session), `said_no`, each `Student`'s level, `sides`,
+  `participations` and the group-rule facts of rule 13.
 - **WRITES:** nothing.
 
 ### Rules
@@ -30,9 +30,9 @@ the coach's list).
    is a category rule; on level a spectrum rule, evaluated against the class's level
    (`notifications.engine-spots` rule 8); every other group rule is a tier criterion. The priority
    list is ordering; eligibility rules, exclusions and blocks are gates; the daily cap and one live
-   offer per club day are postpones. In this wave a group is a `Tier(source, side, level_offset)`:
-   side `same`, `other` or `any`, a level offset from the class. Tier criteria such as `has_makeups`
-   and the mapping from the coach's stored config are the engine swap's.
+   offer per club day are postpones. A group is a `Tier(source, side, level_offset)` (side `same`,
+   `other` or `any`, a level offset from the class or none) carrying the stored group's rules (rule
+   13; owner ruling D5); the mapping from the coach's stored config is `notifications.config` rule 19.
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
    block on automatic invitations, already in the session, in another session at the same time
@@ -58,8 +58,7 @@ the coach's list).
 8. **Ordering inside a tier (§3; Q4 closed: PAD-723).** `EngineSettings.ordering` is the coach's
    enabled priority criteria followed by the coach's enabled tiebreakers, each list in the coach's
    order (built from the stored configuration, `notifications.config` rule 19). Each id ranks one way:
-   `level` the better level first, an unknown level last (today's `_level_sort_key`; an engine tier
-   holds one level offset or none, never a range); `justified_misses` more classes owed first
+   `level` the better level first, an unknown level last (today's `_level_sort_key`); `justified_misses` more classes owed first
    (`attendance.stats` rule 4); `attendance` and `attendance_rate` higher rate first; `playing_side`
    and `playing_side_match` a student whose only side is the spot's side first, then one who plays
    both, then the rest, and a spot of either side favours nobody (today's `_side_preference_rank`);
@@ -104,6 +103,21 @@ the coach's list).
     (exclusions, inactive accounts, eligibility per swap decision 6) never reach the engine; the
     caller explains those. A hypothetical ("this student drops out") is a snapshot the caller builds
     without writing. This is rule 11's evaluator, so the invite simulation and the engine agree.
+13. **Tier criteria are the coach's group rules (owner ruling D5, 2026-11-11).** A pool tier carries
+    its stored group's rules, one tier per group (`notifications.config` rule 19), and a student is in
+    that tier for a spot type when they pass every rule, read as today's vacancy-anchored group rules
+    (`_group_rule_failures`) with the class's level as the vacancy's: level `same_as_vacancy`,
+    `one_above_vacancy`, `one_below_vacancy`, `all_above_vacancy`, `all_below_vacancy` on the coach's
+    ladder (a student with no level, or a level off the ladder, fails); side `same_as_vacancy` as the
+    category rule (rule 2); `has_makeups` `is_true` (makeups owed above zero); `unjustified_absences`
+    and `justified_absences` (counts of the coach's verdicts, D4) and `attendance_rate` (a percentage)
+    compared by `less_than`, `less_than_or_equal`, `equals`, `greater_than` or
+    `greater_than_or_equal`; `subscription_status` `equals`. A threshold that is not a number passes and
+    an unknown operation passes, as today. A group with no rules ("everyone") admits every pool student
+    for every type. The snapshot's `Student` carries the facts these read, counted on the coach's own
+    classes as today (PAD-382): level, sides, makeups owed, the two absence counts, attendance rate and
+    subscription status. The class-anchored level operations (`*_class`) are eligibility, which stays
+    in the app (swap decision 6).
 
 ### Not this spec
 - How many invitations a tier sends (`notifications.engine-planning`).
@@ -204,6 +218,30 @@ evaluated, then each student has one verdict per open spot type with the first f
 applied, and outside the window or in quiet hours the effects are empty while the verdicts stand.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_dry_run_gives_each_student_a_verdict_per_spot_type`
 
+#### NOTIFICATIONS-ENGINE-TIERS-14: A stored group admits exactly the students today's group rules admit (rule 13)
+Given one group per attribute and operation of rule 13, each with a student who passes and one who
+fails, plus a threshold that is not a number and an unknown operation, when the engine computes tiers
+for a class at level L and `_group_rule_failures` is asked for the same students against a spot at L,
+then each student is in the group's tier exactly when today's function returns no failure.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_group_rules_give_todays_verdict_for_every_rule_kind`
+
+#### NOTIFICATIONS-ENGINE-TIERS-15: A group with no rules admits every pool student for every type (rule 13)
+Given the reference groups (level same + side same; level same; no rules) and a pool student two levels
+off the class who plays left, when tiers are computed for the left and right types, then the student is
+in the "everyone" tier for both and in neither earlier group.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_a_group_with_no_rules_admits_every_pool_student`
+
+#### NOTIFICATIONS-ENGINE-TIERS-16: A level range admits every level on its side of the class (rule 13)
+Given a class at the middle level of a five-level ladder and a group `level all_above_vacancy`, when
+tiers are computed, then students on either of the two stronger levels are in it, and students at the
+class's level, one level weaker and with no level are not.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_level_ranges_admit_every_level_on_their_side_of_the_class`
+
+#### NOTIFICATIONS-ENGINE-TIERS-17: A postponement added never drops one the store already had (rule 10)
+Given a snapshot whose store-built `postponed` holds A, when the planner adds B as postponed for this run
+(`planner.with_postponed`), then both A and B are postponed and neither is a candidate.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_the_stores_postponed_students_stay_postponed`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
@@ -211,13 +249,18 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    shared-module change, with `adapters/new.py` and `store.py`).
 2. (W7) TIERS-2, TIERS-3, TIERS-5, TIERS-6, TIERS-8 — scenario pins after planning W5 and answers W3.
 3. (Swap) TIERS-9 — `invite_simulation_service.py`, `replacement_approval_service.py`; at the engine
-   swap, not in this ticket (brief §1). Tier criteria and the stored-config mapping (rule 2) too.
+   swap, not in this ticket (brief §1). Tier criteria and the stored-config mapping: wave 7.
 4. (PAD-911) TIERS-10 — `invitation_engine/store.py` and `invitation_engine/planner.py` (`postponed`
    from invitations that count by planning rule 3 and whose offer counts toward a current spot type of
    their own session by rule 4: `timeline.counting` and the session's open spots together).
 5. (Swap 3, PAD-915) TIERS-11, TIERS-12 — `invitation_engine/settings.py` (the ids and `SettingsError`),
    `invitation_engine/planner.py` (the sort key), the config mapping (swap plan §2).
 6. (Swap 3, PAD-915) TIERS-13 — `invitation_engine/planner.py` (`evaluate`, `DryRun`, `Verdict`).
+7. (Swap, PAD-915) TIERS-14, TIERS-15, TIERS-16 — `invitation_engine/settings.py` (`Tier` carries the
+   group's rules; a pool tier with `level_offset` none), `invitation_engine/snapshot.py` (`Student`
+   gains the facts of rule 13), the tier evaluator in `invitation_engine/planner.py`; then (PAD-917)
+   `notifications.config` CONFIG-57 and CONFIG-59, and (PAD-916) the store fills the facts.
+8. (PAD-915) TIERS-17 — `invitation_engine/planner.py` (`with_postponed` takes the union).
 
 ### Open questions
 - A coach's-list entry with a coach-chosen side (rule 6) versus D12's "no spot-type rules" — decision
@@ -241,3 +284,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   the owner can reverse it): wire them, because `notifications.invitations` rule 4 and
   `notifications.config` rule 8 already promise it, and coaches edit them in settings; the behaviour
   change (three tiebreakers on by default) goes to the owner's review pack.
+- Tier criteria (rule 2 left them to the swap; swap decision 5) — options: the plan's tiers (side and
+  one level offset) only; today's group rule language. Decision (owner, 2026-11-11): today's language,
+  "it cannot be well built if it doesn't take into account these important rules"; a stored group maps
+  to one tier (rule 13). Reading them as today's `_group_rule_failures`, unparseable thresholds and
+  unknown operations passing included, is S's (PAD-913), so no coach's group changes meaning at the
+  cutover.
