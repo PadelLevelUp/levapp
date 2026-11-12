@@ -122,19 +122,33 @@ SpotQueues = tuple[tuple[SpotType, tuple[str, ...]], ...]   # per open type, its
 
 
 @dataclass(frozen=True)
+class PendingRequest:
+    """One group's pending approval request: the ``tier``, its id, its queue per open spot type."""
+
+    tier: int
+    request: str
+    queues: SpotQueues
+
+
+SpotCount = tuple[tuple[SpotType, int], ...]          # the open spot types with their counts (planner.spot_types)
+
+
+@dataclass(frozen=True)
 class Approval:
-    """Semi-automatic mode's state for one session (engine-planning rule 14, owner ruling D2).
+    """Semi-automatic mode's state for one session, per group (engine-planning rule 14; the owner's
+    decisions 5 and 10). ``approved_groups``: the tiers the coach approved for this session, whose
+    sends go out unasked, later candidates included; ``removed``: students the coach took out, never
+    invited automatically here (not a No); ``pending``: one request per group waiting for the coach;
+    ``dismissed_groups``: each dismissed tier with the spot count at its dismissal, skipped while the
+    count stays the same."""
 
-    ``approved``: the students the coach let through, invited without asking; ``removed``: the
-    students the coach took out, never invited automatically for this session (not a No);
-    ``pending``: the pending request's queues, ``None`` without one, and ``pending_request`` its id; ``dismissed``: the open spot
-    types and their counts when the coach dismissed the request, ``None`` when not dismissed."""
-
-    approved: frozenset[str] = frozenset()
+    approved_groups: frozenset[int] = frozenset()
     removed: frozenset[str] = frozenset()
-    pending: SpotQueues | None = None
-    pending_request: str | None = None                  # the pending request's id
-    dismissed: tuple[tuple[SpotType, int], ...] | None = None
+    pending: tuple[PendingRequest, ...] = ()
+    dismissed_groups: tuple[tuple[int, SpotCount], ...] = ()
+
+    def pending_for(self, tier: int) -> PendingRequest | None:
+        return next((p for p in self.pending if p.tier == tier), None)
 
 
 @dataclass(frozen=True)

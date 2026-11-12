@@ -15,10 +15,10 @@ from padel_app.invitation_engine.planner import evaluate, plan
 from padel_app.invitation_engine.requests import (
     Answer,
     Appear,
-    ApproveQueue,
-    DismissQueue,
+    ApproveGroup,
+    DismissGroup,
     RegularAbsent,
-    ReopenQueue,
+    ReopenGroup,
     UpdateSettings,
 )
 from padel_app.invitation_engine.snapshot import SpotType, Student
@@ -227,9 +227,11 @@ def test_the_adapter_logs_a_reoffer_as_its_message_only():
     assert [(r.kind, r.data.get("kind")) for r in records] == [("message", "aviso"), ("message", "reoffer")]
 
 
-# --- engine-planning rule 14 (owner ruling D2): semi-automatic mode holds the sends for the coach --------
+# --- engine-planning rule 14: semi-automatic mode asks before each group (owner decisions 5 and 10) -----
 
-SEMI = EngineSettings(invitation_mode="semi_automatic", tiers=(Tier("pool", "same", 0),))
+G0, G1 = Tier("pool", "same", 0), Tier("pool", "same", 1)            # group 0: level 3; group 1: level 2
+SEMI = EngineSettings(invitation_mode="semi_automatic", tiers=(G0,))
+TWO = SEMI.with_changes(tiers=(G0, G1))
 
 
 def _requests(effects):
@@ -237,62 +239,63 @@ def _requests(effects):
 
 
 def _semi(left, right, pool, settings=SEMI):
-    store = _store(left, right, pool=[_student(sid, side) for sid, side in pool])
+    """``pool``: (id, side) or (id, side, level)."""
+    store = _store(left, right, pool=[_student(*p) for p in pool])
     return store, Engine(store, settings)
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-28")
-def test_semi_automatic_run_asks_instead_of_sending():
-    store, engine = _semi(3, 3, [("LA", "L"), ("LB", "L"), ("RA", "R")])       # a left and a right spot
+def test_semi_automatic_run_asks_before_the_first_group():
+    settings = SEMI.with_changes(tiers=(Tier("coach_list"), G0))
+    store, engine = _semi(4, 3, [("K", "R"), ("P", "R")], settings)            # one right spot
+    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "K", "coach", side="R")])
     snap = store.snapshot("A")
-    assert _invited(plan(snap, SEMI, T0).effects) == ["LA", "LB", "RA"]        # what automatic would send
     effects = engine.tick(T0)
     [request] = _requests(effects)
-    assert _invited(effects) == []
-    assert dict(request.queues) == evaluate(snap, SEMI, T0).queues
-    assert dict(request.queues) == {SpotType("L", 3): ("LA", "LB"), SpotType("R", 3): ("RA",)}
+    assert _invited(effects) == [] and request.tier == 0
+    assert dict(request.queues) == {SpotType("R", 3): evaluate(snap, settings, T0).queues[SpotType("R", 3)][:1]} \
+        == {SpotType("R", 3): ("K",)}
     assert engine.tick(T0 + timedelta(minutes=1)) == []                       # nothing changed: nothing
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-29")
-def test_approval_sends_the_queue_without_the_removed_and_t_starts_at_the_send():
+def test_approving_a_group_sends_from_it_without_the_removed():
     store, engine = _semi(4, 3, [("A", "R"), ("B", "R"), ("C", "R")])          # one right spot, X = 3
     [request] = _requests(engine.tick(T0))
     assert dict(request.queues) == {SpotType("R", 3): ("A", "B", "C")}
     approved_at = T0 + timedelta(minutes=10)
-    effects = engine.handle("A", ApproveQueue(request.request, frozenset({"B"})), approved_at)
+    effects = engine.handle("A", ApproveGroup(request.request, frozenset({"B"})), approved_at)
     sent = [e for e in effects if isinstance(e, fx.Invited)]
     assert [e.student for e in sent] == ["A", "C"] and not _requests(effects)
     assert {e.counts_until for e in sent} == {approved_at + timedelta(minutes=20)}   # T from the real send
     snap = store.snapshot("A")
-    assert "B" not in snap.said_no and snap.approval.removed == {"B"}
-    later = engine.tick(approved_at + timedelta(minutes=40))                  # A and C stopped counting
-    assert "B" not in _invited(later)
+    assert "B" not in snap.said_no and snap.approval.removed == {"B"} and snap.approval.approved_groups == {0}
+    assert "B" not in _invited(engine.tick(approved_at + timedelta(minutes=40)))
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-30")
-def test_rounds_inside_the_approved_queue_need_no_new_approval():
-    settings = SEMI.with_changes(invites_per_spot=2)
-    store, engine = _semi(4, 3, [("A", "R"), ("C", "R"), ("D", "R")], settings)   # one right spot, X = 2
-    store.add_student(_student("E", "R"), visible=False)
+def test_rounds_inside_an_approved_group_run_alone_and_the_next_group_asks():
+    settings = TWO.with_changes(invites_per_spot=2)
+    store, engine = _semi(4, 3, [("A", "R"), ("C", "R"), ("D", "R"), ("E", "R", 2)], settings)   # one right spot
     [request] = _requests(engine.tick(T0))
-    assert dict(request.queues) == {SpotType("R", 3): ("A", "C", "D")}
-    assert _invited(engine.handle("A", ApproveQueue(request.request), T0 + timedelta(minutes=1))) == ["A", "C"]
+    assert request.tier == 0
+    assert _invited(engine.handle("A", ApproveGroup(request.request), T0 + timedelta(minutes=1))) == ["A", "C"]
     topped = engine.handle("A", Answer("A", False), T0 + timedelta(minutes=2))
-    assert _invited(topped) == ["D"] and not _requests(topped)                # inside the queue: unasked
-    assert engine.handle("A", Appear("E"), T0 + timedelta(minutes=3)) == []   # C and D still count
-    spent = engine.handle("A", Answer("C", False), T0 + timedelta(minutes=4))
+    assert _invited(topped) == ["D"] and not _requests(topped)               # inside group 0: unasked
+    engine.handle("A", Answer("C", False), T0 + timedelta(minutes=3))
+    spent = engine.handle("A", Answer("D", False), T0 + timedelta(minutes=4))  # group 0 spent, the spot uncovered
     [again] = _requests(spent)
-    assert _invited(spent) == [] and "E" in dict(again.queues)[SpotType("R", 3)]
+    assert _invited(spent) == [] and again.tier == 1 and dict(again.queues)[SpotType("R", 3)] == ("E",)
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-31")
 def test_a_pending_request_is_withdrawn_when_nothing_is_left_or_the_mode_turns_automatic():
     store, engine = _semi(4, 3, [("A", "R")])                                 # one right spot
-    assert _requests(engine.tick(T0))
+    [request] = _requests(engine.tick(T0))
     store.apply([fx.Placed("A", T0, "Z", "R", "direct")])                     # the session fills
     effects = engine.tick(T0 + timedelta(minutes=1))
-    assert [type(e) for e in effects] == [fx.ApprovalWithdrawn] and store.snapshot("A").approval.pending is None
+    assert effects == [fx.ApprovalWithdrawn("A", T0 + timedelta(minutes=1), 0, request.request)]
+    assert store.snapshot("A").approval.pending == ()
 
     store, engine = _semi(4, 3, [("A", "R")])
     assert _requests(engine.tick(T0))
@@ -302,89 +305,102 @@ def test_a_pending_request_is_withdrawn_when_nothing_is_left_or_the_mode_turns_a
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-33")
-def test_a_dismissed_session_asks_again_only_when_its_spots_change_or_the_coach_reopens_it():
-    store, engine = _semi(4, 3, [("A", "R"), ("LA", "L")])                    # one right spot
-    assert _requests(engine.tick(T0))
-    dismissed = engine.handle("A", DismissQueue(), T0 + timedelta(minutes=1))
-    assert [type(e) for e in dismissed] == [fx.QueueDismissed]
-    assert engine.tick(T0 + timedelta(minutes=2)) == []                       # nothing sent, nothing asked
-    changed = engine.handle("A", RegularAbsent("L-1"), T0 + timedelta(minutes=3))   # a left spot opens
-    assert _invited(changed) == [] and fx.QueueReopened in [type(e) for e in changed]
-    [request] = _requests(changed)
-    assert set(dict(request.queues)) == {SpotType("L", 3), SpotType("R", 3)}
+def test_a_dismissed_group_is_skipped_until_a_change_or_a_reopen():
+    store, engine = _semi(4, 3, [("A", "R"), ("E", "R", 2)], TWO)             # one right spot
+    [r0] = _requests(engine.tick(T0))
+    dismissed = engine.handle("A", DismissGroup(r0.request), T0 + timedelta(minutes=1))
+    assert isinstance(dismissed[0], fx.GroupDismissed) and _invited(dismissed) == []
+    assert [r.tier for r in _requests(dismissed)] == [1]                     # group 0 skipped: group 1 is asked for
+    changed = engine.handle("A", RegularAbsent("L-1"), T0 + timedelta(minutes=2))   # the spot count changes
+    assert fx.GroupReopened("A", T0 + timedelta(minutes=2), 0) in changed
+    assert 0 in [r.tier for r in _requests(changed)] and "A" not in _invited(changed)
 
-    engine.handle("A", DismissQueue(), T0 + timedelta(minutes=4))
-    assert engine.tick(T0 + timedelta(minutes=5)) == []
-    reopened = engine.handle("A", ReopenQueue(), T0 + timedelta(minutes=6))
-    assert _invited(reopened) == [] and len(_requests(reopened)) == 1
+    [again] = [r for r in _requests(changed) if r.tier == 0]
+    engine.handle("A", DismissGroup(again.request), T0 + timedelta(minutes=3))
+    reopened = engine.handle("A", ReopenGroup(0), T0 + timedelta(minutes=4))
+    assert reopened[0] == fx.GroupReopened("A", T0 + timedelta(minutes=4), 0)
+    assert 0 in [r.tier for r in _requests(reopened)] and "A" not in _invited(reopened)
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-34")
 def test_an_answer_to_a_replaced_request_decides_nothing_and_removed_students_stay_out():
-    store, engine = _semi(4, 3, [("A", "R"), ("B", "R"), ("C", "R"), ("D", "R")])   # one right spot, X = 3
+    store, engine = _semi(4, 3, [("A", "R"), ("B", "R"), ("C", "R"), ("E", "R", 2)], TWO)   # one right spot, X = 3
     [r1] = _requests(engine.tick(T0))
-    assert dict(r1.queues)[SpotType("R", 3)] == ("A", "B", "C", "D")
-    engine.handle("A", ApproveQueue(r1.request, frozenset({"B"})), T0 + timedelta(minutes=1))   # A, C and D go
-    store.add_student(_student("E", "R"))
-    store.apply([fx.Answered("A", T0 + timedelta(minutes=2), "A", "no", "invitation")])
-    [r2] = _requests(engine.tick(T0 + timedelta(minutes=3)))                 # E is outside the queue
-    assert "B" not in dict(r2.queues)[SpotType("R", 3)] and "E" in dict(r2.queues)[SpotType("R", 3)]
-    store.add_student(_student("F", "R"))
-    [r3] = _requests(engine.tick(T0 + timedelta(minutes=4)))                 # F changes the queue: R3 replaces R2
-    assert r3.request != r2.request
-    assert engine.handle("A", ApproveQueue(r2.request), T0 + timedelta(minutes=5)) == []   # stale: nothing
+    assert dict(r1.queues)[SpotType("R", 3)] == ("A", "B", "C")
+    engine.handle("A", ApproveGroup(r1.request, frozenset({"B"})), T0 + timedelta(minutes=1))   # A and C go
+    engine.handle("A", Answer("A", False), T0 + timedelta(minutes=2))
+    [r2] = _requests(engine.handle("A", Answer("C", False), T0 + timedelta(minutes=3)))   # group 1 now
+    assert r2.tier == 1 and dict(r2.queues)[SpotType("R", 3)] == ("E",)       # B, removed, is in no later request
+    store.add_student(_student("F", "R", 2))
+    [r3] = _requests(engine.tick(T0 + timedelta(minutes=4)))                 # F changes group 1's queue
+    assert r3.tier == 1 and r3.request != r2.request
+    assert engine.handle("A", ApproveGroup(r2.request), T0 + timedelta(minutes=5)) == []   # stale: nothing
     approval = store.snapshot("A").approval
-    assert approval.pending_request == r3.request and approval.approved == {"A", "C", "D"}
+    assert [p.request for p in approval.pending] == [r3.request] and approval.approved_groups == {0}
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-35")
-def test_a_dismissal_survives_a_switch_to_automatic():
-    store, engine = _semi(4, 3, [("A", "R"), ("LA", "L")])                    # one right spot
-    assert _requests(engine.tick(T0))
-    engine.handle("A", DismissQueue(), T0 + timedelta(minutes=1))
-    automatic = SEMI.with_changes(invitation_mode="automatic")
-    assert _invited(engine.handle("A", UpdateSettings(automatic), T0 + timedelta(minutes=2))) == []
-    assert _invited(engine.tick(T0 + timedelta(minutes=3))) == []             # nothing changed: still dismissed
-    changed = engine.handle("A", RegularAbsent("L-1"), T0 + timedelta(minutes=4))   # a left spot opens
-    assert _invited(changed) == ["A", "LA"] and not _requests(changed)       # sends as an automatic session
+def test_a_dismissed_group_survives_a_switch_to_automatic():
+    store, engine = _semi(4, 3, [("A", "R"), ("E", "R", 2)], TWO)             # one right spot
+    [r0] = _requests(engine.tick(T0))
+    engine.handle("A", DismissGroup(r0.request), T0 + timedelta(minutes=1))
+    automatic = TWO.with_changes(invitation_mode="automatic")
+    switched = engine.handle("A", UpdateSettings(automatic), T0 + timedelta(minutes=2))
+    assert _invited(switched) == ["E"]                                        # group 0 sends nothing, group 1 sends
+    assert _invited(engine.tick(T0 + timedelta(minutes=3))) == []
+    changed = engine.handle("A", RegularAbsent("L-1"), T0 + timedelta(minutes=4))   # the spot count changes
+    assert "A" in _invited(changed)                                           # group 0 sends again
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-36")
-def test_switching_to_automatic_empties_the_approved_queue():
-    """engine-planning rule 14: switching back to semi-automatic holds the next send outside the
-    (empty) approved queue, so a student approved before the switch is asked for again."""
+def test_switching_to_automatic_empties_the_approved_groups():
     settings = SEMI.with_changes(invites_per_spot=1)
     store, engine = _semi(4, 3, [("A", "R"), ("B", "R")], settings)           # one right spot, X = 1
     [request] = _requests(engine.tick(T0))
-    assert _invited(engine.handle("A", ApproveQueue(request.request), T0 + timedelta(minutes=1))) == ["A"]
-    engine.handle("A", UpdateSettings(settings.with_changes(invitation_mode="automatic", max_at_a_time=1)),
-                  T0 + timedelta(minutes=2))
-    assert store.snapshot("A").approval.approved == frozenset()
+    assert _invited(engine.handle("A", ApproveGroup(request.request), T0 + timedelta(minutes=1))) == ["A"]
+    engine.handle("A", UpdateSettings(settings.with_changes(invitation_mode="automatic")), T0 + timedelta(minutes=2))
+    assert store.snapshot("A").approval.approved_groups == frozenset()
     engine.handle("A", UpdateSettings(settings), T0 + timedelta(minutes=3))
-    store.apply([fx.Answered("A", T0 + timedelta(minutes=4), "A", "no", "invitation")])
-    effects = engine.tick(T0 + timedelta(minutes=5))
-    assert _invited(effects) == [] and _requests(effects)                     # B was approved before: asked again
+    effects = engine.handle("A", Answer("A", False), T0 + timedelta(minutes=4))
+    assert _invited(effects) == [] and [r.tier for r in _requests(effects)] == [0]   # group 0 asked again
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-37")
 def test_quiet_hours_keep_a_pending_request():
-    """engine-planning rule 14: quiet hours pause the sends, so the pending request is not withdrawn."""
     store, engine = _semi(4, 3, [("A", "R")])
     assert _requests(engine.tick(T0))
     assert engine.tick(datetime(2026, 11, 2, 3, 0)) == []                     # 03:00 Lisbon, quiet
-    assert store.snapshot("A").approval.pending is not None
+    assert len(store.snapshot("A").approval.pending) == 1
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-38")
 def test_a_dismissal_or_reopening_out_of_turn_does_nothing():
-    """engine-planning rule 14: a DismissQueue with no pending request and a ReopenQueue on a session
-    that is not dismissed record nothing, so an approved queue keeps sending."""
     store, engine = _semi(4, 3, [("A", "R")])
-    assert engine.handle("A", ReopenQueue(), T0) == []                        # not dismissed: no QueueReopened
-    [request] = _requests(engine.tick(T0))
-    engine.handle("A", ApproveQueue(request.request), T0 + timedelta(minutes=1))
-    assert engine.handle("A", DismissQueue(), T0 + timedelta(minutes=2)) == []   # nothing pending
-    assert store.snapshot("A").approval.dismissed is None
+    assert engine.handle("A", DismissGroup("no-such-request"), T0) == []      # no pending request
+    assert engine.handle("A", ReopenGroup(0), T0) == []                       # not dismissed: no GroupReopened
+    assert store.snapshot("A").approval.dismissed_groups == ()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-41")
+def test_an_approved_group_stays_approved_for_the_session():
+    settings = SEMI.with_changes(invites_per_spot=1, tiers=(Tier("coach_list"), G0, G1))
+    store, engine = _semi(4, 3, [("K1", "R"), ("E", "R", 2)], settings)       # one right spot
+    store.add_student(_student("K2", "R"), visible=False)                      # only ever on the coach's list
+    store.add_session("B", 3, 8, START + timedelta(hours=3), [], T0)
+    store.add_student(_student("K3", "R"), visible=False)
+    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "K1", "coach", side="R"),
+                 fx.WaitingListJoined("B", T0 - timedelta(hours=1), "K3", "coach", side="R")])
+    first = engine.tick(T0)
+    [r0] = [r for r in _requests(first) if r.session == "A"]
+    engine.handle("A", ApproveGroup(r0.request), T0 + timedelta(minutes=1))   # K1 invited from group 0
+    past = engine.handle("A", Answer("K1", False), T0 + timedelta(minutes=2))
+    assert [r.tier for r in _requests(past)] == [2]                           # past group 0, asking for group 2
+    store.apply([fx.WaitingListJoined("A", T0 + timedelta(minutes=3), "K2", "coach", side="R")])   # a late add
+    late = engine.tick(T0 + timedelta(minutes=3))
+    assert ("A", "K2") in [(e.session, e.student) for e in late if isinstance(e, fx.Invited)]
+    assert not [r for r in _requests(late) if r.session == "A" and r.tier == 0]
+    assert 0 in [r.tier for r in _requests(first) if r.session == "B"]       # another session asks afresh
+    assert store.snapshot("B").approval.approved_groups == frozenset()
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-39")

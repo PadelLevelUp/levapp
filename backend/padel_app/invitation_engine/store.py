@@ -16,6 +16,7 @@ from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.snapshot import (
     Approval,
     Elsewhere,
+    PendingRequest,
     Invitation,
     Placement,
     SessionSnapshot,
@@ -163,17 +164,23 @@ class MemoryStore:
             if isinstance(e, fx.AlertCleared):
                 s.alerted.pop(e.spot_type, None)
                 continue
-            if isinstance(e, fx.ApprovalRequest):              # semi-automatic mode (planning rule 14)
-                s.approval = replace(s.approval, pending=e.queues, pending_request=e.request, dismissed=None)
+            a = s.approval                                       # semi-automatic mode (planning rule 14)
+            if isinstance(e, fx.ApprovalRequest):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.tier != e.tier)
+                                     + (PendingRequest(e.tier, e.request, e.queues),))
             elif isinstance(e, fx.ApprovalWithdrawn):
-                s.approval = replace(s.approval, pending=None, pending_request=None)
-            elif isinstance(e, fx.QueueApproved):
-                s.approval = replace(s.approval, approved=e.approved, removed=s.approval.removed | e.removed,
-                                     pending=None, pending_request=None)
-            elif isinstance(e, fx.QueueDismissed):
-                s.approval = replace(s.approval, pending=None, pending_request=None, dismissed=e.spots)
-            elif isinstance(e, fx.QueueReopened):
-                s.approval = replace(s.approval, dismissed=None)
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.request != e.request))
+            elif isinstance(e, fx.GroupApproved):
+                s.approval = replace(a, approved_groups=a.approved_groups | {e.tier}, removed=a.removed | e.removed,
+                                     pending=tuple(p for p in a.pending if p.tier != e.tier))
+            elif isinstance(e, fx.GroupDismissed):
+                s.approval = replace(a, pending=tuple(p for p in a.pending if p.tier != e.tier),
+                                     dismissed_groups=tuple(d for d in a.dismissed_groups if d[0] != e.tier)
+                                     + ((e.tier, e.spots),))
+            elif isinstance(e, fx.GroupReopened):
+                s.approval = replace(a, dismissed_groups=tuple(d for d in a.dismissed_groups if d[0] != e.tier))
+            elif isinstance(e, fx.GroupsCleared):
+                s.approval = replace(a, approved_groups=frozenset())
             elif isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
                                                 counts_until=e.counts_until))
