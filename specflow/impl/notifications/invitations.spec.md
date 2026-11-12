@@ -66,6 +66,36 @@ the student's one invitation).
 
 Kept unchanged for the new engine: rules 3b, 6, 9, 17, 20. Rule 18c, as amended by PAD-911 (owner ruling 2026-11-11 on Tomás's point 2): only a counting invitation for another class that club day postpones (`notifications.engine-tiers` rule 10), and a placement closes only the student's other offers at the same hour (`notifications.engine-answers` rule 10, D4's one exception). Rule 19: a coach withdraws an invitation by hand, because D4 binds the engine, not the coach.
 
+The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS `message-bubble` and
+`invite-state`, one shared derivation). **Copy marked "proposed" awaits the owner's approval.**
+- **NB1. One state, derived in one place.** A new-engine invitation message carries
+  `msg_metadata.engine` `"new"`, its `invitationId` and `state`: `open`, `answered` (with `response` `yes` or
+  `no` and `answeredBy`), `sorry`, `reoffered`, `closed_same_hour` or `class_started`; and, on the coach's
+  copy only, `counting` (true until the invitation's counting-until instant). The backend keeps it
+  current with a live `message_edited` on every change. Both shells read it through one shared function
+  in `@levelup/config` (`engineInviteState`), never each its own.
+- **NB2. What the student sees.**
+  - `open`: Yes and No, whether or not the invitation still counts. A Yes after it stopped counting is
+    answered by the engine as any Yes (`notifications.engine-answers` rules 1, 4): placed, re-offered or
+    sorry. The student is never told an invitation stopped counting.
+  - `answered`: today's accepted / declined label (and "by the coach", rule 9).
+  - `sorry`: no buttons; "Disseste que sim, mas a vaga já tinha sido ocupada." / "You said yes, but the
+    spot had already been taken." (proposed). The engine's sorry arrives as its own message
+    (`waiting_list_offer`'s text) with today's waiting-list join (`notifications.waiting-list` rules 1,
+    1a).
+  - `reoffered`: no buttons; "O convite foi reaberto mais abaixo." / "This invitation was reopened
+    below." (proposed). The `reoffer` message is a new bubble for the same `invitationId`, with Yes and
+    No.
+  - `closed_same_hour`: today's "Já inscrito noutra aula" label.
+  - `class_started`: no buttons; "A aula já começou." / "The class has started." (proposed).
+- **NB3. What the coach sees** on their copy: `open` and counting, today's "A aguardar resposta…";
+  `open` and not counting, "Sem resposta · já não conta" / "No answer · no longer counts" (proposed);
+  the other states as the student's labels.
+- **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
+  `invite-respond-no-<invitationId>`, `invite-state-<invitationId>` carrying `data-state` (web) or the
+  state in the id's suffix accessibility label (iOS), so one E2E reads both. The old engine's ids stay
+  for old-engine bubbles.
+
 ### Entities
 - **Vacancy** (`vacancies`): lesson_instance_id, coach_id, original_player_id, side, level_id, status (open|filled|expired), approval_status (not_required|pending|approved|dismissed), current_round_number, current_batch_number, filled_by_player_id, last_activity_at, filled_at (rule 13: closed by `enrol()` and by the tick whenever capacity no longer supports it) — indexed on (lesson_instance_id, status), plus a partial index on status WHERE status = 'open' for the engine's open-vacancy sweep
 - **NotificationEvent** (`notification_events`): coach_id, lesson_instance_id, player_id, message_id, vacancy_id, type (manual|auto), round_number, status (sent|confirmed|expired|queued), answer (yes|no|null — the student's answer, rule 18), retired_reason (null|"side_balanced" — rule 2d, PAD-581) — indexed on (vacancy_id, status), (lesson_instance_id, status), (coach_id, created_at) and (player_id, coach_id)
@@ -1607,6 +1637,29 @@ test: `backend/padel_app/tests/test_pad552_capacity_edit_follows_vacancies.py` �
 - **And** an invitation withdrawn for balance moves the same way when another spot now asks that side
 test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py` › `test_a_yes_on_the_first_spot_moves_the_other_invitations_to_the_second` (+14 more)
 
+#### NOTIFICATIONS-INVITATIONS-115: One shared function gives a new-engine bubble its state (new-engine section NB1–NB3)
+- **Given** new-engine invitation metadata for each state, on a student's and on a coach's copy, counting and not
+- **When** `engineInviteState` reads it
+- **Then** it returns Yes/No only for `open` (counting or not) on the student's copy, the label NB2 or NB3 names for every other state, "Sem resposta · já não conta" only for the coach's copy of an open invitation that stopped counting, and no buttons for `sorry`, `reoffered`, `closed_same_hour` or `class_started`
+test: `frontend/packages/config/src/engine-invite-state.test.ts` › `derives every new-engine bubble state for the student and the coach`
+
+#### NOTIFICATIONS-INVITATIONS-116: The web bubble renders the new-engine states and follows a live edit (new-engine section NB1, NB2, NB4)
+- **Given** a student's new-engine invitation bubble on web, `open`
+- **When** a `message_edited` turns it `sorry`, and a `reoffer` message arrives for the same invitation
+- **Then** `invite-respond-yes-<id>` shows first, the bubble then shows the sorry label with no buttons, the first bubble reads "reopened below", and the new bubble offers Yes and No
+test: `frontend/apps/web/src/components/messages/MessageBubble.newEngine.test.tsx` › `renders the new engine's states and follows a live edit`
+
+#### NOTIFICATIONS-INVITATIONS-117: The iOS bubble renders the new-engine states with the same test ids (new-engine section NB1, NB2, NB4)
+- **Given** the same metadata on iOS
+- **Then** the same states, labels and test ids as on web show
+test: `frontend/apps/mobile/src/features/messages/components/message-bubble-new-engine.test.tsx` › `renders the new engine's states with the shared test ids`
+
+#### NOTIFICATIONS-INVITATIONS-118: The backend keeps a new-engine invitation message's state current (new-engine section NB1)
+- **Given** a new-engine invitation message
+- **When** the student says Yes into a full session, is then re-offered, and the class starts
+- **Then** the message's `msg_metadata.state` goes `open` → `sorry` → `reoffered` → `class_started`, each change published once as `message_edited`
+test: `backend/padel_app/tests/test_pad920_engine_bubble_state.py` › `test_the_invitation_messages_state_follows_the_engine`
+
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a
   read-only projection. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): dropped, and their readers change; a read-only projection serves only
@@ -1626,3 +1679,6 @@ test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py`
   the tick's transaction per session lives (swap plan §5).
 - Rules 11, 11a and 12–12b were listed as kept by PR #939; on reading they describe the old engine's
   vacancy window and waves, which the new engine does not have, so PAD-913 moves them to the table.
+- The new-engine bubble's labels (NB2, NB3) — proposed by S (PAD-913, 2026-11-12), **for the owner's
+  approval**; the states and their derivation are not open. The student is never told "no longer
+  counts", because a Yes is still answered (decision S, owner away; the owner can reverse it).
