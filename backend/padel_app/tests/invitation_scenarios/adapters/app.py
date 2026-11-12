@@ -15,8 +15,12 @@ Everything goes through the app's real paths, with the coach switched to the new
 - **Events** go through the `today` adapter's dispatch, the app's own service functions, which
   branch on the session's engine; only the answers to an invitation differ (keyed by invitation).
 
-Records are the effects the store applies, from whichever entry point applied them (``TableStore.apply``
-is wrapped for the scenario's lifetime); snapshots are the store's (``adapters/new_db``).
+Records. What a person receives is read from the messages the outbox actually sent, the way the
+`today` adapter reads them: invitations, messages, attendance requests and the coach's alert
+(``_scan_messages``), so a sender that drops or mislabels a message fails the scenario. Everything
+else (answers, placements, departures, absences, refusals) is the effects the store applies, from
+whichever entry point applied them (``TableStore.apply`` is wrapped for the scenario's lifetime).
+Snapshots are the store's (``adapters/new_db``).
 """
 
 from __future__ import annotations
@@ -36,6 +40,10 @@ SIDE_OPERATION = {"same": "same_as_vacancy", "other": "different_from_vacancy"}
 TIMING_METHOD = {"A": "fixed", "B": "progressive", "C": "per_tier"}
 #: Settings the comparison leaves out: the bar is the app's pool by design (swap decision 6).
 NOT_COMPARED = {"eligibility"}
+#: Records read from the messages sent, never from effects (the outbox is what a person sees).
+DELIVERED = {"invited", "message", "reminder", "alert"}
+#: A sent message's type (and the invitation bubble's kind) as the scenarios' message kinds.
+MESSAGE_KIND = {"waiting_list_offer": "aviso", "added_to_class": "added", "engine_side_moved": "side_moved"}
 
 
 def _minutes(value) -> int | None:
@@ -87,6 +95,8 @@ class AppAdapter(NewDbAdapter):
             if spec.created_at is None:
                 gaps += self._create_and_assign(cid, first)
         self.pending = []                             # the seeded state is the start, not an observation
+        from padel_app.models import Message
+        self.seen_message = db.session.query(db.func.max(Message.id)).scalar() or 0
         if self.session_of:
             gaps += self._compare_settings(target, next(iter(self.session_of.values())))
         return gaps
@@ -151,9 +161,40 @@ class AppAdapter(NewDbAdapter):
         def apply(store, effects):
             effects = list(effects)
             real(store, effects)
-            adapter.pending += adapter._records(effects)
+            adapter.pending += [r for r in adapter._records(effects) if r.kind not in DELIVERED]
 
         self.seed.mp.setattr(TableStore, "apply", apply)
+
+    def _scan_messages(self) -> None:
+        """Every message sent since the last scan, as the runner's records (see the module docstring)."""
+        from padel_app.models import EngineInvitation, Message
+        from padel_app.services.conversation_access import message_recipient_ids
+        from padel_app.tests.invitation_scenarios.runner import Record, to_local
+
+        person = {uid: pid for pid, uid in self.seed.uid.items()}
+        for m in Message.query.filter(Message.id > self.seen_message).order_by(Message.id).all():
+            self.seen_message = m.id
+            meta = m.msg_metadata or {}
+            if meta.get("engine") != "new" and m.message_type != "notification_reminder":
+                continue
+            cls = self.class_of.get(str(meta.get("lessonInstanceId")))
+            at = to_local(m.sent_at)
+            to = next((person[u] for u in message_recipient_ids(m) if u in person), None)
+            if m.message_type == "engine_alert":
+                self.pending.append(Record("alert", "", cls, at, {"reason": meta.get("reason")}))
+            elif to is None:
+                continue
+            elif m.message_type == "notification_invite":
+                row = db.session.get(EngineInvitation, int(meta["invitationId"])) if meta.get("invitationId") else None
+                group = None if row is None or row.tier is None else row.tier + 1
+                self.pending.append(Record("invited", to, cls, at, {
+                    "side_named": getattr(row, "side_named", None), "group": group}))
+                if meta.get("kind") == "waiting_list_invite":
+                    self.pending.append(Record("message", to, cls, at, {"kind": "waiting_list_offer"}))
+            elif m.message_type == "notification_reminder":
+                self.pending.append(Record("reminder", to, cls, at))
+            elif m.message_type in MESSAGE_KIND:
+                self.pending.append(Record("message", to, cls, at, {"kind": MESSAGE_KIND[m.message_type]}))
 
     def _create_and_assign(self, cid: str, now: datetime) -> list[str]:
         from padel_app.models.lesson_instances import LessonInstance
@@ -196,6 +237,7 @@ class AppAdapter(NewDbAdapter):
 
         run_tick(self._at(now_local))
         db.session.expire_all()
+        self._scan_messages()
 
     def apply(self, event: str, who, params: dict, cls: str, now_local: datetime) -> Applied:
         now = self._at(now_local)
@@ -238,6 +280,7 @@ class AppAdapter(NewDbAdapter):
             return Applied(refused=True, reason=str(reason or exc))
         finally:
             db.session.expire_all()
+            self._scan_messages()
         return Applied()
 
     def _answer(self, who, cls, action: str, now: datetime) -> None:
