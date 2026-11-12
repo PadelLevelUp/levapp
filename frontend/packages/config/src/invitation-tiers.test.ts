@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_INVITATION_GROUPS, MAX_TIERS, moveTier, ruleForAttribute, tierAttributesFor } from "./invitation-tiers";
+import {
+  DEFAULT_INVITATION_GROUPS,
+  MAX_TIERS,
+  moveTier,
+  perTierAfterMove,
+  perTierAfterRemove,
+  perTierAligned,
+  ruleForAttribute,
+  tierAttributesFor,
+} from "./invitation-tiers";
 import { localeT } from "./testkit/locale-t";
 
 const sideOps = (v?: "old" | "new") => tierAttributesFor(v).find((a) => a.id === "side")!.operations.map((o) => o.id);
@@ -20,5 +29,13 @@ describe("PAD-920 the tiers editor's shared data (notifications.config rule 20)"
     expect(moveTier([a, b, c], 0, 2).map((g) => g.id)).toEqual([b.id, c.id, a.id]);
     expect(moveTier([a, b], 0, 5)).toEqual([a, b]);
     expect(MAX_TIERS).toBe(10);
+  });
+
+  it("keeps perTier aligned with the tiers: 2 fixed entries, then one per group", () => {
+    expect(perTierAligned(undefined, 2)).toEqual([null, null, null, null]);
+    expect(perTierAligned(["a", "b", "c", "d", "e"], 2)).toEqual(["a", "b", "c", "d"]);
+    // Groups g0, g1, g2 sit at tiers 2, 3, 4.
+    expect(perTierAfterMove(["c", "w", "g0", "g1", "g2"], 0, 2)).toEqual(["c", "w", "g1", "g2", "g0"]);
+    expect(perTierAfterRemove(["c", "w", "g0", "g1"], 1)).toEqual(["c", "w", "g0"]);
   });
 });

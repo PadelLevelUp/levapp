@@ -279,13 +279,15 @@
       "spotTaken": "Your spot has been taken",
       "onWaitingList": "You're on the waiting list",
       "declinedFinalChat": "Talk to the coach",
-      "outcomeBusySameHour": "In another class at the same time",
       "outcomeSorry": "Said yes, no spot",
       "outcomeNotCounting": "No answer · no longer counts",
       "reopened": "reopened",
       "tierGroup": "group {{n}}",
       "tierCoachList": "coach's list",
-      "tierWaitingList": "waiting list"
+      "tierWaitingList": "waiting list",
+      "outcomeClosedSameHour": "In another class at the same time",
+      "outcomeCancelled": "Accepted, then cancelled",
+      "tierManual": "manual invitation"
     },
     "planning": {
       "title": "Planning ({{count}})",
@@ -559,7 +561,8 @@
         "not_pending": "This request was already decided",
         "busy_same_hour": "You're already in another class at the same time",
         "side_full": "There's no spot left on your side. You can join the waiting list.",
-        "has_spots": "This class still has spots: ask to join."
+        "has_spots": "This class still has spots: ask to join.",
+        "already_on_list": "You're already on this class's waiting list."
       },
       "coachTitle_one": "{{count}} request to join",
       "coachTitle_other": "{{count}} requests to join",

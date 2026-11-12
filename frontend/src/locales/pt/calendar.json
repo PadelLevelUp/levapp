@@ -279,13 +279,15 @@
       "spotTaken": "A tua vaga já foi ocupada",
       "onWaitingList": "Estás na lista de espera",
       "declinedFinalChat": "Falar com o treinador",
-      "outcomeBusySameHour": "Noutra aula à mesma hora",
       "outcomeSorry": "Disse que sim, sem vaga",
       "outcomeNotCounting": "Sem resposta · já não conta",
       "reopened": "convite reaberto",
       "tierGroup": "grupo {{n}}",
       "tierCoachList": "lista do treinador",
-      "tierWaitingList": "lista de espera"
+      "tierWaitingList": "lista de espera",
+      "outcomeClosedSameHour": "Noutra aula à mesma hora",
+      "outcomeCancelled": "Aceitou e depois cancelou",
+      "tierManual": "convite manual"
     },
     "planning": {
       "title": "Planeamento ({{count}})",
@@ -559,7 +561,8 @@
         "not_pending": "Este pedido já foi decidido",
         "busy_same_hour": "Já estás inscrito noutra aula à mesma hora",
         "side_full": "Já não há vaga do teu lado. Podes entrar na lista de espera.",
-        "has_spots": "Esta aula ainda tem vagas: pede para entrar."
+        "has_spots": "Esta aula ainda tem vagas: pede para entrar.",
+        "already_on_list": "Já estás na lista de espera desta aula."
       },
       "coachTitle_one": "{{count}} pedido para entrar",
       "coachTitle_zero": "{{count}} pedidos para entrar",

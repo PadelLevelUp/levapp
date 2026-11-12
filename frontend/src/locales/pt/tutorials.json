@@ -51,7 +51,9 @@
       "invitation_window": "Os convites só abrem a {{opensAt}}.",
       "quiet_hours": "Horas de silêncio — os convites retomam às {{until}}.",
       "min_time_before_class": "Faltam menos de {{minutes}} minutos para a aula.",
-      "max_total_reached": "Já foram enviados {{sent}} convites para esta aula (limite {{limit}})."
+      "max_total_reached": "Já foram enviados {{sent}} convites para esta aula (limite {{limit}}).",
+      "last_invite_before": "Já passou a hora do último convite",
+      "class_auto_invites_off": "Convites automáticos desligados nesta aula"
     },
     "gatesOk": {
       "auto_notify_disabled": "Motor de convites ligado",

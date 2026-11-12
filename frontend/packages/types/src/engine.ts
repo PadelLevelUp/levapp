@@ -14,13 +14,14 @@ export type EngineSide = "left" | "right" | null;
 
 // ── The invitation bubble (notifications.invitations NB1) ─────────────────────
 
+/** The stored state (NB1). "The class has started" is never stored: it is derived from `startsAt`. */
 export type EngineInviteStateName =
   | "open"
   | "answered"
   | "sorry"
   | "reoffered"
-  | "closed_same_hour"
-  | "class_started";
+  | "withdrawn"
+  | "closed_same_hour";
 
 /** `msg_metadata` of a new-engine `notification_invite` message. */
 export interface EngineInviteMeta {
@@ -29,10 +30,12 @@ export interface EngineInviteMeta {
   lessonInstanceId?: number;
   kind?: "invite" | "reoffer" | "waiting_list_invite";
   state: EngineInviteStateName;
+  /** The class's real start, ISO UTC: at or after it the bubble has no buttons, whatever `state` says. */
+  startsAt: string;
   response?: "yes" | "no" | null;
   answeredBy?: "student" | "coach" | null;
-  /** The coach's copy only: true until the invitation's counting-until instant. */
-  counting?: boolean;
+  /** The coach's copy only (the serializer never sends it to the student): ISO UTC end of counting. */
+  countsUntil?: string | null;
 }
 
 /** `POST /app/notify/respond` and `/coach_respond` for a new-engine invitation. */
@@ -79,6 +82,7 @@ export type JoinRefusalCode =
   | "ineligible"
   | "side_full"
   | "busy_same_hour"
+  | "already_on_list"
   | "has_spots"
   | "not_visible"
   | "spot_filled"
@@ -87,7 +91,8 @@ export type JoinRefusalCode =
 export interface JoinRefusalBody {
   code: JoinRefusalCode | string;
   requestedSide?: "left" | "right" | null;
-  openSides?: Array<"left" | "right">;
+  /** `side_full`: the open sides, today's field. */
+  sides?: Array<"left" | "right">;
 }
 
 // ── The coach alert (dashboard.blocks NA1) ────────────────────────────────────
@@ -158,21 +163,27 @@ export interface EngineQueueEntry {
   rank: number;
 }
 
-export interface EngineSpotType {
+/**
+ * The spot type's wire shape, the one every new-engine payload uses (invite-simulation N2): `side`
+ * left/right/null (either), `levelId` the coach_levels id and `levelLabel` its name, both null for
+ * a type of any level.
+ */
+export interface EngineSpotTypeKey {
   side: EngineSide;
-  level: number | null;
+  levelId: number | null;
+  levelLabel: string | null;
+}
+
+export interface EngineSpotType extends EngineSpotTypeKey {
   count: number;
   queue: EngineQueueEntry[];
   verdicts: EngineVerdict[];
 }
 
-export type EngineCannotPlanReason = "outside_window" | "quiet_hours" | "past_last_invite" | "class_over";
 
 // ── Semi-automatic approval (notifications.semi-auto-approval N1, N2, N4) ─────
 
-export interface EngineApprovalSpotType {
-  side: EngineSide;
-  level: number | null;
+export interface EngineApprovalSpotType extends EngineSpotTypeKey {
   queue: EngineQueueEntry[];
   emptyQueueReasons?: Array<{ stage: EngineStage | string; count: number }>;
 }
@@ -209,8 +220,19 @@ export interface EngineApprovalMeta {
   requestId: number;
   lessonInstanceId: number;
   responded: boolean;
-  spotTypes: Array<{ side: EngineSide; level: number | null; queue: EngineQueueEntry[] }>;
+  spotTypes: Array<EngineSpotTypeKey & { queue: EngineQueueEntry[] }>;
 }
+
+/** `msg_metadata` of the coach alert's `engine_alert` message (dashboard.blocks NA3). */
+export interface EngineAlertMeta extends EngineSpotTypeKey {
+  engine: "new";
+  lessonInstanceId: number;
+  reason: string;
+  count: number;
+}
+
+/** Where a new-engine invitee came from (calendar.event-detail ND1); null is a manual invitation. */
+export type InviteeTierSource = "coach_list" | "students_list" | "pool" | null;
 
 // ── The coach's engine settings (notifications.config rule 20) ────────────────
 

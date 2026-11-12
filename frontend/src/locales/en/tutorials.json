@@ -51,7 +51,9 @@
       "invitation_window": "Invitations only open at {{opensAt}}.",
       "quiet_hours": "Quiet hours — invitations resume at {{until}}.",
       "min_time_before_class": "Less than {{minutes}} minutes remain before the class.",
-      "max_total_reached": "{{sent}} invitations were already sent for this class (limit {{limit}})."
+      "max_total_reached": "{{sent}} invitations were already sent for this class (limit {{limit}}).",
+      "last_invite_before": "Past the last invitation time",
+      "class_auto_invites_off": "Automatic invitations are off for this class"
     },
     "gatesOk": {
       "auto_notify_disabled": "Invitation engine is on",

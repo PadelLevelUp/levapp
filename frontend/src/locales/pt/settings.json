@@ -432,7 +432,25 @@
       "standingWaitingListHint": "Adiciona alunos à lista de espera de todas as próximas aulas. São removidos automaticamente quando preenchem o número de vagas configurado ou quando o período expira.",
       "messageTemplates": "Modelos de mensagem",
       "eligibility": "Elegibilidade",
-      "eligibilityHint": "O requisito mínimo para um aluno poder entrar numa aula. Os grupos de convite definem quem é convidado primeiro; a elegibilidade define quem pode entrar de todo. Sem regras definidas, todos os teus alunos são elegíveis."
+      "eligibilityHint": "O requisito mínimo para um aluno poder entrar numa aula. Os grupos de convite definem quem é convidado primeiro; a elegibilidade define quem pode entrar de todo. Sem regras definidas, todos os teus alunos são elegíveis.",
+      "newEngine": {
+        "maxAtATime": "Máximo de convites ao mesmo tempo na aula",
+        "timingMethod": "Tempo entre convites",
+        "method": {
+          "fixed": "Igual para todos os grupos",
+          "per_tier": "Por grupo",
+          "progressive": "Progressivo"
+        },
+        "betweenRounds": "Entre rondas",
+        "betweenGroups": "Entre grupos",
+        "autoEntry": "Colocar logo quem está na lista de espera",
+        "sideChoice": "Os alunos escolhem o lado na lista de espera",
+        "tiers": {
+          "fixed": "fixo",
+          "moveUp": "Subir",
+          "moveDown": "Descer"
+        }
+      }
     },
     "reminders": {
       "hoursBeforeClass": "Horas antes da aula",

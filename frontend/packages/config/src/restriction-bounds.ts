@@ -45,6 +45,9 @@ export function canStepRestriction(key: SteppedRestrictionKey, value: number, di
  */
 export const ENGINE_T_FLOOR = 1;
 
+/** The engine's M when the coach has set none (`maxAtATime` null; notifications.engine-settings rule 1). */
+export const ENGINE_DEFAULT_MAX_AT_A_TIME = 12;
+
 export type EngineSettingKey = "maxAtATime" | "betweenRoundsMinutes" | "betweenGroupsMinutes";
 
 export const ENGINE_SETTING_BOUNDS: Record<EngineSettingKey, RestrictionBound> = {

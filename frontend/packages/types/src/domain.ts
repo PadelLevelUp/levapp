@@ -521,9 +521,10 @@ export type InvitationOutcome =
   | 'spot_filled'
   | 'expired'
   // PAD-920 (calendar.event-detail ND1): a new-engine session's outcomes.
-  | 'busy_same_hour'
+  | 'closed_same_hour'
   | 'sorry'
-  | 'not_counting';
+  | 'not_counting'
+  | 'cancelled';
 
 export interface ClassInvitation {
   id: number;
@@ -537,8 +538,10 @@ export interface ClassInvitation {
   answeredBy: 'student' | 'coach' | null;
   /** PAD-719 (invitations rule 18a): when the engine moved it from another spot of the class; null if never. */
   movedAt?: string | null;
-  /** PAD-920 (ND1): new-engine sessions only — the invitation's tier (0 coach's list, 1 waiting list, 2+ groups). */
-  tier?: number | null;
+  /** PAD-920 (ND1): new-engine sessions only — where the invitation came from; null a manual invitation. */
+  tierSource?: import("./engine").InviteeTierSource;
+  /** PAD-920 (ND1): with `tierSource` `pool`, the group's number in the coach's order, 1-based. */
+  groupNumber?: number | null;
   /** PAD-920 (ND1): new-engine sessions only — set when the engine re-offered this invitation. */
   reofferedAt?: string | null;
 }
@@ -1553,7 +1556,10 @@ export type InviteSimulationGateCode =
   | "invitation_window"
   | "quiet_hours"
   | "min_time_before_class"
-  | "max_total_reached";
+  | "max_total_reached"
+  // PAD-920 (invite-simulation N4): the new engine's dry run.
+  | "last_invite_before"
+  | "class_auto_invites_off";
 
 export interface InviteSimulationGate {
   code: InviteSimulationGateCode;
@@ -1663,6 +1669,9 @@ export interface InviteSimulation {
   waitingList?: InviteSimulationWaitingListEntry[];
   spot: InviteSimulationSpot;
   rounds: InviteSimulationRound[];
+  /** PAD-920 (invite-simulation N2): a new-engine session's answer, per open spot type. */
+  engine?: "new";
+  spotTypes?: import("./engine").EngineSpotType[];
 }
 
 export type InviteExplainStage =
@@ -1682,6 +1691,9 @@ export type InviteExplainStage =
   | "invited";
 
 export interface InviteExplain {
+  /** PAD-920 (invite-simulation N5): a new-engine session's explain, one entry per open spot type. */
+  engine?: "new";
+  entries?: Array<import("./engine").EngineSpotTypeKey & { stage: string; tier: number | null; reasons?: import("./engine").EngineNotInPoolReason[] }>;
   playerId: string;
   name: string | null;
   /** PAD-683 (players.nickname rule 9a): the asking coach's own nickname keys; `name` stays real. */

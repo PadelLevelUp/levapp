@@ -159,7 +159,9 @@
       "sorry": "You said yes, but the spot had already been taken.",
       "reoffered": "This invitation was reopened below.",
       "classStarted": "The class has started.",
-      "notCounting": "No answer · no longer counts"
+      "notCounting": "No answer · no longer counts",
+      "withdrawn": "The coach withdrew this invitation.",
+      "closedSameHour": "Already in another class at the same time"
     }
   }
 }

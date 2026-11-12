@@ -13,9 +13,10 @@ export const INVITATION_OUTCOME_KEY: Record<InvitationOutcome, string> = {
   spot_filled: "calendar.detail.outcomeSpotFilled",
   expired: "calendar.detail.outcomeExpired",
   // PAD-920 (ND1): a new-engine session's outcomes.
-  busy_same_hour: "calendar.detail.outcomeBusySameHour",
+  closed_same_hour: "calendar.detail.outcomeClosedSameHour",
   sorry: "calendar.detail.outcomeSorry",
   not_counting: "calendar.detail.outcomeNotCounting",
+  cancelled: "calendar.detail.outcomeCancelled",
 };
 
 export type InvitationOutcomeTone = "success" | "destructive" | "warning" | "muted" | "outline";
@@ -27,15 +28,16 @@ export const INVITATION_OUTCOME_TONE: Record<InvitationOutcome, InvitationOutcom
   pending: "outline",
   spot_filled: "warning",
   expired: "muted",
-  busy_same_hour: "muted",
+  closed_same_hour: "muted",
   sorry: "warning",
   not_counting: "outline",
+  cancelled: "muted",
 };
 
 /**
  * Rule 17: which actions a row offers. `accepted`, `withdrawn`, `spot_filled`, `expired` offer none.
  * PAD-920: a new-engine invitation that stopped counting is still open, so it offers what `pending`
- * does; `sorry` and `busy_same_hour` are closed and offer none.
+ * does; `sorry`, `closed_same_hour` and `cancelled` are closed and offer none.
  */
 export function inviteeActionsFor(outcome: InvitationOutcome): Array<"accept" | "decline" | "delete"> {
   if (outcome === "pending" || outcome === "not_counting") return ["accept", "decline", "delete"];
@@ -81,7 +83,7 @@ export function outcomeAfterCoachAction(action: string): InvitationOutcome | nul
     case "sorry":
       return "sorry";
     case "closed_same_hour":
-      return "busy_same_hour";
+      return "closed_same_hour";
     case "class_started":
       return "expired";
     case "reoffered":
@@ -128,13 +130,17 @@ export function pendingInviteCount(invitees: Array<{ outcome: InvitationOutcome 
 }
 
 /**
- * PAD-920 (ND1): the row's secondary text for a new-engine invitation's tier, in the engine's tier
- * order (notifications.engine-tiers rule 5): 0 the coach's list, 1 the students' waiting list, then
- * the coach's groups, 2 → "grupo 1". Null for an old-engine row, which has no tier.
+ * PAD-920 (ND1): the row's secondary text for a new-engine invitation, from where it came from: the
+ * coach's list, the students' waiting list, the coach's group N (1-based), or a manual invitation
+ * (`tierSource` null). An old-engine row carries no `tierSource` key at all and gets no text.
  */
-export function inviteeTierText(tier: number | null | undefined): { key: string; params?: { n: number } } | null {
-  if (tier == null || tier < 0) return null;
-  if (tier === 0) return { key: "calendar.detail.tierCoachList" };
-  if (tier === 1) return { key: "calendar.detail.tierWaitingList" };
-  return { key: "calendar.detail.tierGroup", params: { n: tier - 1 } };
+export function inviteeTierText(inv: {
+  tierSource?: "coach_list" | "students_list" | "pool" | null;
+  groupNumber?: number | null;
+}): { key: string; params?: { n: number } } | null {
+  if (!("tierSource" in inv) || inv.tierSource === undefined) return null;
+  if (inv.tierSource === "coach_list") return { key: "calendar.detail.tierCoachList" };
+  if (inv.tierSource === "students_list") return { key: "calendar.detail.tierWaitingList" };
+  if (inv.tierSource === "pool") return inv.groupNumber ? { key: "calendar.detail.tierGroup", params: { n: inv.groupNumber } } : null;
+  return { key: "calendar.detail.tierManual" };
 }

@@ -16,7 +16,7 @@ import { localeT } from "./testkit/locale-t";
 describe("PAD-548 invitee outcomes (calendar.event-detail rules 16–18)", () => {
   it("names every outcome with one calendar.detail key", () => {
     expect(Object.keys(INVITATION_OUTCOME_KEY).sort()).toEqual(
-      ["accepted", "busy_same_hour", "declined", "expired", "not_counting", "pending", "sorry", "spot_filled", "withdrawn"],
+      ["accepted", "cancelled", "closed_same_hour", "declined", "expired", "not_counting", "pending", "sorry", "spot_filled", "withdrawn"],
     );
     expect(INVITATION_OUTCOME_KEY.withdrawn).toBe("calendar.detail.outcomeWithdrawn");
     expect(INVITATION_OUTCOME_KEY.pending).toBe("calendar.detail.outcomePending");
@@ -75,29 +75,26 @@ describe("PAD-920 the new engine's invitee outcomes (calendar.event-detail ND1�
   const row = (outcome: InvitationOutcome) => ({ outcome });
 
   it("[CALENDAR-EVENT-DETAIL-34] pending counts only the invitations that still count", () => {
-    // Two open spots, three counting invitations and two that stopped counting: "2 open, 3 pending".
     const invitees = [
       row("pending"), row("pending"), row("pending"),
       row("not_counting"), row("not_counting"),
-      row("accepted"), row("sorry"), row("busy_same_hour"), row("declined"),
+      row("accepted"), row("sorry"), row("closed_same_hour"), row("cancelled"), row("declined"),
     ];
-    const pending = pendingInviteCount(invitees);
-    expect(pending).toBe(3);
-    expect(localeT("pt")("calendar.detail.openSpotsPending", { count: 2, pending })).toBe("2 livre(s), 3 pendente(s)"); // today's copy (ND2 reuses the key)
-    expect(localeT("en")("calendar.detail.openSpotsPending", { count: 2, pending })).toBe("2 open, 3 pending");
+    expect(pendingInviteCount(invitees)).toBe(3);
+    // ND2 reuses today's line.
+    expect(localeT("en")("calendar.detail.openSpotsPending", { count: 2, pending: 3 })).toBe("2 open, 3 pending");
   });
 
   it("[CALENDAR-EVENT-DETAIL-35] labels every new outcome in both locales, from the shared table", () => {
-    for (const outcome of ["busy_same_hour", "sorry", "not_counting"] as const) {
+    for (const outcome of ["closed_same_hour", "sorry", "not_counting", "cancelled"] as const) {
       const key = INVITATION_OUTCOME_KEY[outcome];
       for (const lng of ["pt", "en"] as const) expect(localeT(lng)(key)).not.toBe(key);
     }
     expect(localeT("pt")(INVITATION_OUTCOME_KEY.not_counting)).toBe("Sem resposta · já não conta");
-    expect(localeT("en")(INVITATION_OUTCOME_KEY.sorry)).toBe("Said yes, no spot");
+    expect(localeT("en")(INVITATION_OUTCOME_KEY.cancelled)).toBe("Accepted, then cancelled");
     // An invitation that stopped counting is still open: the coach can still record an answer.
     expect(inviteeActionsFor("not_counting")).toEqual(["accept", "decline", "delete"]);
-    expect(inviteeActionsFor("sorry")).toEqual([]);
-    expect(inviteeActionsFor("busy_same_hour")).toEqual([]);
+    for (const closed of ["sorry", "closed_same_hour", "cancelled"] as const) expect(inviteeActionsFor(closed)).toEqual([]);
     expect(statusForOutcome("not_counting")).toBe("sent");
   });
 
@@ -110,21 +107,22 @@ describe("PAD-920 the new engine's invitee outcomes (calendar.event-detail ND1�
     ).toEqual(["recorded-by-coach", "reopened"]);
   });
 
-  it("[CALENDAR-EVENT-DETAIL-35] names the tier: the coach's list, the waiting list, then the groups", () => {
-    expect(inviteeTierText(null)).toBeNull();
-    expect(inviteeTierText(0)).toEqual({ key: "calendar.detail.tierCoachList" });
-    expect(inviteeTierText(1)).toEqual({ key: "calendar.detail.tierWaitingList" });
-    const g = inviteeTierText(3)!;
+  it("[CALENDAR-EVENT-DETAIL-35] names where the invitation came from", () => {
+    expect(inviteeTierText({})).toBeNull(); // an old-engine row
+    expect(inviteeTierText({ tierSource: "coach_list" })).toEqual({ key: "calendar.detail.tierCoachList" });
+    expect(inviteeTierText({ tierSource: "students_list" })).toEqual({ key: "calendar.detail.tierWaitingList" });
+    const g = inviteeTierText({ tierSource: "pool", groupNumber: 2 })!;
     expect(localeT("pt")(g.key, g.params)).toBe("grupo 2");
     expect(localeT("en")(g.key, g.params)).toBe("group 2");
+    const manual = inviteeTierText({ tierSource: null })!;
+    expect(localeT("pt")(manual.key)).toBe("convite manual");
   });
 
   it("maps the new engine's coach answers, and leaves the old engine's untouched", () => {
     expect(outcomeAfterCoachAction("sorry")).toBe("sorry");
-    expect(outcomeAfterCoachAction("closed_same_hour")).toBe("busy_same_hour");
+    expect(outcomeAfterCoachAction("closed_same_hour")).toBe("closed_same_hour");
     expect(outcomeAfterCoachAction("class_started")).toBe("expired");
     expect(outcomeAfterCoachAction("reoffered")).toBe("pending");
-    // The old engine's words still mean what they did.
     expect(outcomeAfterResponse("spot_filled")).toBe("spot_filled");
     expect(outcomeAfterCoachAction("spot_filled")).toBe("spot_filled");
     expect(pendingInviteCount([row("pending"), row("spot_filled"), row("pending")])).toBe(2);

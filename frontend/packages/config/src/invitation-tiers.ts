@@ -126,6 +126,31 @@ export function moveTier(groups: InvitationGroup[], from: number, to: number): I
   return next;
 }
 
+/**
+ * notifications.config rule 20: `perTier` is one entry per tier in tier order (0 the coach's list,
+ * 1 the students' list, then one per group), so it follows the groups: a move moves its entry, a
+ * remove drops it, an add appends null. These take and return the whole list (length 2 + groups).
+ */
+export function perTierAligned<T>(perTier: Array<T | null> | undefined, groupCount: number): Array<T | null> {
+  const next = [...(perTier ?? [])].slice(0, FIXED_TIERS.length + groupCount);
+  while (next.length < FIXED_TIERS.length + groupCount) next.push(null);
+  return next;
+}
+
+export function perTierAfterMove<T>(perTier: Array<T | null>, fromGroup: number, toGroup: number): Array<T | null> {
+  const offset = FIXED_TIERS.length;
+  const next = [...perTier];
+  const [moved] = next.splice(offset + fromGroup, 1);
+  next.splice(offset + toGroup, 0, moved);
+  return next;
+}
+
+export function perTierAfterRemove<T>(perTier: Array<T | null>, group: number): Array<T | null> {
+  const next = [...perTier];
+  next.splice(FIXED_TIERS.length + group, 1);
+  return next;
+}
+
 export const DEFAULT_INVITATION_GROUPS: InvitationGroup[] = [
   {
     id: "default_1",
