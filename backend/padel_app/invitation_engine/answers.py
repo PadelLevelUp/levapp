@@ -66,6 +66,10 @@ def handle(snapshot: SessionSnapshot, settings: EngineSettings, request: Request
         # The class has happened: the absence is recorded and the roster stays as it was (P16, 60, 71).
         return Outcome(absences.record(snapshot, settings, request.student, "no_show", now))
     if now >= wall_to_utc_naive(snapshot.start):          # the class has started (invitations rule 20)
+        if isinstance(request, (DirectJoin, JoinWaitingList)) and (
+                not isinstance(request, DirectJoin) or settings.direct_join):
+            action = "direct_join" if isinstance(request, DirectJoin) else "waiting_list"
+            return Outcome((Refused(snapshot.id, now, request.student, action, "class_closed"),))
         return Outcome()
     snapshot = planner.with_postponed(snapshot, now)
     if isinstance(request, Answer):
@@ -256,12 +260,12 @@ def _join_waiting_list(snapshot: SessionSnapshot, settings: EngineSettings, requ
     if any(w.student == sid for w in snapshot.waiting_list):    # one entry per session, either list (rule 12)
         return (Refused(snapshot.id, now, sid, "waiting_list", "already_on_list"),)
     if snapshot.placement(sid) is not None:
-        return ()
+        return (Refused(snapshot.id, now, sid, "waiting_list", "already_enrolled"),)
     if request.list == "students":
         student = snapshot.students.get(sid)
         visible = any(st.id == sid for st in snapshot.pool) or sid in snapshot.absent   # a regular who said No
         if student is None or not visible or not planner._eligible(student, snapshot, settings):
-            return (Refused(snapshot.id, now, sid, "waiting_list", "not eligible for this session"),)
+            return (Refused(snapshot.id, now, sid, "waiting_list", "ineligible"),)
     return (WaitingListJoined(snapshot.id, now, sid, request.list, request.side, request.sides),)
 
 
@@ -272,13 +276,16 @@ def _direct_join(snapshot: SessionSnapshot, settings: EngineSettings, request: D
     is offered instead)."""
     sid = request.student
     student = snapshot.students.get(sid)
-    if not settings.direct_join:
-        return (Refused(snapshot.id, now, sid, "direct_join", "direct join is off"),)
+    if not settings.direct_join:             # not a refusal: the app's request waits for the coach
+        return ()
+    if snapshot.placement(sid) is not None:
+        return (Refused(snapshot.id, now, sid, "direct_join", "already_enrolled"),)
+    if sid in snapshot.busy_same_time:
+        return (Refused(snapshot.id, now, sid, "direct_join", "busy_same_hour"),)
     visible = any(st.id == sid for st in snapshot.pool)
-    if (student is None or not visible or snapshot.placement(sid) is not None
-            or sid in snapshot.busy_same_time or not planner._eligible(student, snapshot, settings)):
-        return (Refused(snapshot.id, now, sid, "direct_join", "not eligible for this session"),)
+    if student is None or not visible or not planner._eligible(student, snapshot, settings):
+        return (Refused(snapshot.id, now, sid, "direct_join", "ineligible"),)
     sides = open_sides(snapshot) & (frozenset({request.side}) if request.side else student.sides)
     if not sides:
-        return (Refused(snapshot.id, now, sid, "direct_join", "no spot on the student's side"),)
+        return (Refused(snapshot.id, now, sid, "direct_join", "side_full", open_sides(snapshot)),)
     return _placed(snapshot, sid, _hardest(snapshot, settings, sid, sides, now), "direct", now, answered=False)
