@@ -113,8 +113,10 @@ class UpdateSettings:
 
 @dataclass(frozen=True)
 class ApproveQueue:
-    """The coach approves the pending approval request, without ``removed`` (engine-planning rule 14)."""
+    """The coach approves approval request ``request`` (its id), without ``removed`` (engine-planning
+    rule 14). An answer to a request that is no longer pending decides nothing."""
 
+    request: str
     removed: frozenset[str] = frozenset()
 
 

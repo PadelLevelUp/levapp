@@ -12,7 +12,7 @@ What lives where.
 - Invitations: ``invitations``, one row per student per session (D1).
 - Waiting lists: ``WaitingListEntry``; ``added_by == "coach"`` is the coach's list, anything else the
   students'. One row per student per session (``uq_waiting_session_player``): the engine refuses a
-  student on one list who joins the other ("already waiting"), and the store raises ``StoreConflict``
+  student on one list who joins the other (``already_on_list``), and the store raises ``StoreConflict``
   if such a join ever reaches it.
 - Attendance requests and their Yes: ``ReminderAttempt``.
 - Pool (notifications.config rule 19, CONFIG-53): the coach's roster minus the session, the coach's
@@ -224,12 +224,14 @@ class TableStore:
         excluded = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
         gates = self._pool_gates(coach_id, inst, links)
         excluded |= gates.excluded
+        # Engine-tiers rule 4 (TIERS-19): the student's own blocks hold on every list, the coach's too.
+        blocked = self._blocked(inst, links, users)
         inside = {p.student for p in going} | regular_ids
         students = self._students(coach_id, links, users)
         pool = tuple(
             students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
             if str(lk.player_id) not in inside and str(lk.player_id) not in excluded
-            and not _blocks_auto_invitations(users.get(lk.player_id))
+            and str(lk.player_id) not in blocked
             and not (gates.exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active")
             and (gates.eligible is None or gates.eligible(lk)))
 
@@ -252,6 +254,9 @@ class TableStore:
                 attempts.setdefault(str(a.player_id), []).append(a.sent_at)
             if a.response == "yes":
                 confirmed.add(str(a.player_id))
+        # Engine-store rule 6 (reminders rule 22, PAD-489): a student the system recorded as coming,
+        # when the class was created after its reminder time, is confirmed like a Yes.
+        confirmed |= {str(p.player_id) for p in presences if p.response == "confirmed"}
 
         named = ({st.id for st in pool} | inside | {i.student for i in invitations} | {w.student for w in waiting})
         missing = [int(s) for s in named if s not in students]
@@ -268,14 +273,29 @@ class TableStore:
                 approved=frozenset(es.approved or ()), removed=frozenset(es.removed or ()),
                 pending=None if es.pending is None else tuple(
                     (SpotType(*spot), tuple(ids)) for spot, ids in es.pending),
+                pending_request=es.pending_request,
                 dismissed=None if es.dismissed is None else tuple(
                     (SpotType(*spot), n) for spot, n in es.dismissed)),
             students={s: students[s] for s in named if s in students},
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
             attendance_requested={s: tuple(v) for s, v in attempts.items()},
+            blocked=frozenset(blocked),
             postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )
+
+    @staticmethod
+    def _blocked(inst, links, users) -> set[str]:
+        """Students whose own settings refuse automatic invitations to this session: automatic
+        invitations or every solicitation blocked (``user_blocks_auto_invitations``), or an
+        availability blocker over the class (``blocked_user_ids_for_window``, wall clock as stored)."""
+        from padel_app.services.student_availability_service import blocked_user_ids_for_window
+
+        out = {str(lk.player_id) for lk in links if _blocks_auto_invitations(users.get(lk.player_id))}
+        by_user = {u.id: pid for pid, u in users.items() if u is not None}
+        out |= {str(by_user[uid]) for uid in blocked_user_ids_for_window(
+            list(by_user), inst.start_datetime, inst.end_datetime) if uid in by_user}
+        return out
 
     @staticmethod
     def _approval(es, e: fx.Effect) -> None:
@@ -283,15 +303,15 @@ class TableStore:
         ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
         a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal."""
         if isinstance(e, fx.ApprovalRequest):
-            es.pending, es.dismissed = _encode(e.queues), None
+            es.pending, es.pending_request, es.dismissed = _encode(e.queues), e.request or None, None
         elif isinstance(e, fx.ApprovalWithdrawn):
-            es.pending = None
+            es.pending = es.pending_request = None
         elif isinstance(e, fx.QueueApproved):
             es.approved = _encode(e.approved)
             es.removed = sorted(set(es.removed or ()) | e.removed, key=int)
-            es.pending = None
+            es.pending = es.pending_request = None
         elif isinstance(e, fx.QueueDismissed):
-            es.pending, es.dismissed = None, _encode(e.spots)
+            es.pending, es.pending_request, es.dismissed = None, None, _encode(e.spots)
         elif isinstance(e, fx.QueueReopened):
             es.dismissed = None
 
@@ -401,6 +421,7 @@ class TableStore:
                 makeups_owed=owed.get(pid, 0), attendance_rate=(present / total) if total else 0.0,
                 unjustified_absences=unjustified.get(pid, 0), justified_absences=justified,
                 active=getattr(user, "status", "active") == "active",
+                blocks_all=bool(getattr(user, "notif_block_all", False)),
                 subscription_status=getattr(user, "status", None))
         return out
 
@@ -580,14 +601,23 @@ class TableStore:
             if presence is not None:
                 presence.status, presence.left_reason = "absent", e.reason
         elif isinstance(e, fx.Absence):
-            # Owner ruling D4: the engine records the notice, never the coach's justification. A No is
-            # the student's "cancelled" at the effect's time, so presence_late_cancellation derives
-            # on time or late from the coach's deadline; a no-show (at or after the start) and an
-            # automatic entrant's No ("none") record no response.
+            # Owner ruling D4 (engine-timeline rule 5, TIMELINE-20): the engine records the notice, never
+            # the coach's justification. A late No is the student's "cancelled", so the app derives it
+            # late; an on-time No is "declined", or "proactive_decline" before they were asked (no
+            # attendance request sent yet), neither ever late (attendance.confirm rule 12). Each at the
+            # effect's time. A no-show (at or after the start) and an automatic entrant's No ("none")
+            # record no response.
             presence = self._presence(e)
             start = wall_to_utc_naive(db.session.get(LessonInstance, iid).start_datetime)
             if presence is not None and e.notice != "none" and e.at < start:
-                record_response(presence, "cancelled", when=e.at)
+                if e.notice == "late":
+                    response = "cancelled"
+                else:
+                    asked = ReminderAttempt.query.filter(
+                        ReminderAttempt.lesson_instance_id == iid, ReminderAttempt.player_id == int(e.student),
+                        ReminderAttempt.sent_at.isnot(None), ReminderAttempt.sent_at <= e.at).first()
+                    response = "declined" if asked is not None else "proactive_decline"
+                record_response(presence, response, when=e.at)
         elif isinstance(e, fx.WaitingListJoined):
             added_by = "coach" if e.list == "coach" else "student"
             row = WaitingListEntry.query.filter_by(lesson_instance_id=iid, player_id=int(e.student)).first()
@@ -616,6 +646,24 @@ class TableStore:
         # Message, Refused: the engine_effects row is the record (and the outbox for a Message).
 
 
+#: The engine's invitation kinds: what a student who blocked everything never receives (the backstop).
+INVITATION_KINDS = ("reoffer", "waiting_list_invite")
+
+
+def _refused_by_block(row) -> bool:
+    """The send-time backstop (student-block-preferences rule 8, new-engine section): an invitation, a
+    re-offer or a waiting-list invitation to a student with ``notif_block_all`` is claimed and not
+    delivered; a "sorry" and every other kind still are."""
+    from padel_app.models import User
+    from padel_app.models.players import Player
+
+    is_invitation = row.kind == "Invited" or (row.kind == "Message" and (row.payload or {}).get("kind") in INVITATION_KINDS)
+    if not is_invitation or row.player_id is None:
+        return False
+    user = db.session.query(User).join(Player, Player.user_id == User.id).filter(Player.id == row.player_id).first()
+    return bool(getattr(user, "notif_block_all", False))
+
+
 def dispatch(send: Callable[["object"], None], *, now: datetime | None = None, limit: int = 200) -> int:
     """Send the outbox after commit: each undispatched ``engine_effects`` row is claimed (its
     ``dispatched_at`` set and committed) before ``send`` sees it, so no message goes out twice; a
@@ -630,8 +678,11 @@ def dispatch(send: Callable[["object"], None], *, now: datetime | None = None, l
         db.session.commit()
         if not claimed:
             continue
+        row = db.session.get(EngineEffect, row_id)
+        if _refused_by_block(row):
+            continue
         try:
-            send(db.session.get(EngineEffect, row_id))
+            send(row)
             sent += 1
         except Exception:  # noqa: BLE001
             log.exception("engine_store: sending effect %s failed; not retried", row_id)

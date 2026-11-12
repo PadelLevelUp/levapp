@@ -45,6 +45,9 @@ def due(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> t
     for p in snapshot.going:
         if p.how not in ASKED or p.student in snapshot.absent or p.student in snapshot.confirmed:
             continue
+        student = snapshot.students.get(p.student)
+        if student is not None and student.blocks_all:   # blocked all notifications (engine-timeline rule 2)
+            continue
         if p.how != "regular" and p.at > slot:        # going since after this slot: the next one
             continue
         if any(sent >= slot for sent in snapshot.attendance_requested.get(p.student, ())):

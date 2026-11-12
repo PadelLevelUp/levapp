@@ -155,6 +155,7 @@ def test_a_placement_at_an_hour_the_student_is_going_elsewhere_rolls_back(app):
     assert x in store.snapshot(b).busy_same_time
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
 def test_both_waiting_lists_at_once_is_a_named_conflict(app):
     from padel_app.services.engine_store import StoreConflict
 
@@ -172,37 +173,43 @@ def test_both_waiting_lists_at_once_is_a_named_conflict(app):
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-20")
 def test_a_no_is_the_students_answer_and_its_lateness_is_the_notice(app):
     """Owner ruling D4: the engine judges the notice by ``absence_cutoff_before``, which the coach's
-    ``cancellationDeadlineHours`` sets (notifications.config rule 19, CONFIG-56). The store writes the
-    No as the student's ``cancelled`` at the effect's time, so the app's derived lateness is that
-    notice; it never writes ``justification``. A no-show and an automatic entrant's No record no
-    response."""
+    ``cancellationDeadlineHours`` sets (notifications.config rule 19, CONFIG-56). The store writes an
+    on-time No as ``declined`` (``proactive_decline`` before the student was asked) and a late one as
+    ``cancelled``, at the No's instant, so the app's derived lateness is that notice; it never writes
+    ``justification``. A no-show and an automatic entrant's No record no response."""
     from padel_app.invitation_engine import absences
     from padel_app.models.notification_config import NotificationConfig
     from padel_app.models.presences import Presence
     from padel_app.services.presence_response import presence_late_cancellation
 
-    store, (a,), (reg, x, auto, gone) = _seed(app, players=4)
+    store, (a,), (reg, x, auto, gone, unasked) = _seed(app, players=5)
     config = NotificationConfig(coach_id=store.coach_of(a), cancellation_deadline_hours=24)
     db.session.add(config)
     db.session.commit()
     settings = EngineSettings(absence_cutoff_before=timedelta(hours=24))   # the mapping's value (PAD-917)
+    asked_at = START - timedelta(hours=48)
     with store.unit((a,)):
-        store.apply([fx.Placed(a, NOW, x, "L", "invitation"), fx.Placed(a, NOW, auto, "L", "auto_from_waiting_list"),
-                     fx.Placed(a, NOW, gone, "L", "invitation")])
+        store.apply([fx.Placed(a, NOW, s, "L", how) for s, how in (
+            (x, "invitation"), (auto, "auto_from_waiting_list"), (gone, "invitation"), (unasked, "invitation"))]
+            + [fx.AttendanceRequested(a, asked_at, s) for s in (reg, x)])
     snapshot = store.snapshot(a)
     leaving = ((reg, START - timedelta(hours=30), "regular_no"), (x, START - timedelta(hours=10), "cancel"),
-               (auto, START - timedelta(hours=10), "cancel"), (gone, START + timedelta(hours=1), "no_show"))
+               (auto, START - timedelta(hours=10), "cancel"), (gone, START + timedelta(hours=1), "no_show"),
+               (unasked, START - timedelta(hours=30), "cancel"))
     notices = {}
     for student, at, reason in leaving:
         notices[student] = absences.notice(snapshot, settings, student, reason, at)
         with store.unit((a,)):
             store.apply([fx.Absence(a, at, student, notices[student]), fx.Left(a, at, student, reason)])
-    assert [notices[s] for s in (reg, x, auto, gone)] == ["on_time", "late", "none", "late"]
+    assert [notices[s] for s in (reg, x, auto, gone, unasked)] == ["on_time", "late", "none", "late", "on_time"]
     rows = {str(p.player_id): p for p in Presence.query.filter_by(lesson_instance_id=int(a)).all()}
-    for s in (reg, x):
-        assert rows[s].response == "cancelled"
-        assert presence_late_cancellation(rows[s], config=config) == (notices[s] == "late")
-    assert (rows[auto].response, rows[gone].response) == ("none", "none")
+    assert {s: rows[s].response for s in (reg, x, auto, gone, unasked)} == {
+        reg: "declined", x: "cancelled", auto: "none", gone: "none", unasked: "proactive_decline"}
+    for s, at, _ in leaving:
+        assert rows[s].status == "absent"
+        if rows[s].response != "none":
+            assert rows[s].responded_at == at
+            assert presence_late_cancellation(rows[s], config=config) == (notices[s] == "late")
     assert {p.justification for p in rows.values()} == {None}
 
 
@@ -327,13 +334,13 @@ def test_the_coachs_approval_round_trips_through_the_store(app):
     store, (a,), (_, x, y) = _seed(app)
     L = SpotType("L", 3)
     steps = [
-        ([fx.ApprovalRequest(a, NOW, ((L, (x, y)),))], Approval(pending=((L, (x, y)),))),
+        ([fx.ApprovalRequest(a, NOW, ((L, (x, y)),), "r1")], Approval(pending=((L, (x, y)),), pending_request="r1")),
         ([fx.QueueApproved(a, NOW, frozenset({x}), frozenset({y}))], Approval(approved=frozenset({x}),
                                                                               removed=frozenset({y}))),
         ([fx.QueueDismissed(a, NOW, ((L, 1),))], Approval(approved=frozenset({x}), removed=frozenset({y}),
                                                           dismissed=((L, 1),))),
-        ([fx.QueueReopened(a, NOW + timedelta(minutes=1)), fx.ApprovalRequest(a, NOW + timedelta(minutes=1), ((L, (x,)),))],
-         Approval(approved=frozenset({x}), removed=frozenset({y}), pending=((L, (x,)),))),
+        ([fx.QueueReopened(a, NOW + timedelta(minutes=1)), fx.ApprovalRequest(a, NOW + timedelta(minutes=1), ((L, (x,)),), "r2")],
+         Approval(approved=frozenset({x}), removed=frozenset({y}), pending=((L, (x,)),), pending_request="r2")),
         ([fx.ApprovalWithdrawn(a, NOW + timedelta(minutes=2))], Approval(approved=frozenset({x}), removed=frozenset({y}))),
     ]
     for effects, expected in steps:
@@ -346,41 +353,113 @@ def test_the_coachs_approval_round_trips_through_the_store(app):
 
 
 
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-64")
 def test_a_class_with_no_level_applies_no_level_rule_of_the_bar(app):
     """Owner ruling D3 (engine-tiers rule 13): a class with no level applies no level rule, so the
     coach's eligibility bar keeps no one out of its pool on level, where today's bar fails everyone
-    closed (PAD-86). With the class's level back, the same bar applies."""
+    closed (PAD-86); the bar's other rules stand, so a student below its attendance rate stays out.
+    With the class's level back, the level rule applies again."""
     from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.lessons import Lesson
     from padel_app.models.notification_config import NotificationConfig
+    from padel_app.models.presences import Presence
 
-    store, (a,), (_, x, y) = _seed(app)
+    store, (a, past), (_, x, no_level, low) = _seed(app, starts=(START, START - timedelta(days=7)), players=4)
     coach_id = store.coach_of(a)
-    Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=int(y)).one().level_id = None
+    Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=int(no_level)).one().level_id = None
+    with store.unit((past,)):
+        store.apply([fx.Placed(past, NOW - timedelta(days=8), s, "L", "invitation") for s in (x, no_level, low)])
+    for s, status in ((x, "present"), (no_level, "present"), (low, "absent")):          # attendance 100 %, 100 %, 0 %
+        Presence.query.filter_by(lesson_instance_id=int(past), player_id=int(s)).one().status = status
     db.session.add(NotificationConfig(coach_id=coach_id, auto_notify_enabled=True, eligibility_rules=[
-        {"attribute": "level", "operation": "within_n_above_class", "value": 0}]))
+        {"attribute": "level", "operation": "within_n_above_class", "value": 0},
+        {"attribute": "attendance_rate", "operation": "greater_than_or_equal", "value": 50}]))
     inst = db.session.get(LessonInstance, int(a))
     level_id = inst.level_id
     inst.level_id = None
     db.session.get(Lesson, inst.lesson_id).default_level_id = None
     db.session.commit()
-    assert {st.id for st in store.snapshot(a).pool} == {x, y}
+    assert {st.id for st in store.snapshot(a).pool} == {x, no_level}
     inst.level_id = level_id
     db.session.commit()
     assert {st.id for st in store.snapshot(a).pool} == {x}
 
 
-def test_a_student_who_blocked_automatic_invitations_or_everything_is_not_in_the_pool(app):
-    """The student's own block, as the app reads it (``user_blocks_auto_invitations``): automatic
-    invitations off or every solicitation off keeps them out of the pool; blocking only the coach's
-    manual invitations does not."""
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-19")
+def test_the_students_own_blocks_hold_on_the_coachs_list(app):
+    """Engine-tiers rule 4: the coach's list never overrides the student's own blocks. Of three students
+    on the coach's list, one blocking automatic invitations, one blocking everything and one blocking
+    only manual invitations, and a fourth with an availability blocker over the class, only the
+    manual-only blocker is in ``pool`` and invited; the others are ``not_in_pool``."""
+    from padel_app.invitation_engine import planner
     from padel_app.models import User
+    from padel_app.models.calendar_blocks import CalendarBlock
     from padel_app.models.players import Player
 
-    store, (a,), (_, auto, everything, manual, free) = _seed(app, players=5)
+    store, (a,), (_, auto, everything, manual, away) = _seed(app, players=5)
+
+    def user(pid):
+        return db.session.get(User, db.session.get(Player, int(pid)).user_id)
+
     for pid, column in ((auto, "notif_block_auto_invitations"), (everything, "notif_block_all"),
                         (manual, "notif_block_manual_invitations")):
-        setattr(db.session.get(User, db.session.get(Player, int(pid)).user_id), column, True)
+        setattr(user(pid), column, True)
+    db.session.add(CalendarBlock(user_id=user(away).id, type="unavailable", start_datetime=START - timedelta(hours=1),
+                                 end_datetime=START + timedelta(hours=2), blocks_auto_invitations=True))
     db.session.commit()
-    assert {st.id for st in store.snapshot(a).pool} == {manual, free}
+    with store.unit((a,)):
+        store.apply([fx.WaitingListJoined(a, NOW, s, "coach", "L") for s in (auto, everything, manual, away)])
+
+    s = store.snapshot(a)
+    assert {st.id for st in s.pool} == {manual}
+    assert s.blocked == {auto, everything, away}
+    assert s.students[everything].blocks_all and not s.students[manual].blocks_all
+    run = planner.evaluate(s, EngineSettings(), START - timedelta(hours=6))
+    invited = {e.student for e in run.effects if isinstance(e, fx.Invited)}
+    assert invited == {manual}
+    assert {v.student for v in run.verdicts if v.stage == "not_in_pool"} >= {auto, everything, away}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-5")
+def test_a_student_the_system_recorded_as_coming_counts_as_confirmed(app):
+    """Engine-store rule 6 (reminders rule 22, PAD-489): a class created after its reminder time has
+    its students recorded as coming by the system; the snapshot counts them confirmed, so when the
+    attendance request falls due nobody is asked."""
+    from padel_app.invitation_engine import messages, timeline
+    from padel_app.models.presences import Presence
+    from padel_app.services.presence_response import record_response
+
+    store, (a,), (reg, _, _) = _seed(app)
+    due_at = timeline.attendance_request_at(store.snapshot(a), EngineSettings())
+    assert [e.student for e in messages.due(store.snapshot(a), EngineSettings(), due_at)] == [reg]   # asked
+    record_response(Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(reg)).one(),
+                    "confirmed", recorded_by="system")
+    db.session.commit()
+    s = store.snapshot(a)
+    assert s.confirmed == {reg}
+    assert messages.due(s, EngineSettings(), due_at) == ()
+
+
+@pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-16")
+def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everything(app):
+    """Student-block-preferences rule 8 (new-engine section): at send time the outbox does not
+    deliver a ``reoffer`` or a ``waiting_list_invite`` (nor an invitation) to a student with
+    ``notif_block_all``; a ``sorry`` still is. A student without the block gets all of them."""
+    from padel_app.models import User
+    from padel_app.models.players import Player
+    from padel_app.services.engine_store import dispatch
+
+    store, (a,), (_, blocked, free) = _seed(app)
+    db.session.get(User, db.session.get(Player, int(blocked)).user_id).notif_block_all = True
+    db.session.commit()
+    with store.unit((a,)):
+        store.apply([fx.Message(a, NOW, s, kind) for s in (blocked, free)
+                     for kind in ("reoffer", "waiting_list_invite", "sorry")])
+    sent = []
+    dispatch(lambda row: sent.append((row.player_id, row.payload["kind"])), now=NOW)
+    assert sorted(sent) == sorted([(int(blocked), "sorry")] + [(int(free), k) for k in
+                                                                ("reoffer", "waiting_list_invite", "sorry")])
+    assert dispatch(lambda row: sent.append(row), now=NOW) == 0           # claimed, never retried
+

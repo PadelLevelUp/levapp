@@ -164,18 +164,6 @@ def test_a_late_yes_into_a_full_session_gets_sorry_and_stops_counting():
 
 
 
-@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
-def test_joining_the_other_list_is_refused_already_waiting():
-    """One entry per student per session (PAD-916): either way round the join is refused, "already
-    waiting", and a join to the list they are on changes nothing."""
-    s = _session(_regs(2, 2), students=[("w", "L"), ("c", "L")],
-                 waiting_list=[WaitingListEntry("w", "students", SENT), WaitingListEntry("c", "coach", SENT, "L")])
-    for sid, other in (("w", "coach"), ("c", "students")):
-        out = handle(s, EngineSettings(), JoinWaitingList(sid, other, "L"), NOW).effects
-        assert [(e.student, e.reason) for e in out if isinstance(e, Refused)] == [(sid, "already waiting")]
-        assert not any(isinstance(e, fx.WaitingListJoined) for e in out)
-    assert handle(s, EngineSettings(), JoinWaitingList("w", "students", "L"), NOW).effects == ()
-
 def _engine(*regulars_sides, pool=()):
     from padel_app.invitation_engine.engine import Engine
     from padel_app.invitation_engine.store import MemoryStore
@@ -319,3 +307,17 @@ def test_last_spot_claimed_once_on_postgres(app, monkeypatch, locked):
         assert going == {reg, x} or going == {reg, y}
     else:
         assert going == {reg, x, y}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
+def test_joining_the_other_list_is_refused_already_waiting():
+    """engine-answers rule 12: one waiting-list entry per student per session, on either list. (The
+    store's own refusal of a second entry, ``StoreConflict``, is the table store's test.)"""
+    coach = WaitingListEntry("C", "coach", SENT, side="R")
+    student = WaitingListEntry("W", "students", SENT, sides="own")
+    s = _session(_regs(4, 3), [("C", "R"), ("W", "R")], waiting_list=[coach, student])
+    refused = Refused("S", NOW, "C", "waiting_list", "already_on_list")
+    assert handle(s, EngineSettings(), JoinWaitingList("C", "students", sides="both"), NOW).effects == (refused,)
+    assert handle(s, EngineSettings(), JoinWaitingList("C", "coach", side="L"), NOW).effects == (refused,)
+    assert handle(s, EngineSettings(), JoinWaitingList("W", "coach", side="R"), NOW).effects == \
+        (Refused("S", NOW, "W", "waiting_list", "already_on_list"),)

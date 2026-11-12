@@ -14,6 +14,7 @@ come: hardest type first, D17's one per spot for a non-ideal tier, offers across
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -31,6 +32,7 @@ from padel_app.invitation_engine.effects import (
     Invited,
     Message,
     Placed,
+    QueueApproved,
     QueueReopened,
     Reoffered,
     WaitingListLeft,
@@ -196,7 +198,8 @@ def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts
     """Whether ``student`` passes the gates and ``tier``'s rules for ``spot_type`` (engine-tiers
     rules 3-6). The coach's list is the coach's decision: only "in the session" and "said No" hold."""
     sid = student.id
-    if _inside(snapshot, sid) or sid in snapshot.said_no or sid in snapshot.approval.removed:
+    if (_inside(snapshot, sid) or sid in snapshot.said_no or sid in snapshot.approval.removed
+            or sid in snapshot.blocked):          # the student's own blocks hold on every tier (rule 4)
         return False
     values = type_sides(spot_type, counts)
     if tier.source == "coach_list":
@@ -792,6 +795,8 @@ def _out_stage(student: Student, spot_type: SpotType, counts: SpotCounts, snapsh
         return "said_no"
     if sid in snapshot.approval.removed:
         return "removed_by_coach"
+    if sid in snapshot.blocked:                      # the student's own blocks, even on the coach's list
+        return "not_in_pool"
     on_coach_list = _entry(snapshot, sid, "coach") is not None and any(t.source == "coach_list" for t in settings.tiers)
     if not on_coach_list:                            # the coach's list bypasses the pool's gates (rule 3)
         if not any(st.id == sid for st in snapshot.pool):
@@ -863,27 +868,36 @@ def decide(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -
     in automatic mode a pending request is withdrawn."""
     planned = plan(snapshot, settings, now)
     approval = snapshot.approval
-    if settings.invitation_mode != "semi_automatic":
-        if approval.pending is None:
-            return planned
-        return Plan((ApprovalWithdrawn(snapshot.id, now),) + planned.effects)
     if any(isinstance(e, Placed) for e in planned.effects):     # automatic entry: its own run, not held
         return planned
     lead: tuple[Effect, ...] = ()
-    if approval.dismissed is not None:
+    if settings.invitation_mode != "semi_automatic":          # automatic: no pending request, no approved queue
+        if approval.pending is not None:
+            lead += (ApprovalWithdrawn(snapshot.id, now),)
+        if approval.approved:
+            lead += (QueueApproved(snapshot.id, now, frozenset(), frozenset()),)
+    if approval.dismissed is not None:                          # in either mode (a dismissal survives a switch)
         if approval.dismissed == spot_types(snapshot):          # still dismissed: nothing is sent or asked
-            return Plan(tuple(e for e in planned.effects if not _is_send(e)))
-        lead = (QueueReopened(snapshot.id, now),)               # the spot count changed: ask again
+            return Plan(lead + tuple(e for e in planned.effects if not _is_send(e)))
+        lead += (QueueReopened(snapshot.id, now),)              # the spot count changed: ask again
+    if settings.invitation_mode != "semi_automatic":
+        return Plan(lead + planned.effects)
     held = {e.student for e in planned.effects
             if isinstance(e, (Invited, Reoffered)) and e.student not in approval.approved}
     effects = lead + tuple(e for e in planned.effects if not (_is_send(e) and e.student in held))
     if held:
         queues = _queues(snapshot, settings, now)
         if queues != approval.pending or lead:
-            effects += (ApprovalRequest(snapshot.id, now, queues),)
-    elif approval.pending is not None:
-        effects += (ApprovalWithdrawn(snapshot.id, now),)
+            effects += (ApprovalRequest(snapshot.id, now, queues, _request_id(snapshot.id, now, queues)),)
+    elif approval.pending is not None and not timeline.is_quiet(settings, now):
+        effects += (ApprovalWithdrawn(snapshot.id, now),)   # quiet hours only pause the sends: it stays pending
     return Plan(effects)
+
+
+def _request_id(session: str, now: datetime, queues: SpotQueues) -> str:
+    """A request's id: its session, instant and queues, so a store applying it twice writes it once."""
+    digest = hashlib.sha1(repr((session, now.isoformat(), queues)).encode()).hexdigest()[:12]
+    return f"{session}:{now:%Y%m%dT%H%M%S}:{digest}"
 
 
 def _is_send(effect: Effect) -> bool:

@@ -38,6 +38,8 @@ class Student:
     # The account's subscription status (``User.status``), read by a group's ``subscription_status``
     # rule (engine-tiers rule 13).
     subscription_status: str | None = None
+    # Blocked all notifications (``notif_block_all``): no attendance request (engine-timeline rule 2).
+    blocks_all: bool = False
 
     def __post_init__(self) -> None:
         if not self.sides or not self.sides <= set(SIDES):
@@ -124,12 +126,13 @@ class Approval:
 
     ``approved``: the students the coach let through, invited without asking; ``removed``: the
     students the coach took out, never invited automatically for this session (not a No);
-    ``pending``: the pending request's queues, ``None`` without one; ``dismissed``: the open spot
+    ``pending``: the pending request's queues, ``None`` without one, and ``pending_request`` its id; ``dismissed``: the open spot
     types and their counts when the coach dismissed the request, ``None`` when not dismissed."""
 
     approved: frozenset[str] = frozenset()
     removed: frozenset[str] = frozenset()
     pending: SpotQueues | None = None
+    pending_request: str | None = None                  # the pending request's id
     dismissed: tuple[tuple[SpotType, int], ...] | None = None
 
 
@@ -147,6 +150,7 @@ class SessionSnapshot:
     absent: frozenset[str] = frozenset()              # regulars who said they are not going
     said_no: frozenset[str] = frozenset()             # answered No for this session (a gate, plan §3)
     busy_same_time: frozenset[str] = frozenset()      # going to another session at the same time (a gate)
+    blocked: frozenset[str] = frozenset()             # their own settings refuse automatic invitations here (a gate, every tier)
     postponed: frozenset[str] = frozenset()           # holding a counting offer elsewhere that day (D15): set per run
     elsewhere: tuple[Elsewhere, ...] = ()             # open invitations for other sessions the same club day
     confirmed: frozenset[str] = frozenset()           # answered Yes to an attendance request
