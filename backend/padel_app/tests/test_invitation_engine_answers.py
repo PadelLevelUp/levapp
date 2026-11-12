@@ -22,7 +22,7 @@ from padel_app.invitation_engine.effects import (
     Refused,
     WaitingListLeft,
 )
-from padel_app.invitation_engine.requests import Answer, Cancel, DirectJoin, NoShow, RegularAbsent
+from padel_app.invitation_engine.requests import Answer, Cancel, DirectJoin, JoinWaitingList, NoShow, RegularAbsent
 from padel_app.invitation_engine.snapshot import (
     Elsewhere,
     Invitation,
@@ -162,6 +162,18 @@ def test_a_late_yes_into_a_full_session_gets_sorry_and_stops_counting():
     told = Invitation("r", frozenset({R}), None, 2, SENT, counts_until=SENT + timedelta(minutes=20), sorry_at=NOW)
     assert told.open and not counting(told, NOW)
 
+
+
+def test_joining_the_other_list_is_refused_already_waiting():
+    """One entry per student per session (PAD-916): either way round the join is refused, "already
+    waiting", and a join to the list they are on changes nothing."""
+    s = _session(_regs(2, 2), students=[("w", "L"), ("c", "L")],
+                 waiting_list=[WaitingListEntry("w", "students", SENT), WaitingListEntry("c", "coach", SENT, "L")])
+    for sid, other in (("w", "coach"), ("c", "students")):
+        out = handle(s, EngineSettings(), JoinWaitingList(sid, other, "L"), NOW).effects
+        assert [(e.student, e.reason) for e in out if isinstance(e, Refused)] == [(sid, "already waiting")]
+        assert not any(isinstance(e, fx.WaitingListJoined) for e in out)
+    assert handle(s, EngineSettings(), JoinWaitingList("w", "students", "L"), NOW).effects == ()
 
 def _engine(*regulars_sides, pool=()):
     from padel_app.invitation_engine.engine import Engine

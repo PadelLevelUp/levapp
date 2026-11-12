@@ -11,8 +11,9 @@ What lives where.
 - Regulars: the series roster (``player_in_lesson``); ``joined_at`` is that row's ``created_at``.
 - Invitations: ``invitations``, one row per student per session (D1).
 - Waiting lists: ``WaitingListEntry``; ``added_by == "coach"`` is the coach's list, anything else the
-  students'. One row per student per session (``uq_waiting_session_player``): a student on one list
-  who joins the other raises ``StoreConflict`` (an open question for the specs, PAD-913).
+  students'. One row per student per session (``uq_waiting_session_player``): the engine refuses a
+  student on one list who joins the other ("already waiting"), and the store raises ``StoreConflict``
+  if such a join ever reaches it.
 - Attendance requests and their Yes: ``ReminderAttempt``.
 - Pool (notifications.config rule 19, CONFIG-53): the coach's roster minus the session, the coach's
   exclusions for it (``engine_exclusions``), students who blocked automatic invitations, and the
