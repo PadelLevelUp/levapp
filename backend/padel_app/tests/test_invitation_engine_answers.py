@@ -112,18 +112,18 @@ def test_leaving_records_the_absence_before_the_departure():
     s = _session(_regs(4, 4))
     effects = handle(s, EngineSettings(), RegularAbsent("R1"), datetime(2026, 11, 2, 10, 0)).effects
     assert [type(e) for e in effects] == [Absence, Left]
-    assert effects[0].kind == "justified" and effects[1].reason == "regular_no"
-    # An invitee's cancel after the cutoff is unjustified (engine-answers rule 6).
+    assert effects[0].notice == "on_time" and effects[1].reason == "regular_no"
+    # An invitee's cancel after the cutoff is late (engine-answers rule 6).
     placed = Placement("x", "R", "invitation", NOW)
     s2 = _session(_regs(4, 3), [("x", "R")], going_extra=[placed])
     effects = handle(s2, EngineSettings(), Cancel("x"), datetime(2026, 11, 3, 9, 0)).effects
-    assert effects[0].kind == "unjustified" and effects[1].reason == "cancel"
+    assert effects[0].notice == "late" and effects[1].reason == "cancel"
 
 
-def test_a_no_show_after_the_class_is_unjustified():
+def test_a_no_show_after_the_class_is_late():
     s = _session(_regs(4, 4))
     effects = handle(s, EngineSettings(), NoShow("R1"), datetime(2026, 11, 3, 10, 30)).effects
-    assert [(type(e), e.kind) for e in effects] == [(Absence, "unjustified")]   # no Left: the roster stays
+    assert [(type(e), e.notice) for e in effects] == [(Absence, "late")]   # no Left: the roster stays
 
 
 # --- wave W6: "sorry" and the re-offer (engine-answers rules 3, 4, 7) ------------------------------

@@ -76,6 +76,8 @@ from padel_app.tests.invitation_scenarios.runner import (
 #: Engine message kind -> normalized message kind (design §5, §12).
 MESSAGE_KINDS = {"sorry": "aviso", "reoffer": "reoffer", "added": "added",
                  "waiting_list_invite": "waiting_list_offer", "side_moved": "side_moved"}
+#: The engine records the notice an absence gave (D4); the scenarios still name it by today's words.
+ABSENCE_KINDS = {"on_time": "justified", "late": "unjustified", "none": "none"}
 #: Harness events whose refusal is an observation of its own (design §12, ``refused``).
 REFUSABLE = {"joins_directly", "joins_waiting_list"}
 
@@ -290,7 +292,7 @@ class NewAdapter:
             elif isinstance(e, fx.Left):
                 out.append(Record("left", e.student, e.session, at, {"reason": e.reason}))
             elif isinstance(e, fx.Absence):
-                out.append(Record("absence", e.student, e.session, at, {"kind": e.kind}))
+                out.append(Record("absence", e.student, e.session, at, {"kind": ABSENCE_KINDS[e.notice]}))
             elif isinstance(e, fx.AttendanceRequested):
                 out.append(Record("reminder", e.student, e.session, at))
             elif isinstance(e, fx.Message):
