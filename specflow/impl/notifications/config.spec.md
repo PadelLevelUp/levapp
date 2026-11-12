@@ -403,9 +403,23 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     `old` until the adoption job (`adopt_due`) retries it. Every entry point that reaches an engine reads this
     rule: the new engine's `sessions()` lists only new-engine sessions, and the old tick only
     old-engine ones. Where another spec says "a coach on the new engine" or "a coach on the old
-    engine", it means a session this rule assigns to that engine. Once a coach has no old-engine
-    session left, the coach's old per-vacancy jobs are removed; once every coach is drained, the old
-    engine is deleted (swap plan §8 step 9).
+    engine", it means a session this rule assigns to that engine. Once every coach is drained, the old
+    engine is deleted (swap plan §8 step 9). The cutover (PAD-921):
+    - **Drained** is computed, never stored: a coach is drained when every not-started, non-cancelled
+      occurrence of theirs has an engine session row and no old vacancy of theirs is open.
+      `flask engine status` shows it per coach.
+    - **No old jobs for a new-engine session.** No old-engine job is armed for a new-engine session,
+      before or after the coach is drained: `invite_start_*`, `decline_next_*`, `approval_now_*` and the
+      old reminder jobs (`reminder_*`, `reminder_lesson_*`, `ask_*`, `past_due_*`), since the engine sends
+      the attendance requests for its sessions (`notifications.engine-timeline` rule 2). The startup
+      reschedule and `extend_schedule_window` skip them. At drain the coach's remaining old jobs are
+      removed.
+    - **Materialisation moves to the engine's tick.** A switched coach's recurring occurrences are
+      materialised by `engine_tick`'s adoption pass (`adopt_due`), each by the earlier of its
+      `first_invite_at` and its `attendance_request_at` (with `first_invite` none, within today's
+      scheduling window), and adopted as it is created; the old lesson-level start jobs
+      (`invite_start_lesson_*`) are not armed for a switched coach. Decision (S, owner away, PAD-921,
+      2026-11-12; the owner can reverse it), from R's option (b): one owner, measurable on staging.
 19. **A new-engine coach's settings come from the stored configuration (swap plan §2; PAD-913).** For a
     coach on the new engine (rule 18), the store builds `EngineSettings` from this spec's stored values
     at every call (`notifications.engine-settings` rule 9), with no new copy of them:
@@ -997,6 +1011,29 @@ Given the side choice on, a left-only student asking for the right side and a {l
 for the left, both refused `side_full`, when each chooses to wait, then the first joins with `sides:
 "other"` and the second with `sides: "own"`, the same on web and iOS (one helper).
 test: `frontend/packages/config/src/waiting-list-side-choice.test.ts` › `after side_full the asked side becomes own or other`
+
+#### NOTIFICATIONS-CONFIG-77: A coach is drained when no future occurrence of theirs is old-engine (rule 18)
+Given a switched coach with one future occurrence still on the old engine and an open old vacancy, then
+`flask engine status` shows them not drained; when that occurrence starts and the vacancy closes, then
+drained; nothing about it is stored.
+test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_a_coach_is_drained_when_no_future_occurrence_is_old_engine`
+
+#### NOTIFICATIONS-CONFIG-78: No old-engine job is armed for a new-engine session (rule 18)
+Given a switched coach with a new-engine occurrence, when the scheduler starts and `extend_schedule_window`
+runs, then no `invite_start_*`, `decline_next_*`, `approval_now_*`, `reminder_*`, `reminder_lesson_*`,
+`ask_*` or `past_due_*` job exists for it, while an old-engine occurrence of the same coach keeps its jobs.
+test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_no_old_engine_job_is_armed_for_a_new_engine_session`
+
+#### NOTIFICATIONS-CONFIG-79: At drain the coach's remaining old jobs are removed (rule 18)
+Given a switched coach whose last old-engine occurrence has just started, when the cutover pass runs, then
+every old-engine job of that coach is gone.
+test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_at_drain_the_coachs_old_jobs_are_removed`
+
+#### NOTIFICATIONS-CONFIG-80: The engine's tick materialises a switched coach's recurring occurrences (rule 18)
+Given a switched coach's weekly class with invitations starting 2 days before, when `engine_tick` runs 3
+days and then 2 days before an occurrence, then it is not yet materialised at 3 days, and at 2 days it is
+materialised and adopted (an engine session row), with no `invite_start_lesson_*` job armed.
+test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_the_tick_materialises_a_switched_coachs_recurring_occurrences`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
