@@ -22,6 +22,7 @@ SINGLETONS = (
     "process_batches", "extend_schedule_window", "prune_delivery_incidents", "retention_sweep",
     "finance_gcp_import",  # admin.finance rule 9 (PAD-742)
     "read_push_receipts",  # messaging.push-notifications rule 10b (PAD-745)
+    "engine_tick",  # notifications.engine-store rule 7 (PAD-918)
 )
 OVERDUE_AFTER = timedelta(minutes=5)
 PEER_TIMEOUT_SECONDS = 2
@@ -219,9 +220,124 @@ def other_identity(config) -> dict | str:
         return "unreachable"
 
 
+def _app_side(side):
+    return {"L": "left", "R": "right"}.get(side)
+
+
+def _level_names(coach_id: int) -> dict:
+    """The coach's ladder as the engine numbers it: ``{position (1 the best): (level id, label)}``."""
+    from padel_app.services.level_ladder import get_level_ladder
+
+    return {i + 1: (lv.id, lv.label) for i, lv in enumerate(get_level_ladder(coach_id))}
+
+
+def _open_spots(session: str, coach_id: int, names: dict, invitations, now) -> tuple[list[dict], int]:
+    """A session's open spots by type as the engine counts them (engine-spots rule 6), and how many
+    are uncovered: per type, its spots minus the counting invitations whose offer counts for it."""
+    from padel_app.invitation_engine import planner
+    from padel_app.services.engine_store import TableStore, settings_for
+
+    snapshot = TableStore(clock=lambda: now).snapshot(session)
+    try:
+        settings = settings_for(session)
+    except Exception:  # noqa: BLE001 — a coach whose settings do not map still shows their spots
+        settings = None
+    counts = planner.spot_counts(snapshot, settings) if settings is not None else planner.spot_counts(snapshot)
+    out, uncovered = [], 0
+    for spot_type, n in planner.spot_types(snapshot, counts):
+        covered = sum(1 for inv in invitations if spot_type in inv.offer_types)
+        uncovered += max(0, n - covered)
+        level_id, label = names.get(spot_type.level, (None, None)) if spot_type.level is not None else (None, None)
+        out.append({"side": _app_side(spot_type.side), "levelId": level_id, "levelLabel": label, "open": n})
+    return out, uncovered
+
+
+def _invitation_rows(session_ids, now):
+    """The open invitations of these sessions, each with ``counting`` and its offer as spot types."""
+    from types import SimpleNamespace
+
+    from padel_app.invitation_engine.snapshot import SpotType
+    from padel_app.models import EngineInvitation
+
+    rows = (EngineInvitation.query.filter(EngineInvitation.lesson_instance_id.in_(list(session_ids) or [-1]),
+                                          EngineInvitation.answer.is_(None),
+                                          EngineInvitation.closed_at.is_(None)).all())
+    return [SimpleNamespace(session=r.lesson_instance_id, tier=r.tier,
+                            counting=r.sorry_at is None and r.counts_until is not None and r.counts_until > now,
+                            offer_types={SpotType(side, level) for side, level in (r.offer or [])})
+            for r in rows]
+
+
+def _engine(now) -> dict | None:
+    """admin.engine-health rule 10: the new engine's block, absent while no coach is on ``new``."""
+    from padel_app import scheduler as sched
+    from padel_app.models import Coach, EngineEffect, EngineInvitation, EngineSession, NotificationConfig
+    from padel_app.models.delivery_incident import DeliveryIncident
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_runner import SESSION_FAILED
+    from padel_app.utils.dates import utc_to_wall_naive
+
+    new = NotificationConfig.query.filter(NotificationConfig.engine_version == "new").count()
+    if not new:
+        return None
+    wall = utc_to_wall_naive(now)
+    sessions = (db.session.query(EngineSession, LessonInstance)
+                .join(LessonInstance, LessonInstance.id == EngineSession.lesson_instance_id)
+                .filter(LessonInstance.start_datetime > wall, LessonInstance.status != "canceled").all())
+    week = [(es, inst) for es, inst in sessions if inst.start_datetime < wall + timedelta(days=7)]
+    invitations = _invitation_rows([inst.id for _, inst in sessions], now)
+    by_type, uncovered, names = {}, 0, {}
+    for es, inst in week:
+        names.setdefault(es.coach_id, _level_names(es.coach_id))
+        spots, missing = _open_spots(str(inst.id), es.coach_id, names[es.coach_id],
+                                     [i for i in invitations if i.session == inst.id and i.counting], now)
+        uncovered += missing
+        for spot in spots:
+            key = (spot["side"], spot["levelId"])
+            if key in by_type:
+                by_type[key]["open"] += spot["open"]
+            else:
+                by_type[key] = dict(spot)
+    tiers = {}
+    for inv in invitations:
+        t = tiers.setdefault(inv.tier, {"tier": inv.tier, "counting": 0, "openNotCounting": 0})
+        t["counting" if inv.counting else "openNotCounting"] += 1
+    alerted = sum(1 for es, _ in sessions if es.alerted)
+    job = sched._scheduler.get_job("engine_tick") if sched._scheduler is not None else None
+    next_run = _naive_utc(getattr(job, "next_run_time", None)) if job is not None else None
+    return {
+        "coaches": {"old": Coach.query.count() - new, "new": new},
+        "sessions": {"upcoming": len(sessions), "next7Days": len(week)},
+        "openSpots": {"byType": list(by_type.values()), "uncovered": uncovered},
+        "invitations": {
+            "counting": sum(1 for i in invitations if i.counting),
+            "openNotCounting": sum(1 for i in invitations if not i.counting),
+            "byTier": sorted(tiers.values(), key=lambda t: (t["tier"] is None, t["tier"] or 0)),
+            "sentLast24h": EngineInvitation.query.filter(EngineInvitation.sent_at >= now - timedelta(hours=24)).count(),
+        },
+        "approvals": {"pending": sum(1 for es, _ in sessions if es.pending),
+                      "dismissed": sum(1 for es, _ in sessions if es.dismissed_groups)},
+        "alerts": {"byReason": [{"reason": "no_candidate", "count": alerted}] if alerted else []},
+        "outbox": {
+            "pending": EngineEffect.query.filter(EngineEffect.dispatched_at.is_(None)).count(),
+            "stuckOver5Min": EngineEffect.query.filter(EngineEffect.dispatched_at.is_(None),
+                                                       EngineEffect.at <= now - OVERDUE_AFTER).count(),
+        },
+        "tick": {
+            "present": job is not None,
+            "overdue": bool(next_run is not None and next_run < now - OVERDUE_AFTER),
+            "sessionFailures24h": DeliveryIncident.query.filter(
+                DeliveryIncident.kind == SESSION_FAILED,
+                DeliveryIncident.created_at >= now - timedelta(hours=24)).count(),
+        },
+    }
+
+
 def summary(config, now=None) -> dict:
     now = now or utcnow_naive()
+    engine = _engine(now)
     return {
+        **({"engine": engine} if engine is not None else {}),
         "computedAt": to_utc_iso(now),
         "vacancies": _vacancies(now),
         "invitations": _invitations(),
@@ -232,6 +348,64 @@ def summary(config, now=None) -> dict:
         "push": _push(now),
         "deploy": {"this": this_identity(), "other": other_identity(config)},
     }
+
+
+def _settings_view(coach_id: int, cfg) -> dict:
+    """The coach's EngineSettings as the store builds them (rule 11), JSON-ready; a SettingsError is its
+    message, never raised."""
+    import dataclasses
+
+    from padel_app.services.engine_settings_mapping import settings_from_config
+
+    try:
+        settings = settings_from_config(cfg)
+    except Exception as exc:  # noqa: BLE001 — rule 11: answered as its message
+        return {"error": str(exc)}
+
+    def plain(value):
+        if dataclasses.is_dataclass(value):
+            return {f.name: plain(getattr(value, f.name)) for f in dataclasses.fields(value)}
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return [plain(v) for v in value]
+        if isinstance(value, timedelta):
+            return int(value.total_seconds() // 60)
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return value
+
+    return plain(settings)
+
+
+def _coach_engine(coach_id: int, cfg, now) -> dict:
+    """admin.engine-health rule 11: a new-engine coach's engine version, settings and upcoming sessions,
+    counted, never naming a student."""
+    from padel_app.models import EngineSession
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.utils.dates import utc_to_wall_naive
+
+    wall = utc_to_wall_naive(now)
+    sessions = (db.session.query(EngineSession, LessonInstance)
+                .join(LessonInstance, LessonInstance.id == EngineSession.lesson_instance_id)
+                .filter(EngineSession.coach_id == coach_id, LessonInstance.start_datetime > wall,
+                        LessonInstance.status != "canceled")
+                .order_by(LessonInstance.start_datetime).all())
+    invitations = _invitation_rows([inst.id for _, inst in sessions], now)
+    names = _level_names(coach_id)
+    upcoming = []
+    for es, inst in sessions:
+        mine = [i for i in invitations if i.session == inst.id]
+        spots, _ = _open_spots(str(inst.id), coach_id, names, [i for i in mine if i.counting], now)
+        upcoming.append({
+            "lessonInstanceId": inst.id,
+            "start": inst.start_datetime.isoformat(),
+            "capacity": inst.effective_max_players,
+            "openSpots": spots,
+            "counting": sum(1 for i in mine if i.counting),
+            "openNotCounting": sum(1 for i in mine if not i.counting),
+            "approval": "pending" if es.pending else "dismissed" if es.dismissed_groups else None,
+            "alert": bool(es.alerted),
+        })
+    return {"engineVersion": "new", "engineSettings": _settings_view(coach_id, cfg), "upcomingSessions": upcoming}
 
 
 def coaches(q: str | None) -> list[dict]:
@@ -267,7 +441,9 @@ def coach_detail(coach_id: int, now=None) -> dict | None:
                 if digits.isdigit() and int(digits) in instance_ids:
                     nxt = _naive_utc(getattr(job, "next_run_time", None) or getattr(job.trigger, "run_date", None))
                     jobs.append({"id": job.id, "nextRunTime": to_utc_iso(nxt) if nxt else None})
+    engine_view = _coach_engine(coach_id, cfg, now or utcnow_naive()) if (cfg.engine_version or "old") == "new" else {}
     return {
+        **engine_view,
         "coachId": coach_id,
         "name": name,
         "settings": {

@@ -753,6 +753,14 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
             if kept is not None:
                 continue  # the coach's validated record is theirs to change, on the attendance sheet
         unenrol(player_id, lesson_instance)
+        if not series:
+            # PAD-918 (CLASSES-INSTANCE-ENROLLMENT-35): the coach took them out of this occurrence, so
+            # the engine never invites them back to it (CoachExcludes; an old-engine session ignores it).
+            from padel_app.services.engine_entry import coach_excludes
+            from padel_app.services.engine_switch import engine_for
+
+            if engine_for(lesson_instance) == "new":
+                coach_excludes(lesson_instance, int(player_id))
 
     # Reschedule reminder/invite jobs — start_datetime may have changed
     from padel_app.scheduler import _maybe_drop_followups, _maybe_schedule_instance
@@ -1470,6 +1478,11 @@ def update_lesson_status_service(lesson_id, data):
     lesson = Lesson.query.get_or_404(lesson_id)
     date = datetime.fromisoformat(data["date"]).date()
     instance = get_or_materialize_instance(lesson, date)
+    if data.get("status") == "canceled":
+        # PAD-918: a cancelled new-engine class's open invitations are withdrawn first.
+        from padel_app.services.engine_entry import withdraw_before_removal
+
+        withdraw_before_removal([instance])
     instance.status = data["status"]  # canceled | completed
     instance.save()
 
@@ -2119,6 +2132,16 @@ def remove_class_service(data):
     except Exception:
         cancellation_recipients = []
 
+    # PAD-918: a new-engine class's open invitations are withdrawn before it goes, so their bubbles
+    # settle as withdrawn instead of offering a Yes nothing can answer.
+    try:
+        from padel_app.services.engine_entry import withdraw_before_removal
+
+        withdraw_before_removal(_removed_instances(obj, model_name, scope, event_date))
+    except Exception:  # noqa: BLE001 — never fail a removal because a bubble could not settle
+        db.session.rollback()
+        _log_exception("PAD-918: withdrawing the invitations of class %s before its removal failed", class_id)
+
     # PAD-335 review: the removal is one transaction. Model.delete() commits
     # on its own outside a unit of work, so a failure between the instance's
     # delete and the parent's answered 500 with the register gone and the
@@ -2136,6 +2159,22 @@ def remove_class_service(data):
             pass  # never fail a successful removal because notification failed
 
     return result, status
+
+
+def _removed_instances(obj, model_name, scope, event_date):
+    """The materialised occurrences a removal takes away: the occurrence itself, or the series' on
+    that date (``single``), from that date (``future``), or all of them."""
+    if model_name == "LessonInstance" and (scope == "single" or not scope):
+        return [obj]
+    lesson = obj if model_name == "Lesson" else obj.lesson
+    if lesson is None:
+        return [obj] if model_name == "LessonInstance" else []
+    if scope == "single" or not scope:
+        return _instances_on_date(lesson, event_date)
+    query = LessonInstance.query.filter(LessonInstance.lesson_id == lesson.id)
+    if scope == "future":
+        query = query.filter(LessonInstance.start_datetime >= datetime.combine(event_date, time.min))
+    return query.all()
 
 
 def _instances_on_date(lesson, date):

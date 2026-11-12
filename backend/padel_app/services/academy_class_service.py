@@ -204,6 +204,17 @@ def _was_invited(instance_id, player_id) -> bool:
     ended in neither their "no" nor the coach's withdrawal — both read as a "no" (rules 18, 19)."""
     from padel_app.models.notification_event import NotificationEvent
 
+    # PAD-918 (swap plan §3.2): a new-engine invitation shows the class too, unless the student said No
+    # or the coach withdrew it.
+    from padel_app.models import EngineInvitation
+
+    if EngineInvitation.query.filter(
+        EngineInvitation.lesson_instance_id == instance_id,
+        EngineInvitation.player_id == player_id,
+        db.or_(EngineInvitation.answer.is_(None), EngineInvitation.answer != "no"),
+        db.or_(EngineInvitation.closed_reason.is_(None), EngineInvitation.closed_reason != "withdrawn"),
+    ).first() is not None:
+        return True
     return (
         NotificationEvent.query.filter(
             NotificationEvent.lesson_instance_id == instance_id,

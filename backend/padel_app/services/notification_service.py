@@ -347,7 +347,12 @@ def _validate_engine_settings(engine, config: NotificationConfig, groups) -> Non
     for key in ("betweenRoundsMinutes", "betweenGroupsMinutes"):
         if key in timing:
             minutes(f"timing.{key}", timing[key])
-    per_tier = timing["perTier"] if "perTier" in timing else (config.per_tier_timing or [])
+    if "perTier" in timing:
+        per_tier = timing["perTier"]
+    elif method != "per_tier":
+        per_tier = []            # a method that has no per-tier pairs drops the stored ones (set below)
+    else:
+        per_tier = config.per_tier_timing or []
     if per_tier is None:
         per_tier = []
     if not isinstance(per_tier, list):
