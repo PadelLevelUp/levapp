@@ -77,7 +77,7 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
     db.session.expire_all()
     from padel_app.services.engine_runner import send_outbox
 
-    send_outbox(now)
+    send_outbox()
     row = db.session.get(EngineInvitation, int(invitation_id))        # the outcome, as the store wrote it
     return {**out, "action": _answer_state(row, placed())}
 
@@ -98,7 +98,7 @@ def handle(instance, request, now: datetime | None = None) -> list:
     now = now or utcnow_naive()
     effects = engine(now).handle(str(instance.id), request, now)
     db.session.expire_all()
-    send_outbox(now)                        # an answer's sorry or a placement's notice goes out at once
+    send_outbox()                        # an answer's sorry or a placement's notice goes out at once
     return effects
 
 
@@ -240,7 +240,7 @@ def replan(sessions, now: datetime | None = None) -> list:
 
     effects = engine(now).handle(sessions[0], rq.UpdateSettings(EngineSettings(), sessions), now)
     db.session.expire_all()
-    send_outbox(now)
+    send_outbox()
     return effects
 
 
