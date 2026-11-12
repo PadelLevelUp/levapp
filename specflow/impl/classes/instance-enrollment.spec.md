@@ -170,16 +170,24 @@ three separate fields on it. Decision record:
     unchanged.
 15. **A coach's add at an hour the student is already going elsewhere is refused (PAD-913;
     `notifications.engine-answers` rule 10, the coordinator's ruling: no override).** When a coach adds a
-    student to a new-engine class (one occurrence, or a series whose upcoming occurrences include
-    new-engine ones), and the student is going to another class with the same start (the same hour,
-    `notifications.engine-tiers` rule 3; either engine, any coach), the whole edit is refused and nothing
-    is saved: `409 {code: "busy_same_hour", clashes: [{playerId, playerName, lessonInstanceId, title,
+    student to a class (one occurrence, a series, a class created with students, or accepting a join
+    request), and the add would put the student in two classes with the same start (the same hour,
+    `notifications.engine-tiers` rule 3; any coach) of which at least one is a new-engine session, the
+    whole edit is refused and nothing is saved. An occurrence not yet materialised counts as new-engine
+    when its class's coach is on `new` (`notifications.config` rule 18 assigns it so when it first
+    exists); a student is going to an occurrence when they are on its roster or presences and not marked
+    absent. The refusal: `409 {code: "busy_same_hour", clashes: [{playerId, playerName, lessonInstanceId, title,
     start}]}`, one entry per student and clashing occurrence. There is no override: the coach removes the
     student from the other class first. Both shells read the body (today they show a generic failure
     toast) and show, per clash, "{name} já está inscrito noutra aula à mesma hora ({title}, {date}
     {time}). Remove-o dessa aula primeiro." / "{name} is already in another class at the same time
     ({title}, {date} {time}). Remove them from that class first." (proposed, for the owner's approval),
-    from one shared copy helper. An add to an old-engine class is unchanged.
+    from one shared copy helper. The four places that today drop the error body read it: web
+    `CalendarPage.handleEditClass` and `AddToClassesDialog.proceedSave`, iOS `class/[id].tsx`
+    `finalizeEdit` and `add-to-classes-dialog.tsx` `proceedSave`; adding to several classes at once saves
+    the others and lists each class that refused. An add that clashes only with old-engine classes is
+    unchanged. An add that goes through to a new-engine session is a placement: the student's other open
+    invitations at that hour close, as for any placement (`notifications.engine-answers` rule 10).
 
 ### Acceptance Criteria
 
@@ -376,16 +384,32 @@ test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_new_engi
 - **Then** both edits answer `409 busy_same_hour` with one clash naming Ana's class and its start, nothing is saved (neither student is added), and adding only the other student succeeds
 test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_coachs_add_at_a_busy_hour_is_refused_whole`
 
-#### CLASSES-INSTANCE-ENROLLMENT-30: A clash with a different start, or an add to an old-engine class, is not refused (rule 15)
-- **Given** the student going to a class at 19:30 (overlapping, a different start), and separately an old-engine class at 19:00
-- **When** the coach adds the student to the 19:00 new-engine class, and to the 19:00 old-engine class
-- **Then** both adds succeed
+#### CLASSES-INSTANCE-ENROLLMENT-30: A different start, or a clash between old-engine classes only, is not refused; an old-engine add clashing with a new-engine session is (rule 15)
+- **Given** a student going to a class at 19:30 (overlapping, a different start); another going only to an old-engine class at 19:00; a third going to a new-engine session at 19:00
+- **When** the coach adds the first to a 19:00 new-engine class, the second to another 19:00 old-engine class, and the third to a 19:00 old-engine class
+- **Then** the first two adds succeed and the third answers `409 busy_same_hour`
 test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_different_start_or_an_old_engine_class_is_not_refused`
 
 #### CLASSES-INSTANCE-ENROLLMENT-31: Both shells show each clash from the refusal's body (rule 15)
 - **Given** a `409 busy_same_hour` with one clash, on web and on iOS
 - **Then** each shows the shared helper's line naming the student, the other class and its date and time, never the generic failure toast
 test: `frontend/packages/config/src/busy-same-hour-copy.test.ts` › `renders one line per clash in both locales`
+
+#### CLASSES-INSTANCE-ENROLLMENT-32: The web edit and add-to-classes read the refusal's body (rule 15)
+- **Given** web's class edit and the player's add-to-classes dialog over two classes, one refusing with `busy_same_hour`
+- **Then** the edit shows the clash line instead of the generic toast, and the dialog saves the other class and lists the refused one with its line
+test: `frontend/apps/web/src/components/players/detail/AddToClassesDialog.busySameHour.test.tsx` › `shows each clash and saves the classes that did not refuse`
+
+#### CLASSES-INSTANCE-ENROLLMENT-33: The iOS edit and add-to-classes read the refusal's body (rule 15)
+- **Given** the same refusals on iOS
+- **Then** the same lines show and the other class is saved
+test: `frontend/apps/mobile/src/features/players/add-to-classes-dialog-busy-same-hour.test.tsx` › `shows each clash and saves the classes that did not refuse`
+
+#### CLASSES-INSTANCE-ENROLLMENT-34: A coach's add to a new-engine session closes the student's other invitations at that hour (rule 15)
+- **Given** a student holding a counting invitation to a 19:00 new-engine session, not yet answered
+- **When** a coach adds them to another 19:00 new-engine class
+- **Then** the add succeeds and the invitation closes as a same-hour close (nothing more is sent for it and it no longer counts)
+test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_coachs_add_closes_the_students_other_invitations_at_that_hour`
 
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the

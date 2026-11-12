@@ -50,11 +50,11 @@ Readings:
 The new-engine answer (swap step 7, PAD-919):
 - **N1. The class's approval state is the session's request.** The class view's suggestion state
   (rule 12's route) answers, for a new-engine session: the pending request's id and its queues per
-  spot type (in `notifications.invite-simulation`'s N2 shape), the approved and removed students and
+  spot type (with `notifications.invite-simulation` N2's `side`, `levelId` and `levelLabel`), the approved and removed students and
   whether the session is dismissed; `emptyQueueReasons` becomes the dry run's stage counts per type.
   On the wire (`GET /api/app/notify/approval/instance/<id>`): `{engine: "new", state:
   "pending"|"dismissed"|"none", semiAutomatic, approved: [playerId], removed: [playerId], request?:
-  {requestId, lessonInstanceId, spotTypes: [{side, level, queue, emptyQueueReasons?: [{stage,
+  {requestId, lessonInstanceId, spotTypes: [{side, levelId, levelLabel, queue, emptyQueueReasons?: [{stage,
   count}]}]}}`.
 - **N2. The coach's answer.** "Sim" answers `ApproveQueue(session, request, removed)` and "Ignorar"
   `DismissQueue(session)`; "Yes, at the window" is refused for a new-engine session (no request is
@@ -64,7 +64,7 @@ The new-engine answer (swap step 7, PAD-919):
   "approved"|"dismissed"|"stale", state?}`; `yes_at_window` is a 400.
 - **N4. The request reaches the coach (rule 6).** The outbox's sender for an `ApprovalRequest` posts one
   `replacement_approval` message in the coach's Assistant conversation, its metadata `{engine: "new",
-  requestId, lessonInstanceId, responded: false, spotTypes: [{side, level, queue}]}`, then pushes it to
+  requestId, lessonInstanceId, responded: false, spotTypes: [{side, levelId, levelLabel, queue}]}`, then pushes it to
   the coach, once (`notifications.engine-store` rule 2).
 - **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenQueue(session)` when dismissed
   and re-plans the session at once (`Engine.plan(session, now)`), which raises a fresh request. A

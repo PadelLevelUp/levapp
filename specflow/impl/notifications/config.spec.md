@@ -422,7 +422,9 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       turning `fill_never_held` off (rule 11 there) and any other on, with `reminder_count` →
       `attendance_request.max` and `hours_between_reminders` → `attendance_request.every`;
     - `priorityCriteria` and `tiebreakers` → `ordering` (`notifications.engine-tiers` rule 8);
-    - `autoAcceptJoinRequests` → `direct_join` (`notifications.engine-settings` rule 5);
+    - `autoAcceptJoinRequests` → `direct_join` (`notifications.engine-settings` rule 5), off whatever is
+      stored while `invitationMode` is `semi_automatic` (today a semi-automatic coach never auto-accepts,
+      the owner's Q3, PAD-672);
     - `eligibilityRules` → none: the store applies them when it builds `pool`, and the engine's bar is
       wide open (swap decision 6); for a class with no level the bar's level rules apply nothing and
       its other rules stand (`notifications.engine-spots` rule 8, D3, as for groups), where today's

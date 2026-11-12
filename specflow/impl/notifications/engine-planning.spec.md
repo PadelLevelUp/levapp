@@ -137,8 +137,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
     - Only the planner's sends are held. The re-offer an answer makes at once (a Yes whose offer filled,
       `notifications.engine-answers` rule 3) goes to a student who already holds the invitation and is
       not held.
-    - Automatic entry from a waiting list and direct join are the coach's own settings and are not held;
-      waiting-list invitations are invitations and are.
+    - Automatic entry from a waiting list is the coach's own setting and is not held; direct join is off
+      in semi-automatic mode (`notifications.config` rule 19, the owner's Q3); waiting-list invitations
+      are invitations and are held.
     - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
       session, except a dismissed session, which stays dismissed until its spot count changes or the
       coach reopens it (as today's rule 1a of `notifications.semi-auto-approval` keeps a dismissed spot);

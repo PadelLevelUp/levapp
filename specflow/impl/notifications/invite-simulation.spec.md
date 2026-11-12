@@ -54,8 +54,13 @@ The new-engine answer (swap step 7, PAD-919):
   snapshot, without the departing student among the going (a regular counts as absent), and runs
   `planner.evaluate` (`notifications.engine-tiers` rules 11, 12) on it. Nothing is written: no row, no
   effect applied.
-- **N2. The payload, per open spot type.** `spotTypes: [{side, level, count, queue, verdicts}]`: `side`
-  `left`, `right` or null (either); `count` the type's open spots; `queue` its candidates in the order
+- **N2. The payload, per open spot type.** `spotTypes: [{side, levelId, levelLabel, count, queue,
+  verdicts}]`. **The spot type's wire shape, the one every new-engine payload uses** (this one, the
+  approval request and card, the join refusal's `sides`, `admin.engine-health` rules 10, 11): `side` is
+  `"left"`, `"right"` or null (either), mapped from the engine's `L`/`R` through the store's
+  `SIDE_TO_APP`, never the engine's letters; `levelId` is the `coach_levels` id and `levelLabel` its
+  name, mapped back from the engine's ladder position (`notifications.engine-store` rule 4), both null
+  for a type of any level. `count` the type's open spots; `queue` its candidates in the order
   rule 12 gives (`{playerId, name, nickname, tier, rank}`); `verdicts` one per student the snapshot
   names (`{playerId, stage, tier}`), `stage` exactly the dry run's stage word.
 - **N3. The app's own gates explain `not_in_pool`.** A `not_in_pool` verdict carries `reasons`, the gates

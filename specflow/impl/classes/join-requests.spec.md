@@ -28,14 +28,17 @@ approval.**
 
 | Item | For a new-engine session | Source |
 |---|---|---|
-| Rule 21 (an automatic accept) | a request with the setting on is the engine's `DirectJoin`: placed at once on a side the student fits, or refused with a code (NJ1); a request with the setting off waits for the coach as today | `notifications.engine-settings` rule 5 |
+| Rule 21 (an automatic accept) | replaced: with the setting on (never for a semi-automatic coach, as today: `notifications.config` rule 19), a request is the engine's `DirectJoin`, placed at once on a side the student fits, refused for the hard reasons of NJ1, and otherwise left waiting for the coach as rule 21 says; with the setting off it waits for the coach as today | `notifications.engine-settings` rule 5; NJ1 |
 
-- **NJ1. Refusal codes.** The engine refuses a direct join with a code, never text, and the route answers
-  `409 {code}` with today's codes where the meaning is the same: `already_enrolled`, `class_closed`,
-  `ineligible`, `side_full` (with `requestedSide` and `openSides`; the client offers the waiting list, as
-  `notifications.engine-settings` rule 5 says), and one new code, `busy_same_hour` (the student is going
-  to another class with the same start, `notifications.engine-answers` rule 10). Direct join off is no
-  refusal: the request waits for the coach.
+- **NJ1. Refusal codes.** The route's own pre-checks run first, as today (`not_visible`, `spot_filled`).
+  Then the engine answers a direct join with a code, never text. The route refuses (`409 {code}`) only
+  for the hard reasons: `already_enrolled`, `class_closed`, `already_on_list`, `busy_same_hour` (the
+  student is going to another class with the same start, `notifications.engine-answers` rule 10) and
+  `side_full` (with today's `requestedSide` and `sides` fields, the open sides as `left`/`right`; the
+  client offers the waiting list, `notifications.engine-settings` rule 5). For the soft reasons, the
+  engine's `ineligible` (below the bar, or kept out of the pool by an exclusion), the request is created
+  `pending` and waits for the coach, as rule 21 says; the student is never told why, so an exclusion
+  stays the coach's. Direct join off is no refusal either: the request waits.
 - **NJ2. Copy for every code, both locales**, under `calendar.joinRequest.refusal.*`, including the two
   codes that have none today:
   - `busy_same_hour`: "Já estás inscrito noutra aula à mesma hora" / "You're already in another class at
@@ -43,7 +46,10 @@ approval.**
   - `side_full`: "Já não há vaga do teu lado. Podes entrar na lista de espera." / "There's no spot left on
     your side. You can join the waiting list." (proposed);
   - `has_spots` (a waiting-list join while the class has room, today's code): "Esta aula ainda tem vagas:
-    pede para entrar." / "This class still has spots: ask to join." (proposed).
+    pede para entrar." / "This class still has spots: ask to join." (proposed); the academy wizard keeps
+    its own `classRequests.academy.nowOpen` line;
+  - `already_on_list`: "Já estás na lista de espera desta aula." / "You're already on this class's
+    waiting list." (proposed).
   Web and iOS show the same line; a code with no copy never shows its raw key.
 
 ### Rules
@@ -541,8 +547,14 @@ test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py`
 #### CLASSES-JOIN-REQUESTS-36: A new-engine direct join is placed or refused with a code (new-engine section NJ1)
 - **Given** a new-engine class with direct join on, a right spot open, and students: one who fits the right side, one who plays only left, one below the bar, one going to another class with the same start
 - **When** each asks to join
-- **Then** the first is placed at once (`201`, accepted), and the others answer `409` with `side_full` (with `openSides` `["right"]`), `ineligible` and `busy_same_hour`; with direct join off, a request answers `201` pending
+- **Then** the first is placed at once (`201`, accepted), the left-only student answers `409 side_full` with `sides` `["right"]`, the one going elsewhere at that hour `409 busy_same_hour`, and the one below the bar `201` pending; with direct join off, a request answers `201` pending
 test: `backend/padel_app/tests/test_pad920_direct_join_refusals.py` › `test_a_direct_join_is_placed_or_refused_with_a_code`
+
+#### CLASSES-JOIN-REQUESTS-38: A direct join that fails a soft check waits for the coach, and a semi-automatic coach never auto-accepts (new-engine section NJ1)
+- **Given** a new-engine class with direct join on, a student on the coach's excluded list and a student below the bar, and a semi-automatic coach's class with the setting on
+- **When** each asks to join, and an eligible student asks to join the semi-automatic coach's class
+- **Then** the first two get `201` with a `pending` request and no refusal text, and the third's request is `pending` too
+test: `backend/padel_app/tests/test_pad920_direct_join_refusals.py` › `test_a_soft_failure_waits_for_the_coach_and_semi_automatic_never_auto_accepts`
 
 #### CLASSES-JOIN-REQUESTS-37: Every refusal code has copy on both shells (new-engine section NJ2)
 - **Given** each refusal code of rule 15 and NJ1, plus `has_spots`
