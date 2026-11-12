@@ -10,6 +10,7 @@ import type {
   AbsenceJustification,
   CalendarEvent,
   ClassInstance,
+  EngineRespondBody,
   PresenceStatus,
 } from "@levelup/types";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
@@ -326,6 +327,22 @@ export function useRespondInvite() {
       notificationEventId: number;
       action: "yes" | "no";
     }) => notificationEngineApi.respondToNotification(notificationEventId, action),
+    onSuccess: () => {
+      invalidate();
+      invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);
+    },
+  });
+}
+
+/**
+ * PAD-920 (dashboard.blocks new-engine readings, DASHBOARD-BLOCKS-57): answer a new-engine invitation
+ * by its id (POST /app/notify/respond {invitationId, action}), as the home card carrying `invitationId` does.
+ */
+export function useRespondEngineInvite() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateClassData();
+  return useMutation({
+    mutationFn: (body: EngineRespondBody) => notificationEngineApi.respondToEngineInvitation(body),
     onSuccess: () => {
       invalidate();
       invalidateKeys(queryClient, REMINDER_ANSWER_KEYS);

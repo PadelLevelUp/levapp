@@ -19,6 +19,7 @@
  */
 import {
   engineAlertCopy,
+  engineAnswerToast,
   resolveText,
   shortDate,
   validationTier,
@@ -66,6 +67,7 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useSnoozeNeedsYouItem } from "@levelup/hooks";
 import {
+  useRespondEngineInvite,
   useRespondInvite,
   useRespondReminder,
   useDeclineFromDashboard,
@@ -509,9 +511,27 @@ function DeclineButton({
 function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
   const { t, i18n } = useTranslation();
   const respond = useRespondInvite();
-  const answer = (action: "yes" | "no") =>
+  const respondEngine = useRespondEngineInvite();
+  const answer = (action: "yes" | "no") => {
+    // PAD-920 (DASHBOARD-BLOCKS-57): a card carrying `invitationId` is the new engine's, answered by that
+    // id; the route's five actions read through the shared helper, one toast each.
+    if (item.invitationId != null) {
+      respondEngine.mutate(
+        { invitationId: item.invitationId, action },
+        {
+          onSuccess: (result) => {
+            const answerToast = engineAnswerToast(result.action);
+            if (!answerToast) toast.error(t("dashboard.answer.failed"));
+            else if (answerToast.tone === "good") toast.success(t(answerToast.key));
+            else toast.error(t(answerToast.key));
+          },
+          onError: () => toast.error(t("dashboard.answer.failed")),
+        },
+      );
+      return;
+    }
     respond.mutate(
-      { notificationEventId: item.notificationEventId, action },
+      { notificationEventId: item.notificationEventId!, action },
       {
         onSuccess: (result) => {
           if (result.action === "confirmed") toast.success(t("dashboard.answer.confirmed"));
@@ -524,6 +544,7 @@ function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
         onError: () => toast.error(t("dashboard.answer.failed")),
       },
     );
+  };
   return (
     <ActionCard accent="attention" testID="dashboard-queue-vacancy-invite">
       <View className="gap-0.5">
@@ -540,7 +561,7 @@ function VacancyInviteCard({ item }: { item: DashboardNeedsYouVacancyInvite }) {
         </Text>
       </View>
       <View className="mt-3.5 flex-row items-center gap-2">
-        <AskButtons busy={respond.isPending} onAnswer={answer} />
+        <AskButtons busy={respond.isPending || respondEngine.isPending} onAnswer={answer} />
         <View className="flex-1" />
         <Pressable
           onPress={() => go(item.href, { title: item.classTitle, timeLabel: item.timeLabel })}
