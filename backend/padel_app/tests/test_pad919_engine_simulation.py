@@ -41,11 +41,12 @@ def _rows():
 
 @pytest.mark.criterion("NOTIFICATIONS-INVITE-SIMULATION-19")
 def test_the_simulation_runs_the_engines_dry_run_and_writes_nothing(app):
-    """TIERS-9: the verdicts and queues are ``planner.evaluate``'s on the hypothetical snapshot, per
-    student per open spot type, through the same ``simulate_vacancy`` the endpoint calls; nothing is
+    """TIERS-9: the verdicts and queues are ``planner.evaluate``'s on the hypothetical snapshot with the
+    coach's settings (``settings_for``), per student per open spot type, through the same ``simulate_vacancy`` the endpoint calls; nothing is
     written."""
-    from padel_app.services.engine_simulation import hypothetical_snapshot
-    from padel_app.services.engine_store import TableStore
+    from padel_app.services.engine_simulation import _spot_type, hypothetical_snapshot
+    from padel_app.services.engine_store import TableStore, settings_for
+    from padel_app.services.level_ladder import get_level_ladder
     from padel_app.services.invite_simulation_service import simulate_vacancy
 
     store, (a,), (reg, x, y) = _seed(app, players=3)
@@ -54,12 +55,20 @@ def test_the_simulation_runs_the_engines_dry_run_and_writes_nothing(app):
     sim = simulate_vacancy(_instance(a), coach_id, int(reg), now=PLAN_AT)
     assert _rows() == before
 
-    dry = planner.evaluate(hypothetical_snapshot(TableStore(clock=lambda: PLAN_AT), a, reg), EngineSettings(), PLAN_AT)
-    expected = {((v.spot_type.side, v.spot_type.level), v.student): (v.stage, v.tier) for v in dry.verdicts}
-    got = {((t["side"], t["level"]), v["playerId"]): (v["stage"], v["tier"]) for t in sim["spotTypes"] for v in t["verdicts"]}
+    dry = planner.evaluate(hypothetical_snapshot(TableStore(clock=lambda: PLAN_AT), a, reg), settings_for(a), PLAN_AT)
+    ladder = get_level_ladder(coach_id)
+
+    def wire(st):
+        w = _spot_type(st, ladder)
+        return (w["side"], w["levelId"])
+
+    expected = {(wire(v.spot_type), v.student): (v.stage, v.tier) for v in dry.verdicts}
+    got = {((t["side"], t["levelId"]), v["playerId"]): (v["stage"], v["tier"]) for t in sim["spotTypes"] for v in t["verdicts"]}
     assert got == expected and expected
-    assert {(t["side"], t["level"]): [q["playerId"] for q in t["queue"]] for t in sim["spotTypes"]} == {
-        (st.side, st.level): list(q) for st, q in dry.queues.items()}
+    assert {(t["side"], t["levelId"]): [q["playerId"] for q in t["queue"]] for t in sim["spotTypes"]} == {
+        wire(st): list(q) for st, q in dry.queues.items()}
+    assert {t["side"] for t in sim["spotTypes"]} <= {"left", "right", None}
+    assert all(t["levelLabel"] for t in sim["spotTypes"])
     assert sim["engine"] == "new" and "rounds" not in sim
 
 
@@ -124,17 +133,27 @@ def test_the_gates_are_the_dry_runs_may_plan(app):
     store, (a,), (reg, _, _) = _seed(app)
     inst = _instance(a)
 
+    def gates(now):
+        return simulate(inst, store.coach_of(a), reg, now=now)["gates"]
+
     def codes(now):
-        return [g["code"] for g in simulate(inst, store.coach_of(a), reg, now=now)["gates"]]
+        return [g["code"] for g in gates(now) if g["blocked"]]
 
     assert codes(PLAN_AT) == ["auto_notify_disabled"]
-    db.session.add(NotificationConfig(coach_id=store.coach_of(a), auto_notify_enabled=True))
+    config = NotificationConfig(coach_id=store.coach_of(a), auto_notify_enabled=True)
+    config.restrictions = {"minTimeBeforeClass": {"enabled": True, "value": 120},
+                           "quietHours": {"enabled": True, "start": "00:00", "end": "07:00"}}
+    db.session.add(config)
     db.session.commit()
     assert codes(PLAN_AT) == []
     assert codes(START - timedelta(days=3)) == ["invitation_window"]
+    assert next(g for g in gates(START - timedelta(days=3)) if g["code"] == "invitation_window")["opensAt"]
     assert codes(START - timedelta(hours=1)) == ["last_invite_before"]
     assert codes(START.replace(hour=3)) == ["quiet_hours"]
+    assert next(g for g in gates(START.replace(hour=3)) if g["code"] == "quiet_hours")["until"] == "07:00"
     assert codes(START + timedelta(minutes=1)) == ["class_over"]
+    assert "max_total_reached" not in {g["code"] for g in gates(PLAN_AT)}
+    assert all(set(g) >= {"code", "blocked"} for g in gates(PLAN_AT))
     inst.auto_invites = False
     db.session.commit()
     assert codes(PLAN_AT) == ["class_auto_invites_off"]
@@ -150,7 +169,7 @@ def test_explain_gives_one_entry_per_open_spot_type(app):
     coach_id = store.coach_of(a)
     sim = simulate(_instance(a), coach_id, None, now=PLAN_AT)
     out = explain(_instance(a), coach_id, None, x, now=PLAN_AT)
-    assert [(e["side"], e["level"]) for e in out["spotTypes"]] == [(t["side"], t["level"]) for t in sim["spotTypes"]]
+    assert [(e["side"], e["levelId"]) for e in out["spotTypes"]] == [(t["side"], t["levelId"]) for t in sim["spotTypes"]]
     assert len(out["spotTypes"]) == 2
     for entry, t in zip(out["spotTypes"], sim["spotTypes"]):
         assert entry["stage"] == next(v["stage"] for v in t["verdicts"] if v["playerId"] == x)
@@ -193,8 +212,11 @@ def test_the_approval_state_is_the_sessions_request(app, semi):
     got = instance_suggestions(int(a), coach_id)
     assert got["state"] == "pending" and got["semiAutomatic"] and got["engine"] == "new"
     assert got["request"]["requestId"] == pending.pending_request
-    assert [((t["side"], t["level"]), [q["playerId"] for q in t["queue"]]) for t in got["request"]["spotTypes"]] == [
-        ((st.side, st.level), list(ids)) for st, ids in pending.pending]
+    assert [[q["playerId"] for q in t["queue"]] for t in got["request"]["spotTypes"]] == [
+        list(ids) for _, ids in pending.pending]
+    assert [t["side"] for t in got["request"]["spotTypes"]] == [{"L": "left", "R": "right"}.get(st.side)
+                                                                for st, _ in pending.pending]
+    assert all(t["levelId"] and t["levelLabel"] for t in got["request"]["spotTypes"])
     assert any(t["queue"] for t in got["request"]["spotTypes"])
     for t in got["request"]["spotTypes"]:
         if not t["queue"]:
@@ -289,7 +311,10 @@ def test_the_outbox_posts_the_request_to_the_coachs_assistant(app, semi, monkeyp
     msgs = Message.query.filter_by(message_type="replacement_approval").all()
     assert len(msgs) == 1
     meta = msgs[0].msg_metadata
-    assert meta["requestId"] == request_id and meta["engine"] == "new" and meta["spotTypes"]
+    assert meta["requestId"] == request_id and meta["engine"] == "new" and meta["responded"] is False
+    assert meta["lessonInstanceId"] == int(a) and len(meta["spotTypes"]) == 2
+    assert all({"side", "levelId", "levelLabel", "queue"} <= set(t) for t in meta["spotTypes"])
+    assert msgs[0].text.startswith("Pedido de convites para ") and "Enviar os convites?" in msgs[0].text
     assert pushes == [db.session.get(Coach, store.coach_of(a)).user_id]
     assert dispatch(send, now=PLAN_AT) == 0
     assert Message.query.filter_by(message_type="replacement_approval").count() == 1 and len(pushes) == 1

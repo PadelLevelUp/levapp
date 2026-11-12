@@ -42,35 +42,32 @@ def hypothetical_snapshot(store, session: str, departing: str | None):
     return replace(snapshot, going=going, absent=frozenset(absent))
 
 
-def _gates(instance, snapshot, settings, now: datetime) -> list[dict]:
-    """Why a run would send nothing now: the store's listing (CONFIG-54: the coach's or the class's
-    switch) and the dry run's "may plan now" (the invitation window, quiet hours,
-    ``last_invite_before``), and a class already started. Each ``{"code", "blocking": True}``."""
+def _gates(instance, coach_id: int, snapshot, settings, now: datetime) -> list[dict]:
+    """The checks before a run sends, in today's gate shape (``{code, blocked, …}``,
+    notifications.invite-simulation N4): the store's listing (CONFIG-54: the coach's or the class's
+    switch), a class already started, and the dry run's "may plan now": the invitation window (with
+    ``opensAt``), quiet hours (with ``until``), ``last_invite_before`` (with ``minutes``). No
+    ``max_total_reached`` (swap decision 3)."""
     from padel_app.invitation_engine import timeline
     from padel_app.models.notification_config import NotificationConfig
-    from padel_app.services.engine_store import TableStore
     from padel_app.services.notification_service import effective_auto_invites
 
-    coach_id = TableStore().coach_of(str(instance.id))
     config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
-    out = []
-    if config is None or not config.auto_notify_enabled:
-        out.append("auto_notify_disabled")
-    if not instance.notifications_enabled:
-        out.append("class_notifications_disabled")
-    elif not effective_auto_invites(instance):
-        out.append("class_auto_invites_off")
-    if now >= wall_to_utc_naive(snapshot.start):
-        out.append("class_over")
-    else:
-        first = timeline.first_invite_at(snapshot, settings)
-        if first is not None and now < first:
-            out.append("invitation_window")
-        if now > timeline.last_invite_at(snapshot, settings):
-            out.append("last_invite_before")
-        if timeline.is_quiet(settings, now):
-            out.append("quiet_hours")
-    return [{"code": code, "blocking": True} for code in out]
+    over = now >= wall_to_utc_naive(snapshot.start)
+    first = timeline.first_invite_at(snapshot, settings)
+    quiet = settings.quiet_hours
+    return [
+        {"code": "auto_notify_disabled", "blocked": config is None or not config.auto_notify_enabled},
+        {"code": "class_notifications_disabled", "blocked": not instance.notifications_enabled},
+        {"code": "class_auto_invites_off", "blocked": not effective_auto_invites(instance)},
+        {"code": "class_over", "blocked": over},
+        {"code": "invitation_window", "blocked": not over and first is not None and now < first,
+         "opensAt": first.isoformat() if first is not None else None},
+        {"code": "quiet_hours", "blocked": not over and timeline.is_quiet(settings, now), "enabled": quiet is not None,
+         "until": quiet[1].strftime("%H:%M") if quiet is not None else None},
+        {"code": "last_invite_before", "blocked": not over and now > timeline.last_invite_at(snapshot, settings),
+         "minutes": int(settings.last_invite_before.total_seconds() // 60)},
+    ]
 
 
 def _people(coach_id: int, ids) -> dict[str, dict]:
@@ -89,9 +86,15 @@ def _people(coach_id: int, ids) -> dict[str, dict]:
     return out
 
 
-def _spot_type(spot_type) -> dict:
-    """A spot type on the wire: ``side`` ``L``/``R``, or null for an "either" spot; the class's level."""
-    return {"side": spot_type.side, "level": spot_type.level}
+def _spot_type(spot_type, ladder) -> dict:
+    """A spot type on the wire (notifications.invite-simulation N2): ``side`` ``left``/``right``, or null
+    for an "either" spot (the store's ``SIDE_TO_APP``); ``levelId`` and ``levelLabel`` the coach's level at
+    that ladder position (``ladder``: ``get_level_ladder``), both null for a type of any level."""
+    from padel_app.services.engine_store import SIDE_TO_APP
+
+    level = ladder[spot_type.level - 1] if spot_type.level is not None and 0 < spot_type.level <= len(ladder) else None
+    return {"side": SIDE_TO_APP[spot_type.side], "levelId": getattr(level, "id", None),
+            "levelLabel": getattr(level, "label", None)}
 
 
 def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | None = None) -> dict:
@@ -100,6 +103,7 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
     (engine-tiers rule 12), and for each of the coach's students the pool keeps out, why. Read-only."""
     from padel_app.invitation_engine import planner
     from padel_app.services.engine_store import TableStore, settings_for
+    from padel_app.services.level_ladder import get_level_ladder
 
     _now = now or utcnow_naive()
     store = TableStore(clock=lambda: _now)
@@ -111,13 +115,14 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
     excluded = store.pool_exclusions(session)
     counts = planner.spot_counts(planner.with_postponed(snapshot, _now))
     people = _people(coach_id, set(snapshot.students) | set(excluded))
+    ladder = get_level_ladder(coach_id)
 
     types = []
     for spot_type, n in planner.spot_types(snapshot, counts):
         verdicts = [v for v in dry.verdicts if v.spot_type == spot_type]
         tiers = {v.student: v.tier for v in verdicts}
         types.append({
-            **_spot_type(spot_type),
+            **_spot_type(spot_type, ladder),
             "count": n,
             "queue": [{"playerId": sid, **people.get(sid, {}), "tier": tiers.get(sid), "rank": rank}
                       for rank, sid in enumerate(dry.queues.get(spot_type, ()), 1)],
@@ -132,7 +137,7 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
         "engine": "new",
         "evaluatedAt": _now.isoformat(),
         "approvalRequired": settings.invitation_mode == "semi_automatic",
-        "gates": _gates(instance, snapshot, settings, _now),
+        "gates": _gates(instance, coach_id, snapshot, settings, _now),
         "departingPlayerId": departing,
         "spotTypes": types,
     }
@@ -154,7 +159,8 @@ def explain(instance, coach_id: int, departing_player_id, player_id, *, now: dat
             if v["playerId"] == sid:
                 person = {k: v[k] for k in v if k not in ("stage", "tier", "reasons", "playerId")}
                 rank = next((q["rank"] for q in t["queue"] if q["playerId"] == sid), None)
-                entries.append({"side": t["side"], "level": t["level"], "stage": v["stage"], "tier": v["tier"], "rank": rank,
+                entries.append({"side": t["side"], "levelId": t["levelId"], "levelLabel": t["levelLabel"],
+                                "stage": v["stage"], "tier": v["tier"], "rank": rank,
                                 **({"reasons": v["reasons"]} if "reasons" in v else {})})
     if not person:
         person = _people(coach_id, [sid]).get(sid, {})

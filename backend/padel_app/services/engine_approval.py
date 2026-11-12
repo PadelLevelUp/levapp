@@ -34,11 +34,14 @@ def _engine(now: datetime):
 
 
 def _queues_payload(coach_id: int, queues) -> list[dict]:
+    """A request's queues on the wire: per spot type (invite-simulation N2's shape) its students in order."""
     from padel_app.services.engine_simulation import _people, _spot_type
+    from padel_app.services.level_ladder import get_level_ladder
 
     people = _people(coach_id, {sid for _, ids in queues for sid in ids})
-    return [{**_spot_type(spot_type), "queue": [{"playerId": sid, **people.get(sid, {}), "rank": rank}
-                                                for rank, sid in enumerate(ids, 1)]}
+    ladder = get_level_ladder(coach_id)
+    return [{**_spot_type(spot_type, ladder), "queue": [{"playerId": sid, **people.get(sid, {}), "rank": rank}
+                                                        for rank, sid in enumerate(ids, 1)]}
             for spot_type, ids in queues]
 
 
@@ -54,7 +57,7 @@ def _empty_queue_reasons(snapshot, settings, now: datetime) -> dict:
     for spot_type, queue in dry.queues.items():
         if not queue:
             counts = Counter(v.stage for v in dry.verdicts if v.spot_type == spot_type)
-            out[(spot_type.side, spot_type.level)] = [{"stage": s, "count": n} for s, n in sorted(counts.items())]
+            out[spot_type] = [{"stage": s, "count": n} for s, n in sorted(counts.items())]
     return out
 
 
@@ -79,9 +82,9 @@ def state(instance, coach_id: int, *, now: datetime | None = None) -> dict:
     if approval.pending is not None:
         reasons = _empty_queue_reasons(snapshot, settings, _now)
         types = _queues_payload(coach_id, approval.pending)
-        for t in types:
+        for (spot_type, _), t in zip(approval.pending, types):
             if not t["queue"]:
-                t["emptyQueueReasons"] = reasons.get((t["side"], t["level"]), [])
+                t["emptyQueueReasons"] = reasons.get(spot_type, [])
         return {**out, "state": "pending", "request": {"requestId": approval.pending_request,
                                                         "lessonInstanceId": instance.id, "spotTypes": types}}
     if approval.dismissed is not None:
@@ -159,16 +162,24 @@ def card(row) -> dict:
             "responded": False, "spotTypes": _queues_payload(coach_id, queues)}
 
 
-def _card_text(card_payload: dict, coach_user_id: int) -> str:
-    from padel_app.services.player_service import coach_display_name
+#: The request's message (semi-auto-approval N4, message-templates rule 6), per coach locale.
+CARD_TEXT = {
+    "pt": "Pedido de convites para {klass}, {weekday} às {time}: {n} aluno(s) na fila. Enviar os convites?",
+    "en": "Invitation request for {klass}, {weekday} at {time}: {n} student(s) in the queue. Send the invitations?",
+}
 
-    parts = []
-    for t in card_payload["spotTypes"]:
-        names = ", ".join(coach_display_name(coach_user_id, q["playerId"], q.get("name")) or q.get("name") or ""
-                          for q in t["queue"])
-        parts.append(f"Invite queue: {names}." if names else "No eligible replacements found.")
-    parts.append("Send replacement invitations?")
-    return " ".join(parts)
+
+def _card_text(card_payload: dict, coach, instance) -> str:
+    """The message's text in the coach's locale: the class, its day and time, and how many students the
+    request's queues hold."""
+    from padel_app.services.notification_service import _format_weekday, _resolve_locale
+
+    locale = _resolve_locale(coach)
+    start = instance.start_datetime
+    klass = getattr(getattr(instance, "lesson", None), "title", None) or ""
+    n = len({q["playerId"] for t in card_payload["spotTypes"] for q in t["queue"]})
+    return CARD_TEXT[locale].format(klass=klass, weekday=_format_weekday(start, locale),
+                                    time=start.strftime("%H:%M") if start else "", n=n)
 
 
 def send_approval_request(row) -> None:
@@ -187,8 +198,10 @@ def send_approval_request(row) -> None:
     coach = db.session.get(Coach, TableStore().coach_of(str(row.lesson_instance_id)))
     if coach is None or coach.user_id is None:
         return
+    from padel_app.models.lesson_instances import LessonInstance
+
     conv, assistant = _get_or_create_assistant_conversation(coach.user_id)
-    text = _card_text(payload, coach.user_id)
+    text = _card_text(payload, coach, db.session.get(LessonInstance, row.lesson_instance_id))
     msg = Message(text=text, sender_id=assistant.id, conversation_id=conv.id,
                   message_type="replacement_approval", msg_metadata=payload)
     db.session.add(msg)
