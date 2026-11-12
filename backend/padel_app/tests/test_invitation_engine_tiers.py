@@ -433,3 +433,21 @@ def test_any_overlap_with_the_same_coachs_class_is_busy():
     stages = {v.student: v.stage for v in evaluate(store.snapshot("S"), EngineSettings(), T0).verdicts}
     assert stages["EARLY"] == "busy_same_time"
     assert stages["LATER"] != "busy_same_time" and stages["OTHER"] != "busy_same_time"
+
+
+def test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says():
+    """engine-settings rule 4, engine-tiers rule 6 (amended, R): ``wl-sides`` only decides whether the
+    choice is offered; a side the student sent is always kept. A right-sider who chose the other side
+    is a candidate for the left only, and the invitation names it, with the setting off."""
+    store = MemoryStore()
+    store.add_student(_student("W", "R"))
+    store.add_session("A", 3, 8, START, _regulars(3, 3), T0)                  # a left and a right spot
+    store.apply([fx.WaitingListJoined("A", T0 - timedelta(hours=1), "W", "students", sides="other")])
+    settings = EngineSettings(tiers=(Tier("students_list"),))
+    assert not settings.waiting_list_side_choice
+    snap = store.snapshot("A")
+    counts = spot_counts(snap)
+    assert tier_for(snap.students["W"], SpotType("L", 3), counts, snap, settings) == 0
+    assert tier_for(snap.students["W"], SpotType("R", 3), counts, snap, settings) is None
+    [invited] = [e for e in plan(snap, settings, T0).effects if isinstance(e, fx.Invited)]
+    assert invited.offer == frozenset({SpotType("L", 3)}) and invited.side_named == "L"

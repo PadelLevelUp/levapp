@@ -200,10 +200,11 @@ def _eligible(student: Student, snapshot: SessionSnapshot, settings: EngineSetti
 def _entry_admits(entry: WaitingListEntry, student: Student, values: frozenset[str],
                   settings: EngineSettings) -> bool:
     """The waiting lists have no level rules (D12); sides per engine-tiers rule 6 and
-    engine-settings rule 4."""
+    engine-settings rule 4: a side the student chose binds whatever ``wl-sides`` says, which only
+    decides whether the clients offer the choice."""
     if entry.list == "coach":
         return entry.side is None or entry.side in values
-    if not settings.waiting_list_side_choice or entry.sides in (None, "both"):
+    if entry.sides in (None, "both"):
         return True
     if entry.sides == "own":
         return bool(student.sides & values)
@@ -409,7 +410,7 @@ def _offer_sides(tier: Tier, student: Student, values: frozenset[str], snapshot:
         entry = _entry(snapshot, student.id, "coach")
         if entry is not None and entry.side is not None:
             return frozenset({entry.side}) & values
-    if tier.source == "students_list" and settings.waiting_list_side_choice:
+    if tier.source == "students_list":
         entry = _entry(snapshot, student.id, "students")
         if entry is not None and entry.sides == "other":
             return values - student.sides
@@ -732,7 +733,7 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
                 continue                                      # every gate its tier holds (tiers rules 3, 10)
             if which == "coach":
                 sides = frozenset({w.side}) if w.side else frozenset(SIDES)
-            elif settings.waiting_list_side_choice and w.sides == "other":
+            elif w.sides == "other":
                 sides = frozenset(SIDES) - student.sides
             elif w.sides == "both":                         # the student accepts either side
                 sides = frozenset(SIDES)
