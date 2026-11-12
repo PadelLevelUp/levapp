@@ -5,7 +5,9 @@ engine's own tables (``models/engine_store.py``).
 Ids. A session is a ``LessonInstance`` id and a student a ``Player`` id, both as strings.
 
 What lives where.
-- Going: ``Presence`` is the truth. A row is going unless ``status == "absent"``; the engine's
+- Going: ``Presence`` is the truth. A row is going unless the engine recorded the student leaving (``status
+  == "absent"`` with ``left_reason`` ``regular_no`` or ``cancel``): a no-show or the coach's attendance
+  mark records attendance, and the student keeps the spot they held; the engine's
   placement (how, when, side moves, why a student left) is in its PAD-916 columns, and its side in
   ``assigned_side``. Rows are created only through ``lesson_service.enrol``.
 - Regulars: the series roster (``player_in_lesson``); ``joined_at`` is that row's ``created_at``.
@@ -127,6 +129,15 @@ def _blocks_auto_invitations(user) -> bool:
     return bool(getattr(user, "notif_block_auto_invitations", False) or getattr(user, "notif_block_all", False))
 
 
+#: The engine's departures: a presence marked absent with one of these left the session; any other absence
+#: (a no-show, the coach's attendance mark) records attendance and the student stays placed.
+LEFT = ("regular_no", "cancel")
+
+
+def _going(p) -> bool:
+    return p.status != "absent" or p.left_reason not in LEFT
+
+
 def _end_of(inst) -> datetime:
     """An occurrence's end, Lisbon wall clock: its own (start plus the lesson's duration), or an hour
     after its start when it has none (the engine's default length)."""
@@ -135,25 +146,28 @@ def _end_of(inst) -> datetime:
 
 def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, *,
                        student: int | None = None) -> list[tuple[int, int]]:
-    """``(player_id, lesson_instance_id)`` of every student going to another of ``coach_id``'s
-    occurrences whose ``[start, end)`` overlaps this one's (``a.start < b.end and b.start < a.end``;
-    touching ends do not overlap), not canceled; only ``student``'s when given. Read fresh
-    (``populate_existing``) so a guard under the student's lock sees the other unit's commit."""
+    """``(player_id, lesson_instance_id)`` of every student going to another occurrence at the same time
+    as this one (engine-tiers rule 3, owner decision 11 with the 11-11 ruling kept): one of ``coach_id``'s
+    whose ``[start, end)`` overlaps this one's (``a.start < b.end and b.start < a.end``; touching ends do
+    not overlap), or any coach's starting at the same instant; not canceled; only ``student``'s when
+    given. Read fresh (``populate_existing``) so a guard under the student's lock sees the other unit's
+    commit."""
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.presences import Presence
     from padel_app.services.lesson_service import coach_instance_ids
 
-    ids = set(coach_instance_ids(coach_id)) - {iid}
-    if not ids:
-        return []
+    own = set(coach_instance_ids(coach_id)) - {iid}
     candidates = LessonInstance.query.filter(
-        LessonInstance.id.in_(ids), LessonInstance.status != "canceled",
+        LessonInstance.id != iid, LessonInstance.status != "canceled",
         LessonInstance.start_datetime < end, LessonInstance.start_datetime >= start - timedelta(days=1)).all()
-    overlapping = [o.id for o in candidates if _end_of(o) > start]
+    overlapping = [o.id for o in candidates
+                   if (o.id in own and _end_of(o) > start) or o.start_datetime == start]
     if not overlapping:
         return []
     q = db.session.query(Presence.player_id, Presence.lesson_instance_id).filter(
-        Presence.lesson_instance_id.in_(overlapping), (Presence.status.is_(None)) | (Presence.status != "absent"))
+        Presence.lesson_instance_id.in_(overlapping),
+        Presence.status.is_(None) | (Presence.status != "absent") | Presence.left_reason.is_(None)
+        | Presence.left_reason.notin_(LEFT))
     if student is not None:
         q = q.filter(Presence.player_id == student)
     return [(pid, lid) for pid, lid in q.populate_existing().all()]
@@ -178,8 +192,8 @@ def _close_request_message(message_id: int | None, state: str) -> None:
 
 def _refresh_bubbles(row, state: str, **extra) -> None:
     """Write the invitation's new ``state`` (invitations NB1: ``answered`` with ``response``, ``sorry``,
-    ``reoffered``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on every
-    one of its bubbles (engine-store rule 8), and publish one ``message_edited`` per message after the unit commits (``publish``
+    ``reopened``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on its
+    newest bubble (on every one for ``reopened``; engine-store rule 8), and publish one ``message_edited`` per message after the unit commits (``publish``
     waits for it inside a unit of work)."""
     from padel_app.models import Message
     from padel_app.models.lesson_instances import LessonInstance
@@ -189,7 +203,9 @@ def _refresh_bubbles(row, state: str, **extra) -> None:
 
     if not row.message_ids:
         return
-    ids = list(row.message_ids)
+    # Engine-store rule 8 (STORE-7 restated): once reopened, the older bubbles keep "reopened"; a later
+    # state lands only on the newest, the one with live buttons.
+    ids = list(row.message_ids) if state == "reopened" else list(row.message_ids)[-1:]
     start = db.session.get(LessonInstance, row.lesson_instance_id).start_datetime
     for msg in Message.query.filter(Message.id.in_(ids)).all():
         meta = dict(msg.msg_metadata or {})
@@ -283,7 +299,7 @@ class TableStore:
                        if inst.lesson_id is not None else [])
         joined = {str(r.player_id): r.created_at for r in roster_rows}
         regular_ids = {str(p.player_id) for p in presences if self._placement(p).how in ("regular", "regular_returns")}
-        going = tuple(self._placement(p) for p in presences if p.status != "absent")
+        going = tuple(self._placement(p) for p in presences if _going(p))
         absent = frozenset(str(p.player_id) for p in presences
                            if p.status == "absent" and p.left_reason == "regular_no")
         invitations = tuple(self._invitation(r) for r in EngineInvitation.query.filter_by(lesson_instance_id=iid)
@@ -647,7 +663,7 @@ class TableStore:
         going: dict[int, tuple[Placement, ...]] = {}
         for iid in {r.lesson_instance_id for r in rows}:
             going[iid] = tuple(self._placement(p) for p in Presence.query.filter_by(lesson_instance_id=iid).all()
-                               if p.status != "absent")
+                               if _going(p))
         return tuple(Elsewhere(str(r.lesson_instance_id), by_id[r.lesson_instance_id].start_datetime,
                                self._invitation(r), by_id[r.lesson_instance_id].effective_max_players,
                                going[r.lesson_instance_id], end=_end_of(by_id[r.lesson_instance_id])) for r in rows)
@@ -766,18 +782,18 @@ class TableStore:
                 lesson_instance_id=iid, player_id=int(e.student), coach_id=db.session.get(EngineSession, iid).coach_id,
                 offer=[[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))],
                 side_named=e.side_named, tier=e.tier, sent_at=e.at, counts_until=e.counts_until))
-        elif isinstance(e, (fx.Sorry, fx.Reoffered, fx.InvitationClosed)):
+        elif isinstance(e, (fx.Sorry, fx.Reopened, fx.InvitationClosed)):
             row = self._invitation_row(e)
             if row is None or row.answer is not None or row.closed_at is not None:
                 log.info("engine_store: %s for a closed or missing invitation, skipped", type(e).__name__)
             elif isinstance(e, fx.Sorry):
                 row.sorry_at = e.at
                 _refresh_bubbles(row, "sorry")
-            elif isinstance(e, fx.Reoffered):
+            elif isinstance(e, fx.Reopened):
                 row.offer = [[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))]
                 row.side_named, row.tier, row.counts_until, row.sorry_at = e.side_named, e.tier, e.counts_until, None
-                row.reoffered_at = e.at
-                _refresh_bubbles(row, "reoffered")            # the re-offer's own bubble is attached after
+                row.reopened_at = e.at
+                _refresh_bubbles(row, "reopened")             # its waiting-list invitation's bubble is attached after
             else:
                 row.closed_at, row.closed_reason = e.at, "same_hour"
                 _refresh_bubbles(row, "closed_same_hour")
@@ -860,7 +876,7 @@ class TableStore:
 
 
 #: The engine's invitation kinds: what a student who blocked everything never receives (the backstop).
-INVITATION_KINDS = ("reoffer", "waiting_list_invite")
+INVITATION_KINDS = ("waiting_list_invite",)
 
 
 def _refused_by_block(row) -> bool:

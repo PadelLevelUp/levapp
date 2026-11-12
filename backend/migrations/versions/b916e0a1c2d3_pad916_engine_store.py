@@ -46,7 +46,7 @@ def upgrade():
         sa.Column("sorry_at", sa.DateTime(), nullable=True),
         sa.Column("closed_at", sa.DateTime(), nullable=True),
         sa.Column("closed_reason", sa.String(length=10), nullable=True),
-        sa.Column("reoffered_at", sa.DateTime(), nullable=True),
+        sa.Column("reopened_at", sa.DateTime(), nullable=True),
         sa.Column("message_ids", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["lesson_instance_id"], ["lesson_instances.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["player_id"], ["players.id"], ondelete="CASCADE"),

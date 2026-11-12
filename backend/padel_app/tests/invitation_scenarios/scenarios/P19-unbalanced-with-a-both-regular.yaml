@@ -1,7 +1,7 @@
 id: P19
 title: unbalanced with a both-sides regular
 source: {section: "Plano §9.3 Regulars and absences", lines: [269, 269]}
-what_it_tests: the both-sides regular and an over-quota regular both end on the under-filled side
+what_it_tests: only the both-sides regular moves to the under-filled side; the one-sided regulars stay
 tags: [unbalanced, both-sides, regulars]
 derived_from: [S19, §4, §8 step 6]
 corrections: []
@@ -12,6 +12,11 @@ notes: >
   the plan's group 1 = same side at the class level (format group 3) and group 2 = other side (format group
   4). 1 needed, so 3 invitations. On a Yes, at last_invite_at the both-sides regular and one right regular
   (R-5, joined most recently) play left: 4 / 4.
+
+  Re-derived again (PAD-913, owner 2026-11-12, decisions 12-13: the engine moves a student only within the
+  sides they play): at last_invite_at only B-1 (who plays both sides) goes left
+  and gets `side_moved`; R-5 plays only the right and stays there, so its `side_moved` is gone and the
+  08:30 observation and the final are L3 R5 (was L4 R4).
 
 settings:
   timing: {method: A, between_rounds: 60m, between_groups: 60m}
@@ -40,9 +45,7 @@ timeline:
   - at: 2026-11-03 08:30
     derived_from: [§8 step 6]
     expect:
-      roster: {L: 4, R: 4}
-      messages:
-        - {who: B-1, kind: side_moved}
-        - {who: R-5, kind: side_moved}
+      roster: {L: 3, R: 5}
+      messages: [{who: B-1, kind: side_moved}]
 final:
-  roster: {L: 4, R: 4}
+  roster: {L: 3, R: 5}

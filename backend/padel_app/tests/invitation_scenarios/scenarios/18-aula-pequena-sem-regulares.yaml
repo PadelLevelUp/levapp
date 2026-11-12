@@ -3,7 +3,7 @@ title: aula pequena sem regulares, mesmo no limite
 source: {section: "Cenários 12 a 18: máximo de convites em simultâneo", lines: [560, 575]}
 what_it_tests: uma aula sem regulares, com os dois lados a encher em separado e exatamente 12 convites
 tags: [max-open, sides, aviso]
-derived_from: [Q6, D20]
+derived_from: [§7]
 corrections: []
 notes: >
   X x spots = 6 per side, 12 in total, exactly M. The 19:15 Aviso probe is derived from "os outros de
@@ -12,6 +12,9 @@ notes: >
   Re-derived under the plan (PAD-900, 2026-11-11): 19:15: l3's offer (left) has filled while 2 right spots
   are open and group 5 allows a level-2 left-sider there, so the same invitation is re-offered (Q6,
   `reoffer`).
+
+  Re-derived again (PAD-913, owner 2026-11-12, decision 1: no re-offer at all): 19:15 is back to the PDF's
+  Aviso; the open right spots do not change it. 19:30 is unchanged.
 
 class:
   level: 3
@@ -44,9 +47,10 @@ timeline:
       missing: {L: 0, R: 2}
   - at: 2026-11-01 19:15
     derived: true
+    derived_from: [§7]
     events: [{accepts: {cohort: L2L, state: invited, as: l3}}]
     expect:
-      messages: [{who: l3, kind: reoffer}]
+      messages: [{who: l3, kind: aviso}]
   - at: 2026-11-01 19:30
     events:
       - {accepts: {cohort: L2R, state: invited, as: r1}}
