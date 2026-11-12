@@ -5664,6 +5664,12 @@ def trigger_invitations(
     # PAD-68: never open/refresh vacancies for a class that already happened.
     if _instance_is_over(instance, now):
         return []
+    # PAD-917 (notifications.config rule 18): a session on the new engine is never started here.
+    if config.engine_version == "new":
+        from padel_app.services.engine_switch import engine_for
+
+        if engine_for(instance, config) == "new":
+            return []
 
     semi_auto = _is_semi_auto(config)
     open_vacancies: list[Vacancy] | None = None
