@@ -76,11 +76,12 @@ def send_outbox() -> int:
 
 
 def run_tick(now: datetime | None = None) -> int:
-    """The ``engine_tick`` job: adopt, tick every session, send the outbox. Returns how many outbox
-    rows were sent."""
-    from padel_app.services.engine_switch import adopt_due
+    """The ``engine_tick`` job: adopt (and materialise), remove a drained coach's old jobs, tick every
+    session, send the outbox. Returns how many outbox rows were sent."""
+    from padel_app.services.engine_switch import adopt_due, cutover_pass
 
     now = now or utcnow_naive()
     adopt_due(now=now)
+    cutover_pass(now=now)                               # PAD-921 (CONFIG-79): a drained coach's old jobs go
     tick_sessions(now)
     return send_outbox()
