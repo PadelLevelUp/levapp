@@ -50,6 +50,7 @@ def engine_for(instance, config=None) -> str:
 def _adopt(store, instance, coach_id: int, now: datetime) -> None:
     """The session's ``engine_sessions`` row and its regulars, placed (``TableStore.add_session``)."""
     from padel_app.models.presences import Presence
+    from padel_app.services.level_ladder import ladder_index_map
 
     roster = [p for p in Presence.query.filter_by(lesson_instance_id=instance.id).all()
               if p.enrolment_source == "roster"]
@@ -62,7 +63,8 @@ def _adopt(store, instance, coach_id: int, now: datetime) -> None:
         regulars.append((student, side))
     session = str(instance.id)
     with store.unit((session,)):
-        store.add_session(session, store._level(instance.level_id), instance.effective_max_players,
+        store.add_session(session, store._level(ladder_index_map(coach_id), instance.level_id),
+                          instance.effective_max_players,
                           instance.start_datetime, regulars, now)
 
 

@@ -12,10 +12,11 @@ What the store gates instead of the engine (``engine_store.TableStore``): ``auto
 class switches (not listed), ``maxInvitesPerStudentPerDay`` (``postponed``), ``noSameDayClass``,
 ``excludedPlayers``, ``excludeUnpaidSubscription`` and ``eligibilityRules`` (``pool``).
 
-``cancellationDeadlineHours`` is the engine's ``absence_cutoff_before`` (swap decision 4, CONFIG-56).
-Not mapped here yet: ``invitationMode`` (D2, CONFIG-58) and ``invitationGroups`` (D5, CONFIG-57 and
-59) wait for the engine's hold and its extended ``Tier`` (PAD-915); ``maxTotal`` (D3) has no
-counterpart. Those keys take the engine's defaults, as do the keys only the new engine has.
+``cancellationDeadlineHours`` is the engine's ``absence_cutoff_before`` (swap decision 4, CONFIG-56);
+``invitationGroups`` are the tiers after the two waiting lists, one per group (D5, CONFIG-57). Not
+mapped here yet: ``invitationMode`` (D2, CONFIG-58) waits for the engine's hold (PAD-915);
+``maxTotal`` (D3) has no counterpart. Those keys take the engine's defaults, as do the keys only the
+new engine has.
 """
 from __future__ import annotations
 
@@ -27,12 +28,28 @@ from padel_app.invitation_engine.settings import (
     Eligibility,
     EngineSettings,
     FirstInvite,
+    GroupRule,
+    Tier,
     Timing,
 )
 from padel_app.models.notification_config import NotificationConfig
 
 #: Swap decision 6: the engine's bar admits every level; the store's pool is the coach's eligibility.
 OPEN_BAR = Eligibility(levels_above=10**6, levels_below=10**6)
+#: A group's level rule as the tier's ``level_offset`` (+1 one level better); any other level rule
+#: sets no level and is read from ``rules`` alone.
+LEVEL_OFFSET = {"same_as_vacancy": 0, "one_above_vacancy": 1, "one_below_vacancy": -1}
+
+
+def _tier(group: dict) -> Tier:
+    """One stored group as one pool tier (D5, engine-tiers rule 13): every rule carried as stored and
+    read as today's ``_group_rule_failures``; the side and level rules also set the tier's own
+    ``side`` and ``level_offset``, which the engine's per-side shares and placement read."""
+    rules = tuple(GroupRule(r.get("attribute"), r.get("operation"), r.get("value"))
+                  for r in group.get("rules") or [] if isinstance(r, dict))
+    side = "same" if any(r.attribute == "side" and r.operation == "same_as_vacancy" for r in rules) else "any"
+    offset = next((LEVEL_OFFSET.get(r.operation) for r in rules if r.attribute == "level"), None)
+    return Tier("pool", side, offset, rules)
 
 
 def _clock(value: str | None, default: str) -> time:
@@ -83,6 +100,7 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
         ),
         absence_cutoff_before=timedelta(hours=config.get_cancellation_deadline_hours()),   # D4 (CONFIG-56)
         eligibility=OPEN_BAR,
+        tiers=(Tier("coach_list"), Tier("students_list"), *(_tier(g) for g in config.get_invitation_groups())),
         ordering=_ordering(config),
         direct_join=bool(config.auto_accept_join_requests),
     )

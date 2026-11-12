@@ -197,3 +197,51 @@ def test_cancellation_deadline_maps_to_the_absence_cutoff():
     config = _config()
     config.restrictions = {"cancellationDeadlineHours": 6.5}
     assert _settings(config).absence_cutoff_before == timedelta(hours=6, minutes=30)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-57")
+def test_invitation_groups_map_to_tiers_one_for_one():
+    """Swap decision 5: the two waiting lists, then one pool tier per stored group in the coach's
+    order, its side and level taken from its side and level rules, every rule carried as stored."""
+    from padel_app.invitation_engine.settings import GroupRule, Tier
+
+    same_level = GroupRule("level", "same_as_vacancy")
+    same_side = GroupRule("side", "same_as_vacancy")
+    assert _settings(_config()).tiers == (            # the reference groups
+        Tier("coach_list"), Tier("students_list"),
+        Tier("pool", "same", 0, (same_level, same_side)),
+        Tier("pool", "any", 0, (same_level,)),
+        Tier("pool", "any", None, ()),
+    )
+
+    makeups = {"attribute": "has_makeups", "operation": "is_true"}
+    absences = {"attribute": "unjustified_absences", "operation": "less_than", "value": 2}
+    config = _config(invitation_groups=[
+        {"id": "a", "rules": [makeups, {"attribute": "level", "operation": "one_above_vacancy"}]},
+        {"id": "b", "rules": [{"attribute": "level", "operation": "one_below_vacancy"}, absences]},
+        {"id": "c", "rules": [{"attribute": "level", "operation": "all_above_vacancy"}]},
+    ])
+    assert _settings(config).tiers[2:] == (
+        Tier("pool", "any", 1, (GroupRule("has_makeups", "is_true"), GroupRule("level", "one_above_vacancy"))),
+        Tier("pool", "any", -1, (GroupRule("level", "one_below_vacancy"),
+                                 GroupRule("unjustified_absences", "less_than", 2))),
+        Tier("pool", "any", None, (GroupRule("level", "all_above_vacancy"),)),
+    )
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-59")
+def test_every_stored_group_maps_an_unknown_rule_included():
+    """No group is refused or rounded: a rule the engine does not know is carried as stored and read
+    as today (it passes), and a group with only such a rule sets no side and no level."""
+    from padel_app.invitation_engine.settings import GroupRule, Tier
+
+    config = _config(invitation_groups=[
+        {"id": "x", "rules": [{"attribute": "shoe_size", "operation": "equals", "value": 42}]},
+        {"id": "y", "rules": [{"attribute": "level", "operation": "within_two_of_vacancy"},
+                              {"attribute": "side", "operation": "opposite_of_vacancy"}]},
+    ])
+    assert _settings(config).tiers[2:] == (
+        Tier("pool", "any", None, (GroupRule("shoe_size", "equals", 42),)),
+        Tier("pool", "any", None, (GroupRule("level", "within_two_of_vacancy"),
+                                   GroupRule("side", "opposite_of_vacancy"))),
+    )
