@@ -242,3 +242,93 @@ def replan_coach(coach_id: int, now: datetime | None = None) -> list:
     listed = set(TableStore(clock=lambda: now or utcnow_naive()).sessions())
     mine = [str(r.lesson_instance_id) for r in EngineSession.query.filter_by(coach_id=coach_id).all()]
     return replan([s for s in mine if s in listed], now)
+
+
+# --- the coach's add at a busy hour (classes.instance-enrollment rule 15) --------------------------
+
+
+def _overlaps(a_start, a_end, b_start, b_end) -> bool:
+    """Any overlap of two intervals; one ending as the other starts is none (decision 11)."""
+    return a_start < b_end and b_start < a_end
+
+
+def _going_elsewhere(player_ids, exclude_instance_id, now):
+    """Each student's going occurrences that have not ended: on the roster or presences, not absent."""
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+
+    wall = utc_to_wall_naive(now)
+    return (db.session.query(Presence, LessonInstance)
+            .join(LessonInstance, LessonInstance.id == Presence.lesson_instance_id)
+            .filter(Presence.player_id.in_([int(p) for p in player_ids] or [-1]),
+                    (Presence.status.is_(None)) | (Presence.status != "absent"),
+                    LessonInstance.status != "canceled",
+                    LessonInstance.end_datetime > wall,
+                    LessonInstance.id != (exclude_instance_id or -1))
+            .all())
+
+
+def _series_coaches(lesson) -> list[int]:
+    """A series' coaches in assignment order (``coaches_for`` reads an occurrence, not a series)."""
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+
+    return [r.coach_id for r in Association_CoachLesson.query.filter_by(lesson_id=lesson.id)
+            .order_by(Association_CoachLesson.id).all()]
+
+
+def _series_is_new_engine(lesson) -> bool:
+    """An occurrence not yet materialised is new-engine when its class's coach is on ``new`` (rule 18
+    assigns it so when it first exists)."""
+    from padel_app.models.notification_config import NotificationConfig
+
+    coaches = _series_coaches(lesson)
+    if not coaches:
+        return False
+    config = NotificationConfig.query.filter_by(coach_id=coaches[0]).first()
+    return config is not None and config.engine_version == "new"
+
+
+def same_hour_clashes(player_ids, *, instance=None, lesson=None, on_date=None,
+                      now: datetime | None = None) -> list[dict]:
+    """Rule 15: for a coach's add of ``player_ids`` to one occurrence (``instance``) or a series
+    (``lesson``; ``on_date`` narrows it to one occurrence not yet materialised), every clash: another class the student is going to that overlaps the target and is
+    the same coach's, or starts at the same time (any coach); at least one of the two new-engine.
+    Empty when the add may go through."""
+    from padel_app.models.players import Player
+    from padel_app.services.engine_switch import engine_for
+    from padel_app.services.lesson_service import coaches_for
+
+    now = now or utcnow_naive()
+    target = instance if instance is not None else lesson
+    target_coaches = ({c.id for c in coaches_for(instance)} if instance is not None
+                      else set(_series_coaches(lesson)))
+    duration = target.end_datetime - target.start_datetime
+    target_new_series = lesson is not None and _series_is_new_engine(lesson)
+    clashes = []
+    for presence, other in _going_elsewhere(player_ids, getattr(instance, "id", None), now):
+        other_new = engine_for(other) == "new"
+        same_coach = bool(target_coaches & {c.id for c in coaches_for(other)})
+        if instance is not None:
+            starts = [(instance.start_datetime, engine_for(instance) == "new")]
+        else:
+            # The series' starts are wall-clock times expand_occurrences labels UTC: naive, as stored.
+            starts = [(occ.replace(tzinfo=None), target_new_series) for occ in lesson.occurrences_between(
+                other.start_datetime - duration, other.end_datetime)
+                if on_date is None or occ.date() == on_date]
+        for start, target_new in starts:
+            if not (target_new or other_new):
+                continue
+            end = start + duration
+            if start == other.start_datetime or (same_coach and _overlaps(start, end, other.start_datetime,
+                                                                           other.end_datetime)):
+                player = db.session.get(Player, presence.player_id)
+                clashes.append({"playerId": presence.player_id, "playerName": getattr(player, "name", None),
+                                "lessonInstanceId": other.id, "title": other.title,
+                                "start": other.start_datetime.isoformat()})
+                break
+    return clashes
+
+
+def busy_same_hour(clashes: list[dict]) -> tuple[dict, int]:
+    """The refusal body (rule 15): ``409 {code: busy_same_hour, clashes}``."""
+    return {"code": "busy_same_hour", "message": "busy same hour", "clashes": clashes}, 409

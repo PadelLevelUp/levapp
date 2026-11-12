@@ -1748,6 +1748,19 @@ def _edit_class_service(data):
     if refused:
         # Before any write — a "future" edit splits the series before it edits.
         return {"error": "invalid_fields", "fields": refused}, 400
+    if payload["add_player_ids"]:
+        # PAD-918 (instance-enrollment rule 15): an add that puts a student in two classes at the same
+        # time, one of them new-engine, is refused whole, before any write.
+        from padel_app.services.engine_entry import busy_same_hour, same_hour_clashes
+
+        if model == "LessonInstance" and scope == "single":
+            clashes = same_hour_clashes(payload["add_player_ids"],
+                                        instance=LessonInstance.query.get_or_404(original_id))
+        else:
+            clashes = same_hour_clashes(payload["add_player_ids"], lesson=_series,
+                                        on_date=event_date if scope == "single" else None)
+        if clashes:
+            return busy_same_hour(clashes)
     if "recurrence_end" in payload:
         # An explicit end date is the coach's: the season must not re-cap it
         # (calendar.seasons rule 10; season_service.recap_flagged_lessons re-caps
