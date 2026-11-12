@@ -105,6 +105,17 @@ def test_only_a_counting_offer_elsewhere_postpones():
     assert postponed(offer, left_only) == frozenset()                               # the offer counts for no type
 
 
+def test_the_stores_postponed_students_stay_postponed():
+    """with_postponed adds the students it finds to the ones the store's snapshot already postponed,
+    instead of replacing them; a student busy at the same time is still not postponed."""
+    sent, now = datetime(2026, 11, 1, 19, 0), datetime(2026, 11, 1, 19, 10)
+    offer = Invitation("x", frozenset({SpotType("R", 3)}), None, 2, sent, counts_until=sent + timedelta(minutes=20))
+    open_b = tuple(Placement(f"b{i}", "L" if i < 4 else "R", "regular", sent) for i in range(7))
+    here = SessionSnapshot("A", 3, 8, START, regulars=(), going=(), postponed=frozenset({"s", "busy"}),
+                           busy_same_time=frozenset({"busy"}), elsewhere=(Elsewhere("B", START, offer, 8, open_b),))
+    assert with_postponed(here, now).postponed == {"s", "x"}
+
+
 def _first(ordering, **facts):
     """Who of two right-side students at the class level is invited first for one right spot."""
     store = MemoryStore()
