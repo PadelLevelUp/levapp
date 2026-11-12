@@ -44,24 +44,31 @@ onFlowComplete:
     element:
       id: "engine-max-at-a-time-inc"
     direction: DOWN
-- assertVisible:
-    id: "engine-max-at-a-time-value"
-    text: "${String(output.maxBefore)}"
+# Scroll on to the method radios so the stepper sits clear of the floating Save footer, which
+# otherwise takes the tap.
+- scrollUntilVisible:
+    element:
+      id: "engine-timing-method-progressive"
+    direction: DOWN
+# The stepper's number is not read back on screen: on iOS Maestro matches the Text's accessibility
+# label, which keeps the first value after a re-render. The saved value is asserted on the server below.
+- waitForAnimationToEnd
 - tapOn:
     id: "engine-max-at-a-time-inc"
-- assertVisible:
-    id: "engine-max-at-a-time-value"
-    text: "${String(output.maxBefore + 1)}"
 - scrollUntilVisible:
     element:
       id: "engine-timing-method-per_tier"
     direction: DOWN
 - tapOn:
     id: "engine-timing-method-per_tier"
-- assertVisible:
-    id: "engine-auto-entry"
-- assertVisible:
-    id: "engine-side-choice"
+- scrollUntilVisible:
+    element:
+      id: "engine-auto-entry"
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: "engine-side-choice"
+    direction: DOWN
 
 # ── The groups editor: the two fixed lists first, each with its own pair under "per group" ──
 - scrollUntilVisible:
@@ -101,4 +108,6 @@ onFlowComplete:
 
 # ── The server holds it ──
 - evalScript: "${output.after = json(http.get(output.api + '/api/app/notify/config', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).engine}"
-- assertTrue: "${output.after != null && output.after.maxAtATime == output.maxBefore + 1 && output.after.timing.method == 'per_tier'}"
+- assertTrue: "${output.after != null}"
+- assertTrue: "${output.after.timing.method == 'per_tier'}"
+- assertTrue: "${output.after.maxAtATime == output.maxBefore + 1}"

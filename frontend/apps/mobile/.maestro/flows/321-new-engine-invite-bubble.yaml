@@ -15,6 +15,8 @@ onFlowComplete:
   - evalScript: "${output.instanceId && http.post(output.api + '/api/app/remove_class', { headers: output.auth, body: JSON.stringify({ event: { model: 'LessonInstance', originalId: output.instanceId, date: output.day }, scope: 'single' }) })}"
 ---
 - assertTrue: "${output.instanceId != null}"
+# This class's own invitation: a thread can hold older invitation bubbles too.
+- evalScript: "${output.invId = output.detail().invitations.filter(function (r) { return String(r.playerId) === output.studentId; })[0].id}"
 - runFlow: ../subflows/login-student.yaml
 - tapOn:
     id: "tab-messages"
@@ -27,18 +29,18 @@ onFlowComplete:
     index: 0
 - scrollUntilVisible:
     element:
-      id: "invite-state-.*-open"
+      id: "invite-state-${output.invId}-open"
     direction: DOWN
     timeout: 30000
 - takeScreenshot: .maestro/evidence/321-new-engine-invite-open
 - tapOn:
-    id: "invite-respond-yes-.*"
+    id: "invite-respond-yes-${output.invId}"
 - extendedWaitUntil:
     visible:
-      id: "invite-state-.*-answered"
+      id: "invite-state-${output.invId}-answered"
     timeout: 15000
 - assertNotVisible:
-    id: "invite-respond-yes-.*"
+    id: "invite-respond-yes-${output.invId}"
 - takeScreenshot: .maestro/evidence/321-new-engine-invite-answered
 - evalScript: "${output.row = output.detail().invitations.filter(function (r) { return String(r.playerId) === output.studentId; })[0]}"
 - assertTrue: "${output.row != null && output.row.outcome === 'accepted'}"
