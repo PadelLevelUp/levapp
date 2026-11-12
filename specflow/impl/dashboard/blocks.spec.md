@@ -766,17 +766,17 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-alert.test.tsx`
 #### DASHBOARD-BLOCKS-51: The alert reaches the coach once as a message (new-engine section NA3)
 - **Given** a `CoachAlert` in the outbox
 - **When** the outbox sends it twice
-- **Then** the coach's Assistant conversation has one `coach_no_candidate` message and the coach one push
+- **Then** the coach's Assistant conversation has one `coach_no_candidate` message, its metadata carrying the class's `href` and club-local `date`, and the coach one push
 test: `backend/padel_app/tests/test_pad920_dashboard_engine_alert.py` › `test_the_alert_reaches_the_coach_once_as_a_message`
 
 #### DASHBOARD-BLOCKS-52: The alert message links to its class on web (new-engine section NA3)
 - **Given** an `engine_alert` message in the coach's Assistant conversation on web, with `href`, and an older one with only `lessonInstanceId`
-- **Then** both show a link that opens the class, from `href` or else from `lessonInstanceId`
+- **Then** both show a link reading `messages.engineAlert.openClass` ("Abrir aula") that opens the class, from `href` or else from `lessonInstanceId`
 test: `frontend/apps/web/src/components/messages/MessageBubble.engineAlert.test.tsx` › `links the alert message to its class`
 
 #### DASHBOARD-BLOCKS-53: The alert message links to its class on iOS (new-engine section NA3)
 - **Given** the same messages on iOS
-- **Then** both link to the native class screen the same way
+- **Then** both link to the native class screen the same way, with the `messages.engineAlert.openClass` text and accessibility label
 test: `frontend/apps/mobile/src/features/messages/engine-alert-message.test.tsx` › `links the alert message to its class`
 
 ### Open questions
