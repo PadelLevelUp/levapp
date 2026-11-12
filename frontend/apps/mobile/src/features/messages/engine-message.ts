@@ -28,8 +28,6 @@ export function engineAnswerPatch(action: EngineRespondAction | string | undefin
       return { state: "answered", response: "no", answeredBy: "student" };
     case "sorry":
       return { state: "sorry" };
-    case "reoffered":
-      return { state: "reoffered" };
     case "closed_same_hour":
       return { state: "closed_same_hour" };
     default:

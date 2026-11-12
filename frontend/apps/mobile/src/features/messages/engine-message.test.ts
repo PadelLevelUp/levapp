@@ -6,7 +6,8 @@ describe("the new engine's messages on iOS (PAD-920)", () => {
     expect(engineAnswerPatch("confirmed")).toEqual({ state: "answered", response: "yes", answeredBy: "student" });
     expect(engineAnswerPatch("declined")).toEqual({ state: "answered", response: "no", answeredBy: "student" });
     expect(engineAnswerPatch("sorry")).toEqual({ state: "sorry" });
-    expect(engineAnswerPatch("reoffered")).toEqual({ state: "reoffered" });
+    // There is no re-offer any more (the owner's decision): the route never answers `reoffered`.
+    expect(engineAnswerPatch("reoffered")).toBeNull();
     expect(engineAnswerPatch("closed_same_hour")).toEqual({ state: "closed_same_hour" });
     // Started is derived from startsAt, never written.
     expect(engineAnswerPatch("class_started")).toBeNull();
@@ -17,9 +18,9 @@ describe("the new engine's messages on iOS (PAD-920)", () => {
     // The server's action is written as the state: a sorry Yes is never "declined".
     const tapped = { id: 1, metadata: { engine: "new", invitationId: 5, state: "open" } };
     expect(applyEngineAnswer(tapped, "open", engineAnswerPatch("sorry")).metadata).toMatchObject({ state: "sorry" });
-    // The re-offer arrived first: the slower sorry answer leaves it alone.
-    const reoffered = { id: 1, metadata: { engine: "new", invitationId: 5, state: "reoffered" } };
-    expect(applyEngineAnswer(reoffered, "open", engineAnswerPatch("sorry"))).toBe(reoffered);
+    // A live edit (the coach withdrew it) arrived first: the slower sorry answer leaves it alone.
+    const withdrawn = { id: 1, metadata: { engine: "new", invitationId: 5, state: "withdrawn" } };
+    expect(applyEngineAnswer(withdrawn, "open", engineAnswerPatch("sorry"))).toBe(withdrawn);
     expect(applyEngineAnswer(tapped, "open", null)).toBe(tapped);
   });
 });

@@ -41,7 +41,7 @@ const invitee = (playerId: string, outcome: InvitationOutcome, extra: Partial<Cl
   answeredBy: null,
   tierSource: "coach_list",
   groupNumber: null,
-  reofferedAt: null,
+  reopenedAt: null,
   ...extra,
 });
 
@@ -54,7 +54,7 @@ const NEW_ENGINE: ClassInvitation[] = [
   invitee("5", "closed_same_hour", { tierSource: "students_list" }),
   invitee("6", "sorry", { answer: "yes" }),
   invitee("7", "expired"),
-  invitee("8", "pending", { reofferedAt: "2026-11-12T10:00:00Z" }),
+  invitee("8", "pending", { reopenedAt: "2026-11-12T10:00:00Z" }),
   invitee("9", "pending"),
   invitee("10", "not_counting"),
 ];
@@ -96,7 +96,7 @@ describe("the iOS class detail's new-engine invitee list (PAD-920)", () => {
   });
 
   it("an old-engine row renders as before, with no tier text; the open-spots line shows for it too", async () => {
-    const { tierSource: _t, groupNumber: _g, reofferedAt: _r, ...old } = invitee("20", "pending", {
+    const { tierSource: _t, groupNumber: _g, reopenedAt: _r, ...old } = invitee("20", "pending", {
       movedAt: "2026-11-12T09:00:00Z",
     });
     const n = await renderNative(<InviteeOutcome inv={old as ClassInvitation} />);

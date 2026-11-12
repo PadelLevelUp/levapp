@@ -137,9 +137,10 @@ describe("the iOS new-engine invitation bubble (PAD-920)", () => {
     expect(sorry.queryByTestId("invite-respond-yes-16")).toBeNull();
     sorry.root.unmount();
 
-    // `reoffered`: the first bubble points below; the `reoffer` bubble for the same invitation has Yes and No.
-    await expectState(invite(7, engine(17, { state: "reoffered" })), false, 17, "reoffered", "messages.engineInvite.reoffered", false);
-    await expectState(invite(8, engine(17, { kind: "reoffer", state: "open" })), false, 17, "open", null, true);
+    // `reopened` (a student who joined the waiting list after a sorry): the first bubble points below;
+    // the `waiting_list_invite` bubble for the same invitation has Yes and No.
+    await expectState(invite(7, engine(17, { state: "reopened" })), false, 17, "reopened", "messages.engineInvite.reopened", false);
+    await expectState(invite(8, engine(17, { kind: "waiting_list_invite", state: "open" })), false, 17, "open", null, true);
 
     await expectState(invite(9, engine(18, { state: "withdrawn" })), false, 18, "withdrawn", "messages.engineInvite.withdrawn", false);
     await expectState(invite(10, engine(19, { state: "closed_same_hour" })), false, 19, "closed_same_hour", "messages.engineInvite.closedSameHour", false);
