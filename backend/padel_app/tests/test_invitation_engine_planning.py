@@ -218,6 +218,7 @@ def test_sorry_invitation_is_reopened_only_from_the_waiting_list():
     assert snap.invitation("R1").sorry_at is not None                              # R1 is not a candidate
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-44")
 def test_a_sorry_student_on_the_list_is_a_candidate_of_that_lists_tier_only():
     """engine-planning rule 5.1: a "sorry" holder on the waiting list comes back only through that
     list's tier. A right-sider who chose their own side is not reopened for a left spot, even though

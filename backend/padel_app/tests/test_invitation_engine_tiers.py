@@ -461,6 +461,7 @@ def test_a_side_chosen_for_the_waiting_list_binds_whatever_wl_sides_says():
     assert invited.offer == frozenset({SpotType("L", 3)}) and invited.side_named == "L"
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-22")
 def test_the_coachs_list_keeps_busy_at_that_time():
     """engine-tiers rule 4: a coach's-list member going to a class at the same time is not invited, and
     the dry run says ``busy_same_time``."""
