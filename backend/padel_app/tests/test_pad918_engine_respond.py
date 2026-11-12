@@ -155,3 +155,29 @@ def test_the_live_event_gives_counts_until_to_the_coach_only(app, monkeypatch):
                    if e["type"] == "message_created" and len(users) == 1}
         assert created[coach_user]["countsUntil"] == "2026-11-01T18:20:00"
         assert "countsUntil" not in created[_user(student)]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-124")
+def test_a_bubble_edit_gives_counts_until_to_the_coach_only(app, monkeypatch):
+    """The store's message_edited for an invitation bubble goes out once per reader."""
+    from padel_app import realtime
+    from padel_app.models import EngineInvitation
+    from padel_app.models.coaches import Coach
+    from padel_app.services.engine_store import _refresh_bubbles
+    from padel_app.services.notification_service import _send_system_message
+
+    sent = []
+    with app.app_context():
+        store, (session,), (_, student, _) = _seed(app)
+        coach_user = db.session.get(Coach, store.coach_of(session)).user_id
+        with store.unit((session,)):
+            store.apply([_invited(store, session, student)])
+        row = EngineInvitation.query.filter_by(player_id=int(student)).one()
+        msg = _send_system_message(coach_user, _user(student), "Join?", message_type="notification_invite",
+                                   msg_metadata={"engine": "new", "invitationId": row.id}, push=False)
+        row.message_ids = [msg.id]
+        db.session.commit()
+        monkeypatch.setattr(realtime, "publish", lambda event, users: sent.append((list(users), event)))
+        _refresh_bubbles(row, "answered", response="no")
+        edited = {users[0]: e["payload"]["metadata"] for users, e in sent if e["type"] == "message_edited"}
+        assert edited[coach_user]["countsUntil"] and "countsUntil" not in edited[_user(student)]

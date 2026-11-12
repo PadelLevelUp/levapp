@@ -68,13 +68,12 @@ def respond_to_invitation(invitation_id: int, action: str, user_id: int, *, now:
     if row.answer is not None or row.closed_at is not None:
         return {**out, "action": _answer_state(row, placed()), "duplicate": True}
 
-    effects = engine(now).handle(str(row.lesson_instance_id),
-                                 rq.Answer(str(row.player_id), action == "yes"), now)
+    engine(now).handle(str(row.lesson_instance_id), rq.Answer(str(row.player_id), action == "yes"), now)
     db.session.expire_all()
-    student = str(row.player_id)
-    if any(isinstance(e, fx.Reoffered) and e.student == student for e in effects):
-        return {**out, "action": "reoffered"}
-    row = db.session.get(EngineInvitation, int(invitation_id))
+    from padel_app.services.engine_runner import send_outbox
+
+    send_outbox(now)
+    row = db.session.get(EngineInvitation, int(invitation_id))        # the outcome, as the store wrote it
     return {**out, "action": _answer_state(row, placed())}
 
 
@@ -89,9 +88,12 @@ def handle(instance, request, now: datetime | None = None) -> list:
     """One engine request for the occurrence, in its unit; the outbox goes out after the commit."""
     from padel_app.services.engine_runner import engine
 
+    from padel_app.services.engine_runner import send_outbox
+
     now = now or utcnow_naive()
     effects = engine(now).handle(str(instance.id), request, now)
     db.session.expire_all()
+    send_outbox(now)                        # an answer's sorry or a placement's notice goes out at once
     return effects
 
 
@@ -229,8 +231,11 @@ def replan(sessions, now: datetime | None = None) -> list:
     if not sessions:
         return []
     now = now or utcnow_naive()
+    from padel_app.services.engine_runner import send_outbox
+
     effects = engine(now).handle(sessions[0], rq.UpdateSettings(EngineSettings(), sessions), now)
     db.session.expire_all()
+    send_outbox(now)
     return effects
 
 

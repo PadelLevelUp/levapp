@@ -3,9 +3,10 @@
 ``run_tick`` is the ``engine_tick`` job (notifications.engine-store rule 7, admin.engine-health rule 12):
 every ``ENGINE_RUN_EVERY`` it adopts any switched coach's occurrence still without a session row
 (``engine_switch.adopt_due``), runs ``Engine.tick`` for every listed session in its own unit and
-transaction, and then sends the outbox (``engine_store.dispatch``). A session that raises is rolled
-back, skipped and recorded as a ``delivery_incidents`` row of kind ``engine_session_failed`` (channel
-``scheduler``); the others go on.
+transaction, and then sends the outbox (``send_outbox``: ``engine_store.dispatch`` with
+``engine_outbox.send_effect``). A session that raises is rolled back, skipped and recorded as a
+``delivery_incidents`` row of kind ``engine_session_failed`` (channel ``scheduler``); the others go on.
+The entry points send the outbox after their own commit too, so an answer's sorry goes out at once.
 
 ``engine`` builds the app's ``Engine``: the table-backed store and each session's coach's settings,
 read at every call (``engine_store.settings_for``).
@@ -63,34 +64,21 @@ def tick_sessions(now: datetime, store=None) -> list:
     return effects
 
 
+def send_outbox(now: datetime | None = None) -> int:
+    """Send what the engine's commits left in the outbox (``engine_outbox.send_effect`` per row, each
+    claimed first so two callers never send one twice). Returns how many rows were sent."""
+    from padel_app.services.engine_outbox import send_effect
+    from padel_app.services.engine_store import dispatch
+
+    return dispatch(send_effect, now=now)
+
+
 def run_tick(now: datetime | None = None) -> int:
     """The ``engine_tick`` job: adopt, tick every session, send the outbox. Returns how many outbox
     rows were sent."""
-    from padel_app.services.engine_store import dispatch
     from padel_app.services.engine_switch import adopt_due
 
     now = now or utcnow_naive()
     adopt_due(now=now)
     tick_sessions(now)
-    return dispatch(send_effect, now=now)
-
-
-def send_effect(row) -> None:
-    """Deliver one claimed outbox row (``engine_effects``) by its kind."""
-    sender = SENDERS.get(row.kind)
-    if sender is None:
-        log.info("engine_tick: no sender for %s yet (row %s)", row.kind, row.id)
-        return
-    sender(row)
-
-
-def _send_approval_request(row) -> None:
-    from padel_app.services.engine_approval import send_approval_request
-
-    send_approval_request(row)
-
-
-#: Outbox kind -> sender. The message senders land with the entry points (PAD-918).
-SENDERS = {
-    "ApprovalRequest": _send_approval_request,
-}
+    return send_outbox(now)

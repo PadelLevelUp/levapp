@@ -336,7 +336,7 @@ def _join_new_engine(player, instance, coach_id, side, note, now):
     one (``ineligible``), left waiting for the coach with no reason given. Direct join off: it waits."""
     from padel_app.invitation_engine import effects as fx
     from padel_app.invitation_engine import requests as rq
-    from padel_app.services.engine_runner import engine
+    from padel_app.services.engine_entry import handle
     from padel_app.services.engine_store import settings_for
 
     session, student = str(instance.id), str(player.id)
@@ -345,7 +345,7 @@ def _join_new_engine(player, instance, coach_id, side, note, now):
     if existing is not None:
         return existing, False
     if settings_for(session).direct_join:
-        effects = engine(now).handle(session, rq.DirectJoin(student, _ENGINE_SIDE.get(side)), now)
+        effects = handle(instance, rq.DirectJoin(student, _ENGINE_SIDE.get(side)), now)
         refused = next((e for e in effects if isinstance(e, fx.Refused) and e.student == student), None)
         if refused is not None and refused.reason in HARD_REFUSALS:
             extra = {}
