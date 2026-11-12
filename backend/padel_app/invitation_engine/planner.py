@@ -41,6 +41,7 @@ from padel_app.invitation_engine.effects import (
 from padel_app.invitation_engine.settings import EngineSettings, GroupRule, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
+    overlaps,
     Elsewhere,
     Invitation,
     SessionSnapshot,
@@ -231,7 +232,7 @@ def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> t
     """engine-answers rule 10 (D4's one exception): a student placed in this session has their open
     invitations for other sessions at the same hour closed. Called with every placement."""
     return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
-                 if e.invitation.student == student and e.start == snapshot.start)
+                 if e.invitation.student == student and overlaps(e.start, e.end, snapshot.start, snapshot.end))
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,

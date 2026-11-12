@@ -11,7 +11,7 @@ Sides are ``"L"`` and ``"R"``; a student holds a non-empty subset of them (D18).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 Side = Literal["L", "R"]
@@ -101,6 +101,7 @@ class Elsewhere:
     invitation: Invitation
     capacity: int
     going: tuple[Placement, ...]
+    end: datetime | None = None                       # Lisbon wall-clock; None: start plus DEFAULT_LENGTH
 
 
 @dataclass(frozen=True)
@@ -164,6 +165,7 @@ class SessionSnapshot:
     # ``messages.due`` sends each one once.
     attendance_requested: dict[str, tuple[datetime, ...]] = field(default_factory=dict)
     approval: Approval = field(default_factory=Approval)      # semi-automatic mode (engine-planning rule 14)
+    end: datetime | None = None                       # Lisbon wall-clock: start plus the lesson's length
 
     def placement(self, student: str) -> Placement | None:
         return next((p for p in self.going if p.student == student), None)
@@ -175,3 +177,17 @@ class SessionSnapshot:
     @property
     def open_invitations(self) -> tuple[Invitation, ...]:
         return tuple(i for i in self.invitations if i.open)
+
+
+#: A session's length when the snapshot names no end (the harness's classes are an hour long).
+DEFAULT_LENGTH = timedelta(hours=1)
+
+
+def session_end(start: datetime, end: datetime | None) -> datetime:
+    return end if end is not None else start + DEFAULT_LENGTH
+
+
+def overlaps(a_start: datetime, a_end: datetime | None, b_start: datetime, b_end: datetime | None) -> bool:
+    """"At the same time" (engine-tiers rule 3, owner decision 11): the two intervals overlap at all;
+    one ending exactly when the other starts does not."""
+    return a_start < session_end(b_start, b_end) and b_start < session_end(a_start, a_end)

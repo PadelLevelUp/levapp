@@ -83,7 +83,7 @@ class Engine:
                 return self._plan(session, now)
             if isinstance(request, CreateSession):
                 self.store.add_session(session, request.level, request.capacity, request.start, request.regulars,
-                                       now, joined_at=request.joined_at)
+                                       now, joined_at=request.joined_at, end=request.end)
                 return self._plan(session, now)
             settings = self.settings_for(session)          # one lookup per unit: answer and plan agree
             out = self._commit(answers.handle(self.store.snapshot(session), settings, request, now).effects)
