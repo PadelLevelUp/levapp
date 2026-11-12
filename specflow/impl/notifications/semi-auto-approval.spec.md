@@ -52,10 +52,20 @@ The new-engine answer (swap step 7, PAD-919):
   (rule 12's route) answers, for a new-engine session: the pending request's id and its queues per
   spot type (in `notifications.invite-simulation`'s N2 shape), the approved and removed students and
   whether the session is dismissed; `emptyQueueReasons` becomes the dry run's stage counts per type.
+  On the wire (`GET /api/app/notify/approval/instance/<id>`): `{engine: "new", state:
+  "pending"|"dismissed"|"none", semiAutomatic, approved: [playerId], removed: [playerId], request?:
+  {requestId, lessonInstanceId, spotTypes: [{side, level, queue, emptyQueueReasons?: [{stage,
+  count}]}]}}`.
 - **N2. The coach's answer.** "Sim" answers `ApproveQueue(session, request, removed)` and "Ignorar"
   `DismissQueue(session)`; "Yes, at the window" is refused for a new-engine session (no request is
   raised before the window); an answer naming a request that is no longer pending decides nothing and
-  answers `stale`.
+  answers `stale`. On the wire `POST /api/app/notify/approval/respond` takes `{bundleId: <requestId>,
+  action: "yes_now"|"dismiss", removed?: [playerId]}` and answers `{engine: "new", requestId, result:
+  "approved"|"dismissed"|"stale", state?}`; `yes_at_window` is a 400.
+- **N4. The request reaches the coach (rule 6).** The outbox's sender for an `ApprovalRequest` posts one
+  `replacement_approval` message in the coach's Assistant conversation, its metadata `{engine: "new",
+  requestId, lessonInstanceId, responded: false, spotTypes: [{side, level, queue}]}`, then pushes it to
+  the coach, once (`notifications.engine-store` rule 2).
 - **N3. Recompute.** Recomputing from the class (rule 12) answers `ReopenQueue(session)` when dismissed
   and re-plans the session at once (`Engine.plan(session, now)`), which raises a fresh request. A
   session whose pending request's queues are unchanged keeps that request: it is already current, and
@@ -414,6 +424,12 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_c
 - **When** the coach recomputes the suggestions from the class
 - **Then** the session is reopened and the next run raises a new request with the class as it is now
 test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_recompute_raises_a_fresh_request`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-40: The outbox posts the request in the coach's Assistant conversation (new-engine section N4)
+- **Given** an `ApprovalRequest` row in the outbox for a session with two spot types
+- **When** the outbox sends it, and sends again
+- **Then** the coach's Assistant conversation holds one `replacement_approval` message with `engine` `new`, the request's id, the lesson instance, `responded` false and each type's side, level and queue, the coach gets one push, and the second send adds nothing
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_outbox_posts_the_request_to_the_coachs_assistant`
 
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):

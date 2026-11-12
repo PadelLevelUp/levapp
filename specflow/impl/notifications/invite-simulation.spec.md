@@ -61,8 +61,10 @@ The new-engine answer (swap step 7, PAD-919):
 - **N3. The app's own gates explain `not_in_pool`.** A `not_in_pool` verdict carries `reasons`, the gates
   the app applied when it built the pool (`notifications.config` rule 19): excluded by the coach,
   `excludedPlayers`, an inactive account, eligibility failures as today's structured records
-  (`eligibility.rules`), a class that day, the student's own block, an availability blocker. No other
-  stage carries reasons.
+  (`eligibility.rules`), a class that day, the student's own block, an availability blocker. On the
+  wire each is a code, and a student may carry several: `excluded_for_session`, `excluded_players`,
+  `same_day_class`, `inactive_account`, `eligibility` (with `failures`), `blocks_auto_invitations`,
+  `blocks_all`, `availability_blocker`. No other stage carries reasons.
 - **N4. When the run may plan.** The answer's gates are the dry run's `may_plan` and why not: outside the
   window, quiet hours, past `last_invite_before`, the class over. There is no `max_total_reached`
   (swap decision 3).
