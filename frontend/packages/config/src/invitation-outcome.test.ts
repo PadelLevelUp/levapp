@@ -98,12 +98,12 @@ describe("PAD-920 the new engine's invitee outcomes (calendar.event-detail ND1â€
     expect(statusForOutcome("not_counting")).toBe("sent");
   });
 
-  it("[CALENDAR-EVENT-DETAIL-35] notes a re-offered invitation as reopened, in place of the moved note", () => {
-    expect(inviteeNotes({ answeredBy: null, reofferedAt: "2026-11-12T10:00:00" })).toEqual([
+  it("[CALENDAR-EVENT-DETAIL-35] notes an invitation reopened from the waiting list, in place of the moved note", () => {
+    expect(inviteeNotes({ answeredBy: null, reopenedAt: "2026-11-12T10:00:00" })).toEqual([
       { id: "reopened", key: "calendar.detail.reopened" },
     ]);
     expect(
-      inviteeNotes({ answeredBy: "coach", movedAt: "2026-11-12T09:00:00", reofferedAt: "2026-11-12T10:00:00" }).map((n) => n.id),
+      inviteeNotes({ answeredBy: "coach", movedAt: "2026-11-12T09:00:00", reopenedAt: "2026-11-12T10:00:00" }).map((n) => n.id),
     ).toEqual(["recorded-by-coach", "reopened"]);
   });
 
@@ -122,7 +122,6 @@ describe("PAD-920 the new engine's invitee outcomes (calendar.event-detail ND1â€
     expect(outcomeAfterCoachAction("sorry")).toBe("sorry");
     expect(outcomeAfterCoachAction("closed_same_hour")).toBe("closed_same_hour");
     expect(outcomeAfterCoachAction("class_started")).toBe("expired");
-    expect(outcomeAfterCoachAction("reoffered")).toBe("pending");
     expect(outcomeAfterResponse("spot_filled")).toBe("spot_filled");
     expect(outcomeAfterCoachAction("spot_filled")).toBe("spot_filled");
     expect(pendingInviteCount([row("pending"), row("spot_filled"), row("pending")])).toBe(2);

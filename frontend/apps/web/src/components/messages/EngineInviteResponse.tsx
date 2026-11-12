@@ -15,7 +15,6 @@ const STATE_AFTER: Record<EngineRespondAction, Partial<EngineInviteMeta>> = {
   confirmed: { state: "answered", response: "yes", answeredBy: "student" },
   declined: { state: "answered", response: "no", answeredBy: "student" },
   sorry: { state: "sorry" },
-  reoffered: { state: "reoffered" },
   closed_same_hour: { state: "closed_same_hour" },
   // The class has started: the bubble derives that from `startsAt` on its own.
   class_started: {},

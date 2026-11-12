@@ -1,45 +1,50 @@
 import { describe, expect, it } from "vitest";
-import type { EngineApprovalState } from "@levelup/types";
+import type { EngineApprovalGroup, EngineApprovalState } from "@levelup/types";
 import { ENGINE_APPROVAL_CLASS_START, engineApprovalClassState as step } from "./engineApprovalClassState";
 
-const request = (requestId: number) => ({
+const G1: EngineApprovalGroup = { tierSource: "pool", groupNumber: 1 };
+const G2: EngineApprovalGroup = { tierSource: "pool", groupNumber: 2 };
+const request = (requestId: number, group: EngineApprovalGroup) => ({
   requestId,
   lessonInstanceId: 7,
+  group,
   spotTypes: [{ side: "left" as const, levelId: null, levelLabel: null, queue: [] }],
 });
-const pending = (requestId: number): EngineApprovalState => ({
-  engine: "new", state: "pending", semiAutomatic: true, approved: [], removed: [], request: request(requestId),
+const state = (over: Partial<EngineApprovalState>): EngineApprovalState => ({
+  engine: "new", state: "none", semiAutomatic: true, approvedGroups: [], dismissedGroups: [], removed: [], requests: [], ...over,
 });
-const none: EngineApprovalState = { engine: "new", state: "none", semiAutomatic: true, approved: [], removed: [] };
-const dismissed: EngineApprovalState = { engine: "new", state: "dismissed", semiAutomatic: true, approved: [], removed: [] };
+const ids = (v: ReturnType<typeof step>) => v.cards.map((c) => c.meta.requestId);
 
-describe("PAD-920 the web class card across re-reads (semi-auto-approval N1, N3, N5)", () => {
+describe("PAD-920 the web class cards across re-reads (semi-auto-approval N1, N3, N5)", () => {
   it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-45] the class card follows the session's approval state across re-reads", () => {
-    // pending: the card shows the request.
-    let v = step(ENGINE_APPROVAL_CLASS_START, { type: "read", state: pending(41) });
-    expect(v.card?.request?.requestId).toBe(41);
-    // The coach approves; the re-read answers `none`, and the approved card stays while the screen is open.
-    v = step(v, { type: "answered", result: "approved" });
-    v = step(v, { type: "read", state: none });
-    expect(v.card?.request?.requestId).toBe(41);
-    expect(v.approved).toBe(true);
-    // dismissed: "Ignorado", with the recompute button; the card on screen stays as the ignored one.
-    v = step(v, { type: "read", state: dismissed });
+    // Pending for group 1: its card shows.
+    let v = step(ENGINE_APPROVAL_CLASS_START, { type: "read", state: state({ state: "pending", requests: [request(41, G1)] }) });
+    expect(ids(v)).toEqual([41]);
+    // The coach approves; the re-read answers `none`: the approved card stays while the screen is open.
+    v = step(v, { type: "answered", requestId: 41, result: "approved" });
+    v = step(v, { type: "read", state: state({ approvedGroups: [G1] }) });
+    expect(ids(v)).toEqual([41]);
+    expect(v.cards[0].approved).toBe(true);
+    // Group 2's request then shows as its own card.
+    v = step(v, { type: "read", state: state({ state: "pending", approvedGroups: [G1], requests: [request(42, G2)] }) });
+    expect(ids(v)).toEqual([41, 42]);
+    // The coach dismisses group 2: it reads "Ignorado", and the recompute button shows.
+    v = step(v, { type: "answered", requestId: 42, result: "dismissed" });
+    v = step(v, { type: "read", state: state({ approvedGroups: [G1], dismissedGroups: [G2] }) });
     expect(v.dismissed).toBe(true);
-    expect(v.approved).toBe(false);
-    // The coach recomputes: the new request's card replaces it.
-    v = step(v, { type: "recomputed", state: pending(42) });
-    expect(v).toMatchObject({ approved: false, dismissed: false });
-    expect(v.card?.request?.requestId).toBe(42);
+    expect(v.cards.find((c) => c.meta.requestId === 42)).toMatchObject({ dismissed: true, meta: { state: "dismissed" } });
+    // The coach recomputes: group 2's new request replaces it.
+    v = step(v, { type: "recomputed", state: state({ state: "pending", approvedGroups: [G1], requests: [request(43, G2)] }) });
+    expect(ids(v)).toEqual([41, 43]);
+    expect(v.dismissed).toBe(false);
   });
 
-  it("drops an unanswered card when the re-read answers none, and replaces it with a newer request", () => {
-    let v = step(ENGINE_APPROVAL_CLASS_START, { type: "read", state: pending(41) });
-    v = step(v, { type: "read", state: pending(43) });
-    expect(v.card?.request?.requestId).toBe(43);
-    v = step(v, { type: "read", state: none });
-    expect(v.card).toBeNull();
-    // A stale answer changes nothing.
-    expect(step(v, { type: "answered", result: "stale" })).toBe(v);
+  it("drops an unanswered card when the read no longer lists it, and replaces a group's older request", () => {
+    let v = step(ENGINE_APPROVAL_CLASS_START, { type: "read", state: state({ state: "pending", requests: [request(41, G1)] }) });
+    v = step(v, { type: "read", state: state({ state: "pending", requests: [request(44, G1)] }) });
+    expect(ids(v)).toEqual([44]);
+    v = step(v, { type: "read", state: state({}) });
+    expect(v.cards).toEqual([]);
+    expect(step(v, { type: "answered", requestId: 44, result: "stale" })).toBe(v);
   });
 });

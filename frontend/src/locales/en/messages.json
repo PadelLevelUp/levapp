@@ -157,11 +157,11 @@
     "joinWaitingListFailed": "Could not join the waiting list.",
     "engineInvite": {
       "sorry": "You said yes, but the spot had already been taken.",
-      "reoffered": "This invitation was reopened below.",
       "classStarted": "The class has started.",
       "notCounting": "No answer · no longer counts",
       "withdrawn": "The coach withdrew this invitation.",
-      "closedSameHour": "Already in another class at the same time"
+      "closedSameHour": "Already in another class at the same time",
+      "reopened": "This invitation was reopened below."
     },
     "engineAlert": {
       "openClass": "Open class"

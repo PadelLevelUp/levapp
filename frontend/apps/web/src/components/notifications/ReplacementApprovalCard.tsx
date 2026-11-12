@@ -5,7 +5,7 @@ import { useCoachDisplayName } from "@levelup/hooks";
 import { useTranslation } from "react-i18next";
 
 import type { ApprovalAction, ApprovalBundle, ApprovalVacancyResult } from "@/types";
-import type { EngineApprovalMeta, EngineApprovalRespondResult, EngineApprovalState } from "@levelup/types";
+import type { EngineApprovalMeta, EngineApprovalRespondResult } from "@levelup/types";
 import { respondToApproval, respondToEngineApproval } from "@/api/notificationEngine";
 import {
   approvalDisplayGroups,
@@ -19,6 +19,7 @@ import {
   engineEmptyQueueReasons,
   engineSideKey,
   engineSideSlug,
+  engineApprovalGroupName,
   isEngineApproval,
   lisbonNowMs,
   queueAsOfLabel,
@@ -56,11 +57,12 @@ interface ReplacementApprovalCardProps {
   queueAsOf?: string | null;
 }
 
-type EngineSource = EngineApprovalMeta | EngineApprovalState;
+type EngineSource = EngineApprovalMeta;
 
 /**
- * PAD-920 (semi-auto-approval N5): a new-engine request (the message's `engine: "new"` metadata,
- * or the class's EngineApprovalState) draws its own card; every other bundle is today's card.
+ * PAD-920 (semi-auto-approval N5): a new-engine request (the message's `engine: "new"` metadata, or
+ * one of the class's requests in that shape, `engineApprovalCardOf`) draws its own card, one per
+ * group; every other bundle is today's card.
  */
 export function ReplacementApprovalCard({
   bundle,
@@ -418,6 +420,12 @@ function EngineApprovalCard({
       data-request-id={request.requestId}
       className="rounded-xl border bg-card shadow-sm p-3 space-y-3"
     >
+      {/* N5: the card is titled with the group it asks for (ND1's words). */}
+      {request.group && (
+        <p className="text-sm font-semibold first-letter:uppercase" data-testid="approval-group">
+          {resolveText(t, engineApprovalGroupName(request.group))}
+        </p>
+      )}
       {request.spotTypes.map((type, index) => {
         const slug = engineSideSlug(type.side);
         const isExpanded = !!expanded[index];

@@ -604,7 +604,6 @@
         "waitingListInvite": "Convite da lista de espera",
         "addedToClass": "Adicionado a uma aula",
         "addedToClassComing": "Adicionado a uma aula, presença confirmada",
-        "reoffer": "Convite reaberto",
         "waitingListAdded": "Entrada automática da lista de espera",
         "sideMoved": "Lado definido"
       },
@@ -621,7 +620,6 @@
         "waitingListInvite": "Enviada primeiro aos alunos da lista de espera da aula, quando abre uma vaga. {side} indica o lado da vaga quando o tem.",
         "addedToClass": "Enviada quando colocas um aluno numa aula.",
         "addedToClassComing": "Enviada em vez dessa quando a aula é criada depois da hora do lembrete: a presença do aluno fica confirmada e não lhe é perguntado nada.",
-        "reoffer": "Enviada quando uma vaga abre para alguém cujo sim chegou tarde.",
         "waitingListAdded": "Enviada quando a entrada automática põe um aluno da lista de espera numa vaga.",
         "sideMoved": "Enviada quando um aluno que joga dos dois lados fica com o lado final."
       },

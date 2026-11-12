@@ -24,7 +24,8 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { ReplacementApprovalCard } from "./ReplacementApprovalCard";
-import type { EngineApprovalMeta, EngineApprovalState } from "@levelup/types";
+import type { EngineApprovalMeta } from "@levelup/types";
+import { engineApprovalCardOf } from "@levelup/config";
 
 const queue = Array.from({ length: 7 }, (_, i) => ({ playerId: `s${i + 1}`, name: `S${i + 1}`, nickname: null, tier: i < 2 ? 0 : 2, rank: i + 1 }));
 const spotTypes = [
@@ -32,17 +33,18 @@ const spotTypes = [
   { side: null, levelId: 3, levelLabel: "M3", queue: [],
     emptyQueueReasons: [{ stage: "said_no", count: 2 }, { stage: "in_session", count: 3 }, { stage: "invited", count: 0 }] },
 ];
-const classState: EngineApprovalState = {
-  engine: "new", state: "pending", semiAutomatic: true, approved: [], removed: [],
-  request: { requestId: 42, lessonInstanceId: 9, spotTypes },
-};
-const message: EngineApprovalMeta = { engine: "new", requestId: 41, lessonInstanceId: 9, responded: false, spotTypes };
+// The owner's per-group approval: each request asks for one group, here group 2.
+const GROUP2 = { tierSource: "pool" as const, groupNumber: 2 };
+const classState = engineApprovalCardOf({ requestId: 42, lessonInstanceId: 9, group: GROUP2, spotTypes });
+const message: EngineApprovalMeta = { engine: "new", requestId: 41, lessonInstanceId: 9, group: GROUP2, responded: false, spotTypes };
 
 describe("ReplacementApprovalCard — new engine (PAD-920)", () => {
   it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-41] approves with removals, dismisses and reads a stale answer", async () => {
     // The class's card: blocks, preview, removals, "Sim (2 retirados)".
     respondToEngineApproval.mockResolvedValueOnce({ engine: "new", requestId: 42, result: "approved" });
     render(<ReplacementApprovalCard bundle={classState} allowDismiss />);
+    // N5: titled with the group's name.
+    expect(screen.getByTestId("approval-group").textContent).toBe("calendar.detail.tierGroup:n=2");
     const left = screen.getByTestId("approval-type-left");
     expect(within(left).getAllByRole("listitem")).toHaveLength(5);
     expect(within(left).getByTestId("approval-show-more").textContent).toBe("notificationsUi.replacementApproval.showMore:count=2");

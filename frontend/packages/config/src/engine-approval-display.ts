@@ -10,7 +10,9 @@
  * - The approval card's "Sim" counts the students the coach removed.
  */
 import type {
+  EngineApprovalGroup,
   EngineApprovalMeta,
+  EngineApprovalRequest,
   EngineApprovalSpotType,
   EngineApprovalState,
   EngineQueueEntry,
@@ -71,11 +73,12 @@ export function engineLeftOut(spotTypes: Pick<EngineSpotType, "queue" | "verdict
   return out;
 }
 
-/** The engine request a card answers, from the message's metadata (N4) or the class's state (N1). */
+/** The engine request a card answers (N4/N5): one group's request, from its message or the class. */
 export interface EngineApprovalRequestView {
   requestId: number;
+  group: EngineApprovalGroup | null;
   spotTypes: EngineApprovalSpotType[];
-  /** The class's state, or the message's own (N4, kept current by `message_edited`). */
+  /** The message's own state (N4, kept current by `message_edited`), or the class card's. */
   state: "pending" | "approved" | "dismissed" | "replaced";
   responded: boolean;
 }
@@ -84,23 +87,42 @@ export function isEngineApproval(value: unknown): value is EngineApprovalMeta | 
   return !!value && typeof value === "object" && (value as { engine?: unknown }).engine === "new";
 }
 
-export function engineApprovalRequest(source: EngineApprovalMeta | EngineApprovalState): EngineApprovalRequestView | null {
-  // The class's state has no top-level `requestId`; a message's metadata always does.
-  if (!("requestId" in source)) {
-    const state = source as EngineApprovalState;
-    if (!state.request) return null;
-    return {
-      requestId: state.request.requestId,
-      spotTypes: state.request.spotTypes,
-      state: state.state === "dismissed" ? "dismissed" : "pending",
-      responded: false,
-    };
-  }
-  const meta = source as EngineApprovalMeta;
+/**
+ * A class card's source: one request of the class's state, shaped as the request message is, so the
+ * card reads one shape (N1, N5). `state` is the card's own: `dismissed` once that group is ignored.
+ */
+export function engineApprovalCardOf(
+  request: EngineApprovalRequest,
+  state: "pending" | "dismissed" = "pending",
+): EngineApprovalMeta {
+  return {
+    engine: "new",
+    requestId: request.requestId,
+    lessonInstanceId: request.lessonInstanceId,
+    group: request.group,
+    responded: false,
+    state,
+    spotTypes: request.spotTypes,
+  };
+}
+
+export function engineApprovalRequest(meta: EngineApprovalMeta): EngineApprovalRequestView | null {
   if (meta.requestId == null || !Array.isArray(meta.spotTypes)) return null;
   // N5: the replaced line keys on `state`; an older payload without it reads `responded` as replaced.
   const state = meta.state ?? (meta.responded ? "replaced" : "pending");
-  return { requestId: meta.requestId, spotTypes: meta.spotTypes, state, responded: !!meta.responded };
+  return { requestId: meta.requestId, group: meta.group ?? null, spotTypes: meta.spotTypes, state, responded: !!meta.responded };
+}
+
+/** The card's title: the group's name, in ND1's words (N5). */
+export function engineApprovalGroupName(group: EngineApprovalGroup): I18nText {
+  if (group.tierSource === "coach_list") return { key: "calendar.detail.tierCoachList" };
+  if (group.tierSource === "students_list") return { key: "calendar.detail.tierWaitingList" };
+  return { key: "calendar.detail.tierGroup", params: { n: group.groupNumber ?? 0 } };
+}
+
+/** One key per group, for matching a group across re-reads. */
+export function engineApprovalGroupKey(group: EngineApprovalGroup): string {
+  return group.tierSource === "pool" ? `pool-${group.groupNumber ?? 0}` : group.tierSource;
 }
 
 /** "Sim" or "Sim (N retirados)" (N5). */

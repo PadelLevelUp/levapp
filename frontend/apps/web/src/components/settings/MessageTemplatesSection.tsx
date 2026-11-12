@@ -18,9 +18,9 @@ const CLASS_VARIABLES = [
 ];
 
 // PAD-446 (rule 16): {side} names the spot's side, on the waiting-list invitation only.
-// PAD-920 (new-engine section N2): also on the re-offer and the waiting-list placement; `side_moved`
-// carries the bare side word, {sideName}, instead.
-const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite", "reoffer", "waiting_list_added"];
+// PAD-920 (new-engine section N2): also on the waiting-list placement; `side_moved` carries the bare
+// side word, {sideName}, instead.
+const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite", "waiting_list_added"];
 
 const variablesFor = (key: keyof MessageTemplates): string[] => {
   if (key === "side_moved") return [...CLASS_VARIABLES, "{sideName}"];
@@ -40,7 +40,6 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   waiting_list_invite: "settings.templates.labels.waitingListInvite",
   added_to_class: "settings.templates.labels.addedToClass",
   added_to_class_coming: "settings.templates.labels.addedToClassComing",
-  reoffer: "settings.templates.labels.reoffer",
   waiting_list_added: "settings.templates.labels.waitingListAdded",
   side_moved: "settings.templates.labels.sideMoved",
 };
@@ -58,7 +57,6 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   waiting_list_invite: "settings.templates.descriptions.waitingListInvite",
   added_to_class: "settings.templates.descriptions.addedToClass",
   added_to_class_coming: "settings.templates.descriptions.addedToClassComing",
-  reoffer: "settings.templates.descriptions.reoffer",
   waiting_list_added: "settings.templates.descriptions.waitingListAdded",
   side_moved: "settings.templates.descriptions.sideMoved",
 };
@@ -70,8 +68,7 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
   },
   {
     labelKey: "settings.templates.groups.invitations",
-    // PAD-920 (N3): the re-offer right after the invitation it reopens.
-    keys: ["invite", "reoffer", "confirm", "decline", "spot_filled"],
+    keys: ["invite", "confirm", "decline", "spot_filled"],
   },
   {
     labelKey: "settings.templates.groups.waitingList",

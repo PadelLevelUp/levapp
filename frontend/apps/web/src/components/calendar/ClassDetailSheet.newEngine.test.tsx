@@ -68,7 +68,7 @@ beforeEach(() => {
     invitations: [
       { id: 1, playerId: "1", playerName: "P1", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "coach_list", groupNumber: null },
       { id: 2, playerId: "2", playerName: "P2", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 2 },
-      { id: 3, playerId: "3", playerName: "P3", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "students_list", groupNumber: null, reofferedAt: "2099-10-18T10:00:00" },
+      { id: 3, playerId: "3", playerName: "P3", status: "sent", outcome: "pending", answer: null, answeredBy: null, tierSource: "students_list", groupNumber: null, reopenedAt: "2099-10-18T10:00:00" },
       { id: 4, playerId: "4", playerName: "P4", status: "sent", outcome: "not_counting", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
       { id: 5, playerId: "5", playerName: "P5", status: "sent", outcome: "not_counting", answer: null, answeredBy: null, tierSource: null, groupNumber: null },
       { id: 6, playerId: "6", playerName: "P6", status: "expired", outcome: "sorry", answer: null, answeredBy: null, tierSource: "pool", groupNumber: 1 },
@@ -123,10 +123,10 @@ describe("PAD-920 the new engine's invitees on web", () => {
 
   it("shows a new-engine session's pending request on the class, with Ignorar", async () => {
     api.getApprovalState.mockResolvedValue({
-      engine: "new", state: "pending", semiAutomatic: true, approved: [], removed: [],
-      request: { requestId: 42, lessonInstanceId: 7, spotTypes: [
+      engine: "new", state: "pending", semiAutomatic: true, approvedGroups: [], dismissedGroups: [], removed: [],
+      requests: [{ requestId: 42, lessonInstanceId: 7, group: { tierSource: "pool", groupNumber: 1 }, spotTypes: [
         { side: "left", levelId: null, levelLabel: null, queue: [{ playerId: "s1", name: "Rita", tier: 2, rank: 1 }] },
-      ] },
+      ] }],
     });
     await openSheet();
     await waitFor(() => expect(screen.getByTestId("approval-yes")).toBeTruthy());

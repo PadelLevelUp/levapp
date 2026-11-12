@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Check, CheckCheck, ChevronRight, Clock, AlertCircle, Reply, X, AlertTriangle, MinusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalBundle, EligibilityCheckEntry, Message, MessageStatus } from '@/types';
+import type { EngineApprovalMeta } from '@levelup/types';
 import { MessageActionMenu } from './MessageActionMenu';
 import { ReportMessageDialog } from './ReportMessageDialog';
 import { ReplacementApprovalCard } from '@/components/notifications/ReplacementApprovalCard';
@@ -577,7 +578,7 @@ export function MessageBubble({
         {/* PAD-920 (semi-auto-approval N4–N5): a new-engine request; the chat's card offers "Sim" only. */}
         {isReplacementApproval && isEngineApproval(message.metadata) && Array.isArray(message.metadata.spotTypes) && (
           <div className="mt-1.5 ml-1">
-            <ReplacementApprovalCard bundle={message.metadata} readOnly={isMine} queueAsOf={message.timestamp} />
+            <ReplacementApprovalCard bundle={message.metadata as EngineApprovalMeta} readOnly={isMine} queueAsOf={message.timestamp} />
           </div>
         )}
 

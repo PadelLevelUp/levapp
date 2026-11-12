@@ -542,8 +542,8 @@ export interface ClassInvitation {
   tierSource?: import("./engine").InviteeTierSource;
   /** PAD-920 (ND1): with `tierSource` `pool`, the group's number in the coach's order, 1-based. */
   groupNumber?: number | null;
-  /** PAD-920 (ND1): new-engine sessions only — set when the engine re-offered this invitation. */
-  reofferedAt?: string | null;
+  /** PAD-920 (ND1): new-engine sessions only — set when the invitation was reopened from the waiting list. */
+  reopenedAt?: string | null;
 }
 
 export interface ClassInstance {
@@ -1427,7 +1427,6 @@ export interface MessageTemplates {
   added_to_class?: string;
   added_to_class_coming?: string;
   /** PAD-920 (notifications.message-templates N1): the new engine's keys. Optional: older configs lack them. */
-  reoffer?: string;
   waiting_list_added?: string;
   side_moved?: string;
 }

@@ -86,8 +86,6 @@ export function outcomeAfterCoachAction(action: string): InvitationOutcome | nul
       return "closed_same_hour";
     case "class_started":
       return "expired";
-    case "reoffered":
-      return "pending";
     default:
       return null;
   }
@@ -104,7 +102,8 @@ export function statusForOutcome(outcome: InvitationOutcome): "sent" | "confirme
  * The small notes under an invitee's outcome label, in order (calendar.event-detail rule 16):
  * "recorded by the coach" (invitations rule 9) and, PAD-719, "moved from the previous spot" for an
  * invitation the engine moved to this class's other spot (invitations rule 18a). PAD-920 (ND1): a
- * new-engine invitation the engine re-offered reads "reopened" in place of the moved note. `id` is the
+ * new-engine invitation reopened from the waiting list after a sorry reads "reopened" in place of the
+ * moved note. `id` is the
  * testID stem both shells render as `invitee-<id>-<playerId>`.
  */
 export type InviteeNoteId = "recorded-by-coach" | "moved-from-spot" | "reopened";
@@ -112,11 +111,11 @@ export type InviteeNoteId = "recorded-by-coach" | "moved-from-spot" | "reopened"
 export function inviteeNotes(inv: {
   answeredBy: "student" | "coach" | null;
   movedAt?: string | null;
-  reofferedAt?: string | null;
+  reopenedAt?: string | null;
 }): Array<{ id: InviteeNoteId; key: string }> {
   const notes: Array<{ id: InviteeNoteId; key: string }> = [];
   if (inv.answeredBy === "coach") notes.push({ id: "recorded-by-coach", key: "calendar.detail.recordedByCoach" });
-  if (inv.reofferedAt) notes.push({ id: "reopened", key: "calendar.detail.reopened" });
+  if (inv.reopenedAt) notes.push({ id: "reopened", key: "calendar.detail.reopened" });
   else if (inv.movedAt) notes.push({ id: "moved-from-spot", key: "calendar.detail.movedFromPreviousSpot" });
   return notes;
 }

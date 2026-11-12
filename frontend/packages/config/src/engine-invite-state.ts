@@ -30,7 +30,7 @@ export function engineInviteTestIds(invitationId: number): { yes: string; no: st
 
 const CLOSED_LABEL: Partial<Record<EngineInviteStateName, string>> = {
   sorry: "messages.engineInvite.sorry",
-  reoffered: "messages.engineInvite.reoffered",
+  reopened: "messages.engineInvite.reopened",
   withdrawn: "messages.engineInvite.withdrawn",
   closed_same_hour: "messages.engineInvite.closedSameHour",
 };

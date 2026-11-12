@@ -324,7 +324,7 @@ export function ClassDetailSheet({
         setSemiAutomatic(!!s.semiAutomatic);
         if (isEngineApproval(s)) {
           dispatchEngineApproval({ type: "read", state: s as EngineApprovalState });
-          setSuggestionsIgnored(s.state === "dismissed");
+          setSuggestionsIgnored((s as EngineApprovalState).dismissedGroups.length > 0);
           return;
         }
         // PAD-770 (rule 12b): a spot that filled or a student who joined since drops out here.
@@ -2018,18 +2018,21 @@ export function ClassDetailSheet({
             </>
           )}
 
-          {canManage && !isEditing && engineApproval.card?.request && (
+          {canManage && !isEditing && engineApproval.cards.length > 0 && (
             <>
               <Separator />
-              <ReplacementApprovalCard
-                key={engineApproval.card.request.requestId}
-                bundle={engineApproval.dismissed ? { ...engineApproval.card, state: "dismissed" } : engineApproval.card}
-                allowDismiss
-                onEngineResult={(r) => {
-                  dispatchEngineApproval({ type: "answered", result: r.result });
-                  if (r.result === "dismissed") setSuggestionsIgnored(true);
-                }}
-              />
+              {/* N1/N5: one card per group about to start (the owner's per-group approval). */}
+              {engineApproval.cards.map((card) => (
+                <ReplacementApprovalCard
+                  key={card.meta.requestId}
+                  bundle={card.meta}
+                  allowDismiss
+                  onEngineResult={(r) => {
+                    dispatchEngineApproval({ type: "answered", requestId: card.meta.requestId, result: r.result });
+                    if (r.result === "dismissed") setSuggestionsIgnored(true);
+                  }}
+                />
+              ))}
             </>
           )}
 

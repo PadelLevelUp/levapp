@@ -71,19 +71,20 @@ describe("PAD-920 the new engine's invitation bubble on web", () => {
     // The old engine's ids are not used on a new-engine bubble.
     expect(screen.queryByTestId("invite-respond-yes")).toBeNull();
 
-    // A live `message_edited` turns it sorry: no buttons, the sorry line.
+    // A live `message_edited` turns it sorry: no buttons, the sorry line (the student then joins the waiting list).
     rerender(bubble("m1", { state: "sorry" }));
     expect(screen.getByTestId("invite-state-41-sorry")).toHaveTextContent("messages.engineInvite.sorry");
     expect(screen.queryByTestId("invite-respond-yes-41")).toBeNull();
 
-    // A reoffer arrives for the same invitation: the first bubble reads "reopened below", the new one asks.
+    // The student joined the waiting list; the invitation reopens on a new waiting_list_invite bubble:
+    // the first bubble reads "reopened below", the new one asks.
     rerender(
       <>
-        {bubble("m1", { state: "reoffered" })}
-        {bubble("m2", { state: "open", kind: "reoffer" })}
+        {bubble("m1", { state: "reopened" })}
+        {bubble("m2", { state: "open", kind: "waiting_list_invite" })}
       </>,
     );
-    expect(screen.getByTestId("invite-state-41-reoffered")).toHaveTextContent("messages.engineInvite.reoffered");
+    expect(screen.getByTestId("invite-state-41-reopened")).toHaveTextContent("messages.engineInvite.reopened");
     expect(screen.getAllByTestId("invite-respond-yes-41")).toHaveLength(1);
     expect(screen.getAllByTestId("invite-respond-no-41")).toHaveLength(1);
   });
@@ -95,15 +96,15 @@ describe("PAD-920 the new engine's invitation bubble on web", () => {
   });
 
   it("[NOTIFICATIONS-INVITATIONS-122] answers by invitation id and keeps the newest state", async () => {
-    // The route answers `sorry`, but a live edit made the invitation `reoffered` while it was in flight.
+    // The route answers `sorry`, but a live edit made the invitation `reopened` while it was in flight.
     let answer!: (v: unknown) => void;
     respondToEngineInvitation.mockReturnValue(new Promise((r) => (answer = r)));
     const { rerender } = renderAll(bubble("m1", { state: "open" }));
     fireEvent.click(screen.getByTestId("invite-respond-yes-41"));
     expect(respondToEngineInvitation).toHaveBeenCalledWith({ invitationId: 41, action: "yes" });
-    rerender(bubble("m1", { state: "reoffered" }));
+    rerender(bubble("m1", { state: "reopened" }));
     await act(async () => answer({ action: "sorry", invitationId: 41 }));
-    expect(screen.getByTestId("invite-state-41-reoffered")).toBeTruthy();
+    expect(screen.getByTestId("invite-state-41-reopened")).toBeTruthy();
     expect(screen.queryByTestId("invite-state-41-sorry")).toBeNull();
   });
 

@@ -19,7 +19,7 @@ export type EngineInviteStateName =
   | "open"
   | "answered"
   | "sorry"
-  | "reoffered"
+  | "reopened"
   | "withdrawn"
   | "closed_same_hour";
 
@@ -28,7 +28,7 @@ export interface EngineInviteMeta {
   engine: "new";
   invitationId: number;
   lessonInstanceId?: number;
-  kind?: "invite" | "reoffer" | "waiting_list_invite";
+  kind?: "invite" | "waiting_list_invite";
   state: EngineInviteStateName;
   /** The class's real start, ISO UTC: at or after it the bubble has no buttons, whatever `state` says. */
   startsAt: string;
@@ -48,7 +48,6 @@ export type EngineRespondAction =
   | "confirmed"
   | "declined"
   | "sorry"
-  | "reoffered"
   | "closed_same_hour"
   | "class_started";
 
@@ -193,17 +192,33 @@ export interface EngineApprovalSpotType extends EngineSpotTypeKey {
   emptyQueueReasons?: Array<{ stage: EngineStage | string; count: number }>;
 }
 
+/**
+ * A group the coach approves on its own (the owner's per-group approval, N1): the coach's list, the
+ * students' list, or invitation group N (`calendar.event-detail` ND1's names).
+ */
+export interface EngineApprovalGroup {
+  tierSource: "coach_list" | "students_list" | "pool";
+  /** `pool` only: the group's number in the coach's order, 1-based. */
+  groupNumber: number | null;
+}
+
+/** One pending request: the group about to start, and its queues per spot type (N1). */
+export interface EngineApprovalRequest {
+  requestId: number;
+  lessonInstanceId: number;
+  group: EngineApprovalGroup;
+  spotTypes: EngineApprovalSpotType[];
+}
+
+/** `GET /api/app/notify/approval/instance/<id>` for a new-engine session (N1). */
 export interface EngineApprovalState {
   engine: "new";
-  state: "pending" | "dismissed" | "none";
+  state: "pending" | "none";
   semiAutomatic: boolean;
-  approved: string[];
+  approvedGroups: EngineApprovalGroup[];
+  dismissedGroups: EngineApprovalGroup[];
   removed: string[];
-  request?: {
-    requestId: number;
-    lessonInstanceId: number;
-    spotTypes: EngineApprovalSpotType[];
-  };
+  requests: EngineApprovalRequest[];
 }
 
 export interface EngineApprovalRespondBody {
@@ -216,7 +231,7 @@ export interface EngineApprovalRespondResult {
   engine: "new";
   requestId: number;
   result: "approved" | "dismissed" | "stale";
-  state?: EngineApprovalState["state"];
+  state?: EngineApprovalState["state"] | "dismissed";
 }
 
 /** `msg_metadata` of a new-engine `replacement_approval` message (N4). */
@@ -224,6 +239,8 @@ export interface EngineApprovalMeta {
   engine: "new";
   requestId: number;
   lessonInstanceId: number;
+  /** The group this request asks for (N4); absent on payloads from before per-group approval. */
+  group?: EngineApprovalGroup;
   responded: boolean;
   /** Kept current with `message_edited` (N4, d99e7b605); older payloads carry only `responded`. */
   state?: "pending" | "approved" | "dismissed" | "replaced";

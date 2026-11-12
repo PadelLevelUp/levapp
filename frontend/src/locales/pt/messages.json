@@ -157,11 +157,11 @@
     "joinWaitingListFailed": "Não foi possível entrar na lista de espera.",
     "engineInvite": {
       "sorry": "Disseste que sim, mas a vaga já tinha sido ocupada.",
-      "reoffered": "O convite foi reaberto mais abaixo.",
       "classStarted": "A aula já começou.",
       "notCounting": "Sem resposta · já não conta",
       "withdrawn": "O treinador retirou este convite.",
-      "closedSameHour": "Já inscrito noutra aula à mesma hora"
+      "closedSameHour": "Já inscrito noutra aula à mesma hora",
+      "reopened": "O convite foi reaberto mais abaixo."
     },
     "engineAlert": {
       "openClass": "Abrir aula"

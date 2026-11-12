@@ -44,7 +44,7 @@ describe("PAD-920 the new engine's invitation bubble (notifications.invitations 
     // The closed states: no buttons, the same label for both viewers.
     const closed: Array<[EngineInviteMeta["state"], string]> = [
       ["sorry", "messages.engineInvite.sorry"],
-      ["reoffered", "messages.engineInvite.reoffered"],
+      ["reopened", "messages.engineInvite.reopened"],
       ["withdrawn", "messages.engineInvite.withdrawn"],
       ["closed_same_hour", "messages.engineInvite.closedSameHour"],
     ];
