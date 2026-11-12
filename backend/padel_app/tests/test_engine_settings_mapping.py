@@ -418,3 +418,31 @@ def test_an_other_side_group_maps_to_an_other_side_tier():
         {"attribute": "side", "operation": "different_from_vacancy"}]}])
     assert _settings(config).tiers[2] == Tier("pool", "other", 0, (
         GroupRule("level", "same_as_vacancy"), GroupRule("side", "different_from_vacancy")))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-75")
+def test_a_half_set_tier_pair_falls_back(app):
+    """A tier's null side takes the coach's pair, and only a null there falls back to maxInactiveTime;
+    a saved 0 is refused."""
+    from werkzeug.exceptions import HTTPException
+
+    from padel_app.invitation_engine.settings import TimingPair
+    from padel_app.services.engine_store import settings_for
+    from padel_app.services.notification_service import update_config
+
+    coach_id, session = _coach_on(app, "new")
+    update_config(coach_id, {"restrictions": {"maxInactiveTime": {"enabled": True, "value": 30}}})
+
+    def pairs(coach_pair, tier):
+        update_config(coach_id, {"engine": {"timing": {
+            "method": "per_tier", "betweenRoundsMinutes": coach_pair[0], "betweenGroupsMinutes": coach_pair[1],
+            "perTier": [None, None, {"betweenRoundsMinutes": tier[0], "betweenGroupsMinutes": tier[1]}]}}})
+        return settings_for(session).timing.per_tier[2]
+
+    minutes = lambda r, g: TimingPair(timedelta(minutes=r), timedelta(minutes=g))  # noqa: E731
+    assert pairs((10, 20), (29, None)) == minutes(29, 20)
+    assert pairs((10, None), (None, None)) == minutes(10, 30)
+
+    with pytest.raises(HTTPException) as refused:
+        pairs((10, 20), (0, None))
+    assert refused.value.code == 400

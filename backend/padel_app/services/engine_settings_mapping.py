@@ -91,14 +91,16 @@ def _timing(config: NotificationConfig, inactive: timedelta, tiers: int) -> Timi
     after the save leaves no entry the engine would refuse)."""
     engine = config.get_engine_settings()["timing"]
     method = engine["method"] if engine["method"] in ("fixed", "progressive", "per_tier") else "fixed"
+    rounds = _minutes(engine["betweenRoundsMinutes"], inactive)
+    groups = _minutes(engine["betweenGroupsMinutes"], inactive)
     per_tier = ()
     if method == "per_tier":
+        # CONFIG-75: a tier's null side takes the coach's pair (itself falling back to maxInactiveTime).
         per_tier = tuple(
-            TimingPair(_minutes(p.get("betweenRoundsMinutes"), inactive), _minutes(p.get("betweenGroupsMinutes"), inactive))
+            TimingPair(_minutes(p.get("betweenRoundsMinutes"), rounds), _minutes(p.get("betweenGroupsMinutes"), groups))
             if isinstance(p, dict) else None
             for p in engine["perTier"][:tiers])
-    return Timing(method=method, between_rounds=_minutes(engine["betweenRoundsMinutes"], inactive),
-                  between_groups=_minutes(engine["betweenGroupsMinutes"], inactive), per_tier=per_tier)
+    return Timing(method=method, between_rounds=rounds, between_groups=groups, per_tier=per_tier)
 
 
 def _ordering(config: NotificationConfig) -> tuple[str, ...]:
