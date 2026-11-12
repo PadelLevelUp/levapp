@@ -73,7 +73,7 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   `msg_metadata` `{engine: "new", invitationId, lessonInstanceId, kind, state, startsAt, response?,
   answeredBy?}` (`invitationId` a number, `startsAt` the class's real start, ISO UTC), `state` being
   `open`, `answered` (with `response` `yes` or `no` and `answeredBy`), `sorry`, `reopened`,
-  `withdrawn` or `closed_same_hour`. Two things are not stored, they are derived when shown, so they
+  `withdrawn`, `closed_same_hour` or `class_cancelled`. Two things are not stored, they are derived when shown, so they
   never go stale: **the class has started** (now at or after `startsAt`: no buttons, whatever the
   stored state), and on the coach's copy **counting**, from `countsUntil` (ISO UTC), which the message
   serializer sends only to the coach (one message row is read by both people, so the student never
@@ -83,8 +83,11 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   each reopening's waiting-list bubble, `invitations.message_ids`) and, after applying a `Sorry`, `Reopened`,
   `InvitationClosed`, `Answered` or a withdrawal for that invitation, writes the new `state` on those
   messages and publishes one `message_edited` per message. An invitation closed by the coach's
-  withdrawal (rule 19) and one closed by a same-hour placement are told apart by
-  `invitations.closed_reason` (`withdrawn` | `same_hour`).
+  withdrawal (rule 19), one closed by a same-hour placement and one closed because the class was
+  removed or cancelled are told apart by `invitations.closed_reason` (`withdrawn` | `same_hour` |
+  `class_removed`). **Removing or cancelling a new-engine class closes every open invitation of that
+  session** with `class_removed`, and each one's live bubble goes to `class_cancelled` (the
+  coordinator's ruling, from Session6's iOS run).
 - **NB2. What the student sees.**
   - `open`: Yes and No, whether or not the invitation still counts. A Yes after it stopped counting is
     answered by the engine as any Yes (`notifications.engine-answers` rules 1, 4): placed or
@@ -106,6 +109,8 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
     No.
   - `withdrawn`: no buttons; "O treinador retirou este convite." / "The coach withdrew this invitation."
     (proposed).
+  - `class_cancelled`: no buttons; "A aula foi cancelada." / "The class was cancelled." (proposed), on
+    both shells.
   - `closed_same_hour`: no buttons; "Já inscrito noutra aula à mesma hora" / "Already in another class
     at the same time" (proposed, a new key: today's `messages.bookedSameDay` says "that day").
   - once the class has started (derived): no buttons; "A aula já começou." / "The class has started."
@@ -121,7 +126,8 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   action: "yes"|"no"}` (a body with `notificationEventId` is the old engine's); the answer is `{action:
   "confirmed"|"declined"|"sorry"|"closed_same_hour"|"class_started", invitationId}`, with
   `duplicate: true` on a repeated answer, 404 for an unknown id and 403 when the invitation is not the
-  caller's. On the client, a `message_edited` for the invitation's message received after the answer was
+  caller's. An answer to an invitation closed because its class was removed or cancelled is refused
+  with `409 {code: "class_cancelled"}`, never a 404. On the client, a `message_edited` for the invitation's message received after the answer was
   sent wins over the answer's response: the bubble shows the newest state it heard of, never an older
   one. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
   (`DELETE /api/app/notify/invitations/<invitationId>?engine=new`); the same 404 and 403 apply.
@@ -1730,6 +1736,28 @@ test: `frontend/apps/mobile/src/features/messages/engine-message.test.ts` › `a
 - **When** the coach and the student each read the conversation
 - **Then** the coach's copy carries `countsUntil` and the student's does not
 test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_serializer_sends_counts_until_to_the_coach_only`
+
+#### NOTIFICATIONS-INVITATIONS-125: Removing a new-engine class closes its invitations, and a later answer is refused with a code (new-engine section NB1a, NB5)
+- **Given** a new-engine session with two open invitations, one counting and one not
+- **When** the coach removes the class (any scope), and a student then answers yes
+- **Then** before the class goes, both invitations close with `closed_reason` `class_removed`, each live bubble's state becomes `class_cancelled` with one `message_edited`, and the answer gets `409 {code: "class_cancelled"}`, not a 404
+test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_removing_a_new_engine_class_withdraws_its_open_invitations`
+
+#### NOTIFICATIONS-INVITATIONS-128: Cancelling a new-engine class closes its invitations the same way (new-engine section NB1a, NB5)
+- **Given** the same session
+- **When** the coach cancels the class, and a student then answers yes
+- **Then** the same closes, bubble states and refusal as criterion 125
+test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_cancelling_a_new_engine_class_withdraws_its_open_invitations`
+
+#### NOTIFICATIONS-INVITATIONS-126: The web bubble reads "class cancelled" (new-engine section NB2)
+- **Given** a new-engine bubble whose state becomes `class_cancelled`, and a Yes answered `409 class_cancelled`
+- **Then** web shows "A aula foi cancelada." with no buttons under `invite-state-<id>-class_cancelled`, and the refused answer shows the same line, never a generic error
+test: `frontend/apps/web/src/components/messages/MessageBubble.newEngine.test.tsx` › `reads class cancelled and a refused answer`
+
+#### NOTIFICATIONS-INVITATIONS-127: The iOS bubble reads "class cancelled" the same way (new-engine section NB2)
+- **Given** the same on iOS
+- **Then** the same line, no buttons and test id show
+test: `frontend/apps/mobile/src/features/messages/components/message-bubble-new-engine.test.tsx` › `reads class cancelled and a refused answer`
 
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a

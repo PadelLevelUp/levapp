@@ -462,7 +462,7 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.ne
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-42: The iOS card does the same with the same test ids (new-engine section N5)
 - **Given** the same requests on iOS
-- **Then** the same blocks, removals, buttons, test ids and stale line show, and the same requests are sent
+- **Then** the same group title, blocks, removals, buttons, test ids and stale line show, and the same requests are sent
 test: `frontend/apps/mobile/src/features/notifications/replacement-approval-card-new-engine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-43: A request's message follows it when it stops being pending (new-engine section N4)

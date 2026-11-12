@@ -33,8 +33,7 @@ It does not promise the engine's wording and ordering settings, the approval gat
 P-NOTIFICATIONS-8 and P-NOTIFICATIONS-9 (draft) replace this outcome when the redesigned engine
 ships; until then this page describes what runs. Reversed then: closing or moving other invitations
 at a fill, withdrawing invitations for side balance and retiring them as "Vaga preenchida" (an
-invitation stays open until answered or the class starts, and a late Yes gets "sorry" with the waiting-list offer, the owner having ruled out any re-offer
-2026-11-12);
+invitation stays open until answered or the class starts, and a late Yes gets "sorry" with the waiting-list offer; the owner ruled out any re-offer on 2026-11-12);
 a freed spot asking for a side by balancing (sides come from the class's counts); one waiting list in
 join order before every group (two lists, the coach's first, ranked by the coach's criteria); and
 pacing by batches and rounds (invitations per spot, a session maximum and a counting time).

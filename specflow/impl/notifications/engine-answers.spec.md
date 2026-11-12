@@ -82,6 +82,12 @@ Stated as observable records; storage is the engine package's (PAD-902).
     rule 18); joining the other one, by the student or by the coach, is refused with the same
     `already_on_list` and changes nothing (the coach removes the entry first
     to move it). The store refuses a second entry as well (`StoreConflict`).
+13. **An answer records who gave it.** An answer to an invitation carries `by`: `student` when the
+    student answered, `coach` when the coach recorded it for them (`notifications.invitations` rule 9,
+    the coach's route); the `Answered` effect keeps it, and the store writes it as the invitation's
+    `answeredBy` (`notifications.invitations` NB1, `calendar.event-detail` ND1). An attendance answer
+    (`ConfirmAttendance`) is the student's; the coach's own attendance mark is `attendance.confirm`'s.
+    Who answered changes nothing else.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -207,7 +213,7 @@ before the session.
 test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_every_engine_write_is_inside_one_session_unit_at_a_time`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-20: A unit the store refuses is dropped and the rest runs (rule 10)
-Given a tick in which one session's unit is refused (`UnitConflict`, a student placed at the same start
+Given a tick in which one session's unit is refused (`UnitConflict`, a student placed in an overlapping session
 since the snapshot), when the tick runs, then that unit's effects are dropped and rolled back, the
 other sessions run, and the next run re-plans the refused session on fresh state.
 test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs`
@@ -260,6 +266,12 @@ adds them to A (the app writes the presence) and A's unit applies `CoachAdded(st
 invitations close (nothing more is sent for them and they no longer count), no second presence is
 written, and A and the two sessions each re-plan.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_coachs_add_closes_the_students_same_time_invitations`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-28: An answer records who gave it (rule 13)
+Given two invitations, when the student answers yes to one and the coach records no for the other, then
+the first `Answered` carries `by` `student` and the second `by` `coach`, and both are placed or declined
+exactly as a student's answer would be.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_an_answer_records_who_gave_it`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
