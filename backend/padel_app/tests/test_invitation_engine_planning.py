@@ -196,7 +196,7 @@ def test_method_b_takes_each_tier_share_of_what_is_left():
 def test_sorry_invitation_is_reopened_only_from_the_waiting_list():
     from padel_app.invitation_engine.timeline import counting
 
-    settings = EngineSettings(tiers=PLAN_TIERS, timing=Timing("fixed", HOUR, HOUR))
+    settings = EngineSettings(tiers=(Tier("students_list"),) + PLAN_TIERS, timing=Timing("fixed", HOUR, HOUR))
     store = _store(4, 3, pool=[_student(sid, "R") for sid in ("R1", "R2", "R3")])
     store.apply(plan(store.snapshot("A"), settings, T0).effects)              # all three invited, 1 spot
     yes_at = T0 + timedelta(minutes=5)
@@ -216,6 +216,21 @@ def test_sorry_invitation_is_reopened_only_from_the_waiting_list():
     again = snap.invitation("R3")
     assert again.sorry_at is None and again.counts_until == reopen + HOUR and counting(again, reopen)
     assert snap.invitation("R1").sorry_at is not None                              # R1 is not a candidate
+
+
+def test_a_sorry_student_on_the_list_is_a_candidate_of_that_lists_tier_only():
+    """engine-planning rule 5.1: a "sorry" holder on the waiting list comes back only through that
+    list's tier. A right-sider who chose their own side is not reopened for a left spot, even though
+    a later "other side" group would admit them."""
+    settings = EngineSettings(tiers=(Tier("students_list"), Tier("pool", "other", 0)), timing=Timing("fixed", HOUR, HOUR))
+    store = _store(4, 3, pool=[_student("W", "R")])
+    store.apply([fx.Invited("A", T0, "W", frozenset({SpotType("R", 3)}), None, 1, T0 + HOUR),
+                 fx.Sorry("A", T0 + HOUR, "W"),
+                 fx.WaitingListJoined("A", T0 + HOUR, "W", "students", sides="own"),
+                 fx.Placed("A", T0 + HOUR, "Z", "R", "direct"),                 # the right side fills
+                 fx.Left("A", T0 + HOUR, "L-1", "regular_no")])                 # a left spot opens
+    effects = plan(store.snapshot("A"), settings, datetime(2026, 11, 2, 18, 0)).effects
+    assert not [e for e in effects if isinstance(e, (fx.Reopened, fx.Invited))]
 
 
 def test_the_adapter_logs_a_reopened_invitation_as_invited():
@@ -403,6 +418,29 @@ def test_an_approved_group_stays_approved_for_the_session():
     assert not [r for r in _requests(late) if r.session == "A" and r.tier == 0]
     assert 0 in [r.tier for r in _requests(first) if r.session == "B"]       # another session asks afresh
     assert store.snapshot("B").approval.approved_groups == frozenset()
+
+
+FOUR = SEMI.with_changes(tiers=(Tier("coach_list"), G0, G1, Tier("pool", "any", None)))   # groups 0-3
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-42")
+def test_two_groups_about_to_start_each_get_their_request():
+    store, engine = _semi(3, 3, [("LA", "L"), ("RX", "R", 1)], FOUR)          # a left and a right spot
+    effects = engine.tick(T0)                                                 # left: group 1; right: group 3
+    requests = {r.tier: r for r in _requests(effects)}
+    assert set(requests) == {1, 3} and _invited(effects) == []
+    approved = engine.handle("A", ApproveGroup(requests[3].request), T0 + timedelta(minutes=1))
+    assert _invited(approved) == ["RX"]                                       # without waiting for group 1
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-43")
+def test_a_dismissed_groups_student_is_reached_from_a_later_group():
+    store, engine = _semi(4, 3, [("S", "R")], FOUR)                           # S: group 1 and "everyone" group 3
+    [r1] = _requests(engine.tick(T0))
+    assert r1.tier == 1
+    reached = engine.handle("A", DismissGroup(r1.request), T0 + timedelta(minutes=1))   # group 2 is empty
+    [r3] = _requests(reached)
+    assert r3.tier == 3 and dict(r3.queues)[SpotType("R", 3)] == ("S",)
 
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-39")

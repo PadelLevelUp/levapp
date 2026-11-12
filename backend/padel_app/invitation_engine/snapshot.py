@@ -102,6 +102,7 @@ class Elsewhere:
     capacity: int
     going: tuple[Placement, ...]
     end: datetime | None = None                       # Lisbon wall-clock; None: start plus DEFAULT_LENGTH
+    same_coach: bool = True                           # that session is this session's coach's
 
 
 @dataclass(frozen=True)
@@ -205,3 +206,11 @@ def overlaps(a_start: datetime, a_end: datetime | None, b_start: datetime, b_end
     """"At the same time" (engine-tiers rule 3, owner decision 11): the two intervals overlap at all;
     one ending exactly when the other starts does not."""
     return a_start < session_end(b_start, b_end) and b_start < session_end(a_start, a_end)
+
+
+def same_time(other: Elsewhere, snapshot: "SessionSnapshot") -> bool:
+    """engine-tiers rule 3's "at the same time": any overlap with the same coach's session, or the same
+    start with any coach's."""
+    if other.same_coach:
+        return overlaps(other.start, other.end, snapshot.start, snapshot.end)
+    return other.start == snapshot.start
