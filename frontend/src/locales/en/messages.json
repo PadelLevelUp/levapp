@@ -161,7 +161,8 @@
       "notCounting": "No answer · no longer counts",
       "withdrawn": "The coach withdrew this invitation.",
       "closedSameHour": "Already in another class at the same time",
-      "reopened": "This invitation was reopened below."
+      "reopened": "This invitation was reopened below.",
+      "classCancelled": "The class was cancelled."
     },
     "engineAlert": {
       "openClass": "Open class"

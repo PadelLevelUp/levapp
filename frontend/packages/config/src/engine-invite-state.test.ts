@@ -47,6 +47,7 @@ describe("PAD-920 the new engine's invitation bubble (notifications.invitations 
       ["reopened", "messages.engineInvite.reopened"],
       ["withdrawn", "messages.engineInvite.withdrawn"],
       ["closed_same_hour", "messages.engineInvite.closedSameHour"],
+      ["class_cancelled", "messages.engineInvite.classCancelled"],
     ];
     for (const [state, key] of closed) {
       for (const viewer of ["student", "coach"] as const) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { EngineInviteMeta, EngineRespondAction } from "@levelup/types";
-import { engineInviteStartMs, engineInviteState, engineInviteTestIds } from "@levelup/config";
+import { engineInviteStartMs, engineInviteState, engineInviteTestIds, joinRefusalOf } from "@levelup/config";
 import { respondToEngineInvitation } from "@/api/notificationEngine";
 
 /**
@@ -46,8 +46,14 @@ export function EngineInviteResponse({ meta, isMine }: { meta: EngineInviteMeta;
     try {
       const result = await respondToEngineInvitation({ invitationId: meta.invitationId, action });
       setAnswered({ forState: meta.state, patch: STATE_AFTER[result.action] ?? {} });
-    } catch {
-      toast.error(t("messages.somethingWentWrong"));
+    } catch (err) {
+      // NB2: a Yes into a class that was cancelled is refused with 409 class_cancelled; the bubble
+      // reads the cancelled line, never a generic error.
+      if (joinRefusalOf(err)?.code === "class_cancelled") {
+        setAnswered({ forState: meta.state, patch: { state: "class_cancelled" } });
+      } else {
+        toast.error(t("messages.somethingWentWrong"));
+      }
     } finally {
       setResponding(false);
     }

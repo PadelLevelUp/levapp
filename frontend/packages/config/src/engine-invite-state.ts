@@ -33,6 +33,7 @@ const CLOSED_LABEL: Partial<Record<EngineInviteStateName, string>> = {
   reopened: "messages.engineInvite.reopened",
   withdrawn: "messages.engineInvite.withdrawn",
   closed_same_hour: "messages.engineInvite.closedSameHour",
+  class_cancelled: "messages.engineInvite.classCancelled",
 };
 
 function answeredLabel(meta: EngineInviteMeta): string | null {
