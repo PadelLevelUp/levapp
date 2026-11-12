@@ -132,7 +132,8 @@ the coach's list).
     `greater_than_or_equal`; `subscription_status` `equals`. As today, a threshold that is not a number
     passes, an unknown attribute passes, and an unknown operation passes except on level, where it
     fails (B-257). A group with no rules ("everyone") admits every pool student
-    for every type. The snapshot's `Student` carries the facts these read, counted on the coach's own
+    for every type. Only a pool tier carries group rules; settings giving rules to a waiting-list tier
+    are refused (`SettingsError`). The snapshot's `Student` carries the facts these read, counted on the coach's own
     classes as today (PAD-382): level, sides, makeups owed, the two absence counts, attendance rate and
     subscription status. The class-anchored level operations (`*_class`: `same_as_class`,
     `equal_or_above_class`, `equal_or_below_class`, `one_below_or_above_class`, `within_n_*`) belong to

@@ -122,7 +122,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
       stage `removed_by_coach`, so no later request lists them (it is not a No: the "said No" gate,
       automatic entry and direct join are unchanged).
     - A run with nothing to send outside the approved queue (the session full, every type covered, the
-      class started) withdraws the pending request, which goes stale.
+      class started) withdraws the pending request, which goes stale. A run in quiet hours plans
+      nothing (rule 1) and keeps the pending request.
     - The coach may instead answer `DismissQueue(session)` (today's "Ignorar"; coordinator's ruling,
       reversible by the owner): the pending request is gone and the session sends nothing
       automatically and raises no request until its spot count changes or the coach reopens it from
@@ -130,7 +131,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
       open spot types with their counts (`planner.spot_types`); a change in either ends the dismissal.
       Either way the engine records `QueueReopened` before the new request. Invitations already sent
       stay open (rule 10).
-    - `ApproveQueue` with no pending request changes nothing. Each approval replaces the approved queue;
+    - `ApproveQueue` or `DismissQueue` with no pending request, and `ReopenQueue` on a session that is
+      not dismissed, change nothing. Each approval replaces the approved queue;
       removed students add up across approvals.
     - Only the planner's sends are held. The re-offer an answer makes at once (a Yes whose offer filled,
       `notifications.engine-answers` rule 3) goes to a student who already holds the invitation and is
@@ -139,7 +141,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
       waiting-list invitations are invitations and are.
     - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
       session, except a dismissed session, which stays dismissed until its spot count changes or the
-      coach reopens it (as today's rule 1a of `notifications.semi-auto-approval` keeps a dismissed spot); switching to `semi_automatic` leaves open invitations as they are (rule 10) and holds the
+      coach reopens it (as today's rule 1a of `notifications.semi-auto-approval` keeps a dismissed spot);
+      the approved queue is emptied, so a later return to semi-automatic asks again; switching to `semi_automatic` leaves open invitations as they are (rule 10) and holds the
       next send outside the (empty) approved queue.
     Nothing is planned before `first_invite_at` (rule 1), so no request is raised before the window.
 
@@ -367,6 +370,22 @@ nothing changed, then nothing is sent; when its spot count changes, then the nex
 automatic session.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissal_survives_a_switch_to_automatic`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-36: Switching to automatic empties the approved queue (rule 14)
+Given a semi-automatic session with an approved queue, when the coach switches to `automatic` and back
+to `semi_automatic`, then the approved queue is empty and the next send outside it raises a request.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_switching_to_automatic_empties_the_approved_queue`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-37: Quiet hours keep a pending request (rule 14)
+Given a pending request, when runs happen during quiet hours, then the request stays pending and is
+neither withdrawn nor replaced.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_quiet_hours_keep_a_pending_request`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-38: A dismissal or reopening out of turn does nothing (rule 14)
+Given a session with no pending request, when the coach answers `DismissQueue`, then nothing changes;
+given a session that is not dismissed, when the coach answers `ReopenQueue`, then nothing changes and no
+`QueueReopened` is recorded.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissal_or_reopening_out_of_turn_does_nothing`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -381,7 +400,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
    `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
-6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-35 — `invitation_engine/effects.py` (`ApprovalRequest`),
+6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 to PLANNING-38 — `invitation_engine/effects.py` (`ApprovalRequest`),
    `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`, `ReopenQueue`), `invitation_engine/planner.py` (the hold, from
    `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
    approved queue and the pending request and sends the request through the outbox, and
