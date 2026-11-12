@@ -56,6 +56,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { MessageBubble } from "@/features/messages/components/message-bubble";
 import { ChatMoreOptionsMenu } from "@/features/messages/components/chat-more-options-menu";
 import {
@@ -1225,8 +1226,13 @@ export default function ConversationScreen() {
         toast.success(t("calendar.joinRequest.rejectedToast", { name: participantName }));
       }
     } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): accepting is an add, refused at an hour
+      // the student is already going elsewhere; say who and where, never the generic line.
+      const busy = accept ? busySameHourToast(err, i18n.language) : null;
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
-      if (accept && refusal?.code === "ineligible") {
+      if (busy) {
+        showBusySameHourToast(busy, t, toast.error);
+      } else if (accept && refusal?.code === "ineligible") {
         setPendingJoinIneligible({ message, ineligible: refusal.ineligible ?? [], sideGone: classJoinRequestsApi.sideGoneOf(refusal) });
       } else {
         toast.error(

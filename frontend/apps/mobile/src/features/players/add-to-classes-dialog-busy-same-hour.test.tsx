@@ -2,18 +2,21 @@
  * PAD-920 (classes.instance-enrollment rule 15), the iOS half: a coach's add that would put the
  * student in two classes at the same hour answers `409 busy_same_hour`. The add-to-classes dialog
  * saves the other classes and lists each refused one with the shared helper's line per clash, never
- * the generic failure toast. The class screen's `finalizeEdit` (app/class/[id].tsx mounts native
- * pieces the unit harness cannot) is checked by reading its source, as class-side-sheet-render does.
+ * the generic failure toast. The class screen's edit (and a coach's join-request accept) reads the
+ * refusal through `busySameHourToast`, unit-tested below: one toast whatever the number of clashes.
  */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CalendarEvent } from "@levelup/types";
 import { renderNative } from "@/test/render-native";
 
+const interpolate = vi.hoisted(
+  () => (key: string, params?: Record<string, unknown>) =>
+    params ? `${key} ${Object.entries(params).map(([k, v]) => `${k}=${String(v)}`).join(" ")}` : key
+);
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: "pt" } }),
+  // Interpolates its params, so a line is checked for the student, the class and the time it names.
+  useTranslation: () => ({ t: interpolate, i18n: { language: "pt" } }),
 }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 vi.mock("@/components/ui/dialog", async () => {
@@ -55,6 +58,7 @@ vi.mock("@levelup/api", () => ({
 }));
 
 import { toast } from "@/components/ui/toast";
+import { busySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { AddToClassesDialog } from "./add-to-classes-dialog";
 
 // The clock is pinned to a Wednesday morning (Date only, so the harness's setTimeout still runs):
@@ -107,14 +111,17 @@ describe("AddToClassesDialog: an add refused at the same hour", () => {
     // Both were tried; the second was saved although the first refused.
     expect(mutateAsync).toHaveBeenCalledTimes(2);
     expect(mutateAsync.mock.calls.map((c) => c[0].event.id)).toEqual(["c1", "c2"]);
-    expect(toast.success).toHaveBeenCalledWith("players.addedToClasses");
+    expect(toast.success).toHaveBeenCalledWith("players.addedToClasses name=Rita count=1");
     // The refused class is listed with the shared helper's line, never the generic toast.
     expect(ui.byTestId("add-to-classes-busy-same-hour")).toBeTruthy();
     expect(ui.byTestId("add-to-classes-busy-same-hour-c1")).toBeTruthy();
     expect(ui.byTestId("add-to-classes-busy-same-hour-line-c1-0")).toBeTruthy();
     expect(ui.queryByTestId("add-to-classes-busy-same-hour-c2")).toBeNull();
     const text = ui.byTestId("add-to-classes-busy-same-hour-line-c1-0").props.children;
-    expect(text).toBe("calendar.busySameHour.line");
+    expect(text).toMatch(/^calendar\.busySameHour\.line /);
+    expect(text).toContain("name=Rita");
+    expect(text).toContain("title=Outra aula");
+    expect(text).toContain("time=19:00");
     expect(toast.error).not.toHaveBeenCalledWith("common.somethingWentWrong");
     // The dialog stays open so the line can be read.
     expect(onClose).not.toHaveBeenCalled();
@@ -132,19 +139,26 @@ describe("AddToClassesDialog: an add refused at the same hour", () => {
   });
 });
 
-describe("the class screen's finalizeEdit", () => {
-  const SCREEN = readFileSync(resolve(__dirname, "../../../app/class/[id].tsx"), "utf8");
-  const body = SCREEN.slice(SCREEN.indexOf("const finalizeEdit = async"), SCREEN.indexOf("const commitEdit = async"));
+describe("busySameHourToast: the class edit's and the join-request accept's one toast", () => {
+  const clash = refusal.response.data.clashes[0];
+  const busy = (clashes: unknown[]) => ({ response: { status: 409, data: { code: "busy_same_hour", clashes } } });
 
-  it("[CLASSES-INSTANCE-ENROLLMENT-33] shows each clash and saves the classes that did not refuse", () => {
-    expect(body.length).toBeGreaterThan(0);
-    // Reads the refusal's body and shows one shared line per clash...
-    expect(body).toContain("busySameHourClashes(err)");
-    expect(body).toMatch(/busySameHourLines\(clashes, i18n\.language\)\) toast\.error\(t\(line\.key, line\.params\)\)/);
-    // ...gives the coach the form back with their draft kept...
-    expect(body).toContain("setIsEditing(true)");
-    expect(body).toContain("if (!keepDraft) setDraft(null)");
-    // ...and keeps the generic toast for any other failure only.
-    expect(body.indexOf('t("calendar.page.updateFailed")')).toBeGreaterThan(body.indexOf("if (clashes)"));
+  it("[CLASSES-INSTANCE-ENROLLMENT-33] the class edit reads the refusal's clashes", () => {
+    // One clash: the title is its line, nothing below it.
+    const one = busySameHourToast(busy([clash]), "pt")!;
+    expect(one.title.key).toBe("calendar.busySameHour.line");
+    expect(one.title.params).toMatchObject({ name: "Rita", title: "Outra aula", time: "19:00" });
+    expect(one.description).toEqual([]);
+
+    // Two clashes: still ONE toast, the second clash in its description.
+    const two = busySameHourToast(busy([clash, { ...clash, playerName: "Rui", title: "Aula C" }]), "pt")!;
+    expect(two.title.params).toMatchObject({ name: "Rita" });
+    expect(two.description).toHaveLength(1);
+    expect(two.description[0].params).toMatchObject({ name: "Rui", title: "Aula C", time: "19:00" });
+
+    // Any other failure is not this refusal: the screen keeps its generic toast.
+    expect(busySameHourToast({ response: { status: 500, data: {} } }, "pt")).toBeNull();
+    expect(busySameHourToast({ response: { status: 409, data: { code: "side_full" } } }, "pt")).toBeNull();
+    expect(busySameHourToast(new Error("network"), "pt")).toBeNull();
   });
 });

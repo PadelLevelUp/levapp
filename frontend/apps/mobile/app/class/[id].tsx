@@ -39,8 +39,7 @@ import {
   hasRecordedAttendance,
   mergeSuggestionBundles,
   suggestionBundles,
-  busySameHourClashes,
-  busySameHourLines,
+  JOIN_REFUSAL_CODES,
   joinRefusalKey,
   joinRefusalOf,
 } from "@levelup/config";
@@ -102,6 +101,7 @@ import { Text } from "@/components/ui/text";
 import { useDateLocale } from "@/lib/date-locale";
 import { TimePickerInput } from "@/components/ui/time-picker-input";
 import { toast } from "@/components/ui/toast";
+import { busySameHourToast, showBusySameHourToast } from "@/features/calendar/busy-same-hour-toast";
 import { ClassEvaluationsAction } from "@/features/evaluations/class-evaluations-action";
 import {
   canCancelAttendance,
@@ -857,11 +857,12 @@ export default function ClassDetailScreen() {
     } catch (err) {
       // PAD-920 (classes.instance-enrollment rule 15): an add at an hour the student is already
       // going elsewhere is refused whole. Say who and where, one line per clash, and give the
-      // coach the form back with their other changes, never the generic failure toast.
-      const clashes = busySameHourClashes(err);
-      if (clashes) {
+      // coach the form back with their other changes, never the generic failure toast. One toast
+      // for every clash (busy-same-hour-toast.ts): the store shows only 3 at a time.
+      const busy = busySameHourToast(err, i18n.language);
+      if (busy) {
         keepDraft = true;
-        for (const line of busySameHourLines(clashes, i18n.language)) toast.error(t(line.key, line.params));
+        showBusySameHourToast(busy, t, toast.error);
         setIsEditing(true);
       } else {
         toast.error(
@@ -1071,7 +1072,9 @@ export default function ClassDetailScreen() {
     // line (a code this build does not know reads the generic one, never a raw key).
     const refusal = joinRefusalOf(err);
     if (mode === "waiting") {
-      toast.error(refusal ? t(joinRefusalKey(refusal.code)) : t("calendar.waitingList.failed"));
+      // A code this build does not know reads the waiting list's own generic line.
+      const known = refusal && (JOIN_REFUSAL_CODES as readonly string[]).includes(refusal.code);
+      toast.error(known ? t(joinRefusalKey(refusal.code)) : t("calendar.waitingList.failed"));
       return;
     }
     toast.error(t(joinRefusalKey(refusal?.code)));
@@ -1101,6 +1104,13 @@ export default function ClassDetailScreen() {
         })
       );
     } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): accepting is an add, refused at an hour
+      // the student is already going elsewhere; say who and where, never the generic line.
+      const busy = accept ? busySameHourToast(err, i18n.language) : null;
+      if (busy) {
+        showBusySameHourToast(busy, t, toast.error);
+        return;
+      }
       const refusal = classJoinRequestsApi.joinRequestRefusal(err);
       if (refusal?.code === "ineligible") {
         setJoinBusy(false);

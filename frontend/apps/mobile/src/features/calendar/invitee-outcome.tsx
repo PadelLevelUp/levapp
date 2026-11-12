@@ -23,9 +23,6 @@ export const inviteeBadgeVariant = (outcome: ClassInvitation["outcome"]) => {
   return tone === "muted" ? "secondary" : tone;
 };
 
-/** PAD-920 (ND1): a new-engine invitee carries the `tierSource` key; an old-engine one never does. */
-export const isNewEngineInvitee = (inv: ClassInvitation) => "tierSource" in inv;
-
 /** One outcome word, decided by the server, its notes, and (new engine) where the invitation came from. */
 export function InviteeOutcome({ inv }: { inv: ClassInvitation }) {
   const { t } = useTranslation();
