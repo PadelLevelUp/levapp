@@ -210,8 +210,22 @@ def test_fill_never_held_off_invites_only_for_freed_spots():
     assert len(_invited_types(on.tick(t0))) == 3
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-24")
 def test_fill_never_held_off_limits_direct_join_and_automatic_entry():
-    """engine-settings rule 11: direct join and automatic entry fill freed spots only."""
+    """engine-settings rule 11: direct join and automatic entry fill freed spots only. A {L, R}
+    regular frees an either spot; each going non-regular takes back one, its own side first."""
+    from padel_app.invitation_engine.planner import freed_spots
+    from padel_app.invitation_engine.snapshot import Placement
+
+    regs = [Student(f"L-{i}", 3, frozenset({"L"})) for i in (1, 2, 3)] + \
+        [Student("R-1", 3, frozenset({"R"})), Student("R-2", 3, frozenset({"R"})), Student("B-1", 3, frozenset({"L", "R"}))]
+    at = datetime(2026, 11, 1, 18, 0)
+    going = tuple(Placement(st.id, next(iter(st.sides)), "regular", at) for st in regs[:4]) + \
+        (Placement("ACC", "R", "invitation", at),)                              # R-2 and B-1 absent, a right acceptor
+    snap = SessionSnapshot("A", 3, 8, datetime(2026, 11, 3, 10, 30), regulars=tuple(regs), going=going,
+                           absent=frozenset({"R-2", "B-1"}))
+    assert freed_spots(snap) == ({"L": 0, "R": 0}, 1)                            # exactly one either spot
+
     t = datetime(2026, 11, 1, 18, 40)
     store, engine = _freed_session(fill_never_held=False, direct_join=True)
     [refused] = engine.handle("A", rq.DirectJoin("PL1"), t)                      # the left spots were never held

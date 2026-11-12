@@ -246,6 +246,7 @@ def test_joining_the_other_list_is_refused_already_waiting():
         (Refused("S", NOW, "W", "waiting_list", "already_on_list"),)
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-23")
 def test_joins_are_refused_with_a_code():
     """classes.join-requests NJ1 (#960): a refused join carries a code the route answers as 409, never
     text; direct join being off is no refusal (the app's request waits for the coach)."""
