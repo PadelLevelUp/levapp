@@ -316,6 +316,7 @@ def test_levels_reach_the_engine_as_ladder_positions(app):
     assert (s.students[x].subscription_status, s.students[y].subscription_status) == ("active", "inactive")
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-4")
 def test_the_coachs_approval_round_trips_through_the_store(app):
     """Owner ruling D2: the store keeps one session's approval state as the engine's effects leave it.
     A request sets the pending queues and ends a dismissal; an approval replaces ``approved``, adds to
