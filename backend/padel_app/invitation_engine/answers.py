@@ -183,13 +183,19 @@ def _placed(snapshot: SessionSnapshot, sid: str, side: Side, how, now: datetime,
     return tuple(out)
 
 
-def open_sides(snapshot: SessionSnapshot) -> frozenset[Side]:
+def open_sides(snapshot: SessionSnapshot, settings: EngineSettings | None = None) -> frozenset[Side]:
     """The sides a student can be placed on now: room in the class and in the side's quota
-    (engine-planning rule 4). Placing on such a side keeps every ``must(w)`` coverable."""
+    (engine-planning rule 4). Placing on such a side keeps every ``must(w)`` coverable. With
+    ``settings`` whose ``fill_never_held`` is off, only a side with a freed spot, or any side while an
+    either-side one is freed (engine-settings rule 11)."""
     counts = planner.spot_counts(snapshot)
     if counts.class_empty <= 0:
         return frozenset()
-    return frozenset(v for v in SIDES if counts.open[v] > 0)
+    sides = frozenset(v for v in SIDES if counts.open[v] > 0)
+    if settings is None or settings.fill_never_held:
+        return sides
+    freed, either = planner.freed_spots(snapshot)
+    return frozenset(v for v in sides if freed[v] > 0 or either > 0)
 
 
 def _place_side(snapshot: SessionSnapshot, settings: EngineSettings, sid: str, offer: frozenset[SpotType],
@@ -285,7 +291,7 @@ def _direct_join(snapshot: SessionSnapshot, settings: EngineSettings, request: D
     visible = any(st.id == sid for st in snapshot.pool)
     if student is None or not visible or not planner._eligible(student, snapshot, settings):
         return (Refused(snapshot.id, now, sid, "direct_join", "ineligible"),)
-    sides = open_sides(snapshot) & (frozenset({request.side}) if request.side else student.sides)
+    sides = open_sides(snapshot, settings) & (frozenset({request.side}) if request.side else student.sides)
     if not sides:
-        return (Refused(snapshot.id, now, sid, "direct_join", "side_full", open_sides(snapshot)),)
+        return (Refused(snapshot.id, now, sid, "direct_join", "side_full", open_sides(snapshot, settings)),)
     return _placed(snapshot, sid, _hardest(snapshot, settings, sid, sides, now), "direct", now, answered=False)
