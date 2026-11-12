@@ -35,6 +35,9 @@ class Student:
     unjustified_absences: int = 0
     justified_absences: int = 0
     active: bool = True
+    # The account's subscription status (``User.status``), read by a group's ``subscription_status``
+    # rule (engine-tiers rule 13).
+    subscription_status: str | None = None
 
     def __post_init__(self) -> None:
         if not self.sides or not self.sides <= set(SIDES):

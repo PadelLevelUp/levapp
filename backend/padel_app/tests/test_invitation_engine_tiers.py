@@ -3,6 +3,7 @@
 Each test is one acceptance criterion of specflow/impl/notifications/engine-tiers.spec.md.
 """
 from dataclasses import replace
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 
 import pytest
@@ -10,7 +11,7 @@ import pytest
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine.planner import evaluate, plan, spot_counts, tier_for, with_postponed
-from padel_app.invitation_engine.settings import Eligibility, Tier
+from padel_app.invitation_engine.settings import Eligibility, GroupRule, Tier
 from padel_app.invitation_engine.snapshot import Elsewhere, Invitation, Placement, SessionSnapshot, SpotType, Student
 
 T0 = datetime(2026, 11, 1, 19, 0)            # naive UTC, the base profile's first invitation
@@ -105,6 +106,7 @@ def test_only_a_counting_offer_elsewhere_postpones():
     assert postponed(offer, left_only) == frozenset()                               # the offer counts for no type
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-17")
 def test_the_stores_postponed_students_stay_postponed():
     """with_postponed adds the students it finds to the ones the store's snapshot already postponed,
     instead of replacing them; a student busy at the same time is still not postponed."""
@@ -268,3 +270,109 @@ def test_dry_run_verdicts_follow_the_offer_per_type():
     assert stages[("PB", "L")] == stages[("PB", "R")] == "invited"                     # offered both sides
     assert (stages[("PL", "R")], stages[("PL", "L")]) == ("invited", "invited_for_other_type")
     assert run.queues[SpotType("L", 3)] == ("PB", "PR") and run.queues[SpotType("R", 3)] == ("PB", "PL", "PR")
+
+
+# --- engine-tiers rule 13 (owner ruling D5): a tier carries its stored group's rules --------------------
+
+WIDE = Eligibility(levels_above=4, levels_below=4)       # the level gate out of the way: rule 13 alone
+
+
+def _group_tiers(store, session, *tiers):
+    snap = store.snapshot(session)
+    return snap, spot_counts(snap), EngineSettings(tiers=tiers, eligibility=WIDE)
+
+
+#: (rule, students who pass, students who fail); every student plays right, level 3 unless named.
+GROUP_CASES = [
+    (GroupRule("level", "same_as_vacancy"), [{}], [{"level": 2}, {"level": None}]),
+    (GroupRule("level", "one_above_vacancy"), [{"level": 2}], [{"level": 1}, {}]),
+    (GroupRule("level", "one_below_vacancy"), [{"level": 4}], [{"level": 5}, {}]),
+    (GroupRule("level", "all_above_vacancy"), [{"level": 1}, {"level": 2}], [{}, {"level": 4}]),
+    (GroupRule("level", "all_below_vacancy"), [{"level": 4}, {"level": 5}], [{}, {"level": 2}]),
+    (GroupRule("level", "sideways"), [], [{}]),                          # an unknown level operation fails (B-257)
+    (GroupRule("side", "same_as_vacancy"), [{}, {"sides": "both"}], [{"sides": "L"}]),
+    (GroupRule("has_makeups", "is_true"), [{"makeups_owed": 1}], [{}]),
+    (GroupRule("unjustified_absences", "less_than", 2), [{"unjustified_absences": 1}], [{"unjustified_absences": 2}]),
+    (GroupRule("unjustified_absences", "less_than_or_equal", "2"), [{"unjustified_absences": 2}],
+     [{"unjustified_absences": 3}]),
+    (GroupRule("unjustified_absences", "equals", 0), [{}], [{"unjustified_absences": 1}]),
+    (GroupRule("justified_absences", "greater_than", 1), [{"justified_absences": 2}], [{"justified_absences": 1}]),
+    (GroupRule("justified_absences", "greater_than_or_equal", 1), [{"justified_absences": 1}], [{}]),
+    (GroupRule("attendance_rate", "greater_than_or_equal", 80), [{"attendance_rate": 0.8}],
+     [{"attendance_rate": 0.75}]),
+    (GroupRule("subscription_status", "equals", "active"), [{"subscription_status": "active"}],
+     [{"subscription_status": "inactive"}, {}]),
+    (GroupRule("unjustified_absences", "less_than", "many"), [{"unjustified_absences": 9}], []),  # not a number
+    (GroupRule("unjustified_absences", "between", 2), [{"unjustified_absences": 9}], []),         # unknown operation
+    (GroupRule("favourite_colour", "equals", "red"), [{}], []),                                  # unknown attribute
+]
+
+
+def _todays_verdict(monkeypatch, rule, facts):
+    """``_group_rule_failures`` for one rule and one student, on a five-level ladder with the vacancy
+    (a right spot) at level 3, its database reads replaced by the student's facts."""
+    from padel_app.services import notification_service as today
+
+    ladder = [SimpleNamespace(id=100 + i, code=f"N{i}") for i in range(1, 6)]
+    level = facts.get("level", 3)
+    pid = 1
+    monkeypatch.setattr(today, "_attendance_counts_for",
+                        lambda ids, coach_id: {pid: (10, 0, facts.get("justified_absences", 0))})
+    monkeypatch.setattr(today, "_attendance_stats", lambda player_id, coach_id: (facts.get("attendance_rate", 0.0), 0))
+    roster = SimpleNamespace(ladder=lambda: ladder,
+                             makeups_owed=lambda player_id: facts.get("makeups_owed", 0),
+                             unjustified_absences=lambda player_id: facts.get("unjustified_absences", 0))
+    side = {"R": "right", "L": "left", "both": "both"}[facts.get("sides", "R")]
+    cp = SimpleNamespace(player_id=pid, level=None if level is None else ladder[level - 1],
+                         level_id=None if level is None else 100 + level, side=side,
+                         player=SimpleNamespace(user=SimpleNamespace(status=facts.get("subscription_status"))))
+    vacancy = SimpleNamespace(level_id=103, level=ladder[2], side="right")
+    stored = {"attribute": rule.attribute, "operation": rule.operation, "value": rule.value}
+    return not today._group_rule_failures([stored], cp, vacancy, 1, facts=roster)
+
+
+def _engine_verdict(rule, facts):
+    """Whether the engine puts the student in the one tier carrying ``rule``, for the right spot."""
+    facts = dict(facts)
+    sides = facts.pop("sides", "R")
+    student = replace(_student("S", sides, level=facts.pop("level", 3)), **facts)
+    store = MemoryStore()
+    store.add_student(student)
+    store.add_session("A", 3, 8, START, _regulars(4, 3), T0)                 # one right spot
+    snap, counts, settings = _group_tiers(store, "A", Tier("pool", "any", None, rules=(rule,)))
+    return tier_for(student, SpotType("R", 3), counts, snap, settings) == 0
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-14")
+def test_group_rules_give_todays_verdict_for_every_rule_kind(monkeypatch):
+    for rule, passing, failing in GROUP_CASES:
+        for facts, expected in [(f, True) for f in passing] + [(f, False) for f in failing]:
+            today = _todays_verdict(monkeypatch, rule, facts)
+            assert (rule, facts, _engine_verdict(rule, facts)) == (rule, facts, today)
+            assert (rule, facts, today) == (rule, facts, expected)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-15")
+def test_a_group_with_no_rules_admits_every_pool_student():
+    store = MemoryStore()
+    far = _student("FAR", "L", level=5)                                      # two levels off a level-3 class
+    store.add_student(far)
+    store.add_session("A", 3, 8, START, _regulars(3, 3), T0)                 # a left and a right spot
+    level, side = GroupRule("level", "same_as_vacancy"), GroupRule("side", "same_as_vacancy")
+    snap, counts, settings = _group_tiers(store, "A", Tier("pool", "any", None, rules=(level, side)),
+                                          Tier("pool", "any", None, rules=(level,)), Tier("pool", "any", None))
+    assert [tier_for(far, SpotType(s, 3), counts, snap, settings) for s in ("L", "R")] == [2, 2]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIERS-16")
+def test_level_ranges_admit_every_level_on_their_side_of_the_class():
+    store = MemoryStore()
+    students = {name: _student(name, "R", level=level)
+                for name, level in (("ONE", 1), ("TWO", 2), ("THREE", 3), ("FOUR", 4), ("NONE", None))}
+    for student in students.values():
+        store.add_student(student)
+    store.add_session("A", 3, 8, START, _regulars(4, 3), T0)                 # one right spot, class level 3
+    snap, counts, settings = _group_tiers(store, "A",
+                                          Tier("pool", "any", None, rules=(GroupRule("level", "all_above_vacancy"),)))
+    admitted = {name for name, s in students.items() if tier_for(s, SpotType("R", 3), counts, snap, settings) == 0}
+    assert admitted == {"ONE", "TWO"}
