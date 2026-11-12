@@ -407,7 +407,12 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     engine is deleted (swap plan §8 step 9). The cutover (PAD-921):
     - **Drained** is computed, never stored: a coach is drained when every not-started, non-cancelled
       occurrence of theirs has an engine session row and no old vacancy of theirs is open.
-      `flask engine status` shows it per coach.
+      `flask engine drain-state <coach>` reports the coach's engine, the old-engine sessions left and
+      the last one's start.
+    - **The old engine never acts on a new-engine session** (one with an engine session row): its tick
+      (`process_invitation_batches` and its helpers) and its jobs skip it at every entry.
+    - **A switched coach's calendar reads engines in one batch:** the store answers "which of these
+      occurrences are new-engine" for many ids in one query, not one lookup per class.
     - **No old jobs for a new-engine session.** No old-engine job is armed for a new-engine session,
       before or after the coach is drained: `invite_start_*`, `decline_next_*`, `approval_now_*` and the
       old reminder jobs (`reminder_*`, `reminder_lesson_*`, `ask_*`, `past_due_*`), since the engine sends
@@ -1014,8 +1019,8 @@ test: `frontend/packages/config/src/waiting-list-side-choice.test.ts` › `after
 
 #### NOTIFICATIONS-CONFIG-77: A coach is drained when no future occurrence of theirs is old-engine (rule 18)
 Given a switched coach with one future occurrence still on the old engine and an open old vacancy, then
-`flask engine status` shows them not drained; when that occurrence starts and the vacancy closes, then
-drained; nothing about it is stored.
+`flask engine drain-state <coach>` reports engine `new`, one old-engine session left and its start; when
+that occurrence starts and the vacancy closes, then none left (drained); nothing about it is stored.
 test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_a_coach_is_drained_when_no_future_occurrence_is_old_engine`
 
 #### NOTIFICATIONS-CONFIG-78: No old-engine job is armed for a new-engine session (rule 18)
@@ -1034,6 +1039,18 @@ Given a switched coach's weekly class with invitations starting 2 days before, w
 days and then 2 days before an occurrence, then it is not yet materialised at 3 days, and at 2 days it is
 materialised and adopted (an engine session row), with no `invite_start_lesson_*` job armed.
 test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_the_tick_materialises_a_switched_coachs_recurring_occurrences`
+
+#### NOTIFICATIONS-CONFIG-81: The old engine's tick and jobs never act on a new-engine session (rule 18)
+Given an open old-engine vacancy on an occurrence that has an engine session row (left over from before the
+switch), when `process_invitation_batches` runs and an old start, decline or approval job fires for it,
+then nothing is sent, opened or closed for that occurrence, while an old-engine occurrence is processed as
+today.
+test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_the_old_engine_never_acts_on_a_new_engine_session`
+
+#### NOTIFICATIONS-CONFIG-82: A switched coach's calendar reads the engines of its classes in one query (rule 18)
+Given a switched coach whose calendar week holds 20 occurrences, when the calendar is read, then the store's
+engine lookup for them is one query, whatever the number of classes.
+test: `backend/padel_app/tests/test_pad921_cutover.py` › `test_the_calendar_reads_engines_in_one_query`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
