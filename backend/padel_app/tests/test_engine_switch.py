@@ -216,7 +216,7 @@ def _second_coach(engine_version, switched_at=None):
     return coach.id
 
 
-@pytest.mark.criterion("NOTIFICATIONS-CONFIG-51")
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-66")
 def test_a_co_coached_class_follows_its_primary_coach(app):
     """The old engine runs a class on its primary coach (the first assigned); the switch reads the same
     coach, so a class whose primary coach is on old never reaches the new engine, whatever the others."""
@@ -259,23 +259,43 @@ def test_an_absence_on_a_new_engine_session_opens_no_old_vacancy(app):
     assert process_invitation_batches(now=LATER - timedelta(hours=12)) == 0
 
 
-@pytest.mark.criterion("NOTIFICATIONS-CONFIG-61")
-def test_an_old_vacancy_that_never_invited_does_not_hold_the_session(app):
-    """A vacancy an early absence opened before the window, which sent nothing, is not "started": the
-    switch adopts the session and closes that vacancy so the old tick cannot start it."""
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-67")
+def test_a_pending_approval_counts_as_started_and_adoption_closes_unstarted_vacancies(app):
+    """Two sessions whose windows have not opened, each with an old vacancy from an early absence that
+    sent nothing: the one whose vacancy awaits the coach's semi-automatic approval drains on old; the
+    other is adopted, its unstarted vacancy closed so the old tick cannot start it."""
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.engine_switch import engine_for, switch_coach
     from padel_app.services.notification_service import _ensure_vacancy_for_player
 
-    store, coach_id, _, not_opened = _classes(app)
-    inst = _instance(not_opened)
-    _ensure_vacancy_for_player(inst, coach_id, inst.presences[0].player_id)
+    store, coach_id, (pending, unstarted), _ = _three_unopened(app)
+    for session in (pending, unstarted):
+        inst = _instance(session)
+        _ensure_vacancy_for_player(inst, coach_id, inst.presences[0].player_id)
+    Vacancy.query.filter_by(lesson_instance_id=int(pending)).one().approval_status = "pending"
     db.session.commit()
-    assert Vacancy.query.filter_by(lesson_instance_id=inst.id, status="open").count() == 1
 
     switch_coach(coach_id, now=NOW)
-    assert engine_for(inst) == "new"
-    assert Vacancy.query.filter_by(lesson_instance_id=inst.id, status="open").count() == 0
+    assert (engine_for(_instance(pending)), engine_for(_instance(unstarted))) == ("old", "new")
+    assert Vacancy.query.filter_by(lesson_instance_id=int(pending), status="open").count() == 1
+    assert Vacancy.query.filter_by(lesson_instance_id=int(unstarted), status="open").count() == 0
+
+
+def _three_unopened(app):
+    """Like ``_classes``, with two sessions whose windows have not opened (and one that has)."""
+    from padel_app.models import EngineSession
+    from padel_app.models.notification_config import NotificationConfig
+
+    store, (opened, a, b), _ = _seed(app, starts=(START, LATER, LATER + timedelta(days=1)))
+    coach_id = store.coach_of(opened)
+    EngineSession.query.delete()
+    for session in (opened, a, b):
+        _instance(session).created_at = NOW - timedelta(days=1)
+    config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=True)
+    config.invitation_start_timing = {"type": "hours_before", "value": 24}
+    db.session.add(config)
+    db.session.commit()
+    return store, coach_id, (a, b), opened
 
 
 @pytest.mark.criterion("NOTIFICATIONS-CONFIG-63")
