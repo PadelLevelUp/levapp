@@ -6,6 +6,7 @@
  * `engine_alert` message's class link goes.
  */
 import type { EngineInviteStateName, EngineRespondAction } from "@levelup/types";
+import { joinRefusalOf } from "@levelup/config";
 import { nativeRouteForWebPath } from "@/features/dashboard/routes";
 
 /** What the cached message's metadata takes after an answer; null writes nothing. */
@@ -33,6 +34,15 @@ export function engineAnswerPatch(action: EngineRespondAction | string | undefin
     default:
       return null;
   }
+}
+
+/**
+ * NB2 (NOTIFICATIONS-INVITATIONS-127): an answer the route refuses because the class was cancelled
+ * (409 `class_cancelled`) writes the cancelled state, so the bubble reads the same line as the live
+ * one, never a generic error. Any other failure writes nothing (the caller shows its error).
+ */
+export function engineRefusalPatch(err: unknown): EngineAnswerPatch {
+  return joinRefusalOf(err)?.code === "class_cancelled" ? { state: "class_cancelled" } : null;
 }
 
 /**

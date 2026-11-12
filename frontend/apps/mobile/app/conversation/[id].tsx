@@ -67,7 +67,7 @@ import { ReportMessageDialog } from "@/features/messages/components/report-messa
 import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
-import { applyEngineAnswer, engineAnswerPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
+import { applyEngineAnswer, engineAnswerPatch, engineRefusalPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
 import {
   anchorReducer,
   initialAnchorState,
@@ -968,8 +968,14 @@ export default function ConversationScreen() {
           // Only a bubble still in the state it was tapped in takes the answer (as web does).
           updateMessageInCache(queryClient, conversationId, message.id, (m) => applyEngineAnswer(m, tappedState, patch));
         }
-      } catch {
-        toast.error(t("messages.somethingWentWrong"));
+      } catch (err) {
+        // NB2: a Yes into a cancelled class is refused 409 class_cancelled; the bubble reads it.
+        const refused = engineRefusalPatch(err);
+        if (refused) {
+          updateMessageInCache(queryClient, conversationId, message.id, (m) => applyEngineAnswer(m, tappedState, refused));
+        } else {
+          toast.error(t("messages.somethingWentWrong"));
+        }
       } finally {
         setRespondingInviteId(null);
       }

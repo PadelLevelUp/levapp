@@ -40,6 +40,7 @@ vi.mock("react-native-reanimated", async () => {
 vi.mock("@/features/notifications/replacement-approval-card", () => ({ ReplacementApprovalCard: () => null }));
 
 import { MessageBubble } from "./message-bubble";
+import { applyEngineAnswer, engineRefusalPatch } from "../engine-message";
 
 const NOW = new Date("2026-11-12T10:00:00Z");
 const LATER = "2026-11-12T18:00:00Z"; // the class starts after NOW
@@ -163,6 +164,24 @@ describe("the iOS new-engine invitation bubble (PAD-920)", () => {
     const oldAnswered = await mount(invite(15, { notificationEventId: 78, responded: true, response: "yes" }), false);
     expect(texts(oldAnswered.byTestId("invite-accepted"))).toEqual(["messages.accepted"]);
     oldAnswered.root.unmount();
+  });
+
+  it("[NOTIFICATIONS-INVITATIONS-127] reads class cancelled and a refused answer", async () => {
+    // The live state (the class was removed or cancelled): no buttons, the cancelled line, both copies.
+    await expectState(invite(30, engine(41, { state: "class_cancelled" })), false, 41, "class_cancelled", "messages.engineInvite.classCancelled", false);
+    await expectState(invite(31, engine(41, { state: "class_cancelled" })), true, 41, "class_cancelled", "messages.engineInvite.classCancelled", false);
+
+    // A Yes the route refuses with 409 class_cancelled writes that state on the open bubble it was
+    // tapped on, so the bubble reads the same line; any other failure writes nothing (the screen's
+    // generic error shows).
+    const refused = engineRefusalPatch({ response: { status: 409, data: { code: "class_cancelled" } } });
+    expect(refused).toEqual({ state: "class_cancelled" });
+    expect(engineRefusalPatch({ response: { status: 409, data: { code: "busy_same_hour" } } })).toBeNull();
+    expect(engineRefusalPatch({ response: { status: 500 } })).toBeNull();
+    expect(engineRefusalPatch(new Error("network"))).toBeNull();
+    const tapped = invite(32, engine(42, { state: "open" }));
+    const after = applyEngineAnswer(tapped, "open", refused);
+    await expectState(after, false, 42, "class_cancelled", "messages.engineInvite.classCancelled", false);
   });
 
   it("[NOTIFICATIONS-INVITATIONS-117] an open bubble left on screen turns started at the class's start (NB1)", async () => {
