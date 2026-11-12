@@ -109,3 +109,28 @@ def test_a_yes_to_the_sorrys_offer_joins_the_students_list(app, monkeypatch):
             "action": "added_to_waiting_list", "alreadyWaiting": True}
         assert WaitingListEntry.query.filter_by(lesson_instance_id=int(session), player_id=int(listed)).count() == 1
         assert joined[listed][0] == "coach"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-INVITATIONS-124")
+def test_the_serializer_sends_counts_until_to_the_coach_only(app):
+    from padel_app.models.coaches import Coach
+    from padel_app.serializers.conversation import serialize_conversation_detail
+    from padel_app.serializers.message import serialize_message
+    from padel_app.services.notification_service import _send_system_message
+
+    with app.app_context():
+        store, (session,), (_, student, _) = _seed(app)
+        coach_user = db.session.get(Coach, store.coach_of(session)).user_id
+        meta = {"engine": "new", "invitationId": 1, "lessonInstanceId": int(session), "kind": "invite",
+                "state": "open", "countsUntil": "2026-11-01T18:20:00"}
+        msg = _send_system_message(coach_user, _user(student), "Join?", message_type="notification_invite",
+                                   msg_metadata=meta, push=False)
+
+        def counts_until(viewer):
+            body = serialize_conversation_detail(msg.conversation, viewer)
+            return [m["metadata"].get("countsUntil") for m in body["messages"] if m["id"] == msg.id][0]
+
+        assert counts_until(coach_user) == "2026-11-01T18:20:00"
+        assert counts_until(_user(student)) is None
+        assert "countsUntil" not in serialize_message(msg, None)["metadata"]       # no viewer: never leaks
+        assert serialize_message(msg, None, viewer_id=coach_user)["metadata"]["countsUntil"]

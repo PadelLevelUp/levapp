@@ -200,7 +200,7 @@ def serialize_conversation_detail(
             is_known_contact(viewer, conversation) if viewer else True
         ),
         "messages": [
-            serialize_message(m, last_read_at, class_deleted=m.id in deleted)
+            serialize_message(m, last_read_at, class_deleted=m.id in deleted, viewer_id=user_id)
             for m in messages
         ],
         "hasMore": has_more,
