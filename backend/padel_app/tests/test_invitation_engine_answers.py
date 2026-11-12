@@ -164,6 +164,7 @@ def test_a_late_yes_into_a_full_session_gets_sorry_and_stops_counting():
 
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
 def test_joining_the_other_list_is_refused_already_waiting():
     """One entry per student per session (PAD-916): either way round the join is refused, "already
     waiting", and a join to the list they are on changes nothing."""

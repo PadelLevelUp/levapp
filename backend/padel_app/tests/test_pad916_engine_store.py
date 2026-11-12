@@ -101,6 +101,7 @@ def test_snapshot_reads_what_apply_wrote(app):
     assert s.absent == {reg} and reg not in {p.student for p in s.going} and reg in {r.id for r in s.regulars}
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-1")
 def test_an_effect_applied_twice_is_written_once(app):
     from padel_app.models import EngineEffect, EngineInvitation
 
@@ -114,6 +115,7 @@ def test_an_effect_applied_twice_is_written_once(app):
     assert EngineEffect.query.count() == 2
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-2")
 def test_the_outbox_sends_each_message_once(app):
     from padel_app.services.engine_store import dispatch
 
@@ -127,6 +129,7 @@ def test_the_outbox_sends_each_message_once(app):
     assert sorted(sent) == sorted([("Invited", int(x)), ("Invited", int(y)), ("Message", int(x))])
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-32")
 def test_a_second_invitation_for_one_student_is_refused(app):
     from padel_app.services.engine_store import StoreConflict
 
@@ -137,6 +140,7 @@ def test_a_second_invitation_for_one_student_is_refused(app):
         store.apply([_invited(a, x, NOW + timedelta(minutes=5))])
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-22")
 def test_a_placement_at_an_hour_the_student_is_going_elsewhere_rolls_back(app):
     from padel_app.models.presences import Presence
     from padel_app.services.engine_store import SameHourConflict
@@ -164,7 +168,8 @@ def test_both_waiting_lists_at_once_is_a_named_conflict(app):
 
 
 
-def test_a_no_is_the_students_cancellation_and_the_coach_judges_the_absence(app):
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-20")
+def test_a_no_is_the_students_answer_and_its_lateness_is_the_notice(app):
     """Owner ruling D4: the store writes the student's No as ``cancelled`` at the effect's time, so the
     app's ``presence_late_cancellation`` agrees with the engine's notice when the two cutoffs agree; it
     never writes ``justification``. A no-show and an automatic entrant's No record no response."""
@@ -189,3 +194,76 @@ def test_a_no_is_the_students_cancellation_and_the_coach_judges_the_absence(app)
             for s in (reg, x, auto, gone)] == [
         ("cancelled", False), ("cancelled", True), ("none", False), ("none", False)]
     assert {p.justification for p in rows.values()} == {None}
+
+
+@pytest.mark.criterion("CLASSES-INSTANCE-ENROLLMENT-28")
+def test_a_new_engine_enrolment_writes_only_the_presence(app, monkeypatch):
+    """classes.instance-enrollment rule 14: ``enrol(..., new_engine=True)`` writes the presence (a
+    returning student's absence cleared) and nothing else: no vacancy closed or reconciled, no
+    reminder pass armed, no ``added_to_class`` message, even from the coach's own hand. The same
+    calls without ``new_engine`` do all three, so the spies can see them."""
+    from padel_app import scheduler
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
+    from padel_app.services import lesson_service as ls
+    from padel_app.services import notification_service as ns
+
+    calls = []
+    monkeypatch.setattr(scheduler, "arm_ask_for_student", lambda *a, **k: calls.append("armed"))
+    monkeypatch.setattr(ns, "reconcile_vacancies", lambda *a, **k: calls.append("reconciled"))
+    monkeypatch.setattr(ns, "_open_vacancy_for", lambda *a, **k: calls.append("own vacancy") or None)
+    monkeypatch.setattr(ns, "notify_student_added_to_class", lambda *a, **k: calls.append("added_to_class"))
+
+    store, (a,), (reg, x, y) = _seed(app)
+    inst = db.session.get(LessonInstance, int(a))
+    regular = Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(reg)).one()
+    regular.status, regular.justification = "absent", "justified"
+    db.session.commit()
+
+    ls.enrol(int(x), inst, "coach", new_engine=True)
+    ls.enrol(int(reg), inst, "coach", new_engine=True)                    # a return (rule 10)
+    db.session.commit()
+    assert calls == []
+    rows = {str(p.player_id): p for p in Presence.query.filter_by(lesson_instance_id=int(a)).all()}
+    assert (rows[reg].status, rows[reg].justification, rows[reg].response) == (None, None, "none")
+    assert x in rows
+
+    ls.enrol(int(y), inst, "coach")                                       # the old engine's enrolment
+    db.session.commit()
+    assert {"armed", "reconciled", "added_to_class"} <= set(calls)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-53")
+def test_app_gates_build_the_pool(app):
+    """A student below the class's eligibility bar, one in ``excludedPlayers`` and one with another
+    class that day under ``noSameDayClass`` are not in ``pool``; one already holding the coach's
+    ``maxInvitesPerStudentPerDay`` invitations today is in ``postponed`` (notifications.config rule 19;
+    the engine's own bar, wide open, is CONFIG-60, PAD-917)."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.notification_config import NotificationConfig
+
+    store, (a, b), (_, capped, excluded, same_day, ineligible, free) = _seed(
+        app, starts=(START, START + timedelta(hours=2)), players=6)
+    coach_id = store.coach_of(a)
+    Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=int(ineligible)).one().level_id = None
+    config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=True,
+                                eligibility_rules=[{"attribute": "level", "operation": "within_n_above_class",
+                                                    "value": 0}])
+    config.restrictions = {"excludedPlayers": {"enabled": True, "playerIds": [excluded]},
+                           "noSameDayClass": {"enabled": True},
+                           "maxInvitesPerStudentPerDay": {"enabled": True, "value": 1}}
+    db.session.add(config)
+    db.session.commit()
+    with store.unit((b,)):
+        store.apply([fx.Placed(b, NOW, same_day, "L", "invitation"), _invited(b, capped)])
+
+    s = store.snapshot(a)
+    assert {st.id for st in s.pool} == {capped, free}
+    assert s.postponed == {capped}
+
+    config.restrictions = {"noSameDayClass": {"enabled": False}}       # every gate off
+    config.eligibility_rules = None
+    db.session.commit()
+    s = store.snapshot(a)
+    assert {st.id for st in s.pool} == {capped, excluded, same_day, ineligible, free}
+    assert s.postponed == frozenset()
