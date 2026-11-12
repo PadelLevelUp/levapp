@@ -3177,7 +3177,8 @@ def send_class_reminders(instance_id: int, *, now: datetime | None = None, sched
     """PAD-407: one pass at a time per occurrence (see `_reminder_pass_lock`). A
     ``scheduled`` pass (the scheduler's runners) also skips a student reminded less than
     ``hoursBetweenReminders`` ago, so duplicate retry chains already persisted in
-    ``apscheduler_jobs`` send once. The coach's manual send keeps its old behaviour."""
+    ``apscheduler_jobs`` send once. The coach's manual send keeps its old behaviour.
+"""
     with _reminder_pass_lock(instance_id):
         return _send_class_reminders(instance_id, now=now, scheduled=scheduled)
 
@@ -3250,6 +3251,12 @@ def _send_class_reminders(instance_id: int, *, now: datetime | None = None, sche
     if not coach:
         if _log:
             _log.warning("send_class_reminders: instance %s has no coach — skipping", instance_id)
+        return _no_send
+    # PAD-918 (engine-timeline rule 2; NOTIFICATIONS-REMINDERS-34): a new-engine session's attendance
+    # requests are the engine's, so no pass of the app's sends for it.
+    if _on_new_engine(instance):
+        if _log:
+            _log.info("send_class_reminders: instance %s is on the new engine — skipping", instance_id)
         return _no_send
 
     coach_user_id = coach.user_id
