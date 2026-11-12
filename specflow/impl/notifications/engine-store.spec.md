@@ -63,7 +63,9 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    `notifications.engine-planning` rule 11). The store keeps each invitation's message ids, its
    `closed_reason` and `reopened_at`, writes the invitation's state (`open`, `answered` with `response`
    and `answeredBy`, `sorry`, `reopened`, `withdrawn`, `closed_same_hour`) and `startsAt`/`countsUntil`
-   on every attached message, and publishes one `message_edited` per message after the commit. A
+   on its live messages: every attached message until the invitation is reopened; from then the older
+   bubbles keep `reopened` and later states land only on the newest bubble, the one with live buttons. It
+   publishes one `message_edited` per message after the commit. A
    withdrawal is the store's own `withdraw(invitation_id, at)`, which rule 19's route calls; it is no
    engine effect. An `AlertCleared` drops that alert.
 
@@ -116,10 +118,11 @@ Given three new-engine sessions, the second made to raise, when `engine_tick` ru
 third are planned and committed, the second's unit is rolled back, and one failure is recorded for it.
 test: `backend/padel_app/tests/test_pad918_engine_tick.py` › `test_the_tick_plans_each_session_and_goes_on_past_a_failure`
 
-#### NOTIFICATIONS-ENGINE-STORE-7: Every message of an invitation follows its state, once per change (rule 8)
-Given an invitation with its first bubble, when the store applies a sorry, a reopening from the waiting list (a second bubble),
-then `withdraw`, then both messages carry each state in turn, `closed_reason` is `withdrawn`,
-`reopened_at` is set, and each change publishes one `message_edited` per attached message after commit.
+#### NOTIFICATIONS-ENGINE-STORE-7: An invitation's live bubble follows its state, once per change (rule 8)
+Given an invitation with its first bubble, when the store applies a sorry, a reopening from the waiting
+list (a second bubble), then `withdraw`, then the first bubble goes `open` → `sorry` → `reopened` and stays
+there, the second goes `open` → `withdrawn`, `closed_reason` is `withdrawn`, `reopened_at` is set, and each
+change publishes one `message_edited` per message it changed, after commit.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_every_message_of_an_invitation_follows_its_state`
 
 #### NOTIFICATIONS-ENGINE-STORE-8: An AlertCleared drops the alert (rule 8)

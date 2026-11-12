@@ -1693,7 +1693,7 @@ test: `frontend/apps/mobile/src/features/messages/components/message-bubble-new-
 #### NOTIFICATIONS-INVITATIONS-118: The backend keeps a new-engine invitation message's state current (new-engine section NB1)
 - **Given** a new-engine invitation message
 - **When** the student says Yes into a full session, joins the waiting list, has the invitation reopened on a new bubble, and a coach later withdraws the invitation
-- **Then** the first message's `msg_metadata.state` goes `open` → `sorry` → `reopened`, the new bubble's `open` → `withdrawn`, each change published once as `message_edited` for the messages the invitation's `message_ids` hold; a student reading the message gets no `countsUntil`, the coach does
+- **Then** the first message's `msg_metadata.state` goes `open` → `sorry` → `reopened`, the new bubble's `open` → `withdrawn`, each change published once as `message_edited` for the messages it changed (engine-store rule 8)
 test: `backend/padel_app/tests/test_pad920_engine_bubble_state.py` › `test_the_invitation_messages_state_follows_the_engine`
 
 #### NOTIFICATIONS-INVITATIONS-119: The answer route takes an invitation id and says what the engine did (new-engine section NB5)
@@ -1724,6 +1724,12 @@ test: `frontend/apps/web/src/components/messages/MessageBubble.newEngine.test.ts
 - **Given** the same on iOS
 - **Then** the same request and the same outcome
 test: `frontend/apps/mobile/src/features/messages/engine-message.test.ts` › `answers by invitation id and keeps the newest state`
+
+#### NOTIFICATIONS-INVITATIONS-124: The message serializer sends countsUntil to the coach only (new-engine section NB1)
+- **Given** a new-engine invitation message with `countsUntil` stored
+- **When** the coach and the student each read the conversation
+- **Then** the coach's copy carries `countsUntil` and the student's does not
+test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_serializer_sends_counts_until_to_the_coach_only`
 
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a
