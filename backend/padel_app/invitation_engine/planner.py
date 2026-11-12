@@ -32,7 +32,7 @@ from padel_app.invitation_engine.effects import (
     Reoffered,
     WaitingListLeft,
 )
-from padel_app.invitation_engine.settings import EngineSettings, Tier
+from padel_app.invitation_engine.settings import EngineSettings, GroupRule, Tier
 from padel_app.invitation_engine.snapshot import (
     SIDES,
     Elsewhere,
@@ -205,9 +205,93 @@ def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts
     if tier.source == "students_list":
         entry = _entry(snapshot, sid, "students")
         return entry is not None and _entry_admits(entry, student, values, settings)
-    if snapshot.level is not None and _level(student, snapshot) != snapshot.level - tier.level_offset:
+    if (tier.level_offset is not None and snapshot.level is not None
+            and _level(student, snapshot) != snapshot.level - tier.level_offset):
         return False
-    return side_admits(tier.side, spot_type, student.sides, counts)
+    return (side_admits(tier.side, spot_type, student.sides, counts)
+            and all(group_rule_passes(rule, student, spot_type, counts, snapshot) for rule in tier.rules))
+
+
+_COMPARISONS = {
+    "less_than": lambda a, b: a < b,
+    "less_than_or_equal": lambda a, b: a <= b,
+    "equals": lambda a, b: a == b,
+    "greater_than": lambda a, b: a > b,
+    "greater_than_or_equal": lambda a, b: a >= b,
+}
+
+
+def _compare(value: float, operation: str, threshold: object) -> bool:
+    """Today's ``notification_service._compare``: a threshold that is not a number passes, and so
+    does an operation it does not know."""
+    try:
+        number = float(threshold)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return True
+    compare = _COMPARISONS.get(operation)
+    return True if compare is None else compare(value, number)
+
+
+def _level_rule_passes(operation: str, value: object, student: int, klass: int) -> bool:
+    """A level rule on ladder positions (1 the best), as today's ``_group_rule_failures``: the
+    vacancy-anchored operations, and the class-anchored ones a stored group may still carry. An
+    operation it does not know fails (B-257)."""
+    if operation == "same_as_vacancy":
+        return student == klass
+    if operation == "one_above_vacancy":
+        return student == klass - 1
+    if operation == "one_below_vacancy":
+        return student == klass + 1
+    if operation == "all_above_vacancy":
+        return student < klass
+    if operation == "all_below_vacancy":
+        return student > klass
+    if operation == "same_as_class":
+        return student == klass
+    if operation == "equal_or_above_class":
+        return student <= klass
+    if operation == "equal_or_below_class":
+        return student >= klass
+    if operation == "one_below_or_above_class":
+        return abs(student - klass) <= 1
+    if operation in ("within_n_of_class", "within_n_above_class", "within_n_below_class"):
+        try:
+            limit = max(0, int(value))  # type: ignore[call-overload]
+        except (TypeError, ValueError):
+            limit = 0
+        distance = student - klass
+        if operation == "within_n_above_class":
+            return distance <= 0 and -distance <= limit
+        if operation == "within_n_below_class":
+            return distance >= 0 and distance <= limit
+        return abs(distance) <= limit
+    return False
+
+
+def group_rule_passes(rule: GroupRule, student: Student, spot_type: SpotType, counts: SpotCounts,
+                      snapshot: SessionSnapshot) -> bool:
+    """Whether ``student`` passes one of a group's rules for ``spot_type`` (engine-tiers rule 13),
+    read as today's vacancy-anchored ``_group_rule_failures`` with the class's level as the
+    vacancy's. A level rule fails for a class or a student with no level. An attribute or (outside
+    level) an operation it does not know passes, as today."""
+    attribute, operation = rule.attribute, rule.operation
+    if attribute == "level":
+        if snapshot.level is None or student.level is None:
+            return False
+        return _level_rule_passes(operation, rule.value, student.level, snapshot.level)
+    if attribute == "side":
+        return operation != "same_as_vacancy" or side_admits("same", spot_type, student.sides, counts)
+    if attribute == "has_makeups":
+        return operation != "is_true" or student.makeups_owed > 0
+    if attribute == "unjustified_absences":
+        return _compare(student.unjustified_absences, operation, rule.value)
+    if attribute == "justified_absences":
+        return _compare(student.justified_absences, operation, rule.value)
+    if attribute == "attendance_rate":
+        return _compare(student.attendance_rate * 100, operation, rule.value)
+    if attribute == "subscription_status":
+        return operation != "equals" or student.subscription_status == rule.value
+    return True
 
 
 def tier_for(student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,

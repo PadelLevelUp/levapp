@@ -58,6 +58,7 @@ from padel_app.invitation_engine.snapshot import (
     WaitingListEntry as EngineWaitingListEntry,
 )
 from padel_app.sql_db import db
+from padel_app.services.level_ladder import ladder_index_map
 from padel_app.utils.dates import utc_to_wall_naive, utcnow_naive, wall_to_utc_naive
 
 log = logging.getLogger(__name__)
@@ -241,7 +242,7 @@ class TableStore:
         if missing:                                        # a regular or a waiting student off the coach's roster
             students.update(self._students(coach_id, [], {}, extra=missing))
         return SessionSnapshot(
-            id=session, level=self._level(inst.level_id), capacity=inst.effective_max_players, start=start,
+            id=session, level=self._level(ladder_index_map(coach_id), inst.level_id), capacity=inst.effective_max_players, start=start,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
@@ -255,13 +256,12 @@ class TableStore:
         )
 
     @staticmethod
-    def _level(level_id: int | None) -> int | None:
-        from padel_app.models.coach_levels import CoachLevel
-
-        if level_id is None:
-            return None
-        level = db.session.get(CoachLevel, level_id)
-        return None if level is None else level.display_order
+    def _level(ladder: Mapping[int, int], level_id: int | None) -> int | None:
+        """``level_id``'s position on the coach's ladder, 1 the best and consecutive, as the app's
+        level rules count it (``ladder``: ``ladder_index_map``); a level off that ladder is ``None``,
+        which every level rule fails (engine-tiers rule 13)."""
+        position = ladder.get(level_id) if level_id is not None else None
+        return None if position is None else position + 1
 
     @staticmethod
     def _placement(p) -> Placement:
@@ -343,6 +343,7 @@ class TableStore:
         if not ids:
             return {}
         counts = _attendance_counts_for(ids, coach_id)
+        ladder = ladder_index_map(coach_id)
         owed = makeups_owed_for(ids, coach_id)
         unjustified = _unjustified_absence_counts_for(ids, coach_id)
         out = {}
@@ -351,10 +352,11 @@ class TableStore:
             total, present, justified = counts.get(pid, (0, 0, 0))
             user = users.get(pid)
             out[str(pid)] = Student(
-                str(pid), self._level(lk.level_id) if lk else None, _sides(lk.side if lk else None), present,
+                str(pid), self._level(ladder, lk.level_id) if lk else None, _sides(lk.side if lk else None), present,
                 makeups_owed=owed.get(pid, 0), attendance_rate=(present / total) if total else 0.0,
                 unjustified_absences=unjustified.get(pid, 0), justified_absences=justified,
-                active=getattr(user, "status", "active") == "active")
+                active=getattr(user, "status", "active") == "active",
+                subscription_status=getattr(user, "status", None))
         return out
 
     def _elsewhere(self, others) -> tuple[Elsewhere, ...]:

@@ -38,18 +38,31 @@ class SettingsError(ValueError):
 
 
 @dataclass(frozen=True)
+class GroupRule:
+    """One rule of a coach's stored group (engine-tiers rule 13), as stored: ``{attribute, operation,
+    value}``. Read as today's vacancy-anchored group rules; see ``planner.group_rule_passes``."""
+
+    attribute: str
+    operation: str
+    value: object = None
+
+
+@dataclass(frozen=True)
 class Tier:
     """One step of the order after the waiting list (plan §5): who is asked, for which side.
 
     ``source`` is the coach's list, the students' list, or the club's pool of eligible students.
     ``level_offset`` (pool only) is relative to the class: 0 the class level, +1 one level better
-    (the level number minus one, since 1 is the best). ``side`` relates the student's natural side
-    to the spot's: ``same``, ``other`` (the "lado diferente" groups) or ``any``.
+    (the level number minus one, since 1 is the best); ``None`` sets no level. ``side`` relates the
+    student's natural side to the spot's: ``same``, ``other`` (the "lado diferente" groups) or
+    ``any``. ``rules`` (pool only) are the stored group's rules (engine-tiers rule 13, owner ruling
+    D5); none admits every pool student.
     """
 
     source: TierSource
     side: TierSide = "same"
     level_offset: int | None = None
+    rules: tuple[GroupRule, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -154,10 +167,10 @@ class EngineSettings:
         if not self.tiers:
             raise SettingsError("tiers must not be empty")
         for i, tier in enumerate(self.tiers):
-            if tier.source == "pool" and tier.level_offset is None:
-                raise SettingsError(f"tiers[{i}]: a pool tier needs level_offset")
             if tier.source != "pool" and tier.level_offset is not None:
                 raise SettingsError(f"tiers[{i}]: only a pool tier takes level_offset")
+            if tier.source != "pool" and tier.rules:
+                raise SettingsError(f"tiers[{i}]: only a pool tier takes group rules")
         unknown = [name for name in self.ordering if name not in ORDERING_CRITERIA]
         if unknown:
             raise SettingsError(f"ordering: unknown criteria {unknown}")

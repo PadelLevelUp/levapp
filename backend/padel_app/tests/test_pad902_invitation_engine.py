@@ -14,7 +14,7 @@ import pytest
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine import requests as rq
-from padel_app.invitation_engine.settings import Tier, Timing, TimingPair
+from padel_app.invitation_engine.settings import GroupRule, Tier, Timing, TimingPair
 from padel_app.invitation_engine.snapshot import SpotType, Student
 
 PACKAGE = Path(__file__).resolve().parents[1] / "invitation_engine"
@@ -52,7 +52,7 @@ def test_default_settings_are_the_plan_alone():
     ({"max_at_a_time": 0}, "max_at_a_time"),
     ({"timing": Timing(between_rounds=timedelta(seconds=30))}, "between_rounds"),
     ({"timing": Timing(per_tier=(TimingPair(),))}, "per_tier"),
-    ({"tiers": (Tier("pool"),)}, "level_offset"),
+    ({"tiers": (Tier("students_list", rules=(GroupRule("has_makeups", "is_true"),)),)}, "group rules"),
     ({"tiers": (Tier("coach_list", level_offset=0),)}, "level_offset"),
     ({"tiers": ()}, "tiers"),
 ])

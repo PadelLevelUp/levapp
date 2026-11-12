@@ -277,3 +277,39 @@ def test_app_gates_build_the_pool(app):
     s = store.snapshot(a)
     assert {st.id for st in s.pool} == {capped, excluded, same_day, ineligible, free}
     assert s.postponed == frozenset()
+
+
+def test_levels_reach_the_engine_as_ladder_positions(app):
+    """engine-tiers rule 13: a level is its position on the coach's ladder, 1 the best and consecutive,
+    as the app's level rules count it, whatever the stored display orders; a level off the coach's
+    ladder reaches the engine as ``None``. ``subscription_status`` is the account's status."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.coach_levels import CoachLevel
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.players import Player
+
+    store, (a,), (reg, x, y) = _seed(app)
+    coach_id = store.coach_of(a)
+    class_level = db.session.get(LessonInstance, int(a)).level_id
+    db.session.get(CoachLevel, class_level).display_order = 30
+    top = CoachLevel(coach_id=coach_id, label="N1", code="N1", display_order=10)
+    other = User(name="Other", username="o916", password="x", status="active")
+    db.session.add(other)
+    db.session.flush()
+    other_coach = Coach(user_id=other.id)
+    db.session.add(other_coach)
+    db.session.flush()
+    stranger = CoachLevel(coach_id=other_coach.id, label="X", code="X", display_order=1)   # another coach's
+    db.session.add_all([top, stranger])
+    db.session.flush()
+    links = {str(lk.player_id): lk for lk in Association_CoachPlayer.query.filter_by(coach_id=coach_id).all()}
+    links[x].level_id, links[y].level_id = top.id, stranger.id
+    db.session.get(User, db.session.get(Player, int(y)).user_id).status = "inactive"
+    db.session.commit()
+
+    s = store.snapshot(a)
+    assert s.level == 2
+    assert {sid: s.students[sid].level for sid in (reg, x, y)} == {reg: 2, x: 1, y: None}
+    assert (s.students[x].subscription_status, s.students[y].subscription_status) == ("active", "inactive")
