@@ -13,8 +13,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, refreshAfterRequestChange, useInviteWaitingList } from '@levelup/hooks';
 import { comeBackFromAnswer, lisbonNowMs, retiredInviteLabelKey, wallClockISOMs } from "@levelup/config";
-import { classRequestBubbleState, isEngineApproval, isEngineInvite, joinRequestBubbleState } from '@levelup/config';
+import { classRequestBubbleState, isEngineApproval, isEngineInvite, joinRefusalKey, joinRequestBubbleState } from '@levelup/config';
 import { EngineInviteResponse } from './EngineInviteResponse';
+import { busySameHourDescription } from '@/components/calendar/busySameHourDescription';
 import { acceptClassRequest, answerClassRequestProposal, classRequestRefusal, declineClassRequest, listClassRequests } from '@/api/classRequests';
 import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, rejectClassJoinRequest, sideGoneOf } from '@/api/classJoinRequests';
 import { joinClassWaitingList, leaveClassWaitingList, listClassWaitingList } from '@/api/academyClasses';
@@ -62,7 +63,7 @@ export function MessageBubble({
   message, isMine, userId, participantName, isHighlighted, showTail, replyToMessage,
   onReply, onEdit, onDelete, onReaction, onScrollToMessage,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [reportOpen, setReportOpen] = useState(false);
@@ -206,7 +207,9 @@ export function MessageBubble({
             ? t("calendar.joinRequest.spotFilledToast")
             : refusal?.code === "class_closed"
               ? t("calendar.joinRequest.classClosedToast")
-              : t("calendar.joinRequest.decideFailed")
+              : t("calendar.joinRequest.decideFailed"),
+          // PAD-920 (classes.instance-enrollment rule 15): a same-hour clash names the other class.
+          { description: busySameHourDescription(err, t, i18n.language) ?? undefined },
         );
       }
     } finally {
@@ -264,8 +267,10 @@ export function MessageBubble({
       await joinClassWaitingList({ model: "LessonInstance", originalId: instanceId });
       setComeBackShown("on_waiting_list");
       toast.success(t("calendar.waitingList.joined"));
-    } catch {
-      toast.error(t("calendar.waitingList.failed"));
+    } catch (err) {
+      // PAD-920 (NJ2): a refused waiting-list join says why.
+      const refusal = joinRequestRefusal(err);
+      toast.error(t("calendar.waitingList.failed"), refusal ? { description: t(joinRefusalKey(refusal.code)) } : undefined);
     } finally {
       setResponding(false);
     }

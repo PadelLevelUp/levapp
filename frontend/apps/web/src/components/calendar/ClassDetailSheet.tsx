@@ -27,7 +27,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { createConversation } from "@/api/messages";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useReducer } from "react";
 import { hasUnsavedClassEdit } from "@/lib/classEditUnsaved";
 import { listCourtsForClass } from "@/api/courts";
 import { useTranslation } from "react-i18next";
@@ -65,6 +65,8 @@ import {
   cancelAttendance,
   respondToReminder,
   coachRespondToNotification,
+  coachRespondToEngineInvitation,
+  withdrawEngineInvitation,
   withdrawInvitation,
   getApprovalState,
   recomputeApprovalState,
@@ -81,8 +83,10 @@ import { ManualNotificationModal } from "./ManualNotificationModal";
 import { Badge } from "@/components/ui/badge";
 import { ClassWaitingListSection } from "./ClassWaitingListSection";
 import { ClassSideChoice } from "./ClassSideChoice";
+import { busySameHourDescription } from "./busySameHourDescription";
 import { JoinRequestSide } from "./JoinRequestSide";
 import { ReplacementApprovalCard } from "@/components/notifications/ReplacementApprovalCard";
+import { ENGINE_APPROVAL_CLASS_START, engineApprovalClassState } from "@/components/notifications/engineApprovalClassState";
 import type { EngineApprovalState } from "@levelup/types";
 
 import { Button } from "@/components/ui/button";
@@ -300,7 +304,8 @@ export function ClassDetailSheet({
   // a pending list survives a reload, and an ignored one offers "Suggest automatic invitations".
   const [suggestionsIgnored, setSuggestionsIgnored] = useState(false);
   // PAD-920 (semi-auto-approval N1): a new-engine session's approval state is its pending request.
-  const [engineApproval, setEngineApproval] = useState<EngineApprovalState | null>(null);
+  // Across re-reads, an approved card stays and a dismissed one reads "Ignorado" (criterion 45).
+  const [engineApproval, dispatchEngineApproval] = useReducer(engineApprovalClassState, ENGINE_APPROVAL_CLASS_START);
   const [semiAutomatic, setSemiAutomatic] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const suggestionsInstanceId = (() => {
@@ -318,7 +323,7 @@ export function ClassDetailSheet({
         if (cancelled) return;
         setSemiAutomatic(!!s.semiAutomatic);
         if (isEngineApproval(s)) {
-          setEngineApproval(s as EngineApprovalState);
+          dispatchEngineApproval({ type: "read", state: s as EngineApprovalState });
           setSuggestionsIgnored(s.state === "dismissed");
           return;
         }
@@ -343,7 +348,7 @@ export function ClassDetailSheet({
       const s = await recomputeApprovalState(suggestionsInstanceId);
       if (isEngineApproval(s)) {
         // N3: a dismissed session is reopened and re-planned; its fresh request shows here.
-        setEngineApproval(s as EngineApprovalState);
+        dispatchEngineApproval({ type: "recomputed", state: s as EngineApprovalState });
         setSuggestionsIgnored(false);
       } else if (s.state === "pending" && s.bundle) {
         setApprovalBundles(suggestionBundles(s));
@@ -450,7 +455,10 @@ export function ClassDetailSheet({
   const handleInviteeRespond = async (inv: ClassInvitation, action: "yes" | "no") => {
     setInviteeBusyId(inv.id);
     try {
-      const result = await coachRespondToNotification(inv.id, action);
+      // PAD-920 (notifications.invitations NB5): a new-engine row's id is the invitation's.
+      const result = isNewEngineInvitee(inv)
+        ? await coachRespondToEngineInvitation({ invitationId: inv.id, action })
+        : await coachRespondToNotification(inv.id, action);
       applyInviteeAnswer(inv, result.action, true);
     } catch {
       toast({ title: t("calendar.detail.inviteeActionFailed"), variant: "destructive" });
@@ -466,7 +474,7 @@ export function ClassDetailSheet({
     if (!inv) return;
     setInviteeBusyId(inv.id);
     try {
-      const result = await withdrawInvitation(inv.id);
+      const result = isNewEngineInvitee(inv) ? await withdrawEngineInvitation(inv.id) : await withdrawInvitation(inv.id);
       if (result.action === "confirmed") toast({ title: t("calendar.detail.inviteeAlreadyAccepted") });
       applyInviteeAnswer(inv, result.action, false);
     } catch {
@@ -496,6 +504,7 @@ export function ClassDetailSheet({
     setInvitationsOpen(keepInvitationsOpenRef.current);
     keepInvitationsOpenRef.current = false;
     setApprovalBundles([]);
+    dispatchEngineApproval({ type: "reset" });
     answeredBundleIdsRef.current = new Set();
     setPlannedExerciseIds(classInstance.plannedExerciseIds ?? []);
     setIsPlanningMode(false);
@@ -732,6 +741,8 @@ export function ClassDetailSheet({
             : refusal?.code === "class_closed"
               ? t("calendar.joinRequest.classClosedToast")
               : t("calendar.joinRequest.decideFailed"),
+        // PAD-920 (rule 15): accepting puts the student in the class, so a same-hour clash names it.
+        description: busySameHourDescription(err, t, i18n.language) ?? undefined,
         variant: "destructive",
       });
     } finally {
@@ -1214,8 +1225,14 @@ export function ClassDetailSheet({
       void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
       await refreshInstance();
       setComeBackShown(null);
-    } catch {
-      toast({ title: t("calendar.waitingList.failed"), variant: "destructive" });
+    } catch (err) {
+      // PAD-920 (NJ2): a refused waiting-list join says why.
+      const refusal = joinRequestRefusal(err);
+      toast({
+        title: t("calendar.waitingList.failed"),
+        description: refusal ? t(joinRefusalKey(refusal.code)) : undefined,
+        variant: "destructive",
+      });
     } finally {
       setJoinBusy(false);
     }
@@ -2001,13 +2018,15 @@ export function ClassDetailSheet({
             </>
           )}
 
-          {canManage && !isEditing && engineApproval?.state === "pending" && engineApproval.request && !suggestionsIgnored && (
+          {canManage && !isEditing && engineApproval.card?.request && (
             <>
               <Separator />
               <ReplacementApprovalCard
-                bundle={engineApproval}
+                key={engineApproval.card.request.requestId}
+                bundle={engineApproval.dismissed ? { ...engineApproval.card, state: "dismissed" } : engineApproval.card}
                 allowDismiss
                 onEngineResult={(r) => {
+                  dispatchEngineApproval({ type: "answered", result: r.result });
                   if (r.result === "dismissed") setSuggestionsIgnored(true);
                 }}
               />

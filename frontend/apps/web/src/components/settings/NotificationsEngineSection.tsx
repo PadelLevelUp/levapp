@@ -248,7 +248,9 @@ export function NotificationsEngineSection() {
   const autoAcceptBlocked = config.invitationMode === "semi_automatic";
 
   function SectionHeader({ sectionKey, icon: Icon, label }: { sectionKey: SectionKey; icon: React.ElementType; label: string }) {
-    const isDisabled = disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates";
+    // PAD-920 (rule 20): a new-engine coach's tiers editor stays open to them with the engine off.
+    const isDisabled =
+      disabled && sectionKey !== "notifyGroups" && sectionKey !== "templates" && !(isNewEngine && sectionKey === "groups");
     return (
       <CollapsibleTrigger
         data-testid={`notification-engine-section-${sectionKey}`}
@@ -552,7 +554,9 @@ export function NotificationsEngineSection() {
               <InvitationGroupsSection
                 groups={config.invitationGroups ?? []}
                 onChange={(invitationGroups) => save({ invitationGroups })}
-                disabled={disabled}
+                // PAD-920 (rule 20): a new-engine coach's controls, the tiers editor included, stay
+                // editable with the master switch off; an old-engine coach's groups stay as today.
+                disabled={disabled && !isNewEngine}
                 engine={
                   isNewEngine
                     ? {

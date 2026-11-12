@@ -22,10 +22,21 @@ vi.mock("@/api/events", () => ({
     return () => undefined;
   },
 }));
-const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({
+  getApprovalState: vi.fn(),
+  getClassInstance: vi.fn(),
+  coachRespondToEngineInvitation: vi.fn(),
+  coachRespondToNotification: vi.fn(),
+  withdrawEngineInvitation: vi.fn(),
+  withdrawInvitation: vi.fn(),
+}));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   getApprovalState: api.getApprovalState,
+  coachRespondToEngineInvitation: api.coachRespondToEngineInvitation,
+  coachRespondToNotification: api.coachRespondToNotification,
+  withdrawEngineInvitation: api.withdrawEngineInvitation,
+  withdrawInvitation: api.withdrawInvitation,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -47,15 +58,6 @@ const event = {
   color: "#1355DC",
   openSpot: false,
 } as unknown as CalendarEvent;
-
-beforeEach(() => {
-  live.handler = null;
-  api.getApprovalState.mockReset().mockResolvedValue({ state: "none" });
-  api.getClassInstance.mockReset().mockResolvedValue({
-    id: 7, date: "2099-10-19", startTime: "09:00", endTime: "10:30", status: "scheduled",
-    presences: [], participants: [], maxPlayers: 16, invitations: [],
-  });
-});
 
 beforeEach(() => {
   live.handler = null;
@@ -129,5 +131,29 @@ describe("PAD-920 the new engine's invitees on web", () => {
     await openSheet();
     await waitFor(() => expect(screen.getByTestId("approval-yes")).toBeTruthy());
     expect(screen.getByTestId("approval-dismiss")).toBeTruthy();
+  });
+
+  it("[NOTIFICATIONS-INVITATIONS-122] records a coach's answer and a withdrawal by the invitation's id", async () => {
+    api.coachRespondToEngineInvitation.mockResolvedValue({ action: "confirmed", invitationId: 1 });
+    api.withdrawEngineInvitation.mockResolvedValue({ action: "withdrawn" });
+    await openSheet();
+    fireEvent.click(screen.getByTestId("class-invited-toggle"));
+    const openMenu = () => fireEvent.keyDown(screen.getByTestId("invitee-actions-1"), { key: "Enter" });
+
+    openMenu();
+    fireEvent.click(await screen.findByTestId("invitee-mark-accepted"));
+    await waitFor(() => expect(api.coachRespondToEngineInvitation).toHaveBeenCalledWith({ invitationId: 1, action: "yes" }));
+    expect(api.coachRespondToNotification).not.toHaveBeenCalled();
+  });
+
+  it("[NOTIFICATIONS-INVITATIONS-122] withdraws a new-engine invitation through the engine's route", async () => {
+    api.withdrawEngineInvitation.mockResolvedValue({ action: "withdrawn" });
+    await openSheet();
+    fireEvent.click(screen.getByTestId("class-invited-toggle"));
+    fireEvent.keyDown(screen.getByTestId("invitee-actions-2"), { key: "Enter" });
+    fireEvent.click(await screen.findByTestId("invitee-delete"));
+    fireEvent.click(await screen.findByTestId("invitee-delete-confirm"));
+    await waitFor(() => expect(api.withdrawEngineInvitation).toHaveBeenCalledWith(2));
+    expect(api.withdrawInvitation).not.toHaveBeenCalled();
   });
 });

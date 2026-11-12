@@ -4,7 +4,7 @@
  * newer one replaced says so and offers nothing. There is no "at the window" for the new engine.
  */
 import { describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const respondToEngineApproval = vi.fn();
 vi.mock("@levelup/hooks", async (orig) => ({
@@ -102,5 +102,28 @@ describe("ReplacementApprovalCard — new engine (PAD-920)", () => {
     cleanup();
     render(<ReplacementApprovalCard bundle={{ ...message, responded: true }} />);
     expect(screen.getByTestId("approval-replaced")).toBeTruthy();
+  });
+
+  it("follows a live edit of the message's state", () => {
+    const { rerender } = render(<ReplacementApprovalCard bundle={{ ...message, state: "pending" }} />);
+    expect(screen.getByTestId("approval-yes")).toBeTruthy();
+    rerender(<ReplacementApprovalCard bundle={{ ...message, state: "replaced" }} />);
+    expect(screen.getByTestId("approval-replaced")).toBeTruthy();
+    expect(screen.queryByTestId("approval-yes")).toBeNull();
+  });
+
+  it("sends one answer for two taps in one frame", async () => {
+    let resolve!: (v: unknown) => void;
+    respondToEngineApproval.mockReset().mockReturnValue(new Promise((r) => (resolve = r)));
+    render(<ReplacementApprovalCard bundle={classState} allowDismiss />);
+    const yes = screen.getByTestId("approval-yes");
+    // Both taps inside one act: React has not re-rendered between them, as in one frame.
+    act(() => {
+      yes.click();
+      yes.click();
+    });
+    expect(respondToEngineApproval).toHaveBeenCalledTimes(1);
+    resolve({ engine: "new", requestId: 42, result: "approved" });
+    await waitFor(() => expect(screen.getByTestId("approval-outcome")).toBeTruthy());
   });
 });

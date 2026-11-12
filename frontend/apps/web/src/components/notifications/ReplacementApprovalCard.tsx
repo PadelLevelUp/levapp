@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Clock, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCoachDisplayName } from "@levelup/hooks";
@@ -366,15 +366,20 @@ function EngineApprovalCard({
   const displayName = useCoachDisplayName();
   const request = engineApprovalRequest(source);
   const [responding, setResponding] = useState(false);
-  const [outcome, setOutcome] = useState<EngineOutcome | null>(
+  // The coach's own answer here, else the request's current state: a live `message_edited` that
+  // marks the message replaced, approved or dismissed (N4) shows at once, with no remount.
+  const [answered, setOutcome] = useState<EngineOutcome | null>(null);
+  // Set before the request goes out, so two taps in one frame send one answer.
+  const inFlight = useRef(false);
+  const fromState: EngineOutcome | null =
     request?.state === "dismissed"
       ? "dismissed"
       : request?.state === "approved"
         ? "approved"
         : request?.state === "replaced"
           ? "stale"
-          : null,
-  );
+          : null;
+  const outcome = answered ?? fromState;
   // N5: the students the coach takes off the list; "Sim" invites everyone else in the queues.
   const [removed, setRemoved] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
@@ -387,17 +392,20 @@ function EngineApprovalCard({
     setRemoved((r) => (r.includes(playerId) ? r.filter((id) => id !== playerId) : [...r, playerId]));
 
   const respond = async (action: "yes_now" | "dismiss") => {
-    if (responding || !actionable) return;
+    if (inFlight.current || responding || !actionable) return;
+    inFlight.current = true;
     setResponding(true);
     try {
       const result = await respondToEngineApproval(
         action === "yes_now" ? { bundleId: request.requestId, action, removed } : { bundleId: request.requestId, action },
       );
-      setOutcome(result.result);
+      // A late `stale` never replaces an answer this card already shows.
+      setOutcome((prev) => (result.result === "stale" && (prev === "approved" || prev === "dismissed") ? prev : result.result));
       onResult?.(result);
     } catch {
       toast.error(t("notificationsUi.replacementApproval.genericError"));
     } finally {
+      inFlight.current = false;
       setResponding(false);
     }
   };

@@ -3,7 +3,7 @@
  * the classes that accept and lists each one that refused with `409 busy_same_hour`, naming the other
  * class, instead of the generic failure toast. `t` returns the key and its params.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CalendarEvent, CoachPlayer } from "@/types";
 
@@ -24,11 +24,12 @@ vi.mock("@/api/notificationEngine", () => ({ checkEligibility: api.checkEligibil
 
 import { AddToClassesDialog } from "./AddToClassesDialog";
 
-// The dialog lists this week's classes that have not started: today, late in the evening.
-const today = new Date();
-const pad = (n: number) => String(n).padStart(2, "0");
-const DATE = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-const DAY = `${pad(today.getDate())}/${pad(today.getMonth() + 1)}`;
+// The dialog lists this week's classes that have not started. The clock is pinned to a Wednesday
+// noon (Lisbon), so "today at 23:58" is always ahead and in the week, whenever the test runs.
+const PINNED = new Date("2026-11-18T12:00:00Z");
+const today = PINNED;
+const DATE = "2026-11-18";
+const DAY = "18/11";
 
 const cls = (id: string, title: string): CalendarEvent =>
   ({
@@ -45,6 +46,12 @@ const cls = (id: string, title: string): CalendarEvent =>
   }) as unknown as CalendarEvent;
 
 const player = { playerId: 77, name: "Rita", displayName: "Rita" } as unknown as CoachPlayer;
+
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(PINNED);
+});
+afterAll(() => vi.useRealTimers());
 
 afterEach(() => {
   cleanup();

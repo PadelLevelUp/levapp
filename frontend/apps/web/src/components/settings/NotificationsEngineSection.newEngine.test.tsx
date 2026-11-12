@@ -253,4 +253,15 @@ describe("notifications.config rule 20: the new engine's settings on web (PAD-92
     });
     expect(screen.queryByTestId("tier-2-between-rounds-value")).toBeNull();
   });
+
+  it("[NOTIFICATIONS-CONFIG-71] keeps a new-engine coach's controls and tiers editor editable with the engine off", async () => {
+    await mount({ ...NEW_CONFIG, autoNotifyEnabled: false } as unknown as NotificationConfig);
+    click("engine-max-at-a-time-inc");
+    expect(value("engine-max-at-a-time-value")).toBe("13");
+    // Open the groups section: the tiers editor is not greyed out.
+    fireEvent.click(screen.getByText("settings.engine.invitationGroups"));
+    const editor = await screen.findByTestId("tiers-editor");
+    expect(editor.closest(".pointer-events-none")).toBeNull();
+    expect((screen.getByTestId("tier-add") as HTMLButtonElement).disabled).toBe(false);
+  });
 });

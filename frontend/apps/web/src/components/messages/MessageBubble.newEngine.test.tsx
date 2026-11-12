@@ -135,4 +135,19 @@ describe("PAD-920 the new engine's invitation bubble on web", () => {
       vi.useRealTimers();
     }
   });
+
+  it("mounts the new-engine approval card in the conversation, with Sim and no Ignorar", () => {
+    const message: Message = {
+      id: "m7", senderId: 1, content: "Pedido de convites", timestamp: "2026-11-12T18:00:00Z", isRead: true,
+      messageType: "replacement_approval",
+      metadata: { engine: "new", requestId: 42, lessonInstanceId: 7, responded: false, state: "pending",
+        spotTypes: [{ side: "left", levelId: null, levelLabel: null, count: 1, queue: [{ playerId: "s1", name: "Rita", tier: 2, rank: 1 }] }] },
+    };
+    renderAll(
+      <MessageBubble message={message} isMine={false} userId={2} participantName="Assistente"
+        onReply={noop} onEdit={noop} onDelete={noop} onReaction={noop} />,
+    );
+    expect(screen.getByTestId("approval-yes")).toBeTruthy();
+    expect(screen.queryByTestId("approval-dismiss")).toBeNull();
+  });
 });
