@@ -1737,11 +1737,17 @@ test: `frontend/apps/mobile/src/features/messages/engine-message.test.ts` › `a
 - **Then** the coach's copy carries `countsUntil` and the student's does not
 test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_serializer_sends_counts_until_to_the_coach_only`
 
-#### NOTIFICATIONS-INVITATIONS-125: Removing or cancelling a new-engine class closes its invitations, and a later answer is refused with a code (new-engine section NB1a, NB5)
+#### NOTIFICATIONS-INVITATIONS-125: Removing a new-engine class closes its invitations, and a later answer is refused with a code (new-engine section NB1a, NB5)
 - **Given** a new-engine session with two open invitations, one counting and one not
-- **When** the coach removes the class (and, in a second case, cancels it), and a student then answers yes
-- **Then** both invitations close with `closed_reason` `class_removed`, each live bubble's state becomes `class_cancelled` with one `message_edited`, and the answer gets `409 {code: "class_cancelled"}`, not a 404
-test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_removing_a_class_closes_its_invitations_and_refuses_later_answers`
+- **When** the coach removes the class (any scope), and a student then answers yes
+- **Then** before the class goes, both invitations close with `closed_reason` `class_removed`, each live bubble's state becomes `class_cancelled` with one `message_edited`, and the answer gets `409 {code: "class_cancelled"}`, not a 404
+test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_removing_a_new_engine_class_withdraws_its_open_invitations`
+
+#### NOTIFICATIONS-INVITATIONS-128: Cancelling a new-engine class closes its invitations the same way (new-engine section NB1a, NB5)
+- **Given** the same session
+- **When** the coach cancels the class, and a student then answers yes
+- **Then** the same closes, bubble states and refusal as criterion 125
+test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_cancelling_a_new_engine_class_withdraws_its_open_invitations`
 
 #### NOTIFICATIONS-INVITATIONS-126: The web bubble reads "class cancelled" (new-engine section NB2)
 - **Given** a new-engine bubble whose state becomes `class_cancelled`, and a Yes answered `409 class_cancelled`
