@@ -37,6 +37,8 @@ The notifications domain.
   - `notifications.engine-timeline` — the session's timeline, quiet hours and the clock T (§8, D14)
   - `notifications.engine-settings` — X, M, T per tier and the scenario suite's coach rules, each
     defaulting to the plan
+  - `notifications.engine-store` — the table store: each effect written once, each message sent once
+    (PAD-916)
   - `constants.md` — the facts the engine and the scenario suite share
 
 ### Engine waves

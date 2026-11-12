@@ -1,6 +1,6 @@
 ---
 id: notifications.config
-status: implemented
+status: implementing
 depends_on: [auth.login]
 serves: [P-NOTIFICATIONS-3]
 governed_by: []
@@ -383,6 +383,63 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     The column defaults and the `DEFAULT_*` fallbacks for NULL lists are unchanged. A coach created
     before this rule, with or without a row, reads exactly as before (rule 1 still creates a missing
     row with the engine off). Existing coaches move only through PAD-815's data step, coach by coach.
+18. **Which engine a session runs on (swap plan §7; coordinator ruling on PAD-912).** Each coach has an
+    engine switch (`engine_version`: `old` or `new`; `old` for every coach until the coach is
+    switched). A session runs on the new engine when its coach is on `new` and, when the coach was
+    switched, its invitation window had not opened and the old engine had not started inviting for it
+    (a coach's "invite now" before the window, an approved semi-automatic spot); a session already
+    inviting at the switch finishes on the old engine until it starts (it drains). The switch is one
+    way: nothing moves a coach back to `old`, and a session never changes engine after it is
+    assigned. A session is assigned once, when its occurrence first exists (materialised, by the app's
+    path that creates it, which writes the new engine's session row for a new-engine session): an
+    occurrence that did not exist at the switch is on the new engine whatever its window, so a coach
+    whose window opens at creation (`first_invite` none) drains only the occurrences that already
+    existed. Every entry point that reaches an engine reads this
+    rule: the new engine's `sessions()` lists only new-engine sessions, and the old tick only
+    old-engine ones. Where another spec says "a coach on the new engine" or "a coach on the old
+    engine", it means a session this rule assigns to that engine. Once a coach has no old-engine
+    session left, the coach's old per-vacancy jobs are removed; once every coach is drained, the old
+    engine is deleted (swap plan §8 step 9).
+19. **A new-engine coach's settings come from the stored configuration (swap plan §2; PAD-913).** For a
+    coach on the new engine (rule 18), the store builds `EngineSettings` from this spec's stored values
+    at every call (`notifications.engine-settings` rule 9), with no new copy of them:
+    - `restrictions.maxSimultaneous` → `invites_per_spot` (X), its value whether or not it is enabled;
+    - `restrictions.maxInactiveTime` → `timing.between_rounds` and `timing.between_groups`, both its
+      value whether or not it is enabled (Open questions);
+    - `restrictions.minTimeBeforeClass` → `last_invite_before`; off maps to zero, never the engine's
+      default;
+    - `restrictions.quietHours` → `quiet_hours`; off maps to none, never the engine's default;
+    - `reminderTiming.invitationStart` → `first_invite` and the reminder timing → `attendance_request`,
+      shape for shape (`notifications.engine-settings` rule 10), with `reminder_count` →
+      `attendance_request.max` and `hours_between_reminders` → `attendance_request.every`;
+    - `priorityCriteria` and `tiebreakers` → `ordering` (`notifications.engine-tiers` rule 8);
+    - `autoAcceptJoinRequests` → `direct_join` (`notifications.engine-settings` rule 5);
+    - `eligibilityRules` → none: the store applies them when it builds `pool`, and the engine's bar is
+      wide open (swap decision 6); for a class with no level the bar's level rules apply nothing and
+      its other rules stand (`notifications.engine-spots` rule 8, D3, as for groups), where today's
+      bar fails everyone closed (PAD-86);
+    - `restrictions.maxInvitesPerStudentPerDay` → the store's `postponed`; `restrictions.noSameDayClass`,
+      `excludedPlayers` and `excludeUnpaidSubscription` → the store's `pool` gates;
+    - `autoNotifyEnabled` off, or a class's `auto_invites` or `notifications_enabled` off → the store
+      lists none of those sessions;
+    - `openSpotsVisible`, `notificationGroups` and `messageTemplates` stay the app's.
+    The owner's answers (2026-11-11, PAD-912 decisions 2–5):
+    - `invitationMode` → carried as stored; `semi_automatic` turns on the engine's hold
+      (`notifications.engine-planning` rule 14);
+    - `restrictions.maxTotal` → nothing: the owner dropped it (decision 3), M is the only cap;
+    - `restrictions.cancellationDeadlineHours` → `absence_cutoff_before`, in hours; it only marks an
+      absence on time or late (`notifications.engine-timeline` rule 5, decision 4);
+    - `invitationGroups` → `tiers`, one tier per stored group in the coach's order, after the coach's
+      list and the students' list, each carrying the group's rules (`notifications.engine-tiers`
+      rule 13, decision 5); a group with no rules ("everyone") is a pool tier of any side and any level
+      (`level_offset` none). Every stored group maps: the tier carries the group's rules as they are
+      stored, and an attribute or operation the engine does not know is read as today
+      (`notifications.engine-tiers` rule 13), never refused and never rounded to a nearer tier;
+    - an ordering id the engine does not know (`notifications.engine-tiers` rule 8) is left out of
+      `ordering`, so a coach is never refused for it; `maxSimultaneous` below 1 maps to 1; a criterion
+      in both the priority list and the tiebreakers ranks once.
+    The keys only the new engine has (`timing.method` and
+    `per_tier`, automatic entry, side-bound lists) take the engine's defaults, which are the plan.
 
 ### Acceptance Criteria
 
@@ -716,3 +773,120 @@ test: `frontend/apps/mobile/src/features/settings/restrictions-i18n.test.ts` ›
 - **Then** the save answers 200 with the saved timing, no `pastDue`, and `pastDueUnknown: true`; the failure is logged with the coach
 - **And** the card says the check could not be made and asks nothing, also with the reminders section closed, on web and iOS; the line goes after the next timing save whose answer lacks the flag
 test: `backend/padel_app/tests/test_pad478_ask_before_sending.py` › `test_a_listing_that_fails_does_not_turn_a_saved_config_into_an_error` (+3 more)
+
+#### NOTIFICATIONS-CONFIG-50: A switched coach's sessions that have not started inviting run on the new engine (rule 18)
+Given a coach on `old` with one session whose invitation window has opened and one whose has not, when
+the coach is switched to `new`, then the second runs on the new engine (listed by its `sessions()`, never
+by the old tick) and the first stays on the old engine until it starts.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_switched_coach_drains_old_sessions_and_starts_new_ones_on_the_new_engine`
+
+#### NOTIFICATIONS-CONFIG-51: A coach not switched never reaches the new engine (rule 18)
+Given a coach on `old`, when a spot opens, an answer arrives or the tick runs, then only the old engine
+acts for the coach's sessions and the new engine's `sessions()` lists none of them.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_coach_not_switched_never_reaches_the_new_engine`
+
+#### NOTIFICATIONS-CONFIG-52: A new-engine coach's settings are the stored values, the traps mapped off (rule 19)
+Given a coach with `minTimeBeforeClass` off, `quietHours` off, `maxSimultaneous` 4 disabled and
+`maxInactiveTime` 45 minutes, when the store builds the coach's `EngineSettings`, then `last_invite_before`
+is zero, `quiet_hours` none, `invites_per_spot` 4 and both timing values 45 minutes.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_stored_values_map_and_off_traps_stay_off`
+
+#### NOTIFICATIONS-CONFIG-53: Eligibility, caps and exclusions stay in the app's pool (rule 19)
+Given a coach with an eligibility rule, a daily per-student cap reached by one student, an excluded
+student and `noSameDayClass` on for a student with a class that day, when the store builds a snapshot,
+then the capped student is in `postponed`, and the student below the bar, the excluded one and the one
+with a class that day are not in `pool`.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_app_gates_build_the_pool`
+
+#### NOTIFICATIONS-CONFIG-60: The engine's eligibility bar is wide open (rule 19)
+Given a coach with an eligibility rule, when the store builds the coach's `EngineSettings`, then the
+engine's own bar admits every student, so the rule acts only through `pool` (CONFIG-53).
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_the_engine_bar_is_wide_open`
+
+#### NOTIFICATIONS-CONFIG-54: A session the coach or class turned off is never listed (rule 19)
+Given a new-engine coach with `autoNotifyEnabled` off, and another with one class's `auto_invites` off,
+when the store lists sessions, then none of the first coach's sessions and not that class's are listed.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_sessions_turned_off_are_not_listed`
+
+#### NOTIFICATIONS-CONFIG-55: A new-engine coach's ordering is the enabled priority criteria, then the enabled tiebreakers (rule 19)
+Given a coach with priority criteria and tiebreakers, some off, each list in the coach's order, when
+the store builds the coach's `EngineSettings`, then `ordering` holds the enabled priority criteria in
+their order followed by the enabled tiebreakers in theirs, and nothing that is off.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_ordering_is_the_enabled_priority_criteria_then_the_enabled_tiebreakers`
+
+#### NOTIFICATIONS-CONFIG-56: The cancellation deadline is the absence cutoff (rule 19)
+Given a coach with `cancellationDeadlineHours` 24, when the store builds the coach's `EngineSettings`,
+then `absence_cutoff_before` is 24 hours.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_cancellation_deadline_maps_to_the_absence_cutoff`
+
+#### NOTIFICATIONS-CONFIG-57: Each invitation group becomes one tier, in the coach's order (rule 19)
+Given the reference groups (level same + side same; level same; no rules), when the store builds the
+coach's `EngineSettings`, then `tiers` is the coach's list, the students' list, then one tier per group
+in order: (pool, side same, level 0), (pool, side any, level 0), (pool, side any, level any).
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invitation_groups_map_to_tiers_one_for_one`
+
+#### NOTIFICATIONS-CONFIG-58: The invitation mode is carried (rule 19)
+Given a coach in `semi_automatic` mode and one in `automatic`, when the store builds each coach's
+`EngineSettings`, then each carries its stored mode.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invitation_mode_is_carried`
+
+#### NOTIFICATIONS-CONFIG-59: Every stored group maps, an unknown rule included (rule 19)
+Given a group with a rule whose attribute the engine does not know and a group with an unknown level
+operation, when the store builds the coach's `EngineSettings`, then no `SettingsError` is raised and
+each group is one tier carrying its rules as stored.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_every_stored_group_maps_an_unknown_rule_included`
+
+#### NOTIFICATIONS-CONFIG-61: A session the old engine already started stays on the old engine (rule 18)
+Given a coach on `old` with a session whose window has not opened but for which the coach pressed
+"invite now", when the coach is switched to `new`, then that session drains on the old engine and the
+new engine's `sessions()` never lists it.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_session_the_old_engine_already_started_stays_on_the_old_engine`
+
+#### NOTIFICATIONS-CONFIG-62: The reminder count and interval are the attendance request's max and every (rule 19)
+Given a coach with `reminder_count` 2 and `hours_between_reminders` 6, when the store builds the coach's
+`EngineSettings`, then `attendance_request.max` is 2 and `attendance_request.every` is 6 hours.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_reminder_count_and_interval_map_to_the_attendance_request`
+
+#### NOTIFICATIONS-CONFIG-63: An occurrence that first exists after the switch runs on the new engine (rule 18)
+Given a coach whose invitation window opens at creation, with one materialised occurrence, when the
+coach is switched to `new` and a later occurrence of the same class is materialised, then the first
+drains on the old engine and the later one is on the new engine, with its session row written when it
+was materialised.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_an_occurrence_that_first_exists_after_the_switch_runs_on_the_new_engine`
+
+#### NOTIFICATIONS-CONFIG-64: A class with no level applies no level rule of the eligibility bar (rule 19)
+Given a coach's bar with a level rule and an attendance-rate rule and a new-engine class with no level,
+when the store builds `pool`, then students of every level are in it, except one below the attendance
+rate.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_class_with_no_level_applies_no_level_rule_of_the_bar`
+
+### Open questions
+- The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
+  15-minute floor drops to const:ENGINE_T_FLOOR with the new timing controls
+  (`notifications.engine-settings`, const:ENGINE_T_FLOOR there).
+- iOS at the swap — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): every setting the new engine needs ships on web and iOS together, the
+  groups editor (now tiers) included; the iOS deferrals recorded before the swap stand with their
+  reasons.
+- A coach created during cutover (rule 18) — options: `old` until switched; `new` from the start.
+  Decision (S, owner away, PAD-913; the owner can reverse it): `old` until switched, because the
+  coordinator switches coaches one at a time (staging first, one real coach, then all) and a new
+  coach on `new` would skip that order.
+- `maxInactiveTime` or `maxSimultaneous` disabled, for a new-engine coach (rule 19) — options: the
+  stored value; the engine's default; for the timer, T until `last_invite_at`. Decision (S, owner away,
+  PAD-913; the owner can reverse it): the stored value, because the engine has no "off" for either
+  (X ≥ 1, T ≥ const:ENGINE_T_FLOOR) and the stored value is the one the coach last chose.
+- The swap decisions 2–5 the store left unmapped (rule 19) — answered by the owner (2026-11-11):
+  semi-automatic is kept ("exactly the same engine, but instead of sending directly the message it
+  should ask the coach permission"), `maxTotal` is dropped, the cancellation deadline marks on time or
+  late only ("justified or unjustified is always a coach's judgement"), and groups become tiers one
+  for one ("it cannot be well built if it doesn't take into account these important rules"). Once the
+  tier carried the group rules (N, PAD-915), every stored group maps; S's earlier interim refusal of a
+  group the tier could not express is retired with it.
+- The switch's way back, and a session the old engine started early (rule 18) — decisions (R, owner
+  away, PAD-917, 2026-11-12; the coordinator agrees; the owner can reverse them): the switch is one way, because rule
+  18 names no way back and a session moving between engines mid-flight would lose its invitations; a
+  session the old engine had already started inviting for before its window ("invite now", an
+  approved semi-automatic spot) is "already inviting" and drains on the old engine.
+- Ordering ids the engine does not know, `maxSimultaneous` below 1, a criterion in both lists —
+  decisions (R, owner away, PAD-917, 2026-11-12; the owner can reverse them): dropped from `ordering` rather than refusing the coach, mapped to
+  1, ranked once, so a coach's stored settings never block the switch.

@@ -22,6 +22,24 @@ about anyone who is missing. Web and iOS ship it together (R-024).
 - **WRITES:** nothing. Selecting a non-materialized occurrence materializes it through the
   sanctioned path (rule 3), which is the same side effect opening the class has.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §4, §6.3 item 5) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rules 4.3–4.5, 5 (one waiting list, the leaver's side and level, rounds, first batch and waiting badges) | the dry run's per-type queues by tier, two waiting lists, side and level from the counts and the class | `notifications.engine-tiers` rule 12; `notifications.engine-spots` rules 6–8 |
+| Criteria 3, 4, 5, 8, 12 | replaced with their rules; new criteria at swap step 7 | — |
+
+Readings:
+- Rule 6 and criteria 6, 11: unchanged in purpose; they read the simulation's new payload (`notifications.invite-simulation`).
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the tutorial's screens for the new payload on web and iOS.
+
 ### Rules
 1. `tutorials` is added to the **single section registry** of each app — web `SettingsPage.tsx`
    with `audience: "coach"`, mobile `settings-sections.ts` also with `audience: "coach"`
@@ -202,3 +220,7 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a know
   classes" must be the same classes the coach sees on their calendar.
 - OPEN: the copy for each gate, stage and badge is drafted at plan time in pt first
   (`settings.language` rule: Portuguese is the default and the fallback).
+
+### Open questions
+- The tutorial's screens for the new per-type payload on web and iOS (`notifications.invite-simulation`,
+  new-engine section) — not decided; written with this spec's swap step (client step 7–8).

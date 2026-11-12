@@ -11,6 +11,7 @@ constants:
   KIND_SIDE_MOVED: "side_moved"
   KIND_WAITING_LIST_INVITE: "waiting_list_invite"
   COACH_ALERT: "coach_alert"
+  ALERT_NO_CANDIDATE: "no_candidate"
 ---
 
 # notifications constants
@@ -41,3 +42,5 @@ suite.
   the engine's `KIND_SORRY`.
 - `COACH_ALERT`: §6 step 4's coach alert; the engine's `CoachAlert` effect, the scenario expectation
   `coach_alert: true` (validator on PAD-900).
+- `ALERT_NO_CANDIDATE`: the coach alert's reason code when a spot type has no candidate in any tier
+  (`invitation_engine/constants.py`; engine-planning rule 11). The wording is the app's.

@@ -37,6 +37,28 @@ database query or a log search, and failed sends are only in the logs.
 - **WRITES:** `delivery_incidents` only, from the existing failure paths (rule 3) and from the
   clients' registration-failure report (rule 8). The page itself writes nothing.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §3.2, §7) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Intent, Entities READS | the engine's own state per session: spot counts per type, counting and open invitations, alerts | `notifications.engine-spots` rule 6; `notifications.engine-planning` rules 3, 11 |
+| Rule 2, `vacancies` and invitations by round | during cutover a read-only projection per spot type (swap decision 1); invitations counted as counting or open-not-counting, by tier | this spec's Open questions; `notifications.engine-planning` rule 3 |
+| Rule 6 (a coach's engine view) | shows the coach's `engine_version` and the mapped `EngineSettings`, not open vacancies | `notifications.config` rules 18, 19 |
+| Criterion 1 | replaced with rule 2; its new-engine form is written at swap step 6 | — |
+
+Readings:
+- Rule 2's scheduler families: the new engine adds one tick job; the per-vacancy families exist only for old-engine sessions (`notifications.config` rule 18).
+- Rule 3, `reminder_skipped_past_due`: arises only for old-engine sessions; the engine's attendance requests replace reminders (`notifications.engine-timeline` rule 2).
+- Criterion 10 (`invitationMode`): holds; semi-automatic is kept (owner ruling D2) and the mode is carried into the engine's settings (`notifications.config` rule 19).
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the new engine's tick job id and its health fields (with H's store, PAD-916).
+
 ### Rules
 1. **Read-only, all of it.** Every route of this spec is a `GET` under
    `/admin/api/engine-health/*` and needs `support`. Nothing on the page starts, stops, retries or
@@ -295,3 +317,9 @@ test: `frontend/apps/web/src/utils/pushFailureReport.test.ts` › `a save answer
   admin API only, never on the public `healthz`; the other-environment read costs the console a
   service token for that environment (wiring left to PAD-534).
 - Decision 2026-10-07 (coordinator default, confirmed): `delivery_incidents` rows are kept 30 days.
+
+### Open questions
+- What the console reads once vacancies are gone (swap decision 1) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): a read-only projection
+  per spot type during cutover only, then the engine's own state, because the console is the one
+  reader that must see both engines while coaches move.
+- The new engine's tick in the scheduler panel — decision (S, owner away, PAD-913; the owner can reverse it): one job, its last run and its last failure per session, so a failing session shows without hiding the rest (`notifications.invitations` rule 21's new reading).

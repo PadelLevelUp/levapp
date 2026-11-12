@@ -12,6 +12,27 @@ governed_by: []
 ### Intent
 Render a server-driven dynamic dashboard with configurable blocks for coaches and players.
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §6.3 items 2, 7) the items in the table are replaced and the readings below
+hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
+drained, the old engine is deleted and the replaced items go with it.
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 3, the `waiting_list_offer` ask | no such message: the waiting-list offer rides on the sorry, which the ask lists instead | `notifications.engine-answers` rules 4, 11 |
+| Rule 3, a Yes answered `spot_filled` | sorry (the waiting-list offer) or a re-offer, never "just filled" | `notifications.engine-answers` rules 3, 4 |
+| Criterion 12 | replaced with rule 3 | — |
+
+Readings:
+- `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4).
+- `pendingConfirmation` comes from the engine's attendance requests instead of the reminders (`notifications.engine-timeline` rule 2).
+- The `empty_seats` card is unaffected; it is where the coach alert lands unless the owner picks another channel (`notifications.engine-planning` Open questions).
+
+Not yet specified, needed before this spec's swap step (each under Open questions):
+- the card rename off "vacancy" and the coach alert's card on web and iOS (plan §6.3 item 7).
+
 ### Rules
 1. `GET /api/app/dashboard?from=ISO&to=ISO` returns `DashboardDefinition`
 2. Definition contains ordered `blocks[]`, each with a type
@@ -702,3 +723,8 @@ test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCA
 - **And** `/calendar` with a class id that is not a dashboard id opens the calendar tab
 - **And** an unknown path maps to nothing, and the card goes nowhere
 test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `falls back to the calendar tab when the class id is not a dashboard id` (+4 more)
+
+### Open questions
+- The class card's rename off "vacancy" and the coach alert's card on web and iOS (swap plan §6.3
+  items 2, 7; `notifications.engine-planning` rule 11) — not decided; written with this spec's swap
+  step (client step 7–8), its copy to the owner then.
