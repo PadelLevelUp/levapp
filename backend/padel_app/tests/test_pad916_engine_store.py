@@ -463,3 +463,44 @@ def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everyt
                                                                 ("reoffer", "waiting_list_invite", "sorry")])
     assert dispatch(lambda row: sent.append(row), now=NOW) == 0           # claimed, never retried
 
+
+
+def test_a_session_belongs_to_the_occurrences_primary_coach(app):
+    """``add_session`` writes the occurrence's coach as the app's ``primary_coach``: its first-assigned
+    coach on a co-coached class, and the lesson's coach when the occurrence has no coach row of its own
+    (``coaches_for``'s fallback), never a crash."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_store import TableStore
+
+    store, (a,), _ = _seed(app)
+    first = store.coach_of(a)
+    other_user = User(name="Co", username="co916", password="x", status="active")
+    db.session.add(other_user)
+    db.session.flush()
+    co = Coach(user_id=other_user.id)
+    db.session.add(co)
+    db.session.flush()
+    inst = db.session.get(LessonInstance, int(a))
+    twin = LessonInstance(lesson_id=inst.lesson_id, start_datetime=START + timedelta(days=7),
+                          end_datetime=START + timedelta(days=7, hours=1), max_players=4, status="scheduled",
+                          level_id=inst.level_id)
+    bare = LessonInstance(lesson_id=inst.lesson_id, start_datetime=START + timedelta(days=14),
+                          end_datetime=START + timedelta(days=14, hours=1), max_players=4, status="scheduled",
+                          level_id=inst.level_id)
+    db.session.add_all([twin, bare])
+    db.session.flush()
+    db.session.add_all([Association_CoachLessonInstance(coach_id=first, lesson_instance_id=twin.id),
+                        Association_CoachLessonInstance(coach_id=co.id, lesson_instance_id=twin.id),
+                        Association_CoachLesson(coach_id=co.id, lesson_id=inst.lesson_id)])
+    db.session.commit()
+
+    store = TableStore(clock=lambda: NOW)
+    for sid in (str(twin.id), str(bare.id)):
+        with store.unit((sid,)):
+            store.add_session(sid, 3, 4, START, [], NOW)
+    assert store.coach_of(str(twin.id)) == first           # the coach assigned first
+    assert store.coach_of(str(bare.id)) == co.id            # no row of its own: the lesson's coach

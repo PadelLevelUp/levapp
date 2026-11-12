@@ -16,6 +16,9 @@ MessageKind = Literal["sorry", "reoffer", "added", "waiting_list_invite", "side_
 AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 AlertReason = Literal["no_candidate"]
+#: Why a join was refused, a code the route answers as 409 {code} (classes.join-requests NJ1).
+RefusalCode = Literal["already_enrolled", "class_closed", "ineligible", "side_full", "busy_same_hour",
+                      "already_on_list"]
 
 
 @dataclass(frozen=True)
@@ -115,9 +118,13 @@ class Absence(Effect):
 
 @dataclass(frozen=True)
 class Refused(Effect):
+    """A join turned down, with a code and never text; ``sides`` names the open sides on
+    ``side_full``."""
+
     student: str
     action: Literal["direct_join", "waiting_list"]
-    reason: str
+    reason: RefusalCode
+    sides: frozenset[Side] = frozenset()
 
 
 @dataclass(frozen=True)

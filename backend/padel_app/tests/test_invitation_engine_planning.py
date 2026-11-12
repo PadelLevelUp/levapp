@@ -385,3 +385,13 @@ def test_a_dismissal_or_reopening_out_of_turn_does_nothing():
     engine.handle("A", ApproveQueue(request.request), T0 + timedelta(minutes=1))
     assert engine.handle("A", DismissQueue(), T0 + timedelta(minutes=2)) == []   # nothing pending
     assert store.snapshot("A").approval.dismissed is None
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-PLANNING-39")
+def test_engine_plan_runs_one_session():
+    """``Engine.plan``: the app's "recompute from the class" plans exactly the session it names."""
+    store, engine = _semi(4, 3, [("A", "R")])
+    store.add_session("B", 3, 8, START, [], T0)
+    effects = engine.plan("A", T0)
+    assert {e.session for e in effects} == {"A"} and _requests(effects)
+    assert engine.plan("A", T0 + timedelta(minutes=1)) == []                  # the same queue: nothing new

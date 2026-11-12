@@ -112,10 +112,27 @@ def upgrade():
     with op.batch_alter_table("notification_configs") as batch_op:
         batch_op.add_column(sa.Column("engine_version", sa.String(length=3), nullable=False, server_default="old"))
         batch_op.add_column(sa.Column("engine_switched_at", sa.DateTime(), nullable=True))
+        # notifications.config rule 20: the new engine's settings no client edits yet (PAD-917 maps them).
+        batch_op.add_column(sa.Column("max_at_a_time", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("timing_method", sa.String(length=16), nullable=False, server_default="fixed"))
+        batch_op.add_column(sa.Column("between_rounds_minutes", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("between_groups_minutes", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("per_tier_timing", sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column("auto_entry_before_attendance_request", sa.Boolean(), nullable=False,
+                                      server_default=sa.text("false")))
+        batch_op.add_column(sa.Column("waiting_list_side_choice", sa.Boolean(), nullable=False,
+                                      server_default=sa.text("false")))
 
 
 def downgrade():
     with op.batch_alter_table("notification_configs") as batch_op:
+        batch_op.drop_column("waiting_list_side_choice")
+        batch_op.drop_column("auto_entry_before_attendance_request")
+        batch_op.drop_column("per_tier_timing")
+        batch_op.drop_column("between_groups_minutes")
+        batch_op.drop_column("between_rounds_minutes")
+        batch_op.drop_column("timing_method")
+        batch_op.drop_column("max_at_a_time")
         batch_op.drop_column("engine_switched_at")
         batch_op.drop_column("engine_version")
     with op.batch_alter_table("waiting_list_entries") as batch_op:

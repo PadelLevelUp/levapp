@@ -8,6 +8,8 @@ they rest on.
 from dataclasses import replace
 from datetime import datetime, time, timedelta
 
+import pytest
+
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine.settings import Timing, TimingPair
 from padel_app.invitation_engine.snapshot import Invitation, SpotType
@@ -159,3 +161,27 @@ def test_method_b_t_resplits_after_a_whole_tier_refuses():
     assert times[:2] == _hm((2, 15, 40), (2, 19, 36))
     assert times[2] == datetime(2026, 11, 2, 22, 52, 40)
     assert times[3] == datetime(2026, 11, 3, 8, 30)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-24")
+def test_last_invite_at_is_real_hours_before_the_real_start():
+    """engine-timeline rule 6: ``last_invite_before`` in real hours before the class's real start.
+    Lisbon's clocks go forward on 29 Mar 2026 at 01:00 (to 02:00)."""
+    from padel_app.invitation_engine.snapshot import SessionSnapshot
+    from padel_app.invitation_engine.timeline import last_invite_at
+    from padel_app.utils.dates import wall_to_utc_naive
+
+    settings = EngineSettings(last_invite_before=timedelta(hours=2))
+    for start in (datetime(2026, 3, 29, 1, 30), datetime(2026, 3, 29, 3, 0)):
+        s = SessionSnapshot("A", 3, 8, start, regulars=(), going=())
+        assert last_invite_at(s, settings) == wall_to_utc_naive(start) - timedelta(hours=2)
+    s = SessionSnapshot("A", 3, 8, datetime(2026, 3, 29, 3, 0), regulars=(), going=())
+    assert last_invite_at(s, settings) == datetime(2026, 3, 29, 0, 0)            # not 01:00, as wall arithmetic gave
+
+
+def test_quiet_hours_whose_start_equals_their_end_are_quiet_all_day():
+    """config rule 19 (CONFIG-65, R's mapping): a window whose start equals its end is quiet all day;
+    no window at all is never quiet."""
+    all_day = EngineSettings(quiet_hours=(time(9, 0), time(9, 0)))
+    assert all(is_quiet(all_day, datetime(2026, 11, 1, h, 0)) for h in range(24))
+    assert not any(is_quiet(EngineSettings(quiet_hours=None), datetime(2026, 11, 1, h, 0)) for h in range(24))

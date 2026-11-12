@@ -455,16 +455,19 @@ class TableStore:
         ``engine_sessions`` and a going presence per regular. ``level``, ``capacity`` and ``start``
         are the occurrence's own and are not written; ``joined_at`` is the roster's."""
         from padel_app.models import EngineSession
-        from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.services import lesson_service as ls
 
         iid = int(session)
         if db.session.get(EngineSession, iid) is not None:
             raise ValueError(f"session {session} already exists")
-        link = Association_CoachLessonInstance.query.filter_by(lesson_instance_id=iid).first()
-        db.session.add(EngineSession(lesson_instance_id=iid, coach_id=link.coach_id, alerted=[]))
         inst = db.session.get(LessonInstance, iid)
+        # The occurrence's coach is the app's "the coach": the first of coaches_for, which falls back to
+        # the lesson's coach when the occurrence has no row of its own (a co-coached class has several).
+        coach = ls.primary_coach(inst)
+        if coach is None:
+            raise ValueError(f"session {session} has no coach")
+        db.session.add(EngineSession(lesson_instance_id=iid, coach_id=coach.id, alerted=[]))
         for student, side in regulars:
             presence = ls.enrol(int(student.id), inst, "roster", new_engine=True)
             presence.placed_how, presence.placed_at = "regular", at
