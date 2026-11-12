@@ -513,7 +513,17 @@ export interface ClassWaitingListRow {
 }
 
 /** PAD-548 (calendar.event-detail rule 16): the one word both shells render for an invitee. */
-export type InvitationOutcome = 'accepted' | 'declined' | 'withdrawn' | 'pending' | 'spot_filled' | 'expired';
+export type InvitationOutcome =
+  | 'accepted'
+  | 'declined'
+  | 'withdrawn'
+  | 'pending'
+  | 'spot_filled'
+  | 'expired'
+  // PAD-920 (calendar.event-detail ND1): a new-engine session's outcomes.
+  | 'busy_same_hour'
+  | 'sorry'
+  | 'not_counting';
 
 export interface ClassInvitation {
   id: number;
@@ -527,6 +537,10 @@ export interface ClassInvitation {
   answeredBy: 'student' | 'coach' | null;
   /** PAD-719 (invitations rule 18a): when the engine moved it from another spot of the class; null if never. */
   movedAt?: string | null;
+  /** PAD-920 (ND1): new-engine sessions only — the invitation's tier (0 coach's list, 1 waiting list, 2+ groups). */
+  tier?: number | null;
+  /** PAD-920 (ND1): new-engine sessions only — set when the engine re-offered this invitation. */
+  reofferedAt?: string | null;
 }
 
 export interface ClassInstance {
@@ -1159,6 +1173,7 @@ export interface DashboardNeedsYouWaitingListOffer {
 }
 
 export type DashboardNeedsYouItem =
+  | import("./engine").DashboardNeedsYouEngineAlert
   | DashboardNeedsYouEmptySeats
   | DashboardNeedsYouInvite
   | DashboardNeedsYouVacancyInvite
@@ -1400,6 +1415,10 @@ export interface MessageTemplates {
    *  and the server falls back to its defaults. */
   added_to_class?: string;
   added_to_class_coming?: string;
+  /** PAD-920 (notifications.message-templates N1): the new engine's keys. Optional: older configs lack them. */
+  reoffer?: string;
+  waiting_list_added?: string;
+  side_moved?: string;
 }
 
 // ── Main config (updated) ──────────────────────────────────────────────────
@@ -1408,6 +1427,10 @@ export type InvitationMode = "automatic" | "semi_automatic";
 
 export interface NotificationConfig {
   autoNotifyEnabled: boolean;
+  /** PAD-920 (notifications.config rules 18, 20): which engine runs this coach; absent on older servers. */
+  engineVersion?: import("./engine").EngineVersion;
+  /** PAD-920 (notifications.config rule 20): the new engine's own settings. */
+  engine?: import("./engine").EngineConfig;
   invitationMode?: InvitationMode;
   /**
    * PAD-672 slice 2 (notifications.config rule 3a): accept an eligible student's join request the

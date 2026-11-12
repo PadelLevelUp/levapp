@@ -37,3 +37,23 @@ export function canStepRestriction(key: SteppedRestrictionKey, value: number, di
   const { min, max } = RESTRICTION_BOUNDS[key];
   return direction > 0 ? value < max : value > min;
 }
+
+/**
+ * PAD-920 (notifications.config rule 20; notifications.engine-settings rule 2): the new engine's own
+ * steppers, beside the restrictions'. Minutes start at ENGINE_T_FLOOR (1 minute, ruling D7), not at
+ * `maxInactiveTime`'s 15, which still holds for a coach on the old engine.
+ */
+export const ENGINE_T_FLOOR = 1;
+
+export type EngineSettingKey = "maxAtATime" | "betweenRoundsMinutes" | "betweenGroupsMinutes";
+
+export const ENGINE_SETTING_BOUNDS: Record<EngineSettingKey, RestrictionBound> = {
+  maxAtATime: { min: 1, max: 50, step: 1 },
+  betweenRoundsMinutes: { min: ENGINE_T_FLOOR, max: 1440, step: 1 },
+  betweenGroupsMinutes: { min: ENGINE_T_FLOOR, max: 1440, step: 1 },
+};
+
+export function stepEngineSetting(key: EngineSettingKey, value: number, direction: 1 | -1): number {
+  const { min, max, step } = ENGINE_SETTING_BOUNDS[key];
+  return Math.min(max, Math.max(min, value + direction * step));
+}

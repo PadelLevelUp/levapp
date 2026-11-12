@@ -99,6 +99,14 @@
         "title": "Waiting list for {{class}}",
         "detail": "{{date}} · {{time}} · the spot was taken — want to be on the list?",
         "open": "Open"
+      },
+      "engineAlert": {
+        "title": "Nobody left to invite",
+        "line": "{{count}} open spot(s) · {{class}}, {{weekday}} {{time}}",
+        "lineSided": "{{count}} open spot(s) ({{side}}) · {{class}}, {{weekday}} {{time}}",
+        "sideLeft": "left side",
+        "sideRight": "right side",
+        "hint": "Invite someone by hand or widen your invitation groups."
       }
     },
     "schedule": {

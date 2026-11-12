@@ -480,7 +480,8 @@
         "atMost": "At most",
         "greaterThan": "Greater than",
         "atLeast": "At least",
-        "is": "Is"
+        "is": "Is",
+        "otherSide": "Other side"
       },
       "sideBalanceHelp": {
         "intro": "When a spot opens, the side with fewer players going is asked first, so the class stays balanced:",
@@ -584,7 +585,10 @@
         "waitingListOffer": "Waiting list offer",
         "waitingListInvite": "Invitation from the waiting list",
         "addedToClass": "Added to a class",
-        "addedToClassComing": "Added to a class, counted as coming"
+        "addedToClassComing": "Added to a class, counted as coming",
+        "reoffer": "Invitation reopened",
+        "waitingListAdded": "Placed from the waiting list",
+        "sideMoved": "Side set"
       },
       "descriptions": {
         "invite": "Sent when notifying a student about an open spot.",
@@ -595,10 +599,13 @@
         "reminderFollowup": "Sent if the student hasn't responded to the first reminder.",
         "reminderConfirmed": "Sent automatically when a student confirms attendance.",
         "reminderDeclined": "Sent automatically when a student declines attendance.",
-        "waitingListOffer": "Sent when a spot was filled, offering to be placed on the waiting list.",
+        "waitingListOffer": "Sent when a student says yes to a spot that was already taken, offering the waiting list.",
         "waitingListInvite": "Sent first, to the students on the class's waiting list, when a spot opens. {side} names the spot's side when it has one.",
         "addedToClass": "Sent when you put a student in a class.",
-        "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing."
+        "addedToClassComing": "Sent instead when the class is created after its reminder time: the student is counted as coming and asked nothing.",
+        "reoffer": "Sent when a spot opens for someone whose yes came too late.",
+        "waitingListAdded": "Sent when automatic entry places a waiting-list student in a spot.",
+        "sideMoved": "Sent when a student who plays both sides is given their final side."
       },
       "help": {
         "title": "How to build a message template",

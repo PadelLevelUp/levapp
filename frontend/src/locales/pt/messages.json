@@ -154,6 +154,12 @@
     "joinWaitingList": "Juntar-me à lista de espera",
     "onWaitingList": "Estás na lista de espera",
     "leaveWaitingList": "Sair",
-    "joinWaitingListFailed": "Não foi possível entrar na lista de espera."
+    "joinWaitingListFailed": "Não foi possível entrar na lista de espera.",
+    "engineInvite": {
+      "sorry": "Disseste que sim, mas a vaga já tinha sido ocupada.",
+      "reoffered": "O convite foi reaberto mais abaixo.",
+      "classStarted": "A aula já começou.",
+      "notCounting": "Sem resposta · já não conta"
+    }
   }
 }

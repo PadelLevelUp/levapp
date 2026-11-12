@@ -480,7 +480,8 @@
         "atMost": "No máximo",
         "greaterThan": "Maior que",
         "atLeast": "Pelo menos",
-        "is": "É"
+        "is": "É",
+        "otherSide": "Lado contrário"
       },
       "sideBalanceHelp": {
         "intro": "Quando abre uma vaga, convida-se primeiro o lado com menos jogadores a ir, para a aula ficar equilibrada:",
@@ -584,7 +585,10 @@
         "waitingListOffer": "Oferta de lista de espera",
         "waitingListInvite": "Convite da lista de espera",
         "addedToClass": "Adicionado a uma aula",
-        "addedToClassComing": "Adicionado a uma aula, presença confirmada"
+        "addedToClassComing": "Adicionado a uma aula, presença confirmada",
+        "reoffer": "Convite reaberto",
+        "waitingListAdded": "Entrada automática da lista de espera",
+        "sideMoved": "Lado definido"
       },
       "descriptions": {
         "invite": "Enviada ao notificar um aluno sobre uma vaga aberta.",
@@ -595,10 +599,13 @@
         "reminderFollowup": "Enviada se o aluno não tiver respondido ao primeiro lembrete.",
         "reminderConfirmed": "Enviada automaticamente quando um aluno confirma a presença.",
         "reminderDeclined": "Enviada automaticamente quando um aluno recusa a presença.",
-        "waitingListOffer": "Enviada quando uma vaga foi preenchida, oferecendo entrada na lista de espera.",
+        "waitingListOffer": "Enviada quando um aluno diz que sim a uma vaga que já foi ocupada, oferecendo a lista de espera.",
         "waitingListInvite": "Enviada primeiro aos alunos da lista de espera da aula, quando abre uma vaga. {side} indica o lado da vaga quando o tem.",
         "addedToClass": "Enviada quando colocas um aluno numa aula.",
-        "addedToClassComing": "Enviada em vez dessa quando a aula é criada depois da hora do lembrete: a presença do aluno fica confirmada e não lhe é perguntado nada."
+        "addedToClassComing": "Enviada em vez dessa quando a aula é criada depois da hora do lembrete: a presença do aluno fica confirmada e não lhe é perguntado nada.",
+        "reoffer": "Enviada quando uma vaga abre para alguém cujo sim chegou tarde.",
+        "waitingListAdded": "Enviada quando a entrada automática põe um aluno da lista de espera numa vaga.",
+        "sideMoved": "Enviada quando um aluno que joga dos dois lados fica com o lado final."
       },
       "help": {
         "title": "Como construir um modelo de mensagem",

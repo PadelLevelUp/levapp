@@ -4,141 +4,14 @@ import { GripVertical, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { InvitationGroup, GroupRule } from "@/types";
+import { DEFAULT_INVITATION_GROUPS, SIDE_BALANCE_EXAMPLES, tierAttributesFor } from "@levelup/config";
 
-const AVAILABLE_ATTRIBUTES = [
-  {
-    id: "level",
-    labelKey: "settings.invitationGroups.attributes.level",
-    operations: [
-      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.sameAsVacancy" },
-      { id: "one_above_vacancy", labelKey: "settings.invitationGroups.operations.oneAboveVacancy" },
-      { id: "one_below_vacancy", labelKey: "settings.invitationGroups.operations.oneBelowVacancy" },
-      { id: "all_above_vacancy", labelKey: "settings.invitationGroups.operations.allAboveVacancy" },
-      { id: "all_below_vacancy", labelKey: "settings.invitationGroups.operations.allBelowVacancy" },
-    ],
-    valueType: "none" as const,
-  },
-  {
-    id: "side",
-    labelKey: "settings.invitationGroups.attributes.side",
-    operations: [
-      // PAD-564: the stored operation stays `same_as_vacancy`; the copy is SideBalanceHelp's.
-      { id: "same_as_vacancy", labelKey: "settings.invitationGroups.operations.balanceSides" },
-    ],
-    valueType: "none" as const,
-  },
-  {
-    id: "has_makeups",
-    labelKey: "settings.invitationGroups.attributes.hasMakeups",
-    operations: [
-      { id: "is_true", labelKey: "settings.invitationGroups.operations.hasPendingMakeup" },
-    ],
-    valueType: "none" as const,
-  },
-  {
-    id: "unjustified_absences",
-    labelKey: "settings.invitationGroups.attributes.unjustifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.invitationGroups.operations.lessThan" },
-      { id: "equals", labelKey: "settings.invitationGroups.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.invitationGroups.operations.atMost" },
-    ],
-    valueType: "number" as const,
-  },
-  {
-    id: "justified_absences",
-    labelKey: "settings.invitationGroups.attributes.justifiedAbsences",
-    operations: [
-      { id: "less_than", labelKey: "settings.invitationGroups.operations.lessThan" },
-      { id: "equals", labelKey: "settings.invitationGroups.operations.equals" },
-      { id: "less_than_or_equal", labelKey: "settings.invitationGroups.operations.atMost" },
-    ],
-    valueType: "number" as const,
-  },
-  {
-    id: "attendance_rate",
-    labelKey: "settings.invitationGroups.attributes.attendanceRate",
-    operations: [
-      { id: "greater_than", labelKey: "settings.invitationGroups.operations.greaterThan" },
-      { id: "greater_than_or_equal", labelKey: "settings.invitationGroups.operations.atLeast" },
-    ],
-    valueType: "percentage" as const,
-  },
-  {
-    id: "subscription_status",
-    labelKey: "settings.invitationGroups.attributes.subscription",
-    operations: [
-      { id: "equals", labelKey: "settings.invitationGroups.operations.is" },
-    ],
-    valueType: "select" as const,
-    valueOptions: [
-      { id: "active", labelKey: "settings.invitationGroups.subscriptionActive" },
-      { id: "inactive", labelKey: "settings.invitationGroups.subscriptionInactive" },
-    ],
-  },
-];
+// PAD-920: the attributes, defaults and examples live in @levelup/config (invitation-tiers), shared
+// with the iOS tiers editor. Re-exported here so existing importers keep working.
+export { DEFAULT_INVITATION_GROUPS, SIDE_BALANCE_EXAMPLES };
 
-export const DEFAULT_INVITATION_GROUPS: InvitationGroup[] = [
-  {
-    id: "default_1",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_2",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_3",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-    ],
-  },
-  {
-    id: "default_4",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-      { attribute: "side", operation: "same_as_vacancy" },
-    ],
-  },
-  {
-    id: "default_5",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_6",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-      { attribute: "has_makeups", operation: "is_true" },
-    ],
-  },
-  {
-    id: "default_7",
-    rules: [
-      { attribute: "level", operation: "one_above_vacancy" },
-    ],
-  },
-  {
-    id: "default_8",
-    rules: [
-      { attribute: "level", operation: "same_as_vacancy" },
-    ],
-  },
-];
-
-/** PAD-564 (notifications.groups rule 6a): the balancing examples under a side rule. */
-export const SIDE_BALANCE_EXAMPLES = ["example1", "example2", "example3"] as const;
+// An old-engine coach's editor: the new engine's own operations ("other side") are not offered.
+const AVAILABLE_ATTRIBUTES = tierAttributesFor(undefined);
 
 function SideBalanceHelp() {
   const { t } = useTranslation();

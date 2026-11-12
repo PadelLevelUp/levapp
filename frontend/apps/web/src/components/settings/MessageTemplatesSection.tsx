@@ -18,10 +18,14 @@ const CLASS_VARIABLES = [
 ];
 
 // PAD-446 (rule 16): {side} names the spot's side, on the waiting-list invitation only.
-const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite"];
+// PAD-920 (new-engine section N2): also on the re-offer and the waiting-list placement; `side_moved`
+// carries the bare side word, {sideName}, instead.
+const SIDE_VARIABLE_KEYS: (keyof MessageTemplates)[] = ["waiting_list_invite", "reoffer", "waiting_list_added"];
 
-const variablesFor = (key: keyof MessageTemplates): string[] =>
-  SIDE_VARIABLE_KEYS.includes(key) ? [...CLASS_VARIABLES, "{side}"] : CLASS_VARIABLES;
+const variablesFor = (key: keyof MessageTemplates): string[] => {
+  if (key === "side_moved") return [...CLASS_VARIABLES, "{sideName}"];
+  return SIDE_VARIABLE_KEYS.includes(key) ? [...CLASS_VARIABLES, "{side}"] : CLASS_VARIABLES;
+};
 
 const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   invite: "settings.templates.labels.invite",
@@ -36,6 +40,9 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   waiting_list_invite: "settings.templates.labels.waitingListInvite",
   added_to_class: "settings.templates.labels.addedToClass",
   added_to_class_coming: "settings.templates.labels.addedToClassComing",
+  reoffer: "settings.templates.labels.reoffer",
+  waiting_list_added: "settings.templates.labels.waitingListAdded",
+  side_moved: "settings.templates.labels.sideMoved",
 };
 
 const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
@@ -51,6 +58,9 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   waiting_list_invite: "settings.templates.descriptions.waitingListInvite",
   added_to_class: "settings.templates.descriptions.addedToClass",
   added_to_class_coming: "settings.templates.descriptions.addedToClassComing",
+  reoffer: "settings.templates.descriptions.reoffer",
+  waiting_list_added: "settings.templates.descriptions.waitingListAdded",
+  side_moved: "settings.templates.descriptions.sideMoved",
 };
 
 const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
@@ -60,17 +70,20 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
   },
   {
     labelKey: "settings.templates.groups.invitations",
-    keys: ["invite", "confirm", "decline", "spot_filled"],
+    // PAD-920 (N3): the re-offer right after the invitation it reopens.
+    keys: ["invite", "reoffer", "confirm", "decline", "spot_filled"],
   },
   {
     labelKey: "settings.templates.groups.waitingList",
-    keys: ["waiting_list_offer", "waiting_list_invite"],
+    keys: ["waiting_list_offer", "waiting_list_invite", "waiting_list_added"],
   },
   {
     // PAD-489: editable like the others; the "counted as coming" one is sent for a class
     // created after its reminder time (notifications.reminders rule 22).
     labelKey: "settings.templates.groups.addedToClass",
-    keys: ["added_to_class", "added_to_class_coming"],
+    // PAD-920 (N3): `side_moved` tells a both-sides student their final side. The coach alert
+    // (`coach_no_candidate`) is a message to the coach themselves and is not editable.
+    keys: ["added_to_class", "added_to_class_coming", "side_moved"],
   },
 ];
 
@@ -110,7 +123,7 @@ export function MessageTemplatesSection({ templates, onChange }: Props) {
       {/* PAD-549: how a template is built, every field with an example. */}
       <TemplateHelp />
       {GROUPS.map((group) => (
-        <div key={group.labelKey}>
+        <div key={group.labelKey} data-testid={`template-group-${group.labelKey.split(".").pop()}`}>
           <p className="text-sm font-medium mt-4 mb-2">{t(group.labelKey)}</p>
           <div className="space-y-4">
             {group.keys.map((key) => (

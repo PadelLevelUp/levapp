@@ -190,6 +190,32 @@
       "player": "level taken from the student who cancels",
       "class": "level taken from the class (the student has none)",
       "none": "neither the student nor the class has a level"
+    },
+    "engine": {
+      "stage": {
+        "in_session": "Already in the class",
+        "said_no": "Said no to this class",
+        "removed_by_coach": "You removed them from the list",
+        "busy_same_time": "In another class at the same time",
+        "postponed": "Later: already holds a live invitation today, or reached the daily limit",
+        "failed_eligibility": "Outside the eligibility bar",
+        "failed_tier_rule": "Outside your invitation groups",
+        "invited_before": "Already invited to this class",
+        "invited": "Invited now",
+        "invited_for_other_type": "Invited for the other side",
+        "invited_earlier": "Already holds an open invitation",
+        "waiting": "In the queue"
+      },
+      "reason": {
+        "excluded_for_session": "Excluded from this class",
+        "excluded_players": "On your excluded list",
+        "same_day_class": "Already has a class that day",
+        "inactive_account": "Inactive account",
+        "blocks_auto_invitations": "Turned automatic invitations off",
+        "blocks_all": "Turned all notifications off",
+        "availability_blocker": "Unavailable at this time"
+      },
+      "other": "Other reason"
     }
   }
 }

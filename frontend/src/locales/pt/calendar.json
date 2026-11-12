@@ -278,7 +278,14 @@
       "comeBack": "Afinal vou",
       "spotTaken": "A tua vaga já foi ocupada",
       "onWaitingList": "Estás na lista de espera",
-      "declinedFinalChat": "Falar com o treinador"
+      "declinedFinalChat": "Falar com o treinador",
+      "outcomeBusySameHour": "Noutra aula à mesma hora",
+      "outcomeSorry": "Disse que sim, sem vaga",
+      "outcomeNotCounting": "Sem resposta · já não conta",
+      "reopened": "convite reaberto",
+      "tierGroup": "grupo {{n}}",
+      "tierCoachList": "lista do treinador",
+      "tierWaitingList": "lista de espera"
     },
     "planning": {
       "title": "Planeamento ({{count}})",
@@ -549,7 +556,10 @@
         "not_visible": "Esta aula não aceita pedidos",
         "spot_filled": "Esta aula já está cheia",
         "ineligible": "Não cumpres os critérios de elegibilidade desta aula",
-        "not_pending": "Este pedido já foi decidido"
+        "not_pending": "Este pedido já foi decidido",
+        "busy_same_hour": "Já estás inscrito noutra aula à mesma hora",
+        "side_full": "Já não há vaga do teu lado. Podes entrar na lista de espera.",
+        "has_spots": "Esta aula ainda tem vagas: pede para entrar."
       },
       "coachTitle_one": "{{count}} pedido para entrar",
       "coachTitle_zero": "{{count}} pedidos para entrar",
@@ -609,7 +619,12 @@
       "on": "Em lista de espera",
       "onHint": "Avisamos-te se abrir uma vaga.",
       "failed": "Não foi possível entrar na lista de espera",
-      "fullHint": "Esta aula está cheia. Podes entrar na lista de espera."
+      "fullHint": "Esta aula está cheia. Podes entrar na lista de espera.",
+      "sideChoice": {
+        "own": "O meu lado",
+        "other": "O outro lado",
+        "both": "Ambos"
+      }
     },
     "side": {
       "label": "Lado nesta aula",
@@ -716,6 +731,9 @@
         "label": "Lado",
         "none": "Sem preferência"
       }
+    },
+    "busySameHour": {
+      "line": "{{name}} já está inscrito noutra aula à mesma hora ({{title}}, {{date}} {{time}}). Remove-o dessa aula primeiro."
     }
   }
 }

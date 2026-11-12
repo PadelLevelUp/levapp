@@ -229,3 +229,32 @@ describe("MessageTemplatesSection — every placeholder in every field (PAD-670,
     );
   });
 });
+
+describe("PAD-920 the new engine's templates (notifications.message-templates N3)", () => {
+  const rowsIn = (group: string) =>
+    Array.from(screen.getByTestId(`template-group-${group}`).querySelectorAll("[data-testid^='template-row-']")).map(
+      (el) => el.getAttribute("data-testid"),
+    );
+
+  it("[NOTIFICATIONS-MESSAGE-TEMPLATES-19] lists the new engine's editable templates in their groups", () => {
+    render(<Wrapper />);
+    const invitations = rowsIn("invitations");
+    expect(invitations.indexOf("template-row-reoffer")).toBe(invitations.indexOf("template-row-invite") + 1);
+    const waitingList = rowsIn("waitingList");
+    expect(waitingList.indexOf("template-row-waiting_list_added")).toBe(waitingList.indexOf("template-row-waiting_list_invite") + 1);
+    expect(rowsIn("addedToClass")).toContain("template-row-side_moved");
+
+    const row = (key: string) => within(screen.getByTestId(`template-row-${key}`));
+    row("reoffer").getByText("settings.templates.labels.reoffer");
+    row("reoffer").getByText("settings.templates.descriptions.reoffer");
+    row("waiting_list_added").getByText("settings.templates.labels.waitingListAdded");
+    row("side_moved").getByText("settings.templates.descriptions.sideMoved");
+
+    // {sideName} is side_moved's own; {side} goes on the re-offer and the placement.
+    expect(within(screen.getByTestId("template-variables-side_moved")).getByText("{sideName}")).toBeTruthy();
+    expect(within(screen.getByTestId("template-variables-reoffer")).getByText("{side}")).toBeTruthy();
+    expect(within(screen.getByTestId("template-variables-invite")).queryByText("{sideName}")).toBeNull();
+    // The coach alert is a message to the coach themselves: not editable.
+    expect(screen.queryByTestId("template-row-coach_no_candidate")).toBeNull();
+  });
+});
