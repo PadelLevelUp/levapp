@@ -36,11 +36,12 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
    account's `User.status`.
 5. **The store keeps each session's approval state as the engine's effects leave it** (semi-automatic
-   mode, `notifications.engine-planning` rule 14), in the session's row (`engine_sessions`: approved,
-   removed, pending, dismissed): `ApprovalRequest` sets the pending queues and ends a dismissal;
-   `QueueApproved` replaces the approved queue, adds to the removed students and ends the request;
-   `QueueDismissed` ends the request and keeps the spot counts it saw; `QueueReopened` ends the
-   dismissal; `ApprovalWithdrawn` ends the request. Each `ApprovalRequest` is sent once (rule 2).
+   mode, `notifications.engine-planning` rule 14, per group), in the session's row (`engine_sessions`:
+   approved groups, removed students, pending requests by group, dismissed groups): `ApprovalRequest`
+   sets its group's pending request; `GroupApproved` adds the group to the approved ones, adds to the
+   removed students and ends that request; `GroupDismissed` ends the request and marks the group
+   dismissed with the spot counts it saw; `GroupReopened` ends that group's dismissal;
+   `ApprovalWithdrawn` ends the request. Each `ApprovalRequest` is sent once (rule 2).
 6. **Who has confirmed.** The snapshot's confirmed students are those whose attendance request was
    answered yes (`ReminderAttempt`) and those whose presence answer is `confirmed`, whoever recorded it
    (`notifications.reminders` rule 22: a class created after its reminder time counts its students as
@@ -90,11 +91,12 @@ and each student's `subscription_status` is their account's status.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_levels_reach_the_engine_as_ladder_positions`
 
 #### NOTIFICATIONS-ENGINE-STORE-4: The coach's approval round-trips through the store (rule 5)
-Given a session, when the store applies in turn an `ApprovalRequest`, a `QueueApproved` removing one
-student, a second request, a `QueueApproved` removing another, a `QueueDismissed`, a `QueueReopened` and
-an `ApprovalWithdrawn`, then after each the snapshot's approval state is as rule 5 says (removed holds
-both students after the second approval; the dismissal keeps the spot counts it saw), and `dispatch`
-sends each request once.
+Given a session, when the store applies in turn an `ApprovalRequest` for group 1, a `GroupApproved`
+removing one student, a request for group 2, a `GroupDismissed` for it, a `GroupReopened` for it, a third
+request for group 2, a `GroupApproved` removing another and an `ApprovalWithdrawn` for a group-3 request,
+then after each the snapshot's approval state is as rule 5 says (approved groups 1 and 2 at the end,
+removed holding both students; the dismissal keeps the spot counts it saw), and `dispatch` sends each
+request once.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_coachs_approval_round_trips_through_the_store`
 
 #### NOTIFICATIONS-ENGINE-STORE-5: A student the system recorded as coming counts as confirmed (rule 6)
