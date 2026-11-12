@@ -99,16 +99,58 @@ def open_invitations_query(player_id: int):
     )
 
 
+_ANY_SESSION_KEY = "engine_readers.any_new_engine_session"
+
+
+def _any_new_engine_session() -> bool:
+    """Whether any session is on the new engine (an ``engine_sessions`` row), read once per database
+    session: a calendar or a class detail keeps its fixed statement count (PAD-583, PAD-591) and reads
+    no ``notification_configs`` row for it. The memo lives on the session (it ends with the request or
+    the job, R-007) and is dropped when this session writes an ``engine_sessions`` row, commits or rolls
+    back."""
+    from padel_app.models import EngineSession
+
+    info = db.session.info
+    if _ANY_SESSION_KEY not in info:
+        info[_ANY_SESSION_KEY] = db.session.query(EngineSession.lesson_instance_id).first() is not None
+    return info[_ANY_SESSION_KEY]
+
+
+def _forget_on_new_session(session, flush_context, instances) -> None:
+    from padel_app.models import EngineSession
+
+    if any(isinstance(obj, EngineSession) for obj in session.new):
+        session.info.pop(_ANY_SESSION_KEY, None)
+
+
+from sqlalchemy import event as _sa_event  # noqa: E402
+from sqlalchemy.orm import Session as _Session  # noqa: E402
+
+def _forget(session, *args) -> None:
+    session.info.pop(_ANY_SESSION_KEY, None)
+
+
+_sa_event.listen(_Session, "before_flush", _forget_on_new_session)
+# A commit or a rollback ends what the memo can speak for (a test, a request's write, a job's unit).
+_sa_event.listen(_Session, "after_commit", _forget)
+_sa_event.listen(_Session, "after_rollback", _forget)
+
+
 def class_engine_fields(obj) -> dict:
     """notifications.config rule 20 (CONFIG-74): what a student's class payload says about the engine:
     ``engineVersion`` (an occurrence's own engine, rule 18; a series' or an occurrence not yet
     materialised, its primary coach's switch) and ``waitingListSideChoice`` (the coach's rule-20 flag,
     false on the old engine). Both always present."""
-    from padel_app.models.notification_config import NotificationConfig
     from padel_app.services.engine_entry import _series_coaches, _series_is_new_engine
     from padel_app.services.engine_switch import engine_for
     from padel_app.services.lesson_service import primary_coach
 
+    if getattr(obj, "model_name", None) not in ("LessonInstance", "Lesson"):
+        return {}
+    if not _any_new_engine_session():
+        # The fixed-statement budget of a calendar and a class detail (PAD-583, PAD-591): while no
+        # session is on the new engine, every class is on the old one and no per-class lookup runs.
+        return {"engineVersion": "old", "waitingListSideChoice": False}
     if getattr(obj, "model_name", None) == "LessonInstance":
         new = engine_for(obj) == "new"
         coach = primary_coach(obj)
@@ -121,6 +163,8 @@ def class_engine_fields(obj) -> dict:
         return {}
     choice = False
     if new and coach_id is not None:
-        config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+        from padel_app.services.notification_service import notification_config_for
+
+        config = notification_config_for(coach_id)          # the request's one config read (PAD-591)
         choice = bool(config and config.waiting_list_side_choice)
     return {"engineVersion": "new" if new else "old", "waitingListSideChoice": choice}
