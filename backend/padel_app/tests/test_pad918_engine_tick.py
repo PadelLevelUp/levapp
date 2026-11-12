@@ -41,3 +41,24 @@ def test_the_tick_plans_each_session_and_goes_on_past_a_failure(app):
     incident = DeliveryIncident.query.filter_by(kind=SESSION_FAILED).one()
     assert (incident.channel, incident.subject_type, incident.subject_id) == ("scheduler", "lesson_instance", int(failing))
     assert incident.error_class == "RuntimeError"
+
+
+from padel_app.tests.test_pad695_worker_role import boot  # noqa: E402,F401 — the real-init_scheduler fixture
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-6")
+def test_the_engine_tick_job_runs_every_engine_run_every(boot, monkeypatch):
+    """engine-store rule 7: the worker registers ``engine_tick`` at ENGINE_RUN_EVERY; it runs run_tick."""
+    from padel_app import scheduler as sched_mod
+    from padel_app.invitation_engine.constants import ENGINE_RUN_EVERY
+    from padel_app.services import engine_runner
+
+    app, sched, _ = boot(ROLE="worker", WORKER_SPLIT="on")
+    job = sched.get_job("engine_tick")
+    assert job is not None and job.trigger.interval == ENGINE_RUN_EVERY
+
+    ran = []
+    monkeypatch.setattr(engine_runner, "run_tick", lambda now=None: ran.append(now) or 0)
+    monkeypatch.setattr(sched_mod, "_app", app)
+    sched_mod._run_engine_tick()
+    assert ran == [None]

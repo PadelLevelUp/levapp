@@ -17,6 +17,7 @@ Jobs
 - ``reminder_{instance_id}``                   — DateTrigger — fires send_class_reminders() (legacy, for already-materialized instances)
 - ``invite_start_{instance_id}``               — DateTrigger — fires trigger_invitations()
 - ``process_batches``                          — IntervalTrigger (2 min) — fires process_invitation_batches()
+- ``engine_tick``                              — IntervalTrigger (1 min) — the new engine's run (PAD-918)
 - ``read_push_receipts``                       — IntervalTrigger (10 min) — redeems Expo tickets (PAD-745)
 - ``extend_schedule_window``                   — CronTrigger (daily 02:47 UTC) — extends 60-day reminder horizon
                                                  and re-derives any missing lesson reminder jobs
@@ -726,6 +727,20 @@ def _run_process_batches() -> None:
             app.logger.error("process_invitation_batches failed: %s", exc)
 
 
+def _run_engine_tick() -> None:
+    """The new invitation engine's run (PAD-918, notifications.engine-store rule 7): adopt, tick every
+    listed session in its own unit, send the outbox. Nothing is listed until a coach is switched."""
+    app = _app
+    if app is None:
+        return
+    with app.app_context():
+        from padel_app.services import engine_runner
+        try:
+            engine_runner.run_tick()
+        except Exception as exc:
+            app.logger.error("engine_tick failed: %s", exc)
+
+
 def _missed_reminder_subject(job_id: str):
     """``(subject_type, subject_id)`` for a missed reminder-family job, or None for any other."""
     if job_id.startswith("reminder_lesson_"):
@@ -961,6 +976,18 @@ def init_scheduler(app, test_config=None) -> None:
         func=_run_process_batches,
         trigger=IntervalTrigger(seconds=batch_seconds),
         id="process_batches",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60,
+    )
+    # PAD-918: the new engine's run, every ENGINE_RUN_EVERY (engine-store rule 7).
+    from padel_app.invitation_engine.constants import ENGINE_RUN_EVERY
+
+    sched.add_job(
+        func=_run_engine_tick,
+        trigger=IntervalTrigger(seconds=int(ENGINE_RUN_EVERY.total_seconds())),
+        id="engine_tick",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
