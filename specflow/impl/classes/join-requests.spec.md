@@ -1,6 +1,6 @@
 ---
 id: classes.join-requests
-status: implemented
+status: implementing
 depends_on: [eligibility.open-spot-visibility, eligibility.enforcement, classes.instances, notifications.invitations, messaging.messages]
 serves: [P-CLASSES-4]
 governed_by: []
@@ -18,6 +18,33 @@ by a student's request — and whichever lands first wins.
 - **ClassJoinRequest** (`class_join_requests`): lesson_instance_id, player_id, coach_id,
   status (`pending` | `accepted` | `rejected` | `withdrawn` | `superseded`), created_at, decided_at,
   decided_by_coach_id, note (PAD-358: optional, ≤ 500 characters). Unique on `(lesson_instance_id, player_id)` among `pending` rows.
+
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine the coach's "let eligible requests in at once"
+(rule 21, `auto_accept_join_requests`) is the engine's direct join (`notifications.engine-settings` rule 5,
+set from that setting, `notifications.config` rule 19). **Copy marked "proposed" awaits the owner's
+approval.**
+
+| Item | For a new-engine session | Source |
+|---|---|---|
+| Rule 21 (an automatic accept) | a request with the setting on is the engine's `DirectJoin`: placed at once on a side the student fits, or refused with a code (NJ1); a request with the setting off waits for the coach as today | `notifications.engine-settings` rule 5 |
+
+- **NJ1. Refusal codes.** The engine refuses a direct join with a code, never text, and the route answers
+  `409 {code}` with today's codes where the meaning is the same: `already_enrolled`, `class_closed`,
+  `ineligible`, `side_full` (with `requestedSide` and `openSides`; the client offers the waiting list, as
+  `notifications.engine-settings` rule 5 says), and one new code, `busy_same_hour` (the student is going
+  to another class with the same start, `notifications.engine-answers` rule 10). Direct join off is no
+  refusal: the request waits for the coach.
+- **NJ2. Copy for every code, both locales**, under `calendar.joinRequest.refusal.*`, including the two
+  codes that have none today:
+  - `busy_same_hour`: "Já estás inscrito noutra aula à mesma hora" / "You're already in another class at
+    the same time" (proposed);
+  - `side_full`: "Já não há vaga do teu lado. Podes entrar na lista de espera." / "There's no spot left on
+    your side. You can join the waiting list." (proposed);
+  - `has_spots` (a waiting-list join while the class has room, today's code): "Esta aula ainda tem vagas:
+    pede para entrar." / "This class still has spots: ask to join." (proposed).
+  Web and iOS show the same line; a code with no copy never shows its raw key.
 
 ### Rules
 1. **Only an eligible student may request**, and only for a class that is visible to them with an
@@ -511,6 +538,22 @@ test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py`
 - **And** when the accepted request was for the right side, the left request stays `pending` and nothing is sent
 test: `backend/padel_app/tests/test_pad672_side_on_requests_and_waiting_list.py` › `test_a_pending_request_whose_side_spot_is_taken_moves_to_that_sides_waiting_list`
 
+#### CLASSES-JOIN-REQUESTS-36: A new-engine direct join is placed or refused with a code (new-engine section NJ1)
+- **Given** a new-engine class with direct join on, a right spot open, and students: one who fits the right side, one who plays only left, one below the bar, one going to another class with the same start
+- **When** each asks to join
+- **Then** the first is placed at once (`201`, accepted), and the others answer `409` with `side_full` (with `openSides` `["right"]`), `ineligible` and `busy_same_hour`; with direct join off, a request answers `201` pending
+test: `backend/padel_app/tests/test_pad920_direct_join_refusals.py` › `test_a_direct_join_is_placed_or_refused_with_a_code`
+
+#### CLASSES-JOIN-REQUESTS-37: Every refusal code has copy on both shells (new-engine section NJ2)
+- **Given** each refusal code of rule 15 and NJ1, plus `has_spots`
+- **When** the student's request or waiting-list join is refused with it, on web and on iOS
+- **Then** each shows its `calendar.joinRequest.refusal.<code>` line in the user's language, and no raw key ever shows
+test: `frontend/packages/config/src/join-refusal-copy.test.ts` › `every refusal code has copy in both locales`
+
 ### Notes
 - Rule 8 (credit consumption) is the one rule carrying an explicit assumption; see the flag in the
   rule text.
+
+### Open questions
+- The direct-join refusal copy and the two codes missing copy today (NJ2) — proposed by S (PAD-913,
+  2026-11-12), **for the owner's approval**.
