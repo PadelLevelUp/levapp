@@ -121,7 +121,15 @@ Stated as observable records; storage is the engine package's (PAD-902).
     - The coach may instead answer `DismissQueue(session)` (today's "Ignorar"; coordinator's ruling,
       reversible by the owner): the pending request is gone and the session sends nothing
       automatically and raises no request until its spot count changes or the coach reopens it from
-      the class; then the next run asks again as above. Invitations already sent stay open (rule 10).
+      the class (`ReopenQueue(session)`); then the next run asks again as above. The spot count is the
+      open spot types with their counts (`planner.spot_types`); a change in either ends the dismissal.
+      Either way the engine records `QueueReopened` before the new request. Invitations already sent
+      stay open (rule 10).
+    - `ApproveQueue` with no pending request changes nothing. Each approval replaces the approved queue;
+      removed students add up across approvals.
+    - Only the planner's sends are held. The re-offer an answer makes at once (a Yes whose offer filled,
+      `notifications.engine-answers` rule 3) goes to a student who already holds the invitation and is
+      not held.
     - Automatic entry from a waiting list and direct join are the coach's own settings and are not held;
       waiting-list invitations are invitations and are.
     - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
@@ -356,7 +364,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
    `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
 6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 — `invitation_engine/effects.py` (`ApprovalRequest`),
-   `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`), `invitation_engine/planner.py` (the hold, from
+   `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`, `ReopenQueue`), `invitation_engine/planner.py` (the hold, from
    `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
    approved queue and the pending request and sends the request through the outbox, and
    (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
