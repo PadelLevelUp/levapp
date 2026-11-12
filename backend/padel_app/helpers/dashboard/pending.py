@@ -48,9 +48,34 @@ def _pending_pairs(coach_id: int, now: Optional[datetime] = None):
     )
 
 
+def _engine_open_invitations(coach_id: int, now: Optional[datetime] = None):
+    """PAD-918 (swap plan §3.2): a new-engine session's open invitations for tomorrow, the new engine's
+    "sent" events: not answered, not closed, no sorry."""
+    from padel_app.models import EngineInvitation
+
+    start, end = _tomorrow_window(now)
+    return (
+        EngineInvitation.query
+        .join(LessonInstance, LessonInstance.id == EngineInvitation.lesson_instance_id)
+        .filter(EngineInvitation.coach_id == coach_id,
+                EngineInvitation.answer.is_(None),
+                EngineInvitation.closed_at.is_(None),
+                EngineInvitation.sorry_at.is_(None))
+        .filter(LessonInstance.start_datetime >= start)
+        .filter(LessonInstance.start_datetime < end)
+    )
+
+
+def _all_pending_pairs(coach_id: int, now: Optional[datetime] = None) -> List[Tuple[int, int]]:
+    """Both engines' pending pairs, each once."""
+    pairs = {(i, p) for i, p in _pending_pairs(coach_id, now).all()}
+    pairs |= {(r.lesson_instance_id, r.player_id) for r in _engine_open_invitations(coach_id, now).all()}
+    return sorted(pairs)
+
+
 def count_pending_confirmations(*, coach_id: int, now: Optional[datetime] = None) -> int:
     """Number of students still pending confirmation for tomorrow's classes."""
-    return _pending_pairs(coach_id, now).count()
+    return len(_all_pending_pairs(coach_id, now))
 
 
 def get_pending_confirmation_targets(
@@ -61,7 +86,7 @@ def get_pending_confirmation_targets(
         [(lesson_instance_id, [player_id, ...]), ...]
     """
     by_instance: Dict[int, List[int]] = {}
-    for instance_id, player_id in _pending_pairs(coach_id, now).all():
+    for instance_id, player_id in _all_pending_pairs(coach_id, now):
         by_instance.setdefault(instance_id, []).append(player_id)
     return list(by_instance.items())
 
@@ -84,7 +109,23 @@ def notify_pending_confirmations(
 
     targets = get_pending_confirmation_targets(coach_id=coach_id, now=now)
     sent = 0
+    engine_rows = {}
+    for row in _engine_open_invitations(coach_id, now).all():
+        engine_rows.setdefault(row.lesson_instance_id, []).append(row)
     for instance_id, player_ids in targets:
+        if instance_id in engine_rows:
+            # PAD-918: a new-engine invitation's newest bubble, pushed again as the old one's is.
+            from types import SimpleNamespace
+
+            for row in engine_rows[instance_id]:
+                if not row.message_ids:
+                    continue
+                held = SimpleNamespace(message_id=row.message_ids[-1], player_id=row.player_id,
+                                       lesson_instance_id=row.lesson_instance_id,
+                                       lesson_instance=db.session.get(LessonInstance, row.lesson_instance_id))
+                if push_existing_invitation(held):
+                    sent += 1
+            continue
         latest = {}
         for event in (
             NotificationEvent.query.filter(
