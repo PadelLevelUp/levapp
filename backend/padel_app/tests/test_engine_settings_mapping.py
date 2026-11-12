@@ -130,8 +130,10 @@ def test_timing_shapes_map_one_for_one():
 
 @pytest.mark.criterion("NOTIFICATIONS-CONFIG-52")
 def test_auto_accept_join_requests_maps_to_direct_join():
+    """Rule 19 (owner Q3 as today): never with semi-automatic, whatever is stored."""
     assert _settings(_config(auto_accept_join_requests=True)).direct_join is True
     assert _settings(_config(auto_accept_join_requests=False)).direct_join is False
+    assert _settings(_config(auto_accept_join_requests=True, invitation_mode="semi_automatic")).direct_join is False
 
 
 @pytest.mark.criterion("NOTIFICATIONS-CONFIG-55")

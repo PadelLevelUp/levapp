@@ -109,6 +109,7 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
         eligibility=OPEN_BAR,
         tiers=(Tier("coach_list"), Tier("students_list"), *(_tier(g) for g in config.get_invitation_groups())),
         ordering=_ordering(config),
-        direct_join=bool(config.auto_accept_join_requests),
+        # Rule 19 (owner Q3, as today): never with semi-automatic, whatever the stored flag says.
+        direct_join=bool(config.auto_accept_join_requests) and config.get_invitation_mode() != "semi_automatic",
         invitation_mode=config.get_invitation_mode(),                                  # D2 (CONFIG-58)
     )
