@@ -179,3 +179,48 @@ def test_none_starts_invitations_at_creation_and_sends_no_attendance_request():
     assert placed == ["W1"]
     assert not [e for e in plan(store.snapshot("A"), auto.with_changes(attendance_request=AttendanceRequest()),
                                 morning).effects if isinstance(e, fx.Placed)], "control: past the default slot"
+
+
+def _freed_session(**settings):
+    """Capacity 8, six regulars (three a side), the class on 3 Nov; R-3 says No: one right spot freed,
+    two never held."""
+    store = MemoryStore()
+    for sid, side in (("PL1", "L"), ("PL2", "L"), ("PR1", "R"), ("PR2", "R"), ("PR3", "R")):
+        store.add_student(Student(sid, 3, frozenset({side})))
+    store.add_session("A", 3, 8, datetime(2026, 11, 3, 10, 30),
+                      [(Student(f"{v}-{i}", 3, frozenset({v})), v) for v in "LR" for i in (1, 2, 3)],
+                      datetime(2026, 11, 1, 18, 0))
+    engine = Engine(store, EngineSettings(invites_per_spot=1, **settings))
+    engine.handle("A", rq.RegularAbsent("R-3"), datetime(2026, 11, 1, 18, 30))
+    return store, engine
+
+
+def _invited_types(effects):
+    return sorted(next(iter(e.offer)).side or "-" for e in effects if isinstance(e, fx.Invited))
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-SETTINGS-23")
+def test_fill_never_held_off_invites_only_for_freed_spots():
+    """engine-settings rule 11: with ``fill_never_held`` off the planner invites for the spot R-3 freed
+    only; on, for all three open spots."""
+    t0 = datetime(2026, 11, 1, 19, 0)
+    _, off = _freed_session(fill_never_held=False)
+    assert _invited_types(off.tick(t0)) == ["R"]
+    _, on = _freed_session()
+    assert len(_invited_types(on.tick(t0))) == 3
+
+
+def test_fill_never_held_off_limits_direct_join_and_automatic_entry():
+    """engine-settings rule 11: direct join and automatic entry fill freed spots only."""
+    t = datetime(2026, 11, 1, 18, 40)
+    store, engine = _freed_session(fill_never_held=False, direct_join=True)
+    [refused] = engine.handle("A", rq.DirectJoin("PL1"), t)                      # the left spots were never held
+    assert (refused.reason, refused.sides) == ("side_full", frozenset({"R"}))       # only the freed side
+    assert [e.how for e in engine.handle("A", rq.DirectJoin("PR1"), t) if isinstance(e, fx.Placed)] == ["direct"]
+    assert [e.reason for e in engine.handle("A", rq.DirectJoin("PR2"), t)
+            if isinstance(e, fx.Refused)] == ["side_full"]                       # the freed spot is taken
+
+    store, engine = _freed_session(fill_never_held=False, auto_entry_before_attendance_request=True)
+    store.apply([fx.WaitingListJoined("A", t, sid, "coach") for sid in ("PL1", "PR1", "PR2")])
+    placed = [e.student for e in engine.handle("A", rq.Appear("PL1"), t) if isinstance(e, fx.Placed)]
+    assert len(placed) == 1                                                      # one freed spot, one entry
