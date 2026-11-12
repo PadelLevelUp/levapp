@@ -86,17 +86,10 @@ def _due_at_switch(instance, config) -> bool:
 def _adopt(store, instance, coach_id: int, now: datetime) -> bool:
     """The session's ``engine_sessions`` row and its regulars, placed (``TableStore.add_session``), in one
     unit; the old engine's unstarted vacancies are closed in it. Returns whether it wrote the row."""
-    from padel_app.models import EngineSession
-    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
     from padel_app.models.presences import Presence
     from padel_app.models.vacancy import Vacancy
     from padel_app.services.level_ladder import ladder_index_map
 
-    if Association_CoachLessonInstance.query.filter_by(lesson_instance_id=instance.id).first() is None:
-        # add_session reads the coach from the occurrence's own coach row (PAD-916); without one it
-        # stays on the old engine until the store reads the lesson's coach too.
-        log.warning("engine_switch: occurrence %s has no coach row; left on the old engine", instance.id)
-        return False
     roster = [p for p in Presence.query.filter_by(lesson_instance_id=instance.id).all()
               if p.enrolment_source == "roster"]
     students = store._students(coach_id, [], {}, extra=[p.player_id for p in roster])
@@ -114,7 +107,7 @@ def _adopt(store, instance, coach_id: int, now: datetime) -> bool:
             vacancy.status = "expired"                     # never invited (CONFIG-61): the old tick keeps off
         store.add_session(session, store._level(ladder_index_map(coach_id), instance.level_id),
                           instance.effective_max_players, instance.start_datetime, regulars, now)
-        db.session.get(EngineSession, instance.id).coach_id = coach_id   # the primary coach (CONFIG-51)
+        # add_session writes the occurrence's primary coach (PAD-916), the coach the switch read.
     return True
 
 

@@ -15,7 +15,10 @@ class switches (not listed), ``maxInvitesPerStudentPerDay`` (``postponed``), ``n
 ``cancellationDeadlineHours`` is the engine's ``absence_cutoff_before`` (swap decision 4, CONFIG-56);
 ``invitationGroups`` are the tiers after the two waiting lists, one per group (D5, CONFIG-57); and
 ``invitationMode`` is carried for the engine's hold (D2, CONFIG-58). ``maxTotal`` (D3) has no
-counterpart. The keys only the new engine has take its defaults.
+counterpart. The keys only the new engine has are the coach's ``engine`` object (rule 20, CONFIG-69):
+M, the timing method and pair (each minutes value null falling back to ``maxInactiveTime``), per-tier
+times, automatic entry and the students' side choice; an "other side" group is a side rule
+``different_from_vacancy``.
 """
 from __future__ import annotations
 
@@ -31,6 +34,7 @@ from padel_app.invitation_engine.settings import (
     GroupRule,
     Tier,
     Timing,
+    TimingPair,
 )
 from padel_app.models.notification_config import NotificationConfig
 
@@ -47,7 +51,9 @@ def _tier(group: dict) -> Tier:
     ``side`` and ``level_offset``, which the engine's per-side shares and placement read."""
     rules = tuple(GroupRule(r.get("attribute"), r.get("operation"), r.get("value"))
                   for r in group.get("rules") or [] if isinstance(r, dict))
-    side = "same" if any(r.attribute == "side" and r.operation == "same_as_vacancy" for r in rules) else "any"
+    sides = {r.operation for r in rules if r.attribute == "side"}
+    # Rule 20: different_from_vacancy is the "other side" tier; same_as_vacancy today's balance rule.
+    side = "other" if "different_from_vacancy" in sides else "same" if "same_as_vacancy" in sides else "any"
     offset = next((LEVEL_OFFSET.get(r.operation) for r in rules if r.attribute == "level"), None)
     return Tier("pool", side, offset, rules)
 
@@ -74,6 +80,27 @@ def _shape(timing: dict) -> dict:
     return {"type": "none"}
 
 
+def _minutes(value, fallback: timedelta) -> timedelta:
+    """A stored minutes value (rule 20) or ``fallback`` when null, never below the engine's floor."""
+    return fallback if value is None else max(ENGINE_T_FLOOR, timedelta(minutes=int(value)))
+
+
+def _timing(config: NotificationConfig, inactive: timedelta, tiers: int) -> Timing:
+    """Rule 20: the method and the pair, each minutes value null falling back to ``maxInactiveTime``
+    (rule 19); ``perTier`` only with ``per_tier``, cut to the tiers the coach has now (a group removed
+    after the save leaves no entry the engine would refuse)."""
+    engine = config.get_engine_settings()["timing"]
+    method = engine["method"] if engine["method"] in ("fixed", "progressive", "per_tier") else "fixed"
+    per_tier = ()
+    if method == "per_tier":
+        per_tier = tuple(
+            TimingPair(_minutes(p.get("betweenRoundsMinutes"), inactive), _minutes(p.get("betweenGroupsMinutes"), inactive))
+            if isinstance(p, dict) else None
+            for p in engine["perTier"][:tiers])
+    return Timing(method=method, between_rounds=_minutes(engine["betweenRoundsMinutes"], inactive),
+                  between_groups=_minutes(engine["betweenGroupsMinutes"], inactive), per_tier=per_tier)
+
+
 def _ordering(config: NotificationConfig) -> tuple[str, ...]:
     """Engine-tiers rule 8 (CONFIG-55): the enabled priority criteria in the coach's order, then the
     enabled tiebreakers in theirs. A criterion in both lists ranks once, at its first place; an id the
@@ -93,9 +120,13 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
     # maxSimultaneous and maxInactiveTime: the value whether or not enabled (rule 19); X is at least 1
     # and T at least the engine's floor, so an old row below them never refuses the coach.
     t = max(ENGINE_T_FLOOR, timedelta(minutes=inactive["value"]))
+    tiers = (Tier("coach_list"), Tier("students_list"), *(_tier(g) for g in config.get_invitation_groups()))
+    engine = config.get_engine_settings()
     return EngineSettings(
         invites_per_spot=max(1, int(r["maxSimultaneous"]["value"])),
-        timing=Timing(method="fixed", between_rounds=t, between_groups=t),
+        max_at_a_time=(max(1, int(engine["maxAtATime"])) if engine["maxAtATime"] is not None
+                       else EngineSettings.max_at_a_time),                   # null: the engine's default
+        timing=_timing(config, t, len(tiers)),
         first_invite=FirstInvite(**_shape(config.get_invitation_start_timing())),
         last_invite_before=timedelta(minutes=min_before["value"]) if min_before["enabled"] else timedelta(0),
         quiet_hours=((_clock(quiet["start"], "22:00"), _clock(quiet["end"], "07:00"))
@@ -107,8 +138,13 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
         ),
         absence_cutoff_before=timedelta(hours=config.get_cancellation_deadline_hours()),   # D4 (CONFIG-56)
         eligibility=OPEN_BAR,
-        tiers=(Tier("coach_list"), Tier("students_list"), *(_tier(g) for g in config.get_invitation_groups())),
+        tiers=tiers,
         ordering=_ordering(config),
-        direct_join=bool(config.auto_accept_join_requests),
+        # Rule 19 (owner Q3, as today): never with semi-automatic, whatever the stored flag says.
+        direct_join=bool(config.auto_accept_join_requests) and config.get_invitation_mode() != "semi_automatic",
         invitation_mode=config.get_invitation_mode(),                                  # D2 (CONFIG-58)
+        # Coordinator's ruling (CONFIG-68): `none` keeps today's meaning, no never-filled spots offered.
+        fill_never_held=config.get_invitation_start_timing().get("type") != "none",
+        auto_entry_before_attendance_request=engine["autoEntryBeforeAttendanceRequest"],   # rule 20
+        waiting_list_side_choice=engine["waitingListSideChoice"],                          # rule 20
     )

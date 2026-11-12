@@ -203,6 +203,9 @@ def get_config_dict(coach_id: int) -> dict:
         "eligibilityRules": config.get_eligibility_rules(),
         # PAD-130: the coach standard of the open-spot toggle (rule 3).
         "openSpotsVisible": bool(config.open_spots_visible),
+        # PAD-917 (rules 18, 20): the coach's engine and the new engine's own settings.
+        "engineVersion": config.engine_version or "old",
+        "engine": config.get_engine_settings(),
     }
 
 
@@ -291,9 +294,77 @@ def _record_config_changes(config: NotificationConfig, before: dict, at: datetim
             ))
 
 
+#: notifications.config rule 20: the side rule a coach on the old engine may not store (that engine
+#: would read it as unknown and let everyone through).
+OTHER_SIDE_OPERATION = "different_from_vacancy"
+ENGINE_TIMING_METHODS = ("fixed", "progressive", "per_tier")
+
+
+def _validate_engine_settings(engine, config: NotificationConfig, groups) -> None:
+    """Rule 20 (CONFIG-70): refuse an invalid ``engine`` object with a 400 naming the key, before
+    anything is written. ``groups`` are the invitation groups the save leaves the coach with."""
+    from flask import abort
+
+    from padel_app.invitation_engine.constants import ENGINE_T_FLOOR
+
+    if not isinstance(engine, dict):
+        abort(400, "engine must be an object")
+    floor = int(ENGINE_T_FLOOR.total_seconds() // 60)
+
+    def minutes(key, value):
+        if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < floor):
+            abort(400, f"engine.{key} must be a whole number of minutes, at least {floor}")
+
+    if "maxAtATime" in engine:
+        m = engine["maxAtATime"]
+        if m is not None and (not isinstance(m, int) or isinstance(m, bool) or m < 1):
+            abort(400, "engine.maxAtATime must be at least 1")
+    timing = engine.get("timing") or {}
+    if not isinstance(timing, dict):
+        abort(400, "engine.timing must be an object")
+    method = timing.get("method", config.timing_method or "fixed")
+    if method not in ENGINE_TIMING_METHODS:
+        abort(400, f"engine.timing.method must be one of {', '.join(ENGINE_TIMING_METHODS)}")
+    for key in ("betweenRoundsMinutes", "betweenGroupsMinutes"):
+        if key in timing:
+            minutes(f"timing.{key}", timing[key])
+    per_tier = timing["perTier"] if "perTier" in timing else (config.per_tier_timing or [])
+    if per_tier is None:
+        per_tier = []
+    if not isinstance(per_tier, list):
+        abort(400, "engine.timing.perTier must be a list")
+    if per_tier and method != "per_tier":
+        abort(400, "engine.timing.perTier is only for method per_tier")
+    if len(per_tier) > 2 + len(groups):
+        abort(400, "engine.timing.perTier has more entries than there are tiers")
+    for i, pair in enumerate(per_tier):
+        if pair is None:
+            continue
+        if not isinstance(pair, dict):
+            abort(400, f"engine.timing.perTier[{i}] must be an object or null")
+        for key in ("betweenRoundsMinutes", "betweenGroupsMinutes"):
+            minutes(f"timing.perTier[{i}].{key}", pair.get(key))
+
+
+def _other_side_group(groups) -> bool:
+    return any(isinstance(rule, dict) and rule.get("attribute") == "side"
+               and rule.get("operation") == OTHER_SIDE_OPERATION
+               for group in groups or [] if isinstance(group, dict)
+               for rule in group.get("rules") or [])
+
+
 def update_config(coach_id: int, data: dict) -> NotificationConfig:
     config = get_or_create_config(coach_id)
     _forget_config(coach_id)
+
+    # PAD-917 (rule 20): checked before anything is written, so a refused save stores nothing.
+    groups_after = data["invitationGroups"] if "invitationGroups" in data else config.get_invitation_groups()
+    if "invitationGroups" in data and (config.engine_version or "old") != "new" and _other_side_group(groups_after):
+        from flask import abort
+        abort(400, f"invitationGroups: {OTHER_SIDE_OPERATION} is for a coach on the new engine")
+    if "engine" in data:
+        _validate_engine_settings(data["engine"], config, groups_after or [])
+        config.set_engine_settings(data["engine"])
 
     timing_changed = False
     invitation_start_before = config.get_invitation_start_timing()
