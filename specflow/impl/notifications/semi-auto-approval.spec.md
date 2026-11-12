@@ -445,7 +445,7 @@ test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_the_o
 - **Given** a new-engine request on web with a left type of 7 students and an either type with none, on the class's card and in the conversation
 - **When** the coach removes two students and presses "Sim", and on another card presses "Ignorar", and a third card's answer comes back `stale`
 - **Then** the left block shows 5 with "Ver mais (2)" and the truncation line, the either block shows its empty-queue reasons, "Sim (2 retirados)" sends `yes_now` with both ids, "Ignorar" sends `dismiss`, the conversation card has no "Ignorar", no card has an "at the window" button, and the stale card shows the replaced line with no buttons
-test: `frontend/apps/web/src/components/messages/ReplacementApprovalCard.newEngine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
+test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.newEngine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
 
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-42: The iOS card does the same with the same test ids (new-engine section N5)
 - **Given** the same requests on iOS
