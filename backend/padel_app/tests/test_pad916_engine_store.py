@@ -723,3 +723,29 @@ def test_a_no_show_stays_placed(app):
     going = {p.student for p in store.snapshot(a).going}
     assert going == {x, y} and reg in store.snapshot(a).absent
 
+
+
+def test_elsewhere_says_whose_session_it_is(app):
+    """Engine-tiers rule 3: each ``Elsewhere`` (an open invitation in another session that club day)
+    carries ``same_coach``, so the engine reads the same coach's session as at the same time when it
+    overlaps and another coach's only at the same start."""
+    from padel_app.models import EngineSession, User
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
+
+    six = START.replace(hour=18)
+    store, (a, b, c), (_, x, _) = _seed(app, starts=(six, six + timedelta(hours=1), six + timedelta(hours=2)))
+    other = User(name="Other", username="o916c", password="x", status="active")
+    db.session.add(other)
+    db.session.flush()
+    other_coach = Coach(user_id=other.id)
+    db.session.add(other_coach)
+    db.session.flush()
+    Association_CoachLessonInstance.query.filter_by(lesson_instance_id=int(c)).one().coach_id = other_coach.id
+    db.session.get(EngineSession, int(c)).coach_id = other_coach.id
+    db.session.commit()
+    for sid in (b, c):
+        with store.unit((sid,)):
+            store.apply([_invited(sid, x)])
+    by_session = {e.session: e.same_coach for e in store.snapshot(a).elsewhere}
+    assert by_session == {b: True, c: False}
