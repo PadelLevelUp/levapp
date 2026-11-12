@@ -38,25 +38,32 @@ approval.**
 
   | first match | `outcome` | pt / en label |
   |---|---|---|
+  | answered yes, placed, and since cancelled (the presence is `absent`) | `cancelled` | Aceitou e depois cancelou / Accepted, then cancelled (proposed) |
   | answered yes and placed | `accepted` | Aceitou / Accepted |
   | answered no | `declined` | Recusou / Declined |
-  | withdrawn by the coach | `withdrawn` | Convite retirado / Invitation withdrawn |
-  | closed by a placement at the same hour | `busy_same_hour` | Noutra aula à mesma hora / In another class at the same time (proposed) |
+  | withdrawn by the coach (`closed_reason` `withdrawn`) | `withdrawn` | Convite retirado / Invitation withdrawn |
+  | closed by a placement at the same hour (`closed_reason` `same_hour`) | `closed_same_hour` | Noutra aula à mesma hora / In another class at the same time (proposed) |
   | answered yes, sorry, not re-offered | `sorry` | Disse que sim, sem vaga / Said yes, no spot (proposed) |
   | the class has started, no answer | `expired` | Expirou / Expired |
   | open and counting | `pending` | Ainda sem resposta / No answer yet |
   | open, no longer counting | `not_counting` | Sem resposta · já não conta / No answer · no longer counts (proposed) |
 
   A re-offered invitation shows its current outcome and the note "convite reaberto" / "reopened"
-  (proposed) in place of `movedAt`'s, from the same shared `inviteeNotes`. `tier` is carried for the
-  row's secondary text "grupo N" / "group N" (proposed; 0a and 0b read "lista do treinador" / "coach's
-  list" and "lista de espera" / "waiting list"). Students placed by automatic entry or by direct join
+  (proposed) in place of `movedAt`'s, from the same shared `inviteeNotes`, read from the row's
+  `reoffered_at`, which the store writes when it applies a `Reoffered`. Each invitee carries
+  `tierSource` (`coach_list`, `students_list`, `pool` or null for a manual invitation) and, for `pool`,
+  `groupNumber` (1-based, the coach's group order), for the row's secondary text: "lista do treinador"
+  / "coach's list", "lista de espera" / "waiting list", "grupo N" / "group N", "convite manual" /
+  "manual invitation" (all proposed). Students placed by automatic entry or by direct join
   hold no invitation: they show among the participants, not the invitees.
 - **ND2. "N pending" counts counting invitations only** (coordinator, PAD-913): `pending` outcomes, never
   `not_counting`, because those no longer hold a spot. It shows on **both** shells beside the open spots,
-  today's `calendar.detail.openSpotsPending` copy; iOS gains the line it lacks today.
+  today's `calendar.detail.openSpotsPending` copy ("{{count}} livre(s), {{pending}} pendente(s)"); iOS
+  gains the line it lacks today.
 - **ND3. Labels and notes come from the shared `invitation-outcome` and `inviteeNotes` helpers**, never
-  per shell; the test id is `invitee-outcome-<playerId>-<outcome>` on both shells.
+  per shell; on a new-engine session's rows the test id is `invitee-outcome-<playerId>-<outcome>` on both
+  shells. Old-engine rows keep today's ids (web `invitee-outcome-<playerId>`), which
+  `e2e/notification-engine/invitee-outcomes.spec.ts` keeps reading.
 
 ### Rules
 1. Class events open `ClassDetailSheet`: participants, attendance, edit, delete, notify buttons
@@ -577,14 +584,14 @@ test: `backend/padel_app/tests/test_pad560_deeplink_recurring.py` › `test_the_
 test: `backend/padel_app/tests/test_pad659_presence_changed_event.py` › `test_a_cancellation_tells_the_coach` (+5 more)
 
 #### CALENDAR-EVENT-DETAIL-33: A new-engine invitee's outcome is the first match of ND1's table (new-engine section ND1)
-- **Given** a new-engine session with one invitee in each ND1 case, one of them re-offered, and a pinned clock before the start
+- **Given** a new-engine session with one invitee in each ND1 case (one of them re-offered, one a manual invitation), and a pinned clock before the start
 - **When** the coach reads the class
-- **Then** each invitee's `outcome` is the row the table gives, the re-offered one carries the reopened note, each carries its `tier`, and students placed by automatic entry or direct join are participants, not invitees
+- **Then** each invitee's `outcome` is the row the table gives, the re-offered one carries the reopened note, each carries its `tierSource` and `groupNumber` (the manual one `tierSource` null), and students placed by automatic entry or direct join are participants, not invitees
 test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_each_invitee_gets_the_first_matching_outcome`
 
-#### CALENDAR-EVENT-DETAIL-34: "N pending" counts counting invitations only, on both shells (new-engine section ND2)
-- **Given** a new-engine session with two open spots, three counting invitations and two that stopped counting
-- **Then** web and iOS both read "2 livres, 3 pendentes" / "2 open, 3 pending"
+#### CALENDAR-EVENT-DETAIL-34: The shared helper counts only counting invitations as pending (new-engine section ND2)
+- **Given** a new-engine session's invitees: three `pending` and two `not_counting`
+- **Then** the helper's pending count is 3
 test: `frontend/packages/config/src/invitation-outcome.test.ts` › `pending counts only the invitations that still count`
 
 #### CALENDAR-EVENT-DETAIL-35: The web class detail labels the new outcomes from the shared helper (new-engine section ND1, ND3)
