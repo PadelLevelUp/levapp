@@ -112,9 +112,15 @@ def effect_key(e: fx.Effect) -> tuple[str, dict]:
 
 
 def settings_for(session: str) -> EngineSettings:
-    """The session's coach's settings (ruling D9). The ``NotificationConfig`` mapping is swap step 5;
-    until then every coach runs on the engine's defaults."""
-    return EngineSettings()
+    """The session's coach's settings (ruling D9), mapped from the stored ``NotificationConfig`` at
+    every call (notifications.config rule 19, ``engine_settings_mapping``). A coach with no row reads
+    today's defaults; none is created."""
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.engine_settings_mapping import settings_from_config
+
+    coach_id = TableStore().coach_of(session)
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
+    return settings_from_config(config if config is not None else NotificationConfig(coach_id=coach_id))
 
 
 def _blocks_auto_invitations(user) -> bool:

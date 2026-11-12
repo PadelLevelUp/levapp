@@ -552,6 +552,41 @@ class NotificationConfig(db.Model, model.Model):
     def get_tiebreakers(self):
         return self.tiebreakers if self.tiebreakers is not None else DEFAULT_TIEBREAKERS
 
+    # -- the new engine's own settings (notifications.config rule 20, PAD-917) -----------------
+
+    def get_engine_settings(self):
+        """The wire ``engine`` object. Nulls stay null: M null is the engine's default, a minutes
+        value null falls back to ``maxInactiveTime`` (rule 19). The old engine reads none of it."""
+        return {
+            "maxAtATime": self.max_at_a_time,
+            "timing": {
+                "method": self._col(self.timing_method, "fixed"),
+                "betweenRoundsMinutes": self.between_rounds_minutes,
+                "betweenGroupsMinutes": self.between_groups_minutes,
+                "perTier": list(self.per_tier_timing or []),
+            },
+            "autoEntryBeforeAttendanceRequest": bool(self._col(self.auto_entry_before_attendance_request, False)),
+            "waitingListSideChoice": bool(self._col(self.waiting_list_side_choice, False)),
+        }
+
+    def set_engine_settings(self, data):
+        """Write the keys present in a validated ``engine`` object (``notification_service`` checks it)."""
+        if "maxAtATime" in data:
+            self.max_at_a_time = data["maxAtATime"]
+        timing = data.get("timing") or {}
+        if "method" in timing:
+            self.timing_method = timing["method"]
+        if "betweenRoundsMinutes" in timing:
+            self.between_rounds_minutes = timing["betweenRoundsMinutes"]
+        if "betweenGroupsMinutes" in timing:
+            self.between_groups_minutes = timing["betweenGroupsMinutes"]
+        if "perTier" in timing:
+            self.per_tier_timing = list(timing["perTier"] or []) or None
+        if "autoEntryBeforeAttendanceRequest" in data:
+            self.auto_entry_before_attendance_request = bool(data["autoEntryBeforeAttendanceRequest"])
+        if "waitingListSideChoice" in data:
+            self.waiting_list_side_choice = bool(data["waitingListSideChoice"])
+
     def get_eligibility_rules(self):
         """The coach's standard eligibility bar, or ``None`` when unset (PAD-128).
 
