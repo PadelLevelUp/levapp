@@ -91,7 +91,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
     only one), the spot type (its side, none for an either spot, and its level) and how many spots of
     that type are uncovered; never text. The store keeps one alert per session and type until the
     type's count changes, and turns it into the coach's message or dashboard card, whose wording is
-    the app's (swap plan §6.3 item 7).
+    the app's (swap plan §6.3 item 7). A run that finds an alerted type covered, gone, or with a
+    candidate again emits `AlertCleared` (session, spot type), and the store drops that alert, so a
+    reader of the store's alerts sees only live ones.
 12. **Why this waits for the better tier (D9).** A spot is covered once one distinct candidate holds a
     counting invitation for it; the next tier gets it only when it is uncovered.
 13. **Ties in "hardest first" when M binds (coordinator ruling 2026-11-11, U7).** When two side types
@@ -391,6 +393,11 @@ test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_d
 Given two sessions, when `Engine.plan(session, now)` is called for one, then only that session is
 planned, as a background run would plan it, and the other is untouched.
 test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_engine_plan_runs_one_session`
+
+#### NOTIFICATIONS-ENGINE-PLANNING-40: An alert is cleared once its type is covered or has a candidate (rule 11)
+Given an alerted right type, when a right-sider becomes a candidate and the next run invites them, then
+that run emits `AlertCleared` for the type and the store holds no alert for it.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_an_alert_is_cleared_once_its_type_has_a_candidate`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".

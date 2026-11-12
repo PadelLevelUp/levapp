@@ -24,11 +24,11 @@ drained, the old engine is deleted and the replaced items go with it.
 | Rule 3, the `waiting_list_offer` ask | no such message: the waiting-list offer rides on the sorry, which the ask lists instead | `notifications.engine-answers` rules 4, 11 |
 | Rule 3, a Yes answered `spot_filled` | sorry (the waiting-list offer) or a re-offer, never "just filled" | `notifications.engine-answers` rules 3, 4 |
 | Criterion 12 | replaced with rule 3 | — |
+| Rule 3, the coach's item order (`empty_seats` → `reply` → `validation`) | `engine_alert` → `empty_seats` → `reply` → `validation`; "Mais tarde" snoozes an `engine_alert` as it snoozes `empty_seats` (B-030) | NA1 |
 
 Readings:
 - `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4).
 - `pendingConfirmation` comes from the engine's attendance requests instead of the reminders (`notifications.engine-timeline` rule 2).
-- The `empty_seats` card is unaffected; it is where the coach alert lands unless the owner picks another channel (`notifications.engine-planning` Open questions).
 
 The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the owner's approval.**
 - **NA1. A new `needs_you` item, `engine_alert`, first in the coach's order** (`engine_alert` →
@@ -36,8 +36,9 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   alert (`notifications.engine-planning` rule 11) in the current week's window (as `empty_seats`), soonest
   first. It carries `lessonInstanceId`, the class's title, ISO date and start time, `reason`
   (`no_candidate`, the engine's `ALERT_NO_CANDIDATE` in `notifications/constants.md`), `side` (`left`, `right` or null for either), `level` and `count`, and
-  `href` to the class detail. It goes when the alert does (the type's count changes or the class is
-  covered). That class's `empty_seats` item is not shown too: the alert says more.
+  `href` to the class detail. It is listed while the store holds the alert, which it drops when a run
+  finds the type covered, gone or with a candidate (`notifications.engine-planning` rule 11,
+  `AlertCleared`). That class's `empty_seats` item is not shown too: the alert says more.
 - **NA2. The card**, web `NeedsYouQueue` and iOS `blocks.tsx`, both from one shared copy helper:
   title "Ninguém para convidar" / "Nobody left to invite"; line "{count} vaga(s){side} · {class},
   {weekday} {time}" / "{count} open spot(s){side} · {class}, {weekday} {time}"; hint "Convida alguém à
@@ -46,7 +47,10 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   class.
 - **NA3. The alert also reaches the coach as a message.** The store's outbox posts the
   `coach_no_candidate` template (`notifications.message-templates` new-engine section) in the coach's
-  Assistant conversation and pushes it, once per alert (`notifications.engine-store` rule 2).
+  Assistant conversation as `message_type` `engine_alert` with `msg_metadata` `{engine: "new",
+  lessonInstanceId, reason, side, levelId, levelLabel, count}` (`notifications.invite-simulation` N2's
+  spot-type shape), and pushes it, once per alert (`notifications.engine-store` rule 2). Both shells show
+  it as a text bubble with a link to the class.
 - **NA4. No rename.** The wire names `vacancy_invite` and `empty_seats` stay: renaming them breaks older
   builds for no reader's gain, and their copy already says "convite" and "vagas".
 
@@ -748,8 +752,8 @@ test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `falls ba
 test: `backend/padel_app/tests/test_pad920_dashboard_engine_alert.py` › `test_a_coach_alert_leads_the_queue_and_hides_its_empty_seats`
 
 #### DASHBOARD-BLOCKS-49: The alert card shows on web and iOS from one copy helper (new-engine section NA2)
-- **Given** an `engine_alert` item on web and on iOS
-- **Then** both show the card with the shared title, line and hint under `needs-you-engine-alert-<id>-right`, and pressing it opens the class
+- **Given** an `engine_alert` item on web
+- **Then** web shows the card with the shared title, line and hint under `needs-you-engine-alert-<id>-right`, and pressing it opens the class
 test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineAlert.test.tsx` › `shows the coach alert card and opens the class`
 
 #### DASHBOARD-BLOCKS-50: The iOS alert card matches the web one (new-engine section NA2)
