@@ -51,9 +51,11 @@ Stated as the engine's observable inputs; storage is the engine package's (PAD-9
    them, "other side" admits nobody.
 8. **A spot's level is the class's level (D3)**, never the departing player's. A class with no level
    applies no level rule.
-9. **Flexible going students (§4).** {left, right} students the coach has not placed, and regulars
-   above a value's quota. Extra regulars keep their spot; who moves, and when, is
-   `notifications.engine-timeline` rule 6. Total regulars never exceed capacity.
+9. **Flexible going students (§4).** {left, right} students the coach has not placed. A one-sided
+   regular above a value's quota keeps their spot and their side (the owner, 2026-11-12, decisions 12
+   and 13): they count under their side, and the other side's open spots are only the seats the class
+   has left. Who moves, and when, is `notifications.engine-timeline` rule 6. Total regulars never exceed
+   capacity.
 10. **One logic for both reasons (§4).** A spot with no regular and a spot freed by an absence are the
     same to the engine; only the coach's view and attendance records tell them apart. The one exception
     is `fill_never_held` off (`notifications.engine-settings` rule 11), which keeps today's invitation
