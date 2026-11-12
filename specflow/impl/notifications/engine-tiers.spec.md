@@ -40,10 +40,11 @@ the coach's list).
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
    block on automatic invitations, already in the session, in another session at the same time
-   (**at the same time**, the owner's decision 11 of 2026-11-12: another session **of the same coach**
-   whose interval overlaps this one's at all, each session running from its start to its start plus
-   the lesson's duration, which the store puts in the snapshot; a session that ends exactly when the
-   other starts does not overlap. The code's and the wire's `same_hour` / `busy_same_time` names mean
+   (**at the same time**: another session **of the same coach** whose interval overlaps this one's at
+   all (the owner's decision 11 of 2026-11-12), each session running from its start to its start plus
+   the lesson's duration, which the store puts in the snapshot, a session ending exactly when the other
+   starts not overlapping; **or a session of any coach with the same start** (the owner's ruling of
+   2026-11-11, "nunca se quebra", which decision 11 widened within one coach and did not narrow). The code's and the wire's `same_hour` / `busy_same_time` names mean
    this. engine-answers rule 10, engine-planning rule 10 and rule 10 here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
@@ -280,11 +281,12 @@ the class, when the store builds the snapshot and the run plans, then only the m
 in `pool` and invited; the others are `not_in_pool`.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_students_own_blocks_hold_on_the_coachs_list`
 
-#### NOTIFICATIONS-ENGINE-TIERS-20: Any overlap with the same coach's class is busy; touching or another coach's is not (rule 3)
+#### NOTIFICATIONS-ENGINE-TIERS-20: Any overlap with the same coach's class, or the same start with any coach, is busy (rule 3)
 Given a 60-minute session at 19:00 and a student going to the same coach's 90-minute class at 18:00, a
-second going to the same coach's class at 20:00, and a third going to another coach's class at 19:00,
-when the dry run evaluates them, then the first is `busy_same_time` (18:00–19:30 overlaps 19:00–20:00)
-and the other two are not.
+second going to the same coach's class at 20:00, a third going to another coach's class at 19:00, and a
+fourth going to another coach's class at 18:30, when the dry run evaluates them, then the first is
+`busy_same_time` (18:00–19:30 overlaps 19:00–20:00), the third is too (the same start), and the second
+and fourth are not (touching; another coach's class with a different start).
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_any_overlap_with_the_same_coachs_class_is_busy`
 
 #### NOTIFICATIONS-ENGINE-TIERS-21: A side chosen for the waiting list binds whatever wl-sides says (rule 6)
@@ -325,7 +327,9 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   **reversed by the owner (2026-11-12, Codex decision 11):** "we should check for the whole timeline …
   classes that overlap even a little bit", for the same coach. A session that ends exactly when another
   starts does not overlap: S's reading (PAD-913, 2026-11-12; the owner can reverse it), because nothing
-  of the two classes happens at once. **Later extension, not decided:** the same club's other coaches
+  of the two classes happens at once. Another coach's class with the same start stays busy: decision 11
+  widened the 2026-11-11 ruling ("never two sessions at the same hour") within one coach and did not
+  narrow it; S's reconciliation of the two (PAD-913, after the fresh review), for the owner to confirm. **Later extension, not decided:** the same club's other coaches
   ("same club eventually"); travel buffers between classes.
 - Where eligibility is decided after the swap (swap decision 6) — options: the coach's rule language
   (`eligibilityRules`) mapped into `EngineSettings.eligibility`; kept in the app. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): kept in the

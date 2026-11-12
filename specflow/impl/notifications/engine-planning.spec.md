@@ -129,8 +129,8 @@ Stated as observable records; storage is the engine package's (PAD-902).
       nothing. An invitation's counting-until instant is fixed when it is really sent
       (`notifications.engine-timeline` rule 4).
     - A removed student is never invited automatically for that session, and the dry run gives them the
-      stage `removed_by_coach`, so no later request lists them (it is not a No: the "said No" gate,
-      automatic entry and direct join are unchanged).
+      stage `removed_by_coach`, so no later request lists them and automatic entry does not place them (the coach removed them by hand; it is not a No: the
+      "said No" gate and direct join are unchanged).
     - The coach may answer `DismissGroup(session, request)` (today's "Ignorar"; the coordinator's
       dismissal reading, kept per group, reversible by the owner): that group is skipped for the session
       as if it had no candidates, so the next group is reached and asked for; it is asked for again only
