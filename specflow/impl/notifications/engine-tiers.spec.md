@@ -44,7 +44,11 @@ the coach's list).
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
 4. **The coach's list is the coach's decision (ruling (3)).** A student the coach put on the coach's
    list, eligible or not, is a member of group 0a and is placed or invited like any other member; only
-   "already in the session" and "said No for this session" still apply. Students still see only the
+   "already in the session", "said No for this session" and the student's own choices still apply: a
+   block on automatic invitations or on all notifications (`notifications.student-block-preferences`
+   rule 5) and an availability blocker over the class (`calendar.student-blockers` rule 5) keep them out
+   of `pool` on the coach's list too. The coach decides who is asked, never over the student's own
+   "do not ask me". Students still see only the
    classes they are eligible for.
 5. **Tiers (§2, §5, D12; Q7 closed).** In order: the coach's list, the students' list, then the coach's
    groups in the coach's order.
@@ -257,6 +261,13 @@ Given a class with no level and a group `level same_as_vacancy` + `side same_as_
 computed for a right spot, then every right-fitting pool student is in that group's tier whatever their
 level, although today's `_group_rule_failures` fails them all (`class_has_no_level`).
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_a_class_with_no_level_applies_no_group_level_rule`
+
+#### NOTIFICATIONS-ENGINE-TIERS-19: The coach's list never overrides the student's own blocks (rule 4)
+Given three students on the coach's list, one blocking automatic invitations, one blocking all
+notifications and one blocking only manual invitations, and a fourth with an availability blocker over
+the class, when the store builds the snapshot and the run plans, then only the manual-only blocker is
+in `pool` and invited; the others are `not_in_pool`.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_students_own_blocks_hold_on_the_coachs_list`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".

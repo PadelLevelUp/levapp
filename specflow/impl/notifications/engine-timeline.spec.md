@@ -27,7 +27,8 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    `attendance_request_at` (`EngineSettings.attendance_request`: days before, wall-clock time, Lisbon),
    then every `every`, at most `max` sends, each only to who has not answered. The recipients are the
    going students placed as a regular, a returning regular, by automatic entry or by direct join;
-   never a student placed by accepting an invitation, an absent regular or one who confirmed. A
+   never a student placed by accepting an invitation, an absent regular, one who confirmed, or one who
+   blocked all notifications (`notifications.student-block-preferences` rule 7). A
    student placed after a send waits for the next one; a run that comes late sends the latest send
    once, never the missed ones; quiet hours hold a send until they end; nothing goes out once the
    class has started. Silence keeps the spot. At a coach's cutover the app's reminder flow
@@ -210,6 +211,11 @@ Given a coach whose attendance request fires 6 h before the class and a cutoff o
 says No 10 h before the class (before any request was due), then the notice is `on_time` and the store
 writes `proactive_decline`, which is never derived late.
 test: `backend/padel_app/tests/test_invitation_engine_absences.py` › `test_a_no_before_the_first_request_is_on_time`
+
+#### NOTIFICATIONS-ENGINE-TIMELINE-23: A student who blocked all notifications gets no attendance request (rule 2)
+Given two regulars, one with `notif_block_all`, when the first attendance request is due, then only the
+other is asked.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_a_student_who_blocked_everything_gets_no_attendance_request`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
