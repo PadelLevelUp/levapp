@@ -750,3 +750,30 @@ def test_elsewhere_says_whose_session_it_is(app):
             store.apply([_invited(sid, x)])
     by_session = {e.session: e.same_coach for e in store.snapshot(a).elsewhere}
     assert by_session == {b: True, c: False}
+
+
+def test_the_invitation_records_who_answered(app):
+    """The engine's ``Answered.by`` (PAD-967): the store keeps who answered on the invitation
+    (``answered_by``, for the class detail's invitee row, calendar.event-detail ND1) and on its bubble's
+    answered state (``answeredBy``, invitations NB1); a student's own answer is ``student``."""
+    from padel_app.models import Conversation, EngineInvitation, Message, User
+    from padel_app.models.players import Player
+
+    store, (a,), (_, x, y) = _seed(app)
+    with store.unit((a,)):
+        store.apply([_invited(a, x), _invited(a, y)])
+    user_id = db.session.get(Player, int(x)).user_id
+    conv = Conversation.get_or_insert([user_id, User.query.filter_by(username="c916").one().id])
+    msg = Message(text="invite", sender_id=user_id, conversation_id=conv.id, message_type="notification_invite",
+                  msg_metadata={"engine": "new", "state": "open"})
+    db.session.add(msg)
+    db.session.flush()
+    store.attach_message(store.invitation_id(a, x), msg.id)
+    db.session.commit()
+    with store.unit((a,)):
+        store.apply([fx.Answered(a, NOW + timedelta(minutes=1), x, "no", "invitation", by="coach"),
+                     fx.Answered(a, NOW + timedelta(minutes=1), y, "no", "invitation")])
+    rows = {str(r.player_id): r for r in EngineInvitation.query.all()}
+    assert (rows[x].answered_by, rows[y].answered_by) == ("coach", "student")
+    db.session.refresh(msg)
+    assert (msg.msg_metadata["state"], msg.msg_metadata["answeredBy"]) == ("answered", "coach")

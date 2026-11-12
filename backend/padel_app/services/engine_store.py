@@ -746,8 +746,8 @@ class TableStore:
         elif isinstance(e, fx.Answered) and e.on == "invitation":
             row = self._invitation_row(e)
             if row is not None and row.answer is None and row.closed_at is None:
-                row.answer, row.answered_at = e.answer, e.at
-                _refresh_bubbles(row, "answered", response=e.answer)
+                row.answer, row.answered_at, row.answered_by = e.answer, e.at, e.by
+                _refresh_bubbles(row, "answered", response=e.answer, answeredBy=e.by)
         elif isinstance(e, fx.Answered):
             if e.answer == "yes":
                 attempt = (ReminderAttempt.query.filter_by(lesson_instance_id=iid, player_id=int(e.student))
