@@ -303,7 +303,7 @@ Kept unchanged for the new engine: rules 3b, 6, 9, 17, 20. Rule 18c, as amended 
    instance carries no level of its own. A structural vacancy (no departing player) snapshots the
    class's effective level; a vacancy created from a departing player snapshots that player's
    level, falling back to the class's effective level when the player has none.
-3. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 5, 7. Holds as written for an old-engine session until the old engine is deleted.)* Multi-round matching based on `invitation_groups` config:
+3. *(For a session on the new engine (`notifications.config` rule 18): replaced by `notifications.engine-tiers` rules 5, 7, 13. Holds as written for an old-engine session until the old engine is deleted.)* Multi-round matching based on `invitation_groups` config:
    - Round 1: Exact match (same level + same side)
    - Round 2: Same level only
    - Round 3: Open to all eligible
@@ -1620,7 +1620,8 @@ test: `backend/padel_app/tests/test_pad679_invite_moves_to_open_sibling_spot.py`
   Decision (S, owner away, PAD-913; the owner can reverse it): it becomes the student's one invitation
   (D1) and counts as one from the coach's list (tier 0a), because the coach's choice is the coach's list
   (ruling (3)) and an uncounted invitation would let the engine send past M.
-- The new tick's failure rule (rule 21) — decision (S, owner away, PAD-913): kept in substance, per
+- The new tick's failure rule (rule 21) — decision (S, owner away, PAD-913, 2026-11-11; the owner can
+  reverse it): kept in substance, per
   session instead of per spot; its criterion is written with the table-backed store (PAD-916), where
   the tick's transaction per session lives (swap plan §5).
 - Rules 11, 11a and 12–12b were listed as kept by PR #939; on reading they describe the old engine's

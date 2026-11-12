@@ -14,8 +14,8 @@ Render a server-driven dynamic dashboard with configurable blocks for coaches an
 
 ### Rules for a session on the new engine (PAD-913)
 Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
-below holds as written.** For a session on the new engine (the swap, PAD-912; plan
-`docs/plans/2026-11-11-engine-swap.md` §6.3 items 2, 7) the items in the table are replaced and the readings below
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §6.3 items 2, 7) the items in the table are replaced and the readings below
 hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
 drained, the old engine is deleted and the replaced items go with it.
 
@@ -725,3 +725,6 @@ test: `frontend/packages/config/src/dashboard-format.test.ts` › `uses the LOCA
 test: `frontend/apps/mobile/src/features/dashboard/routes.test.ts` › `falls back to the calendar tab when the class id is not a dashboard id` (+4 more)
 
 ### Open questions
+- The class card's rename off "vacancy" and the coach alert's card on web and iOS (swap plan §6.3
+  items 2, 7; `notifications.engine-planning` rule 11) — not decided; written with this spec's swap
+  step (client step 7–8), its copy to the owner then.

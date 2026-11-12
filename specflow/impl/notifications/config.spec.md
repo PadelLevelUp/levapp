@@ -854,7 +854,7 @@ test: `backend/padel_app/tests/test_engine_switch.py` › `test_an_occurrence_th
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
-  15-minute floor drops to the engine's one minute with the new timing controls
+  15-minute floor drops to const:ENGINE_T_FLOOR with the new timing controls
   (`notifications.engine-settings`, const:ENGINE_T_FLOOR there).
 - iOS at the swap — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): every setting the new engine needs ships on web and iOS together, the
   groups editor (now tiers) included; the iOS deferrals recorded before the swap stand with their
@@ -874,11 +874,11 @@ test: `backend/padel_app/tests/test_engine_switch.py` › `test_an_occurrence_th
   for one ("it cannot be well built if it doesn't take into account these important rules"). Once the
   tier carried the group rules (N, PAD-915), every stored group maps; S's earlier interim refusal of a
   group the tier could not express is retired with it.
-- The switch's way back, and a session the old engine started early (rule 18) — decisions (R, PAD-917,
-  owner away; the coordinator agrees; the owner can reverse them): the switch is one way, because rule
+- The switch's way back, and a session the old engine started early (rule 18) — decisions (R, owner
+  away, PAD-917, 2026-11-12; the coordinator agrees; the owner can reverse them): the switch is one way, because rule
   18 names no way back and a session moving between engines mid-flight would lose its invitations; a
   session the old engine had already started inviting for before its window ("invite now", an
   approved semi-automatic spot) is "already inviting" and drains on the old engine.
 - Ordering ids the engine does not know, `maxSimultaneous` below 1, a criterion in both lists —
-  decisions (R, PAD-917, owner away): dropped from `ordering` rather than refusing the coach, mapped to
+  decisions (R, owner away, PAD-917, 2026-11-12; the owner can reverse them): dropped from `ordering` rather than refusing the coach, mapped to
   1, ranked once, so a coach's stored settings never block the switch.

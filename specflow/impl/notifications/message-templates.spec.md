@@ -14,8 +14,8 @@ Customize the text of notification messages sent to players.
 
 ### Rules for a session on the new engine (PAD-913)
 Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
-below holds as written.** For a session on the new engine (the swap, PAD-912; plan
-`docs/plans/2026-11-11-engine-swap.md` §6.4) the items in the table are replaced and the readings below
+below holds as written.** For a session on the new engine (the swap, PAD-912; swap
+plan §6.4) the items in the table are replaced and the readings below
 hold; the rest hold unchanged. Not marked inline: this section is the one place. When every coach is
 drained, the old engine is deleted and the replaced items go with it.
 

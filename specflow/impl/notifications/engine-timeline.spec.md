@@ -241,7 +241,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - Ruling (2) settled who moves.
 - Who sends attendance requests after the swap (swap plan §3.1, "Reminders") — options: the app's
   reminder flow stays; the engine sends them (`messages.due`, #946). Decision (coordinator, owner away,
-  PAD-912; the owner can reverse it): the engine, and the app's reminder jobs retire per coach at
+  PAD-912, 2026-11-11; the owner can reverse it): the engine, and the app's reminder jobs retire per coach at
   cutover, because the engine's requests already know who was placed how (an invitation acceptor is
   not asked) and run inside the engine's quiet hours, and two senders for one class would ask twice.
 - Justified or unjustified, by the engine or the coach (plan §8 step 5) — decision (owner, 2026-11-11,

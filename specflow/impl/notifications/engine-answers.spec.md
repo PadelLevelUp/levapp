@@ -255,7 +255,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   owner may want a coach override, review pack).
 - The name of the engine's waiting-list invitation kind (swap decision 8) — options: keep
   `waiting_list_offer`; a new name; today's `waiting_list_invite`. Decision (coordinator, owner away,
-  PAD-912; the owner can reverse it): rename before any client renders it, to `waiting_list_invite`,
+  PAD-912, 2026-11-11; the owner can reverse it): rename before any client renders it, to `waiting_list_invite`,
   because today's `waiting_list_offer` is the engine's sorry, and today's `waiting_list_invite`
   template already says exactly this message, in both locales.
 - The coach's add at the same hour, an override or not — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): no override; the coach removes the
