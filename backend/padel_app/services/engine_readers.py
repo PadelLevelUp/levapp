@@ -84,3 +84,16 @@ def engine_invitees(instance, now: datetime | None = None) -> list[dict]:
             "groupNumber": group,
         })
     return out
+
+
+def open_invitations_query(player_id: int):
+    """A student's open new-engine invitations: not answered, not closed, and not a sorry (unless the
+    waiting list's turn reopened it). The new engine's twin of a live, unanswered NotificationEvent."""
+    from padel_app.models import EngineInvitation
+
+    return EngineInvitation.query.filter(
+        EngineInvitation.player_id == player_id,
+        EngineInvitation.answer.is_(None),
+        EngineInvitation.closed_at.is_(None),
+        (EngineInvitation.sorry_at.is_(None)) | (EngineInvitation.reopened_at.isnot(None)),
+    )

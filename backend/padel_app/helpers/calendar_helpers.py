@@ -485,6 +485,11 @@ def load_relation_events_for_player(player_id, range_start, range_end, *, now=No
         ),
         NotificationEvent,
     )
+    # PAD-918 (swap plan §3.2): a new-engine invitation that is still open is an invitation too.
+    from padel_app.models import EngineInvitation
+    from padel_app.services.engine_readers import open_invitations_query
+
+    invited += occurrences(open_invitations_query(player_id), EngineInvitation)
     waiting = occurrences(
         WaitingListEntry.query.filter(
             WaitingListEntry.player_id == player_id,
