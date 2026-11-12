@@ -59,6 +59,12 @@ Stated as observable records; storage is the engine package's (PAD-902).
     student. The rule binds the engine's paths; the coach's add is not one of them and is covered at
     the engine swap. This is the safety rule; the run's efficiency rule, which does not invite a
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
+11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
+    PAD-913).** The kinds are const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED,
+    const:KIND_SIDE_MOVED and const:KIND_WAITING_LIST_INVITE. A kind that shares a name with a key of
+    today's `DEFAULT_MESSAGE_TEMPLATES` means the same message; the only one is
+    const:KIND_WAITING_LIST_INVITE, the invitation sent from a waiting list. `waiting_list_offer` is not
+    an engine kind: today it is "spot taken, join the list?", which the engine says as const:KIND_SORRY.
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -169,6 +175,12 @@ Given `auto-entry` on and a waiting-list member of session B going to session A 
 spot they could take opens in B before `attendance_request_at`, then they are not placed in B.
 test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_auto_entry_skips_a_student_busy_at_that_hour`
 
+#### NOTIFICATIONS-ENGINE-ANSWERS-18: No engine kind reuses a name today's templates give another message (rule 11)
+Given the engine's message kinds (`invitation_engine/effects.py` `MessageKind`) and the keys of today's
+`DEFAULT_MESSAGE_TEMPLATES`, when they are compared, then the only shared name is
+const:KIND_WAITING_LIST_INVITE, and `waiting_list_offer` is not a kind.
+test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_engine_kinds_do_not_reuse_todays_message_names`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W3) ANSWERS-1, ANSWERS-2, ANSWERS-3, ANSWERS-9 — `invitation_engine/answers.py` (placement within
@@ -180,6 +192,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    engine swap.
 4. (PAD-911) ANSWERS-13 to ANSWERS-17 — `invitation_engine/answers.py` (a placement closes the other
    same-hour invitations; a second same-hour placement refused), `invitation_engine/store.py`.
+5. (Swap 3, PAD-915) ANSWERS-18 — `invitation_engine/effects.py` (`MessageKind`, the docstring),
+   `invitation_engine/constants.py` (a `KIND_WAITING_LIST_INVITE`), `tests/invitation_scenarios/adapters/new.py`
+   (its kind map). The scenario format's own `waiting_list_offer` (`scenario.schema.json`, `validate.py`,
+   `adapters/today.py`) logs today's message and is not the engine's kind.
 
 ### Open questions
 - A re-offer when several other spot types fit: which one? — decision (owner away): the hardest by rule
@@ -187,3 +203,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - A coach's add to a session at an hour where the student is already placed (rule 10) — not an
   engine path; covered at the engine swap (refused with the reason, Tomás's "nunca se quebra"; the
   owner may want a coach override, review pack).
+- The name of the engine's waiting-list invitation kind (swap decision 8) — options: keep
+  `waiting_list_offer`; a new name; today's `waiting_list_invite`. Decision (coordinator, owner away,
+  PAD-912; the owner can reverse it): rename before any client renders it, to `waiting_list_invite`,
+  because today's `waiting_list_offer` is the engine's sorry, and today's `waiting_list_invite`
+  template already says exactly this message, in both locales.
