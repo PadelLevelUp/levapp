@@ -32,9 +32,9 @@ coach is drained, the old engine is deleted and the replaced rules and their cri
 | 2b | `notifications.engine-spots` rules 6, 7 | sides come from the quota counts, not a balancing side per spot (D19) |
 | 2c | `notifications.engine-spots` rules 6, 7 | a freed spot is counted like any other (§4) |
 | 2d | `notifications.engine-spots` rule 6 and `notifications.engine-planning` rule 10 | counts are recomputed every run; nothing is withdrawn for balance (D4) |
-| 3 | `notifications.engine-tiers` rules 5, 7 | tiers per spot type, waiting lists first (§5) |
+| 3 | `notifications.engine-tiers` rules 5, 7, 13 | tiers per spot type, waiting lists first (§5); each group a tier with its rules (swap decision 5, owner) |
 | 3c | `notifications.engine-planning` rule 5.4 | an empty tier costs no time; the next tier goes in the same run (S9) |
-| 3e | `notifications.engine-planning` rule 8 | M caps counting invitations of the session (D16); the new engine does not read maxTotal (decision in `notifications.engine-planning`, U4) |
+| 3e | `notifications.engine-planning` rule 8 | M caps counting invitations of the session (D16); the new engine does not read maxTotal (dropped by the owner, swap decision 3) |
 | 4a | `notifications.engine-spots` rule 3 and `notifications.engine-tiers` rule 2 | side is a category; a student holds a subset (D18) |
 | 4b | `notifications.engine-answers` rule 2 and `notifications.engine-planning` rule 5.2 | own side first on Yes, flexible students used where scarce (D6, D7) |
 | 4d | `notifications.engine-spots` rule 8 | a class with no level applies no level rule (D3; open at approval) |
@@ -56,6 +56,9 @@ coach is drained, the old engine is deleted and the replaced rules and their cri
 | 12, 12a, 12b | the table-backed store (swap plan §5; PAD-916) and `notifications.engine-tiers` rule 11 | there are no waves; one snapshot per session per call |
 | 18 | `notifications.engine-answers` rule 5; `notifications.engine-planning` rule 2 | No is final for the session; one invitation per student per session (D1) |
 | 21 | the new tick (PAD-916; Open questions) | one session's failure is skipped, not one spot's |
+
+Semi-automatic approval, wherever a rule below names it, is for a new-engine session the hold of
+`notifications.engine-planning` rule 14 (owner ruling D2, swap decision 2), keyed to the session.
 
 Read for the new engine: rules 2a (the snapshot's level), 3a (the bar applied in `pool`, swap decision
 6), 4c (ladder positions become integer levels), 18c (as amended by PAD-911), 19 (a manual invitation is

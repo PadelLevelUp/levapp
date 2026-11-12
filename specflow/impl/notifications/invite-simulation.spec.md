@@ -46,7 +46,7 @@ drained, the old engine is deleted and the replaced items go with it.
 Readings:
 - Intent, rules 1 and 3: unchanged in purpose; "the engine" is the session's engine (`notifications.config` rule 18).
 - Rule 6's class switches (`auto_invites`, `notifications_enabled`) are the store's listing (`notifications.config` rule 19).
-- Rule 7 and criterion 8 (semi-automatic) wait on the owner (swap decision 2).
+- Rule 7 and criterion 8 (semi-automatic; owner ruling D2): `approvalRequired` reads the carried `invitation_mode` (`notifications.config` rule 19) as today; the list the coach approves is the dry run's queue per spot type (`notifications.engine-planning` rule 14), the same evaluator, so the request and the simulation agree.
 
 Not yet specified, needed before this spec's swap step (each under Open questions):
 - the wire shape of a per-type verdict and its client rendering (web and iOS, the tutorial's payload, `settings.tutorials`).

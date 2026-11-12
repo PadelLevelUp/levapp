@@ -34,6 +34,10 @@ drained, the old engine is deleted and the replaced rules and their criteria go 
 | 16a | `notifications.engine-answers` rule 3 | nothing moves between spots (D1) |
 | 4a, 4c | `notifications.engine-tiers` rules 3, 4 | the students' list passes every gate; the coach's list is the coach's decision (ruling (3)) |
 
+In semi-automatic mode (rule 4's last sentence; owner ruling D2), waiting-list invitations wait for the
+coach's approval like any invitation, and automatic entry from a list does not (`notifications.engine-planning`
+rule 14). A student is on one list of a session, never both (`notifications.engine-answers` rule 12).
+
 Kept unchanged for the new engine, the plan silent: rule 15b (the last standing credit withdraws the offers it paid for: a credit rule, not the engine's coverage) and rule 18a (the coach names the side a student waits for: the coach's decision, `notifications.engine-tiers` rule 6); and the list management of rules 2–3a, 5–11, 14–15a and 18–22.
 
 ### Entities

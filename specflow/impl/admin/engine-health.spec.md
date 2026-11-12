@@ -54,7 +54,7 @@ drained, the old engine is deleted and the replaced items go with it.
 Readings:
 - Rule 2's scheduler families: the new engine adds one tick job; the per-vacancy families exist only for old-engine sessions (`notifications.config` rule 18).
 - Rule 3, `reminder_skipped_past_due`: arises only for old-engine sessions; the engine's attendance requests replace reminders (`notifications.engine-timeline` rule 2).
-- Criterion 10 (`invitationMode`) waits on the owner (swap decision 2).
+- Criterion 10 (`invitationMode`): holds; semi-automatic is kept (owner ruling D2) and the mode is carried into the engine's settings (`notifications.config` rule 19).
 
 Not yet specified, needed before this spec's swap step (each under Open questions):
 - the new engine's tick job id and its health fields (with H's store, PAD-916).
