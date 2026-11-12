@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ActionCard, Eyebrow } from "./primitives";
 import { AnswerButtons } from "./AnswerButtons";
 import { useAnswerReminder } from "./useAnswerReminder";
-import { useAnswerVacancyInvite, useAnswerWaitingListOffer } from "./useAnswerAsk";
+import { useAnswerEngineInvite, useAnswerVacancyInvite, useAnswerWaitingListOffer } from "./useAnswerAsk";
 import { engineAlertCopy, resolveText, shortDate, validationTier } from "@levelup/config";
 import { PresencesBadge } from "@/components/layout/PresencesBadge";
 
@@ -276,7 +276,13 @@ function VacancyInviteCard({
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { answer, busyId } = useAnswerVacancyInvite(onAnswered);
+  const oldEngine = useAnswerVacancyInvite(onAnswered);
+  const newEngine = useAnswerEngineInvite(onAnswered);
+  // PAD-920: a new-engine card carries `invitationId` and answers by it; the old one by its event.
+  const [answer, busyId, answerId] =
+    item.invitationId !== undefined
+      ? [newEngine.answer, newEngine.busyId, item.invitationId]
+      : [oldEngine.answer, oldEngine.busyId, item.notificationEventId];
 
   return (
     <ActionCard
@@ -300,8 +306,8 @@ function VacancyInviteCard({
       <div className="flex items-center gap-2">
         <AnswerButtons
           className="flex items-center gap-2"
-          busy={busyId === item.notificationEventId}
-          onAnswer={(action) => answer(item.notificationEventId, action)}
+          busy={busyId === answerId}
+          onAnswer={(action) => answerId !== undefined && answer(answerId, action)}
         />
         <span className="flex-1" />
         <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate(item.href)}>

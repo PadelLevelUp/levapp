@@ -8,7 +8,8 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { respondToNotification, respondToWaitingList } from "@/api/notificationEngine";
+import { engineAnswerToast } from "@levelup/config";
+import { respondToEngineInvitation, respondToNotification, respondToWaitingList } from "@/api/notificationEngine";
 import type { ReminderAnswer } from "./useAnswerReminder";
 
 export function useAnswerVacancyInvite(onAnswered?: () => void | Promise<void>) {
@@ -38,6 +39,37 @@ export function useAnswerVacancyInvite(onAnswered?: () => void | Promise<void>) 
           default:
             toast.error(t("dashboard.answer.failed"));
         }
+        await onAnswered?.();
+      } catch {
+        toast.error(t("dashboard.answer.failed"));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [busyId, onAnswered, t],
+  );
+
+  return { answer, busyId };
+}
+
+/**
+ * PAD-920 (dashboard.blocks new-engine readings): a new-engine invitation's card answers by its
+ * `invitationId` on `/notify/respond` and reads the route's answer through the shared toast helper.
+ */
+export function useAnswerEngineInvite(onAnswered?: () => void | Promise<void>) {
+  const { t } = useTranslation();
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const answer = useCallback(
+    async (invitationId: number, action: ReminderAnswer) => {
+      if (busyId !== null) return;
+      setBusyId(invitationId);
+      try {
+        const result = await respondToEngineInvitation({ invitationId, action });
+        const shown = engineAnswerToast(result.action);
+        if (!shown) toast.error(t("dashboard.answer.failed"));
+        else if (shown.tone === "good") toast.success(t(shown.key));
+        else toast.error(t(shown.key));
         await onAnswered?.();
       } catch {
         toast.error(t("dashboard.answer.failed"));
