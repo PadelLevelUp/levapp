@@ -2,6 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   classRequestBubbleState,
   comeBackFromAnswer,
+  engineInviteState,
+  engineInviteTestIds,
+  isEngineInvite,
   joinRequestBubbleState,
   lightTheme,
   lisbonNowMs,
@@ -29,12 +32,14 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { lightImpact } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
-import { approvalBundleFrom } from "@/features/notifications/approval-bundle";
+import { approvalBundleFrom, engineApprovalFrom } from "@/features/notifications/approval-bundle";
 import { ReplacementApprovalCard } from "@/features/notifications/replacement-approval-card";
+import type { EngineAlertClassRoute } from "../engine-message";
 import { inviteState } from "../invite-state";
 import { reminderState } from "../reminder-state";
 import { waitingListOfferState } from "../waiting-list-state";
 import { formatMessageTime } from "../utils";
+import { EngineAlertLink } from "./engine-alert-link";
 import type { ContextMenuAnchor } from "./message-context-menu";
 
 // Mirrors web's hardcoded read-receipt blue (Tailwind's blue-300) — a
@@ -125,6 +130,8 @@ type MessageBubbleProps = {
   respondingInvite?: boolean;
   /** Fires when the user taps Yes/No on a notification_invite message. */
   onRespondInvite?: (action: "yes" | "no") => void;
+  /** PAD-920 (dashboard.blocks NA3): opens the class an `engine_alert` message links to. */
+  onOpenClass?: (route: EngineAlertClassRoute) => void;
   /** True while a notification_reminder answer is in flight (PAD-151). */
   respondingReminder?: boolean;
   /** Fires when the user taps Yes/No on a notification_reminder message. */
@@ -173,6 +180,7 @@ function MessageBubbleImpl({
   onReaction,
   respondingInvite,
   onRespondInvite,
+  onOpenClass,
   respondingReminder,
   onRespondReminder,
   onCancelAttendance,
@@ -218,6 +226,22 @@ function MessageBubbleImpl({
   // PAD-563: the four resolved states and the "by the coach" line live in invite-state.ts.
   const invite = inviteState(message.metadata);
   const alreadyResponded = invite.waiting === false;
+  // PAD-920 (notifications.invitations NB1–NB4): a new-engine invitation (`engine: "new"`) reads its
+  // state, buttons, label and the shared test ids from the one shared derivation; the coach's copy
+  // is their own message. An old-engine invitation never comes here and renders as before.
+  const engineInviteView =
+    isInvite && isEngineInvite(message.metadata)
+      ? engineInviteState(message.metadata, own ? "coach" : "student", new Date())
+      : null;
+  const engineInvite =
+    engineInviteView && isEngineInvite(message.metadata)
+      ? {
+          ...engineInviteView,
+          ids: engineInviteTestIds(message.metadata.invitationId),
+          // The shown state, not the stored one: a started class's label is never a yes/no chip.
+          answered: engineInviteView.state === "answered" ? message.metadata.response ?? null : null,
+        }
+      : null;
   // PAD-577 (notifications.invitations rule 15a): an invitation retired because someone else took
   // the spot offers that occurrence's waiting list — the student's own join (waiting-list rule 14).
   // The states live in the shared hook; this shell injects its API module and its toast.
@@ -303,8 +327,9 @@ function MessageBubbleImpl({
   // a non-empty vacancy list; that guard is `approvalBundleFrom`.
   const isReplacementApproval =
     message.messageType === "replacement_approval";
+  // PAD-920 (semi-auto-approval N4, N5): a new-engine request is read first; it has no bundle.
   const approvalBundle = isReplacementApproval
-    ? approvalBundleFrom(message.metadata)
+    ? engineApprovalFrom(message.metadata) ?? approvalBundleFrom(message.metadata)
     : null;
   const [confirmingLateCancel, setConfirmingLateCancel] =
     React.useState(false);
@@ -1032,7 +1057,74 @@ function MessageBubbleImpl({
           </View>
         ) : null}
 
-        {isInvite ? (
+        {/* PAD-920 (dashboard.blocks NA3): the coach alert's link to its class. */}
+        {message.messageType === "engine_alert" ? (
+          <EngineAlertLink messageId={message.id} metadata={message.metadata} onOpenClass={onOpenClass} />
+        ) : null}
+
+        {/* PAD-920 (notifications.invitations NB2–NB4): the new-engine invitation. The state's test
+            id is always on the row; Yes and No only when the shared derivation offers them. */}
+        {engineInvite ? (
+          <View
+            testID={engineInvite.testId}
+            className={cn(
+              "mt-1.5 flex-row gap-2",
+              own ? "self-end" : "self-start"
+            )}
+          >
+            {engineInvite.buttons ? (
+              <>
+                <Pressable
+                  testID={engineInvite.ids.yes}
+                  accessibilityLabel={t("messages.yes")}
+                  role="button"
+                  disabled={respondingInvite}
+                  onPress={() => onRespondInvite?.("yes")}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-primary py-1.5",
+                    respondingInvite && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-primary-foreground">
+                    {t("messages.yes")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID={engineInvite.ids.no}
+                  accessibilityLabel={t("messages.no")}
+                  role="button"
+                  disabled={respondingInvite}
+                  onPress={() => onRespondInvite?.("no")}
+                  className={cn(
+                    "flex-1 items-center rounded-xl bg-muted py-1.5",
+                    respondingInvite && "opacity-50"
+                  )}
+                >
+                  <Text className="text-sm font-medium text-foreground">
+                    {t("messages.no")}
+                  </Text>
+                </Pressable>
+              </>
+            ) : engineInvite.labelKey === null ? null : engineInvite.answered === "yes" ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5">
+                <Ionicons name="checkmark" size={14} color={ACCEPTED_ICON_COLOR} />
+                <Text className="text-xs font-medium text-success">{t(engineInvite.labelKey)}</Text>
+              </View>
+            ) : engineInvite.answered === "no" ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1.5">
+                <Ionicons name="close" size={14} color={lightTheme.destructive} />
+                <Text className="text-xs font-medium text-destructive">{t(engineInvite.labelKey)}</Text>
+              </View>
+            ) : engineInvite.state === "open" ? (
+              // NB3: the coach's copy of an open invitation, counting or not.
+              <Text className="text-xs italic text-muted-foreground">{t(engineInvite.labelKey)}</Text>
+            ) : (
+              <View className="rounded-full bg-muted px-3 py-1.5">
+                <Text className="text-xs font-medium text-muted-foreground">{t(engineInvite.labelKey)}</Text>
+              </View>
+            )}
+          </View>
+        ) : isInvite ? (
           <View
             className={cn(
               "mt-1.5 flex-row gap-2",

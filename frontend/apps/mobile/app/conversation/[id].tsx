@@ -7,7 +7,7 @@ import {
   messagesApi,
   notificationEngineApi,
 } from "@levelup/api";
-import { groupByDay, lightTheme, messageDayLabel } from "@levelup/config";
+import { groupByDay, isEngineInvite, lightTheme, messageDayLabel } from "@levelup/config";
 import {
   CONVERSATION_FIRST_PAGE_SIZE,
   applyIncomingMessage,
@@ -66,6 +66,7 @@ import { ReportMessageDialog } from "@/features/messages/components/report-messa
 import { UnknownSenderBanner } from "@/features/messages/components/unknown-sender-banner";
 import { NotificationsBlockedBanner } from "@/features/notifications/notifications-blocked-banner";
 import { reminderResponseOutcome } from "@/features/messages/reminder-state";
+import { engineAnswerPatch, type EngineAlertClassRoute } from "@/features/messages/engine-message";
 import {
   anchorReducer,
   initialAnchorState,
@@ -139,6 +140,10 @@ type RowHandlers = {
  * fills the 48 px minimum, and further lines add height up to `max-h-28` (the row is `items-end`, so
  * the send button stays at the bottom). `textAlignVertical: "center"` is Android's half.
  */
+/** PAD-920 (dashboard.blocks NA3): an `engine_alert` message's link opens its class. Module-level,
+ * so every bubble gets the same reference and its memo holds. */
+const openEngineAlertClass = (route: EngineAlertClassRoute) => router.push(route);
+
 const COMPOSER_INPUT_CLASS = "h-auto min-h-12 py-3.5";
 const COMPOSER_INPUT_STYLE = { textAlignVertical: "center" } as const;
 
@@ -944,6 +949,32 @@ export default function ConversationScreen() {
     message: Message,
     action: "yes" | "no"
   ) => {
+    // PAD-920 (notifications.invitations NB5): a new-engine invitation is answered by its
+    // invitation id, and the server's action is written as the bubble's state (a Yes answered
+    // `sorry` stays sorry, never "declined"). The live `message_edited` keeps it current after.
+    const metadata = message.metadata;
+    if (isEngineInvite(metadata)) {
+      if (respondingInviteId !== null) return;
+      setRespondingInviteId(message.id);
+      try {
+        const result = await notificationEngineApi.respondToEngineInvitation({
+          invitationId: metadata.invitationId,
+          action,
+        });
+        const patch = engineAnswerPatch(result?.action);
+        if (patch) {
+          updateMessageInCache(queryClient, conversationId, message.id, (m) => ({
+            ...m,
+            metadata: { ...m.metadata, ...patch },
+          }));
+        }
+      } catch {
+        toast.error(t("messages.somethingWentWrong"));
+      } finally {
+        setRespondingInviteId(null);
+      }
+      return;
+    }
     const eventId = message.metadata?.notificationEventId;
     if (!eventId || respondingInviteId !== null) return;
     setRespondingInviteId(message.id);
@@ -1401,6 +1432,7 @@ export default function ConversationScreen() {
             onCancelAttendance={row.onCancelAttendance}
             respondingWaitingList={respondingWaitingListId === item.id}
             onRespondWaitingList={temp ? undefined : row.onRespondWaitingList}
+            onOpenClass={openEngineAlertClass}
             respondingInvite={respondingInviteId === item.id}
             onRespondInvite={temp ? undefined : row.onRespondInvite}
             classRequestLive={classRequestLiveFor(item)}
