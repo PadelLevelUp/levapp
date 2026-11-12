@@ -27,7 +27,21 @@ drained, the old engine is deleted and the replaced items go with it.
 | Rule 3, the coach's item order (`empty_seats` → `reply` → `validation`) | `engine_alert` → `empty_seats` → `reply` → `validation`; "Mais tarde" snoozes an `engine_alert` as it snoozes `empty_seats` (B-030) | NA1 |
 
 Readings:
-- `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4).
+- `vacancy_invite` is an open invitation of the student's (counting or not; it stays answerable, D4):
+  one per class, carrying `invitationId` in place of `notificationEventId`, its id `invitation-<id>`, and
+  answered on `POST /api/app/notify/respond` with that id (`notifications.invitations` NB5) (R, PAD-918).
+  The home card (web `NeedsYouQueue`, iOS `blocks.tsx` `VacancyInviteCard`) answers a card carrying
+  `invitationId` with `{invitationId, action: "yes"|"no"}` and reads the route's answer, one toast each,
+  from one shared helper (proposed copy, for the owner): `confirmed` "Estás inscrito." / "You're in.";
+  `declined` "Recusado." / "Declined."; `sorry` "A vaga já foi ocupada." / "The spot was already
+  taken." (bad news); `closed_same_hour` "Já estás noutra aula a essa hora." / "You're already in
+  another class at that time." (bad news); `class_started` "A aula já começou." / "The class has
+  started." (bad news too: nothing was taken; Session5's reading). The helper is `@levelup/config`
+  `engineAnswerToast`, keys `dashboard.needsYou.engineAnswer.*`. A card carrying `notificationEventId` is
+  the old engine's and answers as today.
+- Rules 6–7 (the coach's pending confirmations): the set counts the new-engine invitations still open
+  for tomorrow's classes (counting or not), and the nudge re-pushes each one's own message, never a new
+  invitation (R, PAD-918).
 - `pendingConfirmation` comes from the engine's attendance requests instead of the reminders (`notifications.engine-timeline` rule 2).
 
 The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the owner's approval.**
@@ -778,6 +792,29 @@ test: `frontend/apps/web/src/components/messages/MessageBubble.engineAlert.test.
 - **Given** the same messages on iOS
 - **Then** both link to the native class screen the same way, with the `messages.engineAlert.openClass` text and accessibility label
 test: `frontend/apps/mobile/src/features/messages/engine-alert-message.test.tsx` › `links the alert message to its class`
+
+#### DASHBOARD-BLOCKS-54: A student's open new-engine invitation is their vacancy_invite (new-engine readings)
+- **Given** a student with an open new-engine invitation to tomorrow's class (one that still counts and one that stopped counting, to two classes)
+- **When** the student's home is read
+- **Then** each class has one `vacancy_invite`, its id `invitation-<invitationId>`, carrying `invitationId` and no `notificationEventId`, and its Yes goes to `/notify/respond` with that id
+test: `backend/padel_app/tests/test_pad918_player_home.py` › `test_an_open_engine_invitation_is_the_students_vacancy_invite`
+
+#### DASHBOARD-BLOCKS-55: The coach's pending confirmations count and nudge open new-engine invitations (rules 6, 7; new-engine readings)
+- **Given** a coach whose tomorrow's new-engine class has two open invitations (one no longer counting) and one answered
+- **When** the coach's home is read and the coach presses the nudge
+- **Then** the pending count is 2, and each of the two students gets their invitation's push again, with no new invitation or message
+test: `backend/padel_app/tests/test_pad918_dashboard_pending.py` › `test_pending_confirmations_count_and_nudge_open_engine_invitations`
+
+#### DASHBOARD-BLOCKS-56: The web home card answers a new-engine invitation by its id and reads the answer (new-engine readings)
+- **Given** a student's web home with a `vacancy_invite` carrying `invitationId`, and one carrying `notificationEventId`
+- **When** they press Yes on the first and the route answers `sorry`, and Yes on the second
+- **Then** the first posts `{invitationId, action: "yes"}` to `/notify/respond` and shows the sorry toast as bad news, and the second answers by `notificationEventId` as today; each of the five actions maps to its toast in the shared helper
+test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineInvite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
+
+#### DASHBOARD-BLOCKS-57: The iOS home card answers a new-engine invitation by its id and reads the answer (new-engine readings)
+- **Given** the same cards on iOS
+- **Then** the same requests are sent and the same toasts show
+test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-invite.test.tsx` › `answers a new-engine invitation by its id and shows the answer`
 
 ### Open questions
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,

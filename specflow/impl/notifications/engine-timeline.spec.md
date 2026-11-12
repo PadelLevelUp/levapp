@@ -253,7 +253,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 7. (Owner decisions, PAD-915) TIMELINE-8, TIMELINE-10 again — `invitation_engine/timeline.py` (moves only within the student's sides), scenario pins P18a, P19.
 
 ### Open questions
-- Ruling (2) settled who moves.
+- Who moves at `last_invite_at`: the owner's decisions 12-13 (2026-11-12), below, which reversed ruling (2).
 - Who sends attendance requests after the swap (swap plan §3.1, "Reminders") — options: the app's
   reminder flow stays; the engine sends them (`messages.due`, #946). Decision (coordinator, owner away,
   PAD-912, 2026-11-11; the owner can reverse it): the engine, and the app's reminder jobs retire per coach at
