@@ -14,6 +14,13 @@ notes: >
   left and is notified (§8 step 6, S18; coordinator F2); on a tie, the regular who joined most recently
   (R-5). The added 08:30 step is an observation.
 
+  Re-derived again (PAD-913, owner 2026-11-12, decisions 12-13: the engine moves a student only within the
+  sides they play): the right regulars play only the right, so R-5 is not moved:
+  no `side_moved`, the 08:30 observation asserts the roster unchanged (L3 R5), and the final is back to the
+  PDF's L3 R5.
+  An 08:00 observation step (roster unchanged) drains the 2 Nov reminders, so the 08:30 `nothing_sent`
+  asserts that no `side_moved` goes out.
+
 class:
   level: 3
   capacity: 8
@@ -40,11 +47,16 @@ timeline:
         - {who: l2, side: L, how: invitation}
       missing: {total: 0}
       roster: {L: 3, R: 5}
+  - at: 2026-11-03 08:00
+    derived: true
+    derived_from: [§8 step 6]
+    expect:
+      roster: {L: 3, R: 5}
   - at: 2026-11-03 08:30
     derived: true
     derived_from: [§8 step 6, S18]
     expect:
-      roster: {L: 4, R: 4}
-      messages: [{who: R-5, kind: side_moved}]
+      roster: {L: 3, R: 5}
+      nothing_sent: true
 final:
-  roster: {L: 4, R: 4}
+  roster: {L: 3, R: 5}

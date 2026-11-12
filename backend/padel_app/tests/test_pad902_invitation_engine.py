@@ -14,7 +14,7 @@ import pytest
 from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore, SettingsError
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine import requests as rq
-from padel_app.invitation_engine.settings import Tier, Timing, TimingPair
+from padel_app.invitation_engine.settings import GroupRule, Tier, Timing, TimingPair
 from padel_app.invitation_engine.snapshot import SpotType, Student
 
 PACKAGE = Path(__file__).resolve().parents[1] / "invitation_engine"
@@ -52,7 +52,7 @@ def test_default_settings_are_the_plan_alone():
     ({"max_at_a_time": 0}, "max_at_a_time"),
     ({"timing": Timing(between_rounds=timedelta(seconds=30))}, "between_rounds"),
     ({"timing": Timing(per_tier=(TimingPair(),))}, "per_tier"),
-    ({"tiers": (Tier("pool"),)}, "level_offset"),
+    ({"tiers": (Tier("students_list", rules=(GroupRule("has_makeups", "is_true"),)),)}, "group rules"),
     ({"tiers": (Tier("coach_list", level_offset=0),)}, "level_offset"),
     ({"tiers": ()}, "tiers"),
 ])
@@ -375,9 +375,108 @@ def test_an_open_invitation_past_its_inactivity_time_stays_open_with_its_send_ti
 
 def test_every_engine_message_kind_maps_to_its_normalized_kind():
     kinds = typing.get_args(fx.MessageKind)
-    assert {"sorry", "reoffer", "added", "waiting_list_offer", "side_moved"} == set(kinds)
+    assert {"sorry", "added", "waiting_list_invite", "side_moved"} == set(kinds)
     adapter, _ = _template_adapter()
     for kind in kinds:
         record, = adapter._records([fx.Message("A", T0, "W1", kind)])
-        # The engine's "sorry" is the scenario format's "aviso" (constants.md KIND_SORRY).
-        assert (record.kind, record.data["kind"]) == ("message", "aviso" if kind == "sorry" else kind)
+        # The engine's "sorry" is the scenario format's "aviso" (constants.md KIND_SORRY); its
+        # "waiting_list_invite" is the format's "waiting_list_offer" (KIND_WAITING_LIST_INVITE).
+        expected = {"sorry": "aviso", "waiting_list_invite": "waiting_list_offer"}.get(kind, kind)
+        assert (record.kind, record.data["kind"]) == ("message", expected)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-19")
+def test_every_engine_write_is_inside_one_session_unit_at_a_time():
+    """PAD-915 (agreed with PAD-916's table store): the engine works one session per unit, so a table
+    store can lock that session alone; every effect is applied inside a unit, and none nests."""
+    from contextlib import contextmanager
+
+    class Recording(MemoryStore):
+        def __init__(self):
+            super().__init__()
+            self.open, self.units, self.outside, self.students = [], [], 0, []
+
+        @contextmanager
+        def unit(self, sessions, students=()):
+            assert not self.open, f"unit {sessions} opened inside {self.open}"
+            self.open.append(sessions)
+            self.units.append(sessions)
+            self.students.append(students)
+            try:
+                yield
+            finally:
+                self.open.pop()
+
+        def apply(self, effects):
+            effects = list(effects)
+            if effects and not self.open:
+                self.outside += 1
+            super().apply(effects)
+
+    store = Recording()
+    store.add_student(_student("W1", "R"))
+    store.add_session("A", 3, 4, START, [(_student("L-1"), "L"), (_student("R-1", "R"), "R"),
+                                         (_student("L-2"), "L")], T0)
+    store.add_session("B", 3, 4, START, [(_student("L-3"), "L"), (_student("R-3", "R"), "R"),
+                                         (_student("L-4"), "L")], T0)
+    engine = Engine(store, EngineSettings())
+    sent = engine.tick(T0)
+    assert [(e.session, e.student) for e in sent if isinstance(e, fx.Invited)] == [("A", "W1")]
+    assert store.units == [("A",), ("B",)]
+    store.apply([fx.Invited("B", T0, "W1", frozenset({SpotType("R", 3)}), None, 2, T0 + timedelta(minutes=20))])
+    store.units.clear()
+    store.students.clear()
+    store.outside = 0                                   # the seeding above is the test's, not the engine's
+    out = engine.handle("A", rq.Answer("W1", True), T0 + timedelta(minutes=1))
+    assert any(isinstance(e, fx.Placed) for e in out) and any(e.session == "B" for e in out)
+    assert store.units == [("A",), ("B",)], "B's same-hour close replans in its own unit, after A's"
+    assert store.students == [("W1",), ()], "the answer locks its student; the re-plan locks none"
+    for request in (rq.Appear("W1"), rq.UpdateSettings(EngineSettings())):
+        store.units.clear()
+        engine.handle("A", request, T0)
+        assert store.units == [("A",), ("B",)]
+    assert store.outside == 0
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-20")
+def test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs():
+    """PAD-915/916: a store that finds the state moved under a unit (a same-hour placement elsewhere)
+    raises UnitConflict and rolls back; the engine drops that unit's effects, runs the other sessions,
+    and the next run re-plans."""
+    from contextlib import contextmanager
+
+    from padel_app.invitation_engine.store import UnitConflict
+
+    class Refusing(MemoryStore):
+        """Writes of a refused unit are never kept: a rollback."""
+
+        refuse = {"A"}
+        current: tuple = ()
+
+        @contextmanager
+        def unit(self, sessions, students=()):
+            self.current = sessions
+            try:
+                yield
+            finally:
+                self.current = ()
+            if set(sessions) & self.refuse:
+                raise UnitConflict(sessions)
+
+        def apply(self, effects):
+            if not set(self.current) & self.refuse:
+                super().apply(effects)
+
+    store = Refusing()
+    store.add_student(_student("W1", "R"))
+    store.add_student(_student("W2", "R"))
+    for session in ("A", "B"):
+        store.add_session(session, 3, 4, START + (timedelta(hours=2) if session == "B" else timedelta()),
+                          [(_student(f"{session}-L1"), "L"), (_student(f"{session}-L2"), "L"),
+                           (_student(f"{session}-R1", "R"), "R")], T0)
+    engine = Engine(store, EngineSettings())
+    sent = engine.tick(T0)
+    assert sent and {e.session for e in sent} == {"B"}, "A's unit was refused; B's still ran"
+    assert engine.handle("A", rq.UpdateSettings(EngineSettings(), sessions=("A",)), T0) == []
+    Refusing.refuse = set()
+    assert {e.session for e in engine.tick(T0 + timedelta(minutes=1))} >= {"A"}, "the next run re-plans A"

@@ -11,10 +11,11 @@ ENGINE_T_FLOOR = timedelta(minutes=1)        # the smallest timing value (ruling
 LOWER_TIER_PER_SPOT = 1                      # what a non-ideal tier sends per covered spot (D17)
 
 KIND_SORRY = "sorry"
-KIND_REOFFER = "reoffer"
 KIND_ADDED = "added"
+KIND_WAITING_LIST_INVITE = "waiting_list_invite"
 KIND_SIDE_MOVED = "side_moved"
 COACH_ALERT = "coach_alert"
+ALERT_NO_CANDIDATE = "no_candidate"           # CoachAlert.reason: no tier can take the spots
 
 
 def side_quota(capacity: int) -> int:

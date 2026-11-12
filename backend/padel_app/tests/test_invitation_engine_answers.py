@@ -4,13 +4,25 @@ accept with no open invitation changes nothing.
 
 Scenario pins: ANSWERS-1 is P06, ANSWERS-2 is P15, ANSWERS-3 is P24.
 """
+from dataclasses import replace
 from datetime import datetime, timedelta
+
+import pytest
 
 from padel_app.invitation_engine import EngineSettings
 from padel_app.invitation_engine.answers import handle
-from padel_app.invitation_engine.effects import Absence, Answered, Left, Placed, WaitingListLeft
-from padel_app.invitation_engine.requests import Answer, Cancel, NoShow, RegularAbsent
+from padel_app.invitation_engine.effects import (
+    Absence,
+    Answered,
+    InvitationClosed,
+    Left,
+    Placed,
+    Refused,
+    WaitingListLeft,
+)
+from padel_app.invitation_engine.requests import Answer, Cancel, DirectJoin, JoinWaitingList, NoShow, RegularAbsent
 from padel_app.invitation_engine.snapshot import (
+    Elsewhere,
     Invitation,
     Placement,
     SessionSnapshot,
@@ -102,40 +114,33 @@ def test_leaving_records_the_absence_before_the_departure():
     s = _session(_regs(4, 4))
     effects = handle(s, EngineSettings(), RegularAbsent("R1"), datetime(2026, 11, 2, 10, 0)).effects
     assert [type(e) for e in effects] == [Absence, Left]
-    assert effects[0].kind == "justified" and effects[1].reason == "regular_no"
-    # An invitee's cancel after the cutoff is unjustified (engine-answers rule 6).
+    assert effects[0].notice == "on_time" and effects[1].reason == "regular_no"
+    # An invitee's cancel after the cutoff is late (engine-answers rule 6).
     placed = Placement("x", "R", "invitation", NOW)
     s2 = _session(_regs(4, 3), [("x", "R")], going_extra=[placed])
     effects = handle(s2, EngineSettings(), Cancel("x"), datetime(2026, 11, 3, 9, 0)).effects
-    assert effects[0].kind == "unjustified" and effects[1].reason == "cancel"
+    assert effects[0].notice == "late" and effects[1].reason == "cancel"
 
 
-def test_a_no_show_after_the_class_is_unjustified():
+def test_a_no_show_after_the_class_is_late():
     s = _session(_regs(4, 4))
     effects = handle(s, EngineSettings(), NoShow("R1"), datetime(2026, 11, 3, 10, 30)).effects
-    assert [(type(e), e.kind) for e in effects] == [(Absence, "unjustified")]   # no Left: the roster stays
+    assert [(type(e), e.notice) for e in effects] == [(Absence, "late")]   # no Left: the roster stays
 
 
 # --- wave W6: "sorry" and the re-offer (engine-answers rules 3, 4, 7) ------------------------------
 
-def test_a_yes_whose_offer_filled_is_reoffered_for_a_side_a_tier_admits():
-    # Scenario 1 at 19:08: a left-sider sent for the left, the left now full, the right open, and an
-    # other-side tier admitting left-siders for the right: the same invitation is re-offered.
-    from dataclasses import replace
-
-    from padel_app.invitation_engine.effects import Message, Reoffered
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-25")
+def test_a_yes_whose_offer_filled_gets_sorry_never_another_side():
+    # Rule 3 (the owner's decision 1, answer 4): a left-sider sent for the left, the left now full, the
+    # right open, and a tier admitting left-siders for the right: still "sorry", never the right.
+    from padel_app.invitation_engine.effects import Message, Sorry
     from padel_app.invitation_engine.settings import Tier
 
     settings = EngineSettings(tiers=EngineSettings().tiers + (Tier("pool", "other", 0),))
     s = _session(_regs(4, 3), [("l", "L")], [_inv("l", L)])
     effects = handle(s, settings, Answer("l", True), NOW).effects
-    [re] = [e for e in effects if isinstance(e, Reoffered)]
-    assert re.offer == frozenset({R}) and re.side_named == "R" and re.tier == 4
-    assert [e.kind for e in effects if isinstance(e, Message)] == ["reoffer"]
-    assert not any(isinstance(e, (Answered, Placed)) for e in effects)       # not a final answer
-    # Without a tier that admits them for the right: "sorry".
-    effects = handle(replace(s), EngineSettings(), Answer("l", True), NOW).effects
-    assert [e.kind for e in effects if isinstance(e, Message)] == ["sorry"]
+    assert [type(e) for e in effects] == [Sorry, Message] and effects[1].kind == "sorry"
 
 
 def test_a_late_yes_into_a_full_session_gets_sorry_and_stops_counting():
@@ -161,23 +166,28 @@ def _engine(*regulars_sides, pool=()):
     return Engine(store, EngineSettings()), store
 
 
-def test_sorry_then_reopened_spot_is_reoffered():
-    # ANSWERS-7: told "sorry" on a full session; a right regular says No; the same invitation is
-    # re-offered, counts again, and the Yes then places them on the right.
-    from padel_app.invitation_engine.effects import Invited, Message, Reoffered
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-7")
+def test_sorry_is_asked_again_only_from_the_waiting_list():
+    # Two right-siders told "sorry"; one joins the session's waiting list. When a right regular says No
+    # after the reminder hour, only that one is asked, the same invitation reopened as a waiting-list
+    # invitation; the other is never asked again.
+    from padel_app.invitation_engine.effects import Invited, Message, Reopened
+    from padel_app.invitation_engine.requests import JoinWaitingList
 
-    engine, store = _engine(*_regs(4, 3), pool=[("a", "R"), ("b", "R")])
+    engine, store = _engine(*_regs(4, 3), pool=[("a", "R"), ("b", "R"), ("c", "R")])
     sent = [e for e in engine.tick(SENT) if isinstance(e, Invited)]
-    assert {e.student for e in sent} == {"a", "b"}
+    assert {e.student for e in sent} == {"a", "b", "c"}
     engine.handle("S", Answer("a", True), NOW)                               # a takes the right spot
-    told = engine.handle("S", Answer("b", True), NOW + timedelta(minutes=1))
-    assert [e.kind for e in told if isinstance(e, Message)] == ["sorry"]
-    reopened = engine.handle("S", RegularAbsent("R1"), NOW + timedelta(minutes=5))
-    assert [e.student for e in reopened if isinstance(e, Reoffered)] == ["b"]
-    assert [e.kind for e in reopened if isinstance(e, Message)] == ["reoffer"]
-    assert not [e for e in reopened if isinstance(e, Invited) and e.student == "b"]   # still one invitation
-    placed = engine.handle("S", Answer("b", True), NOW + timedelta(minutes=6))
-    assert [(e.student, e.side) for e in placed if isinstance(e, Placed)] == [("b", "R")]
+    for sid in "bc":
+        told = engine.handle("S", Answer(sid, True), NOW + timedelta(minutes=1))
+        assert [e.kind for e in told if isinstance(e, Message)] == ["sorry"]
+    engine.handle("S", JoinWaitingList("c", "students", sides="own"), NOW + timedelta(minutes=2))
+    later = datetime(2026, 11, 2, 18, 0)                                    # after the reminder hour
+    reopened = engine.handle("S", RegularAbsent("R1"), later)
+    assert [e.student for e in reopened if isinstance(e, Reopened)] == ["c"]
+    assert [(e.student, e.kind) for e in reopened if isinstance(e, Message)] == [("c", "waiting_list_invite")]
+    assert not [e for e in reopened if isinstance(e, Invited)]               # still one invitation each
+    assert not [e for e in engine.tick(later + timedelta(hours=1)) if getattr(e, "student", None) == "b"]
 
 
 def test_two_yes_for_the_last_spot_place_exactly_one():
@@ -191,3 +201,124 @@ def test_two_yes_for_the_last_spot_place_exactly_one():
     assert [e.student for e in first + second if isinstance(e, Placed)] == ["a"]
     assert [e.kind for e in second if isinstance(e, Message)] == ["sorry"]
     assert len(store.snapshot("S").going) == 8
+
+
+# --- never two sessions at the same hour (rule 10, PAD-911) ------------------------------------
+
+def test_a_yes_closes_the_same_hour_invitation():
+    """ANSWERS-13's mechanism (the scenario is P34): the Yes closes the invitation to the session at
+    the same start, not one later that day."""
+    same = Elsewhere("B", START, _inv("x", R), 16, ())
+    later = Elsewhere("C", START + timedelta(hours=2), _inv("x", R), 16, ())
+    s = replace(_session(_regs(4, 3), [("x", "R")], [_inv("x", R)]), elsewhere=(same, later))
+    effects = handle(s, EngineSettings(), Answer("x", True), NOW).effects
+    assert _placed(effects) == [("x", "R", "invitation")]
+    assert [(e.session, e.student) for e in effects if isinstance(e, InvitationClosed)] == [("B", "x")]
+
+
+def test_second_same_hour_placement_is_refused():
+    s = replace(_session(_regs(4, 3), [("x", "R")], [_inv("x", R)]), busy_same_time=frozenset({"x"}))
+    assert handle(s, EngineSettings(), Answer("x", True), NOW).effects == ()
+
+
+def test_direct_join_at_a_busy_hour_is_refused():
+    s = _session(_regs(4, 3), [("x", "R")])
+    on = EngineSettings(direct_join=True)
+    assert _placed(handle(s, on, DirectJoin("x"), NOW).effects) == [("x", "R", "direct")]
+    busy = replace(s, busy_same_time=frozenset({"x"}))
+    effects = handle(busy, on, DirectJoin("x"), NOW).effects
+    assert [type(e) for e in effects] == [Refused] and not _placed(effects)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-21")
+def test_joining_the_other_list_is_refused_already_waiting():
+    """engine-answers rule 12: one waiting-list entry per student per session, on either list. (The
+    store's own refusal of a second entry, ``StoreConflict``, is the table store's test.)"""
+    coach = WaitingListEntry("C", "coach", SENT, side="R")
+    student = WaitingListEntry("W", "students", SENT, sides="own")
+    s = _session(_regs(4, 3), [("C", "R"), ("W", "R")], waiting_list=[coach, student])
+    refused = Refused("S", NOW, "C", "waiting_list", "already_on_list")
+    assert handle(s, EngineSettings(), JoinWaitingList("C", "students", sides="both"), NOW).effects == (refused,)
+    assert handle(s, EngineSettings(), JoinWaitingList("C", "coach", side="L"), NOW).effects == (refused,)
+    assert handle(s, EngineSettings(), JoinWaitingList("W", "coach", side="R"), NOW).effects == \
+        (Refused("S", NOW, "W", "waiting_list", "already_on_list"),)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-23")
+def test_joins_are_refused_with_a_code():
+    """classes.join-requests NJ1 (#960): a refused join carries a code the route answers as 409, never
+    text; direct join being off is no refusal (the app's request waits for the coach)."""
+    on = EngineSettings(direct_join=True)
+    s = _session(_regs(3, 4), [("x", "R"), ("low", "R")])                      # the right side is full
+    s = replace(s, students={**s.students, "low": Student("low", 6, frozenset("R"))})
+
+    def code(snapshot, request, settings=on, now=NOW):
+        [refused] = handle(snapshot, settings, request, now).effects
+        return refused.reason, refused.sides
+
+    assert handle(s, EngineSettings(), DirectJoin("x"), NOW).effects == ()
+    assert code(s, DirectJoin("x")) == ("side_full", frozenset({"L"}))
+    assert code(s, DirectJoin("L1")) == ("already_enrolled", frozenset())
+    assert code(replace(s, busy_same_time=frozenset({"x"})), DirectJoin("x")) == ("busy_same_hour", frozenset())
+    assert code(s, DirectJoin("low")) == ("ineligible", frozenset())
+    assert code(s, DirectJoin("x"), now=datetime(2026, 11, 3, 10, 30)) == ("class_closed", frozenset())
+    assert code(s, JoinWaitingList("low", "students", sides="own")) == ("ineligible", frozenset())
+    assert code(s, JoinWaitingList("L1", "coach", side="R")) == ("already_enrolled", frozenset())
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-24")
+def test_an_overlapping_yes_is_refused_and_a_touching_one_is_not():
+    """engine-answers rule 10 with engine-tiers rule 3's "same time" (owner decision 11)."""
+    from padel_app.invitation_engine import Engine
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.store import MemoryStore
+
+    store = MemoryStore()
+    at = datetime(2026, 11, 3, 19, 0)
+    regulars = [(_student(sid, side), side) for sid, side in _regs(4, 3)]       # one right spot
+    store.add_session("S", 3, 8, at, regulars, SENT, end=at + timedelta(hours=1))
+    store.add_session("A", 3, 8, at - timedelta(hours=1), [(_student("X", "R"), "R")], SENT,
+                      end=at + timedelta(minutes=30))                            # 18:00-19:30: overlaps
+    store.add_session("B", 3, 8, at - timedelta(hours=1), [(_student("Y", "R"), "R")], SENT,
+                      end=at)                                                    # 18:00-19:00: touches
+    store.apply([fx.Invited("S", SENT, sid, frozenset({R}), None, 2, SENT + timedelta(minutes=20)) for sid in "XY"])
+    engine = Engine(store, EngineSettings())
+    assert engine.handle("S", Answer("X", True), NOW) == []                      # nothing placed, nothing sent
+    assert _placed(engine.handle("S", Answer("Y", True), NOW)) == [("Y", "R", "invitation")]
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-26")
+def test_a_yes_closes_another_coachs_invitation_only_at_the_same_start():
+    """engine-answers rule 10 with engine-tiers rule 3: another coach's session counts as the same time
+    only at the same start; the same coach's counts on any overlap."""
+    other_same = Elsewhere("B", START, _inv("x", R), 16, (), START + timedelta(hours=1), same_coach=False)
+    other_overlap = Elsewhere("C", START + timedelta(minutes=30), _inv("x", R), 16, (),
+                              START + timedelta(hours=1, minutes=30), same_coach=False)
+    mine_overlap = Elsewhere("D", START + timedelta(minutes=30), _inv("x", R), 16, (),
+                             START + timedelta(hours=1, minutes=30))
+    s = replace(_session(_regs(4, 3), [("x", "R")], [_inv("x", R)]), elsewhere=(other_same, other_overlap, mine_overlap))
+    closed = {e.session for e in handle(s, EngineSettings(), Answer("x", True), NOW).effects
+              if isinstance(e, InvitationClosed)}
+    assert closed == {"B", "D"}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-27")
+def test_a_coachs_add_closes_the_students_same_time_invitations():
+    """engine-answers rule 10: a coach's add outside the engine reaches it as CoachAdded on the session
+    added to; it writes no placement, closes the student's same-time invitations elsewhere (not one
+    later that day), re-plans that session, and each touched session re-plans in its own unit."""
+    from padel_app.invitation_engine import Engine
+    from padel_app.invitation_engine import effects as fx
+    from padel_app.invitation_engine.requests import CoachAdded
+    from padel_app.invitation_engine.store import MemoryStore
+
+    store = MemoryStore()
+    store.add_student(_student("x", "R"))
+    for sid, at in (("A", START), ("B", START), ("C", START + timedelta(hours=3))):
+        store.add_session(sid, 3, 8, at, [(_student(f"{sid}{r}", side), side) for r, side in _regs(4, 3)], SENT)
+    store.apply([fx.Invited(s, SENT, "x", frozenset({R}), None, 2, SENT + timedelta(minutes=20)) for s in "BC"])
+    store.apply([fx.Placed("A", NOW, "x", "R", "direct")])                     # the app's own enrolment
+    effects = Engine(store, EngineSettings()).handle("A", CoachAdded("x"), NOW)
+    assert [e.session for e in effects if isinstance(e, InvitationClosed)] == ["B"]
+    assert not [e for e in effects if isinstance(e, Placed)]
+    assert store.snapshot("B").invitation("x").closed_at == NOW and store.snapshot("C").invitation("x").open
