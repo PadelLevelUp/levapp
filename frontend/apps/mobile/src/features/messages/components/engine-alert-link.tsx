@@ -27,14 +27,14 @@ export function EngineAlertLink({
   return (
     <Pressable
       testID={`engine-alert-open-class-${messageId}`}
-      accessibilityLabel={t("classDetail.classFallbackTitle")}
+      accessibilityLabel={t("messages.engineAlert.openClass")}
       role="link"
       hitSlop={8}
       onPress={() => onOpenClass(route)}
       className="mt-1.5 flex-row items-center gap-1 self-start rounded-full bg-primary/10 px-3 py-1.5"
     >
       <Ionicons name="calendar-outline" size={14} color={lightTheme.primary} />
-      <Text className="text-xs font-medium text-primary">{t("classDetail.classFallbackTitle")}</Text>
+      <Text className="text-xs font-medium text-primary">{t("messages.engineAlert.openClass")}</Text>
       <Ionicons name="chevron-forward" size={14} color={lightTheme.primary} />
     </Pressable>
   );

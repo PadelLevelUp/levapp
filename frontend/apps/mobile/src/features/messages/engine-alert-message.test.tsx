@@ -32,6 +32,8 @@ describe("the engine_alert message on iOS", () => {
 
     const onOpenClass = vi.fn();
     const r = await renderNative(<EngineAlertLink messageId={30} metadata={withHref} onOpenClass={onOpenClass} />);
+    // The link reads its own words, "Abrir aula" / "Open class".
+    expect(r.byTestId("engine-alert-open-class-30").props.accessibilityLabel).toBe("messages.engineAlert.openClass");
     await r.press("engine-alert-open-class-30");
     expect(onOpenClass.mock.calls[0][0]).toMatchObject({ pathname: "/class/[id]", params: { id: "lessoninstance-901" } });
     const none = await renderNative(<EngineAlertLink messageId={31} metadata={{ engine: "new" }} onOpenClass={onOpenClass} />);
