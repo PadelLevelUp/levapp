@@ -45,6 +45,8 @@ def _classes(app):
     store, (opened, not_opened), pids = _seed(app, starts=(START, LATER))
     coach_id = store.coach_of(opened)
     EngineSession.query.delete()
+    for session in (opened, not_opened):          # both existed before the (pinned) switch
+        _instance(session).created_at = NOW - timedelta(days=1)
     config = NotificationConfig(coach_id=coach_id, auto_notify_enabled=True)
     config.invitation_start_timing = {"type": "hours_before", "value": 24}
     db.session.add(config)
@@ -140,3 +142,34 @@ def test_a_coach_not_switched_never_reaches_the_new_engine(app):
     assert {engine_for(_instance(s)) for s in (opened, not_opened)} == {"old"}
     trigger_invitations(_instance(not_opened), coach_id, now=NOW)
     assert _old_vacancies(not_opened) > 0
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-63")
+def test_an_occurrence_that_first_exists_after_the_switch_runs_on_the_new_engine(app):
+    """Invitations open at creation (``none``): the occurrence that existed at the switch drains on the
+    old engine; one materialised after it is on the new engine, its row written as it is created."""
+    from padel_app.models import EngineSession
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.engine_switch import engine_for, switch_coach
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.services.lesson_service import get_or_materialize_instance
+
+    store, coach_id, _, existing = _classes(app)
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+    config.invitation_start_timing = {"type": "none"}
+    db.session.commit()
+    first = _instance(existing)
+
+    switch_coach(coach_id, now=NOW)
+    assert engine_for(first) == "old"
+
+    lesson = db.session.get(Lesson, first.lesson_id)
+    db.session.add(Association_CoachLesson(coach_id=coach_id, lesson_id=lesson.id))
+    db.session.commit()
+    later = get_or_materialize_instance(lesson, (LATER + timedelta(days=7)).date())
+    assert db.session.get(EngineSession, later.id) is not None        # written by the creating path
+    assert engine_for(later) == "new"
+    assert store.sessions() == (str(later.id),)
+    # The materialiser enrolled the roster first; the store's placement is the same row, placed.
+    assert [(p.enrolment_source, p.placed_how) for p in later.presences] == [("roster", "regular")]

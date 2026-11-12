@@ -2,11 +2,13 @@
 
 Each coach's ``NotificationConfig.engine_version`` is ``old`` until the coach is switched;
 ``engine_switched_at`` records when. A session runs on the new engine once it has an
-``engine_sessions`` row, and that row is written here only: at the switch, and later by ``adopt_due``
-for occurrences the app materialises after it. A session is adopted when its coach is on ``new``, the
-old engine has not started it (no vacancy), and its invitation window had not opened at the switch.
-Adopted is for good; anything else drains on the old engine until it starts (CONFIG-50). A coach on
-``old`` is never adopted (CONFIG-51).
+``engine_sessions`` row, and that row is written here only: at the switch for the occurrences that
+existed then, by ``on_occurrence_created`` when the app creates one later (CONFIG-63), and by
+``adopt_due`` as the catch-all for any other creation path. An occurrence that existed at the switch
+is adopted when its coach is on ``new``, the old engine has not started it (no vacancy), and its
+invitation window had not opened at the switch; one created after the switch is on the new engine
+whatever its window. Adopted is for good; anything else drains on the old engine until it starts
+(CONFIG-50, CONFIG-61). A coach on ``old`` is never adopted (CONFIG-51).
 
 The old engine's start (``notification_service.trigger_invitations``) asks ``engine_for`` and skips a
 new-engine session; its other entry points move behind the switch in swap step 6.
@@ -42,6 +44,8 @@ def engine_for(instance, config=None) -> str:
         config = NotificationConfig.query.filter(NotificationConfig.coach_id.in_(coach_ids or [-1])).first()
     if config is None or config.engine_version != "new" or config.engine_switched_at is None:
         return "old"
+    if instance.created_at is not None and instance.created_at >= config.engine_switched_at:
+        return "new"                                         # first existed after the switch (CONFIG-63)
     if Vacancy.query.filter_by(lesson_instance_id=instance.id).first() is not None:
         return "old"                                         # the old engine is inviting: it drains
     return "new" if _window_opens(instance, config) >= config.engine_switched_at else "old"
@@ -66,6 +70,28 @@ def _adopt(store, instance, coach_id: int, now: datetime) -> None:
         store.add_session(session, store._level(ladder_index_map(coach_id), instance.level_id),
                           instance.effective_max_players,
                           instance.start_datetime, regulars, now)
+
+
+def on_occurrence_created(instance, *, now: datetime | None = None) -> bool:
+    """Rule 18 (CONFIG-63): the path that creates an occurrence assigns it. For a coach on ``new``
+    the session row is written now, in the creator's unit of work (``store.unit`` only flushes inside
+    one). Returns whether it was adopted."""
+    from padel_app.models import EngineSession
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.engine_store import TableStore
+    from padel_app.services.lesson_service import coaches_for
+
+    coach_ids = [c.id for c in coaches_for(instance)]
+    config = (NotificationConfig.query.filter(NotificationConfig.coach_id.in_(coach_ids or [-1]),
+                                              NotificationConfig.engine_version == "new")
+              .order_by(NotificationConfig.coach_id).first())
+    if config is None or db.session.get(EngineSession, instance.id) is not None:
+        return False
+    if engine_for(instance, config) != "new":
+        return False
+    now = now or utcnow_naive()
+    _adopt(TableStore(clock=lambda: now), instance, config.coach_id, now)
+    return True
 
 
 def adopt_due(*, now: datetime | None = None, coach_ids=None) -> list[str]:

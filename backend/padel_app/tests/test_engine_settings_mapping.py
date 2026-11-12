@@ -253,3 +253,10 @@ def test_invitation_mode_is_carried():
     assert _settings(_config(invitation_mode="semi_automatic")).invitation_mode == "semi_automatic"
     assert _settings(_config(invitation_mode="automatic")).invitation_mode == "automatic"
     assert _settings(_config()).invitation_mode == "automatic"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-62")
+def test_reminder_count_and_interval_map_to_the_attendance_request():
+    config = _config(reminder_count=2, hours_between_reminders=6)
+    a = _settings(config).attendance_request
+    assert (a.max, a.every) == (2, timedelta(hours=6))

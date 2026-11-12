@@ -645,6 +645,11 @@ def create_lesson_instance_helper(data, parent_lesson=None):
             lesson_instance_id=lesson_instance.id,
         ).create()
 
+    # PAD-917 (notifications.config rule 18, CONFIG-63): the creating path assigns the engine; a switched
+    # coach's new occurrence is on the new engine from now.
+    from padel_app.services.engine_switch import on_occurrence_created
+    on_occurrence_created(lesson_instance)
+
     return lesson_instance
 
 
