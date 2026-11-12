@@ -344,3 +344,43 @@ def test_the_coachs_approval_round_trips_through_the_store(app):
     assert dispatch(lambda row: sent.append(row.kind), now=NOW) == 2
     assert sent == ["ApprovalRequest", "ApprovalRequest"]
 
+
+
+def test_a_class_with_no_level_applies_no_level_rule_of_the_bar(app):
+    """Owner ruling D3 (engine-tiers rule 13): a class with no level applies no level rule, so the
+    coach's eligibility bar keeps no one out of its pool on level, where today's bar fails everyone
+    closed (PAD-86). With the class's level back, the same bar applies."""
+    from padel_app.models.Association_CoachPlayer import Association_CoachPlayer
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.lessons import Lesson
+    from padel_app.models.notification_config import NotificationConfig
+
+    store, (a,), (_, x, y) = _seed(app)
+    coach_id = store.coach_of(a)
+    Association_CoachPlayer.query.filter_by(coach_id=coach_id, player_id=int(y)).one().level_id = None
+    db.session.add(NotificationConfig(coach_id=coach_id, auto_notify_enabled=True, eligibility_rules=[
+        {"attribute": "level", "operation": "within_n_above_class", "value": 0}]))
+    inst = db.session.get(LessonInstance, int(a))
+    level_id = inst.level_id
+    inst.level_id = None
+    db.session.get(Lesson, inst.lesson_id).default_level_id = None
+    db.session.commit()
+    assert {st.id for st in store.snapshot(a).pool} == {x, y}
+    inst.level_id = level_id
+    db.session.commit()
+    assert {st.id for st in store.snapshot(a).pool} == {x}
+
+
+def test_a_student_who_blocked_automatic_invitations_or_everything_is_not_in_the_pool(app):
+    """The student's own block, as the app reads it (``user_blocks_auto_invitations``): automatic
+    invitations off or every solicitation off keeps them out of the pool; blocking only the coach's
+    manual invitations does not."""
+    from padel_app.models import User
+    from padel_app.models.players import Player
+
+    store, (a,), (_, auto, everything, manual, free) = _seed(app, players=5)
+    for pid, column in ((auto, "notif_block_auto_invitations"), (everything, "notif_block_all"),
+                        (manual, "notif_block_manual_invitations")):
+        setattr(db.session.get(User, db.session.get(Player, int(pid)).user_id), column, True)
+    db.session.commit()
+    assert {st.id for st in store.snapshot(a).pool} == {manual, free}

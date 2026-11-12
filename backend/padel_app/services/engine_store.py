@@ -16,8 +16,9 @@ What lives where.
   if such a join ever reaches it.
 - Attendance requests and their Yes: ``ReminderAttempt``.
 - Pool (notifications.config rule 19, CONFIG-53): the coach's roster minus the session, the coach's
-  exclusions for it (``engine_exclusions``), students who blocked automatic invitations, and the
-  app's gates: the eligibility bar in force for the class (``passes_eligibility``; the engine's own
+  exclusions for it (``engine_exclusions``), students who blocked automatic invitations or every
+  solicitation, and the app's gates: the eligibility bar in force for the class
+  (``passes_eligibility``, without its level rules for a class with no level, D3; the engine's own
   bar is left wide open by the config mapping), ``excludedPlayers``, ``noSameDayClass`` and, when
   ``excludeUnpaidSubscription`` is on, inactive accounts. ``maxInvitesPerStudentPerDay`` is not a
   pool gate: a student holding that many of the coach's invitations sent this club day is
@@ -111,6 +112,12 @@ def settings_for(session: str) -> EngineSettings:
     """The session's coach's settings (ruling D9). The ``NotificationConfig`` mapping is swap step 5;
     until then every coach runs on the engine's defaults."""
     return EngineSettings()
+
+
+def _blocks_auto_invitations(user) -> bool:
+    """The student's own block (``user_blocks_auto_invitations``): automatic invitations off, or every
+    class-slot solicitation off."""
+    return bool(getattr(user, "notif_block_auto_invitations", False) or getattr(user, "notif_block_all", False))
 
 
 @dataclass(frozen=True)
@@ -216,7 +223,7 @@ class TableStore:
         pool = tuple(
             students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
             if str(lk.player_id) not in inside and str(lk.player_id) not in excluded
-            and not getattr(users.get(lk.player_id), "notif_block_auto_invitations", False)
+            and not _blocks_auto_invitations(users.get(lk.player_id))
             and not (gates.exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active")
             and (gates.eligible is None or gates.eligible(lk)))
 
@@ -308,6 +315,7 @@ class TableStore:
         from padel_app.services.notification_service import (
             _players_with_a_class_that_day,
             _RosterFacts,
+            _vacancy_level,
             effective_eligibility,
             passes_eligibility,
         )
@@ -322,6 +330,10 @@ class TableStore:
         if (restrictions.get("noSameDayClass") or {}).get("enabled"):
             excluded |= {str(pid) for pid in _players_with_a_class_that_day([lk.player_id for lk in links], inst)}
         rules = effective_eligibility(inst, coach_id, config)
+        if rules and _vacancy_level(None, inst)[0] is None:
+            # Owner ruling D3 (engine-tiers rule 13, TIERS-18): a class with no level applies no level
+            # rule, where today's bar fails everyone closed (PAD-86); the bar's other rules stand.
+            rules = [r for r in rules if r.get("attribute") != "level"]
         facts = _RosterFacts(coach_id, [lk.player_id for lk in links]) if rules else None
         cap = restrictions.get("maxInvitesPerStudentPerDay") or {}
         return _PoolGates(
