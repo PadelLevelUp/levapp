@@ -36,20 +36,15 @@ onFlowComplete:
     timeout: 15000
 
 # ── The new engine's own controls ──
-- scrollUntilVisible:
-    element:
-      id: "settings-engine-new"
-    direction: DOWN
+# Not a scroll to the whole `settings-engine-new` block: it is taller than the screen, so that scroll
+# runs past the stepper, which then counts as visible under the header.
+# Centred, so the stepper sits clear of both the header and the floating Save footer: at either
+# edge one of them takes the tap.
 - scrollUntilVisible:
     element:
       id: "engine-max-at-a-time-inc"
     direction: DOWN
-# Scroll on to the method radios so the stepper sits clear of the floating Save footer, which
-# otherwise takes the tap.
-- scrollUntilVisible:
-    element:
-      id: "engine-timing-method-progressive"
-    direction: DOWN
+    centerElement: true
 # The stepper's number is not read back on screen: on iOS Maestro matches the Text's accessibility
 # label, which keeps the first value after a re-render. The saved value is asserted on the server below.
 - waitForAnimationToEnd
