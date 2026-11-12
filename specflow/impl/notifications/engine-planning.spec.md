@@ -137,7 +137,9 @@ Stated as observable records; storage is the engine package's (PAD-902).
       when the session's spot count changes or the coach reopens it from the class
       (`ReopenGroup(session, tier)`), the engine recording `GroupReopened` first. The spot count is the
       open spot types with their counts (`planner.spot_types`). Invitations already sent stay open
-      (rule 10).
+      (rule 10). A dismissal is about the group, not its students: a student of the dismissed group who
+      also passes a later group is reached from that group and listed in its request; only the coach's
+      removal keeps a student out.
     - A run with nothing left to send from a group it asked for (the session full, the types covered,
       the class started) withdraws that request, which goes stale. A run in quiet hours plans nothing
       (rule 1) and keeps the pending requests.
