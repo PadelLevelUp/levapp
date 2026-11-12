@@ -9,7 +9,7 @@ from padel_app.invitation_engine.snapshot import SpotType
 from padel_app.tests.test_pad916_engine_store import NOW, START, _seed
 
 
-@pytest.mark.criterion("NOTIFICATIONS-CONFIG-50")
+@pytest.mark.criterion("DASHBOARD-BLOCKS-54")
 def test_an_open_engine_invitation_is_the_students_vacancy_invite(app):
     from padel_app.helpers.dashboard.player_home import _vacancy_invite_items
     from padel_app.models import EngineInvitation

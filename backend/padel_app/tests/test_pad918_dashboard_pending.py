@@ -16,8 +16,8 @@ SUNDAY = datetime(2026, 11, 1, 10, 0)
 MONDAY = datetime(2026, 11, 2, 20, 0)
 
 
-@pytest.mark.criterion("DASHBOARD-BLOCKS-6")
-def test_tomorrows_open_engine_invitations_are_pending_and_nudged(app):
+@pytest.mark.criterion("DASHBOARD-BLOCKS-55")
+def test_pending_confirmations_count_and_nudge_open_engine_invitations(app):
     from padel_app.helpers.dashboard.pending import count_pending_confirmations, notify_pending_confirmations
     from padel_app.models import EngineInvitation
     from padel_app.models.coaches import Coach
