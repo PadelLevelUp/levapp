@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   classRequestBubbleState,
   comeBackFromAnswer,
+  engineInviteStartMs,
   engineInviteState,
   engineInviteTestIds,
   isEngineInvite,
@@ -238,17 +239,16 @@ function MessageBubbleImpl({
   // NB1: "started" is derived from the time, and this bubble is memoised, so an open bubble
   // re-renders itself at the class's start rather than keep its buttons until something else does.
   const [, setStartTick] = React.useState(0);
-  const openStartsAt =
-    engineInviteView?.state === "open" ? (message.metadata?.startsAt as string | undefined) : undefined;
+  // The instant as the shared derivation reads it (an ISO time with no offset is UTC).
+  const openStartMs =
+    engineInviteView?.state === "open" && isEngineInvite(message.metadata) ? engineInviteStartMs(message.metadata) : null;
   React.useEffect(() => {
-    if (!openStartsAt) return;
-    // The shared derivation's reading of the instant: an ISO time with no offset is UTC.
-    const at = Date.parse(/[zZ]$|[+-]\d\d:\d\d$/.test(openStartsAt) ? openStartsAt : `${openStartsAt}Z`);
-    const wait = at - Date.now();
+    if (openStartMs === null) return;
+    const wait = openStartMs - Date.now();
     if (!(wait > 0) || wait > 2_147_483_647) return;
     const timer = setTimeout(() => setStartTick((n) => n + 1), wait + 50);
     return () => clearTimeout(timer);
-  }, [openStartsAt]);
+  }, [openStartMs]);
   const engineInvite =
     engineInviteView && isEngineInvite(message.metadata)
       ? {
