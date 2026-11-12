@@ -321,3 +321,25 @@ def test_joining_the_other_list_is_refused_already_waiting():
     assert handle(s, EngineSettings(), JoinWaitingList("C", "coach", side="L"), NOW).effects == (refused,)
     assert handle(s, EngineSettings(), JoinWaitingList("W", "coach", side="R"), NOW).effects == \
         (Refused("S", NOW, "W", "waiting_list", "already_on_list"),)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-23")
+def test_joins_are_refused_with_a_code():
+    """classes.join-requests NJ1 (#960): a refused join carries a code the route answers as 409, never
+    text; direct join being off is no refusal (the app's request waits for the coach)."""
+    on = EngineSettings(direct_join=True)
+    s = _session(_regs(3, 4), [("x", "R"), ("low", "R")])                      # the right side is full
+    s = replace(s, students={**s.students, "low": Student("low", 6, frozenset("R"))})
+
+    def code(snapshot, request, settings=on, now=NOW):
+        [refused] = handle(snapshot, settings, request, now).effects
+        return refused.reason, refused.sides
+
+    assert handle(s, EngineSettings(), DirectJoin("x"), NOW).effects == ()
+    assert code(s, DirectJoin("x")) == ("side_full", frozenset({"L"}))
+    assert code(s, DirectJoin("L1")) == ("already_enrolled", frozenset())
+    assert code(replace(s, busy_same_time=frozenset({"x"})), DirectJoin("x")) == ("busy_same_hour", frozenset())
+    assert code(s, DirectJoin("low")) == ("ineligible", frozenset())
+    assert code(s, DirectJoin("x"), now=datetime(2026, 11, 3, 10, 30)) == ("class_closed", frozenset())
+    assert code(s, JoinWaitingList("low", "students", sides="own")) == ("ineligible", frozenset())
+    assert code(s, JoinWaitingList("L1", "coach", side="R")) == ("already_enrolled", frozenset())

@@ -47,8 +47,9 @@ def attendance_request_at(snapshot: SessionSnapshot, settings: EngineSettings) -
 
 
 def last_invite_at(snapshot: SessionSnapshot, settings: EngineSettings) -> datetime:
-    """After it no new invitation goes out (§8 step 6)."""
-    return wall_to_utc_naive(snapshot.start - settings.last_invite_before)
+    """After it no new invitation goes out (§8 step 6): ``last_invite_before`` in real hours before
+    the class's real start (engine-timeline rule 6), never wall-clock arithmetic."""
+    return wall_to_utc_naive(snapshot.start) - settings.last_invite_before
 
 
 def may_plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> bool:
@@ -139,9 +140,10 @@ def is_quiet(settings: EngineSettings, now: datetime) -> bool:
     """Whether ``now`` (naive UTC) falls in the coach's quiet hours, read in Lisbon wall-clock.
 
     While it does, nobody is invited from any tier (D14, engine-timeline rule 3); answers still count.
+    A window whose start equals its end is quiet all day (today's reading, config rule 19).
     """
     qh = settings.quiet_hours
-    return bool(qh) and qh[0] != qh[1] and _in_quiet(utc_to_wall_naive(now), *qh)
+    return bool(qh) and (qh[0] == qh[1] or _in_quiet(utc_to_wall_naive(now), *qh))
 
 
 def _active_between(settings: EngineSettings, start: datetime, end: datetime) -> timedelta:
@@ -149,8 +151,10 @@ def _active_between(settings: EngineSettings, start: datetime, end: datetime) ->
     if end <= start:
         return timedelta(0)
     qh = settings.quiet_hours
-    if not qh or qh[0] == qh[1]:
+    if not qh:
         return end - start
+    if qh[0] == qh[1]:                                # quiet all day
+        return timedelta(0)
     q_start, q_end = qh
     cur, total = start, timedelta(0)
     while cur < end:
@@ -172,7 +176,7 @@ def counts_until(settings: EngineSettings, sent_at: datetime, t: timedelta) -> d
     counting at 07:30). An invitation sent inside quiet hours starts counting at their end.
     """
     qh = settings.quiet_hours
-    if not qh or qh[0] == qh[1]:
+    if not qh or qh[0] == qh[1]:                      # all day: nothing is sent, so nothing pauses
         return sent_at + t
     start, end = qh
     cur, left = sent_at, t                            # arithmetic in UTC, boundaries read in Lisbon

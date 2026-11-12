@@ -126,6 +126,49 @@ def _blocks_auto_invitations(user) -> bool:
     return bool(getattr(user, "notif_block_auto_invitations", False) or getattr(user, "notif_block_all", False))
 
 
+def _close_request_message(es, state: str) -> None:
+    """The session's pending request stopped being pending: its Assistant message's metadata says how
+    (``replaced``, ``approved``, ``dismissed``) with ``responded`` true, and one ``message_edited`` goes
+    out after the commit (semi-auto-approval N4, SEMI-AUTO-APPROVAL-43)."""
+    from padel_app.models import Message
+    from padel_app.realtime import publish
+    from padel_app.serializers.message import serialize_message
+    from padel_app.services.conversation_access import message_recipient_ids
+
+    msg = db.session.get(Message, es.request_message_id) if es.request_message_id else None
+    es.request_message_id = None
+    if msg is None:
+        return
+    msg.msg_metadata = {**(msg.msg_metadata or {}), "state": state, "responded": True}
+    db.session.flush()
+    publish({"type": "message_edited", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
+
+
+def _refresh_bubbles(row, state: str, **extra) -> None:
+    """Write the invitation's new ``state`` (invitations NB1: ``answered`` with ``response``, ``sorry``,
+    ``reoffered``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on every
+    one of its bubbles (engine-store rule 8), and publish one ``message_edited`` per message after the unit commits (``publish``
+    waits for it inside a unit of work)."""
+    from padel_app.models import Message
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.realtime import publish
+    from padel_app.serializers.message import serialize_message
+    from padel_app.services.conversation_access import message_recipient_ids
+
+    if not row.message_ids:
+        return
+    ids = list(row.message_ids)
+    start = db.session.get(LessonInstance, row.lesson_instance_id).start_datetime
+    for msg in Message.query.filter(Message.id.in_(ids)).all():
+        meta = dict(msg.msg_metadata or {})
+        meta.update({"engine": "new", "invitationId": row.id, "lessonInstanceId": row.lesson_instance_id,
+                     "state": state, "startsAt": wall_to_utc_naive(start).isoformat() if start else None,
+                     "countsUntil": row.counts_until.isoformat() if row.counts_until else None, **extra})
+        msg.msg_metadata = meta
+        db.session.flush()
+        publish({"type": "message_edited", "payload": serialize_message(msg, None)}, message_recipient_ids(msg))
+
+
 @dataclass(frozen=True)
 class _PoolGates:
     excluded_players: frozenset[str] = frozenset()        # the coach's excludedPlayers
@@ -302,6 +345,54 @@ class TableStore:
                 out[str(by_user[uid])].append("availability_blocker")
         return out
 
+    # --- the invitation bubble (invitations NB1a): the outbox's sender and the coach's withdrawal ---------
+
+    @staticmethod
+    def invitation_id(session: str, student: str) -> int | None:
+        """The ``invitations`` row id of ``student``'s one invitation for ``session`` (D1): the bubble's
+        ``invitationId``."""
+        from padel_app.models import EngineInvitation
+
+        row = EngineInvitation.query.filter_by(lesson_instance_id=int(session), player_id=int(student)).first()
+        return None if row is None else row.id
+
+    @staticmethod
+    def attach_request_message(session: str, request_id: str, message_id: int) -> bool:
+        """Keep ``message_id`` (the Assistant message the outbox's sender posted for approval request
+        ``request_id``) on the session, so the message follows the request. False, and nothing kept,
+        when that request is no longer the session's pending one."""
+        from padel_app.models import EngineSession
+
+        es = db.session.get(EngineSession, int(session))
+        if es is None or es.pending_request != request_id:
+            return False
+        es.request_message_id = int(message_id)
+        return True
+
+    @staticmethod
+    def attach_message(invitation_id: int, message_id: int) -> None:
+        """Keep ``message_id`` (an invitation or re-offer bubble the outbox's sender posted) on the
+        invitation, so the store keeps its ``state`` current."""
+        from padel_app.models import EngineInvitation
+
+        row = db.session.get(EngineInvitation, int(invitation_id))
+        if row is not None and int(message_id) not in (row.message_ids or []):
+            row.message_ids = [*(row.message_ids or []), int(message_id)]
+
+    @staticmethod
+    def withdraw(invitation_id: int, at: datetime) -> bool:
+        """The coach withdraws an open invitation by hand (invitations rule 19; D4 binds the engine, not the
+        coach): it closes with ``closed_reason`` "withdrawn" and its bubbles say so. False when it is
+        missing, answered or already closed. Call it inside ``unit((session,))``."""
+        from padel_app.models import EngineInvitation
+
+        row = db.session.get(EngineInvitation, int(invitation_id))
+        if row is None or row.answer is not None or row.closed_at is not None:
+            return False
+        row.closed_at, row.closed_reason = at, "withdrawn"
+        _refresh_bubbles(row, "withdrawn")
+        return True
+
     @staticmethod
     def _pool_reasons(iid: int, links, users, gates: _PoolGates, own: Mapping[str, list[str]],
                       *, explain: bool = False) -> dict[str, list[dict]]:
@@ -359,7 +450,12 @@ class TableStore:
     def _approval(es, e: fx.Effect) -> None:
         """The coach's approval state (owner ruling D2): a request replaces the pending queues and
         ends a dismissal; an approval replaces ``approved``, adds to ``removed`` and ends the request;
-        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal."""
+        a dismissal ends the request and keeps the spots it saw; a reopening ends the dismissal. A
+        request that stops being pending has its Assistant message say why (semi-auto-approval N4)."""
+        if es.pending_request is not None and not isinstance(e, fx.QueueReopened):
+            ended = {fx.QueueApproved: "approved", fx.QueueDismissed: "dismissed"}.get(type(e), "replaced")
+            if not (isinstance(e, fx.ApprovalRequest) and e.request == es.pending_request):
+                _close_request_message(es, ended)
         if isinstance(e, fx.ApprovalRequest):
             es.pending, es.pending_request, es.dismissed = _encode(e.queues), e.request or None, None
         elif isinstance(e, fx.ApprovalWithdrawn):
@@ -515,16 +611,19 @@ class TableStore:
         ``engine_sessions`` and a going presence per regular. ``level``, ``capacity`` and ``start``
         are the occurrence's own and are not written; ``joined_at`` is the roster's."""
         from padel_app.models import EngineSession
-        from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
         from padel_app.models.lesson_instances import LessonInstance
         from padel_app.services import lesson_service as ls
 
         iid = int(session)
         if db.session.get(EngineSession, iid) is not None:
             raise ValueError(f"session {session} already exists")
-        link = Association_CoachLessonInstance.query.filter_by(lesson_instance_id=iid).first()
-        db.session.add(EngineSession(lesson_instance_id=iid, coach_id=link.coach_id, alerted=[]))
         inst = db.session.get(LessonInstance, iid)
+        # The occurrence's coach is the app's "the coach": the first of coaches_for, which falls back to
+        # the lesson's coach when the occurrence has no row of its own (a co-coached class has several).
+        coach = ls.primary_coach(inst)
+        if coach is None:
+            raise ValueError(f"session {session} has no coach")
+        db.session.add(EngineSession(lesson_instance_id=iid, coach_id=coach.id, alerted=[]))
         for student, side in regulars:
             presence = ls.enrol(int(student.id), inst, "roster", new_engine=True)
             presence.placed_how, presence.placed_at = "regular", at
@@ -606,6 +705,9 @@ class TableStore:
         if isinstance(e, (fx.ApprovalRequest, fx.ApprovalWithdrawn, fx.QueueApproved, fx.QueueDismissed,
                           fx.QueueReopened)):
             self._approval(db.session.get(EngineSession, iid), e)
+        elif isinstance(e, fx.AlertCleared):                       # engine-planning rule 11 (PLANNING-40)
+            es = db.session.get(EngineSession, iid)
+            es.alerted = [a for a in (es.alerted or []) if (a[0], a[1]) != (e.spot_type.side, e.spot_type.level)]
         elif isinstance(e, fx.CoachAlert):
             if e.spot_type is not None:                           # one alert per session and type (rule 11)
                 es = db.session.get(EngineSession, iid)
@@ -624,15 +726,20 @@ class TableStore:
                 log.info("engine_store: %s for a closed or missing invitation, skipped", type(e).__name__)
             elif isinstance(e, fx.Sorry):
                 row.sorry_at = e.at
+                _refresh_bubbles(row, "sorry")
             elif isinstance(e, fx.Reoffered):
                 row.offer = [[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))]
                 row.side_named, row.tier, row.counts_until, row.sorry_at = e.side_named, e.tier, e.counts_until, None
+                row.reoffered_at = e.at
+                _refresh_bubbles(row, "reoffered")            # the re-offer's own bubble is attached after
             else:
-                row.closed_at = e.at
+                row.closed_at, row.closed_reason = e.at, "same_hour"
+                _refresh_bubbles(row, "closed_same_hour")
         elif isinstance(e, fx.Answered) and e.on == "invitation":
             row = self._invitation_row(e)
             if row is not None and row.answer is None and row.closed_at is None:
                 row.answer, row.answered_at = e.answer, e.at
+                _refresh_bubbles(row, "answered", response=e.answer)
         elif isinstance(e, fx.Answered):
             if e.answer == "yes":
                 attempt = (ReminderAttempt.query.filter_by(lesson_instance_id=iid, player_id=int(e.student))

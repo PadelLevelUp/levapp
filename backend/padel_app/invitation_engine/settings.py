@@ -131,7 +131,7 @@ class EngineSettings:
     timing: Timing = field(default_factory=Timing)
     first_invite: FirstInvite = field(default_factory=FirstInvite)
     last_invite_before: timedelta = timedelta(hours=2)
-    quiet_hours: tuple[time, time] | None = (time(0, 0), time(7, 0))
+    quiet_hours: tuple[time, time] | None = (time(0, 0), time(7, 0))   # start == end: quiet all day; None: never
     attendance_request: AttendanceRequest = field(default_factory=AttendanceRequest)
     absence_cutoff_before: timedelta = timedelta(hours=12)
     eligibility: Eligibility = field(default_factory=Eligibility)
@@ -146,6 +146,9 @@ class EngineSettings:
     auto_entry_before_attendance_request: bool = False
     waiting_list_side_choice: bool = False
     direct_join: bool = False
+    # Off: only spots a going student freed are filled, never spots no one held (engine-settings
+    # rule 11; today's invitation start "none").
+    fill_never_held: bool = True
     # Semi-automatic mode holds the engine's sends for the coach (engine-planning rule 14, ruling D2).
     invitation_mode: InvitationMode = "automatic"
 

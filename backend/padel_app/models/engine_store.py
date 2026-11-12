@@ -40,6 +40,11 @@ class EngineInvitation(db.Model, model.Model):
     answered_at = Column(DateTime, nullable=True)
     sorry_at = Column(DateTime, nullable=True)
     closed_at = Column(DateTime, nullable=True)             # a same-hour placement closed it (answers rule 10)
+    # invitations NB1a: why it closed ("withdrawn" by the coach, rule 19 | "same_hour"), when it was last
+    # re-offered, and the ids of its message bubbles (the first and each re-offer's), kept current by the store.
+    closed_reason = Column(String(10), nullable=True)
+    reoffered_at = Column(DateTime, nullable=True)
+    message_ids = Column(JSON, nullable=False, default=list)
 
 
 class EngineSession(db.Model, model.Model):
@@ -63,6 +68,7 @@ class EngineSession(db.Model, model.Model):
     removed = Column(JSON, nullable=False, default=list)
     pending = Column(JSON, nullable=True)
     pending_request = Column(String(80), nullable=True)      # the pending request's id (the engine's)
+    request_message_id = Column(Integer, nullable=True)      # the pending request's Assistant message (PAD-919)
     dismissed = Column(JSON, nullable=True)
 
 

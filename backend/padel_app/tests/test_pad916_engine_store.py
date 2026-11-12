@@ -463,3 +463,171 @@ def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everyt
                                                                 ("reoffer", "waiting_list_invite", "sorry")])
     assert dispatch(lambda row: sent.append(row), now=NOW) == 0           # claimed, never retried
 
+
+
+def test_a_session_belongs_to_the_occurrences_primary_coach(app):
+    """``add_session`` writes the occurrence's coach as the app's ``primary_coach``: its first-assigned
+    coach on a co-coached class, and the lesson's coach when the occurrence has no coach row of its own
+    (``coaches_for``'s fallback), never a crash."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_store import TableStore
+
+    store, (a,), _ = _seed(app)
+    first = store.coach_of(a)
+    other_user = User(name="Co", username="co916", password="x", status="active")
+    db.session.add(other_user)
+    db.session.flush()
+    co = Coach(user_id=other_user.id)
+    db.session.add(co)
+    db.session.flush()
+    inst = db.session.get(LessonInstance, int(a))
+    twin = LessonInstance(lesson_id=inst.lesson_id, start_datetime=START + timedelta(days=7),
+                          end_datetime=START + timedelta(days=7, hours=1), max_players=4, status="scheduled",
+                          level_id=inst.level_id)
+    bare = LessonInstance(lesson_id=inst.lesson_id, start_datetime=START + timedelta(days=14),
+                          end_datetime=START + timedelta(days=14, hours=1), max_players=4, status="scheduled",
+                          level_id=inst.level_id)
+    db.session.add_all([twin, bare])
+    db.session.flush()
+    db.session.add_all([Association_CoachLessonInstance(coach_id=first, lesson_instance_id=twin.id),
+                        Association_CoachLessonInstance(coach_id=co.id, lesson_instance_id=twin.id),
+                        Association_CoachLesson(coach_id=co.id, lesson_id=inst.lesson_id)])
+    db.session.commit()
+
+    store = TableStore(clock=lambda: NOW)
+    for sid in (str(twin.id), str(bare.id)):
+        with store.unit((sid,)):
+            store.add_session(sid, 3, 4, START, [], NOW)
+    assert store.coach_of(str(twin.id)) == first           # the coach assigned first
+    assert store.coach_of(str(bare.id)) == co.id            # no row of its own: the lesson's coach
+
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-7")
+def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
+    """Engine-store rule 8 (invitations NB1a): the store keeps an invitation's bubbles and writes each new
+    state on every one of them, with ``startsAt`` and ``countsUntil``, one ``message_edited`` per message
+    after the commit: ``sorry``; a re-offer (``reoffered``, ``reoffered_at``) whose own bubble is
+    attached after; the coach's ``withdraw`` (``withdrawn``, ``closed_reason``). Elsewhere an answer is
+    ``answered`` with its response, and a same-hour placement ``closed_same_hour`` (``same_hour``)."""
+    from padel_app import realtime
+    from padel_app.models import Conversation, EngineInvitation, Message, User
+    from padel_app.models.players import Player
+    from padel_app.tools.unit_of_work import active
+
+    edited = []
+    monkeypatch.setattr(realtime, "publish", lambda event, users: edited.append((event["type"], event["payload"]["id"], active())))
+    store, (a,), (reg, x, y, z) = _seed(app, players=4)
+    with store.unit((a,)):
+        store.apply([_invited(a, s) for s in (x, y, z)])
+
+    def bubble(student):
+        user_id = db.session.get(Player, int(student)).user_id
+        conv = Conversation.get_or_insert([user_id, User.query.filter_by(username="c916").one().id])
+        msg = Message(text="invite", sender_id=user_id, conversation_id=conv.id, message_type="notification_invite",
+                      msg_metadata={"engine": "new", "state": "open"})
+        db.session.add(msg)
+        db.session.flush()
+        store.attach_message(store.invitation_id(a, student), msg.id)
+        db.session.commit()
+        return msg.id
+
+    def states(*mids):
+        return [db.session.get(Message, m).msg_metadata["state"] for m in mids]
+
+    first = bubble(x)
+    with store.unit((a,)):
+        store.apply([fx.Sorry(a, NOW + timedelta(minutes=1), x)])
+    assert states(first) == ["sorry"] and db.session.get(Message, first).msg_metadata["startsAt"]
+    with store.unit((a,)):
+        store.apply([fx.Reoffered(a, NOW + timedelta(minutes=2), x, frozenset({SpotType("L", 3)}), "L", 0,
+                                  NOW + timedelta(minutes=30))])
+    assert states(first) == ["reoffered"]
+    assert db.session.get(EngineInvitation, store.invitation_id(a, x)).reoffered_at == NOW + timedelta(minutes=2)
+    second = bubble(x)
+    edited.clear()
+    with store.unit((a,)):
+        assert store.withdraw(store.invitation_id(a, x), NOW + timedelta(minutes=3))
+    assert states(first, second) == ["withdrawn", "withdrawn"]
+    assert sorted(m for _, m, _ in edited) == sorted([first, second])
+    assert all(kind == "message_edited" for kind, _, _ in edited)
+    assert db.session.get(Message, second).msg_metadata["countsUntil"] == (NOW + timedelta(minutes=30)).isoformat()
+    assert db.session.get(EngineInvitation, store.invitation_id(a, x)).closed_reason == "withdrawn"
+    with store.unit((a,)):
+        assert not store.withdraw(store.invitation_id(a, x), NOW + timedelta(minutes=4))    # already closed
+
+    answered, same_hour = bubble(y), bubble(z)
+    with store.unit((a,)):
+        store.apply([fx.Answered(a, NOW + timedelta(minutes=5), y, "no", "invitation"),
+                     fx.InvitationClosed(a, NOW + timedelta(minutes=5), z)])
+    assert states(answered, same_hour) == ["answered", "closed_same_hour"]
+    assert db.session.get(Message, answered).msg_metadata["response"] == "no"
+    assert db.session.get(EngineInvitation, store.invitation_id(a, z)).closed_reason == "same_hour"
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-8")
+def test_an_alert_cleared_drops_the_alert(app):
+    """Engine-planning rule 11 (PLANNING-40): an ``AlertCleared`` drops that type's alert, so the session
+    keeps only live ones."""
+    store, (a,), _ = _seed(app)
+    left, right = SpotType("L", 3), SpotType("R", 3)
+    with store.unit((a,)):
+        store.apply([fx.CoachAlert(a, NOW, reason="no_candidate", spot_type=left, spots=1),
+                     fx.CoachAlert(a, NOW, reason="no_candidate", spot_type=right, spots=2)])
+    with store.unit((a,)):
+        store.apply([fx.AlertCleared(a, NOW + timedelta(minutes=1), left)])
+    assert store.snapshot(a).alerted == {right: 2}
+
+
+def test_the_request_message_says_how_the_request_ended(app, monkeypatch):
+    """Semi-auto-approval N4 (the store's half of SEMI-AUTO-APPROVAL-43): the request's Assistant
+    message, attached only while that request is pending, says ``replaced``, ``approved`` or
+    ``dismissed`` with ``responded`` true when the request stops being pending, one ``message_edited``
+    each; a re-raise of the same request leaves it alone, and an emptied approved queue with no request
+    pending edits nothing."""
+    from padel_app import realtime
+    from padel_app.models import Conversation, Message, User
+
+    edited = []
+    monkeypatch.setattr(realtime, "publish", lambda event, users: edited.append(event["payload"]["id"]))
+    store, (a,), (_, x, _) = _seed(app)
+    L = SpotType("L", 3)
+    coach_user = User.query.filter_by(username="c916").one().id
+    conv = Conversation.get_or_insert([coach_user])
+
+    def request(rid, minute):
+        with store.unit((a,)):
+            store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=minute), ((L, (x,)),), rid)])
+        msg = Message(text="request", sender_id=coach_user, conversation_id=conv.id,
+                      message_type="replacement_approval", msg_metadata={"requestId": rid, "state": "pending"})
+        db.session.add(msg)
+        db.session.flush()
+        attached = store.attach_request_message(a, rid, msg.id)
+        db.session.commit()
+        return msg.id, attached
+
+    def meta(mid):
+        return db.session.get(Message, mid).msg_metadata
+
+    first, ok = request("r1", 1)
+    assert ok and not store.attach_request_message(a, "r0", first)          # only the pending request
+    with store.unit((a,)):
+        store.apply([fx.ApprovalRequest(a, NOW + timedelta(minutes=2), ((L, (x,)),), "r1")])   # the same one
+    assert meta(first)["state"] == "pending" and edited == []
+    second, _ = request("r2", 3)
+    assert (meta(first)["state"], meta(first)["responded"]) == ("replaced", True) and edited == [first]
+    with store.unit((a,)):
+        store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=4), frozenset({x}), frozenset())])
+    assert (meta(second)["state"], meta(second)["responded"]) == ("approved", True)
+    third, _ = request("r3", 5)
+    with store.unit((a,)):
+        store.apply([fx.QueueDismissed(a, NOW + timedelta(minutes=6), ((L, 1),))])
+    assert meta(third)["state"] == "dismissed"
+    edited.clear()
+    with store.unit((a,)):
+        store.apply([fx.QueueApproved(a, NOW + timedelta(minutes=7), frozenset(), frozenset())])
+    assert edited == []

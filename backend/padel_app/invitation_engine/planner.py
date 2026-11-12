@@ -24,6 +24,7 @@ from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import ALERT_NO_CANDIDATE, LOWER_TIER_PER_SPOT, side_quota
 from padel_app.invitation_engine.effects import (
     Absence,
+    AlertCleared,
     ApprovalRequest,
     ApprovalWithdrawn,
     CoachAlert,
@@ -72,8 +73,48 @@ class SpotCounts:
         return len(self.flexible_unplaced) + sum(self.over_quota.values())
 
 
-def spot_counts(snapshot: SessionSnapshot) -> SpotCounts:
-    """The session's counts, from scratch (engine-spots rules 2, 4-6, 9)."""
+def freed_spots(snapshot: SessionSnapshot) -> tuple[dict[Side, int], int]:
+    """The spots going students freed and nobody has taken since (engine-settings rule 11): per side,
+    and of either side. An absent regular frees a spot of their side, or of either side when they play
+    both; a cancellation after accepting gives back the freed spot it took. Every going student who is
+    not a regular takes one, of their side first, else of either side."""
+    regulars = {st.id: st for st in snapshot.regulars}
+    side: dict[Side, int] = {v: 0 for v in SIDES}
+    either = 0
+    for sid in snapshot.absent:
+        st = regulars.get(sid)
+        if st is None:
+            continue
+        if len(st.sides) == 1:
+            side[next(iter(st.sides))] += 1
+        else:
+            either += 1
+    for p in snapshot.going:
+        if p.how in ("regular", "regular_returns"):
+            continue
+        if p.side is not None and side[p.side] > 0:
+            side[p.side] -= 1
+        elif either > 0:
+            either -= 1
+        elif p.side is None and any(side.values()):
+            side[max(SIDES, key=lambda v: side[v])] -= 1
+    return side, either
+
+
+def spot_counts(snapshot: SessionSnapshot, settings: EngineSettings | None = None) -> SpotCounts:
+    """The session's counts, from scratch (engine-spots rules 2, 4-6, 9). With ``settings`` whose
+    ``fill_never_held`` is off, each type's spots are at most the freed ones of its side, either-side
+    freed spots (and side ones its type cannot use) counted as ``either`` (engine-settings rule 11)."""
+    counts = _spot_counts(snapshot)
+    if settings is None or settings.fill_never_held:
+        return counts
+    side, either = freed_spots(snapshot)
+    must = {v: min(counts.must[v], side[v]) for v in SIDES}
+    spare = sum(side[v] - must[v] for v in SIDES)
+    return replace(counts, must=must, either=min(counts.either, either + spare))
+
+
+def _spot_counts(snapshot: SessionSnapshot) -> SpotCounts:
     quota = side_quota(snapshot.capacity)
     placed = {v: sum(1 for p in snapshot.going if p.side == v) for v in SIDES}
     class_empty = max(0, snapshot.capacity - len(snapshot.going))
@@ -632,11 +673,16 @@ def _offer_across(run: _Run, t: int, student: Student, order: list[tuple[SpotTyp
 def _alerts(run: _Run, types: list[tuple[SpotType, int]], now: datetime) -> tuple[Effect, ...]:
     """Nobody left (engine-planning rule 11, §6 step 4): a type with uncovered spots and no candidate
     in any tier, neither a counting invitation that counts for it nor an uninvited student who fits.
-    One alert per session and type, raised again only when the type's count changes."""
-    out = []
+    One alert per session and type, raised again only when the type's count changes; an alerted type
+    that is gone (covered or no longer open) or has a candidate again is cleared (``AlertCleared``)."""
+    out: list[Effect] = []
+    current = dict(types)
     for spot_type, spots in types:
         if not run.buckets(spot_type) and run.snapshot.alerted.get(spot_type) != spots:
             out.append(CoachAlert(run.snapshot.id, now, ALERT_NO_CANDIDATE, spot_type, spots))
+    for spot_type in run.snapshot.alerted:
+        if spot_type not in current or run.buckets(spot_type):
+            out.append(AlertCleared(run.snapshot.id, now, spot_type))
     return tuple(out)
 
 
@@ -654,6 +700,7 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
         return ()
     going = {p.student: p.side for p in snapshot.going}
     quota, capacity = side_quota(snapshot.capacity), snapshot.capacity
+    freed = None if settings.fill_never_held else freed_spots(snapshot)   # rule 11: freed spots only
     placed_side = {v: sum(1 for s in going.values() if s == v) for v in SIDES}
     total = len(going)
     out: list[Effect] = []
@@ -677,10 +724,14 @@ def auto_entries(snapshot: SessionSnapshot, settings: EngineSettings, now: datet
                 sides = frozenset(SIDES)
             else:
                 sides = student.sides
-            room = [v for v in SIDES if v in sides and placed_side[v] < quota]
+            room = [v for v in SIDES if v in sides and placed_side[v] < quota
+                    and (freed is None or freed[0][v] > 0 or freed[1] > 0)]
             if not room:
                 continue
             side = max(room, key=lambda v: quota - placed_side[v])
+            if freed is not None:
+                freed = ({**freed[0], side: freed[0][side] - 1}, freed[1]) if freed[0][side] > 0 \
+                    else (freed[0], freed[1] - 1)
             placed_side[side] += 1
             total += 1
             going[w.student] = side
@@ -704,7 +755,7 @@ def plan(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> 
         return Plan(entries)
     if not timeline.may_plan(snapshot, settings, now):
         return Plan()
-    counts = spot_counts(snapshot)
+    counts = spot_counts(snapshot, settings)
     latest = {i.student: i for i in snapshot.invitations}               # one per student (D1)
     people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list}, key=_natural)
 
@@ -817,7 +868,7 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
     ("this student drops out") is the caller's snapshot, built without writing."""
     effects = plan(snapshot, settings, now).effects
     snapshot = with_postponed(snapshot, now)
-    counts = spot_counts(snapshot)
+    counts = spot_counts(snapshot, settings)
     latest = {i.student: i for i in snapshot.invitations}
     people = sorted({st.id for st in snapshot.pool} | {w.student for w in snapshot.waiting_list}, key=_natural)
     probe = _Run(snapshot, settings, now, counts, latest, people)
@@ -855,7 +906,7 @@ def evaluate(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime)
 
 def _queues(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> SpotQueues:
     dry = evaluate(snapshot, settings, now)
-    return tuple((spot_type, dry.queues[spot_type]) for spot_type, _ in spot_types(with_postponed(snapshot, now)))
+    return tuple((spot_type, dry.queues[spot_type]) for spot_type, _ in spot_types(snapshot, spot_counts(snapshot, settings)))
 
 
 def decide(snapshot: SessionSnapshot, settings: EngineSettings, now: datetime) -> Plan:

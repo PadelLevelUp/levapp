@@ -225,6 +225,15 @@ class NotificationConfig(db.Model, model.Model):
     # 'old' or 'new', and when that last changed (naive UTC). Carried by PAD-916's migration.
     engine_version = Column(String(3), nullable=False, default="old", server_default="old")
     engine_switched_at = Column(DateTime, nullable=True)
+    # notifications.config rule 20 (PAD-917): the new engine's settings no client edits yet. Carried by
+    # PAD-916's migration; PAD-917 maps them to EngineSettings.
+    max_at_a_time = Column(Integer, nullable=True)
+    timing_method = Column(String(16), nullable=False, default="fixed", server_default="fixed")
+    between_rounds_minutes = Column(Integer, nullable=True)
+    between_groups_minutes = Column(Integer, nullable=True)
+    per_tier_timing = Column(JSON, nullable=True)
+    auto_entry_before_attendance_request = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    waiting_list_side_choice = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     # "automatic" (default) or "semi_automatic" — only relevant when
     # auto_notify_enabled is true. In semi_automatic mode vacancies require
     # coach approval before invitations are sent.
