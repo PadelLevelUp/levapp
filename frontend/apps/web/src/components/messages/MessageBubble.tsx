@@ -20,6 +20,14 @@ import { acceptClassJoinRequest, joinRequestRefusal, listClassJoinRequests, reje
 import { joinClassWaitingList, leaveClassWaitingList, listClassWaitingList } from '@/api/academyClasses';
 import { EligibilityConfirmDialog } from '@/components/calendar/EligibilityConfirmDialog';
 
+/** PAD-920 (dashboard.blocks NA3): the alert's class link, from `href`, else from `lessonInstanceId`. */
+function engineAlertHref(meta: Message["metadata"]): string | null {
+  if (typeof meta?.href === "string") return meta.href;
+  if (meta?.lessonInstanceId == null) return null;
+  const date = typeof meta.date === "string" ? `&date=${meta.date}` : "";
+  return `/calendar?classId=lessoninstance-${meta.lessonInstanceId}${date}`;
+}
+
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -720,12 +728,12 @@ export function MessageBubble({
         })()}
 
         {/* PAD-920 (dashboard.blocks NA3): the coach alert is a text bubble with a link to the class. */}
-        {message.messageType === "engine_alert" && typeof message.metadata?.href === "string" && (
+        {message.messageType === "engine_alert" && engineAlertHref(message.metadata) && (
           <div className="mt-1.5 ml-1">
             <button
               type="button"
               data-testid={`engine-alert-open-class-${message.id}`}
-              onClick={() => navigate(message.metadata!.href as string)}
+              onClick={() => navigate(engineAlertHref(message.metadata)!)}
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               {t("classDetail.classFallbackTitle")}

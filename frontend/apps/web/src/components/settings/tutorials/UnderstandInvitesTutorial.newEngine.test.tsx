@@ -85,24 +85,24 @@ describe("UnderstandInvitesTutorial — new engine (PAD-920)", () => {
     fireEvent.click(await screen.findByTestId("tutorial-player-p-a"));
 
     // NT1: one block per type, its side and open spots in the header, rows under their tier.
-    const left = await screen.findByTestId("tutorial-type-left");
-    const either = screen.getByTestId("tutorial-type-either");
+    const left = await screen.findByTestId("tutorial-type-left-any");
+    const either = screen.getByTestId("tutorial-type-either-4");
     expect(within(left).getByTestId("tutorial-type-header").textContent).toContain("players.sideLeft");
-    expect(screen.getByTestId("tutorial-type-left-count").textContent).toBe("tutorials.engine.openSpots:count=1");
-    expect(screen.getByTestId("tutorial-type-either-count").textContent).toBe("tutorials.engine.openSpots:count=2");
+    expect(screen.getByTestId("tutorial-type-left-any-count").textContent).toBe("tutorials.engine.openSpots:count=1");
+    expect(screen.getByTestId("tutorial-type-either-4-count").textContent).toBe("tutorials.engine.openSpots:count=2");
     expect(within(either).getByTestId("tutorial-type-header").textContent).toContain("tutorials.engine.sideEither");
     expect(within(either).getByTestId("tutorial-type-header").textContent).toContain("M3");
-    const tiers = within(left).getAllByTestId(/^tutorial-tier-left-\d+$/);
-    expect(tiers.map((t) => t.dataset.testid)).toEqual(["tutorial-tier-left-0", "tutorial-tier-left-1", "tutorial-tier-left-2"]);
+    const tiers = within(left).getAllByTestId(/^tutorial-tier-left-any-\d+$/);
+    expect(tiers.map((t) => t.dataset.testid)).toEqual(["tutorial-tier-left-any-0", "tutorial-tier-left-any-1", "tutorial-tier-left-any-2"]);
     expect(tiers.map((t) => t.querySelector("h5")?.textContent)).toEqual([
       "calendar.detail.tierCoachList",
       "calendar.detail.tierWaitingList",
       "calendar.detail.tierGroup:n=1",
     ]);
-    expect(within(tiers[2]).getByTestId("tutorial-row-s3-left").textContent).toContain("N-s3");
-    expect(screen.getByTestId("tutorial-row-s1-left").textContent).toContain("tutorials.understandInvites.rank:rank=1");
-    expect(screen.getByTestId("tutorial-row-s1-left-stage").textContent).toBe("tutorials.engine.stage.invited");
-    expect(within(either).getByTestId("tutorial-row-s4-either-stage").textContent).toBe("tutorials.engine.stage.waiting");
+    expect(within(tiers[2]).getByTestId("tutorial-row-s3-left-any").textContent).toContain("N-s3");
+    expect(screen.getByTestId("tutorial-row-s1-left-any").textContent).toContain("tutorials.understandInvites.rank:rank=1");
+    expect(screen.getByTestId("tutorial-row-s1-left-any-stage").textContent).toBe("tutorials.engine.stage.invited");
+    expect(within(either).getByTestId("tutorial-row-s4-either-4-stage").textContent).toBe("tutorials.engine.stage.waiting");
     // The old engine's rounds and spot line are not drawn for a new-engine answer.
     expect(screen.queryByTestId("tutorial-spot")).toBeNull();
 

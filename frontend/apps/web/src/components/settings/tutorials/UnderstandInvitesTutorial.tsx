@@ -506,7 +506,8 @@ function NewEngineResults({
 function SpotTypeBlock({ type }: { type: EngineSpotType }) {
   const { t } = useTranslation();
   const displayName = useCoachDisplayName();
-  const slug = engineSideSlug(type.side);
+  // NT4: the spot type's id carries its side and its level, so two types of one side stay apart.
+  const slug = `${engineSideSlug(type.side)}-${type.levelId ?? "any"}`;
   const verdictOf = (playerId: string) => type.verdicts.find((v) => v.playerId === playerId);
   return (
     <Card data-testid={`tutorial-type-${slug}`}>

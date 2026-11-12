@@ -57,6 +57,13 @@ export interface ClassSideChoiceProps {
 
 const OTHER_SIDE: Record<"left" | "right", PlayerSide> = { left: "right", right: "left" };
 
+/** The relative choice an absolute requested side reads as, from the student's profile side. */
+function relativeOf(requested: PlayerSide, profileSide: PlayerSide | null | undefined): WaitingListSides {
+  if (requested === "both") return "both";
+  if (profileSide !== "left" && profileSide !== "right") return "own";
+  return requested === profileSide ? "own" : "other";
+}
+
 /** The absolute side a relative choice reads as for the caller's own state ("both" when unknown). */
 function absoluteOf(choice: WaitingListSides, profileSide: PlayerSide | null | undefined): PlayerSide {
   if (choice === "both" || (profileSide !== "left" && profileSide !== "right")) return "both";
@@ -77,6 +84,9 @@ export function ClassSideChoice({
 }: ClassSideChoiceProps) {
   const { t } = useTranslation();
   const [relChosen, setRelChosen] = useState<WaitingListSides | null>(null);
+  // PAD-920 (notifications.config rule 20): after a `side_full`, the offer to wait reopens the
+  // relative choice when the coach turned it on, preselected to the side the student asked for.
+  const [relOpen, setRelOpen] = useState(false);
   const [chosen, setChosen] = useState<PlayerSide | null>(preselectedSide(profileSide));
   const [full, setFull] = useState<SideFull | null>(null);
   const [busy, setBusy] = useState(false);
@@ -86,6 +96,7 @@ export function ClassSideChoice({
     if (open) {
       setChosen(preselectedSide(profileSide));
       setRelChosen(null);
+      setRelOpen(false);
       setFull(null);
       setBusy(false);
     }
@@ -141,7 +152,7 @@ export function ClassSideChoice({
   };
 
   const word = (side: PlayerSide) => t(sideWordKey(side));
-  const relative = waiting && relativeChoice ? relativeChoice : null;
+  const relative = (waiting || relOpen) && relativeChoice ? relativeChoice : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -168,7 +179,13 @@ export function ClassSideChoice({
               <Button
                 variant="outline"
                 disabled={busy}
-                onClick={() => void joinList(full.requestedSide)}
+                onClick={() => {
+                  if (relativeChoice) {
+                    setRelChosen(relativeOf(full.requestedSide, profileSide));
+                    setRelOpen(true);
+                    setFull(null);
+                  } else void joinList(full.requestedSide);
+                }}
                 data-testid="class-side-stay-waiting"
               >
                 {t("calendar.sidePick.stayWaiting", { requested: word(full.requestedSide) })}

@@ -163,4 +163,21 @@ describe("PAD-920 the relative side choice on a new-engine waiting list (notific
     expect(screen.getByTestId("class-side-left")).toBeTruthy();
     expect(screen.queryByTestId("waiting-list-side-own")).toBeNull();
   });
+
+  it("[NOTIFICATIONS-CONFIG-73] after side_full, the offer to wait reopens the relative choice, preselected", async () => {
+    api.createClassJoinRequest.mockRejectedValue(sideFull(["left"], "right"));
+    api.joinClassWaitingList.mockResolvedValue({});
+    renderSheet({
+      mode: "request",
+      profileSide: "left",
+      relativeChoice: waitingListSideChoice({ engineVersion: "new", waitingListSideChoice: true }),
+    });
+    fireEvent.click(screen.getByTestId("class-side-right"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    fireEvent.click(await screen.findByTestId("class-side-stay-waiting"));
+    // A left player asked for the right side: "the other side" is preselected.
+    expect(screen.getByTestId("waiting-list-side-other").getAttribute("data-state")).toBe("checked");
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith(EVENT, undefined, "other"));
+  });
 });
