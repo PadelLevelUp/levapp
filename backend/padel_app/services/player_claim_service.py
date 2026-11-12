@@ -36,6 +36,9 @@ from padel_app.models import (
     Conversation,
     ConversationParticipant,
     DeviceToken,
+    EngineEffect,
+    EngineExclusion,
+    EngineInvitation,
     EvaluationEntry,
     EvaluationRecord,
     EvaluationShare,
@@ -86,6 +89,9 @@ MERGED_PLAYER_FK_TABLES = frozenset({
     "class_requests",
     "class_join_requests",
     "player_merges",  # rule 5i (PAD-528): target_player_id of earlier merges
+    "invitations",  # PAD-916: the new engine's store
+    "engine_exclusions",
+    "engine_effects",
 })
 
 # B-361 (PAD-528): rows that hang off the coach relation, not off players.id. The
@@ -114,6 +120,9 @@ MERGE_UNIQUE_KEYS_HANDLED = {
     "vacancies.uq_vacancies_open_original_player":
         "_repoint_vacancies: both open on one occurrence → the placeholder's keeps its spot with original_player_id NULL",
     "class_join_requests.uq_class_join_request_pending": "_repoint_unique_pairs on lesson_instance_id",
+    "invitations.uq_invitations_session_player": "_repoint_unique_pairs on lesson_instance_id (PAD-916)",
+    "engine_exclusions.uq_engine_exclusions_session_player": "_repoint_unique_pairs on lesson_instance_id",
+    "engine_effects.uq_engine_effects_key": "a plain re-point: the key is the effect's content, not the player id",
     "evaluation_records.uq_evaluation_records_class_day": "_merge_relation_children: same (day, class) merges into the kept record",
     "evaluation_records.uq_evaluation_records_classless_day": "_merge_relation_children: same day merges into the kept record",
     "evaluation_entries.uq_evaluation_entries_record_category": "_merge_relation_children: a rated category stays as history",
@@ -390,12 +399,15 @@ def _merge_rows(placeholder_player, claimant_user, counts):
 
     # c. presences — unique per instance (R-018): keep the claimant's row
     _repoint_unique_pairs(Presence, "lesson_instance_id", pid, cid, counts)
+    _repoint_unique_pairs(EngineInvitation, "lesson_instance_id", pid, cid, counts)   # PAD-916
+    _repoint_unique_pairs(EngineExclusion, "lesson_instance_id", pid, cid, counts)
 
     # d. plain re-points
     counts.move("player_level_history", PlayerLevelHistory.query.filter_by(player_id=pid).update({"player_id": cid}))
     counts.move("class_requests", ClassRequest.query.filter_by(player_id=pid).update({"player_id": cid}))  # PAD-104
     counts.move("notification_events", NotificationEvent.query.filter_by(player_id=pid).update({"player_id": cid}))
     counts.move("reminder_attempts", ReminderAttempt.query.filter_by(player_id=pid).update({"player_id": cid}))
+    counts.move("engine_effects", EngineEffect.query.filter_by(player_id=pid).update({"player_id": cid}))
     _repoint_vacancies(pid, cid, counts)
     counts.move("vacancies", Vacancy.query.filter_by(filled_by_player_id=pid).update({"filled_by_player_id": cid}))
     counts.move("replacement_approval_prompts", ReplacementApprovalPrompt.query.filter_by(declined_player_id=pid).update({"declined_player_id": cid}))

@@ -134,7 +134,9 @@ def test_engine_kinds_do_not_reuse_todays_message_names():
     from padel_app.models.notification_config import DEFAULT_MESSAGE_TEMPLATES
 
     kinds = set(typing.get_args(fx.MessageKind))
-    assert kinds & set(DEFAULT_MESSAGE_TEMPLATES) == {"waiting_list_invite"}   # a shared name, the same message
+    # Shared names mean the same message: today's waiting-list invitation, and the new engine's own
+    # side_moved key (message-templates new-engine section N1: each new key is its kind's name).
+    assert kinds & set(DEFAULT_MESSAGE_TEMPLATES) == {"waiting_list_invite", "side_moved"}
     assert "waiting_list_offer" not in kinds
     # The engine's "sorry" is today's "spot taken, join the list?", so it renders through that template.
     from padel_app.invitation_engine.constants import KIND_SORRY
