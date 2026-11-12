@@ -62,6 +62,9 @@ def _format_template(template: str, **variables) -> str:
     # The new engine's placeholders (message-templates N2): `{sideName}` (side_moved) and `{count}`
     # (coach_no_candidate) are stripped the same way anywhere they are not filled.
     template = template.replace("{sideName}", "").replace("{count}", "")
+    # The new engine's placeholders (message-templates N2): `{sideName}` (side_moved) and `{count}`
+    # (coach_no_candidate) are stripped the same way anywhere they are not filled.
+    template = template.replace("{sideName}", "").replace("{count}", "")
     # PAD-430 (rule 14): "aula ({court})" for a class with no court leaves "()" or "[]".
     template = re.sub(r"\(\s*\)|\[\s*\]", "", template)
     # An empty placeholder (e.g. a level-less class -> empty {level}) can leave a

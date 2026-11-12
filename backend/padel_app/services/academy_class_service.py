@@ -144,6 +144,18 @@ def join_class_waiting_list_service(player, model, original_id, date_str, *, sid
         or gave_up_place
     ):
         _refuse("not_visible", "This class is not open to requests")
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        # PAD-918: the students' list of a new-engine session is the engine's; it answers has-spots,
+        # sides and refusals itself (notifications.waiting-list, engine-settings rule 4).
+        from padel_app.services.engine_entry import student_joins_waiting_list
+
+        entry, created = student_joins_waiting_list(player, instance, side, now)
+        if created and entry is not None:
+            _tell_coach_of_waiting_list_join(player, instance, coach_id)
+            _publish_waiting_list_changed(entry)
+        return entry, created
     # PAD-581 (invitations rule 2d, owner Q3): a student whose invitation was withdrawn for side
     # balance may join the list while the class has places — the places left are for the other side.
     # PAD-672 (booking rule 6): a capable client's side — "not full, but no spot of my side" is the
@@ -229,6 +241,16 @@ def leave_class_waiting_list_service(player, lesson_instance_id):
     ).first()
     if entry is None:
         abort(404, "You are not on this class's waiting list")
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.services.engine_switch import engine_for
+
+    instance = db.session.get(LessonInstance, entry.lesson_instance_id)
+    if instance is not None and engine_for(instance) == "new":
+        from padel_app.services.engine_entry import leaves_waiting_list
+
+        leaves_waiting_list(instance, entry)               # PAD-918: the engine's list
+        _publish_waiting_list_changed(entry)
+        return entry
     entry.is_active = False
     db.session.commit()
     _publish_waiting_list_changed(entry)

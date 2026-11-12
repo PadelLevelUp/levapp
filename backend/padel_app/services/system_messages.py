@@ -165,11 +165,17 @@ def _send_system_message(
         before_commit(msg)
     commit_or_flush()  # the message (and whatever its caller flushed with it), as create() did
 
-    # The coach and the player of the direct conversation, nobody else (B-004).
-    publish(
-        {"type": "message_created", "payload": serialize_message(msg, None)},
-        message_recipient_ids(msg),
-    )
+    # The coach and the player of the direct conversation, nobody else (B-004). PAD-918 (INVITATIONS-124):
+    # once per reader when a new-engine invitation carries countsUntil.
+    from padel_app.services.message_events import per_reader, publish_message_event
+
+    if per_reader(msg):
+        publish_message_event("message_created", msg)
+    else:
+        publish(
+            {"type": "message_created", "payload": serialize_message(msg, None)},
+            message_recipient_ids(msg),
+        )
 
     if not push:
         return msg
