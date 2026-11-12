@@ -325,3 +325,14 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   to one tier (rule 13). Reading them as today's `_group_rule_failures`, unparseable thresholds and
   unknown operations passing included, is S's (PAD-913), so no coach's group changes meaning at the
   cutover.
+- The waiting lists as two groups, and the coach's list past the gates (rules 4, 5) — **the owner's
+  answers (2026-11-12, waiting-list inspection questions 2 and 3, both "matches Tomás"):** two groups,
+  the coach's list first with the usual wait before the students' list; the coach's list skips the
+  eligibility bar and the coach's own gates (the student's own blocks still hold, rule 4). Today has
+  one list with no coach priority and every gate.
+- One tier per stored group with all its criteria, and the timing between groups (rule 13) —
+  **confirmed by the owner** (Codex decision 4, 2026-11-12): "if we ensure that we do keep all the
+  criteria from the coach … and we keep the timings in the separation between groups, … that's fine."
+- A better-tier candidate who appears later is considered again (rule 9; `notifications.engine-planning`
+  rule 7) — **confirmed by the owner** (Codex decision 9, 2026-11-12), the coach-added waiting-list
+  example included.

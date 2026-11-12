@@ -281,6 +281,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - `auto-entry` places a student without a Yes, which `notifications.waiting-list` rule 4 (owner,
   2026-10-03) forbids today — decision: a setting, off by default, because the owner's ruling of
   2026-11-11 (brief §2 clause 3) makes the PDF's coach rules settings where the plan is silent.
+  **Confirmed by the owner (2026-11-12, waiting-list inspection question 1, "matches Tomás"):**
+  waiting-list students are placed directly before the reminder hour as a coach option, and invited
+  after it. This supersedes the owner's earlier "keep today's waiting-list behaviour exactly"
+  (Codex decision 3), which decision 8 narrowed.
 - `direct-join` defaults off in `EngineSettings` though many coaches have `auto_accept_join_requests` on
   today — decision: off is the plan's default; the swap maps each coach's stored value, so no coach's
   behaviour changes at the swap.

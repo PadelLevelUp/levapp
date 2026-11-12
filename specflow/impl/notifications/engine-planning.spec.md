@@ -431,6 +431,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
 - The coach alert's channel (push, dashboard, both) is not in the plan — decision (owner away): the
   engine emits the effect; channel and wording go to the owner at review, because the scenarios assert
   only that an alert exists.
+  **The owner's answer (Codex decision 14, 2026-11-12):** both, a push and a dashboard card
+  (`dashboard.blocks` NA1–NA3); the trigger stays rule 11's.
 - `maxTotal` (today's cap on invitations ever sent per session) has no place in the plan (U4) —
   decision (owner, 2026-11-11, swap decision 3): dropped. The new engine does not read it; M is the
   only cap, as D16 defines it.
