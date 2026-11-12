@@ -58,12 +58,12 @@ Stated as observable records; storage is the engine package's (PAD-902).
     the engine swap. **Two requests by one student never run at once:** the engine names the student in
     the unit of work and the store locks the student before the session (always students, then the
     session; no unit holds two sessions). A placement the planner makes (automatic entry), which names
-    no student in advance, is checked when it is applied: if the student was placed at the same start
-    since the snapshot, the store refuses the unit (`UnitConflict`) and rolls it back, the engine
+    no student in advance, is checked when it is applied: if the student was placed in an overlapping
+    session since the snapshot, the store refuses the unit (`UnitConflict`) and rolls it back, the engine
     drops that unit's effects and the next run re-plans on fresh state. The store checks every
     placement this way when it applies it, whatever path made it, under the student's lock: a clash
-    is `SameHourConflict`, a `UnitConflict`, so the student is never written into two sessions with
-    the same start. This is the safety rule; the run's efficiency rule, which does not invite a
+    is `SameHourConflict`, a `UnitConflict`, so the student is never written into two overlapping
+    sessions. This is the safety rule; the run's efficiency rule, which does not invite a
     student holding a counting invitation that club day, is `notifications.engine-tiers` rule 10.
 11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
     PAD-913).** The kinds are const:KIND_SORRY, const:KIND_ADDED,
@@ -219,7 +219,8 @@ refused with `already_on_list`; and a second entry applied straight to the store
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_joining_the_other_list_is_refused_already_waiting`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-22: A placement at an hour the student is already going elsewhere rolls its unit back (rule 10)
-Given two sessions with the same start and a student placed in the first, when the store applies an
+Given two overlapping sessions of one coach (19:00 for an hour, and 19:30) and a student placed in the
+first, when the store applies an
 automatic-entry placement of the same student in the second, then it raises `SameHourConflict` (a
 `UnitConflict`), no presence is written in the second session, and the second session's snapshot lists
 the student as busy at that time.
@@ -231,6 +232,12 @@ busy at the same hour, already on a list, and a join after the class has started
 directly or join a list, then each refusal carries its code (`already_enrolled`, `ineligible`,
 `side_full`, `busy_same_hour`, `already_on_list`, `class_closed`), never text.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_joins_are_refused_with_a_code`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-24: A Yes into a session overlapping one the student is going to is refused, and a touching one is not (rule 10)
+Given a student going to the same coach's class from 18:00 to 19:30, when they say Yes to a 19:00
+invitation, then nothing is placed and nothing sent; when another student going to a class that ends at
+19:00 says Yes to it, then they are placed.
+test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_an_overlapping_yes_is_refused_and_a_touching_one_is_not`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".

@@ -40,9 +40,11 @@ the coach's list).
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
    block on automatic invitations, already in the session, in another session at the same time
-   (**the same hour**: sessions with the same start, Tomás's "mesma hora"; overlapping sessions with
-   different starts are an open question; engine-answers rule 10, engine-planning rule 10 and rule 10
-   here use this one),
+   (**at the same time**, the owner's decision 11 of 2026-11-12: another session **of the same coach**
+   whose interval overlaps this one's at all, each session running from its start to its start plus
+   the lesson's duration, which the store puts in the snapshot; a session that ends exactly when the
+   other starts does not overlap. The code's and the wire's `same_hour` / `busy_same_time` names mean
+   this. engine-answers rule 10, engine-planning rule 10 and rule 10 here use this one),
    already said No for this session, below the eligibility bar, an unpaid subscription when the coach
    excludes them. A gate is never relaxed to fill a class. The store applies the gates it can decide
    alone when it builds `pool`; `said_no` and "another session at the same time" are snapshot facts.
@@ -277,6 +279,13 @@ the class, when the store builds the snapshot and the run plans, then only the m
 in `pool` and invited; the others are `not_in_pool`.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_students_own_blocks_hold_on_the_coachs_list`
 
+#### NOTIFICATIONS-ENGINE-TIERS-20: Any overlap with the same coach's class is busy; touching or another coach's is not (rule 3)
+Given a 60-minute session at 19:00 and a student going to the same coach's 90-minute class at 18:00, a
+second going to the same coach's class at 20:00, and a third going to another coach's class at 19:00,
+when the dry run evaluates them, then the first is `busy_same_time` (18:00–19:30 overlaps 19:00–20:00)
+and the other two are not.
+test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_any_overlap_with_the_same_coachs_class_is_busy`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) TIERS-1, TIERS-4, TIERS-7 — `invitation_engine/planner.py` (tiers, gates, ordering),
@@ -305,15 +314,18 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   treats a missing level as the class's level, as the harness does (design §2.2) — decision (owner
   away), because no scenario expects such a student to be gated.
 - Sessions that overlap without sharing a start (one at 10:00 for 90 minutes, one at 10:30): the same
-  hour or not? (PAD-911; rule 3) — decision (owner away): not, for now; "the same hour" is the same
-  start, which is Tomás's "mesma hora", the owner's words and the code (`store.py`, `busy_same_time`).
-  An overlap rule needs the session's end time in the engine's snapshot, which it does not carry yet.
+  hour or not? (PAD-911; rule 3) — first decided "not" (owner away, then the coordinator's D-E26);
+  **reversed by the owner (2026-11-12, Codex decision 11):** "we should check for the whole timeline …
+  classes that overlap even a little bit", for the same coach. A session that ends exactly when another
+  starts does not overlap: S's reading (PAD-913, 2026-11-12; the owner can reverse it), because nothing
+  of the two classes happens at once. **Later extension, not decided:** the same club's other coaches
+  ("same club eventually"); travel buffers between classes.
 - Where eligibility is decided after the swap (swap decision 6) — options: the coach's rule language
   (`eligibilityRules`) mapped into `EngineSettings.eligibility`; kept in the app. Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): kept in the
   app; the store builds `pool` with `effective_eligibility` and the engine's bar is set wide open,
   because the engine's two integers cannot express today's rules and the app already evaluates them.
-- The same hour (rule 3) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): confirmed as the same start (recorded decision D-E26); no overlap
-  rule in the swap.
+- The same hour (rule 3) — Decision (coordinator, owner away, PAD-912, 2026-11-11): the same start
+  (D-E26); reversed by the owner's decision 11 (above).
 - Wire the tiebreakers into the engine's ordering (rule 8) — options: priority criteria only, as today's
   code; priority criteria then tiebreakers, as today's specs say. Decision (S, owner away, PAD-913;
   the owner can reverse it): wire them, because `notifications.invitations` rule 4 and

@@ -34,7 +34,9 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    counted as the app's `ladder_index` counts it, whatever the stored `display_order` values; a level
    that is not on that coach's ladder (another coach's level) reaches the engine as none: for a student
    that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
-   account's `User.status`.
+   account's `User.status`. Each session's end is its start plus its lesson's duration, and the
+   sessions a student is going to of the same coach are handed with their intervals, for
+   `notifications.engine-tiers` rule 3's overlap.
 5. **The store keeps each session's approval state as the engine's effects leave it** (semi-automatic
    mode, `notifications.engine-planning` rule 14, per group), in the session's row (`engine_sessions`:
    approved groups, removed students, pending requests by group, dismissed groups): `ApprovalRequest`
@@ -120,6 +122,12 @@ test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_every_mess
 Given a session holding an alert for a right type, when the store applies `AlertCleared` for it, then the
 session holds no alert for that type and a later alert for it is raised again.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_an_alert_cleared_drops_the_alert`
+
+#### NOTIFICATIONS-ENGINE-STORE-9: The snapshot carries each session's end, from the lesson's duration (rule 4)
+Given a 90-minute lesson's occurrence at 18:00 and a student going to it, when the store builds the
+snapshot of the same coach's 19:00 session, then the student is busy at that time, the other session
+running to 19:30.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_snapshot_carries_each_sessions_end`
 
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
