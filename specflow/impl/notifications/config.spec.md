@@ -778,12 +778,17 @@ Given a coach with `minTimeBeforeClass` off, `quietHours` off, `maxSimultaneous`
 is zero, `quiet_hours` none, `invites_per_spot` 4 and both timing values 45 minutes.
 test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_stored_values_map_and_off_traps_stay_off`
 
-#### NOTIFICATIONS-CONFIG-53: Eligibility, caps and exclusions stay in the app's pool, never in the engine (rule 19)
+#### NOTIFICATIONS-CONFIG-53: Eligibility, caps and exclusions stay in the app's pool (rule 19)
 Given a coach with an eligibility rule, a daily per-student cap reached by one student, an excluded
 student and `noSameDayClass` on for a student with a class that day, when the store builds a snapshot,
-then the engine's bar is wide open, the capped student is in `postponed`, and the other three are not
-in `pool`.
-test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_app_gates_build_the_pool_and_the_engine_bar_is_open`
+then the capped student is in `postponed`, and the student below the bar, the excluded one and the one
+with a class that day are not in `pool`.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_app_gates_build_the_pool`
+
+#### NOTIFICATIONS-CONFIG-60: The engine's eligibility bar is wide open (rule 19)
+Given a coach with an eligibility rule, when the store builds the coach's `EngineSettings`, then the
+engine's own bar admits every student, so the rule acts only through `pool` (CONFIG-53).
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_the_engine_bar_is_wide_open`
 
 #### NOTIFICATIONS-CONFIG-54: A session the coach or class turned off is never listed (rule 19)
 Given a new-engine coach with `autoNotifyEnabled` off, and another with one class's `auto_invites` off,
