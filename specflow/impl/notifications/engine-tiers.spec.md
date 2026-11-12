@@ -22,7 +22,8 @@ the coach's list).
 
 ### Rules
 1. **Kinds of criteria (§3).** Every rule the coach set is one of: **gate** (failing means never
-   invited automatically), **spectrum** (level: closer is better), **category** (side: the spot's
+   invited automatically), **spectrum** (level, read against the class's level: a level rule passes or
+   fails, rule 13, and ordering ranks the better level first, rule 8), **category** (side: the spot's
    value is in the student's subset or not), **tier criterion** (a student-only attribute that puts
    the student in a group), **ordering** (ranks candidates inside a tier) or **postpone** (delays a
    student without excluding them).
@@ -33,6 +34,9 @@ the coach's list).
    offer per club day are postpones. A group is a `Tier(source, side, level_offset)` (side `same`,
    `other` or `any`, a level offset from the class or none) carrying the stored group's rules (rule
    13; owner ruling D5); the mapping from the coach's stored config is `notifications.config` rule 19.
+   For a tier built from a stored group, `side` and `level_offset` are derived from that group's own
+   side and level rules by the mapping (`same_as_vacancy` gives `same` and 0, one above or below ±1, a
+   range or no level rule none), so the two never disagree; the rules decide.
 3. **Gates (D13; Q2 closed; ruling (3)).** Gates hold on **automatic candidates**: the students'
    waiting list and the coach's groups. Excluded by the coach, a disabled account, the student's own
    block on automatic invitations, already in the session, in another session at the same time
@@ -118,8 +122,10 @@ the coach's list).
     (`_group_rule_failures`) with the class's level as the vacancy's: level `same_as_vacancy`,
     `one_above_vacancy`, `one_below_vacancy`, `all_above_vacancy`, `all_below_vacancy` on the coach's
     ladder (a student with no level, or a level off the ladder, fails; a class with no level applies
-    no level rule, `notifications.engine-spots` rule 8 (D3), the one place this differs from today,
-    which fails every level rule closed); side `same_as_vacancy` as the
+    no level rule, `notifications.engine-spots` rule 8 (D3), where today fails every level rule
+    closed; a class level off the coach's ladder reaches the engine as no level
+    (`notifications.engine-store` rule 4) and is read the same way, where today fails the range rules
+    closed (`level_not_in_ladder`); these two are the only places the engine differs from today); side `same_as_vacancy` as the
     category rule (rule 2); `has_makeups` `is_true` (makeups owed above zero); `unjustified_absences`
     and `justified_absences` (counts of the coach's verdicts, D4) and `attendance_rate` (a percentage)
     compared by `less_than`, `less_than_or_equal`, `equals`, `greater_than` or

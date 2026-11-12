@@ -32,8 +32,8 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
 4. **The store hands the engine levels as ladder positions.** Each level the engine reads (a student's
    and the class's) is its position on the session's coach's ladder, 1 the strongest and consecutive,
    counted as the app's `ladder_index` counts it, whatever the stored `display_order` values; a level
-   that is not on that coach's ladder (another coach's level) reaches the engine as none, which fails
-   every level rule (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
+   that is not on that coach's ladder (another coach's level) reaches the engine as none: for a student
+   that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
    account's `User.status`.
 5. **The store keeps each session's approval state as the engine's effects leave it** (semi-automatic
    mode, `notifications.engine-planning` rule 14), in the session's row (`engine_sessions`: approved,

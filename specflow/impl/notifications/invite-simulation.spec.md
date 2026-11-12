@@ -34,18 +34,19 @@ drained, the old engine is deleted and the replaced items go with it.
 |---|---|---|
 | Entities: the unsaved `Vacancy` | no vacancy: the caller builds a hypothetical snapshot without writing ("this student drops out") | `notifications.engine-tiers` rule 12 |
 | Rule 2 (explain) | one verdict per student per open spot type | `notifications.engine-tiers` rule 12 |
-| Rule 4 (stages) | the stages are rule 12's (`in_session`, `said_no`, `not_in_pool`, `busy_same_time`, `postponed`, `failed_eligibility`, `failed_tier_rule`, `invited_before`, `invited`, `invited_for_other_type`, `invited_earlier`, `waiting`), preceded by the stages of the gates the app applies before the snapshot (exclusions, inactive accounts, eligibility per swap decision 6), which the caller explains; `already_invited` is `invited_earlier` | `notifications.engine-tiers` rule 12 |
+| Rule 4 (stages) | the stages are rule 12's (`in_session`, `said_no`, `removed_by_coach`, `not_in_pool`, `busy_same_time`, `postponed`, `failed_eligibility`, `failed_tier_rule`, `invited_before`, `invited`, `invited_for_other_type`, `invited_earlier`, `waiting`), preceded by the stages of the gates the app applies before the snapshot (exclusions, inactive accounts, eligibility per swap decision 6), which the caller explains; `already_invited` is `invited_earlier` | `notifications.engine-tiers` rule 12 |
 | Rule 5 (one pipeline) | the simulation runs the engine's evaluator, never a copy | `notifications.engine-tiers` rule 11, TIERS-9 |
 | Rule 6, `max_total_reached` | no such gate: the new engine does not read `maxTotal` | swap decision 3 (owner) |
 | Rule 6, the window and quiet hours | the dry run's "may plan now"; `min_time_before_class` is `last_invite_before` | `notifications.engine-tiers` rule 12; `notifications.config` rule 19 |
 | Rule 8 (group 0) | two waiting lists, the coach's first; with automatic entry on, a member can be placed rather than invited | `notifications.engine-tiers` rules 4–6; `notifications.engine-settings` rule 3 |
 | Rule 9 (the spot's side and level) | from the session's counts and the class's level, never the leaver's | `notifications.engine-spots` rules 6–8 |
 | Rules 10, 11, 13 (rounds, first batch, queued, daily quota) | queues per spot type by tier, then by rule 8's ordering; X per covered spot and M instead of batches; a capped student is `postponed` | `notifications.engine-planning` rules 5, 6, 8; `notifications.engine-tiers` rules 8, 10 |
-| Criteria 1, 3, 5, 9, 13, 14, 18 | replaced with their rules; new criteria are written at swap step 7 | — |
+| Criteria 1, 3, 5, 8, 9, 13, 14, 18 | replaced with their rules; new criteria are written at swap step 7 (criterion 8's against `planner.evaluate`'s queues) | — |
 
 Readings:
 - Intent, rules 1 and 3: unchanged in purpose; "the engine" is the session's engine (`notifications.config` rule 18).
 - Rule 6's class switches (`auto_invites`, `notifications_enabled`) are the store's listing (`notifications.config` rule 19).
+- Eligibility: an app session's bar is applied in `pool`, so a student below it is `not_in_pool`, and the simulation explains it from the caller's own pool gates (`failed_eligibility` arises only where the engine's bar is not open).
 - Rule 7 and criterion 8 (semi-automatic; owner ruling D2): `approvalRequired` reads the carried `invitation_mode` (`notifications.config` rule 19) as today; the list the coach approves is the dry run's queue per spot type (`notifications.engine-planning` rule 14), the same evaluator, so the request and the simulation agree.
 
 Not yet specified, needed before this spec's swap step (each under Open questions):

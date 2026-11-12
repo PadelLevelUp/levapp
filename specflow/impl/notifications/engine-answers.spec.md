@@ -70,13 +70,16 @@ Stated as observable records; storage is the engine package's (PAD-902).
 11. **The engine's message kinds never reuse a name today's app gives another message (swap decision 8;
     PAD-913).** The kinds are const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED,
     const:KIND_SIDE_MOVED and const:KIND_WAITING_LIST_INVITE. A kind that shares a name with a key of
-    today's `DEFAULT_MESSAGE_TEMPLATES` means the same message; the only one is
-    const:KIND_WAITING_LIST_INVITE, the invitation sent from a waiting list. `waiting_list_offer` is not
-    an engine kind: today it is "spot taken, join the list?", which the engine says as const:KIND_SORRY.
+    today's `DEFAULT_MESSAGE_TEMPLATES` means the same message (today const:KIND_WAITING_LIST_INVITE,
+    the invitation sent from a waiting list). `waiting_list_offer` is not an engine kind: today it is
+    "spot taken, join the list?", which the engine says as const:KIND_SORRY, rendered through that same
+    `waiting_list_offer` template so a coach's own text carries over (`notifications.message-templates`,
+    new-engine section).
 12. **One waiting-list entry per student per session (coordinator ruling, PAD-916, 2026-11-11).** A
     student is on the coach's list or the students' list of a session, never both. Joining the list
-    they are already on changes nothing; joining the other one, by the student or by the coach, is
-    refused with the reason "already waiting" and changes nothing (the coach removes the entry first
+    they are already on changes nothing and answers today's `already_on_list` (`notifications.waiting-list`
+    rule 18); joining the other one, by the student or by the coach, is refused with the same
+    `already_on_list` and changes nothing (the coach removes the entry first
     to move it). The store refuses a second entry as well (`StoreConflict`).
 
 ### Not this spec
@@ -190,8 +193,9 @@ test: `backend/padel_app/tests/test_invitation_engine_auto_entry.py` › `test_a
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-18: No engine kind reuses a name today's templates give another message (rule 11)
 Given the engine's message kinds (`invitation_engine/effects.py` `MessageKind`) and the keys of today's
-`DEFAULT_MESSAGE_TEMPLATES`, when they are compared, then the only shared name is
-const:KIND_WAITING_LIST_INVITE, and `waiting_list_offer` is not a kind.
+`DEFAULT_MESSAGE_TEMPLATES`, when they are compared, then every shared name renders the kind through the
+template of that name (const:KIND_WAITING_LIST_INVITE among them), `waiting_list_offer` is not a kind,
+and const:KIND_SORRY renders through `waiting_list_offer`.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_engine_kinds_do_not_reuse_todays_message_names`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-19: Every engine write is one session's unit, and a student's answer locks the student (rule 10)
@@ -206,11 +210,13 @@ since the snapshot), when the tick runs, then that unit's effects are dropped an
 other sessions run, and the next run re-plans the refused session on fresh state.
 test: `backend/padel_app/tests/test_pad902_invitation_engine.py` › `test_a_unit_the_store_refuses_is_dropped_and_the_rest_runs`
 
-#### NOTIFICATIONS-ENGINE-ANSWERS-21: A student on one waiting list who joins the other is refused, "already waiting" (rule 12)
+#### NOTIFICATIONS-ENGINE-ANSWERS-21: A student on one waiting list who joins the other is refused, already_on_list (rule 12)
 Given a student on the coach's list of a session, when the student asks to join its students' list,
-then the answer is a refusal with the reason "already waiting" and the session still has one entry for
-them, on the coach's list with its side; when they ask to join the coach's list again, nothing changes;
-and a second entry applied straight to the store raises `StoreConflict`.
+then the answer is a refusal with `already_on_list` and the session still has one entry for them, on the
+coach's list with its side; when the coach adds them to the coach's list again, nothing changes; given
+another student on the students' list, when the coach adds them to the coach's list, then that is
+refused with `already_on_list`; and a second entry applied straight to the store raises
+`StoreConflict`.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_joining_the_other_list_is_refused_already_waiting`
 
 #### NOTIFICATIONS-ENGINE-ANSWERS-22: A placement at an hour the student is already going elsewhere rolls its unit back (rule 10)

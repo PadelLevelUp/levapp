@@ -26,12 +26,12 @@ drained, the old engine is deleted and the replaced items go with it.
 | Criterion 14 | replaced with rule 15 | — |
 
 Readings:
-- Rule 2: templates are needed for const:KIND_SORRY, const:KIND_REOFFER, const:KIND_ADDED, const:KIND_SIDE_MOVED and the coach alert (const:ALERT_NO_CANDIDATE); const:KIND_WAITING_LIST_INVITE uses today's `waiting_list_invite`.
+- Rule 2: templates are needed for const:KIND_REOFFER, const:KIND_ADDED, const:KIND_SIDE_MOVED and the coach alert (const:ALERT_NO_CANDIDATE); const:KIND_WAITING_LIST_INVITE uses today's `waiting_list_invite`, and const:KIND_SORRY today's `waiting_list_offer` ("spot taken, join the list?", the same message), so a coach's own text for either carries over (`notifications.engine-answers` rule 11).
 - Rule 3 and criteria 5, 7: the engine's attendance requests render through today's `reminder` templates (`notifications.engine-timeline` rule 2: the recipients change, not the message).
 - Criteria 6, 8, 9: a new-engine invitation renders through `invite`, or `waiting_list_invite` from a waiting list.
 
 Not yet specified, needed before this spec's swap step (each under Open questions):
-- the five new keys, their default texts in both locales and the web editor's groups (plan §6.4).
+- the four new keys, their default texts in both locales and the web editor's groups (plan §6.4).
 
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
