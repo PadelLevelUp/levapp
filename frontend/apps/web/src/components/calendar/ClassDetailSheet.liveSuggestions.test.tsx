@@ -19,10 +19,10 @@ vi.mock("@/api/events", () => ({
     return () => undefined;
   },
 }));
-const api = vi.hoisted(() => ({ getApprovalSuggestions: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -86,7 +86,7 @@ const cardIds = () =>
 beforeEach(() => {
   live.handler = null;
   api.getClassInstance.mockReset().mockImplementation(async () => cls());
-  api.getApprovalSuggestions.mockReset().mockImplementation(async () => server.answer);
+  api.getApprovalState.mockReset().mockImplementation(async () => server.answer);
 });
 
 describe("the class's approval cards follow the class (PAD-770)", () => {

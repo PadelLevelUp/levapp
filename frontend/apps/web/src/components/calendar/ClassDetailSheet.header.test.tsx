@@ -12,10 +12,10 @@ import type { CalendarEvent } from "@levelup/types";
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ token: "t", user: { id: 1, roles: ["coach"] } }) }));
 vi.mock("@/api/events", () => ({ subscribeAppEvents: () => () => undefined }));
-const api = vi.hoisted(() => ({ getApprovalSuggestions: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -48,7 +48,7 @@ function classOf(enrolled: number, absent: number) {
 }
 
 async function header(enrolled: number, absent: number) {
-  api.getApprovalSuggestions.mockReset().mockResolvedValue({ state: "none" });
+  api.getApprovalState.mockReset().mockResolvedValue({ state: "none" });
   api.getClassInstance.mockReset().mockResolvedValue(classOf(enrolled, absent));
   render(
     <QueryClientProvider client={new QueryClient()}>

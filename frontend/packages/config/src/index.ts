@@ -86,6 +86,7 @@ export * from "./engine-invite-state";
 export * from "./busy-same-hour-copy";
 export * from "./join-refusal-copy";
 export * from "./engine-verdict-copy";
+export * from "./engine-approval-display";
 export * from "./engine-alert-copy";
 export * from "./invitation-tiers";
 export * from "./waiting-list-side-choice";

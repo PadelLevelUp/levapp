@@ -121,6 +121,11 @@ export function inviteeNotes(inv: {
   return notes;
 }
 
+/** PAD-920 (ND1): a new-engine session's invitee always carries `tierSource` (null for a manual one). */
+export function isNewEngineInvitee(inv: object): boolean {
+  return "tierSource" in inv && (inv as { tierSource?: unknown }).tierSource !== undefined;
+}
+
 /**
  * PAD-920 (ND2): "N pending" counts the invitations that still hold a spot — `pending` only, never
  * `not_counting`. An old-engine list has no `not_counting`, so its count is unchanged.

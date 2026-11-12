@@ -17,7 +17,7 @@ const item: DashboardNeedsYouEngineAlert = {
   levelId: null,
   levelLabel: null,
   count: 1,
-  href: "/calendar?event=12",
+  href: "/calendar?classId=lessoninstance-12&date=2026-11-19",
 };
 
 describe("PAD-920 the coach alert card's words (dashboard.blocks NA2)", () => {

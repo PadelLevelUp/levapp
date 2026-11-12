@@ -12,10 +12,10 @@ import type { ApprovalBundle, CalendarEvent } from "@levelup/types";
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/auth/AuthContext", () => ({ useAuth: () => ({ token: "t", user: { id: 1, roles: ["coach"] } }) }));
 vi.mock("@/api/events", () => ({ subscribeAppEvents: () => () => undefined }));
-const api = vi.hoisted(() => ({ getApprovalSuggestions: vi.fn(), getClassInstance: vi.fn() }));
+const api = vi.hoisted(() => ({ getApprovalState: vi.fn(), getClassInstance: vi.fn() }));
 vi.mock("@/api/notificationEngine", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  getApprovalSuggestions: api.getApprovalSuggestions,
+  getApprovalState: api.getApprovalState,
 }));
 vi.mock("@/api/classes", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -71,7 +71,7 @@ async function cardIds() {
 }
 
 beforeEach(() => {
-  api.getApprovalSuggestions.mockReset();
+  api.getApprovalState.mockReset();
   api.getClassInstance.mockReset().mockResolvedValue({
     id: 7, date: "2099-10-19", startTime: "09:00", endTime: "10:30", status: "scheduled",
     presences: [], participants: [], maxPlayers: 16,
@@ -82,13 +82,13 @@ describe("ClassDetailSheet — every pending approval prompt (PAD-765)", () => {
   it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-17] shows one card per pending bundle, oldest spot first", async () => {
     const older = bundle("b-14", 1, "Case 7");
     const newer = bundle("b-21", 2, "Case 8");
-    api.getApprovalSuggestions.mockResolvedValue({ state: "pending", bundle: older, bundles: [older, newer] });
+    api.getApprovalState.mockResolvedValue({ state: "pending", bundle: older, bundles: [older, newer] });
     renderSheet();
     expect(await cardIds()).toEqual(["b-14", "b-21"]);
   });
 
   it("[NOTIFICATIONS-SEMI-AUTO-APPROVAL-17] an older server's single bundle still shows", async () => {
-    api.getApprovalSuggestions.mockResolvedValue({ state: "pending", bundle: bundle("b-21", 2, "Case 8") });
+    api.getApprovalState.mockResolvedValue({ state: "pending", bundle: bundle("b-21", 2, "Case 8") });
     renderSheet();
     expect(await cardIds()).toEqual(["b-21"]);
   });

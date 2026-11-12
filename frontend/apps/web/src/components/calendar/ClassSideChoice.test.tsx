@@ -15,6 +15,7 @@ vi.mock("@/api/academyClasses", () => ({ joinClassWaitingList: api.joinClassWait
 
 import i18n from "@/i18n";
 import { ClassSideChoice, type ClassSideChoiceProps } from "./ClassSideChoice";
+import { waitingListSideChoice } from "@levelup/config";
 
 const tr = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts);
 const EVENT = { model: "ClassInstance", originalId: 7, date: "2099-10-19" };
@@ -137,5 +138,46 @@ describe("409 side_full", () => {
     await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith(EVENT, "left"));
     expect(api.createClassJoinRequest).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(props.onWaitingListJoined).toHaveBeenCalledWith("left"));
+  });
+});
+
+describe("PAD-920 the relative side choice on a new-engine waiting list (notifications.config rule 20)", () => {
+  beforeEach(() => api.joinClassWaitingList.mockReset());
+
+  it("[NOTIFICATIONS-CONFIG-73] offers own, other or both and sends `sides` when the coach turned it on", async () => {
+    api.joinClassWaitingList.mockResolvedValue({});
+    const props = renderSheet({
+      mode: "waiting",
+      relativeChoice: waitingListSideChoice({ engineVersion: "new", waitingListSideChoice: true }),
+    });
+    expect(screen.queryByTestId("class-side-left")).toBeNull();
+    fireEvent.click(screen.getByTestId("waiting-list-side-other"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith(EVENT, undefined, "other"));
+    // A left player's "other side" is the right side, for the caller's own state.
+    expect(props.onWaitingListJoined).toHaveBeenCalledWith("right");
+  });
+
+  it("keeps today's absolute choice with the setting off", () => {
+    renderSheet({ mode: "waiting", relativeChoice: waitingListSideChoice({ engineVersion: "new", waitingListSideChoice: false }) });
+    expect(screen.getByTestId("class-side-left")).toBeTruthy();
+    expect(screen.queryByTestId("waiting-list-side-own")).toBeNull();
+  });
+
+  it("[NOTIFICATIONS-CONFIG-73] after side_full, the offer to wait reopens the relative choice, preselected", async () => {
+    api.createClassJoinRequest.mockRejectedValue(sideFull(["left"], "right"));
+    api.joinClassWaitingList.mockResolvedValue({});
+    renderSheet({
+      mode: "request",
+      profileSide: "left",
+      relativeChoice: waitingListSideChoice({ engineVersion: "new", waitingListSideChoice: true }),
+    });
+    fireEvent.click(screen.getByTestId("class-side-right"));
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    fireEvent.click(await screen.findByTestId("class-side-stay-waiting"));
+    // A left player asked for the right side: "the other side" is preselected.
+    expect(screen.getByTestId("waiting-list-side-other").getAttribute("data-state")).toBe("checked");
+    fireEvent.click(screen.getByTestId("class-side-send"));
+    await waitFor(() => expect(api.joinClassWaitingList).toHaveBeenCalledWith(EVENT, undefined, "other"));
   });
 });

@@ -217,7 +217,12 @@
         "blocks_all": "Turned all notifications off",
         "availability_blocker": "Unavailable at this time"
       },
-      "other": "Other reason"
+      "other": "Other reason",
+      "openSpots_one": "{{count}} open spot",
+      "openSpots_other": "{{count}} open spots",
+      "sideEither": "Either side",
+      "leftOutTitle": "Who is left out and why",
+      "openSpots_zero": "{{count}} open spots"
     }
   }
 }
