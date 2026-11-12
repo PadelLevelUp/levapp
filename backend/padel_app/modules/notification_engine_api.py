@@ -481,6 +481,11 @@ def respond():
     """Called by the player when they press Yes or No on a notification invite message."""
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
+    if data.get("invitationId") is not None:
+        # PAD-918 (invitations NB5): a new-engine invitation, keyed by its id.
+        from padel_app.services.engine_entry import respond_to_invitation
+
+        return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), user_id))
     notification_event_id = int(data.get("notificationEventId"))
     action = data.get("action")  # "yes" | "no"
     result = respond_to_notification(notification_event_id, action, user_id)
@@ -618,6 +623,12 @@ def coach_respond():
     """Coach manually records a player's Yes/No response to an invitation."""
     coach = _current_coach()
     data = request.get_json() or {}
+    if data.get("invitationId") is not None:
+        # PAD-918 (invitations NB5): the coach records a new-engine invitation's answer by its id.
+        from padel_app.services.engine_entry import respond_to_invitation
+
+        return jsonify(respond_to_invitation(int(data["invitationId"]), data.get("action"), int(get_jwt_identity()),
+                                             coach_id=coach.id))
     notification_event_id = int(data.get("notificationEventId"))
     action = data.get("action")  # "yes" | "no"
     result = coach_respond_to_notification(notification_event_id, action, coach.id)
