@@ -19,10 +19,7 @@ import {
   classEvaluationsAction,
   effectiveFilledSpots,
   participantsHeader,
-  INVITATION_OUTCOME_KEY,
-  INVITATION_OUTCOME_TONE,
   inviteeActionsFor,
-  inviteeNotes,
   outcomeAfterCoachAction,
   outcomeAfterResponse,
   statusForOutcome,
@@ -42,6 +39,10 @@ import {
   hasRecordedAttendance,
   mergeSuggestionBundles,
   suggestionBundles,
+  busySameHourClashes,
+  busySameHourLines,
+  joinRefusalKey,
+  joinRefusalOf,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -109,6 +110,7 @@ import {
 } from "@/features/calendar/attendance-decline";
 import { ClassScopeDialog } from "@/features/calendar/class-scope-dialog";
 import { classCourtsQuery } from "@/features/calendar/class-courts";
+import { InviteeOutcome, OpenSpotsLine } from "@/features/calendar/invitee-outcome";
 import { OverlapConfirmDialog } from "@/features/calendar/overlap-confirm-dialog";
 import { EligibilityConfirmDialog } from "@/features/calendar/eligibility-confirm-dialog";
 import * as notificationEngineApi from "@levelup/api/src/resources/notificationEngine";
@@ -739,11 +741,6 @@ export default function ClassDetailScreen() {
     }
   };
 
-  // The Badge has no "muted" variant; the quiet outcomes (withdrawn, expired) read as secondary.
-  const inviteeBadgeVariant = (outcome: ClassInvitation["outcome"]) => {
-    const tone = INVITATION_OUTCOME_TONE[outcome];
-    return tone === "muted" ? "secondary" : tone;
-  };
 
 
   // PAD-659 (rule 22): the coach's read view is the grouped list; marking is a mode the coach
@@ -831,16 +828,27 @@ export default function ClassDetailScreen() {
     if (!event) return;
     setEditScopeOpen(false);
     setIsEditing(false);
+    let keepDraft = false;
     try {
       await editClass.mutateAsync({ event, updates: changes, scope });
       toast.success(t("calendar.page.classUpdated"));
-    } catch {
-      toast.error(
-        t("calendar.page.updateFailed"),
-        t("calendar.page.updateFailedDescription")
-      );
+    } catch (err) {
+      // PAD-920 (classes.instance-enrollment rule 15): an add at an hour the student is already
+      // going elsewhere is refused whole. Say who and where, one line per clash, and give the
+      // coach the form back with their other changes, never the generic failure toast.
+      const clashes = busySameHourClashes(err);
+      if (clashes) {
+        keepDraft = true;
+        for (const line of busySameHourLines(clashes, i18n.language)) toast.error(t(line.key, line.params));
+        setIsEditing(true);
+      } else {
+        toast.error(
+          t("calendar.page.updateFailed"),
+          t("calendar.page.updateFailedDescription")
+        );
+      }
     } finally {
-      setDraft(null);
+      if (!keepDraft) setDraft(null);
     }
   };
 
@@ -1037,14 +1045,14 @@ export default function ClassDetailScreen() {
     void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
   };
   const handleSideFailed = async (err: unknown, mode: "request" | "waiting") => {
+    // PAD-920 (classes.join-requests NJ1–NJ2): a refusal of either join reads its code's own
+    // line (a code this build does not know reads the generic one, never a raw key).
+    const refusal = joinRefusalOf(err);
     if (mode === "waiting") {
-      toast.error(t("calendar.waitingList.failed"));
+      toast.error(refusal ? t(joinRefusalKey(refusal.code)) : t("calendar.waitingList.failed"));
       return;
     }
-    const refusal = classJoinRequestsApi.joinRequestRefusal(err);
-    toast.error(
-      refusal ? t(`calendar.joinRequest.refusal.${refusal.code}`) : t("calendar.joinRequest.failed")
-    );
+    toast.error(t(joinRefusalKey(refusal?.code)));
     await refreshInstance();
   };
   const handleWithdrawJoinRequest = async (id: number) => {
@@ -1411,9 +1419,15 @@ export default function ClassDetailScreen() {
                     </Pressable>
                   </View>
                 ) : (
-                  <Text className="text-sm font-medium">
-                    {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
-                  </Text>
+                  <>
+                    <Text className="text-sm font-medium">
+                      {maxPlayers ? `${filled}/${maxPlayers}` : "—"}
+                    </Text>
+                    {/* PAD-920 (ND2): the open spots and "N pendentes", as on web. */}
+                    {isCoach ? (
+                      <OpenSpotsLine openSpots={maxPlayers - filled} invitations={invitations} />
+                    ) : null}
+                  </>
                 )}
               </View>
               <View className="flex-1 gap-2 rounded-lg border border-border bg-card p-3">
@@ -1868,23 +1882,9 @@ export default function ClassDetailScreen() {
                           {displayName(inv.playerId, inv.playerName)}
                         </Text>
                         {/* PAD-548 (calendar.event-detail rules 16–17): one outcome word, decided
-                            by the server; actions only on a pending or declined row. */}
-                        <View className="items-end">
-                          <Badge variant={inviteeBadgeVariant(inv.outcome)}>
-                            <Text testID={`invitee-outcome-${inv.playerId}-${inv.outcome}`}>
-                              {t(INVITATION_OUTCOME_KEY[inv.outcome])}
-                            </Text>
-                          </Badge>
-                          {inviteeNotes(inv).map((note) => (
-                            <Text
-                              key={note.id}
-                              testID={`invitee-${note.id}-${inv.playerId}`}
-                              className="text-[10px] text-muted-foreground"
-                            >
-                              {t(note.key)}
-                            </Text>
-                          ))}
-                        </View>
+                            by the server; actions only where `inviteeActionsFor` offers them.
+                            PAD-920 (ND1, ND3): a new-engine row adds its tier text. */}
+                        <InviteeOutcome inv={inv} />
                         {inviteeActionsFor(inv.outcome).length > 0 ? (
                           <Pressable
                             testID={`invitee-actions-${inv.playerId}`}

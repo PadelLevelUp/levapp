@@ -9,11 +9,13 @@ import {
   sideHintKey,
   sideLabelKey,
   sideWordKey,
+  waitingListJoinSides,
+  waitingListSideChoice,
   type SideFull,
 } from "@levelup/config";
 import { joinClassWaitingList } from "@levelup/api/src/resources/academyClasses";
 import * as classJoinRequestsApi from "@levelup/api/src/resources/classJoinRequests";
-import type { ClassJoinRequest, PlayerSide } from "@levelup/types";
+import type { ClassJoinRequest, EngineVersion, PlayerSide, WaitingListSides } from "@levelup/types";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Platform, Pressable, View } from "react-native";
@@ -36,12 +38,26 @@ interface ClassSideSheetProps {
   open: boolean;
   onClose: () => void;
   mode: "request" | "waiting";
-  event: { model: string; originalId: number | string; date?: string | null };
+  event: {
+    model: string;
+    originalId: number | string;
+    date?: string | null;
+    // PAD-920 (notifications.config rule 20): the class's engine and its coach's side-choice setting.
+    engineVersion?: EngineVersion | null;
+    waitingListSideChoice?: boolean | null;
+  };
   profileSide?: PlayerSide | null;
   note?: string;
   onRequestSent?: (request: ClassJoinRequest, side: PlayerSide) => void;
   onWaitingListJoined?: (side: PlayerSide) => void;
   onFailed?: (error: unknown, mode: "request" | "waiting") => void;
+}
+
+/** The absolute side a relative waiting-list choice stands for, for the screen's "waiting on …" line. */
+function sideOfRelative(choice: WaitingListSides, profileSide: PlayerSide | null | undefined): PlayerSide {
+  if (choice === "both" || (profileSide !== "left" && profileSide !== "right")) return "both";
+  if (choice === "own") return profileSide;
+  return profileSide === "left" ? "right" : "left";
 }
 
 // The waiting-list theme (the owner's PAD-673 mock): the app's warning token, a soft amber fill.
@@ -64,17 +80,24 @@ export function ClassSideSheet({
   const [chosen, setChosen] = React.useState<PlayerSide | null>(preselectedSide(profileSide));
   const [full, setFull] = React.useState<SideFull | null>(null);
   const [busy, setBusy] = React.useState(false);
+  // PAD-920 (notifications.config rule 20): the relative waiting-list choice, kept apart from the
+  // absolute side (both vocabularies have a "both").
+  const [relative, setRelative] = React.useState<WaitingListSides | null>(null);
 
   // Each opening starts from the profile side again.
   React.useEffect(() => {
     if (open) {
       setChosen(preselectedSide(profileSide));
+      setRelative(null);
       setFull(null);
       setBusy(false);
     }
   }, [open, profileSide]);
 
   const waiting = mode === "waiting";
+  // PAD-920 (notifications.config rule 20): a new-engine class whose coach turned the side choice on
+  // asks a waiting-list join "my side / the other side / both"; otherwise the sheet is today's.
+  const relativeOptions = waiting ? waitingListSideChoice(event) : null;
   const habitual = preselectedSide(profileSide);
   const accent = waiting ? lightTheme.warning : lightTheme.primary;
   const fill = waiting ? WAITING_FILL : lightTheme.secondary;
@@ -103,6 +126,20 @@ export function ClassSideSheet({
     try {
       await joinClassWaitingList(event, side);
       onWaitingListJoined?.(side);
+      onClose();
+    } catch (err) {
+      onFailed?.(err, "waiting");
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const joinListRelative = async (choice: WaitingListSides) => {
+    setBusy(true);
+    try {
+      await joinClassWaitingList(event, undefined, waitingListJoinSides(choice).sides);
+      onWaitingListJoined?.(sideOfRelative(choice, profileSide));
       onClose();
     } catch (err) {
       onFailed?.(err, "waiting");
@@ -218,6 +255,50 @@ export function ClassSideSheet({
               <Text className="text-muted-foreground" style={{ fontSize: 13 }}>
                 {t(waiting ? "calendar.sidePick.waitingSub" : "calendar.sidePick.sub")}
               </Text>
+              {relativeOptions ? (
+                <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
+                  {relativeOptions.map((option) => {
+                    const selected = relative === option.value;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        testID={option.testId}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected }}
+                        onPress={() => setRelative(option.value)}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: 12,
+                          borderRadius: 12,
+                          borderWidth: selected ? 1.5 : 1,
+                          borderColor: selected ? accent : lightTheme.border,
+                          backgroundColor: selected ? fill : lightTheme.card,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 11,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderWidth: 1,
+                            borderColor: selected ? accent : lightTheme.border,
+                            backgroundColor: selected ? accent : "transparent",
+                          }}
+                        >
+                          {selected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+                        </View>
+                        <Text className="font-semibold" style={{ flex: 1, fontSize: 15 }}>
+                          {t(option.labelKey)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : (
               <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
                 {SIDE_CHOICE_ORDER.map((side) => {
                   const selected = chosen === side;
@@ -269,14 +350,17 @@ export function ClassSideSheet({
                   );
                 })}
               </View>
+              )}
               <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
                 {button("class-side-cancel", t("calendar.sidePick.cancel"), onClose, "ghost")}
                 {button(
                   "class-side-send",
                   t(waiting ? "classRequests.academy.joinWaitlist" : "calendar.sidePick.send"),
-                  () => chosen && void (waiting ? joinList(chosen) : sendRequest(chosen)),
+                  relativeOptions
+                    ? () => relative && void joinListRelative(relative)
+                    : () => chosen && void (waiting ? joinList(chosen) : sendRequest(chosen)),
                   "primary",
-                  busy || !canSendSide(chosen)
+                  relativeOptions ? busy || relative === null : busy || !canSendSide(chosen)
                 )}
               </View>
             </>
