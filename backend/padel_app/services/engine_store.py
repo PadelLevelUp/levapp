@@ -12,7 +12,7 @@ What lives where.
 - Invitations: ``invitations``, one row per student per session (D1).
 - Waiting lists: ``WaitingListEntry``; ``added_by == "coach"`` is the coach's list, anything else the
   students'. One row per student per session (``uq_waiting_session_player``): the engine refuses a
-  student on one list who joins the other ("already waiting"), and the store raises ``StoreConflict``
+  student on one list who joins the other (``already_on_list``), and the store raises ``StoreConflict``
   if such a join ever reaches it.
 - Attendance requests and their Yes: ``ReminderAttempt``.
 - Pool (notifications.config rule 19, CONFIG-53): the coach's roster minus the session, the coach's
@@ -246,6 +246,9 @@ class TableStore:
                 attempts.setdefault(str(a.player_id), []).append(a.sent_at)
             if a.response == "yes":
                 confirmed.add(str(a.player_id))
+        # Engine-store rule 6 (reminders rule 22, PAD-489): a student the system recorded as coming,
+        # when the class was created after its reminder time, is confirmed like a Yes.
+        confirmed |= {str(p.player_id) for p in presences if p.response == "confirmed"}
 
         named = ({st.id for st in pool} | inside | {i.student for i in invitations} | {w.student for w in waiting})
         missing = [int(s) for s in named if s not in students]
@@ -574,14 +577,23 @@ class TableStore:
             if presence is not None:
                 presence.status, presence.left_reason = "absent", e.reason
         elif isinstance(e, fx.Absence):
-            # Owner ruling D4: the engine records the notice, never the coach's justification. A No is
-            # the student's "cancelled" at the effect's time, so presence_late_cancellation derives
-            # on time or late from the coach's deadline; a no-show (at or after the start) and an
-            # automatic entrant's No ("none") record no response.
+            # Owner ruling D4 (engine-timeline rule 5, TIMELINE-20): the engine records the notice, never
+            # the coach's justification. A late No is the student's "cancelled", so the app derives it
+            # late; an on-time No is "declined", or "proactive_decline" before they were asked (no
+            # attendance request sent yet), neither ever late (attendance.confirm rule 12). Each at the
+            # effect's time. A no-show (at or after the start) and an automatic entrant's No ("none")
+            # record no response.
             presence = self._presence(e)
             start = wall_to_utc_naive(db.session.get(LessonInstance, iid).start_datetime)
             if presence is not None and e.notice != "none" and e.at < start:
-                record_response(presence, "cancelled", when=e.at)
+                if e.notice == "late":
+                    response = "cancelled"
+                else:
+                    asked = ReminderAttempt.query.filter(
+                        ReminderAttempt.lesson_instance_id == iid, ReminderAttempt.player_id == int(e.student),
+                        ReminderAttempt.sent_at.isnot(None), ReminderAttempt.sent_at <= e.at).first()
+                    response = "declined" if asked is not None else "proactive_decline"
+                record_response(presence, response, when=e.at)
         elif isinstance(e, fx.WaitingListJoined):
             added_by = "coach" if e.list == "coach" else "student"
             row = WaitingListEntry.query.filter_by(lesson_instance_id=iid, player_id=int(e.student)).first()
@@ -610,6 +622,24 @@ class TableStore:
         # Message, Refused: the engine_effects row is the record (and the outbox for a Message).
 
 
+#: The engine's invitation kinds: what a student who blocked everything never receives (the backstop).
+INVITATION_KINDS = ("reoffer", "waiting_list_invite")
+
+
+def _refused_by_block(row) -> bool:
+    """The send-time backstop (student-block-preferences rule 8, new-engine section): an invitation, a
+    re-offer or a waiting-list invitation to a student with ``notif_block_all`` is claimed and not
+    delivered; a "sorry" and every other kind still are."""
+    from padel_app.models import User
+    from padel_app.models.players import Player
+
+    is_invitation = row.kind == "Invited" or (row.kind == "Message" and (row.payload or {}).get("kind") in INVITATION_KINDS)
+    if not is_invitation or row.player_id is None:
+        return False
+    user = db.session.query(User).join(Player, Player.user_id == User.id).filter(Player.id == row.player_id).first()
+    return bool(getattr(user, "notif_block_all", False))
+
+
 def dispatch(send: Callable[["object"], None], *, now: datetime | None = None, limit: int = 200) -> int:
     """Send the outbox after commit: each undispatched ``engine_effects`` row is claimed (its
     ``dispatched_at`` set and committed) before ``send`` sees it, so no message goes out twice; a
@@ -624,8 +654,11 @@ def dispatch(send: Callable[["object"], None], *, now: datetime | None = None, l
         db.session.commit()
         if not claimed:
             continue
+        row = db.session.get(EngineEffect, row_id)
+        if _refused_by_block(row):
+            continue
         try:
-            send(db.session.get(EngineEffect, row_id))
+            send(row)
             sent += 1
         except Exception:  # noqa: BLE001
             log.exception("engine_store: sending effect %s failed; not retried", row_id)
