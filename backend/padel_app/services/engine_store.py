@@ -14,11 +14,13 @@ What lives where.
   students'. One row per student per session (``uq_waiting_session_player``): a student on one list
   who joins the other raises ``StoreConflict`` (an open question for the specs, PAD-913).
 - Attendance requests and their Yes: ``ReminderAttempt``.
-- Pool: the coach's roster minus the session, the coach's exclusions for it (``engine_exclusions``),
-  students who blocked automatic invitations, and inactive accounts when the coach's
-  ``excludeUnpaidSubscription`` is on. Eligibility stays with the engine's settings until the config
-  mapping (swap step 5) moves it here (ruling D6). ``reveal`` is a no-op: a student is visible once
-  the app links them to the coach.
+- Pool (notifications.config rule 19, CONFIG-53): the coach's roster minus the session, the coach's
+  exclusions for it (``engine_exclusions``), students who blocked automatic invitations, and the
+  app's gates: the eligibility bar in force for the class (``passes_eligibility``; the engine's own
+  bar is left wide open by the config mapping), ``excludedPlayers``, ``noSameDayClass`` and, when
+  ``excludeUnpaidSubscription`` is on, inactive accounts. ``maxInvitesPerStudentPerDay`` is not a
+  pool gate: a student holding that many of the coach's invitations sent this club day is
+  ``postponed``. ``reveal`` is a no-op: a student is visible once the app links them to the coach.
 - Same hour (D-E26: the same start): every going presence the student has at that start, any coach,
   either engine. ``elsewhere`` sees only the new engine's invitations.
 
@@ -37,7 +39,7 @@ import contextlib
 import hashlib
 import json
 import logging
-from dataclasses import asdict, fields
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timedelta
 from typing import Callable, Iterable, Iterator, Mapping
 
@@ -104,6 +106,14 @@ def settings_for(session: str) -> EngineSettings:
     """The session's coach's settings (ruling D9). The ``NotificationConfig`` mapping is swap step 5;
     until then every coach runs on the engine's defaults."""
     return EngineSettings()
+
+
+@dataclass(frozen=True)
+class _PoolGates:
+    excluded: frozenset[str] = frozenset()
+    exclude_inactive: bool = False
+    eligible: Callable[[object], bool] | None = None   # None: no bar, everyone clears it
+    daily_cap: int | None = None
 
 
 class TableStore:
@@ -194,14 +204,16 @@ class TableStore:
                  .join(User, User.id == Player.user_id)
                  .filter(Player.id.in_([lk.player_id for lk in links] or [-1])).all()}
         excluded = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
-        exclude_inactive = self._exclude_inactive(coach_id)
+        gates = self._pool_gates(coach_id, inst, links)
+        excluded |= gates.excluded
         inside = {p.student for p in going} | regular_ids
         students = self._students(coach_id, links, users)
         pool = tuple(
             students[str(lk.player_id)] for lk in sorted(links, key=lambda lk: lk.player_id)
             if str(lk.player_id) not in inside and str(lk.player_id) not in excluded
             and not getattr(users.get(lk.player_id), "notif_block_auto_invitations", False)
-            and not (exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active"))
+            and not (gates.exclude_inactive and getattr(users.get(lk.player_id), "status", "active") != "active")
+            and (gates.eligible is None or gates.eligible(lk)))
 
         start = inst.start_datetime
         others = LessonInstance.query.filter(
@@ -238,6 +250,7 @@ class TableStore:
             joined_at={s: joined[s] for s in regular_ids if s in joined},
             last_moved_at={str(p.player_id): p.side_moved_at for p in presences if p.side_moved_at is not None},
             attendance_requested={s: tuple(v) for s, v in attempts.items()},
+            postponed=self._capped_today(coach_id, gates.daily_cap, {st.id for st in pool}),
         )
 
     @staticmethod
@@ -260,13 +273,52 @@ class TableStore:
                           r.sent_at, r.answer, r.answered_at, r.counts_until, r.sorry_at, r.closed_at)
 
     @staticmethod
-    def _exclude_inactive(coach_id: int) -> bool:
+    def _pool_gates(coach_id: int, inst, links) -> _PoolGates:
+        """The coach's stored gates on the pool (notifications.config rule 19, CONFIG-53), read
+        through the old engine's own functions so a coach's bar means the same on both engines."""
         from padel_app.models.notification_config import NotificationConfig
+        from padel_app.services.notification_service import (
+            _players_with_a_class_that_day,
+            _RosterFacts,
+            effective_eligibility,
+            passes_eligibility,
+        )
 
         config = NotificationConfig.query.filter_by(coach_id=coach_id).first()
         if config is None:
-            return False
-        return bool((config.get_restrictions().get("excludeUnpaidSubscription") or {}).get("enabled"))
+            return _PoolGates()
+        restrictions = config.get_restrictions()
+        excluded = set()
+        if (restrictions.get("excludedPlayers") or {}).get("enabled"):
+            excluded |= {str(pid) for pid in restrictions["excludedPlayers"].get("playerIds") or []}
+        if (restrictions.get("noSameDayClass") or {}).get("enabled"):
+            excluded |= {str(pid) for pid in _players_with_a_class_that_day([lk.player_id for lk in links], inst)}
+        rules = effective_eligibility(inst, coach_id, config)
+        facts = _RosterFacts(coach_id, [lk.player_id for lk in links]) if rules else None
+        cap = restrictions.get("maxInvitesPerStudentPerDay") or {}
+        return _PoolGates(
+            excluded=frozenset(excluded),
+            exclude_inactive=bool((restrictions.get("excludeUnpaidSubscription") or {}).get("enabled")),
+            eligible=(lambda lk: passes_eligibility(lk, inst, coach_id, rules, facts=facts)) if rules else None,
+            daily_cap=int(cap["value"]) if cap.get("enabled") and cap.get("value") is not None else None,
+        )
+
+    def _capped_today(self, coach_id: int, cap: int | None, ids: set[str]) -> frozenset[str]:
+        """Of ``ids``, those who already hold ``cap`` of this coach's new-engine invitations sent this
+        club-local day (``maxInvitesPerStudentPerDay``, notifications.config rule 6b)."""
+        from sqlalchemy import func
+
+        from padel_app.models import EngineInvitation
+        from padel_app.utils.dates import club_day_start_utc
+
+        if cap is None or not ids:
+            return frozenset()
+        rows = (db.session.query(EngineInvitation.player_id, func.count(EngineInvitation.id))
+                .filter(EngineInvitation.coach_id == coach_id,
+                        EngineInvitation.player_id.in_([int(s) for s in ids]),
+                        EngineInvitation.sent_at >= club_day_start_utc(self.clock()))
+                .group_by(EngineInvitation.player_id).all())
+        return frozenset(str(pid) for pid, n in rows if n >= cap)
 
     def _students(self, coach_id: int, links, users, extra: Iterable[int] = ()) -> dict[str, Student]:
         """Each linked player as the engine's ``Student``, with the coach's ordering facts (PAD-915)."""
