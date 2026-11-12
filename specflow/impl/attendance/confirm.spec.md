@@ -21,13 +21,14 @@ below holds as written.** For a session on the new engine (the swap, PAD-912; ow
 |---|---|---|
 | Rule 13's auto-justification ("the absence is auto-justified") | no justification is written; the coach judges every absence | `notifications.engine-timeline` rule 5 |
 | A reminder No is never late (today a reminder decline is `declined`) | a No at or after the cutoff is late (`cancelled`), before it on time (`declined`) | `notifications.engine-timeline` rule 5 (D4's "on time or late by the cutoff") |
+| Rule 12 (a proactive decline is never late) | a No after the cutoff is late even before the student was asked | `notifications.engine-timeline` rule 5, TIMELINE-7 (scenario 61) |
 
 Readings:
 - Rule 6 holds: the deadline is `cancellationDeadlineHours` real hours before the real start, and the
   engine's cutoff is the same instant (`notifications.engine-timeline` rule 5, TIMELINE-21).
-- Rules 10–12 hold, read per student: a No before the engine sent that student any attendance request
-  for the session is a proactive decline and never late (TIMELINE-22); today's window closes at the
-  reminder's fire time instead, which differs only for a student the engine has not yet asked.
+- Rules 10–11 hold, read per student: a No before the engine sent that student any attendance request
+  is recorded as a proactive decline. Rule 12 does not hold after the cutoff: such a No is late
+  (`notifications.engine-timeline` rule 5; scenario 61, TIMELINE-7).
 - Rule 7 holds: lateness stays derived from `response` and `responded_at`.
 
 ### Rules
@@ -614,3 +615,9 @@ test: `frontend/apps/mobile/src/features/calendar/attendance-decline.test.ts` �
   every absence on time or late by the cutoff, and today's "a reminder decline is never late" rested on
   the reminder deciding the justification, which D4 hands to the coach. A No before anyone asked stays
   never late (rule 12).
+- Does rule 12 (a proactive decline is never late) hold for a new-engine session? — **for the owner.**
+  It cannot hold together with D4 as the coordinator reads it (2026-11-12): the cutoff alone decides,
+  and scenario 61 (Tomás's expectation, one of the 133 that do not change) expects a No after the
+  cutoff, before any request went out, to be late. Until the owner answers, the engine follows the
+  cutoff and rule 12 holds for old-engine sessions only; options: keep that, or exempt a No before the
+  student was asked and change scenario 61.
