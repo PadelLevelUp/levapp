@@ -298,6 +298,13 @@ class TableStore:
                        if inst.lesson_id is not None else [])
         joined = {str(r.player_id): r.created_at for r in roster_rows}
         regular_ids = {str(p.player_id) for p in presences if self._placement(p).how in ("regular", "regular_returns")}
+        # Engine-answers rule 14 (ANSWERS-29): a regular the coach removed from this one session (the class's
+        # roster, excluded here, no presence left) stays a regular, removed: out of going and absent, their
+        # seat freed on their side (engine-settings rule 11); the exclusion keeps them out of the pool.
+        excluded_here = {str(r.player_id) for r in EngineExclusion.query.filter_by(lesson_instance_id=iid).all()}
+        coach_removed = frozenset(s for s in excluded_here
+                                  if s in joined and s not in {str(p.player_id) for p in presences})
+        regular_ids |= coach_removed
         going = tuple(self._placement(p) for p in presences if _going(p))
         absent = frozenset(str(p.player_id) for p in presences
                            if p.status == "absent" and p.left_reason == "regular_no")
@@ -355,6 +362,7 @@ class TableStore:
             end=end,
             regulars=tuple(students[s] for s in sorted(regular_ids, key=int) if s in students),
             going=going, invitations=invitations, waiting_list=waiting, pool=pool, absent=absent,
+            coach_removed=coach_removed,
             said_no=frozenset(i.student for i in invitations if i.answer == "no"),
             confirmed=frozenset(confirmed), busy_same_time=busy, elsewhere=elsewhere,
             alerted={SpotType(side, level): spots for side, level, spots in (es.alerted or [])},
