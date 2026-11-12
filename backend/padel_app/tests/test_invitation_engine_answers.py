@@ -132,6 +132,7 @@ def test_a_no_show_after_the_class_is_late():
 
 # --- wave W6: "sorry" and the re-offer (engine-answers rules 3, 4, 7) ------------------------------
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-25")
 def test_a_yes_whose_offer_filled_gets_sorry_never_another_side():
     # Rule 3 (the owner's decision 1, answer 4): a left-sider sent for the left, the left now full, the
     # right open, and a tier admitting left-siders for the right: still "sorry", never the right.
