@@ -45,7 +45,7 @@ hold the same, read onto the engine:
 |---|---|---|
 | 5 (automatic block) | the store keeps the student out of `pool` (automatic OR all), on the coach's waiting list too | `notifications.engine-tiers` rule 4, TIERS-19 |
 | 7 (block-all: no attendance reminders) | the engine sends them no attendance request | `notifications.engine-timeline` rule 2, TIMELINE-23 |
-| 8 (the delivery backstop) | the blockable set also holds the engine's invitation kinds `reoffer` and `waiting_list_invite`; `sorry` (an answer to the student's own Yes), `added` and `side_moved` (notices of a place they hold) are not blockable, like plain chat | this section; criterion 16 |
+| 8 (the delivery backstop) | the blockable set also holds the engine's invitation kind `waiting_list_invite`; `sorry` (an answer to the student's own Yes), `added` and `side_moved` (notices of a place they hold) are not blockable, like plain chat | this section; criterion 16 |
 
 
 ### Rules
@@ -228,7 +228,7 @@ test: `backend/padel_app/tests/test_student_notification_block_preferences.py` â
 
 #### NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-16: The backstop refuses the engine's invitation kinds to a student who blocked everything (new-engine section, rule 8)
 - **Given** a student with `notif_block_all` and a new-engine session
-- **When** the store's outbox sends them a `reoffer`, a `waiting_list_invite` and a `sorry`
+- **When** the store's outbox sends them an `invite`, a `waiting_list_invite` and a `sorry`
 - **Then** the first two are not delivered and the `sorry` is
 test: `backend/padel_app/tests/test_pad916_engine_store.py` â€º `test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everything`
 
