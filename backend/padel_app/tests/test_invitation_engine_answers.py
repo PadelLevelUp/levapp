@@ -364,6 +364,7 @@ def test_an_overlapping_yes_is_refused_and_a_touching_one_is_not():
     assert _placed(engine.handle("S", Answer("Y", True), NOW)) == [("Y", "R", "invitation")]
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-26")
 def test_a_yes_closes_another_coachs_invitation_only_at_the_same_start():
     """engine-answers rule 10 with engine-tiers rule 3: another coach's session counts as the same time
     only at the same start; the same coach's counts on any overlap."""
