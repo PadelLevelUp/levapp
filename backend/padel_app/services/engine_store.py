@@ -140,21 +140,22 @@ def _end_of(inst) -> datetime:
 
 def _overlapping_going(coach_id: int, iid: int, start: datetime, end: datetime, *,
                        student: int | None = None) -> list[tuple[int, int]]:
-    """``(player_id, lesson_instance_id)`` of every student going to another of ``coach_id``'s
-    occurrences whose ``[start, end)`` overlaps this one's (``a.start < b.end and b.start < a.end``;
-    touching ends do not overlap), not canceled; only ``student``'s when given. Read fresh
-    (``populate_existing``) so a guard under the student's lock sees the other unit's commit."""
+    """``(player_id, lesson_instance_id)`` of every student going to another occurrence at the same time
+    as this one (engine-tiers rule 3, owner decision 11 with the 11-11 ruling kept): one of ``coach_id``'s
+    whose ``[start, end)`` overlaps this one's (``a.start < b.end and b.start < a.end``; touching ends do
+    not overlap), or any coach's starting at the same instant; not canceled; only ``student``'s when
+    given. Read fresh (``populate_existing``) so a guard under the student's lock sees the other unit's
+    commit."""
     from padel_app.models.lesson_instances import LessonInstance
     from padel_app.models.presences import Presence
     from padel_app.services.lesson_service import coach_instance_ids
 
-    ids = set(coach_instance_ids(coach_id)) - {iid}
-    if not ids:
-        return []
+    own = set(coach_instance_ids(coach_id)) - {iid}
     candidates = LessonInstance.query.filter(
-        LessonInstance.id.in_(ids), LessonInstance.status != "canceled",
+        LessonInstance.id != iid, LessonInstance.status != "canceled",
         LessonInstance.start_datetime < end, LessonInstance.start_datetime >= start - timedelta(days=1)).all()
-    overlapping = [o.id for o in candidates if _end_of(o) > start]
+    overlapping = [o.id for o in candidates
+                   if (o.id in own and _end_of(o) > start) or o.start_datetime == start]
     if not overlapping:
         return []
     q = db.session.query(Presence.player_id, Presence.lesson_instance_id).filter(
@@ -185,8 +186,8 @@ def _close_request_message(message_id: int | None, state: str) -> None:
 
 def _refresh_bubbles(row, state: str, **extra) -> None:
     """Write the invitation's new ``state`` (invitations NB1: ``answered`` with ``response``, ``sorry``,
-    ``reopened``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on every
-    one of its bubbles (engine-store rule 8), and publish one ``message_edited`` per message after the unit commits (``publish``
+    ``reopened``, ``withdrawn``, ``closed_same_hour``) with its ``startsAt`` and ``countsUntil`` on its
+    newest bubble (on every one for ``reopened``; engine-store rule 8), and publish one ``message_edited`` per message after the unit commits (``publish``
     waits for it inside a unit of work)."""
     from padel_app.models import Message
     from padel_app.models.lesson_instances import LessonInstance
@@ -196,7 +197,9 @@ def _refresh_bubbles(row, state: str, **extra) -> None:
 
     if not row.message_ids:
         return
-    ids = list(row.message_ids)
+    # Engine-store rule 8 (STORE-7 restated): once reopened, the older bubbles keep "reopened"; a later
+    # state lands only on the newest, the one with live buttons.
+    ids = list(row.message_ids) if state == "reopened" else list(row.message_ids)[-1:]
     start = db.session.get(LessonInstance, row.lesson_instance_id).start_datetime
     for msg in Message.query.filter(Message.id.in_(ids)).all():
         meta = dict(msg.msg_metadata or {})

@@ -521,9 +521,10 @@ def test_a_session_belongs_to_the_occurrences_primary_coach(app):
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-7")
 def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
     """Engine-store rule 8 (invitations NB1a): the store keeps an invitation's bubbles and writes each new
-    state on every one of them, with ``startsAt`` and ``countsUntil``, one ``message_edited`` per message
-    after the commit: ``sorry``; a reopening (``reopened``, ``reopened_at``) whose own bubble is
-    attached after; the coach's ``withdraw`` (``withdrawn``, ``closed_reason``). Elsewhere an answer is
+    state, with ``startsAt`` and ``countsUntil``, one ``message_edited`` per message after the commit:
+    ``sorry``; a reopening (``reopened`` on every bubble so far, ``reopened_at``) whose own bubble is
+    attached after; then the coach's ``withdraw`` (``withdrawn``, ``closed_reason``) on the newest bubble
+    only, the older keeping ``reopened``. Elsewhere an answer is
     ``answered`` with its response, and a same-hour placement ``closed_same_hour`` (``same_hour``)."""
     from padel_app import realtime
     from padel_app.models import Conversation, EngineInvitation, Message, User
@@ -563,8 +564,8 @@ def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
     edited.clear()
     with store.unit((a,)):
         assert store.withdraw(store.invitation_id(a, x), NOW + timedelta(minutes=3))
-    assert states(first, second) == ["withdrawn", "withdrawn"]
-    assert sorted(m for _, m, _ in edited) == sorted([first, second])
+    assert states(first, second) == ["reopened", "withdrawn"]          # the older bubble keeps "reopened"
+    assert [m for _, m, _ in edited] == [second]
     assert all(kind == "message_edited" for kind, _, _ in edited)
     assert db.session.get(Message, second).msg_metadata["countsUntil"] == (NOW + timedelta(minutes=30)).isoformat()
     assert db.session.get(EngineInvitation, store.invitation_id(a, x)).closed_reason == "withdrawn"
@@ -645,14 +646,21 @@ def test_the_request_message_says_how_the_request_ended(app, monkeypatch):
 
 @pytest.mark.criterion("NOTIFICATIONS-ENGINE-STORE-9")
 def test_the_snapshot_carries_each_sessions_end(app):
-    """Engine-store rule 4, owner decision 11: a 90-minute occurrence at 18:00 runs to 19:30, so a
-    student going to it is busy for the same coach's 19:00 session; one that only touches (19:30) is
-    not, and the store refuses a placement into the overlapping session (engine-answers rule 10)."""
+    """Engine-store rule 4, engine-tiers rule 3 (owner decision 11, the 11-11 ruling kept): a 90-minute
+    occurrence at 18:00 runs to 19:30, so a student going to it is busy for the same coach's 19:00 session;
+    one that only touches (19:30) is not, and the store refuses a placement into the overlapping session
+    (engine-answers rule 10). Another coach's class makes the student busy only at the same start."""
+    from padel_app.models import User
+    from padel_app.models.Association_CoachLessonInstance import Association_CoachLessonInstance
+    from padel_app.models.coaches import Coach
     from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.models.presences import Presence
     from padel_app.services.engine_store import SameHourConflict
 
     six = START.replace(hour=18)
-    store, (a, b, c), (_, x, _) = _seed(app, starts=(six, six + timedelta(hours=1), six + timedelta(minutes=90)))
+    nine = six + timedelta(hours=3)
+    store, (a, b, c, same, overlap), (_, x, _) = _seed(
+        app, starts=(six, six + timedelta(hours=1), six + timedelta(minutes=90), nine, nine + timedelta(minutes=30)))
     db.session.get(LessonInstance, int(a)).end_datetime = six + timedelta(minutes=90)
     db.session.commit()
     with store.unit((a,)):
@@ -666,6 +674,23 @@ def test_the_snapshot_carries_each_sessions_end(app):
     with store.unit((c,)):
         store.apply([fx.Placed(c, NOW, x, "L", "invitation")])
     assert x in {p.student for p in store.snapshot(c).going}
+
+    other = User(name="Other", username="o916b", password="x", status="active")
+    db.session.add(other)
+    db.session.flush()
+    other_coach = Coach(user_id=other.id)
+    db.session.add(other_coach)
+    db.session.flush()
+    first = db.session.get(LessonInstance, int(a))
+    theirs = LessonInstance(lesson_id=first.lesson_id, start_datetime=nine, end_datetime=nine + timedelta(hours=1),
+                            max_players=4, status="scheduled", level_id=first.level_id)
+    db.session.add(theirs)
+    db.session.flush()
+    db.session.add_all([Association_CoachLessonInstance(coach_id=other_coach.id, lesson_instance_id=theirs.id),
+                        Presence(lesson_instance_id=theirs.id, player_id=int(x), enrolment_source="fill")])
+    db.session.commit()
+    assert x in store.snapshot(same).busy_same_time                         # another coach, the same start
+    assert x not in store.snapshot(overlap).busy_same_time                  # another coach, only overlapping
 
 
 
