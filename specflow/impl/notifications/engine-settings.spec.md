@@ -68,8 +68,8 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
    and 6 use it.
 7. **`group-order`, `reminders`, `cutoff`.** The coach orders the tiers (`EngineSettings.tiers`); reminder
    times, interval and count (`EngineSettings.attendance_request`, as `notifications.reminders`); the
-   absence cutoff's hours (`absence_cutoff_before`). The justified-or-unjustified decision is the plan's
-   (`notifications.engine-timeline` rule 5).
+   absence cutoff's hours (`absence_cutoff_before`), which only marks an absence on time or late
+   (`notifications.engine-timeline` rule 5); justified or unjustified stays the coach's judgement (D4).
 8. **Kept unchanged:** invitation start, last invitation, quiet hours, eligibility, restrictions, the
    daily per-student cap and one live offer per club day (postpones, D15), priority criteria.
 9. **Settings per coach (swap decision 9, PAD-912).** The engine takes a lookup from a session to its

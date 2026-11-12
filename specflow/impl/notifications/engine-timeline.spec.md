@@ -42,16 +42,22 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
    run, quiet hours not counted; then it stops counting and stays open. A No never changes another
    invitation's T. With the two settings equal this is the plan's single T, and D9, D16 and D17 run
    unchanged: no clock gives a spot to the next tier while it is covered.
-5. **A regular's No and the absence cutoff (§8 steps 4–5).** The spot enters the next run. A No before
-   `absence_cutoff_at` is a justified absence, after it unjustified. The engine decides by the cutoff;
-   the coach can still correct it (`attendance.confirm`).
+5. **A regular's No and the absence cutoff (§8 steps 4–5; owner ruling D4, 2026-11-11).** The spot
+   enters the next run. Every absence is recorded with its notice, never a verdict: a No before
+   `absence_cutoff_at` is `on_time`, at or after it `late` (`Absence.notice`). Justified or unjustified
+   is always the coach's judgement, made as today (`attendance.confirm`); the engine never writes it.
+   An automatically placed student's No is no absence (notice `none`,
+   `notifications.engine-settings` rule 3). The store records a No as the student's answer
+   (`Presence.response` `cancelled`, `responded_at` the No's instant), so the lateness the app derives
+   (`presence_late_cancellation`, against `cancellationDeadlineHours`, which `notifications.config`
+   rule 19 maps to `absence_cutoff_before`) is the notice, and leaves `Presence.justification` alone.
 6. **`last_invite_at` (§8 step 6; ruling (2)).** No new invitation after it. Flexible going students
    get their final side and are told it (const:KIND_SIDE_MOVED): {left, right} students their usual
    side when possible; when a side is over its quota, one regular moves — the coach's choice, else the
    one who moved least recently, ties to the one who joined the class most recently (`joined_at`). The
    engine records each move. Open invitations can still be accepted.
-7. **After the class (§8 step 7).** A regular who did not answer and did not come gets an unjustified
-   absence.
+7. **After the class (§8 step 7).** A regular who did not answer and did not come gets an absence
+   with notice `late` (they never told anyone). The coach judges it, as any absence (rule 5).
 
 ### Not this spec
 - The class's start stopping everything: kept as `notifications.invitations` rule 20.
@@ -105,14 +111,15 @@ Given an invitation sent at 19:00 with T 20 min, when another invitee says No at
 still stops counting at 19:20.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[80-uma-recusa-a-meio-de-uma-ronda]`
 
-#### NOTIFICATIONS-ENGINE-TIMELINE-6: A silent regular keeps the spot and is absent unjustified (rules 2, 7; S16)
+#### NOTIFICATIONS-ENGINE-TIMELINE-6: A silent regular keeps the spot and is absent with a late notice (rules 2, 7; S16)
 Given 4 left and 4 right regulars and a right regular who never answers and does not come, then nothing
-is sent for their spot, and after the class they have an unjustified absence.
+is sent for their spot, and after the class they have an absence with notice `late` and no verdict.
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[P16-silent-regular]`
 
-#### NOTIFICATIONS-ENGINE-TIMELINE-7: A No before the cutoff is justified, after it unjustified (rule 5)
+#### NOTIFICATIONS-ENGINE-TIMELINE-7: A No before the cutoff is on time, after it late (rule 5)
 Given the cutoff 12 h before the class, when one regular says No 20 h before and another 6 h before,
-then the first absence is justified and the second unjustified.
+then the first absence has notice `on_time` and the second `late`, and neither carries a verdict. (The
+scenario's words "justificada" / "injustificada" read as on time / late in the harness.)
 test: `backend/padel_app/tests/invitation_scenarios/test_scenarios.py` › `test_scenario[61-falta-justificada-e-injustificada]`
 
 #### NOTIFICATIONS-ENGINE-TIMELINE-8: A side over quota sheds the regular who moved least recently (rule 6; S18)
@@ -177,6 +184,14 @@ Given a send that falls in quiet hours, when runs happen during and after them, 
 at the first run after they end.
 test: `backend/padel_app/tests/test_invitation_engine_messages.py` › `test_quiet_hours_hold_the_request_until_they_end`
 
+#### NOTIFICATIONS-ENGINE-TIMELINE-20: The app's derived lateness is the engine's notice, and the coach's verdict stays empty (rule 5)
+Given `cancellationDeadlineHours` 24 and two regulars, when one says No 30 h before the class and the
+other 10 h before and the store applies their `Left` and `Absence` effects, then both presences are
+`absent` with `response` `cancelled` and `responded_at` the No's instant, `presence_late_cancellation`
+is false for the first and true for the second (each equal to its `Absence.notice` being `late`), and
+`justification` is empty on both.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_no_is_the_students_answer_and_its_lateness_is_the_notice`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) TIMELINE-2, TIMELINE-4 — `invitation_engine/timeline.py` (T at send), `invitation_engine/settings.py`
@@ -185,6 +200,10 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    reporting `between_groups` as a gap). Shared-module changes, agreed with their owners.
 2. (W4) TIMELINE-1, TIMELINE-5 — `invitation_engine/timeline.py` (quiet hours, counting).
 3. (W7) TIMELINE-3, TIMELINE-6, TIMELINE-7 — `invitation_engine/absences.py`, scenario pins.
+   (Swap, PAD-915) TIMELINE-6, TIMELINE-7 again for D4: `effects.Absence.notice`
+   (`AbsenceNotice`: `on_time`, `late`, `none`) replaces the kind; the harness reads the scenarios'
+   justified / unjustified as on_time / late, so the scenario files do not change. (PAD-916)
+   TIMELINE-20 — `invitation_engine/store.py`.
 4. (W7) TIMELINE-8 to TIMELINE-14 — `invitation_engine/timeline.py` (`due` at `last_invite_at`, move
    history), `effects.SideAssigned`, `adapters/new.py` (`side_moved`).
 5. (built, #946) TIMELINE-15 to TIMELINE-19 — `invitation_engine/messages.py`; the tests exist and gain
@@ -200,3 +219,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   PAD-912; the owner can reverse it): the engine, and the app's reminder jobs retire per coach at
   cutover, because the engine's requests already know who was placed how (an invitation acceptor is
   not asked) and run inside the engine's quiet hours, and two senders for one class would ask twice.
+- Justified or unjustified, by the engine or the coach (plan §8 step 5) — decision (owner, 2026-11-11,
+  D4): "justified or unjustified is always a coach's judgement". The engine records each absence's
+  notice, on time or late by the cutoff, and never a verdict; the coach judges as today. The tiers'
+  `justified_absences` / `unjustified_absences` criteria and tiebreakers therefore count the coach's
+  verdicts (`Presence.justification`), which is what they read today.
