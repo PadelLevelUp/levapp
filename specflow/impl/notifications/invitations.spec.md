@@ -70,7 +70,8 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
 `invite-state`, one shared derivation). **Copy marked "proposed" awaits the owner's approval.**
 - **NB1. One state, derived in one place.** A new-engine invitation message (`message_type`
   `notification_invite`, for the kinds `invite`, `reoffer` and `waiting_list_invite`) carries
-  `msg_metadata` `{engine: "new", invitationId, lessonInstanceId, kind, state, response?, answeredBy?}`,
+  `msg_metadata` `{engine: "new", invitationId, lessonInstanceId, kind, state, response?, answeredBy?}`
+  (`invitationId` a number),
   `state` being `open`, `answered` (with `response` `yes` or
   `no` and `answeredBy`), `sorry`, `reoffered`, `closed_same_hour` or `class_started`; and, on the coach's
   copy only, `counting` (true until the invitation's counting-until instant). The backend keeps it

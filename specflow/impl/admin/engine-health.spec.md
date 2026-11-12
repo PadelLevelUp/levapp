@@ -179,16 +179,19 @@ Readings:
     - `tick`: whether the `engine_tick` job exists, whether it is overdue (rule 2's 5 minutes), and the
       session failures of the last 24 hours (rule 12).
     Counts only: no student is named. The block is absent while no coach is on `new`. On the wire (R,
-    PAD-918): `coaches {old, new}`, `sessions {upcoming, next7Days}`, `openSpots {byType: [{side, level,
-    open}], uncovered}`, `invitations {counting, openNotCounting, byTier: [{tier, counting,
+    PAD-918): `coaches {old, new}`, `sessions {upcoming, next7Days}`, `openSpots {byType: [{side, levelId,
+    levelLabel, open}], uncovered}`, `invitations {counting, openNotCounting, byTier: [{tier, counting,
     openNotCounting}], sentLast24h}`, `approvals {pending, dismissed}`, `alerts {byReason: [{reason,
-    count}]}`, `outbox {pending, stuckOver5Min}`, `tick {present, overdue, sessionFailures24h}`.
+    count}]}` (each alert item, where listed, `{side, levelId, levelLabel, open}` as `byType`'s), `outbox {pending, stuckOver5Min}`, `tick {present, overdue, sessionFailures24h}`. A spot type's `side` is
+    `"left"`, `"right"` or null (either); `levelId` is the `coach_levels` id and `levelLabel` its
+    name, both null for a type of any level.
 11. **A new-engine coach's view.** For a coach on `new`, rule 6's answer adds `engineVersion` and the
     coach's `EngineSettings` as the store builds them (`notifications.config` rule 19; a `SettingsError`
     is answered as its message, never raised), and lists the coach's new-engine sessions that have not
     started: start, capacity, open spots by type, counting and open-not-counting invitations, the
     approval state and any alert. On the wire: `engineVersion`, `engineSettings` (or `{error}`),
-    `upcomingSessions: [{lessonInstanceId, start, openSpots, counting, openNotCounting}]`. Students are counted, never named. For a coach on `old`, rule 6 holds
+    `upcomingSessions: [{lessonInstanceId, start, openSpots, counting, openNotCounting}]`, its
+    `openSpots` in `byType`'s shape. Students are counted, never named. For a coach on `old`, rule 6 holds
     as written.
 12. **A failing session is recorded.** When the engine's tick fails on one session it goes on with the
     rest (`notifications.invitations` rule 21's new reading) and records one `delivery_incidents` row,
