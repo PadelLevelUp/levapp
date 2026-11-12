@@ -13,10 +13,9 @@ class switches (not listed), ``maxInvitesPerStudentPerDay`` (``postponed``), ``n
 ``excludedPlayers``, ``excludeUnpaidSubscription`` and ``eligibilityRules`` (``pool``).
 
 ``cancellationDeadlineHours`` is the engine's ``absence_cutoff_before`` (swap decision 4, CONFIG-56);
-``invitationGroups`` are the tiers after the two waiting lists, one per group (D5, CONFIG-57). Not
-mapped here yet: ``invitationMode`` (D2, CONFIG-58) waits for the engine's hold (PAD-915);
-``maxTotal`` (D3) has no counterpart. Those keys take the engine's defaults, as do the keys only the
-new engine has.
+``invitationGroups`` are the tiers after the two waiting lists, one per group (D5, CONFIG-57); and
+``invitationMode`` is carried for the engine's hold (D2, CONFIG-58). ``maxTotal`` (D3) has no
+counterpart. The keys only the new engine has take its defaults.
 """
 from __future__ import annotations
 
@@ -103,4 +102,5 @@ def settings_from_config(config: NotificationConfig) -> EngineSettings:
         tiers=(Tier("coach_list"), Tier("students_list"), *(_tier(g) for g in config.get_invitation_groups())),
         ordering=_ordering(config),
         direct_join=bool(config.auto_accept_join_requests),
+        invitation_mode=config.get_invitation_mode(),                                  # D2 (CONFIG-58)
     )

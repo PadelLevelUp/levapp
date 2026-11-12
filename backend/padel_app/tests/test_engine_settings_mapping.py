@@ -245,3 +245,11 @@ def test_every_stored_group_maps_an_unknown_rule_included():
         Tier("pool", "any", None, (GroupRule("level", "within_two_of_vacancy"),
                                    GroupRule("side", "opposite_of_vacancy"))),
     )
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-58")
+def test_invitation_mode_is_carried():
+    """Swap decision 2: semi-automatic is kept; the engine's hold reads the coach's stored mode."""
+    assert _settings(_config(invitation_mode="semi_automatic")).invitation_mode == "semi_automatic"
+    assert _settings(_config(invitation_mode="automatic")).invitation_mode == "automatic"
+    assert _settings(_config()).invitation_mode == "automatic"
