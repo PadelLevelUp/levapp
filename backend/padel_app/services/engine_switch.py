@@ -209,4 +209,6 @@ def switch_coach(coach_id: int, *, now: datetime | None = None) -> list[str]:
     db.session.commit()
     existing = [inst for inst in _future_occurrences(coach_id, now)
                 if inst.created_at is None or inst.created_at < now]
-    return _adopt_each([inst for inst in existing if _due_at_switch(inst, config)], coach_id, now)
+    adopted = _adopt_each([inst for inst in existing if _due_at_switch(inst, config)], coach_id, now)
+    # One created at the switch instant itself counts as created after it (CONFIG-63): adopt it now.
+    return adopted + adopt_due(now=now, coach_ids=[coach_id])
