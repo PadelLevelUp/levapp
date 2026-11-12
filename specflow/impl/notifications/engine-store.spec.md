@@ -36,7 +36,11 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    that fails every level rule, for a class it applies none (`notifications.engine-tiers` rule 13). A student's `subscription_status` is their
    account's `User.status`. Each session's end is its start plus its lesson's duration, and the
    sessions a student is going to of the same coach are handed with their intervals, for
-   `notifications.engine-tiers` rule 3's overlap.
+   `notifications.engine-tiers` rule 3's overlap. A presence is **going** unless the student left: a
+   regular's No, a cancellation, or the coach marking them absent **before the class starts** (which
+   reaches the engine as the regular's absence, freeing the spot as today, `attendance.confirm` rule
+   13). A no-show, or the coach's absent mark once the class has started, records attendance only: the
+   student stays placed.
 5. **The store keeps each session's approval state as the engine's effects leave it** (semi-automatic
    mode, `notifications.engine-planning` rule 14, per group), in the session's row (`engine_sessions`:
    approved groups, removed students, pending requests by group, dismissed groups): `ApprovalRequest`
@@ -128,6 +132,12 @@ Given a 90-minute lesson's occurrence at 18:00 and a student going to it, when t
 snapshot of the same coach's 19:00 session, then the student is busy at that time, the other session
 running to 19:30.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_snapshot_carries_each_sessions_end`
+
+#### NOTIFICATIONS-ENGINE-STORE-10: A no-show stays placed; a coach's absent mark before the class frees the spot (rule 4)
+Given a full session, when a regular is a no-show and another is marked absent by the coach after the
+start, then both are still going in the snapshot and the roster stays full; when a third is marked absent
+by the coach before the start, then they are not going and their spot is open.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_no_show_stays_placed`
 
 ### Waves
 1. (PAD-916) STORE-1 to STORE-5, STORE-7, STORE-8 — `padel_app/services/engine_store.py` (content keys, the outbox,
