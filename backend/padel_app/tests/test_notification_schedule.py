@@ -543,6 +543,12 @@ class TestProcessInvitationBatches:
             # test_pad540_never_filled_spots_start.py.
             "padel_app.services.notification_service._open_never_filled_places",
             return_value=0,
+        ), patch(
+            # PAD-921 (notifications.config rule 18, CONFIG-81): the tick leaves out new-engine
+            # sessions, one real query over the vacancies' occurrences. None is new-engine here;
+            # DB-backed coverage in test_pad921_cutover.py.
+            "padel_app.services.engine_switch.new_engine_ids",
+            return_value=set(),
         ):
             yield
 

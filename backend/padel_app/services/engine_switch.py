@@ -189,8 +189,54 @@ def _adopt_each(instances, coach_id: int, now: datetime) -> list[str]:
     return adopted
 
 
+#: How far ahead a switched coach's occurrences are materialised when invitations open at creation
+#: (``first_invite`` none): the scheduler's own window (``schedule_lesson_reminder_jobs``).
+MATERIALISE_HORIZON_DAYS = 60
+
+
+def _materialise_due(config, now: datetime) -> int:
+    """Rule 18 (CONFIG-80): materialise the switched coach's recurring occurrences that are due, each by
+    the earlier of its ``first_invite_at`` and its ``attendance_request_at`` (with ``first_invite`` none,
+    within the scheduling window), where the old engine's lesson-level jobs used to. The creation path
+    adopts each as it is created (``on_occurrence_created``). Returns how many were created."""
+    from datetime import timedelta
+
+    from padel_app.invitation_engine import timeline
+    from padel_app.invitation_engine.snapshot import SessionSnapshot
+    from padel_app.models import Lesson
+    from padel_app.models.Association_CoachLesson import Association_CoachLesson
+    from padel_app.models.lesson_instances import LessonInstance
+    from padel_app.scheduler import _lesson_primary_coach_id
+    from padel_app.services.engine_settings_mapping import settings_from_config
+    from padel_app.services.lesson_service import get_or_materialize_instance
+
+    settings = settings_from_config(config)
+    wall_now = utc_to_wall_naive(now)
+    lessons = (Lesson.query.join(Association_CoachLesson, Lesson.id == Association_CoachLesson.lesson_id)
+               .filter(Association_CoachLesson.coach_id == config.coach_id, Lesson.status == "active").all())
+    created = 0
+    for lesson in lessons:
+        if _lesson_primary_coach_id(lesson.id) != config.coach_id:
+            continue
+        existing = {inst.original_lesson_occurence_date or (inst.start_datetime.date() if inst.start_datetime else None)
+                    for inst in LessonInstance.query.filter_by(lesson_id=lesson.id).all()}
+        for occ in lesson.occurrences_between(wall_now, wall_now + timedelta(days=MATERIALISE_HORIZON_DAYS)):
+            start = occ.replace(tzinfo=None) if occ.tzinfo else occ
+            if start <= wall_now or start.date() in existing:
+                continue
+            probe = SessionSnapshot(id="", level=None, capacity=0, start=start, regulars=(), going=())
+            first = timeline.first_invite_at(probe, settings)
+            ask = timeline.attendance_request_at(probe, settings)
+            due = None if first is None else min(t for t in (first, ask) if t is not None)
+            if due is None or due <= now:
+                get_or_materialize_instance(lesson, start.date())
+                created += 1
+    return created
+
+
 def adopt_due(*, now: datetime | None = None, coach_ids=None) -> list[str]:
-    """Adopt every switched coach's occurrence created since the switch that has no row yet (a failed or
+    """For every switched coach: materialise the recurring occurrences now due (``_materialise_due``,
+    CONFIG-80), then adopt every occurrence created since the switch that has no row yet (a failed or
     missing creation hook). Occurrences that existed at the switch are never re-evaluated. Returns the
     adopted session ids. Idempotent."""
     from padel_app.models.notification_config import NotificationConfig
@@ -202,6 +248,11 @@ def adopt_due(*, now: datetime | None = None, coach_ids=None) -> list[str]:
         query = query.filter(NotificationConfig.coach_id.in_(list(coach_ids) or [-1]))
     adopted = []
     for config in query.order_by(NotificationConfig.coach_id).all():
+        try:
+            _materialise_due(config, now)
+        except Exception:
+            db.session.rollback()
+            log.exception("engine_switch: materialising coach %s's occurrences failed", config.coach_id)
         due = _future_occurrences(config.coach_id, now, created_since=config.engine_switched_at)
         adopted += _adopt_each(due, config.coach_id, now)
     return adopted
