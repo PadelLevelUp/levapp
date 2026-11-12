@@ -90,9 +90,14 @@ the coach's list).
     student the snapshot names per open spot type, each type's queue (its candidates by tier, then by
     rule 8), and whether the run may plan now (false outside the window or in quiet hours, when the
     effects are empty and the verdicts still explain). A verdict's stage is the first failure in this
-    spec's order, with no tier: `in_session`, `said_no`, `not_in_pool`, `busy_same_time`, `postponed`,
-    `failed_eligibility`, `failed_tier_rule` (a coach's-list member skips the pool gates, rule 4, so it
-    fails only as `in_session`, `said_no` or `failed_tier_rule`); `invited_before` (their invitation
+    spec's order, with no tier: `in_session`, `said_no`, `removed_by_coach` (the coach removed them
+    from a semi-automatic request for this session, `notifications.engine-planning` rule 14; the
+    snapshot carries the session's removed students), `not_in_pool`, `busy_same_time`, `postponed`,
+    `failed_eligibility` (only where the engine's own bar is not wide open, as in the scenario harness;
+    for an app session the bar is in `pool`, `notifications.config` CONFIG-60, so a student below it is
+    `not_in_pool` and the caller explains why), `failed_tier_rule` (a coach's-list member skips the pool
+    gates except the student's own blocks, rule 4, so it fails only as `in_session`, `said_no`,
+    `removed_by_coach`, `not_in_pool` for a block, or `failed_tier_rule`); `invited_before` (their invitation
     for this session closed without a No, after an accept then a cancellation or by a same-hour
     placement: D1 allows no second one, so the run never reaches them); or, with its tier, `invited`
     (this run sends or re-offers it with an offer that covers the type by side; an either type is
@@ -216,10 +221,10 @@ test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_each_o
 
 #### NOTIFICATIONS-ENGINE-TIERS-13: The dry run gives each student a verdict per spot type and plans what plan would (rule 12)
 Given a snapshot with students failing each gate, a coach's-list member, an either spot, and invited,
-invited-for-another-type, invited-before, earlier-invited and unreached candidates, when it is
-evaluated, then each student has one verdict per open spot type with the first failing stage in rule
-12's order or its tier, an either spot's invitee is `invited`, the queues leave out
-`invited_before` and `invited_for_other_type`, the effects equal `plan`'s with nothing
+invited-for-another-type, invited-before, removed-by-the-coach, earlier-invited and unreached
+candidates, when it is evaluated, then each student has one verdict per open spot type with the first
+failing stage in rule 12's order or its tier, an either spot's invitee is `invited`, the queues leave
+out `invited_before`, `invited_for_other_type` and `removed_by_coach`, the effects equal `plan`'s with nothing
 applied, and outside the window or in quiet hours the effects are empty while the verdicts stand.
 test: `backend/padel_app/tests/test_invitation_engine_tiers.py` › `test_dry_run_gives_each_student_a_verdict_per_spot_type`
 
