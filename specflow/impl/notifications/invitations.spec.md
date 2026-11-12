@@ -95,9 +95,11 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
     (`waiting_list_offer`'s text) with today's waiting-list join (`notifications.waiting-list` rules 1,
     1a), answered on today's respond-waiting-list route keyed by `lessonInstanceId`: for a new-engine
     session a yes puts the student on that session's students' list through the store, and the route
-    answers `added_to_waiting_list`, `declined` or `expired`, with `alreadyWaiting: true` when the
-    student is already on the session's other list (`notifications.engine-answers` rule 12's
-    `already_on_list`).
+    answers `{action}`: `added_to_waiting_list`, `declined`, `expired` or `unknown` (no such message),
+    with `alreadyWaiting: true` when the student is already on the session's other list
+    (`notifications.engine-answers` rule 12's `already_on_list`); already on the students' list, it
+    answers `added_to_waiting_list` and adds nothing. The entry's sides: with the coach's side choice
+    on, `own`; off, none (every type, `notifications.engine-tiers` rule 6).
   - `reopened`: no buttons; "O convite foi reaberto mais abaixo." / "This invitation was reopened
     below." (proposed). Only for a student who joined the waiting list after a sorry: the reopening is a
     new `waiting_list_invite` bubble for the same `invitationId`, with Yes and
@@ -119,7 +121,9 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   action: "yes"|"no"}` (a body with `notificationEventId` is the old engine's); the answer is `{action:
   "confirmed"|"declined"|"sorry"|"closed_same_hour"|"class_started", invitationId}`, with
   `duplicate: true` on a repeated answer, 404 for an unknown id and 403 when the invitation is not the
-  caller's. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
+  caller's. On the client, a `message_edited` for the invitation's message received after the answer was
+  sent wins over the answer's response: the bubble shows the newest state it heard of, never an older
+  one. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
   (`DELETE /api/app/notify/invitations/<invitationId>?engine=new`); the same 404 and 403 apply.
 - **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
   `invite-respond-no-<invitationId>` and `invite-state-<invitationId>-<state>` (`started` once the class

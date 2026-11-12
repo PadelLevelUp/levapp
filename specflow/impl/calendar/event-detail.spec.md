@@ -606,6 +606,12 @@ test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.newEngine.test
 - **Then** the same labels, notes and test ids show, and the "N pendentes" line shows as on web
 test: `frontend/apps/mobile/src/features/calendar/class-detail-new-engine.test.tsx` › `labels the new engine's outcomes and shows the pending count`
 
+#### CALENDAR-EVENT-DETAIL-37: An old-engine invitee carries no tierSource key (new-engine section ND3)
+- **Given** an old-engine class with one invitee, and a new-engine class with a manual invitation
+- **When** the coach reads each class
+- **Then** the old-engine invitee has no `tierSource` key at all, and the manual one has `tierSource` null; the shared helper shows "convite manual" only for the second
+test: `backend/padel_app/tests/test_pad920_engine_invitee_outcomes.py` › `test_an_old_engine_invitee_carries_no_tier_source`
+
 ### Open questions
 - "N pending" on a new-engine session — decision (S, owner away, PAD-913; the owner can reverse it): it counts counting invitations only, because an invitation that no longer counts holds no spot; the row still shows it as "not counting".
 - The new-engine invitee labels (ND1, the rows marked proposed) — proposed by S (PAD-913, 2026-11-12),
