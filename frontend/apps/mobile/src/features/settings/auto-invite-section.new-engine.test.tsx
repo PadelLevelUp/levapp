@@ -90,6 +90,15 @@ beforeEach(() => {
 });
 
 describe("iOS Settings → Auto-Invite Engine on the new engine (notifications.config rule 20)", () => {
+  it("[NOTIFICATIONS-CONFIG-72] a tiers edit under the fixed method sends only the groups", async () => {
+    // No `engine` stored yet: editing a group must not send the engine's defaults with it.
+    const n = await mount(NEW);
+    await n.press("settings-tiers-header");
+    await n.press("tier-side-2-different_from_vacancy");
+    await save(n);
+    expect(Object.keys(api.updateNotificationConfig.mock.calls[0][0])).toEqual(["invitationGroups"]);
+  });
+
   it("[NOTIFICATIONS-CONFIG-72] shows the new engine's controls and the tiers editor to a coach on new only", async () => {
     // A coach on `old` sees today's screen: none of the new controls, no tiers editor.
     const old = await mount(OLD);

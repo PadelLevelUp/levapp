@@ -340,7 +340,10 @@ export function AutoInviteSection() {
                 engine={engine}
                 pair={pair}
                 disabled={engineOff}
-                onChange={(next) => save({ invitationGroups: next.groups, engine: next.engine })}
+                // A groups-only edit leaves `engine` as it is (the same object), so it is not sent.
+                onChange={(next) =>
+                  save(next.engine === engine ? { invitationGroups: next.groups } : { invitationGroups: next.groups, engine: next.engine })
+                }
               />
             ) : null}
           </View>
