@@ -519,6 +519,10 @@ def arm_ask_for_student(instance, player_id, *, now=None) -> bool:
     """
     if _scheduler is None or _ASKS_SUPPRESSED.get():
         return False
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        return False            # PAD-918 (CONFIG-78): the engine asks a new-engine session's students
     from apscheduler.triggers.date import DateTrigger
     from padel_app.services.notification_service import next_ask_time
 
