@@ -54,7 +54,7 @@ The new-engine answer (swap step 7, PAD-919):
   whether the session is dismissed; `emptyQueueReasons` becomes the dry run's stage counts per type.
   On the wire (`GET /api/app/notify/approval/instance/<id>`): `{engine: "new", state:
   "pending"|"dismissed"|"none", semiAutomatic, approved: [playerId], removed: [playerId], request?:
-  {requestId, lessonInstanceId, spotTypes: [{side, levelId, levelLabel, queue, emptyQueueReasons?: [{stage,
+  {requestId, lessonInstanceId, spotTypes: [{side, levelId, levelLabel, count, queue, emptyQueueReasons?: [{stage,
   count}]}]}}`.
 - **N2. The coach's answer.** "Sim" answers `ApproveQueue(session, request, removed)` and "Ignorar"
   `DismissQueue(session)`; "Yes, at the window" is refused for a new-engine session (no request is
@@ -68,11 +68,15 @@ The new-engine answer (swap step 7, PAD-919):
   the class view computes its list when shown (rule 12b).
 - **N4. The request reaches the coach (rule 6).** The outbox's sender for an `ApprovalRequest` posts one
   `replacement_approval` message in the coach's Assistant conversation, its metadata `{engine: "new",
-  requestId, lessonInstanceId, responded: false, spotTypes: [{side, levelId, levelLabel, queue}]}`, its
+  requestId, lessonInstanceId, state: "pending", responded: false, spotTypes: [{side, levelId, levelLabel,
+  count, queue}]}` (`count` the type's open spots), its
   text in the coach's locale (message-templates rule 6): "Pedido de convites para {class}, {weekday} às
   {time}: {n} aluno(s) na fila. Enviar os convites?" / "Invitation request for {class}, {weekday} at
   {time}: {n} student(s) in the queue. Send the invitations?" (proposed), then pushes it to
-  the coach, once (`notifications.engine-store` rule 2).
+  the coach, once (`notifications.engine-store` rule 2). When the request stops being pending, the
+  store edits that message's metadata, `state` `approved`, `dismissed` or `replaced` (replaced or
+  withdrawn) and `responded: true` (what older builds read), with one live `message_edited`, as it does
+  for invitation messages (`notifications.engine-store` rule 8).
 
 - **N5. The card, web and iOS** (web `ReplacementApprovalCard`, iOS `replacement-approval-card`, one shared
   display helper in `@levelup/config` as rule 7a's): for a new-engine request, one block per spot type
@@ -82,7 +86,7 @@ The new-engine answer (swap step 7, PAD-919):
   retirados)" / "Yes (N removed)" (proposed). The buttons: "Sim" (`approval-yes`, sends `yes_now` with the
   removed ids) and "Ignorar" (`approval-dismiss`) on the class's card; the conversation's card offers
   "Sim" only (rule 8, PAD-545). No "at the window" button for a new-engine request. A `stale` answer, or
-  a message whose request is no longer pending, shows "Este pedido foi substituído por um mais recente."
+  a message whose `state` is `replaced`, shows "Este pedido foi substituído por um mais recente."
   / "This request was replaced by a newer one." (proposed) and no buttons; `dismissed` shows "Ignorado" /
   "Ignored". An empty type shows its `emptyQueueReasons` with N6's words.
 
@@ -454,6 +458,12 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.ne
 - **Given** the same requests on iOS
 - **Then** the same blocks, removals, buttons, test ids and stale line show, and the same requests are sent
 test: `frontend/apps/mobile/src/features/notifications/replacement-approval-card-new-engine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
+
+#### NOTIFICATIONS-SEMI-AUTO-APPROVAL-43: A request's message follows it when it stops being pending (new-engine section N4)
+- **Given** three posted request messages
+- **When** the first's request is replaced by a newer one, the second is approved and the third dismissed
+- **Then** their metadata reads `state` `replaced`, `approved` and `dismissed`, each with `responded` true and its spot types' `count`, and each change published once as `message_edited`
+test: `backend/padel_app/tests/test_pad919_engine_simulation.py` › `test_a_request_message_follows_it_when_it_stops_being_pending`
 
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
