@@ -41,6 +41,10 @@ messages (PAD-916; swap plan §5). The engine decides; the store makes each deci
    `QueueApproved` replaces the approved queue, adds to the removed students and ends the request;
    `QueueDismissed` ends the request and keeps the spot counts it saw; `QueueReopened` ends the
    dismissal; `ApprovalWithdrawn` ends the request. Each `ApprovalRequest` is sent once (rule 2).
+6. **Who has confirmed.** The snapshot's confirmed students are those whose attendance request was
+   answered yes (`ReminderAttempt`) and those whose presence answer is `confirmed`, whoever recorded it
+   (`notifications.reminders` rule 22: a class created after its reminder time counts its students as
+   coming).
 
 ### Not this spec
 - Which sessions the store lists and how it builds the settings (`notifications.config` rules 18, 19).
@@ -79,8 +83,14 @@ both students after the second approval; the dismissal keeps the spot counts it 
 sends each request once.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_the_coachs_approval_round_trips_through_the_store`
 
+#### NOTIFICATIONS-ENGINE-STORE-5: A student the system recorded as coming counts as confirmed (rule 6)
+Given a new-engine class created after its reminder time, its students recorded as coming by the system,
+when the store builds the snapshot and the attendance request falls due, then they are confirmed and
+nobody is asked.
+test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_student_the_system_recorded_as_coming_counts_as_confirmed`
+
 ### Waves
-1. (PAD-916) STORE-1 to STORE-4 — `padel_app/services/engine_store.py` (content keys, the outbox,
+1. (PAD-916) STORE-1 to STORE-5 — `padel_app/services/engine_store.py` (content keys, the outbox,
    `dispatch`); `ApprovalRequest` joins the outbox with `notifications.engine-planning` wave 6.
 
 ### Open questions

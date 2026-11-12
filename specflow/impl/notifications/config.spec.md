@@ -390,7 +390,11 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
     (a coach's "invite now" before the window, an approved semi-automatic spot); a session already
     inviting at the switch finishes on the old engine until it starts (it drains). The switch is one
     way: nothing moves a coach back to `old`, and a session never changes engine after it is
-    assigned. Every entry point that reaches an engine reads this
+    assigned. A session is assigned once, when its occurrence first exists (materialised, by the app's
+    path that creates it, which writes the new engine's session row for a new-engine session): an
+    occurrence that did not exist at the switch is on the new engine whatever its window, so a coach
+    whose window opens at creation (`first_invite` none) drains only the occurrences that already
+    existed. Every entry point that reaches an engine reads this
     rule: the new engine's `sessions()` lists only new-engine sessions, and the old tick only
     old-engine ones. Where another spec says "a coach on the new engine" or "a coach on the old
     engine", it means a session this rule assigns to that engine. Once a coach has no old-engine
@@ -406,7 +410,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       default;
     - `restrictions.quietHours` → `quiet_hours`; off maps to none, never the engine's default;
     - `reminderTiming.invitationStart` → `first_invite` and the reminder timing → `attendance_request`,
-      shape for shape (`notifications.engine-settings` rule 10);
+      shape for shape (`notifications.engine-settings` rule 10), with `reminder_count` →
+      `attendance_request.max` and `hours_between_reminders` → `attendance_request.every`;
     - `priorityCriteria` and `tiebreakers` → `ordering` (`notifications.engine-tiers` rule 8);
     - `autoAcceptJoinRequests` → `direct_join` (`notifications.engine-settings` rule 5);
     - `eligibilityRules` → none: the store applies them when it builds `pool`, and the engine's bar is
@@ -834,6 +839,18 @@ Given a coach on `old` with a session whose window has not opened but for which 
 "invite now", when the coach is switched to `new`, then that session drains on the old engine and the
 new engine's `sessions()` never lists it.
 test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_session_the_old_engine_already_started_stays_on_the_old_engine`
+
+#### NOTIFICATIONS-CONFIG-62: The reminder count and interval are the attendance request's max and every (rule 19)
+Given a coach with `reminder_count` 2 and `hours_between_reminders` 6, when the store builds the coach's
+`EngineSettings`, then `attendance_request.max` is 2 and `attendance_request.every` is 6 hours.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_reminder_count_and_interval_map_to_the_attendance_request`
+
+#### NOTIFICATIONS-CONFIG-63: An occurrence that first exists after the switch runs on the new engine (rule 18)
+Given a coach whose invitation window opens at creation, with one materialised occurrence, when the
+coach is switched to `new` and a later occurrence of the same class is materialised, then the first
+drains on the old engine and the later one is on the new engine, with its session row written when it
+was materialised.
+test: `backend/padel_app/tests/test_engine_switch.py` › `test_an_occurrence_that_first_exists_after_the_switch_runs_on_the_new_engine`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'

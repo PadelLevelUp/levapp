@@ -160,7 +160,9 @@ three separate fields on it. Decision record:
 14. **On a new-engine session, enrolment writes only the presence (PAD-916; swap decision 1).** When the
     new engine's store places a student (`enrol(..., new_engine=True)`, a session on the new engine by
     `notifications.config` rule 18), `enrol()` writes the presence row and, for a return (rule 10),
-    clears the absence as rule 10 says, and does nothing else: no vacancy is closed or reconciled
+    clears the absence and voids the earlier attendance records as rule 10 says (the returning student
+    is asked again), and records a student counted as coming as rule 22 of `notifications.reminders`
+    says; it does nothing else: no vacancy is closed or reconciled
     (swap decision 1 drops vacancies), no reminder pass is armed (rule 18 of
     `notifications.reminders`; the engine's attendance requests replace it,
     `notifications.engine-timeline` rule 2) and no `added_to_class` message is sent (rule 11; the
@@ -353,7 +355,7 @@ test: `backend/padel_app/tests/test_pad259_enrolment.py` › `test_enrol_survive
 #### CLASSES-INSTANCE-ENROLLMENT-28: A new-engine enrolment writes only the presence (rule 14)
 - **Given** a class on the new engine with an open old-engine vacancy row for it and a coach with reminders on
 - **When** the store enrols a student with `new_engine=True`, and puts back a student who had cancelled the same way
-- **Then** each has a presence (the returning one with the absence cleared), no vacancy is closed or reconciled, no reminder pass is armed and no `added_to_class` message is sent
+- **Then** each has a presence (the returning one with the absence cleared and its earlier attendance records voided), no vacancy is closed or reconciled, no reminder pass is armed and no `added_to_class` message is sent
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_new_engine_enrolment_writes_only_the_presence`
 
 ### Notes
