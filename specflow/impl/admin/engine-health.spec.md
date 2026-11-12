@@ -179,7 +179,9 @@ Readings:
       older than 5 minutes (stuck).
     - `tick`: whether the `engine_tick` job exists, whether it is overdue (rule 2's 5 minutes), and the
       session failures of the last 24 hours (rule 12).
-    Counts only: no student is named. The block is absent while no coach is on `new`. On the wire (R,
+    Counts only: no student is named. The block is absent while no coach is on `new`. Its labels
+    (`admin.engineHealth.engine.*`, the admin app's own locale files) are staff console words, not owner
+    copy, like the rest of this page. On the wire (R,
     PAD-918): `coaches {old, new}`, `sessions {upcoming, next7Days}`, `openSpots {byType: [{side, levelId,
     levelLabel, open}], uncovered}`, `invitations {counting, openNotCounting, byTier: [{tier, counting,
     openNotCounting}], sentLast24h}`, `approvals {pending, dismissed}`, `alerts {byReason: [{reason,

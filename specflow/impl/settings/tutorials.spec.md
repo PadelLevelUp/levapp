@@ -48,8 +48,9 @@ The new-engine tutorial (swap step 8, PAD-920), on web and iOS alike:
   line and, for `not_in_pool`, one line per reason.
 - **NT3. When the run may not plan**, a banner above the blocks says why (N4: outside the window, quiet
   hours, past the last invitation, the class over).
-- **NT4. Test ids, one set on both shells:** `tutorial-type-<side or either>`,
-  `tutorial-row-<playerId>-<side or either>`, `tutorial-left-out`, `tutorial-cannot-plan`.
+- **NT4. Test ids, one set on both shells:** `tutorial-type-<side or either>-<levelId or any>`,
+  `tutorial-row-<playerId>-<side or either>-<levelId or any>`, `tutorial-left-out`,
+  `tutorial-cannot-plan` (the level keeps two open types of one side apart).
 
 ### Rules
 1. `tutorials` is added to the **single section registry** of each app — web `SettingsPage.tsx`
@@ -234,7 +235,7 @@ test: `frontend/packages/config/src/invite-simulation.test.ts` › `names a know
 
 #### SETTINGS-TUTORIALS-14: The web tutorial shows one block per spot type, grouped by tier, with who is left out (new-engine section NT1–NT4)
 - **Given** a simulation answer with a left and an either type, candidates in three tiers, two students left out (one `not_in_pool` with two reasons) and `may_plan` true
-- **Then** web shows `tutorial-type-left` and `tutorial-type-either`, each with its rows under their tier names and N6's stage lines, `tutorial-left-out` collapsed holding the two students (three reason lines in all), and no `tutorial-cannot-plan`; with `may_plan` false in quiet hours, the banner says so
+- **Then** web shows `tutorial-type-left-3` (a type at level 3) and `tutorial-type-either-any` (an either type of any level), each with its rows under their tier names and N6's stage lines, `tutorial-left-out` collapsed holding the two students (three reason lines in all), and no `tutorial-cannot-plan`; with `may_plan` false in quiet hours, the banner says so
 test: `frontend/apps/web/src/components/settings/tutorials/UnderstandInvitesTutorial.newEngine.test.tsx` › `shows a block per spot type grouped by tier and who is left out`
 
 #### SETTINGS-TUTORIALS-15: The iOS tutorial shows the same blocks, rows and test ids (new-engine section NT1–NT4)

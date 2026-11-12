@@ -93,7 +93,13 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   - `sorry`: no buttons; "Disseste que sim, mas a vaga já tinha sido ocupada." / "You said yes, but the
     spot had already been taken." (proposed). The engine's sorry arrives as its own message
     (`waiting_list_offer`'s text) with today's waiting-list join (`notifications.waiting-list` rules 1,
-    1a).
+    1a), answered on today's respond-waiting-list route keyed by `lessonInstanceId`: for a new-engine
+    session a yes puts the student on that session's students' list through the store, and the route
+    answers `{action}`: `added_to_waiting_list`, `declined`, `expired` or `unknown` (no such message),
+    with `alreadyWaiting: true` when the student is already on the session's other list
+    (`notifications.engine-answers` rule 12's `already_on_list`); already on the students' list, it
+    answers `added_to_waiting_list` and adds nothing. The entry's sides: with the coach's side choice
+    on, `own`; off, none (every type, `notifications.engine-tiers` rule 6).
   - `reoffered`: no buttons; "O convite foi reaberto mais abaixo." / "This invitation was reopened
     below." (proposed). The `reoffer` message is a new bubble for the same `invitationId`, with Yes and
     No.
@@ -114,7 +120,9 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
   action: "yes"|"no"}` (a body with `notificationEventId` is the old engine's); the answer is `{action:
   "confirmed"|"declined"|"sorry"|"reoffered"|"closed_same_hour"|"class_started", invitationId}`, with
   `duplicate: true` on a repeated answer, 404 for an unknown id and 403 when the invitation is not the
-  caller's. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
+  caller's. On the client, a `message_edited` for the invitation's message received after the answer was
+  sent wins over the answer's response: the bubble shows the newest state it heard of, never an older
+  one. The coach withdraws a new-engine invitation through rule 19's route with the invitation's id
   (`DELETE /api/app/notify/invitations/<invitationId>?engine=new`); the same 404 and 403 apply.
 - **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
   `invite-respond-no-<invitationId>` and `invite-state-<invitationId>-<state>` (`started` once the class
@@ -1698,6 +1706,23 @@ test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_answ
 - **When** the student answers yes into a full session
 - **Then** `invite-state-<id>-sorry` shows on the student's bubble with no `invite-respond-yes-<id>`, and the coach's copy shows the same state
 test: `frontend/apps/web/e2e/notification-engine/new-engine-bubble.spec.ts` › `a yes into a full session shows sorry on both copies`
+
+#### NOTIFICATIONS-INVITATIONS-121: A yes to the sorry's waiting-list offer joins the session's students' list (new-engine section NB2)
+- **Given** a student's sorry message for a new-engine session, and another student's for a session whose coach's list already holds them
+- **When** each answers yes on the respond-waiting-list route
+- **Then** the first is on the session's students' list and the route answers `added_to_waiting_list`; the second answers with `alreadyWaiting: true` and no second entry
+test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_a_yes_to_the_sorrys_offer_joins_the_students_list`
+
+#### NOTIFICATIONS-INVITATIONS-122: The web bubble answers by invitation id and keeps the newest state (new-engine section NB5)
+- **Given** a new-engine bubble on web
+- **When** the student presses Yes, the route answers `sorry`, and a `message_edited` with a newer state arrived while the answer was in flight
+- **Then** the request carried `invitationId`, the bubble shows the newer live state, never overwritten by the older answer
+test: `frontend/apps/web/src/components/messages/MessageBubble.newEngine.test.tsx` › `answers by invitation id and keeps the newest state`
+
+#### NOTIFICATIONS-INVITATIONS-123: The iOS bubble answers by invitation id and keeps the newest state (new-engine section NB5)
+- **Given** the same on iOS
+- **Then** the same request and the same outcome
+test: `frontend/apps/mobile/src/features/messages/engine-message.test.ts` › `answers by invitation id and keeps the newest state`
 
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a

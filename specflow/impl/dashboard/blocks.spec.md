@@ -36,7 +36,7 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   alert (`notifications.engine-planning` rule 11) in the current week's window (as `empty_seats`), soonest
   first. It carries `lessonInstanceId`, the class's title, ISO date and start time, `reason`
   (`no_candidate`, the engine's `ALERT_NO_CANDIDATE` in `notifications/constants.md`), `side` (`left`, `right` or null for either), `level` and `count`, and
-  `href` to the class detail. It is listed while the store holds the alert, which it drops when a run
+  `href` to the class detail (`class_href(event)`, the `empty_seats` item's shape). It is listed while the store holds the alert, which it drops when a run
   finds the type covered, gone or with a candidate (`notifications.engine-planning` rule 11,
   `AlertCleared`). That class's `empty_seats` item is not shown too: the alert says more.
 - **NA2. The card**, web `NeedsYouQueue` and iOS `blocks.tsx`, both from one shared copy helper:
@@ -48,9 +48,11 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
 - **NA3. The alert also reaches the coach as a message.** The store's outbox posts the
   `coach_no_candidate` template (`notifications.message-templates` new-engine section) in the coach's
   Assistant conversation as `message_type` `engine_alert` with `msg_metadata` `{engine: "new",
-  lessonInstanceId, reason, side, levelId, levelLabel, count}` (`notifications.invite-simulation` N2's
-  spot-type shape), and pushes it, once per alert (`notifications.engine-store` rule 2). Both shells show
-  it as a text bubble with a link to the class.
+  lessonInstanceId, reason, side, levelId, levelLabel, count, href, date}` (`notifications.invite-simulation`
+  N2's spot-type shape; `href` the class's `class_href(event)`, `date` the class's club-local
+  `YYYY-MM-DD`), and pushes it, once per alert (`notifications.engine-store` rule 2). Both shells show
+  it as a text bubble with a link to the class, which reads "Abrir aula" / "Open class" (proposed; its
+  own key `messages.engineAlert.openClass`, not a fallback title).
 - **NA4. No rename.** The wire names `vacancy_invite` and `empty_seats` stay: renaming them breaks older
   builds for no reader's gain, and their copy already says "convite" and "vagas".
 
@@ -764,8 +766,18 @@ test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-alert.test.tsx`
 #### DASHBOARD-BLOCKS-51: The alert reaches the coach once as a message (new-engine section NA3)
 - **Given** a `CoachAlert` in the outbox
 - **When** the outbox sends it twice
-- **Then** the coach's Assistant conversation has one `coach_no_candidate` message and the coach one push
+- **Then** the coach's Assistant conversation has one `coach_no_candidate` message, its metadata carrying the class's `href` and club-local `date`, and the coach one push
 test: `backend/padel_app/tests/test_pad920_dashboard_engine_alert.py` › `test_the_alert_reaches_the_coach_once_as_a_message`
+
+#### DASHBOARD-BLOCKS-52: The alert message links to its class on web (new-engine section NA3)
+- **Given** an `engine_alert` message in the coach's Assistant conversation on web, with `href`, and an older one with only `lessonInstanceId`
+- **Then** both show a link reading `messages.engineAlert.openClass` ("Abrir aula") that opens the class, from `href` or else from `lessonInstanceId`
+test: `frontend/apps/web/src/components/messages/MessageBubble.engineAlert.test.tsx` › `links the alert message to its class`
+
+#### DASHBOARD-BLOCKS-53: The alert message links to its class on iOS (new-engine section NA3)
+- **Given** the same messages on iOS
+- **Then** both link to the native class screen the same way, with the `messages.engineAlert.openClass` text and accessibility label
+test: `frontend/apps/mobile/src/features/messages/engine-alert-message.test.tsx` › `links the alert message to its class`
 
 ### Open questions
 - The coach alert's channel and the card rename (swap plan §6.3 items 2, 7) — decision (S, owner away,

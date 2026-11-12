@@ -464,19 +464,22 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       `betweenGroupsMinutes` → the pair, each null falling back to `maxInactiveTime` as rule 19 says;
       `perTier` → one entry per tier in tier order (0 the coach's list, 1 the students' list, then the
       invitation groups in order), each a pair or null (that tier uses the pair), only with `per_tier`;
+      a null side of a tier's pair falls back to the coach's pair, then to `maxInactiveTime`;
       the two booleans → `notifications.engine-settings` rules 3 and 4. X stays
       `restrictions.maxSimultaneous`; direct join stays `autoAcceptJoinRequests`.
     - **Other-side tiers** are a group rule `{attribute: side, operation: different_from_vacancy}`,
       which maps to tier side `other` (`notifications.engine-tiers` rule 2). The old engine would read
       that operation as unknown and let everyone through, so a save that puts it in a group of a coach
       on `old` is refused (400).
-    - **Validation.** `method` one of the three; every minutes value at least const:ENGINE_T_FLOOR
+    - **Validation.** `method` one of the three; every minutes value that is not null at least const:ENGINE_T_FLOOR
       (`notifications.engine-settings` rule 2); `maxAtATime` at least 1; `perTier` only with `per_tier`
       and no longer than 2 + the number of groups. An invalid value answers 400 naming the key, as the
       restrictions do. The bounds live once, in `@levelup/config` (`ENGINE_SETTING_BOUNDS`), beside
       `RESTRICTION_BOUNDS`.
     - **Who sees the controls.** Only a coach whose `engineVersion` (on the `GET`) is `new` sees them;
-      a coach on `old` sees today's screens unchanged, `maxInactiveTime`'s 15-minute floor included. On
+      a coach on `old` sees today's screens unchanged, `maxInactiveTime`'s 15-minute floor included.
+      With `autoNotifyEnabled` off they stay editable (unlike rule 14's restrictions), so a coach can
+      set the engine up before turning it on. On
       web and iOS alike (the coordinator's decision, `notifications.engine-settings` Open questions):
       - M ("Máximo de convites ao mesmo tempo na aula" / "Most invitations at once in a class") as a
         stepper;
@@ -492,12 +495,25 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
         removable), then the groups in order, each group's side rule offering "Equilibrar lados da
         aula" (`same_as_vacancy`, today's words) and "Lado contrário" / "Other side"
         (`different_from_vacancy`).
-      All words are proposed, for the owner's approval.
+      Also: the timing heading "Tempo entre convites" / "Time between invitations"; the fixed tiers'
+      badge "fixo" / "fixed" and their names, `calendar.event-detail` ND1's "lista do treinador" /
+      "coach's list" and "lista de espera" / "waiting list"; on iOS, the reorder labels "Subir" / "Move
+      up" and "Descer" / "Move down" (the same keys on web). All words are proposed, for the owner's approval.
     - **The student's side choice.** With `waitingListSideChoice` on, a student joining a new-engine
       class's waiting list picks "O meu lado" / "My side", "O outro lado" / "The other side" or "Ambos" /
       "Both" (proposed) instead of an absolute side, on web (`ClassSideChoice`) and iOS
       (`ClassSideSheet`); the join sends `sides: "own"|"other"|"both"`
       (`notifications.engine-settings` rule 4).
+    - **What the student's class payloads carry.** Every student-facing class payload (the calendar event,
+      the academy class, the class detail) carries `engineVersion` (`"old"` | `"new"`, the session's
+      engine by rule 18; for an occurrence not yet materialised, the engine rule 18 would assign it now,
+      its class's primary coach's `engine_version`) and `waitingListSideChoice` (the primary coach's flag, false on `old`), always
+      present, so the clients choose the join and side-choice flows without another call. After a
+      `side_full` refusal (`classes.join-requests` NJ1) with the side choice on, the offer to wait still
+      joins the waiting list of the side the student asked for (`classes.join-requests` rule 20,
+      criterion 31), expressed in the choice's terms: `sides: "own"` when that side is one of the
+      student's sides (a student who plays both, or has no side, included), `"other"` when it is not.
+      One shared helper (`@levelup/config` `waitingListSidesFor`) decides it on web and iOS.
 ### Acceptance Criteria
 
 #### NOTIFICATIONS-CONFIG-1: A new coach starts from the reference configuration (rule 17)
@@ -949,12 +965,12 @@ test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invali
 
 #### NOTIFICATIONS-CONFIG-71: Web shows the new engine's controls to a coach on new only, from const:ENGINE_T_FLOOR (rule 20)
 Given web Settings for a coach on `new` and for a coach on `old`
-Then the first sees M, the timing method, the two steppers starting at 1 minute, the two toggles and the tiers editor with the two lists as fixed first tiers and the "Lado contrário" side option; changing each sends the `engine` keys; the second sees today's screen with `maxInactiveTime` starting at 15
+Then the first sees M, the timing method, the two steppers starting at 1 minute, the two toggles and the tiers editor with the two lists as fixed first tiers and the "Lado contrário" side option; changing each sends the `engine` keys, and they stay editable with `autoNotifyEnabled` off; the second sees today's screen with `maxInactiveTime` starting at 15
 test: `frontend/apps/web/src/components/settings/NotificationsEngineSection.newEngine.test.tsx` › `shows the new engine's controls to a coach on new only`
 
 #### NOTIFICATIONS-CONFIG-72: iOS shows the same controls and the tiers editor (rule 20)
 Given iOS Settings → Auto-Invite Engine for a coach on `new` and for a coach on `old`
-Then the first sees the same controls as web, including the tiers editor (`tiers-editor`, rows `tier-row-<index>`, the two lists `tier-row-0` and `tier-row-1` fixed, `tier-add`, `tier-side-<index>`), saving the same keys; the second sees today's screen
+Then the first sees the same controls as web, including the tiers editor (`tiers-editor`, rows `tier-row-<index>`, the two lists `tier-row-0` and `tier-row-1` fixed, `tier-add`, `tier-side-<index>`), saving the same keys and editable with `autoNotifyEnabled` off; the second sees today's screen
 test: `frontend/apps/mobile/src/features/settings/auto-invite-section.new-engine.test.tsx` › `shows the new engine's controls and the tiers editor to a coach on new only`
 
 #### NOTIFICATIONS-CONFIG-73: A student picks own, other or both side when the coach turned the side choice on (rule 20)
@@ -962,6 +978,25 @@ Given a new-engine class whose coach has `waitingListSideChoice` on, on web and 
 When a student joins its waiting list
 Then they are offered "O meu lado", "O outro lado" and "Ambos", the join sends `sides`, and with the setting off the choice is today's
 test: `frontend/packages/config/src/waiting-list-side-choice.test.ts` › `offers own, other or both only when the coach turned it on`
+
+#### NOTIFICATIONS-CONFIG-74: Student class payloads say the session's engine and the side-choice flag (rule 20)
+Given a student reading a new-engine class whose coach has `waitingListSideChoice` on, and an old-engine
+class, through the calendar event, the academy class and the class detail, then each payload carries
+`engineVersion` (`new`, `old`) and `waitingListSideChoice` (true, false).
+test: `backend/padel_app/tests/test_pad918_student_class_payloads.py` › `test_student_class_payloads_say_the_engine_and_the_side_choice`
+
+#### NOTIFICATIONS-CONFIG-75: A tier's half-set pair falls back to the coach's pair, then maxInactiveTime (rule 20)
+Given method `per_tier`, the coach's pair 10/20, `maxInactiveTime` 30, tier 2's pair 29/null and tier 3's
+pair null/null with the coach's pair 10/null, when the store builds the coach's `EngineSettings`, then
+tier 2's pair is 29 and 20 (its null side takes the coach's 20, not `maxInactiveTime`), and with the
+coach's pair 10/null tier 3's is 10 and 30; a saved non-null value of 0 is refused.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_a_half_set_tier_pair_falls_back`
+
+#### NOTIFICATIONS-CONFIG-76: After side_full, waiting joins the asked side's list in own/other terms (rule 20)
+Given the side choice on, a left-only student asking for the right side and a {left, right} student asking
+for the left, both refused `side_full`, when each chooses to wait, then the first joins with `sides:
+"other"` and the second with `sides: "own"`, the same on web and iOS (one helper).
+test: `frontend/packages/config/src/waiting-list-side-choice.test.ts` › `after side_full the asked side becomes own or other`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'
