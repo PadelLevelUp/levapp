@@ -306,3 +306,115 @@ def test_invitation_start_none_turns_fill_never_held_off():
     hours = _config()
     hours.invitation_start_timing = {"type": "hours_before", "value": 24}
     assert (_settings(none).fill_never_held, _settings(hours).fill_never_held) == (False, True)
+
+
+# --- config rule 20 (PAD-917): the new engine's own settings on GET|POST /notify/config ---------
+
+
+def _coach_on(app, engine_version):
+    from padel_app.models.notification_config import NotificationConfig
+
+    store, (session,), _ = _seed(app)
+    coach_id = store.coach_of(session)
+    db.session.add(NotificationConfig(coach_id=coach_id, auto_notify_enabled=True, engine_version=engine_version))
+    db.session.commit()
+    return coach_id, session
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-69")
+def test_the_engine_object_round_trips_and_maps(app):
+    from padel_app.invitation_engine.settings import TimingPair
+    from padel_app.services.engine_store import settings_for
+    from padel_app.services.notification_service import get_config_dict, update_config
+
+    coach_id, session = _coach_on(app, "new")
+    engine = {"maxAtATime": 10,
+              "timing": {"method": "per_tier", "betweenRoundsMinutes": 5, "betweenGroupsMinutes": 30,
+                         "perTier": [None, None, {"betweenRoundsMinutes": 3, "betweenGroupsMinutes": 20}]},
+              "autoEntryBeforeAttendanceRequest": True, "waitingListSideChoice": True}
+    update_config(coach_id, {"engine": engine})
+    got = get_config_dict(coach_id)
+    assert got["engine"] == engine and got["engineVersion"] == "new"
+
+    s = settings_for(session)
+    assert s.max_at_a_time == 10
+    assert (s.timing.method, s.timing.between_rounds, s.timing.between_groups) == (
+        "per_tier", timedelta(minutes=5), timedelta(minutes=30))
+    assert s.timing.per_tier == (None, None, TimingPair(timedelta(minutes=3), timedelta(minutes=20)))
+    assert s.timing_for(2) == TimingPair(timedelta(minutes=3), timedelta(minutes=20))
+    assert s.auto_entry_before_attendance_request and s.waiting_list_side_choice
+
+    # The pair null falls back to maxInactiveTime (rule 19); M null is the engine's default.
+    update_config(coach_id, {"engine": {"maxAtATime": None, "timing": {
+        "method": "fixed", "betweenRoundsMinutes": None, "betweenGroupsMinutes": None, "perTier": []}}})
+    update_config(coach_id, {"restrictions": {"maxInactiveTime": {"enabled": True, "value": 45}}})
+    s = settings_for(session)
+    assert s.max_at_a_time == 12
+    assert s.timing.between_rounds == s.timing.between_groups == timedelta(minutes=45)
+    assert get_config_dict(coach_id)["engine"]["timing"]["betweenRoundsMinutes"] is None
+
+    # An untouched coach reads the defaults.
+    from padel_app.models.notification_config import NotificationConfig
+    assert NotificationConfig(coach_id=1).get_engine_settings() == {
+        "maxAtATime": None,
+        "timing": {"method": "fixed", "betweenRoundsMinutes": None, "betweenGroupsMinutes": None, "perTier": []},
+        "autoEntryBeforeAttendanceRequest": False, "waitingListSideChoice": False}
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-70")
+def test_invalid_engine_values_and_an_old_coachs_other_side_rule_are_refused(app):
+    from werkzeug.exceptions import HTTPException
+
+    from padel_app.models.notification_config import NotificationConfig
+    from padel_app.services.notification_service import update_config
+
+    coach_id, _ = _coach_on(app, "new")
+    bad = [({"timing": {"method": "random"}}, "timing.method"),
+           ({"timing": {"betweenRoundsMinutes": 0}}, "timing.betweenRoundsMinutes"),
+           ({"maxAtATime": 0}, "maxAtATime"),
+           ({"timing": {"method": "fixed", "perTier": [None]}}, "timing.perTier"),
+           ({"timing": {"method": "per_tier", "perTier": [None] * 6}}, "timing.perTier")]   # 2 + 3 groups
+    for engine, key in bad:
+        with pytest.raises(HTTPException) as refused:
+            update_config(coach_id, {"engine": engine})
+        assert refused.value.code == 400 and key in refused.value.description, engine
+        db.session.rollback()
+    config = NotificationConfig.query.filter_by(coach_id=coach_id).one()
+    assert (config.timing_method, config.max_at_a_time, config.per_tier_timing) == ("fixed", None, None)
+
+    other_side = [{"id": "1", "rules": [{"attribute": "side", "operation": "different_from_vacancy"}]}]
+    update_config(coach_id, {"invitationGroups": other_side})                 # a coach on new: fine
+    old_coach, _ = _coach_on_second(app)
+    with pytest.raises(HTTPException) as refused:
+        update_config(old_coach, {"invitationGroups": other_side})
+    assert refused.value.code == 400 and "different_from_vacancy" in refused.value.description
+    db.session.rollback()
+    assert NotificationConfig.query.filter_by(coach_id=old_coach).one().invitation_groups is None
+
+
+def _coach_on_second(app):
+    """A second coach, on the old engine (``_seed`` makes one coach per call with fixed usernames)."""
+    from padel_app.models import Coach, User
+    from padel_app.models.notification_config import NotificationConfig
+
+    user = User(name="Old", username="coach_old917", password="x", status="active")
+    db.session.add(user)
+    db.session.flush()
+    coach = Coach(user_id=user.id)
+    db.session.add(coach)
+    db.session.flush()
+    db.session.add(NotificationConfig(coach_id=coach.id, auto_notify_enabled=True))
+    db.session.commit()
+    return coach.id, None
+
+
+@pytest.mark.criterion("NOTIFICATIONS-CONFIG-69")
+def test_an_other_side_group_maps_to_an_other_side_tier():
+    """Rule 20: a group's side rule different_from_vacancy is the tier side `other`."""
+    from padel_app.invitation_engine.settings import GroupRule, Tier
+
+    config = _config(invitation_groups=[{"id": "1", "rules": [
+        {"attribute": "level", "operation": "same_as_vacancy"},
+        {"attribute": "side", "operation": "different_from_vacancy"}]}])
+    assert _settings(config).tiers[2] == Tier("pool", "other", 0, (
+        GroupRule("level", "same_as_vacancy"), GroupRule("side", "different_from_vacancy")))
