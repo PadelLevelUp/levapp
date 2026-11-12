@@ -35,7 +35,7 @@ engine is deleted and the replaced items go with it.
 | Rule 4b (`emptyQueueReasons`) | the dry run's verdict stages, counted per type | `notifications.engine-tiers` rule 12 |
 | Rule 5 (the waiting list heads the queue) | the coach's list, then the students' list, head each type's queue (tier order) | `notifications.engine-tiers` rule 5 |
 | Rules 7, 7a (bundles of vacancies) | one request per session carries every type; no bundles | `notifications.engine-planning` rule 14 |
-| Rule 8 (three actions) | approve, removing any students; "Yes, at the window" goes (no request before the window); "Ignorar" is an open question | `notifications.engine-planning` rule 14 and Open questions |
+| Rule 8 (three actions) | approve, removing any students; "Yes, at the window" goes (no request before the window); "Ignorar" dismisses until the spot count changes or the coach reopens the class | `notifications.engine-planning` rule 14 |
 | Rules 9, 10 (gating by approval status) | the hold itself; waiting-list invitations are held, automatic entry and direct join are not | `notifications.engine-planning` rule 14 |
 | Rule 11 (a fill or expiry resolves the prompt) | a run with nothing left to ask for withdraws the request, which goes stale | `notifications.engine-planning` rule 14 |
 | Rule 1a (leaving semi-automatic releases spots) | switching to automatic withdraws the pending request and the next run sends | `notifications.engine-planning` rule 14 |
@@ -49,8 +49,7 @@ Readings:
 
 Not yet specified, needed before this spec's swap step (each under Open questions):
 - the request's message and card: one block per spot type (side and level), its queue, the coach's
-  removals on web and iOS, and their copy in both locales;
-- "Ignorar" (proposal in `notifications.engine-planning`, Open questions).
+  removals and "Ignorar" on web and iOS, and their copy in both locales.
 
 ### Rules
 1. Applies only when `auto_notify_enabled` is true and `invitation_mode` is `semi_automatic`; in automatic mode vacancies get approval_status "not_required" and behavior is completely unchanged
@@ -387,5 +386,6 @@ test: `frontend/apps/mobile/src/features/notifications/approval-bundle.test.ts` 
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):
   kept, as the hold of `notifications.engine-planning` rule 14 (the shape is the coordinator's,
-  reversible by the owner). The message and card copy, and what "Ignorar" becomes, are not decided;
+  reversible by the owner). "Ignorar" is `DismissQueue` (the coordinator's ruling, reversible by the
+  owner, `notifications.engine-planning` Open questions). The message and card copy are not decided;
   they go to the owner with this spec's swap step.

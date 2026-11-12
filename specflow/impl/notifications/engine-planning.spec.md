@@ -118,6 +118,10 @@ Stated as observable records; storage is the engine package's (PAD-902).
       gate, automatic entry and direct join are unchanged).
     - A run with nothing to send outside the approved queue (the session full, every type covered, the
       class started) withdraws the pending request, which goes stale.
+    - The coach may instead answer `DismissQueue(session)` (today's "Ignorar"; coordinator's ruling,
+      reversible by the owner): the pending request is gone and the session sends nothing
+      automatically and raises no request until its spot count changes or the coach reopens it from
+      the class; then the next run asks again as above. Invitations already sent stay open (rule 10).
     - Automatic entry from a waiting list and direct join are the coach's own settings and are not held;
       waiting-list invitations are invitations and are.
     - Switching to `automatic` withdraws the pending request and the next run sends as any automatic
@@ -331,6 +335,12 @@ Given an invitation applied for a student in a session, when a second `Invited` 
 and session is applied, then the store raises `StoreConflict` and keeps the first.
 test: `backend/padel_app/tests/test_pad916_engine_store.py` › `test_a_second_invitation_for_one_student_is_refused`
 
+#### NOTIFICATIONS-ENGINE-PLANNING-33: A dismissed session asks nothing until its spot count changes or the coach reopens it (rule 14)
+Given a pending request, when the coach answers `DismissQueue`, then runs with nothing changed send
+nothing and emit no request; when a regular's No changes the session's spot count, or the coach reopens
+it from the class, then the next run emits a new `ApprovalRequest`.
+test: `backend/padel_app/tests/test_invitation_engine_planning.py` › `test_a_dismissed_session_asks_again_only_when_its_spots_change_or_the_coach_reopens_it`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W2) PLANNING-6, PLANNING-11, PLANNING-16, PLANNING-23, PLANNING-24 — `invitation_engine/planner.py`
@@ -345,8 +355,8 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
    `coach_alert`).
 5. (Swap 3, PAD-915) PLANNING-27 — `invitation_engine/effects.py` (`CoachAlert` fields),
    `invitation_engine/constants.py` (`ALERT_NO_CANDIDATE`), `invitation_engine/planner.py`.
-6. (Swap, PAD-915) PLANNING-28 to PLANNING-31 — `invitation_engine/effects.py` (`ApprovalRequest`),
-   `invitation_engine/requests.py` (`ApproveQueue`), `invitation_engine/planner.py` (the hold, from
+6. (Swap, PAD-915) PLANNING-28 to PLANNING-31, PLANNING-33 — `invitation_engine/effects.py` (`ApprovalRequest`),
+   `invitation_engine/requests.py` (`ApproveQueue`, `DismissQueue`), `invitation_engine/planner.py` (the hold, from
    `evaluate`), `invitation_engine/settings.py` (`invitation_mode`); then (PAD-916) the store keeps the
    approved queue and the pending request and sends the request through the outbox, and
    (`notifications.semi-auto-approval`, new-engine section) the coach's message and card.
@@ -373,6 +383,6 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   held, because they are the coach's own settings; no request before `first_invite_at`, so today's
   "Yes, at the window" button has nothing to schedule.
 - What the coach's "Ignorar" (today's dismiss, `notifications.semi-auto-approval` rule 8) becomes —
-  not decided; proposal (S): `DismissQueue(session)`, after which the session sends nothing
-  automatically and raises no request until the coach recomputes from the class (today's rule 12).
-  Until decided, a coach who does not approve simply leaves the request pending.
+  decision (coordinator, owner away, 2026-11-12; the owner can reverse it): `DismissQueue(session)`;
+  a dismissed session sends nothing and asks again only when its spot count changes or the coach
+  reopens it from the class (rule 14), so a dismissal is never permanent while the class still changes.
