@@ -179,6 +179,7 @@ def test_last_invite_at_is_real_hours_before_the_real_start():
     assert last_invite_at(s, settings) == datetime(2026, 3, 29, 0, 0)            # not 01:00, as wall arithmetic gave
 
 
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-TIMELINE-25")
 def test_quiet_hours_whose_start_equals_their_end_are_quiet_all_day():
     """config rule 19 (CONFIG-65, R's mapping): a window whose start equals its end is quiet all day;
     no window at all is never quiet."""
