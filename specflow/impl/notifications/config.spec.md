@@ -418,7 +418,8 @@ Coaches configure the notification engine: timing, restrictions, matching rules,
       window whose start equals its end, which today is quiet all day, maps to quiet all day, never to
       no quiet hours;
     - `reminderTiming.invitationStart` → `first_invite` and the reminder timing → `attendance_request`,
-      shape for shape (`notifications.engine-settings` rule 10), with `reminder_count` →
+      shape for shape (`notifications.engine-settings` rule 10), an invitation start of `none` also
+      turning `fill_never_held` off (rule 11 there) and any other on, with `reminder_count` →
       `attendance_request.max` and `hours_between_reminders` → `attendance_request.every`;
     - `priorityCriteria` and `tiebreakers` → `ordering` (`notifications.engine-tiers` rule 8);
     - `autoAcceptJoinRequests` → `direct_join` (`notifications.engine-settings` rule 5);
@@ -884,6 +885,11 @@ Given a coach on `old` with a session whose window has not opened and whose old 
 approval, and another whose old vacancy has not started, when the coach is switched, then the first
 drains on `old` and the second is adopted with its unstarted vacancy closed.
 test: `backend/padel_app/tests/test_engine_switch.py` › `test_a_pending_approval_counts_as_started_and_adoption_closes_unstarted_vacancies`
+
+#### NOTIFICATIONS-CONFIG-68: An invitation start of none turns fill_never_held off (rule 19)
+Given a coach with invitation start `none` and one with `hours_before` 24, when the store builds each
+coach's `EngineSettings`, then the first has `fill_never_held` off and the second on.
+test: `backend/padel_app/tests/test_engine_settings_mapping.py` › `test_invitation_start_none_turns_fill_never_held_off`
 
 ### Open questions
 - The timing floor (rule on `between_rounds`/`between_groups`, swap decision 7) — Decision (coordinator, owner away, PAD-912, 2026-11-11; the owner can reverse it): the clients'

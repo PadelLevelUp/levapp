@@ -82,11 +82,17 @@ behaviour, `notifications.engine-planning` rule 13). Backend only in this wave (
     `hours_before` N is N real hours before the class's real start, across a clock change;
     `days_before` and `days_before_at_time` are the class's own wall date minus N days, at HH:MM on the
     club's clock (Lisbon, R-023); `none` starts invitations from the moment the session exists, and
-    sends no attendance request. One difference from today, an owner question: today's `none` invites
-    only for spots a student freed, never for spots that were never filled, while the new engine, which
-    counts both alike (`notifications.engine-spots` rule 10), invites for every open spot from creation. With `attendance_request` `none`, automatic entry (rule 3, whose
+    sends no attendance request; with it, `fill_never_held` (rule 11) is off, so as today only spots a
+    student freed are invited for. With `attendance_request` `none`, automatic entry (rule 3, whose
     boundary is `attendance_request_at`) places until the class starts. The mapping from a coach's
-    stored timing is otherwise one for one.
+    stored timing is therefore one for one.
+11. **`fill_never_held`** (default on; the coordinator's ruling on today's `none`, PAD-918). When off,
+    the planner invites only for spots a going student freed (an absent regular, a cancellation after
+    accepting), never for spots no one held (`class_empty` beyond the freed ones): the session's
+    planned open spots of each type are at most the spots freed on that type's side, either-side freed
+    spots counted as `either`. Waiting-list placement by automatic entry and direct join follow the
+    same limit. Today's coaches with invitation start `none` map to it off (`notifications.config`
+    rule 19); every other coach maps to on, which is the plan (`notifications.engine-spots` rule 10).
 
 ### Not this spec
 - A settings screen on web or iOS (brief §1: backend only in this wave).
@@ -234,6 +240,12 @@ and with `auto-entry` on a waiting-list member is placed by a spot that opens at
 start.
 test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_none_starts_invitations_at_creation_and_sends_no_attendance_request`
 
+#### NOTIFICATIONS-ENGINE-SETTINGS-23: With fill_never_held off, only freed spots are invited for (rule 11)
+Given capacity 8, 6 regulars of whom one right regular says No (two spots never held, one freed), when
+runs plan with `fill_never_held` off, then invitations are sent for the one right spot only, and with
+it on for all three.
+test: `backend/padel_app/tests/test_invitation_engine_settings.py` › `test_fill_never_held_off_invites_only_for_freed_spots`
+
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
 1. (W1) SETTINGS-3, SETTINGS-4 — `invitation_engine/settings.py` (the timing shape of rule 2, the floor,
@@ -282,8 +294,7 @@ Cross-spec order: `notifications/_overview.md`, "Engine waves".
   and iOS together, the groups editor (now tiers) included; the other iOS deferrals recorded before
   the swap stand with their reasons. This replaces "A settings screen on web or iOS" under Not this
   spec at the swap, when the screens are specced (`notifications.config`).
-- An invitation start of `none` (rule 10) — **for the owner**: today it never invites for a spot that was
-  never filled; the new engine invites for every open spot from creation, because the plan counts a
-  never-held spot and a freed one alike (§4, `notifications.engine-spots` rule 10). Until the owner
-  answers, the new engine follows the plan (S, PAD-913, 2026-11-12, from R's review, PAD-918); options:
-  keep that, or have `none` invite only for freed spots, which needs the engine to tell the two apart.
+- An invitation start of `none` (rule 10), which today never invites for a spot that was never filled —
+  decision (coordinator, owner away, PAD-918, 2026-11-12; the owner can reverse it): today's meaning is
+  kept through `fill_never_held` off (rule 11); the plan's "one logic for both" holds for every other
+  coach.
