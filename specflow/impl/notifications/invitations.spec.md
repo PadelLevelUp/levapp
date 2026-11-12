@@ -68,8 +68,10 @@ Kept unchanged for the new engine: rules 3b, 6, 9, 17, 20. Rule 18c, as amended 
 
 The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS `message-bubble` and
 `invite-state`, one shared derivation). **Copy marked "proposed" awaits the owner's approval.**
-- **NB1. One state, derived in one place.** A new-engine invitation message carries
-  `msg_metadata.engine` `"new"`, its `invitationId` and `state`: `open`, `answered` (with `response` `yes` or
+- **NB1. One state, derived in one place.** A new-engine invitation message (`message_type`
+  `notification_invite`, for the kinds `invite`, `reoffer` and `waiting_list_invite`) carries
+  `msg_metadata` `{engine: "new", invitationId, lessonInstanceId, kind, state, response?, answeredBy?}`,
+  `state` being `open`, `answered` (with `response` `yes` or
   `no` and `answeredBy`), `sorry`, `reoffered`, `closed_same_hour` or `class_started`; and, on the coach's
   copy only, `counting` (true until the invitation's counting-until instant). The backend keeps it
   current with a live `message_edited` on every change. Both shells read it through one shared function
@@ -91,6 +93,15 @@ The new-engine invitation bubble (swap step 8, PAD-920; web `MessageBubble`, iOS
 - **NB3. What the coach sees** on their copy: `open` and counting, today's "A aguardar resposta…";
   `open` and not counting, "Sem resposta · já não conta" / "No answer · no longer counts" (proposed);
   the other states as the student's labels.
+- **NB5. The engine's other messages and the answer route (R, PAD-918).** The sorry is a
+  `waiting_list_offer` message with `{engine: "new", invitationId, lessonInstanceId}`; an automatic
+  entry's notice is an `added_to_class` message; a side set is an `engine_side_moved` message with
+  `{engine: "new", lessonInstanceId, side}`. A student answers through `POST /api/app/notify/respond` and
+  a coach records an answer through `POST /api/app/notify/coach_respond`, both with `{invitationId,
+  action: "yes"|"no"}` (a body with `notificationEventId` is the old engine's); the answer is `{action:
+  "confirmed"|"declined"|"sorry"|"reoffered"|"closed_same_hour"|"class_started", invitationId}`, with
+  `duplicate: true` on a repeated answer, 404 for an unknown id and 403 when the invitation is not the
+  caller's.
 - **NB4. Test ids, one set on both shells**: `invite-respond-yes-<invitationId>`,
   `invite-respond-no-<invitationId>` and `invite-state-<invitationId>-<state>`, so one E2E reads both. The old engine's ids stay
   for old-engine bubbles.
@@ -1658,6 +1669,12 @@ test: `frontend/apps/mobile/src/features/messages/components/message-bubble-new-
 - **When** the student says Yes into a full session, is then re-offered, and the class starts
 - **Then** the message's `msg_metadata.state` goes `open` → `sorry` → `reoffered` → `class_started`, each change published once as `message_edited`
 test: `backend/padel_app/tests/test_pad920_engine_bubble_state.py` › `test_the_invitation_messages_state_follows_the_engine`
+
+#### NOTIFICATIONS-INVITATIONS-119: The answer route takes an invitation id and says what the engine did (new-engine section NB5)
+- **Given** a new-engine invitation to a student, another student's invitation, and a full session
+- **When** the student answers yes twice, answers on the other student's id, and answers an unknown id
+- **Then** the first answer is `sorry` with the invitation's id, the repeat carries `duplicate: true`, the other student's id answers 403, the unknown id 404; a coach's `coach_respond` with `no` answers `declined`
+test: `backend/padel_app/tests/test_pad918_engine_respond.py` › `test_the_answer_route_takes_an_invitation_id_and_says_what_happened`
 
 ### Open questions
 - Vacancy rows after the swap (swap decision 1) — options: drop them and change their readers; keep a

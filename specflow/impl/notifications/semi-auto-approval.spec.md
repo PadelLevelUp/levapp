@@ -450,7 +450,7 @@ test: `frontend/apps/web/src/components/notifications/ReplacementApprovalCard.ne
 #### NOTIFICATIONS-SEMI-AUTO-APPROVAL-42: The iOS card does the same with the same test ids (new-engine section N5)
 - **Given** the same requests on iOS
 - **Then** the same blocks, removals, buttons, test ids and stale line show, and the same requests are sent
-test: `frontend/apps/mobile/src/features/messages/components/replacement-approval-card-new-engine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
+test: `frontend/apps/mobile/src/features/notifications/replacement-approval-card-new-engine.test.tsx` › `approves with removals, dismisses and reads a stale answer`
 
 ### Open questions
 - Does semi-automatic mode survive the engine swap (swap decision 2)? — decision (owner, 2026-11-11):

@@ -240,7 +240,7 @@ test: `frontend/apps/web/src/components/settings/tutorials/UnderstandInvitesTuto
 #### SETTINGS-TUTORIALS-15: The iOS tutorial shows the same blocks, rows and test ids (new-engine section NT1–NT4)
 - **Given** the same answer on iOS
 - **Then** the same blocks, rows, left-out section, banner and test ids show as on web
-test: `frontend/apps/mobile/src/features/tutorials/invite-tutorial-new-engine.test.tsx` › `shows a block per spot type grouped by tier and who is left out`
+test: `frontend/apps/mobile/src/features/settings/understand-invites-tutorial-new-engine.test.tsx` › `shows a block per spot type grouped by tier and who is left out`
 
 ### Open questions
 - The tutorial's layout for the per-type payload (NT1–NT4) — S's (PAD-913, 2026-11-12; the owner can
