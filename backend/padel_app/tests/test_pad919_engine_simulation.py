@@ -266,18 +266,30 @@ def test_recompute_raises_a_fresh_request(app, semi, monkeypatch):
         recompute_suggestions(int(a), coach_id, now=PLAN_AT + timedelta(minutes=3))
 
 
-def test_the_outbox_posts_the_request_to_the_coachs_assistant(app, semi):
+@pytest.mark.criterion("NOTIFICATIONS-SEMI-AUTO-APPROVAL-40")
+def test_the_outbox_posts_the_request_to_the_coachs_assistant(app, semi, monkeypatch):
     """The outbox's sender for an ``ApprovalRequest`` row (rule 6, as today): one ``replacement_approval``
-    message in the coach's Assistant conversation carrying the request id and a queue per spot type."""
-    from padel_app.models import Message
+    message in the coach's Assistant conversation carrying the request id and a queue per spot type, and
+    one push to the coach; sending the outbox again adds nothing."""
+    from padel_app.models import Coach, Message
     from padel_app.services.engine_approval import send_approval_request
     from padel_app.services.engine_store import dispatch
+    from padel_app.utils import push_notifications
 
+    pushes = []
+    monkeypatch.setattr(push_notifications, "send_push_notification", lambda **kw: pushes.append(kw["user_id"]))
     store, a, _ = _semi_session(app)
     request_id = store.snapshot(a).approval.pending_request
-    sent = dispatch(lambda row: send_approval_request(row) if row.kind == "ApprovalRequest" else None, now=PLAN_AT)
-    assert sent >= 1
+
+    def send(row):
+        if row.kind == "ApprovalRequest":
+            send_approval_request(row)
+
+    dispatch(send, now=PLAN_AT)
     msgs = Message.query.filter_by(message_type="replacement_approval").all()
     assert len(msgs) == 1
     meta = msgs[0].msg_metadata
     assert meta["requestId"] == request_id and meta["engine"] == "new" and meta["spotTypes"]
+    assert pushes == [db.session.get(Coach, store.coach_of(a)).user_id]
+    assert dispatch(send, now=PLAN_AT) == 0
+    assert Message.query.filter_by(message_type="replacement_approval").count() == 1 and len(pushes) == 1
