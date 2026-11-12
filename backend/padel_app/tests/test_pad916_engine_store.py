@@ -456,7 +456,7 @@ def test_a_student_the_system_recorded_as_coming_counts_as_confirmed(app):
 @pytest.mark.criterion("NOTIFICATIONS-STUDENT-BLOCK-PREFERENCES-16")
 def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everything(app):
     """Student-block-preferences rule 8 (new-engine section): at send time the outbox does not
-    deliver a ``reoffer`` or a ``waiting_list_invite`` (nor an invitation) to a student with
+    deliver a ``waiting_list_invite`` (nor an invitation) to a student with
     ``notif_block_all``; a ``sorry`` still is. A student without the block gets all of them."""
     from padel_app.models import User
     from padel_app.models.players import Player
@@ -467,11 +467,11 @@ def test_the_backstop_refuses_engine_invitations_to_a_student_who_blocked_everyt
     db.session.commit()
     with store.unit((a,)):
         store.apply([fx.Message(a, NOW, s, kind) for s in (blocked, free)
-                     for kind in ("reoffer", "waiting_list_invite", "sorry")])
+                     for kind in ("waiting_list_invite", "sorry")])
     sent = []
     dispatch(lambda row: sent.append((row.player_id, row.payload["kind"])), now=NOW)
     assert sorted(sent) == sorted([(int(blocked), "sorry")] + [(int(free), k) for k in
-                                                                ("reoffer", "waiting_list_invite", "sorry")])
+                                                                ("waiting_list_invite", "sorry")])
     assert dispatch(lambda row: sent.append(row), now=NOW) == 0           # claimed, never retried
 
 
@@ -522,7 +522,7 @@ def test_a_session_belongs_to_the_occurrences_primary_coach(app):
 def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
     """Engine-store rule 8 (invitations NB1a): the store keeps an invitation's bubbles and writes each new
     state on every one of them, with ``startsAt`` and ``countsUntil``, one ``message_edited`` per message
-    after the commit: ``sorry``; a re-offer (``reoffered``, ``reoffered_at``) whose own bubble is
+    after the commit: ``sorry``; a reopening (``reopened``, ``reopened_at``) whose own bubble is
     attached after; the coach's ``withdraw`` (``withdrawn``, ``closed_reason``). Elsewhere an answer is
     ``answered`` with its response, and a same-hour placement ``closed_same_hour`` (``same_hour``)."""
     from padel_app import realtime
@@ -555,10 +555,10 @@ def test_every_message_of_an_invitation_follows_its_state(app, monkeypatch):
         store.apply([fx.Sorry(a, NOW + timedelta(minutes=1), x)])
     assert states(first) == ["sorry"] and db.session.get(Message, first).msg_metadata["startsAt"]
     with store.unit((a,)):
-        store.apply([fx.Reoffered(a, NOW + timedelta(minutes=2), x, frozenset({SpotType("L", 3)}), "L", 0,
+        store.apply([fx.Reopened(a, NOW + timedelta(minutes=2), x, frozenset({SpotType("L", 3)}), "L", 0,
                                   NOW + timedelta(minutes=30))])
-    assert states(first) == ["reoffered"]
-    assert db.session.get(EngineInvitation, store.invitation_id(a, x)).reoffered_at == NOW + timedelta(minutes=2)
+    assert states(first) == ["reopened"]
+    assert db.session.get(EngineInvitation, store.invitation_id(a, x)).reopened_at == NOW + timedelta(minutes=2)
     second = bubble(x)
     edited.clear()
     with store.unit((a,)):
@@ -666,3 +666,25 @@ def test_the_snapshot_carries_each_sessions_end(app):
     with store.unit((c,)):
         store.apply([fx.Placed(c, NOW, x, "L", "invitation")])
     assert x in {p.student for p in store.snapshot(c).going}
+
+
+def test_a_no_show_stays_placed(app):
+    """Engine-store rule 4: a presence is going unless the engine recorded the student leaving (absent
+    with ``left_reason`` ``regular_no`` or ``cancel``). A no-show, and the coach's attendance-sheet absent
+    mark after the class, record attendance: the student keeps the spot they held, so the final roster
+    still counts them (scenarios 60, P16)."""
+    from padel_app.models.presences import Presence
+
+    store, (a,), (reg, x, y) = _seed(app)
+    with store.unit((a,)):
+        store.apply([fx.Placed(a, NOW, x, "L", "invitation"), fx.Placed(a, NOW, y, "L", "invitation")])
+    after = START + timedelta(hours=2)
+    with store.unit((a,)):
+        store.apply([fx.Absence(a, after, x, "late"), fx.Left(a, after, x, "no_show")])
+    Presence.query.filter_by(lesson_instance_id=int(a), player_id=int(y)).one().status = "absent"   # the sheet
+    db.session.commit()
+    assert {p.student for p in store.snapshot(a).going} == {reg, x, y}
+    with store.unit((a,)):
+        store.apply([fx.Left(a, NOW, reg, "regular_no")])
+    assert reg not in {p.student for p in store.snapshot(a).going} and reg in store.snapshot(a).absent
+
