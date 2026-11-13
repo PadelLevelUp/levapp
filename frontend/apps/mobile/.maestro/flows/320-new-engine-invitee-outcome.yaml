@@ -47,7 +47,7 @@ onFlowStart:
 - scrollUntilVisible:
     element:
       id: "class-remind"
-    direction: UP
+    direction: DOWN
     timeout: 30000
 - assertNotVisible:
     id: "class-notify"
