@@ -94,6 +94,22 @@ Stated as observable records; storage is the engine package's (PAD-902).
     coach can still add them by hand. The store keeps them as a regular removed from the session, so their
     seat counts as freed on their side (`notifications.engine-settings` rule 11, S's reading). Other
     sessions of the class are untouched.
+15. **The coach invites a student by hand (the owner's decision 17, PAD-932, 2026-11-13;
+    `notifications.manual` NM1).** The app sends `CoachInvites(students)` for one session, after the
+    route's own refusals. For each student the engine, under the student's lock:
+    - refuses with a reason, emitting nothing for them, when the session has no open spot type their
+      playable sides fit (`no_open_spot`), when they are in the session (`already_in_class`) or placed at
+      the same hour (`same_hour`, rule 10), or when they hold a counting invitation for it
+      (`already_invited`);
+    - else emits `Invited` (or `Reopened` for a row that stopped counting, was answered No or sorry, or was
+      withdrawn; D1) with the coach's-list tier, `manual` true, the offer every open spot type their sides
+      fit, no eligibility bar and none of the coach's gates (`notifications.engine-tiers` rule 4), and the
+      counting-until instant of `notifications.engine-timeline` rule 4 for that tier.
+    It sends at once: quiet hours, the invitation window and the class's automatic toggle do not hold it,
+    and M does not cap it, though it counts toward M (`notifications.engine-planning` rules 3, 8). The
+    store writes `manual` on the `invitations` row. The invitation is then like any other: answered by
+    rules 1–4 on the engine route, counted by the planner, one type's budget (`notifications.engine-planning`
+    rule 4).
 
 ### Not this spec
 - The answer endpoints, "the same answer twice" and "an answer after the class starts": kept as
@@ -285,6 +301,22 @@ uncovered and that regular passes an earlier tier than the other candidates, the
 that session (`CoachExcludes`), the spot goes to the next candidate, and they stay a
 candidate for the class's other sessions.
 test: `backend/padel_app/tests/test_invitation_engine_answers.py` › `test_a_regular_the_coach_removed_is_never_invited_back`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-30: A coach's invitation by hand is a counting coach's-list invitation, answered like any (rule 15)
+Given a session with one open left spot, X = 3, M = 2 with 2 counting invitations already, in quiet hours,
+and a {left, right} student below the bar, when the engine handles `CoachInvites([student])`, then one
+`Invited` is emitted at once with the coach's-list tier, `manual`, offer {left}, the coach's-list tier's T,
+and the session now has 3 counting (above M); the planner's next run counts it toward the left type's budget;
+when the student says Yes, they are placed left by rule 1 and the bubble reads "confirmed".
+test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_counts_and_is_answered_like_any`
+
+#### NOTIFICATIONS-ENGINE-ANSWERS-31: A coach's invitation by hand refuses with a reason or reopens the student's row (rule 15)
+Given a session with one open right spot and students: one left-only, one in the session, one placed at the
+same hour, one holding a counting invitation, one whose invitation stopped counting and one who said No,
+when the engine handles `CoachInvites` for all six, then the first four get `no_open_spot`,
+`already_in_class`, `same_hour` and `already_invited` with no effect, and the last two get `Reopened` with
+the coach's-list tier and `manual`, one row each.
+test: `backend/padel_app/tests/test_invitation_engine_manual.py` › `test_a_coach_invitation_refuses_with_a_reason_or_reopens`
 
 ### Waves
 Cross-spec order: `notifications/_overview.md`, "Engine waves".
