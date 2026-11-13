@@ -18,7 +18,9 @@ packages/
 
 ## Node version
 
-Use **Node 24.15.0** via nvm: `nvm use 24.15.0` before any install/build/run.
+Use **Node 24.15.0** via nvm: `nvm use 24.15.0` before any install/build/run (the root `.nvmrc` says so,
+and CI runs it). Never Node 25 or newer: its experimental `localStorage` global breaks the jsdom tests.
+If it is absent: `nvm install 24.15.0`.
 
 ## Commands (repo root)
 
@@ -38,7 +40,7 @@ bash apps/mobile/scripts/e2e.sh   # mobile Maestro E2E (see apps/mobile/README.m
 
 Run the pre-push gate (`.githooks/prepush-gate.sh`; installed with `git config core.hooksPath
 .githooks`, see the root CLAUDE.md "Ticket workflow"). For a `frontend/` change it runs CI's exact
-commands, from `frontend/` on Node 22: `npx tsc --noEmit -p apps/web/tsconfig.app.json`,
+commands, from `frontend/` on Node 24.15.0 (the gate switches with nvm, and refuses Node 25+ or a missing 24.15.0): `npx tsc --noEmit -p apps/web/tsconfig.app.json`,
 `npx tsc --noEmit -p apps/mobile/tsconfig.json` and `npm test` (web, packages, mobile; the E2E
 guards and the Maestro flow-number guard are vitest tests inside it). A grep-filtered or
 single-workspace run is not this check.
