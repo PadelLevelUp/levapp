@@ -1,7 +1,7 @@
 /**
- * PAD-933 (dashboard.blocks NA5, owner decisions 17 and 18): on a new-engine class the coach's
- * empty-seats card has no "Convidar N jogadores" (manual invites do not go through the engine yet)
- * and its detail line counts the engine's pending invitations. "Mais tarde" stays. An item without
+ * PAD-933 / PAD-932 (dashboard.blocks NA5, owner decision 18): on a new-engine class the coach's
+ * empty-seats card counts the engine's pending invitations on its detail line, and keeps
+ * "Convidar N jogadores" (a manual invitation there goes through the engine, PAD-932) and "Mais tarde". An item without
  * `engineVersion` comes from an older server and reads as `old`. Asserted by test id and i18n key.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -39,22 +39,24 @@ const show = (item: DashboardNeedsYouEmptySeats) => {
 
 afterEach(cleanup);
 
-describe("the empty-seats card on a new-engine class (PAD-933)", () => {
-  it("[DASHBOARD-BLOCKS-59] shows the pending invitations and drops Convidar on a new-engine class", () => {
+describe("the empty-seats card on a new-engine class (PAD-933, PAD-932)", () => {
+  it("[DASHBOARD-BLOCKS-59] shows the pending count and keeps the invite button on a new-engine class", () => {
     const id = "lessoninstance-783";
-    // New engine, 5 pending: the count on the detail line, no Convidar, Mais tarde stays.
+    // New engine, 5 pending: the count on the detail line, Convidar and Mais tarde stay.
     show(card({ engineVersion: "new", pendingInvites: 5 }));
     expect(screen.getByTestId(`needs-you-pending-${id}`)).toHaveTextContent(
       "dashboard.needsYou.emptySeats.pending:5",
     );
-    expect(screen.queryByTestId(`needs-you-invite-${id}`)).toBeNull();
+    expect(screen.getByTestId(`needs-you-invite-${id}`)).toHaveTextContent(
+      "dashboard.needsYou.emptySeats.invite:3",
+    );
     expect(screen.getByTestId("needs-you-later")).toBeInTheDocument();
     cleanup();
 
-    // New engine, nothing pending: no pending line, still no Convidar.
+    // New engine, nothing pending: no pending line, Convidar stays.
     show(card({ engineVersion: "new", pendingInvites: 0 }));
     expect(screen.queryByTestId(`needs-you-pending-${id}`)).toBeNull();
-    expect(screen.queryByTestId(`needs-you-invite-${id}`)).toBeNull();
+    expect(screen.getByTestId(`needs-you-invite-${id}`)).toBeInTheDocument();
     cleanup();
 
     // Old engine, and an item without engineVersion: Convidar as today, no pending line.
