@@ -100,15 +100,17 @@ def test_an_empty_seats_item_carries_its_engine_and_counting_invitations(app):
     coach_a, thu = _new_engine_class(app, counting=5, stopped=2)
     coach_b, inst_b = _old_engine_class(invitations=3)
 
-    [a], _ = _home(coach_a.id, coach_a.user_id)
+    [a], rows_a = _home(coach_a.id, coach_a.user_id)
     assert a["id"] == f"lessoninstance-{thu}"
     assert a["engineVersion"] == "new"
     assert a["pendingInvites"] == 5                     # the two that stopped counting are not pending
+    assert [r["engineVersion"] for r in rows_a] == ["new"]
 
-    [b], _ = _home(coach_b.id, coach_b.user_id)
+    [b], rows_b = _home(coach_b.id, coach_b.user_id)
     assert b["id"] == f"lessoninstance-{inst_b.id}"
     assert b["engineVersion"] == "old"
     assert "pendingInvites" not in b
+    assert [r["engineVersion"] for r in rows_b] == ["old"]
 
 
 @pytest.mark.criterion("DASHBOARD-BLOCKS-61")

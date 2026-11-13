@@ -1,7 +1,7 @@
 /**
- * PAD-933 (dashboard.blocks NA5, owner decision 17): manual invites do not go through the new
- * engine yet, so the coach's 7-day schedule offers no Convidar on a new-engine class. A row
- * without `engineVersion` comes from an older server and reads as `old`. Located by test id.
+ * PAD-932 (dashboard.blocks NA5): a manual invitation on a new-engine class goes through the
+ * engine, so the coach's 7-day schedule offers Convidar on every class with open spots, whatever
+ * its `engineVersion`. Located by test id.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
@@ -31,8 +31,8 @@ const row = (id: string, engineVersion?: "old" | "new") => ({
   ...(engineVersion ? { engineVersion } : {}),
 });
 
-describe("the coach's 7-day schedule on a new-engine class (PAD-933)", () => {
-  it("[DASHBOARD-BLOCKS-61] drops Convidar on a new-engine class", () => {
+describe("the coach's 7-day schedule on a new-engine class (PAD-932)", () => {
+  it("[DASHBOARD-BLOCKS-61] keeps Convidar on a new-engine class", () => {
     const block = {
       id: "schedule_7d",
       type: "schedule_7d",
@@ -45,8 +45,7 @@ describe("the coach's 7-day schedule on a new-engine class (PAD-933)", () => {
 
     render(<MemoryRouter><Schedule7Days block={block} /></MemoryRouter>);
     const [fresh, old, unknown] = screen.getAllByTestId("dashboard-schedule-row");
-    expect(within(fresh).queryByTestId("dashboard-schedule-invite")).toBeNull();
-    // The seats badge is information, not an invite: it stays.
+    expect(within(fresh).getByTestId("dashboard-schedule-invite")).toBeInTheDocument();
     expect(fresh).toHaveTextContent("dashboard.schedule.seats");
     expect(within(old).getByTestId("dashboard-schedule-invite")).toBeInTheDocument();
     expect(within(unknown).getByTestId("dashboard-schedule-invite")).toBeInTheDocument();

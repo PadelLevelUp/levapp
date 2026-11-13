@@ -1,7 +1,7 @@
-"""PAD-933 (notifications.manual NM2, owner decision 17's stopgap): no manual invitation on a new-engine
-class, for now. The route answers 409 NEW_ENGINE_CLASS after its ownership and roster checks and stores
-nothing; ``send_manual_notifications`` refuses too, so no other caller skips it. An old-engine class
-invites as today. PAD-932 replaces this with the manual invitation as an engine invitation.
+"""PAD-932 (notifications.manual NM1, NM2): a manual invitation on a new-engine class takes the engine's
+path. The route answers 200 and stores one engine invitation, never a ``NotificationEvent`` and never the
+stopgap's 409 ``NEW_ENGINE_CLASS`` (PAD-933, now gone); ownership is still checked first. An old-engine
+class invites as today.
 """
 import pytest
 from flask_jwt_extended import create_access_token
@@ -40,7 +40,7 @@ def _stored(instance_id):
 
 
 @pytest.mark.criterion("NOTIFICATIONS-MANUAL-9")
-def test_a_manual_invitation_on_a_new_engine_class_is_refused(app, client, monkeypatch):
+def test_a_manual_invitation_on_a_new_engine_class_takes_the_engine_path(app, client, monkeypatch):
     from test_semi_auto_approval import _patched_io
 
     with app.app_context():
@@ -54,19 +54,14 @@ def test_a_manual_invitation_on_a_new_engine_class_is_refused(app, client, monke
     with _patched_io():
         assert _manual(app, client, stranger, new).status_code == 403          # ownership first
         res = _manual(app, client, new["coach_user"], new)
-        assert res.status_code == 409, res.get_json()
-        assert res.get_json() == {"error": "NEW_ENGINE_CLASS", "code": "NEW_ENGINE_CLASS"}
+        assert res.status_code == 200, res.get_json()
+        assert res.get_json()["sent"] == 1
         with app.app_context():
-            assert _stored(new["instance"]) == (0, 0, 0)
-            from padel_app.services.notification_service import NewEngineClassError, send_manual_notifications
-
-            with pytest.raises(NewEngineClassError):
-                send_manual_notifications(new["instance"], [new["candidate"]], new_coach)
-            db.session.rollback()
-            assert _stored(new["instance"]) == (0, 0, 0)
+            events, invitations, _ = _stored(new["instance"])
+            assert (events, invitations) == (0, 1)
 
         res = _manual(app, client, old["coach_user"], old)                      # the old engine: as today
         assert res.status_code == 200, res.get_json()
         assert res.get_json()["sent"] == 1
     with app.app_context():
-        assert _stored(old["instance"])[0] == 1
+        assert _stored(old["instance"])[:2] == (1, 0)

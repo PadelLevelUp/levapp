@@ -83,6 +83,7 @@ class Invitation:
     counts_until: datetime | None = None
     sorry_at: datetime | None = None                  # a Yes got "sorry": open, not counting, re-offerable
     closed_at: datetime | None = None                 # closed by a same-hour placement (engine-answers rule 10)
+    manual: bool = False                              # the coach sent or reopened it by hand (engine-answers rule 15)
 
     @property
     def open(self) -> bool:

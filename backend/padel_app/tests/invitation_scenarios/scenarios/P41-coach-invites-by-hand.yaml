@@ -1,0 +1,46 @@
+id: P41
+title: the coach invites a student by hand on a new-engine class
+source: {section: "Plano §5 Group 0, the coach's list; engine-answers rule 15 (PAD-932, the owner's decision 17)", lines: [120, 120]}
+what_it_tests: a coach's invitation by hand is a counting coach's-list invitation, sent at once in quiet hours, below the bar and above M, and answered like any
+tags: [groups, eligibility]
+derived_from: [D17, D16, D14]
+corrections: []
+notes: >
+  Not a PDF or plan scenario: a P file for engine-answers rule 15 (ANSWERS-30, TIERS-23; S's e43cfee2c).
+  One left spot, M = 2 and T = 12h, so the two L3L invited at 19:00 still count at 01:00 (T pauses in quiet
+  hours). At 01:00, inside quiet hours, the coach invites B by hand: B plays both sides and is level 5, below
+  the class's bar, yet is invited at once in the coach's-list tier (format group 1), offered the left side
+  only (no side named), and the session holds 3 counting invitations, above M. The third L3L is never asked.
+  B's Yes at 08:00 places them on the left.
+
+settings:
+  max_open: 2
+  timing: {method: A, between_rounds: 12h, between_groups: 12h}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 3, R: 4}
+students:
+  - {id: B, level: 5, side: both}
+  - {cohort: L3L, count: 3, level: 3, side: L}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations: [{cohort: L3L, count: 2, side_named: null, group: 3}]
+  - at: 2026-11-02 01:00
+    events: [{coach_invites: B}]
+    expect:
+      invitations: [{who: B, side_named: null, group: 1}]
+      open_unanswered: 3
+  - at: 2026-11-02 08:00
+    events: [{accepts: B}]
+    expect:
+      placed: [{who: B, side: L, how: invitation}]
+      missing: {L: 0, R: 0}
+final:
+  roster: {L: 4, R: 4}

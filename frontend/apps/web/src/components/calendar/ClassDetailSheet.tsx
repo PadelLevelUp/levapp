@@ -71,7 +71,7 @@ import {
   getApprovalState,
   recomputeApprovalState,
 } from "@/api/notificationEngine";
-import { isEngineApproval, joinRefusalKey, manualInviteClosed, waitingListSideChoice, INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, inviteeTierText, isNewEngineInvitee, pendingInviteCount, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, mergeSuggestionBundles, suggestionBundles } from "@levelup/config";
+import { isEngineApproval, joinRefusalKey, waitingListSideChoice, INVITATION_OUTCOME_KEY, INVITATION_OUTCOME_TONE, inviteeActionsFor, inviteeNotes, inviteeTierText, isNewEngineInvitee, pendingInviteCount, outcomeAfterCoachAction, outcomeAfterResponse, statusForOutcome, mergeSuggestionBundles, suggestionBundles } from "@levelup/config";
 import { confirmClassPresences, setPresenceSide } from "@/api/presences";
 import { confirmClassTraining } from "@/api/training";
 import { subscribeAppEvents } from "@/api/events";
@@ -257,20 +257,12 @@ export function ClassDetailSheet({
   // PAD-285: the dashboard's "Convidar" lands here with Notificar to open — once
   // the sheet is up for a coach, and only for this opening.
   // PAD-798 (notifications.manual rule 10): not for a class that has started — nobody can be invited.
-  // PAD-933 (notifications.manual NM2): manual invites do not go through the new engine yet, so a
-  // new-engine class has no Notificar and the deep link opens nothing. Without engineVersion: old.
-  const manualClosed = manualInviteClosed(classInstance?.engineVersion ?? event?.engineVersion);
   useEffect(() => {
     if (!(open && openNotify && canManage && event?.type === "class")) return;
-    if (manualClosed) return;
     const startMs = wallClockMs(event.date, event.startTime);
     if (!Number.isNaN(startMs) && startMs <= lisbonNowMs()) return;
     setShowNotifyModal(true);
-  }, [open, openNotify, canManage, event?.type, event?.date, event?.startTime, manualClosed]);
-  // The class payload can say "new" after the event did not: the picker does not stay open.
-  useEffect(() => {
-    if (manualClosed) setShowNotifyModal(false);
-  }, [manualClosed]);
+  }, [open, openNotify, canManage, event?.type, event?.date, event?.startTime]);
   const [sendingReminders, setSendingReminders] = useState(false);
 
   // PAD-376 (evaluations.class-panel): "Avaliações" swaps this surface for the class's
@@ -2279,7 +2271,7 @@ export function ClassDetailSheet({
                         >
                           {t("calendar.notify.classStarted")}
                         </p>
-                      ) : manualClosed ? null : (
+                      ) : (
                         <Button
                           variant="outline"
                           className="flex-1"
