@@ -14,6 +14,10 @@ notes: >
   Re-derived under the plan (PAD-900, 2026-11-11): B1's either-side offer covers one spot. The other goes to
   group 4 at 1 per spot, because group 3 (B1) is the ideal tier for both types (D17).
 
+  2026-11-13 (PAD-931): passes unchanged under the owner's decision 16 (a flexible invitation fills one type's
+  budget only, reversing D20). With one spot per side the two readings send the same invitations, so this file
+  cannot tell them apart; P40 pins the rule.
+
 roster:
   regulars: {L: 7, R: 7}
 students:

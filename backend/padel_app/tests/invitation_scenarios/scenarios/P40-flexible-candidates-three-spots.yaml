@@ -1,0 +1,37 @@
+id: P40
+title: flexible candidates for three open spots
+source: {section: "Plano §6 One planning run, step 2.3 Top up", lines: [161, 161]}
+what_it_tests: a flexible invitation fills one type's budget only, so three spots get X invitations each
+tags: [both-sides, groups]
+derived_from: [D5, D17, §6]
+corrections: []
+notes: >
+  Added 2026-11-13 (PAD-931) to pin the owner's decision 16 (reversing D20), after staging instance 783. Scenario
+  52 has one spot per side and passes under both readings, so it cannot tell them apart. Here 2 left and 1 right
+  spots are open and every candidate plays both sides. One type each: the left's budget is 2 x 3 = 6 and the
+  right's 1 x 3 = 3, so 9 invitations. Under D20 each flexible invitation filled both budgets, so fewer covered the
+  3 spots (on the engine before PAD-931, the run sent 7: the top-up still saw both budgets as filled early).
+
+settings:
+  timing: {method: A, between_rounds: 60m, between_groups: 60m}
+  groups:
+    - {list: coach, side: any}
+    - {list: students, side: any}
+    - {level: 0, side: same}
+    - {level: 0, side: other}
+class: {level: 3, capacity: 8, start: 2026-11-03 10:30}
+
+roster:
+  regulars: {L: 2, R: 3}
+students:
+  - {cohort: L3B, count: 12, level: 3, side: both}
+
+timeline:
+  - at: 2026-11-01 19:00
+    expect:
+      invitations:
+        - {cohort: L3B, count: 9, side_named: null, group: 3}
+      invitations_total_sent: 9
+      missing: {L: 2, R: 1}
+final:
+  roster: {L: 2, R: 3}
