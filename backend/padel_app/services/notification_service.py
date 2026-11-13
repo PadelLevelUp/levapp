@@ -5989,9 +5989,25 @@ def respond_to_notification(
             _coach_only(coach_user_id),
         )
         _mark_answered_message_read(invite_msg, acting_user_id)
+        _tell_new_engine_placed(instance, event.player_id)  # PAD-932 (NM3)
         return {"action": "confirmed"}
 
     return {"action": "unknown"}
+
+
+def _tell_new_engine_placed(instance, player_id: int) -> None:
+    """PAD-932 (notifications.manual NM3): an old invitation's Yes placed the student in a session now on
+    the new engine; the engine is told (``CoachAdded``), so their open invitations at that hour close and
+    the session replans. After the enrolment's commit; nothing for an old-engine session."""
+    from flask import current_app
+
+    from padel_app.services.engine_entry import coach_added
+
+    try:
+        coach_added(instance, [player_id])
+    except Exception:  # noqa: BLE001 — the placement stands; the next tick replans the session
+        db.session.rollback()
+        current_app.logger.exception("PAD-932: telling the engine about lesson_instance %s failed", instance.id)
 
 
 def coach_respond_to_notification(
@@ -6082,6 +6098,7 @@ def coach_respond_to_notification(
         # PAD-596: nothing is saved after it. `enrol()` commits the answer, the close, the
         # settlement and the enrolment together and releases the lock; the two `save()` calls
         # that followed committed nothing and cost two round-trips.
+        _tell_new_engine_placed(instance, event.player_id)  # PAD-932 (NM3)
 
         return {"action": "confirmed"}
 
@@ -6174,16 +6191,32 @@ def withdraw_invitation(notification_event_id: int, coach_id: int, *, now: datet
 def players_with_live_invitation(instance_id: int, player_ids) -> set:
     """PAD-620 (invitations rule 18): the players who already hold a live invitation (``sent`` or
     ``queued``) for this occurrence, automatic or manual."""
+    from padel_app.models import EngineInvitation
+
     ids = [int(p) for p in (player_ids or [])]
     if not ids:
         return set()
-    return {
+    old = {
         pid for (pid,) in db.session.query(NotificationEvent.player_id).filter(
             NotificationEvent.lesson_instance_id == instance_id,
             NotificationEvent.player_id.in_(ids),
             NotificationEvent.status.in_(LIVE_INVITATION_STATES),
         )
     }
+    # PAD-932 (rule 9 on either engine, MANUAL-1): a counting engine invitation is live too
+    # (timeline.counting: open, no sorry, before its counting-until).
+    now = utcnow_naive()
+    new = {
+        pid for (pid,) in db.session.query(EngineInvitation.player_id).filter(
+            EngineInvitation.lesson_instance_id == instance_id,
+            EngineInvitation.player_id.in_(ids),
+            EngineInvitation.answer.is_(None),
+            EngineInvitation.closed_at.is_(None),
+            EngineInvitation.sorry_at.is_(None),
+            (EngineInvitation.counts_until.is_(None)) | (EngineInvitation.counts_until > now),
+        )
+    }
+    return old | new
 
 
 class ClassStartedError(Exception):
