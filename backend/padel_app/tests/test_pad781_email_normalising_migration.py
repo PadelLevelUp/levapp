@@ -1,5 +1,6 @@
 """PAD-781 — revision 13395db9fee4 rewrites stored emails to their normalised form (auth.password-recovery
-rule 12): idempotent, never colliding, and reversible through the originals it keeps."""
+rule 12): idempotent and never colliding. Since PAD-796 its downgrade is a no-op (the originals it kept are
+dropped by f796ea7e680b; see test_pad796_drop_email_originals.py)."""
 import importlib.util
 from pathlib import Path
 
@@ -85,29 +86,12 @@ def test_a_second_upgrade_changes_nothing(app, users, migration):
     assert _emails(app, users) == after_first
 
 
-def test_the_downgrade_puts_every_original_back_and_drops_its_table(app, users, migration):
+@pytest.mark.criterion("AUTH-PASSWORD-RECOVERY-28")
+def test_the_downgrade_changes_nothing(app, users, migration):
     _run(app, migration.normalise)
+    after_upgrade = _emails(app, users)
 
-    assert _run(app, migration.restore) == 2
-    assert _emails(app, users) == ROWS
-    with app.app_context():
-        assert migration.ORIGINALS not in sa.inspect(db.engine).get_table_names()
+    migration.downgrade()  # a no-op: it never reaches the database
 
-
-def test_the_downgrade_leaves_an_address_changed_since_the_upgrade(app, users, migration):
-    _run(app, migration.normalise)
-    with app.app_context():
-        db.session.execute(sa.text("UPDATE users SET email = 'moved@example.com' WHERE id = :id"),
-                           {"id": users["padded"]})
-        db.session.commit()
-
-    assert _run(app, migration.restore) == 1
-    emails = _emails(app, users)
-    assert emails["padded"] == "moved@example.com"
-    assert emails["case_only"] == ROWS["case_only"]
-
-
-def test_autogenerate_never_proposes_dropping_the_originals_table():
-    from padel_app.tools.alembic_filters import include_object
-
-    assert include_object(None, "pad781_email_originals", "table", True, None) is False
+    assert not hasattr(migration, "restore")
+    assert _emails(app, users) == after_upgrade
