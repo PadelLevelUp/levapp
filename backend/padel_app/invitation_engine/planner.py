@@ -486,19 +486,6 @@ class _Run:
                 (bucket.fresh if invitation is None or sorry else bucket.holders).append(sid)
         return out
 
-    def counting_for(self, spot_type: SpotType, *, distinct: bool = False) -> int:
-        """Counting invitations from any tier whose offer counts for the type, this run's included
-        (engine-planning rules 4, 5.3). ``distinct`` (the covering pass): a person this run uses to
-        cover another type does not count for this one (D5, coverage in distinct people)."""
-        values = type_sides(spot_type, self.counts)
-
-        def mine(sid: str) -> bool:
-            return not distinct or self.covers.get(sid, spot_type) == spot_type
-
-        old = sum(1 for sid, inv in self.latest.items() if sid not in self.sent and mine(sid)
-                  and timeline.counting(inv, self.now) and {t.side for t in inv.offer} & values)
-        return old + sum(1 for sid, offer in self.sent.items() if offer & values and mine(sid))
-
     def fits(self, sides: frozenset[str]) -> int:
         """How many of the session's open spot types an offer of ``sides`` fits (rule 4: holders that fit
         one type only are assigned before flexible ones, PLANNING-47)."""
