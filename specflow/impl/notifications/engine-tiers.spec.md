@@ -59,7 +59,8 @@ the coach's list).
    "do not ask me". Students still see only the
    classes they are eligible for.
    **A coach's invitation by hand is the coach's list too** (the owner's decision 17, PAD-932;
-   `notifications.engine-answers` rule 15): an invitation of this tier, sent at once, with the same
+   `notifications.engine-answers` rule 15): an invitation of this tier (or of none, when the coach's
+   tiers have no coach's list), sent at once, with the same
    exemptions and more: "said No for this session" does not hold it either, since the coach chose the
    student by hand. Its offer is every open spot type the student's playable sides fit, whatever the bar.
    The route keeps the student's own blocks (`notifications.manual` NM1).

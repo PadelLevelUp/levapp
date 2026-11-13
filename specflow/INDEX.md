@@ -6913,6 +6913,7 @@ Untagged tests: 4267
 - `ENGINE_RUN_EVERY` = `1 minute` · `specflow/impl/notifications/constants.md`
 - `ENGINE_T_FLOOR` = `1 minute` · `specflow/impl/notifications/constants.md`
 - `KIND_ADDED` = `added` · `specflow/impl/notifications/constants.md`
+- `KIND_INVITE` = `invite` · `specflow/impl/notifications/constants.md`
 - `KIND_SIDE_MOVED` = `side_moved` · `specflow/impl/notifications/constants.md`
 - `KIND_SORRY` = `sorry` · `specflow/impl/notifications/constants.md`
 - `KIND_WAITING_LIST_INVITE` = `waiting_list_invite` · `specflow/impl/notifications/constants.md`
