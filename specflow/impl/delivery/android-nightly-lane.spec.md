@@ -43,8 +43,12 @@ signal (PAD-710).
 2. **A shard is a contiguous slice of the suite order.**
    - The suite order is `config.yaml`'s `flowsOrder`, followed by any `flows/*.yaml` it does not
      list, by file name.
-   - Flows tagged `ios-only`, `open-defect-probe` or `hand-run-setup` are removed before slicing:
-     the same tags `ci-android-maestro.sh` passes to Maestro's `--exclude-tags`.
+   - Flows tagged `ios-only`, `open-defect-probe`, `hand-run-setup` or `android-open-defect` are
+     removed before slicing: the same tags `ci-android-maestro.sh` passes to Maestro's `--exclude-tags`.
+   - `android-open-defect` marks a flow red on Android because of a known open product bug that
+     does not reproduce on iOS. Only the Android lane excludes it; `config.yaml` does not, so the iOS
+     whole-suite run keeps it. Each such flow names its bug in its header. While any flow carries the
+     tag, a green lane does not close PAD-710 or make the lane strict.
    - Shard k runs from `starts[k]` up to the flow before `starts[k+1]`.
    - Each shard is its own job, with its own emulator, its own freshly seeded database and a
      90-minute cap. One Maestro process runs per shard, with `continueOnFailure`.
@@ -114,7 +118,8 @@ signal (PAD-710).
 - **And** `36-android-evidence`, which is not in `flowsOrder`, is in the last shard
 - **And** `47-push-tap-routing`, `122-warm-push-tap-shows-the-message`,
   `85-working-hours-invalid-day`, `92-working-hours-minute-grid`, `319-new-engine-settings`,
-  `320-new-engine-invitee-outcome` and `321-new-engine-invite-bubble` are in no shard
+  `320-new-engine-invitee-outcome`, `321-new-engine-invite-bubble`, `09-direct-messages`,
+  `103-thread-lands-on-target-message` and `114-thread-opens-at-first-unread` are in no shard
 - **And** the planner excludes exactly the tags `ci-android-maestro.sh` passes to `--exclude-tags`
 
 #### DELIVERY-ANDROID-NIGHTLY-LANE-2: A split chain is refused by name
