@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   changedFlows,
   checkShards,
+  EXCLUDED_TAGS,
   laneVerdict,
   readShardResults,
   setupError,
@@ -26,7 +27,16 @@ import {
  */
 
 const MAESTRO_DIR = path.resolve(__dirname, "../../.maestro");
-const TAGGED = ["47-push-tap-routing", "122-warm-push-tap-shows-the-message", "85-working-hours-invalid-day", "92-working-hours-minute-grid"];
+const TAGGED = [
+  "47-push-tap-routing",
+  "122-warm-push-tap-shows-the-message",
+  "85-working-hours-invalid-day",
+  "92-working-hours-minute-grid",
+  // PAD-920: tagged hand-run-setup (their setup is a hand-run backend step).
+  "319-new-engine-settings",
+  "320-new-engine-invitee-outcome",
+  "321-new-engine-invite-bubble",
+];
 
 describe("the committed shard file (rule 3)", () => {
   const { shardFile, flows, suite } = readWorkspace(MAESTRO_DIR);
@@ -53,6 +63,14 @@ describe("the committed shard file (rule 3)", () => {
       expect(Object.keys(flows)).toContain(name);
       expect(shards.flat()).not.toContain(name);
     }
+  });
+
+  // A tag Maestro skips but the planner keeps leaves its flows in a shard's config, and the shard
+  // then reports "N of N+k flows" (PR #961, run 43297928957: shard 4 "43 of 52", changed "2 of 5").
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-1] excludes exactly the tags ci-android-maestro.sh passes to Maestro", () => {
+    const script = fs.readFileSync(path.resolve(__dirname, "../../scripts/ci-android-maestro.sh"), "utf8");
+    const passed = script.match(/--exclude-tags (\S+)/)?.[1].split(",");
+    expect(passed?.sort()).toEqual([...EXCLUDED_TAGS].sort());
   });
 });
 

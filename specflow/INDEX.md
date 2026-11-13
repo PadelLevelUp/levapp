@@ -3022,6 +3022,7 @@ Untagged tests: 4268
 - spec **delivery.android-nightly-lane** (`specflow/impl/delivery/android-nightly-lane.spec.md`)
   - **DELIVERY-ANDROID-NIGHTLY-LANE-1** Every runnable flow is in exactly one shard
     - test: `frontend/apps/mobile/src/lib/maestro-shards.test.ts` › [DELIVERY-ANDROID-NIGHTLY-LANE-1] puts every runnable flow in exactly one shard
+    - test: `frontend/apps/mobile/src/lib/maestro-shards.test.ts` › [DELIVERY-ANDROID-NIGHTLY-LANE-1] excludes exactly the tags ci-android-maestro.sh passes to Maestro
   - **DELIVERY-ANDROID-NIGHTLY-LANE-2** A split chain is refused by name
     - test: `frontend/apps/mobile/src/lib/maestro-shards.test.ts` › [DELIVERY-ANDROID-NIGHTLY-LANE-2] refuses a split chain by name
   - **DELIVERY-ANDROID-NIGHTLY-LANE-3** A shard's workspace config runs only its own flows, in order

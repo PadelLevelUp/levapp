@@ -4,8 +4,8 @@
   "starts": [
     "01-login",
     "52-dialog-overlay-rate",
-    "66-academy-class-waitlist",
-    "121-class-request-ends-after-n-classes"
+    "144-waiting-list-in-request-history",
+    "134-class-override-eligibility-direction"
   ],
   "chains": [
     ["01-login", "02-coach-dashboard", "03-class-management", "04-attendance", "05-class-deletion"],
