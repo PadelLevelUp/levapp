@@ -74,7 +74,9 @@ log() { echo "[sync-staging-db] $*"; }
 skip() { log "SKIPPED: $*"; exit 0; }
 EXIT_SCRUB_FAILED=3
 EXIT_SCRUB_FAILED_NOT_WIPED=4
+EXIT_TESTER_LOGIN_REFUSED=5
 unsafe=0   # set when the target may hold unscrubbed data: the EXIT trap then leaves staging stopped
+scrubbed=0 # set once the scrub ran on a restored copy: the EXIT trap then checks the tester logins (rule 11)
 migrated=0 # set once the copy is at the image's head (step 4b): the EXIT trap does not migrate twice
 
 # ── 1. Read the staging DB identity from .env.staging (KEY=VALUE lines only) ──
@@ -186,7 +188,44 @@ migrate_restored() {
   return "$rc"
 }
 
+# PAD-922 (rule 11a): a scrub that leaves a tester unable to sign in is a failed run. After a restore
+# and scrub, both tester logins are tried against the running staging app, from inside its container
+# (the shared password is in its environment and never reaches this script, a command line or the
+# log). Only the status codes are printed. A refusal ends the script with exit 5, unless it already
+# ends with a failure code of its own.
+check_tester_logins() {
+  local entry_rc="$1" out rc
+  [ "$scrubbed" = 1 ] || return 0
+  if [ -z "$PWHASH" ]; then
+    log "tester logins not checked: no STAGING_TEST_PASSWORD (rule 10 leaves them unusable)"
+    return 0
+  fi
+  out=$(docker exec "$APP_CONTAINER" python -c 'import json, os, urllib.error, urllib.request
+bad = 0
+for user in ("staging-coach", "staging-student"):
+    req = urllib.request.Request("http://127.0.0.1:80/api/auth/login",
+        json.dumps({"username": user, "password": os.environ.get("STAGING_TEST_PASSWORD", "")}).encode(),
+        {"Content-Type": "application/json"})
+    try:
+        code = urllib.request.urlopen(req, timeout=10).status
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+    except Exception:
+        code = 0
+    print("tester login %s: %s" % (user, code))
+    bad += code != 200
+raise SystemExit(1 if bad else 0)' 2>&1)
+  rc=$?
+  printf '%s\n' "$out" | grep '^tester login ' | while read -r line; do log "$line"; done
+  if [ "$rc" != 0 ]; then
+    log "ERROR: a tester login was refused (exit $EXIT_TESTER_LOGIN_REFUSED)"
+    [ "$entry_rc" = 0 ] && exit "$EXIT_TESTER_LOGIN_REFUSED"
+  fi
+  return 0
+}
+
 restart_app() {
+  local entry_rc=$?
   if [ "$unsafe" = 1 ]; then
     log "NOT starting $APP_CONTAINER: $TARGET_DB may hold unscrubbed data (wipe or reload by hand)"
     return 0
@@ -215,6 +254,7 @@ restart_app() {
   for _ in $(seq 1 45); do
     if curl -sf -m 3 "$HEALTH_URL" >/dev/null 2>&1; then
       log "staging healthy; $TARGET_DB now has $(pg "$TARGET_DB" 'select count(*) from users;' 2>/dev/null || echo '?') users"
+      check_tester_logins "$entry_rc"
       return 0
     fi
     sleep 2
@@ -324,6 +364,7 @@ if docker exec -i "$PG_CONTAINER" psql -U "$PG_USER" -d "$TARGET_DB" -q -1 -v ON
   if [ -n "${RESTORED_DUMP:-}" ]; then
     printf '%s\n' "$RESTORED_DUMP" > "$STATE_FILE" || log "WARNING: could not write $STATE_FILE"
   fi
+  scrubbed=1
   log "scrub done: $(pg "$TARGET_DB" "select count(*) from users where email not like '%@staging.invalid';" 2>/dev/null || echo '?') real emails, $(pg "$TARGET_DB" 'select count(*) from device_tokens;' 2>/dev/null || echo '?') device tokens, $(pg "$TARGET_DB" 'select count(*) from push_subscriptions;' 2>/dev/null || echo '?') push subscriptions left"
 else
   fail_closed "the scrub failed"

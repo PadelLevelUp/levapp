@@ -33,23 +33,34 @@ UPDATE users SET
 UPDATE users SET password = CASE WHEN :'pwhash' = '' THEN 'scrubbed-no-login' ELSE :'pwhash' END
 WHERE password IS NOT NULL;
 
--- Rule 11: two known tester logins on real-shaped data.
+-- Rule 11 (PAD-922): two known tester logins on real-shaped data, picked so that they CAN log in.
+-- The coach with the most students, not a rejected one; that coach's lowest-id student whose account
+-- is claimed (no pending- placeholder) and not disabled. Both get the shared hash whether or not they
+-- had a password (a social-only student has none), so neither tester login depends on how the
+-- original account signed in. With no secret both get the unusable value, as every other account.
+CREATE TEMP TABLE staging_testers ON COMMIT DROP AS
 WITH coach AS (
-    SELECT c.user_id, c.id AS coach_id
-    FROM coaches c JOIN coach_in_player cp ON cp.coach_id = c.id
+    SELECT c.id AS coach_id, c.user_id
+    FROM coaches c
+    JOIN users cu ON cu.id = c.user_id
+    JOIN coach_in_player cp ON cp.coach_id = c.id
+    WHERE c.approval_status IS DISTINCT FROM 'rejected' AND cu.status IS DISTINCT FROM 'disabled'
     GROUP BY c.id, c.user_id ORDER BY count(*) DESC, c.id LIMIT 1
 )
-UPDATE users SET username = 'staging-coach', email = 'staging-coach@staging.invalid'
-WHERE id = (SELECT user_id FROM coach);
-WITH coach AS (
-    SELECT c.id AS coach_id
-    FROM coaches c JOIN coach_in_player cp ON cp.coach_id = c.id
-    GROUP BY c.id ORDER BY count(*) DESC, c.id LIMIT 1
-)
-UPDATE users SET username = 'staging-student', email = 'staging-student@staging.invalid'
-WHERE id = (SELECT p.user_id FROM players p JOIN coach_in_player cp ON cp.player_id = p.id
-            WHERE cp.coach_id = (SELECT coach_id FROM coach) AND p.user_id IS NOT NULL
-            ORDER BY p.id LIMIT 1);
+SELECT 'staging-coach' AS username, (SELECT user_id FROM coach) AS user_id
+UNION ALL
+SELECT 'staging-student', (
+    SELECT p.user_id FROM players p
+    JOIN users pu ON pu.id = p.user_id
+    JOIN coach_in_player cp ON cp.player_id = p.id
+    WHERE cp.coach_id = (SELECT coach_id FROM coach)
+      AND pu.username NOT LIKE 'pending-%' AND pu.status IS DISTINCT FROM 'disabled'
+    ORDER BY p.id LIMIT 1
+);
+UPDATE users SET username = t.username, email = t.username || '@staging.invalid',
+       password = CASE WHEN :'pwhash' = '' THEN 'scrubbed-no-login' ELSE :'pwhash' END
+FROM staging_testers t
+WHERE users.id = t.user_id;
 
 -- scrubbed: coach_invitations.email
 UPDATE coach_invitations SET email = 'invite' || id || '@staging.invalid' WHERE email IS NOT NULL;

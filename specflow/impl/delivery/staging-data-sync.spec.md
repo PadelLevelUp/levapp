@@ -116,13 +116,25 @@ reload and a live copy stay available through `workflow_dispatch`.
    the migrate step and failed on `push_outbox`, a table prod's head `e532fea8c4d4` did not have.)
 10. **One shared password, never in the repo.** The deploy passes the staging secret
    `STAGING_TEST_PASSWORD` to the staging container; the sync script hashes it inside that
-   container (werkzeug, as the app does) before stopping it and hands the hash to the scrub. With
-   no secret the scrub still runs and sets every password to an unusable value, so a missing secret
+   container (werkzeug, as the app does) before stopping it and hands the hash to the scrub. Every
+   account that has a password gets the hash, and the two tester accounts of rule 11 get it whether
+   or not they had one (a student who only signed in with Google or Apple has none). With no secret
+   the scrub still runs and sets every password it sets to an unusable value, so a missing secret
    never leaves real hashes behind.
 11. **Known tester logins.** The scrub names two accounts so people can sign in to staging:
-   `staging-coach` (the coach with the most students) and `staging-student` (that coach's student
-   with the lowest id). Both use the shared password. Every other account is reachable as
-   `user<id>`.
+   `staging-coach` (the coach with the most students, whose account is not disabled and whose
+   approval is not rejected) and `staging-student` (that coach's student with the lowest id whose
+   account is claimed, not a `pending-…` placeholder, and not disabled). Both use the shared
+   password. Every other account is reachable as `user<id>`. *Why the hash is set regardless, not
+   the pick narrowed to students with a password:* the pick stays the real-shaped, most-connected
+   student the owner chose, and the login works whatever way that account first signed in; narrowing
+   the pick could leave no student at all.
+11a. **(PAD-922) A tester who cannot sign in fails the sync.** After a restore and a scrub, once
+   staging is healthy again, the sync script signs in as `staging-coach` and `staging-student` with
+   the shared password, from inside the staging container (the password never leaves it). Each must
+   answer 200. A refusal logs `tester login <name>: <code>` and ends the script with exit **5**
+   (unless it already ends with a failure of its own), and the `sync-db` job fails on 5 like on 3
+   and 4. With no secret nothing is checked, and a skipped run checks nothing.
 12. **A guard keeps the scrub complete.** A test reads every `String`, `Text` and `JSON` column
    declared in `backend/padel_app/models/` and fails unless it is named in `staging-scrub.sql` or
    in the guard's short list of non-personal columns, so a new personal column cannot be added
@@ -222,6 +234,14 @@ reload and a live copy stay available through `workflow_dispatch`.
 - **And** an empty dump is skipped, and so is an unknown mode; in both cases staging is not stopped
 test: `backend/padel_app/tests/test_pad589_staging_sync.py` › `test_a_stale_backup_is_reported_and_still_restored` (+3 more)
 - Code to follow: `test_a_stale_backup_is_reported_and_still_restored` (`test_pad589_staging_sync.py`) asserts the warning and the exit only; assert that the old dump was restored.
+
+#### DELIVERY-STAGING-DATA-SYNC-15: Both tester logins work after a scrub, and the job fails when one does not (rules 10, 11, 11a)
+- **Given** a restored copy in which the coach's lowest-id student signed in only with Google (no password), a `pending-…` student with a lower id, and a disabled student with a lower id still
+- **When** the scrub runs with a password hash
+- **Then** `staging-student` is the lowest-id claimed, non-disabled student of the coach with the most students, and both `staging-coach` and `staging-student` hold exactly the shared hash
+- **And** when the sync script ends after a scrub and a tester login answers non-200 it logs `tester login <name>: <code>` and exits 5, with both answering 200 it exits 0, and with no secret it checks nothing
+- **And** the workflow's `sync-db` verdict fails the job on 5
+test: `backend/padel_app/tests/test_pad922_tester_logins.py`
 
 ### Notes
 - PAD-606 (2026-10-11, owner decision): everything personal is scrubbed, usernames included; the
