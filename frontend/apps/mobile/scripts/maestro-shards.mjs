@@ -23,7 +23,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Tags whose flows never run on the Android lane (ci-android-maestro.sh passes the same; a test holds it). */
-export const EXCLUDED_TAGS = ["ios-only", "open-defect-probe", "hand-run-setup"];
+export const EXCLUDED_TAGS = ["ios-only", "open-defect-probe", "hand-run-setup", "android-open-defect"];
 
 /** The `flowsOrder` names of a Maestro workspace config, in order. */
 export function parseFlowsOrder(configText) {

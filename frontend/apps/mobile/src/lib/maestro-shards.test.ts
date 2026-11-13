@@ -74,6 +74,25 @@ describe("the committed shard file (rule 3)", () => {
   });
 });
 
+describe("diagnostic flows outside flows/ (rule 2)", () => {
+  // .maestro/evidence/ holds on-demand diagnostics (dispatch `-f flows=evidence/<dir>`); the suite
+  // is flowsOrder plus flows/*.yaml, so nothing there reaches the nightly or a `flows=.` run.
+  it("[DELIVERY-ANDROID-NIGHTLY-LANE-1] keeps a flow under evidence/ out of every shard and shard config", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lane-evidence-"));
+    fs.mkdirSync(path.join(dir, "flows"));
+    fs.mkdirSync(path.join(dir, "evidence", "m3"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "config.yaml"), "executionOrder:\n  flowsOrder:\n    - 01-login\n    - 02-b\n");
+    fs.writeFileSync(path.join(dir, "android-shards.json"), JSON.stringify({ warmup: "01-login", starts: ["01-login", "02-b"] }));
+    for (const n of ["01-login", "02-b"]) fs.writeFileSync(path.join(dir, "flows", `${n}.yaml`), "appId: x\n---\n");
+    fs.writeFileSync(path.join(dir, "evidence", "m3", "46-diag.yaml"), "appId: x\n---\n");
+    const { suite, shardFile } = readWorkspace(dir);
+    expect(suite).toEqual(["01-login", "02-b"]);
+    for (let k = 1; k <= shardFile.starts.length; k++) {
+      expect(shardConfig(shardFlows(suite, shardFile, k))).not.toContain("46-diag");
+    }
+  });
+});
+
 describe("checkShards", () => {
   const flows = Object.fromEntries(
     ["01-login", "03-class-management", "04-attendance", "05-class-deletion", "14-student-calendar", "47-push"].map((n) => [
