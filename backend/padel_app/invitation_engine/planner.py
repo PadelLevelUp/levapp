@@ -23,6 +23,7 @@ from typing import Literal
 from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.constants import (
     ALERT_NO_CANDIDATE,
+    KIND_INVITE,
     KIND_WAITING_LIST_INVITE,
     LOWER_TIER_PER_SPOT,
     side_quota,
@@ -40,6 +41,7 @@ from padel_app.invitation_engine.effects import (
     Invited,
     Message,
     Placed,
+    Refused,
     Reopened,
     WaitingListLeft,
 )
@@ -240,6 +242,40 @@ def close_same_hour(snapshot: SessionSnapshot, student: str, now: datetime) -> t
     invitations for other sessions at the same hour closed. Called with every placement."""
     return tuple(InvitationClosed(e.session, now, student) for e in snapshot.elsewhere
                  if e.invitation.student == student and same_time(e, snapshot))
+
+
+def coach_invites(snapshot: SessionSnapshot, settings: EngineSettings, students: tuple[str, ...],
+                  now: datetime) -> tuple[Effect, ...]:
+    """The coach invites ``students`` by hand (engine-answers rule 15; engine-tiers rule 4; the owner's
+    decision 17). Each is refused with a reason, or sent an invitation of the coach's-list tier at once,
+    marked manual: no bar, no gate of the coach's, no quiet hours, window, toggle or M (it counts toward
+    M, rule 8). Its offer is every open spot type the student's sides fit, a side named only per rule 9;
+    its T is the tier's ``between_groups``, as for a send that leaves the tier nobody to ask
+    (engine-timeline rule 4). A student who holds a row that no longer counts has it reopened (D1).
+    A student the snapshot does not name is the caller's error (``KeyError``)."""
+    counts = spot_counts(snapshot)
+    open_sides = frozenset().union(*(type_sides(t, counts) for t, _ in spot_types(snapshot, counts)))
+    tier = next((i for i, t in enumerate(settings.tiers) if t.source == "coach_list"), None)
+    pair = settings.timing_for(tier) if tier is not None else settings.timing_for(len(settings.tiers))
+    until = timeline.counts_until(settings, now, pair.between_groups)
+    out: list[Effect] = []
+    for sid in dict.fromkeys(students):              # a student named twice is invited once
+        student = snapshot.students[sid]
+        held = snapshot.invitation(sid)
+        offer = student.sides & open_sides
+        reason = ("already_in_class" if snapshot.placement(sid) is not None or sid in {r.id for r in snapshot.regulars}
+                  else "same_hour" if sid in snapshot.busy_same_time
+                  else "already_invited" if held is not None and timeline.counting(held, now)
+                  else "no_open_spot" if not offer else None)
+        if reason is not None:
+            out.append(Refused(snapshot.id, now, sid, "coach_invite", reason))
+            continue
+        fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student), tier, until)
+        if held is not None:
+            out += [Reopened(snapshot.id, now, sid, *fields, manual=True), Message(snapshot.id, now, sid, KIND_INVITE)]
+        else:
+            out.append(Invited(snapshot.id, now, sid, *fields, manual=True))
+    return tuple(out)
 
 
 def passes(tier: Tier, student: Student, spot_type: SpotType, counts: SpotCounts, snapshot: SessionSnapshot,
@@ -457,6 +493,7 @@ class _Run:
     used: set[str] = field(default_factory=set)
     sent: dict[str, frozenset[str]] = field(default_factory=dict)       # this run's invitees -> offer sides
     covers: dict[str, SpotType] = field(default_factory=dict)          # covering pass: who covers which type
+    fills: dict[str, SpotType] = field(default_factory=dict)           # top-up: whose budget each invitation fills
     sent_tier: dict[str, int] = field(default_factory=dict)            # this run's invitees -> their tier
     effects: list[Effect] = field(default_factory=list)
 
@@ -497,6 +534,22 @@ class _Run:
         old = sum(1 for sid, inv in self.latest.items() if sid not in self.sent and mine(sid)
                   and timeline.counting(inv, self.now) and {t.side for t in inv.offer} & values)
         return old + sum(1 for sid, offer in self.sent.items() if offer & values and mine(sid))
+
+    def filling(self, spot_type: SpotType, budget: int) -> int:
+        """The counting invitations that fill ``spot_type``'s budget (engine-planning rules 4, 5.3 as
+        amended, PLANNING-45): one type's budget each. Those the covering pass assigned to this type, or
+        this run sent for it, count; then holders assigned to no type yet whose offer fits it, up to
+        ``budget``, are assigned to it. So a flexible invitation never fills two types' budgets."""
+        values = type_sides(spot_type, self.counts)
+        counting = [sid for sid, inv in self.latest.items() if sid not in self.sent
+                    and timeline.counting(inv, self.now) and {t.side for t in inv.offer} & values]
+        counting += [sid for sid, offer in self.sent.items() if offer & values]
+        owner = {**self.covers, **self.fills}
+        mine = [sid for sid in counting if owner.get(sid) == spot_type]
+        free = [sid for sid in counting if sid not in owner]
+        take = free[:max(0, budget - len(mine))]
+        self.fills.update({sid: spot_type for sid in take})
+        return len(mine) + len(take)
 
     def session_counting(self) -> int:
         return sum(1 for inv in self.latest.values() if timeline.counting(inv, self.now)) + len(self.sent)
@@ -589,10 +642,10 @@ def _cover(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, in
 
 
 def _counting_new(run: _Run, spot_type: SpotType, t: int) -> int:
-    """This run's invitees from tier ``t`` whose offer counts for the type (a flexible invitee sent
-    for a harder type counts for this one too, D20)."""
-    values = type_sides(spot_type, run.counts)
-    return sum(1 for sid, tt in run.sent_tier.items() if tt == t and run.sent[sid] & values)
+    """This run's invitees from tier ``t`` who fill the type's budget: those sent for it (rule 5.3 as
+    amended, PLANNING-45: a flexible invitee sent for a harder type no longer counts for this one)."""
+    owner = {**run.covers, **run.fills}
+    return sum(1 for sid, tt in run.sent_tier.items() if tt == t and owner.get(sid) == spot_type)
 
 
 def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: int, tier: Tier,
@@ -619,6 +672,7 @@ def _send(run: _Run, order: list[tuple[SpotType, int]], spot_type: SpotType, t: 
         offer = _offer_across(run, t, student, order, spot_type)
         run.sent[sid] = offer
         run.sent_tier[sid] = t
+        run.fills.setdefault(sid, spot_type)
         if covering:
             run.covers[sid] = spot_type
         fields = (frozenset(SpotType(v, snapshot.level) for v in sorted(offer)), side_named(offer, student),
@@ -654,7 +708,7 @@ def _pass(run: _Run, order: list[tuple[SpotType, int]], caps: dict[SpotType, int
             budget = covered * (x if t == ideal[spot_type] else LOWER_TIER_PER_SPOT)   # D17
             budget_so_far[spot_type] += budget
             room = min(budget - holders,                                    # the tier's own budget
-                       budget_so_far[spot_type] - run.counting_for(spot_type))   # the type's, filled first (D10)
+                       budget_so_far[spot_type] - run.filling(spot_type, budget_so_far[spot_type]))  # D10, one type each
             room = min(room, settings.max_at_a_time - run.session_counting())     # M (D16)
             if caps is not None:
                 room = min(room, caps.get(spot_type, 0) - sent[spot_type])
