@@ -78,8 +78,8 @@ The coach alert card (swap step 8, PAD-920). **Copy marked "proposed" awaits the
   new-engine item both shells, web `NeedsYouQueue` and iOS `blocks.tsx`:
   - add "{pending} convite(s) pendente(s)" / "{pending} pending invitation(s)" (proposed; key
     `dashboard.needsYou.emptySeats.pending`, plural) to the detail line, when `pendingInvites` is 1 or
-    more, under test id `needs-you-empty-seats-pending-<id>`;
-  - keep the "Convidar N jogadores" button, test id `needs-you-empty-seats-invite-<id>` on both shells,
+    more, under test id `needs-you-pending-<id>`;
+  - keep the "Convidar N jogadores" button, test id `needs-you-invite-<id>` on both shells,
     and "Mais tarde". (Decision 17's stopgap hid Convidar until a manual invitation on a new-engine class
     was an engine invitation, `notifications.manual` NM1; PAD-932 brought it back.)
   An item with no `engineVersion` (an older server) reads as `old`. An old-engine card is unchanged.
@@ -847,7 +847,7 @@ test: `backend/padel_app/tests/test_pad920_dashboard_empty_seats_engine.py` › 
 
 #### DASHBOARD-BLOCKS-59: The web open-spots card shows the pending count on a new-engine class and keeps its invite (new-engine section NA5)
 - **Given** the web home with a new-engine `empty_seats` item with `pendingInvites` 5, another with `pendingInvites` 0, and an old-engine item
-- **Then** the first card's detail line shows "5 convites pendentes" under `needs-you-empty-seats-pending-<id>`, the second shows no pending text, and both keep `needs-you-empty-seats-invite-<id>` and "Mais tarde"; the old-engine card shows `needs-you-empty-seats-invite-<id>` and no pending text, as today; an item without `engineVersion` renders as the old-engine one
+- **Then** the first card's detail line shows "5 convites pendentes" under `needs-you-pending-<id>`, the second shows no pending text, and both keep `needs-you-invite-<id>` and "Mais tarde"; the old-engine card shows `needs-you-invite-<id>` and no pending text, as today; an item without `engineVersion` renders as the old-engine one
 test: `frontend/apps/web/src/components/dashboard/coach/NeedsYouQueue.engineEmptySeats.test.tsx` › `shows the pending count and keeps the invite button on a new-engine class`
 
 #### DASHBOARD-BLOCKS-60: The iOS open-spots card does the same (new-engine section NA5)
