@@ -10,7 +10,7 @@ from padel_app.invitation_engine import Engine, EngineSettings, MemoryStore
 from padel_app.invitation_engine import effects as fx
 from padel_app.invitation_engine import timeline
 from padel_app.invitation_engine.planner import plan
-from padel_app.invitation_engine.requests import Answer, CoachInvites
+from padel_app.invitation_engine.requests import Answer, CoachExcludes, CoachInvites
 from padel_app.invitation_engine.settings import Eligibility
 from padel_app.invitation_engine.snapshot import SpotType, Student
 
@@ -117,3 +117,45 @@ def test_an_unknown_student_is_a_type_error_of_the_caller():
     store = _store(3, 4)
     with pytest.raises(KeyError):
         Engine(store, EngineSettings()).handle("A", CoachInvites(("NOBODY",)), T0)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-31")
+def test_a_coach_invitation_reopens_a_same_hour_close_once_the_student_is_free():
+    # engine-answers rule 15 (S's dd9bd3e22): a row closed same_hour is reopened once the student is no
+    # longer busy at that hour; while they are, the coach's invitation is refused same_hour.
+    settings = EngineSettings(quiet_hours=None)
+    right = frozenset({SpotType("R", 3)})
+    store = _store(4, 3, pool=[_student("S", "R")])
+    store.add_session("B", 3, 8, START, [], T0)
+    store.apply([fx.Invited("A", T0, "S", right, None, 3, T0 + timedelta(hours=3)),
+                 fx.Placed("B", T0 + timedelta(minutes=5), "S", "R", "direct"),
+                 fx.InvitationClosed("A", T0 + timedelta(minutes=5), "S")])
+    engine = Engine(store, settings)
+    now = T0 + timedelta(minutes=10)
+    busy = engine.handle("A", CoachInvites(("S",)), now)
+    assert [(e.student, e.reason) for e in busy if isinstance(e, fx.Refused)] == [("S", "same_hour")]
+    store.apply([fx.Left("B", now, "S", "cancel")])
+    out = engine.handle("A", CoachInvites(("S",)), now)
+    assert [(e.student, e.manual) for e in out if isinstance(e, fx.Reopened)] == [("S", True)]
+    row = store.snapshot("A").invitation("S")
+    assert [i.student for i in store.snapshot("A").invitations] == ["S"]
+    assert row.closed_at is None and timeline.counting(row, now)
+
+
+@pytest.mark.criterion("NOTIFICATIONS-ENGINE-ANSWERS-30")
+def test_a_coach_invitation_overrides_the_gates_and_needs_no_approval():
+    # engine-answers rule 15 (S's dd9bd3e22): the coach's choice by hand overrides CoachExcludes and
+    # postponement, and in semi-automatic mode it needs no approval and changes none.
+    settings = EngineSettings(quiet_hours=None, invitation_mode="semi_automatic")
+    right = frozenset({SpotType("R", 3)})
+    store = _store(4, 3, pool=[_student("EX", "R"), _student("PP", "R")])
+    store.add_session("B", 3, 8, START, [(_student(f"BL{i}", "L"), "L") for i in range(1, 5)]
+                      + [(_student(f"BR{i}", "R"), "R") for i in range(1, 4)], T0)
+    store.apply([fx.Invited("B", T0, "PP", right, None, 3, T0 + timedelta(hours=3))])   # PP is postponed for A
+    engine = Engine(store, settings)
+    engine.handle("A", CoachExcludes("EX"), T0)
+    approval = store.snapshot("A").approval
+    out = engine.handle("A", CoachInvites(("EX", "PP")), T0 + timedelta(minutes=1))
+    assert sorted((e.student, e.manual) for e in out if isinstance(e, fx.Invited)) == [("EX", True), ("PP", True)]
+    assert not [e for e in out if isinstance(e, (fx.ApprovalRequest, fx.GroupApproved, fx.GroupDismissed))]
+    assert store.snapshot("A").approval == approval
