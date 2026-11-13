@@ -40,3 +40,7 @@ export const engineInvite = (classTitle: string, ...usernames: string[]) =>
 
 /** Test-only: the coach back on the old engine, so the specs after this one see the seed's coach. */
 export const restoreOldEngine = (username: string) => run<{ sessionsRemoved: number }>("restore", username);
+
+/** Test-only (PAD-935): the coach's "Later" on one needs-you item undone; the app has no route for it. */
+export const unsnoozeNeedsYouItem = (username: string, itemId: string) =>
+  run<{ snoozesRemoved: number }>("unsnooze", username, itemId);

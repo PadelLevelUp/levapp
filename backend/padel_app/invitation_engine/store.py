@@ -139,7 +139,7 @@ class MemoryStore:
         inside = set(s.going) | set(s.regulars)
         pool = tuple(st for sid, st in self._students.items()
                      if sid not in inside and sid not in self._hidden and sid not in s.excluded)
-        named = {st.id for st in pool} | inside | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
+        named = {st.id for st in pool} | inside | (s.excluded & set(self._students)) | {i.student for i in s.invitations} | {e.student for e in s.waiting_list}
         others = [o for o in self._sessions.values() if o.id != s.id]
         busy = {sid for o in others if (overlaps(o.start, o.end, s.start, s.end) if o.coach == s.coach
                                         else o.start == s.start) for sid in o.going}
@@ -192,7 +192,13 @@ class MemoryStore:
                 s.approval = replace(a, approved_groups=frozenset())
             elif isinstance(e, fx.Invited):
                 s.invitations.append(Invitation(e.student, e.offer, e.side_named, e.tier, e.at,
-                                                counts_until=e.counts_until))
+                                                counts_until=e.counts_until, manual=e.manual))
+            elif isinstance(e, fx.Reopened) and e.manual:     # whatever the row was: it counts anew (rule 15)
+                i = next((k for k in range(len(s.invitations) - 1, -1, -1) if s.invitations[k].student == e.student), None)
+                if i is not None:
+                    s.invitations[i] = replace(s.invitations[i], offer=e.offer, side_named=e.side_named, tier=e.tier,
+                                               counts_until=e.counts_until, sorry_at=None, answer=None,
+                                               answered_at=None, closed_at=None, manual=True)
             elif isinstance(e, (fx.Sorry, fx.Reopened)):
                 i = self._latest_open(s, e.student)
                 if i is not None and isinstance(e, fx.Sorry):

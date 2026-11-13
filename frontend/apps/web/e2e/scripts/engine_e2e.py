@@ -9,10 +9,13 @@ suites call the real code here, against the database the env names (read as seed
                                                          open spot type, then the outbox is sent (the bubbles)
   python engine_e2e.py tick                             engine_runner.run_tick
   python engine_e2e.py restore <coach-username>         back on the old engine, for the suites after
+  python engine_e2e.py unsnooze <coach-username> <item>  drops the coach's "Later" on one needs-you item
 
 ``invite`` writes the engine's own ``Invited`` effect, as the backend tests do, so a spec does not depend
 on the coach's invitation window; the answers then go through the real routes. ``restore`` is test-only:
-the real switch is one way. Prints one JSON line.
+the real switch is one way. ``unsnooze`` is test-only too (PAD-935): the app has no route that undoes
+"Later", and the seed has one empty-seats card a week, which the specs after B-030 need. Prints one
+JSON line.
 """
 import json
 import os
@@ -118,6 +121,14 @@ def restore(username: str) -> dict:
     return {"sessionsRemoved": gone}
 
 
+def unsnooze(username: str, item_id: str) -> dict:
+    from padel_app.models import NeedsYouSnooze
+
+    gone = NeedsYouSnooze.query.filter_by(coach_id=_coach_id(username), item_id=item_id).delete()
+    db.session.commit()
+    return {"snoozesRemoved": gone}
+
+
 def main(argv: list[str]) -> None:
     if not argv:
         raise SystemExit(__doc__)
@@ -132,6 +143,8 @@ def main(argv: list[str]) -> None:
             out = tick()
         elif command == "restore":
             out = restore(args[0])
+        elif command == "unsnooze":
+            out = unsnooze(args[0], args[1])
         else:
             raise SystemExit(f"unknown command {command!r}")
     print(json.dumps(out))

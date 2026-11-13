@@ -68,7 +68,8 @@ def engine_invitees(instance, now: datetime | None = None) -> list[dict]:
     for row in (EngineInvitation.query.filter_by(lesson_instance_id=instance.id)
                 .order_by(EngineInvitation.sent_at, EngineInvitation.id).all()):
         player = db.session.get(Player, row.player_id)
-        source, group = labels.get(row.tier, (None, None)) if row.tier is not None else (None, None)
+        # PAD-932 (ND1): a coach's invitation by hand has no tier source ("convite manual").
+        source, group = labels.get(row.tier, (None, None)) if row.tier is not None and not row.manual else (None, None)
         outcome = invitee_outcome(row, presences.get(row.player_id), started, now)
         out.append({
             "id": row.id,
