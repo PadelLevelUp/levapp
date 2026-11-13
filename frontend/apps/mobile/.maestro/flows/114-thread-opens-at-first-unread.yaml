@@ -14,6 +14,10 @@ onFlowStart:
   - runScript: ../scripts/first-unread-setup.js
 onFlowComplete:
   - runScript: ../scripts/first-unread-teardown.js
+# PAD-710: Android product bug, messaging.conversation-detail rule 10 (thread landing/scroll): the thread opens near the newest message instead of at the first unread, on most nights (5 of 7, 6-13 Nov).
+# Android only; PAD-710 does not close while tagged. Ticket id to follow from the messages stream.
+tags:
+  - android-open-defect
 ---
 - assertTrue: "${output.firstUnreadId > 0 && output.newestId > output.firstUnreadId}"
 - runFlow: ../subflows/login-coach.yaml

@@ -10,6 +10,10 @@ onFlowStart:
   - runScript: ../scripts/thread-target-setup.js
 onFlowComplete:
   - runScript: ../scripts/thread-target-teardown.js
+# PAD-710: Android product bug, messaging.conversation-detail rule 10 (thread landing/scroll): a ?message= deep link opens the thread at the newest message and never lands on the target (seen every night 6-13 Nov, 13 Nov nightly 43411226793 shard 3).
+# Android only; PAD-710 does not close while tagged. Ticket id to follow from the messages stream.
+tags:
+  - android-open-defect
 ---
 - assertTrue: "${output.targetId > 0 && output.newestId > output.targetId}"
 - runFlow: ../subflows/login-coach.yaml
