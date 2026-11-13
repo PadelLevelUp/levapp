@@ -436,6 +436,67 @@ def notify_student_added_to_class(coach, player_id, *, lesson=None, instance=Non
         return None
 
 
+def notify_student_removed(source, player_id, *, series=False):
+    """Tell a student their coach took them off a class (PAD-928).
+
+    ``series=False``: off one date (``classes.instance-enrollment`` rule 11a), ``source`` is the
+    occurrence (or, for a one-off class never materialised, its lesson) and the text is
+    ``removed_from_class``. ``series=True``: off a recurring class from a date on
+    (``classes.enrollment`` rule 4), ``source`` is the lesson the edit wrote and the text is
+    ``removed_from_series``. Sent the way the cancellation notice is: a message in the
+    coach-student thread through ``_send_system_message``, from the class's first coach. The
+    caller decides WHETHER to send (who was on it, started, cancelled); this only renders and
+    sends. Best-effort: a failure is logged and returns None, never failing the edit.
+    """
+    try:
+        from padel_app.models import Player
+        from padel_app.services.lesson_service import primary_coach
+
+        if isinstance(source, LessonInstance):
+            coach = primary_coach(source)
+        else:
+            rels = list(getattr(source, "coaches_relations", []) or [])
+            coach = getattr(rels[0], "coach", None) if rels else None
+        player = db.session.get(Player, int(player_id))
+        coach_user_id = getattr(coach, "user_id", None)
+        player_user_id = getattr(player, "user_id", None)
+        if not coach_user_id or not player_user_id:
+            return None
+
+        locale = _resolve_locale(coach)
+        # A plain read, as notify_student_added_to_class: a notice never creates a coach's config.
+        config = NotificationConfig.query.filter_by(coach_id=coach.id).first()
+        templates = (
+            config.get_message_templates(locale)
+            if config is not None
+            else dict(default_templates_for_locale(locale))
+        )
+        key = "removed_from_series" if series else "removed_from_class"
+        text = _format_template(
+            resolve_message_template(templates, key, locale),
+            **template_variables(player, source, locale),
+        )
+        instance_id = source.id if isinstance(source, LessonInstance) else None
+        metadata = {"removedFromClass": True}
+        if series:
+            metadata["series"] = True
+        if instance_id is not None:
+            metadata["lessonInstanceId"] = instance_id
+        return _send_system_message(
+            coach_user_id,
+            player_user_id,
+            text,
+            msg_metadata=metadata,
+            class_instance_id=instance_id,
+        )
+    except Exception:  # noqa: BLE001 — never fail an edit over a message
+        from flask import current_app, has_app_context
+
+        if has_app_context():
+            current_app.logger.exception("notify_student_removed: could not tell player %s", player_id)
+        return None
+
+
 def collect_cancellation_recipients(source) -> list[dict]:
     """Snapshot what's needed to tell each enrolled student a class was cancelled.
 

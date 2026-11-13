@@ -100,6 +100,31 @@ three separate fields on it. Decision record:
 
    **The silence on an accepted class request is deliberate, not a gap.** A student who asks for a class through `classes.class-requests` already receives the acceptance; telling them a coach added them would be a second message for one event, about something they initiated — the app narrating a person's own action back at them as news. `add_class_service` therefore takes `notify_students=False` on that path only. Anyone later reading it as a missing notification should read this sentence instead.
 
+11a. **A coach's removal from one date tells the student (PAD-928; numbering unconfirmed).** When a
+    coach takes a student off **one date** of a class (web and iOS send the class edit with `scope:
+    "single"` and `removePlayers`), the student gets one `removed_from_class` message
+    (`notifications.message-templates` rule 24), the same way the cancellation notice reaches them: a
+    coach-to-student message through `_send_system_message` (in-app message, live event and push), sender
+    the class's first coach as for `class_cancelled`, metadata `{"removedFromClass": true,
+    "lessonInstanceId": <id>}`, rendered for that occurrence (`template_variables`).
+    - **Which paths send.** `edit_lesson_instance_helper` with `series=False` (a materialised occurrence)
+      and `create_lesson_instance_helper` (a virtual occurrence the same edit materialises, the student
+      being on the series roster for that date). A student counts as removed only when they were on that
+      date: `unenrol` found their presence, or the materialisation left them out of the roster.
+    - **Which do not.** The per-occurrence pass of a series edit (`series=True`; `classes.enrollment` rule 4
+      sends one series notice instead). The student's own decline, absence, unavailability, cancelled
+      attendance or waiting-list leave; the engine's own moves; a placeholder or account deletion; the
+      attendance sheet's "clear" (`_clear_presence`, which keeps the row).
+    - **Never for a class already started or cancelled.** An occurrence whose `start_datetime` is not
+      after the club's wall clock (`club_now_naive()`, as PAD-256 judges "started") or whose status is
+      `canceled` sends nothing. Nor does a student whose presence on that date was already `absent`:
+      they gave the date up themselves.
+    - **When.** Immediately, after the edit is written; once per student per removal. **Best-effort:** a
+      messaging failure is logged and never fails the edit (as rule 11).
+    - **A class with no recurrence** (a one-off) always gets this notice, whatever scope the client sent.
+    - The freed seat follows the vacancy flow exactly as before (`vacancies_after_class_edit`, rule 15's
+      `CoachExcludes` for a new-engine session); nothing there changes.
+
 12. **One roster order, set on the server (D163; PAD-465, B-233).** Every read that lists a class's participants lists them in the same order: by the player's name as the roster shows it (the account name, `users.name`), ignoring case and accents, then by player id. That covers the class-detail participants list for an occurrence (its presences) and for a series (its roster), and `GET /lesson_instance/<id>/presences`. The server sets the order and the clients render it as given. Nothing a person does to a row (saving attendance, an answer, a cancellation) moves it.
 13. **A player's side in this occurrence (PAD-551; coordinator, 2026-10-14, defaults 1–4).** A
     regular student usually plays one side (the coach–player link's `side`), but in a given week
@@ -422,9 +447,74 @@ test: `backend/padel_app/tests/test_pad920_coach_add_same_hour.py` › `test_a_c
 - **Then** the presence is deleted, the session's unit applies `CoachExcludes(student)`, and the store keeps them as a removed regular (their seat freed); removing them from an old-engine occurrence sends nothing to the engine
 test: `backend/padel_app/tests/test_pad918_removal_withdraws.py` › `test_removing_a_regular_from_one_occurrence_tells_the_engine`
 
+#### CLASSES-INSTANCE-ENROLLMENT-36: A coach takes a student off one future date and the student is told (rule 11a, PAD-928)
+- **Given** a pt coach's recurring class on Fridays at 19:00 at club "Padel Norte", its occurrence of next Friday 21/11 materialised with student "Rita Silva"
+- **When** the coach sends the class edit for that occurrence with `scope: "single"` and `removePlayers: [Rita]`
+- **Then** Rita has one new message in her thread with the coach: "Olá Rita, foste removido da aula de sexta-feira, 21/11, às 19:00 (Padel Norte). Qualquer dúvida, fala com o teu treinador.", with `removedFromClass` and the occurrence's id, pushed
+- **And** she stays on the series roster and gets nothing about any other date
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_coach_removing_a_student_from_one_future_date_tells_them`
+
+#### CLASSES-INSTANCE-ENROLLMENT-37: The same holds for a date not yet materialised, and for a one-off class (rule 11a)
+- **Given** a recurring class whose occurrence on 28/11 is still virtual, and a one-off class on 22/11, both with Rita
+- **When** the coach removes her from 28/11 with `scope: "single"` (the edit materialises it without her), and from the one-off class with either scope
+- **Then** she gets one `removed_from_class` message for each, dated 28/11 and 22/11
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_virtual_date_and_a_one_off_class_send_the_one_date_notice`
+
+#### CLASSES-INSTANCE-ENROLLMENT-38: Nothing for a class that started or was cancelled, or a date already given up (rule 11a)
+- **Given** an occurrence that started five minutes ago on the club's clock, a cancelled occurrence, an occurrence where Rita's presence is `absent`, and an occurrence Rita is not on
+- **When** the coach removes Rita from each with `scope: "single"`
+- **Then** no message is sent for any of them
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_no_notice_for_a_started_or_cancelled_class_or_a_date_given_up`
+
+#### CLASSES-INSTANCE-ENROLLMENT-39: A student's own leaving and the engine's moves send no removal notice (rule 11a)
+- **Given** Rita on a future occurrence
+- **When** she declines its reminder, marks herself unavailable, cancels her attendance, or leaves its waiting list, and when the engine moves a student
+- **Then** no `removedFromClass` message exists for any of them
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_the_students_own_leaving_sends_no_removal_notice`
+
+#### CLASSES-INSTANCE-ENROLLMENT-40: The freed seat follows the vacancy flow as before (rule 11a)
+- **Given** an occurrence with automatic invitations and a candidate on its waiting list
+- **When** the coach removes Rita from it
+- **Then** the vacancy opens and the same invitation goes out as before PAD-928, besides Rita's notice
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_the_freed_seat_follows_the_vacancy_flow_unchanged`
+
+#### CLASSES-INSTANCE-ENROLLMENT-41: A failed notice never fails the edit (rule 11a)
+- **Given** a message send that raises
+- **When** the coach removes Rita from one date
+- **Then** the edit answers 200, the presence is gone, and the failure is logged
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_failed_removal_notice_never_fails_the_edit`
+
+### Today (PAD-928)
+- Coach removal from one date: `backend/padel_app/services/lesson_service.py` `_edit_class_service` (`payload["remove_player_ids"]`
+  about line 1789; scope `single` → `edit_lesson_instance_helper` or, for a virtual occurrence, `create_lesson_instance_helper`
+  about 625-650) → `edit_lesson_instance_helper` (748-765) → `unenrol` (226-244, returns whether a row existed). Both web
+  (`ClassDetailSheet.tsx:923`) and iOS (`features/calendar/edit-class-diff.ts:57-86`) send `removePlayers`; no other route removes
+  a presence on the coach's behalf. Nothing is sent to the student today.
+- Series passes reach `edit_lesson_instance_helper(series=True)` from `_edit_future_instances_for_lesson` (1554-1584), which already
+  skips occurrences that ended or were cancelled.
+- The notice it mirrors: `collect_cancellation_recipients` / `notify_students_of_cancellation` (`services/system_messages.py`),
+  called from `remove_class_service`. "Started" on the club clock: `utils/dates.club_now_naive`.
+
+### Waves (PAD-928)
+1. -36 … -41 with `classes.enrollment` -1 … -3: a `notify_student_removed(coach, player, source, key)` helper in
+   `system_messages.py`, called from the single path and the series path in `lesson_service.py`, and `backend/padel_app/tests/test_pad928_removed_from_class.py`.
+   Depends on `notifications.message-templates` wave 1 (the keys).
+
 ### Notes
 - Phase 2 shipped as PAD-301 (migration `9812c5f388fc`): `player_in_lesson_instance` dropped, the
   shadow writes, the `players_relations` / `lesson_instances_relations` relationships, the
   player-claim and account-deletion entries and the dev seed entry removed. `Player.lesson_instances`
   now reads presences. Downgrade recreates the table and refills it from presences.
 - Rule numbers assigned by Session H on 2026-09-11, unconfirmed by the coordinator.
+
+### Open questions
+- **A student already `absent` on that date gets no removal notice (PAD-928, messages-m3; the lead can reverse it).**
+  They gave the date up themselves; the ticket's "only when the coach removes" is about who acts, and a notice for a
+  date the student already declined is noise.
+- **The sender is the class's first coach (PAD-928, messages-m3).** As `class_cancelled` (`collect_cancellation_recipients`),
+  so the notice lands in the thread the student already has for that class, whichever coach of the class pressed save.
+- **A one-off class gets the one-date notice whatever the scope (PAD-928, messages-m3).** "Removido da turma (todas as
+  aulas seguintes)" means nothing for a class with one date.
+- **Verification on iOS (ticket: "verificar na web e no iOS").** Both clients send the same edit and the notice is a
+  plain message in the thread, so the iOS check is that the message shows in the student's thread on the simulator; no
+  iOS code changes. Recorded so a reviewer does not look for an iOS diff.

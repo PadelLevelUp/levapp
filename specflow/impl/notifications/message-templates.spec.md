@@ -94,8 +94,8 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     spot without a side reads as an ordinary sentence. In any other template `{side}` renders as
     nothing.
 3a. **Every placeholder in every template (PAD-670; numbering unconfirmed).** Every template key
-   of rule 2, plus `waiting_list_confirm`, `added_to_class`, `added_to_class_coming` and
-   `class_cancelled`, is about one student and one class, and each is rendered through
+   of rule 2, plus `waiting_list_confirm`, `added_to_class`, `added_to_class_coming`,
+   `class_cancelled`, `removed_from_class` and `removed_from_series` (the last two since PAD-928), is about one student and one class, and each is rendered through
    `_format_template` with the same set of values: `{name}`, `{level}`, `{weekday}`, `{time}`,
    `{day}`, `{type}`, `{date}`, `{court}`, `{duration}`, `{club}`, `{class}` and `{when}` (`{duration}` and
    `{club}` since PAD-836). One helper builds that set for
@@ -184,14 +184,33 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     empty, the connector directly before it goes with it (rule 7's genitives plus `em`, `no`,
     `na`, `in`, `on`, `at`), an empty pair of brackets is removed, and the space/punctuation
     collapse and leading-punctuation rule run. So "aula às {time} no {club}." reads
-    "aula às 19:00." Accepted by every template (rule 3a); no built-in default uses it, and a coach's
-    saved templates are not rewritten (rule 10).
+    "aula às 19:00." Accepted by every template (rule 3a); no built-in default uses it except the two removal
+    notices (rule 24, PAD-928), and a coach's saved templates are not rewritten (rule 10).
 23. **The editor offers both (PAD-836; numbering unconfirmed).** The web settings editor offers
     `{duration}` and `{club}` among the insert-placeholder badges under every field it edits (rule
     3a), and its help table (rule 19) lists them with their meaning, "Duração da aula" / "Class
     duration" and "Clube" / "Club", and the server's example from `template_preview_examples`
     (a sample class of 60 minutes, so "60 min", and a sample club name). Web only: iOS has no
     template editor (Notes; Open question Q1).
+24. **Two removal notices (PAD-928; numbering unconfirmed).** Two keys join both default dicts
+    (`DEFAULT_MESSAGE_TEMPLATES`, `DEFAULT_MESSAGE_TEMPLATES_PT`) and the `MessageTemplates` type (optional,
+    as `added_to_class`, so older configs fall back to the default):
+
+    | Key | Sent when | pt | en |
+    |---|---|---|---|
+    | `removed_from_class` | a coach takes a student off one date (`classes.instance-enrollment` rule 11a) | `Olá {name}, foste removido da aula de {weekday}, {date}, às {time} ({club}). Qualquer dúvida, fala com o teu treinador.` | `Hi {name}, you've been removed from the class on {weekday}, {date}, at {time} ({club}). If you have any questions, talk to your coach.` |
+    | `removed_from_series` | a coach takes a student off a recurring class's roster from a date on (`classes.enrollment` rule 4) | `Olá {name}, foste removido da turma de {weekday} às {time} ({club}) e já não estás inscrito nas próximas aulas. Qualquer dúvida, fala com o teu treinador.` | `Hi {name}, you've been removed from the {weekday} {time} class ({club}) and are no longer booked for its upcoming classes. If you have any questions, talk to your coach.` |
+
+    Neither default names the level (rule 20). An empty `{club}` leaves "()" behind, which rule 22 (as
+    rule 14) removes, so the sentence reads "… às 19:00. Qualquer dúvida, …". Both are rendered in the
+    coach's locale (rules 6, 11) through rule 3a's one set of values; rules 5, 8, 9 and 10 hold for them.
+    The web editor lists both in a group of their own, "Removido de uma aula" / "Removed from a class"
+    (`template-group-removedFromClass`), after "Adicionado a uma aula", with every placeholder badge (rule 3a)
+    and the live preview (rule 19). Labels: "Removido de uma aula" / "Removed from one class" and "Removido
+    da turma" / "Removed from the class group"; descriptions: "Enviada quando retiras um aluno de uma data
+    de uma aula." / "Sent when you take a student off one date of a class." and "Enviada quando retiras um
+    aluno de uma aula fixa, a partir de uma data." / "Sent when you take a student off a recurring class
+    from a date on.". iOS has no editor (Notes).
 
 ### Acceptance Criteria
 
@@ -353,11 +372,11 @@ test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_club_
 - **Then** they read "aula às 19:00.", "Aula" and "aula às 19:00", with no raw token, no dangling connector and no space before punctuation
 test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_empty_club_and_duration_take_their_connector`
 
-#### NOTIFICATIONS-MESSAGE-TEMPLATES-25: Both work in every template; no default uses them; saved texts stay (rules 3a, 21, 22)
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-25: Both work in every template; no default uses `{duration}`, only the removal notices use `{club}`; saved texts stay (rules 3a, 21, 22, 24)
 - **Given** a coach whose stored text for every template key, `added_to_class` and `added_to_class_coming` included, is "{duration} {club}"
 - **When** each message is rendered for a 60-minute class at "Padel Norte"
 - **Then** each reads "60 min Padel Norte"
-- **And** no default text in either locale contains `{duration}` or `{club}`, and the coach's stored templates are unchanged
+- **And** no default text in either locale contains `{duration}`; only `removed_from_class` and `removed_from_series` (rule 24) contain `{club}`; and the coach's stored templates are unchanged
 test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_both_render_in_every_template_and_no_default_uses_them`
 
 #### NOTIFICATIONS-MESSAGE-TEMPLATES-26: The preview's examples carry both (rules 19, 23)
@@ -371,6 +390,25 @@ test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_previ
 - **When** the section renders
 - **Then** every field's placeholder badges include `{duration}` and `{club}`, and the help table has a row for each with the meaning ("Duração da aula", "Clube") and the server's example
 test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `offers {duration} and {club} with their examples (PAD-836)`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-29: The two removal defaults render whole in both locales (rule 24, PAD-928)
+- **Given** a pt coach and an en coach, an occurrence on Friday 21/11 at 19:00 at club "Padel Norte", and the same class with no club name
+- **When** `removed_from_class` and `removed_from_series` are rendered from the defaults for student "Rita Silva"
+- **Then** pt reads "Olá Rita, foste removido da aula de sexta-feira, 21/11, às 19:00 (Padel Norte). Qualquer dúvida, fala com o teu treinador." and the series text names "turma de sexta-feira às 19:00 (Padel Norte)"; en reads the en texts of rule 24
+- **And** with no club name neither contains "()" nor any `{`, and no default contains `{level}`
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_the_removal_defaults_render_whole_in_both_locales`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-30: A coach's own removal text wins; a blank one falls back (rules 8–10, 24)
+- **Given** a coach who saved "Saíste da aula de {day} às {time}." for `removed_from_class` and a blank `removed_from_series`
+- **When** each is sent
+- **Then** the first uses the coach's text with `{day}` filled, the second the default in the coach's locale, and `GET /api/app/notify/config` returns both keys non-blank while the stored blank stays blank
+test: `backend/padel_app/tests/test_pad928_removed_from_class.py` › `test_a_coachs_removal_text_wins_and_a_blank_falls_back`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-31: The web editor lists both removal notices in their own group (rule 24)
+- **Given** a coach on web Settings → message templates
+- **When** the section renders
+- **Then** `template-group-removedFromClass` holds `removed_from_class` then `removed_from_series` with their labels and descriptions, each with every placeholder badge, and saving one sends it in `message_templates`
+test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `lists the two removal notices in their own group (PAD-928)`
 
 ### Today (PAD-836)
 - Placeholder values: `backend/padel_app/services/message_text.py` `template_variables` (the one set, rule 3a)
@@ -406,6 +444,20 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
 2. -27: web editor badges, help rows, locale copy, vitest.
 3. The ticket's "print": before/after examples in `docs/plans/messages/pad-836-examples.md` (local).
 
+### Today (PAD-928)
+- Defaults: `backend/padel_app/models/notification_config.py` (`DEFAULT_MESSAGE_TEMPLATES` 45-73, `_PT` 75-93); no removal key.
+- Rendering: `resolve_message_template` (`notification_config.py:110`), `template_variables` / `_format_template`
+  (`services/message_text.py`). The cancellation notice it mirrors: `collect_cancellation_recipients` and
+  `notify_students_of_cancellation` (`services/system_messages.py`, about 438-520).
+- Web editor: `frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx` (`LABELS` 31-44, `DESCRIPTIONS`,
+  `GROUPS` 64-84); `class_cancelled` is not in it. Type: `frontend/packages/types/src/domain.ts:1422-1442`.
+
+### Waves (PAD-928)
+1. -29, -30: the two keys in both default dicts and the `MessageTemplates` type; `backend/padel_app/tests/test_pad928_removed_from_class.py`.
+2. `classes.instance-enrollment` -36 … -41 and `classes.enrollment` -1 … -3: the sends (their own specs).
+3. -31: web editor group, labels, descriptions in pt/en `settings.json`, vitest. No iOS editor.
+4. The ticket's "print": `docs/plans/messages/pad-928-examples.md` (local), from the pytest examples.
+
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
   reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
@@ -435,3 +487,11 @@ test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.ts
   The brief said the student's language; rules 6 and 12 render every placeholder in the coach's
   locale because one template is written in one language. `min` is identical in `pt` and `en`, so no
   message differs either way.
+- **Removal texts (PAD-928, messages-m3; the owner can reverse them).** The defaults follow the ticket's
+  example ("Qualquer dúvida, fala com o teu treinador"), though the message is sent from the coach's own
+  account, where `added_to_class` speaks as the coach ("adicionei-te"). Kept as the ticket wrote it; a
+  "fala comigo" variant is a one-line change. They name the date with `{weekday}, {date}` rather than
+  `{day}`, because "aula de {day}" reads "aula de esta sexta-feira" (rule 18 says `{day}` fits "A aula é {day}").
+- **`class_cancelled` is still not editable (PAD-928, messages-m3).** The ticket asks for the removal
+  notice to be editable "como as outras"; the cancellation notice it is modelled on has never been in the
+  web editor. Not added here (out of the ticket's ask); a candidate for its own ticket.

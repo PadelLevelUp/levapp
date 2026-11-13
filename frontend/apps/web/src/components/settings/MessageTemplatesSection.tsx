@@ -43,6 +43,8 @@ const LABEL_KEYS: Record<keyof MessageTemplates, string> = {
   added_to_class_coming: "settings.templates.labels.addedToClassComing",
   waiting_list_added: "settings.templates.labels.waitingListAdded",
   side_moved: "settings.templates.labels.sideMoved",
+  removed_from_class: "settings.templates.labels.removedFromClass",
+  removed_from_series: "settings.templates.labels.removedFromSeries",
 };
 
 const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
@@ -60,6 +62,8 @@ const DESCRIPTION_KEYS: Record<keyof MessageTemplates, string> = {
   added_to_class_coming: "settings.templates.descriptions.addedToClassComing",
   waiting_list_added: "settings.templates.descriptions.waitingListAdded",
   side_moved: "settings.templates.descriptions.sideMoved",
+  removed_from_class: "settings.templates.descriptions.removedFromClass",
+  removed_from_series: "settings.templates.descriptions.removedFromSeries",
 };
 
 const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
@@ -82,6 +86,11 @@ const GROUPS: { labelKey: string; keys: (keyof MessageTemplates)[] }[] = [
     // PAD-920 (N3): `side_moved` tells a both-sides student their final side. The coach alert
     // (`coach_no_candidate`) is a message to the coach themselves and is not editable.
     keys: ["added_to_class", "added_to_class_coming", "side_moved"],
+  },
+  {
+    // PAD-928 (rule 24): the coach took the student off one date, or off a recurring class.
+    labelKey: "settings.templates.groups.removedFromClass",
+    keys: ["removed_from_class", "removed_from_series"],
   },
 ];
 
