@@ -1,8 +1,8 @@
 /**
- * PAD-933 (notifications.manual NM2, owner decision 17): manual invites do not go through the new
- * engine yet, so a new-engine class offers no Notificar and the dashboard's `?notify=1` opens
- * nothing. The engine is the class's `engineVersion`, from the calendar event or the class
- * payload; a payload without it reads as `old`. Located by test id (R-013).
+ * PAD-932 (notifications.manual NM1, NM2): a manual invitation on a new-engine class goes through
+ * the engine, so Notificar is back there and the dashboard's `?notify=1` opens the picker, as on an
+ * old-engine class. The engine is the class's `engineVersion`, from the calendar event or the class
+ * payload. Located by test id (R-013).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
@@ -83,28 +83,28 @@ async function openSheet(ev: CalendarEvent, openNotify = false, now: Date = BEFO
   await waitFor(() => expect(api.getClassInstance).toHaveBeenCalled());
 }
 
-describe("Notificar on a new-engine class (PAD-933)", () => {
-  it("[NOTIFICATIONS-MANUAL-10] a new-engine class has no Notificar and ?notify=1 opens nothing", async () => {
-    // The engine on the calendar event: no Notificar, and the deep link opens no picker.
+describe("Notificar on a new-engine class (PAD-932)", () => {
+  it("[NOTIFICATIONS-MANUAL-10] shows Notificar and opens on notify=1 on a new-engine class", async () => {
+    // The engine on the calendar event: Notificar shows, and the deep link opens the picker.
     await openSheet({ ...event, engineVersion: "new" } as CalendarEvent, true);
-    await screen.findByTestId("class-edit");
-    expect(screen.queryByTestId("class-notify-open")).toBeNull();
-    expect(screen.queryByTestId("notify-students-dialog")).toBeNull();
+    expect(await screen.findByTestId("notify-students-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("class-notify-open")).toBeInTheDocument();
     cleanup();
 
-    // The engine only on the class payload: the same once it has loaded.
+    // The engine only on the class payload: Notificar stays once it has loaded.
     api.getClassInstance.mockResolvedValue({
       id: 7, date: "2027-07-13", startTime: "19:30", endTime: "21:00", status: "scheduled",
       presences: [], participants: [], maxPlayers: 4, invitations: [], engineVersion: "new",
     });
-    await openSheet(event);
-    await waitFor(() => expect(screen.queryByTestId("class-notify-open")).toBeNull());
-
-    // No engineVersion anywhere reads as old: Notificar stays and ?notify=1 opens the picker.
+    await openSheet(event, true);
+    expect(await screen.findByTestId("notify-students-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("class-notify-open")).toBeInTheDocument();
     cleanup();
+
+    // An old-engine class, as today.
     api.getClassInstance.mockResolvedValue({
       id: 7, date: "2027-07-13", startTime: "19:30", endTime: "21:00", status: "scheduled",
-      presences: [], participants: [], maxPlayers: 4, invitations: [],
+      presences: [], participants: [], maxPlayers: 4, invitations: [], engineVersion: "old",
     });
     await openSheet(event, true);
     expect(await screen.findByTestId("notify-students-dialog")).toBeInTheDocument();

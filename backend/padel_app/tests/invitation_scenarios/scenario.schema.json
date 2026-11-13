@@ -824,6 +824,19 @@
         {
           "type": "object",
           "required": [
+            "coach_invites"
+          ],
+          "additionalProperties": false,
+          "description": "The coach invites the student by hand (engine-answers rule 15, PAD-932): the coach's-list tier, at once.",
+          "properties": {
+            "coach_invites": {
+              "$ref": "#/$defs/who"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
             "coach_excludes"
           ],
           "additionalProperties": false,
@@ -1062,7 +1075,8 @@
                   "sorry",
                   "added",
                   "waiting_list_offer",
-                  "side_moved"
+                  "side_moved",
+                  "invite"
                 ]
               }
             }
@@ -1165,8 +1179,13 @@
               "action": {
                 "enum": [
                   "direct_join",
-                  "waiting_list"
+                  "waiting_list",
+                  "coach_invite"
                 ]
+              },
+              "reason": {
+                "description": "The engine's refusal code, when the step pins it.",
+                "type": "string"
               }
             }
           }

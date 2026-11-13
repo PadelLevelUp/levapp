@@ -12,14 +12,16 @@ from typing import Literal
 
 from padel_app.invitation_engine.snapshot import PlacedHow, Side, SpotQueues, SpotType, WaitingListSides
 
-MessageKind = Literal["sorry", "added", "waiting_list_invite", "side_moved"]
+MessageKind = Literal["sorry", "added", "waiting_list_invite", "side_moved", "invite"]
 AbsenceNotice = Literal["on_time", "late", "none"]
 LeftReason = Literal["regular_no", "cancel", "no_show"]
 AlertReason = Literal["no_candidate"]
 AnsweredBy = Literal["student", "coach"]
 #: Why a join was refused, a code the route answers as 409 {code} (classes.join-requests NJ1).
+#: A coach's invitation by hand adds its own (engine-answers rule 15), which the route lists as
+#: ``blocked[].cause`` (``notifications.manual`` NM1).
 RefusalCode = Literal["already_enrolled", "class_closed", "ineligible", "side_full", "busy_same_hour",
-                      "already_on_list"]
+                      "already_on_list", "no_open_spot", "already_invited", "already_in_class", "same_hour"]
 
 
 @dataclass(frozen=True)
@@ -30,13 +32,15 @@ class Effect:
 
 @dataclass(frozen=True)
 class Invited(Effect):
-    """``counts_until`` is the instant it stops counting, fixed at send (engine-timeline rule 4)."""
+    """``counts_until`` is the instant it stops counting, fixed at send (engine-timeline rule 4);
+    ``manual``: the coach sent it by hand (engine-answers rule 15)."""
 
     student: str
     offer: frozenset[SpotType]
     side_named: Side | None
     tier: int | None
     counts_until: datetime | None = None
+    manual: bool = False
 
 
 @dataclass(frozen=True)
@@ -53,13 +57,18 @@ class Reopened(Effect):
     """A "sorry" invitation reopened for a student who joined the session's waiting list, when the
     list's turn reaches them (engine-answers rule 4, engine-planning rule 5.3; the owner's decision 1):
     its offer, named side, tier and counting-until replace the old ones and it counts again. Never a
-    second invitation (D1). Comes with ``Message(kind="waiting_list_invite")``."""
+    second invitation (D1). Comes with ``Message(kind="waiting_list_invite")``.
+
+    ``manual``: the coach's invitation by hand reopened the row (engine-answers rule 15), whatever it
+    was: stopped counting, answered, sorry or closed; it clears the answer and the close, and comes with
+    ``Message(kind="invite")``."""
 
     student: str
     offer: frozenset[SpotType]
     side_named: Side | None
     tier: int | None
     counts_until: datetime | None = None
+    manual: bool = False
 
 
 @dataclass(frozen=True)
@@ -127,7 +136,7 @@ class Refused(Effect):
     ``side_full``."""
 
     student: str
-    action: Literal["direct_join", "waiting_list"]
+    action: Literal["direct_join", "waiting_list", "coach_invite"]
     reason: RefusalCode
     sides: frozenset[Side] = frozenset()
 

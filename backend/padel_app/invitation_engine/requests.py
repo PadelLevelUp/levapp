@@ -107,6 +107,15 @@ class CoachAdded:
 
 
 @dataclass(frozen=True)
+class CoachInvites:
+    """The coach invites students by hand (engine-answers rule 15; the owner's decision 17): each gets a
+    counting invitation of the coach's-list tier at once, a reopened row, or a refusal with a reason.
+    The route has refused the student's own blocks already (``notifications.manual`` NM1)."""
+
+    students: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Appear:
     """A club student becomes visible and eligible from now (plan D8)."""
 
@@ -149,7 +158,8 @@ class ReopenGroup:
 COACH_QUEUE_REQUESTS = (ApproveGroup, DismissGroup, ReopenGroup)
 
 Request = (Answer | DirectJoin | JoinWaitingList | LeaveWaitingList | RegularAbsent | RegularReturns | Cancel
-           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | Appear | UpdateSettings
+           | NoShow | ConfirmAttendance | CreateSession | CoachExcludes | CoachAdded | CoachInvites | Appear
+           | UpdateSettings
            | ApproveGroup | DismissGroup | ReopenGroup)
 STUDENT_REQUESTS = (Answer, DirectJoin, JoinWaitingList, LeaveWaitingList, RegularAbsent, RegularReturns, Cancel,
                     NoShow, ConfirmAttendance)

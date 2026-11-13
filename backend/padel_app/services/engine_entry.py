@@ -378,6 +378,34 @@ def coach_added(instance, player_ids, now: datetime | None = None) -> None:
         handle(instance, rq.CoachAdded(str(player_id)), now)
 
 
+def has_open_spot(instance) -> bool:
+    """Whether the new-engine session has any open spot type (engine-spots rules 7, 8): with none, the
+    coach's Notificar answers 409 NO_OPEN_SPOT (notifications.manual NM1) and asks the engine nothing."""
+    from padel_app.invitation_engine import planner
+    from padel_app.services.engine_store import TableStore, settings_for
+
+    session = str(instance.id)
+    snapshot = TableStore(clock=utcnow_naive).snapshot(session)
+    return bool(planner.spot_types(snapshot, planner.spot_counts(snapshot, settings_for(session))))
+
+
+def coach_invites(instance, player_ids, now: datetime | None = None) -> tuple[list[int], dict[int, str]]:
+    """notifications.manual NM1 (engine-answers rule 15): the coach's invitation by hand on a new-engine
+    session, one ``CoachInvites`` for the students the route let through. Returns the students invited
+    (``Invited`` or ``Reopened``) and the engine's refusals by student (``no_open_spot``,
+    ``already_in_class``, ``same_hour``, ``already_invited``)."""
+    students = tuple(str(p) for p in player_ids)
+    if not students:
+        return [], {}
+    effects = handle(instance, rq.CoachInvites(students), now)
+    session = str(instance.id)
+    sent = sorted({int(e.student) for e in effects
+                   if isinstance(e, (fx.Invited, fx.Reopened)) and e.session == session and e.student in students})
+    refused = {int(e.student): e.reason for e in effects
+               if isinstance(e, fx.Refused) and e.student in students}
+    return sent, refused
+
+
 CLASS_REMOVED = "class_removed"
 
 

@@ -1,21 +1,19 @@
 /**
- * PAD-933 (notifications.manual NM2, NOTIFICATIONS-MANUAL-11): where the class screen's Notificar
- * stands. A new-engine class has no manual invitations until they go through the engine (owner
- * decision 17), so Notificar is not offered and the dashboard's `notify=1` opens nothing; a class
- * that has started shows the warning instead (PAD-798, rule 10). The engine check is the shared
- * `manualInviteClosed`, so a payload without `engineVersion` (an older server) keeps today's button.
+ * Where the class screen's Notificar stands (notifications.manual NM2, NOTIFICATIONS-MANUAL-11): offered
+ * on both engines, since PAD-932 sends a new-engine class's manual invitations through the engine
+ * (NM1); a class that has started shows the warning instead (PAD-798, rule 10). PAD-933's stopgap hid
+ * it on a new-engine class; `engineVersion` stays in the signature so the screen's call reads the same.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { lightTheme, manualInviteClosed } from "@levelup/config";
+import { lightTheme } from "@levelup/config";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 
-export type NotifyState = "open" | "started" | "engine";
+export type NotifyState = "open" | "started";
 
-export function notifyState(engineVersion: string | null | undefined, started: boolean): NotifyState {
-  if (manualInviteClosed(engineVersion)) return "engine";
+export function notifyState(_engineVersion: string | null | undefined, started: boolean): NotifyState {
   return started ? "started" : "open";
 }
 
@@ -31,7 +29,6 @@ export function shouldAutoOpenNotify(
 
 export function ClassNotifyAction({ state, onOpen }: { state: NotifyState; onOpen: () => void }) {
   const { t } = useTranslation();
-  if (state === "engine") return null;
   if (state === "started") {
     return (
       <Text className="flex-1 self-center text-sm text-muted-foreground" testID="class-notify-closed">

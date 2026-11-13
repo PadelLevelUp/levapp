@@ -21,6 +21,7 @@ from padel_app.invitation_engine.requests import (
     ReopenGroup,
     CoachAdded,
     CoachExcludes,
+    CoachInvites,
     CreateSession,
     Request,
     UpdateSettings,
@@ -73,6 +74,8 @@ class Engine:
             return [e for s in self.store.sessions() for e in self._plan_unit(s, now)]
         if isinstance(request, COACH_QUEUE_REQUESTS):
             return self._queue_answer(session, request, now)
+        if isinstance(request, CoachInvites):
+            return self._coach_invites(session, request, now)
         if not isinstance(request, (CoachAdded, CoachExcludes, CreateSession, *STUDENT_REQUESTS)):
             raise TypeError(f"unknown request {request!r}")
         # A student's request locks the student first (two of theirs never run at once, answers rule 10).
@@ -103,6 +106,14 @@ class Engine:
         semi-auto-approval rule 12): the same run ``tick`` and ``handle`` make, nothing else. A run
         the store refuses (``UnitConflict``) returns nothing."""
         return self._plan_unit(session, now)
+
+    def _coach_invites(self, session: str, request: CoachInvites, now: datetime) -> list[Effect]:
+        """The coach's invitations by hand (engine-answers rule 15), under the session's and the
+        students' locks, then a re-plan in the same unit: what they now hold counts in it."""
+        with self.store.unit((session,), tuple(sorted(set(request.students)))):
+            settings = self.settings_for(session)
+            out = self._commit(planner.coach_invites(self.store.snapshot(session), settings, request.students, now))
+            return out + self._plan(session, now, settings)
 
     def _queue_answer(self, session: str, request: Request, now: datetime) -> list[Effect]:
         """The coach's answer to semi-automatic mode (engine-planning rule 14), then a re-plan, which

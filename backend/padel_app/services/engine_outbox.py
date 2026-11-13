@@ -151,6 +151,8 @@ def _invitation(row, kind: str | None = None) -> None:
     inv = db.session.get(EngineInvitation, invitation_id) if invitation_id is not None else None
     if inv is None:
         return
+    if kind is None and inv.manual:                         # PAD-932: the coach's invitation by hand is a plain invite
+        kind = "invite"
     if kind is None:
         tiers = settings_for(ctx.session).tiers
         waiting = inv.tier is not None and 0 <= inv.tier < len(tiers) and tiers[inv.tier].source in WAITING_LIST_SOURCES
@@ -172,8 +174,8 @@ def _message(row) -> None:
     from padel_app.services.engine_store import SIDE_FROM_APP, TableStore
 
     kind = (row.payload or {}).get("kind")
-    if kind == "waiting_list_invite":                       # a reopened invitation: its new bubble
-        _invitation(row, kind="waiting_list_invite")
+    if kind in ("waiting_list_invite", "invite"):           # a reopened invitation: its new bubble
+        _invitation(row, kind=kind)                         # ("invite": a manual reopen, PAD-932)
         return
     ctx = _Ctx(row)
     student = ctx.payload.get("student")

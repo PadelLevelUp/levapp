@@ -434,7 +434,8 @@ class Run:
             return []
         new = self._drain()
         if applied.refused:
-            action = {"joins_directly": "direct_join", "joins_waiting_list": "waiting_list"}.get(name, name)
+            action = {"joins_directly": "direct_join", "joins_waiting_list": "waiting_list",
+                      "coach_invites": "coach_invite"}.get(name, name)
             rec = Record("refused", who or "", cls, at, {"action": action, "reason": applied.reason})
             self.log.append(rec)
             new.append(rec)
@@ -576,10 +577,12 @@ class Run:
                        gap or self.ad.unsupported("absences.kind", it["kind"]))
 
     def _x_refused(self, exp, recs, snap, spec, step, at, gap):
-        got = [(r.student, r.data.get("action")) for r in recs if r.kind == "refused"]
+        got = [(r.student, r.data.get("action"), r.data.get("reason")) for r in recs if r.kind == "refused"]
         for it in exp:
             sid = self._who_list([it["who"]], spec.id)[0]
-            self._note(step, at, f"refused[{it['who']}]", (sid, it["action"]), got, (sid, it["action"]) in got, gap)
+            want = (sid, it["action"]) + ((it["reason"],) if "reason" in it else ())
+            ok = any(g[:len(want)] == want for g in got)
+            self._note(step, at, f"refused[{it['who']}]", want, got, ok, gap)
 
     def _counts(self, snap: Snapshot) -> dict[str, int]:
         c = {"L": 0, "R": 0, "total": len(snap.roster)}

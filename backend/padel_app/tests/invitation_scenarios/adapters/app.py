@@ -191,6 +191,8 @@ class AppAdapter(NewDbAdapter):
                     "side_named": getattr(row, "side_named", None), "group": group}))
                 if meta.get("kind") == "waiting_list_invite":
                     self.pending.append(Record("message", to, cls, at, {"kind": "waiting_list_offer"}))
+                elif meta.get("kind") == "invite" and getattr(row, "reopened_at", None) is not None:
+                    self.pending.append(Record("message", to, cls, at, {"kind": "invite"}))   # a reopened row (PAD-932)
             elif m.message_type == "notification_reminder":
                 self.pending.append(Record("reminder", to, cls, at))
             elif m.message_type in MESSAGE_KIND:
@@ -258,6 +260,17 @@ class AppAdapter(NewDbAdapter):
                 from padel_app.services.engine_entry import coach_excludes
 
                 coach_excludes(db.session.get(LessonInstance, int(self.session_of[cls])), self.seed.pid[who], now)
+            elif event == "coach_invites":            # the engine's half of the manual route (PAD-932)
+                from padel_app.models.lesson_instances import LessonInstance
+                from padel_app.services import engine_entry
+
+                invite = getattr(engine_entry, "coach_invites", None)
+                if invite is None:
+                    raise Unsupported("the coach's invitation by hand is not wired yet")
+                pid = self.seed.pid[who]
+                _, refused = invite(db.session.get(LessonInstance, int(self.session_of[cls])), [pid], now)
+                if pid in refused:
+                    return Applied(refused=True, reason=refused[pid])
             elif event == "leaves_waiting_list":
                 from padel_app.services.academy_class_service import leave_class_waiting_list_service
 

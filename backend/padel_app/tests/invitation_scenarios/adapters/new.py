@@ -75,11 +75,11 @@ from padel_app.tests.invitation_scenarios.runner import (
 
 #: Engine message kind -> normalized message kind (design §5, §12).
 MESSAGE_KINDS = {"sorry": "aviso", "added": "added",
-                 "waiting_list_invite": "waiting_list_offer", "side_moved": "side_moved"}
+                 "waiting_list_invite": "waiting_list_offer", "side_moved": "side_moved", "invite": "invite"}
 #: The engine records the notice an absence gave (D4); the scenarios still name it by today's words.
 ABSENCE_KINDS = {"on_time": "justified", "late": "unjustified", "none": "none"}
 #: Harness events whose refusal is an observation of its own (design §12, ``refused``).
-REFUSABLE = {"joins_directly", "joins_waiting_list"}
+REFUSABLE = {"joins_directly", "joins_waiting_list", "coach_invites"}
 
 
 def _hhmm(value: str) -> time:
@@ -267,6 +267,8 @@ class NewAdapter:
             return rq.LeaveWaitingList(who, "students")
         if event == "coach_removes_from_waiting_list":
             return rq.LeaveWaitingList(who, "coach")
+        if event == "coach_invites":
+            return rq.CoachInvites((who,))
         if event == "confirms":
             return rq.ConfirmAttendance(None if who == "regulars" else who)
         simple = {"regular_no": rq.RegularAbsent, "regular_returns": rq.RegularReturns, "cancels": rq.Cancel,
