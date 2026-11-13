@@ -148,8 +148,9 @@ back at all.
     (`registration_service.normalised_email`), the profile edit, the coach-created student
     (`create_incomplete_player_service`) and the student's invite accept. A blank address is no
     address (null). Existing rows are rewritten once by a data migration that skips any row whose
-    normalised form another account already holds, keeps every original value it changes so the
-    downgrade restores them, and is a no-op on a second run.
+    normalised form another account already holds and is a no-op on a second run. The original
+    values it changed were kept only until the rewrite was verified on prod; a later migration
+    (PAD-796) drops them, and from then on neither migration's downgrade puts anything back.
 
 ### Acceptance Criteria
 
@@ -319,12 +320,19 @@ back at all.
 - **When** the user taps **Forgot your password?**, submits the seeded coach's email, types the code from the debug route and a new password
 - **Then** they land on the dashboard, and the seeded password is restored by the flow so later flows still sign in
 
-#### AUTH-PASSWORD-RECOVERY-28: The email-normalising migration rewrites only the rows that differ, and can be undone (rule 12)
+#### AUTH-PASSWORD-RECOVERY-28: The email-normalising migration rewrites only the rows that differ, and its downgrade changes nothing (rule 12)
 - **Given** users whose emails are padded, mixed-case, already normal, blank or empty, and one whose lower-case form another account holds
 - **When** the migration runs
 - **Then** only the padded and the mixed-case rows change, to their trimmed lower-case form; the row whose form is taken is left alone
-- **And** a second run changes nothing; the downgrade puts back every original it changed, except an address changed since
-test: `backend/padel_app/tests/test_pad781_email_normalising_migration.py` › `test_upgrade_normalises_the_rows_that_differ_and_nothing_else` (+3 more)
+- **And** a second run changes nothing; the downgrade changes nothing
+test: `backend/padel_app/tests/test_pad781_email_normalising_migration.py` › `test_upgrade_normalises_the_rows_that_differ_and_nothing_else` (+2 more)
+
+#### AUTH-PASSWORD-RECOVERY-29: No copy of an original email address is kept (rule 12, PAD-796)
+- **Given** a database holding the originals the email-normalising migration kept
+- **When** it migrates to head
+- **Then** the originals table is gone, every normalised address is unchanged, and autogenerate no longer treats the table as external
+- **And** the dropping migration's downgrade changes nothing and runs again cleanly
+test: `backend/padel_app/tests/test_pad796_drop_email_originals.py` › `test_the_upgrade_drops_the_originals_and_keeps_the_normalised_rows` (+2 more)
 
 ### Notes
 - Linear: PAD-139. Decision: a mailed code, not a link, for the reason `auth.email-verification`
