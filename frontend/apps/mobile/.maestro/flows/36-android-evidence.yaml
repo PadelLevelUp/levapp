@@ -10,6 +10,8 @@
 # - android-date-picker: the Android date dialog from a new class (rule 4)
 # - android-composer-keyboard: the chat composer with the keyboard up (rule 2 —
 #   the send button must stay visible under edge-to-edge)
+# Data: the composer opens conversation 1, the E2E seed's coach <-> student thread (B-505 keeps it
+# id 1; e2e/messaging/seed-conversation-ids.spec.ts holds that). No earlier flow is needed.
 appId: com.padellevelup.app
 ---
 # Same start as subflows/login.yaml: a previous flow may have left the coach
@@ -93,10 +95,17 @@ appId: com.padellevelup.app
     timeout: 15000
 - tapOn:
     id: "tab-messages"
+# PAD-760 / PAD-816 class 1: a flow earlier in the shard that turns the engine on (310) can list
+# conversations above the seeded thread, and Android lists only what is on screen: scroll to it.
 - extendedWaitUntil:
     visible:
+      id: "screen-messages"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
       id: "conversation-item-1"
-    timeout: 15000
+    direction: DOWN
+    timeout: 20000
 - tapOn:
     id: "conversation-item-1"
 - extendedWaitUntil:
