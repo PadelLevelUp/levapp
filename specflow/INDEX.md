@@ -2717,9 +2717,9 @@ Untagged tests: 4267
   - **DASHBOARD-BLOCKS-57** The iOS home card answers a new-engine invitation by its id and reads the answer (new-engine readings)
     - test: `frontend/apps/mobile/src/features/dashboard/blocks-engine-invite.test.tsx` › [DASHBOARD-BLOCKS-57] answers a new-engine invitation by its id and shows the answer
   - **DASHBOARD-BLOCKS-58** An open-spots item says its class's engine and, on the new engine, how many invitations still count (new-engine section NA5) · unverified
-  - **DASHBOARD-BLOCKS-59** The web open-spots card shows the pending count and no invite on a new-engine class (new-engine section NA5) · unverified
+  - **DASHBOARD-BLOCKS-59** The web open-spots card shows the pending count on a new-engine class and keeps its invite (new-engine section NA5) · unverified
   - **DASHBOARD-BLOCKS-60** The iOS open-spots card does the same (new-engine section NA5) · unverified
-  - **DASHBOARD-BLOCKS-61** The web schedule row offers no Convidar on a new-engine class (new-engine section NA5) · unverified
+  - **DASHBOARD-BLOCKS-61** The web schedule row offers Convidar on a new-engine class too (new-engine section NA5) · unverified
 - spec **dashboard.navigation** (`specflow/impl/dashboard/navigation.spec.md`)
   - **DASHBOARD-NAVIGATION-1** KPI item with a destination · unverified
   - **DASHBOARD-NAVIGATION-2** Attended KPI opens the attendance history
@@ -5177,9 +5177,9 @@ Untagged tests: 4267
   - **NOTIFICATIONS-MANUAL-6** Selecting a player from the modal · unverified
   - **NOTIFICATIONS-MANUAL-7** Only the class's own coach invites, and only players of their own roster (rule 7) · unverified
   - **NOTIFICATIONS-MANUAL-8** The picker marks a student who declined this class and still lets the coach choose them (notifications.invitations rule 18) · unverified
-  - **NOTIFICATIONS-MANUAL-9** The server refuses a manual invitation on a new-engine class (new-engine section NM2) · unverified
-  - **NOTIFICATIONS-MANUAL-10** The web class panel has no Notificar on a new-engine class (new-engine section NM2) · unverified
-  - **NOTIFICATIONS-MANUAL-11** The iOS class screen has no Notificar on a new-engine class (new-engine section NM2) · unverified
+  - **NOTIFICATIONS-MANUAL-9** A manual invitation on a new-engine class takes the engine's path, never the old one (new-engine sections NM1, NM2) · unverified
+  - **NOTIFICATIONS-MANUAL-10** The web class panel offers Notificar on a new-engine class (new-engine section NM2) · unverified
+  - **NOTIFICATIONS-MANUAL-11** The iOS class screen offers Notificar on a new-engine class (new-engine section NM2) · unverified
   - **NOTIFICATIONS-MANUAL-12** A manual invitation on a new-engine class is a counting engine invitation of the coach's list (new-engine section NM1) · unverified
   - **NOTIFICATIONS-MANUAL-13** What a manual invitation on a new-engine class refuses (new-engine section NM1) · unverified
   - **NOTIFICATIONS-MANUAL-14** A manual invitation reopens a student's invitation that stopped counting (new-engine section NM1) · unverified
