@@ -48,6 +48,32 @@ def repo(tmp_path):
     return r
 
 
+def _spec_repo(tmp_path, *files):
+    """A repo whose last commit changes only ``files`` (paths under ``specflow/``)."""
+    r = tmp_path / "specrepo"
+    (r / ".githooks").mkdir(parents=True)
+    shutil.copy(GATE, r / ".githooks" / "prepush-gate.sh")
+    _git(r.parent, "init", "-q", str(r))
+    _git(r, "add", "-A")
+    _git(r, "commit", "-q", "-m", "base")
+    for f in files:
+        (r / f).parent.mkdir(parents=True, exist_ok=True)
+        (r / f).write_text("x\n")
+    _git(r, "add", "-A")
+    _git(r, "commit", "-q", "-m", "spec change")
+    return r
+
+
+def _stub_cortex(tmp_path, report):
+    """A ``cortex`` that prints ``report`` and exits 0 (``validate`` reports errors on stdout)."""
+    d = tmp_path / "stub-bin"
+    d.mkdir(exist_ok=True)
+    cortex = d / "cortex"
+    cortex.write_text(f"#!/bin/sh\ncat <<'EOF'\n{report}\nEOF\n")
+    cortex.chmod(0o755)
+    return d
+
+
 def _stub_node(tmp_path, version):
     d = tmp_path / "stub-bin"
     d.mkdir(exist_ok=True)
@@ -57,14 +83,16 @@ def _stub_node(tmp_path, version):
     return d
 
 
-def _gate(repo, stub_dir, nvm_dir):
+def _gate(repo, stub_dir, nvm_dir, dry=True):
     env = {
         **os.environ,
         "PATH": f"{stub_dir}:{os.environ['PATH']}",
         "NVM_DIR": str(nvm_dir),
-        "PREPUSH_DRY": "1",
         "PREPUSH_BASE": "HEAD~1",
     }
+    env.pop("PREPUSH_DRY", None)
+    if dry:
+        env["PREPUSH_DRY"] = "1"
     p = subprocess.run(
         ["bash", ".githooks/prepush-gate.sh"], cwd=repo, env=env, capture_output=True, text=True,
     )
@@ -102,3 +130,30 @@ def test_a_pinned_version_missing_under_nvm_fails_loudly(repo, tmp_path):
     assert code != 0, out
     assert "not installed under nvm" in out and "nvm install 24.15.0" in out, out
     assert _frontend_steps(out) == [], out
+
+
+SPEC = "specflow/impl/x/x.spec.md"
+ERROR = f"[ERROR] check.frontmatter (S11)\n  /abs/{SPEC}\n  frontmatter does not parse"
+
+
+@pytest.mark.criterion("DELIVERY-PREPUSH-3")
+def test_a_validation_error_in_a_changed_spec_fails_the_gate(tmp_path):
+    r = _spec_repo(tmp_path, SPEC)
+    code, out = _gate(r, _stub_cortex(tmp_path, ERROR), tmp_path / "no-nvm", dry=False)
+    assert "cortex validate (changed files)" in out and f"cortex validate names {SPEC}" in out, out
+    assert code != 0, out
+
+
+@pytest.mark.criterion("DELIVERY-PREPUSH-3")
+def test_an_error_in_a_spec_the_push_did_not_change_does_not_fail_the_gate(tmp_path):
+    r = _spec_repo(tmp_path, "specflow/impl/y/y.spec.md")
+    code, out = _gate(r, _stub_cortex(tmp_path, ERROR), tmp_path / "no-nvm", dry=False)
+    assert "cortex validate names" not in out, out
+    assert "cortex validate (changed files)" in out, out
+
+
+@pytest.mark.criterion("DELIVERY-PREPUSH-3")
+def test_a_push_changing_only_the_generated_index_runs_no_spec_validation(tmp_path):
+    r = _spec_repo(tmp_path, "specflow/INDEX.md")
+    _, out = _gate(r, _stub_cortex(tmp_path, ERROR), tmp_path / "no-nvm")
+    assert "cortex validate (changed files)" not in out, out

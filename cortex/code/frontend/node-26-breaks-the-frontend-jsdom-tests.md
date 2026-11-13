@@ -1,11 +1,11 @@
 ---
-about: "Node 25+ has an experimental global localStorage that is undefined without --localstorage-file; frontend unit tests fail with localStorage TypeErrors, so the gate and local runs must use Node 24.15.0"
+about: "Node 25+ defines a global localStorage that is undefined without --localstorage-file; frontend unit tests fail on it, so run them on Node 24.15.0"
 permanence: changing
 verified: "2026-11-13 (observed)"
 origin:
-  - ticket:PAD-930
-  - session:ci-tools-m1: `node -e` on Homebrew Node 26.13.0 printed "ExperimentalWarning: localStorage is not available because --localstorage-file was not provided" and `localStorage.getItem` threw "Cannot read properties of undefined"; on 24.15.0 `typeof localStorage` is "undefined" with no warning
-  - 2026-11-12 gate run: `npm test` ran on Node 26 and failed on `localStorage.removeItem` TypeErrors, passed on 24.15.0 (web 1256, packages 1222, mobile 1394, admin 83)
+  - commit:0d63c0e14
+aliases:
+  - PAD-930
 need:
   - .githooks/prepush-gate.sh
   - .nvmrc
@@ -19,6 +19,8 @@ it warns and evaluates to `undefined`. The frontend unit tests (jsdom) then fail
 `localStorage.getItem` / `removeItem` TypeErrors that no code change causes. I have not traced which
 side (Node's global or vitest's jsdom environment) wins the global; the failure on Node 26 and the pass
 on 24.15.0 are what was observed.
+
+**Observed (2026-11-12/13):** `node -e` on Homebrew Node 26.13.0 printed "ExperimentalWarning: localStorage is not available because --localstorage-file was not provided" and `localStorage.getItem` threw; on 24.15.0 `typeof localStorage` is "undefined" with no warning. The 2026-11-12 gate run on Node 26 failed on `localStorage.removeItem` TypeErrors; the same suite passed on 24.15.0 (web 1256, packages 1222, mobile 1394, admin 83).
 
 **Why it bit:** Homebrew's `node` (26.x) is first on `PATH` here and nvm holds only 18.20.8 and 24.15.0.
 The gate only refused Node below 22 and its `nvm use 22` did nothing, so it ran `npm test` on 26.
