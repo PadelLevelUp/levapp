@@ -52,6 +52,24 @@ It also makes the target visible inside the app.
    app's own minimum) to 15.1. Xcode 27 rejects a pod below 15 (ReachabilitySwift at 12.0 via
    expo-updates, RNSVG at 12.4, on 2026-09-29). Under Xcode 26.6 only those targets' settings move.
    A Podfile with no `post_install` makes the prebuild fail rather than skip the floor.
+3c. **The React Native prebuilt cache is named and checked before anything changes.** The
+   script takes the cache from `RN_PREBUILT_PODS` (a Pods directory holding
+   `ReactNativeCore-artifacts/reactnative-core-<rn>-release.tar.gz` and
+   `ReactNativeDependencies-artifacts/reactnative-dependencies-<rn>-release.tar.gz`, where `<rn>` is
+   the `react-native` version pinned in the app's `package.json`) and has no default: the old default
+   named a folder on a machine that is gone. After the Xcode check and
+   before it edits `app.json` or prebuilds, it refuses when the variable is unset, when either
+   release tarball is missing, or when the directory is inside the app's own `ios/` (the prebuild
+   runs `--clean` and would delete the cache it is about to use). `LEVAPP_RELEASE_PREFLIGHT_ONLY=1`
+   stops the script with exit 0 once these checks pass, so they are tested without a build.
+3d. **The release is written outside the worktree.** The archive and the export go to
+   `RELEASE_OUT`, by default `~/levapp-ios-archives/<version>-build<build>`, not into the
+   worktree that is removed after the release. `scripts/testflight-upload.sh <version> <build>`
+   resolves the same default from the same two arguments, so both scripts name one directory.
+3e. **The upload checks its Python before it uploads.** `testflight-upload.sh` runs
+   `asc_attach_build.py` with `ASC_PYTHON`, by default the backend venv of the checkout it runs
+   from, else the main worktree's (first entry of `git worktree list --porcelain`). When none of
+   them exists it refuses before calling altool, naming `ASC_PYTHON`.
 
 #### The finished bundle is checked
 4. **Before export, the archived bundle must match its target.** `scripts/verify-release-bundle.mjs`
@@ -168,6 +186,23 @@ test: `frontend/apps/mobile/src/lib/release-bundle-check.test.ts` › `refuses a
 test: `frontend/apps/mobile/src/lib/api-capabilities.test.ts` › `found the initApi call and its known options before judging it (R-032)` (+6 more)
 - Code to follow: pin the whole list of thirteen tokens in one test in
   `frontend/apps/mobile/src/lib/api-capabilities.test.ts`; today it names six.
+
+#### MOBILE-RELEASE-BUILD-TARGET-12: A release without a usable prebuilt cache is refused before anything changes (rule 3c)
+- **Given** `scripts/ios-release.sh production 1.3.4 <build>` with an Xcode the check accepts
+- **When** `RN_PREBUILT_PODS` is unset, or a release tarball is missing from it, or it lies inside the app's `ios/`
+- **Then** the script exits non-zero naming `RN_PREBUILT_PODS`, and `app.json` is unchanged
+- **And** with both tarballs present outside `ios/` and `LEVAPP_RELEASE_PREFLIGHT_ONLY=1`, it exits 0
+
+#### MOBILE-RELEASE-BUILD-TARGET-13: The release output defaults outside the worktree, the same for both scripts (rule 3d)
+- **Given** no `RELEASE_OUT`
+- **When** `ios-release.sh` resolves its output for version `1.3.4` build `37`, and `testflight-upload.sh 1.3.4 37` resolves its export
+- **Then** both name `~/levapp-ios-archives/1.3.4-build37`
+- **And** a set `RELEASE_OUT` wins in both
+
+#### MOBILE-RELEASE-BUILD-TARGET-14: The upload refuses a missing Python before it uploads (rule 3e)
+- **Given** an export made by `ios-release.sh` and no usable Python at `ASC_PYTHON` or either default
+- **When** `scripts/testflight-upload.sh 1.3.4 37` runs
+- **Then** it exits non-zero naming `ASC_PYTHON`, and altool is never called
 
 ### Notes
 - iOS-first by nature. The web has no counterpart: it calls `/api` on the host that serves it.
