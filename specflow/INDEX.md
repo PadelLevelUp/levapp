@@ -5939,7 +5939,7 @@ Untagged tests: 4267
   - **NOTIFICATIONS-ENGINE-PLANNING-9** A better candidate waits for budget room (rule 7; S7) · unverified
   - **NOTIFICATIONS-ENGINE-PLANNING-10** A newly eligible student is invited on the next run when there is room (rule 5.1; S8) · unverified
   - **NOTIFICATIONS-ENGINE-PLANNING-11** Empty tiers are passed in the same run (rule 5.4; S9) · unverified
-  - **NOTIFICATIONS-ENGINE-PLANNING-12** A flexible invitation counts for every type it was offered (rules 4, 5; S10) · unverified
+  - **NOTIFICATIONS-ENGINE-PLANNING-12** A flexible invitation is offered every type it fits but fills one type's budget (rules 4, 5; S10; decision 16) · unverified
   - **NOTIFICATIONS-ENGINE-PLANNING-13** An either spot is offered across both sides by ordering (rule 5; S12) · unverified
   - **NOTIFICATIONS-ENGINE-PLANNING-14** The flexible student is asked before the other side (rule 9; S14) · unverified
   - **NOTIFICATIONS-ENGINE-PLANNING-15** D17's scope is the spot type (rule 6; S20) · unverified
