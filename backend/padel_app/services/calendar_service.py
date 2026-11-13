@@ -25,6 +25,8 @@ def _clone_block(src, *, user_id, **overrides):
     new.is_recurring = overrides.get('is_recurring', src.is_recurring)
     new.recurrence_rule = overrides.get('recurrence_rule', src.recurrence_rule)
     new.recurrence_end = overrides.get('recurrence_end', src.recurrence_end)
+    # B-727: a split student blocker must stay a blocker; the column defaults to False.
+    new.blocks_auto_invitations = overrides.get('blocks_auto_invitations', src.blocks_auto_invitations)
     new.create()
     return new
 
