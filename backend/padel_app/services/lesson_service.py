@@ -70,6 +70,52 @@ def counted_as_coming(player_ids):
         _COUNTED_AS_COMING.reset(token)
 
 
+# PAD-928 (classes.instance-enrollment rule 11a, classes.enrollment rule 4): while a coach's class
+# edit runs, the removals that owe the student a notice, as (model, id, player id, series). Sent by
+# `edit_class_service` once the edit is written; outside it (None) nothing is owed.
+_REMOVAL_NOTICES = contextvars.ContextVar("levapp_removal_notices", default=None)
+
+
+def _owe_removal_notice(source, player_id, *, series=False):
+    owed = _REMOVAL_NOTICES.get()
+    if owed is not None:
+        owed.append((type(source).__name__, source.id, int(player_id), series))
+
+
+def _started_or_cancelled(source) -> bool:
+    """Started on the club's wall clock (PAD-256), or cancelled: no removal notice for it."""
+    from padel_app.utils.dates import club_now_naive
+
+    start = getattr(source, "start_datetime", None)
+    return getattr(source, "status", None) == "canceled" or start is None or start <= club_now_naive()
+
+
+def _has_class_ahead(lesson) -> bool:
+    """A recurring lesson still produces an occurrence that has not started and is not cancelled."""
+    from padel_app.utils.dates import club_now_naive
+
+    now = club_now_naive()
+    cancelled = {
+        i.start_datetime.date()
+        for i in LessonInstance.query.filter_by(lesson_id=lesson.id, status="canceled").all()
+    }
+    for occ in lesson.occurrences_between(now, now + timedelta(days=400)):
+        occ = occ.replace(tzinfo=None)
+        if occ > now and occ.date() not in cancelled:
+            return True
+    return False
+
+
+def _send_removal_notices(owed):
+    from padel_app.services.system_messages import notify_student_removed
+
+    models = {"Lesson": Lesson, "LessonInstance": LessonInstance}
+    for model_name, obj_id, player_id, series in dict.fromkeys(owed or ()):
+        source = db.session.get(models[model_name], obj_id)
+        if source is not None:
+            notify_student_removed(source, player_id, series=series)
+
+
 def enrol(player_id, instance, source, *, invited=True, confirmed=False, validated=False, new_engine=False):
     """Put a player on one occurrence. THE single writer (rule 4).
 
@@ -651,6 +697,10 @@ def create_lesson_instance_helper(data, parent_lesson=None):
     # PAD-259: the presence row is the enrolment. Players copied from the
     # series roster are `roster`; anyone else on the form is `coach`.
     roster_ids = {r.player_id for r in parent_lesson.players_relations}
+    # PAD-928 (rule 11a): a student this edit leaves off a date they were on is told.
+    if not _started_or_cancelled(lesson_instance):
+        for pid in sorted(remove_ids & (set(existing_ids) | roster_ids)):
+            _owe_removal_notice(lesson_instance, pid)
     with unit_of_work():
         for pid in player_ids:
             enrol(pid, lesson_instance, "roster" if pid in roster_ids else "coach")
@@ -752,7 +802,15 @@ def edit_lesson_instance_helper(data, lesson_instance=None, *, series=False):
             ).first()
             if kept is not None:
                 continue  # the coach's validated record is theirs to change, on the attendance sheet
-        unenrol(player_id, lesson_instance)
+        before = Presence.query.filter_by(
+            player_id=int(player_id), lesson_instance_id=lesson_instance.id
+        ).first()
+        gave_it_up = before is not None and before.status == "absent"
+        if unenrol(player_id, lesson_instance) and not series and not gave_it_up \
+                and not _started_or_cancelled(lesson_instance):
+            # PAD-928 (rule 11a): the coach took them off this date; a series pass tells them once
+            # through the lesson (classes.enrollment rule 4), and a date already given up says nothing.
+            _owe_removal_notice(lesson_instance, player_id)
         if not series:
             # PAD-918 (CLASSES-INSTANCE-ENROLLMENT-35): the coach took them out of this occurrence, so
             # the engine never invites them back to it (CoachExcludes; an old-engine session ignores it).
@@ -1023,10 +1081,22 @@ def edit_lesson_helper(data, lesson=None):
             notify_student_added_to_class(coach, player_id, lesson=lesson)
 
     for player_id in data.get("remove_player_ids", []):
-        Association_PlayerLesson.query.filter_by(
+        removed = Association_PlayerLesson.query.filter_by(
             player_id=player_id,
             lesson_id=lesson.id,
         ).delete()
+        if not removed:
+            continue
+        # PAD-928 (classes.enrollment rule 4): one notice for the series, never one per occurrence;
+        # a one-off class has one date, so it reads as one (classes.instance-enrollment rule 11a).
+        if lesson.recurrence_rule:
+            if _has_class_ahead(lesson):
+                _owe_removal_notice(lesson, player_id, series=True)
+        else:
+            only = LessonInstance.query.filter_by(lesson_id=lesson.id).order_by(LessonInstance.id).first()
+            target = only or lesson
+            if not _started_or_cancelled(target):
+                _owe_removal_notice(target, player_id)
 
     return lesson
 
@@ -1714,9 +1784,16 @@ def edit_class_service(data):
     lesson_cap_before = (_lesson.max_players or 0) if _lesson else 0
     free_before = {inst.id: _free_places(inst) for inst in _future_occurrences([lesson_id])}
 
-    result, status = _edit_class_service(data)
+    token = _REMOVAL_NOTICES.set([])
+    try:
+        result, status = _edit_class_service(data)
+        owed = _REMOVAL_NOTICES.get()
+    finally:
+        _REMOVAL_NOTICES.reset(token)
     if status not in (200, 201):
         return result, status
+    # PAD-928: the edit is written, so the students it took off are told (best-effort, per student).
+    _send_removal_notices(owed)
 
     from padel_app.services.notification_service import vacancies_after_class_edit
 

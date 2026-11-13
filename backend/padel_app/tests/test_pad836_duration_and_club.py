@@ -149,7 +149,9 @@ def test_both_render_in_every_template_and_no_default_uses_them(app):
     )
 
     for defaults in (DEFAULT_MESSAGE_TEMPLATES, DEFAULT_MESSAGE_TEMPLATES_PT):
-        assert not [k for k, t in defaults.items() if "{duration}" in t or "{club}" in t]
+        assert not [k for k, t in defaults.items() if "{duration}" in t]
+        # PAD-928 (rule 24): the two removal notices name the club; no other default does.
+        assert [k for k, t in defaults.items() if "{club}" in t] == ["removed_from_class", "removed_from_series"]
 
     ids = _seed(app)
     stored = {key: "{duration} {club}" for key in DEFAULT_MESSAGE_TEMPLATES_PT}

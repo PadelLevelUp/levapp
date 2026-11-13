@@ -65,6 +65,10 @@ DEFAULT_MESSAGE_TEMPLATES = {
     # student is counted as coming and told so. No question in it.
     "added_to_class_coming": "Hi {name}, I've added you to {class}{when}. You're counted as coming. If you can't make it, tell me in the app. 🎾",
     "class_cancelled": "Hi {name}, your class on {weekday} at {time} has been cancelled. Sorry for the inconvenience!",
+    # PAD-928 (notifications.message-templates rule 24): the coach took the student off one date, or
+    # off a recurring class from a date on. An empty {club} leaves "()", which the formatter removes.
+    "removed_from_class": "Hi {name}, you've been removed from the class on {weekday}, {date}, at {time} ({club}). If you have any questions, talk to your coach.",
+    "removed_from_series": "Hi {name}, you've been removed from the {weekday} {time} class ({club}) and are no longer booked for its upcoming classes. If you have any questions, talk to your coach.",
     # The new engine (notifications.message-templates, new-engine section N1-N2; PAD-916's outbox): a
     # waiting-list student it placed, a side it set, and the coach's nobody-left-to-invite alert.
     "waiting_list_added": "Hi {name}, a spot opened in the class on {weekday} at {time} and you were on the waiting list, so you're in{side}. If you can't make it, let me know. 🎾",
@@ -87,6 +91,8 @@ DEFAULT_MESSAGE_TEMPLATES_PT = {
     "added_to_class": "Olá {name}, adicionei-te a {class}{when}. Até já! 🎾",
     "added_to_class_coming": "Olá {name}, adicionei-te a {class}{when}. A tua presença fica já confirmada. Se não puderes vir, avisa-me na app. 🎾",
     "class_cancelled": "Olá {name}, a tua aula de {weekday} às {time} foi cancelada. Pedimos desculpa pelo incómodo!",
+    "removed_from_class": "Olá {name}, foste removido da aula de {weekday}, {date}, às {time} ({club}). Qualquer dúvida, fala com o teu treinador.",
+    "removed_from_series": "Olá {name}, foste removido da turma de {weekday} às {time} ({club}) e já não estás inscrito nas próximas aulas. Qualquer dúvida, fala com o teu treinador.",
     "waiting_list_added": "Olá {name}, abriu uma vaga na aula de {weekday} às {time} e estavas na lista de espera, por isso já estás inscrito{side}. Se não puderes ir, avisa. 🎾",
     "side_moved": "Olá {name}, na aula de {weekday} às {time} vais jogar do lado {sideName}. Até já!",
     "coach_no_candidate": "{class} na {weekday} às {time}: {count} vaga(s) por preencher{side} e já não há ninguém para convidar automaticamente.",
