@@ -183,7 +183,9 @@ def test_a_manual_invitation_reopens_one_that_stopped_counting(app, client):
     with store.unit((s,)):
         store.apply([fx.Invited(s, NOW - timedelta(hours=2), p, offer, None, 2, NOW - timedelta(hours=1))
                      for p in (stopped, said_no, withdrawn)])
-    _row(s, said_no).answer, _row(s, said_no).answered_at = "no", NOW - timedelta(minutes=30)
+    no_row = _row(s, said_no)
+    no_row.answer, no_row.answered_at, no_row.answered_by = "no", NOW - timedelta(minutes=30), "student"
+    answered = _old_bubble(store, s, said_no, no_row, response="no", answeredBy="student")
     _row(s, withdrawn).closed_at, _row(s, withdrawn).closed_reason = NOW - timedelta(minutes=30), "withdrawn"
     db.session.commit()
 
@@ -193,9 +195,39 @@ def test_a_manual_invitation_reopens_one_that_stopped_counting(app, client):
     for p in (stopped, said_no, withdrawn):
         assert _rows(s, p) == 1
         row = _row(s, p)
-        assert (row.manual, row.tier, row.answer, row.closed_at) == (True, _coach_list_tier(s), None, None)
-        assert row.counts_until > NOW
+        assert (row.manual, row.tier, row.counts_until > NOW) == (True, _coach_list_tier(s), True)
+        assert (row.answer, row.answered_at, row.answered_by, row.sorry_at, row.closed_at, row.closed_reason) == \
+            (None,) * 6
+        assert row.reopened_at is not None
         assert _bubbles(p)[-1].msg_metadata["invitationId"] == row.id
+    from padel_app.models import Message
+    meta = db.session.get(Message, answered).msg_metadata
+    assert meta["state"] == "reopened" and "response" not in meta and "answeredBy" not in meta
+
+
+def _old_bubble(store, session, student, row, **answer):
+    """An answered invitation bubble already on ``row``, as the outbox would have left it."""
+    from padel_app.models.coaches import Coach
+    from padel_app.models.players import Player
+    from padel_app.services.notification_service import _send_system_message
+
+    msg = _send_system_message(db.session.get(Coach, store.coach_of(session)).user_id,
+                               db.session.get(Player, int(student)).user_id, "Vens?",
+                               message_type="notification_invite", push=False,
+                               msg_metadata={"engine": "new", "invitationId": row.id, "state": "answered", **answer})
+    row.message_ids = [*(row.message_ids or []), msg.id]
+    return msg.id
+
+
+@pytest.mark.criterion("NOTIFICATIONS-MANUAL-14")
+def test_a_manual_reopen_of_no_invitation_is_a_conflict(app):
+    from padel_app.services.engine_store import StoreConflict
+
+    store, (s,), (_, student) = _seed(app, players=2, side="right", capacity=2)
+    level = store.snapshot(s).level
+    with pytest.raises(StoreConflict), store.unit((s,)):
+        store.apply([fx.Reopened(s, NOW, student, frozenset({SpotType("R", level)}), None, 0,
+                                 NOW + timedelta(minutes=30), manual=True)])
 
 
 @pytest.mark.criterion("NOTIFICATIONS-MANUAL-15")
