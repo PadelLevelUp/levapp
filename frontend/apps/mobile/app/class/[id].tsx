@@ -44,6 +44,7 @@ import {
   joinRefusalKey,
   joinRefusalOf,
   isEngineApproval,
+  classTypeChipKey,
 } from "@levelup/config";
 import {
   queryKeys,
@@ -647,6 +648,7 @@ export default function ClassDetailScreen() {
   const title =
     active?.name || event.title || t("classDetail.classFallbackTitle");
   const isCanceled = (active?.status ?? event.status) === "canceled";
+  const chipKey = classTypeChipKey(active?.classType ?? event.classType);
   // B-422: a deep-linked open has no calendar event; the payload's flag (or its series end) says it.
   const isRecurring = event.isRecurring || instance?.isRecurring === true || instance?.recurrenceEnd != null;
   // PAD-335 (`classes.delete` rule 7): the delete dialog says when the coach's
@@ -1309,6 +1311,11 @@ export default function ClassDetailScreen() {
             {title}
           </Text>
         )}
+        {chipKey && !isEditing ? (
+          <Badge variant="secondary" testID="class-type-chip">
+            <Text>{t(chipKey)}</Text>
+          </Badge>
+        ) : null}
         {isCanceled ? (
           <Badge variant="destructive">
             <Text>{t("classDetail.canceled")}</Text>

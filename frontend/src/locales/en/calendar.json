@@ -143,6 +143,8 @@
       "markUnjustified": "Mark {{name}}'s absence unjustified"
     },
     "detail": {
+      "typePrivate": "Private",
+      "typeAcademy": "Academy",
       "date": "Date",
       "until": "Until",
       "untilDate": "Until {{date}}",
