@@ -60,13 +60,30 @@ onFlowComplete:
 - evalScript: "${output.afterBackground = json(http.get(output.api + '/api/app/evaluation_settings', { headers: { 'Authorization': 'Bearer ' + output.coachTok } }).body).everyN}"
 - assertTrue: "${output.afterBackground == output.everyNBefore}"
 # The field still shows what the coach typed.
+# PAD-710 (Android lane): the restored focus keeps the keyboard up and the field sits under it, so it is not in the hierarchy (nightlies 6, 9, 10, 11 Nov, run 43004263346); put the keyboard away, then centre the field. Android only: on Android hideKeyboard is the back key, so it is not repeated below.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+      - scrollUntilVisible:
+          element:
+            id: "settings-evaluation-reminder-n"
+          direction: DOWN
+          timeout: 15000
+          centerElement: true
 - copyTextFrom:
     id: "settings-evaluation-reminder-n"
 - assertTrue: "${maestro.copiedText == '7'}"
 # PAD-816: the number field still has focus, so the keyboard is up and Save, below it, is not
 # listed on Android (Maestro sees only what is on screen) and the scroll cannot reach it. Put the
 # keyboard away first, as a coach does (on Android hideKeyboard is the back key while it is up).
-- hideKeyboard
+# PAD-710 (Android lane): already done above on Android; a second back key would leave Settings.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - hideKeyboard
 - scrollUntilVisible:
     element:
       id: "settings-preferences-save"

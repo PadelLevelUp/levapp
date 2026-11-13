@@ -14,13 +14,17 @@ env:
   MAESTRO_COACH_NOCLUB_USERNAME: ${MAESTRO_COACH_NOCLUB_USERNAME}
   MAESTRO_COACH_NOCLUB_PASSWORD: ${MAESTRO_COACH_NOCLUB_PASSWORD}
 ---
-- launchApp:
-    clearState: true
 - evalScript: ${output.stamp = String(Date.now())}
-- extendedWaitUntil:
-    visible:
-      id: "login-username"
-    timeout: 25000
+# PAD-710 (Android lane): on Android the clearState launch can be killed by the old task's removal and leave a blank splash (nightlies 10 and 12 Nov, runs 42802792484 / 43203322502); relaunch until the login screen shows, as subflows/login.yaml does.
+- retry:
+    maxRetries: 3
+    commands:
+      - launchApp:
+          clearState: true
+      - extendedWaitUntil:
+          visible:
+            id: "login-username"
+          timeout: 20000
 - tapOn:
     id: "login-username"
 - inputText: ${MAESTRO_COACH_NOCLUB_USERNAME}
