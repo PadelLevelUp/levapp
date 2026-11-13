@@ -293,11 +293,41 @@ export function NotifyModal({
           <DialogTitle>{t("calendar.notify.title")}</DialogTitle>
         </DialogHeader>
 
-        {/* PAD-496: this list KEEPS its fixed height. The dialog has a search field, nothing
-            here lifts a dialog above the keyboard, and a taller list would push the field and
-            the buttons further under it (review of #515). */}
+        {/* PAD-838 (notifications.manual rule 11): the search sits above the list, and while a
+            query is set its matches come first, so with the keyboard up the field and the first
+            match stay in view; the list gives way to the keyboard (mobile.android-runtime
+            rule 15), not the field or the buttons. */}
+        <Input
+          testID="class-notify-search"
+          accessibilityLabel={t("calendar.notify.searchStudents")}
+          placeholder={t("calendar.notify.searchPlaceholder")}
+          value={search}
+          onChangeText={setSearch}
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+
         <ScrollView className="max-h-96" keyboardShouldPersistTaps="handled">
           <View className="gap-3 p-1">
+            {search ? (
+              <View className="gap-0.5">
+                {searchResults.length === 0 ? (
+                  <PlayerSearchFeedback query={search} count={0} className="py-3 text-center text-sm text-muted-foreground" />
+                ) : (
+                  searchResults.map((p) => (
+                    <GroupPlayerRow
+                      key={p.playerId}
+                      player={{
+                        id: p.playerId,
+                        name: displayName(p.playerId, p.displayName ?? p.name),
+                        levelCode: p.level?.code ?? null,
+                        declinedThisClass: declinedIds.has(p.playerId),
+                      }}
+                    />
+                  ))
+                )}
+              </View>
+            ) : null}
             {loadingGroups ? (
               <Text className="py-2 text-center text-xs text-muted-foreground">
                 {t("calendar.notify.loadingGroups")}
@@ -353,34 +383,6 @@ export function NotifyModal({
                 );
               })
             )}
-
-            <Input
-              testID="class-notify-search"
-              accessibilityLabel={t("calendar.notify.searchStudents")}
-              placeholder={t("calendar.notify.searchPlaceholder")}
-              value={search}
-              onChangeText={setSearch}
-            />
-
-            {search ? (
-              <View className="gap-0.5">
-                {searchResults.length === 0 ? (
-                  <PlayerSearchFeedback query={search} count={0} className="py-3 text-center text-sm text-muted-foreground" />
-                ) : (
-                  searchResults.map((p) => (
-                    <GroupPlayerRow
-                      key={p.playerId}
-                      player={{
-                        id: p.playerId,
-                        name: displayName(p.playerId, p.displayName ?? p.name),
-                        levelCode: p.level?.code ?? null,
-                        declinedThisClass: declinedIds.has(p.playerId),
-                      }}
-                    />
-                  ))
-                )}
-              </View>
-            ) : null}
 
             {!loadingGroups && (groups ?? []).length === 0 && !search ? (
               <Text className="py-4 text-center text-sm text-muted-foreground">
