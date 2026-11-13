@@ -10,13 +10,13 @@ public shape (serialize_user_public, rule 15).
 import pytest
 
 from padel_app.sql_db import db
+from padel_app.tests.test_user_privacy import PUBLIC_KEYS  # the one public-field list (rule 15)
 from padel_app.tests.test_pad483_student_coach_scope import (  # noqa: F401 (fixtures)
     _auth_header,
     _jwt_secret,
     scope,
 )
 
-PUBLIC_KEYS = {"id", "name", "username", "role", "isActive"}
 
 
 def _ids(client, app, user_id, path):
@@ -54,6 +54,7 @@ def test_the_list_is_exactly_the_picker_set(client, app, scope):
         assert users == picker
 
 
+@pytest.mark.criterion("MESSAGING-CONVERSATIONS-17")
 def test_the_shape_is_unchanged(client, app, scope):
     """Old builds typed the response as the public User; every entry keeps exactly those keys."""
     body = _ids(client, app, scope["student_user_id"], "/api/app/users")

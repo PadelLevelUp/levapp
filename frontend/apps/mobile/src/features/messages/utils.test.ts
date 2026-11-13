@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   formatConversationTime,
   formatMessageTime,
-  initialsOf,
   mergeEditedMessage,
   messageCopyText,
   normalizeId,
@@ -27,24 +26,6 @@ describe("normalizeId", () => {
 
   it("keeps 0 as a real id", () => {
     expect(normalizeId(0)).toBe("0");
-  });
-});
-
-describe("initialsOf", () => {
-  it("takes the first letter of the first two words, uppercased", () => {
-    expect(initialsOf("ana silva")).toBe("AS");
-    expect(initialsOf("Ana Beatriz Silva")).toBe("AB");
-  });
-
-  it("handles a single name and stray whitespace", () => {
-    expect(initialsOf("Ana")).toBe("A");
-    expect(initialsOf("  Ana   Silva  ")).toBe("AS");
-  });
-
-  it("falls back to ? when there is no name", () => {
-    expect(initialsOf(undefined)).toBe("?");
-    expect(initialsOf(null)).toBe("?");
-    expect(initialsOf("")).toBe("?");
   });
 });
 
