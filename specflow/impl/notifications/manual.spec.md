@@ -9,6 +9,30 @@ governed_by: []
 # notifications.manual
 
 
+### Rules for a session on the new engine (PAD-913)
+Which engine runs a session is `notifications.config` rule 18. **For an old-engine session every rule
+below holds as written.** For a session on the new engine the items below hold; the rest hold unchanged.
+Not marked inline: this section is the one place.
+
+The owner, 2026-11-13 (decision 17): a manual invitation on a new-engine class is to become an engine
+invitation. Until it is built, the manual controls are off on a new-engine class:
+- **NM2. No manual invitation on a new-engine class, for now.** For a new-engine session:
+  - `POST /api/app/notify/manual` answers **409** `{"error": "NEW_ENGINE_CLASS", "code":
+    "NEW_ENGINE_CLASS"}` and creates nothing: no event, no message, no push. The check runs after rule 7's
+    ownership and roster checks, as rule 10's does, and `send_manual_notifications` refuses too, so no
+    other caller skips it. An older app that still shows Notificar is refused the same way.
+  - Web (`ClassDetailSheet`) and iOS (the class screen) show no Notificar control, and a `notify=1` link
+    (the dashboard's) opens nothing. They read the class's `engineVersion` (`notifications.config` rule
+    20's field, which the coach's class payloads carry too); a payload with no `engineVersion` reads as
+    `old`. The dashboard card's "Convidar" goes too (`dashboard.blocks` NA5).
+  - An old-engine class keeps Notificar and rules 1–10 as written.
+  - Today: the route (`modules/notification_engine_api.py` `manual_notify`) and
+    `send_manual_notifications` (`services/notification_service.py`) never check the engine, so on a
+    new-engine class they write a `NotificationEvent` and an old bubble the engine never reads, and the
+    duplicate check (`players_with_live_invitation`) reads only `NotificationEvent` rows. The web
+    Notificar (`class-notify-open`) and iOS (`class-notify`) hide only once the class has started.
+
+
 ### Intent
 Coaches manually select players to notify about a class, bypassing the automatic matching engine.
 
@@ -103,3 +127,20 @@ test: `backend/padel_app/tests/test_b619_engine_routes_check_ownership.py` › `
 - **Then** that student's row says they declined this class, the other rows do not
 - **And** the coach can still tick the student
 test: `frontend/apps/mobile/src/features/calendar/notify-modal.declined.test.tsx` › `marks the decliner in the search, not the others, and keeps them selectable`
+
+#### NOTIFICATIONS-MANUAL-9: The server refuses a manual invitation on a new-engine class (new-engine section NM2)
+- **Given** a coach on `new` with a class that has open spots and a student on their roster, and a coach on `old` with the same
+- **When** each coach sends a manual invitation to the student
+- **Then** the first answers 409 `NEW_ENGINE_CLASS` and nothing is stored or sent (no event, no engine invitation, no message, no push); the second invites as today
+- **And** `send_manual_notifications` called directly for the new-engine class raises and stores nothing, and a stranger coach still gets 403 first
+test: `backend/padel_app/tests/test_pad920_manual_new_engine.py` › `test_a_manual_invitation_on_a_new_engine_class_is_refused`
+
+#### NOTIFICATIONS-MANUAL-10: The web class panel has no Notificar on a new-engine class (new-engine section NM2)
+- **Given** the coach opens a new-engine class with open spots on web, once directly and once from a link carrying `notify=1`, and an old-engine class the same way
+- **Then** the new-engine class shows no Notificar control and the picker does not open; the old-engine class shows Notificar and `notify=1` opens the picker; a class payload without `engineVersion` behaves as the old-engine one
+test: `frontend/apps/web/src/components/calendar/ClassDetailSheet.manualNewEngine.test.tsx` › `hides Notificar and ignores notify=1 on a new-engine class`
+
+#### NOTIFICATIONS-MANUAL-11: The iOS class screen has no Notificar on a new-engine class (new-engine section NM2)
+- **Given** the same classes on iOS
+- **Then** the same holds as on web
+test: `frontend/apps/mobile/src/features/calendar/notify-new-engine.test.tsx` › `hides Notificar and ignores notify=1 on a new-engine class`
