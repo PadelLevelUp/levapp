@@ -53,9 +53,10 @@ class; with NM1 they are back (NM2).
 - **NM3. An old invitation's Yes on a new-engine class tells the engine.** A Yes on an old-engine
   invitation (a `NotificationEvent`, manual or automatic, sent before the class moved to the new engine)
   that places the student in a new-engine session calls `coach_added` (`services/engine_entry.py`;
-  in `services/notification_service.py`: the student's Yes, `respond_to_notification` / `_record_yes`;
-  the Yes a coach records, `coach_respond_to_notification`; and an old waiting-list Yes,
-  `respond_to_waiting_list`;
+  in `services/notification_service.py`: the student's Yes, `respond_to_notification` / `_record_yes`,
+  and the Yes a coach records, `coach_respond_to_notification`. An old waiting-list Yes
+  (`respond_to_waiting_list`) places nobody: on a new-engine class it already goes to the engine
+  (`sorry_joins_waiting_list`), so it calls nothing here;
   `notifications.engine-answers` rule 10's `CoachAdded`). The engine closes the student's open
   invitations at that hour and replans the session.
 - **NM2. The manual controls stay on a new-engine class** (PAD-932, ending decision 17's stopgap now that
