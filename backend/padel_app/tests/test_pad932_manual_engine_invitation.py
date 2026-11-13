@@ -140,6 +140,7 @@ def test_what_a_manual_invitation_on_a_new_engine_class_refuses(app, client):
 
     store, (s, other), pids = _seed(app, starts=(START, START), players=6, side="right", capacity=2)
     regular, holder, elsewhere, left_only, blocker, _ = pids
+    _quiet_closed_and_off(store, s)          # the engine's own re-plan sends nothing: only the manual path is under test
     level = store.snapshot(s).level
     with store.unit((s,)):
         store.apply([fx.Invited(s, NOW, holder, frozenset({SpotType("R", level)}), None, 0,
@@ -158,7 +159,8 @@ def test_what_a_manual_invitation_on_a_new_engine_class_refuses(app, client):
         int(holder): "already_invited", int(regular): "already_in_class",
         int(elsewhere): "same_hour", int(left_only): "no_open_spot"}
     assert int(blocker) in causes                               # today's preference cause
-    assert _rows(s, holder) == 1 and all(_row(s, p) is None for p in (regular, elsewhere, left_only, blocker))
+    assert _rows(s, holder) == 1
+    assert [p for p in (regular, elsewhere, left_only, blocker) if _row(s, p) is not None] == []
     assert _old_events(s) == 0
 
     db.session.add(Presence(lesson_instance_id=int(s), player_id=int(pids[5]), status="present",

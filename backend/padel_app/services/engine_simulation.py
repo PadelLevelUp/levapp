@@ -91,9 +91,18 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
     names = people(coach_id, set(snapshot.students) | set(excluded))
     ladder = get_level_ladder(coach_id)
 
+    # PAD-932: the snapshot names the coach's whole roster (a manual invitation may go to any of them), so
+    # the dry run has a bare "not_in_pool" verdict for every student the pool leaves out. Those stay this
+    # reading's own, with their reasons; a bare one for a student it does not list was never shown.
+    listed = {i.student for i in snapshot.invitations} | {w.student for w in snapshot.waiting_list}
+
+    def shown(v) -> bool:
+        return v.stage != "not_in_pool" or (v.student not in excluded and v.student in listed)
+
     types = []
     for spot_type, n in planner.spot_types(snapshot, counts):
-        verdicts = [v for v in dry.verdicts if v.spot_type == spot_type]
+        verdicts = [v for v in dry.verdicts if v.spot_type == spot_type and shown(v)]
+        given = {v.student for v in verdicts}
         tiers = {v.student: v.tier for v in verdicts}
         types.append({
             **spot_type_wire(spot_type, ladder),
@@ -105,7 +114,7 @@ def simulate(instance, coach_id: int, departing_player_id, *, now: datetime | No
                         + [{"playerId": sid, **names.get(sid, {}), "stage": "not_in_pool", "tier": None,
                             "reasons": reasons}
                            for sid, reasons in sorted(excluded.items(), key=lambda kv: int(kv[0]))
-                           if sid not in snapshot.students],
+                           if sid not in given],
         })
     return {
         "engine": "new",

@@ -353,7 +353,10 @@ class TableStore:
         # when the class was created after its reminder time, is confirmed like a Yes.
         confirmed |= {str(p.player_id) for p in presences if p.response == "confirmed"}
 
-        named = ({st.id for st in pool} | inside | {i.student for i in invitations} | {w.student for w in waiting})
+        # PAD-932 (engine-answers rule 15): the coach may invite any student of their roster by hand, out of
+        # the pool or not (a coach-excluded one too), so the snapshot names all of them.
+        named = ({st.id for st in pool} | inside | {i.student for i in invitations} | {w.student for w in waiting}
+                 | {str(lk.player_id) for lk in links})
         missing = [int(s) for s in named if s not in students]
         if missing:                                        # a regular or a waiting student off the coach's roster
             students.update(self._students(coach_id, [], {}, extra=missing))
@@ -558,7 +561,8 @@ class TableStore:
     @staticmethod
     def _invitation(r) -> Invitation:
         return Invitation(str(r.player_id), frozenset(SpotType(s, lv) for s, lv in r.offer), r.side_named, r.tier,
-                          r.sent_at, r.answer, r.answered_at, r.counts_until, r.sorry_at, r.closed_at)
+                          r.sent_at, r.answer, r.answered_at, r.counts_until, r.sorry_at, r.closed_at,
+                          manual=bool(r.manual))
 
     @staticmethod
     def _pool_gates(coach_id: int, inst, links) -> _PoolGates:
