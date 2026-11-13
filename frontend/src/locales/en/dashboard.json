@@ -68,7 +68,10 @@
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} signed up",
         "invite_one": "Invite {{count}} player",
         "invite_other": "Invite {{count}} players",
-        "invite_zero": "Invite {{count}} players"
+        "invite_zero": "Invite {{count}} players",
+        "pending_one": "{{count}} pending invitation",
+        "pending_other": "{{count}} pending invitations",
+        "pending_zero": "{{count}} pending invitations"
       },
       "reply": {
         "title": "{{name}} replied",

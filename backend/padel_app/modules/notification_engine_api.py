@@ -19,6 +19,7 @@ from padel_app.services.notification_service import (
     already_invited_players,
     send_manual_notifications,
     ClassStartedError,
+    NewEngineClassError,
     class_has_started,
     trigger_invitations,
     process_invitation_batches,
@@ -354,6 +355,8 @@ def manual_notify():
         events = send_manual_notifications(instance.id, player_ids, coach.id)
     except ClassStartedError:  # the start came while the lists above were worked out
         return _class_started()
+    except NewEngineClassError:  # the class was adopted while the lists above were worked out
+        return _new_engine_class()
     return jsonify({"sent": len(events), "blocked": blocked})
 
 
@@ -374,6 +377,10 @@ def _engine_manual(instance, player_ids, blocked):
 
 def _class_started():
     return jsonify({"error": "CLASS_STARTED", "code": "CLASS_STARTED"}), 409
+
+
+def _new_engine_class():
+    return jsonify({"error": "NEW_ENGINE_CLASS", "code": "NEW_ENGINE_CLASS"}), 409
 
 
 @bp.post("/past_due/send")

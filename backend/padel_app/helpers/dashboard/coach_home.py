@@ -41,6 +41,7 @@ from padel_app.models import (
     Association_CoachLesson,
     Association_CoachPlayer,
     ConversationParticipant,
+    EngineInvitation,
     EngineSession,
     Lesson,
     LessonInstance,
@@ -351,7 +352,7 @@ def build_needs_you_block(
     queue = _queue_events(coach_id=coach_id, now=now, events=events)
     alerts = _engine_alert_items(coach_id=coach_id, queue=queue)
     items.extend(alerts)
-    items.extend(_empty_seat_items(queue, skip={item["id"] for item in alerts}))
+    items.extend(_empty_seat_items(queue, skip={item["id"] for item in alerts}, now=now))
     items.extend(reply_items(user_id=user_id, coach_id=coach_id))
 
     validation = _validation_item(coach_id=coach_id, now=now)
@@ -434,20 +435,60 @@ def _engine_alert_items(*, coach_id: int, queue: Sequence[Dict[str, Any]]) -> Li
     return out
 
 
-def _empty_seat_items(queue: Sequence[Dict[str, Any]], *, skip: Set[str]) -> List[Dict[str, Any]]:
+def _engine_version(event: Dict[str, Any]) -> str:
+    """The class's engine, as its calendar event says it (notifications.config rule 20, CONFIG-74)."""
+    return "new" if event.get("engineVersion") == "new" else "old"
+
+
+def _pending_invites(queue: Sequence[Dict[str, Any]], now: datetime) -> Dict[int, int]:
+    """PAD-933 (dashboard.blocks NA5): per new-engine occurrence, its invitations that still count
+    (``timeline.counting``: open, no sorry, before ``counts_until``), event-detail ND2's "N pending".
+    One query, and none while no class in the queue is on the new engine (the PAD-262 budget)."""
+    ids = [
+        _safe_int(e.get("originalId"), 0) for e in queue
+        if e.get("model") == "LessonInstance" and _engine_version(e) == "new"
+    ]
+    if not ids:
+        return {}
+    at = wall_to_utc_naive(now)
+    rows = (
+        db.session.query(EngineInvitation.lesson_instance_id, func.count(EngineInvitation.id))
+        .filter(
+            EngineInvitation.lesson_instance_id.in_(ids),
+            EngineInvitation.answer.is_(None),
+            EngineInvitation.closed_at.is_(None),
+            EngineInvitation.sorry_at.is_(None),
+            or_(EngineInvitation.counts_until.is_(None), EngineInvitation.counts_until > at),
+        )
+        .group_by(EngineInvitation.lesson_instance_id)
+        .all()
+    )
+    return dict(rows)
+
+
+def _empty_seat_items(
+    queue: Sequence[Dict[str, Any]], *, skip: Set[str], now: datetime
+) -> List[Dict[str, Any]]:
     """``queue`` from ``_queue_events``; ``skip``: event ids an ``engine_alert`` already covers
-    (NA1: the alert says more)."""
+    (NA1: the alert says more); ``now`` on the club's clock."""
     out: List[Dict[str, Any]] = []
+    pending = _pending_invites(queue, now)
     for event in queue:
         filled, capacity = fill(event)
         if not capacity or filled >= capacity:
             continue
         if str(event.get("id") or "") in skip:
             continue
+        engine = _engine_version(event)
         out.append(
             {
                 "kind": "empty_seats",
                 "id": str(event.get("id") or ""),
+                # PAD-933 (NA5): the class's engine; a new-engine item says how many invitations
+                # still count, an old-engine one has no such key.
+                "engineVersion": engine,
+                **({"pendingInvites": pending.get(_safe_int(event.get("originalId"), 0), 0)}
+                   if engine == "new" else {}),
                 "classTitle": event.get("title") or "",
                 "seatsMissing": capacity - filled,
                 "date": event.get("date"),
@@ -648,6 +689,8 @@ def schedule_block(
                 "capacity": capacity,
                 "href": class_href(event),
                 "inProgress": in_progress,
+                # PAD-933 (dashboard.blocks NA5, DASHBOARD-BLOCKS-61): web hides Convidar on a new-engine row.
+                **({"engineVersion": _engine_version(event)} if invite else {}),
                 **({"inviteHref": invite_href(event)} if invite and not in_progress else {}),
             }
         )

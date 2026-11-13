@@ -68,7 +68,10 @@
         "detail": "{{date}} · {{time}} · {{filled}}/{{capacity}} inscritos",
         "invite_one": "Convidar {{count}} jogador",
         "invite_zero": "Convidar {{count}} jogadores",
-        "invite_other": "Convidar {{count}} jogadores"
+        "invite_other": "Convidar {{count}} jogadores",
+        "pending_one": "{{count}} convite pendente",
+        "pending_zero": "{{count}} convites pendentes",
+        "pending_other": "{{count}} convites pendentes"
       },
       "reply": {
         "title": "{{name}} respondeu",

@@ -6223,6 +6223,10 @@ class ClassStartedError(Exception):
     """PAD-798 (notifications.manual rule 10): a class that has started takes no invitation."""
 
 
+class NewEngineClassError(Exception):
+    """PAD-933 (notifications.manual NM2): a new-engine class takes no manual invitation, for now."""
+
+
 def class_has_started(instance: LessonInstance, now: datetime | None = None) -> bool:
     """PAD-798: the class's start has come, on the club's clock (R-023)."""
     return instance.start_datetime <= utc_to_wall_naive(now or utcnow_naive())
@@ -6238,6 +6242,12 @@ def send_manual_notifications(
     # invited, whoever sends. The engine stops at the same moment (PAD-68, invitations rule 20).
     if class_has_started(instance, now):
         raise ClassStartedError(instance_id)
+    # PAD-933 (NM2, owner decision 17's stopgap): the new engine never reads these rows, so a manual
+    # invitation there would be a second, uncounted one. PAD-932 makes it an engine invitation.
+    from padel_app.services.engine_switch import engine_for
+
+    if engine_for(instance) == "new":
+        raise NewEngineClassError(instance_id)
     # PAD-732 (toggle-class rule 3b, owner 2026-10-22): no `notifications_enabled` check here. That
     # switch governs the engine's automatic sends; a coach's manual invitation always goes out.
     config = get_or_create_config(coach_id)
