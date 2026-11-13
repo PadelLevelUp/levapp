@@ -4,8 +4,10 @@ import { HelpCircle } from "lucide-react";
 
 import { previewTemplate, type TemplateExamples } from "@/api/templatePreview";
 
-/** Every placeholder a template can hold, in the order the help lists them (rule 3, PAD-549). */
-export const ALL_PLACEHOLDERS = ["name", "level", "weekday", "time", "day", "date", "type", "court", "class", "when", "side"];
+/** Every placeholder a template can hold, in the order the help lists them (rule 3, PAD-549; PAD-836 rule 23). */
+export const ALL_PLACEHOLDERS = [
+  "name", "level", "weekday", "time", "day", "date", "type", "court", "duration", "club", "class", "when", "side",
+];
 
 /**
  * PAD-549 (notifications.message-templates rule 19): how a template is built — free text plus
