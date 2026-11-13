@@ -57,8 +57,7 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
    one occurrence of a recurring class (`single`) and "this and all future" (`future`, keyed by its
    first removed date). A removal that deletes the `Lesson` itself (a one-off, rule 5; the whole class,
    rule 1) keeps no reason row: the students' messages (rule 10's metadata) are its only record.
-   Nothing in phase 1 reads the column back; it is the record the ticket asks for, and the readers come
-   with their own ticket.
+   The class detail reads it back (rule 14).
 12. **The cancel dialogs ask for the reason and show the message (PAD-840, phase 1; web and iOS
    together).** The confirmation that removes a class or occurrence — web `ClassScopeDialog` in
    delete mode and the one-off `AlertDialog` in `ClassDetailSheet`; iOS's delete `AlertDialog` in
@@ -77,6 +76,17 @@ Delete a class or specific occurrence. Supports deleting single or future occurr
      told.") in place of the preview and the checkbox.
    The confirm buttons send the field and the checkbox with the scope the coach picks. iOS's dialog
    holds a text field, so it sits above the keyboard (`mobile.android-runtime` rule 15, PAD-838).
+14. **The class detail lists its cancellations (PAD-840, phase 1; web and iOS together).** The reasons
+   rule 11 keeps are read back by `GET /api/app/class/<lesson_id>/cancellations`: the class's
+   `cancellation_reasons`, newest removed date first, each as `{date, scope, reason, sentToStudents}`;
+   only the class's own coach may read it (403 otherwise, as `classes.edit`'s ownership), and a class with
+   none answers an empty list. On the detail of a recurring class (web `ClassDetailSheet`, iOS
+   `app/class/[id].tsx`), the coach sees a section "Aulas canceladas" / "Cancelled classes"
+   (`class-cancellations`) when the list is not empty, with one row per entry (`class-cancellation-row`):
+   the date as the detail writes dates, "e as seguintes" / "and the following ones" after it for a `future`
+   entry, the reason as written, and "Enviado aos alunos" / "Sent to the students" or "Não enviado aos
+   alunos" / "Not sent to the students". Students never see the section. A deleted one-off or whole class
+   has no detail, so nothing shows its reason (rule 11; Open questions).
 13. **Phase 2: the coach may edit this one message (PAD-840, phase 2: specified, not built; the phase
    split is pending owner, Q4).** The preview becomes editable for this cancellation only: the
    placeholders in it (`{name}` and the class ones, `notifications.message-templates` rule 3a, and
@@ -206,6 +216,27 @@ test: `frontend/apps/mobile/src/features/calendar/cancel-reason.test.tsx` › `[
 - **Then** each student gets the edited text with their own name, and the coach's `class_cancelled` template is unchanged
 - **And** "Repor mensagem original" before confirming restores the template's text, and a protected token can be removed only whole
 
+#### CLASSES-DELETE-19: The class's cancellations are read back for its own coach only (rule 14)
+- **Given** a weekly class with two cancellations kept (24/11 `single`, reason sent; 01/12 `future`, reason not sent), and another class with none
+- **When** its coach reads `GET /api/app/class/<id>/cancellations`, then another coach, then the class with none
+- **Then** the coach gets both entries, 01/12 first, each with its scope, reason and `sentToStudents`
+- **And** the other coach gets 403, and the class with none gives an empty list
+test: `backend/padel_app/tests/test_pad840_cancel_reason.py` › `test_the_cancellations_are_read_back_for_the_coach_only` (+1 more)
+
+#### CLASSES-DELETE-20: Web's class detail lists the cancellations with date and reason (rule 14)
+- **Given** the coach opens the web detail of that weekly class, and of a class with no cancellations
+- **When** the section loads
+- **Then** "Aulas canceladas" lists 01/12 "e as seguintes" with its reason and "Não enviado aos alunos", then 24/11 with its reason and "Enviado aos alunos"
+- **And** the class with none shows no section
+test: `frontend/apps/web/src/components/calendar/ClassCancellationsSection.test.tsx` › `[CLASSES-DELETE-20] the detail lists each cancellation with its date, reason and whether it was sent`
+
+#### CLASSES-DELETE-21: iOS's class detail lists the cancellations with date and reason (rule 14)
+- **Given** the coach opens the iOS class screen of the same weekly class, and of a class with no cancellations
+- **When** the section loads
+- **Then** it lists the same two rows, in the same order, with the same words as web
+- **And** the class with none shows no section
+test: `frontend/apps/mobile/src/features/calendar/class-cancellations-section.test.tsx` › `[CLASSES-DELETE-21] the screen lists each cancellation with its date, reason and whether it was sent`
+
 ### Today (PAD-840)
 - The only coach cancel is the delete: web `ClassScopeDialog` (delete mode, recurring) and the one-off
   `AlertDialog` in `ClassDetailSheet.tsx` (~2698), iOS's delete `AlertDialog` in `app/class/[id].tsx`
@@ -221,7 +252,8 @@ test: `frontend/apps/mobile/src/features/calendar/cancel-reason.test.tsx` › `[
 1. Phase 1 backend: rules 9-11, the migration (the `lessons.cancellation_reasons` column and the
    `class_cancelled` default follow-up of `notifications.message-templates` rule 26, one revision chained
    after PAD-830's `e830f1a2b3c4`, and after PAD-753's if it lands first), the preview route; -10 … -15.
-2. Phase 1 clients: rule 12 on web and iOS together, locale keys in pt and en; -16, -17.
+2. Phase 1 clients: rules 12 and 14 on web and iOS together, locale keys in pt and en; -16, -17, -20, -21
+   (-19, the read route, with wave 1).
 3. `notifications.message-templates` -32 … -35 (the template, `{reason}`, the editor).
 4. Phase 2 (rule 13, -18): only after the owner answers Q4.
 
@@ -240,8 +272,8 @@ test: `frontend/apps/mobile/src/features/calendar/cancel-reason.test.tsx` › `[
 - **Showing the reason later (owner; the lead, 2026-11-13).** The ticket wants the reason visible later in the class
   detail or history; a deleted one-off class has no detail to show it in. Phase 1 shows the list on the surviving
   series' detail only. Keeping cancelled occurrences as rows (status `canceled`, which the model already has) would
-  change classes.delete rules 1-8 and the calendar: a later ticket if the owner wants it. (Rule 11 as written has no
-  reader yet: the series-detail list needs its own rule and criteria, web and iOS, before phase 1 builds it.)
+  change classes.delete rules 1-8 and the calendar: a later ticket if the owner wants it. (The series-detail list is
+  rule 14, -19 … -21.)
 - **The preview is rendered by the server (messages-m2).** The rendering rules (empty phrases,
   connectors, locale) live in `_format_template`; a client copy would drift. One debounced request per
   edit; offline, the dialog shows no preview and still cancels.
