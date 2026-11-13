@@ -1,6 +1,6 @@
 ---
 id: players.remove
-status: implemented
+status: implementing
 depends_on: [players.create]
 serves: [P-PLAYERS-3]
 governed_by: []
@@ -42,10 +42,20 @@ deletes them. A coach may delete only a placeholder: a record that never activat
    is 400 with `code` `INVALID_ACTION`.
 7. `GET /api/app/player/{id}/removal_impact` returns `{action, notes, evaluations}`, plus `presences`
    when `action` is `delete`: the removal this coach gets and what it takes with it. The web and iOS
-   confirmations show those counts. The action says "Disconnect" for a student with an account and
-   "Delete" only for a placeholder.
+   confirmations show those counts. The action says "Disconnect" for a student with an account.
+   **(PAD-834) [assumption Q5]** For a player of `const:PENDING_REGISTRATION` it says "Cancelar
+   convite" and does what Delete does today (rule 9); "Delete" is no longer shown on the profile.
+   The label follows `pendingRegistration`; the mode follows `removalImpact.action`.
 8. Every removal writes one `deletion_audit` row in the same transaction: `entity` `player`, `action`
    `disconnected` or `deleted`, the acting coach's user, the player's name as `label`, and the counts.
+9. **(PAD-834) "Cancelar convite" [assumption Q5].** For a player of `const:PENDING_REGISTRATION`
+   the profile's removal control (`player-remove`, both shells) reads "Cancelar convite" instead of
+   "Desassociar", and its confirmation says the invitation is cancelled, with rule 7's counts. It
+   sends the same `POST /api/app/remove_player` with the mode `removal_impact` gives: `delete`
+   when the row is `deletable`; `disconnect` when another coach also has the placeholder (rule 5),
+   in which case the label is still "Cancelar convite" and the confirmation says the player stays
+   on the other coach's roster. The server does not change. Every other player keeps the labels of
+   rule 7.
 
 ### Acceptance Criteria
 
@@ -104,6 +114,18 @@ deletes them. A coach may delete only a placeholder: a record that never activat
 - **Then** the answer is 400 with `code` `INVALID_ACTION` and the student is still on the roster
 test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_an_unknown_action_is_refused`
 - Code to follow: `test_an_unknown_action_is_refused` and the client helper's test assert the `INVALID_ACTION` code, not only the 400.
+
+#### PLAYERS-REMOVE-10: Cancelling a pending player's invite deletes the placeholder (rule 9) [depends on Q5]
+- **Given** coach Ana's placeholder, created by the test itself (not the shared seed "Ghost Player", which `delete-player.spec.ts` deletes)
+- **When** Ana opens its profile on web and on iOS
+- **Then** `player-remove` reads "Cancelar convite"; confirming it deletes the Player and User and the row leaves the roster
+- **And** a registered student's profile still reads "Desassociar"
+- **Given** a placeholder also on coach Bea's roster (seeded by direct insert, server side)
+- **When** Ana asks for its removal impact and removes it with the mode it gives
+- **Then** the impact's `action` is `disconnect`, Bea's link remains, and the roster row's `pendingRegistration` is true (so the label is "Cancelar convite")
+test: `frontend/apps/web/e2e/players/player-removal.spec.ts` › `[PLAYERS-REMOVE-10] cancelling the invite of a pending player deletes it` (new test; the PAD-274 test "a placeholder … offers Delete", lines 46-53, is amended to expect "Cancelar convite")
+test: `backend/padel_app/tests/test_pad274_deletes.py` › `test_a_shared_placeholder_is_pending_and_its_impact_is_disconnect` (new)
+- Proof on iOS (Maestro, not citable): `frontend/apps/mobile/.maestro/flows/34-player-removal.yaml` (amended: asserts the "Cancelar convite" label on the placeholder it removes)
 
 ### Notes
 - B-057 (PAD-274): before this, an active student removed by their only coach had their Player record
