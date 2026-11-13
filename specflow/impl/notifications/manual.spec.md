@@ -209,8 +209,8 @@ test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `tes
 test: `backend/padel_app/tests/test_pad932_manual_engine_invitation.py` › `test_an_old_invitations_yes_on_a_new_engine_class_tells_the_engine`
 
 ### Waves
-1. (PAD-933, the stopgap) NM2: MANUAL-9 to 11 — `modules/notification_engine_api.py`, `services/notification_service.py`, web `ClassDetailSheet`, iOS class screen; with `dashboard.blocks` DASHBOARD-BLOCKS-58 to 61. Until wave 2 ships, these are what the code meets.
-2. (PAD-932) NM1, NM3: rule 9 on both engines, MANUAL-12 to 15, with `notifications.engine-answers` ANSWERS-30, 31, `notifications.engine-tiers` TIERS-23 — `services/engine_entry.py` (`coach_invites`), `invitation_engine/requests.py`, `effects.py`, `services/engine_store.py`, the route. It lands together with the amendment that retires NM2 and brings the controls back (MANUAL-9 to 11, DASHBOARD-BLOCKS-59 to 61), never before; until then wave 2's criteria describe the target, not the code.
+1. (PAD-933, the stopgap, retired by wave 2) MANUAL-9 to 11 hid the controls on a new-engine class until NM1.
+2. (PAD-932) NM1, NM2 as amended, NM3: rule 9 on both engines, MANUAL-9 to 15, with `notifications.engine-answers` ANSWERS-30, 31, `notifications.engine-tiers` TIERS-23 and `dashboard.blocks` DASHBOARD-BLOCKS-59 to 61 — `services/engine_entry.py` (`coach_invites`), `invitation_engine/`, `services/engine_store.py`, the route, web `ClassDetailSheet` and the dashboard, iOS class screen and dashboard.
 
 ### Open questions
 - A manual invitation reopens an invitation answered No (NM1; S's reading, PAD-932, 2026-11-13; the owner can
