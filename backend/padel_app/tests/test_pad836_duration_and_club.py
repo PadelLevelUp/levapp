@@ -176,3 +176,13 @@ def test_preview_examples_carry_duration_and_club(client, coach_auth):  # noqa: 
     assert body["examples"]["duration"] == "60 min"
     assert body["examples"]["club"]
     assert body["text"] == f"60 min no {body['examples']['club']}"
+
+
+def test_notification_service_re_exports_the_pad836_and_pad928_helpers():
+    """PAD-914's rule: notification_service re-exports every object of the moved modules, so the
+    helpers PAD-836 and PAD-928 added there must be in its import lists too."""
+    from padel_app.services import message_text, notification_service, system_messages
+
+    assert notification_service._PLACE_KEYS is message_text._PLACE_KEYS
+    assert notification_service._format_duration is message_text._format_duration
+    assert notification_service.notify_student_removed is system_messages.notify_student_removed
