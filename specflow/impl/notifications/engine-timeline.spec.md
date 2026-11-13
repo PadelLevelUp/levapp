@@ -40,7 +40,10 @@ counting (PAD-899; plan §2, §8, D14, D16; coordinator rulings D-E6 and (2) of 
 4. **An invitation's T is fixed when it is sent (ruling D-E6).** For each invitation the run creates (or
    reopens from the waiting list), T is `between_rounds` when, after that run's sends, the invitation's tier still has
    uninvited candidates for any type in the offer, and `between_groups` when it has none; with Method B,
-   T is the tier's share (`notifications.engine-settings` rule 2). The invitation counts until T has
+   T is the tier's share (`notifications.engine-settings` rule 2). A coach's invitation by hand
+   (`notifications.engine-answers` rule 15) is sent by no run: its T is the coach's-list tier's
+   `between_groups`, with Method B too (that tier has no share for it), and the fixed pair's
+   `between_groups` when the coach's tiers have no coach's list (N, PAD-932; the coordinator confirmed). The invitation counts until T has
    run, quiet hours not counted; then it stops counting and stays open. A No never changes another
    invitation's T. With the two settings equal this is the plan's single T, and D9, D16 and D17 run
    unchanged: no clock gives a spot to the next tier while it is covered.
