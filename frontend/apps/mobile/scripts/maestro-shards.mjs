@@ -22,8 +22,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Tags whose flows never run on the Android lane (ci-android-maestro.sh passes the same). */
-export const EXCLUDED_TAGS = ["ios-only", "open-defect-probe"];
+/** Tags whose flows never run on the Android lane (ci-android-maestro.sh passes the same; a test holds it). */
+export const EXCLUDED_TAGS = ["ios-only", "open-defect-probe", "hand-run-setup"];
 
 /** The `flowsOrder` names of a Maestro workspace config, in order. */
 export function parseFlowsOrder(configText) {
