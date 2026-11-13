@@ -70,7 +70,7 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
 ### Rules
 1. Templates stored in `notification_configs.message_templates` JSON
 2. Template keys: invite, confirm, decline, spot_filled, reminder, reminder_followup, reminder_confirmed, reminder_declined, waiting_list_offer, waiting_list_invite. (PAD-446: `waiting_list_invite` replaces `waiting_list_placed`; a stored `waiting_list_placed` text is ignored.) Since PAD-501, `spot_filled` is sent only to a student whose pending join request was closed because the class filled (`classes.join-requests` rule 10); see rule 15
-3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_invite, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14); the web settings editor lists all seven beside each of the four editable ones. The two `added_to_class` templates (`classes.instance-enrollment` rule 11, PAD-330) accept the same seven plus `{class}` (the class title) and `{when}` (rule 17)
+3. Templates support placeholders (player name, class name, date, time). The templates that describe a class (invite, reminder, reminder_followup, waiting_list_invite, class_cancelled) accept `{name}`, `{level}`, `{weekday}`, `{time}` and, since PAD-430, `{type}`, `{date}` and `{court}` (rules 12–14) and, since PAD-836, `{duration}` and `{club}` (rules 21, 22); the web settings editor lists all seven beside each of the four editable ones. The two `added_to_class` templates (`classes.instance-enrollment` rule 11, PAD-330) accept the same seven plus `{class}` (the class title) and `{when}` (rule 17)
 4. Updated via `POST /api/app/notify/config`
 5. Placeholders must render fully substituted with concrete values — a rendered message never contains a raw placeholder token (`{level}`, `{weekday}`, etc.) or a filler artifact such as the literal word "this" in a placeholder slot
 6. The `{weekday}`, date, and time placeholders render in the **recipient coach's locale** (see settings.language), formatted via Flask-Babel — e.g. `pt` → "quarta-feira", `en` → "Wednesday". Never manually string-built from English day/month names. Fallback locale is Portuguese
@@ -97,7 +97,8 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
    of rule 2, plus `waiting_list_confirm`, `added_to_class`, `added_to_class_coming` and
    `class_cancelled`, is about one student and one class, and each is rendered through
    `_format_template` with the same set of values: `{name}`, `{level}`, `{weekday}`, `{time}`,
-   `{day}`, `{type}`, `{date}`, `{court}`, `{class}` and `{when}`. One helper builds that set for
+   `{day}`, `{type}`, `{date}`, `{court}`, `{duration}`, `{club}`, `{class}` and `{when}` (`{duration}` and
+   `{club}` since PAD-836). One helper builds that set for
    a student and a class (`template_variables`), so a placeholder the coach types into ANY field
    is replaced when the message is sent — before PAD-670, `confirm`, `decline`, `spot_filled`,
    `reminder_confirmed`, `reminder_declined`, `waiting_list_offer` and `waiting_list_confirm`
@@ -166,6 +167,31 @@ owner's approval (Open questions); the keys, placeholders and editor places are 
     and stays in the web editor's list: a coach who writes it into their own text still gets the
     level rendered. Stored texts are never rewritten (rule 10), so a coach whose saved templates
     hold an old default keeps it, `{level}` included.
+
+21. **`{duration}` is the class's length in minutes (PAD-836; numbering unconfirmed).** It renders
+    the whole number of minutes from the class's start to its end, then a space and the unit word:
+    "60 min", "90 min", "75 min"; never hours ("1h30"). The times are the occurrence's own
+    (`lesson_instances.start_datetime` / `end_datetime`) for a message about an occurrence, and the
+    lesson's for a message about a whole series (an `added_to_class` on the series, rule 17). The
+    unit word follows the coach's locale like every placeholder (rules 6, 12) and is `min` in both
+    `pt` and `en`. A class with no end, or an end not after its start, renders `{duration}` empty,
+    and rule 7's connector rule applies. Accepted by every template (rule 3a); no built-in default
+    uses it.
+22. **`{club}` is the name of the class's club (PAD-836; numbering unconfirmed).** It renders
+    `lessons.club`'s name; an occurrence takes its lesson's club (an occurrence has no club of its
+    own). The class's club is the only source: a coach at several clubs (PAD-835) changes nothing
+    here. Empty, it behaves exactly like an empty `{court}` (rule 14): the placeholder renders
+    empty, the connector directly before it goes with it (rule 7's genitives plus `em`, `no`,
+    `na`, `in`, `on`, `at`), an empty pair of brackets is removed, and the space/punctuation
+    collapse and leading-punctuation rule run. So "aula às {time} no {club}." reads
+    "aula às 19:00." Accepted by every template (rule 3a); no built-in default uses it, and a coach's
+    saved templates are not rewritten (rule 10).
+23. **The editor offers both (PAD-836; numbering unconfirmed).** The web settings editor offers
+    `{duration}` and `{club}` among the insert-placeholder badges under every field it edits (rule
+    3a), and its help table (rule 19) lists them with their meaning, "Duração da aula" / "Class
+    duration" and "Clube" / "Club", and the server's example from `template_preview_examples`
+    (a sample class of 60 minutes, so "60 min", and a sample club name). Web only: iOS has no
+    template editor (Notes; Open question Q1).
 
 ### Acceptance Criteria
 
@@ -302,6 +328,84 @@ test: `backend/padel_app/tests/test_pad830_no_level_in_defaults.py` › `test_no
 - **And** running the upgrade again changes nothing, and the downgrade puts the old text back where the stored text is the new default
 test: `backend/padel_app/tests/test_pad830_template_migration.py` › `test_exact_old_defaults_follow_the_new_default`
 
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-21: `{duration}` is the occurrence's length in minutes (rule 21, PAD-836)
+- **Given** a `pt` coach whose invite text is "Aula de {duration} às {time}." and occurrences 18:00–19:00, 18:00–19:30 and 18:00–19:15 of one series whose lesson runs 18:00–19:00
+- **When** the engine invites a student to each occurrence
+- **Then** the messages read "Aula de 60 min às 18:00.", "Aula de 90 min às 18:00." and "Aula de 75 min às 18:00.": the occurrence's own times, not the lesson's
+- **And** an `added_to_class` on the whole series renders the lesson's 60 min
+test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_duration_is_the_occurrence_length_in_minutes`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-22: The unit is `min` in both locales (rule 21)
+- **Given** a 90-minute class and the template "{duration}"
+- **When** it renders for a `pt` coach and for an `en` coach
+- **Then** both read "90 min", and neither contains "h"
+test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_duration_unit_is_min_in_pt_and_en`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-23: `{club}` is the class's club, an occurrence's from its lesson (rule 22)
+- **Given** a coach whose reminder text is "Lembrete: {weekday} às {time} no {club}." and an occurrence of a lesson at club "Padel Norte"
+- **When** the reminder is sent to an enrolled student
+- **Then** the message ends "às 18:00 no Padel Norte."
+test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_club_is_the_lessons_club`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-24: An empty `{club}` or `{duration}` leaves no broken text (rules 21, 22)
+- **Given** the values a class with no club name and no valid end would give (`club=""`, `duration=""`)
+- **When** "aula às {time} no {club}." and "Aula ({club})" and "aula de {duration} às {time}" render
+- **Then** they read "aula às 19:00.", "Aula" and "aula às 19:00", with no raw token, no dangling connector and no space before punctuation
+test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_empty_club_and_duration_take_their_connector`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-25: Both work in every template; no default uses them; saved texts stay (rules 3a, 21, 22)
+- **Given** a coach whose stored text for every template key, `added_to_class` and `added_to_class_coming` included, is "{duration} {club}"
+- **When** each message is rendered for a 60-minute class at "Padel Norte"
+- **Then** each reads "60 min Padel Norte"
+- **And** no default text in either locale contains `{duration}` or `{club}`, and the coach's stored templates are unchanged
+test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_both_render_in_every_template_and_no_default_uses_them`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-26: The preview's examples carry both (rules 19, 23)
+- **Given** `POST /api/app/notify/template_preview` from a `pt` coach
+- **When** the template is "{duration} no {club}"
+- **Then** the examples carry `duration` "60 min" and a non-empty `club`, and the preview is the template rendered with them by `_format_template`
+test: `backend/padel_app/tests/test_pad836_duration_and_club.py` › `test_preview_examples_carry_duration_and_club`
+
+#### NOTIFICATIONS-MESSAGE-TEMPLATES-27: The web editor offers both fields with their examples (rule 23)
+- **Given** a coach on web Settings → message templates
+- **When** the section renders
+- **Then** every field's placeholder badges include `{duration}` and `{club}`, and the help table has a row for each with the meaning ("Duração da aula", "Clube") and the server's example
+test: `frontend/apps/web/src/components/settings/MessageTemplatesSection.test.tsx` › `offers {duration} and {club} with their examples (PAD-836)`
+
+### Today (PAD-836)
+- Placeholder values: `backend/padel_app/services/message_text.py` `template_variables` (the one set, rule 3a)
+  plus `class_placeholders` (`{type}`, `{date}`, `{court}`, `{day}`). No duration or club value exists.
+- Empty-value handling: `_format_template` in the same file; `{court}` alone uses
+  `_EMPTY_COURT_CONNECTORS` (genitives + locatives), every other key `_EMPTY_PLACEHOLDER_CONNECTORS`.
+- Times: `LessonInstance.start_datetime` / `end_datetime` (both NOT NULL, `models/lesson_instances.py:38-39`);
+  `Lesson.start_datetime` / `end_datetime` (first occurrence's times). Club: `Lesson.club_id` NOT NULL
+  (`models/lessons.py:60`, PAD-591) and `Club.name` NOT NULL, so an empty `{club}` is reachable only for a
+  source with no lesson (none today) or a blank name; the empty rule is still needed and tested at the formatter.
+- Preview: `template_preview_examples` / `render_template_preview` (same file), served by
+  `POST /api/app/notify/template_preview` (`modules/notification_engine_api.py`).
+- Web: `frontend/apps/web/src/components/settings/MessageTemplatesSection.tsx` `CLASS_VARIABLES` (badges);
+  `TemplateHelp.tsx` `ALL_PLACEHOLDERS` (help rows); copy in `frontend/src/locales/{pt,en}/settings.json`
+  `settings.templates.help.fields.*`. iOS: no editor.
+- Pinned by: `test_pad670_placeholders_everywhere.py` (`RAW_TEMPLATE`, every key), `test_pad430_template_placeholders.py`,
+  `test_pad549_smart_day.py` (preview), `MessageTemplatesSection.test.tsx` (`VOCABULARY` list, line ~203).
+
+### Code to follow (PAD-836)
+- `class_placeholders(source, locale)` gains `duration` and `club`: `duration` from the source's own
+  `end_datetime - start_datetime` → `f"{minutes} min"` (empty when either is missing or the span is not
+  positive); `club` from `(source.lesson if instance else source).club.name`, empty when absent. So
+  `template_variables` carries both with no change of its own.
+- `_format_template`: `club` joins `court` on `_EMPTY_COURT_CONNECTORS`; `duration` keeps the genitives. No
+  other change (brackets, collapse and leading punctuation already run for every key).
+- `template_preview_examples`: `duration` "60 min" (sample class 18:00–19:00) and `club` "Padel Norte" in both locales.
+- Web: add `{duration}`, `{club}` to `CLASS_VARIABLES` and `ALL_PLACEHOLDERS`; add `help.fields.duration` / `.club`
+  in pt and en; update the `VOCABULARY` list in `MessageTemplatesSection.test.tsx`. No iOS change.
+- `test_pad670_placeholders_everywhere.py`'s `RAW_TEMPLATE` may add both tokens; not required.
+
+### Waves (PAD-836)
+1. -21, -22, -23, -24, -25, -26: backend rendering (`message_text.py`) and `test_pad836_duration_and_club.py`.
+2. -27: web editor badges, help rows, locale copy, vitest.
+3. The ticket's "print": before/after examples in `docs/plans/messages/pad-836-examples.md` (local).
+
 ### Notes
 - Secondary outcome: these templates are what a student actually reads when an invitation or
   reminder arrives — see `notifications.coach-fills-vacancies-automatically` and
@@ -322,3 +426,12 @@ test: `backend/padel_app/tests/test_pad830_template_migration.py` › `test_exac
   (PAD-913, 2026-11-12; the owner can reverse it): rule 11 forbids a name that means another message.
 - The `reoffer` template — dropped with the re-offer itself (the owner, 2026-11-12: Codex decision 1 and
   waiting-list answer 4). A sorry student asked again from the waiting list gets `waiting_list_invite`.
+- **Q1 (owner, STOP for iOS only; PAD-836).** The ticket asks for the two fields in the editor "na
+  web, no iOS e no Android", but PAD-430 recorded that iOS has no template editor (Notes). Options:
+  (a) web-only now, rendering reaches iOS recipients unchanged, an iOS editor as its own ticket;
+  (b) build an iOS template editor in PAD-836. Lead's recommendation: (a). This spec covers (a)
+  only; nothing for an iOS editor is designed here until the owner answers.
+- **`{duration}`'s unit follows the coach's locale (PAD-836, messages-m1; the lead can reverse it).**
+  The brief said the student's language; rules 6 and 12 render every placeholder in the coach's
+  locale because one template is written in one language. `min` is identical in `pt` and `en`, so no
+  message differs either way.
