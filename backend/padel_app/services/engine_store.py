@@ -794,7 +794,27 @@ class TableStore:
             db.session.add(EngineInvitation(
                 lesson_instance_id=iid, player_id=int(e.student), coach_id=db.session.get(EngineSession, iid).coach_id,
                 offer=[[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))],
-                side_named=e.side_named, tier=e.tier, sent_at=e.at, counts_until=e.counts_until))
+                side_named=e.side_named, tier=e.tier, sent_at=e.at, counts_until=e.counts_until,
+                manual=bool(getattr(e, "manual", False))))
+        elif isinstance(e, fx.Reopened) and getattr(e, "manual", False):
+            # PAD-932 (engine-answers rule 15): the coach's invitation by hand reopens the student's one row
+            # (D1), whether it stopped counting, was answered No or sorry, or was withdrawn: it counts anew.
+            row = self._invitation_row(e)
+            if row is None:
+                raise StoreConflict(f"a manual reopen of no invitation for {e.student} in {e.session}")
+            row.offer = [[t.side, t.level] for t in sorted(e.offer, key=lambda t: (t.side or "", t.level or 0))]
+            row.side_named, row.tier, row.counts_until, row.manual = e.side_named, e.tier, e.counts_until, True
+            row.answer = row.answered_at = row.answered_by = row.sorry_at = None
+            row.closed_at = row.closed_reason = None
+            row.reopened_at = e.at
+            from padel_app.models import Message
+
+            for msg in Message.query.filter(Message.id.in_(list(row.message_ids or []))).all():
+                meta = dict(msg.msg_metadata or {})       # an answered bubble drops its answer before "reopened"
+                meta.pop("response", None)
+                meta.pop("answeredBy", None)
+                msg.msg_metadata = meta
+            _refresh_bubbles(row, "reopened")             # the old bubbles; its new one is attached after
         elif isinstance(e, (fx.Sorry, fx.Reopened, fx.InvitationClosed)):
             row = self._invitation_row(e)
             if row is None or row.answer is not None or row.closed_at is not None:
@@ -889,7 +909,7 @@ class TableStore:
 
 
 #: The engine's invitation kinds: what a student who blocked everything never receives (the backstop).
-INVITATION_KINDS = ("waiting_list_invite",)
+INVITATION_KINDS = ("waiting_list_invite", "invite")      # PAD-932: a manual reopen's new bubble
 
 
 def _refused_by_block(row) -> bool:
